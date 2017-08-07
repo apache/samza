@@ -40,12 +40,11 @@ public class LeaseBlobManager {
   }
 
   /**
-   * Acquires a lease on a blob.
-   * If the blob does not exist, throws Blob Not Found storage exception.
+   * Acquires a lease on a blob. The lease ID is NULL initially.
    * @param leaseTimeInSec The time in seconds you want to acquire the lease for.
    * @param leaseId Proposed ID you want to acquire the lease with, null if not proposed.
-   * @return String that represents lease ID. Null initially.
-   * @throws AzureException If a 'Blob Not Found' error occurred for Azure Storage.
+   * @return String that represents lease ID.  Null if acquireLease is unsuccessful because the blob is leased already.
+   * @throws AzureException If a Azure storage service error occurred. This includes the case where the blob you're trying to lease does not exist.
    */
   public String acquireLease(int leaseTimeInSec, String leaseId) {
     try {
@@ -61,6 +60,7 @@ public class LeaseBlobManager {
         throw new AzureException(storageException);
       } else {
         LOG.error("Error acquiring lease!", storageException);
+        throw new AzureException(storageException);
       }
     }
     return null;
