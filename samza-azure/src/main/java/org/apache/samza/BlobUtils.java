@@ -32,6 +32,7 @@ import java.util.Arrays;
 import java.util.List;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
+import org.eclipse.jetty.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,11 +67,19 @@ public class BlobUtils {
       container.createIfNotExists();
       this.blob = container.getPageBlobReference(blobName);
       if (!blob.exists()) {
-        blob.create(length);
+        blob.create(length, AccessCondition.generateIfNotExistsCondition(), null, null);
       }
-    } catch (URISyntaxException | StorageException e) {
-      LOG.error("Azure Exception!", e);
+    } catch (URISyntaxException e) {
+      LOG.error("Container name: " + containerName + " or blob name: " + blobName + " invalid.", e);
       throw new AzureException(e);
+    } catch (StorageException e) {
+      int httpStatusCode = e.getHttpStatusCode();
+      if (httpStatusCode == HttpStatus.CONFLICT_409) {
+        LOG.info("The blob you're trying to create exists already.", e);
+      } else {
+        LOG.error("Azure Storage Exception!", e);
+        throw new AzureException(e);
+      }
     }
   }
 
