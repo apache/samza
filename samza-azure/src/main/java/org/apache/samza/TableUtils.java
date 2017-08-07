@@ -67,6 +67,7 @@ public class TableUtils {
    * @param pid Unique processor ID.
    * @param liveness Random heartbeat value.
    * @param isLeader Denotes whether the processor is a leader or not.
+   * @throws AzureException If an Azure storage service error occurred.
    */
   public void addProcessorEntity(String jmVersion, String pid, int liveness, boolean isLeader) {
     ProcessorEntity entity = new ProcessorEntity(jmVersion, pid);
@@ -76,7 +77,8 @@ public class TableUtils {
     try {
       table.execute(add);
     } catch (StorageException e) {
-      LOG.error("Azure storage exception while adding processor entity with job model version: " + jmVersion + "and pid: " + pid, new SamzaException(e));
+      LOG.error("Azure storage exception while adding processor entity with job model version: " + jmVersion + "and pid: " + pid, e);
+      throw new AzureException(e);
     }
   }
 
@@ -85,6 +87,7 @@ public class TableUtils {
    * @param jmVersion Job model version of the processor row to be retrieved.
    * @param pid Unique processor ID of the processor row to be retrieved.
    * @return An instance of required processor entity. Null if does not exist.
+   * @throws AzureException If an Azure storage service error occurred.
    */
   public ProcessorEntity getEntity(String jmVersion, String pid) {
     try {
@@ -92,9 +95,9 @@ public class TableUtils {
       ProcessorEntity entity = table.execute(retrieveEntity).getResultAsType();
       return entity;
     } catch (StorageException e) {
-      LOG.error("Azure storage exception while retrieving processor entity with job model version: " + jmVersion + "and pid: " + pid, new SamzaException(e));
+      LOG.error("Azure storage exception while retrieving processor entity with job model version: " + jmVersion + "and pid: " + pid, e);
+      throw new AzureException(e);
     }
-    return null;
   }
 
   /**
@@ -112,7 +115,7 @@ public class TableUtils {
       TableOperation update = TableOperation.replace(entity);
       table.execute(update);
     } catch (StorageException e) {
-      LOG.error("Azure storage exception while updating heartbeat for job model version: " + jmVersion + "and pid: " + pid, new SamzaException(e));
+      LOG.error("Azure storage exception while updating heartbeat for job model version: " + jmVersion + "and pid: " + pid, e);
     }
   }
 
@@ -121,6 +124,7 @@ public class TableUtils {
    * @param jmVersion Job model version of the processor row to be updated.
    * @param pid Unique processor ID of the processor row to be updated.
    * @param isLeader Denotes whether the processor is a leader or not.
+   * @throws AzureException If an Azure storage service error occurred.
    */
   public void updateIsLeader(String jmVersion, String pid, boolean isLeader) {
     try {
@@ -130,7 +134,8 @@ public class TableUtils {
       TableOperation update = TableOperation.replace(entity);
       table.execute(update);
     } catch (StorageException e) {
-      LOG.error("Azure storage exception while updating isLeader value for job model version: " + jmVersion + "and pid: " + pid, new SamzaException(e));
+      LOG.error("Azure storage exception while updating isLeader value for job model version: " + jmVersion + "and pid: " + pid, e);
+      throw new AzureException(e);
     }
   }
 
@@ -138,6 +143,7 @@ public class TableUtils {
    * Deletes a specified row in the processor table.
    * @param jmVersion Job model version of the processor row to be deleted.
    * @param pid Unique processor ID of the processor row to be deleted.
+   * @throws AzureException If an Azure storage service error occurred.
    */
   public void deleteProcessorEntity(String jmVersion, String pid) {
     try {
@@ -146,7 +152,8 @@ public class TableUtils {
       TableOperation remove = TableOperation.delete(entity);
       table.execute(remove);
     } catch (StorageException e) {
-      LOG.error("Azure storage exception while deleting processor entity with job model version: " + jmVersion + "and pid: " + pid, new SamzaException(e));
+      LOG.error("Azure storage exception while deleting processor entity with job model version: " + jmVersion + "and pid: " + pid, e);
+      throw new AzureException(e);
     }
   }
 
