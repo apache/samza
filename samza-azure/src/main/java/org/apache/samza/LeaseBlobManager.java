@@ -60,11 +60,7 @@ public class LeaseBlobManager {
         throw new AzureException(storageException);
       } else {
         LOG.error("Error acquiring lease!", storageException);
-<<<<<<< HEAD
         throw new AzureException(storageException);
-=======
-        throw storageException;
->>>>>>> Address review
       }
     }
     return null;
