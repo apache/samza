@@ -33,7 +33,7 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.TaskConfig;
-import org.apache.samza.coordinator.StandAloneCoordinationUtils;
+import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.coordinator.LeaderElector;
 import org.apache.samza.execution.ExecutionPlan;
@@ -200,7 +200,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
   /**
    * Create intermediate streams using {@link org.apache.samza.execution.StreamManager}.
-   * If {@link StandAloneCoordinationUtils} is provided, this function will first invoke leader election, and the leader
+   * If {@link CoordinationUtils} is provided, this function will first invoke leader election, and the leader
    * will create the streams. All the runner processes will wait on the latch that is released after the leader finishes
    * stream creation.
    * @param intStreams list of intermediate {@link StreamSpec}s
@@ -208,16 +208,16 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
    */
   /* package private */ void createStreams(List<StreamSpec> intStreams) throws Exception {
     if (!intStreams.isEmpty()) {
-      StandAloneCoordinationUtils coordinationUtils1 = null;
+      CoordinationUtils coordinationUtils = null;
       try {
-        coordinationUtils1 = new StandAloneCoordinationUtils("APP_ID", uid, config);
+        coordinationUtils = CoordinationUtils.getCoordinationUtils("APP_ID", uid, config);
       } catch (SamzaException e) {
         LOG.warn("Coordination utils are not available.", e);
       }
 
-      if (coordinationUtils1 != null) {
-        Latch initLatch = coordinationUtils1.getLatch(1, INIT_LATCH_ID);
-        LeaderElector leaderElector = coordinationUtils1.getLeaderElector();
+      if (coordinationUtils != null) {
+        Latch initLatch = coordinationUtils.getLatch(1, INIT_LATCH_ID);
+        LeaderElector leaderElector = coordinationUtils.getLeaderElector();
 
         leaderElector.setLeaderElectorListener(() -> {
             getStreamManager().createStreams(intStreams);

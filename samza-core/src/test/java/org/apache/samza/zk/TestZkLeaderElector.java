@@ -27,7 +27,7 @@ import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.exception.ZkNodeExistsException;
 import org.apache.samza.SamzaException;
-import org.apache.samza.coordinator.StandAloneCoordinationUtils;
+import org.apache.samza.coordinator.ZkCoordinationUtils;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.After;
@@ -434,7 +434,7 @@ public class TestZkLeaderElector {
   }
 
   private ZkUtils getZkUtilsWithNewClient() {
-    ZkClient zkClient = StandAloneCoordinationUtils
+    ZkClient zkClient = ZkCoordinationUtils
         .createZkClient(testZkConnectionString, SESSION_TIMEOUT_MS, CONNECTION_TIMEOUT_MS);
     return new ZkUtils(
         KEY_BUILDER,

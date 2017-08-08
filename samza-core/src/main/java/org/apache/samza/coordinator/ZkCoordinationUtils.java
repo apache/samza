@@ -23,10 +23,8 @@ import com.google.common.base.Strings;
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.util.NoOpMetricsRegistry;
-import org.apache.samza.zk.ZkJobCoordinatorFactory;
 import org.apache.samza.zk.ZkKeyBuilder;
 import org.apache.samza.zk.ZkLeaderElector;
 import org.apache.samza.zk.ZkProcessorLatch;
@@ -35,31 +33,24 @@ import org.apache.zookeeper.client.ConnectStringParser;
 import org.slf4j.Logger;
 
 
-public class StandAloneCoordinationUtils {
+public class ZkCoordinationUtils implements CoordinationUtils {
   private final String participantId;
   private final ZkUtils zkUtils;
 
-  private final static Logger LOG = org.slf4j.LoggerFactory.getLogger(StandAloneCoordinationUtils.class);
+  private final static Logger LOG = org.slf4j.LoggerFactory.getLogger(ZkCoordinationUtils.class);
 
-  public StandAloneCoordinationUtils(String groupId, String participantId, Config config) {
+  ZkCoordinationUtils(String groupId, String participantId, Config config) {
 
-    // currently we figure out if it is ZK based utilities by checking JobCoordinatorConfig.JOB_COORDINATOR_FACTORY
-    String jobCoordinatorFactoryClassName = config.get(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "");
-
-    if (!ZkJobCoordinatorFactory.class.getName().equals(jobCoordinatorFactoryClassName))
-      throw new SamzaException(String.format("Samza supports only ZK based coordination utilities with %s == %s",
-          JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, ZkJobCoordinatorFactory.class.getName()));
-
-    // create ZK based utils
     this.participantId = participantId;
     ZkConfig zkConfig = new ZkConfig(config);
 
     ZkClient zkClient = createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
 
     this.zkUtils = new ZkUtils(new ZkKeyBuilder(groupId), zkClient, zkConfig.getZkConnectionTimeoutMs(), new NoOpMetricsRegistry());
-    LOG.info("Created CoordinationUtis1. zkUtils = " + zkUtils + "; groupid=" + groupId);
+    LOG.info("Created ZkCoordinationUtils. zkUtils = " + zkUtils + "; groupid=" + groupId);
   }
 
+  @Override
   public LeaderElector getLeaderElector() {
     LOG.info("getting LE. participant=" + participantId + ";zkutils=" + zkUtils);
     ZkLeaderElector le = new ZkLeaderElector(participantId, zkUtils);
@@ -67,6 +58,7 @@ public class StandAloneCoordinationUtils {
     return le;
   }
 
+  @Override
   public Latch getLatch(int size, String latchId) {
     LOG.info("getting latch: size=" + size + ";id = " + latchId);
     Latch l = new ZkProcessorLatch(size, latchId, participantId, zkUtils);
@@ -74,6 +66,7 @@ public class StandAloneCoordinationUtils {
     return l;
   }
 
+  // static auxiliary methods
   public static ZkClient createZkClient(String connectString, int sessionTimeoutMS, int connectionTimeoutMs) {
     ZkClient zkClient;
     try {

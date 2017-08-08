@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.samza.coordinator.Latch;
-import org.apache.samza.coordinator.StandAloneCoordinationUtils;
+import org.apache.samza.coordinator.ZkCoordinationUtils;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.After;
@@ -216,7 +216,7 @@ public class TestZkProcessorLatch {
 
   }
   private ZkUtils getZkUtilsWithNewClient(String processorId) {
-    ZkClient zkClient = StandAloneCoordinationUtils
+    ZkClient zkClient = ZkCoordinationUtils
         .createZkClient(testZkConnectionString, SESSION_TIMEOUT_MS, CONNECTION_TIMEOUT_MS);
     return new ZkUtils(
         KEY_BUILDER,
