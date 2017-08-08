@@ -29,7 +29,7 @@ import org.apache.samza.task.{StreamTask, TaskInstanceCollector}
 
 
 object StreamProcessorTestUtils {
-  def getDummyContainer(mockRunloop: RunLoop, containerListener: SamzaContainerListener, streamTask: StreamTask) = {
+  def getDummyContainer(mockRunloop: RunLoop, streamTask: StreamTask) = {
     val config = new MapConfig
     val taskName = new TaskName("taskName")
     val consumerMultiplexer = new SystemConsumers(
@@ -58,9 +58,6 @@ object StreamProcessorTestUtils {
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
       metrics = new SamzaContainerMetrics)
-    if (containerListener != null) {
-      container.setContainerListener(containerListener)
-    }
     container
   }
 }

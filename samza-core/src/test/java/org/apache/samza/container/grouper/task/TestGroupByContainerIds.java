@@ -19,22 +19,26 @@
 
 package org.apache.samza.container.grouper.task;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.LocalityManager;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
 import org.junit.Before;
 import org.junit.Test;
 
 import static org.apache.samza.container.mock.ContainerMocks.generateTaskModels;
-import static org.apache.samza.container.mock.ContainerMocks.getTaskModel;
 import static org.apache.samza.container.mock.ContainerMocks.getTaskName;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -72,13 +76,6 @@ public class TestGroupByContainerIds {
     buildSimpleGrouper(1).group(new HashSet());
   }
 
-  @Test(expected = IllegalArgumentException.class)
-  public void testGroupFewerTasksThanContainers() {
-    Set<TaskModel> taskModels = new HashSet<>();
-    taskModels.add(getTaskModel(1));
-    buildSimpleGrouper(2).group(taskModels);
-  }
-
   @Test(expected = UnsupportedOperationException.class)
   public void testGrouperResultImmutable() {
     Set<TaskModel> taskModels = generateTaskModels(3);
@@ -111,6 +108,40 @@ public class TestGroupByContainerIds {
     assertTrue(container0.getTasks().containsKey(getTaskName(4)));
     assertTrue(container1.getTasks().containsKey(getTaskName(1)));
     assertTrue(container1.getTasks().containsKey(getTaskName(3)));
+  }
+
+  @Test
+  public void testGroupWithNullContainerIds() {
+    Set<TaskModel> taskModels = generateTaskModels(5);
+
+    Set<ContainerModel> containers = buildSimpleGrouper(2).group(taskModels, null);
+
+    Map<String, ContainerModel> containersMap = new HashMap<>();
+    for (ContainerModel container : containers) {
+      containersMap.put(container.getProcessorId(), container);
+    }
+
+    assertEquals(2, containers.size());
+    ContainerModel container0 = containersMap.get("0");
+    ContainerModel container1 = containersMap.get("1");
+    assertNotNull(container0);
+    assertNotNull(container1);
+    assertEquals("0", container0.getProcessorId());
+    assertEquals("1", container1.getProcessorId());
+    assertEquals(3, container0.getTasks().size());
+    assertEquals(2, container1.getTasks().size());
+    assertTrue(container0.getTasks().containsKey(getTaskName(0)));
+    assertTrue(container0.getTasks().containsKey(getTaskName(2)));
+    assertTrue(container0.getTasks().containsKey(getTaskName(4)));
+    assertTrue(container1.getTasks().containsKey(getTaskName(1)));
+    assertTrue(container1.getTasks().containsKey(getTaskName(3)));
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testGroupWithEmptyContainerIds() {
+    Set<TaskModel> taskModels = generateTaskModels(5);
+
+    buildSimpleGrouper(2).group(taskModels, Collections.emptyList());
   }
 
   @Test
@@ -201,5 +232,24 @@ public class TestGroupByContainerIds {
     assertTrue(container1.getTasks().containsKey(getTaskName(4)));
     assertTrue(container1.getTasks().containsKey(getTaskName(6)));
     assertTrue(container1.getTasks().containsKey(getTaskName(8)));
+  }
+
+  @Test
+  public void testFewerTasksThanContainers() {
+    final String testContainerId1 = "1";
+    final String testContainerId2 = "2";
+    final int testProcessorId = 1;
+
+    Set<TaskModel> taskModels = generateTaskModels(1);
+    List<String> containerIds = ImmutableList.of(testContainerId1, testContainerId2);
+
+    Map<TaskName, TaskModel> expectedTasks = taskModels.stream()
+                                                       .collect(Collectors.toMap(TaskModel::getTaskName, x -> x));
+    ContainerModel expectedContainerModel = new ContainerModel(testContainerId1, testProcessorId, expectedTasks);
+
+    Set<ContainerModel> actualContainerModels = buildSimpleGrouper().group(taskModels, containerIds);
+
+    assertEquals(1, actualContainerModels.size());
+    assertEquals(ImmutableSet.of(expectedContainerModel), actualContainerModels);
   }
 }

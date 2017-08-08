@@ -179,6 +179,26 @@ project(":samza-core_$scalaVersion") {
   }
 }
 
+
+project(':samza-azure') {
+  apply plugin: 'java'
+  apply plugin: 'checkstyle'
+
+  dependencies {
+    compile "com.microsoft.azure:azure-storage:5.3.1"
+    compile "com.fasterxml.jackson.core:jackson-core:2.8.8"
+    compile project(':samza-api')
+    compile project(":samza-core_$scalaVersion")
+    compile "org.slf4j:slf4j-api:$slf4jVersion"
+    testCompile "junit:junit:$junitVersion"
+  }
+  checkstyle {
+    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+    toolVersion = "$checkstyleVersion"
+  }
+}
+
+
 project(":samza-autoscaling_$scalaVersion") {
   apply plugin: 'scala'
   apply plugin: 'checkstyle'
@@ -631,10 +651,10 @@ project(":samza-test_$scalaVersion") {
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
     compile "javax.mail:mail:1.4"
-    compile "junit:junit:$junitVersion"
     compile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion"
     testCompile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion:test"
     testCompile "com.101tec:zkclient:$zkClientVersion"
+    testCompile "junit:junit:$junitVersion"
     testCompile project(":samza-kafka_$scalaVersion")
     testCompile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion:test"
     testCompile "org.apache.kafka:kafka-clients:$kafkaVersion:test"

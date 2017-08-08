@@ -142,6 +142,8 @@
     <li><a href="#bootstrapping-chooser-metrics">BootstrappingChooserMetrics</a></li>
     <li><a href="#hdfs-system-producer-metrics">HdfsSystemProducerMetrics</a></li>
     <li><a href="#elasticsearch-system-producer-metrics">ElasticsearchSystemProducerMetrics</a></li>
+    <li><a href="#zookeeper-client-metrics">ZookeeperClientMetrics</a></li>
+    <li><a href="#zookeeper-job-coordinator-metrics">ZkJobCoordinatorMetrics</a></li>
 </ul>
 <p>Words highlighted like <span class="system">this</span> are placeholders for your own variable names defined in configuration file or system variables defined while starting the job.</p>
 <p id="average-time" style="color: #00a">Note: Average time is calculated for the current time window (set to 300 seconds)</p>
@@ -214,6 +216,10 @@
     <tr>
         <td>physical-memory-mb</td>
         <td>The physical memory used by the Samza container process (native + on heap) (in megabytes)</td>
+    </tr>
+    <tr>
+        <td>container-startup-time</td>
+        <td><a href="#average-time">Average time</a> spent for the container to startup</td>
     </tr>
 
     <tr>
@@ -886,6 +892,49 @@
     <tr>
         <td><span class="system">system</span>-version-conflicts</td>
         <td>Number of times the request could not be completed due to a conflict with the current state of the document</td>
+    </tr>
+
+    <tr>
+        <th colspan="2" class="section" id="zookeeper-client-metrics">org.apache.samza.zk.ZkUtilsMetrics</th>
+    </tr>
+    <tr>
+        <td>reads</td>
+        <td>Number of reads from Zookeeper</td>
+    </tr>
+    <tr>
+        <td>writes</td>
+        <td>Number of writes to Zookeeper</td>
+    </tr>
+    <tr>
+        <td>subscriptions</td>
+        <td>Number of subscriptions to znodes in Zookeeper</td>
+    </tr>
+    <tr>
+        <td>zk-connection-errors</td>
+        <td>Number of Zookeeper connection errors</td>
+    </tr>
+    <tr>
+        <th colspan="2" class="section" id="zookeeper-job-coordinator-metrics">org.apache.samza.zk.ZkJobCoordinatorMetrics</th>
+    </tr>
+    <tr>
+        <td>is-leader</td>
+        <td>Denotes if the processor is a leader or not</td>
+    </tr>
+    <tr>
+        <td>barrier-creation</td>
+        <td>Number of times a barrier was created by the leader</td>
+    </tr>
+    <tr>
+        <td>barrier-state-change</td>
+        <td>Number of times the barrier state changed</td>
+    </tr>
+    <tr>
+        <td>barrier-error</td>
+        <td>Number of times the barrier encountered an error while attaining consensus on the job model version</td>
+    </tr>
+    <tr>
+        <td>single-barrier-rebalancing-time</td>
+        <td><a href="#average-time">Average time</a> taken for all the processors to get the latest version of the job model after single processor change (without the occurence of a barrier timeout)</td>
     </tr>
     </tbody>
 </table>

@@ -27,6 +27,7 @@ import java.util.concurrent.TimeoutException;
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
+import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -219,6 +220,7 @@ public class TestZkProcessorLatch {
     return new ZkUtils(
         KEY_BUILDER,
         zkClient,
-        CONNECTION_TIMEOUT_MS);
+        CONNECTION_TIMEOUT_MS,
+        new NoOpMetricsRegistry());
   }
 }

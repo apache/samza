@@ -26,7 +26,8 @@ And before you proceed, do the following steps:
    * checkout the $VERSION branch
    * update the gradle.properties s.t. the following property is $VERSION w/o the suffix '-SNAPSHOT':
       version=$VERSION
-   * change the samza_executable variable in samza-test/src/main/python/configs/tests.json to point to a Samza version w/o the suffix '-SNAPSHOT'
+   * change the samza_executable variable in samza-test/src/main/python/configs/tests.json to $VERSION w/o the suffix '-SNAPSHOT'. 
+   * change the samza-test versions in samza-test/src/main/config/join/README to $VERSION w/o the suffix '-SNAPSHOT'.
    * push the changes to the $VERSION branch
 
 Validate that all Samza source files have proper license information in their header.
@@ -95,6 +96,13 @@ If the VOTE has successfully passed on the release candidate, you can log in to 
 [repository web interface](https://repository.apache.org) (same as above) and "release" 
 the org.apache.samza repository listed under "Staging Repositories".
 
+The instructions above publish the Samza artifacts for scala 2.11. To publish for scala 2.10 and 2.12:
+
+* Set the desired `scalaVersion` in `gradle.properties`.
+* Run `./gradlew clean uploadArchives` to generate and upload the Samza artifacts.
+* Login to the [repository web interface](https://repository.apache.org/) with your Apache LDAP 
+credentials, "close" the created repository and "release" it.
+
 ## Steps to Upload Source Tarball to Apache SVN
 
 Check out the following Apache dist SVN to local:
@@ -121,6 +129,6 @@ In order to ensure that the release is available in public mirrors, wait for the
 to show up in [maven central](http://search.maven.org/#search%7Cga%7C1%7Csamza). A full list of mirrors can be found [here](http://www.apache.org/dyn/closer.cgi).
 Do not publish the website or any public document until the release jars are available for download.
 
-## Steps to Update Public Document
+## Steps to Update Public Documentation
 
 Please refer to docs/README.md, specifically "Release-new-version Website Checklist" section. 

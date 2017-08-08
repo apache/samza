@@ -17,40 +17,18 @@
  * under the License.
  */
 
-package org.apache.samza.clustermanager;
+## Samza on Azure
 
-import org.apache.samza.coordinator.server.HttpServer;
-import org.eclipse.jetty.servlet.ServletHolder;
+* Provides the ability to run Samza Standalone in the cloud, using Azure.
+* Removes dependency from Zookeeper
+* All coordination services written using services provided by Azure.
 
-import java.net.MalformedURLException;
-import java.net.URL;
+Read [Samza on Azure Design Doc](https://cwiki.apache.org/confluence/display/SAMZA/SEP-7%3A+Samza+on+Azure) to learn more about the implementation details.
 
-public class MockHttpServer extends HttpServer {
+### Running Samza with Azure
 
-  public MockHttpServer(String rootPath, int port, String resourceBasePath, ServletHolder defaultHolder) {
-    super(rootPath, port, resourceBasePath, defaultHolder);
-    start();
-  }
-
-  @Override
-  public void start() {
-    super.running_$eq(true);
-  }
-
-  @Override
-  public void stop() {
-    super.running_$eq(false);
-  }
-
-  @Override
-  public URL getUrl() {
-    if (running()) {
-      try {
-        return new URL("http://localhost:12345/");
-      } catch (MalformedURLException mue) {
-        mue.printStackTrace();
-      }
-    }
-    return null;
-  }
-}
+* Change: job.coordinator.factory = org.apache.samza.AzureJobCoordinatorFactory
+* Add Azure Storage Connection String. 
+<br /> azure.storage.connect = DefaultEndpointsProtocol=https;AccountName="Insert your account name";AccountKey="Insert your account key"
+* Add blob length in bytes => job.coordinator.azure.blob.length
+<br /> Default value = 5120000

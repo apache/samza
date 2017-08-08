@@ -47,6 +47,7 @@ public interface JobCoordinatorListener {
 
   /**
    * Method invoked by a {@link org.apache.samza.coordinator.JobCoordinator} when it is shutting without any errors
+   * Typically, this happens when the StreamProcessor invokes {@link JobCoordinator#stop()}.
    */
   void onCoordinatorStop();
 

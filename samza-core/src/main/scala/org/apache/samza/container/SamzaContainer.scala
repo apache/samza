@@ -25,12 +25,14 @@ import java.util
 import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
 import java.net.{URL, UnknownHostException}
 
+import org.apache.samza.serializers.IntermediateMessageSerde
+import org.apache.samza.serializers.StringSerde
 import org.apache.samza.{SamzaContainerStatus, SamzaException}
 import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
 import org.apache.samza.config.SerializerConfig.Config2Serializer
-import org.apache.samza.config.{ClusterManagerConfig, Config, ShellCommandConfig, StorageConfig}
+import org.apache.samza.config._
 import org.apache.samza.config.StorageConfig.Config2Storage
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config.SystemConfig.Config2System
@@ -287,13 +289,38 @@ object SamzaContainer extends Logging {
 
     info("Got change log system streams: %s" format changeLogSystemStreams)
 
+    val intermediateStreams = config
+      .getStreamIds
+      .filter(config.getIsIntermediate(_))
+      .toList
+
+    info("Got intermediate streams: %s" format intermediateStreams)
+
+    val controlMessageKeySerdes = intermediateStreams
+      .flatMap(streamId => {
+        val systemStream = config.streamIdToSystemStream(streamId)
+        systemStreamKeySerdes.get(systemStream)
+                .orElse(systemKeySerdes.get(systemStream.getSystem))
+                .map(serde => (systemStream, new StringSerde("UTF-8")))
+      }).toMap
+
+    val intermediateStreamMessageSerdes = intermediateStreams
+      .flatMap(streamId => {
+        val systemStream = config.streamIdToSystemStream(streamId)
+        systemStreamMessageSerdes.get(systemStream)
+                .orElse(systemMessageSerdes.get(systemStream.getSystem))
+                .map(serde => (systemStream, new IntermediateMessageSerde(serde)))
+      }).toMap
+
     val serdeManager = new SerdeManager(
       serdes = serdes,
       systemKeySerdes = systemKeySerdes,
       systemMessageSerdes = systemMessageSerdes,
       systemStreamKeySerdes = systemStreamKeySerdes,
       systemStreamMessageSerdes = systemStreamMessageSerdes,
-      changeLogSystemStreams = changeLogSystemStreams.values.toSet)
+      changeLogSystemStreams = changeLogSystemStreams.values.toSet,
+      controlMessageKeySerdes = controlMessageKeySerdes,
+      intermediateMessageSerdes = intermediateStreamMessageSerdes)
 
     info("Setting up JVM metrics.")
 
@@ -622,7 +649,7 @@ class SamzaContainer(
   jvm: JvmMetrics = null,
   taskThreadPool: ExecutorService = null) extends Runnable with Logging {
 
-  val shutdownMs = containerContext.config.getShutdownMs.getOrElse(5000L)
+  val shutdownMs = containerContext.config.getShutdownMs.getOrElse(TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS)
   var shutdownHookThread: Thread = null
   var jmxServer: JmxServer = null
 
@@ -641,6 +668,7 @@ class SamzaContainer(
     try {
       info("Starting container.")
 
+      val startTime = System.nanoTime()
       status = SamzaContainerStatus.STARTING
 
       jmxServer = new JmxServer()
@@ -662,6 +690,7 @@ class SamzaContainer(
       if (containerListener != null) {
         containerListener.onContainerStart()
       }
+      metrics.containerStartupTime.update(System.nanoTime() - startTime)
       runLoop.run
     } catch {
       case e: Throwable =>

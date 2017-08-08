@@ -26,16 +26,28 @@ import java.nio.ByteBuffer
 
 class TestByteBufferSerde {
   @Test
-  def test {
+  def testSerde {
     val serde = new ByteBufferSerde
     assertNull(serde.toBytes(null))
     assertNull(serde.fromBytes(null))
 
     val bytes = "A lazy way of creating a byte array".getBytes()
-    val testBytes = ByteBuffer.wrap(bytes)
-    testBytes.mark()
-    assertArrayEquals(serde.toBytes(testBytes), bytes)
-    testBytes.reset()
-    assertEquals(serde.fromBytes(bytes), testBytes)
+    val byteBuffer = ByteBuffer.wrap(bytes)
+    byteBuffer.mark()
+    assertArrayEquals(serde.toBytes(byteBuffer), bytes)
+    byteBuffer.reset()
+    assertEquals(serde.fromBytes(bytes), byteBuffer)
+  }
+
+  @Test
+  def testSerializationPreservesInput {
+    val serde = new ByteBufferSerde
+    val bytes = "A lazy way of creating a byte array".getBytes()
+    val byteBuffer = ByteBuffer.wrap(bytes)
+    byteBuffer.get() // advance position by 1
+    serde.toBytes(byteBuffer)
+
+    assertEquals(byteBuffer.capacity(), byteBuffer.limit())
+    assertEquals(1, byteBuffer.position())
   }
 }

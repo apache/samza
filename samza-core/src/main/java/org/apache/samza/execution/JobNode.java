@@ -29,12 +29,14 @@ import java.util.stream.Collectors;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.util.MathUtils;
+import org.apache.samza.system.StreamSpec;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -120,9 +122,12 @@ public class JobNode {
       }
     }
 
-    log.info("Job {} has generated configs {}", jobName, configs);
-
     configs.put(CONFIG_INTERNAL_EXECUTION_PLAN, executionPlanJson);
+
+    // write input/output streams to configs
+    inEdges.stream().filter(StreamEdge::isIntermediate).forEach(edge -> addStreamConfig(edge, configs));
+
+    log.info("Job {} has generated configs {}", jobName, configs);
 
     String configPrefix = String.format(CONFIG_JOB_PREFIX, jobName);
     // TODO: Disallow user specifying job inputs/outputs. This info comes strictly from the pipeline.
@@ -183,6 +188,18 @@ public class JobNode {
     log.debug("Prefix '{}' has merged config {}", configPrefix, scopedConfig);
 
     return scopedConfig;
+  }
+
+  private static void addStreamConfig(StreamEdge edge, Map<String, String> config) {
+    StreamSpec spec = edge.getStreamSpec();
+    config.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), spec.getId()), spec.getSystemName());
+    config.put(String.format(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID(), spec.getId()), spec.getPhysicalName());
+    if (edge.isIntermediate()) {
+      config.put(String.format(StreamConfig.IS_INTERMEDIATE_FROM_STREAM_ID(), spec.getId()), "true");
+    }
+    spec.getConfig().forEach((property, value) -> {
+        config.put(String.format(StreamConfig.STREAM_ID_PREFIX(), spec.getId()) + property, value);
+      });
   }
 
   static String createId(String jobName, String jobId) {

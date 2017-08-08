@@ -19,11 +19,21 @@
 
 package org.apache.samza.zk;
 
+import org.I0Itec.zkclient.ZkClient;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
+import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.metrics.MetricsRegistryMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
+
+  private static final Logger LOG = LoggerFactory.getLogger(ZkJobCoordinatorFactory.class);
+
   /**
    * Method to instantiate an implementation of JobCoordinator
    *
@@ -32,6 +42,16 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
    */
   @Override
   public JobCoordinator getJobCoordinator(Config config) {
-    return new ZkJobCoordinator(config);
+    MetricsRegistry metricsRegistry = new MetricsRegistryMap();
+    ZkUtils zkUtils = getZkUtils(config, metricsRegistry);
+    LOG.debug("Creating ZkJobCoordinator instance with config: {}.", config);
+    return new ZkJobCoordinator(config, metricsRegistry, zkUtils);
+  }
+
+  private ZkUtils getZkUtils(Config config, MetricsRegistry metricsRegistry) {
+    ZkConfig zkConfig = new ZkConfig(config);
+    ZkKeyBuilder keyBuilder = new ZkKeyBuilder(new ApplicationConfig(config).getGlobalAppId());
+    ZkClient zkClient = ZkCoordinationServiceFactory.createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
+    return new ZkUtils(keyBuilder, zkClient, zkConfig.getZkConnectionTimeoutMs(), metricsRegistry);
   }
 }

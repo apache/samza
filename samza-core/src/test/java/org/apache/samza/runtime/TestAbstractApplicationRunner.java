@@ -368,6 +368,11 @@ public class TestAbstractApplicationRunner {
     }
 
     @Override
+    public void runTask() {
+      throw new UnsupportedOperationException("runTask is not supported in this test");
+    }
+
+    @Override
     public void run(StreamApplication streamApp) {
       // do nothing. We're only testing the stream creation methods at this point.
     }

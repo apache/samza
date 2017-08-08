@@ -18,13 +18,18 @@
  */
 package org.apache.samza.zk;
 
+import org.I0Itec.zkclient.exception.ZkInterruptedException;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.coordinator.LeaderElector;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class ZkCoordinationUtils implements CoordinationUtils {
+  private static final Logger LOG = LoggerFactory.getLogger(ZkCoordinationUtils.class);
+
   public final ZkConfig zkConfig;
   public final ZkUtils zkUtils;
   public final String processorIdStr;
@@ -37,7 +42,12 @@ public class ZkCoordinationUtils implements CoordinationUtils {
 
   @Override
   public void reset() {
-    zkUtils.close();
+    try {
+      zkUtils.close();
+    } catch (ZkInterruptedException ex) {
+      // Swallowing due to occurrence in the last stage of lifecycle(Not actionable).
+      LOG.error("Exception in reset: ", ex);
+    }
   }
 
   @Override

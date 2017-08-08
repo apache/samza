@@ -21,19 +21,47 @@ package org.apache.samza.metrics;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 
 /**
  * A statistical snapshot of a collection of values
  */
 public class Snapshot {
   private final ArrayList<Long> values;
+  private final long min;
+  private final long max;
+  private final double sum;
   private final int size;
 
-  public Snapshot(Collection<Long> values) {
-    this.values = new ArrayList<Long>(values);
+  Snapshot(Collection<Long> values) {
+    this.values = new ArrayList<>(values.size());
+
+    long max = Long.MIN_VALUE;
+    long min = Long.MAX_VALUE;
+    double sum = 0;
+
+    for (Long value: values) {
+      sum += value;
+      this.values.add(value);
+
+      if (value > max) {
+        max = value;
+      }
+
+      if (value < min) {
+        min = value;
+      }
+    }
+
+    this.sum = sum;
     this.size = this.values.size();
-    Collections.sort(this.values);
+
+    if (this.size == 0) {
+      this.max = 0;
+      this.min = 0;
+    } else {
+      this.max = max;
+      this.min = min;
+    }
   }
 
   /**
@@ -42,10 +70,7 @@ public class Snapshot {
    * @return maximum value
    */
   public long getMax() {
-    if (size == 0) {
-      return 0;
-    }
-    return values.get(size - 1);
+    return max;
   }
 
   /**
@@ -54,10 +79,7 @@ public class Snapshot {
    * @return minimum value
    */
   public long getMin() {
-    if (size == 0) {
-      return 0;
-    }
-    return values.get(0);
+    return min;
   }
 
   /**
@@ -66,14 +88,16 @@ public class Snapshot {
    * @return average value
    */
   public double getAverage() {
-    if (size == 0) {
-      return 0;
-    }
-    double sum = 0;
-    for (long value : values) {
-      sum += value;
-    }
-    return sum / size;
+    return size == 0 ? 0 : sum / size;
+  }
+
+  /**
+   * Get the sum of values in the collection
+   *
+   * @return sum of the collection
+   */
+  public double getSum() {
+    return sum;
   }
 
   /**

@@ -20,6 +20,7 @@
 package org.apache.samza.container.grouper.task;
 
 import java.util.Arrays;
+import java.util.stream.Collectors;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
@@ -31,6 +32,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -39,6 +42,8 @@ import java.util.Set;
  * IDs as an argument. Please note - this first implementation ignores locality information.
  */
 public class GroupByContainerIds implements TaskNameGrouper {
+  private static final Logger LOG = LoggerFactory.getLogger(GroupByContainerIds.class);
+
   private final int startContainerCount;
   public GroupByContainerIds(int count) {
     this.startContainerCount = count;
@@ -46,12 +51,6 @@ public class GroupByContainerIds implements TaskNameGrouper {
 
   @Override
   public Set<ContainerModel> group(Set<TaskModel> tasks) {
-    if (tasks.isEmpty())
-      throw new IllegalArgumentException("cannot group an empty set");
-
-    if (startContainerCount > tasks.size())
-      throw new IllegalArgumentException("number of containers="  + startContainerCount + " is bigger than number of tasks=" + tasks.size());
-
     List<String> containerIds = new ArrayList<>(startContainerCount);
     for (int i = 0; i < startContainerCount; i++) {
       containerIds.add(String.valueOf(i));
@@ -60,15 +59,27 @@ public class GroupByContainerIds implements TaskNameGrouper {
   }
 
   public Set<ContainerModel> group(Set<TaskModel> tasks, List<String> containersIds) {
+    if (containersIds == null)
+      return this.group(tasks);
+
+    if (containersIds.isEmpty())
+      throw new IllegalArgumentException("Must have at least one container");
+
     if (tasks.isEmpty())
       throw new IllegalArgumentException("cannot group an empty set. containersIds=" + Arrays
           .toString(containersIds.toArray()));
 
-    if (containersIds.size() > tasks.size())
-      throw new IllegalArgumentException("number of containers "  + containersIds.size() + " is bigger than number of tasks " + tasks.size());
-
-    if (containersIds == null)
-      return this.group(tasks);
+    if (containersIds.size() > tasks.size()) {
+      LOG.warn("Number of containers: {} is greater than number of tasks: {}.",  containersIds.size(), tasks.size());
+      /**
+       * Choose lexicographically least `x` containerIds(where x = tasks.size()).
+       */
+      containersIds = containersIds.stream()
+                                   .sorted()
+                                   .limit(tasks.size())
+                                   .collect(Collectors.toList());
+      LOG.info("Generating containerModel with containers: {}.", containersIds);
+    }
 
     int containerCount = containersIds.size();
 
