@@ -40,13 +40,12 @@ public class AzureLeaderElector implements LeaderElector {
   private static final int LEASE_TIME_IN_SEC = 60;
   private final LeaseBlobManager leaseBlobManager;
   private LeaderElectorListener leaderElectorListener = null;
-  private AtomicReference<String> leaseId;
-  private AtomicBoolean isLeader;
+  private final AtomicReference<String> leaseId;
+  private final AtomicBoolean isLeader;
 
   public AzureLeaderElector(LeaseBlobManager leaseBlobManager) {
     this.isLeader = new AtomicBoolean(false);
     this.leaseBlobManager = leaseBlobManager;
-    this.isLeader = new AtomicBoolean(false);
     this.leaseId = new AtomicReference<>(null);
   }
 
@@ -65,7 +64,7 @@ public class AzureLeaderElector implements LeaderElector {
     try {
       leaseId.getAndSet(leaseBlobManager.acquireLease(LEASE_TIME_IN_SEC, leaseId.get()));
       if (leaseId.get() != null) {
-        LOG.info("Became leader!");
+        LOG.info("Became leader with lease ID {}.", leaseId.get());
         isLeader.set(true);
         if (leaderElectorListener != null) {
           leaderElectorListener.onBecomingLeader();
@@ -85,7 +84,8 @@ public class AzureLeaderElector implements LeaderElector {
     if (isLeader.get()) {
       leaseBlobManager.releaseLease(leaseId.get());
       isLeader.set(false);
-      leaseId = null;
+      LOG.info("Resigning leadership with lease ID {}", leaseId.get());
+      leaseId.getAndSet(null);
     } else {
       LOG.info("Can't release the lease because it is not the leader and does not hold an active lease.");
     }
@@ -100,8 +100,8 @@ public class AzureLeaderElector implements LeaderElector {
     return isLeader.get();
   }
 
-  public String getLeaseId() {
-    return leaseId.get();
+  public AtomicReference<String> getLeaseId() {
+    return leaseId;
   }
 
   public LeaseBlobManager getLeaseBlobManager() {

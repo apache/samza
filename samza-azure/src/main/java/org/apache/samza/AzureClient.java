@@ -20,7 +20,6 @@
 package org.apache.samza;
 
 import com.microsoft.azure.storage.CloudStorageAccount;
-import com.microsoft.azure.storage.RetryExponentialRetry;
 import com.microsoft.azure.storage.RetryLinearRetry;
 import com.microsoft.azure.storage.RetryPolicy;
 import com.microsoft.azure.storage.blob.BlobRequestOptions;
