@@ -50,9 +50,9 @@ public class TableUtils {
   private CloudTable table;
 
   public TableUtils(AzureClient client, String tableName) {
-    this.tableClient = client.getTableClient();
+    tableClient = client.getTableClient();
     try {
-      this.table = tableClient.getTableReference(tableName);
+      table = tableClient.getTableReference(tableName);
       table.createIfNotExists();
     } catch (URISyntaxException e) {
       LOG.error("\nConnection string specifies an invalid URI.", new SamzaException(e));
@@ -163,7 +163,7 @@ public class TableUtils {
    * @return Iterable list of processor entities.
    */
   public Iterable<ProcessorEntity> getEntitiesWithPartition(String partitionKey) {
-    String partitionFilter = TableQuery.generateFilterCondition(this.PARTITION_KEY, TableQuery.QueryComparisons.EQUAL, partitionKey);
+    String partitionFilter = TableQuery.generateFilterCondition(PARTITION_KEY, TableQuery.QueryComparisons.EQUAL, partitionKey);
     TableQuery<ProcessorEntity> partitionQuery = TableQuery.from(ProcessorEntity.class).where(partitionFilter);
     return table.execute(partitionQuery);
   }
