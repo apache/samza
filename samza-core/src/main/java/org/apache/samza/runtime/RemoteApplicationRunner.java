@@ -25,6 +25,8 @@ import org.apache.samza.application.AsyncStreamTaskApplication;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplicationInternal;
 import org.apache.samza.application.StreamTaskApplication;
+import org.apache.samza.application.TaskApplication;
+import org.apache.samza.application.TaskApplicationInternal;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobConfig;
@@ -56,15 +58,11 @@ public class RemoteApplicationRunner extends ApplicationRunnerBase {
   @Override
   protected ApplicationRuntimeInstance getRuntimeInstance(ApplicationBase streamApp) {
     if (streamApp instanceof StreamApplication) {
-      return new StreamAppRunner((StreamApplication) streamApp);
+      return new StreamAppRuntime(new StreamApplicationInternal((StreamApplication) streamApp));
     }
 
-    if (streamApp instanceof StreamTaskApplication) {
-      return new StreamTaskAppRunner((StreamTaskApplication) streamApp);
-    }
-
-    if (streamApp instanceof AsyncStreamTaskApplication) {
-      return new AsyncStreamTaskAppRunner((AsyncStreamTaskApplication) streamApp);
+    if (streamApp instanceof TaskApplication) {
+      return new StreamTaskAppRuntime(new TaskApplicationInternal((TaskApplication) streamApp));
     }
 
     throw new IllegalArgumentException("Application type " + streamApp.getClass().getCanonicalName() + " is not supported by RemoteApplicationRunner");
@@ -74,10 +72,10 @@ public class RemoteApplicationRunner extends ApplicationRunnerBase {
     // TODO: add life cycle listner and the corresponding wait listner for local process to shutdown
   }
 
-  private class StreamTaskAppRunner implements ApplicationRuntimeInstance {
-    private final StreamTaskApplication app;
+  private class StreamTaskAppRuntime implements ApplicationRuntimeInstance {
+    private final TaskApplicationInternal app;
 
-    StreamTaskAppRunner(StreamTaskApplication app) {
+    StreamTaskAppRuntime(TaskApplicationInternal app) {
       this.app = app;
     }
 
@@ -102,40 +100,12 @@ public class RemoteApplicationRunner extends ApplicationRunnerBase {
     }
   }
 
-  private class AsyncStreamTaskAppRunner implements ApplicationRuntimeInstance {
-    private final AsyncStreamTaskApplication app;
-
-    AsyncStreamTaskAppRunner(AsyncStreamTaskApplication app) {
-      this.app = app;
-    }
-
-    @Override
-    public void run() {
-
-    }
-
-    @Override
-    public void kill() {
-
-    }
-
-    @Override
-    public ApplicationStatus status() {
-      return null;
-    }
-
-    @Override
-    public void waitForFinish() {
-
-    }
-  }
-
-  private class StreamAppRunner implements ApplicationRuntimeInstance {
-    private final StreamApplication app;
+  private class StreamAppRuntime implements ApplicationRuntimeInstance {
+    private final StreamApplicationInternal app;
     private final StreamManager streamManager;
     private final ExecutionPlanner planner;
 
-    StreamAppRunner(StreamApplication app) {
+    StreamAppRuntime(StreamApplicationInternal app) {
       this.app = app;
       this.streamManager = new StreamManager(new JavaSystemConfig(config).getSystemAdmins());
       this.planner = new ExecutionPlanner(config, streamManager);
@@ -145,7 +115,7 @@ public class RemoteApplicationRunner extends ApplicationRunnerBase {
     public void run() {
       try {
         // 1. initialize and plan
-        ExecutionPlan plan = getExecutionPlan(app);
+        ExecutionPlan plan = getExecutionPlan(this.app);
         writePlanJsonFile(plan.getPlanAsJson());
 
         // 2. create the necessary streams
@@ -162,8 +132,8 @@ public class RemoteApplicationRunner extends ApplicationRunnerBase {
       }
     }
 
-    private ExecutionPlan getExecutionPlan(StreamApplication app) throws Exception {
-      return this.planner.plan(new StreamApplicationInternal(app).getStreamGraphImpl());
+    private ExecutionPlan getExecutionPlan(StreamApplicationInternal app) throws Exception {
+      return this.planner.plan(app.getStreamGraphImpl());
     }
 
     @Override

@@ -18,6 +18,7 @@
  */
 package org.apache.samza.example;
 
+import org.apache.samza.application.StreamApplications;
 import org.apache.samza.application.StreamTaskApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.system.kafka.KafkaSystem;
@@ -48,8 +49,6 @@ public class TaskApplicationExample {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
 
-    StreamTaskApplication app = StreamTaskApplication.create(config, new MyStreamTaskFactory());
-
     KafkaSystem kafkaSystem = KafkaSystem.create("kafka")
         .withBootstrapServers("localhost:9192")
         .withConsumerProperties(config)
@@ -63,6 +62,8 @@ public class TaskApplicationExample {
         .withKeySerde(new StringSerde("UTF-8"))
         .withMsgSerde(new JsonSerde<>())
         .from(kafkaSystem);
+
+    StreamTaskApplication app = StreamApplications.createStreamTaskApp(config, new MyStreamTaskFactory());
 
     app.addInputs(Collections.singletonList(input)).addOutputs(Collections.singletonList(output)).run();
     app.waitForFinish();

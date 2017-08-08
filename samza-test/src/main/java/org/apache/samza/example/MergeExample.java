@@ -21,6 +21,7 @@ package org.apache.samza.example;
 
 import com.google.common.collect.ImmutableList;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
 import org.apache.samza.system.kafka.KafkaSystem;
 import org.apache.samza.operators.MessageStream;
@@ -58,9 +59,9 @@ public class MergeExample {
         .withMsgSerde(new JsonSerde<>())
         .from(kafkaSystem);
 
-    StreamApplication app = StreamApplication.create(config);
-    MessageStream.mergeAll(ImmutableList.of(app.open(input1), app.open(input2), app.open(input3)))
-        .sendTo(app.open(output, m -> m.pageId));
+    StreamApplication app = StreamApplications.createStreamApp(config);
+    MessageStream.mergeAll(ImmutableList.of(app.openInput(input1), app.openInput(input2), app.openInput(input3)))
+        .sendTo(app.openOutput(output, m -> m.pageId));
 
     app.run();
     app.waitForFinish();

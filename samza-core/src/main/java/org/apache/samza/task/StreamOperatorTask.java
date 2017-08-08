@@ -54,12 +54,12 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
    * @param streamApplication the user-implemented {@link StreamApplication} that creates the logical DAG
    * @param clock the {@link Clock} to use for time-keeping
    */
-  public StreamOperatorTask(StreamApplication streamApplication, Clock clock) {
-    this.streamApplication = new StreamApplicationInternal(streamApplication);
+  public StreamOperatorTask(StreamApplicationInternal streamApplication, Clock clock) {
+    this.streamApplication = streamApplication;
     this.clock = clock;
   }
 
-  public StreamOperatorTask(StreamApplication application) {
+  public StreamOperatorTask(StreamApplicationInternal application) {
     this(application, SystemClock.instance());
   }
 

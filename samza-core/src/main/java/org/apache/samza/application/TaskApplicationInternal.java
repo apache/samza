@@ -18,14 +18,16 @@
  */
 package org.apache.samza.application;
 
-import org.apache.samza.config.Config;
-import org.apache.samza.runtime.ApplicationRunner;
-import org.apache.samza.task.StreamTaskFactory;
 
+public class TaskApplicationInternal {
+  private final TaskApplication app;
 
-public final class StreamTaskApplication extends TaskApplication<StreamTaskFactory> {
-  StreamTaskApplication(StreamTaskFactory taskFactory, ApplicationRunner runner, Config config) {
-    super(taskFactory, runner, config);
+  public TaskApplicationInternal(TaskApplication app) {
+    this.app = app;
   }
-}
 
+  public Object getTaskFactory() {
+    return this.app.taskFactory;
+  }
+
+}

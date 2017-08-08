@@ -67,5 +67,5 @@ public interface StreamGraph {
    *
    * @param defaultSystem default system to automatically create all intermediate streams
    */
-  void setDefaultIntermediateSystem(IOSystem defaultSystem);
+  void setDefaultSystem(IOSystem defaultSystem);
 }

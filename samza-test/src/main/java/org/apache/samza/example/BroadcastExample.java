@@ -20,6 +20,7 @@
 package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
 import org.apache.samza.system.kafka.KafkaSystem;
 import org.apache.samza.operators.MessageStream;
@@ -61,12 +62,12 @@ public class BroadcastExample {
         .withMsgSerde(new JsonSerde<>())
         .from(kafkaSystem);
 
-    StreamApplication app = StreamApplication.create(config);
-    MessageStream<PageViewEvent> inputStream = app.open(pageViewEventInput);
+    StreamApplication app = StreamApplications.createStreamApp(config);
+    MessageStream<PageViewEvent> inputStream = app.openInput(pageViewEventInput);
 
-    inputStream.filter(m -> m.key.equals("key1")).sendTo(app.open(output1, m -> m.key));
-    inputStream.filter(m -> m.key.equals("key2")).sendTo(app.open(output2, m -> m.key));
-    inputStream.filter(m -> m.key.equals("key3")).sendTo(app.open(output3, m -> m.key));
+    inputStream.filter(m -> m.key.equals("key1")).sendTo(app.openOutput(output1, m -> m.key));
+    inputStream.filter(m -> m.key.equals("key2")).sendTo(app.openOutput(output2, m -> m.key));
+    inputStream.filter(m -> m.key.equals("key3")).sendTo(app.openOutput(output3, m -> m.key));
 
     app.run();
     app.waitForFinish();

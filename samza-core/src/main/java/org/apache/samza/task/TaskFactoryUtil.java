@@ -50,11 +50,11 @@ public class TaskFactoryUtil {
    * @param runner  the {@link ApplicationRunner} to run this job
    * @return  a task factory object, either a instance of {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory}
    */
-  public static Object createTaskFactory(Config config, StreamApplication streamApp, ApplicationRunner runner) {
+  public static Object createTaskFactory(Config config, StreamApplicationInternal streamApp, ApplicationRunner runner) {
     return (streamApp != null) ? createStreamOperatorTaskFactory(streamApp, runner) : fromTaskClassConfig(config);
   }
 
-  private static StreamTaskFactory createStreamOperatorTaskFactory(StreamApplication streamApp, ApplicationRunner runner) {
+  private static StreamTaskFactory createStreamOperatorTaskFactory(StreamApplicationInternal streamApp, ApplicationRunner runner) {
     return () -> new StreamOperatorTask(streamApp);
   }
 

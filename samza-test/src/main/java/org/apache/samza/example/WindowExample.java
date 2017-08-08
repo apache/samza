@@ -20,6 +20,7 @@
 package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
 import org.apache.samza.system.kafka.KafkaSystem;
 import org.apache.samza.operators.StreamDescriptor;
@@ -59,12 +60,12 @@ public class WindowExample {
         .withMsgSerde(new IntegerSerde())
         .from(kafkaSystem);
 
-    StreamApplication app = StreamApplication.create(config);
+    StreamApplication app = StreamApplications.createStreamApp(config);
 
-    app.open(input)
+    app.openInput(input)
         .window(Windows.<PageViewEvent, Integer>tumblingWindow(Duration.ofMinutes(10), () -> 0, (m, c) -> c + 1)
             .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceLastMessage(Duration.ofMinutes(1)))))
-        .sendTo(app.open(output, m -> m.getKey().getPaneId(), m -> m.getMessage()));
+        .sendTo(app.openOutput(output, m -> m.getKey().getPaneId(), m -> m.getMessage()));
 
     app.run();
     app.waitForFinish();

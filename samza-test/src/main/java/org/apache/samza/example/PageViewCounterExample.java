@@ -19,6 +19,7 @@
 package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
 import org.apache.samza.system.kafka.KafkaSystem;
 import org.apache.samza.operators.StreamDescriptor;
@@ -57,13 +58,13 @@ public class PageViewCounterExample {
         .withMsgSerde(new JsonSerde<>())
         .from(kafkaSystem);
 
-    StreamApplication app = StreamApplication.create(config);
-    app.open(input)
+    StreamApplication app = StreamApplications.createStreamApp(config);
+    app.openInput(input)
         .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), () -> 0, (m, c) -> c + 1)
             .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
             .setAccumulationMode(AccumulationMode.DISCARDING))
         .map(PageViewCount::new)
-        .sendTo(app.open(output, m -> m.memberId));
+        .sendTo(app.openOutput(output, m -> m.memberId));
 
     app.run();
     app.waitForFinish();

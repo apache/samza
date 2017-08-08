@@ -18,46 +18,15 @@
  */
 package org.apache.samza.application;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 import org.apache.samza.config.Config;
-import org.apache.samza.metrics.MetricsReporter;
-import org.apache.samza.operators.StreamDescriptor;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 
+public final class AsyncStreamTaskApplication extends TaskApplication<AsyncStreamTaskFactory> {
 
-public class AsyncStreamTaskApplication extends ApplicationBase {
-  final AsyncStreamTaskFactory taskFactory;
-  final Config config;
-  private final List<StreamDescriptor.Input> taskInputs = new ArrayList<>();
-  private final List<StreamDescriptor.Output> taskOutputs = new ArrayList<>();
-
-  private AsyncStreamTaskApplication(AsyncStreamTaskFactory taskFactory, ApplicationRunner runner, Config config) {
-    super(runner);
-    this.taskFactory = taskFactory;
-    this.config = config;
-  }
-
-  public static AsyncStreamTaskApplication create(Config config, AsyncStreamTaskFactory taskFactory) {
-    ApplicationRunner runner = ApplicationRunner.fromConfig(config);
-    return new AsyncStreamTaskApplication(taskFactory, runner, config);
-  }
-
-  public AsyncStreamTaskApplication addInputs(List<StreamDescriptor.Input> inputs) {
-    this.taskInputs.addAll(inputs);
-    return this;
-  }
-
-  public AsyncStreamTaskApplication addOutputs(List<StreamDescriptor.Output> outputs) {
-    this.taskOutputs.addAll(outputs);
-    return this;
-  }
-
-  public AsyncStreamTaskApplication withMetricsReporters(Map<String, MetricsReporter> metrics) {
-    this.withMetricsReports(metrics);
-    return this;
+  AsyncStreamTaskApplication(AsyncStreamTaskFactory taskFactory, ApplicationRunner runner, Config config) {
+    super(taskFactory, runner, config);
   }
 
 }
+

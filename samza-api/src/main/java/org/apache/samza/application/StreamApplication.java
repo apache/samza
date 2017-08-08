@@ -84,12 +84,7 @@ public class StreamApplication extends ApplicationBase {
   /*package private*/
   final StreamGraph graph;
 
-  public static StreamApplication create(Config config) {
-    ApplicationRunner runner = ApplicationRunner.fromConfig(config);
-    return new StreamApplication(runner);
-  }
-
-  private StreamApplication(ApplicationRunner runner) {
+  StreamApplication(ApplicationRunner runner) {
     super(runner);
     this.graph = runner.createGraph();
   }
@@ -104,7 +99,7 @@ public class StreamApplication extends ApplicationBase {
    * @return the input {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
-  public <K, V> MessageStream<V> open(StreamDescriptor.Input<K, V> input) {
+  public <K, V> MessageStream<V> openInput(StreamDescriptor.Input<K, V> input) {
     return this.graph.getInputStream(input, (k, v) -> v);
   }
 
@@ -119,7 +114,7 @@ public class StreamApplication extends ApplicationBase {
    * @return the input {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
-  public <K, V, M> MessageStream<M> open(
+  public <K, V, M> MessageStream<M> openInput(
       StreamDescriptor.Input<K, V> input,
       BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
     return this.graph.getInputStream(input, msgBuilder);
@@ -136,7 +131,7 @@ public class StreamApplication extends ApplicationBase {
    * @return the output {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
-  public <K, V, M> OutputStream<K, V, M> open(
+  public <K, V, M> OutputStream<K, V, M> openOutput(
       StreamDescriptor.Output<K, V> output,
       Function<? super M, ? extends K> keyExtractor,
       Function<? super M, ? extends V> msgExtractor) {
@@ -153,19 +148,19 @@ public class StreamApplication extends ApplicationBase {
    * @return the output {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
-  public <K, V> OutputStream<K, V, V> open(
+  public <K, V> OutputStream<K, V, V> openOutput(
       StreamDescriptor.Output<K, V> output,
       Function<? super V, ? extends K> keyExtractor) {
     return this.graph.getOutputStream(output, keyExtractor, Function.identity());
   }
 
-  public StreamApplication withDefaultIntermediateSystem(IOSystem defaultSystem) {
-    this.graph.setDefaultIntermediateSystem(defaultSystem);
+  public StreamApplication withDefaultSystem(IOSystem defaultSystem) {
+    this.graph.setDefaultSystem(defaultSystem);
     return this;
   }
 
   public StreamApplication withMetricsReporters(Map<String, MetricsReporter> metrics) {
-    this.withMetricsReports(metrics);
+    super.withMetricsReports(metrics);
     return this;
   }
 }

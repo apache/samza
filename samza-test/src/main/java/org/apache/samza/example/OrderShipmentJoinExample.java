@@ -19,6 +19,7 @@
 package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
 import org.apache.samza.system.kafka.KafkaSystem;
 import org.apache.samza.operators.StreamDescriptor;
@@ -57,10 +58,10 @@ public class OrderShipmentJoinExample {
         .withMsgSerde(new JsonSerde<>())
         .from(kafkaSystem);
 
-    StreamApplication app = StreamApplication.create(config);
-    app.open(orders)
-        .join(app.open(shipments), new MyJoinFunction(), Duration.ofMinutes(1))
-        .sendTo(app.open(fulfilledOrders, m -> m.orderId));
+    StreamApplication app = StreamApplications.createStreamApp(config);
+    app.openInput(orders)
+        .join(app.openInput(shipments), new MyJoinFunction(), Duration.ofMinutes(1))
+        .sendTo(app.openOutput(fulfilledOrders, m -> m.orderId));
 
     app.run();
     app.waitForFinish();

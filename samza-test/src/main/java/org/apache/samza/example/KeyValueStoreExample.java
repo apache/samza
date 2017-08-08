@@ -20,6 +20,7 @@ package org.apache.samza.example;
 
 
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
 import org.apache.samza.system.kafka.KafkaSystem;
 import org.apache.samza.operators.StreamDescriptor;
@@ -60,11 +61,11 @@ public class KeyValueStoreExample {
         .withMsgSerde(new JsonSerde<>())
         .from(kafkaSystem);
 
-    StreamApplication app = StreamApplication.create(config);
-    app.open(pageViewEventInput)
+    StreamApplication app = StreamApplications.createStreamApp(config);
+    app.openInput(pageViewEventInput)
         .partitionBy(m -> m.memberId)
         .flatMap(new MyStatsCounter())
-        .sendTo(app.open(statsStream, m -> m.memberId));
+        .sendTo(app.openOutput(statsStream, m -> m.memberId));
 
     app.run();
     app.waitForFinish();

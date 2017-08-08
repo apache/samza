@@ -25,6 +25,7 @@ import org.apache.log4j.MDC;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationBase;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationInternal;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
@@ -74,16 +75,16 @@ public class LocalContainerRunner extends ApplicationRunnerBase {
   @Override
   ApplicationRuntimeInstance getRuntimeInstance(ApplicationBase streamApp) {
     if (streamApp instanceof StreamApplication) {
-      return new StreamAppRunner((StreamApplication) streamApp);
+      return new StreamAppRuntime(new StreamApplicationInternal((StreamApplication) streamApp));
     }
 
     throw new IllegalArgumentException("Application type " + streamApp.getClass().getCanonicalName() + " is not supported by LocalContainerRunner");
   }
 
-  private class StreamAppRunner implements ApplicationRuntimeInstance {
-    private final StreamApplication app;
+  private class StreamAppRuntime implements ApplicationRuntimeInstance {
+    private final StreamApplicationInternal app;
 
-    StreamAppRunner(StreamApplication streamApp) {
+    StreamAppRuntime(StreamApplicationInternal streamApp) {
       this.app = streamApp;
     }
 

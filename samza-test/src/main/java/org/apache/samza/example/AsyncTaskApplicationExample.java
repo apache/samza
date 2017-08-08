@@ -20,6 +20,7 @@ package org.apache.samza.example;
 
 import java.util.Collections;
 import org.apache.samza.application.AsyncStreamTaskApplication;
+import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
 import org.apache.samza.system.kafka.KafkaSystem;
 import org.apache.samza.operators.StreamDescriptor;
@@ -31,7 +32,7 @@ import org.apache.samza.util.CommandLine;
 
 
 public class AsyncTaskApplicationExample {
-  static class MyStreamTaskFactory implements AsyncStreamTaskFactory {
+  static class MyAsyncStreamTaskFactory implements AsyncStreamTaskFactory {
 
     @Override
     public AsyncStreamTask createInstance() {
@@ -47,8 +48,6 @@ public class AsyncTaskApplicationExample {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
 
-    AsyncStreamTaskApplication app = AsyncStreamTaskApplication.create(config, new MyStreamTaskFactory());
-
     KafkaSystem kafkaSystem = KafkaSystem.create("kafka")
         .withBootstrapServers("localhost:9192")
         .withConsumerProperties(config)
@@ -62,6 +61,8 @@ public class AsyncTaskApplicationExample {
         .withKeySerde(new StringSerde("UTF-8"))
         .withMsgSerde(new JsonSerde<>())
         .from(kafkaSystem);
+
+    AsyncStreamTaskApplication app = StreamApplications.createAsyncStreamTaskApp(config, new MyAsyncStreamTaskFactory());
 
     app.addInputs(Collections.singletonList(input)).addOutputs(Collections.singletonList(output)).run();
     app.waitForFinish();

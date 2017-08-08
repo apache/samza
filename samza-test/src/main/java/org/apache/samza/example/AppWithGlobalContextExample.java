@@ -33,6 +33,7 @@ import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.system.kafka.KafkaSystem;
@@ -71,12 +72,12 @@ public class AppWithGlobalContextExample {
         .withMsgSerde(new JsonSerde<>())
         .from(kafkaSystem);
 
-    StreamApplication app = StreamApplication.create(config);
+    StreamApplication app = StreamApplications.createStreamApp(config);
 
-    app.open(pageViewEventInput)
+    app.openInput(pageViewEventInput)
         .partitionBy(m -> m.memberId)
         .flatMap(new MyStatsCounter())
-        .sendTo(app.open(statsStream, m -> m.memberId));
+        .sendTo(app.openOutput(statsStream, m -> m.memberId));
 
     app.run();
     app.waitForFinish();

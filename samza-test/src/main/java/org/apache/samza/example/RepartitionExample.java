@@ -19,6 +19,7 @@
 package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.*;
 import org.apache.samza.operators.triggers.Triggers;
@@ -57,15 +58,15 @@ public class RepartitionExample {
         .withMsgSerde(new JsonSerde<>())
         .from(kafkaSystem);
 
-    StreamApplication app = StreamApplication.create(config).withDefaultIntermediateSystem(kafkaSystem);
-    app.open(input)
+    StreamApplication app = StreamApplications.createStreamApp(config).withDefaultSystem(kafkaSystem);
+    app.openInput(input)
         .partitionBy(m->m.memberId)
         .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10),
             () -> 0, (m, c) -> c + 1)
             .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
             .setAccumulationMode(AccumulationMode.DISCARDING))
         .map(MyStreamOutput::new)
-        .sendTo(app.open(output, m -> m.memberId));
+        .sendTo(app.openOutput(output, m -> m.memberId));
 
     app.run();
     app.waitForFinish();
