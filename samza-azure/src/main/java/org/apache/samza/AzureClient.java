@@ -20,6 +20,10 @@
 package org.apache.samza;
 
 import com.microsoft.azure.storage.CloudStorageAccount;
+import com.microsoft.azure.storage.RetryExponentialRetry;
+import com.microsoft.azure.storage.RetryLinearRetry;
+import com.microsoft.azure.storage.RetryPolicy;
+import com.microsoft.azure.storage.blob.BlobRequestOptions;
 import com.microsoft.azure.storage.blob.CloudBlobClient;
 import com.microsoft.azure.storage.table.CloudTableClient;
 import java.net.URISyntaxException;
@@ -47,7 +51,14 @@ public class AzureClient {
   AzureClient(String storageConnectionString) {
     try {
       account = CloudStorageAccount.parse(storageConnectionString);
+
       blobClient = account.createCloudBlobClient();
+      // Set retry policy for operations on the blob. In this case, every failed operation on the blob will be retried thrice, after 5 second intervals.
+      BlobRequestOptions options = new BlobRequestOptions();
+      RetryPolicy retryPolicy = new RetryLinearRetry(5000, 3);
+      options.setRetryPolicyFactory(retryPolicy);
+      blobClient.setDefaultRequestOptions(options);
+
       tableClient = account.createCloudTableClient();
     } catch (IllegalArgumentException | URISyntaxException e) {
       LOG.error("Connection string {} specifies an invalid URI.", storageConnectionString);

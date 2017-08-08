@@ -19,7 +19,6 @@
 
 package org.apache.samza;
 
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.coordinator.LeaderElector;
@@ -43,8 +42,6 @@ public class AzureLeaderElector implements LeaderElector {
   private LeaderElectorListener leaderElectorListener = null;
   private AtomicReference<String> leaseId;
   private AtomicBoolean isLeader;
-  private ScheduledFuture renewLeaseSF;
-  private ScheduledFuture livenessSF;
 
   public AzureLeaderElector(LeaseBlobManager leaseBlobManager) {
     this.isLeader = new AtomicBoolean(false);
@@ -60,31 +57,35 @@ public class AzureLeaderElector implements LeaderElector {
 
   /**
    * Tries to become the leader by acquiring a lease on the blob.
+   * The acquireLease operation has a retry policy where upon failure, the operation is tried 3 times at 5 second intervals.
    * Invokes the listener on becoming the leader.
    */
   @Override
   public void tryBecomeLeader() {
-    leaseId.getAndSet(leaseBlobManager.acquireLease(LEASE_TIME_IN_SEC, leaseId.get()));
-    if (leaseId.get() != null) {
-      LOG.info("Became leader!");
-      isLeader.set(true);
-      leaderElectorListener.onBecomingLeader();
+    try {
+      leaseId.getAndSet(leaseBlobManager.acquireLease(LEASE_TIME_IN_SEC, leaseId.get()));
+      if (leaseId.get() != null) {
+        LOG.info("Became leader!");
+        isLeader.set(true);
+        if (leaderElectorListener != null) {
+          leaderElectorListener.onBecomingLeader();
+        }
+      }
+    } catch (AzureException e) {
+      LOG.error("Error while trying to acquire lease.", e);
     }
   }
 
   /**
    * Releases the lease in order to resign leadership. It also stops all schedulers scheduled by the leader.
+   * The releaseLease operation has a retry policy where upon failure, the operation is tried 3 times at 5 second intervals.
    */
   @Override
   public void resignLeadership() {
     if (isLeader.get()) {
-      boolean status = leaseBlobManager.releaseLease(leaseId.get());
-      if (status) {
-        isLeader.set(false);
-        leaseId = null;
-        renewLeaseSF.cancel(true);
-        livenessSF.cancel(true);
-      }
+      leaseBlobManager.releaseLease(leaseId.get());
+      isLeader.set(false);
+      leaseId = null;
     } else {
       LOG.info("Can't release the lease because it is not the leader and does not hold an active lease.");
     }
@@ -101,14 +102,6 @@ public class AzureLeaderElector implements LeaderElector {
 
   public String getLeaseId() {
     return leaseId.get();
-  }
-
-  public void setRenewLeaseScheduledFuture(ScheduledFuture sf) {
-    this.renewLeaseSF = sf;
-  }
-
-  public void setLivenessScheduledFuture(ScheduledFuture sf) {
-    this.livenessSF = sf;
   }
 
   public LeaseBlobManager getLeaseBlobManager() {
