@@ -20,20 +20,19 @@
 package org.apache.samza.checkpoint
 
 
+import java.util
 import java.util.concurrent.ConcurrentHashMap
 
-import org.apache.samza.system.SystemStream
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.system.SystemStreamMetadata
-import org.apache.samza.system.SystemStreamMetadata.OffsetType
 import org.apache.samza.SamzaException
-import scala.collection.JavaConverters._
-import org.apache.samza.util.Logging
 import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config.SystemConfig.Config2System
-import org.apache.samza.system.SystemAdmin
 import org.apache.samza.container.TaskName
+import org.apache.samza.system.SystemStreamMetadata.OffsetType
+import org.apache.samza.system.{SystemAdmin, SystemStream, SystemStreamMetadata, SystemStreamPartition}
+import org.apache.samza.util.Logging
+
+import scala.collection.JavaConverters._
 import scala.collection._
 
 /**
@@ -217,25 +216,44 @@ class OffsetManager(
   }
 
   /**
-   * Checkpoint all offsets for a given TaskName using the CheckpointManager.
-   */
-  def checkpoint(taskName: TaskName) {
+    * Gets a snapshot of all the current offsets for the specified task. This is useful to
+    * ensure there are no concurrent updates to the offsets between when this method is
+    * invoked and the corresponding call to [[OffsetManager.writeCheckpoint()]]
+    */
+  def createCheckpoint(taskName: TaskName): Checkpoint = {
     if (checkpointManager != null || checkpointListeners.nonEmpty) {
-      debug("Checkpointing offsets for taskName %s." format taskName)
+      debug("Getting checkpoint offsets for taskName %s." format taskName)
 
+      // Which ssps are assigned to this task?
       val sspsForTaskName = systemStreamPartitions.getOrElse(taskName, throw new SamzaException("No such SystemStreamPartition set " + taskName + " registered for this checkpointmanager")).toSet
+      // What are all the latests offsets for this task?
       val sspToOffsets = lastProcessedOffsets.get(taskName)
-      val partitionOffsets = if(sspToOffsets != null) {
+
+      // For some reason, refilter the offsets for to get the ones for this task?!?!
+      val partitionOffsets = if (sspToOffsets != null) {
         sspToOffsets.asScala.filterKeys(sspsForTaskName.contains)
       } else {
         warn(taskName + " is not found... ")
         Map[SystemStreamPartition, String]()
       }
 
-      val checkpoint = new Checkpoint(partitionOffsets.asJava)
+      new Checkpoint(new util.HashMap(partitionOffsets.asJava)) // Copy into new Map to prevent mutation
+    } else {
+      debug("Skipping checkpointing for taskName %s because no checkpoint manager/callback is defined." format taskName)
+      null
+    }
+  }
+
+  /**
+    * Write the specified checkpoint for the given task.
+    */
+  def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint) {
+    if (checkpoint != null && (checkpointManager != null || checkpointListeners.nonEmpty)) {
+      debug("Writing checkpoint offsets for taskName %s." format taskName)
 
       if(checkpointManager != null) {
         checkpointManager.writeCheckpoint(taskName, checkpoint)
+        val sspToOffsets = checkpoint.getOffsets
         if(sspToOffsets != null) {
           sspToOffsets.asScala.foreach {
             case (ssp, cp) => offsetManagerMetrics.checkpointedOffsets.get(ssp).set(cp)
@@ -245,14 +263,12 @@ class OffsetManager(
 
       // invoke checkpoint listeners
       //partitionOffsets.groupBy(_._1.getSystem).foreach {
-      partitionOffsets.groupBy { case (ssp, _) => ssp.getSystem }.foreach {
+      checkpoint.getOffsets.asScala.groupBy { case (ssp, _) => ssp.getSystem }.foreach {
         case (systemName:String, offsets: Map[SystemStreamPartition, String]) => {
           // Option is empty if there is no checkpointListener for this systemName
           checkpointListeners.get(systemName).foreach(_.onCheckpoint(offsets.asJava))
         }
       }
-    } else {
-      debug("Skipping checkpointing for taskName %s because no checkpoint manager/callback is defined." format taskName)
     }
   }
 
