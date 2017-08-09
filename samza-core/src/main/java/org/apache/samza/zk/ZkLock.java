@@ -62,7 +62,7 @@ public class ZkLock implements Lock {
    * If the path of this node has the lowest sequence number, the processor has acquired the lock.
    */
   @Override
-  public void lock() {
+  public boolean lock() {
     try {
       nodePath = zkUtils.getZkClient().createEphemeralSequential(lockPath + "/", participantId);
     } catch (Exception e) {
@@ -82,6 +82,7 @@ public class ZkLock implements Lock {
       hasLock.set(true);
       if (zkLockListener != null) {
         zkLockListener.onAcquiringLock();
+        return true;
       } else {
         throw new SamzaException("LockListener unassigned.");
       }
@@ -113,6 +114,7 @@ public class ZkLock implements Lock {
         LOG.info("Predecessor doesn't exist anymore. Trying to acquire lock again...");
         lock();
       }
+      return false;
     }
   }
 
