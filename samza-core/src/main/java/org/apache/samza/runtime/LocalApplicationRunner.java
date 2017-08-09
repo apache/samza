@@ -26,6 +26,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.SamzaException;
@@ -59,11 +60,11 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   private static final Logger LOG = LoggerFactory.getLogger(LocalApplicationRunner.class);
   // Latch id that's used for awaiting the init of application before creating the StreamProcessors
   private static final String INIT_LATCH_ID = "init";
+  private static final String APPLICATION_RUNNER_ZK_PATH_SUFFIX = "/" + "ApplicationRunnerData";
   // Latch timeout is set to 10 min
   private static final long LATCH_TIMEOUT_MINUTES = 10;
 
   private final String uid;
-  private final CoordinationUtils coordinationUtils;
   private final Set<StreamProcessor> processors = ConcurrentHashMap.newKeySet();
   private final CountDownLatch shutdownLatch = new CountDownLatch(1);
   private final AtomicInteger numProcessorsToStart = new AtomicInteger();
@@ -122,9 +123,6 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
         }
       }
 
-      if (coordinationUtils != null) {
-        coordinationUtils.reset();
-      }
       shutdownLatch.countDown();
     }
   }
@@ -132,7 +130,6 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   public LocalApplicationRunner(Config config) {
     super(config);
     uid = UUID.randomUUID().toString();
-    coordinationUtils = createCoordinationUtils();
   }
 
   @Override
@@ -216,7 +213,8 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     // TODO: we will need a better way to package the configs with application runner
     if (ZkJobCoordinatorFactory.class.getName().equals(jobCoordinatorFactoryClassName)) {
       ApplicationConfig appConfig = new ApplicationConfig(config);
-      return new ZkCoordinationServiceFactory().getCoordinationService(appConfig.getGlobalAppId(), uid, config);
+      return new ZkCoordinationServiceFactory().getCoordinationService(
+          appConfig.getGlobalAppId() + APPLICATION_RUNNER_ZK_PATH_SUFFIX, uid, config);
     } else {
       return null;
     }
@@ -232,15 +230,23 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
    */
   /* package private */ void createStreams(List<StreamSpec> intStreams) throws Exception {
     if (!intStreams.isEmpty()) {
+      CoordinationUtils coordinationUtils = createCoordinationUtils();
       if (coordinationUtils != null) {
-        Latch initLatch = coordinationUtils.getLatch(1, INIT_LATCH_ID);
-        LeaderElector leaderElector = coordinationUtils.getLeaderElector();
-        leaderElector.setLeaderElectorListener(() -> {
+        try {
+          Latch initLatch = coordinationUtils.getLatch(1, INIT_LATCH_ID);
+          LeaderElector leaderElector = coordinationUtils.getLeaderElector();
+          leaderElector.setLeaderElectorListener(() -> {
             getStreamManager().createStreams(intStreams);
             initLatch.countDown();
           });
-        leaderElector.tryBecomeLeader();
-        initLatch.await(LATCH_TIMEOUT_MINUTES, TimeUnit.MINUTES);
+          leaderElector.tryBecomeLeader();
+          initLatch.await(LATCH_TIMEOUT_MINUTES, TimeUnit.MINUTES);
+        } catch(TimeoutException tme) {
+          LOG.error("Timed out during stream creation");
+          throw tme;
+        } finally {
+          coordinationUtils.reset();
+        }
       } else {
         // each application process will try creating the streams, which
         // requires stream creation to be idempotent
