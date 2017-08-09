@@ -44,7 +44,6 @@ public class TestZkJobCoordinator {
     ZkJobCoordinator zkJobCoordinator = Mockito.spy(new ZkJobCoordinator(new MapConfig(), new NoOpMetricsRegistry(), zkUtils));
     zkJobCoordinator.onNewJobModelAvailable(TEST_JOB_MODEL_VERSION);
 
-    Mockito.doNothing().when(zkJobCoordinator).stop();
     Mockito.verify(zkJobCoordinator, Mockito.atMost(1)).stop();
   }
 }
