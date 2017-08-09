@@ -25,13 +25,14 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.CoordinationServiceFactory;
 import org.apache.samza.coordinator.CoordinationUtils;
+import org.apache.samza.util.NoOpMetricsRegistry;
 import org.apache.zookeeper.client.ConnectStringParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
 public class ZkCoordinationServiceFactory implements CoordinationServiceFactory {
-  private final static Logger LOG = LoggerFactory.getLogger(ZkCoordinationServiceFactory.class);
+  private static final Logger LOG = LoggerFactory.getLogger(ZkCoordinationServiceFactory.class);
 
   public CoordinationUtils getCoordinationService(String groupId, String participantId, Config config) {
     ZkConfig zkConfig = new ZkConfig(config);
@@ -39,8 +40,7 @@ public class ZkCoordinationServiceFactory implements CoordinationServiceFactory 
     ZkClient zkClient =
         createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
 
-    ZkUtils zkUtils = new ZkUtils(new ZkKeyBuilder(groupId), zkClient, zkConfig.getZkConnectionTimeoutMs());
-
+    ZkUtils zkUtils = new ZkUtils(new ZkKeyBuilder(groupId), zkClient, zkConfig.getZkConnectionTimeoutMs(), new NoOpMetricsRegistry());
     return new ZkCoordinationUtils(participantId, zkConfig, zkUtils);
   }
 

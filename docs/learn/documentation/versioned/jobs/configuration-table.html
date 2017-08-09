@@ -424,7 +424,8 @@
                             <dd>Fixed partition mapping. No Zoookeeper. </dd>
                             <dt><code>org.apache.samza.zk.ZkJobCoordinatorFactory</code></dt>
                             <dd>Zookeeper-based coordination. </dd>
-                        </dl>
+                           <dt><code>org.apache.samza.AzureJobCoordinatorFactory</code></dt>
+                           <dd>Azure-based coordination</dl>
                         Required only for non-cluster-managed applications. Please see the required value for <a href=#task-name-grouper-factory>task-name-grouper-factory </a>
                     </td>
                 </tr>
@@ -468,6 +469,25 @@
                         How long the Leader processor will wait before recalculating the JobModel on change of registered processors.
                     </td>
                 </tr>
+
+                <th colspan="3" class="section" id="AzureBasedJobCoordination"><a href="../index.html">Azure-based job configuration</a></th>
+                </tr>
+                <tr>
+                    <td class="property" id="azure.storage.connect">azure.storage.connect</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        <strong>Required</strong> for applications with Azure-based coordination. This is the storage connection string related to every Azure account. It is of the format: "DefaultEndpointsProtocol=https;AccountName=&ltInsert your account name&gt;;AccountKey=&ltInsert your account key&gt;"
+
+                    </td>
+                </tr>
+                <tr>
+                    <td class="property" id="job.coordinator.azure.blob.length">job.coordinator.azure.blob.length</td>
+                    <td class="default"> 5120000 </td>
+                    <td class="description">
+                        Length in bytes, of the page blob on which the leader stores the shared data. Different types of data is stored on different pages with predefined lengths. The offsets of these pages are dependent on the total page blob length.
+                    </td>
+                </tr>
+
                 <tr>
                     <th colspan="3" class="section" id="task"><a href="../api/overview.html">Task configuration</a></th>
                 </tr>
@@ -695,7 +715,7 @@
 
                 <tr>
                     <td class="property" id="task-shutdown-ms">task.shutdown.ms</td>
-                    <td class="default">5000</td>
+                    <td class="default">30000</td>
                     <td class="description">
                         This property controls how long the Samza container will wait for an orderly shutdown of task instances.
                     </td>
@@ -1081,6 +1101,8 @@
                         <dl>
                             <dt><code>org.apache.samza.serializers.ByteSerdeFactory</code></dt>
                             <dd>A no-op serde which passes through the undecoded byte array.</dd>
+                            <dt><code>org.apache.samza.serializers.ByteBufferSerdeFactory</code></dt>
+                            <dd>Encodes <code>java.nio.ByteBuffer</code> objects.</dd>
                             <dt><code>org.apache.samza.serializers.IntegerSerdeFactory</code></dt>
                             <dd>Encodes <code>java.lang.Integer</code> objects as binary (4 bytes fixed-length big-endian encoding).</dd>
                             <dt><code>org.apache.samza.serializers.StringSerdeFactory</code></dt>
@@ -1090,7 +1112,11 @@
                             <dt><code>org.apache.samza.serializers.LongSerdeFactory</code></dt>
                             <dd>Encodes <code>java.lang.Long</code> as binary (8 bytes fixed-length big-endian encoding).</dd>
                             <dt><code>org.apache.samza.serializers.DoubleSerdeFactory</code></dt>
-                            <dd>Encodes <code>java.lang.Double</code> as binray (8 bytes double-precision float point).</dd>
+                            <dd>Encodes <code>java.lang.Double</code> as binary (8 bytes double-precision float point).</dd>
+                            <dt><code>org.apache.samza.serializers.UUIDSerdeFactory</code></dt>
+                            <dd>Encodes <code>java.util.UUID</code> objects.</dd>
+                            <dt><code>org.apache.samza.serializers.SerializableSerdeFactory</code></dt>
+                            <dd>Encodes <code>java.io.Serializable</code> objects.</dd>
                             <dt><code>org.apache.samza.serializers.MetricsSnapshotSerdeFactory</code></dt>
                             <dd>Encodes <code>org.apache.samza.metrics.reporter.MetricsSnapshot</code> objects (which are
                                 used for <a href="../container/metrics.html">reporting metrics</a>) as JSON.</dd>

@@ -22,15 +22,21 @@ package org.apache.samza.zk;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
+import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
-import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkInterruptedException;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.zookeeper.data.Stat;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -51,6 +57,14 @@ import org.slf4j.LoggerFactory;
  * </p>
  *
  * <p>
+ *  <b>Note on Session disconnect handling:</b>
+ *  After the session has timed out, and restored we may still get some notifications from before (from the old
+ *  session). To avoid this, we add a currentGeneration member, which starts with 0, and is increased each time
+ *  a new session is established. Current value of this member is passed to each Listener when it is created.
+ *  So if the Callback from this Listener comes with an old generation id - we ignore it.
+ * </p>
+ *
+ * <p>
  *   <b>Note on Session Management:</b>
  *   Session management, if needed, should be handled by the caller. This can be done by implementing
  *   {@link org.I0Itec.zkclient.IZkStateListener} and subscribing this listener to the current ZkClient. Note: The connection state change
@@ -65,34 +79,43 @@ public class ZkUtils {
   private volatile String ephemeralPath = null;
   private final ZkKeyBuilder keyBuilder;
   private final int connectionTimeoutMs;
-  private ZkJobCoordinatorMetrics metrics;
+  private final AtomicInteger currentGeneration;
+  private final ZkUtilsMetrics metrics;
 
-  public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs) {
-    this.keyBuilder = zkKeyBuilder;
-    this.connectionTimeoutMs = connectionTimeoutMs;
-    this.zkClient = zkClient;
+  public void incGeneration() {
+    currentGeneration.incrementAndGet();
   }
 
-  public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs, ZkJobCoordinatorMetrics metrics) {
+  public int getGeneration() {
+    return currentGeneration.get();
+  }
+
+
+
+  public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs, MetricsRegistry metricsRegistry) {
     this.keyBuilder = zkKeyBuilder;
     this.connectionTimeoutMs = connectionTimeoutMs;
     this.zkClient = zkClient;
-    this.metrics = metrics;
+    this.metrics = new ZkUtilsMetrics(metricsRegistry);
+    this.currentGeneration = new AtomicInteger(0);
   }
 
   public void connect() throws ZkInterruptedException {
     boolean isConnected = zkClient.waitUntilConnected(connectionTimeoutMs, TimeUnit.MILLISECONDS);
     if (!isConnected) {
-      metrics.zkConnectionError.inc();
+      if (metrics != null) {
+        metrics.zkConnectionError.inc();
+      }
       throw new RuntimeException("Unable to connect to Zookeeper within connectionTimeout " + connectionTimeoutMs + "ms. Shutting down!");
     }
   }
 
-  public static ZkConnection createZkConnection(String zkConnectString, int sessionTimeoutMs) {
-    return new ZkConnection(zkConnectString, sessionTimeoutMs);
+  // reset all zk-session specific state
+  public void unregister() {
+    ephemeralPath = null;
   }
 
-  ZkClient getZkClient() {
+  public ZkClient getZkClient() {
     return zkClient;
   }
 
@@ -110,17 +133,69 @@ public class ZkUtils {
    * @return String representing the absolute ephemeralPath of this client in the current session
    */
   public synchronized String registerProcessorAndGetId(final ProcessorData data) {
+    String processorId = data.getProcessorId();
     if (ephemeralPath == null) {
-      ephemeralPath =
-          zkClient.createEphemeralSequential(
-              keyBuilder.getProcessorsPath() + "/", data.toString());
-
-      LOG.info("newly generated path for " + data +  " is " +  ephemeralPath);
-      return ephemeralPath;
+      ephemeralPath = zkClient.createEphemeralSequential(keyBuilder.getProcessorsPath() + "/", data.toString());
+      LOG.info("Created ephemeral path: {} for processor: {} in zookeeper.", ephemeralPath, data);
+      ProcessorNode processorNode = new ProcessorNode(data, ephemeralPath);
+      // Determine if there are duplicate processors with this.processorId after registration.
+      if (!isValidRegisteredProcessor(processorNode)) {
+        LOG.info("Processor: {} is duplicate. Deleting zookeeper node at path: {}.", processorId, ephemeralPath);
+        zkClient.delete(ephemeralPath);
+        throw new SamzaException(String.format("Processor: %s is duplicate in the group. Registration failed.", processorId));
+      }
     } else {
-      LOG.info("existing path for " + data +  " is " +  ephemeralPath);
-      return ephemeralPath;
+      LOG.info("Ephemeral path: {} exists for processor: {} in zookeeper.", ephemeralPath, data);
     }
+    return ephemeralPath;
+  }
+
+  /**
+   * Determines the validity of processor registered with zookeeper.
+   *
+   * If there are multiple processors registered with same processorId,
+   * the processor with lexicographically smallest zookeeperPath is considered valid
+   * and all the remaining processors are invalid.
+   *
+   * Two processors will not have smallest zookeeperPath because of sequentialId guarantees
+   * of zookeeper for ephemeral nodes.
+   *
+   * @param processor to check for validity condition in processors group.
+   * @return true if the processor is valid. false otherwise.
+   */
+  private boolean isValidRegisteredProcessor(final ProcessorNode processor) {
+    String processorId = processor.getProcessorData().getProcessorId();
+    List<ProcessorNode> processorNodes = getAllProcessorNodes().stream()
+                                                               .filter(processorNode -> processorNode.processorData.getProcessorId().equals(processorId))
+                                                               .collect(Collectors.toList());
+    // Check for duplicate processor condition(if more than one processor exist for this processorId).
+    if (processorNodes.size() > 1) {
+      // There exists more than processor for provided `processorId`.
+      LOG.debug("Processor nodes in zookeeper: {} for processorId: {}.", processorNodes, processorId);
+      // Get all ephemeral processor paths
+      TreeSet<String> sortedProcessorPaths = processorNodes.stream()
+                                                           .map(ProcessorNode::getEphemeralPath)
+                                                           .collect(Collectors.toCollection(TreeSet::new));
+      // Check if smallest path is equal to this processor's ephemeralPath.
+      return sortedProcessorPaths.first().equals(processor.getEphemeralPath());
+    }
+    // There're no duplicate processors. This is a valid registered processor.
+    return true;
+  }
+
+  /**
+   * Fetches all the ephemeral processor nodes of a standalone job from zookeeper.
+   * @return a list of {@link ProcessorNode}, where each ProcessorNode represents a registered stream processor.
+   */
+  private List<ProcessorNode> getAllProcessorNodes() {
+    List<String> processorZNodes = getSortedActiveProcessorsZnodes();
+    LOG.debug("Active ProcessorZNodes in zookeeper: {}.", processorZNodes);
+    return processorZNodes.stream()
+                          .map(processorZNode -> {
+                              String ephemeralProcessorPath = String.format("%s/%s", keyBuilder.getProcessorsPath(), processorZNode);
+                              String data = readProcessorData(ephemeralProcessorPath);
+                              return new ProcessorNode(new ProcessorData(data), ephemeralProcessorPath);
+                            }).collect(Collectors.toList());
   }
 
   /**
@@ -147,7 +222,9 @@ public class ZkUtils {
   String readProcessorData(String fullPath) {
     try {
       String data = zkClient.readData(fullPath, false);
-      metrics.reads.inc();
+      if (metrics != null) {
+        metrics.reads.inc();
+      }
       return data;
     } catch (Exception e) {
       throw new SamzaException(String.format("Cannot read ZK node: %s", fullPath), e);
@@ -171,12 +248,11 @@ public class ZkUtils {
     String processorPath = keyBuilder.getProcessorsPath();
     List<String> processorIds = new ArrayList<>(znodeIds.size());
     if (znodeIds.size() > 0) {
-
       for (String child : znodeIds) {
         String fullPath = String.format("%s/%s", processorPath, child);
         processorIds.add(new ProcessorData(readProcessorData(fullPath)).getProcessorId());
       }
-
+      Collections.sort(processorIds);
       LOG.info("Found these children - " + znodeIds);
       LOG.info("Found these processorIds - " + processorIds);
     }
@@ -190,12 +266,16 @@ public class ZkUtils {
 
   public void subscribeDataChanges(String path, IZkDataListener dataListener) {
     zkClient.subscribeDataChanges(path, dataListener);
-    metrics.subscriptions.inc();
+    if (metrics != null) {
+      metrics.subscriptions.inc();
+    }
   }
 
   public void subscribeChildChanges(String path, IZkChildListener listener) {
     zkClient.subscribeChildChanges(path, listener);
-    metrics.subscriptions.inc();
+    if (metrics != null) {
+      metrics.subscriptions.inc();
+    }
   }
 
   public void unsubscribeChildChanges(String path, IZkChildListener childListener) {
@@ -204,7 +284,9 @@ public class ZkUtils {
 
   public void writeData(String path, Object object) {
     zkClient.writeData(path, object);
-    metrics.writes.inc();
+    if (metrics != null) {
+      metrics.writes.inc();
+    }
   }
 
   public boolean exists(String path) {
@@ -216,13 +298,65 @@ public class ZkUtils {
   }
 
   /**
+   * Generation enforcing zk listener abstract class.
+   * It helps listeners, which extend it, to notAValidEvent old generation events.
+   * We cannot use 'sessionId' for this because it is not available through ZkClient (at leaste without reflection)
+   */
+  public abstract static class GenIZkChildListener implements IZkChildListener {
+    private final int generation;
+    private final ZkUtils zkUtils;
+    private final String listenerName;
+
+    public GenIZkChildListener(ZkUtils zkUtils, String listenerName) {
+      generation = zkUtils.getGeneration();
+      this.zkUtils = zkUtils;
+      this.listenerName = listenerName;
+    }
+
+    protected boolean notAValidEvent() {
+      int curGeneration = zkUtils.getGeneration();
+      if (curGeneration != generation) {
+        LOG.warn("SKIPPING handleDataChanged for " + listenerName +
+            " from wrong generation. current generation=" + curGeneration + "; callback generation= " + generation);
+        return true;
+      }
+      return false;
+    }
+  }
+
+  public abstract static class GenIZkDataListener implements IZkDataListener {
+    private final int generation;
+    private final ZkUtils zkUtils;
+    private final String listenerName;
+
+    public GenIZkDataListener(ZkUtils zkUtils, String listenerName) {
+      generation = zkUtils.getGeneration();
+      this.zkUtils = zkUtils;
+      this.listenerName = listenerName;
+    }
+
+    protected boolean notAValidEvent() {
+      int curGeneration = zkUtils.getGeneration();
+      if (curGeneration != generation) {
+        LOG.warn("SKIPPING handleDataChanged for " + listenerName +
+            " from wrong generation. curGen=" + curGeneration + "; cb gen= " + generation);
+        return true;
+      }
+      return false;
+    }
+
+  }
+
+  /**
     * subscribe for changes of JobModel version
     * @param dataListener describe this
     */
-  public void subscribeToJobModelVersionChange(IZkDataListener dataListener) {
+  public void subscribeToJobModelVersionChange(GenIZkDataListener dataListener) {
     LOG.info(" subscribing for jm version change at:" + keyBuilder.getJobModelVersionPath());
     zkClient.subscribeDataChanges(keyBuilder.getJobModelVersionPath(), dataListener);
-    metrics.subscriptions.inc();
+    if (metrics != null) {
+      metrics.subscriptions.inc();
+    }
   }
 
   /**
@@ -269,7 +403,9 @@ public class ZkUtils {
    * @return jobmodel version as a string
    */
   public String getJobModelVersion() {
-    return zkClient.<String>readData(keyBuilder.getJobModelVersionPath());
+    String jobModelVersion = zkClient.readData(keyBuilder.getJobModelVersionPath());
+    metrics.reads.inc();
+    return jobModelVersion;
   }
 
   /**
@@ -298,10 +434,9 @@ public class ZkUtils {
       LOG.error(msg, e);
       throw new SamzaException(msg, e);
     }
-    LOG.info("published new version: " + newVersion + "; expected data version = " + (dataVersion  + 1) +
-        "(actual data version after update = " + stat.getVersion() +    ")");
+    LOG.info("published new version: " + newVersion + "; expected data version = " + (dataVersion + 1) +
+        "(actual data version after update = " + stat.getVersion() + ")");
   }
-
 
   /**
    * verify that given paths exist in ZK
@@ -323,5 +458,106 @@ public class ZkUtils {
     LOG.info("subscribing for child change at:" + keyBuilder.getProcessorsPath());
     zkClient.subscribeChildChanges(keyBuilder.getProcessorsPath(), listener);
     metrics.subscriptions.inc();
+  }
+
+  /**
+   * cleanup old data from ZK
+   * @param numVersionsToLeave - number of versions to leave
+   */
+  public void cleanupZK(int numVersionsToLeave) {
+    deleteOldBarrierVersions(numVersionsToLeave);
+    deleteOldJobModels(numVersionsToLeave);
+  }
+
+  void deleteOldJobModels(int numVersionsToLeave) {
+    // read current list of JMs
+    String path = keyBuilder.getJobModelPathPrefix();
+    LOG.info("about to delete jm path=" + path);
+    List<String> znodeIds = zkClient.getChildren(path);
+    deleteOldVersionPath(path, znodeIds, numVersionsToLeave, new Comparator<String>() {
+      @Override
+      public int compare(String o1, String o2) {
+        // jm version name format is <num>
+        return Integer.valueOf(o1) - Integer.valueOf(o2);
+      }
+    });
+  }
+
+  void deleteOldBarrierVersions(int numVersionsToLeave) {
+    // read current list of barriers
+    String path = keyBuilder.getJobModelVersionBarrierPrefix();
+    LOG.info("about to delete old barrier paths from " + path);
+    List<String> znodeIds = zkClient.getChildren(path);
+    LOG.info("List of all zkNodes: " + znodeIds);
+    deleteOldVersionPath(path, znodeIds, numVersionsToLeave,  new Comparator<String>() {
+      @Override
+      public int compare(String o1, String o2) {
+        // barrier's name format is barrier_<num>
+        return ZkBarrierForVersionUpgrade.getVersion(o1) - ZkBarrierForVersionUpgrade.getVersion(o2);
+      }
+    });
+  }
+
+  void deleteOldVersionPath(String path, List<String> zNodeIds, int numVersionsToLeave, Comparator<String> c) {
+    if (StringUtils.isEmpty(path) || zNodeIds == null) {
+      LOG.warn("cannot cleanup empty path or empty list in ZK");
+      return;
+    }
+    if (zNodeIds.size() > numVersionsToLeave) {
+      Collections.sort(zNodeIds, c);
+      // get the znodes to delete
+      int size = zNodeIds.size();
+      List<String> zNodesToDelete = zNodeIds.subList(0, zNodeIds.size() - numVersionsToLeave);
+      LOG.info("Starting cleanup of barrier version zkNodes. From size=" + size + " to size " + zNodesToDelete.size() + "; numberToLeave=" + numVersionsToLeave);
+      for (String znodeId : zNodesToDelete) {
+        String pathToDelete = path + "/" + znodeId;
+        try {
+          LOG.info("deleting " + pathToDelete);
+          zkClient.deleteRecursive(pathToDelete);
+        } catch (Exception e) {
+          LOG.warn("delete of node " + pathToDelete + " failed.", e);
+        }
+      }
+    }
+  }
+  /**
+   * Represents zookeeper processor node.
+   */
+  private static class ProcessorNode {
+    private final ProcessorData processorData;
+
+    // Ex: /test/processors/0000000000
+    private final String ephemeralProcessorPath;
+
+    ProcessorNode(ProcessorData processorData, String ephemeralProcessorPath) {
+      this.processorData = processorData;
+      this.ephemeralProcessorPath = ephemeralProcessorPath;
+    }
+
+    ProcessorData getProcessorData() {
+      return processorData;
+    }
+
+    String getEphemeralPath() {
+      return ephemeralProcessorPath;
+    }
+
+    @Override
+    public String toString() {
+      return String.format("[ProcessorData: %s, ephemeralProcessorPath: %s]", processorData, ephemeralProcessorPath);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(processorData, ephemeralProcessorPath);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj == null) return false;
+      if (getClass() != obj.getClass()) return false;
+      final ProcessorNode other = (ProcessorNode) obj;
+      return Objects.equals(processorData, other.processorData) && Objects.equals(ephemeralProcessorPath, other.ephemeralProcessorPath);
+    }
   }
 }

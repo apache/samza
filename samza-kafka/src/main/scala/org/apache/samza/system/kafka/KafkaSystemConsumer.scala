@@ -202,7 +202,7 @@ private[kafka] class KafkaSystemConsumer(
           // we need to lock.
           this.synchronized {
             // Check if we still need this TopicAndPartition inside the
-            // critical section. If we don't, then skip it.
+            // critical section. If we don't, then notAValidEvent it.
             topicPartitionsAndOffsets.get(head) match {
               case Some(nextOffset) =>
                 getHostPort(topicMetadata(head.topic), head.partition) match {

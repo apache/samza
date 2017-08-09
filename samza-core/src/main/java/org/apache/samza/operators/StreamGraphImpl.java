@@ -171,13 +171,13 @@ public class StreamGraphImpl implements StreamGraph {
   /**
    * Get all {@link OperatorSpec}s available in this {@link StreamGraphImpl}
    *
-   * @return  a set of all available {@link OperatorSpec}s
+   * @return  all available {@link OperatorSpec}s
    */
   public Collection<OperatorSpec> getAllOperatorSpecs() {
     Collection<InputOperatorSpec> inputOperatorSpecs = inputOperators.values();
     Set<OperatorSpec> operatorSpecs = new HashSet<>();
-
     for (InputOperatorSpec inputOperatorSpec: inputOperatorSpecs) {
+      operatorSpecs.add(inputOperatorSpec);
       doGetOperatorSpecs(inputOperatorSpec, operatorSpecs);
     }
     return operatorSpecs;

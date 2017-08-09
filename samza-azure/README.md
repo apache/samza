@@ -17,32 +17,18 @@
  * under the License.
  */
 
-include \
-  'samza-api',
-  'samza-elasticsearch',
-  'samza-log4j',
-  'samza-rest',
-  'samza-shell',
-  'samza-azure'
+## Samza on Azure
 
-def scalaModules = [
-        'samza-core',
-        'samza-kafka',
-        'samza-kv',
-        'samza-kv-inmemory',
-        'samza-kv-rocksdb',
-        'samza-hdfs',
-        'samza-yarn',
-        'samza-test',
-        'samza-autoscaling'
-] as HashSet
+* Provides the ability to run Samza Standalone in the cloud, using Azure.
+* Removes dependency from Zookeeper
+* All coordination services written using services provided by Azure.
 
-scalaModules.each {
-  include it
-}
+Read [Samza on Azure Design Doc](https://cwiki.apache.org/confluence/display/SAMZA/SEP-7%3A+Samza+on+Azure) to learn more about the implementation details.
 
-rootProject.children.each {
-  if (scalaModules.contains(it.name)) {
-    it.name = it.name + "_" + scalaVersion
-  }
-}
+### Running Samza with Azure
+
+* Change: job.coordinator.factory = org.apache.samza.AzureJobCoordinatorFactory
+* Add Azure Storage Connection String. 
+<br /> azure.storage.connect = DefaultEndpointsProtocol=https;AccountName="Insert your account name";AccountKey="Insert your account key"
+* Add blob length in bytes => job.coordinator.azure.blob.length
+<br /> Default value = 5120000

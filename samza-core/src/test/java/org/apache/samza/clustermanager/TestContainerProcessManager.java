@@ -32,16 +32,17 @@ import org.apache.samza.testUtils.MockHttpServer;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -173,15 +174,19 @@ public class TestContainerProcessManager {
         state);
 
     getPrivateFieldFromTaskManager("containerAllocator", taskManager).set(taskManager, allocator);
-
+    CountDownLatch latch = new CountDownLatch(1);
     getPrivateFieldFromTaskManager("allocatorThread", taskManager).set(taskManager, new Thread() {
       public void run() {
         isRunning = true;
+        latch.countDown();
       }
     });
 
     taskManager.start();
-    Thread.sleep(1000);
+
+    if (!latch.await(2, TimeUnit.SECONDS)) {
+      Assert.fail("timed out waiting for the latch to expire");
+    }
 
     // Verify Allocator thread has started running
     assertTrue(isRunning);
@@ -206,40 +211,56 @@ public class TestContainerProcessManager {
     );
     taskManager.start();
 
-    Thread.sleep(100);
-
     Thread allocatorThread = (Thread) getPrivateFieldFromTaskManager("allocatorThread", taskManager).get(taskManager);
     assertTrue(allocatorThread.isAlive());
 
     taskManager.stop();
 
-    Thread.sleep(100);
     assertFalse(allocatorThread.isAlive());
-
   }
 
   /**
    * Test Task Manager should stop when all containers finish
    */
   @Test
-  public void testTaskManagerShouldStopWhenContainersFinish() {
+  public void testTaskManagerShouldStopWhenContainersFinish() throws Exception {
     Config conf = getConfig();
     state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
 
-    ContainerProcessManager taskManager =  new ContainerProcessManager(
-        new MapConfig(conf),
-        state,
-        new MetricsRegistryMap(),
-        manager
+    ContainerProcessManager taskManager = new ContainerProcessManager(
+            new MapConfig(conf),
+            state,
+            new MetricsRegistryMap(),
+            manager
     );
 
+    MockContainerAllocator allocator = new MockContainerAllocator(
+            manager,
+            conf,
+            state);
+
+    getPrivateFieldFromTaskManager("containerAllocator", taskManager).set(taskManager, allocator);
+
+    Thread thread = new Thread(allocator);
+    getPrivateFieldFromTaskManager("allocatorThread", taskManager).set(taskManager, thread);
+
+    // start triggers a request
     taskManager.start();
 
     assertFalse(taskManager.shouldShutdown());
+    assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
 
-    taskManager.onResourceCompleted(new SamzaResourceStatus("123", "diagnostics", SamzaResourceStatus.SUCCESS));
+    SamzaResource container = new SamzaResource(1, 1024, "abc", "id0");
+    taskManager.onResourceAllocated(container);
 
+    // Allow container to run and update state
 
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+    assertFalse(taskManager.shouldShutdown());
+
+    taskManager.onResourceCompleted(new SamzaResourceStatus("id0", "diagnostics", SamzaResourceStatus.SUCCESS));
     assertTrue(taskManager.shouldShutdown());
   }
 
@@ -281,7 +302,9 @@ public class TestContainerProcessManager {
     taskManager.onResourceAllocated(container);
 
     // Allow container to run and update state
-    Thread.sleep(300);
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
 
     // Create first container failure
     taskManager.onResourceCompleted(new SamzaResourceStatus(container.getResourceID(), "diagnostics", 1));
@@ -299,7 +322,9 @@ public class TestContainerProcessManager {
     taskManager.onResourceAllocated(container);
 
     // Allow container to run and update state
-    Thread.sleep(1000);
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
 
     assertTrue(state.jobHealthy.get());
 
@@ -318,6 +343,117 @@ public class TestContainerProcessManager {
     taskManager.stop();
   }
 
+  @Test
+  public void testInvalidNotificationsAreIgnored() throws Exception {
+    Config conf = getConfig();
+
+    Map<String, String> config = new HashMap<>();
+    config.putAll(getConfig());
+    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+
+    ContainerProcessManager taskManager = new ContainerProcessManager(
+            new MapConfig(conf),
+            state,
+            new MetricsRegistryMap(),
+            manager
+    );
+
+    MockContainerAllocator allocator = new MockContainerAllocator(
+            manager,
+            conf,
+            state);
+    getPrivateFieldFromTaskManager("containerAllocator", taskManager).set(taskManager, allocator);
+
+    Thread thread = new Thread(allocator);
+    getPrivateFieldFromTaskManager("allocatorThread", taskManager).set(taskManager, thread);
+
+    // Start the task manager
+    taskManager.start();
+
+    SamzaResource container = new SamzaResource(1, 1000, "abc", "id1");
+    taskManager.onResourceAllocated(container);
+
+    // Allow container to run and update state
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+
+    // Create container failure - with ContainerExitStatus.DISKS_FAILED
+    taskManager.onResourceCompleted(new SamzaResourceStatus("invalidContainerID", "Disk failure", SamzaResourceStatus.DISK_FAIL));
+
+    // The above failure should not trigger any container requests, since it is for an invalid container ID
+    assertEquals(0, allocator.getContainerRequestState().numPendingRequests());
+    assertFalse(taskManager.shouldShutdown());
+    assertTrue(state.jobHealthy.get());
+    assertEquals(state.redundantNotifications.get(), 1);
+  }
+
+  @Test
+  public void testDuplicateNotificationsDoNotAffectJobHealth() throws Exception {
+    Config conf = getConfig();
+
+    Map<String, String> config = new HashMap<>();
+    config.putAll(getConfig());
+    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+
+    ContainerProcessManager taskManager = new ContainerProcessManager(
+            new MapConfig(conf),
+            state,
+            new MetricsRegistryMap(),
+            manager
+    );
+
+    MockContainerAllocator allocator = new MockContainerAllocator(
+            manager,
+            conf,
+            state);
+    getPrivateFieldFromTaskManager("containerAllocator", taskManager).set(taskManager, allocator);
+
+    Thread thread = new Thread(allocator);
+    getPrivateFieldFromTaskManager("allocatorThread", taskManager).set(taskManager, thread);
+
+    // Start the task manager
+    taskManager.start();
+    assertFalse(taskManager.shouldShutdown());
+    assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
+
+    SamzaResource container1 = new SamzaResource(1, 1000, "abc", "id1");
+    taskManager.onResourceAllocated(container1);
+
+    // Allow container to run and update state
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+    assertEquals(0, allocator.getContainerRequestState().numPendingRequests());
+
+    // Create container failure - with ContainerExitStatus.DISKS_FAILED
+    taskManager.onResourceCompleted(new SamzaResourceStatus(container1.getResourceID(), "Disk failure", SamzaResourceStatus.DISK_FAIL));
+
+    // The above failure should trigger a container request
+    assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
+    assertFalse(taskManager.shouldShutdown());
+    assertFalse(state.jobHealthy.get());
+    assertEquals(2, manager.resourceRequests.size());
+    assertEquals(0, manager.releasedResources.size());
+    assertEquals(ResourceRequestState.ANY_HOST, allocator.getContainerRequestState().peekPendingRequest().getPreferredHost());
+
+    SamzaResource container2 = new SamzaResource(1, 1000, "abc", "id2");
+    taskManager.onResourceAllocated(container2);
+
+    // Allow container to run and update state
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+    assertTrue(state.jobHealthy.get());
+
+    // Simulate a duplicate notification for container 1 with a different exit code
+    taskManager.onResourceCompleted(new SamzaResourceStatus(container1.getResourceID(), "Disk failure", SamzaResourceStatus.PREEMPTED));
+    // assert that a duplicate notification does not change metrics (including job health)
+    assertEquals(state.redundantNotifications.get(), 1);
+    assertEquals(2, manager.resourceRequests.size());
+    assertEquals(0, manager.releasedResources.size());
+    assertTrue(state.jobHealthy.get());
+  }
 
   /**
    * Test AM requests a new container when a task fails
@@ -329,8 +465,6 @@ public class TestContainerProcessManager {
 
     Map<String, String> config = new HashMap<>();
     config.putAll(getConfig());
-    config.remove("yarn.container.retry.count");
-
     state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
 
     ContainerProcessManager taskManager = new ContainerProcessManager(
@@ -354,14 +488,17 @@ public class TestContainerProcessManager {
     assertFalse(taskManager.shouldShutdown());
     assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
 
-    SamzaResource container = new SamzaResource(1, 1000, "abc", "id1");
-    taskManager.onResourceAllocated(container);
+    SamzaResource container1 = new SamzaResource(1, 1000, "abc", "id1");
+    taskManager.onResourceAllocated(container1);
 
     // Allow container to run and update state
-    Thread.sleep(300);
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+    assertEquals(0, allocator.getContainerRequestState().numPendingRequests());
 
     // Create container failure - with ContainerExitStatus.DISKS_FAILED
-    taskManager.onResourceCompleted(new SamzaResourceStatus(container.getResourceID(), "Disk failure", SamzaResourceStatus.DISK_FAIL));
+    taskManager.onResourceCompleted(new SamzaResourceStatus(container1.getResourceID(), "Disk failure", SamzaResourceStatus.DISK_FAIL));
 
     // The above failure should trigger a container request
     assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
@@ -371,21 +508,37 @@ public class TestContainerProcessManager {
     assertEquals(0, manager.releasedResources.size());
     assertEquals(ResourceRequestState.ANY_HOST, allocator.getContainerRequestState().peekPendingRequest().getPreferredHost());
 
+    SamzaResource container2 = new SamzaResource(1, 1000, "abc", "id2");
+    taskManager.onResourceAllocated(container2);
+
+    // Allow container to run and update state
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+
     // Create container failure - with ContainerExitStatus.PREEMPTED
-    taskManager.onResourceCompleted(new SamzaResourceStatus(container.getResourceID(), "Preemption",  SamzaResourceStatus.PREEMPTED));
+    taskManager.onResourceCompleted(new SamzaResourceStatus(container2.getResourceID(), "Preemption",  SamzaResourceStatus.PREEMPTED));
+    assertEquals(3, manager.resourceRequests.size());
 
     // The above failure should trigger a container request
     assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
     assertFalse(taskManager.shouldShutdown());
     assertFalse(state.jobHealthy.get());
     assertEquals(ResourceRequestState.ANY_HOST, allocator.getContainerRequestState().peekPendingRequest().getPreferredHost());
+    SamzaResource container3 = new SamzaResource(1, 1000, "abc", "id3");
+    taskManager.onResourceAllocated(container3);
+
+    // Allow container to run and update state
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
 
     // Create container failure - with ContainerExitStatus.ABORTED
-    taskManager.onResourceCompleted(new SamzaResourceStatus(container.getResourceID(), "Aborted", SamzaResourceStatus.ABORTED));
+    taskManager.onResourceCompleted(new SamzaResourceStatus(container3.getResourceID(), "Aborted", SamzaResourceStatus.ABORTED));
 
     // The above failure should trigger a container request
     assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
-    assertEquals(2, manager.resourceRequests.size());
+    assertEquals(4, manager.resourceRequests.size());
     assertEquals(0, manager.releasedResources.size());
     assertFalse(taskManager.shouldShutdown());
     assertFalse(state.jobHealthy.get());

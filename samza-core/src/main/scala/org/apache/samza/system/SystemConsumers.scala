@@ -80,7 +80,7 @@ class SystemConsumers (
 
   /**
    * This parameter is to define how to deal with deserialization failure. If
-   * set to true, the task will skip the messages when deserialization fails.
+   * set to true, the task will notAValidEvent the messages when deserialization fails.
    * If set to false, the task will throw SamzaException and fail the container.
    */
   dropDeserializationError: Boolean = SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,

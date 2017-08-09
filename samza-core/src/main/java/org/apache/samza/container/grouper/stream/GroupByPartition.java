@@ -56,7 +56,7 @@ public class GroupByPartition implements SystemStreamPartitionGrouper {
     Map<TaskName, Set<SystemStreamPartition>> groupedMap = new HashMap<TaskName, Set<SystemStreamPartition>>();
 
     for (SystemStreamPartition ssp : ssps) {
-      // skip the broadcast streams if there is any
+      // notAValidEvent the broadcast streams if there is any
       if (broadcastStreams.contains(ssp)) {
         continue;
       }

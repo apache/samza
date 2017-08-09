@@ -257,13 +257,13 @@ public abstract class OperatorImpl<M, RM> {
   protected abstract OperatorSpec<M, RM> getOperatorSpec();
 
   /**
-   * Get the name for this {@link OperatorImpl}.
+   * Get the unique name for this {@link OperatorImpl} in the DAG.
    *
    * Some {@link OperatorImpl}s don't have a 1:1 mapping with their {@link OperatorSpec}. E.g., there are
    * 2 PartialJoinOperatorImpls for a JoinOperatorSpec. Overriding this method allows them to provide an
    * implementation specific name, e.g., for use in metrics.
    *
-   * @return the operator name
+   * @return the unique name for this {@link OperatorImpl} in the DAG
    */
   protected String getOperatorName() {
     return getOperatorSpec().getOpName();
