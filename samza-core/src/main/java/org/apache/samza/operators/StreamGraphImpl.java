@@ -55,7 +55,7 @@ public class StreamGraphImpl implements StreamGraph {
   private final Map<StreamSpec, OutputStreamImpl> outputStreams = new LinkedHashMap<>();
   private final Config config;
 
-  private IOSystem defaultIntermediateSystem = null;
+  private IOSystem defaultSystem = null;
   private ContextManager contextManager = null;
 
   public StreamGraphImpl(Config config) {
@@ -97,8 +97,8 @@ public class StreamGraphImpl implements StreamGraph {
   }
 
   @Override
-  public void setDefaultIntermediateSystem(IOSystem defaultSystem) {
-    this.defaultIntermediateSystem = defaultSystem;
+  public void setDefaultSystem(IOSystem defaultSystem) {
+    this.defaultSystem = defaultSystem;
   }
 
   /**
@@ -125,10 +125,10 @@ public class StreamGraphImpl implements StreamGraph {
         streamName);
 
     StreamDescriptor.Input<K, V> inStrm = StreamDescriptor.<K, V>input(streamId)
-        .from(this.defaultIntermediateSystem);
+        .from(this.defaultSystem);
 
     StreamDescriptor.Output<K, V> outStrm = StreamDescriptor.<K, V>output(streamId)
-        .from(this.defaultIntermediateSystem);
+        .from(this.defaultSystem);
 
     StreamSpec streamSpec = inStrm.getStreamSpec();
     if (inputOperators.containsKey(streamSpec) || outputStreams.containsKey(streamSpec)) {
@@ -159,13 +159,13 @@ public class StreamGraphImpl implements StreamGraph {
   /**
    * Get all {@link OperatorSpec}s available in this {@link StreamGraphImpl}
    *
-   * @return  a set of all available {@link OperatorSpec}s
+   * @return  all available {@link OperatorSpec}s
    */
   public Collection<OperatorSpec> getAllOperatorSpecs() {
     Collection<InputOperatorSpec> inputOperatorSpecs = inputOperators.values();
     Set<OperatorSpec> operatorSpecs = new HashSet<>();
-
     for (InputOperatorSpec inputOperatorSpec: inputOperatorSpecs) {
+      operatorSpecs.add(inputOperatorSpec);
       doGetOperatorSpecs(inputOperatorSpec, operatorSpecs);
     }
     return operatorSpecs;
@@ -210,8 +210,6 @@ public class StreamGraphImpl implements StreamGraph {
 
     return null;
   }
-
-
 
   public IOGraph toIOGraph() {
     return IOGraph.buildIOGraph(this);

@@ -71,7 +71,7 @@ public class TestJoinOperator {
   }
 
   @Test
-  public void testJoinFnInitAndClose() throws Exception {
+  public void joinFnInitAndClose() throws Exception {
     TestJoinFunction joinFn = new TestJoinFunction();
     StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), new TestJoinStreamApplication(joinFn));
     assertEquals(1, joinFn.getNumInitCalls());

@@ -23,8 +23,7 @@ import org.apache.samza.config.Config
 import java.nio.ByteBuffer
 
 /**
- * A serializer for bytes that is effectively a no-op but can be useful for
- * binary messages.
+ * A serializer for ByteBuffers.
  */
 class ByteBufferSerdeFactory extends SerdeFactory[ByteBuffer] {
   def getSerde(name: String, config: Config): Serde[ByteBuffer] = new ByteBufferSerde
@@ -34,7 +33,7 @@ class ByteBufferSerde extends Serde[ByteBuffer] {
   def toBytes(byteBuffer: ByteBuffer) = {
     if (byteBuffer != null) {
       val bytes = new Array[Byte](byteBuffer.remaining())
-      byteBuffer.get(bytes)
+      byteBuffer.duplicate().get(bytes)
       bytes
     } else {
       null

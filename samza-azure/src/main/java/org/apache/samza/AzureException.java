@@ -17,32 +17,27 @@
  * under the License.
  */
 
-include \
-  'samza-api',
-  'samza-elasticsearch',
-  'samza-log4j',
-  'samza-rest',
-  'samza-shell',
-  'samza-azure'
+package org.apache.samza;
 
-def scalaModules = [
-        'samza-core',
-        'samza-kafka',
-        'samza-kv',
-        'samza-kv-inmemory',
-        'samza-kv-rocksdb',
-        'samza-hdfs',
-        'samza-yarn',
-        'samza-test',
-        'samza-autoscaling'
-] as HashSet
+/**
+ * Unchecked exception that Azure throws when something goes wrong .
+ */
+public class AzureException extends RuntimeException {
 
-scalaModules.each {
-  include it
-}
-
-rootProject.children.each {
-  if (scalaModules.contains(it.name)) {
-    it.name = it.name + "_" + scalaVersion
+  public AzureException() {
+    super();
   }
+
+  public AzureException(String s, Throwable t) {
+    super(s, t);
+  }
+
+  public AzureException(String s) {
+    super(s);
+  }
+
+  public AzureException(Throwable t) {
+    super(t);
+  }
+
 }

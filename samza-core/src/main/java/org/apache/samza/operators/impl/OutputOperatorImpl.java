@@ -20,8 +20,6 @@ package org.apache.samza.operators.impl;
 
 import java.util.Collection;
 import java.util.Collections;
-
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.config.Config;
 import org.apache.samza.control.Watermark;
 import org.apache.samza.operators.spec.OperatorSpec;

@@ -25,7 +25,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import org.I0Itec.zkclient.IZkStateListener;
-import org.I0Itec.zkclient.ZkClient;
 import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.ApplicationConfig;
@@ -60,6 +59,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   // TODO: MetadataCache timeout has to be 0 for the leader so that it can always have the latest information associated
   // with locality. Since host-affinity is not yet implemented, this can be fixed as part of SAMZA-1197
   private static final int METADATA_CACHE_TTL_MS = 5000;
+  private static final int NUM_VERSIONS_TO_LEAVE = 10;
 
   private final ZkUtils zkUtils;
   private final String processorId;
@@ -76,43 +76,35 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private JobModel newJobModel;
   private int debounceTimeMs;
 
-  public ZkJobCoordinator(Config config, MetricsRegistry metricsRegistry) {
+  ZkJobCoordinator(Config config, MetricsRegistry metricsRegistry, ZkUtils zkUtils) {
     this.config = config;
-    ZkConfig zkConfig = new ZkConfig(config);
-    ZkKeyBuilder keyBuilder = new ZkKeyBuilder(new ApplicationConfig(config).getGlobalAppId());
-    ZkClient zkClient = ZkCoordinationServiceFactory
-        .createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
-
-    // setup a listener for a session state change
-    // we are mostly interested in "session closed" and "new session created" events
-    zkClient.subscribeStateChanges(new ZkSessionStateChangedListener());
 
     this.metrics = new ZkJobCoordinatorMetrics(metricsRegistry);
-    this.zkUtils = new ZkUtils(
-        keyBuilder,
-        zkClient,
-        zkConfig.getZkConnectionTimeoutMs(), metricsRegistry);
 
     this.processorId = createProcessorId(config);
+    this.zkUtils = zkUtils;
+    // setup a listener for a session state change
+    // we are mostly interested in "session closed" and "new session created" events
+    zkUtils.getZkClient().subscribeStateChanges(new ZkSessionStateChangedListener());
     LeaderElector leaderElector = new ZkLeaderElector(processorId, zkUtils);
     leaderElector.setLeaderElectorListener(new LeaderElectorListenerImpl());
     this.zkController = new ZkControllerImpl(processorId, zkUtils, this, leaderElector);
-    this.barrier = new ZkBarrierForVersionUpgrade(keyBuilder.getJobModelVersionBarrierPrefix(), zkUtils,
+    this.barrier =  new ZkBarrierForVersionUpgrade(
+        zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix(),
+        zkUtils,
         new ZkBarrierListenerImpl());
     this.debounceTimeMs = new JobConfig(config).getDebounceTimeMs();
     this.reporters = MetricsReporterLoader.getMetricsReporters(new MetricsConfig(config), processorId);
+    debounceTimer = new ScheduleAfterDebounceTime(throwable -> {
+        LOG.error("Received exception from in JobCoordinator Processing!", throwable);
+        stop();
+      });
   }
 
   @Override
   public void start() {
     startMetrics();
     streamMetadataCache = StreamMetadataCache.apply(METADATA_CACHE_TTL_MS, config);
-
-    debounceTimer = new ScheduleAfterDebounceTime(throwable ->
-      {
-        LOG.error("Received exception from in JobCoordinator Processing!", throwable);
-        stop();
-      });
 
     zkController.register();
   }
@@ -202,6 +194,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     zkUtils.publishJobModelVersion(currentJMVersion, nextJMVersion);
 
     LOG.info("pid=" + processorId + "Published new Job Model. Version = " + nextJMVersion);
+
+    debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_ZK_CLEANUP, 0, () -> zkUtils.cleanupZK(NUM_VERSIONS_TO_LEAVE));
   }
 
   @Override
@@ -209,18 +203,21 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.JOB_MODEL_VERSION_CHANGE, 0, () ->
       {
         LOG.info("pid=" + processorId + "new JobModel available");
-
-        // stop current work
-        if (coordinatorListener != null) {
-          coordinatorListener.onJobModelExpired();
-        }
         // get the new job model from ZK
         newJobModel = zkUtils.getJobModel(version);
-
         LOG.info("pid=" + processorId + ": new JobModel available. ver=" + version + "; jm = " + newJobModel);
 
-        // update ZK and wait for all the processors to get this new version
-        barrier.join(version, processorId);
+        if (!newJobModel.getContainers().containsKey(processorId)) {
+          LOG.info("JobModel: {} does not contain the processorId: {}. Stopping the processor.", newJobModel, processorId);
+          stop();
+        } else {
+          // stop current work
+          if (coordinatorListener != null) {
+            coordinatorListener.onJobModelExpired();
+          }
+          // update ZK and wait for all the processors to get this new version
+          barrier.join(version, processorId);
+        }
       });
   }
 
@@ -310,11 +307,17 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         debounceTimer.scheduleAfterDebounceTime(barrierAction, 0, () -> onNewJobModelConfirmed(version));
       } else {
         if (ZkBarrierForVersionUpgrade.State.TIMED_OUT.equals(state)) {
-          // no-op
-          // In our consensus model, if the Barrier is timed-out, then it means that one or more initial
-          // participants failed to join. That means, they should have de-registered from "processors" list
-          // and that would have triggered onProcessorChange action -> a new round of consensus.
-          LOG.info("Barrier for version " + version + " timed out.");
+          // no-op for non-leaders
+          // for leader: make sure we do not stop - so generate a new job model
+          LOG.warn("Barrier for version " + version + " timed out.");
+          if (zkController.isLeader()) {
+            LOG.info("Leader will schedule a new job model generation");
+            debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE, debounceTimeMs, () ->
+              {
+                // actual actions to do are the same as onProcessorChange
+                doOnProcessorChange(new ArrayList<>());
+              });
+          }
         }
       }
     }
@@ -329,6 +332,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   /// listener to handle session expiration
   class ZkSessionStateChangedListener implements IZkStateListener {
+
+    private static final String ZK_SESSION_ERROR = "ZK_SESSION_ERROR";
 
     @Override
     public void handleStateChanged(Watcher.Event.KeeperState state)
@@ -364,7 +369,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         throws Exception {
       // this means we cannot connect to zookeeper
       LOG.info("handleSessionEstablishmentError received for processor=" + processorId, error);
-      stop();
+      debounceTimer.scheduleAfterDebounceTime(ZK_SESSION_ERROR, 0, () -> stop());
     }
   }
 

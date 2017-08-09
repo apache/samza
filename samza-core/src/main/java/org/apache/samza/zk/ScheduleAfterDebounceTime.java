@@ -48,6 +48,14 @@ public class ScheduleAfterDebounceTime {
   // Action name when the Processor membership changes
   public static final String ON_PROCESSOR_CHANGE = "OnProcessorChange";
 
+  /**
+   *
+   * cleanup process is started after every new job model generation is complete.
+   * It deletes old versions of job model and the barrier.
+   * How many to delete (or to leave) is controlled by @see org.apache.samza.zk.ZkJobCoordinator#NUM_VERSIONS_TO_LEAVE.
+   **/
+  public static final String ON_ZK_CLEANUP = "OnCleanUp";
+
   private final ScheduledTaskFailureCallback scheduledTaskFailureCallback;
 
   private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
