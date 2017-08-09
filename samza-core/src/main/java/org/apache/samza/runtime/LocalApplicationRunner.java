@@ -60,7 +60,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   private static final Logger LOG = LoggerFactory.getLogger(LocalApplicationRunner.class);
   // Latch id that's used for awaiting the init of application before creating the StreamProcessors
   private static final String INIT_LATCH_ID = "init";
-  private static final String APPLICATION_RUNNER_ZK_PATH_SUFFIX = "/" + "ApplicationRunnerData";
+  private static final String APPLICATION_RUNNER_ZK_PATH_SUFFIX = "/ApplicationRunnerData";
   // Latch timeout is set to 10 min
   private static final long LATCH_TIMEOUT_MINUTES = 10;
 
@@ -236,9 +236,9 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
           Latch initLatch = coordinationUtils.getLatch(1, INIT_LATCH_ID);
           LeaderElector leaderElector = coordinationUtils.getLeaderElector();
           leaderElector.setLeaderElectorListener(() -> {
-            getStreamManager().createStreams(intStreams);
-            initLatch.countDown();
-          });
+              getStreamManager().createStreams(intStreams);
+              initLatch.countDown();
+            });
           leaderElector.tryBecomeLeader();
           initLatch.await(LATCH_TIMEOUT_MINUTES, TimeUnit.MINUTES);
         } finally {
