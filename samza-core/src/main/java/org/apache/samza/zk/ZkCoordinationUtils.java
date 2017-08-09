@@ -23,6 +23,7 @@ import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.coordinator.LeaderElector;
+import org.apache.samza.coordinator.Lock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,6 +59,11 @@ public class ZkCoordinationUtils implements CoordinationUtils {
   @Override
   public Latch getLatch(int size, String latchId) {
     return new ZkProcessorLatch(size, latchId, processorIdStr, zkUtils);
+  }
+
+  @Override
+  public Lock getLock() {
+    return new ZkLock(processorIdStr, zkUtils);
   }
 
   // TODO - SAMZA-1128 CoordinationService should directly depend on ZkUtils and DebounceTimer

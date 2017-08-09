@@ -38,6 +38,8 @@ import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.coordinator.LeaderElector;
+import org.apache.samza.coordinator.Lock;
+import org.apache.samza.coordinator.LockListener;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.processor.StreamProcessor;
@@ -162,7 +164,8 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       writePlanJsonFile(plan.getPlanAsJson());
 
       // 2. create the necessary streams
-      createStreams(plan.getIntermediateStreams());
+//      createStreams(plan.getIntermediateStreams());
+      createStreamsWithLock(plan.getIntermediateStreams());
 
       // 3. create the StreamProcessors
       if (plan.getJobConfigs().isEmpty()) {
@@ -249,6 +252,44 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     }
   }
 
+
+  private void createStream(List<StreamSpec> intStreams) throws Exception {
+    boolean streamsExist = getStreamManager().checkIfStreamsExist(intStreams);
+    if (!streamsExist) {
+      getStreamManager().createStreams(intStreams);
+    }
+  }
+
+  /**
+   * Create intermediate streams using {@link org.apache.samza.execution.StreamManager}.
+   * If {@link CoordinationUtils} is provided, this function will first acquire a lock, and then create the streams.
+   * All the runner processes will wait till the time they acquire the lock. On acquiring lock, they will check if the streams have already been created.
+   * If streams exist already, they will unlock and proceed normally. If streams don't exist, they create the streams and then unlock.
+   * @param intStreams list of intermediate {@link StreamSpec}s
+   * @throws Exception exception for latch timeout
+   */
+  private void createStreamsWithLock(List<StreamSpec> intStreams) throws Exception {
+    if (!intStreams.isEmpty()) {
+      if (coordinationUtils != null) {
+        Lock initLock = coordinationUtils.getLock();
+        LockListener lockListener = null;
+        if (coordinationUtils.getClass().getName().equals("org.apache.samza.zk.ZkCoordinationUtils")) {
+          lockListener = createZkLockListener(intStreams, initLock);
+        }
+        initLock.setLockListener(lockListener);
+        boolean hasLock = false;
+        while (!hasLock) {
+          initLock.lock();
+          hasLock = initLock.hasLock();
+        }
+      } else {
+        // each application process will try creating the streams, which
+        // requires stream creation to be idempotent
+        getStreamManager().createStreams(intStreams);
+      }
+    }
+  }
+
   /**
    * Create {@link StreamProcessor} based on {@link StreamApplication} and the config
    * @param config config
@@ -272,4 +313,28 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
           taskFactory.getClass().getCanonicalName()));
     }
   }
+
+  private LockListener createZkLockListener(List<StreamSpec> intStreams, Lock initLock) {
+    return new LockListener() {
+      /**
+       * When the lock is acquired, create the intermediate streams.
+       */
+      @Override
+      public void onAcquiringLock() {
+        try {
+          createStreams(intStreams);
+          LOG.info("Created intermediate streams successfully!");
+        } catch (Exception e) {
+          onError();
+        }
+        initLock.unlock();
+      }
+
+      @Override
+      public void onError() {
+        LOG.info("Error while creating streams! Trying again.");
+      }
+    };
+  }
+
 }

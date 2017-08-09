@@ -29,20 +29,23 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * Lock primitive for Zookeeper.
+ */
 public class ZkLock implements Lock {
 
-  public static final Logger LOG = LoggerFactory.getLogger(ZkLeaderElector.class);
+  public static final Logger LOG = LoggerFactory.getLogger(ZkLock.class);
+  private final static String LOCK_PATH = "lock";
   private final ZkUtils zkUtils;
   private final String lockPath;
   private final String participantId;
-  private String currentSubscription = null;
   private final ZkKeyBuilder keyBuilder;
   private final IZkDataListener previousProcessorChangeListener;
   private final Random random = new Random();
+  private String currentSubscription = null;
   private String nodePath = null;
   private LockListener zkLockListener = null;
   private AtomicBoolean hasLock;
-  private final static String LOCK_PATH = "lock";
 
   public ZkLock(String participantId, ZkUtils zkUtils) {
     this.zkUtils = zkUtils;
@@ -55,14 +58,17 @@ public class ZkLock implements Lock {
   }
 
   /**
-   * Create a sequential ephemeral node to acquire the lock. If the path of this node has the lowest sequence number, the processor has acquired the lock.
+   * Create a sequential ephemeral node to acquire the lock.
+   * If the path of this node has the lowest sequence number, the processor has acquired the lock.
    */
   @Override
   public void lock() {
     try {
       nodePath = zkUtils.getZkClient().createEphemeralSequential(lockPath + "/", participantId);
     } catch (Exception e) {
-      zkLockListener.onError();
+      if (zkLockListener != null) {
+        zkLockListener.onError();
+      }
     }
     List<String> children = zkUtils.getZkClient().getChildren(lockPath);
     int index = children.indexOf(ZkKeyBuilder.parseIdFromPath(nodePath));
@@ -72,9 +78,12 @@ public class ZkLock implements Lock {
     }
 
     if (index == 0) {
+      LOG.info("Acquired lock for participant id: {}", participantId);
       hasLock.set(true);
       if (zkLockListener != null) {
         zkLockListener.onAcquiringLock();
+      } else {
+        throw new SamzaException("LockListener unassigned.");
       }
     } else {
       String predecessor = children.get(index - 1);
@@ -109,13 +118,13 @@ public class ZkLock implements Lock {
 
 
   /**
-   * Delete the node created to acquire the lock
+   * Delete the ephemeral sequential node created to acquire the lock.
    */
   @Override
   public void unlock() {
     if (nodePath != null) {
       Boolean status = false;
-      while (!status && nodePath != null) {
+      while (!status) {
         status = zkUtils.getZkClient().delete(nodePath);
       }
       hasLock.set(false);
