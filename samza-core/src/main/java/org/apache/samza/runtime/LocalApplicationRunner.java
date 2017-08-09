@@ -279,8 +279,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
         initLock.setLockListener(lockListener);
         boolean hasLock = false;
         while (!hasLock) {
-          initLock.lock();
-          hasLock = initLock.hasLock();
+          hasLock = initLock.lock();
         }
       } else {
         // each application process will try creating the streams, which
@@ -322,7 +321,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       @Override
       public void onAcquiringLock() {
         try {
-          createStreams(intStreams);
+          createStream(intStreams);
           LOG.info("Created intermediate streams successfully!");
         } catch (Exception e) {
           onError();

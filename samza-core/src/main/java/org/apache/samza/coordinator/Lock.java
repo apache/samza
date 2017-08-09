@@ -24,7 +24,7 @@ public interface Lock {
   /**
    * Acquires the lock
    */
-  void lock();
+  boolean lock();
 
   /**
    * Releases the lock
