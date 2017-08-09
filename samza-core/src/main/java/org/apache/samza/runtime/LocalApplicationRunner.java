@@ -311,7 +311,6 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
    */
   private boolean shouldContestInElectionForStreamCreation(Latch streamCreationLatch) {
     boolean eligibleForElection = true;
-
     try {
       streamCreationLatch.await(LEADER_ELECTION_WAIT_TIME_MS, TimeUnit.MILLISECONDS);
       // case we didn't time out suggesting that latch already exists
