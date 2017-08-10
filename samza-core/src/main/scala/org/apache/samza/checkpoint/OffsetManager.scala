@@ -20,7 +20,8 @@
 package org.apache.samza.checkpoint
 
 
-import java.util
+
+import java.util.HashMap
 import java.util.concurrent.ConcurrentHashMap
 
 import org.apache.samza.SamzaException
@@ -224,22 +225,20 @@ class OffsetManager(
     if (checkpointManager != null || checkpointListeners.nonEmpty) {
       debug("Getting checkpoint offsets for taskName %s." format taskName)
 
-      // Which ssps are assigned to this task?
-      val sspsForTaskName = systemStreamPartitions.getOrElse(taskName, throw new SamzaException("No such SystemStreamPartition set " + taskName + " registered for this checkpointmanager")).toSet
-      // What are all the latests offsets for this task?
+      val sspsForTaskName = systemStreamPartitions.getOrElse(taskName, throw new SamzaException("No SSPs registered for task: " + taskName)).toSet
       val sspToOffsets = lastProcessedOffsets.get(taskName)
 
-      // For some reason, refilter the offsets for to get the ones for this task?!?!
       val partitionOffsets = if (sspToOffsets != null) {
+        // Filter the offsets in case the task model changed since the last checkpoint was written.
         sspToOffsets.asScala.filterKeys(sspsForTaskName.contains)
       } else {
         warn(taskName + " is not found... ")
         Map[SystemStreamPartition, String]()
       }
 
-      new Checkpoint(new util.HashMap(partitionOffsets.asJava)) // Copy into new Map to prevent mutation
+      new Checkpoint(new HashMap(partitionOffsets.asJava)) // Copy into new Map to prevent mutation
     } else {
-      debug("Skipping checkpointing for taskName %s because no checkpoint manager/callback is defined." format taskName)
+      debug("Returning null checkpoint for taskName %s because no checkpoint manager/callback is defined." format taskName)
       null
     }
   }
@@ -249,7 +248,7 @@ class OffsetManager(
     */
   def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint) {
     if (checkpoint != null && (checkpointManager != null || checkpointListeners.nonEmpty)) {
-      debug("Writing checkpoint offsets for taskName %s." format taskName)
+      debug("Writing checkpoint for taskName %s with offsets %s." format (taskName, checkpoint))
 
       if(checkpointManager != null) {
         checkpointManager.writeCheckpoint(taskName, checkpoint)
@@ -262,7 +261,6 @@ class OffsetManager(
       }
 
       // invoke checkpoint listeners
-      //partitionOffsets.groupBy(_._1.getSystem).foreach {
       checkpoint.getOffsets.asScala.groupBy { case (ssp, _) => ssp.getSystem }.foreach {
         case (systemName:String, offsets: Map[SystemStreamPartition, String]) => {
           // Option is empty if there is no checkpointListener for this systemName
