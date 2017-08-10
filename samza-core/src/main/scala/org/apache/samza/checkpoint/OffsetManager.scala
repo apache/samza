@@ -221,7 +221,7 @@ class OffsetManager(
     * ensure there are no concurrent updates to the offsets between when this method is
     * invoked and the corresponding call to [[OffsetManager.writeCheckpoint()]]
     */
-  def createCheckpoint(taskName: TaskName): Checkpoint = {
+  def buildCheckpoint(taskName: TaskName): Checkpoint = {
     if (checkpointManager != null || checkpointListeners.nonEmpty) {
       debug("Getting checkpoint offsets for taskName %s." format taskName)
 

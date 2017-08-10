@@ -367,9 +367,9 @@ public class TestAsyncRunLoop {
     task0ProcessedMessagesLatch.await();
     task1ProcessedMessagesLatch.await();
 
-    verify(offsetManager).createCheckpoint(taskName0);
+    verify(offsetManager).buildCheckpoint(taskName0);
     verify(offsetManager).writeCheckpoint(taskName0, any());
-    verify(offsetManager, never()).createCheckpoint(taskName1);
+    verify(offsetManager, never()).buildCheckpoint(taskName1);
     verify(offsetManager, never()).writeCheckpoint(taskName1, any());
   }
 
@@ -399,9 +399,9 @@ public class TestAsyncRunLoop {
     task0ProcessedMessagesLatch.await();
     task1ProcessedMessagesLatch.await();
 
-    verify(offsetManager).createCheckpoint(taskName0);
+    verify(offsetManager).buildCheckpoint(taskName0);
     verify(offsetManager).writeCheckpoint(taskName0, any());
-    verify(offsetManager).createCheckpoint(taskName1);
+    verify(offsetManager).buildCheckpoint(taskName1);
     verify(offsetManager).writeCheckpoint(taskName1, any());
   }
 
@@ -555,9 +555,9 @@ public class TestAsyncRunLoop {
     task0ProcessedMessagesLatch.await();
     task1ProcessedMessagesLatch.await();
 
-    verify(offsetManager).createCheckpoint(taskName0);
+    verify(offsetManager).buildCheckpoint(taskName0);
     verify(offsetManager).writeCheckpoint(taskName0, any());
-    verify(offsetManager).createCheckpoint(taskName1);
+    verify(offsetManager).buildCheckpoint(taskName1);
     verify(offsetManager).writeCheckpoint(taskName1, any());
   }
 
@@ -646,7 +646,7 @@ public class TestAsyncRunLoop {
           secondMsgCompletionLatch.countDown();
           // OffsetManager.update with firstMsg offset, task.commit has happened when second message callback has not completed.
           verify(offsetManager).update(taskName0, firstMsg.getSystemStreamPartition(), firstMsg.getOffset());
-          verify(offsetManager, atLeastOnce()).createCheckpoint(taskName0);
+          verify(offsetManager, atLeastOnce()).buildCheckpoint(taskName0);
           verify(offsetManager, atLeastOnce()).writeCheckpoint(taskName0, any());
         }
       } catch (Exception e) {

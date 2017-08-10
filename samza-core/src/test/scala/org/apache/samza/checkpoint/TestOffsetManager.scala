@@ -320,14 +320,14 @@ class TestOffsetManager {
 
     offsetManager.update(taskName, systemStreamPartition, "46")
     // Get checkpoint snapshot like we do at the beginning of TaskInstance.commit()
-    val checkpoint46 = offsetManager.createCheckpoint(taskName)
+    val checkpoint46 = offsetManager.buildCheckpoint(taskName)
     offsetManager.update(taskName, systemStreamPartition, "47") // Offset updated before checkpoint
     offsetManager.writeCheckpoint(taskName, checkpoint46)
     assertEquals(Some("47"), offsetManager.getLastProcessedOffset(taskName, systemStreamPartition))
     assertEquals("46", offsetManager.offsetManagerMetrics.checkpointedOffsets.get(systemStreamPartition).getValue)
 
     // Now write the checkpoint for the latest offset
-    val checkpoint47 = offsetManager.createCheckpoint(taskName)
+    val checkpoint47 = offsetManager.buildCheckpoint(taskName)
     offsetManager.writeCheckpoint(taskName, checkpoint47)
     assertEquals(Some("47"), offsetManager.getLastProcessedOffset(taskName, systemStreamPartition))
     assertEquals("47", offsetManager.offsetManagerMetrics.checkpointedOffsets.get(systemStreamPartition).getValue)
@@ -335,7 +335,7 @@ class TestOffsetManager {
 
   // Utility method to create and write checkpoint in one statement
   def checkpoint(offsetManager: OffsetManager, taskName: TaskName): Unit = {
-    offsetManager.writeCheckpoint(taskName, offsetManager.createCheckpoint(taskName))
+    offsetManager.writeCheckpoint(taskName, offsetManager.buildCheckpoint(taskName))
   }
 
   class SystemConsumerWithCheckpointCallback extends SystemConsumer with CheckpointListener{

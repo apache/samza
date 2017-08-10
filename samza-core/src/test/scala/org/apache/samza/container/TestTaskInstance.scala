@@ -362,7 +362,7 @@ class TestTaskInstance {
     val collector = Mockito.mock(classOf[TaskInstanceCollector])
     val storageManager = Mockito.mock(classOf[TaskStorageManager])
     val offsetManager = Mockito.mock(classOf[OffsetManager])
-    when(offsetManager.createCheckpoint(any())).thenReturn(checkpoint)
+    when(offsetManager.buildCheckpoint(any())).thenReturn(checkpoint)
     val mockOrder = inOrder(offsetManager, collector, storageManager)
 
     val taskInstance: TaskInstance = new TaskInstance(
@@ -381,7 +381,7 @@ class TestTaskInstance {
     taskInstance.commit
 
     // We must first get a snapshot of the checkpoint so it doesn't change while we flush. SAMZA-1384
-    mockOrder.verify(offsetManager).createCheckpoint(taskName)
+    mockOrder.verify(offsetManager).buildCheckpoint(taskName)
     // Producers must be flushed next and ideally the output would be flushed before the changelog
     // s.t. the changelog and checkpoints (state and inputs) are captured last
     mockOrder.verify(collector).flush

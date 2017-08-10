@@ -206,7 +206,7 @@ class TaskInstance(
   def commit {
     metrics.commits.inc
 
-    val checkpoint = offsetManager.createCheckpoint(taskName)
+    val checkpoint = offsetManager.buildCheckpoint(taskName)
 
     trace("Flushing producers for taskName: %s" format taskName)
 
