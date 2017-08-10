@@ -164,7 +164,6 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       writePlanJsonFile(plan.getPlanAsJson());
 
       // 2. create the necessary streams
-//      createStreams(plan.getIntermediateStreams());
       createStreamsWithLock(plan.getIntermediateStreams());
 
       // 3. create the StreamProcessors
@@ -253,7 +252,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   }
 
 
-  private void createStream(List<StreamSpec> intStreams) throws Exception {
+  private void createIntermediateStreams(List<StreamSpec> intStreams) throws Exception {
     boolean streamsExist = getStreamManager().checkIfStreamsExist(intStreams);
     if (!streamsExist) {
       getStreamManager().createStreams(intStreams);
@@ -277,9 +276,10 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
           lockListener = createZkLockListener(intStreams, initLock);
         }
         initLock.setLockListener(lockListener);
-        boolean hasLock = false;
-        while (!hasLock) {
-          hasLock = initLock.lock();
+        boolean streamsExist = getStreamManager().checkIfStreamsExist(intStreams);
+        if (!streamsExist) {
+          initLock.lock();
+          lockListener.onAcquiringLock();
         }
       } else {
         // each application process will try creating the streams, which
@@ -321,7 +321,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       @Override
       public void onAcquiringLock() {
         try {
-          createStream(intStreams);
+          createIntermediateStreams(intStreams);
           LOG.info("Created intermediate streams successfully!");
         } catch (Exception e) {
           onError();
