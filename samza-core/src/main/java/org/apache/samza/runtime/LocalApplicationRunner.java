@@ -65,6 +65,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   private static final long LATCH_TIMEOUT_MINUTES = 10;
 
   private final String uid;
+  private final CoordinationUtils coordinationUtils;
   private final Set<StreamProcessor> processors = ConcurrentHashMap.newKeySet();
   private final CountDownLatch shutdownLatch = new CountDownLatch(1);
   private final AtomicInteger numProcessorsToStart = new AtomicInteger();
@@ -123,6 +124,9 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
         }
       }
 
+      if (coordinationUtils != null) {
+        coordinationUtils.reset();
+      }
       shutdownLatch.countDown();
     }
   }
@@ -130,6 +134,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   public LocalApplicationRunner(Config config) {
     super(config);
     uid = UUID.randomUUID().toString();
+    coordinationUtils = createCoordinationUtils();
   }
 
   @Override
@@ -230,20 +235,15 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
    */
   /* package private */ void createStreams(List<StreamSpec> intStreams) throws TimeoutException {
     if (!intStreams.isEmpty()) {
-      CoordinationUtils coordinationUtils = createCoordinationUtils();
       if (coordinationUtils != null) {
-        try {
-          Latch initLatch = coordinationUtils.getLatch(1, INIT_LATCH_ID);
-          LeaderElector leaderElector = coordinationUtils.getLeaderElector();
-          leaderElector.setLeaderElectorListener(() -> {
-              getStreamManager().createStreams(intStreams);
-              initLatch.countDown();
-            });
-          leaderElector.tryBecomeLeader();
-          initLatch.await(LATCH_TIMEOUT_MINUTES, TimeUnit.MINUTES);
-        } finally {
-          coordinationUtils.reset();
-        }
+        Latch initLatch = coordinationUtils.getLatch(1, INIT_LATCH_ID);
+        LeaderElector leaderElector = coordinationUtils.getLeaderElector();
+        leaderElector.setLeaderElectorListener(() -> {
+            getStreamManager().createStreams(intStreams);
+            initLatch.countDown();
+          });
+        leaderElector.tryBecomeLeader();
+        initLatch.await(LATCH_TIMEOUT_MINUTES, TimeUnit.MINUTES);
       } else {
         // each application process will try creating the streams, which
         // requires stream creation to be idempotent
