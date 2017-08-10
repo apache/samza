@@ -265,7 +265,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   }
 
 
-  private void createStream(List<StreamSpec> intStreams) throws Exception {
+  private void createIntermediateStreams(List<StreamSpec> intStreams) throws Exception {
     boolean streamsExist = getStreamManager().checkIfStreamsExist(intStreams);
     if (!streamsExist) {
       getStreamManager().createStreams(intStreams);
@@ -318,7 +318,6 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     } catch (TimeoutException e) {
       LOG.info("Timed out waiting for the latch! Going to enter leader election section to create streams");
     }
-
     return eligibleForElection;
   }
 }
