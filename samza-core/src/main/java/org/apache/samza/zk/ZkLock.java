@@ -18,11 +18,15 @@
  */
 package org.apache.samza.zk;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.I0Itec.zkclient.IZkDataListener;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.Lock;
 import org.apache.samza.coordinator.LockListener;
 import org.slf4j.Logger;
@@ -36,99 +40,74 @@ public class ZkLock implements Lock {
 
   public static final Logger LOG = LoggerFactory.getLogger(ZkLock.class);
   private final static String LOCK_PATH = "lock";
+  private final ZkConfig zkConfig;
   private final ZkUtils zkUtils;
   private final String lockPath;
   private final String participantId;
   private final ZkKeyBuilder keyBuilder;
-  private final IZkDataListener previousProcessorChangeListener;
   private final Random random = new Random();
-  private String currentSubscription = null;
   private String nodePath = null;
   private LockListener zkLockListener = null;
   private AtomicBoolean hasLock;
 
-  public ZkLock(String participantId, ZkUtils zkUtils) {
+  public ZkLock(String participantId, ZkUtils zkUtils, ZkConfig zkConfig) {
+    this.zkConfig = zkConfig;
     this.zkUtils = zkUtils;
     this.participantId = participantId;
     this.keyBuilder = this.zkUtils.getKeyBuilder();
-    this.previousProcessorChangeListener = new PreviousLockProcessorChangeListener();
     lockPath = String.format("%s/%s", keyBuilder.getRootPath(), LOCK_PATH);
     zkUtils.makeSurePersistentPathsExists(new String[] {lockPath});
     this.hasLock = new AtomicBoolean(false);
   }
 
   /**
-   * Create a sequential ephemeral node to acquire the lock.
-   * If the path of this node has the lowest sequence number, the processor has acquired the lock.
+   * Tries to acquire a lock in order to create intermediate streams. On failure to acquire lock, it keeps trying until the lock times out.
+   * Creates a sequential ephemeral node to acquire the lock. If the path of this node has the lowest sequence number, the processor has acquired the lock.
    */
   @Override
   public boolean lock() {
-    try {
-      nodePath = zkUtils.getZkClient().createEphemeralSequential(lockPath + "/", participantId);
-    } catch (Exception e) {
-      if (zkLockListener != null) {
-        zkLockListener.onError();
+    nodePath = zkUtils.getZkClient().createEphemeralSequential(lockPath + "/", participantId);
+
+    //Start timer for timeout
+    ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("ZkLock-%d").build());
+    scheduler.schedule(() -> {
+        if (!hasLock.get()) {
+          throw new SamzaException("Timed out while acquiring lock for creating intermediate streams.");
+        }
+      }, zkConfig.getZkSessionTimeoutMs(), TimeUnit.MILLISECONDS);
+
+    while (!hasLock.get()) {
+      List<String> children = zkUtils.getZkClient().getChildren(lockPath);
+      int index = children.indexOf(ZkKeyBuilder.parseIdFromPath(nodePath));
+
+      if (children.size() == 0 || index == -1) {
+        throw new SamzaException("Looks like we are no longer connected to Zk. Need to reconnect!");
       }
-    }
-    List<String> children = zkUtils.getZkClient().getChildren(lockPath);
-    int index = children.indexOf(ZkKeyBuilder.parseIdFromPath(nodePath));
-
-    if (children.size() == 0 || index == -1) {
-      throw new SamzaException("Looks like we are no longer connected to Zk. Need to reconnect!");
-    }
-
-    if (index == 0) {
-      LOG.info("Acquired lock for participant id: {}", participantId);
-      hasLock.set(true);
-      if (zkLockListener != null) {
-        zkLockListener.onAcquiringLock();
+      // Acquires lock when the node has the lowest sequence number and returns.
+      if (index == 0) {
+        hasLock.set(true);
+        LOG.info("Acquired lock for participant id: {}", participantId);
         return true;
       } else {
-        throw new SamzaException("LockListener unassigned.");
-      }
-    } else {
-      String predecessor = children.get(index - 1);
-      if (!predecessor.equals(currentSubscription)) {
-        if (currentSubscription != null) {
-          zkUtils.unsubscribeDataChanges(lockPath + "/" + currentSubscription,
-              previousProcessorChangeListener);
-        }
-        currentSubscription = predecessor;
-        zkUtils.subscribeDataChanges(lockPath + "/" + currentSubscription,
-            previousProcessorChangeListener);
-      }
-      /**
-       * Verify that the predecessor still exists. This step is needed because the ZkClient subscribes for data changes
-       * on the path, even if the path doesn't exist. Since we are using Ephemeral Sequential nodes, if the path doesn't
-       * exist during subscription, it is not going to get created in the future.
-       */
-      boolean predecessorExists = zkUtils.exists(lockPath + "/" + currentSubscription);
-      if (predecessorExists) {
-        LOG.info("Predecessor still exists. Current subscription is valid. Continuing as non-lockholder.");
-      } else {
+        // Keep trying to acquire the lock
         try {
           Thread.sleep(random.nextInt(1000));
         } catch (InterruptedException e) {
           Thread.interrupted();
         }
-        LOG.info("Predecessor doesn't exist anymore. Trying to acquire lock again...");
-        lock();
+        LOG.info("Trying to acquire lock again...");
       }
-      return false;
     }
+    return hasLock.get();
   }
 
-
   /**
-   * Delete the ephemeral sequential node created to acquire the lock.
+   * Unlocks, by deleting the ephemeral sequential node created to acquire the lock.
    */
   @Override
   public void unlock() {
     if (nodePath != null) {
-      Boolean status = false;
-      while (!status) {
-        status = zkUtils.getZkClient().delete(nodePath);
-      }
+      zkUtils.getZkClient().delete(nodePath);
       hasLock.set(false);
       nodePath = null;
       LOG.info("Ephemeral lock node deleted. Unlocked!");
@@ -145,19 +124,6 @@ public class ZkLock implements Lock {
   @Override
   public void setLockListener(LockListener listener) {
     this.zkLockListener = listener;
-  }
-
-  class PreviousLockProcessorChangeListener implements IZkDataListener {
-    @Override
-    public void handleDataChange(String dataPath, Object data) throws Exception {
-      LOG.debug("Data change on path: " + dataPath + " Data: " + data);
-    }
-
-    @Override
-    public void handleDataDeleted(String dataPath) throws Exception {
-      LOG.info("Data deleted on path " + dataPath + ". Predecessor went away. So, trying to become leader again...");
-      lock();
-    }
   }
 
 }
