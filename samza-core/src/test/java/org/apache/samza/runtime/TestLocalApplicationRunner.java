@@ -173,6 +173,9 @@ public class TestLocalApplicationRunner {
       public boolean amILeader() {
         return false;
       }
+
+      @Override
+      public void close() { }
     };
 
     Latch latch = new Latch() {
@@ -188,10 +191,13 @@ public class TestLocalApplicationRunner {
       public void countDown() {
         done = true;
       }
+
+      @Override
+      public void close() { }
     };
     when(coordinationUtils.getLeaderElector()).thenReturn(leaderElector);
     when(coordinationUtils.getLatch(anyInt(), anyString())).thenReturn(latch);
-    doReturn(coordinationUtils).when(spy).createCoordinationUtils();
+    //doReturn(coordinationUtils).when(spy).createCoordinationUtils();
 
     try {
       spy.run(app);

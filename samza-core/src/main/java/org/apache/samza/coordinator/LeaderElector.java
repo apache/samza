@@ -56,4 +56,6 @@ public interface LeaderElector {
    * @return True, if the caller is the current leader. False, otherwise
    */
   boolean amILeader();
+
+  void close();
 }
