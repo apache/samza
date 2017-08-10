@@ -40,7 +40,7 @@ public class ZkCoordinationUtils implements CoordinationUtils {
 
   private final static Logger LOG = org.slf4j.LoggerFactory.getLogger(ZkCoordinationUtils.class);
 
-  ZkCoordinationUtils(String groupId, String participantId, Config config) {
+  public ZkCoordinationUtils(String groupId, String participantId, Config config) {
 
     this.participantId = participantId;
     this.groupId = groupId;

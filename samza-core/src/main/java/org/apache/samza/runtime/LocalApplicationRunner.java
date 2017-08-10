@@ -217,11 +217,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
       if (coordinationUtils != null) {
         CoordinationLock coordinationLock = coordinationUtils.getLock();
-        try {
-          coordinationLock.lock(TimeUnit.MILLISECONDS, 10000);
-        } catch (TimeoutException e) {
-
-        }
+        coordinationLock.lock(TimeUnit.MILLISECONDS, 10000);  //throws timeout exception
         getStreamManager().createStreams(intStreams);
         coordinationLock.unlock();
 
