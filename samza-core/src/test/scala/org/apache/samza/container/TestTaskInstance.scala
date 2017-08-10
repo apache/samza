@@ -20,31 +20,25 @@
 package org.apache.samza.container
 
 import java.util.concurrent.ConcurrentHashMap
-import org.apache.samza.SamzaException
+
 import org.apache.samza.Partition
-import org.apache.samza.checkpoint.OffsetManager
-import org.apache.samza.config.Config
-import org.apache.samza.config.MapConfig
-import org.apache.samza.metrics.Counter
-import org.apache.samza.metrics.Metric
-import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.checkpoint.{Checkpoint, OffsetManager}
+import org.apache.samza.config.{Config, MapConfig}
+import org.apache.samza.metrics.{Counter, Metric, MetricsRegistryMap}
 import org.apache.samza.serializers.SerdeManager
-import org.apache.samza.system.IncomingMessageEnvelope
-import org.apache.samza.system.SystemConsumer
-import org.apache.samza.system.SystemConsumers
-import org.apache.samza.system.SystemProducer
-import org.apache.samza.system.SystemProducers
-import org.apache.samza.system.SystemStream
-import org.apache.samza.system.SystemStreamMetadata
+import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
-import org.apache.samza.system.SystemStreamPartition
+import org.apache.samza.system._
 import org.apache.samza.system.chooser.RoundRobinChooser
 import org.apache.samza.task._
 import org.junit.Assert._
 import org.junit.Test
+import org.mockito.Matchers._
+import org.mockito.Mockito
+import org.mockito.Mockito._
 import org.scalatest.Assertions.intercept
+
 import scala.collection.JavaConverters._
-import org.apache.samza.system.SystemAdmin
 import scala.collection.mutable.ListBuffer
 
 class TestTaskInstance {
@@ -353,6 +347,49 @@ class TestTaskInstance {
 
     val expected = List(envelope1, envelope2, envelope4)
     assertEquals(expected, result.toList)
+  }
+
+  @Test
+  def testCommitOrder {
+    // Simple objects
+    val partition = new Partition(0)
+    val taskName = new TaskName("taskName")
+    val systemStream = new SystemStream("test-system", "test-stream")
+    val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
+    val checkpoint = new Checkpoint(Map(systemStreamPartition -> "4").asJava)
+
+    // Mocks
+    val collector = Mockito.mock(classOf[TaskInstanceCollector])
+    val storageManager = Mockito.mock(classOf[TaskStorageManager])
+    val offsetManager = Mockito.mock(classOf[OffsetManager])
+    when(offsetManager.buildCheckpoint(any())).thenReturn(checkpoint)
+    val mockOrder = inOrder(offsetManager, collector, storageManager)
+
+    val taskInstance: TaskInstance = new TaskInstance(
+      Mockito.mock(classOf[StreamTask]).asInstanceOf[StreamTask],
+      taskName,
+      new MapConfig,
+      new TaskInstanceMetrics,
+      null,
+      Mockito.mock(classOf[SystemConsumers]),
+      collector,
+      Mockito.mock(classOf[SamzaContainerContext]),
+      offsetManager,
+      storageManager,
+      systemStreamPartitions = Set(systemStreamPartition))
+
+    taskInstance.commit
+
+    // We must first get a snapshot of the checkpoint so it doesn't change while we flush. SAMZA-1384
+    mockOrder.verify(offsetManager).buildCheckpoint(taskName)
+    // Producers must be flushed next and ideally the output would be flushed before the changelog
+    // s.t. the changelog and checkpoints (state and inputs) are captured last
+    mockOrder.verify(collector).flush
+    // Local state is next, to ensure that the state (particularly the offset file) never points to a newer changelog
+    // offset than what is reflected in the on disk state.
+    mockOrder.verify(storageManager).flush()
+    // Finally, checkpoint the inputs with the snapshotted checkpoint captured at the beginning of commit
+    mockOrder.verify(offsetManager).writeCheckpoint(taskName, checkpoint)
   }
 }
 
