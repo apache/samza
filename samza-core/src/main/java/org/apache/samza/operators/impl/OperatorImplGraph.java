@@ -21,6 +21,7 @@ package org.apache.samza.operators.impl;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.config.Config;
+import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.PartialJoinFunction;
@@ -34,6 +35,7 @@ import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.util.InternalInMemoryStore;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.Clock;
 
@@ -84,12 +86,18 @@ public class OperatorImplGraph {
    */
   public OperatorImplGraph(StreamGraphImpl streamGraph, Config config, TaskContext context, Clock clock) {
     this.clock = clock;
+
+    TaskContextImpl taskContext = (TaskContextImpl) context;
+    // set states for end-of-stream
+    Map<SystemStreamPartition, EndOfStreamState> eosStates = new HashMap<>();
+    taskContext.registerObject(EndOfStreamState.END_OF_STREAM_STATES, eosStates);
+
     streamGraph.getInputOperators().forEach((streamSpec, inputOpSpec) -> {
-        SystemStream systemStream = new SystemStream(streamSpec.getSystemName(), streamSpec.getPhysicalName());
-        InputOperatorImpl inputOperatorImpl =
-            (InputOperatorImpl) createAndRegisterOperatorImpl(null, inputOpSpec, config, context);
-        this.inputOperators.put(systemStream, inputOperatorImpl);
-      });
+      SystemStream systemStream = new SystemStream(streamSpec.getSystemName(), streamSpec.getPhysicalName());
+      InputOperatorImpl inputOperatorImpl =
+          (InputOperatorImpl) createAndRegisterOperatorImpl(null, inputOpSpec, config, context);
+      this.inputOperators.put(systemStream, inputOperatorImpl);
+    });
   }
 
   /**

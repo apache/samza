@@ -21,25 +21,34 @@ package org.apache.samza.operators.impl;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MetricsConfig;
+import org.apache.samza.container.TaskContextImpl;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.control.Watermark;
 import org.apache.samza.control.WatermarkManager;
+import org.apache.samza.message.EndOfStreamMessage;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.util.HighResolutionClock;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
  * Abstract base class for all stream operator implementations.
  */
 public abstract class OperatorImpl<M, RM> {
+  private static final Logger LOG = LoggerFactory.getLogger(OperatorImpl.class);
   private static final String METRICS_GROUP = OperatorImpl.class.getName();
 
   private boolean initialized;
@@ -50,9 +59,13 @@ public abstract class OperatorImpl<M, RM> {
   private Timer handleTimerNs;
   private long inputWatermarkTime = WatermarkManager.TIME_NOT_EXIST;
   private long outputWatermarkTime = WatermarkManager.TIME_NOT_EXIST;
+  private TaskName taskName;
 
   Set<OperatorImpl<RM, ?>> registeredOperators;
   Set<OperatorImpl<?, M>> prevOperators;
+
+  // end-of-stream state per ssp
+  private Map<SystemStreamPartition, EndOfStreamState> eosStates;
 
   /**
    * Initialize this {@link OperatorImpl} and its user-defined functions.
@@ -78,6 +91,10 @@ public abstract class OperatorImpl<M, RM> {
     this.numMessage = metricsRegistry.newCounter(METRICS_GROUP, opName + "-messages");
     this.handleMessageNs = metricsRegistry.newTimer(METRICS_GROUP, opName + "-handle-message-ns");
     this.handleTimerNs = metricsRegistry.newTimer(METRICS_GROUP, opName + "-handle-timer-ns");
+    this.taskName = context.getTaskName();
+
+    TaskContextImpl taskContext = (TaskContextImpl) context;
+    this.eosStates = (Map<SystemStreamPartition, EndOfStreamState>) taskContext.fetchObject(EndOfStreamState.END_OF_STREAM_STATES);
 
     handleInit(config, context);
 
@@ -171,6 +188,37 @@ public abstract class OperatorImpl<M, RM> {
    */
   protected Collection<RM> handleTimer(MessageCollector collector, TaskCoordinator coordinator) {
     return Collections.emptyList();
+  }
+
+  public final void onEndOfStream(EndOfStreamMessage eos,
+      SystemStreamPartition ssp,
+      MessageCollector collector,
+      TaskCoordinator coordinator) {
+
+    EndOfStreamState state = eosStates.get(ssp);
+    state.update(eos.getTaskName(), eos.getTaskCount());
+    LOG.info("Received end-of-stream from task {} for {}", eos.getTaskName(), ssp);
+
+    SystemStream systemStream = ssp.getSystemStream();
+    boolean isEndOfStream = eosStates.entrySet().stream()
+        .filter(entry -> entry.getKey().getSystemStream().equals(systemStream))
+        .allMatch(entry -> entry.getValue().isEndOfStream());
+
+    if (isEndOfStream) {
+      boolean allEndOfStream = eosStates.values().stream().allMatch(EndOfStreamState::isEndOfStream);
+      if (allEndOfStream) {
+        // all inputs have been end-of-stream, shut down the task
+        LOG.info("All input streams have reached the end for task {}", taskName.getTaskName());
+        coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
+      } else {
+        handleEndOfStream(ssp, collector, coordinator);
+      }
+    }
+  }
+
+  protected void handleEndOfStream(SystemStreamPartition ssp, MessageCollector collector, TaskCoordinator coordinator) {
+    this.registeredOperators.forEach(op ->
+        op.handleEndOfStream(ssp, collector, coordinator));
   }
 
   /**

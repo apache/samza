@@ -23,6 +23,8 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.control.ControlMessageListenerTask;
 import org.apache.samza.control.Watermark;
+import org.apache.samza.message.EndOfStreamMessage;
+import org.apache.samza.message.MessageType;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.impl.InputOperatorImpl;
@@ -110,7 +112,19 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
     SystemStream systemStream = ime.getSystemStreamPartition().getSystemStream();
     InputOperatorImpl inputOpImpl = operatorImplGraph.getInputOperator(systemStream);
     if (inputOpImpl != null) {
-      inputOpImpl.onMessage(Pair.of(ime.getKey(), ime.getMessage()), collector, coordinator);
+      switch (MessageType.of(ime.getMessage())) {
+        case USER_MESSAGE:
+          inputOpImpl.onMessage(Pair.of(ime.getKey(), ime.getMessage()), collector, coordinator);
+          break;
+
+        case END_OF_STREAM:
+          inputOpImpl.onEndOfStream((EndOfStreamMessage) ime.getMessage(), ime.getSystemStreamPartition(), collector, coordinator);
+          break;
+
+        case WATERMARK:
+          //TODO: add watermark logic
+          break;
+      }
     }
   }
 

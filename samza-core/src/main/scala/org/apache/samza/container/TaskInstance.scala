@@ -76,6 +76,49 @@ object TaskInstance {
   }
 }
 
+class TaskContextImpl(
+  taskName: TaskName,
+  metrics: TaskInstanceMetrics,
+  containerContext: SamzaContainerContext,
+  systemStreamPartitions: Set[SystemStreamPartition],
+  offsetManager: OffsetManager,
+  storageManager: TaskStorageManager) extends TaskContext with Logging  {
+
+  var userContext: Object = null
+  var objectRegistry: Map[String, Object] = Map()
+  def getMetricsRegistry = metrics.registry
+  def getSystemStreamPartitions = systemStreamPartitions.asJava
+  def getStore(storeName: String) = if (storageManager != null) {
+    storageManager(storeName)
+  } else {
+    warn("No store found for name: %s" format storeName)
+    null
+  }
+  def getTaskName = taskName
+  def getSamzaContainerContext = containerContext
+
+  override def setStartingOffset(ssp: SystemStreamPartition, offset: String): Unit = {
+    val startingOffsets = offsetManager.startingOffsets
+    offsetManager.startingOffsets += taskName -> (startingOffsets(taskName) + (ssp -> offset))
+  }
+
+  override def setUserContext(context: Object): Unit = {
+    userContext = context
+  }
+
+  override def getUserContext: Object = {
+    userContext
+  }
+
+  def registerObject(name: String, value: Object) = {
+    objectRegistry += name -> value
+  }
+
+  def fetchObject(name: String): Object = {
+    objectRegistry.getOrElse(name, null)
+  }
+}
+
 class TaskInstance(
   val task: Any,
   val taskName: TaskName,
@@ -99,33 +142,8 @@ class TaskInstance(
   val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
   val isControlMessageListener = task.isInstanceOf[ControlMessageListenerTask]
 
-  val context = new TaskContext {
-    var userContext: Object = null;
-    def getMetricsRegistry = metrics.registry
-    def getSystemStreamPartitions = systemStreamPartitions.asJava
-    def getStore(storeName: String) = if (storageManager != null) {
-      storageManager(storeName)
-    } else {
-      warn("No store found for name: %s" format storeName)
+  val context = new TaskContextImpl(taskName,metrics, containerContext, systemStreamPartitions, offsetManager, storageManager);
 
-      null
-    }
-    def getTaskName = taskName
-    def getSamzaContainerContext = containerContext
-
-    override def setStartingOffset(ssp: SystemStreamPartition, offset: String): Unit = {
-      val startingOffsets = offsetManager.startingOffsets
-      offsetManager.startingOffsets += taskName -> (startingOffsets(taskName) + (ssp -> offset))
-    }
-
-    override def setUserContext(context: Object): Unit = {
-      userContext = context
-    }
-
-    override def getUserContext: Object = {
-      userContext
-    }
-  }
   // store the (ssp -> if this ssp is catched up) mapping. "catched up"
   // means the same ssp in other taskInstances have the same offset as
   // the one here.
