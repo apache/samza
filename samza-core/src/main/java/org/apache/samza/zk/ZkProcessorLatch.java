@@ -21,7 +21,6 @@ package org.apache.samza.zk;
 import java.util.concurrent.TimeUnit;
 
 import java.util.concurrent.TimeoutException;
-import org.I0Itec.zkclient.exception.ZkInterruptedException;
 import org.apache.samza.coordinator.Latch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

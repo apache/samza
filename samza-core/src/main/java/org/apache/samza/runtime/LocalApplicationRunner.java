@@ -300,8 +300,9 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   }
 
   /**
-   * By closing the zk connection, we clean up the ephemeral node used for leader election. It results in a leader election
-   * whenever a new process joins and also creates intermediate streams.
+   * In order to fix SAMZA-1385, we are limiting the scope of coordination util within stream creation phase and destroying
+   * the coordination util right after. By closing the zk connection, we clean up the ephemeral node used for leader election.
+   * It results in a leader election whenever a new process joins and also creates intermediate streams.
    *    1. It is unnecessary to re-conduct leader election for stream creation in the same application lifecycle
    *    2. Underlying systems may not support check for stream existence prior to creation which could have potential problems.
    * As in interim solution, we reuse the same latch as a marker to determine if create streams phase is done for the
