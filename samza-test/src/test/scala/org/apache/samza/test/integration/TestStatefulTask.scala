@@ -55,13 +55,13 @@ object TestStatefulTask {
 /**
  * Test that does the following:
  * 1. Start a single partition of TestStateStoreTask using ThreadJobFactory.
- * 2. Send MESSAGES, which contain a dupe and a delete.
+ * 2. Send MESSAGES_SEND_1, which contains a dupe and a delete.
  * 3. Validate that all messages were received by TestStateStoreTask.
  * 4. Validate that TestStateStoreTask called store.put() for all messages, and that the messages ended up in the mystore topic.
  * 5. Kill the job.
  * 6. Start the job again.
- * 7. Validate that the job restored all messages (1,2,3) to the store.
- * 8. Send three more messages to input (4,5,5), and validate that TestStateStoreTask receives them.
+ * 7. Validate that the job restored all messages STORE_CONTENTS_1 to the store.
+ * 8. Send three more messages to input MESSAGES_SEND_2, and validate that TestStateStoreTask receives them.
  * 9. Kill the job again.
  */
 class TestStatefulTask extends StreamTaskTestUtil {
