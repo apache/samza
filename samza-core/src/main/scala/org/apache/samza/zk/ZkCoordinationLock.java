@@ -52,23 +52,10 @@ public class ZkCoordinationLock implements CoordinationLock {
   }
 
 
+  private static class LockException extends RuntimeException { }
 
   @Override
   public void lock(TimeUnit tu, long timeout) throws TimeoutException {
-    while(true) {
-      try {
-        lockHelper(tu, timeout);
-        return;
-      } catch (LockException e) {
-        // try again.
-      }
-      System.out.println("TRYING AGAIN");
-    }
-  }
-
-  private static class LockException extends RuntimeException { }
-
-  private void lockHelper(TimeUnit tu, long timeout) throws TimeoutException {
 
     nodePath = zkUtils.getZkClient().createEphemeralSequential(lockPath + "/", participantId);
 
