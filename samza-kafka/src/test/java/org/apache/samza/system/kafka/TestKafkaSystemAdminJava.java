@@ -51,6 +51,25 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
   }
 
   @Test
+  public void testCreateCoordinatorStreamDelegatesToCreateStream_specialCharsInTopicName() {
+    final String STREAM = "test.Coord_inator.Stream";
+
+    SystemAdmin admin = Mockito.spy(createSystemAdmin());
+    StreamSpec spec = new StreamSpec(KafkaSystemAdmin.CHANGELOG_STREAMID(), STREAM, SYSTEM());
+    admin.createCoordinatorStream(STREAM);
+    admin.validateStream(spec);
+
+    ArgumentCaptor<StreamSpec> specCaptor = ArgumentCaptor.forClass(StreamSpec.class);
+    Mockito.verify(admin).createStream(specCaptor.capture());
+
+    StreamSpec internalSpec = specCaptor.getValue();
+    assertTrue(internalSpec instanceof KafkaStreamSpec);  // KafkaStreamSpec is used to carry replication factor
+    assertEquals(KafkaSystemAdmin.COORDINATOR_STREAMID(), internalSpec.getId());
+    assertEquals(SYSTEM(), internalSpec.getSystemName());
+    assertEquals(STREAM, internalSpec.getPhysicalName());
+  }
+
+  @Test
   public void testCreateChangelogStreamDelegatesToCreateStream() {
     final String STREAM = "testChangeLogStream";
     final int PARTITIONS = 12;
