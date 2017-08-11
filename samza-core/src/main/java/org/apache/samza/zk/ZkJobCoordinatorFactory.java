@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
 
   private static final Logger LOG = LoggerFactory.getLogger(ZkJobCoordinatorFactory.class);
+  private static final String JOB_COORDINATOR_ZK_PATH_SUFFIX = "/JobCoordinatorData";
 
   /**
    * Method to instantiate an implementation of JobCoordinator
@@ -50,7 +51,7 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
 
   private ZkUtils getZkUtils(Config config, MetricsRegistry metricsRegistry) {
     ZkConfig zkConfig = new ZkConfig(config);
-    ZkKeyBuilder keyBuilder = new ZkKeyBuilder(new ApplicationConfig(config).getGlobalAppId());
+    ZkKeyBuilder keyBuilder = new ZkKeyBuilder(new ApplicationConfig(config).getGlobalAppId() + JOB_COORDINATOR_ZK_PATH_SUFFIX);
     ZkClient zkClient = ZkCoordinationServiceFactory.createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
     return new ZkUtils(keyBuilder, zkClient, zkConfig.getZkConnectionTimeoutMs(), metricsRegistry);
   }

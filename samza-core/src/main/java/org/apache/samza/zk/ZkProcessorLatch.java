@@ -20,6 +20,8 @@ package org.apache.samza.zk;
 
 import java.util.concurrent.TimeUnit;
 
+import java.util.concurrent.TimeoutException;
+import org.I0Itec.zkclient.exception.ZkInterruptedException;
 import org.apache.samza.coordinator.Latch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,8 +55,12 @@ public class ZkProcessorLatch implements Latch {
   }
 
   @Override
-  public void await(long timeout, TimeUnit tu) {
-    zkUtils.getZkClient().waitUntilExists(targetPath, TimeUnit.MILLISECONDS, timeout);
+  public void await(long timeout, TimeUnit tu) throws TimeoutException {
+    boolean targetPathExists = zkUtils.getZkClient().waitUntilExists(targetPath, TimeUnit.MILLISECONDS, timeout);
+
+    if (!targetPathExists) {
+      throw new TimeoutException("Timed out waiting for the targetPath");
+    }
   }
 
   @Override
