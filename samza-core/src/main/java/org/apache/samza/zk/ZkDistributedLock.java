@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import org.apache.samza.SamzaException;
-import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.DistributedLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,7 +33,6 @@ import org.slf4j.LoggerFactory;
 public class ZkDistributedLock implements DistributedLock {
 
   public static final Logger LOG = LoggerFactory.getLogger(ZkDistributedLock.class);
-  private final static String LOCK_PATH = "distributed_lock";
   private final ZkUtils zkUtils;
   private final String lockPath;
   private final String participantId;
@@ -42,11 +40,11 @@ public class ZkDistributedLock implements DistributedLock {
   private final Random random = new Random();
   private String nodePath = null;
 
-  public ZkDistributedLock(String participantId, ZkUtils zkUtils, ZkConfig zkConfig) {
+  public ZkDistributedLock(String participantId, ZkUtils zkUtils, String initLockPath) {
     this.zkUtils = zkUtils;
     this.participantId = participantId;
     this.keyBuilder = this.zkUtils.getKeyBuilder();
-    lockPath = String.format("%s/%s", keyBuilder.getRootPath(), LOCK_PATH);
+    lockPath = String.format("%s/%s", keyBuilder.getRootPath(), initLockPath);
     zkUtils.makeSurePersistentPathsExists(new String[] {lockPath});
   }
 
@@ -65,7 +63,7 @@ public class ZkDistributedLock implements DistributedLock {
     long startTime = System.currentTimeMillis();
     long lockTimeout = TimeUnit.MILLISECONDS.convert(timeout, unit);
 
-    while (true) {
+    while ((System.currentTimeMillis() - startTime) < lockTimeout) {
       List<String> children = zkUtils.getZkClient().getChildren(lockPath);
       int index = children.indexOf(ZkKeyBuilder.parseIdFromPath(nodePath));
 
@@ -77,11 +75,6 @@ public class ZkDistributedLock implements DistributedLock {
         LOG.info("Acquired lock for participant id: {}", participantId);
         return true;
       } else {
-        // Keep trying to acquire the lock
-        long currentTime = System.currentTimeMillis();
-        if ((currentTime - startTime) >= lockTimeout) {
-          return false;
-        }
         try {
           Thread.sleep(random.nextInt(1000));
         } catch (InterruptedException e) {
@@ -90,6 +83,7 @@ public class ZkDistributedLock implements DistributedLock {
         LOG.info("Trying to acquire lock again...");
       }
     }
+    return false;
   }
 
   /**
@@ -102,7 +96,7 @@ public class ZkDistributedLock implements DistributedLock {
       nodePath = null;
       LOG.info("Ephemeral lock node deleted. Unlocked!");
     } else {
-      LOG.error("Ephemeral lock node you want to delete doesn't exist");
+      LOG.warn("Ephemeral lock node you want to delete doesn't exist");
     }
   }
 }
