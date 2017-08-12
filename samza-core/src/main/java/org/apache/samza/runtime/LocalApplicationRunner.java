@@ -21,13 +21,16 @@ package org.apache.samza.runtime;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
@@ -219,6 +222,17 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     }
   }
 
+  /**
+   * Generates a unique lock ID which is consistent for all processors within the same application lifecycle.
+   * Each {@code StreamSpec} has an ID that is unique and is used for hashcode computation.
+   * @param intStreams list of {@link StreamSpec}s
+   * @return lock ID
+   */
+  private String generateLockId(List<StreamSpec> intStreams) {
+    return String.valueOf(Objects.hashCode(intStreams.stream()
+        .map(StreamSpec::getId)
+        .collect(Collectors.toList())));
+  }
 
   /**
    * Create intermediate streams using {@link org.apache.samza.execution.StreamManager}.
@@ -226,19 +240,20 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
    * All the runner processes will either wait till the time they acquire the lock, or timeout after the specified time.
    * After stream creation, they will unlock and proceed normally.
    * @param intStreams list of intermediate {@link StreamSpec}s
-   * @throws Exception exception for latch timeout
    */
-  private void createStreams(List<StreamSpec> intStreams) throws Exception {
+  private void createStreams(List<StreamSpec> intStreams) {
     if (!intStreams.isEmpty()) {
       if (coordinationUtils != null) {
-        DistributedLock initLock = coordinationUtils.getLock();
-        boolean hasLock = initLock.lock(LOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        if (hasLock) {
-          getStreamManager().createStreams(intStreams);
-        } else {
-          LOG.error("Timed out while trying to acquire lock");
+        DistributedLock initLock = coordinationUtils.getLock(generateLockId(intStreams));
+        try {
+          boolean hasLock = initLock.lock(LOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+          if (hasLock) {
+            getStreamManager().createStreams(intStreams);
+          } else {
+            LOG.error("Timed out while trying to acquire lock.", new TimeoutException());
+          }
+        } finally {
           coordinationUtils.reset();
-          throw new SamzaException();
         }
       } else {
         // each application process will try creating the streams, which
