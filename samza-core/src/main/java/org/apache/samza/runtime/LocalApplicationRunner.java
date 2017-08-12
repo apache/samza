@@ -37,10 +37,9 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
+import org.apache.samza.coordinator.DistributedLock;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.coordinator.LeaderElector;
-import org.apache.samza.coordinator.Lock;
-import org.apache.samza.coordinator.LockListener;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.processor.StreamProcessor;
@@ -261,14 +260,6 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
         // requires stream creation to be idempotent
         getStreamManager().createStreams(intStreams);
       }
-    }
-  }
-
-
-  private void createIntermediateStreams(List<StreamSpec> intStreams) throws Exception {
-    boolean streamsExist = getStreamManager().checkIfStreamsExist(intStreams);
-    if (!streamsExist) {
-      getStreamManager().createStreams(intStreams);
     }
   }
 

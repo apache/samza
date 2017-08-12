@@ -42,5 +42,5 @@ public interface CoordinationUtils {
 
   Latch getLatch(int size, String latchId);
 
-  Lock getLock();
+  DistributedLock getLock();
 }
