@@ -36,10 +36,7 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
-import org.apache.samza.coordinator.Latch;
-import org.apache.samza.coordinator.LeaderElector;
-import org.apache.samza.coordinator.Lock;
-import org.apache.samza.coordinator.LockListener;
+import org.apache.samza.coordinator.DistributedLock;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.processor.StreamProcessor;
@@ -59,10 +56,8 @@ import org.slf4j.LoggerFactory;
 public class LocalApplicationRunner extends AbstractApplicationRunner {
 
   private static final Logger LOG = LoggerFactory.getLogger(LocalApplicationRunner.class);
-  // Latch id that's used for awaiting the init of application before creating the StreamProcessors
-  private static final String INIT_LATCH_ID = "init";
-  // Latch timeout is set to 10 min
-  private static final long LATCH_TIMEOUT_MINUTES = 10;
+  // Lock timeout is set to 10 seconds here, as we don't want to introduce a new config value currently.
+  private static final long LOCK_TIMEOUT_SECONDS = 10;
 
   private final String uid;
   private final CoordinationUtils coordinationUtils;
@@ -164,7 +159,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       writePlanJsonFile(plan.getPlanAsJson());
 
       // 2. create the necessary streams
-      createStreamsWithLock(plan.getIntermediateStreams());
+      createStreams(plan.getIntermediateStreams());
 
       // 3. create the StreamProcessors
       if (plan.getJobConfigs().isEmpty()) {
@@ -224,62 +219,26 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     }
   }
 
-  /**
-   * Create intermediate streams using {@link org.apache.samza.execution.StreamManager}.
-   * If {@link CoordinationUtils} is provided, this function will first invoke leader election, and the leader
-   * will create the streams. All the runner processes will wait on the latch that is released after the leader finishes
-   * stream creation.
-   * @param intStreams list of intermediate {@link StreamSpec}s
-   * @throws Exception exception for latch timeout
-   */
-  /* package private */ void createStreams(List<StreamSpec> intStreams) throws Exception {
-    if (!intStreams.isEmpty()) {
-      if (coordinationUtils != null) {
-        Latch initLatch = coordinationUtils.getLatch(1, INIT_LATCH_ID);
-        LeaderElector leaderElector = coordinationUtils.getLeaderElector();
-        leaderElector.setLeaderElectorListener(() -> {
-            getStreamManager().createStreams(intStreams);
-            initLatch.countDown();
-          });
-        leaderElector.tryBecomeLeader();
-        initLatch.await(LATCH_TIMEOUT_MINUTES, TimeUnit.MINUTES);
-      } else {
-        // each application process will try creating the streams, which
-        // requires stream creation to be idempotent
-        getStreamManager().createStreams(intStreams);
-      }
-    }
-  }
-
-
-  private void createIntermediateStreams(List<StreamSpec> intStreams) throws Exception {
-    boolean streamsExist = getStreamManager().checkIfStreamsExist(intStreams);
-    if (!streamsExist) {
-      getStreamManager().createStreams(intStreams);
-    }
-  }
 
   /**
    * Create intermediate streams using {@link org.apache.samza.execution.StreamManager}.
    * If {@link CoordinationUtils} is provided, this function will first acquire a lock, and then create the streams.
-   * All the runner processes will wait till the time they acquire the lock. On acquiring lock, they will check if the streams have already been created.
-   * If streams exist already, they will unlock and proceed normally. If streams don't exist, they create the streams and then unlock.
+   * All the runner processes will either wait till the time they acquire the lock, or timeout after the specified time.
+   * After stream creation, they will unlock and proceed normally.
    * @param intStreams list of intermediate {@link StreamSpec}s
    * @throws Exception exception for latch timeout
    */
-  private void createStreamsWithLock(List<StreamSpec> intStreams) throws Exception {
+  private void createStreams(List<StreamSpec> intStreams) throws Exception {
     if (!intStreams.isEmpty()) {
       if (coordinationUtils != null) {
-        Lock initLock = coordinationUtils.getLock();
-        LockListener lockListener = null;
-        if (coordinationUtils.getClass().getName().equals("org.apache.samza.zk.ZkCoordinationUtils")) {
-          lockListener = createZkLockListener(intStreams, initLock);
-        }
-        initLock.setLockListener(lockListener);
-        boolean streamsExist = getStreamManager().checkIfStreamsExist(intStreams);
-        if (!streamsExist) {
-          initLock.lock();
-          lockListener.onAcquiringLock();
+        DistributedLock initLock = coordinationUtils.getLock();
+        boolean hasLock = initLock.lock(LOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        if (hasLock) {
+          getStreamManager().createStreams(intStreams);
+        } else {
+          LOG.error("Timed out while trying to acquire lock");
+          coordinationUtils.reset();
+          throw new SamzaException();
         }
       } else {
         // each application process will try creating the streams, which
@@ -312,28 +271,4 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
           taskFactory.getClass().getCanonicalName()));
     }
   }
-
-  private LockListener createZkLockListener(List<StreamSpec> intStreams, Lock initLock) {
-    return new LockListener() {
-      /**
-       * When the lock is acquired, create the intermediate streams.
-       */
-      @Override
-      public void onAcquiringLock() {
-        try {
-          createIntermediateStreams(intStreams);
-          LOG.info("Created intermediate streams successfully!");
-        } catch (Exception e) {
-          onError();
-        }
-        initLock.unlock();
-      }
-
-      @Override
-      public void onError() {
-        LOG.info("Error while creating streams! Trying again.");
-      }
-    };
-  }
-
 }

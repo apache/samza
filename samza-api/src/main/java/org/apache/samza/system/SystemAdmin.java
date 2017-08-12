@@ -114,13 +114,4 @@ public interface SystemAdmin {
   default void validateStream(StreamSpec streamSpec) throws StreamValidationException {
     throw new UnsupportedOperationException();
   }
-
-  /**
-   * Check if the stream described by the spec already exists.
-   * @param streamSpec The spec, or blueprint for the physical stream on the system.
-   * @return true if stream exists already, false otherwise
-   */
-  default boolean existStream(StreamSpec streamSpec) {
-    return false;
-  }
 }
