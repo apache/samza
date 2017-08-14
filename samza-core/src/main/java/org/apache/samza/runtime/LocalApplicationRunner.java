@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.TaskConfig;
@@ -224,7 +225,8 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
     DistributedLock initLock = null;
     try {
-      CoordinationUtils coordinationUtils = CoordinationUtils.getCoordinationUtils("APP_ID", uid, config);
+      CoordinationUtils coordinationUtils = CoordinationUtils.getCoordinationUtils(
+          new ApplicationConfig(config).getGlobalAppId(), uid, config);
       initLock = coordinationUtils.getLock(generateLockId(intStreams));
     } catch (SamzaException e) {
       LOG.warn("Coordination utils are not available.", e);
