@@ -30,6 +30,4 @@ import java.util.concurrent.TimeoutException;
 public interface Latch {
   void await(long timeout, TimeUnit tu) throws TimeoutException;
   void countDown();
-
-  void close();
 }

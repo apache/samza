@@ -169,12 +169,6 @@ public class ZkLeaderElector implements LeaderElector {
     return String.format("[Processor-%s] %s", processorIdStr, logMessage);
   }
 
-  @Override
-  public void close() {
-    if (zkUtils != null)
-      zkUtils.close();
-  }
-
   // Only by non-leaders
   class PreviousProcessorChangeListener extends ZkUtils.GenIZkDataListener {
 
