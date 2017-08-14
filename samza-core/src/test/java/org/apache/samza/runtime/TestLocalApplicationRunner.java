@@ -19,8 +19,17 @@
 
 package org.apache.samza.runtime;
 
+import com.google.common.collect.ImmutableList;
+import java.lang.reflect.Field;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
@@ -38,27 +47,11 @@ import org.apache.samza.system.StreamSpec;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
-import java.lang.reflect.Field;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 
 public class TestLocalApplicationRunner {
@@ -341,6 +334,58 @@ public class TestLocalApplicationRunner {
     }
 
     assertEquals(spy.status(app), ApplicationStatus.UnsuccessfulFinish);
+  }
+
+  @Test
+  public void testGenerateLatchIdWithShuffledStreamSpecs() {
+    List<StreamSpec> streamSpecs = ImmutableList.of(
+      new StreamSpec("test-stream-1", "stream-1", "testStream"),
+        new StreamSpec("test-stream-2", "stream-2", "testStream"),
+        new StreamSpec("test-stream-3", "stream-3", "testStream"));
+    String latchIdBeforeShuffle = generateLatchId(streamSpecs);
+
+    List<StreamSpec> shuffledStreamSpecs = ImmutableList.of(
+        new StreamSpec("test-stream-2", "stream-2", "testStream"),
+        new StreamSpec("test-stream-1", "stream-1", "testStream"),
+        new StreamSpec("test-stream-3", "stream-3", "testStream"));
+
+    assertEquals("Expected both of the latch ids to be same", latchIdBeforeShuffle,
+        generateLatchId(shuffledStreamSpecs));
+  }
+
+  @Test
+  public void testGenerateLatchIdWithSameStreamSpecs() {
+    List<StreamSpec> streamSpecs = ImmutableList.of(
+        new StreamSpec("test-stream-1", "stream-1", "testStream"),
+        new StreamSpec("test-stream-2", "stream-2", "testStream"),
+        new StreamSpec("test-stream-3", "stream-3", "testStream"));
+    String latchIdForFirstAttempt = generateLatchId(streamSpecs);
+    String latchIdForSecondAttempt = generateLatchId(streamSpecs);
+
+    assertEquals("Expected latch ids to match!", "-1037489986", latchIdForFirstAttempt);
+    assertEquals("Expected latch ids to match for the second attempt!", latchIdForFirstAttempt, latchIdForSecondAttempt);
+  }
+
+  @Test
+  public void testGenerateLatchIdWithDifferentStreamSpecs() {
+    List<StreamSpec> streamSpecs = ImmutableList.of(
+        new StreamSpec("test-stream-1", "stream-1", "testStream"),
+        new StreamSpec("test-stream-2", "stream-2", "testStream"),
+        new StreamSpec("test-stream-3", "stream-3", "testStream"));
+    String latchIdBeforeShuffle = generateLatchId(streamSpecs);
+
+    List<StreamSpec> shuffledStreamSpecs = ImmutableList.of(
+        new StreamSpec("test-stream-1", "stream-1", "testStream"),
+        new StreamSpec("test-stream-4", "stream-4", "testStream"),
+        new StreamSpec("test-stream-3", "stream-3", "testStream"));
+
+    assertNotEquals("Expected both of the latch ids to be different", latchIdBeforeShuffle,
+        generateLatchId(shuffledStreamSpecs));
+  }
+
+  private String generateLatchId(List<StreamSpec> streamSpecs) {
+    LocalApplicationRunner runner = new LocalApplicationRunner(mock(Config.class));
+    return runner.generateLatchId(streamSpecs);
   }
 
 }

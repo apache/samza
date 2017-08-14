@@ -54,8 +54,10 @@ public class ZkProcessorLatch implements Latch {
   }
 
   @Override
-  public void await(long timeout, TimeUnit tu) throws TimeoutException {
-    boolean targetPathExists = zkUtils.getZkClient().waitUntilExists(targetPath, TimeUnit.MILLISECONDS, timeout);
+  public void await(long timeout, TimeUnit timeUnit) throws TimeoutException {
+    // waitUntilExists signals timeout is by returning false as opposed to throwing exception. We internally need to map
+    // the non-existence to a TimeoutException in order to respect the contract defined in Latch interface
+    boolean targetPathExists = zkUtils.getZkClient().waitUntilExists(targetPath, timeUnit, timeout);
 
     if (!targetPathExists) {
       throw new TimeoutException("Timed out waiting for the targetPath");

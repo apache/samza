@@ -245,9 +245,9 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
           if (shouldContestInElectionForStreamCreation(initLatch)) {
             LeaderElector leaderElector = coordinationUtils.getLeaderElector();
             leaderElector.setLeaderElectorListener(() -> {
-              getStreamManager().createStreams(intStreams);
-              initLatch.countDown();
-            });
+                getStreamManager().createStreams(intStreams);
+                initLatch.countDown();
+              });
             leaderElector.tryBecomeLeader();
             initLatch.await(LATCH_TIMEOUT_MINUTES, TimeUnit.MINUTES);
           }
@@ -293,16 +293,20 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
    * @param intStreams list of {@link StreamSpec}s
    * @return latch id
    */
-  private String generateLatchId(List<StreamSpec> intStreams) {
-    return String.valueOf(Objects.hashCode(intStreams.stream()
-        .map(StreamSpec::getId)
-        .collect(Collectors.toList())));
+  /* package private */
+  String generateLatchId(List<StreamSpec> intStreams) {
+    return String.valueOf(
+        Objects.hashCode(
+            intStreams.stream()
+                .map(StreamSpec::getId)
+                .sorted()
+                .collect(Collectors.toList())));
   }
 
   /**
    * In order to fix SAMZA-1385, we are limiting the scope of coordination util within stream creation phase and destroying
    * the coordination util right after. By closing the zk connection, we clean up the ephemeral node used for leader election.
-   * It results in a leader election whenever a new process joins and also creates intermediate streams.
+   * It creates the following issues whenever a new process joins after the ephemeral node is gone.
    *    1. It is unnecessary to re-conduct leader election for stream creation in the same application lifecycle
    *    2. Underlying systems may not support check for stream existence prior to creation which could have potential problems.
    * As in interim solution, we reuse the same latch as a marker to determine if create streams phase is done for the
@@ -319,7 +323,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       streamCreationLatch.await(LEADER_ELECTION_WAIT_TIME_MS, TimeUnit.MILLISECONDS);
       // case we didn't time out suggesting that latch already exists
       eligibleForElection = false;
-    } catch(TimeoutException e) {
+    } catch (TimeoutException e) {
       LOG.info("Timed out waiting for the latch! Going to enter leader election section to create streams");
     }
 
