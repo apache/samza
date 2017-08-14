@@ -19,7 +19,6 @@
 
 package org.apache.samza.runtime;
 
-import com.google.common.base.Objects;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
@@ -30,7 +29,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
@@ -158,10 +156,13 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       // 1. initialize and plan
       ExecutionPlan plan = getExecutionPlan(app);
 
-      writePlanJsonFile(plan.getPlanAsJson());
+      String executionPlanJson = plan.getPlanAsJson();
+      writePlanJsonFile(executionPlanJson);
 
       // 2. create the necessary streams
-      createStreams(plan.getIntermediateStreams());
+      // TODO: System generated intermediate streams should have robust naming scheme. Refer JIRA-1391
+      String planId = String.valueOf(executionPlanJson.hashCode());
+      createStreams(planId, plan.getIntermediateStreams());
 
       // 3. create the StreamProcessors
       if (plan.getJobConfigs().isEmpty()) {
@@ -227,18 +228,17 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
    * If {@link CoordinationUtils} is provided, this function will first invoke leader election, and the leader
    * will create the streams. All the runner processes will wait on the latch that is released after the leader finishes
    * stream creation.
+   * @param planId a unique identifier representing the plan used for coordination purpose
    * @param intStreams list of intermediate {@link StreamSpec}s
    * @throws TimeoutException exception for latch timeout
    */
-  /* package private */ void createStreams(List<StreamSpec> intStreams) throws TimeoutException {
+  /* package private */ void createStreams(String planId, List<StreamSpec> intStreams) throws TimeoutException {
     if (!intStreams.isEmpty()) {
       // Move the scope of coordination utils within stream creation to address long idle connection problem.
       // Refer SAMZA-1385 for more details
       CoordinationUtils coordinationUtils = createCoordinationUtils();
       if (coordinationUtils != null) {
-        // generate a unique reproducible id for an application lifecycle
-        String latchId = generateLatchId(intStreams);
-        Latch initLatch = coordinationUtils.getLatch(1, latchId);
+        Latch initLatch = coordinationUtils.getLatch(1, planId);
 
         try {
           // check if the processor needs to go through leader election and stream creation
@@ -284,23 +284,6 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       throw new SamzaException(String.format("%s is not a valid task factory",
           taskFactory.getClass().getCanonicalName()));
     }
-  }
-
-  /**
-   * Generates a unique latch id that is consistent across processors within the same application lifecycle.
-   * Each {@code StreamSpec} has an id that is unique and is used for hashcode computation.
-   *
-   * @param intStreams list of {@link StreamSpec}s
-   * @return latch id
-   */
-  /* package private */
-  String generateLatchId(List<StreamSpec> intStreams) {
-    return String.valueOf(
-        Objects.hashCode(
-            intStreams.stream()
-                .map(StreamSpec::getId)
-                .sorted()
-                .collect(Collectors.toList())));
   }
 
   /**
