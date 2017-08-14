@@ -53,8 +53,8 @@ public class ZkProcessorLatch implements Latch {
   }
 
   @Override
-  public void await(long timeout, TimeUnit tu) {
-    zkUtils.getZkClient().waitUntilExists(targetPath, TimeUnit.MILLISECONDS, timeout);
+  public void await(long timeout, TimeUnit timeUnit) {
+    zkUtils.getZkClient().waitUntilExists(targetPath, timeUnit, timeout);
   }
 
   @Override
