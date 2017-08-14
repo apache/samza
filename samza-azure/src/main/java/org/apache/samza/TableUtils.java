@@ -44,20 +44,23 @@ public class TableUtils {
 
   private static final Logger LOG = LoggerFactory.getLogger(TableUtils.class);
   private static final String PARTITION_KEY = "PartitionKey";
-  private static final long CHECK_LIVENESS_DELAY = 30;
-  private static final String INITIAL_STATE = "unassigned";
-  private CloudTableClient tableClient;
-  private CloudTable table;
+  private static final long LIVENESS_DEBOUNCE_TIME_SEC = 30;
+  private final String initialState;
+  private final CloudTableClient tableClient;
+  private final CloudTable table;
 
-  public TableUtils(AzureClient client, String tableName) {
+  public TableUtils(AzureClient client, String tableName, String initialState) {
+    this.initialState = initialState;
     tableClient = client.getTableClient();
     try {
       table = tableClient.getTableReference(tableName);
       table.createIfNotExists();
     } catch (URISyntaxException e) {
-      LOG.error("\nConnection string specifies an invalid URI.", new SamzaException(e));
+      LOG.error("\nConnection string specifies an invalid URI.", e);
+      throw new AzureException(e);
     } catch (StorageException e) {
-      LOG.error("Azure storage exception.", new SamzaException(e));
+      LOG.error("Azure storage exception.", e);
+      throw new AzureException(e);
     }
   }
 
@@ -65,14 +68,14 @@ public class TableUtils {
    * Add a row which denotes an active processor to the processor table.
    * @param jmVersion Job model version that the processor is operating on.
    * @param pid Unique processor ID.
-   * @param liveness Random heartbeat value.
    * @param isLeader Denotes whether the processor is a leader or not.
    * @throws AzureException If an Azure storage service error occurred.
    */
-  public void addProcessorEntity(String jmVersion, String pid, int liveness, boolean isLeader) {
+  public void addProcessorEntity(String jmVersion, String pid, boolean isLeader) {
     ProcessorEntity entity = new ProcessorEntity(jmVersion, pid);
     entity.setIsLeader(isLeader);
-    entity.setLiveness(liveness);
+    Random rand = new Random();
+    entity.setLiveness(rand.nextInt(10000) + 2);
     TableOperation add = TableOperation.insert(entity);
     try {
       table.execute(add);
@@ -177,17 +180,20 @@ public class TableUtils {
     Iterable<ProcessorEntity> tableList = getEntitiesWithPartition(currentJMVersion.get());
     Set<String> activeProcessorsList = new HashSet<>();
     for (ProcessorEntity entity: tableList) {
-      if (System.currentTimeMillis() - entity.getTimestamp().getTime() <= CHECK_LIVENESS_DELAY * 1000) {
+      if (System.currentTimeMillis() - entity.getTimestamp().getTime() <= (LIVENESS_DEBOUNCE_TIME_SEC * 1000)) {
         activeProcessorsList.add(entity.getRowKey());
       }
     }
 
-    Iterable<ProcessorEntity> unassignedList = getEntitiesWithPartition(INITIAL_STATE);
+    Iterable<ProcessorEntity> unassignedList = getEntitiesWithPartition(initialState);
     for (ProcessorEntity entity: unassignedList) {
-      if (System.currentTimeMillis() - entity.getTimestamp().getTime() <= CHECK_LIVENESS_DELAY * 1000) {
+      long temp = System.currentTimeMillis() - entity.getTimestamp().getTime();
+      LOG.info("Time elapsed since last heartbeat: {}", temp);
+      if (temp <= (LIVENESS_DEBOUNCE_TIME_SEC * 1000)) {
         activeProcessorsList.add(entity.getRowKey());
       }
     }
+    LOG.info("Active processors list: {}", activeProcessorsList);
     return activeProcessorsList;
   }
 

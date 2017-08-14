@@ -17,19 +17,11 @@
  * under the License.
  */
 
-package org.apache.samza.scheduler;
-
-import java.util.concurrent.ScheduledFuture;
-
+package org.apache.samza;
 
 /**
- * Interface for scheduling tasks for Azure Job Coordinator.
+ * Enum depicting different barrier states.
  */
-public interface TaskScheduler {
-
-  ScheduledFuture scheduleTask();
-
-  void setStateChangeListener(SchedulerStateChangeListener listener);
-
-  void shutdown();
+public enum BarrierState {
+  START, END, TIMEOUT
 }

@@ -19,12 +19,15 @@
 
 package org.apache.samza.scheduler;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.BlobUtils;
@@ -42,35 +45,41 @@ import org.slf4j.LoggerFactory;
 public class LivenessCheckScheduler implements TaskScheduler {
 
   private static final Logger LOG = LoggerFactory.getLogger(LivenessCheckScheduler.class);
-  private static final long CHECK_LIVENESS_DELAY = 30;
-  private final ScheduledExecutorService scheduler;
+  private static final long LIVENESS_CHECK_DELAY_SEC = 5;
+  private static final ThreadFactory
+      PROCESSOR_THREAD_FACTORY = new ThreadFactoryBuilder().setNameFormat("LivenessCheckScheduler-%d").build();
+  private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(5, PROCESSOR_THREAD_FACTORY);
   private final TableUtils table;
   private final BlobUtils blob;
   private final AtomicReference<String> currentJMVersion;
+  private final AtomicReference<List<String>> liveProcessorsList;
   private SchedulerStateChangeListener listener = null;
-  private List<String> liveProcessorsList;
 
-  public LivenessCheckScheduler(ScheduledExecutorService scheduler, TableUtils table, BlobUtils blob, AtomicReference<String> currentJMVersion) {
-    this.scheduler = scheduler;
+  public LivenessCheckScheduler(TableUtils table, BlobUtils blob, AtomicReference<String> currentJMVersion) {
     this.table = table;
     this.blob = blob;
     this.currentJMVersion = currentJMVersion;
+    liveProcessorsList = new AtomicReference<>(null);
   }
 
   @Override
   public ScheduledFuture scheduleTask() {
     return scheduler.scheduleWithFixedDelay(() -> {
-        LOG.info("Checking for list of live processors");
-        //Get the list of live processors published on the blob.
-        Set<String> currProcessors = new HashSet<>(blob.getLiveProcessorList());
-        //Get the list of live processors from the table. This is the current system state.
-        Set<String> liveProcessors = table.getActiveProcessorsList(currentJMVersion);
-        //Invoke listener if the table list is not consistent with the blob list.
-        if (!liveProcessors.equals(currProcessors)) {
-          liveProcessorsList = new ArrayList<>(liveProcessors);
-          listener.onStateChange();
+        try {
+          LOG.info("Checking for list of live processors");
+          //Get the list of live processors published on the blob.
+          Set<String> currProcessors = new HashSet<>(blob.getLiveProcessorList());
+          //Get the list of live processors from the table. This is the current system state.
+          Set<String> liveProcessors = table.getActiveProcessorsList(currentJMVersion);
+          //Invoke listener if the table list is not consistent with the blob list.
+          if (!liveProcessors.equals(currProcessors)) {
+            liveProcessorsList.getAndSet(new ArrayList<>(liveProcessors));
+            listener.onStateChange();
+          }
+        } catch (Exception e) {
+          LOG.error("Exception in Liveness Check Scheduler.", e);
         }
-      }, CHECK_LIVENESS_DELAY * 4, CHECK_LIVENESS_DELAY, TimeUnit.SECONDS);
+      }, LIVENESS_CHECK_DELAY_SEC, LIVENESS_CHECK_DELAY_SEC, TimeUnit.SECONDS);
   }
 
   @Override
@@ -78,7 +87,12 @@ public class LivenessCheckScheduler implements TaskScheduler {
     this.listener = listener;
   }
 
-  public List<String> getLiveProcessors() {
+  public AtomicReference<List<String>> getLiveProcessors() {
     return liveProcessorsList;
+  }
+
+  @Override
+  public void shutdown() {
+    scheduler.shutdownNow();
   }
 }

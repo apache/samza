@@ -25,6 +25,7 @@ import com.microsoft.azure.storage.RetryPolicy;
 import com.microsoft.azure.storage.blob.BlobRequestOptions;
 import com.microsoft.azure.storage.blob.CloudBlobClient;
 import com.microsoft.azure.storage.table.CloudTableClient;
+import com.microsoft.azure.storage.table.TableRequestOptions;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import org.slf4j.Logger;
@@ -50,15 +51,19 @@ public class AzureClient {
   AzureClient(String storageConnectionString) {
     try {
       account = CloudStorageAccount.parse(storageConnectionString);
+      RetryPolicy retryPolicy = new RetryLinearRetry(5000,  3);
 
       blobClient = account.createCloudBlobClient();
       // Set retry policy for operations on the blob. In this case, every failed operation on the blob will be retried thrice, after 5 second intervals.
-      BlobRequestOptions options = new BlobRequestOptions();
-      RetryPolicy retryPolicy = new RetryLinearRetry(5000, 3);
-      options.setRetryPolicyFactory(retryPolicy);
-      blobClient.setDefaultRequestOptions(options);
+      BlobRequestOptions blobOptions = new BlobRequestOptions();
+      blobOptions.setRetryPolicyFactory(retryPolicy);
+      blobClient.setDefaultRequestOptions(blobOptions);
 
+      // Set retry policy for operations on the table. In this case, every failed operation on the table will be retried thrice, after 5 second intervals.
       tableClient = account.createCloudTableClient();
+      TableRequestOptions tableOptions = new TableRequestOptions();
+      tableOptions.setRetryPolicyFactory(retryPolicy);
+      tableClient.setDefaultRequestOptions(tableOptions);
     } catch (IllegalArgumentException | URISyntaxException e) {
       LOG.error("Connection string {} specifies an invalid URI.", storageConnectionString);
       LOG.error("Please confirm the connection string is in the Azure connection string format.");

@@ -19,10 +19,16 @@
 
 package org.apache.samza.scheduler;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import java.util.List;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.samza.BarrierState;
 import org.apache.samza.BlobUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,29 +42,45 @@ import org.slf4j.LoggerFactory;
  */
 public class JMVersionUpgradeScheduler implements TaskScheduler {
   private static final Logger LOG = LoggerFactory.getLogger(JMVersionUpgradeScheduler.class);
-  private static final long CHECK_UPGRADE_DELAY = 5;
-  private final ScheduledExecutorService scheduler;
+  private static final long JMV_UPGRADE_DELAY_SEC = 5;
+  private static final ThreadFactory
+      PROCESSOR_THREAD_FACTORY = new ThreadFactoryBuilder().setNameFormat("JMVersionUpgradeScheduler-%d").build();
+  private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(5, PROCESSOR_THREAD_FACTORY);
   private final BlobUtils blob;
   private final AtomicReference<String> currentJMVersion;
+  private final AtomicBoolean versionUpgradeDetected;
+  private final String processorId;
   private SchedulerStateChangeListener listener = null;
 
-  public JMVersionUpgradeScheduler(ScheduledExecutorService scheduler, BlobUtils blob, AtomicReference<String> currentJMVersion) {
-    this.scheduler = scheduler;
+  public JMVersionUpgradeScheduler(BlobUtils blob,
+      AtomicReference<String> currentJMVersion, AtomicBoolean versionUpgradeDetected, String processorId) {
     this.blob = blob;
     this.currentJMVersion = currentJMVersion;
+    this.versionUpgradeDetected = versionUpgradeDetected;
+    this.processorId = processorId;
   }
 
   @Override
   public ScheduledFuture scheduleTask() {
     return scheduler.scheduleWithFixedDelay(() -> {
-        LOG.info("Checking for job model version upgrade");
-        // Read job model version from the blob.
-        String blobJMV = blob.getJobModelVersion();
-        // Check if the job model version on the blob is consistent with the job model version that the processor is operating on.
-        if (!currentJMVersion.get().equals(blobJMV)) {
-          listener.onStateChange();
+        try {
+          LOG.info("Checking for job model version upgrade");
+          // Read job model version from the blob.
+          String blobJMV = blob.getJobModelVersion();
+          LOG.info("Blob JMV: {}", blobJMV);
+          String blobBarrierState = blob.getBarrierState();
+          String currentJMV = currentJMVersion.get();
+          LOG.info("currentJMV: {}", currentJMV);
+          String expectedBarrierState = BarrierState.START.toString() + " " + blobJMV;
+          List<String> processorList = blob.getLiveProcessorList();
+          // Check if the job model version on the blob is consistent with the job model version that the processor is operating on.
+          if (processorList != null && processorList.contains(processorId) && !currentJMV.equals(blobJMV) && blobBarrierState.equals(expectedBarrierState) && !versionUpgradeDetected.get()) {
+            listener.onStateChange();
+          }
+        } catch (Exception e) {
+          LOG.error("Exception in JM Version Scheduler.", e);
         }
-      }, CHECK_UPGRADE_DELAY, CHECK_UPGRADE_DELAY, TimeUnit.SECONDS);
+      }, JMV_UPGRADE_DELAY_SEC, JMV_UPGRADE_DELAY_SEC, TimeUnit.SECONDS);
   }
 
   @Override
@@ -66,4 +88,8 @@ public class JMVersionUpgradeScheduler implements TaskScheduler {
     this.listener = listener;
   }
 
+  @Override
+  public void shutdown() {
+    scheduler.shutdownNow();
+  }
 }

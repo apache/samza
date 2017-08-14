@@ -20,6 +20,7 @@
 package org.apache.samza;
 
 import com.microsoft.azure.storage.table.TableServiceEntity;
+import java.util.Random;
 
 
 /**
@@ -38,11 +39,13 @@ public class ProcessorEntity extends TableServiceEntity {
     this.partitionKey = jobModelVersion;
     this.rowKey = processorId;
     this.isLeader = false;
+    Random rand = new Random();
+    this.liveness = rand.nextInt(10000) + 2;
   }
 
   /**
    * Updates heartbeat by updating the liveness value in the table.
-   * @param value
+   * @param value Random integer value
    */
   public void setLiveness(int value) {
     liveness = value;
