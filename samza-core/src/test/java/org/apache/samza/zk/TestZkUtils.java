@@ -121,20 +121,24 @@ public class TestZkUtils {
   @Test
   public void testZKProtocolVersion() {
     // first time connect, version should be set to ZkUtils.ZK_PROTOCOL_VERSION
-    ZkControllerImpl zkController = new ZkControllerImpl("1", zkUtils, null, null);
+    ZkLeaderElector le = new ZkLeaderElector("1", zkUtils);
+    ZkControllerImpl zkController = new ZkControllerImpl("1", zkUtils, null, le);
+    zkController.register();
     String root = zkUtils.getKeyBuilder().getRootPath();
     String ver = (String) zkUtils.getZkClient().readData(root);
     Assert.assertEquals(ZkUtils.ZK_PROTOCOL_VERSION, ver);
 
     // do it again (in case original value was null
-    zkController = new ZkControllerImpl("1", zkUtils, null, null);
+    zkController = new ZkControllerImpl("1", zkUtils, null, le);
+    zkController.register();
     ver = (String) zkUtils.getZkClient().readData(root);
     Assert.assertEquals(ZkUtils.ZK_PROTOCOL_VERSION, ver);
 
     // now negative case
     zkUtils.getZkClient().writeData(root, "2.0");
     try {
-      zkController = new ZkControllerImpl("1", zkUtils, null, null);
+      zkController = new ZkControllerImpl("1", zkUtils, null, le);
+      zkController.register();
       Assert.fail("Expected to fail because of version mismatch 2.0 vs 1.0");
     } catch (SamzaException e) {
       // expected
@@ -151,7 +155,8 @@ public class TestZkUtils {
     }
 
     try {
-      zkController = new ZkControllerImpl("1", zkUtils, null, null);
+      zkController = new ZkControllerImpl("1", zkUtils, null, le);
+      zkController.register();
       Assert.fail("Expected to fail because of version mismatch 2.0 vs 3.0");
     } catch (SamzaException e) {
       // expected
@@ -164,7 +169,8 @@ public class TestZkUtils {
     zkUtils.registerProcessorAndGetId(new ProcessorData("host1", "1"));
     List<String> l = zkUtils.getSortedActiveProcessorsIDs();
     Assert.assertEquals(1, l.size());
-    new ZkUtils(KEY_BUILDER, zkClient, SESSION_TIMEOUT_MS, new NoOpMetricsRegistry()).registerProcessorAndGetId(new ProcessorData("host2", "2"));
+    new ZkUtils(KEY_BUILDER, zkClient, SESSION_TIMEOUT_MS, new NoOpMetricsRegistry()).registerProcessorAndGetId(
+        new ProcessorData("host2", "2"));
     l = zkUtils.getSortedActiveProcessorsIDs();
     Assert.assertEquals(2, l.size());
 
@@ -192,8 +198,7 @@ public class TestZkUtils {
     Assert.assertFalse(zkUtils.exists(root));
 
     // create the paths
-    zkUtils.validatePaths(
-        new String[]{root, keyBuilder.getJobModelVersionPath(), keyBuilder.getProcessorsPath()});
+    zkUtils.validatePaths(new String[]{root, keyBuilder.getJobModelVersionPath(), keyBuilder.getProcessorsPath()});
     Assert.assertTrue(zkUtils.exists(root));
     Assert.assertTrue(zkUtils.exists(keyBuilder.getJobModelVersionPath()));
     Assert.assertTrue(zkUtils.exists(keyBuilder.getProcessorsPath()));
@@ -256,8 +261,7 @@ public class TestZkUtils {
     String version = "1";
     String oldVersion = "0";
 
-    zkUtils.validatePaths(
-        new String[]{root, keyBuilder.getJobModelPathPrefix(), keyBuilder.getJobModelVersionPath()});
+    zkUtils.validatePaths(new String[]{root, keyBuilder.getJobModelPathPrefix(), keyBuilder.getJobModelVersionPath()});
 
     zkUtils.publishJobModelVersion(oldVersion, version);
     Assert.assertEquals(version, zkUtils.getJobModelVersion());
