@@ -36,4 +36,9 @@ public interface DistributedLock {
    * Releases the lock
    */
   void unlock();
+
+  /**
+   * perform any required action for closing
+   */
+  void close();
 }

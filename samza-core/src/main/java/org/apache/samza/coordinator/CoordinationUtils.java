@@ -1,24 +1,30 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+ - * Licensed to the Apache Software Foundation (ASF) under one
+ - * or more contributor license agreements.  See the NOTICE file
+ - * distributed with this work for additional information
+ - * regarding copyright ownership.  The ASF licenses this file
+ - * to you under the Apache License, Version 2.0 (the
+ - * "License"); you may not use this file except in compliance
+ - * with the License.  You may obtain a copy of the License at
+ - *
+ - *   http://www.apache.org/licenses/LICENSE-2.0
+ - *
+ - * Unless required by applicable law or agreed to in writing,
+ - * software distributed under the License is distributed on an
+ - * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ - * KIND, either express or implied.  See the License for the
+ - * specific language governing permissions and limitations
+ - * under the License.
+ - */
 package org.apache.samza.coordinator;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JobCoordinatorConfig;
+import org.apache.samza.zk.ZkCoordinationUtils;
+import org.apache.samza.zk.ZkJobCoordinatorFactory;
+
 
 /**
  *
@@ -31,16 +37,17 @@ import org.apache.samza.annotation.InterfaceStability;
 @InterfaceStability.Evolving
 public interface CoordinationUtils {
 
-  /**
-   * reset the internal structure. Does not happen automatically with stop()
-   */
-  void reset();
+  static CoordinationUtils getCoordinationUtils(String groupId, String participantId, Config config) {
 
+    // currently we figure out if it is ZK based utilities by checking JobCoordinatorConfig.JOB_COORDINATOR_FACTORY
+    String jobCoordinatorFactoryClassName = config.get(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "");
 
-  // facilities for group coordination
-  LeaderElector getLeaderElector(); // leaderElector is unique based on the groupId
+    if (!ZkJobCoordinatorFactory.class.getName().equals(jobCoordinatorFactoryClassName))
+      throw new SamzaException(String.format("Samza supports only ZK based coordination utilities with %s == %s",
+          JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, ZkJobCoordinatorFactory.class.getName()));
 
-  Latch getLatch(int size, String latchId);
+    return new ZkCoordinationUtils(groupId, participantId, config);
+  }
 
-  DistributedLock getLock(String initLockPath);
+  DistributedLock getLock(String lockId);
 }

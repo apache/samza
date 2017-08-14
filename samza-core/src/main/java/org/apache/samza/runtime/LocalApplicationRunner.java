@@ -33,10 +33,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.DistributedLock;
@@ -48,8 +46,6 @@ import org.apache.samza.system.StreamSpec;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
-import org.apache.samza.zk.ZkCoordinationServiceFactory;
-import org.apache.samza.zk.ZkJobCoordinatorFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,7 +59,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   private static final long LOCK_TIMEOUT_SECONDS = 10;
 
   private final String uid;
-  private final CoordinationUtils coordinationUtils;
+
   private final Set<StreamProcessor> processors = ConcurrentHashMap.newKeySet();
   private final CountDownLatch shutdownLatch = new CountDownLatch(1);
   private final AtomicInteger numProcessorsToStart = new AtomicInteger();
@@ -122,9 +118,6 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
         }
       }
 
-      if (coordinationUtils != null) {
-        coordinationUtils.reset();
-      }
       shutdownLatch.countDown();
     }
   }
@@ -132,7 +125,6 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   public LocalApplicationRunner(Config config) {
     super(config);
     uid = UUID.randomUUID().toString();
-    coordinationUtils = createCoordinationUtils();
   }
 
   @Override
@@ -207,22 +199,6 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   }
 
   /**
-   * Create the {@link CoordinationUtils} needed by the application runner, or null if it's not configured.
-   * @return an instance of {@link CoordinationUtils}
-   */
-  /* package private */ CoordinationUtils createCoordinationUtils() {
-    String jobCoordinatorFactoryClassName = config.get(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "");
-
-    // TODO: we will need a better way to package the configs with application runner
-    if (ZkJobCoordinatorFactory.class.getName().equals(jobCoordinatorFactoryClassName)) {
-      ApplicationConfig appConfig = new ApplicationConfig(config);
-      return new ZkCoordinationServiceFactory().getCoordinationService(appConfig.getGlobalAppId(), uid, config);
-    } else {
-      return null;
-    }
-  }
-
-  /**
    * Generates a unique lock ID which is consistent for all processors within the same application lifecycle.
    * Each {@code StreamSpec} has an ID that is unique and is used for hashcode computation.
    * @param intStreams list of {@link StreamSpec}s
@@ -242,24 +218,34 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
    * @param intStreams list of intermediate {@link StreamSpec}s
    */
   private void createStreams(List<StreamSpec> intStreams) {
-    if (!intStreams.isEmpty()) {
-      if (coordinationUtils != null) {
-        DistributedLock initLock = coordinationUtils.getLock(generateLockId(intStreams));
-        try {
-          boolean hasLock = initLock.lock(LOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-          if (hasLock) {
-            getStreamManager().createStreams(intStreams);
-          } else {
-            LOG.error("Timed out while trying to acquire lock.", new TimeoutException());
-          }
-        } finally {
-          coordinationUtils.reset();
+    if (intStreams.isEmpty()) {
+      return;
+    }
+
+    DistributedLock initLock = null;
+    try {
+      CoordinationUtils coordinationUtils = CoordinationUtils.getCoordinationUtils("APP_ID", uid, config);
+      initLock = coordinationUtils.getLock(generateLockId(intStreams));
+    } catch (SamzaException e) {
+      LOG.warn("Coordination utils are not available.", e);
+    }
+
+    if (initLock != null) {
+      try {
+        boolean hasLock = initLock.lock(LOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        if (hasLock) {
+          getStreamManager().createStreams(intStreams);
+          initLock.unlock();
+        } else {
+          LOG.error("Timed out while trying to acquire lock.", new TimeoutException());
         }
-      } else {
-        // each application process will try creating the streams, which
-        // requires stream creation to be idempotent
-        getStreamManager().createStreams(intStreams);
+      } finally {
+        initLock.close();
       }
+    } else {
+      // each application process will try creating the streams, which
+      // requires stream creation to be idempotent
+      getStreamManager().createStreams(intStreams);
     }
   }
 

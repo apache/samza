@@ -43,7 +43,7 @@ public class ZkDistributedLock implements DistributedLock {
   public ZkDistributedLock(String participantId, ZkUtils zkUtils, String initLockPath) {
     this.zkUtils = zkUtils;
     this.participantId = participantId;
-    this.keyBuilder = this.zkUtils.getKeyBuilder();
+    this.keyBuilder = zkUtils.getKeyBuilder();
     lockPath = String.format("%s/%s", keyBuilder.getRootPath(), initLockPath);
     zkUtils.makeSurePersistentPathsExists(new String[] {lockPath});
   }
@@ -98,5 +98,10 @@ public class ZkDistributedLock implements DistributedLock {
     } else {
       LOG.warn("Ephemeral lock node you want to delete doesn't exist");
     }
+  }
+
+  @Override
+  public void close() {
+    zkUtils.close();
   }
 }

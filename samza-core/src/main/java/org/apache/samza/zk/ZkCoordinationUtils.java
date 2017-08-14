@@ -16,58 +16,79 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.samza.zk;
 
-import org.I0Itec.zkclient.exception.ZkInterruptedException;
+import com.google.common.base.Strings;
+import java.util.concurrent.TimeUnit;
+import org.I0Itec.zkclient.ZkClient;
+import org.apache.samza.SamzaException;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
-import org.apache.samza.coordinator.Latch;
-import org.apache.samza.coordinator.LeaderElector;
 import org.apache.samza.coordinator.DistributedLock;
+import org.apache.samza.util.NoOpMetricsRegistry;
+import org.apache.zookeeper.client.ConnectStringParser;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 public class ZkCoordinationUtils implements CoordinationUtils {
-  private static final Logger LOG = LoggerFactory.getLogger(ZkCoordinationUtils.class);
+  private final String participantId;
+  private final ZkUtils zkUtils;
 
-  public final ZkConfig zkConfig;
-  public final ZkUtils zkUtils;
-  public final String processorIdStr;
+  private final static Logger LOG = org.slf4j.LoggerFactory.getLogger(ZkCoordinationUtils.class);
 
-  public ZkCoordinationUtils(String processorId, ZkConfig zkConfig, ZkUtils zkUtils) {
-    this.zkConfig = zkConfig;
-    this.zkUtils = zkUtils;
-    this.processorIdStr = processorId;
+  public ZkCoordinationUtils(String groupId, String participantId, Config config) {
+
+    this.participantId = participantId;
+    ZkConfig zkConfig = new ZkConfig(config);
+
+    ZkClient zkClient = createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
+
+    this.zkUtils = new ZkUtils(new ZkKeyBuilder(groupId), zkClient, zkConfig.getZkConnectionTimeoutMs(), new NoOpMetricsRegistry());
+    LOG.info("Created ZkCoordinationUtils. zkUtils = " + zkUtils + "; groupid=" + groupId);
   }
 
-  @Override
-  public void reset() {
+  //
+  // static auxiliary methods
+  //
+  public static ZkClient createZkClient(String connectString, int sessionTimeoutMS, int connectionTimeoutMs) {
+    ZkClient zkClient;
     try {
-      zkUtils.close();
-    } catch (ZkInterruptedException ex) {
-      // Swallowing due to occurrence in the last stage of lifecycle(Not actionable).
-      LOG.error("Exception in reset: ", ex);
+      zkClient = new ZkClient(connectString, sessionTimeoutMS, connectionTimeoutMs);
+    } catch (Exception e) {
+      // ZkClient constructor may throw a variety of different exceptions, not all of them Zk based.
+      throw new SamzaException("zkClient failed to connect to ZK at :" + connectString, e);
+    }
+
+    // make sure the namespace in zk exists (if specified)
+    validateZkNameSpace(connectString, zkClient);
+
+    return zkClient;
+  }
+  /**
+   * if ZkConnectString contains namespace path at the end, but it does not exist we should fail
+   * @param zkConnect - connect string
+   * @param zkClient - zkClient object to talk to the ZK
+   */
+  public static void validateZkNameSpace(String zkConnect, ZkClient zkClient) {
+    ConnectStringParser parser = new ConnectStringParser(zkConnect);
+
+    String path = parser.getChrootPath();
+    if (Strings.isNullOrEmpty(path)) {
+      return; // no namespace path
+    }
+
+    //LOG.info("connectString = " + zkConnect + "; path =" + path);
+
+    // if namespace specified (path above) but "/" does not exists, we will fail
+    if (!zkClient.exists("/")) {
+      throw new SamzaException("Zookeeper namespace: " + path + " does not exist for zk at " + zkConnect);
     }
   }
 
   @Override
-  public LeaderElector getLeaderElector() {
-    return new ZkLeaderElector(processorIdStr, zkUtils);
-  }
-
-  @Override
-  public Latch getLatch(int size, String latchId) {
-    return new ZkProcessorLatch(size, latchId, processorIdStr, zkUtils);
-  }
-
-  @Override
-  public DistributedLock getLock(String initLockPath) {
-    return new ZkDistributedLock(processorIdStr, zkUtils, initLockPath);
-  }
-
-  // TODO - SAMZA-1128 CoordinationService should directly depend on ZkUtils and DebounceTimer
-  public ZkUtils getZkUtils() {
-    return zkUtils;
+  public DistributedLock getLock(String initLockId) {
+    return new ZkDistributedLock(participantId, zkUtils, initLockId);
   }
 }
