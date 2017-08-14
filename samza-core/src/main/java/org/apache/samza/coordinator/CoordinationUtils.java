@@ -18,7 +18,13 @@
  */
 package org.apache.samza.coordinator;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JobCoordinatorConfig;
+import org.apache.samza.zk.ZkCoordinationUtils;
+import org.apache.samza.zk.ZkJobCoordinatorFactory;
+
 
 /**
  *
@@ -31,14 +37,17 @@ import org.apache.samza.annotation.InterfaceStability;
 @InterfaceStability.Evolving
 public interface CoordinationUtils {
 
-  /**
-   * reset the internal structure. Does not happen automatically with stop()
-   */
-  void reset();
+  static CoordinationUtils getCoordinationUtils(String groupId, String participantId, Config config) {
 
+    // currently we figure out if it is ZK based utilities by checking JobCoordinatorConfig.JOB_COORDINATOR_FACTORY
+    String jobCoordinatorFactoryClassName = config.get(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "");
 
-  // facilities for group coordination
-  LeaderElector getLeaderElector(); // leaderElector is unique based on the groupId
+    if (!ZkJobCoordinatorFactory.class.getName().equals(jobCoordinatorFactoryClassName))
+      throw new SamzaException(String.format("Samza supports only ZK based coordination utilities with %s == %s",
+          JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, ZkJobCoordinatorFactory.class.getName()));
 
-  Latch getLatch(int size, String latchId);
+    return new ZkCoordinationUtils(groupId, participantId, config);
+  }
+
+  DistributedLock getLock(String lockId);
 }

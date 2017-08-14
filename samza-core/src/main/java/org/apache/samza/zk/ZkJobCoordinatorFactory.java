@@ -51,7 +51,8 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
   private ZkUtils getZkUtils(Config config, MetricsRegistry metricsRegistry) {
     ZkConfig zkConfig = new ZkConfig(config);
     ZkKeyBuilder keyBuilder = new ZkKeyBuilder(new ApplicationConfig(config).getGlobalAppId());
-    ZkClient zkClient = ZkCoordinationServiceFactory.createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
+    ZkClient zkClient = ZkCoordinationUtils
+        .createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
     return new ZkUtils(keyBuilder, zkClient, zkConfig.getZkConnectionTimeoutMs(), metricsRegistry);
   }
 }
