@@ -19,6 +19,15 @@
 
 package org.apache.samza.runtime;
 
+import com.google.common.collect.ImmutableList;
+import java.lang.reflect.Field;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.JobConfig;
@@ -38,30 +47,30 @@ import org.apache.samza.system.StreamSpec;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
-import java.lang.reflect.Field;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 
 public class TestLocalApplicationRunner {
+
+  private static final String PLAN_JSON = "{"
+      + "\"jobs\":[{"
+      + "\"jobName\":\"test-application\","
+      + "\"jobId\":\"1\","
+      + "\"operatorGraph\":{"
+      + "\"intermediateStreams\":{%s},"
+      + "\"applicationName\":\"test-application\",\"applicationId\":\"1\"}";
+  private static final String STREAM_SPEC_JSON_FORMAT = "\"%s\":{"
+      + "\"streamSpec\":{"
+      + "\"id\":\"%s\","
+      + "\"systemName\":\"%s\","
+      + "\"physicalName\":\"%s\","
+      + "\"partitionCount\":2},"
+      + "\"sourceJobs\":[\"test-app\"],"
+      + "\"targetJobs\":[\"test-target-app\"]},";
 
   @Test
   public void testStreamCreation() throws Exception {
@@ -180,8 +189,10 @@ public class TestLocalApplicationRunner {
       @Override
       public void await(long timeout, TimeUnit tu)
           throws TimeoutException {
-        // in this test, latch is released before wait
-        assertTrue(done);
+        // in this test, latch is released after countDown is invoked
+        if (!done) {
+          throw new TimeoutException("timed out waiting for the target path");
+        }
       }
 
       @Override
@@ -343,4 +354,80 @@ public class TestLocalApplicationRunner {
     assertEquals(spy.status(app), ApplicationStatus.UnsuccessfulFinish);
   }
 
+  /**
+   * A test case to verify if the plan results in different hash if there is change in topological sort order.
+   * Note: the overall JOB PLAN remains the same outside the scope of intermediate streams the sake of these test cases.
+   */
+  @Test
+  public void testPlanIdWithShuffledStreamSpecs() {
+    List<StreamSpec> streamSpecs = ImmutableList.of(
+      new StreamSpec("test-stream-1", "stream-1", "testStream"),
+        new StreamSpec("test-stream-2", "stream-2", "testStream"),
+        new StreamSpec("test-stream-3", "stream-3", "testStream"));
+    String planIdBeforeShuffle = getExecutionPlanId(streamSpecs);
+
+    List<StreamSpec> shuffledStreamSpecs = ImmutableList.of(
+        new StreamSpec("test-stream-2", "stream-2", "testStream"),
+        new StreamSpec("test-stream-1", "stream-1", "testStream"),
+        new StreamSpec("test-stream-3", "stream-3", "testStream"));
+
+    assertNotEquals("Expected both of the latch ids to be different", planIdBeforeShuffle,
+        getExecutionPlanId(shuffledStreamSpecs));
+  }
+
+  /**
+   * A test case to verify if the plan results in same hash in case of same plan.
+   * Note: the overall JOB PLAN remains the same outside the scope of intermediate streams the sake of these test cases.
+   */
+  @Test
+  public void testGeneratePlanIdWithSameStreamSpecs() {
+    List<StreamSpec> streamSpecs = ImmutableList.of(
+        new StreamSpec("test-stream-1", "stream-1", "testStream"),
+        new StreamSpec("test-stream-2", "stream-2", "testStream"),
+        new StreamSpec("test-stream-3", "stream-3", "testStream"));
+    String planIdForFirstAttempt = getExecutionPlanId(streamSpecs);
+    String planIdForSecondAttempt = getExecutionPlanId(streamSpecs);
+
+    assertEquals("Expected latch ids to match!", "1447946713", planIdForFirstAttempt);
+    assertEquals("Expected latch ids to match for the second attempt!", planIdForFirstAttempt, planIdForSecondAttempt);
+  }
+
+  /**
+   * A test case to verify plan results in different hash in case of different intermediate stream.
+   * Note: the overall JOB PLAN remains the same outside the scope of intermediate streams the sake of these test cases.
+   */
+  @Test
+  public void testGeneratePlanIdWithDifferentStreamSpecs() {
+    List<StreamSpec> streamSpecs = ImmutableList.of(
+        new StreamSpec("test-stream-1", "stream-1", "testStream"),
+        new StreamSpec("test-stream-2", "stream-2", "testStream"),
+        new StreamSpec("test-stream-3", "stream-3", "testStream"));
+    String planIdBeforeShuffle = getExecutionPlanId(streamSpecs);
+
+    List<StreamSpec> updatedStreamSpecs = ImmutableList.of(
+        new StreamSpec("test-stream-1", "stream-1", "testStream"),
+        new StreamSpec("test-stream-4", "stream-4", "testStream"),
+        new StreamSpec("test-stream-3", "stream-3", "testStream"));
+
+    assertNotEquals("Expected both of the latch ids to be different", planIdBeforeShuffle,
+        getExecutionPlanId(updatedStreamSpecs));
+  }
+
+  private String getExecutionPlanId(List<StreamSpec> updatedStreamSpecs) {
+    String intermediateStreamJson = updatedStreamSpecs.stream()
+        .map(this::streamSpecToJson)
+        .collect(Collectors.joining(","));
+
+    int planId = String.format(PLAN_JSON, intermediateStreamJson).hashCode();
+
+    return String.valueOf(planId);
+  }
+
+  private String streamSpecToJson(StreamSpec streamSpec) {
+    return String.format(STREAM_SPEC_JSON_FORMAT,
+        streamSpec.getId(),
+        streamSpec.getId(),
+        streamSpec.getSystemName(),
+        streamSpec.getPhysicalName());
+  }
 }
