@@ -16,41 +16,57 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.zk;
+
+package org.apache.samza.coordinator;
 
 import com.google.common.base.Strings;
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ZkConfig;
-import org.apache.samza.coordinator.CoordinationServiceFactory;
-import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.util.NoOpMetricsRegistry;
+import org.apache.samza.zk.ZkKeyBuilder;
+import org.apache.samza.zk.ZkLeaderElector;
+import org.apache.samza.zk.ZkProcessorLatch;
+import org.apache.samza.zk.ZkUtils;
 import org.apache.zookeeper.client.ConnectStringParser;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
-public class ZkCoordinationServiceFactory implements CoordinationServiceFactory {
-  private static final Logger LOG = LoggerFactory.getLogger(ZkCoordinationServiceFactory.class);
+public class ZkCoordinationUtils implements CoordinationUtils {
+  private final String participantId;
+  private final ZkUtils zkUtils;
 
-  public CoordinationUtils getCoordinationService(String groupId, String participantId, Config config) {
+  private final static Logger LOG = org.slf4j.LoggerFactory.getLogger(ZkCoordinationUtils.class);
+
+  ZkCoordinationUtils(String groupId, String participantId, Config config) {
+
+    this.participantId = participantId;
     ZkConfig zkConfig = new ZkConfig(config);
 
-    ZkClient zkClient =
-        createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
+    ZkClient zkClient = createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
 
-    ZkUtils zkUtils = new ZkUtils(new ZkKeyBuilder(groupId), zkClient, zkConfig.getZkConnectionTimeoutMs(), new NoOpMetricsRegistry());
-    return new ZkCoordinationUtils(participantId, zkConfig, zkUtils);
+    this.zkUtils = new ZkUtils(new ZkKeyBuilder(groupId), zkClient, zkConfig.getZkConnectionTimeoutMs(), new NoOpMetricsRegistry());
+    LOG.info("Created ZkCoordinationUtils. zkUtils = " + zkUtils + "; groupid=" + groupId);
   }
 
-  /**
-   * helper method to create zkClient
-   * @param connectString - zkConnect string
-   * @param sessionTimeoutMS - session timeout
-   * @param connectionTimeoutMs - connection timeout
-   * @return zkClient object
-   */
+  @Override
+  public LeaderElector getLeaderElector() {
+    LOG.info("getting LE. participant=" + participantId + ";zkutils=" + zkUtils);
+    ZkLeaderElector le = new ZkLeaderElector(participantId, zkUtils);
+    LOG.info("got LE=" + le);
+    return le;
+  }
+
+  @Override
+  public Latch getLatch(int size, String latchId) {
+    LOG.info("getting latch: size=" + size + ";id = " + latchId);
+    Latch l = new ZkProcessorLatch(size, latchId, participantId, zkUtils);
+    LOG.info("got latch:" + l);
+    return l;
+  }
+
+  // static auxiliary methods
   public static ZkClient createZkClient(String connectString, int sessionTimeoutMS, int connectionTimeoutMs) {
     ZkClient zkClient;
     try {
@@ -65,7 +81,6 @@ public class ZkCoordinationServiceFactory implements CoordinationServiceFactory 
 
     return zkClient;
   }
-
   /**
    * if ZkConnectString contains namespace path at the end, but it does not exist we should fail
    * @param zkConnect - connect string
@@ -79,7 +94,7 @@ public class ZkCoordinationServiceFactory implements CoordinationServiceFactory 
       return; // no namespace path
     }
 
-    LOG.info("connectString = " + zkConnect + "; path =" + path);
+    //LOG.info("connectString = " + zkConnect + "; path =" + path);
 
     // if namespace specified (path above) but "/" does not exists, we will fail
     if (!zkClient.exists("/")) {
