@@ -25,20 +25,8 @@ import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.config.Config
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.storage.TaskStorageManager
-import org.apache.samza.system.IncomingMessageEnvelope
-import org.apache.samza.system.SystemAdmin
-import org.apache.samza.system.SystemConsumers
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.task.AsyncStreamTask
-import org.apache.samza.task.ClosableTask
-import org.apache.samza.task.EndOfStreamListenerTask
-import org.apache.samza.task.InitableTask
-import org.apache.samza.task.ReadableCoordinator
-import org.apache.samza.task.StreamTask
-import org.apache.samza.task.TaskCallbackFactory
-import org.apache.samza.task.TaskContext
-import org.apache.samza.task.TaskInstanceCollector
-import org.apache.samza.task.WindowableTask
+import org.apache.samza.system.{IncomingMessageEnvelope, SystemAdmin, SystemConsumers, SystemStreamPartition}
+import org.apache.samza.task._
 import org.apache.samza.util.Logging
 
 import scala.collection.JavaConverters._
@@ -210,7 +198,9 @@ class TaskInstance(
 
     trace("Flushing producers for taskName: %s" format taskName)
 
-    collector.flush
+    exceptionHandler.maybeHandle { // Allow users to decide whether to swallow producer exceptions (in kafka whole batch will be lost!)
+      collector.flush
+    }
 
     trace("Flushing state stores for taskName: %s" format taskName)
 

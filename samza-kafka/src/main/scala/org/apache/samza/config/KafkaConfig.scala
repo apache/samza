@@ -20,24 +20,19 @@
 package org.apache.samza.config
 
 
+import java.util
 import java.util.regex.Pattern
-
-import org.apache.samza.util.Util
-import org.apache.samza.util.Logging
-
-import scala.collection.JavaConverters._
-import kafka.consumer.ConsumerConfig
 import java.util.{Properties, UUID}
 
+import kafka.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerConfig
+import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.samza.SamzaException
-import java.util
+import org.apache.samza.config.SystemConfig.Config2System
+import org.apache.samza.system.kafka.KafkaSystemFactory
+import org.apache.samza.util.{Logging, Util}
 
 import scala.collection.JavaConverters._
-import org.apache.samza.system.kafka.KafkaSystemFactory
-import org.apache.samza.config.SystemConfig.Config2System
-import org.apache.samza.config.StreamConfig.Config2Stream
-import org.apache.kafka.common.serialization.ByteArraySerializer
 
 object KafkaConfig {
   val TOPIC_REPLICATION_FACTOR = "replication.factor"
@@ -295,7 +290,8 @@ class KafkaProducerConfig(val systemName: String,
 
   //Overrides specific to samza-kafka (these are considered as defaults in Samza & can be overridden by user
   val MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT: java.lang.Integer = 1.asInstanceOf[Integer]
-  val RETRIES_DEFAULT: java.lang.Integer = Integer.MAX_VALUE
+  val RETRIES_DEFAULT: java.lang.Integer = 10
+  val LINGER_DEFAULT: java.lang.Integer = 20
 
   def getProducerProperties = {
     val byteArraySerializerClassName = classOf[ByteArraySerializer].getCanonicalName
@@ -320,14 +316,17 @@ class KafkaProducerConfig(val systemName: String,
       producerProperties.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT)
     }
 
-    if (producerProperties.containsKey(ProducerConfig.RETRIES_CONFIG)
-      && producerProperties.get(ProducerConfig.RETRIES_CONFIG).asInstanceOf[String].toInt < RETRIES_DEFAULT) {
-      warn("Samza does not provide producer failure handling. Consider setting '%s' to a large value, like Int.MAX." format ProducerConfig.RETRIES_CONFIG)
-    } else {
-      // Retries config is set to Max so that when all attempts fail, Samza also fails the send. We do not have any special handler
-      // for producer failure
+    if (!producerProperties.containsKey(ProducerConfig.RETRIES_CONFIG)) {
+      debug("%s undefined. Defaulting to %s." format(ProducerConfig.RETRIES_CONFIG, RETRIES_DEFAULT))
       producerProperties.put(ProducerConfig.RETRIES_CONFIG, RETRIES_DEFAULT)
     }
+    producerProperties.get(ProducerConfig.RETRIES_CONFIG).toString.toInt // Verify int
+
+    if (!producerProperties.containsKey(ProducerConfig.LINGER_MS_CONFIG)) {
+      debug("%s undefined. Defaulting to %s." format(ProducerConfig.LINGER_MS_CONFIG, LINGER_DEFAULT))
+      producerProperties.put(ProducerConfig.LINGER_MS_CONFIG, LINGER_DEFAULT)
+    }
+    producerProperties.get(ProducerConfig.LINGER_MS_CONFIG).toString.toInt // Verify int
 
     producerProperties
   }

@@ -391,6 +391,69 @@ class TestTaskInstance {
     // Finally, checkpoint the inputs with the snapshotted checkpoint captured at the beginning of commit
     mockOrder.verify(offsetManager).writeCheckpoint(taskName, checkpoint)
   }
+
+  @Test(expected = classOf[SystemProducerException])
+  def testProducerExceptionsIsPropagated {
+    // Simple objects
+    val partition = new Partition(0)
+    val taskName = new TaskName("taskName")
+    val systemStream = new SystemStream("test-system", "test-stream")
+    val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
+
+    // Mocks
+    val collector = Mockito.mock(classOf[TaskInstanceCollector])
+    when(collector.flush).thenThrow(new SystemProducerException("Test"))
+    val storageManager = Mockito.mock(classOf[TaskStorageManager])
+    val offsetManager = Mockito.mock(classOf[OffsetManager])
+
+    val taskInstance: TaskInstance = new TaskInstance(
+      Mockito.mock(classOf[StreamTask]).asInstanceOf[StreamTask],
+      taskName,
+      new MapConfig,
+      new TaskInstanceMetrics,
+      null,
+      Mockito.mock(classOf[SystemConsumers]),
+      collector,
+      Mockito.mock(classOf[SamzaContainerContext]),
+      offsetManager,
+      storageManager,
+      systemStreamPartitions = Set(systemStreamPartition))
+
+    taskInstance.commit // Should not swallow the SystemProducerException
+  }
+
+  @Test
+  def testProducerExceptionsCanBeIgnored {
+    // Simple objects
+    val partition = new Partition(0)
+    val taskName = new TaskName("taskName")
+    val systemStream = new SystemStream("test-system", "test-stream")
+    val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
+    val metrics = new TaskInstanceMetrics()
+    val ignoredExceptions = Set("org.apache.samza.system.SystemProducerException")
+
+    // Mocks
+    val collector = Mockito.mock(classOf[TaskInstanceCollector])
+    when(collector.flush).thenThrow(new SystemProducerException("Test"))
+    val storageManager = Mockito.mock(classOf[TaskStorageManager])
+    val offsetManager = Mockito.mock(classOf[OffsetManager])
+
+    val taskInstance: TaskInstance = new TaskInstance(
+      Mockito.mock(classOf[StreamTask]).asInstanceOf[StreamTask],
+      taskName,
+      new MapConfig,
+      metrics,
+      null,
+      Mockito.mock(classOf[SystemConsumers]),
+      collector,
+      Mockito.mock(classOf[SamzaContainerContext]),
+      offsetManager,
+      storageManager,
+      systemStreamPartitions = Set(systemStreamPartition),
+      exceptionHandler = new TaskInstanceExceptionHandler(ignoredExceptions = Set("org.apache.samza.system.SystemProducerException")))
+
+    taskInstance.commit // Should not swallow the SystemProducerException
+  }
 }
 
 class MockSystemAdmin extends SystemAdmin {

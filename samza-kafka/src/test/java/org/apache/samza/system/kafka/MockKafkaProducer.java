@@ -37,9 +37,9 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.Metric;
+import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.record.Record;
 import org.apache.kafka.test.TestUtils;
 
@@ -82,27 +82,7 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
   }
 
   public Thread startDelayedSendThread(final int sleepTime) {
-    Thread t = new Thread(new Runnable() {
-      @Override
-      public void run() {
-        FutureTask[] callbackArray = new FutureTask[_callbacksList.size()];
-        AtomicReferenceArray<FutureTask> _bufferList = new AtomicReferenceArray<FutureTask>(_callbacksList.toArray(callbackArray));
-        ExecutorService executor = Executors.newFixedThreadPool(10);
-        try {
-          for(int i = 0; i < _bufferList.length(); i++) {
-            Thread.sleep(sleepTime);
-            FutureTask f = _bufferList.get(i);
-            if(!f.isDone()) {
-              executor.submit(f).get();
-            }
-          }
-        } catch (InterruptedException e) {
-          e.printStackTrace();
-        } catch (ExecutionException ee) {
-          ee.printStackTrace();
-        }
-      }
-    });
+    Thread t = new Thread(new FlushRunnable(sleepTime));
     t.start();
     return t;
   }
@@ -180,7 +160,7 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
   }
 
   public synchronized void flush () {
-
+    new FlushRunnable(0).run();
   }
 
 
@@ -251,6 +231,34 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
     @Override
     public boolean isDone() {
       return true;
+    }
+  }
+
+  private class FlushRunnable implements Runnable {
+    private final int _sleepTime;
+
+    public FlushRunnable(int sleepTime) {
+      _sleepTime = sleepTime;
+    }
+
+    public void run() {
+      FutureTask[] callbackArray = new FutureTask[_callbacksList.size()];
+      AtomicReferenceArray<FutureTask> _bufferList =
+          new AtomicReferenceArray<FutureTask>(_callbacksList.toArray(callbackArray));
+      ExecutorService executor = Executors.newFixedThreadPool(10);
+      try {
+        for (int i = 0; i < _bufferList.length(); i++) {
+          Thread.sleep(_sleepTime);
+          FutureTask f = _bufferList.get(i);
+          if (!f.isDone()) {
+            executor.submit(f).get();
+          }
+        }
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      } catch (ExecutionException ee) {
+        ee.printStackTrace();
+      }
     }
   }
 }

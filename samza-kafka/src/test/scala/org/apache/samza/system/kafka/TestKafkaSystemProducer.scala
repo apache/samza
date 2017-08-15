@@ -19,21 +19,18 @@
 
 package org.apache.samza.system.kafka
 
-import org.apache.samza.system.{OutgoingMessageEnvelope, SystemStream}
-import org.junit.Test
-
 import org.apache.kafka.clients.producer._
-import java.util
-import org.junit.Assert._
-import org.scalatest.Assertions.intercept
-import org.apache.kafka.common.errors.{TimeoutException, RecordTooLargeException}
+import org.apache.kafka.common.errors.{RecordTooLargeException, TimeoutException}
 import org.apache.kafka.test.MockSerializer
-import org.apache.samza.SamzaException
+import org.apache.samza.system.{OutgoingMessageEnvelope, SystemProducerException, SystemStream}
+import org.junit.Assert._
+import org.junit.Test
+import org.scalatest.Assertions.intercept
 
 
 class TestKafkaSystemProducer {
-
-  val someMessage = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "test".getBytes)
+  val systemStream = new SystemStream("testSystem", "testStream")
+  val someMessage = new OutgoingMessageEnvelope(systemStream, "test".getBytes)
   val StreamNameNullOrEmptyErrorMsg = "Stream Name should be specified in the stream configuration file.";
 
   @Test
@@ -64,9 +61,9 @@ class TestKafkaSystemProducer {
 
   @Test
   def testKafkaProducerBufferedSend {
-    val msg1 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "a".getBytes)
-    val msg2 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "b".getBytes)
-    val msg3 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "c".getBytes)
+    val msg1 = new OutgoingMessageEnvelope(systemStream, "a".getBytes)
+    val msg2 = new OutgoingMessageEnvelope(systemStream, "b".getBytes)
+    val msg3 = new OutgoingMessageEnvelope(systemStream, "c".getBytes)
 
     val mockProducer = new MockKafkaProducer(1, "test", 1)
     val producerMetrics = new KafkaSystemProducerMetrics
@@ -91,9 +88,9 @@ class TestKafkaSystemProducer {
 
   @Test
   def testKafkaProducerFlushSuccessful {
-    val msg1 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "a".getBytes)
-    val msg2 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "b".getBytes)
-    val msg3 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "c".getBytes)
+    val msg1 = new OutgoingMessageEnvelope(systemStream, "a".getBytes)
+    val msg2 = new OutgoingMessageEnvelope(systemStream, "b".getBytes)
+    val msg3 = new OutgoingMessageEnvelope(systemStream, "c".getBytes)
 
     val mockProducer = new MockKafkaProducer(1, "test", 1)
     val systemProducer = new KafkaSystemProducer(systemName = "test",
@@ -115,10 +112,10 @@ class TestKafkaSystemProducer {
 
   @Test
   def testKafkaProducerFlushWithException {
-    val msg1 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "a".getBytes)
-    val msg2 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "b".getBytes)
-    val msg3 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "c".getBytes)
-    val msg4 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "d".getBytes)
+    val msg1 = new OutgoingMessageEnvelope(systemStream, "a".getBytes)
+    val msg2 = new OutgoingMessageEnvelope(systemStream, "b".getBytes)
+    val msg3 = new OutgoingMessageEnvelope(systemStream, "c".getBytes)
+    val msg4 = new OutgoingMessageEnvelope(systemStream, "d".getBytes)
 
     val mockProducer = new MockKafkaProducer(1, "test", 1)
     val systemProducer = new KafkaSystemProducer(systemName = "test",
@@ -137,20 +134,20 @@ class TestKafkaSystemProducer {
     assertEquals(1, mockProducer.getMsgsSent)
 
     mockProducer.startDelayedSendThread(2000)
-    val thrown = intercept[SamzaException] {
+    val thrown = intercept[SystemProducerException] {
       systemProducer.flush("test")
     }
-    assertTrue(thrown.isInstanceOf[SamzaException])
+    assertTrue(thrown.isInstanceOf[SystemProducerException])
     assertEquals(3, mockProducer.getMsgsSent) // msg1, msg2 and msg4 will be sent
     systemProducer.stop()
   }
 
   @Test
   def testKafkaProducerWithRetriableException {
-    val msg1 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "a".getBytes)
-    val msg2 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "b".getBytes)
-    val msg3 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "c".getBytes)
-    val msg4 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "d".getBytes)
+    val msg1 = new OutgoingMessageEnvelope(systemStream, "a".getBytes)
+    val msg2 = new OutgoingMessageEnvelope(systemStream, "b".getBytes)
+    val msg3 = new OutgoingMessageEnvelope(systemStream, "c".getBytes)
+    val msg4 = new OutgoingMessageEnvelope(systemStream, "d".getBytes)
 
     val mockProducer = new MockKafkaProducer(1, "test", 1)
     val producerMetrics = new KafkaSystemProducerMetrics()
@@ -168,21 +165,42 @@ class TestKafkaSystemProducer {
     mockProducer.setErrorNext(true, new TimeoutException())
 
     producer.send("test", msg4)
-    val thrown = intercept[SamzaException] {
+    val thrown = intercept[SystemProducerException] {
       producer.flush("test")
     }
-    assertTrue(thrown.isInstanceOf[SamzaException])
-    assertTrue(thrown.getCause.isInstanceOf[TimeoutException])
+    assertTrue(thrown.isInstanceOf[SystemProducerException])
+    assertTrue(thrown.getCause.getCause.isInstanceOf[TimeoutException])
     assertEquals(3, mockProducer.getMsgsSent)
     producer.stop()
   }
 
+  /**
+    * If there's an exception, we should:
+    * 1. Close the producer (from the one-and-only kafka send thread) to prevent subsequent sends from going out of order.
+    * 2. Nullify the producer to cause it to be recreated
+    * 3. Throw the exception from systemProducer.flush() to prevent a checkpoint
+    *
+    * Assumptions:
+    * 1. SystemProducer.flush() can happen concurrently with SystemProducer.send() for a particular TaskInstance (task.async.commit)
+    * 2. SystemProducer.flush() cannot happen concurrently with itself for a particular task instance
+    * 3. Any exception thrown from SystemProducer.flush() will prevent the checkpointing by failing the container
+    * 4. The exception should not fail the container if SystemProducerException is configured to be ignored
+    *
+    * Conclusions:
+    * It is only safe to handle the async exceptions from flush to prevent race conditions between exception handling
+    * from send/flush when async.commit is enabled.
+    *
+    * Inaccuracies:
+    * A real kafka producer succeeds or fails all the messages in a batch. In other words, the messages of a batch all
+    * fail or they all succeed together. This test, however, fails individual callbacks in order to test boundary
+    * conditions where the batches align perfectly around the failed send().
+    */
   @Test
   def testKafkaProducerWithNonRetriableExceptions {
-    val msg1 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "a".getBytes)
-    val msg2 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "b".getBytes)
-    val msg3 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "c".getBytes)
-    val msg4 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "d".getBytes)
+    val msg1 = new OutgoingMessageEnvelope(systemStream, "a".getBytes)
+    val msg2 = new OutgoingMessageEnvelope(systemStream, "b".getBytes)
+    val msg3 = new OutgoingMessageEnvelope(systemStream, "c".getBytes)
+    val msg4 = new OutgoingMessageEnvelope(systemStream, "d".getBytes)
     val producerMetrics = new KafkaSystemProducerMetrics()
 
     val mockProducer = new MockKafkaProducer(1, "test", 1)
@@ -191,26 +209,81 @@ class TestKafkaSystemProducer {
                                            metrics = producerMetrics)
     producer.register("test")
     producer.start()
+
     producer.send("test", msg1)
     producer.send("test", msg2)
-    producer.send("test", msg3)
     mockProducer.setErrorNext(true, new RecordTooLargeException())
-
-    producer.send("test", msg4)
-    val thrown = intercept[SamzaException] {
-       producer.flush("test")
+    producer.send("test", msg3) // Callback exception
+    producer.send("test", msg4) // Should still work
+    val thrown = intercept[SystemProducerException] {
+       producer.flush("test") // Should throw the callback exception
     }
-    assertTrue(thrown.isInstanceOf[SamzaException])
-    assertTrue(thrown.getCause.isInstanceOf[RecordTooLargeException])
+    assertTrue(thrown.isInstanceOf[SystemProducerException])
+    assertTrue(thrown.getCause.getCause.isInstanceOf[RecordTooLargeException])
+
+    producer.flush("test") // Should not rethrow the exception
     assertEquals(3, mockProducer.getMsgsSent)
+    producer.stop()
+  }
+
+  /**
+    * Recapping from [[testKafkaProducerWithNonRetriableExceptions]]:
+    *
+    * If there's an exception, we should:
+    * 1. Close the producer (from the one-and-only kafka send thread) to prevent subsequent sends from going out of order.
+    * 2. Nullify the producer to cause it to be recreated
+    * 3. Throw the exception from systemProducer.flush() to prevent a checkpoint
+    *
+    * This test focuses on point 3. Particularly it ensures that the failures are isolated to the affected source.
+    */
+  @Test
+  def testKafkaProducerWithNonRetriableExceptionsMultipleSources {
+    val msg1 = new OutgoingMessageEnvelope(systemStream, "a".getBytes)
+    val msg2 = new OutgoingMessageEnvelope(systemStream, "b".getBytes)
+    val msg3 = new OutgoingMessageEnvelope(systemStream, "c".getBytes)
+    val msg4 = new OutgoingMessageEnvelope(systemStream, "d".getBytes)
+    val msg5 = new OutgoingMessageEnvelope(systemStream, "e".getBytes)
+    val producerMetrics = new KafkaSystemProducerMetrics()
+
+    val mockProducer = new MockKafkaProducer(1, "test", 1)
+    val producer = new KafkaSystemProducer(systemName =  "test",
+      getProducer = () => mockProducer,
+      metrics = producerMetrics)
+    producer.register("test1")
+    producer.register("test2")
+
+    producer.start()
+
+    // Initial sends
+    producer.send("test1", msg1)
+    producer.send("test2", msg2)
+
+    // Inject error for next send
+    mockProducer.setErrorNext(true, new RecordTooLargeException())
+    producer.send("test1", msg3) // Callback exception
+
+    // Subsequent sends
+    producer.send("test1", msg4) // Should still work
+    producer.send("test2", msg4)
+
+    // Flushes
+    producer.flush("test2") // Should not be affected by the exception for source 1
+    val thrown = intercept[SystemProducerException] {
+      producer.flush("test1") // Should throw the callback exception
+    }
+    assertTrue(thrown.isInstanceOf[SystemProducerException])
+    assertTrue(thrown.getCause.getCause.isInstanceOf[RecordTooLargeException])
+
+    producer.flush("test1") // Should not rethrow
+    assertEquals(4, mockProducer.getMsgsSent)
     producer.stop()
   }
 
   @Test
   def testKafkaProducerFlushMsgsWhenStop {
-    val msg1 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "a".getBytes)
-    val msg2 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "b".getBytes)
-    val msg3 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "c".getBytes)
+    val msg1 = new OutgoingMessageEnvelope(systemStream, "a".getBytes)
+    val msg2 = new OutgoingMessageEnvelope(systemStream, "b".getBytes)
+    val msg3 = new OutgoingMessageEnvelope(systemStream, "c".getBytes)
     val msg4 = new OutgoingMessageEnvelope(new SystemStream("test2", "test"), "d".getBytes)
 
     val mockProducer = new MockKafkaProducer(1, "test", 1)

@@ -21,20 +21,12 @@ package org.apache.samza.system.kafka
 
 
 import java.util.concurrent.atomic.AtomicReference
-import java.util.concurrent.{TimeUnit, ConcurrentHashMap, Future}
+import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 
-import org.apache.kafka.clients.producer.Callback
-import org.apache.kafka.clients.producer.Producer
-import org.apache.kafka.clients.producer.ProducerRecord
-import org.apache.kafka.clients.producer.RecordMetadata
+import org.apache.kafka.clients.producer.{Callback, Producer, ProducerRecord, RecordMetadata}
 import org.apache.kafka.common.PartitionInfo
-import org.apache.samza.SamzaException
-import org.apache.samza.system.OutgoingMessageEnvelope
-import org.apache.samza.system.SystemProducer
-import org.apache.samza.util.ExponentialSleepStrategy
-import org.apache.samza.util.KafkaUtil
-import org.apache.samza.util.Logging
-import org.apache.samza.util.TimerUtils
+import org.apache.samza.system.{OutgoingMessageEnvelope, SystemProducer, SystemProducerException}
+import org.apache.samza.util.{ExponentialSleepStrategy, KafkaUtil, Logging, TimerUtils}
 
 import scala.collection.JavaConverters._
 
@@ -47,22 +39,13 @@ class KafkaSystemProducer(systemName: String,
 
   class SourceData {
     /**
-     * lock to make send() and store its future atomic
-     */
-    val sendLock: Object = new Object
-    /**
-     * The most recent send's Future handle
-     */
-    @volatile
-    var latestFuture: Future[RecordMetadata] = null
-    /**
      * exceptionInCallback: to store the exception in case of any "ultimate" send failure (ie. failure
      * after exhausting max_retries in Kafka producer) in the I/O thread, we do not continue to queue up more send
      * requests from the samza thread. It helps the samza thread identify if the failure happened in I/O thread or not.
      *
      * In cases of multiple exceptions in the callbacks, we keep the first one before throwing.
      */
-    var exceptionInCallback: AtomicReference[SamzaException] = new AtomicReference[SamzaException]()
+    var exceptionInCallback: AtomicReference[SystemProducerException] = new AtomicReference[SystemProducerException]()
   }
 
   @volatile var producer: Producer[Array[Byte], Array[Byte]] = null
@@ -78,17 +61,16 @@ class KafkaSystemProducer(systemName: String,
       val currentProducer = producer
       if (currentProducer != null) {
         producerLock.synchronized {
+          sources.asScala.foreach { p =>
+            flush(p._1)
+          }
+
           if (currentProducer == producer) {
             // only nullify the member producer if it is still the same object, no point nullifying new producer
             producer = null
           }
-        }
-        currentProducer.close
 
-        sources.asScala.foreach {p =>
-          if (p._2.exceptionInCallback.get() == null) {
-            flush(p._1)
-          }
+          currentProducer.close
         }
       }
     } catch {
@@ -98,14 +80,13 @@ class KafkaSystemProducer(systemName: String,
 
   def register(source: String) {
     if(sources.putIfAbsent(source, new SourceData) != null) {
-      throw new SamzaException("%s is already registered with the %s system producer" format (source, systemName))
+      throw new SystemProducerException("%s is already registered with the %s system producer" format (source, systemName))
     }
   }
 
   def closeAndNullifyCurrentProducer(currentProducer: Producer[Array[Byte], Array[Byte]]) {
     try {
-      // TODO: we should use timeout close() to make sure we fail all waiting messages in kafka 0.9+
-      currentProducer.close()
+      currentProducer.close(0, TimeUnit.MILLISECONDS) // must use timeout to make sure we fail all waiting messages
     } catch {
       case e: Exception => error("producer close failed", e)
     }
@@ -130,12 +111,6 @@ class KafkaSystemProducer(systemName: String,
       throw new IllegalArgumentException("Source %s must be registered first before send." format source)
     }
 
-    val exception = sourceData.exceptionInCallback.getAndSet(null)
-    if (exception != null) {
-      metrics.sendFailed.inc
-      throw exception  // in case the caller catches all exceptions and will try again
-    }
-
     // lazy initialization of the producer
     if (producer == null) {
       producerLock.synchronized {
@@ -148,7 +123,7 @@ class KafkaSystemProducer(systemName: String,
 
     val currentProducer = producer
     if (currentProducer == null) {
-      throw new SamzaException("Kafka system producer is not available.")
+      throw new SystemProducerException("Kafka system producer is not available.")
     }
 
     // Java-based Kafka producer API requires an "Integer" type partitionKey and does not allow custom overriding of Partitioners
@@ -161,34 +136,30 @@ class KafkaSystemProducer(systemName: String,
                                     envelope.getMessage.asInstanceOf[Array[Byte]])
 
     try {
-      sourceData.sendLock.synchronized {
-        val futureRef: Future[RecordMetadata] =
-          currentProducer.send(record, new Callback {
-            def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = {
-              if (exception == null) {
-                //send was successful.
-                metrics.sendSuccess.inc
-              }
-              else {
-                error("Closing the producer because of an exception in callback: ", exception)
-                //If there is an exception in the callback, close producer.
-                closeAndNullifyCurrentProducer(currentProducer)
+      currentProducer.send(record, new Callback {
+        def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = {
+          if (exception == null) {
+            //send was successful.
+            metrics.sendSuccess.inc
+          }
+          else {
+            error("Closing the producer because of an exception in callback: ", exception)
+            //If there is an exception in the callback, close producer.
+            closeAndNullifyCurrentProducer(currentProducer)
 
-                // we keep the exception and will throw the exception in the next producer.send()
-                // so the user can handle the exception and decide to fail or ignore
-                sourceData.exceptionInCallback.compareAndSet(
-                  null,
-                  new SamzaException("Unable to send message from %s to system %s." format(source, systemName),
-                    exception))
+            // we keep the exception and will throw the exception in the next producer.send()
+            // so the user can handle the exception and decide to fail or ignore
+            sourceData.exceptionInCallback.compareAndSet(
+              null,
+              new SystemProducerException("Unable to send message from %s to system %s." format(source, systemName),
+                exception))
 
-                metrics.sendFailed.inc
-                error("Unable to send message on Topic:%s Partition:%s" format(topicName, partitionKey),
-                             exception)
-              }
-            }
-          })
-        sourceData.latestFuture = futureRef
-      }
+            metrics.sendFailed.inc
+            error("Unable to send message on Topic:%s Partition:%s" format(topicName, partitionKey),
+              exception)
+          }
+        }
+      })
       metrics.sends.inc
     } catch {
       case e: Exception => {
@@ -197,7 +168,7 @@ class KafkaSystemProducer(systemName: String,
         closeAndNullifyCurrentProducer(currentProducer)
 
         metrics.sendFailed.inc
-        throw new SamzaException(("Failed to send message on Topic:%s Partition:%s Exception:\n %s,")
+        throw new SystemProducerException("Failed to send message on Topic:%s Partition:%s Exception:\n %s,"
           .format(topicName, partitionKey, e))
       }
     }
@@ -208,25 +179,30 @@ class KafkaSystemProducer(systemName: String,
       metrics.flushes.inc
 
       val sourceData = sources.get(source)
-      //if latestFuture is null, it probably means that there has been no calls to "send" messages
-      //Hence, nothing to do in flush
-      if(sourceData.latestFuture != null) {
-        while(!sourceData.latestFuture.isDone && sourceData.exceptionInCallback.get() == null) {
-          try {
-            sourceData.latestFuture.get()
-          } catch {
-            case t: Throwable => error(t.getMessage, t)
-          }
-        }
+      val currentProducer = producer
 
-        //if there is an exception thrown from the previous callbacks just before flush, we have to fail the container
-        if (sourceData.exceptionInCallback.get() != null) {
-          metrics.flushFailed.inc
-          throw sourceData.exceptionInCallback.get()
+      if (currentProducer == null) {
+        metrics.flushFailed.inc
+        val exception = sourceData.exceptionInCallback.getAndSet(null)
+        // Throw the original exception if possible. If not, throw exception for null producer.
+        if (exception != null) {
+          throw new SystemProducerException("Flush failed. A batch of messages were unsent!", exception)
         } else {
-          trace("Flushed %s." format (source))
+          throw new SystemProducerException("Kafka system producer is not available.")
         }
       }
+
+      currentProducer.flush()
+
+      // We must check for an exception AFTER flush() because when flush() returns all callbacks for messages sent
+      // in that flush() are guaranteed to have completed and we update the exception in the callback.
+      // If there is an exception, we rethrow it here to prevent the checkpoint.
+      val exception = sourceData.exceptionInCallback.getAndSet(null)
+      if (exception != null) {
+        metrics.flushFailed.inc
+        throw new SystemProducerException("Flush failed. A batch of messages were unsent!", exception)
+      }
+      trace("Flushed %s." format (source))
     }
   }
 }

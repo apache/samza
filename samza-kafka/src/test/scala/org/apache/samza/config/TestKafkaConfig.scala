@@ -193,6 +193,16 @@ class TestKafkaConfig {
     kafkaProducerConfig.getProducerProperties
   }
 
+  @Test(expected = classOf[NumberFormatException])
+  def testLingerWrongNumberFormat() {
+    props.setProperty(KAFKA_PRODUCER_PROPERTY_PREFIX + ProducerConfig.LINGER_MS_CONFIG, "Samza");
+
+    val mapConfig = new MapConfig(props.asScala.asJava)
+    val kafkaConfig = new KafkaConfig(mapConfig)
+    val kafkaProducerConfig = kafkaConfig.getKafkaSystemProducerConfig(SYSTEM_NAME, TEST_CLIENT_ID)
+    kafkaProducerConfig.getProducerProperties
+  }
+
   @Test
   def testChangeLogReplicationFactor() {
     props.setProperty("stores.store-with-override.changelog", "kafka-system.changelog-topic")
