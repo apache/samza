@@ -20,8 +20,8 @@
 package org.apache.samza.serializers
 
 
-import org.apache.samza.message.EndOfStreamMessage
-import org.apache.samza.message.WatermarkMessage
+import org.apache.samza.system.EndOfStreamMessage
+import org.apache.samza.system.WatermarkMessage
 import org.junit.Assert._
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertEquals
@@ -83,18 +83,17 @@ class TestSerdeManager {
     val eosStreamId = "eos-stream"
     val taskName = "task 1"
     val taskCount = 8
-    outEnvelope = new OutgoingMessageEnvelope(intermediate, "eos", new EndOfStreamMessage(taskName, taskCount))
+    outEnvelope = new OutgoingMessageEnvelope(intermediate, "eos", new EndOfStreamMessage(taskName))
     se = serdeManager.toBytes(outEnvelope)
     inEnvelope = new IncomingMessageEnvelope(new SystemStreamPartition(intermediate, new Partition(0)), "offset", se.getKey, se.getMessage)
     de = serdeManager.fromBytes(inEnvelope)
     assertEquals(de.getKey, "eos")
     val eosMsg = de.getMessage.asInstanceOf[EndOfStreamMessage]
     assertEquals(eosMsg.getTaskName, taskName)
-    assertEquals(eosMsg.getTaskCount, taskCount)
 
     // test watermark message sent to intermediate stream
     val timestamp = System.currentTimeMillis()
-    outEnvelope = new OutgoingMessageEnvelope(intermediate, "watermark", new WatermarkMessage(timestamp, taskName, taskCount))
+    outEnvelope = new OutgoingMessageEnvelope(intermediate, "watermark", new WatermarkMessage(timestamp, taskName))
     se = serdeManager.toBytes(outEnvelope)
     inEnvelope = new IncomingMessageEnvelope(new SystemStreamPartition(intermediate, new Partition(0)), "offset", se.getKey, se.getMessage)
     de = serdeManager.fromBytes(inEnvelope)
@@ -102,6 +101,5 @@ class TestSerdeManager {
     val watermarkMsg = de.getMessage.asInstanceOf[WatermarkMessage]
     assertEquals(watermarkMsg.getTimestamp, timestamp)
     assertEquals(watermarkMsg.getTaskName, taskName)
-    assertEquals(watermarkMsg.getTaskCount, taskCount)
   }
 }

@@ -25,7 +25,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import org.apache.samza.message.WatermarkMessage;
+import org.apache.samza.system.WatermarkMessage;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStream;
@@ -54,7 +54,6 @@ public class WatermarkManager {
   private final Map<SystemStream, Integer> upstreamTaskCounts;
 
   public WatermarkManager(String taskName,
-      ControlMessageListenerTask listener,
       Multimap<SystemStream, String> inputToTasks,
       Set<SystemStreamPartition> ssps,
       StreamMetadataCache metadataCache,
@@ -63,7 +62,7 @@ public class WatermarkManager {
     this.watermarkPerStream = new HashMap<>();
     this.metadataCache = metadataCache;
     this.collector = collector;
-    this.upstreamTaskCounts = ControlMessageUtils.calculateUpstreamTaskCounts(inputToTasks, listener.getIOGraph());
+    this.upstreamTaskCounts = null;
 
     Map<SystemStreamPartition, WatermarkState> states = new HashMap<>();
     ssps.forEach(ssp -> {
@@ -89,7 +88,7 @@ public class WatermarkManager {
     SystemStreamPartition ssp = envelope.getSystemStreamPartition();
     WatermarkState state = watermarkStates.get(ssp);
     WatermarkMessage message = (WatermarkMessage) envelope.getMessage();
-    state.update(message.getTimestamp(), message.getTaskName(), message.getTaskCount());
+    state.update(message.getTimestamp(), message.getTaskName(), 0);
 
     if (state.getWatermarkTime() != TIME_NOT_EXIST) {
       long minTimestamp = watermarkStates.entrySet().stream()
@@ -119,7 +118,7 @@ public class WatermarkManager {
    */
   void sendWatermark(long timestamp, SystemStream systemStream, int taskCount) {
     log.info("Send end-of-stream messages to all partitions of " + systemStream);
-    final WatermarkMessage watermarkMessage = new WatermarkMessage(timestamp, taskName, taskCount);
+    final WatermarkMessage watermarkMessage = new WatermarkMessage(timestamp, taskName);
     ControlMessageUtils.sendControlMessage(watermarkMessage, systemStream, metadataCache, collector);
   }
 
@@ -175,13 +174,4 @@ public class WatermarkManager {
     }
   }
 
-  /**
-   * Build a watermark control message envelope for an ssp of a source input.
-   * @param timestamp watermark time
-   * @param ssp {@link SystemStreamPartition} where the watermark coming from.
-   * @return envelope of the watermark control message
-   */
-  public static IncomingMessageEnvelope buildWatermarkEnvelope(long timestamp, SystemStreamPartition ssp) {
-    return new IncomingMessageEnvelope(ssp, null, "", new WatermarkMessage(timestamp, null, 0));
-  }
 }

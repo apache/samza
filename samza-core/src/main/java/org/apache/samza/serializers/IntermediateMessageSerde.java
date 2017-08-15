@@ -21,9 +21,9 @@ package org.apache.samza.serializers;
 
 import java.util.Arrays;
 import org.apache.samza.SamzaException;
-import org.apache.samza.message.EndOfStreamMessage;
-import org.apache.samza.message.IntermediateMessageType;
-import org.apache.samza.message.WatermarkMessage;
+import org.apache.samza.system.EndOfStreamMessage;
+import org.apache.samza.system.MessageType;
+import org.apache.samza.system.WatermarkMessage;
 import org.codehaus.jackson.type.TypeReference;
 
 
@@ -86,16 +86,16 @@ public class IntermediateMessageSerde implements Serde<Object> {
   public Object fromBytes(byte[] bytes) {
     try {
       final Object object;
-      final IntermediateMessageType type = IntermediateMessageType.values()[bytes[0]];
+      final MessageType type = MessageType.values()[bytes[0]];
       final byte [] data = Arrays.copyOfRange(bytes, 1, bytes.length);
       switch (type) {
         case USER_MESSAGE:
           object = userMessageSerde.fromBytes(data);
           break;
-        case WATERMARK_MESSAGE:
+        case WATERMARK:
           object = watermarkSerde.fromBytes(data);
           break;
-        case END_OF_STREAM_MESSAGE:
+        case END_OF_STREAM:
           object = eosSerde.fromBytes(data);
           break;
         default:
@@ -117,15 +117,15 @@ public class IntermediateMessageSerde implements Serde<Object> {
   @Override
   public byte[] toBytes(Object object) {
     final byte [] data;
-    final IntermediateMessageType type = IntermediateMessageType.of(object);
+    final MessageType type = MessageType.of(object);
     switch (type) {
       case USER_MESSAGE:
         data = userMessageSerde.toBytes(object);
         break;
-      case WATERMARK_MESSAGE:
+      case WATERMARK:
         data = watermarkSerde.toBytes((WatermarkMessage) object);
         break;
-      case END_OF_STREAM_MESSAGE:
+      case END_OF_STREAM:
         data = eosSerde.toBytes((EndOfStreamMessage) object);
         break;
       default:

@@ -21,15 +21,15 @@ package org.apache.samza.operators.impl;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.control.Watermark;
 import org.apache.samza.control.WatermarkManager;
-import org.apache.samza.message.EndOfStreamMessage;
+import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
@@ -64,8 +64,9 @@ public abstract class OperatorImpl<M, RM> {
   Set<OperatorImpl<RM, ?>> registeredOperators;
   Set<OperatorImpl<?, M>> prevOperators;
 
-  // end-of-stream state per ssp
-  private Map<SystemStreamPartition, EndOfStreamState> eosStates;
+  private final Set<SystemStream> inputStreams = new HashSet<>();
+  // end-of-stream states
+  private EndOfStreamStates eosStates;
 
   /**
    * Initialize this {@link OperatorImpl} and its user-defined functions.
@@ -94,7 +95,7 @@ public abstract class OperatorImpl<M, RM> {
     this.taskName = context.getTaskName();
 
     TaskContextImpl taskContext = (TaskContextImpl) context;
-    this.eosStates = (Map<SystemStreamPartition, EndOfStreamState>) taskContext.fetchObject(EndOfStreamState.END_OF_STREAM_STATES);
+    this.eosStates = (EndOfStreamStates) taskContext.fetchObject(EndOfStreamStates.class.getName());
 
     handleInit(config, context);
 
@@ -190,35 +191,32 @@ public abstract class OperatorImpl<M, RM> {
     return Collections.emptyList();
   }
 
-  public final void onEndOfStream(EndOfStreamMessage eos,
-      SystemStreamPartition ssp,
-      MessageCollector collector,
+  public void aggregateEndOfStream(EndOfStreamMessage eos, SystemStreamPartition ssp, MessageCollector collector,
       TaskCoordinator coordinator) {
+    eosStates.update(eos, ssp);
 
-    EndOfStreamState state = eosStates.get(ssp);
-    state.update(eos.getTaskName(), eos.getTaskCount());
-    LOG.info("Received end-of-stream from task {} for {}", eos.getTaskName(), ssp);
-
-    SystemStream systemStream = ssp.getSystemStream();
-    boolean isEndOfStream = eosStates.entrySet().stream()
-        .filter(entry -> entry.getKey().getSystemStream().equals(systemStream))
-        .allMatch(entry -> entry.getValue().isEndOfStream());
-
-    if (isEndOfStream) {
-      boolean allEndOfStream = eosStates.values().stream().allMatch(EndOfStreamState::isEndOfStream);
-      if (allEndOfStream) {
+    SystemStream stream = ssp.getSystemStream();
+    if (eosStates.isEndOfStream(stream)) {
+      if (eosStates.allEndOfStream()) {
         // all inputs have been end-of-stream, shut down the task
         LOG.info("All input streams have reached the end for task {}", taskName.getTaskName());
         coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
       } else {
-        handleEndOfStream(ssp, collector, coordinator);
+        LOG.info("Input {} reaches the end for task {}", stream.toString(), taskName.getTaskName());
+        onEndOfStream(collector, coordinator);
       }
     }
   }
 
-  protected void handleEndOfStream(SystemStreamPartition ssp, MessageCollector collector, TaskCoordinator coordinator) {
-    this.registeredOperators.forEach(op ->
-        op.handleEndOfStream(ssp, collector, coordinator));
+  protected void onEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
+    if (getInputStreams().stream().allMatch(input -> eosStates.isEndOfStream(input))) {
+      handleEndOfStream(collector, coordinator);
+      this.registeredOperators.forEach(op -> op.onEndOfStream(collector, coordinator));
+    }
+  }
+
+  protected void handleEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
+    //Do nothing by default
   }
 
   /**
@@ -303,6 +301,10 @@ public abstract class OperatorImpl<M, RM> {
    * @return the {@link OperatorSpec} for this {@link OperatorImpl}
    */
   protected abstract OperatorSpec<M, RM> getOperatorSpec();
+
+  protected Set<SystemStream> getInputStreams() {
+    return prevOperators.stream().flatMap(op -> op.getInputStreams().stream()).collect(Collectors.toSet());
+  }
 
   /**
    * Get the unique name for this {@link OperatorImpl} in the DAG.

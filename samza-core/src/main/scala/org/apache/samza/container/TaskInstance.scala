@@ -20,25 +20,17 @@
 package org.apache.samza.container
 
 
-import com.google.common.collect.HashMultimap
-import com.google.common.collect.Multimap
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
-import org.apache.samza.control.ControlMessageListenerTask
-import org.apache.samza.control.ControlMessageUtils
-import org.apache.samza.control.EndOfStreamManager
-import org.apache.samza.control.WatermarkManager
 import org.apache.samza.job.model.JobModel
-import org.apache.samza.message.MessageType
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.system.StreamMetadataCache
 import org.apache.samza.system.SystemAdmin
 import org.apache.samza.system.SystemConsumers
-import org.apache.samza.system.SystemStream
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.AsyncStreamTask
 import org.apache.samza.task.ClosableTask
@@ -53,28 +45,6 @@ import org.apache.samza.task.WindowableTask
 import org.apache.samza.util.Logging
 
 import scala.collection.JavaConverters._
-import scala.collection.JavaConversions._
-
-object TaskInstance {
-  /**
-   * Build a map from a stream to its consumer tasks
-   * @param jobModel job model which contains ssp-to-task assignment
-   * @return the map of input stream to tasks
-   */
-  def buildInputToTasks(jobModel: JobModel): Multimap[SystemStream, String] = {
-    val streamToTasks: Multimap[SystemStream, String] = HashMultimap.create[SystemStream, String]
-    if (jobModel != null) {
-      for (containerModel <- jobModel.getContainers.values) {
-        for (taskModel <- containerModel.getTasks.values) {
-          for (ssp <- taskModel.getSystemStreamPartitions) {
-            streamToTasks.put(ssp.getSystemStream, taskModel.getTaskName.toString)
-          }
-        }
-      }
-    }
-    return streamToTasks
-  }
-}
 
 class TaskContextImpl(
   taskName: TaskName,
@@ -82,7 +52,9 @@ class TaskContextImpl(
   containerContext: SamzaContainerContext,
   systemStreamPartitions: Set[SystemStreamPartition],
   offsetManager: OffsetManager,
-  storageManager: TaskStorageManager) extends TaskContext with Logging  {
+  storageManager: TaskStorageManager,
+  jobModel: JobModel,
+  streamMetadataCache: StreamMetadataCache) extends TaskContext with Logging  {
 
   var userContext: Object = null
   var objectRegistry: Map[String, Object] = Map()
@@ -117,6 +89,14 @@ class TaskContextImpl(
   def fetchObject(name: String): Object = {
     objectRegistry.getOrElse(name, null)
   }
+
+  def getJobModel(): JobModel = {
+    jobModel
+  }
+
+  def getStreamMetadataCache(): StreamMetadataCache = {
+    streamMetadataCache
+  }
 }
 
 class TaskInstance(
@@ -140,9 +120,9 @@ class TaskInstance(
   val isEndOfStreamListenerTask = task.isInstanceOf[EndOfStreamListenerTask]
   val isClosableTask = task.isInstanceOf[ClosableTask]
   val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
-  val isControlMessageListener = task.isInstanceOf[ControlMessageListenerTask]
 
-  val context = new TaskContextImpl(taskName,metrics, containerContext, systemStreamPartitions, offsetManager, storageManager);
+  val context = new TaskContextImpl(taskName,metrics, containerContext, systemStreamPartitions, offsetManager,
+                                    storageManager, jobModel, streamMetadataCache)
 
   // store the (ssp -> if this ssp is catched up) mapping. "catched up"
   // means the same ssp in other taskInstances have the same offset as
@@ -150,10 +130,6 @@ class TaskInstance(
   var ssp2CaughtupMapping: scala.collection.mutable.Map[SystemStreamPartition, Boolean] =
     scala.collection.mutable.Map[SystemStreamPartition, Boolean]()
   systemStreamPartitions.foreach(ssp2CaughtupMapping += _ -> false)
-
-  val inputToTasksMapping = TaskInstance.buildInputToTasks(jobModel)
-  var endOfStreamManager: EndOfStreamManager = null
-  var watermarkManager: WatermarkManager = null
 
   val hasIntermediateStreams = config.getStreamIds.exists(config.getIsIntermediate(_))
 
@@ -186,22 +162,6 @@ class TaskInstance(
       task.asInstanceOf[InitableTask].init(config, context)
     } else {
       debug("Skipping task initialization for taskName: %s" format taskName)
-    }
-
-    if (isControlMessageListener) {
-      endOfStreamManager = new EndOfStreamManager(taskName.getTaskName,
-                                                  task.asInstanceOf[ControlMessageListenerTask],
-                                                  inputToTasksMapping,
-                                                  systemStreamPartitions.asJava,
-                                                  streamMetadataCache,
-                                                  collector)
-
-      watermarkManager = new WatermarkManager(taskName.getTaskName,
-                                                  task.asInstanceOf[ControlMessageListenerTask],
-                                                  inputToTasksMapping,
-                                                  systemStreamPartitions.asJava,
-                                                  streamMetadataCache,
-                                                  collector)
     }
   }
 
@@ -241,51 +201,20 @@ class TaskInstance(
       trace("Processing incoming message envelope for taskName and SSP: %s, %s"
         format (taskName, envelope.getSystemStreamPartition))
 
-      MessageType.of(envelope.getMessage) match {
-        case MessageType.USER_MESSAGE =>
-          if (isAsyncTask) {
-            exceptionHandler.maybeHandle {
-             val callback = callbackFactory.createCallback()
-             task.asInstanceOf[AsyncStreamTask].processAsync(envelope, collector, coordinator, callback)
-            }
-          }
-          else {
-            exceptionHandler.maybeHandle {
-             task.asInstanceOf[StreamTask].process(envelope, collector, coordinator)
-            }
+      if (isAsyncTask) {
+        exceptionHandler.maybeHandle {
+          val callback = callbackFactory.createCallback()
+          task.asInstanceOf[AsyncStreamTask].processAsync(envelope, collector, coordinator, callback)
+        }
+      } else {
+        exceptionHandler.maybeHandle {
+         task.asInstanceOf[StreamTask].process(envelope, collector, coordinator)
+        }
 
-            trace("Updating offset map for taskName, SSP and offset: %s, %s, %s"
-              format(taskName, envelope.getSystemStreamPartition, envelope.getOffset))
+        trace("Updating offset map for taskName, SSP and offset: %s, %s, %s"
+          format (taskName, envelope.getSystemStreamPartition, envelope.getOffset))
 
-            offsetManager.update(taskName, envelope.getSystemStreamPartition, envelope.getOffset)
-          }
-
-        case MessageType.END_OF_STREAM =>
-          if (isControlMessageListener) {
-            // handle eos synchronously.
-            runSync(callbackFactory) {
-              endOfStreamManager.update(envelope, coordinator)
-            }
-          } else {
-            warn("Ignore end-of-stream message due to %s not implementing ControlMessageListener."
-              format(task.getClass.toString))
-          }
-
-        case MessageType.WATERMARK =>
-          if (isControlMessageListener) {
-            // handle watermark synchronously in the run loop thread.
-            // we might consider running it asynchronously later
-            runSync(callbackFactory) {
-              val watermark = watermarkManager.update(envelope)
-              if (watermark != null) {
-                val stream = envelope.getSystemStreamPartition.getSystemStream
-                task.asInstanceOf[ControlMessageListenerTask].onWatermark(watermark, stream, collector, coordinator)
-              }
-            }
-          } else {
-            warn("Ignore watermark message due to %s not implementing ControlMessageListener."
-              format(task.getClass.toString))
-          }
+        offsetManager.update(taskName, envelope.getSystemStreamPartition, envelope.getOffset)
       }
     }
   }
@@ -381,16 +310,6 @@ class TaskInstance(
           }
         }
       }
-    }
-  }
-
-  private def runSync(callbackFactory: TaskCallbackFactory)(runCodeBlock: => Unit) = {
-    val callback = callbackFactory.createCallback()
-    try {
-      runCodeBlock
-      callback.complete()
-    } catch {
-      case t: Throwable => callback.failure(t)
     }
   }
 }

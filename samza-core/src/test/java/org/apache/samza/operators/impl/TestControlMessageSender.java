@@ -17,22 +17,16 @@
  * under the License.
  */
 
-package org.apache.samza.control;
+package org.apache.samza.operators.impl;
 
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
-import org.apache.samza.container.TaskName;
-import org.apache.samza.message.ControlMessage;
+import org.apache.samza.system.ControlMessage;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.StreamMetadataCache;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.task.MessageCollector;
@@ -47,10 +41,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 
-public class TestControlMessageUtils {
+public class TestControlMessageSender {
 
   @Test
-  public void testSendControlMessage() {
+  public void testSend() {
     SystemStreamMetadata metadata = mock(SystemStreamMetadata.class);
     Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata = new HashMap<>();
     partitionMetadata.put(new Partition(0), mock(SystemStreamMetadata.SystemStreamPartitionMetadata.class));
@@ -71,45 +65,8 @@ public class TestControlMessageUtils {
         return null;
       }).when(collector).send(any());
 
-    ControlMessageUtils.sendControlMessage(mock(ControlMessage.class), systemStream, metadataCache, collector);
+    ControlMessageSender sender = new ControlMessageSender(metadataCache);
+    sender.send(mock(ControlMessage.class), systemStream, collector);
     assertEquals(partitions.size(), 4);
   }
-
-  @Test
-  public void testCalculateUpstreamTaskCounts() {
-    SystemStream input1 = new SystemStream("test-system", "input-stream-1");
-    SystemStream input2 = new SystemStream("test-system", "input-stream-2");
-    SystemStream input3 = new SystemStream("test-system", "input-stream-3");
-
-    Multimap<SystemStream, String> inputToTasks = HashMultimap.create();
-    TaskName t0 = new TaskName("task 0"); //consume input1 and input2
-    TaskName t1 = new TaskName("task 1"); //consume input1 and input2 and input 3
-    TaskName t2 = new TaskName("task 2"); //consume input2 and input 3
-    inputToTasks.put(input1, t0.getTaskName());
-    inputToTasks.put(input1, t1.getTaskName());
-    inputToTasks.put(input2, t0.getTaskName());
-    inputToTasks.put(input2, t1.getTaskName());
-    inputToTasks.put(input2, t2.getTaskName());
-    inputToTasks.put(input3, t1.getTaskName());
-    inputToTasks.put(input3, t2.getTaskName());
-
-    StreamSpec inputSpec2 = new StreamSpec("input-stream-2", "input-stream-2", "test-system");
-    StreamSpec inputSpec3 = new StreamSpec("input-stream-3", "input-stream-3", "test-system");
-    StreamSpec intSpec1 = new StreamSpec("int-stream-1", "int-stream-1", "test-system");
-    StreamSpec intSpec2 = new StreamSpec("int-stream-2", "int-stream-2", "test-system");
-
-    List<IOGraph.IONode> nodes = new ArrayList<>();
-    IOGraph.IONode node = new IOGraph.IONode(intSpec1, true);
-    node.addInput(inputSpec2);
-    nodes.add(node);
-    node = new IOGraph.IONode(intSpec2, true);
-    node.addInput(inputSpec3);
-    nodes.add(node);
-    IOGraph ioGraph = new IOGraph(nodes);
-
-    Map<SystemStream, Integer> counts = ControlMessageUtils.calculateUpstreamTaskCounts(inputToTasks, ioGraph);
-    assertEquals(counts.get(intSpec1.toSystemStream()).intValue(), 3);
-    assertEquals(counts.get(intSpec2.toSystemStream()).intValue(), 2);
-  }
-
 }

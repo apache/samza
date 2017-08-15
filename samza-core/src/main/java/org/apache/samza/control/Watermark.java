@@ -28,8 +28,6 @@ import org.apache.samza.system.SystemStream;
  * system believes it has received all of the data before the watermark timestamp. Data that arrives
  * with a timestamp that is before the watermark is considered late.
  *
- * <p>This is the aggregate result from the WatermarkManager, which keeps track of the control message
- * {@link org.apache.samza.message.WatermarkMessage} and aggregate by returning the min of all watermark timestamp
  * in each partition.
  */
 @InterfaceStability.Unstable

@@ -18,20 +18,20 @@
  */
 package org.apache.samza.operators.impl;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Set;
 import org.apache.samza.config.Config;
+import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.metrics.Counter;
-import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.metrics.ReadableMetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.junit.Test;
-
-import java.util.Collection;
-import java.util.Collections;
 
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.anyObject;
@@ -47,7 +47,7 @@ public class TestOperatorImpl {
   @Test(expected = IllegalStateException.class)
   public void testMultipleInitShouldThrow() {
     OperatorImpl<Object, Object> opImpl = new TestOpImpl(mock(Object.class));
-    TaskContext mockTaskContext = mock(TaskContext.class);
+    TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     opImpl.init(mock(Config.class), mockTaskContext);
     opImpl.init(mock(Config.class), mockTaskContext);
@@ -61,7 +61,7 @@ public class TestOperatorImpl {
 
   @Test
   public void testOnMessagePropagatesResults() {
-    TaskContext mockTaskContext = mock(TaskContext.class);
+    TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
 
     Object mockTestOpImplOutput = mock(Object.class);
@@ -93,8 +93,8 @@ public class TestOperatorImpl {
 
   @Test
   public void testOnMessageUpdatesMetrics() {
-    TaskContext mockTaskContext = mock(TaskContext.class);
-    MetricsRegistry mockMetricsRegistry = mock(MetricsRegistry.class);
+    TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
+    ReadableMetricsRegistry mockMetricsRegistry = mock(ReadableMetricsRegistry.class);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(mockMetricsRegistry);
     Counter mockCounter = mock(Counter.class);
     Timer mockTimer = mock(Timer.class);
@@ -117,7 +117,7 @@ public class TestOperatorImpl {
 
   @Test
   public void testOnTimerPropagatesResultsAndTimer() {
-    TaskContext mockTaskContext = mock(TaskContext.class);
+    TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
 
     Object mockTestOpImplOutput = mock(Object.class);
@@ -153,8 +153,8 @@ public class TestOperatorImpl {
 
   @Test
   public void testOnTimerUpdatesMetrics() {
-    TaskContext mockTaskContext = mock(TaskContext.class);
-    MetricsRegistry mockMetricsRegistry = mock(MetricsRegistry.class);
+    TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
+    ReadableMetricsRegistry mockMetricsRegistry = mock(ReadableMetricsRegistry.class);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(mockMetricsRegistry);
     Counter mockMessageCounter = mock(Counter.class);
     Timer mockTimer = mock(Timer.class);

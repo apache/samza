@@ -17,20 +17,26 @@
  * under the License.
  */
 
-package org.apache.samza.message;
+package org.apache.samza.system;
 
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 /**
- *  The EndOfStreamMessage is a control message that is sent out to next stage
- *  once the task has consumed to the end of a bounded stream.
+ *  The WatermarkMessage is a control message that is sent out to next stage
+ *  with a watermark timestamp and the task that produces the watermark.
  */
-public class EndOfStreamMessage extends ControlMessage {
+public class WatermarkMessage extends ControlMessage {
+  private final long timestamp;
 
   @JsonCreator
-  public EndOfStreamMessage(@JsonProperty("task-name") String taskName,
-                            @JsonProperty("task-count") int taskCount) {
-    super(taskName, taskCount);
+  public WatermarkMessage(@JsonProperty("timestamp") long timestamp,
+                          @JsonProperty("task-name") String taskName) {
+    super(taskName);
+    this.timestamp = timestamp;
+  }
+
+  public long getTimestamp() {
+    return timestamp;
   }
 }

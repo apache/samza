@@ -364,6 +364,7 @@ class TestTaskInstance {
     assertEquals(expected, result.toList)
   }
 
+  /*
   @Test
   def testBuildInputToTasks = {
     val system: String = "test-system"
@@ -392,7 +393,7 @@ class TestTaskInstance {
     val streamToTasks: Multimap[SystemStream, String] = TaskInstance.buildInputToTasks(jobModel)
     assertEquals(streamToTasks.get(ssp0.getSystemStream).size, 2)
     assertEquals(streamToTasks.get(ssp2.getSystemStream).size, 1)
-  }
+  }*/
 }
 
 class MockSystemAdmin extends SystemAdmin {

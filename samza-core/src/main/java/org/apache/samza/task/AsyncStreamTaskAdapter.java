@@ -21,11 +21,7 @@ package org.apache.samza.task;
 
 import java.util.concurrent.ExecutorService;
 import org.apache.samza.config.Config;
-import org.apache.samza.control.ControlMessageListenerTask;
-import org.apache.samza.control.Watermark;
-import org.apache.samza.control.IOGraph;
 import org.apache.samza.system.IncomingMessageEnvelope;
-import org.apache.samza.system.SystemStream;
 
 
 /**
@@ -34,7 +30,7 @@ import org.apache.samza.system.SystemStream;
  * the callbacks once it's done. If the thread pool is null, it follows the legacy
  * synchronous model to execute the tasks on the run loop thread.
  */
-public class AsyncStreamTaskAdapter implements AsyncStreamTask, InitableTask, WindowableTask, ClosableTask, EndOfStreamListenerTask, ControlMessageListenerTask {
+public class AsyncStreamTaskAdapter implements AsyncStreamTask, InitableTask, WindowableTask, ClosableTask, EndOfStreamListenerTask {
   private final StreamTask wrappedTask;
   private final ExecutorService executor;
 
@@ -100,20 +96,4 @@ public class AsyncStreamTaskAdapter implements AsyncStreamTask, InitableTask, Wi
       ((EndOfStreamListenerTask) wrappedTask).onEndOfStream(collector, coordinator);
     }
   }
-
-  @Override
-  public IOGraph getIOGraph() {
-    if (wrappedTask instanceof ControlMessageListenerTask) {
-      return ((ControlMessageListenerTask) wrappedTask).getIOGraph();
-    }
-    return null;
-  }
-
-  @Override
-  public void onWatermark(Watermark watermark, SystemStream stream, MessageCollector collector, TaskCoordinator coordinator) {
-    if (wrappedTask instanceof ControlMessageListenerTask) {
-      ((ControlMessageListenerTask) wrappedTask).onWatermark(watermark, stream, collector, coordinator);
-    }
-  }
-
 }

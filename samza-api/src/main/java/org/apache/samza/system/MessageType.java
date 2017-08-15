@@ -17,28 +17,27 @@
  * under the License.
  */
 
-package org.apache.samza.message;
+package org.apache.samza.system;
 
 /**
  * The type of the intermediate stream message. The enum will be encoded using its ordinal value and
  * put in the first byte of the serialization of intermediate message.
- * For more details, see {@link org.apache.samza.serializers.IntermediateMessageSerde}
  */
-public enum IntermediateMessageType {
+public enum MessageType {
   USER_MESSAGE,
-  WATERMARK_MESSAGE,
-  END_OF_STREAM_MESSAGE;
+  WATERMARK,
+  END_OF_STREAM;
 
   /**
-   * Returns the {@link IntermediateMessageType} of a particular intermediate stream message.
+   * Returns the {@link MessageType} of a particular intermediate stream message.
    * @param message an intermediate stream message
    * @return type of the message
    */
-  public static IntermediateMessageType of(Object message) {
+  public static MessageType of(Object message) {
     if (message instanceof WatermarkMessage) {
-      return WATERMARK_MESSAGE;
+      return WATERMARK;
     } else if (message instanceof EndOfStreamMessage) {
-      return END_OF_STREAM_MESSAGE;
+      return END_OF_STREAM;
     } else {
       return USER_MESSAGE;
     }
