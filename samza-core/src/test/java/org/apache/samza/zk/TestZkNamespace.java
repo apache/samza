@@ -90,7 +90,7 @@ public class TestZkNamespace {
     String zkConnect = "127.0.0.1:" + zkServer.getPort() + zkNameSpace;
     createNamespace(zkNameSpace);
     initZk(zkConnect);
-    ZkCoordinationServiceFactory.validateZkNameSpace(zkConnect, zkClient);
+    ZkCoordinationUtils.validateZkNameSpace(zkConnect, zkClient);
 
     zkClient.createPersistent("/test");
     zkClient.createPersistent("/test/test1");
@@ -106,7 +106,7 @@ public class TestZkNamespace {
     try {
       String zkConnect = "127.0.0.1:" + zkServer.getPort() + "/zkNameSpace";
       initZk(zkConnect);
-      ZkCoordinationServiceFactory.validateZkNameSpace(zkConnect, zkClient);
+      ZkCoordinationUtils.validateZkNameSpace(zkConnect, zkClient);
       Assert.fail("1.Should fail with exception, because namespace doesn't exist");
     } catch (SamzaException e) {
       // expected
@@ -120,7 +120,7 @@ public class TestZkNamespace {
     try {
       String zkConnect = "127.0.0.1:" + zkServer.getPort() + "/zkNameSpace/xyz";
       initZk(zkConnect);
-      ZkCoordinationServiceFactory.validateZkNameSpace(zkConnect, zkClient);
+      ZkCoordinationUtils.validateZkNameSpace(zkConnect, zkClient);
       Assert.fail("2.Should fail with exception, because namespace doesn't exist");
     } catch (SamzaException e) {
       // expected
@@ -134,7 +134,7 @@ public class TestZkNamespace {
     // should succeed, because no namespace provided
     String zkConnect = "127.0.0.1:" + zkServer.getPort() + "";
     initZk(zkConnect);
-    ZkCoordinationServiceFactory.validateZkNameSpace(zkConnect, zkClient);
+    ZkCoordinationUtils.validateZkNameSpace(zkConnect, zkClient);
     tearDownZk();
   }
 
