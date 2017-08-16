@@ -518,17 +518,7 @@ class KafkaSystemAdmin(
     */
   override def validateChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {
     validateStream(new KafkaStreamSpec(CHANGELOG_STREAMID, topicName, systemName, numKafkaChangelogPartitions))
-  }
-
-  /**
-    * Checks for the existence of a stream defined by its spec, in Kafka.
-    * @param spec The spec, or blueprint from which the physical stream is created on the system.
-    */
-  override def existStream(spec: StreamSpec): Boolean = {
-    val topicName = spec.getPhysicalName()
-    val zkClient = connectZk()
-    return AdminUtils.topicExists(zkClient, topicName)
-  }
+  } 
 
   /**
    * Compare the two offsets. Returns x where x < 0 if offset1 < offset2;

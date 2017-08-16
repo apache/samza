@@ -75,19 +75,4 @@ public class StreamManager {
 
     return streamToPartitionCount;
   }
-
-  /**
-   * Check if the streams described by the specs already exist.
-   * @param streams A list of stream specs, whose existence we need to check for
-   * @return true if all the streams exist already, false otherwise
-   */
-  public boolean checkIfStreamsExist(List<StreamSpec> streams) {
-    for (StreamSpec spec: streams) {
-      SystemAdmin systemAdmin = sysAdmins.get(spec.getSystemName());
-      if (!systemAdmin.existStream(spec)) {
-        return false;
-      }
-    }
-    return true;
-  }
 }
