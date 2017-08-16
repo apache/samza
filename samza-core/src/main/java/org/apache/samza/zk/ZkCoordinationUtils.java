@@ -63,7 +63,7 @@ public class ZkCoordinationUtils implements CoordinationUtils {
 
   @Override
   public DistributedLock getLock(String initLockPath) {
-    return new ZkDistributedLock(processorIdStr, zkUtils, initLockPath);
+    return new ZkLock(processorIdStr, zkUtils, initLockPath);
   }
 
   // TODO - SAMZA-1128 CoordinationService should directly depend on ZkUtils and DebounceTimer

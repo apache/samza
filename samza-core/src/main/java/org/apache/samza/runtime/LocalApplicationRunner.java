@@ -21,7 +21,6 @@ package org.apache.samza.runtime;
 
 import java.util.HashMap;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,7 +29,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
@@ -38,6 +36,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfig;
+import org.apache.samza.coordinator.CoordinationServiceFactory;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.DistributedLock;
 import org.apache.samza.execution.ExecutionPlan;
@@ -48,8 +47,7 @@ import org.apache.samza.system.StreamSpec;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
-import org.apache.samza.zk.ZkCoordinationServiceFactory;
-import org.apache.samza.zk.ZkJobCoordinatorFactory;
+import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,6 +60,9 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   private static final String APPLICATION_RUNNER_ZK_PATH_SUFFIX = "/ApplicationRunnerData";
   // Lock timeout is set to 10 seconds here, as we don't want to introduce a new config value currently.
   private static final long LOCK_TIMEOUT_SECONDS = 10;
+  private static final String ZK_COORDINATION_CLASS = "org.apache.samza.zk.ZkJobCoordinatorFactory";
+  private static final String ZK_COORDINATION_SERVICE_CLASS = "org.apache.samza.zk.ZkCoordinationServiceFactory";
+
   private final String uid;
   private final Set<StreamProcessor> processors = ConcurrentHashMap.newKeySet();
   private final CountDownLatch shutdownLatch = new CountDownLatch(1);
@@ -213,9 +214,9 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     String jobCoordinatorFactoryClassName = config.get(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "");
 
     // TODO: we will need a better way to package the configs with application runner
-    if (ZkJobCoordinatorFactory.class.getName().equals(jobCoordinatorFactoryClassName)) {
+    if (ZK_COORDINATION_CLASS.equals(jobCoordinatorFactoryClassName)) {
       ApplicationConfig appConfig = new ApplicationConfig(config);
-      return new ZkCoordinationServiceFactory().getCoordinationService(
+      return Util.<CoordinationServiceFactory>getObj(ZK_COORDINATION_SERVICE_CLASS).getCoordinationService(
           appConfig.getGlobalAppId() + APPLICATION_RUNNER_ZK_PATH_SUFFIX, uid, config);
     } else {
       return null;
@@ -223,37 +224,27 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   }
 
   /**
-   * Generates a unique lock ID which is consistent for all processors within the same application lifecycle.
-   * Each {@code StreamSpec} has an ID that is unique and is used for hashcode computation.
-   * @param intStreams list of {@link StreamSpec}s
-   * @return lock ID
-   */
-  private String generateLockId(List<StreamSpec> intStreams) {
-    return String.valueOf(Objects.hashCode(intStreams.stream()
-        .map(StreamSpec::getId)
-        .collect(Collectors.toList())));
-  }
-
-  /**
    * Create intermediate streams using {@link org.apache.samza.execution.StreamManager}.
-   * If {@link CoordinationUtils} is provided, this function will first invoke leader election, and the leader
-   * will create the streams. All the runner processes will wait on the latch that is released after the leader finishes
-   * stream creation.
+   * If {@link CoordinationUtils} is provided, this function will first acquire a lock, and then create the streams.
+   * All the runner processes will either wait till the time they acquire the lock, or timeout after the specified time.
+   * After stream creation, they will unlock and proceed normally.
    * @param planId a unique identifier representing the plan used for coordination purpose
    * @param intStreams list of intermediate {@link StreamSpec}s
    * @throws TimeoutException exception for lock timeout
    */
-  /* package private */ void createStreams(String planId, List<StreamSpec> intStreams) throws TimeoutException {
+   /* package private */ void createStreams(String planId, List<StreamSpec> intStreams) throws TimeoutException {
     if (!intStreams.isEmpty()) {
       // Move the scope of coordination utils within stream creation to address long idle connection problem.
       // Refer SAMZA-1385 for more details
       CoordinationUtils coordinationUtils = createCoordinationUtils();
       if (coordinationUtils != null) {
-        DistributedLock initLock = coordinationUtils.getLock(generateLockId(intStreams));
+        DistributedLock initLock = coordinationUtils.getLock(planId);
         try {
           boolean hasLock = initLock.lock(LOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
           if (hasLock) {
             getStreamManager().createStreams(intStreams);
+            LOG.info("Created intermediate streams. Unlocking now...");
+            initLock.unlock();
           } else {
             LOG.error("Timed out while trying to acquire lock.", new TimeoutException());
           }

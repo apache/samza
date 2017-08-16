@@ -26,7 +26,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
@@ -34,9 +33,7 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
-import org.apache.samza.coordinator.Latch;
-import org.apache.samza.coordinator.LeaderElector;
-import org.apache.samza.coordinator.LeaderElectorListener;
+import org.apache.samza.coordinator.DistributedLock;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.execution.ExecutionPlanner;
 import org.apache.samza.execution.StreamManager;
@@ -48,7 +45,6 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
 import static org.junit.Assert.*;
-import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.*;
@@ -162,46 +158,18 @@ public class TestLocalApplicationRunner {
     LocalApplicationRunner spy = spy(runner);
 
     CoordinationUtils coordinationUtils = mock(CoordinationUtils.class);
-    LeaderElector leaderElector = new LeaderElector() {
-      private LeaderElectorListener leaderElectorListener;
 
+    DistributedLock lock = new DistributedLock() {
       @Override
-      public void setLeaderElectorListener(LeaderElectorListener listener) {
-        this.leaderElectorListener = listener;
+      public boolean lock(long timeout, TimeUnit unit) {
+        return true;
       }
 
       @Override
-      public void tryBecomeLeader() {
-        leaderElectorListener.onBecomingLeader();
-      }
-
-      @Override
-      public void resignLeadership() {}
-
-      @Override
-      public boolean amILeader() {
-        return false;
-      }
+      public void unlock() {}
     };
 
-    Latch latch = new Latch() {
-      boolean done = false;
-      @Override
-      public void await(long timeout, TimeUnit tu)
-          throws TimeoutException {
-        // in this test, latch is released after countDown is invoked
-        if (!done) {
-          throw new TimeoutException("timed out waiting for the target path");
-        }
-      }
-
-      @Override
-      public void countDown() {
-        done = true;
-      }
-    };
-    when(coordinationUtils.getLeaderElector()).thenReturn(leaderElector);
-    when(coordinationUtils.getLatch(anyInt(), anyString())).thenReturn(latch);
+    when(coordinationUtils.getLock(anyString())).thenReturn(lock);
     doReturn(coordinationUtils).when(spy).createCoordinationUtils();
 
     try {
@@ -361,7 +329,7 @@ public class TestLocalApplicationRunner {
   @Test
   public void testPlanIdWithShuffledStreamSpecs() {
     List<StreamSpec> streamSpecs = ImmutableList.of(
-      new StreamSpec("test-stream-1", "stream-1", "testStream"),
+        new StreamSpec("test-stream-1", "stream-1", "testStream"),
         new StreamSpec("test-stream-2", "stream-2", "testStream"),
         new StreamSpec("test-stream-3", "stream-3", "testStream"));
     String planIdBeforeShuffle = getExecutionPlanId(streamSpecs);
