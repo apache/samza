@@ -403,9 +403,7 @@ public class ZkUtils {
    * @return jobmodel version as a string
    */
   public String getJobModelVersion() {
-    String path = keyBuilder.getJobModelVersionPath();
-    System.out.println("######## For zkUtils - " + zkClient.hashCode() + " JobModel Version Path - " + path);
-    String jobModelVersion = zkClient.readData(path);
+    String jobModelVersion = zkClient.readData(keyBuilder.getJobModelVersionPath());
     metrics.reads.inc();
     return jobModelVersion;
   }
