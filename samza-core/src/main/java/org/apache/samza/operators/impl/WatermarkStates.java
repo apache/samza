@@ -24,20 +24,18 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.WatermarkMessage;
 
 
+/**
+ * This class manages the state of the watermarks in a task. Internally it keeps track of the latest
+ * watermark timestamp from each upstream task, and use the min as the consolidated watermark time.
+ */
 class WatermarkStates {
   public static final long TIME_NOT_EXIST = -1;
-  public static final long TIME_MAX = Long.MAX_VALUE;
 
-  /**
-   * Per ssp state of the watermarks. This class keeps track of the latest watermark timestamp
-   * from each upstream producer tasks, and use the min to update the aggregated watermark time.
-   */
   private final static class WatermarkState {
     private int expectedTotal = Integer.MAX_VALUE;
     private final Map<String, Long> timestamps = new HashMap<>();
@@ -67,7 +65,7 @@ class WatermarkStates {
   }
 
   private final Map<SystemStreamPartition, WatermarkState> watermarkStates;
-  private final Map<SystemStream, Long> watermarks = new ConcurrentHashMap<>();
+  private final Map<SystemStream, Long> watermarks = new HashMap<>();
 
   WatermarkStates(Set<SystemStreamPartition> ssps, Map<SystemStream, Integer> producerTaskCounts) {
     Map<SystemStreamPartition, WatermarkState> states = new HashMap<>();
@@ -79,12 +77,12 @@ class WatermarkStates {
   }
 
   /**
-   * documentation
-   * @param watermarkMessage
-   * @param ssp
-   * @return boolean flag of whether the watermark of the stream has been updated
+   * Update the state upon receiving a watermark message.
+   * @param watermarkMessage message of {@link WatermarkMessage}
+   * @param ssp system stream partition
+   * @return true iff the stream has a new watermark
    */
-  synchronized boolean update(WatermarkMessage watermarkMessage, SystemStreamPartition ssp) {
+  boolean update(WatermarkMessage watermarkMessage, SystemStreamPartition ssp) {
     WatermarkState state = watermarkStates.get(ssp);
     boolean updated = state.update(watermarkMessage.getTimestamp(), watermarkMessage.getTaskName());
 
@@ -105,5 +103,10 @@ class WatermarkStates {
 
   long getWatermark(SystemStream systemStream) {
     return watermarks.get(systemStream);
+  }
+
+  /* package private for testing */
+  long getWatermarkPerSSP(SystemStreamPartition ssp) {
+    return watermarkStates.get(ssp).getWatermarkTime();
   }
 }

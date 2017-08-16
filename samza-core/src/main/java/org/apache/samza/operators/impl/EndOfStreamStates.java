@@ -29,13 +29,19 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 
 
+/**
+ * This class manages the end-of-stream state of the streams in a task. Internally it keeps track of end-of-stream
+ * messages received from upstream tasks for each system stream partition (ssp). If messages have been received from
+ * all tasks, it will mark the ssp as end-of-stream. For a stream to be end-of-stream, all its partitions need to be
+ * end-of-stream.
+ */
 class EndOfStreamStates {
 
   private static final class EndOfStreamState {
     // set of upstream tasks
     private final Set<String> tasks = new HashSet<>();
     private final int expectedTotal;
-    private volatile boolean isEndOfStream = false;
+    private boolean isEndOfStream = false;
 
     EndOfStreamState(int expectedTotal) {
       this.expectedTotal = expectedTotal;
@@ -63,7 +69,12 @@ class EndOfStreamStates {
     this.eosStates = Collections.unmodifiableMap(states);
   }
 
-  synchronized void update(EndOfStreamMessage eos, SystemStreamPartition ssp) {
+  /**
+   * Update the state upon receiving an end-of-stream message.
+   * @param eos message of {@link EndOfStreamMessage}
+   * @param ssp system stream partition
+   */
+  void update(EndOfStreamMessage eos, SystemStreamPartition ssp) {
     EndOfStreamState state = eosStates.get(ssp);
     state.update(eos.getTaskName());
   }

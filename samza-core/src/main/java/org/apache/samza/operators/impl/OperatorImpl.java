@@ -297,7 +297,7 @@ public abstract class OperatorImpl<M, RM> {
 
   /**
    * Handle watermark in this operator. Default is to emit it.
-   * Inherited operators can do triggering here.
+   * Override this function to do trigger/watermark emission here.
    * @param watermark  input watermark
    * @param collector message collector
    * @param coordinator task coordinator
@@ -309,8 +309,8 @@ public abstract class OperatorImpl<M, RM> {
   }
 
   /**
-   * Emit to watermark, which will be propagate to downstream operators
-   * @param watermark watermark time
+   * Emit a watermark, which will be propagated to downstream operators
+   * @param watermark time of the watermark
    */
   public final void emitWatermark(long watermark) {
     // guarantee that output watermark is monotonically increasing here.

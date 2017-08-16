@@ -27,6 +27,9 @@ import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.task.MessageCollector;
 
 
+/**
+ * This is a helper class to broadcast control messages to each partition of an intermediate stream
+ */
 class ControlMessageSender {
   private final StreamMetadataCache metadataCache;
 
