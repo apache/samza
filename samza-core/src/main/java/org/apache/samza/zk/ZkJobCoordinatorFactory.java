@@ -60,7 +60,7 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
     return new ZkUtils(keyBuilder, zkClient, zkConfig.getZkConnectionTimeoutMs(), metricsRegistry);
   }
 
-  private String getJobCoordinationZkPath(Config config) {
+  public static String getJobCoordinationZkPath(Config config) {
     JobConfig jobConfig = new JobConfig(config);
     String appId = new ApplicationConfig(config).getGlobalAppId();
     String jobName = jobConfig.getName().isDefined()
