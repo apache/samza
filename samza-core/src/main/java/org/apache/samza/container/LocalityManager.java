@@ -109,8 +109,10 @@ public class LocalityManager extends AbstractCoordinatorStreamManager {
     }
     containerToHostMapping = Collections.unmodifiableMap(allMappings);
 
-    for (Map.Entry<String, Map<String, String>> entry : containerToHostMapping.entrySet()) {
-      log.debug(String.format("Locality for container %s: %s", entry.getKey(), entry.getValue()));
+    if (log.isDebugEnabled()) {
+      for (Map.Entry<String, Map<String, String>> entry : containerToHostMapping.entrySet()) {
+        log.debug(String.format("Locality for container %s: %s", entry.getKey(), entry.getValue()));
+      }
     }
 
     return allMappings;
