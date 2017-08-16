@@ -47,7 +47,6 @@ public class HeartbeatScheduler implements TaskScheduler {
   private final String processorId;
   private final TableUtils table;
   private final AtomicReference<String> currentJMVersion;
-  private SchedulerStateChangeListener listener = null;
 
   public HeartbeatScheduler(TableUtils table, AtomicReference<String> currentJMVersion, final String pid) {
     this.table = table;
@@ -59,7 +58,7 @@ public class HeartbeatScheduler implements TaskScheduler {
   public ScheduledFuture scheduleTask() {
     return scheduler.scheduleWithFixedDelay(() -> {
         try {
-          LOG.info("Updating heartbeat");
+          LOG.info("Updating heartbeat for processor ID: " + processorId + " and job model version: " + currentJMVersion.get());
           table.updateHeartbeat(currentJMVersion.get(), processorId);
         } catch (Exception e) {
           LOG.error("Exception in Heartbeat Scheduler.", e);
@@ -68,9 +67,7 @@ public class HeartbeatScheduler implements TaskScheduler {
   }
 
   @Override
-  public void setStateChangeListener(SchedulerStateChangeListener listener) {
-    this.listener = listener;
-  }
+  public void setStateChangeListener(SchedulerStateChangeListener listener) {}
 
   @Override
   public void shutdown() {

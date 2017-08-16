@@ -97,8 +97,8 @@ public class LeaderLivenessCheckScheduler implements TaskScheduler {
       }
     }
     // Check if row hasn't been updated since 30 seconds.
-    if (leader == null || (nextLeader == null && (System.currentTimeMillis() - leader.getTimestamp().getTime() >= (
-        LIVENESS_DEBOUNCE_TIME_SEC * 1000)))) {
+    if ((leader == null || (System.currentTimeMillis() - leader.getTimestamp().getTime() >= (
+        LIVENESS_DEBOUNCE_TIME_SEC * 1000))) && nextLeader == null) {
       return false;
     }
     return true;

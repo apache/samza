@@ -22,14 +22,22 @@ package org.apache.samza;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.ScheduledFuture;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.TaskConfig;
+import org.apache.samza.container.TaskName;
+import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouper;
+import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.coordinator.JobModelManager;
@@ -44,9 +52,14 @@ import org.apache.samza.scheduler.LivenessCheckScheduler;
 import org.apache.samza.scheduler.RenewLeaseScheduler;
 import org.apache.samza.scheduler.SchedulerStateChangeListener;
 import org.apache.samza.system.StreamMetadataCache;
+import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.SystemStreamMetadata;
+import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.ClassLoaderHelper;
+import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scala.collection.JavaConverters;
 
 
 /**
@@ -55,7 +68,6 @@ import org.slf4j.LoggerFactory;
  * The leader job coordinator generates partition mapping, writes shared data to the blob and manages rebalancing.
  */
 public class AzureJobCoordinator implements JobCoordinator {
-
   private static final Logger LOG = LoggerFactory.getLogger(AzureJobCoordinator.class);
   private static final int METADATA_CACHE_TTL_MS = 5000;
   private static final String INITIAL_STATE = "0";
@@ -72,8 +84,7 @@ public class AzureJobCoordinator implements JobCoordinator {
   private final LeaderLivenessCheckScheduler leaderAlive;
   private final LivenessCheckScheduler liveness;
   private RenewLeaseScheduler renewLease;
-  private LeaderBarrierCompleteScheduler barrierState;
-  private ScheduledFuture leaderBarrierSF;
+  private LeaderBarrierCompleteScheduler leaderBarrierScheduler;
   private StreamMetadataCache streamMetadataCache = null;
   private JobCoordinatorListener coordinatorListener = null;
   private JobModel jobModel = null;
@@ -98,7 +109,7 @@ public class AzureJobCoordinator implements JobCoordinator {
     leaderAlive = new LeaderLivenessCheckScheduler(table, leaderBlob, currentJMVersion);
     liveness = new LivenessCheckScheduler(table, leaderBlob, currentJMVersion);
     renewLease = new RenewLeaseScheduler(azureLeaderElector.getLeaseBlobManager(), azureLeaderElector.getLeaseId());
-    barrierState = null;
+    leaderBarrierScheduler = null;
   }
 
   @Override
@@ -166,8 +177,8 @@ public class AzureJobCoordinator implements JobCoordinator {
     leaderAlive.shutdown();
     liveness.shutdown();
     renewLease.shutdown();
-    if (barrierState != null) {
-      barrierState.shutdown();
+    if (leaderBarrierScheduler != null) {
+      leaderBarrierScheduler.shutdown();
     }
     versionUpgrade.shutdown();
   }
@@ -190,8 +201,12 @@ public class AzureJobCoordinator implements JobCoordinator {
         LOG.info("Leader detected barrier completion.");
         state = BarrierState.END.name() + " " + nextJMVersion;
       }
-      leaderBlob.publishBarrierState(state, azureLeaderElector.getLeaseId().get());
-      leaderBarrierSF.cancel(true);
+      if (!leaderBlob.publishBarrierState(state, azureLeaderElector.getLeaseId().get())) {
+        LOG.info("Leader failed to publish the job model {}. Stopping the processor with PID: .", jobModel, processorId);
+        stop();
+        table.deleteProcessorEntity(currentJMVersion.get(), processorId);
+      }
+      leaderBarrierScheduler.shutdown();
     };
   }
 
@@ -233,10 +248,51 @@ public class AzureJobCoordinator implements JobCoordinator {
     };
   }
 
+  /**
+   * For each input stream specified in config, exactly determine its
+   * partitions, returning a set of SystemStreamPartitions containing them all.
+   */
+  private Set<SystemStreamPartition> getInputStreamPartitions() {
+    TaskConfig taskConfig = new TaskConfig(config);
+    scala.collection.immutable.Set<SystemStream> inputSystemStreams = taskConfig.getInputStreams();
 
-  private JobModel generateNewJobModel(List<String> processors) {
-    return JobModelManager.readJobModel(this.config, Collections.emptyMap(), null, streamMetadataCache,
-        processors);
+    // Get the set of partitions for each SystemStream from the stream metadata
+    Set<SystemStreamPartition>
+        sspSet = JavaConverters.mapAsJavaMapConverter(streamMetadataCache.getStreamMetadata(inputSystemStreams, true)).asJava()
+        .entrySet()
+        .stream()
+        .flatMap(this::mapSSMToSSP)
+        .collect(Collectors.toSet());
+
+    return sspSet;
+  }
+
+  private Stream<SystemStreamPartition> mapSSMToSSP(Map.Entry<SystemStream, SystemStreamMetadata> ssMs) {
+    return ssMs.getValue()
+        .getSystemStreamPartitionMetadata()
+        .keySet()
+        .stream()
+        .map(partition -> new SystemStreamPartition(ssMs.getKey(), partition));
+  }
+
+  /**
+   * Gets a SystemStreamPartitionGrouper object from the configuration.
+   */
+  private SystemStreamPartitionGrouper getSystemStreamPartitionGrouper() {
+    JobConfig jobConfig = new JobConfig(config);
+    String factoryString = jobConfig.getSystemStreamPartitionGrouperFactory();
+    SystemStreamPartitionGrouper grouper = Util.<SystemStreamPartitionGrouperFactory>getObj(factoryString).getSystemStreamPartitionGrouper(jobConfig);
+    return grouper;
+  }
+
+  private int getMaxNumTasks() {
+    // Do grouping to fetch TaskName to SSP mapping
+    Set<SystemStreamPartition> allSystemStreamPartitions = getInputStreamPartitions();
+    SystemStreamPartitionGrouper grouper = getSystemStreamPartitionGrouper();
+    Map<TaskName, Set<SystemStreamPartition>> groups = grouper.group(allSystemStreamPartitions);
+    LOG.info("SystemStreamPartitionGrouper " + grouper.toString() + " has grouped the SystemStreamPartitions into " + Integer.toString(groups.size()) +
+        " tasks with the following taskNames: {}", groups.keySet());
+    return groups.size();
   }
 
   /**
@@ -246,6 +302,21 @@ public class AzureJobCoordinator implements JobCoordinator {
   private void doOnProcessorChange(List<String> currentProcessorIds) {
     // if list of processors is empty - it means we are called from 'onBecomeLeader'
 
+    // Check if number of processors is greater than number of tasks
+    List<String> initialProcessorIds = new ArrayList<>(currentProcessorIds);
+    int numTasks = getMaxNumTasks();
+    if (currentProcessorIds.size() > numTasks) {
+      int iterator = 0;
+      while (currentProcessorIds.size() != numTasks) {
+        if (!currentProcessorIds.get(iterator).equals(processorId)) {
+          currentProcessorIds.remove(iterator);
+          iterator++;
+        }
+      }
+    }
+    LOG.info("currentProcessorIds = {}", currentProcessorIds);
+    LOG.info("initialProcessorIds = {}", initialProcessorIds);
+
     String nextJMVersion;
     String prevJMVersion = currentJMVersion.get();
     JobModel prevJobModel = jobModel;
@@ -254,6 +325,7 @@ public class AzureJobCoordinator implements JobCoordinator {
     nextJMVersion = Integer.toString(Integer.valueOf(prevJMVersion) + 1);
     if (currentProcessorIds.isEmpty()) {
       currentProcessorIds = new ArrayList<>(table.getActiveProcessorsList(currentJMVersion));
+      initialProcessorIds = currentProcessorIds;
     } else {
       //Check if previous barrier not reached, then previous barrier times out.
       String blobJMV = leaderBlob.getJobModelVersion();
@@ -262,29 +334,38 @@ public class AzureJobCoordinator implements JobCoordinator {
         prevJobModel = leaderBlob.getJobModel();
         nextJMVersion = Integer.toString(Integer.valueOf(blobJMV) + 1);
         versionUpgradeDetected.getAndSet(false);
-        leaderBarrierSF.cancel(true);
+        leaderBarrierScheduler.shutdown();
         leaderBlob.publishBarrierState(BarrierState.TIMEOUT.name() + " " + blobJMV, azureLeaderElector.getLeaseId().get());
       }
     }
 
     // Generate the new JobModel
-    JobModel newJobModel = generateNewJobModel(currentProcessorIds);
+    JobModel newJobModel = JobModelManager.readJobModel(this.config, Collections.emptyMap(),
+        null, streamMetadataCache, currentProcessorIds);
     LOG.info("pid=" + processorId + "Generated new Job Model. Version = " + nextJMVersion);
 
     // Publish the new job model
-    leaderBlob.publishJobModel(prevJobModel, newJobModel, prevJMVersion, nextJMVersion, azureLeaderElector.getLeaseId().get());
+    boolean jmWrite = leaderBlob.publishJobModel(prevJobModel, newJobModel, prevJMVersion, nextJMVersion, azureLeaderElector.getLeaseId().get());
     // Publish barrier state
-    leaderBlob.publishBarrierState(BarrierState.START.name() + " " + nextJMVersion, azureLeaderElector.getLeaseId().get());
+    boolean barrierWrite = leaderBlob.publishBarrierState(BarrierState.START.name() + " " + nextJMVersion, azureLeaderElector.getLeaseId().get());
     barrierTimeout.set(false);
     // Publish list of processors this function was called with
-    leaderBlob.publishLiveProcessorList(currentProcessorIds, azureLeaderElector.getLeaseId().get());
+    boolean processorWrite = leaderBlob.publishLiveProcessorList(initialProcessorIds, azureLeaderElector.getLeaseId().get());
+
+    //Shut down processor if write fails even after retries. These writes have an inherent retry policy.
+    if (!jmWrite || !barrierWrite || !processorWrite) {
+      LOG.info("Leader failed to publish the job model {}. Stopping the processor with PID: .", jobModel, processorId);
+      stop();
+      table.deleteProcessorEntity(currentJMVersion.get(), processorId);
+    }
+
     LOG.info("pid=" + processorId + "Published new Job Model. Version = " + nextJMVersion);
 
     // Start scheduler to check if barrier reached
     long startTime = System.currentTimeMillis();
-    barrierState = new LeaderBarrierCompleteScheduler(table, nextJMVersion, currentProcessorIds, startTime, barrierTimeout);
-    barrierState.setStateChangeListener(createLeaderBarrierCompleteListener(nextJMVersion, barrierTimeout));
-    leaderBarrierSF = barrierState.scheduleTask();
+    leaderBarrierScheduler = new LeaderBarrierCompleteScheduler(table, nextJMVersion, initialProcessorIds, startTime, barrierTimeout);
+    leaderBarrierScheduler.setStateChangeListener(createLeaderBarrierCompleteListener(nextJMVersion, barrierTimeout));
+    leaderBarrierScheduler.scheduleTask();
   }
 
   /**
