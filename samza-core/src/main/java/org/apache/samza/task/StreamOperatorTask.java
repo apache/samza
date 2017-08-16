@@ -30,6 +30,7 @@ import org.apache.samza.operators.impl.OperatorImplGraph;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.WatermarkMessage;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.SystemClock;
 import org.slf4j.Logger;
@@ -117,13 +118,12 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
 
         case END_OF_STREAM:
           EndOfStreamMessage eosMessage = (EndOfStreamMessage) ime.getMessage();
-          LOG.info("Received end-of-stream message from task {} in {}", eosMessage.getTaskName(), ime.getSystemStreamPartition());
-          inputOpImpl.aggregateEndOfStream(eosMessage, ime.getSystemStreamPartition(),
-              collector, coordinator);
+          inputOpImpl.aggregateEndOfStream(eosMessage, ime.getSystemStreamPartition(), collector, coordinator);
           break;
 
         case WATERMARK:
-          //TODO: add watermark logic
+          WatermarkMessage watermarkMessage = (WatermarkMessage) ime.getMessage();
+          inputOpImpl.aggregateWatermark(watermarkMessage, ime.getSystemStreamPartition(), collector, coordinator);
           break;
       }
     }

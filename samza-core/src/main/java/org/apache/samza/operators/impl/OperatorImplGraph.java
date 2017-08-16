@@ -99,6 +99,9 @@ public class OperatorImplGraph {
     // set states for end-of-stream
     taskContext.registerObject(EndOfStreamStates.class.getName(),
         new EndOfStreamStates(context.getSystemStreamPartitions(), producerTaskCounts));
+    // set states for watermark
+    taskContext.registerObject(WatermarkStates.class.getName(),
+        new WatermarkStates(context.getSystemStreamPartitions(), producerTaskCounts));
 
     streamGraph.getInputOperators().forEach((streamSpec, inputOpSpec) -> {
         SystemStream systemStream = new SystemStream(streamSpec.getSystemName(), streamSpec.getPhysicalName());

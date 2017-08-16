@@ -22,7 +22,7 @@ import java.util.Collection;
 import java.util.Collections;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskContextImpl;
-import org.apache.samza.control.Watermark;
+import org.apache.samza.system.ControlMessage;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
@@ -30,6 +30,7 @@ import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.WatermarkMessage;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
@@ -43,7 +44,7 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
   private final OutputOperatorSpec<M> outputOpSpec;
   private final OutputStreamImpl<?, ?, M> outputStream;
   private final String taskName;
-  private final ControlMessageSender controlSender;
+  private final ControlMessageSender controlMessageSender;
 
   OutputOperatorImpl(OutputOperatorSpec<M> outputOpSpec, Config config, TaskContext context) {
     this.outputOpSpec = outputOpSpec;
@@ -51,7 +52,7 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
     this.taskName = context.getTaskName().getTaskName();
 
     StreamMetadataCache streamMetadataCache = ((TaskContextImpl) context).getStreamMetadataCache();
-    this.controlSender = new ControlMessageSender(streamMetadataCache);
+    this.controlMessageSender = new ControlMessageSender(streamMetadataCache);
   }
 
   @Override
@@ -82,19 +83,19 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
   @Override
   protected void handleEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
     if (outputOpSpec.getOpCode() == OperatorSpec.OpCode.PARTITION_BY) {
-      EndOfStreamMessage endOfStreamMessage = new EndOfStreamMessage(taskName);
-      SystemStream outputStream = outputOpSpec.getOutputStream().getStreamSpec().toSystemStream();
-      controlSender.send(endOfStreamMessage, outputStream, collector);
+      sendControlMessage(new EndOfStreamMessage(taskName), collector);
     }
   }
 
   @Override
-  protected long handleWatermark(Watermark inputWatermark,
-      MessageCollector collector,
-      TaskCoordinator coordinator) {
+  protected void handleWatermark(long watermark, MessageCollector collector, TaskCoordinator coordinator) {
     if (outputOpSpec.getOpCode() == OperatorSpec.OpCode.PARTITION_BY) {
-      inputWatermark.propagate(outputStream.getStreamSpec().toSystemStream());
+      sendControlMessage(new WatermarkMessage(watermark, taskName), collector);
     }
-    return inputWatermark.getTimestamp();
+  }
+
+  private void sendControlMessage(ControlMessage message, MessageCollector collector) {
+    SystemStream outputStream = outputOpSpec.getOutputStream().getStreamSpec().toSystemStream();
+    controlMessageSender.send(message, outputStream, collector);
   }
 }

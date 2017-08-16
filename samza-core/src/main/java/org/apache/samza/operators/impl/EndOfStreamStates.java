@@ -35,13 +35,13 @@ class EndOfStreamStates {
     // set of upstream tasks
     private final Set<String> tasks = new HashSet<>();
     private final int expectedTotal;
-    private boolean isEndOfStream = false;
+    private volatile boolean isEndOfStream = false;
 
     EndOfStreamState(int expectedTotal) {
       this.expectedTotal = expectedTotal;
     }
 
-    synchronized void update(String taskName) {
+    void update(String taskName) {
       if (taskName != null) {
         tasks.add(taskName);
       }
@@ -63,7 +63,7 @@ class EndOfStreamStates {
     this.eosStates = Collections.unmodifiableMap(states);
   }
 
-  void update(EndOfStreamMessage eos, SystemStreamPartition ssp) {
+  synchronized void update(EndOfStreamMessage eos, SystemStreamPartition ssp) {
     EndOfStreamState state = eosStates.get(ssp);
     state.update(eos.getTaskName());
   }

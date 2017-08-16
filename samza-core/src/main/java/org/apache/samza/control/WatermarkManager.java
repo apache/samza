@@ -119,7 +119,7 @@ public class WatermarkManager {
   void sendWatermark(long timestamp, SystemStream systemStream, int taskCount) {
     log.info("Send end-of-stream messages to all partitions of " + systemStream);
     final WatermarkMessage watermarkMessage = new WatermarkMessage(timestamp, taskName);
-    ControlMessageUtils.sendControlMessage(watermarkMessage, systemStream, metadataCache, collector);
+    //ControlMessageUtils.sendControlMessage(watermarkMessage, systemStream, metadataCache, collector);
   }
 
   /**

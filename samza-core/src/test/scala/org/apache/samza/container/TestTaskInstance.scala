@@ -20,25 +20,18 @@
 package org.apache.samza.container
 
 
-import java.util
-import java.util
-import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
-import com.google.common.collect.Multimap
-import org.apache.samza.SamzaException
+
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.config.Config
 import org.apache.samza.config.MapConfig
-import org.apache.samza.control.ControlMessageUtils
-import org.apache.samza.job.model.ContainerModel
-import org.apache.samza.job.model.JobModel
-import org.apache.samza.job.model.TaskModel
 import org.apache.samza.metrics.Counter
 import org.apache.samza.metrics.Metric
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.system.IncomingMessageEnvelope
+import org.apache.samza.system.SystemAdmin
 import org.apache.samza.system.SystemConsumer
 import org.apache.samza.system.SystemConsumers
 import org.apache.samza.system.SystemProducer
@@ -52,8 +45,8 @@ import org.apache.samza.task._
 import org.junit.Assert._
 import org.junit.Test
 import org.scalatest.Assertions.intercept
+
 import scala.collection.JavaConverters._
-import org.apache.samza.system.SystemAdmin
 import scala.collection.mutable.ListBuffer
 
 class TestTaskInstance {
@@ -363,37 +356,6 @@ class TestTaskInstance {
     val expected = List(envelope1, envelope2, envelope4)
     assertEquals(expected, result.toList)
   }
-
-  /*
-  @Test
-  def testBuildInputToTasks = {
-    val system: String = "test-system"
-    val stream0: String = "test-stream-0"
-    val stream1: String = "test-stream-1"
-
-    val ssp0: SystemStreamPartition = new SystemStreamPartition(system, stream0, new Partition(0))
-    val ssp1: SystemStreamPartition = new SystemStreamPartition(system, stream0, new Partition(1))
-    val ssp2: SystemStreamPartition = new SystemStreamPartition(system, stream1, new Partition(0))
-
-    val task0: TaskName = new TaskName("Task 0")
-    val task1: TaskName = new TaskName("Task 1")
-    val ssps: util.Set[SystemStreamPartition] = new util.HashSet[SystemStreamPartition]
-    ssps.add(ssp0)
-    ssps.add(ssp2)
-    val tm0: TaskModel = new TaskModel(task0, ssps, new Partition(0))
-    val cm0: ContainerModel = new ContainerModel("c0", 0, Collections.singletonMap(task0, tm0))
-    val tm1: TaskModel = new TaskModel(task1, Collections.singleton(ssp1), new Partition(1))
-    val cm1: ContainerModel = new ContainerModel("c1", 1, Collections.singletonMap(task1, tm1))
-
-    val cms: util.Map[String, ContainerModel] = new util.HashMap[String, ContainerModel]
-    cms.put(cm0.getProcessorId, cm0)
-    cms.put(cm1.getProcessorId, cm1)
-
-    val jobModel: JobModel = new JobModel(new MapConfig, cms, null)
-    val streamToTasks: Multimap[SystemStream, String] = TaskInstance.buildInputToTasks(jobModel)
-    assertEquals(streamToTasks.get(ssp0.getSystemStream).size, 2)
-    assertEquals(streamToTasks.get(ssp2.getSystemStream).size, 1)
-  }*/
 }
 
 class MockSystemAdmin extends SystemAdmin {

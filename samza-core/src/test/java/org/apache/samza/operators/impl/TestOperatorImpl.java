@@ -221,11 +221,11 @@ public class TestOperatorImpl {
   }
 
   public static long getInputWatermark(OperatorImpl op) {
-    return op.getInputWatermarkTime();
+    return op.getInputWatermark();
   }
 
   public static long getOutputWatermark(OperatorImpl op) {
-    return op.getOutputWatermarkTime();
+    return op.getOutputWatermark();
   }
 
 }

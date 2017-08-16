@@ -155,7 +155,7 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
     OperatorImplGraph graph = TestStreamOperatorTask.getOperatorImplGraph(task0);
     OperatorImpl pb = getOperator(graph, OperatorSpec.OpCode.PARTITION_BY);
     assertEquals(TestOperatorImpl.getInputWatermark(pb), 4);
-    assertEquals(TestOperatorImpl.getOutputWatermark(pb), 4);
+    assertEquals(TestOperatorImpl.getOutputWatermark(pb), -1);
     OperatorImpl sink = getOperator(graph, OperatorSpec.OpCode.SINK);
     assertEquals(TestOperatorImpl.getInputWatermark(sink), 3);
     assertEquals(TestOperatorImpl.getOutputWatermark(sink), 3);
@@ -164,7 +164,7 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
     graph = TestStreamOperatorTask.getOperatorImplGraph(task1);
     pb = getOperator(graph, OperatorSpec.OpCode.PARTITION_BY);
     assertEquals(TestOperatorImpl.getInputWatermark(pb), 3);
-    assertEquals(TestOperatorImpl.getOutputWatermark(pb), 3);
+    assertEquals(TestOperatorImpl.getOutputWatermark(pb), -1);
     sink = getOperator(graph, OperatorSpec.OpCode.SINK);
     assertEquals(TestOperatorImpl.getInputWatermark(sink), 3);
     assertEquals(TestOperatorImpl.getOutputWatermark(sink), 3);
