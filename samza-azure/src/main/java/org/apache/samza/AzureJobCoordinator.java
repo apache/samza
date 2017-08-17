@@ -27,6 +27,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
@@ -70,7 +71,8 @@ import scala.collection.JavaConverters;
 public class AzureJobCoordinator implements JobCoordinator {
   private static final Logger LOG = LoggerFactory.getLogger(AzureJobCoordinator.class);
   private static final int METADATA_CACHE_TTL_MS = 5000;
-  private static final String INITIAL_STATE = "0";
+  private static final String INITIAL_STATE = "UNASSIGNED";
+  private final Consumer<String> errorHandler;
   private final AzureLeaderElector azureLeaderElector;
   private final BlobUtils leaderBlob;
   private final TableUtils table;
@@ -82,7 +84,7 @@ public class AzureJobCoordinator implements JobCoordinator {
   private final HeartbeatScheduler heartbeat;
   private final JMVersionUpgradeScheduler versionUpgrade;
   private final LeaderLivenessCheckScheduler leaderAlive;
-  private final LivenessCheckScheduler liveness;
+  private LivenessCheckScheduler liveness;
   private RenewLeaseScheduler renewLease;
   private LeaderBarrierCompleteScheduler leaderBarrierScheduler;
   private StreamMetadataCache streamMetadataCache = null;
@@ -94,22 +96,27 @@ public class AzureJobCoordinator implements JobCoordinator {
    * @param config User defined config
    */
   public AzureJobCoordinator(Config config) {
+    //TODO: Cleanup previous values in the table when barrier times out.
     this.config = config;
     processorId = createProcessorId(config);
     currentJMVersion = new AtomicReference<>(INITIAL_STATE);
     AzureConfig azureConfig = new AzureConfig(config);
     client = new AzureClient(azureConfig.getAzureConnect());
     leaderBlob = new BlobUtils(client, azureConfig.getAzureContainerName(), azureConfig.getAzureBlobName(), azureConfig.getAzureBlobLength());
+    errorHandler = (errorMsg) -> {
+      LOG.error(errorMsg);
+      stop();
+    };
+    table = new TableUtils(client, azureConfig.getAzureTableName(), INITIAL_STATE);
     azureLeaderElector = new AzureLeaderElector(new LeaseBlobManager(leaderBlob.getBlob()));
     azureLeaderElector.setLeaderElectorListener(new AzureLeaderElectorListener());
-    table = new TableUtils(client, azureConfig.getAzureTableName(), INITIAL_STATE);
     versionUpgradeDetected = new AtomicBoolean(false);
-    heartbeat = new HeartbeatScheduler(table, currentJMVersion, processorId);
-    versionUpgrade = new JMVersionUpgradeScheduler(leaderBlob, currentJMVersion, versionUpgradeDetected, processorId);
-    leaderAlive = new LeaderLivenessCheckScheduler(table, leaderBlob, currentJMVersion);
-    liveness = new LivenessCheckScheduler(table, leaderBlob, currentJMVersion);
-    renewLease = new RenewLeaseScheduler(azureLeaderElector.getLeaseBlobManager(), azureLeaderElector.getLeaseId());
+    heartbeat = new HeartbeatScheduler(errorHandler, table, currentJMVersion, processorId);
+    versionUpgrade = new JMVersionUpgradeScheduler(errorHandler, leaderBlob, currentJMVersion, versionUpgradeDetected, processorId);
+    leaderAlive = new LeaderLivenessCheckScheduler(errorHandler, table, leaderBlob, currentJMVersion, INITIAL_STATE);
     leaderBarrierScheduler = null;
+    renewLease = null;
+    liveness = null;
   }
 
   @Override
@@ -173,13 +180,17 @@ public class AzureJobCoordinator implements JobCoordinator {
   }
 
   private void shutdownSchedulers() {
-    heartbeat.shutdown();
-    leaderAlive.shutdown();
-    liveness.shutdown();
-    renewLease.shutdown();
+    if (renewLease != null) {
+      renewLease.shutdown();
+    }
     if (leaderBarrierScheduler != null) {
       leaderBarrierScheduler.shutdown();
     }
+    if (liveness != null) {
+      liveness.shutdown();
+    }
+    heartbeat.shutdown();
+    leaderAlive.shutdown();
     versionUpgrade.shutdown();
   }
 
@@ -322,13 +333,18 @@ public class AzureJobCoordinator implements JobCoordinator {
     JobModel prevJobModel = jobModel;
     AtomicBoolean barrierTimeout = new AtomicBoolean(false);
 
-    nextJMVersion = Integer.toString(Integer.valueOf(prevJMVersion) + 1);
     if (currentProcessorIds.isEmpty()) {
+      if (currentJMVersion.get().equals(INITIAL_STATE)) {
+        nextJMVersion = "1";
+      } else {
+        nextJMVersion = Integer.toString(Integer.valueOf(prevJMVersion) + 1);
+      }
       currentProcessorIds = new ArrayList<>(table.getActiveProcessorsList(currentJMVersion));
       initialProcessorIds = currentProcessorIds;
     } else {
       //Check if previous barrier not reached, then previous barrier times out.
       String blobJMV = leaderBlob.getJobModelVersion();
+      nextJMVersion = Integer.toString(Integer.valueOf(prevJMVersion) + 1);
       if (blobJMV != null && Integer.valueOf(blobJMV) > Integer.valueOf(prevJMVersion)) {
         prevJMVersion = blobJMV;
         prevJobModel = leaderBlob.getJobModel();
@@ -363,7 +379,7 @@ public class AzureJobCoordinator implements JobCoordinator {
 
     // Start scheduler to check if barrier reached
     long startTime = System.currentTimeMillis();
-    leaderBarrierScheduler = new LeaderBarrierCompleteScheduler(table, nextJMVersion, initialProcessorIds, startTime, barrierTimeout);
+    leaderBarrierScheduler = new LeaderBarrierCompleteScheduler(errorHandler, table, nextJMVersion, initialProcessorIds, startTime, barrierTimeout, currentJMVersion, processorId);
     leaderBarrierScheduler.setStateChangeListener(createLeaderBarrierCompleteListener(nextJMVersion, barrierTimeout));
     leaderBarrierScheduler.scheduleTask();
   }
@@ -470,12 +486,20 @@ public class AzureJobCoordinator implements JobCoordinator {
 
       // Schedule a task to renew the lease after a fixed time interval
       LOG.info("Starting scheduler to keep renewing lease held by the leader.");
+      renewLease = new RenewLeaseScheduler((errorMsg) -> {
+          LOG.error(errorMsg);
+          table.updateIsLeader(currentJMVersion.get(), processorId, false);
+          azureLeaderElector.resignLeadership();
+          renewLease.shutdown();
+          liveness.shutdown();
+        }, azureLeaderElector.getLeaseBlobManager(), azureLeaderElector.getLeaseId());
       renewLease.scheduleTask();
 
       doOnProcessorChange(new ArrayList<>());
 
       // Start scheduler to check for change in list of live processors
       LOG.info("Starting scheduler to check for change in list of live processors in the system.");
+      liveness = new LivenessCheckScheduler(errorHandler, table, leaderBlob, currentJMVersion, processorId);
       liveness.setStateChangeListener(createLivenessListener(liveness.getLiveProcessors()));
       liveness.scheduleTask();
     }

@@ -29,6 +29,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.apache.samza.ProcessorEntity;
 import org.apache.samza.TableUtils;
 import org.slf4j.Logger;
@@ -49,27 +51,39 @@ public class LeaderBarrierCompleteScheduler implements TaskScheduler {
   private static final long BARRIER_TIMEOUT_SEC = 30;
   private static final ThreadFactory
       PROCESSOR_THREAD_FACTORY = new ThreadFactoryBuilder().setNameFormat("LeaderBarrierCompleteScheduler-%d").build();
-  private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(5, PROCESSOR_THREAD_FACTORY);
+  private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(PROCESSOR_THREAD_FACTORY);
   private final TableUtils table;
   private final String nextJMVersion;
   private final Set<String> blobProcessorSet;
   private final long startTime;
   private final AtomicBoolean barrierTimeout;
+  private final Consumer<String> errorHandler;
+  private final String processorId;
+  private final AtomicReference<String> currentJMVersion;
   private SchedulerStateChangeListener listener = null;
 
-  public LeaderBarrierCompleteScheduler(TableUtils table,
-      String nextJMVersion, List<String> blobProcessorList, long startTime, AtomicBoolean barrierTimeout) {
+  public LeaderBarrierCompleteScheduler(Consumer<String> errorHandler, TableUtils table, String nextJMVersion,
+      List<String> blobProcessorList, long startTime, AtomicBoolean barrierTimeout, AtomicReference<String> currentJMVersion, final String pid) {
     this.table = table;
     this.nextJMVersion = nextJMVersion;
     this.blobProcessorSet = new HashSet<>(blobProcessorList);
     this.startTime = startTime;
     this.barrierTimeout = barrierTimeout;
+    this.errorHandler = errorHandler;
+    this.processorId = pid;
+    this.currentJMVersion = currentJMVersion;
   }
 
   @Override
   public ScheduledFuture scheduleTask() {
     return scheduler.scheduleWithFixedDelay(() -> {
         try {
+          if (!table.getEntity(currentJMVersion.get(), processorId).getIsLeader()) {
+            LOG.info("Not the leader anymore. Shutting down LeaderBarrierCompleteScheduler.");
+            scheduler.shutdownNow();
+            barrierTimeout.getAndSet(true);
+            listener.onStateChange();
+          }
           LOG.info("Leader checking for barrier state");
           // Get processor IDs listed in the table that have the new job model verion.
           Iterable<ProcessorEntity> tableList = table.getEntitiesWithPartition(nextJMVersion);
@@ -86,7 +100,7 @@ public class LeaderBarrierCompleteScheduler implements TaskScheduler {
             listener.onStateChange();
           }
         } catch (Exception e) {
-          LOG.error("Exception in LeaderBarrierCompleteScheduler", e);
+          errorHandler.accept("Exception in LeaderBarrierCompleteScheduler. Stopping the processor...");
         }
       }, BARRIER_REACHED_DELAY_SEC, BARRIER_REACHED_DELAY_SEC, TimeUnit.SECONDS);
   }

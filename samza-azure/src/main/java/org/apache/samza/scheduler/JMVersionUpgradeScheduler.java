@@ -28,6 +28,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.apache.samza.BarrierState;
 import org.apache.samza.BlobUtils;
 import org.slf4j.Logger;
@@ -45,19 +46,21 @@ public class JMVersionUpgradeScheduler implements TaskScheduler {
   private static final long JMV_UPGRADE_DELAY_SEC = 5;
   private static final ThreadFactory
       PROCESSOR_THREAD_FACTORY = new ThreadFactoryBuilder().setNameFormat("JMVersionUpgradeScheduler-%d").build();
-  private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(5, PROCESSOR_THREAD_FACTORY);
+  private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(PROCESSOR_THREAD_FACTORY);
   private final BlobUtils blob;
   private final AtomicReference<String> currentJMVersion;
   private final AtomicBoolean versionUpgradeDetected;
   private final String processorId;
+  private final Consumer<String> errorHandler;
   private SchedulerStateChangeListener listener = null;
 
-  public JMVersionUpgradeScheduler(BlobUtils blob,
+  public JMVersionUpgradeScheduler(Consumer<String> errorHandler, BlobUtils blob,
       AtomicReference<String> currentJMVersion, AtomicBoolean versionUpgradeDetected, String processorId) {
     this.blob = blob;
     this.currentJMVersion = currentJMVersion;
     this.versionUpgradeDetected = versionUpgradeDetected;
     this.processorId = processorId;
+    this.errorHandler = errorHandler;
   }
 
   @Override
@@ -78,7 +81,7 @@ public class JMVersionUpgradeScheduler implements TaskScheduler {
             listener.onStateChange();
           }
         } catch (Exception e) {
-          LOG.error("Exception in JM Version Scheduler.", e);
+          errorHandler.accept("Exception in Job Model Version Upgrade Scheduler. Stopping the processor...");
         }
       }, JMV_UPGRADE_DELAY_SEC, JMV_UPGRADE_DELAY_SEC, TimeUnit.SECONDS);
   }

@@ -26,6 +26,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.apache.samza.LeaseBlobManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,14 +42,15 @@ public class RenewLeaseScheduler implements TaskScheduler {
   private static final long RENEW_LEASE_DELAY_SEC = 45;
   private static final ThreadFactory
       PROCESSOR_THREAD_FACTORY = new ThreadFactoryBuilder().setNameFormat("RenewLeaseScheduler-%d").build();
-  private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(5, PROCESSOR_THREAD_FACTORY);
+  private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(PROCESSOR_THREAD_FACTORY);
   private final LeaseBlobManager leaseBlobManager;
   private final AtomicReference<String> leaseId;
-  private SchedulerStateChangeListener listener = null;
+  private final Consumer<String> errorHandler;
 
-  public RenewLeaseScheduler(LeaseBlobManager leaseBlobManager, AtomicReference<String> leaseId) {
+  public RenewLeaseScheduler(Consumer<String> errorHandler, LeaseBlobManager leaseBlobManager, AtomicReference<String> leaseId) {
     this.leaseBlobManager = leaseBlobManager;
     this.leaseId = leaseId;
+    this.errorHandler = errorHandler;
   }
 
   @Override
@@ -56,20 +58,18 @@ public class RenewLeaseScheduler implements TaskScheduler {
     return scheduler.scheduleWithFixedDelay(() -> {
         try {
           LOG.info("Renewing lease");
-          boolean status = false;
-          while (!status) {
-            status = leaseBlobManager.renewLease(leaseId.get());
+          boolean status = leaseBlobManager.renewLease(leaseId.get());
+          if (!status) {
+            errorHandler.accept("Unable to renew lease. Continuing as non-leader.");
           }
         } catch (Exception e) {
-          LOG.error("Exception in Renew Lease Scheduler.", e);
+          errorHandler.accept("Exception in Renew Lease Scheduler. Continuing as non-leader.");
         }
       }, RENEW_LEASE_DELAY_SEC, RENEW_LEASE_DELAY_SEC, TimeUnit.SECONDS);
   }
 
   @Override
-  public void setStateChangeListener(SchedulerStateChangeListener listener) {
-    this.listener = listener;
-  }
+  public void setStateChangeListener(SchedulerStateChangeListener listener) {}
 
   @Override
   public void shutdown() {

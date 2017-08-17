@@ -26,6 +26,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.apache.samza.BlobUtils;
 import org.apache.samza.ProcessorEntity;
 import org.apache.samza.TableUtils;
@@ -46,16 +47,20 @@ public class LeaderLivenessCheckScheduler implements TaskScheduler {
   private static final long LIVENESS_DEBOUNCE_TIME_SEC = 30;
   private static final ThreadFactory
       PROCESSOR_THREAD_FACTORY = new ThreadFactoryBuilder().setNameFormat("LeaderLivenessCheckScheduler-%d").build();
-  private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(5, PROCESSOR_THREAD_FACTORY);
+  private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(PROCESSOR_THREAD_FACTORY);
   private final TableUtils table;
   private final AtomicReference<String> currentJMVersion;
   private final BlobUtils blob;
+  private final Consumer<String> errorHandler;
+  private final String initialState;
   private SchedulerStateChangeListener listener = null;
 
-  public LeaderLivenessCheckScheduler(TableUtils table, BlobUtils blob, AtomicReference<String> currentJMVersion) {
+  public LeaderLivenessCheckScheduler(Consumer<String> errorHandler, TableUtils table, BlobUtils blob, AtomicReference<String> currentJMVersion, String initialState) {
     this.table = table;
     this.blob = blob;
     this.currentJMVersion = currentJMVersion;
+    this.initialState = initialState;
+    this.errorHandler = errorHandler;
   }
 
   @Override
@@ -67,7 +72,7 @@ public class LeaderLivenessCheckScheduler implements TaskScheduler {
             listener.onStateChange();
           }
         } catch (Exception e) {
-          LOG.error("Exception in Leader Liveness Check Scheduler.", e);
+          errorHandler.accept("Exception in Leader Liveness Check Scheduler. Stopping the processor...");
         }
       }, LIVENESS_CHECK_DELAY_SEC, LIVENESS_CHECK_DELAY_SEC, TimeUnit.SECONDS);
   }
@@ -88,7 +93,11 @@ public class LeaderLivenessCheckScheduler implements TaskScheduler {
         leader = entity;
       }
     }
-    if (Integer.valueOf(blobJMV) > Integer.valueOf(currJMV)) {
+    int currJMVInt = 0;
+    if (!currJMV.equals(initialState)) {
+      currJMVInt = Integer.valueOf(currJMV);
+    }
+    if (Integer.valueOf(blobJMV) > currJMVInt) {
       LOG.info("Leader info 2 in LeaderLivenessCheckScheduker: {}", leader);
       for (ProcessorEntity entity : table.getEntitiesWithPartition(blobJMV)) {
         if (entity.getIsLeader()) {

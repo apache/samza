@@ -26,6 +26,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.apache.samza.TableUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,15 +44,17 @@ public class HeartbeatScheduler implements TaskScheduler {
   private static final long HEARTBEAT_DELAY_SEC = 5;
   private static final ThreadFactory PROCESSOR_THREAD_FACTORY =
       new ThreadFactoryBuilder().setNameFormat("HeartbeatScheduler-%d").build();
-  private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(5, PROCESSOR_THREAD_FACTORY);
+  private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(PROCESSOR_THREAD_FACTORY);
   private final String processorId;
   private final TableUtils table;
   private final AtomicReference<String> currentJMVersion;
+  private final Consumer<String> errorHandler;
 
-  public HeartbeatScheduler(TableUtils table, AtomicReference<String> currentJMVersion, final String pid) {
+  public HeartbeatScheduler(Consumer<String> errorHandler, TableUtils table, AtomicReference<String> currentJMVersion, final String pid) {
     this.table = table;
     this.currentJMVersion = currentJMVersion;
     processorId = pid;
+    this.errorHandler = errorHandler;
   }
 
   @Override
@@ -61,7 +64,7 @@ public class HeartbeatScheduler implements TaskScheduler {
           LOG.info("Updating heartbeat for processor ID: " + processorId + " and job model version: " + currentJMVersion.get());
           table.updateHeartbeat(currentJMVersion.get(), processorId);
         } catch (Exception e) {
-          LOG.error("Exception in Heartbeat Scheduler.", e);
+          errorHandler.accept("Exception in Heartbeat Scheduler. Stopping the processor...");
         }
       }, HEARTBEAT_DELAY_SEC, HEARTBEAT_DELAY_SEC, TimeUnit.SECONDS);
   }
