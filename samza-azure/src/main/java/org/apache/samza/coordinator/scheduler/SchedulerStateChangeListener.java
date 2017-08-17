@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.scheduler;
+package org.apache.samza.coordinator.scheduler;
 
 /**
  * Listener interface for Azure Job Coordinator, to track state changes and take necessary actions.

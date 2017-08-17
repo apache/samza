@@ -17,11 +17,12 @@
  * under the License.
  */
 
-package org.apache.samza;
+package org.apache.samza.util;
 
 import com.microsoft.azure.storage.AccessCondition;
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.blob.CloudPageBlob;
+import org.apache.samza.AzureException;
 import org.eclipse.jetty.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

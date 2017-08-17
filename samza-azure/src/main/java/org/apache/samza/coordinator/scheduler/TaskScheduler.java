@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.scheduler;
+package org.apache.samza.coordinator.scheduler;
 
 import java.util.concurrent.ScheduledFuture;
 

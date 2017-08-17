@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza;
+package org.apache.samza.coordinator.data;
 
 import com.microsoft.azure.storage.table.TableServiceEntity;
 import java.util.Random;

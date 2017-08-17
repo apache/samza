@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza;
+package org.apache.samza.util;
 
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.table.CloudTable;
@@ -29,6 +29,9 @@ import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.samza.AzureClient;
+import org.apache.samza.AzureException;
+import org.apache.samza.coordinator.data.ProcessorEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

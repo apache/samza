@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza;
+package org.apache.samza.coordinator;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,6 +31,9 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.AzureClient;
+import org.apache.samza.config.AzureConfig;
+import org.apache.samza.coordinator.data.BarrierState;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
@@ -39,24 +42,23 @@ import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouper;
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory;
-import org.apache.samza.coordinator.JobCoordinator;
-import org.apache.samza.coordinator.JobCoordinatorListener;
-import org.apache.samza.coordinator.JobModelManager;
-import org.apache.samza.coordinator.LeaderElectorListener;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.runtime.ProcessorIdGenerator;
-import org.apache.samza.scheduler.HeartbeatScheduler;
-import org.apache.samza.scheduler.JMVersionUpgradeScheduler;
-import org.apache.samza.scheduler.LeaderBarrierCompleteScheduler;
-import org.apache.samza.scheduler.LeaderLivenessCheckScheduler;
-import org.apache.samza.scheduler.LivenessCheckScheduler;
-import org.apache.samza.scheduler.RenewLeaseScheduler;
-import org.apache.samza.scheduler.SchedulerStateChangeListener;
+import org.apache.samza.coordinator.scheduler.HeartbeatScheduler;
+import org.apache.samza.coordinator.scheduler.JMVersionUpgradeScheduler;
+import org.apache.samza.coordinator.scheduler.LeaderBarrierCompleteScheduler;
+import org.apache.samza.coordinator.scheduler.LeaderLivenessCheckScheduler;
+import org.apache.samza.coordinator.scheduler.LivenessCheckScheduler;
+import org.apache.samza.coordinator.scheduler.RenewLeaseScheduler;
+import org.apache.samza.coordinator.scheduler.SchedulerStateChangeListener;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.util.BlobUtils;
 import org.apache.samza.util.ClassLoaderHelper;
+import org.apache.samza.util.LeaseBlobManager;
+import org.apache.samza.util.TableUtils;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

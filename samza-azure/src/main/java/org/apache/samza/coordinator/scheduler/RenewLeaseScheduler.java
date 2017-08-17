@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.scheduler;
+package org.apache.samza.coordinator.scheduler;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.util.concurrent.Executors;
@@ -27,7 +27,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import org.apache.samza.LeaseBlobManager;
+import org.apache.samza.util.LeaseBlobManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
