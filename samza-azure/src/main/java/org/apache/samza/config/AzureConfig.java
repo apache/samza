@@ -17,12 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza;
-
-import org.apache.samza.config.ApplicationConfig;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.ConfigException;
-import org.apache.samza.config.MapConfig;
+package org.apache.samza.config;
 
 /**
  * Config class for reading all user defined parameters for Azure driven coordination services.
