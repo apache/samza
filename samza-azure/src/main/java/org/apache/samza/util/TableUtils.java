@@ -77,8 +77,7 @@ public class TableUtils {
   public void addProcessorEntity(String jmVersion, String pid, boolean isLeader) {
     ProcessorEntity entity = new ProcessorEntity(jmVersion, pid);
     entity.setIsLeader(isLeader);
-    Random rand = new Random();
-    entity.setLiveness(rand.nextInt(10000) + 2);
+    entity.updateLiveness();
     TableOperation add = TableOperation.insert(entity);
     try {
       table.execute(add);
@@ -114,10 +113,9 @@ public class TableUtils {
   public void updateHeartbeat(String jmVersion, String pid) {
     try {
       Random rand = new Random();
-      int value = rand.nextInt(10000) + 2;
       TableOperation retrieveEntity = TableOperation.retrieve(jmVersion, pid, ProcessorEntity.class);
       ProcessorEntity entity = table.execute(retrieveEntity).getResultAsType();
-      entity.setLiveness(value);
+      entity.updateLiveness();
       TableOperation update = TableOperation.replace(entity);
       table.execute(update);
     } catch (StorageException e) {

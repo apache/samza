@@ -80,24 +80,24 @@ public class LeaderBarrierCompleteScheduler implements TaskScheduler {
         try {
           if (!table.getEntity(currentJMVersion.get(), processorId).getIsLeader()) {
             LOG.info("Not the leader anymore. Shutting down LeaderBarrierCompleteScheduler.");
-            scheduler.shutdownNow();
             barrierTimeout.getAndSet(true);
             listener.onStateChange();
-          }
-          LOG.info("Leader checking for barrier state");
-          // Get processor IDs listed in the table that have the new job model verion.
-          Iterable<ProcessorEntity> tableList = table.getEntitiesWithPartition(nextJMVersion);
-          Set<String> tableProcessors = new HashSet<>();
-          for (ProcessorEntity entity : tableList) {
-            tableProcessors.add(entity.getRowKey());
-          }
-          LOG.info("blobProcessorSet = {}", blobProcessorSet);
-          LOG.info("tableProcessors = {}", tableProcessors);
-          if ((System.currentTimeMillis() - startTime) > (BARRIER_TIMEOUT_SEC * 1000)) {
-            barrierTimeout.getAndSet(true);
-            listener.onStateChange();
-          } else if (blobProcessorSet.equals(tableProcessors)) {
-            listener.onStateChange();
+          } else {
+            LOG.info("Leader checking for barrier state");
+            // Get processor IDs listed in the table that have the new job model verion.
+            Iterable<ProcessorEntity> tableList = table.getEntitiesWithPartition(nextJMVersion);
+            Set<String> tableProcessors = new HashSet<>();
+            for (ProcessorEntity entity : tableList) {
+              tableProcessors.add(entity.getRowKey());
+            }
+            LOG.info("List of live processors as seen on the blob = {}", blobProcessorSet);
+            LOG.info("List of live processors as seen in the table = {}", tableProcessors);
+            if ((System.currentTimeMillis() - startTime) > (BARRIER_TIMEOUT_SEC * 1000)) {
+              barrierTimeout.getAndSet(true);
+              listener.onStateChange();
+            } else if (blobProcessorSet.equals(tableProcessors)) {
+              listener.onStateChange();
+            }
           }
         } catch (Exception e) {
           errorHandler.accept("Exception in LeaderBarrierCompleteScheduler. Stopping the processor...");
@@ -112,6 +112,7 @@ public class LeaderBarrierCompleteScheduler implements TaskScheduler {
 
   @Override
   public void shutdown() {
+    LOG.info("Shutting down LeaderBarrierCompleteScheduler Scheduler.");
     scheduler.shutdownNow();
   }
 }

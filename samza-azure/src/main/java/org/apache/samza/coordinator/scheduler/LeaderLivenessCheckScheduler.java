@@ -33,7 +33,6 @@ import org.apache.samza.util.TableUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 /**
  * Scheduler class invoked by each processor to check if the leader is alive.
  * Checks every 30 seconds.
@@ -41,7 +40,6 @@ import org.slf4j.LoggerFactory;
  * All time units are in SECONDS.
  */
 public class LeaderLivenessCheckScheduler implements TaskScheduler {
-
   private static final Logger LOG = LoggerFactory.getLogger(LeaderLivenessCheckScheduler.class);
   private static final long LIVENESS_CHECK_DELAY_SEC = 10;
   private static final long LIVENESS_DEBOUNCE_TIME_SEC = 30;
@@ -91,6 +89,7 @@ public class LeaderLivenessCheckScheduler implements TaskScheduler {
     for (ProcessorEntity entity: tableList) {
       if (entity.getIsLeader()) {
         leader = entity;
+        break;
       }
     }
     int currJMVInt = 0;
@@ -98,10 +97,10 @@ public class LeaderLivenessCheckScheduler implements TaskScheduler {
       currJMVInt = Integer.valueOf(currJMV);
     }
     if (Integer.valueOf(blobJMV) > currJMVInt) {
-      LOG.info("Leader info 2 in LeaderLivenessCheckScheduker: {}", leader);
       for (ProcessorEntity entity : table.getEntitiesWithPartition(blobJMV)) {
         if (entity.getIsLeader()) {
           nextLeader = entity;
+          break;
         }
       }
     }
@@ -115,6 +114,7 @@ public class LeaderLivenessCheckScheduler implements TaskScheduler {
 
   @Override
   public void shutdown() {
+    LOG.info("Shutting down LeaderLivenessCheckScheduler Scheduler.");
     scheduler.shutdownNow();
   }
 }

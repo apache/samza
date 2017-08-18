@@ -73,6 +73,7 @@ public class RenewLeaseScheduler implements TaskScheduler {
 
   @Override
   public void shutdown() {
+    LOG.info("Shutting down RenewLeaseScheduler Scheduler.");
     scheduler.shutdownNow();
   }
 }

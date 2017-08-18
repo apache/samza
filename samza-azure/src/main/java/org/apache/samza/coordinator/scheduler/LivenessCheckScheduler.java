@@ -53,7 +53,7 @@ public class LivenessCheckScheduler implements TaskScheduler {
   private final TableUtils table;
   private final BlobUtils blob;
   private final AtomicReference<String> currentJMVersion;
-  private final AtomicReference<List<String>> liveProcessorsList;
+  private final AtomicReference<List<String>> liveProcessorsList = new AtomicReference<>(null);
   private final Consumer<String> errorHandler;
   private SchedulerStateChangeListener listener = null;
   private final String processorId;
@@ -62,7 +62,6 @@ public class LivenessCheckScheduler implements TaskScheduler {
     this.table = table;
     this.blob = blob;
     this.currentJMVersion = currentJMVersion;
-    liveProcessorsList = new AtomicReference<>(null);
     this.errorHandler = errorHandler;
     this.processorId = pid;
   }
@@ -74,6 +73,7 @@ public class LivenessCheckScheduler implements TaskScheduler {
           if (!table.getEntity(currentJMVersion.get(), processorId).getIsLeader()) {
             LOG.info("Not the leader anymore. Shutting down LivenessCheckScheduler.");
             scheduler.shutdownNow();
+            return;
           }
           LOG.info("Checking for list of live processors");
           //Get the list of live processors published on the blob.
@@ -102,6 +102,7 @@ public class LivenessCheckScheduler implements TaskScheduler {
 
   @Override
   public void shutdown() {
+    LOG.info("Shutting down LivenessCheckScheduler Scheduler.");
     scheduler.shutdownNow();
   }
 }

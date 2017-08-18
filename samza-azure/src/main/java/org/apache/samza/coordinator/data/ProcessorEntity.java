@@ -30,6 +30,7 @@ import java.util.Random;
  * and boolean isLeader value which denotes whether the processor is a leader or not.
  */
 public class ProcessorEntity extends TableServiceEntity {
+  private Random rand = new Random();
   private int liveness;
   private boolean isLeader;
 
@@ -39,16 +40,16 @@ public class ProcessorEntity extends TableServiceEntity {
     this.partitionKey = jobModelVersion;
     this.rowKey = processorId;
     this.isLeader = false;
-    Random rand = new Random();
     this.liveness = rand.nextInt(10000) + 2;
   }
 
   /**
    * Updates heartbeat by updating the liveness value in the table.
-   * @param value Random integer value
+   * Sets the liveness field to a random integer value in order to update the last modified since timestamp of the row in the table.
+   * This asserts to the leader that the processor is alive.
    */
-  public void setLiveness(int value) {
-    liveness = value;
+  public void updateLiveness() {
+    liveness = rand.nextInt(10000) + 2;
   }
 
   public void setIsLeader(boolean leader) {

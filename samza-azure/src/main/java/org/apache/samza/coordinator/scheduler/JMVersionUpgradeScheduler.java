@@ -70,10 +70,10 @@ public class JMVersionUpgradeScheduler implements TaskScheduler {
           LOG.info("Checking for job model version upgrade");
           // Read job model version from the blob.
           String blobJMV = blob.getJobModelVersion();
-          LOG.info("Blob JMV: {}", blobJMV);
+          LOG.info("Job Model Version seen on the blob: {}", blobJMV);
           String blobBarrierState = blob.getBarrierState();
           String currentJMV = currentJMVersion.get();
-          LOG.info("currentJMV: {}", currentJMV);
+          LOG.info("Current Job Model Version that the job coordinator is working on: {}", currentJMV);
           String expectedBarrierState = BarrierState.START.toString() + " " + blobJMV;
           List<String> processorList = blob.getLiveProcessorList();
           // Check if the job model version on the blob is consistent with the job model version that the processor is operating on.
@@ -93,6 +93,7 @@ public class JMVersionUpgradeScheduler implements TaskScheduler {
 
   @Override
   public void shutdown() {
+    LOG.info("Shutting down JMVersionUpgradeScheduler Scheduler.");
     scheduler.shutdownNow();
   }
 }

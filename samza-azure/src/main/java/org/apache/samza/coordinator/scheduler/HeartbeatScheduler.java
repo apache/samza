@@ -61,8 +61,9 @@ public class HeartbeatScheduler implements TaskScheduler {
   public ScheduledFuture scheduleTask() {
     return scheduler.scheduleWithFixedDelay(() -> {
         try {
-          LOG.info("Updating heartbeat for processor ID: " + processorId + " and job model version: " + currentJMVersion.get());
-          table.updateHeartbeat(currentJMVersion.get(), processorId);
+          String currJVM = currentJMVersion.get();
+          LOG.info("Updating heartbeat for processor ID: " + processorId + " and job model version: " + currJVM);
+          table.updateHeartbeat(currJVM, processorId);
         } catch (Exception e) {
           errorHandler.accept("Exception in Heartbeat Scheduler. Stopping the processor...");
         }
@@ -74,6 +75,7 @@ public class HeartbeatScheduler implements TaskScheduler {
 
   @Override
   public void shutdown() {
+    LOG.info("Shutting down HeartbeatScheduler");
     scheduler.shutdownNow();
   }
 }

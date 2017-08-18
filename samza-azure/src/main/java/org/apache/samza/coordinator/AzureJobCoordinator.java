@@ -126,7 +126,7 @@ public class AzureJobCoordinator implements JobCoordinator {
 
     LOG.info("Starting Azure job coordinator.");
     streamMetadataCache = StreamMetadataCache.apply(METADATA_CACHE_TTL_MS, config);
-    table.addProcessorEntity(INITIAL_STATE, processorId, azureLeaderElector.amILeader());
+    table.addProcessorEntity(INITIAL_STATE, processorId, false);
 
     // Start scheduler for heartbeating
     LOG.info("Starting scheduler for heartbeating.");
