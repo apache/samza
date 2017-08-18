@@ -38,13 +38,14 @@ public class AzureCoordinationUtils implements CoordinationUtils {
   @Override
   public void reset() {}
 
+
   @Override
-  public LeaderElector getLeaderElector() {
+  public LeaderElector getLeaderElector() throws UnsupportedOperationException {
     return null;
   }
 
   @Override
-  public Latch getLatch(int size, String latchId) {
+  public Latch getLatch(int size, String latchId) throws UnsupportedOperationException {
     return null;
   }
 

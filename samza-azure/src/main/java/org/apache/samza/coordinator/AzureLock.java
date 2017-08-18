@@ -69,7 +69,7 @@ public class AzureLock implements DistributedLock {
       }
       if (leaseId.get() != null) {
         LOG.info("Acquired lock!");
-        hasLock.set(true);
+        hasLock.getAndSet(true);
         return true;
       } else {
         try {
@@ -91,7 +91,7 @@ public class AzureLock implements DistributedLock {
     boolean status = leaseBlobManager.releaseLease(leaseId.get());
     if (status) {
       LOG.info("Unlocked successfully.");
-      hasLock.set(false);
+      hasLock.getAndSet(false);
       leaseId.getAndSet(null);
     } else {
       LOG.info("Unable to unlock.");
