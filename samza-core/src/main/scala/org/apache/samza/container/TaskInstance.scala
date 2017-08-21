@@ -288,7 +288,7 @@ class TaskInstance(
    * it's already catched-up.
    */
   private def checkCaughtUp(envelope: IncomingMessageEnvelope) = {
-    if (envelope.getOffset.equals(IncomingMessageEnvelope.END_OF_STREAM_OFFSET)) {
+    if (IncomingMessageEnvelope.END_OF_STREAM_OFFSET.equals(envelope.getOffset)) {
       ssp2CaughtupMapping(envelope.getSystemStreamPartition) = true
     } else {
       systemAdmins match {
