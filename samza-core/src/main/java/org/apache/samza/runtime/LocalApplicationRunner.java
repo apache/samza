@@ -34,7 +34,6 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.CoordinationUtilsFactory;
@@ -48,8 +47,6 @@ import org.apache.samza.system.StreamSpec;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
-import org.apache.samza.zk.ZkCoordinationUtilsFactory;
-import org.apache.samza.zk.ZkJobCoordinatorFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -237,9 +234,11 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
               });
             leaderElector.tryBecomeLeader();
             initLatch.await(LATCH_TIMEOUT_MINUTES, TimeUnit.MINUTES);
+            leaderElector.close(); // at this point should be safe to remove the leader, because the latch exists.
           }
         } finally {
-          coordinationUtils.reset();
+          if (initLatch != null)
+            initLatch.close();
         }
       } else {
         // each application process will try creating the streams, which

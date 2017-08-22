@@ -36,10 +36,6 @@ public class AzureCoordinationUtils implements CoordinationUtils {
   }
 
   @Override
-  public void reset() {}
-
-
-  @Override
   public LeaderElector getLeaderElector() throws UnsupportedOperationException {
     return null;
   }

@@ -21,6 +21,7 @@ package org.apache.samza.zk;
 import java.util.concurrent.TimeUnit;
 
 import java.util.concurrent.TimeoutException;
+import org.I0Itec.zkclient.exception.ZkInterruptedException;
 import org.apache.samza.coordinator.Latch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +32,7 @@ import org.slf4j.LoggerFactory;
  * When Nth node is created await() call returns.
  */
 public class ZkProcessorLatch implements Latch {
-  private static final Logger LOGGER = LoggerFactory.getLogger(ZkProcessorLatch.class);
+  private static final Logger LOG = LoggerFactory.getLogger(ZkProcessorLatch.class);
 
   private final ZkUtils zkUtils;
   private final String participantId;
@@ -50,7 +51,7 @@ public class ZkProcessorLatch implements Latch {
     zkUtils.makeSurePersistentPathsExists(new String[] {latchPath});
     targetPath =  String.format("%s/%010d", latchPath, size - 1);
 
-    LOGGER.debug("ZkProcessorLatch targetPath " + targetPath);
+    LOG.debug("ZkProcessorLatch targetPath " + targetPath);
   }
 
   @Override
@@ -66,8 +67,19 @@ public class ZkProcessorLatch implements Latch {
 
   @Override
   public void countDown() {
-    // create persistent (should be ephemeral? Probably not)
+    // create persistent node
     String path = zkUtils.getZkClient().createPersistentSequential(latchPath + "/", participantId);
-    LOGGER.debug("ZKProcessorLatch countDown created " + path);
+    LOG.debug("ZKProcessorLatch countDown created " + path);
+  }
+
+  @Override
+  public void close() {
+    try {
+      if (zkUtils != null)
+        zkUtils.close();
+    } catch (ZkInterruptedException ex) {
+      // Swallowing due to occurrence in the last stage of lifecycle(Not actionable).
+      LOG.error("Exception in close(): ", ex);
+    }
   }
 }

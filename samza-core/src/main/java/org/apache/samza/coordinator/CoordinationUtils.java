@@ -31,12 +31,6 @@ import org.apache.samza.annotation.InterfaceStability;
 @InterfaceStability.Evolving
 public interface CoordinationUtils {
 
-  /**
-   * reset the internal structure. Does not happen automatically with stop()
-   */
-  void reset();
-
-
   // facilities for group coordination
   LeaderElector getLeaderElector(); // leaderElector is unique based on the groupId
 

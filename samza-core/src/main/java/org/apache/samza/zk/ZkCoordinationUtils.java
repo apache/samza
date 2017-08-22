@@ -18,7 +18,6 @@
  */
 package org.apache.samza.zk;
 
-import org.I0Itec.zkclient.exception.ZkInterruptedException;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.Latch;
@@ -38,16 +37,6 @@ public class ZkCoordinationUtils implements CoordinationUtils {
     this.zkConfig = zkConfig;
     this.zkUtils = zkUtils;
     this.processorIdStr = processorId;
-  }
-
-  @Override
-  public void reset() {
-    try {
-      zkUtils.close();
-    } catch (ZkInterruptedException ex) {
-      // Swallowing due to occurrence in the last stage of lifecycle(Not actionable).
-      LOG.error("Exception in reset: ", ex);
-    }
   }
 
   @Override

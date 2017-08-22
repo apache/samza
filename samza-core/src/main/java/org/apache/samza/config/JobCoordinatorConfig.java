@@ -38,7 +38,7 @@ public class JobCoordinatorConfig extends MapConfig {
 
     String className = get(JOB_COORDINATION_UTILS_FACTORY, "");
 
-    if (! Strings.isNullOrEmpty(className)) {
+    if (!Strings.isNullOrEmpty(className)) {
       return className;
     }
 

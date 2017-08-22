@@ -34,6 +34,7 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
+import org.apache.samza.coordinator.CoordinationUtilsFactory;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.coordinator.LeaderElector;
 import org.apache.samza.coordinator.LeaderElectorListener;
@@ -45,15 +46,21 @@ import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.StreamProcessorLifecycleListener;
 import org.apache.samza.system.StreamSpec;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.PowerMockRunner;
 
 import static org.junit.Assert.*;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.*;
+import static org.powermock.api.mockito.PowerMockito.mockStatic;
 
 
+@RunWith(PowerMockRunner.class)
+@PrepareForTest(CoordinationUtilsFactory.class)
 public class TestLocalApplicationRunner {
 
   private static final String PLAN_JSON = "{"
@@ -182,6 +189,9 @@ public class TestLocalApplicationRunner {
       public boolean amILeader() {
         return false;
       }
+
+      @Override
+      public void close() {}
     };
 
     Latch latch = new Latch() {
@@ -199,10 +209,20 @@ public class TestLocalApplicationRunner {
       public void countDown() {
         done = true;
       }
+
+      @Override
+      public void close() {}
     };
+
+
+    mockStatic(CoordinationUtilsFactory.class);
+    CoordinationUtilsFactory coordinationUtilsFactory = mock(CoordinationUtilsFactory.class);
+    when(CoordinationUtilsFactory.getCoordinationUtilsFactory(anyObject())).thenReturn(coordinationUtilsFactory);
+
     when(coordinationUtils.getLeaderElector()).thenReturn(leaderElector);
     when(coordinationUtils.getLatch(anyInt(), anyString())).thenReturn(latch);
-    doReturn(coordinationUtils).when(spy).createCoordinationUtils();
+    when(coordinationUtilsFactory.getCoordinationUtils(anyString(), anyString(), anyObject())).thenReturn(
+        coordinationUtils);
 
     try {
       spy.run(app);
