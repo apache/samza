@@ -17,12 +17,12 @@
  * under the License.
  */
 
-package org.apache.samza;
+package org.apache.samza.coordinator;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.samza.coordinator.LeaderElector;
-import org.apache.samza.coordinator.LeaderElectorListener;
+import org.apache.samza.AzureException;
+import org.apache.samza.util.LeaseBlobManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,20 +58,19 @@ public class AzureLeaderElector implements LeaderElector {
    * Tries to become the leader by acquiring a lease on the blob.
    * The acquireLease operation has a retry policy where upon failure, the operation is tried 3 times at 5 second intervals.
    * Invokes the listener on becoming the leader.
+   * @throws AzureException If a Azure storage service error occurred. This includes the case where the blob you're trying to lease does not exist.
    */
   @Override
-  public void tryBecomeLeader() {
-    try {
-      leaseId.getAndSet(leaseBlobManager.acquireLease(LEASE_TIME_IN_SEC, leaseId.get()));
-      if (leaseId.get() != null) {
-        LOG.info("Became leader with lease ID {}.", leaseId.get());
-        isLeader.set(true);
-        if (leaderElectorListener != null) {
-          leaderElectorListener.onBecomingLeader();
-        }
+  public void tryBecomeLeader() throws AzureException {
+    leaseId.getAndSet(leaseBlobManager.acquireLease(LEASE_TIME_IN_SEC, leaseId.get()));
+    if (leaseId.get() != null) {
+      LOG.info("Became leader with lease ID {}.", leaseId.get());
+      isLeader.set(true);
+      if (leaderElectorListener != null) {
+        leaderElectorListener.onBecomingLeader();
       }
-    } catch (AzureException e) {
-      LOG.error("Error while trying to acquire lease.", e);
+    } else {
+      LOG.info("Unable to become the leader. Continuing as a worker.");
     }
   }
 
@@ -107,5 +106,4 @@ public class AzureLeaderElector implements LeaderElector {
   public LeaseBlobManager getLeaseBlobManager() {
     return this.leaseBlobManager;
   }
-
 }

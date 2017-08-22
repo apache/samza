@@ -17,11 +17,12 @@
  * under the License.
  */
 
-package org.apache.samza;
+package org.apache.samza.util;
 
 import com.microsoft.azure.storage.AccessCondition;
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.blob.CloudPageBlob;
+import org.apache.samza.AzureException;
 import org.eclipse.jetty.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,7 +34,7 @@ import org.slf4j.LoggerFactory;
 public class LeaseBlobManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(LeaseBlobManager.class);
-  private CloudPageBlob leaseBlob;
+  private final CloudPageBlob leaseBlob;
 
   public LeaseBlobManager(CloudPageBlob leaseBlob) {
     this.leaseBlob = leaseBlob;
@@ -54,7 +55,7 @@ public class LeaseBlobManager {
     } catch (StorageException storageException) {
       int httpStatusCode = storageException.getHttpStatusCode();
       if (httpStatusCode == HttpStatus.CONFLICT_409) {
-        LOG.info("The blob you're trying to acquire is leased already.", storageException);
+        LOG.info("The blob you're trying to acquire is leased already.", storageException.getMessage());
       } else if (httpStatusCode == HttpStatus.NOT_FOUND_404) {
         LOG.error("The blob you're trying to lease does not exist.", storageException);
         throw new AzureException(storageException);

@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza;
+package org.apache.samza.util;
 
 import com.microsoft.azure.storage.AccessCondition;
 import com.microsoft.azure.storage.StorageException;
@@ -30,6 +30,10 @@ import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.List;
+import org.apache.samza.AzureClient;
+import org.apache.samza.AzureException;
+import org.apache.samza.coordinator.data.JobModelBundle;
+import org.apache.samza.SamzaException;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.eclipse.jetty.http.HttpStatus;
