@@ -21,13 +21,14 @@ package org.apache.samza.config;
 
 import com.google.common.base.Strings;
 import org.apache.samza.SamzaException;
+import org.apache.samza.zk.ZkCoordinationUtilsFactory;
 import org.apache.samza.zk.ZkJobCoordinatorFactory;
 
 
 public class JobCoordinatorConfig extends MapConfig {
   public static final String JOB_COORDINATOR_FACTORY = "job.coordinator.factory";
   public static final String JOB_COORDINATION_UTILS_FACTORY = "job.coordination.utils.factory";
-  public final static String DEFAULT_COORDINATION_UTILS_FACTORY = "org.apache.samza.zk.ZkCoordinationUtilsFactory";
+  public final static String DEFAULT_COORDINATION_UTILS_FACTORY = ZkCoordinationUtilsFactory.class.getName();
 
   public JobCoordinatorConfig(Config config) {
     super(config);
