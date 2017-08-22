@@ -294,6 +294,7 @@ class KafkaProducerConfig(val systemName: String,
   val LINGER_DEFAULT: java.lang.Integer = 20
 
   def getProducerProperties = {
+
     val byteArraySerializerClassName = classOf[ByteArraySerializer].getCanonicalName
     val producerProperties: java.util.Map[String, Object] = new util.HashMap[String, Object]()
     producerProperties.putAll(properties)

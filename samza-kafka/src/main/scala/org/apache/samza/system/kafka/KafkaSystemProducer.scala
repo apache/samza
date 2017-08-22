@@ -46,6 +46,8 @@ class KafkaSystemProducer(systemName: String,
      * In cases of multiple exceptions in the callbacks, we keep the first one before throwing.
      */
     var exceptionInCallback: AtomicReference[SystemProducerException] = new AtomicReference[SystemProducerException]()
+
+    // TODO count number of failed sends for flush exception message?
   }
 
   @volatile var producer: Producer[Array[Byte], Array[Byte]] = null
@@ -57,6 +59,7 @@ class KafkaSystemProducer(systemName: String,
   }
 
   def stop() {
+    info("Stopping producer for system: " + this.systemName)
     try {
       val currentProducer = producer
       if (currentProducer != null) {
@@ -85,6 +88,7 @@ class KafkaSystemProducer(systemName: String,
   }
 
   def closeAndNullifyCurrentProducer(currentProducer: Producer[Array[Byte], Array[Byte]]) {
+    info("Closing and nullifying producer for system: " + systemName)
     try {
       currentProducer.close(0, TimeUnit.MILLISECONDS) // must use timeout to make sure we fail all waiting messages
     } catch {
@@ -144,10 +148,13 @@ class KafkaSystemProducer(systemName: String,
           }
           else {
             error("Closing the producer because of an exception in callback: ", exception)
-            //If there is an exception in the callback, close producer.
-            closeAndNullifyCurrentProducer(currentProducer)
-
-            // we keep the exception and will throw the exception in the next producer.send()
+            // TODO close but don't nullify here so a producer isn't created.
+            // TODO if a new producer is created and used to send before the prev exception is handled, we get out of order messages!
+            // TODO instead only close here and recreate in the catch for user thread. That works for the sync case and out of order could still occur for the concurrent case (which was already possible with concurrent)
+            // If there is an exception in the callback, close producer.
+            // closeAndNullifyCurrentProducer(currentProducer)
+            currentProducer.close(0, TimeUnit.MILLISECONDS)
+            // We keep the exception and will throw the exception in the next producer.send()
             // so the user can handle the exception and decide to fail or ignore
             sourceData.exceptionInCallback.compareAndSet(
               null,
@@ -163,13 +170,20 @@ class KafkaSystemProducer(systemName: String,
       metrics.sends.inc
     } catch {
       case e: Exception => {
-        error("Closing the producer because of an exception in send: ", e)
-
-        closeAndNullifyCurrentProducer(currentProducer)
-
         metrics.sendFailed.inc
-        throw new SystemProducerException("Failed to send message on Topic:%s Partition:%s Exception:\n %s,"
-          .format(topicName, partitionKey, e))
+        if (sourceData.exceptionInCallback.get() != null) {
+          debug("Deferring exception until flush. Current exception: " + e.toString)
+
+        } else {
+          error("Closing the producer because of an exception in send: ", e)
+
+          currentProducer.close(0, TimeUnit.MILLISECONDS)
+//          closeAndNullifyCurrentProducer(currentProducer) // TODO: Do we need this if the producer is not in a bad state? Doesn't seem like it for the single threaded case.
+// Yes, Yi says that the kafka team doesn't guarantee the producer state even though there are only 3 exceptions in the API
+          // Says he suggested an isOK() method to check the producer health.
+          throw new SystemProducerException("Failed to send message on Topic:%s Partition:%s Exception:\n %s,"
+            .format(topicName, partitionKey, e))
+        }
       }
     }
   }
@@ -178,29 +192,24 @@ class KafkaSystemProducer(systemName: String,
     updateTimer(metrics.flushNs) {
       metrics.flushes.inc
 
-      val sourceData = sources.get(source)
       val currentProducer = producer
-
-      if (currentProducer == null) {
-        metrics.flushFailed.inc
-        val exception = sourceData.exceptionInCallback.getAndSet(null)
-        // Throw the original exception if possible. If not, throw exception for null producer.
-        if (exception != null) {
-          throw new SystemProducerException("Flush failed. A batch of messages were unsent!", exception)
-        } else {
-          throw new SystemProducerException("Kafka system producer is not available.")
-        }
+      if (currentProducer != null) {
+        currentProducer.flush()
       }
-
-      currentProducer.flush()
 
       // We must check for an exception AFTER flush() because when flush() returns all callbacks for messages sent
       // in that flush() are guaranteed to have completed and we update the exception in the callback.
       // If there is an exception, we rethrow it here to prevent the checkpoint.
-      val exception = sourceData.exceptionInCallback.getAndSet(null)
+      val exception = sources.get(source).exceptionInCallback.getAndSet(null)
       if (exception != null) {
         metrics.flushFailed.inc
-        throw new SystemProducerException("Flush failed. A batch of messages were unsent!", exception)
+        producerLock.synchronized {// TODO do we need the lock?
+          if (currentProducer == producer) {
+            // only nullify the member producer if it is still the same object, no point nullifying new producer
+            producer = null // Want next send() to recreate producer.
+          }
+        }
+        throw new SystemProducerException("Flush failed. A batch of messages were not sent!", exception)
       }
       trace("Flushed %s." format (source))
     }

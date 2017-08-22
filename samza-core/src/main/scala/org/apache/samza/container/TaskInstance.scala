@@ -198,7 +198,7 @@ class TaskInstance(
 
     trace("Flushing producers for taskName: %s" format taskName)
 
-    exceptionHandler.maybeHandle { // Allow users to decide whether to swallow producer exceptions (in kafka whole batch will be lost!)
+    exceptionHandler.maybeHandle { // Allow users to decide whether to swallow producer exceptions
       collector.flush
     }
 
