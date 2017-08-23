@@ -51,12 +51,15 @@ import org.mockito.ArgumentCaptor;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.*;
 import static org.powermock.api.mockito.PowerMockito.mockStatic;
+
 
 
 @RunWith(PowerMockRunner.class)
@@ -115,6 +118,10 @@ public class TestLocalApplicationRunner {
       }
     };
     when(planner.plan(anyObject())).thenReturn(plan);
+
+    mockStatic(CoordinationUtilsFactory.class);
+    CoordinationUtilsFactory coordinationUtilsFactory = mock(CoordinationUtilsFactory.class);
+    when(CoordinationUtilsFactory.getCoordinationUtilsFactory(anyObject())).thenReturn(coordinationUtilsFactory);
 
     LocalApplicationRunner spy = spy(runner);
     try {
