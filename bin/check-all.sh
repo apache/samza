@@ -81,7 +81,7 @@ do
     for yarn_version in "${YARNs[@]}"
     do
       echo "------------- Running check task against JDK${jdk_number}/Scala ${scala_version}/YARN ${yarn_version}"
-      ${gradle_file} -PscalaVersion=${scala_version} -PyarnVersion=${yarn_version} -Dorg.gradle.java.home=${!i} clean check $@
+      ${gradle_file} -PscalaVersion=${scala_version} -PyarnVersion=${yarn_version} -Dorg.gradle.java.home=${!i} -PrunIntegrationTests clean check $@
       echo "------------- Finished running check task against JDK${jdk_number}/Scala ${scala_version}/YARN ${yarn_version}"
     done
   done
