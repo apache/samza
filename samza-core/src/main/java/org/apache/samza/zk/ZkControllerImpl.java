@@ -46,8 +46,8 @@ public class ZkControllerImpl implements ZkController {
 
   private void init() {
     ZkKeyBuilder keyBuilder = zkUtils.getKeyBuilder();
-    zkUtils.makeSurePersistentPathsExists(
-        new String[]{keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder
+
+    zkUtils.validatePaths(new String[]{keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder
             .getJobModelPathPrefix()});
   }
 
@@ -56,6 +56,21 @@ public class ZkControllerImpl implements ZkController {
     // TODO - make a loop here with some number of attempts.
     // possibly split into two method - becomeLeader() and becomeParticipant()
     zkLeaderElector.tryBecomeLeader();
+
+    // make sure we are connection to a job that uses the same ZK communication protocol version.
+    try {
+      zkUtils.validateZkVersion();
+    } catch (SamzaException e) {
+      // IMPORTANT: Mismatch of the version, means we are trying to join a job, started by processors with different version.
+      // If there are no processors running, this is the place to do the migration to the new
+      // ZK structure.
+      // If some processors are running, then this processor should fail with an error to tell the user to stop all
+      // the processors before upgrading to this new version.
+      // TODO migration here
+      // for now we just rethrow the exception
+      throw e;
+    }
+
 
     // subscribe to JobModel version updates
     zkUtils.subscribeToJobModelVersionChange(new ZkJobModelVersionChangeHandler(zkUtils));
