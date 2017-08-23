@@ -20,99 +20,159 @@
 package org.apache.samza.zk;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * This class allows scheduling a Runnable actions after some debounce time.
  * When the same action is scheduled it needs to cancel the previous one. To accomplish that we keep the previous
- * future in a map, keyed by the action name. Here we predefine some actions, which are used in the
- * ZK based standalone app.
+ * future in a map, keyed by the action name.
  */
 public class ScheduleAfterDebounceTime {
-  public static final Logger LOG = LoggerFactory.getLogger(ScheduleAfterDebounceTime.class);
-  public static final long TIMEOUT_MS = 1000 * 10; // timeout to wait for a task to complete
+  private static final Logger LOG = LoggerFactory.getLogger(ScheduleAfterDebounceTime.class);
+  private static final String DEBOUNCE_THREAD_NAME_FORMAT = "debounce-thread-%d";
 
-  // Here we predefine some actions which are used in the ZK based standalone app.
-  // Action name when the JobModel version changes
-  public static final String JOB_MODEL_VERSION_CHANGE = "JobModelVersionChange";
-
-  // Action name when the Processor membership changes
-  public static final String ON_PROCESSOR_CHANGE = "OnProcessorChange";
+  // timeout to wait for a task to complete.
+  private static final int TIMEOUT_MS = 1000 * 10;
 
   /**
-   *
-   * cleanup process is started after every new job model generation is complete.
-   * It deletes old versions of job model and the barrier.
-   * How many to delete (or to leave) is controlled by @see org.apache.samza.zk.ZkJobCoordinator#NUM_VERSIONS_TO_LEAVE.
-   **/
-  public static final String ON_ZK_CLEANUP = "OnCleanUp";
+   * {@link ScheduledTaskCallback} associated with the scheduler. OnError method of the
+   * callback will be invoked on first scheduled task failure.
+   */
+  private Optional<ScheduledTaskCallback> scheduledTaskCallback;
 
-  private final ScheduledTaskFailureCallback scheduledTaskFailureCallback;
+  // Responsible for scheduling delayed actions.
+  private final ScheduledExecutorService scheduledExecutorService;
 
-  private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
-      new ThreadFactoryBuilder().setNameFormat("debounce-thread-%d").setDaemon(true).build());
+  /**
+   * A map from actionName to {@link ScheduledFuture} of task scheduled for execution.
+   */
   private final Map<String, ScheduledFuture> futureHandles = new HashMap<>();
 
-  // Ideally, this should be only used for testing. But ZkBarrierForVersionUpgrades uses it. This needs to be fixed.
-  // TODO: Timer shouldn't be passed around the components. It should be associated with the JC or the caller of
-  // coordinationUtils.
   public ScheduleAfterDebounceTime() {
-    this.scheduledTaskFailureCallback = null;
+    ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(DEBOUNCE_THREAD_NAME_FORMAT).setDaemon(true).build();
+    this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(threadFactory);
   }
 
-  public ScheduleAfterDebounceTime(ScheduledTaskFailureCallback errorScheduledTaskFailureCallback) {
-    this.scheduledTaskFailureCallback = errorScheduledTaskFailureCallback;
+  public void setScheduledTaskCallback(ScheduledTaskCallback scheduledTaskCallback) {
+    this.scheduledTaskCallback = Optional.ofNullable(scheduledTaskCallback);
   }
 
-  synchronized public void scheduleAfterDebounceTime(String actionName, long debounceTimeMs, Runnable runnable) {
-    // check if this action has been scheduled already
-    ScheduledFuture sf = futureHandles.get(actionName);
-    if (sf != null && !sf.isDone()) {
-      LOG.info("cancel future for " + actionName);
-      // attempt to cancel
-      if (!sf.cancel(false)) {
+  /**
+   * Performs the following operations in sequential order.
+   * <ul>
+   *    <li> Makes best effort to cancel any existing task in task queue associated with the action.</li>
+   *    <li> Schedules the incoming action for later execution and records its future.</li>
+   * </ul>
+   *
+   * @param actionName the name of scheduleable action.
+   * @param delayInMillis the time from now to delay execution.
+   * @param runnable the action to execute.
+   */
+  public synchronized void scheduleAfterDebounceTime(String actionName, long delayInMillis, Runnable runnable) {
+    // 1. Try to cancel any existing scheduled task associated with the action.
+    tryCancelScheduledAction(actionName);
+
+    // 2. Schedule the action.
+    ScheduledFuture scheduledFuture = scheduledExecutorService.schedule(getScheduleableAction(actionName, runnable), delayInMillis, TimeUnit.MILLISECONDS);
+
+    LOG.info("Scheduled action: {} to run after: {} milliseconds.", actionName, delayInMillis);
+    futureHandles.put(actionName, scheduledFuture);
+  }
+
+  /**
+   * Stops the scheduler. After this invocation no further schedule calls will be accepted
+   * and all pending enqueued tasks will be cancelled.
+   */
+  public synchronized void stopScheduler() {
+    scheduledExecutorService.shutdownNow();
+
+    // Clear the existing future handles.
+    futureHandles.clear();
+  }
+
+  /**
+   * Tries to cancel the task that belongs to {@code actionName} submitted to the queue.
+   *
+   * @param actionName the name of action to cancel.
+   */
+  private void tryCancelScheduledAction(String actionName) {
+    ScheduledFuture scheduledFuture = futureHandles.get(actionName);
+    if (scheduledFuture != null && !scheduledFuture.isDone()) {
+      LOG.info("Attempting to cancel the future of action: {}", actionName);
+      // Attempt to cancel
+      if (!scheduledFuture.cancel(false)) {
         try {
-          sf.get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+          scheduledFuture.get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
           // we ignore the exception
-          LOG.warn("cancel for action " + actionName + " failed with ", e);
+          LOG.warn("Cancelling the future of action: {} failed.", actionName, e);
         }
       }
       futureHandles.remove(actionName);
     }
-    // schedule a new task
-    sf = scheduledExecutorService.schedule(() -> {
-        try {
-          runnable.run();
-          LOG.debug(actionName + " completed successfully.");
-        } catch (Throwable t) {
-          LOG.error(actionName + " threw an exception.", t);
-          if (scheduledTaskFailureCallback != null) {
-            scheduledTaskFailureCallback.onError(t);
-          }
+  }
+
+  /**
+   * Decorate the executable action with exception handlers to facilitate cleanup on failures.
+   *
+   * @param actionName the name of the scheduleable action.
+   * @param runnable the action to execute.
+   * @return the executable action decorated with exception handlers.
+   */
+  private Runnable getScheduleableAction(String actionName, Runnable runnable) {
+    return () -> {
+      try {
+        runnable.run();
+        /*
+         * Expects all run() implementations <b>not to swallow the interrupts.</b>
+         * This thread is interrupted from an external source(mostly executor service) to die.
+         */
+        if (Thread.currentThread().isInterrupted()) {
+          LOG.warn("Action: {} is interrupted.", actionName);
+          doCleanUpOnTaskException(new InterruptedException());
+        } else {
+          LOG.debug("Action: {} completed successfully.", actionName);
         }
-      },
-     debounceTimeMs,
-     TimeUnit.MILLISECONDS);
-    LOG.info("scheduled " + actionName + " in " + debounceTimeMs);
-    futureHandles.put(actionName, sf);
+      } catch (Exception exception) {
+        LOG.error("Execution of action: {} failed.", actionName, exception);
+        doCleanUpOnTaskException(exception);
+      }
+    };
   }
 
-  public void stopScheduler() {
-    // shutdown executor service
-    scheduledExecutorService.shutdown();
+  /**
+   * Handler method to invoke on a exception during an scheduled task execution and which
+   * the following operations in sequential order.
+   * <ul>
+   *   <li> Stops the scheduler.</li>
+   *   <li> Invokes the onError handler method if taskCallback is defined.</li>
+   * </ul>
+   *
+   * @param exception the exception happened during task execution.
+   */
+  private void doCleanUpOnTaskException(Exception exception) {
+    // 1. Stop the scheduler. If the task execution fails or a task is interrupted, scheduler will not accept/execute any new tasks.
+    stopScheduler();
+
+    // 2. Invoke the callback if its defined.
+    scheduledTaskCallback.ifPresent(callback -> callback.onError(exception));
   }
 
-  interface ScheduledTaskFailureCallback {
+  /**
+   * A ScheduledTaskCallback::onError() is invoked on first occurrence of exception
+   * when executing a task. Provides plausible hook for handling failures
+   * in an asynchronous scheduled task execution.
+   */
+  interface ScheduledTaskCallback {
     void onError(Throwable throwable);
   }
 }
