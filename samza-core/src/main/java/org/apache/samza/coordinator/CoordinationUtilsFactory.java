@@ -28,14 +28,6 @@ import org.apache.samza.util.*;
  */
 public interface CoordinationUtilsFactory {
 
-  public static CoordinationUtilsFactory getCoordinationUtilsFactory(Config config) {
-    // load the class
-    JobCoordinatorConfig jcConfig = new JobCoordinatorConfig(config);
-    String coordinationUtilsFactoryClass =   jcConfig.getJobCoordinationUtilsFactoryClassName();
-
-    return ClassLoaderHelper.fromClassName(coordinationUtilsFactoryClass, CoordinationUtilsFactory.class);
-  }
-
   /**
    * get a unique service instance
    * @param groupId - unique id to identify the service

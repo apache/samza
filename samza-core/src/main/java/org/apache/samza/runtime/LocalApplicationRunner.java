@@ -37,6 +37,7 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.CoordinationUtilsFactory;
+import org.apache.samza.coordinator.CoordinationUtilsFactoryAbstract;
 import org.apache.samza.coordinator.DistributedLockWithState;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.execution.ExecutionPlan;
@@ -224,24 +225,26 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     // Refer SAMZA-1385 for more details
     String coordinationId = new ApplicationConfig(config).getGlobalAppId() + APPLICATION_RUNNER_ZK_PATH_SUFFIX;
     CoordinationUtils coordinationUtils =
-        CoordinationUtilsFactory.getCoordinationUtilsFactory(config).getCoordinationUtils(coordinationId, uid, config);
-    System.out.println("2");
+        CoordinationUtilsFactoryAbstract.getCoordinationUtilsFactory(config).getCoordinationUtils(coordinationId, uid, config);
+    System.out.println(" create streams." + uid);
     if (coordinationUtils == null) {
       // each application process will try creating the streams, which
       // requires stream creation to be idempotent
       getStreamManager().createStreams(intStreams);
-      System.out.println("3");
+      System.out.println("failed to create utils" + uid);
       return;
     }
 
     DistributedLockWithState lockWithState = coordinationUtils.getLockWithState(planId);
-    System.out.println("5");
+    System.out.println("Init NEEDED for streams" + uid );
     try {
       // check if the processor needs to go through leader election and stream creation
       if (lockWithState.lockIfNotSet(1000, TimeUnit.MILLISECONDS)) {
-        System.out.println("4");
+        System.out.println("CREATING STREAMS" + uid);
         getStreamManager().createStreams(intStreams);
         lockWithState.unlockAndSet();
+      } else {
+        System.out.println("SOMEONE ELSE CREATING STREAMS" + uid);
       }
     } catch (TimeoutException e) {
       LOG.error("Failed to get the lock for stream initialization");

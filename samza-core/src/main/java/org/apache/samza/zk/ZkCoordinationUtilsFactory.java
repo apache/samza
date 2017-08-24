@@ -25,13 +25,14 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.CoordinationUtilsFactory;
 import org.apache.samza.coordinator.CoordinationUtils;
+import org.apache.samza.coordinator.CoordinationUtilsFactoryAbstract;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.apache.zookeeper.client.ConnectStringParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-public class ZkCoordinationUtilsFactory implements CoordinationUtilsFactory {
+public class ZkCoordinationUtilsFactory extends CoordinationUtilsFactoryAbstract {
   private static final Logger LOG = LoggerFactory.getLogger(ZkCoordinationUtilsFactory.class);
 
   public CoordinationUtils getCoordinationUtils(String groupId, String participantId, Config config) {
