@@ -265,9 +265,11 @@ public abstract class OperatorImpl<M, RM> {
    */
   public final void aggregateWatermark(WatermarkMessage watermarkMessage, SystemStreamPartition ssp,
       MessageCollector collector, TaskCoordinator coordinator) {
+    LOG.debug("Received watermark {} from {}", watermarkMessage.getTimestamp(), ssp);
     boolean updated = watermarkStates.update(watermarkMessage, ssp);
     if (updated) {
       long watermark = watermarkStates.getWatermark(ssp.getSystemStream());
+      LOG.debug("Got watermark {} from stream {}", watermark, ssp.getSystemStream());
       onWatermark(watermark, collector, coordinator);
     }
   }
@@ -293,6 +295,7 @@ public abstract class OperatorImpl<M, RM> {
     if (inputWatermark < inputWatermarkMin) {
       // advance the watermark time of this operator
       inputWatermark = inputWatermarkMin;
+      LOG.trace("Advance input watermark to {} in operator {}", inputWatermark, getOperatorName());
 
       final long outputWm;
       InitableFunction transformFn = getOperatorSpec().getTransformFn();
@@ -310,6 +313,7 @@ public abstract class OperatorImpl<M, RM> {
       if (outputWatermark < outputWm) {
         // advance the watermark
         outputWatermark = outputWm;
+        LOG.debug("Advance output watermark to {} in operator {}", outputWatermark, getOperatorName());
         this.registeredOperators.forEach(op -> op.onWatermark(outputWatermark, collector, coordinator));
       }
     }
@@ -321,10 +325,10 @@ public abstract class OperatorImpl<M, RM> {
    * @param inputWatermark  input watermark
    * @param collector message collector
    * @param coordinator task coordinator
+   * @return output watermark
    */
   protected long handleWatermark(long inputWatermark, MessageCollector collector, TaskCoordinator coordinator) {
-    // Default is to emit this watermark to downstream
-    // override this function to do trigger here
+    // Default is no handling. Simply pass on the input watermark as output.
     return inputWatermark;
   }
 
