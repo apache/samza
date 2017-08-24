@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Distributed lock primitive for Azure.
  */
-public class AzureLock implements DistributedLock {
+public class AzureLock implements DistributedLockWithState {
 
   private static final Logger LOG = LoggerFactory.getLogger(AzureLock.class);
   private static final int LEASE_TIME_IN_SEC = 60;
@@ -55,7 +55,7 @@ public class AzureLock implements DistributedLock {
    * @return true if the lock was acquired successfully, false if lock acquire operation is unsuccessful even after subsequent tries within the timeout range.
    */
   @Override
-  public boolean lock(long timeout, TimeUnit unit) {
+  public boolean lockIfNotSet(long timeout, TimeUnit unit) {
     //Start timer for timeout
     long startTime = System.currentTimeMillis();
     long lockTimeout = TimeUnit.MILLISECONDS.convert(timeout, unit);
@@ -87,7 +87,7 @@ public class AzureLock implements DistributedLock {
    * Unlocks, by releasing the lease on the blob.
    */
   @Override
-  public void unlock() {
+  public void unlockAndSet() {
     boolean status = leaseBlobManager.releaseLease(leaseId.get());
     if (status) {
       LOG.info("Unlocked successfully.");
@@ -96,5 +96,10 @@ public class AzureLock implements DistributedLock {
     } else {
       LOG.info("Unable to unlock.");
     }
+  }
+
+  @Override
+  public void close() {
+
   }
 }

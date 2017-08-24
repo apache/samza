@@ -25,8 +25,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
@@ -35,9 +33,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.CoordinationUtilsFactory;
-import org.apache.samza.coordinator.Latch;
-import org.apache.samza.coordinator.LeaderElector;
-import org.apache.samza.coordinator.LeaderElectorListener;
+import org.apache.samza.coordinator.DistributedLockWithState;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.execution.ExecutionPlanner;
 import org.apache.samza.execution.StreamManager;
@@ -54,7 +50,6 @@ import org.powermock.modules.junit4.PowerMockRunner;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.*;
@@ -176,58 +171,18 @@ public class TestLocalApplicationRunner {
     LocalApplicationRunner spy = spy(runner);
 
     CoordinationUtils coordinationUtils = mock(CoordinationUtils.class);
-    LeaderElector leaderElector = new LeaderElector() {
-      private LeaderElectorListener leaderElectorListener;
-
-      @Override
-      public void setLeaderElectorListener(LeaderElectorListener listener) {
-        this.leaderElectorListener = listener;
-      }
-
-      @Override
-      public void tryBecomeLeader() {
-        leaderElectorListener.onBecomingLeader();
-      }
-
-      @Override
-      public void resignLeadership() {}
-
-      @Override
-      public boolean amILeader() {
-        return false;
-      }
-
-      @Override
-      public void close() {}
-    };
-
-    Latch latch = new Latch() {
-      boolean done = false;
-      @Override
-      public void await(long timeout, TimeUnit tu)
-          throws TimeoutException {
-        // in this test, latch is released after countDown is invoked
-        if (!done) {
-          throw new TimeoutException("timed out waiting for the target path");
-        }
-      }
-
-      @Override
-      public void countDown() {
-        done = true;
-      }
-
-      @Override
-      public void close() {}
-    };
-
-
     mockStatic(CoordinationUtilsFactory.class);
     CoordinationUtilsFactory coordinationUtilsFactory = mock(CoordinationUtilsFactory.class);
     when(CoordinationUtilsFactory.getCoordinationUtilsFactory(anyObject())).thenReturn(coordinationUtilsFactory);
 
-    when(coordinationUtils.getLeaderElector()).thenReturn(leaderElector);
-    when(coordinationUtils.getLatch(anyInt(), anyString())).thenReturn(latch);
+//    when(coordinationUtils.getLeaderElector()).thenReturn(leaderElector);
+//    when(coordinationUtils.getLatch(anyInt(), anyString())).thenReturn(latch);
+
+    DistributedLockWithState lock = mock(DistributedLockWithState.class);
+    when(lock.lockIfNotSet(anyLong(), anyObject())).thenReturn(true);
+    //when(lock.lockIfNotSet(anyLong(), anyObject())).thenReturn(false);
+    when(coordinationUtils.getLockWithState(anyString())).thenReturn(lock);
+    //when(lock.unlockAndSet()).thenReturn(null);
     when(coordinationUtilsFactory.getCoordinationUtils(anyString(), anyString(), anyObject())).thenReturn(
         coordinationUtils);
 

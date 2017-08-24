@@ -27,6 +27,7 @@ import org.apache.samza.annotation.InterfaceStability;
  * This service provide three primitives:
  *   - LeaderElection
  *   - Latch
+ *   - LockWithState (does not lock if state is set)
  */
 @InterfaceStability.Evolving
 public interface CoordinationUtils {
@@ -35,4 +36,6 @@ public interface CoordinationUtils {
   LeaderElector getLeaderElector(); // leaderElector is unique based on the groupId
 
   Latch getLatch(int size, String latchId);
+
+  DistributedLockWithState getLockWithState(String lockId);
 }

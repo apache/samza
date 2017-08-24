@@ -37,8 +37,8 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.CoordinationUtilsFactory;
+import org.apache.samza.coordinator.DistributedLockWithState;
 import org.apache.samza.coordinator.Latch;
-import org.apache.samza.coordinator.LeaderElector;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.processor.StreamProcessor;
@@ -214,37 +214,39 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
    * @throws TimeoutException exception for latch timeout
    */
   /* package private */ void createStreams(String planId, List<StreamSpec> intStreams) throws TimeoutException {
-    if (!intStreams.isEmpty()) {
-      // Move the scope of coordination utils within stream creation to address long idle connection problem.
-      // Refer SAMZA-1385 for more details
+    if (intStreams.isEmpty()) {
+      LOG.info("Set of intermediate streams is empty. Nothing to create.");
+      System.out.println("1");
+      return;
+    }
 
-      String coordinationId = new ApplicationConfig(config).getGlobalAppId() + APPLICATION_RUNNER_ZK_PATH_SUFFIX;
-      CoordinationUtils coordinationUtils =
-          CoordinationUtilsFactory.getCoordinationUtilsFactory(config).getCoordinationUtils(coordinationId, uid, config);
-      if (coordinationUtils != null) {
-        Latch initLatch = coordinationUtils.getLatch(1, planId);
+    // Move the scope of coordination utils within stream creation to address long idle connection problem.
+    // Refer SAMZA-1385 for more details
+    String coordinationId = new ApplicationConfig(config).getGlobalAppId() + APPLICATION_RUNNER_ZK_PATH_SUFFIX;
+    CoordinationUtils coordinationUtils =
+        CoordinationUtilsFactory.getCoordinationUtilsFactory(config).getCoordinationUtils(coordinationId, uid, config);
+    System.out.println("2");
+    if (coordinationUtils == null) {
+      // each application process will try creating the streams, which
+      // requires stream creation to be idempotent
+      getStreamManager().createStreams(intStreams);
+      System.out.println("3");
+      return;
+    }
 
-        try {
-          // check if the processor needs to go through leader election and stream creation
-          if (shouldContestInElectionForStreamCreation(initLatch)) {
-            LeaderElector leaderElector = coordinationUtils.getLeaderElector();
-            leaderElector.setLeaderElectorListener(() -> {
-                getStreamManager().createStreams(intStreams);
-                initLatch.countDown();
-              });
-            leaderElector.tryBecomeLeader();
-            initLatch.await(LATCH_TIMEOUT_MINUTES, TimeUnit.MINUTES);
-            leaderElector.close(); // at this point should be safe to remove the leader, because the latch exists.
-          }
-        } finally {
-          if (initLatch != null)
-            initLatch.close();
-        }
-      } else {
-        // each application process will try creating the streams, which
-        // requires stream creation to be idempotent
+    DistributedLockWithState lockWithState = coordinationUtils.getLockWithState(planId);
+    System.out.println("5");
+    try {
+      // check if the processor needs to go through leader election and stream creation
+      if (lockWithState.lockIfNotSet(1000, TimeUnit.MILLISECONDS)) {
+        System.out.println("4");
         getStreamManager().createStreams(intStreams);
+        lockWithState.unlockAndSet();
       }
+    } catch (TimeoutException e) {
+      LOG.error("Failed to get the lock for stream initialization");
+    } finally {
+      lockWithState.close();
     }
   }
 
