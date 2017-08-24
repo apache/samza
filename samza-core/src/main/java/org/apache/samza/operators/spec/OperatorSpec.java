@@ -19,6 +19,7 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.operators.functions.InitableFunction;
 
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -118,4 +119,6 @@ public abstract class OperatorSpec<M, OM> {
   public final String getOpName() {
     return String.format("%s-%s", getOpCode().name().toLowerCase(), getOpId());
   }
+
+  abstract public InitableFunction getTransformFn();
 }

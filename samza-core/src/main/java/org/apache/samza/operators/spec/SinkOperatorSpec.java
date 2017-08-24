@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.spec;
 
+import org.apache.samza.operators.functions.InitableFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 
 
@@ -47,5 +48,10 @@ public class SinkOperatorSpec<M> extends OperatorSpec<M, Void> {
 
   public SinkFunction<M> getSinkFn() {
     return this.sinkFn;
+  }
+
+  @Override
+  public InitableFunction getTransformFn() {
+    return sinkFn;
   }
 }

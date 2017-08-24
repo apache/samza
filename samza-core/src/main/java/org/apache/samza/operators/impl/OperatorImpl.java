@@ -27,6 +27,8 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.operators.functions.InitableFunction;
+import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -42,6 +44,7 @@ import org.apache.samza.util.HighResolutionClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.apache.samza.operators.functions.WatermarkFunction.WATERMARK_NOT_EXIST;
 
 /**
  * Abstract base class for all stream operator implementations.
@@ -56,9 +59,8 @@ public abstract class OperatorImpl<M, RM> {
   private Counter numMessage;
   private Timer handleMessageNs;
   private Timer handleTimerNs;
-  private long inputWatermark = WatermarkStates.TIME_NOT_EXIST;
-  private long outputWatermark = WatermarkStates.TIME_NOT_EXIST;
-  private boolean watermarkEmitted = false;
+  private long inputWatermark = WATERMARK_NOT_EXIST;
+  private long outputWatermark = WATERMARK_NOT_EXIST;
   private TaskName taskName;
 
   Set<OperatorImpl<RM, ?>> registeredOperators;
@@ -149,9 +151,15 @@ public abstract class OperatorImpl<M, RM> {
 
     results.forEach(rm -> this.registeredOperators.forEach(op -> op.onMessage(rm, collector, coordinator)));
 
-    if (watermarkEmitted) {
-      this.registeredOperators.forEach(op -> op.onWatermark(outputWatermark, collector, coordinator));
-      watermarkEmitted = false;
+    InitableFunction transformFn = getOperatorSpec().getTransformFn();
+    if (transformFn != null && transformFn instanceof WatermarkFunction) {
+      // check whether there is new watermark emitted from the user function
+      long outputWm = ((WatermarkFunction) transformFn).getOutputWatermark();
+      if (outputWatermark < outputWm) {
+        // advance the watermark
+        outputWatermark = outputWm;
+        this.registeredOperators.forEach(op -> op.onWatermark(outputWatermark, collector, coordinator));
+      }
     }
   }
 
@@ -206,7 +214,7 @@ public abstract class OperatorImpl<M, RM> {
    * @param collector message collector
    * @param coordinator task coordinator
    */
-  public void aggregateEndOfStream(EndOfStreamMessage eos, SystemStreamPartition ssp, MessageCollector collector,
+  public final void aggregateEndOfStream(EndOfStreamMessage eos, SystemStreamPartition ssp, MessageCollector collector,
       TaskCoordinator coordinator) {
     LOG.info("Received end-of-stream message from task {} in {}", eos.getTaskName(), ssp);
     eosStates.update(eos, ssp);
@@ -255,7 +263,7 @@ public abstract class OperatorImpl<M, RM> {
    * @param collector message collector
    * @param coordinator task coordinator
    */
-  public void aggregateWatermark(WatermarkMessage watermarkMessage, SystemStreamPartition ssp,
+  public final void aggregateWatermark(WatermarkMessage watermarkMessage, SystemStreamPartition ssp,
       MessageCollector collector, TaskCoordinator coordinator) {
     boolean updated = watermarkStates.update(watermarkMessage, ssp);
     if (updated) {
@@ -286,38 +294,38 @@ public abstract class OperatorImpl<M, RM> {
       // advance the watermark time of this operator
       inputWatermark = inputWatermarkMin;
 
-      handleWatermark(inputWatermark, collector, coordinator);
-    }
+      final long outputWm;
+      InitableFunction transformFn = getOperatorSpec().getTransformFn();
+      if (transformFn != null && transformFn instanceof WatermarkFunction) {
+        // user-overrided watermark handling here
+        WatermarkFunction watermarkFn = (WatermarkFunction) transformFn;
+        watermarkFn.processWatermark(inputWatermark);
+        outputWm = watermarkFn.getOutputWatermark();
+      } else {
+        // use samza-provided watermark handling
+        // default is to propagate the input watermark
+        outputWm = handleWatermark(inputWatermark, collector, coordinator);
+      }
 
-    if (watermarkEmitted) {
-      this.registeredOperators.forEach(op -> op.onWatermark(outputWatermark, collector, coordinator));
-      watermarkEmitted = false;
+      if (outputWatermark < outputWm) {
+        // advance the watermark
+        outputWatermark = outputWm;
+        this.registeredOperators.forEach(op -> op.onWatermark(outputWatermark, collector, coordinator));
+      }
     }
   }
 
   /**
-   * Handle watermark in this operator. Default is to emit it.
-   * Override this function to do trigger/watermark emission here.
-   * @param watermark  input watermark
+   * Handling of the input watermark and returns the output watermark.
+   * Override this function to fire trigger here.
+   * @param inputWatermark  input watermark
    * @param collector message collector
    * @param coordinator task coordinator
    */
-  protected void handleWatermark(long watermark, MessageCollector collector, TaskCoordinator coordinator) {
+  protected long handleWatermark(long inputWatermark, MessageCollector collector, TaskCoordinator coordinator) {
     // Default is to emit this watermark to downstream
     // override this function to do trigger here
-    this.emitWatermark(watermark);
-  }
-
-  /**
-   * Emit a watermark, which will be propagated to downstream operators
-   * @param watermark time of the watermark
-   */
-  public final void emitWatermark(long watermark) {
-    // guarantee that output watermark is monotonically increasing here.
-    if (watermark > outputWatermark) {
-      outputWatermark = watermark;
-      watermarkEmitted = true;
-    }
+    return inputWatermark;
   }
 
   /* package private for testing */

@@ -88,10 +88,11 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
   }
 
   @Override
-  protected void handleWatermark(long watermark, MessageCollector collector, TaskCoordinator coordinator) {
+  protected long handleWatermark(long watermark, MessageCollector collector, TaskCoordinator coordinator) {
     if (outputOpSpec.getOpCode() == OperatorSpec.OpCode.PARTITION_BY) {
       sendControlMessage(new WatermarkMessage(watermark, taskName), collector);
     }
+    return watermark;
   }
 
   private void sendControlMessage(ControlMessage message, MessageCollector collector) {

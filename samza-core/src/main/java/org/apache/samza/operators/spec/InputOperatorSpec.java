@@ -19,6 +19,7 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.samza.operators.functions.InitableFunction;
 import org.apache.samza.system.StreamSpec;
 
 import java.util.function.BiFunction;
@@ -48,5 +49,10 @@ public class InputOperatorSpec<K, V, M> extends OperatorSpec<Pair<K, V>, M> {
 
   public BiFunction<K, V, M> getMsgBuilder() {
     return this.msgBuilder;
+  }
+
+  @Override
+  public InitableFunction getTransformFn() {
+    return null;
   }
 }

@@ -34,6 +34,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import static org.apache.samza.operators.functions.WatermarkFunction.WATERMARK_NOT_EXIST;
 
 public class TestWatermarkStates {
 
@@ -59,25 +60,25 @@ public class TestWatermarkStates {
         envelope.getSystemStreamPartition());
     assertTrue(updated);
     assertEquals(watermarkStates.getWatermark(input), 5L);
-    assertEquals(watermarkStates.getWatermark(intermediate), WatermarkStates.TIME_NOT_EXIST);
+    assertEquals(watermarkStates.getWatermark(intermediate), WATERMARK_NOT_EXIST);
 
     WatermarkMessage watermarkMessage = new WatermarkMessage(6L, "task 0");
     updated = watermarkStates.update(watermarkMessage, intPartition0);
     assertFalse(updated);
-    assertEquals(watermarkStates.getWatermarkPerSSP(intPartition0), WatermarkStates.TIME_NOT_EXIST);
-    assertEquals(watermarkStates.getWatermark(intermediate), WatermarkStates.TIME_NOT_EXIST);
+    assertEquals(watermarkStates.getWatermarkPerSSP(intPartition0), WATERMARK_NOT_EXIST);
+    assertEquals(watermarkStates.getWatermark(intermediate), WATERMARK_NOT_EXIST);
 
     watermarkMessage = new WatermarkMessage(3L, "task 1");
     updated = watermarkStates.update(watermarkMessage, intPartition0);
     assertFalse(updated);
     assertEquals(watermarkStates.getWatermarkPerSSP(intPartition0), 3L);
-    assertEquals(watermarkStates.getWatermark(intermediate), WatermarkStates.TIME_NOT_EXIST);
+    assertEquals(watermarkStates.getWatermark(intermediate), WATERMARK_NOT_EXIST);
 
     watermarkMessage = new WatermarkMessage(10L, "task 0");
     updated = watermarkStates.update(watermarkMessage, intPartition1);
     assertFalse(updated);
-    assertEquals(watermarkStates.getWatermarkPerSSP(intPartition1), WatermarkStates.TIME_NOT_EXIST);
-    assertEquals(watermarkStates.getWatermark(intermediate), WatermarkStates.TIME_NOT_EXIST);
+    assertEquals(watermarkStates.getWatermarkPerSSP(intPartition1), WATERMARK_NOT_EXIST);
+    assertEquals(watermarkStates.getWatermark(intermediate), WATERMARK_NOT_EXIST);
 
     watermarkMessage = new WatermarkMessage(4L, "task 1");
     updated = watermarkStates.update(watermarkMessage, intPartition1);

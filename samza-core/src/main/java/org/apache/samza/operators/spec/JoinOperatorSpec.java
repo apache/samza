@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.spec;
 
+import org.apache.samza.operators.functions.InitableFunction;
 import org.apache.samza.operators.functions.JoinFunction;
 
 
@@ -69,5 +70,10 @@ public class JoinOperatorSpec<K, M, JM, RM> extends OperatorSpec<Object, RM> { /
 
   public long getTtlMs() {
     return ttlMs;
+  }
+
+  @Override
+  public InitableFunction getTransformFn() {
+    return joinFn;
   }
 }

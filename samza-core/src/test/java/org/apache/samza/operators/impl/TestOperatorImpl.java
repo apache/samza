@@ -27,6 +27,7 @@ import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
 import org.apache.samza.metrics.Timer;
+import org.apache.samza.operators.functions.InitableFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
@@ -209,6 +210,11 @@ public class TestOperatorImpl {
   private static class TestOpSpec extends OperatorSpec<Object, Object> {
     TestOpSpec() {
      super(OpCode.INPUT, 1);
+    }
+
+    @Override
+    public InitableFunction getTransformFn() {
+      return null;
     }
   }
 
