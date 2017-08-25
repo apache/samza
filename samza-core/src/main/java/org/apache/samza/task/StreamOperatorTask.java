@@ -19,7 +19,6 @@
 package org.apache.samza.task;
 
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplicationInternal;
 import org.apache.samza.config.Config;
 import org.apache.samza.control.ControlMessageListenerTask;
@@ -29,7 +28,6 @@ import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.impl.InputOperatorImpl;
 import org.apache.samza.operators.impl.OperatorImplGraph;
 import org.apache.samza.control.IOGraph;
-import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.Clock;
@@ -38,7 +36,7 @@ import org.apache.samza.util.SystemClock;
 
 /**
  * A {@link StreamTask} implementation that brings all the operator API implementation components together and
- * feeds the input messages into the user-defined transformation chains in {@link StreamApplication}.
+ * feeds the input messages into the user-defined transformation chains in {@link StreamApplicationInternal}.
  */
 public final class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask, ControlMessageListenerTask {
 
@@ -50,8 +48,8 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
   private IOGraph ioGraph;
 
   /**
-   * Constructs an adaptor task to run the user-implemented {@link StreamApplication}.
-   * @param streamApplication the user-implemented {@link StreamApplication} that creates the logical DAG
+   * Constructs an adaptor task to run the user-implemented {@link StreamApplicationInternal}.
+   * @param streamApplication the user-implemented {@link StreamApplicationInternal} that creates the logical DAG
    * @param clock the {@link Clock} to use for time-keeping
    */
   public StreamOperatorTask(StreamApplicationInternal streamApplication, Clock clock) {
@@ -66,7 +64,7 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
   /**
    * Initializes this task during startup.
    * <p>
-   * Implementation: Initializes the user-implemented {@link StreamApplication}. The {@link StreamApplication} sets
+   * Implementation: Initializes the user-implemented {@link StreamApplicationInternal}. The {@link StreamApplicationInternal} sets
    * the input and output streams and the task-wide context manager using the {@link StreamGraphImpl} APIs,
    * and the logical transforms using the {@link org.apache.samza.operators.MessageStream} APIs. It then uses
    * the {@link StreamGraphImpl} to create the {@link OperatorImplGraph} corresponding to the logical DAG.
@@ -83,7 +81,10 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
     // this.streamApplication.init(streamGraph, config);
 
     // get the user-implemented context manager and initialize it
-    this.contextManager = streamGraph.getContextManager();
+    // NOTE: if we don't clone for each task, global variables used across different tasks are possible. If we clone
+    // the context manager for each task, the shared context is only across operators in the same task instance. I am ignoring
+    // the global shared variable in this case and only focus on shared context within a single task instance for now.
+    this.contextManager = streamGraph.getContextManager().getContextManagerPerTask();
     if (this.contextManager != null) {
       this.contextManager.init(config, context);
     }

@@ -19,18 +19,18 @@
 
 package org.apache.samza.test.controlmessages;
 
-import java.util.ArrayList;
+//import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+//import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import org.apache.samza.application.StreamApplication;
+//import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
-import org.apache.samza.config.MapConfig;
+//import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
-import org.apache.samza.runtime.LocalApplicationRunner;
+//import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.test.controlmessages.TestData.PageView;
 import org.apache.samza.test.controlmessages.TestData.PageViewJsonSerdeFactory;
@@ -39,7 +39,7 @@ import org.apache.samza.test.util.ArraySystemFactory;
 import org.apache.samza.test.util.Base64Serializer;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
+//import static org.junit.Assert.assertEquals;
 
 
 /**
@@ -85,18 +85,18 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
     configs.put("serializers.registry.int.class", "org.apache.samza.serializers.IntegerSerdeFactory");
     configs.put("serializers.registry.json.class", PageViewJsonSerdeFactory.class.getName());
 
-    final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
-    List<PageView> received = new ArrayList<>();
-    final StreamApplication app = (streamGraph, cfg) -> {
-      streamGraph.getInputStream("PageView", (k, v) -> (PageView) v)
-        .partitionBy(PageView::getMemberId)
-        .sink((m, collector, coordinator) -> {
-            received.add(m);
-          });
-    };
-    runner.run(app);
-    runner.waitForFinish();
-
-    assertEquals(received.size(), count * partitionCount);
+//    final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
+//    List<PageView> received = new ArrayList<>();
+//    final StreamApplication app = (streamGraph, cfg) -> {
+//      streamGraph.getInputStream("PageView", (k, v) -> (PageView) v)
+//        .partitionBy(PageView::getMemberId)
+//        .sink((m, collector, coordinator) -> {
+//            received.add(m);
+//          });
+//    };
+//    runner.run(app);
+//    runner.waitForFinish();
+//
+//    assertEquals(received.size(), count * partitionCount);
   }
 }

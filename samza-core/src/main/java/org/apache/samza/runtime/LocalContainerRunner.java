@@ -74,7 +74,7 @@ public class LocalContainerRunner extends ApplicationRunnerBase {
   }
 
   @Override
-  ApplicationRuntimeInstance getRuntimeInstance(ApplicationBase streamApp) {
+  ApplicationRuntimeInstance createRuntimeInstance(ApplicationBase streamApp) {
     if (streamApp instanceof StreamApplication) {
       return new StreamAppRuntime(new StreamApplicationInternal((StreamApplication) streamApp));
     }
@@ -141,6 +141,11 @@ public class LocalContainerRunner extends ApplicationRunnerBase {
     @Override
     public void waitForFinish() {
 
+    }
+
+    @Override
+    public ApplicationBase getUserApp() {
+      return this.app.getUserApp();
     }
   }
 

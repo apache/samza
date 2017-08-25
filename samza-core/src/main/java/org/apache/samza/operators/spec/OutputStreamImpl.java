@@ -18,19 +18,19 @@
  */
 package org.apache.samza.operators.spec;
 
+import java.io.Serializable;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamDescriptor;
+import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.system.StreamSpec;
 
-import java.util.function.Function;
-
-public class OutputStreamImpl<K, V, M> implements OutputStream<K, V, M> {
+public class OutputStreamImpl<K, V, M> implements OutputStream<K, V, M>, Serializable {
 
   private final StreamDescriptor.Output<K, V> streamDescriptor;
-  private final Function<? super M, ? extends K> keyExtractor;
-  private final Function<? super M, ? extends V> msgExtractor;
+  private final MapFunction<? super M, ? extends K> keyExtractor;
+  private final MapFunction<? super M, ? extends V> msgExtractor;
 
-  public OutputStreamImpl(StreamDescriptor.Output<K, V> streamDesc, Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor) {
+  public OutputStreamImpl(StreamDescriptor.Output<K, V> streamDesc, MapFunction<? super M, ? extends K> keyExtractor, MapFunction<? super M, ? extends V> msgExtractor) {
     this.streamDescriptor = streamDesc;
     this.keyExtractor = keyExtractor;
     this.msgExtractor = msgExtractor;
@@ -40,11 +40,11 @@ public class OutputStreamImpl<K, V, M> implements OutputStream<K, V, M> {
     return streamDescriptor.getStreamSpec();
   }
 
-  public Function<? super M, ? extends K> getKeyExtractor() {
+  public MapFunction<? super M, ? extends K> getKeyExtractor() {
     return this.keyExtractor;
   }
 
-  public Function<? super M, ? extends V> getMsgExtractor() {
+  public MapFunction<? super M, ? extends V> getMsgExtractor() {
     return this.msgExtractor;
   }
 

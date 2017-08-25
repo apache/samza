@@ -18,6 +18,10 @@
  */
 package org.apache.samza.operators.spec;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.Serializable;
 import org.apache.samza.annotation.InterfaceStability;
 
 import java.util.Collection;
@@ -25,7 +29,7 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
- * A stream operator specification that holds all the information required to transform 
+ * A stream operator specification that holds all the information required to transform
  * the input {@link org.apache.samza.operators.MessageStreamImpl} and produce the output
  * {@link org.apache.samza.operators.MessageStreamImpl}.
  *
@@ -33,7 +37,7 @@ import java.util.Set;
  * @param <OM>  the type of output message from the operator
  */
 @InterfaceStability.Unstable
-public abstract class OperatorSpec<M, OM> {
+public abstract class OperatorSpec<M, OM> implements Serializable {
 
   public enum OpCode {
     INPUT,
@@ -52,6 +56,7 @@ public abstract class OperatorSpec<M, OM> {
   private final int opId;
   private final OpCode opCode;
   private StackTraceElement[] creationStackTrace;
+  protected final byte[] serializedBytes;
 
   /**
    * The set of operators that consume the messages produced from this operator.
@@ -60,10 +65,19 @@ public abstract class OperatorSpec<M, OM> {
    */
   private final Set<OperatorSpec<OM, ?>> nextOperatorSpecs = new LinkedHashSet<>();
 
-  public OperatorSpec(OpCode opCode, int opId) {
+  public OperatorSpec(OpCode opCode, int opId) throws IOException {
     this.opCode = opCode;
     this.opId = opId;
     this.creationStackTrace = Thread.currentThread().getStackTrace();
+    this.serializedBytes = toBytes();
+  }
+
+  protected abstract byte[] toBytes() throws IOException;
+
+  protected Object fromBytes() throws IOException, ClassNotFoundException {
+    ByteArrayInputStream bStream = new ByteArrayInputStream(this.serializedBytes);
+    ObjectInputStream inputStream = new ObjectInputStream(bStream);
+    return inputStream.readObject();
   }
 
   /**

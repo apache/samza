@@ -18,6 +18,10 @@
  */
 package org.apache.samza.operators.spec;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+
 
 /**
  * The spec for an operator that outputs a {@link org.apache.samza.operators.MessageStream} to a
@@ -29,7 +33,7 @@ package org.apache.samza.operators.spec;
  */
 public class OutputOperatorSpec<M> extends OperatorSpec<M, Void> {
 
-  private OutputStreamImpl<M> outputStream;
+  private OutputStreamImpl<?, ?, M> outputStream;
 
 
   /**
@@ -40,7 +44,8 @@ public class OutputOperatorSpec<M> extends OperatorSpec<M, Void> {
    *               It could be {@link OpCode#SEND_TO}, or {@link OpCode#PARTITION_BY}
    * @param opId  the unique ID of this {@link SinkOperatorSpec} in the graph
    */
-  OutputOperatorSpec(OutputStreamImpl<M> outputStream, OperatorSpec.OpCode opCode, int opId) {
+  <K, V> OutputOperatorSpec(OutputStreamImpl<K, V, M> outputStream, OperatorSpec.OpCode opCode, int opId)
+      throws IOException {
     super(opCode, opId);
     this.outputStream = outputStream;
   }
@@ -49,7 +54,19 @@ public class OutputOperatorSpec<M> extends OperatorSpec<M, Void> {
    * The {@link OutputStreamImpl} that this operator is sending its output to.
    * @return the {@link OutputStreamImpl} for this operator if any, else null.
    */
-  public OutputStreamImpl<M> getOutputStream() {
+  public OutputStreamImpl<?, ?, M> getOutputStream() {
     return this.outputStream;
   }
+
+  protected byte[] toBytes() throws IOException {
+    ByteArrayOutputStream bStream = new ByteArrayOutputStream();
+    ObjectOutputStream outputStream = new ObjectOutputStream(bStream);
+    outputStream.writeObject(this);
+    return bStream.toByteArray();
+  }
+
+  public OutputOperatorSpec<M> fromBytes() throws IOException, ClassNotFoundException {
+    return (OutputOperatorSpec<M>) super.fromBytes();
+  }
+
 }

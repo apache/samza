@@ -18,26 +18,26 @@
  */
 package org.apache.samza.operators;
 
-import junit.framework.Assert;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
-import org.apache.samza.operators.data.TestMessageEnvelope;
-import org.apache.samza.operators.spec.InputOperatorSpec;
-import org.apache.samza.operators.spec.OperatorSpec.OpCode;
-import org.apache.samza.operators.spec.OutputStreamImpl;
-import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
-import org.apache.samza.runtime.ApplicationRunner;
-import org.apache.samza.system.StreamSpec;
-import org.junit.Test;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+//import junit.framework.Assert;
+//import org.apache.samza.config.Config;
+//import org.apache.samza.config.JobConfig;
+//import org.apache.samza.operators.data.TestMessageEnvelope;
+//import org.apache.samza.operators.spec.InputOperatorSpec;
+//import org.apache.samza.operators.spec.OperatorSpec.OpCode;
+//import org.apache.samza.operators.spec.OutputStreamImpl;
+//import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
+//import org.apache.samza.runtime.ApplicationRunner;
+//import org.apache.samza.system.StreamSpec;
+//import org.junit.Test;
+//
+//import java.util.ArrayList;
+//import java.util.List;
+//import java.util.function.BiFunction;
+//import java.util.function.Function;
+//
+//import static org.junit.Assert.assertEquals;
+//import static org.mockito.Mockito.mock;
+//import static org.mockito.Mockito.when;
 
 public class TestStreamGraphImpl {
 

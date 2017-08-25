@@ -18,10 +18,12 @@
  */
 package org.apache.samza.operators.spec;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.samza.operators.functions.OperatorBiFunction;
 import org.apache.samza.system.StreamSpec;
-
-import java.util.function.BiFunction;
 
 /**
  * The spec for an operator that receives incoming messages from an input stream
@@ -34,9 +36,10 @@ import java.util.function.BiFunction;
 public class InputOperatorSpec<K, V, M> extends OperatorSpec<Pair<K, V>, M> {
 
   private final StreamSpec streamSpec;
-  private final BiFunction<? super K, ? super V, ? extends M> msgBuilder;
+  private final OperatorBiFunction<? super K, ? super V, ? extends M> msgBuilder;
 
-  public InputOperatorSpec(StreamSpec streamSpec, BiFunction<? super K, ? super V, ? extends M> msgBuilder, int opId) {
+  public InputOperatorSpec(StreamSpec streamSpec, OperatorBiFunction<? super K, ? super V, ? extends M> msgBuilder, int opId)
+      throws IOException {
     super(OpCode.INPUT, opId);
     this.streamSpec = streamSpec;
     this.msgBuilder = msgBuilder;
@@ -46,7 +49,18 @@ public class InputOperatorSpec<K, V, M> extends OperatorSpec<Pair<K, V>, M> {
     return this.streamSpec;
   }
 
-  public BiFunction<? super K, ? super V, ? extends M> getMsgBuilder() {
+  public OperatorBiFunction<? super K, ? super V, ? extends M> getMsgBuilder() {
     return this.msgBuilder;
+  }
+
+  protected byte[] toBytes() throws IOException {
+    ByteArrayOutputStream bStream = new ByteArrayOutputStream();
+    ObjectOutputStream outputStream = new ObjectOutputStream(bStream);
+    outputStream.writeObject(this);
+    return bStream.toByteArray();
+  }
+
+  public InputOperatorSpec<K, V, M> fromBytes() throws IOException, ClassNotFoundException {
+    return (InputOperatorSpec<K, V, M>) super.fromBytes();
   }
 }

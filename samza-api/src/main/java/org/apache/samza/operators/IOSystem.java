@@ -18,7 +18,9 @@
  */
 package org.apache.samza.operators;
 
+import java.io.Serializable;
 
-public interface IOSystem {
+
+public interface IOSystem extends Serializable {
   String getSystemName();
 }

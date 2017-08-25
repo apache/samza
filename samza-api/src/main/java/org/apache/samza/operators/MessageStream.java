@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators;
 
+import java.io.IOException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
@@ -187,6 +188,6 @@ public interface MessageStream<M> {
    * @param <K> the type of output message key and partition key
    * @return the repartitioned {@link MessageStream}
    */
-  <K> MessageStream<M> partitionBy(Function<? super M, ? extends K> keyExtractor);
+  <K> MessageStream<M> partitionBy(MapFunction<? super M, ? extends K> keyExtractor) throws IOException;
 
 }

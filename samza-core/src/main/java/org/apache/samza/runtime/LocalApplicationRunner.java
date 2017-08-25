@@ -191,6 +191,11 @@ public class LocalApplicationRunner extends ApplicationRunnerBase {
     public void waitForFinish() {
       LocalApplicationRunner.this.waitForFinish();
     }
+
+    @Override
+    public ApplicationBase getUserApp() {
+      return this.app.getUserApp();
+    }
   }
 
   private class StreamAppRuntime implements ApplicationRuntimeInstance {
@@ -219,12 +224,12 @@ public class LocalApplicationRunner extends ApplicationRunnerBase {
           throw new SamzaException("No jobs to run.");
         }
         plan.getJobConfigs().forEach(jobConfig -> {
-          LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
-          LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
-          StreamProcessor processor = createStreamProcessor(jobConfig, TaskFactoryUtil.createTaskFactory(config, this.app, LocalApplicationRunner.this), listener);
-          listener.setProcessor(processor);
-          processors.add(processor);
-        });
+            LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
+            LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
+            StreamProcessor processor = createStreamProcessor(jobConfig, TaskFactoryUtil.createTaskFactory(config, this.app, LocalApplicationRunner.this), listener);
+            listener.setProcessor(processor);
+            processors.add(processor);
+          });
         numProcessorsToStart.set(processors.size());
 
         // 4. start the StreamProcessors
@@ -252,9 +257,9 @@ public class LocalApplicationRunner extends ApplicationRunnerBase {
           Latch initLatch = coordinationUtils.getLatch(1, INIT_LATCH_ID);
           LeaderElector leaderElector = coordinationUtils.getLeaderElector();
           leaderElector.setLeaderElectorListener(() -> {
-            this.streamManager.createStreams(intStreams);
-            initLatch.countDown();
-          });
+              this.streamManager.createStreams(intStreams);
+              initLatch.countDown();
+            });
           leaderElector.tryBecomeLeader();
           initLatch.await(LATCH_TIMEOUT_MINUTES, TimeUnit.MINUTES);
         } else {
@@ -279,10 +284,15 @@ public class LocalApplicationRunner extends ApplicationRunnerBase {
     public void waitForFinish() {
       LocalApplicationRunner.this.waitForFinish();
     }
+
+    @Override
+    public ApplicationBase getUserApp() {
+      return this.app.getUserApp();
+    }
   }
 
   @Override
-  ApplicationRuntimeInstance getRuntimeInstance(ApplicationBase app) {
+  ApplicationRuntimeInstance createRuntimeInstance(ApplicationBase app) {
     if (app instanceof StreamApplication) {
       return new StreamAppRuntime(new StreamApplicationInternal((StreamApplication) app));
     }

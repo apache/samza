@@ -35,13 +35,13 @@ import java.util.Map;
 @InterfaceStability.Unstable
 public interface ApplicationRunner {
 
-  class AppConfig {
+  class AppRunnerConfig {
     private static final String RUNNER_CONFIG = "app.runner.class";
     private static final String DEFAULT_RUNNER_CLASS = "org.apache.samza.runtime.RemoteApplicationRunner";
 
     private final Config config;
 
-    AppConfig(Config config) {
+    AppRunnerConfig(Config config) {
       this.config = config;
     }
 
@@ -57,7 +57,7 @@ public interface ApplicationRunner {
    * @return  the configure-driven {@link ApplicationRunner} to run the user-defined stream applications
    */
   static ApplicationRunner fromConfig(Config config) {
-    AppConfig appCfg = new AppConfig(config);
+    AppRunnerConfig appCfg = new AppRunnerConfig(config);
     try {
       Class<?> runnerClass = Class.forName(appCfg.getApplicationRunnerClass());
       if (ApplicationRunner.class.isAssignableFrom(runnerClass)) {

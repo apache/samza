@@ -30,4 +30,8 @@ public class TaskApplicationInternal {
     return this.app.taskFactory;
   }
 
+  public TaskApplication getUserApp() {
+    return this.app;
+  }
+
 }

@@ -18,6 +18,7 @@
  */
 package org.apache.samza.application;
 
+import java.io.IOException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.metrics.MetricsReporter;
@@ -28,6 +29,8 @@ import org.apache.samza.operators.StreamDescriptor;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.functions.InitableFunction;
+import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.operators.functions.OperatorBiFunction;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.task.StreamTask;
 
@@ -84,8 +87,8 @@ public class StreamApplication extends ApplicationBase {
   /*package private*/
   final StreamGraph graph;
 
-  StreamApplication(ApplicationRunner runner) {
-    super(runner);
+  StreamApplication(ApplicationRunner runner, Config config) {
+    super(runner, config);
     this.graph = runner.createGraph();
   }
 
@@ -96,10 +99,11 @@ public class StreamApplication extends ApplicationBase {
    *
    * @param <K> the type of key in the incoming message
    * @param <V> the type of message in the incoming message
+   * @param input the input {@link StreamDescriptor.Input}
    * @return the input {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
-  public <K, V> MessageStream<V> openInput(StreamDescriptor.Input<K, V> input) {
+  public <K, V> MessageStream<V> openInput(StreamDescriptor.Input<K, V> input) throws IOException {
     return this.graph.getInputStream(input, (k, v) -> v);
   }
 
@@ -111,12 +115,14 @@ public class StreamApplication extends ApplicationBase {
    * @param <K> the type of key in the incoming message
    * @param <V> the type of message in the incoming message
    * @param <M> the type of message in the input {@link MessageStream}
+   * @param input the input {@link StreamDescriptor.Input}
+   * @param msgBuilder the function to construct a message of type M from the key-value pair
    * @return the input {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
   public <K, V, M> MessageStream<M> openInput(
       StreamDescriptor.Input<K, V> input,
-      BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
+      OperatorBiFunction<? super K, ? super V, ? extends M> msgBuilder) throws IOException {
     return this.graph.getInputStream(input, msgBuilder);
   }
 
@@ -128,13 +134,16 @@ public class StreamApplication extends ApplicationBase {
    * @param <K> the type of key in the outgoing message
    * @param <V> the type of message in the outgoing message
    * @param <M> the type of message in the {@link OutputStream}
-   * @return the output {@link MessageStream}
+   * @param output the {@link StreamDescriptor.Output} to describe the {@code output} object
+   * @param keyExtractor the function to get the key from the message
+   * @param msgExtractor the function to get the value from the message
+   * @return the output {@link OutputStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
   public <K, V, M> OutputStream<K, V, M> openOutput(
       StreamDescriptor.Output<K, V> output,
-      Function<? super M, ? extends K> keyExtractor,
-      Function<? super M, ? extends V> msgExtractor) {
+      MapFunction<? super M, ? extends K> keyExtractor,
+      MapFunction<? super M, ? extends V> msgExtractor) {
     return this.graph.getOutputStream(output, keyExtractor, msgExtractor);
   }
 
@@ -145,13 +154,15 @@ public class StreamApplication extends ApplicationBase {
    *
    * @param <K> the type of key in the outgoing message
    * @param <V> the type of message in the outgoing message
-   * @return the output {@link MessageStream}
+   * @param output the {@link StreamDescriptor.Output} to describe the {@code output} object
+   * @param keyExtractor the function to get the key from the message
+   * @return the output {@link OutputStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
   public <K, V> OutputStream<K, V, V> openOutput(
       StreamDescriptor.Output<K, V> output,
-      Function<? super V, ? extends K> keyExtractor) {
-    return this.graph.getOutputStream(output, keyExtractor, Function.identity());
+      MapFunction<? super V, ? extends K> keyExtractor) {
+    return this.graph.getOutputStream(output, keyExtractor, v -> v);
   }
 
   public StreamApplication withDefaultSystem(IOSystem defaultSystem) {

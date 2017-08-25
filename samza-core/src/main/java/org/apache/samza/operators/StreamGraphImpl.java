@@ -18,9 +18,12 @@
  */
 package org.apache.samza.operators;
 
+import java.io.IOException;
 import java.util.HashMap;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.operators.functions.OperatorBiFunction;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
@@ -34,8 +37,6 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -64,7 +65,8 @@ public class StreamGraphImpl implements StreamGraph {
 
   @Override
   public <K, V, M> MessageStream<M> getInputStream(StreamDescriptor.Input<K, V> inputDescriptor,
-                                                   BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
+                                                   OperatorBiFunction<? super K, ? super V, ? extends M> msgBuilder)
+      throws IOException {
 
     if (inputOperators.containsKey(inputDescriptor.getStreamSpec())) {
       throw new IllegalStateException("getInputStream() invoked multiple times "
@@ -79,7 +81,7 @@ public class StreamGraphImpl implements StreamGraph {
 
   @Override
   public <K, V, M> OutputStream<K, V, M> getOutputStream(StreamDescriptor.Output<K, V> outputDescriptor,
-                                                         Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor) {
+                                                         MapFunction<? super M, ? extends K> keyExtractor, MapFunction<? super M, ? extends V> msgExtractor) {
     if (outputStreams.containsKey(outputDescriptor.getStreamSpec())) {
       throw new IllegalStateException("getOutputStream() invoked multiple times "
           + "with the same streamId: " + outputDescriptor.getStreamId());
@@ -107,9 +109,9 @@ public class StreamGraphImpl implements StreamGraph {
    *
    * @param streamName the name of the stream to be created. Will be prefixed with job name and id to generate the
    *                   logical streamId.
-   * @param keyExtractor the {@link Function} to extract the outgoing key from the intermediate message
-   * @param msgExtractor the {@link Function} to extract the outgoing message from the intermediate message
-   * @param msgBuilder the {@link BiFunction} to convert the incoming key and message to a message
+   * @param keyExtractor the {@link MapFunction} to extract the outgoing key from the intermediate message
+   * @param msgExtractor the {@link MapFunction} to extract the outgoing message from the intermediate message
+   * @param msgBuilder the {@link OperatorBiFunction} to convert the incoming key and message to a message
    *                   in the intermediate {@link MessageStream}
    * @param <K> the type of key in the intermediate message
    * @param <V> the type of message in the intermediate message
@@ -117,8 +119,8 @@ public class StreamGraphImpl implements StreamGraph {
    * @return  the intermediate {@link MessageStreamImpl}
    */
   <K, V, M> IntermediateMessageStreamImpl<K, V, M> getIntermediateStream(String streamName,
-      Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor,
-      BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
+      MapFunction<? super M, ? extends K> keyExtractor, MapFunction<? super M, ? extends V> msgExtractor,
+      OperatorBiFunction<? super K, ? super V, ? extends M> msgBuilder) throws IOException {
     String streamId = String.format("%s-%s-%s",
         config.get(JobConfig.JOB_NAME()),
         config.get(JobConfig.JOB_ID(), "1"),
@@ -137,7 +139,7 @@ public class StreamGraphImpl implements StreamGraph {
     }
     inputOperators.put(streamSpec, new InputOperatorSpec<>(streamSpec, msgBuilder, this.getNextOpId()));
     outputStreams.put(streamSpec, new OutputStreamImpl<>(outStrm, keyExtractor, msgExtractor));
-    return new IntermediateMessageStreamImpl<>(this, inputOperators.get(streamSpec), outputStreams.get(streamSpec));
+    return new IntermediateMessageStreamImpl<K, V, M>(this, inputOperators.get(streamSpec), outputStreams.get(streamSpec));
   }
 
   public Map<StreamSpec, InputOperatorSpec> getInputOperators() {
@@ -214,4 +216,5 @@ public class StreamGraphImpl implements StreamGraph {
   public IOGraph toIOGraph() {
     return IOGraph.buildIOGraph(this);
   }
+
 }

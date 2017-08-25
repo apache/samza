@@ -19,8 +19,6 @@
 
 package org.apache.samza.system;
 
-import org.apache.samza.serializers.Serde;
-
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;

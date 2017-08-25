@@ -19,6 +19,7 @@
 package org.apache.samza.operators.impl;
 
 import com.google.common.collect.Lists;
+import java.io.IOException;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.StreamGraphImpl;
@@ -86,8 +87,12 @@ public class OperatorImplGraph {
     this.clock = clock;
     streamGraph.getInputOperators().forEach((streamSpec, inputOpSpec) -> {
         SystemStream systemStream = new SystemStream(streamSpec.getSystemName(), streamSpec.getPhysicalName());
-        InputOperatorImpl inputOperatorImpl =
-            (InputOperatorImpl) createAndRegisterOperatorImpl(null, inputOpSpec, config, context);
+        InputOperatorImpl inputOperatorImpl = null;
+        try {
+          inputOperatorImpl = (InputOperatorImpl) createAndRegisterOperatorImpl(null, inputOpSpec, config, context);
+        } catch (IOException | ClassNotFoundException e) {
+          throw new RuntimeException("Exception in OperatorImplGraph constructor while creating operator impls.", e);
+        }
         this.inputOperators.put(systemStream, inputOperatorImpl);
       });
   }
@@ -128,7 +133,7 @@ public class OperatorImplGraph {
    * @return  the operator implementation for the operatorSpec
    */
   OperatorImpl createAndRegisterOperatorImpl(OperatorSpec prevOperatorSpec, OperatorSpec operatorSpec,
-      Config config, TaskContext context) {
+      Config config, TaskContext context) throws IOException, ClassNotFoundException {
     if (!operatorImpls.containsKey(operatorSpec.getOpName()) || operatorSpec instanceof JoinOperatorSpec) {
       // Either this is the first time we've seen this operatorSpec, or this is a join operator spec
       // and we need to create 2 partial join operator impls for it. Initialize and register the sub-DAG.
@@ -138,7 +143,12 @@ public class OperatorImplGraph {
 
       Collection<OperatorSpec> registeredSpecs = operatorSpec.getRegisteredOperatorSpecs();
       registeredSpecs.forEach(registeredSpec -> {
-          OperatorImpl nextImpl = createAndRegisterOperatorImpl(operatorSpec, registeredSpec, config, context);
+          OperatorImpl nextImpl = null;
+          try {
+            nextImpl = createAndRegisterOperatorImpl(operatorSpec, registeredSpec, config, context);
+          } catch (IOException | ClassNotFoundException e) {
+            throw new RuntimeException("Exception in lambda while creating operator impls.", e);
+          }
           operatorImpl.registerNextOperator(nextImpl);
         });
       return operatorImpl;
@@ -158,19 +168,19 @@ public class OperatorImplGraph {
    * @return  the {@link OperatorImpl} implementation instance
    */
   OperatorImpl createOperatorImpl(OperatorSpec prevOperatorSpec, OperatorSpec operatorSpec,
-      Config config, TaskContext context) {
+      Config config, TaskContext context) throws IOException, ClassNotFoundException {
     if (operatorSpec instanceof InputOperatorSpec) {
-      return new InputOperatorImpl((InputOperatorSpec) operatorSpec);
+      return new InputOperatorImpl(((InputOperatorSpec) operatorSpec).fromBytes());
     } else if (operatorSpec instanceof StreamOperatorSpec) {
-      return new StreamOperatorImpl((StreamOperatorSpec) operatorSpec, config, context);
+      return new StreamOperatorImpl(((StreamOperatorSpec) operatorSpec).fromBytes(), config, context);
     } else if (operatorSpec instanceof SinkOperatorSpec) {
-      return new SinkOperatorImpl((SinkOperatorSpec) operatorSpec, config, context);
+      return new SinkOperatorImpl(((SinkOperatorSpec) operatorSpec).fromBytes(), config, context);
     } else if (operatorSpec instanceof OutputOperatorSpec) {
-      return new OutputOperatorImpl((OutputOperatorSpec) operatorSpec);
+      return new OutputOperatorImpl(((OutputOperatorSpec) operatorSpec).fromBytes());
     } else if (operatorSpec instanceof WindowOperatorSpec) {
-      return new WindowOperatorImpl((WindowOperatorSpec) operatorSpec, clock);
+      return new WindowOperatorImpl(((WindowOperatorSpec) operatorSpec).fromBytes(), clock);
     } else if (operatorSpec instanceof JoinOperatorSpec) {
-      return createPartialJoinOperatorImpl(prevOperatorSpec, (JoinOperatorSpec) operatorSpec, config, context, clock);
+      return createPartialJoinOperatorImpl(prevOperatorSpec, ((JoinOperatorSpec) operatorSpec).fromBytes(), config, context, clock);
     }
     throw new IllegalArgumentException(
         String.format("Unsupported OperatorSpec: %s", operatorSpec.getClass().getName()));

@@ -18,10 +18,14 @@
  */
 package org.apache.samza.operators;
 
+import java.io.IOException;
 import org.apache.samza.annotation.InterfaceStability;
 
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.operators.functions.OperatorBiFunction;
+
 
 /**
  * Provides access to {@link MessageStream}s and {@link OutputStream}s used to describe the processing logic.
@@ -34,22 +38,32 @@ public interface StreamGraph {
    * <p>
    * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
+   * @param <K> the type of the input key
+   * @param <V> the type of the input value
    * @param <M> the type of message in the input {@link MessageStream}
+   * @param inputDescriptor the input stream descriptor
+   * @param msgBuilder the function to construct the input message from the key-value pair
    * @return the input {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
-  <K, V, M> MessageStream<M> getInputStream(StreamDescriptor.Input<K, V> inputDescriptor, BiFunction<? super K, ? super V, ? extends M> msgBuilder);
+  <K, V, M> MessageStream<M> getInputStream(StreamDescriptor.Input<K, V> inputDescriptor, OperatorBiFunction<? super K, ? super V, ? extends M> msgBuilder)
+      throws IOException;
 
   /**
    * Gets the {@link OutputStream} corresponding to the {@code streamId}.
    * <p>
    * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
+   * @param <K> the type of the input key
+   * @param <V> the type of the input value
    * @param <M> the type of message in the {@link OutputStream}
+   * @param outputDescriptor the output stream descriptor
+   * @param keyExtractor the function to extract the key from the message
+   * @param msgExtractor the function to extract the value from the message
    * @return the output {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
-  <K, V, M> OutputStream<K, V, M> getOutputStream(StreamDescriptor.Output<K, V> outputDescriptor, Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor);
+  <K, V, M> OutputStream<K, V, M> getOutputStream(StreamDescriptor.Output<K, V> outputDescriptor, MapFunction<? super M, ? extends K> keyExtractor, MapFunction<? super M, ? extends V> msgExtractor);
 
   /**
    * Sets the {@link ContextManager} for this {@link StreamGraph}.
@@ -58,7 +72,6 @@ public interface StreamGraph {
    * within a task instance
    *
    * @param contextManager the {@link ContextManager} to use for the {@link StreamGraph}
-   * @return the {@link StreamGraph} with {@code contextManager} set as its {@link ContextManager}
    */
   void setContextManager(ContextManager contextManager);
 

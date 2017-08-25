@@ -32,4 +32,8 @@ public class StreamApplicationInternal {
   public StreamGraphImpl getStreamGraphImpl() {
     return (StreamGraphImpl) this.app.graph;
   }
+
+  public StreamApplication getUserApp() {
+    return this.app;
+  }
 }

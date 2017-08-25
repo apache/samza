@@ -21,6 +21,7 @@
 package org.apache.samza.operators.impl;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.triggers.FiringType;
@@ -170,7 +171,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
    * Get the key to be used for lookups in the store for this message.
    */
   private WindowKey<WK> getStoreKey(M message) {
-    Function<M, WK> keyExtractor = window.getKeyExtractor();
+    MapFunction<M, WK> keyExtractor = window.getKeyExtractor();
     WK key = null;
 
     if (keyExtractor != null) {

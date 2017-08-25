@@ -18,6 +18,9 @@
  */
 package org.apache.samza.operators.impl;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.util.Set;
 import org.apache.samza.config.Config;
 import org.apache.samza.metrics.Counter;
@@ -45,7 +48,7 @@ import static org.mockito.Mockito.when;
 public class TestOperatorImpl {
 
   @Test(expected = IllegalStateException.class)
-  public void testMultipleInitShouldThrow() {
+  public void testMultipleInitShouldThrow() throws IOException {
     OperatorImpl<Object, Object> opImpl = new TestOpImpl(mock(Object.class));
     TaskContext mockTaskContext = mock(TaskContext.class);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
@@ -54,13 +57,13 @@ public class TestOperatorImpl {
   }
 
   @Test(expected = IllegalStateException.class)
-  public void testRegisterNextOperatorBeforeInitShouldThrow() {
+  public void testRegisterNextOperatorBeforeInitShouldThrow() throws IOException {
     OperatorImpl<Object, Object> opImpl = new TestOpImpl(mock(Object.class));
     opImpl.registerNextOperator(mock(OperatorImpl.class));
   }
 
   @Test
-  public void testOnMessagePropagatesResults() {
+  public void testOnMessagePropagatesResults() throws IOException {
     TaskContext mockTaskContext = mock(TaskContext.class);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
 
@@ -92,7 +95,7 @@ public class TestOperatorImpl {
   }
 
   @Test
-  public void testOnMessageUpdatesMetrics() {
+  public void testOnMessageUpdatesMetrics() throws IOException {
     TaskContext mockTaskContext = mock(TaskContext.class);
     MetricsRegistry mockMetricsRegistry = mock(MetricsRegistry.class);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(mockMetricsRegistry);
@@ -116,7 +119,7 @@ public class TestOperatorImpl {
   }
 
   @Test
-  public void testOnTimerPropagatesResultsAndTimer() {
+  public void testOnTimerPropagatesResultsAndTimer() throws IOException {
     TaskContext mockTaskContext = mock(TaskContext.class);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
 
@@ -152,7 +155,7 @@ public class TestOperatorImpl {
   }
 
   @Test
-  public void testOnTimerUpdatesMetrics() {
+  public void testOnTimerUpdatesMetrics() throws IOException {
     TaskContext mockTaskContext = mock(TaskContext.class);
     MetricsRegistry mockMetricsRegistry = mock(MetricsRegistry.class);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(mockMetricsRegistry);
@@ -179,7 +182,7 @@ public class TestOperatorImpl {
     private final Object mockOutput;
     private final TestOpSpec testOpSpec;
 
-    TestOpImpl(Object mockOutput) {
+    TestOpImpl(Object mockOutput) throws IOException {
       this.mockOutput = mockOutput;
       this.testOpSpec = new TestOpSpec();
     }
@@ -207,8 +210,20 @@ public class TestOperatorImpl {
   }
 
   private static class TestOpSpec extends OperatorSpec<Object, Object> {
-    TestOpSpec() {
+    TestOpSpec() throws IOException {
      super(OpCode.INPUT, 1);
+    }
+
+    @Override
+    protected byte[] toBytes() throws IOException {
+      ByteArrayOutputStream bStream = new ByteArrayOutputStream();
+      ObjectOutputStream outputStream = new ObjectOutputStream(bStream);
+      outputStream.writeObject(this);
+      return bStream.toByteArray();
+    }
+
+    protected TestOpSpec fromBytes() throws IOException, ClassNotFoundException {
+      return (TestOpSpec) super.fromBytes();
     }
   }
 

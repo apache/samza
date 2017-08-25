@@ -28,14 +28,12 @@ import org.apache.samza.runtime.ApplicationRunner;
 
 public class TaskApplication<T> extends ApplicationBase {
   final T taskFactory;
-  final Config config;
   private final List<StreamDescriptor.Input> taskInputs = new ArrayList<>();
   private final List<StreamDescriptor.Output> taskOutputs = new ArrayList<>();
 
   TaskApplication(T taskFactory, ApplicationRunner runner, Config config) {
-    super(runner);
+    super(runner, config);
     this.taskFactory = taskFactory;
-    this.config = config;
   }
 
   public TaskApplication<T> addInputs(List<StreamDescriptor.Input> inputs) {

@@ -19,6 +19,7 @@
 
 package org.apache.samza.operators.spec;
 
+import java.io.IOException;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.internal.WindowInternal;
@@ -30,7 +31,7 @@ import java.time.Duration;
 
 public class TestWindowOperatorSpec {
   @Test
-  public void testTriggerIntervalWithNestedTimeTriggers() {
+  public void testTriggerIntervalWithNestedTimeTriggers() throws IOException {
     Trigger defaultTrigger = Triggers.timeSinceFirstMessage(Duration.ofMillis(150));
     Trigger lateTrigger = Triggers.any(Triggers.count(6), Triggers.timeSinceFirstMessage(Duration.ofMillis(15)));
     Trigger earlyTrigger = Triggers.repeat(
@@ -50,7 +51,7 @@ public class TestWindowOperatorSpec {
   }
 
   @Test
-  public void testTriggerIntervalWithSingleTimeTrigger() {
+  public void testTriggerIntervalWithSingleTimeTrigger() throws IOException {
     Trigger defaultTrigger = Triggers.timeSinceFirstMessage(Duration.ofMillis(150));
     Trigger earlyTrigger = Triggers.repeat(Triggers.count(5));
 

@@ -19,6 +19,7 @@
 package org.apache.samza.operators;
 
 import com.google.common.collect.ImmutableList;
+import java.io.IOException;
 import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.data.TestOutputMessageEnvelope;
 import org.apache.samza.operators.functions.FilterFunction;
@@ -26,7 +27,9 @@ import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.operators.functions.OperatorBiFunction;
 import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.operators.functions.SupplierFunction;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec.OpCode;
@@ -45,9 +48,6 @@ import org.mockito.ArgumentCaptor;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -186,15 +186,15 @@ public class TestMessageStreamImpl {
   }
 
   @Test
-  public void testPartitionBy() {
+  public void testPartitionBy() throws IOException {
     StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
 
     String streamName = String.format("%s-%s", OperatorSpec.OpCode.PARTITION_BY.name().toLowerCase(), 0);
-    Function<TestMessageEnvelope, String> mockKeyFn = mock(Function.class);
+    MapFunction<TestMessageEnvelope, String> mockKeyFn = mock(MapFunction.class);
     OutputStreamImpl mockOutputOpSpec = mock(OutputStreamImpl.class);
     IntermediateMessageStreamImpl mockIntermediateStream = mock(IntermediateMessageStreamImpl.class);
-    when(mockGraph.getIntermediateStream(eq(streamName), eq(mockKeyFn), any(Function.class), any(BiFunction.class)))
+    when(mockGraph.getIntermediateStream(eq(streamName), eq(mockKeyFn), any(MapFunction.class), any(OperatorBiFunction.class)))
         .thenReturn(mockIntermediateStream);
     when(mockIntermediateStream.getOutputStream())
         .thenReturn(mockOutputOpSpec);
@@ -217,9 +217,9 @@ public class TestMessageStreamImpl {
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
     MessageStream<TestInputMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
 
-    Function<TestMessageEnvelope, String> keyExtractor = m -> m.getKey();
+    MapFunction<TestMessageEnvelope, String> keyExtractor = m -> m.getKey();
     FoldLeftFunction<TestMessageEnvelope, Integer> aggregator = (m, c) -> c + 1;
-    Supplier<Integer> initialValue = () -> 0;
+    SupplierFunction<Integer> initialValue = () -> 0;
 
     // should compile since TestMessageEnvelope (input for functions) is base class of TestInputMessageEnvelope (M)
     Window<TestInputMessageEnvelope, String, Integer> window = Windows

@@ -21,10 +21,8 @@ package org.apache.samza.runtime;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationBase;
-import org.apache.samza.application.AsyncStreamTaskApplication;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplicationInternal;
-import org.apache.samza.application.StreamTaskApplication;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.application.TaskApplicationInternal;
 import org.apache.samza.config.Config;
@@ -56,7 +54,7 @@ public class RemoteApplicationRunner extends ApplicationRunnerBase {
   }
 
   @Override
-  protected ApplicationRuntimeInstance getRuntimeInstance(ApplicationBase streamApp) {
+  ApplicationRuntimeInstance createRuntimeInstance(ApplicationBase streamApp) {
     if (streamApp instanceof StreamApplication) {
       return new StreamAppRuntime(new StreamApplicationInternal((StreamApplication) streamApp));
     }
@@ -69,7 +67,7 @@ public class RemoteApplicationRunner extends ApplicationRunnerBase {
   }
 
   public void waitForFinish() {
-    // TODO: add life cycle listner and the corresponding wait listner for local process to shutdown
+    throw new UnsupportedOperationException("waitForFinish is not supported in RemoteApplicationRunner");
   }
 
   private class StreamTaskAppRuntime implements ApplicationRuntimeInstance {
@@ -81,22 +79,28 @@ public class RemoteApplicationRunner extends ApplicationRunnerBase {
 
     @Override
     public void run() {
-
+      // TODO: take the task factory and config to invoke a jobRunner.run()
     }
 
     @Override
     public void kill() {
-
+      // TODO: take the task factory and config to invoke jobRunner.kill()
     }
 
     @Override
     public ApplicationStatus status() {
+      // TODO: take the task factory and config to get jobRunner.status()
       return null;
     }
 
     @Override
     public void waitForFinish() {
+      RemoteApplicationRunner.this.waitForFinish();
+    }
 
+    @Override
+    public ApplicationBase getUserApp() {
+      return this.app.getUserApp();
     }
   }
 
@@ -123,10 +127,10 @@ public class RemoteApplicationRunner extends ApplicationRunnerBase {
 
         // 3. submit jobs for remote execution
         plan.getJobConfigs().forEach(jobConfig -> {
-          LOG.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
-          JobRunner runner = new JobRunner(jobConfig);
-          runner.run(true);
-        });
+            LOG.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
+            JobRunner runner = new JobRunner(jobConfig);
+            runner.run(true);
+          });
       } catch (Throwable t) {
         throw new SamzaException("Failed to run application", t);
       }
@@ -142,10 +146,10 @@ public class RemoteApplicationRunner extends ApplicationRunnerBase {
         ExecutionPlan plan = getExecutionPlan(app);
 
         plan.getJobConfigs().forEach(jobConfig -> {
-          LOG.info("Killing job {}", jobConfig.getName());
-          JobRunner runner = new JobRunner(jobConfig);
-          runner.kill();
-        });
+            LOG.info("Killing job {}", jobConfig.getName());
+            JobRunner runner = new JobRunner(jobConfig);
+            runner.kill();
+          });
       } catch (Throwable t) {
         throw new SamzaException("Failed to kill application", t);
       }
@@ -201,7 +205,12 @@ public class RemoteApplicationRunner extends ApplicationRunnerBase {
 
     @Override
     public void waitForFinish() {
+      RemoteApplicationRunner.this.waitForFinish();
+    }
 
+    @Override
+    public ApplicationBase getUserApp() {
+      return this.app.getUserApp();
     }
   }
 }

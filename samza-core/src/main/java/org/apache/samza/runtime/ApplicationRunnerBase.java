@@ -23,14 +23,8 @@ import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.application.ApplicationBase;
-import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationInternal;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.ShellCommandConfig;
-import org.apache.samza.execution.ExecutionPlan;
-import org.apache.samza.execution.ExecutionPlanner;
-import org.apache.samza.execution.StreamManager;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.operators.StreamGraph;
@@ -47,6 +41,7 @@ public abstract class ApplicationRunnerBase implements ApplicationRunner {
 
   protected final Config config;
   protected final Map<String, MetricsReporter> metricsReporters = new HashMap<>();
+  private ApplicationRuntimeInstance appInstance = null;
 
   public ApplicationRunnerBase(Config config) {
     this.config = config;
@@ -62,9 +57,21 @@ public abstract class ApplicationRunnerBase implements ApplicationRunner {
     void kill();
     ApplicationStatus status();
     void waitForFinish();
+    ApplicationBase getUserApp();
   }
 
-  abstract ApplicationRuntimeInstance getRuntimeInstance(ApplicationBase app);
+  private ApplicationRuntimeInstance getRuntimeInstance(ApplicationBase app) {
+    if (this.appInstance != null && this.appInstance.getUserApp() == app) {
+      return this.appInstance;
+    }
+    if (this.appInstance != null) {
+      throw new IllegalStateException("There is an active user application running by this ApplicationRunner. Can't accept another user application now.");
+    }
+    this.appInstance = createRuntimeInstance(app);
+    return this.appInstance;
+  }
+
+  abstract ApplicationRuntimeInstance createRuntimeInstance(ApplicationBase app);
 
   /**
    * Write the execution plan JSON to a file

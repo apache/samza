@@ -103,7 +103,7 @@ public class StreamDescriptor {
 
   }
 
-  public static class Output<K, V> extends StreamIO<K, V>{
+  public static class Output<K, V> extends StreamIO<K, V> {
 
     private Output(String streamId) {
       super(streamId, null, null, null);
