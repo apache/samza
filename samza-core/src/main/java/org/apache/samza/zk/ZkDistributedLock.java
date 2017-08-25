@@ -49,7 +49,7 @@ public class ZkDistributedLock implements DistributedLockWithState {
     this.keyBuilder = zkUtils.getKeyBuilder();
     lockPath = String.format("%s/stateLock_%s", keyBuilder.getRootPath(), lockId);
     statePath = String.format("%s/%s_%s", lockPath, STATE_INITED, lockId);
-    zkUtils.makeSurePersistentPathsExists(new String[] {lockPath});
+    zkUtils.validatePaths(new String[] {lockPath});
   }
 
   /**
@@ -104,7 +104,7 @@ public class ZkDistributedLock implements DistributedLockWithState {
   @Override
   public void unlockAndSet() {
     // set state
-    zkUtils.getZkClient().createPersistent(statePath);
+    zkUtils.getZkClient().createPersistent(statePath, true);
 
     if (nodePath != null) {
       zkUtils.getZkClient().delete(nodePath);
