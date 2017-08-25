@@ -29,7 +29,6 @@ Let's get started by cloning the hello-samza project
 {% highlight bash %}
 git clone https://git.apache.org/samza-hello-samza.git hello-samza
 cd hello-samza
-git checkout latest
 {% endhighlight %}
 
 The project comes up with numerous examples and for this tutorial, we will pick the Wikipedia application.
@@ -59,7 +58,7 @@ With the environment setup complete, let us move on to building the hello-samza 
 {% highlight bash %}
 mvn clean package
 mkdir -p deploy/samza
-tar -xvf ./target/hello-samza-0.13.1-SNAPSHOT-dist.tar.gz -C deploy/samza
+tar -xvf ./target/hello-samza-0.13.1-dist.tar.gz -C deploy/samza
 {% endhighlight %}
 
 We are now all set to deploy the application locally.
