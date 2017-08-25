@@ -33,7 +33,6 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.CoordinationUtilsFactory;
-import org.apache.samza.coordinator.CoordinationUtilsFactoryAbstract;
 import org.apache.samza.coordinator.DistributedLockWithState;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.execution.ExecutionPlanner;
@@ -59,7 +58,7 @@ import static org.powermock.api.mockito.PowerMockito.mockStatic;
 
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest(CoordinationUtilsFactoryAbstract.class)
+@PrepareForTest(CoordinationUtilsFactory.class)
 public class TestLocalApplicationRunner {
 
   private static final String PLAN_JSON = "{"
@@ -115,9 +114,9 @@ public class TestLocalApplicationRunner {
     };
     when(planner.plan(anyObject())).thenReturn(plan);
 
-    mockStatic(CoordinationUtilsFactoryAbstract.class);
-    CoordinationUtilsFactoryAbstract coordinationUtilsFactory = mock(CoordinationUtilsFactoryAbstract.class);
-    when(coordinationUtilsFactory.getCoordinationUtilsFactory(anyObject())).thenReturn(coordinationUtilsFactory);
+    mockStatic(CoordinationUtilsFactory.class);
+    CoordinationUtilsFactory coordinationUtilsFactory = mock(CoordinationUtilsFactory.class);
+    when(CoordinationUtilsFactory.getCoordinationUtilsFactory(anyObject())).thenReturn(coordinationUtilsFactory);
 
     LocalApplicationRunner spy = spy(runner);
     try {
@@ -172,18 +171,13 @@ public class TestLocalApplicationRunner {
     LocalApplicationRunner spy = spy(runner);
 
     CoordinationUtils coordinationUtils = mock(CoordinationUtils.class);
-    mockStatic(CoordinationUtilsFactoryAbstract.class);
-    CoordinationUtilsFactoryAbstract coordinationUtilsFactory = mock(CoordinationUtilsFactoryAbstract.class);
-    when(CoordinationUtilsFactoryAbstract.getCoordinationUtilsFactory(anyObject())).thenReturn(coordinationUtilsFactory);
-
-//    when(coordinationUtils.getLeaderElector()).thenReturn(leaderElector);
-//    when(coordinationUtils.getLatch(anyInt(), anyString())).thenReturn(latch);
+    CoordinationUtilsFactory coordinationUtilsFactory = mock(CoordinationUtilsFactory.class);
+    mockStatic(CoordinationUtilsFactory.class);
+    when(CoordinationUtilsFactory.getCoordinationUtilsFactory(anyObject())).thenReturn(coordinationUtilsFactory);
 
     DistributedLockWithState lock = mock(DistributedLockWithState.class);
     when(lock.lockIfNotSet(anyLong(), anyObject())).thenReturn(true);
-    //when(lock.lockIfNotSet(anyLong(), anyObject())).thenReturn(false);
     when(coordinationUtils.getLockWithState(anyString())).thenReturn(lock);
-    //when(lock.unlockAndSet()).thenReturn(null);
     when(coordinationUtilsFactory.getCoordinationUtils(anyString(), anyString(), anyObject())).thenReturn(
         coordinationUtils);
 

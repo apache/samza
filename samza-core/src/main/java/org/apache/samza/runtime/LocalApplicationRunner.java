@@ -37,7 +37,6 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.CoordinationUtilsFactory;
-import org.apache.samza.coordinator.CoordinationUtilsFactoryAbstract;
 import org.apache.samza.coordinator.DistributedLockWithState;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.execution.ExecutionPlan;
@@ -225,7 +224,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     // Refer SAMZA-1385 for more details
     String coordinationId = new ApplicationConfig(config).getGlobalAppId() + APPLICATION_RUNNER_ZK_PATH_SUFFIX;
     CoordinationUtils coordinationUtils =
-        CoordinationUtilsFactoryAbstract.getCoordinationUtilsFactory(config).getCoordinationUtils(coordinationId, uid, config);
+        CoordinationUtilsFactory.getCoordinationUtilsFactory(config).getCoordinationUtils(coordinationId, uid, config);
     System.out.println(" create streams." + uid);
     if (coordinationUtils == null) {
       // each application process will try creating the streams, which
@@ -236,7 +235,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     }
 
     DistributedLockWithState lockWithState = coordinationUtils.getLockWithState(planId);
-    System.out.println("Init NEEDED for streams" + uid );
+    System.out.println("Init NEEDED for streams" + uid);
     try {
       // check if the processor needs to go through leader election and stream creation
       if (lockWithState.lockIfNotSet(1000, TimeUnit.MILLISECONDS)) {
