@@ -47,8 +47,8 @@ public class ZkProcessorLatch implements Latch {
     ZkKeyBuilder keyBuilder = this.zkUtils.getKeyBuilder();
 
     latchPath = String.format("%s/%s", keyBuilder.getRootPath(), LATCH_PATH + "_" + latchId);
-    // TODO: Verify that makeSurePersistentPathsExists doesn't fail with exceptions
-    zkUtils.makeSurePersistentPathsExists(new String[] {latchPath});
+    // TODO: Verify that validatePaths doesn't fail with exceptions
+    zkUtils.validatePaths(new String[] {latchPath});
     targetPath =  String.format("%s/%010d", latchPath, size - 1);
 
     LOG.debug("ZkProcessorLatch targetPath " + targetPath);
