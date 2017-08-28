@@ -291,7 +291,7 @@ class KafkaProducerConfig(val systemName: String,
   //Overrides specific to samza-kafka (these are considered as defaults in Samza & can be overridden by user
   val MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT: java.lang.Integer = 1.asInstanceOf[Integer]
   val RETRIES_DEFAULT: java.lang.Integer = 10
-  val LINGER_DEFAULT: java.lang.Integer = 20
+  val LINGER_MS_DEFAULT: java.lang.Integer = 20
 
   def getProducerProperties = {
 
@@ -324,8 +324,8 @@ class KafkaProducerConfig(val systemName: String,
     producerProperties.get(ProducerConfig.RETRIES_CONFIG).toString.toInt // Verify int
 
     if (!producerProperties.containsKey(ProducerConfig.LINGER_MS_CONFIG)) {
-      debug("%s undefined. Defaulting to %s." format(ProducerConfig.LINGER_MS_CONFIG, LINGER_DEFAULT))
-      producerProperties.put(ProducerConfig.LINGER_MS_CONFIG, LINGER_DEFAULT)
+      debug("%s undefined. Defaulting to %s." format(ProducerConfig.LINGER_MS_CONFIG, LINGER_MS_DEFAULT))
+      producerProperties.put(ProducerConfig.LINGER_MS_CONFIG, LINGER_MS_DEFAULT)
     }
     producerProperties.get(ProducerConfig.LINGER_MS_CONFIG).toString.toInt // Verify int
 

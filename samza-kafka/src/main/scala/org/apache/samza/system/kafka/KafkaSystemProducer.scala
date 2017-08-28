@@ -21,13 +21,22 @@ package org.apache.samza.system.kafka
 
 
 import java.util.concurrent.atomic.AtomicReference
-import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
-import org.apache.kafka.clients.producer.{Callback, Producer, ProducerRecord, RecordMetadata}
+import org.apache.kafka.clients.producer.Callback
+import org.apache.kafka.clients.producer.Producer
+import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.clients.producer.RecordMetadata
 import org.apache.kafka.common.PartitionInfo
 import org.apache.kafka.common.errors.SerializationException
-import org.apache.samza.system.{OutgoingMessageEnvelope, SystemProducer, SystemProducerException}
-import org.apache.samza.util.{ExponentialSleepStrategy, KafkaUtil, Logging, TimerUtils}
+import org.apache.samza.system.OutgoingMessageEnvelope
+import org.apache.samza.system.SystemProducer
+import org.apache.samza.system.SystemProducerException
+import org.apache.samza.util.ExponentialSleepStrategy
+import org.apache.samza.util.KafkaUtil
+import org.apache.samza.util.Logging
+import org.apache.samza.util.TimerUtils
 
 import scala.collection.JavaConverters._
 
@@ -76,7 +85,7 @@ class KafkaSystemProducer(systemName: String,
         }
       }
     } catch {
-      case e: Exception => error(e.getMessage, e)
+      case e: Exception => error("Error while closing producer for system: " + systemName, e)
     }
   }
 

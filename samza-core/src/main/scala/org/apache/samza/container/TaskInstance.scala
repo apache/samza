@@ -26,7 +26,16 @@ import org.apache.samza.config.Config
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system.{IncomingMessageEnvelope, SystemAdmin, SystemConsumers, SystemStreamPartition}
-import org.apache.samza.task._
+import org.apache.samza.task.AsyncStreamTask
+import org.apache.samza.task.ClosableTask
+import org.apache.samza.task.EndOfStreamListenerTask
+import org.apache.samza.task.InitableTask
+import org.apache.samza.task.ReadableCoordinator
+import org.apache.samza.task.StreamTask
+import org.apache.samza.task.TaskCallbackFactory
+import org.apache.samza.task.TaskContext
+import org.apache.samza.task.TaskInstanceCollector
+import org.apache.samza.task.WindowableTask
 import org.apache.samza.util.Logging
 
 import scala.collection.JavaConverters._
