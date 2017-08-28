@@ -251,12 +251,13 @@ public class TestLocalApplicationRunner {
     ArgumentCaptor<StreamProcessorLifecycleListener> captor =
         ArgumentCaptor.forClass(StreamProcessorLifecycleListener.class);
 
-    doAnswer(i -> {
-      StreamProcessorLifecycleListener listener = captor.getValue();
-      listener.onStart();
-      listener.onShutdown();
-      return null;
-    }).when(sp).start();
+    doAnswer(i ->
+      {
+        StreamProcessorLifecycleListener listener = captor.getValue();
+        listener.onStart();
+        listener.onShutdown();
+        return null;
+      }).when(sp).start();
 
     LocalApplicationRunner spy = spy(runner);
     doReturn(sp).when(spy).createStreamProcessor(anyObject(), anyObject(), captor.capture());
@@ -303,12 +304,13 @@ public class TestLocalApplicationRunner {
     ArgumentCaptor<StreamProcessorLifecycleListener> captor =
         ArgumentCaptor.forClass(StreamProcessorLifecycleListener.class);
 
-    doAnswer(i -> {
-      StreamProcessorLifecycleListener listener = captor.getValue();
-      listener.onStart();
-      listener.onShutdown();
-      return null;
-    }).when(sp).start();
+    doAnswer(i ->
+      {
+        StreamProcessorLifecycleListener listener = captor.getValue();
+        listener.onStart();
+        listener.onShutdown();
+        return null;
+      }).when(sp).start();
 
     LocalApplicationRunner spy = spy(runner);
     doReturn(sp).when(spy).createStreamProcessor(anyObject(), anyObject(), captor.capture());
@@ -356,11 +358,12 @@ public class TestLocalApplicationRunner {
     ArgumentCaptor<StreamProcessorLifecycleListener> captor =
         ArgumentCaptor.forClass(StreamProcessorLifecycleListener.class);
 
-    doAnswer(i -> {
-      StreamProcessorLifecycleListener listener = captor.getValue();
-      listener.onFailure(t);
-      return null;
-    }).when(sp).start();
+    doAnswer(i ->
+      {
+        StreamProcessorLifecycleListener listener = captor.getValue();
+        listener.onFailure(t);
+        return null;
+      }).when(sp).start();
 
     LocalApplicationRunner spy = spy(runner);
     doReturn(sp).when(spy).createStreamProcessor(anyObject(), anyObject(), captor.capture());
