@@ -518,7 +518,7 @@ class KafkaSystemAdmin(
     */
   override def validateChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {
     validateStream(new KafkaStreamSpec(CHANGELOG_STREAMID, topicName, systemName, numKafkaChangelogPartitions))
-  }
+  } 
 
   /**
    * Compare the two offsets. Returns x where x < 0 if offset1 < offset2;

@@ -36,9 +36,9 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfig;
+import org.apache.samza.coordinator.CoordinationServiceFactory;
 import org.apache.samza.coordinator.CoordinationUtils;
-import org.apache.samza.coordinator.Latch;
-import org.apache.samza.coordinator.LeaderElector;
+import org.apache.samza.coordinator.DistributedLock;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.processor.StreamProcessor;
@@ -47,8 +47,7 @@ import org.apache.samza.system.StreamSpec;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
-import org.apache.samza.zk.ZkCoordinationServiceFactory;
-import org.apache.samza.zk.ZkJobCoordinatorFactory;
+import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,9 +58,10 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
   private static final Logger LOG = LoggerFactory.getLogger(LocalApplicationRunner.class);
   private static final String APPLICATION_RUNNER_ZK_PATH_SUFFIX = "/ApplicationRunnerData";
-  // Latch timeout is set to 10 min
-  private static final long LATCH_TIMEOUT_MINUTES = 10;
-  private static final long LEADER_ELECTION_WAIT_TIME_MS = 1000;
+  // Lock timeout is set to 10 seconds here, as we don't want to introduce a new config value currently.
+  private static final long LOCK_TIMEOUT_SECONDS = 10;
+  private static final String ZK_COORDINATION_CLASS = "org.apache.samza.zk.ZkJobCoordinatorFactory";
+  private static final String ZK_COORDINATION_SERVICE_CLASS = "org.apache.samza.zk.ZkCoordinationServiceFactory";
 
   private final String uid;
   private final Set<StreamProcessor> processors = ConcurrentHashMap.newKeySet();
@@ -214,9 +214,9 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     String jobCoordinatorFactoryClassName = config.get(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "");
 
     // TODO: we will need a better way to package the configs with application runner
-    if (ZkJobCoordinatorFactory.class.getName().equals(jobCoordinatorFactoryClassName)) {
+    if (ZK_COORDINATION_CLASS.equals(jobCoordinatorFactoryClassName)) {
       ApplicationConfig appConfig = new ApplicationConfig(config);
-      return new ZkCoordinationServiceFactory().getCoordinationService(
+      return Util.<CoordinationServiceFactory>getObj(ZK_COORDINATION_SERVICE_CLASS).getCoordinationService(
           appConfig.getGlobalAppId() + APPLICATION_RUNNER_ZK_PATH_SUFFIX, uid, config);
     } else {
       return null;
@@ -225,31 +225,28 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
   /**
    * Create intermediate streams using {@link org.apache.samza.execution.StreamManager}.
-   * If {@link CoordinationUtils} is provided, this function will first invoke leader election, and the leader
-   * will create the streams. All the runner processes will wait on the latch that is released after the leader finishes
-   * stream creation.
+   * If {@link CoordinationUtils} is provided, this function will first acquire a lock, and then create the streams.
+   * All the runner processes will either wait till the time they acquire the lock, or timeout after the specified time.
+   * After stream creation, they will unlock and proceed normally.
    * @param planId a unique identifier representing the plan used for coordination purpose
    * @param intStreams list of intermediate {@link StreamSpec}s
-   * @throws TimeoutException exception for latch timeout
+   * @throws TimeoutException exception for lock timeout
    */
-  /* package private */ void createStreams(String planId, List<StreamSpec> intStreams) throws TimeoutException {
+   /* package private */ void createStreams(String planId, List<StreamSpec> intStreams) throws TimeoutException {
     if (!intStreams.isEmpty()) {
       // Move the scope of coordination utils within stream creation to address long idle connection problem.
       // Refer SAMZA-1385 for more details
       CoordinationUtils coordinationUtils = createCoordinationUtils();
       if (coordinationUtils != null) {
-        Latch initLatch = coordinationUtils.getLatch(1, planId);
-
+        DistributedLock initLock = coordinationUtils.getLock(planId);
         try {
-          // check if the processor needs to go through leader election and stream creation
-          if (shouldContestInElectionForStreamCreation(initLatch)) {
-            LeaderElector leaderElector = coordinationUtils.getLeaderElector();
-            leaderElector.setLeaderElectorListener(() -> {
-                getStreamManager().createStreams(intStreams);
-                initLatch.countDown();
-              });
-            leaderElector.tryBecomeLeader();
-            initLatch.await(LATCH_TIMEOUT_MINUTES, TimeUnit.MINUTES);
+          boolean hasLock = initLock.lock(LOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+          if (hasLock) {
+            getStreamManager().createStreams(intStreams);
+            LOG.info("Created intermediate streams. Unlocking now...");
+            initLock.unlock();
+          } else {
+            LOG.error("Timed out while trying to acquire lock.", new TimeoutException());
           }
         } finally {
           coordinationUtils.reset();
@@ -284,32 +281,5 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       throw new SamzaException(String.format("%s is not a valid task factory",
           taskFactory.getClass().getCanonicalName()));
     }
-  }
-
-  /**
-   * In order to fix SAMZA-1385, we are limiting the scope of coordination util within stream creation phase and destroying
-   * the coordination util right after. By closing the zk connection, we clean up the ephemeral node used for leader election.
-   * It creates the following issues whenever a new process joins after the ephemeral node is gone.
-   *    1. It is unnecessary to re-conduct leader election for stream creation in the same application lifecycle
-   *    2. Underlying systems may not support check for stream existence prior to creation which could have potential problems.
-   * As in interim solution, we reuse the same latch as a marker to determine if create streams phase is done for the
-   * application lifecycle using {@link Latch#await(long, TimeUnit)}
-   *
-   * @param streamCreationLatch latch used for stream creation
-   * @return true if processor needs to be part of election
-   *         false otherwise
-   */
-  private boolean shouldContestInElectionForStreamCreation(Latch streamCreationLatch) {
-    boolean eligibleForElection = true;
-
-    try {
-      streamCreationLatch.await(LEADER_ELECTION_WAIT_TIME_MS, TimeUnit.MILLISECONDS);
-      // case we didn't time out suggesting that latch already exists
-      eligibleForElection = false;
-    } catch (TimeoutException e) {
-      LOG.info("Timed out waiting for the latch! Going to enter leader election section to create streams");
-    }
-
-    return eligibleForElection;
   }
 }
