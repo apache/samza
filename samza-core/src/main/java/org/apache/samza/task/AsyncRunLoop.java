@@ -443,6 +443,20 @@ public class AsyncRunLoop implements Runnable, Throttleable {
             long startTime = clock.nanoTime();
             task.window(coordinator);
             containerMetrics.windowNs().update(clock.nanoTime() - startTime);
+
+            // A window() that executes for more than task.window.ms, will starve the next process() call
+            // when the application has job.thread.pool.size > 1. This is due to prioritizing window() ahead of process()
+            // to guarantee window() will fire close to its trigger interval time.
+            // We warn the users if the average window execution time is greater than equals to window trigger interval.
+            long lowerBoundForWindowTriggerTimeInMs = TimeUnit.NANOSECONDS
+                .toMillis((long) containerMetrics.windowNs().getSnapshot().getAverage());
+            if (windowMs <= lowerBoundForWindowTriggerTimeInMs) {
+              log.warn(
+                  "window() call might potentially starve process calls."
+                      + " Consider setting task.window.ms > {} ms",
+                  lowerBoundForWindowTriggerTimeInMs);
+            }
+
             coordinatorRequests.update(coordinator);
 
             state.doneWindow();
