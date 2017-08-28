@@ -35,4 +35,9 @@ public interface CoordinationUtils {
   LeaderElector getLeaderElector(); // leaderElector is unique based on the groupId
 
   Latch getLatch(int size, String latchId);
+
+  /**
+   * performs necessary cleanup and closes ALL the utils.
+   */
+  void close();
 }

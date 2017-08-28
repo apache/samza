@@ -49,6 +49,11 @@ public class ZkCoordinationUtils implements CoordinationUtils {
     return new ZkProcessorLatch(size, latchId, processorIdStr, zkUtils);
   }
 
+  @Override
+  public void close() {
+
+  }
+
   // TODO - SAMZA-1128 CoordinationService should directly depend on ZkUtils and DebounceTimer
   public ZkUtils getZkUtils() {
     return zkUtils;

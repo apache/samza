@@ -234,11 +234,10 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
               });
             leaderElector.tryBecomeLeader();
             initLatch.await(LATCH_TIMEOUT_MINUTES, TimeUnit.MINUTES);
-            leaderElector.close(); // at this point should be safe to remove the leader, because the latch exists.
           }
         } finally {
           if (initLatch != null)
-            initLatch.close();
+            coordinationUtils.close();
         }
       } else {
         // each application process will try creating the streams, which

@@ -45,6 +45,11 @@ public class AzureCoordinationUtils implements CoordinationUtils {
     return null;
   }
 
+  @Override
+  public void close() {
+
+  }
+
   public DistributedLock getLock(String initLockName) {
     BlobUtils blob = new BlobUtils(client, azureConfig.getAzureContainerName(),
         azureConfig.getAzureBlobName() + initLockName, azureConfig.getAzureBlobLength());
