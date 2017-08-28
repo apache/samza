@@ -371,7 +371,8 @@ public class TestLocalApplicationRunner {
         new StreamSpec("test-stream-1", "stream-1", "testStream"),
         new StreamSpec("test-stream-3", "stream-3", "testStream"));
 
-    assertFalse("Expected both of the latch ids to be different", planIdBeforeShuffle.equals(getExecutionPlanId(shuffledStreamSpecs)));
+    assertFalse("Expected both of the latch ids to be different",
+        planIdBeforeShuffle.equals(getExecutionPlanId(shuffledStreamSpecs)));
   }
 
   /**
@@ -408,7 +409,8 @@ public class TestLocalApplicationRunner {
         new StreamSpec("test-stream-4", "stream-4", "testStream"),
         new StreamSpec("test-stream-3", "stream-3", "testStream"));
 
-    assertFalse("Expected both of the latch ids to be different", planIdBeforeShuffle.equals(getExecutionPlanId(updatedStreamSpecs)));
+    assertFalse("Expected both of the latch ids to be different",
+        planIdBeforeShuffle.equals(getExecutionPlanId(updatedStreamSpecs)));
   }
 
   private String getExecutionPlanId(List<StreamSpec> updatedStreamSpecs) {
