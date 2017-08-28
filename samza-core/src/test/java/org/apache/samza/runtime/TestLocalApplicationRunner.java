@@ -41,6 +41,7 @@ import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.StreamProcessorLifecycleListener;
 import org.apache.samza.system.StreamSpec;
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -48,7 +49,6 @@ import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.anyString;
@@ -56,29 +56,20 @@ import static org.mockito.Mockito.*;
 import static org.powermock.api.mockito.PowerMockito.mockStatic;
 
 
-
 @RunWith(PowerMockRunner.class)
 @PrepareForTest(CoordinationUtilsFactory.class)
 public class TestLocalApplicationRunner {
 
-  private static final String PLAN_JSON = "{"
-      + "\"jobs\":[{"
-      + "\"jobName\":\"test-application\","
-      + "\"jobId\":\"1\","
-      + "\"operatorGraph\":{"
-      + "\"intermediateStreams\":{%s},"
-      + "\"applicationName\":\"test-application\",\"applicationId\":\"1\"}";
-  private static final String STREAM_SPEC_JSON_FORMAT = "\"%s\":{"
-      + "\"streamSpec\":{"
-      + "\"id\":\"%s\","
-      + "\"systemName\":\"%s\","
-      + "\"physicalName\":\"%s\","
-      + "\"partitionCount\":2},"
-      + "\"sourceJobs\":[\"test-app\"],"
-      + "\"targetJobs\":[\"test-target-app\"]},";
+  private static final String PLAN_JSON =
+      "{" + "\"jobs\":[{" + "\"jobName\":\"test-application\"," + "\"jobId\":\"1\"," + "\"operatorGraph\":{"
+          + "\"intermediateStreams\":{%s}," + "\"applicationName\":\"test-application\",\"applicationId\":\"1\"}";
+  private static final String STREAM_SPEC_JSON_FORMAT =
+      "\"%s\":{" + "\"streamSpec\":{" + "\"id\":\"%s\"," + "\"systemName\":\"%s\"," + "\"physicalName\":\"%s\","
+          + "\"partitionCount\":2}," + "\"sourceJobs\":[\"test-app\"]," + "\"targetJobs\":[\"test-target-app\"]},";
 
   @Test
-  public void testStreamCreation() throws Exception {
+  public void testStreamCreation()
+      throws Exception {
     Map<String, String> config = new HashMap<>();
     LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(config));
     StreamApplication app = mock(StreamApplication.class);
@@ -132,7 +123,8 @@ public class TestLocalApplicationRunner {
   }
 
   @Test
-  public void testStreamCreationWithCoordination() throws Exception {
+  public void testStreamCreationWithCoordination()
+      throws Exception {
     Map<String, String> config = new HashMap<>();
     LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(config));
     StreamApplication app = mock(StreamApplication.class);
@@ -178,8 +170,8 @@ public class TestLocalApplicationRunner {
     DistributedLockWithState lock = mock(DistributedLockWithState.class);
     when(lock.lockIfNotSet(anyLong(), anyObject())).thenReturn(true);
     when(coordinationUtils.getLockWithState(anyString())).thenReturn(lock);
-    when(coordinationUtilsFactory.getCoordinationUtils(anyString(), anyString(), anyObject())).thenReturn(
-        coordinationUtils);
+    when(coordinationUtilsFactory.getCoordinationUtils(anyString(), anyString(), anyObject()))
+        .thenReturn(coordinationUtils);
 
     try {
       spy.run(app);
@@ -194,11 +186,11 @@ public class TestLocalApplicationRunner {
   }
 
   @Test
-  public void testRunStreamTask() throws Exception {
+  public void testRunStreamTask()
+      throws Exception {
     final Map<String, String> config = new HashMap<>();
     config.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
     config.put(TaskConfig.TASK_CLASS(), "org.apache.samza.test.processor.IdentityStreamTask");
-
 
     LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(config));
 
@@ -206,13 +198,12 @@ public class TestLocalApplicationRunner {
     ArgumentCaptor<StreamProcessorLifecycleListener> captor =
         ArgumentCaptor.forClass(StreamProcessorLifecycleListener.class);
 
-    doAnswer(i ->
-      {
-        StreamProcessorLifecycleListener listener = captor.getValue();
-        listener.onStart();
-        listener.onShutdown();
-        return null;
-      }).when(sp).start();
+    doAnswer(i -> {
+      StreamProcessorLifecycleListener listener = captor.getValue();
+      listener.onStart();
+      listener.onShutdown();
+      return null;
+    }).when(sp).start();
 
     LocalApplicationRunner spy = spy(runner);
     doReturn(sp).when(spy).createStreamProcessor(anyObject(), anyObject(), captor.capture());
@@ -220,10 +211,11 @@ public class TestLocalApplicationRunner {
     spy.runTask();
 
     assertEquals(ApplicationStatus.SuccessfulFinish, spy.status(null));
-
   }
+
   @Test
-  public void testRunComplete() throws Exception {
+  public void testRunComplete()
+      throws Exception {
     final Map<String, String> config = new HashMap<>();
     config.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
     LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(config));
@@ -258,14 +250,12 @@ public class TestLocalApplicationRunner {
     ArgumentCaptor<StreamProcessorLifecycleListener> captor =
         ArgumentCaptor.forClass(StreamProcessorLifecycleListener.class);
 
-    doAnswer(i ->
-      {
-        StreamProcessorLifecycleListener listener = captor.getValue();
-        listener.onStart();
-        listener.onShutdown();
-        return null;
-      }).when(sp).start();
-
+    doAnswer(i -> {
+      StreamProcessorLifecycleListener listener = captor.getValue();
+      listener.onStart();
+      listener.onShutdown();
+      return null;
+    }).when(sp).start();
 
     LocalApplicationRunner spy = spy(runner);
     doReturn(sp).when(spy).createStreamProcessor(anyObject(), anyObject(), captor.capture());
@@ -276,7 +266,8 @@ public class TestLocalApplicationRunner {
   }
 
   @Test
-  public void testRunFailure() throws Exception {
+  public void testRunFailure()
+      throws Exception {
     final Map<String, String> config = new HashMap<>();
     config.put(ApplicationConfig.PROCESSOR_ID, "0");
     LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(config));
@@ -313,11 +304,10 @@ public class TestLocalApplicationRunner {
         ArgumentCaptor.forClass(StreamProcessorLifecycleListener.class);
 
     doAnswer(i -> {
-        StreamProcessorLifecycleListener listener = captor.getValue();
-        listener.onFailure(t);
-        return null;
-      }).when(sp).start();
-
+      StreamProcessorLifecycleListener listener = captor.getValue();
+      listener.onFailure(t);
+      return null;
+    }).when(sp).start();
 
     LocalApplicationRunner spy = spy(runner);
     doReturn(sp).when(spy).createStreamProcessor(anyObject(), anyObject(), captor.capture());
@@ -337,19 +327,17 @@ public class TestLocalApplicationRunner {
    */
   @Test
   public void testPlanIdWithShuffledStreamSpecs() {
-    List<StreamSpec> streamSpecs = ImmutableList.of(
-      new StreamSpec("test-stream-1", "stream-1", "testStream"),
+    List<StreamSpec> streamSpecs = ImmutableList.of(new StreamSpec("test-stream-1", "stream-1", "testStream"),
         new StreamSpec("test-stream-2", "stream-2", "testStream"),
         new StreamSpec("test-stream-3", "stream-3", "testStream"));
     String planIdBeforeShuffle = getExecutionPlanId(streamSpecs);
 
-    List<StreamSpec> shuffledStreamSpecs = ImmutableList.of(
-        new StreamSpec("test-stream-2", "stream-2", "testStream"),
+    List<StreamSpec> shuffledStreamSpecs = ImmutableList.of(new StreamSpec("test-stream-2", "stream-2", "testStream"),
         new StreamSpec("test-stream-1", "stream-1", "testStream"),
         new StreamSpec("test-stream-3", "stream-3", "testStream"));
 
-    assertNotEquals("Expected both of the latch ids to be different", planIdBeforeShuffle,
-        getExecutionPlanId(shuffledStreamSpecs));
+    Assert.assertFalse("Expected both of the latch ids to be different",
+        planIdBeforeShuffle.equals(getExecutionPlanId(shuffledStreamSpecs)));
   }
 
   /**
@@ -358,8 +346,7 @@ public class TestLocalApplicationRunner {
    */
   @Test
   public void testGeneratePlanIdWithSameStreamSpecs() {
-    List<StreamSpec> streamSpecs = ImmutableList.of(
-        new StreamSpec("test-stream-1", "stream-1", "testStream"),
+    List<StreamSpec> streamSpecs = ImmutableList.of(new StreamSpec("test-stream-1", "stream-1", "testStream"),
         new StreamSpec("test-stream-2", "stream-2", "testStream"),
         new StreamSpec("test-stream-3", "stream-3", "testStream"));
     String planIdForFirstAttempt = getExecutionPlanId(streamSpecs);
@@ -375,25 +362,22 @@ public class TestLocalApplicationRunner {
    */
   @Test
   public void testGeneratePlanIdWithDifferentStreamSpecs() {
-    List<StreamSpec> streamSpecs = ImmutableList.of(
-        new StreamSpec("test-stream-1", "stream-1", "testStream"),
+    List<StreamSpec> streamSpecs = ImmutableList.of(new StreamSpec("test-stream-1", "stream-1", "testStream"),
         new StreamSpec("test-stream-2", "stream-2", "testStream"),
         new StreamSpec("test-stream-3", "stream-3", "testStream"));
     String planIdBeforeShuffle = getExecutionPlanId(streamSpecs);
 
-    List<StreamSpec> updatedStreamSpecs = ImmutableList.of(
-        new StreamSpec("test-stream-1", "stream-1", "testStream"),
+    List<StreamSpec> updatedStreamSpecs = ImmutableList.of(new StreamSpec("test-stream-1", "stream-1", "testStream"),
         new StreamSpec("test-stream-4", "stream-4", "testStream"),
         new StreamSpec("test-stream-3", "stream-3", "testStream"));
 
-    assertNotEquals("Expected both of the latch ids to be different", planIdBeforeShuffle,
-        getExecutionPlanId(updatedStreamSpecs));
+    Assert.assertFalse("Expected both of the latch ids to be different",
+        planIdBeforeShuffle.equals(getExecutionPlanId(updatedStreamSpecs)));
   }
 
   private String getExecutionPlanId(List<StreamSpec> updatedStreamSpecs) {
-    String intermediateStreamJson = updatedStreamSpecs.stream()
-        .map(this::streamSpecToJson)
-        .collect(Collectors.joining(","));
+    String intermediateStreamJson =
+        updatedStreamSpecs.stream().map(this::streamSpecToJson).collect(Collectors.joining(","));
 
     int planId = String.format(PLAN_JSON, intermediateStreamJson).hashCode();
 
@@ -401,10 +385,7 @@ public class TestLocalApplicationRunner {
   }
 
   private String streamSpecToJson(StreamSpec streamSpec) {
-    return String.format(STREAM_SPEC_JSON_FORMAT,
-        streamSpec.getId(),
-        streamSpec.getId(),
-        streamSpec.getSystemName(),
+    return String.format(STREAM_SPEC_JSON_FORMAT, streamSpec.getId(), streamSpec.getId(), streamSpec.getSystemName(),
         streamSpec.getPhysicalName());
   }
 }
