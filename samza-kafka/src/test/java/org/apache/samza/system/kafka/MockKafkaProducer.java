@@ -31,6 +31,7 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReferenceArray;
+import kafka.producer.ProducerClosedException;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -51,6 +52,7 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
   private boolean errorNext = false;
   private Exception exception = null;
   private AtomicInteger msgsSent = new AtomicInteger(0);
+  private boolean closed = false;
 
   /*
    * Helps mock out buffered behavior seen in KafkaProducer. This MockKafkaProducer enables you to:
@@ -98,6 +100,9 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
 
   @Override
   public Future<RecordMetadata> send(final ProducerRecord record, final Callback callback) {
+    if (closed) {
+      throw new ProducerClosedException();
+    }
     if (errorNext) {
       if (shouldBuffer) {
         FutureTask<RecordMetadata> f = new FutureTask<RecordMetadata>(new Callable<RecordMetadata>() {
@@ -151,12 +156,20 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
 
   @Override
   public void close() {
-
+    closed = true;
   }
 
   @Override
   public void close(long timeout, TimeUnit timeUnit) {
+    closed = true;
+  }
 
+  public void open() {
+    this.closed = false;
+  }
+
+  public boolean isClosed() {
+    return closed;
   }
 
   public synchronized void flush () {
