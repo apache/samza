@@ -168,13 +168,7 @@ public class ZkLeaderElector implements LeaderElector {
 
   @Override
   public void close() {
-    try {
-      if (zkUtils != null)
-        zkUtils.close();
-    } catch (ZkInterruptedException ex) {
-      // Swallowing due to occurrence in the last stage of lifecycle(Not actionable).
-      LOG.error("Exception in zkLeaderElector:close(): ", ex);
-    }
+    
   }
 
   private String zLog(String logMessage) {
