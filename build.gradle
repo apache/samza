@@ -155,7 +155,9 @@ project(":samza-core_$scalaVersion") {
 
   dependencies {
     compile project(':samza-api')
-    compile "com.101tec:zkclient:$zkClientVersion"
+    compile("com.101tec:zkclient:$zkClientVersion") {
+      exclude module: 'junit:junit'
+    }
     compile "com.google.guava:guava:$guavaVersion"
     compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
     compile "org.apache.commons:commons-collections4:$apacheCommonsCollections4Version"

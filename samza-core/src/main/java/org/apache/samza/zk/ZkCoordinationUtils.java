@@ -41,16 +41,6 @@ public class ZkCoordinationUtils implements CoordinationUtils {
   }
 
   @Override
-  public void reset() {
-    try {
-      zkUtils.close();
-    } catch (ZkInterruptedException ex) {
-      // Swallowing due to occurrence in the last stage of lifecycle(Not actionable).
-      LOG.error("Exception in reset: ", ex);
-    }
-  }
-
-  @Override
   public LeaderElector getLeaderElector() {
     return new ZkLeaderElector(processorIdStr, zkUtils);
   }
@@ -58,6 +48,17 @@ public class ZkCoordinationUtils implements CoordinationUtils {
   @Override
   public Latch getLatch(int size, String latchId) {
     return new ZkProcessorLatch(size, latchId, processorIdStr, zkUtils);
+  }
+
+  @Override
+  public void close() {
+    try {
+      if (zkUtils != null)
+        zkUtils.close();
+    } catch (ZkInterruptedException ex) {
+      // Swallowing due to occurrence in the last stage of lifecycle(Not actionable).
+      LOG.error("Exception in close(): ", ex);
+    }
   }
 
   // TODO - SAMZA-1128 CoordinationService should directly depend on ZkUtils and DebounceTimer

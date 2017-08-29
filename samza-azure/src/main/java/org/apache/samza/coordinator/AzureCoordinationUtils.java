@@ -36,10 +36,6 @@ public class AzureCoordinationUtils implements CoordinationUtils {
   }
 
   @Override
-  public void reset() {}
-
-
-  @Override
   public LeaderElector getLeaderElector() throws UnsupportedOperationException {
     return null;
   }
@@ -47,6 +43,11 @@ public class AzureCoordinationUtils implements CoordinationUtils {
   @Override
   public Latch getLatch(int size, String latchId) throws UnsupportedOperationException {
     return null;
+  }
+
+  @Override
+  public void close() {
+
   }
 
   public DistributedLock getLock(String initLockName) {
