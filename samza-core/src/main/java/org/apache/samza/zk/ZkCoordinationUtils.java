@@ -18,6 +18,7 @@
  */
 package org.apache.samza.zk;
 
+import org.I0Itec.zkclient.exception.ZkInterruptedException;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.DistributedLockWithState;
@@ -53,6 +54,16 @@ public class ZkCoordinationUtils implements CoordinationUtils {
   @Override
   public DistributedLockWithState getLockWithState(String lockId) {
     return new ZkDistributedLock(processorIdStr, zkUtils, lockId);
+  }
+
+  public void close() {
+    try {
+      if (zkUtils != null)
+        zkUtils.close();
+    } catch (ZkInterruptedException ex) {
+      // Swallowing due to occurrence in the last stage of lifecycle(Not actionable).
+      LOG.error("Exception in close(): ", ex);
+    }
   }
 
   // TODO - SAMZA-1128 CoordinationService should directly depend on ZkUtils and DebounceTimer

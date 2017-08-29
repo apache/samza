@@ -21,7 +21,6 @@ package org.apache.samza.zk;
 import java.util.concurrent.TimeUnit;
 
 import java.util.concurrent.TimeoutException;
-import org.I0Itec.zkclient.exception.ZkInterruptedException;
 import org.apache.samza.coordinator.Latch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,16 +69,5 @@ public class ZkProcessorLatch implements Latch {
     // create persistent node
     String path = zkUtils.getZkClient().createPersistentSequential(latchPath + "/", participantId);
     LOG.debug("ZKProcessorLatch countDown created " + path);
-  }
-
-  @Override
-  public void close() {
-    try {
-      if (zkUtils != null)
-        zkUtils.close();
-    } catch (ZkInterruptedException ex) {
-      // Swallowing due to occurrence in the last stage of lifecycle(Not actionable).
-      LOG.error("Exception in close(): ", ex);
-    }
   }
 }
