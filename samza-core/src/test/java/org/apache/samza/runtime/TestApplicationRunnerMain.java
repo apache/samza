@@ -25,7 +25,7 @@ import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.operators.StreamGraph;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 
 public class TestApplicationRunnerMain {
