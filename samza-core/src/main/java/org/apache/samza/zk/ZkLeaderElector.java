@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.I0Itec.zkclient.IZkDataListener;
-import org.I0Itec.zkclient.exception.ZkInterruptedException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.coordinator.LeaderElectorListener;
 import org.apache.samza.coordinator.LeaderElector;
@@ -168,7 +167,7 @@ public class ZkLeaderElector implements LeaderElector {
 
   @Override
   public void close() {
-    
+
   }
 
   private String zLog(String logMessage) {
