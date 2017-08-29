@@ -70,9 +70,4 @@ public class ZkProcessorLatch implements Latch {
     String path = zkUtils.getZkClient().createPersistentSequential(latchPath + "/", participantId);
     LOG.debug("ZKProcessorLatch countDown created " + path);
   }
-
-  @Override
-  public void close() {
-
-  }
 }

@@ -165,11 +165,6 @@ public class ZkLeaderElector implements LeaderElector {
     return isLeader.get();
   }
 
-  @Override
-  public void close() {
-
-  }
-
   private String zLog(String logMessage) {
     return String.format("[Processor-%s] %s", processorIdStr, logMessage);
   }

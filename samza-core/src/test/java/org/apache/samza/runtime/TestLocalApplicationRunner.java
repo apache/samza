@@ -189,10 +189,6 @@ public class TestLocalApplicationRunner {
       public boolean amILeader() {
         return false;
       }
-
-      @Override
-      public void close() {
-      }
     };
 
     Latch latch = new Latch() {
@@ -210,10 +206,6 @@ public class TestLocalApplicationRunner {
       @Override
       public void countDown() {
         done = true;
-      }
-
-      @Override
-      public void close() {
       }
     };
 

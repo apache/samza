@@ -99,9 +99,6 @@ public class AzureLeaderElector implements LeaderElector {
     return isLeader.get();
   }
 
-  @Override
-  public void close() {}
-
   public AtomicReference<String> getLeaseId() {
     return leaseId;
   }
