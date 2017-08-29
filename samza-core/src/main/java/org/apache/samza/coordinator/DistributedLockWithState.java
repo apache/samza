@@ -39,11 +39,4 @@ public interface DistributedLockWithState {
    * Release the lock and set the state
    */
   void unlockAndSet();
-
-  /**
-   * perform any required action for closing
-   */
-  void close();
-
-
 }

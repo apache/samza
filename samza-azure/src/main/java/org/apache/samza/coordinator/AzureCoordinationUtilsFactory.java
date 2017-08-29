@@ -21,7 +21,7 @@ package org.apache.samza.coordinator;
 
 import org.apache.samza.config.Config;
 
-public class AzureCoordinationUtilsFactory implements  CoordinationUtilsFactory {
+public class AzureCoordinationUtilsFactory implements CoordinationUtilsFactory {
 
   @Override
   public CoordinationUtils getCoordinationUtils(String groupId, String participantId, Config config) {

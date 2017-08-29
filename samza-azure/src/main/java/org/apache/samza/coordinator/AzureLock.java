@@ -97,9 +97,4 @@ public class AzureLock implements DistributedLockWithState {
       LOG.info("Unable to unlock.");
     }
   }
-
-  @Override
-  public void close() {
-
-  }
 }

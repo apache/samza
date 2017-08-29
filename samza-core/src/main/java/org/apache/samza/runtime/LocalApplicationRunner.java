@@ -242,7 +242,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       String msg = String.format("Processor {} failed to get the lock for stream initialization", uid);
       throw new SamzaException(msg, e);
     } finally {
-      lockWithState.close();
+      coordinationUtils.close();
     }
   }
 

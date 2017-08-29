@@ -114,9 +114,4 @@ public class ZkDistributedLock implements DistributedLockWithState {
       LOG.warn("Ephemeral lock node you want to delete doesn't exist");
     }
   }
-
-  @Override
-  public void close() {
-    zkUtils.close();
-  }
 }
