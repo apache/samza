@@ -51,4 +51,9 @@ public class AzureCoordinationUtils implements CoordinationUtils {
         azureConfig.getAzureBlobName() + lockId, azureConfig.getAzureBlobLength());
     return new AzureLock(blob);
   }
+
+  @Override
+  public void close() {
+    
+  }
 }

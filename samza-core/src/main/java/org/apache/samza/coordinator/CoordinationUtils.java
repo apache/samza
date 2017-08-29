@@ -38,4 +38,9 @@ public interface CoordinationUtils {
   Latch getLatch(int size, String latchId);
 
   DistributedLockWithState getLockWithState(String lockId);
+
+  /**
+   * utilites cleanup
+   */
+  void close();
 }
