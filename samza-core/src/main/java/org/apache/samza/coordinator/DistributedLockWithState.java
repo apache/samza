@@ -16,31 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.samza.coordinator;
 
-import org.apache.samza.annotation.InterfaceStability;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
-/**
- *
- * Coordination service provides synchronization primitives.
- * The actual implementation (for example ZK based) is left to each implementation class.
- * This service provide three primitives:
- *   - LeaderElection
- *   - Latch
- *   - LockWithState (does not lock if state is set)
- */
-@InterfaceStability.Evolving
-public interface CoordinationUtils {
 
-  // facilities for group coordination
-  LeaderElector getLeaderElector(); // leaderElector is unique based on the groupId
-
-  Latch getLatch(int size, String latchId);
-
-  DistributedLockWithState getLockWithState(String lockId);
+public interface DistributedLockWithState {
 
   /**
-   * utilites cleanup
+   * Trie to acquire the lock, but first check if the state flag is set. If it is set, return false.
+   * If the flag is not set, and lock is acquired - return true.
+   * Throw TimeOutException if could not acquire the lock.
+   * @param timeout Duration of lock acquiring timeout.
+   * @param unit Time Unit of the timeout defined above.
+   * @return true if lock is acquired successfully, false if state is already set.
    */
-  void close();
+  boolean lockIfNotSet(long timeout, TimeUnit unit) throws TimeoutException;
+
+  /**
+   * Release the lock and set the state
+   */
+  void unlockAndSet();
 }
