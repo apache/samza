@@ -28,27 +28,20 @@ import org.apache.samza.zk.ZkJobCoordinatorFactory;
 public class JobCoordinatorConfig extends MapConfig {
   public static final String JOB_COORDINATOR_FACTORY = "job.coordinator.factory";
   public static final String JOB_COORDINATION_UTILS_FACTORY = "job.coordination.utils.factory";
-  public final static String DEFAULT_COORDINATION_UTILS_FACTORY = ZkCoordinationUtilsFactory.class.getName();
+  public final static String DEFAULT_COORDINATION_UTILS_FACTORY = ZkCoordinationUtilsFactory.class.getName(); //default
 
   public JobCoordinatorConfig(Config config) {
     super(config);
   }
 
   public String getJobCoordinationUtilsFactoryClassName() {
-    String jobCoordinatorFactoryClassName = get(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "");
+    String className = get(JOB_COORDINATION_UTILS_FACTORY, DEFAULT_COORDINATION_UTILS_FACTORY);
 
-    String className = get(JOB_COORDINATION_UTILS_FACTORY, "");
-
-    if (!Strings.isNullOrEmpty(className)) {
+    if (!Strings.isNullOrEmpty(className) && ClassLoader.getSystemResource(className) != null) {
       return className;
     }
 
-    // TODO: we will need a better way to package the configs with application runner
-    if (ZkJobCoordinatorFactory.class.getName().equals(jobCoordinatorFactoryClassName)) {
-      return DEFAULT_COORDINATION_UTILS_FACTORY;
-    }
-
-    throw new SamzaException("Cannot determine which CoordinationUtilsFactory to load");
+    throw new SamzaException("Failed to read/validate config value for " + JOB_COORDINATION_UTILS_FACTORY + " = " + className);
   }
 
   public String getJobCoordinatorFactoryClassName() {
