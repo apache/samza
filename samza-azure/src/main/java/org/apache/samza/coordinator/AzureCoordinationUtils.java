@@ -54,6 +54,5 @@ public class AzureCoordinationUtils implements CoordinationUtils {
 
   @Override
   public void close() {
-
   }
 }
