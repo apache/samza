@@ -26,7 +26,7 @@ import org.apache.samza.zk.ZkCoordinationUtilsFactory;
 public class JobCoordinatorConfig extends MapConfig {
   public static final String JOB_COORDINATOR_FACTORY = "job.coordinator.factory";
   public static final String JOB_COORDINATION_UTILS_FACTORY = "job.coordination.utils.factory";
-  public final static String DEFAULT_COORDINATION_UTILS_FACTORY = ZkCoordinationUtilsFactory.class.getName(); //default
+  public final static String DEFAULT_COORDINATION_UTILS_FACTORY = ZkCoordinationUtilsFactory.class.getName();
 
   public JobCoordinatorConfig(Config config) {
     super(config);
@@ -36,7 +36,7 @@ public class JobCoordinatorConfig extends MapConfig {
     String className = get(JOB_COORDINATION_UTILS_FACTORY, DEFAULT_COORDINATION_UTILS_FACTORY);
 
     if (Strings.isNullOrEmpty(className)) {
-      throw new SamzaException("Failed to read config value for " + JOB_COORDINATION_UTILS_FACTORY + " = " + className);
+      throw new SamzaException("Empty config for " + JOB_COORDINATION_UTILS_FACTORY + " = " + className);
     }
 
     try {
