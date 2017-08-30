@@ -37,11 +37,17 @@ public class JobCoordinatorConfig extends MapConfig {
   public String getJobCoordinationUtilsFactoryClassName() {
     String className = get(JOB_COORDINATION_UTILS_FACTORY, DEFAULT_COORDINATION_UTILS_FACTORY);
 
-    if (!Strings.isNullOrEmpty(className) && ClassLoader.getSystemResource(className) != null) {
-      return className;
+    if (Strings.isNullOrEmpty(className)) {
+      throw new SamzaException("Failed to read config value for " + JOB_COORDINATION_UTILS_FACTORY + " = " + className);
     }
 
-    throw new SamzaException("Failed to read/validate config value for " + JOB_COORDINATION_UTILS_FACTORY + " = " + className);
+    try {
+      Class.forName(className);
+    } catch (ClassNotFoundException e) {
+      throw new SamzaException("Failed to validate config value for " + JOB_COORDINATION_UTILS_FACTORY + " = " + className, e);
+    }
+
+    return className;
   }
 
   public String getJobCoordinatorFactoryClassName() {
