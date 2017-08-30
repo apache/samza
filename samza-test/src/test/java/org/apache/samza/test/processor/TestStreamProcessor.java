@@ -19,7 +19,6 @@
 
 package org.apache.samza.test.processor;
 
-import java.io.File;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -265,9 +264,9 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
       doNothing().when(listener).onStart();
       doNothing().when(listener).onFailure(anyObject());
       doAnswer(invocation -> {
-        latch.countDown();
-        return null;
-      }).when(listener).onShutdown();
+          latch.countDown();
+          return null;
+        }).when(listener).onShutdown();
     }
 
     private void initProducer(String bootstrapServer) {
