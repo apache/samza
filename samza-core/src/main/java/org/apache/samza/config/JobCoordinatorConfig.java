@@ -22,8 +22,6 @@ package org.apache.samza.config;
 import com.google.common.base.Strings;
 import org.apache.samza.SamzaException;
 import org.apache.samza.zk.ZkCoordinationUtilsFactory;
-import org.apache.samza.zk.ZkJobCoordinatorFactory;
-
 
 public class JobCoordinatorConfig extends MapConfig {
   public static final String JOB_COORDINATOR_FACTORY = "job.coordinator.factory";
@@ -44,7 +42,8 @@ public class JobCoordinatorConfig extends MapConfig {
     try {
       Class.forName(className);
     } catch (ClassNotFoundException e) {
-      throw new SamzaException("Failed to validate config value for " + JOB_COORDINATION_UTILS_FACTORY + " = " + className, e);
+      throw new SamzaException(
+          "Failed to validate config value for " + JOB_COORDINATION_UTILS_FACTORY + " = " + className, e);
     }
 
     return className;
