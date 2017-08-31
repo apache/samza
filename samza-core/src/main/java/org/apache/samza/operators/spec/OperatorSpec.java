@@ -19,8 +19,10 @@
 package org.apache.samza.operators.spec;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import org.apache.samza.annotation.InterfaceStability;
 
@@ -56,7 +58,6 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
   private final int opId;
   private final OpCode opCode;
   private StackTraceElement[] creationStackTrace;
-  protected final byte[] serializedBytes;
 
   /**
    * The set of operators that consume the messages produced from this operator.
@@ -65,17 +66,17 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
    */
   private final Set<OperatorSpec<OM, ?>> nextOperatorSpecs = new LinkedHashSet<>();
 
-  public OperatorSpec(OpCode opCode, int opId) throws IOException {
+  public OperatorSpec(OpCode opCode, int opId) {
     this.opCode = opCode;
     this.opId = opId;
     this.creationStackTrace = Thread.currentThread().getStackTrace();
-    this.serializedBytes = toBytes();
   }
 
-  protected abstract byte[] toBytes() throws IOException;
-
-  protected Object fromBytes() throws IOException, ClassNotFoundException {
-    ByteArrayInputStream bStream = new ByteArrayInputStream(this.serializedBytes);
+  protected Object copy() throws IOException, ClassNotFoundException {
+    ByteArrayOutputStream serializedBytes = new ByteArrayOutputStream();
+    ObjectOutputStream outputStream = new ObjectOutputStream(serializedBytes);
+    outputStream.writeObject(this);
+    ByteArrayInputStream bStream = new ByteArrayInputStream(serializedBytes.toByteArray());
     ObjectInputStream inputStream = new ObjectInputStream(bStream);
     return inputStream.readObject();
   }
@@ -131,5 +132,9 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
    */
   public final String getOpName() {
     return String.format("%s-%s", getOpCode().name().toLowerCase(), getOpId());
+  }
+
+  public final boolean isClone(OperatorSpec other) {
+    return this.getClass().isAssignableFrom(other.getClass()) && this.opCode.equals(other.opCode) && this.opId == other.opId;
   }
 }

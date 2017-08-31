@@ -19,10 +19,11 @@
 
 package org.apache.samza.operators.windows;
 
+import java.util.function.Function;
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SupplierFunction;
-import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.triggers.TimeTrigger;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.triggers.Triggers;
@@ -129,8 +130,11 @@ public final class Windows {
       SupplierFunction<? extends WV> initialValue, FoldLeftFunction<? super M, WV> aggregator) {
 
     Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
-    return new WindowInternal<>(defaultTrigger, (SupplierFunction<WV>) initialValue, (FoldLeftFunction<M, WV>) aggregator,
-        (MapFunction<M, K>) keyFn, null, WindowType.TUMBLING);
+    return new WindowInternal<>(
+        defaultTrigger,
+        (SupplierFunction<WV>) initialValue::get,
+        (FoldLeftFunction<M, WV>) aggregator::apply,
+        (MapFunction<M, K>) keyFn::apply, null, WindowType.TUMBLING);
   }
 
 
@@ -188,7 +192,10 @@ public final class Windows {
   public static <M, WV> Window<M, Void, WV> tumblingWindow(Duration interval, SupplierFunction<? extends WV> initialValue,
       FoldLeftFunction<? super M, WV> aggregator) {
     Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
-    return new WindowInternal<>(defaultTrigger, (SupplierFunction<WV>) initialValue, (FoldLeftFunction<M, WV>) aggregator,
+    return new WindowInternal<>(
+        defaultTrigger,
+        (SupplierFunction<WV>) initialValue::get,
+        (FoldLeftFunction<M, WV>) aggregator::apply,
         null, null, WindowType.TUMBLING);
   }
 
@@ -254,8 +261,11 @@ public final class Windows {
       MapFunction<? super M, ? extends K> keyFn, Duration sessionGap,
       SupplierFunction<? extends WV> initialValue, FoldLeftFunction<? super M, WV> aggregator) {
     Trigger<M> defaultTrigger = Triggers.timeSinceLastMessage(sessionGap);
-    return new WindowInternal<>(defaultTrigger, (SupplierFunction<WV>) initialValue, (FoldLeftFunction<M, WV>) aggregator,
-        (MapFunction<M, K>) keyFn, null, WindowType.SESSION);
+    return new WindowInternal<>(
+        defaultTrigger,
+        (SupplierFunction<WV>) initialValue::get,
+        (FoldLeftFunction<M, WV>) aggregator::apply,
+        (MapFunction<M, K>) keyFn::apply, null, WindowType.SESSION);
   }
 
   /**

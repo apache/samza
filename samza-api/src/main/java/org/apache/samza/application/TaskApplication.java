@@ -51,5 +51,10 @@ public class TaskApplication<T> extends ApplicationBase {
     return this;
   }
 
+  public TaskApplication<T> withContextFactory(ProcessorContextFactory factory) {
+    super.setContextFactory(factory);
+    return this;
+  }
+
 }
 

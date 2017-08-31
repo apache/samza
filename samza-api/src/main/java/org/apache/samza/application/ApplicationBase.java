@@ -75,6 +75,10 @@ public class ApplicationBase {
     this.runner.waitForFinish(this);
   }
 
+  protected void setContextFactory(ProcessorContextFactory factory) {
+    // set the context factory object for the application
+  }
+
   public class AppConfig extends MapConfig {
 
     public static final String APP_NAME = "app.name";

@@ -18,9 +18,7 @@
  */
 package org.apache.samza.operators.spec;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import org.apache.samza.operators.functions.JoinFunction;
 
 
@@ -50,7 +48,7 @@ public class JoinOperatorSpec<K, M, JM, RM> extends OperatorSpec<Object, RM> { /
    * @param opId  the unique ID for this operator
    */
   JoinOperatorSpec(OperatorSpec<?, M> leftInputOpSpec, OperatorSpec<?, JM> rightInputOpSpec,
-      JoinFunction<K, M, JM, RM> joinFn, long ttlMs, int opId) throws IOException {
+      JoinFunction<K, M, JM, RM> joinFn, long ttlMs, int opId) {
     super(OpCode.JOIN, opId);
     this.leftInputOpSpec = leftInputOpSpec;
     this.rightInputOpSpec = rightInputOpSpec;
@@ -74,15 +72,8 @@ public class JoinOperatorSpec<K, M, JM, RM> extends OperatorSpec<Object, RM> { /
     return ttlMs;
   }
 
-  protected byte[] toBytes() throws IOException {
-    ByteArrayOutputStream bStream = new ByteArrayOutputStream();
-    ObjectOutputStream outputStream = new ObjectOutputStream(bStream);
-    outputStream.writeObject(this);
-    return bStream.toByteArray();
-  }
-
-  public JoinOperatorSpec<K, M, JM, RM> fromBytes() throws IOException, ClassNotFoundException {
-    return (JoinOperatorSpec<K, M, JM, RM>) super.fromBytes();
+  public JoinOperatorSpec<K, M, JM, RM> copy() throws IOException, ClassNotFoundException {
+    return (JoinOperatorSpec<K, M, JM, RM>) super.copy();
   }
 
 }

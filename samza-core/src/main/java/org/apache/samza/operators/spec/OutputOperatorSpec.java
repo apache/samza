@@ -18,9 +18,7 @@
  */
 package org.apache.samza.operators.spec;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 
 
 /**
@@ -44,8 +42,7 @@ public class OutputOperatorSpec<M> extends OperatorSpec<M, Void> {
    *               It could be {@link OpCode#SEND_TO}, or {@link OpCode#PARTITION_BY}
    * @param opId  the unique ID of this {@link SinkOperatorSpec} in the graph
    */
-  <K, V> OutputOperatorSpec(OutputStreamImpl<K, V, M> outputStream, OperatorSpec.OpCode opCode, int opId)
-      throws IOException {
+  <K, V> OutputOperatorSpec(OutputStreamImpl<K, V, M> outputStream, OperatorSpec.OpCode opCode, int opId) {
     super(opCode, opId);
     this.outputStream = outputStream;
   }
@@ -58,15 +55,8 @@ public class OutputOperatorSpec<M> extends OperatorSpec<M, Void> {
     return this.outputStream;
   }
 
-  protected byte[] toBytes() throws IOException {
-    ByteArrayOutputStream bStream = new ByteArrayOutputStream();
-    ObjectOutputStream outputStream = new ObjectOutputStream(bStream);
-    outputStream.writeObject(this);
-    return bStream.toByteArray();
-  }
-
-  public OutputOperatorSpec<M> fromBytes() throws IOException, ClassNotFoundException {
-    return (OutputOperatorSpec<M>) super.fromBytes();
+  public OutputOperatorSpec<M> copy() throws IOException, ClassNotFoundException {
+    return (OutputOperatorSpec<M>) super.copy();
   }
 
 }

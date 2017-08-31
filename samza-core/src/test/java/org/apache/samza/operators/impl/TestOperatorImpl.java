@@ -18,9 +18,7 @@
  */
 package org.apache.samza.operators.impl;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.util.Set;
 import org.apache.samza.config.Config;
 import org.apache.samza.metrics.Counter;
@@ -214,16 +212,8 @@ public class TestOperatorImpl {
      super(OpCode.INPUT, 1);
     }
 
-    @Override
-    protected byte[] toBytes() throws IOException {
-      ByteArrayOutputStream bStream = new ByteArrayOutputStream();
-      ObjectOutputStream outputStream = new ObjectOutputStream(bStream);
-      outputStream.writeObject(this);
-      return bStream.toByteArray();
-    }
-
-    protected TestOpSpec fromBytes() throws IOException, ClassNotFoundException {
-      return (TestOpSpec) super.fromBytes();
+    protected TestOpSpec copy() throws IOException, ClassNotFoundException {
+      return (TestOpSpec) super.copy();
     }
   }
 

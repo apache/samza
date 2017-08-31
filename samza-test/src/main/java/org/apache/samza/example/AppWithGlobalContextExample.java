@@ -72,7 +72,7 @@ public class AppWithGlobalContextExample {
         .withMsgSerde(new JsonSerde<>())
         .from(kafkaSystem);
 
-    StreamApplication app = StreamApplications.createStreamApp(config);
+    StreamApplication app = StreamApplications.createStreamApp(config).withContextFactory(null);
 
     app.openInput(pageViewEventInput)
         .partitionBy(m -> m.memberId)

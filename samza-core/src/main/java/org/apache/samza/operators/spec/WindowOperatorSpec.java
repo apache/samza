@@ -19,9 +19,7 @@
 
 package org.apache.samza.operators.spec;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import org.apache.samza.operators.triggers.AnyTrigger;
 import org.apache.samza.operators.triggers.RepeatingTrigger;
 import org.apache.samza.operators.triggers.TimeBasedTrigger;
@@ -55,7 +53,7 @@ public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK
    * @param window  the window function
    * @param opId  auto-generated unique ID of this operator
    */
-  WindowOperatorSpec(WindowInternal<M, WK, WV> window, int opId) throws IOException {
+  WindowOperatorSpec(WindowInternal<M, WK, WV> window, int opId) {
     super(OpCode.WINDOW, opId);
     this.window = window;
   }
@@ -113,16 +111,8 @@ public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK
     return timeBasedTriggers;
   }
 
-  @Override
-  protected byte[] toBytes() throws IOException {
-    ByteArrayOutputStream bStream = new ByteArrayOutputStream();
-    ObjectOutputStream outputStream = new ObjectOutputStream(bStream);
-    outputStream.writeObject(this);
-    return bStream.toByteArray();
-  }
-
-  public WindowOperatorSpec<M, WK, WV> fromBytes() throws IOException, ClassNotFoundException {
-    return (WindowOperatorSpec<M, WK, WV>) super.fromBytes();
+  public WindowOperatorSpec<M, WK, WV> copy() throws IOException, ClassNotFoundException {
+    return (WindowOperatorSpec<M, WK, WV>) super.copy();
   }
 
 }

@@ -18,6 +18,8 @@
  */
 package org.apache.samza.test.operator;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import kafka.utils.TestUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -31,6 +33,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import scala.Option;
 import scala.Option$;
@@ -212,12 +215,13 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
    * @param appName the name of the application
    * @param overriddenConfigs configs to override
    */
-  public void runApplication(StreamApplication streamApplication, String appName, Config overriddenConfigs) {
+  public void runApplication(String userAppClass, String appName, Config overriddenConfigs)
+      throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException {
 
     Map<String, String> configs = new HashMap<>();
     configs.put("job.factory.class", "org.apache.samza.job.local.ThreadJobFactory");
     configs.put("job.name", appName);
-    configs.put("app.class", streamApplication.getClass().getCanonicalName());
+    configs.put("app.runner.class", LocalApplicationRunner.class.getCanonicalName());
     configs.put("serializers.registry.json.class", "org.apache.samza.serializers.JsonSerdeFactory");
     configs.put("serializers.registry.string.class", "org.apache.samza.serializers.StringSerdeFactory");
     configs.put("systems.kafka.samza.factory", "org.apache.samza.system.kafka.KafkaSystemFactory");
@@ -235,9 +239,10 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
       configs.putAll(overriddenConfigs);
     }
 
-    app = streamApplication;
-    runner = ApplicationRunner.fromConfig(new MapConfig(configs));
-    runner.run(streamApplication);
+    Class<?> cls = Class.forName(userAppClass);
+    Method mainMethod = cls.getMethod("main", String[].class);
+    String[] params = null;
+    mainMethod.invoke(null, (Object) params);
   }
 
   public void setNumEmptyPolls(int numEmptyPolls) {

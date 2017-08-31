@@ -18,6 +18,7 @@
  */
 package org.apache.samza.example;
 
+import java.io.IOException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
@@ -40,7 +41,7 @@ import java.time.Duration;
 public class PageViewCounterExample {
 
   // local execution mode
-  public static void main(String[] args) {
+  public static void main(String[] args) throws IOException {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
 

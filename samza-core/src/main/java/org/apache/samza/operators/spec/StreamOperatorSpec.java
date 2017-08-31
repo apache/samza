@@ -18,9 +18,7 @@
  */
 package org.apache.samza.operators.spec;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import org.apache.samza.operators.functions.FlatMapFunction;
 
 
@@ -50,15 +48,7 @@ public class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
     return this.transformFn;
   }
 
-  @Override
-  protected byte[] toBytes() throws IOException {
-    ByteArrayOutputStream bStream = new ByteArrayOutputStream();
-    ObjectOutputStream outputStream = new ObjectOutputStream(bStream);
-    outputStream.writeObject(this);
-    return bStream.toByteArray();
-  }
-
-  public StreamOperatorSpec<M, OM> fromBytes() throws IOException, ClassNotFoundException {
-    return (StreamOperatorSpec<M, OM>) super.fromBytes();
+  public StreamOperatorSpec<M, OM> copy() throws IOException, ClassNotFoundException {
+    return (StreamOperatorSpec<M, OM>) super.copy();
   }
 }

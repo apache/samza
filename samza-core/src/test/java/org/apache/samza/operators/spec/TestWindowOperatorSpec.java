@@ -20,6 +20,14 @@
 package org.apache.samza.operators.spec;
 
 import java.io.IOException;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import org.apache.samza.operators.functions.FoldLeftFunction;
+import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.operators.functions.SupplierFunction;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.internal.WindowInternal;
@@ -31,7 +39,7 @@ import java.time.Duration;
 
 public class TestWindowOperatorSpec {
   @Test
-  public void testTriggerIntervalWithNestedTimeTriggers() throws IOException {
+  public void testTriggerIntervalWithNestedTimeTriggers() {
     Trigger defaultTrigger = Triggers.timeSinceFirstMessage(Duration.ofMillis(150));
     Trigger lateTrigger = Triggers.any(Triggers.count(6), Triggers.timeSinceFirstMessage(Duration.ofMillis(15)));
     Trigger earlyTrigger = Triggers.repeat(
@@ -51,7 +59,7 @@ public class TestWindowOperatorSpec {
   }
 
   @Test
-  public void testTriggerIntervalWithSingleTimeTrigger() throws IOException {
+  public void testTriggerIntervalWithSingleTimeTrigger() {
     Trigger defaultTrigger = Triggers.timeSinceFirstMessage(Duration.ofMillis(150));
     Trigger earlyTrigger = Triggers.repeat(Triggers.count(5));
 
@@ -60,5 +68,43 @@ public class TestWindowOperatorSpec {
 
     WindowOperatorSpec spec = new WindowOperatorSpec(window, 0);
     Assert.assertEquals(spec.getDefaultTriggerMs(), 150);
+  }
+
+  @Test
+  public void testCopy() throws IOException, ClassNotFoundException {
+    Trigger defaultTrigger = Triggers.timeSinceFirstMessage(Duration.ofMillis(150));
+    Trigger earlyTrigger = Triggers.repeat(Triggers.count(5));
+
+    FoldLeftFunction<Object, Collection> foldFn = (m, c) -> { c.add(m); return c; };
+    SupplierFunction<Collection> supplierFunction = () -> new ArrayList<>();
+    MapFunction<Object, Object> keyFn = m -> m.toString();
+    MapFunction<Object, Long> timeFn = m -> 123456L;
+
+    WindowInternal<Object, Object, Collection> window = new WindowInternal<Object, Object, Collection>(
+        defaultTrigger,
+        supplierFunction,
+        foldFn,
+        keyFn,
+        timeFn,
+        WindowType.SESSION);
+    window.setEarlyTrigger(earlyTrigger);
+
+    WindowOperatorSpec<Object, Object, Collection> spec = new WindowOperatorSpec<>(window, 0);
+
+    WindowOperatorSpec<Object, Object, Collection> copy = spec.copy();
+
+    Assert.assertNotEquals(spec, copy);
+    Assert.assertTrue(spec.isClone(copy));
+    Assert.assertNotEquals(spec.getWindow(), copy.getWindow());
+    Assert.assertNotEquals(copy.getWindow().getInitializer(), supplierFunction);
+    Assert.assertEquals(copy.getWindow().getInitializer().get(), supplierFunction.get());
+    Assert.assertNotEquals(copy.getWindow().getFoldLeftFunction(), foldFn);
+    Object mockMsg = new Object();
+    Assert.assertEquals(copy.getWindow().getFoldLeftFunction().apply(mockMsg, new ArrayList<>()), foldFn.apply(mockMsg, new ArrayList<>()));
+    Assert.assertNotEquals(copy.getWindow().getKeyExtractor(), keyFn);
+    Assert.assertEquals(copy.getWindow().getKeyExtractor().apply(mockMsg), keyFn.apply(mockMsg));
+    Assert.assertNotEquals(copy.getWindow().getEventTimeExtractor(), timeFn);
+    Assert.assertEquals(copy.getWindow().getEventTimeExtractor().apply(mockMsg), timeFn.apply(mockMsg));
+    Assert.assertEquals(copy.getDefaultTriggerMs(), 150);
   }
 }

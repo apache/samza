@@ -19,6 +19,7 @@
 
 package org.apache.samza.system;
 
+import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -33,7 +34,7 @@ import java.util.Map;
  *
  * It is immutable by design.
  */
-public class StreamSpec {
+public class StreamSpec implements Serializable {
 
   private static final int DEFAULT_PARTITION_COUNT = 1;
 

@@ -170,17 +170,17 @@ public class OperatorImplGraph {
   OperatorImpl createOperatorImpl(OperatorSpec prevOperatorSpec, OperatorSpec operatorSpec,
       Config config, TaskContext context) throws IOException, ClassNotFoundException {
     if (operatorSpec instanceof InputOperatorSpec) {
-      return new InputOperatorImpl(((InputOperatorSpec) operatorSpec).fromBytes());
+      return new InputOperatorImpl(((InputOperatorSpec) operatorSpec).copy());
     } else if (operatorSpec instanceof StreamOperatorSpec) {
-      return new StreamOperatorImpl(((StreamOperatorSpec) operatorSpec).fromBytes(), config, context);
+      return new StreamOperatorImpl(((StreamOperatorSpec) operatorSpec).copy(), config, context);
     } else if (operatorSpec instanceof SinkOperatorSpec) {
-      return new SinkOperatorImpl(((SinkOperatorSpec) operatorSpec).fromBytes(), config, context);
+      return new SinkOperatorImpl(((SinkOperatorSpec) operatorSpec).copy(), config, context);
     } else if (operatorSpec instanceof OutputOperatorSpec) {
-      return new OutputOperatorImpl(((OutputOperatorSpec) operatorSpec).fromBytes());
+      return new OutputOperatorImpl(((OutputOperatorSpec) operatorSpec).copy());
     } else if (operatorSpec instanceof WindowOperatorSpec) {
-      return new WindowOperatorImpl(((WindowOperatorSpec) operatorSpec).fromBytes(), clock);
+      return new WindowOperatorImpl(((WindowOperatorSpec) operatorSpec).copy(), clock);
     } else if (operatorSpec instanceof JoinOperatorSpec) {
-      return createPartialJoinOperatorImpl(prevOperatorSpec, ((JoinOperatorSpec) operatorSpec).fromBytes(), config, context, clock);
+      return createPartialJoinOperatorImpl(prevOperatorSpec, ((JoinOperatorSpec) operatorSpec).copy(), config, context, clock);
     }
     throw new IllegalArgumentException(
         String.format("Unsupported OperatorSpec: %s", operatorSpec.getClass().getName()));
@@ -189,7 +189,7 @@ public class OperatorImplGraph {
   private PartialJoinOperatorImpl createPartialJoinOperatorImpl(OperatorSpec prevOperatorSpec,
       JoinOperatorSpec joinOpSpec, Config config, TaskContext context, Clock clock) {
     Pair<PartialJoinFunction, PartialJoinFunction> partialJoinFunctions = getOrCreatePartialJoinFunctions(joinOpSpec);
-    if (joinOpSpec.getLeftInputOpSpec().equals(prevOperatorSpec)) { // we got here from the left side of the join
+    if (joinOpSpec.getLeftInputOpSpec().isClone(prevOperatorSpec)) { // we got here from the left side of the join
       return new PartialJoinOperatorImpl(joinOpSpec, /* isLeftSide */ true,
           partialJoinFunctions.getLeft(), partialJoinFunctions.getRight(), config, context, clock);
     } else { // we got here from the right side of the join

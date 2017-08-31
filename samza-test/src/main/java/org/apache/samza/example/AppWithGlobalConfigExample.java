@@ -18,6 +18,7 @@
  */
 package org.apache.samza.example;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.HashMap;
 import org.apache.samza.application.StreamApplication;
@@ -40,7 +41,7 @@ import org.apache.samza.util.CommandLine;
 public class AppWithGlobalConfigExample {
 
   // local execution mode
-  public static void main(String[] args) {
+  public static void main(String[] args) throws IOException {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
 

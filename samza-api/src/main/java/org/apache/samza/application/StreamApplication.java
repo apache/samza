@@ -174,4 +174,9 @@ public class StreamApplication extends ApplicationBase {
     super.withMetricsReports(metrics);
     return this;
   }
+
+  public StreamApplication withContextFactory(ProcessorContextFactory factory) {
+    super.setContextFactory(factory);
+    return this;
+  }
 }
