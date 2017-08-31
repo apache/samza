@@ -41,6 +41,8 @@ import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.Clock;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -55,6 +57,7 @@ import java.util.Map;
  * The DAG of {@link OperatorImpl}s corresponding to the DAG of {@link OperatorSpec}s.
  */
 public class OperatorImplGraph {
+  private static final Logger LOG = LoggerFactory.getLogger(OperatorImplGraph.class);
 
   /**
    * A mapping from operator names to their {@link OperatorImpl}s in this graph. Used to avoid creating
@@ -95,6 +98,9 @@ public class OperatorImplGraph {
         getProducerTaskCountForIntermediateStreams(getStreamToConsumerTasks(taskContext.getJobModel()),
             getIntermediateToInputStreams(streamGraph)) :
         Collections.EMPTY_MAP;
+    producerTaskCounts.forEach((stream, count) -> {
+        LOG.info("{} has {} producer tasks.", stream, count);
+      });
 
     // set states for end-of-stream
     taskContext.registerObject(EndOfStreamStates.class.getName(),

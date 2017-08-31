@@ -221,13 +221,13 @@ public abstract class OperatorImpl<M, RM> {
 
     SystemStream stream = ssp.getSystemStream();
     if (eosStates.isEndOfStream(stream)) {
+      LOG.info("Input {} reaches the end for task {}", stream.toString(), taskName.getTaskName());
+      onEndOfStream(collector, coordinator);
+
       if (eosStates.allEndOfStream()) {
         // all inputs have been end-of-stream, shut down the task
         LOG.info("All input streams have reached the end for task {}", taskName.getTaskName());
         coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
-      } else {
-        LOG.info("Input {} reaches the end for task {}", stream.toString(), taskName.getTaskName());
-        onEndOfStream(collector, coordinator);
       }
     }
   }

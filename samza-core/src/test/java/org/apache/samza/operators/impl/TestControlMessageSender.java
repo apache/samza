@@ -24,11 +24,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
-import org.apache.samza.system.ControlMessage;
-import org.apache.samza.system.OutgoingMessageEnvelope;
-import org.apache.samza.system.StreamMetadataCache;
-import org.apache.samza.system.SystemStream;
-import org.apache.samza.system.SystemStreamMetadata;
+import org.apache.samza.system.*;
 import org.apache.samza.task.MessageCollector;
 import org.junit.Test;
 
@@ -66,7 +62,8 @@ public class TestControlMessageSender {
       }).when(collector).send(any());
 
     ControlMessageSender sender = new ControlMessageSender(metadataCache);
-    sender.send(mock(ControlMessage.class), systemStream, collector);
+    WatermarkMessage watermark = new WatermarkMessage(System.currentTimeMillis(), "task 0");
+    sender.send(watermark, systemStream, collector);
     assertEquals(partitions.size(), 4);
   }
 }

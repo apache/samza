@@ -19,18 +19,18 @@
 
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.system.ControlMessage;
-import org.apache.samza.system.OutgoingMessageEnvelope;
-import org.apache.samza.system.StreamMetadataCache;
-import org.apache.samza.system.SystemStream;
-import org.apache.samza.system.SystemStreamMetadata;
+import org.apache.samza.system.*;
 import org.apache.samza.task.MessageCollector;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
  * This is a helper class to broadcast control messages to each partition of an intermediate stream
  */
 class ControlMessageSender {
+  private static final Logger LOG = LoggerFactory.getLogger(ControlMessageSender.class);
+
   private final StreamMetadataCache metadataCache;
 
   ControlMessageSender(StreamMetadataCache metadataCache) {
@@ -40,6 +40,9 @@ class ControlMessageSender {
   void send(ControlMessage message, SystemStream systemStream, MessageCollector collector) {
     SystemStreamMetadata metadata = metadataCache.getSystemStreamMetadata(systemStream, true);
     int partitionCount = metadata.getSystemStreamPartitionMetadata().size();
+    LOG.info(String.format("Broadcast %s message from task %s to %s with %s partition",
+        MessageType.of(message).name(), message.getTaskName(), systemStream, partitionCount));
+
     for (int i = 0; i < partitionCount; i++) {
       OutgoingMessageEnvelope envelopeOut = new OutgoingMessageEnvelope(systemStream, i, "", message);
       collector.send(envelopeOut);
