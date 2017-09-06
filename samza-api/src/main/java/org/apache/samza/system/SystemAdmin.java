@@ -114,4 +114,12 @@ public interface SystemAdmin {
   default void validateStream(StreamSpec streamSpec) throws StreamValidationException {
     throw new UnsupportedOperationException();
   }
+
+  /**
+   * Clear the stream described by the spec.
+   * @param streamSpec  The spec for the physical stream on the system.
+   */
+  default void clearStream(StreamSpec streamSpec) {
+    throw new UnsupportedOperationException();
+  }
 }

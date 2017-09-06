@@ -41,6 +41,8 @@ object KafkaSystemAdmin extends Logging {
   // We cannot use the topic name, as it may include special chars which are not allowed in stream IDs. See SAMZA-1317
   val CHANGELOG_STREAMID = "unused-temp-changelog-stream-id"
 
+  val CLEAR_STREAM_RETRIES = 3
+
   /**
    * A helper method that takes oldest, newest, and upcoming offsets for each
    * system stream partition, and creates a single map from stream name to
@@ -344,7 +346,7 @@ class KafkaSystemAdmin(
    * Helper method to use topic metadata cache when fetching metadata, so we
    * don't hammer Kafka more than we need to.
    */
-  protected def getTopicMetadata(topics: Set[String]) = {
+  def getTopicMetadata(topics: Set[String]) = {
     new ClientUtilTopicMetadataStore(brokerListString, clientId, timeout)
       .getTopicInfo(topics)
   }
@@ -415,7 +417,7 @@ class KafkaSystemAdmin(
    * @inheritdoc
    */
   override def createStream(spec: StreamSpec): Boolean = {
-    val kSpec = KafkaStreamSpec.fromSpec(spec);
+    val kSpec = KafkaStreamSpec.fromSpec(spec)
     var streamCreated = false
 
     new ExponentialSleepStrategy(initialDelayMs = 500).run(
@@ -486,6 +488,39 @@ class KafkaSystemAdmin(
             warn("While trying to validate topic %s: %s. Retrying." format (topicName, e))
             debug("Exception detail:", e)
             metadataTTL = 5000L // Revert to the default value
+        }
+      })
+  }
+
+  /**
+   * @inheritdoc
+   *
+   */
+  override def clearStream(spec: StreamSpec) = {
+    val kSpec = KafkaStreamSpec.fromSpec(spec)
+    var retries = CLEAR_STREAM_RETRIES
+    new ExponentialSleepStrategy().run(
+      loop => {
+        val zkClient = connectZk()
+        try {
+          AdminUtils.deleteTopic(
+            zkClient,
+            kSpec.getPhysicalName)
+        } finally {
+          zkClient.close
+        }
+
+        loop.done
+      },
+
+      (exception, loop) => {
+        if (retries > 0) {
+          warn("Exception while trying to delete topic %s: %s. Retrying." format (spec.getPhysicalName, exception))
+          retries -= 1
+        } else {
+          warn("Fail to delete topic %s: %s" format (spec.getPhysicalName, exception))
+          loop.done
+          throw exception
         }
       })
   }
