@@ -34,7 +34,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import static org.apache.samza.operators.functions.WatermarkFunction.WATERMARK_NOT_EXIST;
+import static org.apache.samza.operators.impl.WatermarkStates.WATERMARK_NOT_EXIST;
 
 public class TestWatermarkStates {
 

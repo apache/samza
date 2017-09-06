@@ -27,18 +27,24 @@ import java.util.Set;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.WatermarkMessage;
-
-import static org.apache.samza.operators.functions.WatermarkFunction.WATERMARK_NOT_EXIST;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This class manages the state of the watermarks in a task. Internally it keeps track of the latest
  * watermark timestamp from each upstream task, and use the min as the consolidated watermark time.
+ *
+ * This class and the inner WatermarkState class are not thread-safe. The WatermarkStates object
+ * can only be accessed from a single thread, since Samza allows at-most one thread per task
+ * in order to keep the ordering of the event processing,
  */
 class WatermarkStates {
+  private static final Logger LOG = LoggerFactory.getLogger(WatermarkStates.class);
+
+  public static final long WATERMARK_NOT_EXIST = -1;
 
   private final static class WatermarkState {
-    private int expectedTotal = Integer.MAX_VALUE;
+    private final int expectedTotal;
     private final Map<String, Long> timestamps = new HashMap<>();
     private long watermarkTime = WATERMARK_NOT_EXIST;
 
@@ -49,9 +55,21 @@ class WatermarkStates {
     boolean update(long timestamp, String taskName) {
       final long preWatermarkTime = watermarkTime;
       if (taskName != null) {
-        timestamps.put(taskName, timestamp);
+        Long ts = timestamps.get(taskName);
+        if (ts != null && ts > timestamp) {
+          LOG.warn(String.format("Incoming watermark %s is smaller than existing watermark %s for upstream task %s",
+              timestamp, ts, taskName));
+          return false;
+        } else {
+          timestamps.put(taskName, timestamp);
+        }
       }
 
+      /**
+       * Check whether we got all the watermarks.
+       * At a sources, the expectedTotal is 0.
+       * For any intermediate streams, the expectedTotal is the upstream task count.
+       */
       if (timestamps.size() == expectedTotal) {
         Optional<Long> min = timestamps.values().stream().min(Long::compare);
         watermarkTime = min.orElse(timestamp);
@@ -94,7 +112,9 @@ class WatermarkStates {
           .min(Long::compare)
           .get();
       Long curWatermark = watermarks.get(ssp.getSystemStream());
-      if (curWatermark == null || curWatermark < minTimestamp) {
+      assert curWatermark != null;
+
+      if (curWatermark < minTimestamp) {
         watermarks.put(ssp.getSystemStream(), minTimestamp);
         return true;
       }

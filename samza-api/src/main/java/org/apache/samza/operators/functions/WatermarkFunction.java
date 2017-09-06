@@ -24,8 +24,6 @@ package org.apache.samza.operators.functions;
  */
 public interface WatermarkFunction {
 
-  long WATERMARK_NOT_EXIST = -1;
-
   /**
    * Processes the input watermark coming from upstream operators.
    * This allows user-defined watermark handling, such as trigger events
@@ -35,16 +33,26 @@ public interface WatermarkFunction {
   void processWatermark(long watermark);
 
   /**
-   * Returns the output watermark. This function will be invoked
-   * after the transform function (e.g. {@link FlatMapFunction} and the
-   * {@link WatermarkFunction#processWatermark(long)} function to collect output watermark.
+   * Returns the output watermark. This function will be invoked immediately after either
+   * of the following events:
+   *
+   * <ol>
+   *
+   * <li> Return of the transform function, e.g. {@link FlatMapFunction}.
+   *
+   * <li> Return of the processWatermark function.
+   *
+   * </ol>
+   *
+   *
    *
    * Note: If the transform function returns a collection of output, the output watermark
    * will be emitted after the output collection is propagated to downstream operators. So
    * it might delay the watermark propagation. The delay will cause more buffering and might
    * have performance impact.
    *
-   * @return output watermark, WATERMARK_NOT_EXIST is no watermark being created.
+   * @return output watermark, or null if the output watermark should not be updated. Samza
+   * guarantees that the same watermark value will be only emitted once.
    */
-  long getOutputWatermark();
+  Long getOutputWatermark();
 }

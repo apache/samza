@@ -44,8 +44,6 @@ import org.apache.samza.util.HighResolutionClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.samza.operators.functions.WatermarkFunction.WATERMARK_NOT_EXIST;
-
 /**
  * Abstract base class for all stream operator implementations.
  */
@@ -59,8 +57,8 @@ public abstract class OperatorImpl<M, RM> {
   private Counter numMessage;
   private Timer handleMessageNs;
   private Timer handleTimerNs;
-  private long inputWatermark = WATERMARK_NOT_EXIST;
-  private long outputWatermark = WATERMARK_NOT_EXIST;
+  private long inputWatermark = WatermarkStates.WATERMARK_NOT_EXIST;
+  private long outputWatermark = WatermarkStates.WATERMARK_NOT_EXIST;
   private TaskName taskName;
 
   Set<OperatorImpl<RM, ?>> registeredOperators;
@@ -152,13 +150,18 @@ public abstract class OperatorImpl<M, RM> {
     results.forEach(rm -> this.registeredOperators.forEach(op -> op.onMessage(rm, collector, coordinator)));
 
     InitableFunction transformFn = getOperatorSpec().getTransformFn();
-    if (transformFn != null && transformFn instanceof WatermarkFunction) {
+    if (transformFn instanceof WatermarkFunction) {
       // check whether there is new watermark emitted from the user function
-      long outputWm = ((WatermarkFunction) transformFn).getOutputWatermark();
-      if (outputWatermark < outputWm) {
-        // advance the watermark
-        outputWatermark = outputWm;
-        this.registeredOperators.forEach(op -> op.onWatermark(outputWatermark, collector, coordinator));
+      Long outputWm = ((WatermarkFunction) transformFn).getOutputWatermark();
+      if (outputWm != null) {
+        if (outputWatermark < outputWm) {
+          // advance the watermark
+          outputWatermark = outputWm;
+          LOG.debug("Advance output watermark to {} in operator {}", outputWatermark, getOperatorName());
+          this.registeredOperators.forEach(op -> op.onWatermark(outputWatermark, collector, coordinator));
+        } else if (outputWatermark > outputWm) {
+          LOG.warn("Ignore watermark {} that is smaller than the previous watermark {}.", outputWm, outputWatermark);
+        }
       }
     }
   }
@@ -297,9 +300,9 @@ public abstract class OperatorImpl<M, RM> {
       inputWatermark = inputWatermarkMin;
       LOG.trace("Advance input watermark to {} in operator {}", inputWatermark, getOperatorName());
 
-      final long outputWm;
+      final Long outputWm;
       InitableFunction transformFn = getOperatorSpec().getTransformFn();
-      if (transformFn != null && transformFn instanceof WatermarkFunction) {
+      if (transformFn instanceof WatermarkFunction) {
         // user-overrided watermark handling here
         WatermarkFunction watermarkFn = (WatermarkFunction) transformFn;
         watermarkFn.processWatermark(inputWatermark);
@@ -310,11 +313,15 @@ public abstract class OperatorImpl<M, RM> {
         outputWm = handleWatermark(inputWatermark, collector, coordinator);
       }
 
-      if (outputWatermark < outputWm) {
-        // advance the watermark
-        outputWatermark = outputWm;
-        LOG.debug("Advance output watermark to {} in operator {}", outputWatermark, getOperatorName());
-        this.registeredOperators.forEach(op -> op.onWatermark(outputWatermark, collector, coordinator));
+      if (outputWm != null) {
+        if (outputWatermark < outputWm) {
+          // advance the watermark
+          outputWatermark = outputWm;
+          LOG.debug("Advance output watermark to {} in operator {}", outputWatermark, getOperatorName());
+          this.registeredOperators.forEach(op -> op.onWatermark(outputWatermark, collector, coordinator));
+        } else if (outputWatermark > outputWm) {
+          LOG.warn("Ignore watermark {} that is smaller than the previous watermark {}.", outputWm, outputWatermark);
+        }
       }
     }
   }
@@ -325,9 +332,9 @@ public abstract class OperatorImpl<M, RM> {
    * @param inputWatermark  input watermark
    * @param collector message collector
    * @param coordinator task coordinator
-   * @return output watermark
+   * @return output watermark, or null if the output watermark should not be updated.
    */
-  protected long handleWatermark(long inputWatermark, MessageCollector collector, TaskCoordinator coordinator) {
+  protected Long handleWatermark(long inputWatermark, MessageCollector collector, TaskCoordinator coordinator) {
     // Default is no handling. Simply pass on the input watermark as output.
     return inputWatermark;
   }
