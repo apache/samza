@@ -50,7 +50,7 @@ public class StreamDescriptor {
     }
 
     public StreamSpec getStreamSpec() {
-      return new StreamSpec(this.streamId, null, system.getSystemName());
+      return new StreamSpec(this.streamId, this.streamId, system.getSystemName());
     }
 
     IOSystem getIOSystem() {

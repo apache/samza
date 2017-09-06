@@ -18,12 +18,12 @@
  */
 package org.apache.samza.test.operator;
 
-//import org.apache.kafka.clients.consumer.ConsumerRecord;
-//import org.junit.Assert;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.junit.Assert;
 import org.junit.Test;
 
-//import java.util.Collections;
-//import java.util.List;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Test driver for {@link RepartitionWindowApp}.
@@ -32,7 +32,7 @@ public class TestRepartitionWindowApp extends StreamApplicationIntegrationTestHa
 
   static final String INPUT_TOPIC = "page-views";
   static final String OUTPUT_TOPIC = "Result";
-  private static final String APP_NAME = "RepartitionedSessionizer";
+  private static final String APP_NAME = "PageViewCounterApp";
 
   @Test
   public void testRepartitionedSessionWindowCounter() throws Exception {
@@ -48,23 +48,22 @@ public class TestRepartitionWindowApp extends StreamApplicationIntegrationTestHa
     produceMessage(INPUT_TOPIC, 1, "userId1", "userId1,india,3.com");
 
     // run the application
-    RepartitionWindowApp app = new RepartitionWindowApp();
-//    runApplication(app, APP_NAME, null);
+    runApplication(RepartitionWindowApp.class.getName(), APP_NAME, null);
 
     // consume and validate result
-//    List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(OUTPUT_TOPIC), 2);
-//    Assert.assertEquals(messages.size(), 2);
-//
-//    for (ConsumerRecord<String, String> message : messages) {
-//      String key = message.key();
-//      String value = message.value();
-//      // Assert that there are 4 messages for userId1 and 1 message for userId2.
-//      Assert.assertTrue(key.equals("userId1") || key.equals("userId2"));
-//      if ("userId1".equals(key)) {
-//        Assert.assertEquals(value, "4");
-//      } else {
-//        Assert.assertEquals(value, "1");
-//      }
-//    }
+    List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(OUTPUT_TOPIC), 2);
+    Assert.assertEquals(messages.size(), 2);
+
+    for (ConsumerRecord<String, String> message : messages) {
+      String key = message.key();
+      String value = message.value();
+      // Assert that there are 4 messages for userId1 and 1 message for userId2.
+      Assert.assertTrue(key.equals("userId1") || key.equals("userId2"));
+      if ("userId1".equals(key)) {
+        Assert.assertEquals(value, "4");
+      } else {
+        Assert.assertEquals(value, "1");
+      }
+    }
   }
 }
