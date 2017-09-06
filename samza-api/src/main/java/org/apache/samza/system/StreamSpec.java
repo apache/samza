@@ -37,6 +37,12 @@ public class StreamSpec {
 
   private static final int DEFAULT_PARTITION_COUNT = 1;
 
+  // Internal changelog stream id. It is used for creating changelog StreamSpec.
+  public static final String CHANGELOG_STREAM_ID = "samza-internal-changelog-stream-id";
+
+  // Internal coordinator stream id. It is used for creating coordinator StreamSpec.
+  public static final String COORDINATOR_STREAM_ID = "samza-internal-coordinator-stream-id";
+
   /**
    * Unique identifier for the stream in a Samza application.
    * This identifier is used as a key for stream properties in the

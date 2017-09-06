@@ -29,6 +29,7 @@ import org.apache.samza.job.ApplicationStatus.{Running, SuccessfulFinish}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.ApplicationRunnerMain.ApplicationRunnerCommandLine
 import org.apache.samza.runtime.ApplicationRunnerOperation
+import org.apache.samza.system.StreamSpec
 import org.apache.samza.util.{Logging, Util}
 
 import scala.collection.JavaConverters._
@@ -85,7 +86,13 @@ class JobRunner(config: Config) extends Logging {
     info("Creating coordinator stream")
     val (coordinatorSystemStream, systemFactory) = Util.getCoordinatorSystemStreamAndFactory(config)
     val systemAdmin = systemFactory.getAdmin(coordinatorSystemStream.getSystem, config)
-    systemAdmin.createCoordinatorStream(coordinatorSystemStream.getStream)
+    val streamName = coordinatorSystemStream.getStream
+    val coordinatorSpec = new StreamSpec(StreamSpec.COORDINATOR_STREAM_ID, streamName, coordinatorSystemStream.getSystem)
+    if (systemAdmin.createStream(coordinatorSpec)) {
+      info("Created coordinator stream %s." format streamName)
+    } else {
+      info("Coordinator stream %s already exists." format streamName)
+    }
 
     if (resetJobConfig) {
       info("Storing config in coordinator stream.")

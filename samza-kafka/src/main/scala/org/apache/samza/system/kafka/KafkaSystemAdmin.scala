@@ -37,9 +37,6 @@ import scala.collection.JavaConverters._
 
 
 object KafkaSystemAdmin extends Logging {
-  // Use a dummy string for the stream id. The physical name and partition count are all that matter for changelog creation, so the dummy string should not be used.
-  // We cannot use the topic name, as it may include special chars which are not allowed in stream IDs. See SAMZA-1317
-  val CHANGELOG_STREAMID = "unused-temp-changelog-stream-id"
 
   val CLEAR_STREAM_RETRIES = 3
 
@@ -330,18 +327,6 @@ class KafkaSystemAdmin(
      offset
   }
 
-  override def createCoordinatorStream(streamName: String) {
-    info("Attempting to create coordinator stream %s." format streamName)
-
-    val streamSpec = new KafkaStreamSpec(streamName, streamName, systemName, 1, coordinatorStreamReplicationFactor, coordinatorStreamProperties)
-
-    if (createStream(streamSpec)) {
-      info("Created coordinator stream %s." format streamName)
-    } else {
-      info("Coordinator stream %s already exists." format streamName)
-    }
-  }
-
   /**
    * Helper method to use topic metadata cache when fetching metadata, so we
    * don't hammer Kafka more than we need to.
@@ -417,7 +402,7 @@ class KafkaSystemAdmin(
    * @inheritdoc
    */
   override def createStream(spec: StreamSpec): Boolean = {
-    val kSpec = KafkaStreamSpec.fromSpec(spec)
+    val kSpec = toKafkaSpec(spec)
     var streamCreated = false
 
     new ExponentialSleepStrategy(initialDelayMs = 500).run(
@@ -450,6 +435,26 @@ class KafkaSystemAdmin(
       })
 
     streamCreated
+  }
+
+  /**
+   * Converts a StreamSpec into a KafakStreamSpec. Special handling for coordinator and changelog stream.
+   * @param spec a StreamSpec object
+   * @return KafkaStreamSpec object
+   */
+  def toKafkaSpec(spec: StreamSpec): KafkaStreamSpec = {
+    spec.getId match {
+      case StreamSpec.CHANGELOG_STREAM_ID =>
+        val topicName = spec.getPhysicalName
+        val topicMeta = topicMetaInformation.getOrElse(topicName, throw new KafkaChangelogException("Unable to find topic information for topic " + topicName))
+        new KafkaStreamSpec(StreamSpec.CHANGELOG_STREAM_ID, topicName, systemName, spec.getPartitionCount, topicMeta.replicationFactor, topicMeta.kafkaProps)
+
+      case StreamSpec.COORDINATOR_STREAM_ID =>
+        new KafkaStreamSpec(StreamSpec.COORDINATOR_STREAM_ID, spec.getPhysicalName, systemName, 1, coordinatorStreamReplicationFactor, coordinatorStreamProperties)
+
+      case _ =>
+        KafkaStreamSpec.fromSpec(spec)
+    }
   }
 
   /**
@@ -495,6 +500,8 @@ class KafkaSystemAdmin(
   /**
    * @inheritdoc
    *
+   * Delete a stream in Kafka. Deleting topics works only when the broker is configured with "delete.topic.enable=true".
+   * Otherwise it's a no-op.
    */
   override def clearStream(spec: StreamSpec) = {
     val kSpec = KafkaStreamSpec.fromSpec(spec)
@@ -530,28 +537,6 @@ class KafkaSystemAdmin(
     */
   class KafkaChangelogException(s: String, t: Throwable) extends SamzaException(s, t) {
     def this(s: String) = this(s, null)
-  }
-  
-  override def createChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {
-    val topicMeta = topicMetaInformation.getOrElse(topicName, throw new KafkaChangelogException("Unable to find topic information for topic " + topicName))
-    val spec = new KafkaStreamSpec(CHANGELOG_STREAMID, topicName, systemName, numKafkaChangelogPartitions, topicMeta.replicationFactor, topicMeta.kafkaProps)
-
-    if (createStream(spec)) {
-      info("Created changelog stream %s." format topicName)
-    } else {
-      info("Changelog stream %s already exists." format topicName)
-    }
-
-    validateStream(spec)
-  }
-
-  /**
-    * Validates a stream in Kafka. Should not be called before createStream(),
-    * since ClientUtils.fetchTopicMetadata(), used by different Kafka clients, is not read-only and
-    * will auto-create a new topic.
-    */
-  override def validateChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {
-    validateStream(new KafkaStreamSpec(CHANGELOG_STREAMID, topicName, systemName, numKafkaChangelogPartitions))
   }
 
   /**

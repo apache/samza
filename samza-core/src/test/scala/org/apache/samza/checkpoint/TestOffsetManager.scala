@@ -340,18 +340,6 @@ class TestOffsetManager {
       def getSystemStreamMetadata(streamNames: java.util.Set[String]) =
         Map[String, SystemStreamMetadata]().asJava
 
-      override def createChangelogStream(topicName: String, numOfChangeLogPartitions: Int) {
-        new UnsupportedOperationException("Method not implemented.")
-      }
-
-      override def validateChangelogStream(topicName: String, numOfChangeLogPartitions: Int) {
-        new UnsupportedOperationException("Method not implemented.")
-      }
-
-      override def createCoordinatorStream(streamName: String) {
-        new UnsupportedOperationException("Method not implemented.")
-      }
-
       override def offsetComparator(offset1: String, offset2: String) = null
     }
   }

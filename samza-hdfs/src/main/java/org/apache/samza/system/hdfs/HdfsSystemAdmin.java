@@ -201,21 +201,6 @@ public class HdfsSystemAdmin implements SystemAdmin {
     return systemStreamMetadataMap;
   }
 
-  @Override
-  public void createChangelogStream(String streamName, int numOfPartitions) {
-    throw new UnsupportedOperationException("HDFS doesn't support change log stream.");
-  }
-
-  @Override
-  public void validateChangelogStream(String streamName, int numOfPartitions) {
-    throw new UnsupportedOperationException("HDFS doesn't support change log stream.");
-  }
-
-  @Override
-  public void createCoordinatorStream(String streamName) {
-    throw new UnsupportedOperationException("HDFS doesn't support coordinator stream.");
-  }
-
   /**
    * Compare two multi-file style offset. A multi-file style offset consist of both
    * the file index as well as the offset within that file. And the format of it is:
