@@ -93,21 +93,6 @@ public class TestExecutionPlanner {
       }
 
       @Override
-      public void createChangelogStream(String streamName, int numOfPartitions) {
-
-      }
-
-      @Override
-      public void validateChangelogStream(String streamName, int numOfPartitions) {
-
-      }
-
-      @Override
-      public void createCoordinatorStream(String streamName) {
-
-      }
-
-      @Override
       public Integer offsetComparator(String offset1, String offset2) {
         return null;
       }

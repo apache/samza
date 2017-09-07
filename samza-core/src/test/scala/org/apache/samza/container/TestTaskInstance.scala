@@ -398,9 +398,6 @@ class TestTaskInstance {
 class MockSystemAdmin extends SystemAdmin {
   override def getOffsetsAfter(offsets: java.util.Map[SystemStreamPartition, String]) = { offsets }
   override def getSystemStreamMetadata(streamNames: java.util.Set[String]) = null
-  override def createCoordinatorStream(stream: String) = {}
-  override def createChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {}
-  override def validateChangelogStream(topicName: String, numOfPartitions: Int) = {}
 
   override def offsetComparator(offset1: String, offset2: String) = {
     offset1.toLong compare offset2.toLong
