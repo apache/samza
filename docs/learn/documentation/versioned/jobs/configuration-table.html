@@ -663,6 +663,21 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="task-drop-producer-errors">task.drop.producer.errors</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        If true, producer errors will be logged and ignored. If false, producer errors will be propagated
+                        upward, which will usually fail the container. Failing the container is a safety precaution to
+                        ensure the latest checkpoints only reflect the events that have been completely and successfully
+                        processed. However, some applications prefer to remain running at all costs, even if that means
+                        lost messages. Setting this property to true will enable applications to recover from producer
+                        errors at the expense of one or many (in the case of batching producers) dropped messages.
+                        If you enable this, it is highly recommended that you configure alerting on the
+                        'producer-send-failed' metric.
+                    </td>
+                </tr>
+
+                <tr>
                     <td class="property" id="task-log4j-system">task.log4j.system</td>
                     <td class="default"></td>
                     <td class="description">

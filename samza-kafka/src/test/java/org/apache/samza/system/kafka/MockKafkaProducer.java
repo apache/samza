@@ -156,12 +156,14 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
 
   @Override
   public void close() {
-    closed = true;
+    close(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
   }
 
   @Override
   public void close(long timeout, TimeUnit timeUnit) {
     closed = true;
+    // The real producer will flush messages as part of closing. We'll invoke flush here to approximate that behavior.
+    new FlushRunnable(0).run();
   }
 
   public void open() {

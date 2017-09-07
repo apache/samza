@@ -19,7 +19,6 @@
 
 package org.apache.samza.system.kafka
 
-import kafka.producer.ProducerClosedException
 import org.apache.kafka.clients.producer._
 import org.apache.kafka.common.errors.{RecordTooLargeException, TimeoutException}
 import org.apache.kafka.test.MockSerializer
@@ -178,7 +177,7 @@ class TestKafkaSystemProducer {
   /**
     * If there's an exception, we should:
     * 1. Close the producer (from the one-and-only kafka send thread) to prevent subsequent sends from going out of order.
-    * 2. Nullify the producer to cause it to be recreated
+    * 2. Nullify the producer from systemProducer.flush() to cause it to be recreated on the next send
     * 3. Throw the exception from systemProducer.flush() to prevent a checkpoint
     *
     * Assumptions:
@@ -224,17 +223,23 @@ class TestKafkaSystemProducer {
     val senderException = intercept[SystemProducerException] {
       producer.send("test", msg4) // Should fail because the producer is closed.
     }
-    assertTrue(senderException.getCause.isInstanceOf[ProducerClosedException])
+    assertTrue(senderException.getCause.getCause.isInstanceOf[RecordTooLargeException])
 
     val callbackException = intercept[SystemProducerException] {
        producer.flush("test") // Should throw the callback exception
     }
     assertTrue(callbackException.getCause.getCause.isInstanceOf[RecordTooLargeException])
 
-    producer.send("test", msg5) // Should be able to send again after flush
+    val postFlushException = intercept[SystemProducerException] {
+      producer.send("test", msg5) // Should not be able to send again after flush
+    }
+    assertTrue(postFlushException.getCause.getCause.isInstanceOf[RecordTooLargeException])
 
-    producer.flush("test") // Should not rethrow the exception
-    assertEquals(3, mockProducer.getMsgsSent) // only the messages before the error get sent
+    val callbackException2 = intercept[SystemProducerException] {
+      producer.flush("test") // Should rethrow the exception
+    }
+    assertTrue(callbackException2.getCause.getCause.isInstanceOf[RecordTooLargeException])
+    assertEquals(2, mockProducer.getMsgsSent) // only the messages before the error get sent
     producer.stop()
   }
 
@@ -284,40 +289,49 @@ class TestKafkaSystemProducer {
     val senderException = intercept[SystemProducerException] {
       producer.send("test1", msg4) // Should fail because the producer is closed.
     }
-    assertTrue(senderException.getCause.isInstanceOf[ProducerClosedException])
+    assertTrue(senderException.getCause.getCause.isInstanceOf[RecordTooLargeException])
 
-    val callbackException1 = intercept[SystemProducerException] {
+    val callbackException = intercept[SystemProducerException] {
       producer.send("test2", msg4) // First send from separate source gets a producer closed exception
     }
-    assertTrue(callbackException1.getCause.isInstanceOf[ProducerClosedException])
+    assertTrue(callbackException.getCause.getCause.isInstanceOf[RecordTooLargeException])
 
     val callbackException2 = intercept[SystemProducerException] {
       producer.send("test2", msg5) // Second send should still get the error
     }
-    assertTrue(callbackException2.getCause.isInstanceOf[ProducerClosedException])
+    assertTrue(callbackException2.getCause.getCause.isInstanceOf[RecordTooLargeException])
 
     // Flushes
     val callbackException3 = intercept[SystemProducerException] {
       producer.flush("test2") // Should rethrow the closed exception in flush
     }
     assertTrue(callbackException3.isInstanceOf[SystemProducerException])
-    assertTrue(callbackException3.getCause.getCause.isInstanceOf[ProducerClosedException])
-    producer.send("test2", msg6) // Should be able to send again after flush
+    assertTrue(callbackException3.getCause.getCause.isInstanceOf[RecordTooLargeException])
+    intercept[SystemProducerException] {
+      producer.send("test2", msg6) // Should still not be able to send after flush
+    }
 
     val thrown3 = intercept[SystemProducerException] {
       producer.flush("test1") // Should throw the callback exception
     }
     assertTrue(thrown3.isInstanceOf[SystemProducerException])
     assertTrue(thrown3.getCause.getCause.isInstanceOf[RecordTooLargeException])
-    producer.send("test1", msg7) // Should be able to send again after flush
 
-    producer.flush("test1") // Should not rethrow
-    assertEquals(4, mockProducer.getMsgsSent)
+    intercept[SystemProducerException] {
+      producer.send("test1", msg7) // Should still not be able to send after flush
+    }
+
+    intercept[SystemProducerException] {
+      producer.flush("test1") // Should throw the callback exception
+    }
+    assertEquals(2, mockProducer.getMsgsSent)
     producer.stop()
   }
 
-  // TODO need a test the case where an exception happens for source1 and producer is closed then flush called for source2
+  // TODO test both above cases with swallow exception enabled
+  // TODO need a test for the case where an exception happens for source1 and producer is closed then flush called for source2
   // Should it null out the producer?
+  // TODO test serialization error to make sure we don't close the producer
 
   @Test
   def testKafkaProducerFlushMsgsWhenStop {
