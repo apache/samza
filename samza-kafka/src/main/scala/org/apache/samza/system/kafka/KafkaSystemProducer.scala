@@ -21,7 +21,6 @@ package org.apache.samza.system.kafka
 
 
 import java.util.concurrent.atomic.AtomicReference
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 import kafka.producer.ProducerClosedException
@@ -39,7 +38,7 @@ import org.apache.samza.util.KafkaUtil
 import org.apache.samza.util.Logging
 import org.apache.samza.util.TimerUtils
 
-import scala.collection.JavaConversions._
+import scala.collection.mutable
 
 class KafkaSystemProducer(systemName: String,
                           retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
@@ -49,21 +48,6 @@ class KafkaSystemProducer(systemName: String,
                           val dropProducerExceptions: Boolean = false) extends SystemProducer with Logging with TimerUtils
 {
 
-  class SourceData {
-    /**
-     * producerException: to store the exception in case of any "ultimate" send failure (ie. failure
-     * after exhausting max_retries in Kafka producer). It helps the synchronous samza SystemProducer keep track
-     * of asynchronous exceptions for each source propagate them upward.
-     *
-     * In cases of multiple exceptions in the callbacks, we keep the first one before throwing.
-     *
-     * Once the exception is set, it is never cleared. We throw the exception any time send/flush are called.
-     * In that sense, any producer exception is fatal. Users can configure task.drop.producer.errors if they
-     * prefer to swallow exceptions.
-     */
-    val producerException: AtomicReference[SystemProducerException] = new AtomicReference[SystemProducerException]()
-  }
-
   /**
     * Represents a fatal error that caused the producer to close.
     */
@@ -71,7 +55,7 @@ class KafkaSystemProducer(systemName: String,
   var producer: Producer[Array[Byte], Array[Byte]] = null
   var producerLock: Object = new Object
   val StreamNameNullOrEmptyErrorMsg = "Stream Name should be specified in the stream configuration file."
-  val sources: ConcurrentHashMap[String, SourceData] = new ConcurrentHashMap[String, SourceData]
+  val sources: mutable.Set[String] = new mutable.HashSet[String]
 
   def start(): Unit = {
     producer = getProducer()
@@ -89,11 +73,9 @@ class KafkaSystemProducer(systemName: String,
         }
 
         // Scan the sourceData for all sources and log the errors for posterity
-        for ((source: String, data: SourceData) <- sources) {
-          val exception = data.producerException.get()
-          if (exception != null) {
-            error("Observed unhandled error for source: %s while closing producer" format(source), exception)
-          }
+        val exception = fatalException.get()
+        if (exception != null) {
+          error("Observed unhandled error while closing producer", exception)
         }
       } catch {
         case e: Exception => error("Error while closing producer for system: " + systemName, e)
@@ -102,7 +84,7 @@ class KafkaSystemProducer(systemName: String,
   }
 
   def register(source: String) {
-    if(sources.putIfAbsent(source, new SourceData) != null) {
+    if(!sources.add(source)) {
       throw new SystemProducerException("%s is already registered with the %s system producer" format (source, systemName))
     }
   }
@@ -115,19 +97,14 @@ class KafkaSystemProducer(systemName: String,
       throw new IllegalArgumentException(StreamNameNullOrEmptyErrorMsg)
     }
 
-    val sourceData = sources.get(source)
-    if (sourceData == null) {
+    if (!sources.contains(source)) {
       throw new IllegalArgumentException("Source %s must be registered first before send." format source)
     }
 
     val globalProducerException = fatalException.get()
     if (globalProducerException != null) {
       metrics.sendFailed.inc
-
-      // Throw the source-specific exception if possible, else throw global
-      val sourceProducerException = sourceData.producerException.get()
-      val exceptionToThrow = if (sourceProducerException != null) sourceProducerException else globalProducerException
-      throw new SystemProducerException("Producer was unable to recover from previous exception.", exceptionToThrow)
+      throw new SystemProducerException("Producer was unable to recover from previous exception.", globalProducerException)
     }
 
     val currentProducer = producer
@@ -152,7 +129,7 @@ class KafkaSystemProducer(systemName: String,
             val producerException = new SystemProducerException("Failed to send message for Source: %s on System:%s Topic:%s Partition:%s"
               .format(source, systemName, topicName, partitionKey), exception)
 
-            handleSendException(sourceData, currentProducer, producerException, true)
+            handleSendException(currentProducer, producerException, true)
           }
         }
       })
@@ -162,7 +139,7 @@ class KafkaSystemProducer(systemName: String,
         val producerException = new SystemProducerException("Failed to send message for Source: %s on System:%s Topic:%s Partition:%s"
           .format(source, systemName, topicName, partitionKey), e)
 
-        handleSendException(sourceData, currentProducer, producerException, isFatalException(e))
+        handleSendException(currentProducer, producerException, isFatalException(e))
         throw producerException
     }
   }
@@ -196,7 +173,7 @@ class KafkaSystemProducer(systemName: String,
   }
 
 
-  private def handleSendException(sourceData: SourceData, currentProducer: Producer[Array[Byte], Array[Byte]], producerException: SystemProducerException, isFatalException: Boolean) = {
+  private def handleSendException(currentProducer: Producer[Array[Byte], Array[Byte]], producerException: SystemProducerException, isFatalException: Boolean) = {
     metrics.sendFailed.inc
     error(producerException)
     // The SystemProducer contract is synchronous, so there's no way for us to guarantee that an exception will
@@ -223,7 +200,6 @@ class KafkaSystemProducer(systemName: String,
         producer.close(0, TimeUnit.MILLISECONDS)
         fatalException.compareAndSet(null, producerException)
       }
-      sourceData.producerException.compareAndSet(null, producerException)
     }
   }
 
