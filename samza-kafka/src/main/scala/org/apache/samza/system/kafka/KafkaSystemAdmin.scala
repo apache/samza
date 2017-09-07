@@ -443,17 +443,14 @@ class KafkaSystemAdmin(
    * @return KafkaStreamSpec object
    */
   def toKafkaSpec(spec: StreamSpec): KafkaStreamSpec = {
-    spec.getId match {
-      case StreamSpec.CHANGELOG_STREAM_ID =>
-        val topicName = spec.getPhysicalName
-        val topicMeta = topicMetaInformation.getOrElse(topicName, throw new KafkaChangelogException("Unable to find topic information for topic " + topicName))
-        new KafkaStreamSpec(StreamSpec.CHANGELOG_STREAM_ID, topicName, systemName, spec.getPartitionCount, topicMeta.replicationFactor, topicMeta.kafkaProps)
-
-      case StreamSpec.COORDINATOR_STREAM_ID =>
-        new KafkaStreamSpec(StreamSpec.COORDINATOR_STREAM_ID, spec.getPhysicalName, systemName, 1, coordinatorStreamReplicationFactor, coordinatorStreamProperties)
-
-      case _ =>
-        KafkaStreamSpec.fromSpec(spec)
+    if (spec.isChangeLogStream) {
+      val topicName = spec.getPhysicalName
+      val topicMeta = topicMetaInformation.getOrElse(topicName, throw new StreamValidationException("Unable to find topic information for topic " + topicName))
+      new KafkaStreamSpec(spec.getId, topicName, systemName, spec.getPartitionCount, topicMeta.replicationFactor, topicMeta.kafkaProps)
+    } else if (spec.isCoordinatorStream){
+      new KafkaStreamSpec(spec.getId, spec.getPhysicalName, systemName, 1, coordinatorStreamReplicationFactor, coordinatorStreamProperties)
+    } else {
+      KafkaStreamSpec.fromSpec(spec)
     }
   }
 
@@ -503,7 +500,7 @@ class KafkaSystemAdmin(
    * Delete a stream in Kafka. Deleting topics works only when the broker is configured with "delete.topic.enable=true".
    * Otherwise it's a no-op.
    */
-  override def clearStream(spec: StreamSpec) = {
+  override def clearStream(spec: StreamSpec): Boolean = {
     val kSpec = KafkaStreamSpec.fromSpec(spec)
     var retries = CLEAR_STREAM_RETRIES
     new ExponentialSleepStrategy().run(
@@ -530,13 +527,9 @@ class KafkaSystemAdmin(
           throw exception
         }
       })
-  }
 
-  /**
-    * Exception to be thrown when the change log stream creation or validation has failed
-    */
-  class KafkaChangelogException(s: String, t: Throwable) extends SamzaException(s, t) {
-    def this(s: String) = this(s, null)
+    val topicMetadata = getTopicMetadata(Set(kSpec.getPhysicalName)).get(kSpec.getPhysicalName).get
+    topicMetadata.partitionsMetadata.isEmpty
   }
 
   /**

@@ -87,7 +87,7 @@ class JobRunner(config: Config) extends Logging {
     val (coordinatorSystemStream, systemFactory) = Util.getCoordinatorSystemStreamAndFactory(config)
     val systemAdmin = systemFactory.getAdmin(coordinatorSystemStream.getSystem, config)
     val streamName = coordinatorSystemStream.getStream
-    val coordinatorSpec = new StreamSpec(StreamSpec.COORDINATOR_STREAM_ID, streamName, coordinatorSystemStream.getSystem)
+    val coordinatorSpec = StreamSpec.createCoordinatorStreamSpec(streamName, coordinatorSystemStream.getSystem)
     if (systemAdmin.createStream(coordinatorSpec)) {
       info("Created coordinator stream %s." format streamName)
     } else {

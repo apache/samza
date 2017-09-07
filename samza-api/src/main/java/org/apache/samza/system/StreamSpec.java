@@ -38,10 +38,10 @@ public class StreamSpec {
   private static final int DEFAULT_PARTITION_COUNT = 1;
 
   // Internal changelog stream id. It is used for creating changelog StreamSpec.
-  public static final String CHANGELOG_STREAM_ID = "samza-internal-changelog-stream-id";
+  private static final String CHANGELOG_STREAM_ID = "samza-internal-changelog-stream-id";
 
   // Internal coordinator stream id. It is used for creating coordinator StreamSpec.
-  public static final String COORDINATOR_STREAM_ID = "samza-internal-coordinator-stream-id";
+  private static final String COORDINATOR_STREAM_ID = "samza-internal-coordinator-stream-id";
 
   /**
    * Unique identifier for the stream in a Samza application.
@@ -206,6 +206,14 @@ public class StreamSpec {
     return new SystemStream(systemName, physicalName);
   }
 
+  public boolean isChangeLogStream() {
+    return id.equals(CHANGELOG_STREAM_ID);
+  }
+
+  public boolean isCoordinatorStream() {
+    return id.equals(COORDINATOR_STREAM_ID);
+  }
+
   private void validateLogicalIdentifier(String identifierName, String identifierValue) {
     if (identifierValue == null || !identifierValue.matches("[A-Za-z0-9_-]+")) {
       throw new IllegalArgumentException(String.format("Identifier '%s' is '%s'. It must match the expression [A-Za-z0-9_-]+", identifierName, identifierValue));
@@ -225,5 +233,13 @@ public class StreamSpec {
   @Override
   public int hashCode() {
     return id.hashCode();
+  }
+
+  public static StreamSpec createChangeLogStreamSpec(String physicalName, String systemName, int partitionCount) {
+    return new StreamSpec(CHANGELOG_STREAM_ID, physicalName, systemName, partitionCount);
+  }
+
+  public static StreamSpec createCoordinatorStreamSpec(String physicalName, String systemName) {
+    return new StreamSpec(COORDINATOR_STREAM_ID, physicalName, systemName, 1);
   }
 }

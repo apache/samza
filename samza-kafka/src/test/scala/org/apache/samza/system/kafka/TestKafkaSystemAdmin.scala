@@ -283,7 +283,7 @@ class TestKafkaSystemAdmin {
     val topic = "test-coordinator-stream"
     val systemAdmin = new KafkaSystemAdmin(SYSTEM, brokers, () => ZkUtils(zkConnect, 6000, 6000, zkSecure), coordinatorStreamReplicationFactor = 3)
 
-    val spec = new StreamSpec(StreamSpec.COORDINATOR_STREAM_ID, topic, "kafka")
+    val spec = StreamSpec.createCoordinatorStreamSpec(topic, "kafka")
     systemAdmin.createStream(spec)
     validateTopic(topic, 1)
     val topicMetadataMap = TopicMetadataCache.getTopicMetadata(Set(topic), "kafka", metadataStore.getTopicInfo)

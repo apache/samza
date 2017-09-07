@@ -304,7 +304,7 @@ object JobModelManager extends Logging {
         .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemStream.getSystem))
         ).getAdmin(systemStream.getSystem, config)
 
-      val changelogSpec = new StreamSpec(StreamSpec.CHANGELOG_STREAM_ID, systemStream.getStream, systemStream.getSystem, changeLogPartitions)
+      val changelogSpec = StreamSpec.createChangeLogStreamSpec(systemStream.getStream, systemStream.getSystem, changeLogPartitions)
       if (systemAdmin.createStream(changelogSpec)) {
         info("Created changelog stream %s." format systemStream.getStream)
       } else {

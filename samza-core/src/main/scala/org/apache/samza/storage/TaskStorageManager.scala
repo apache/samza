@@ -211,7 +211,7 @@ class TaskStorageManager(
       val systemAdmin = systemAdmins
         .getOrElse(systemStream.getSystem,
                    throw new SamzaException("Unable to get systemAdmin for store " + storeName + " and systemStream" + systemStream))
-      val changelogSpec = new StreamSpec(StreamSpec.CHANGELOG_STREAM_ID, systemStream.getStream, systemStream.getSystem, changeLogStreamPartitions)
+      val changelogSpec = StreamSpec.createChangeLogStreamSpec(systemStream.getStream, systemStream.getSystem, changeLogStreamPartitions)
       systemAdmin.validateStream(changelogSpec)
     }
 
