@@ -86,6 +86,8 @@ public interface SystemAdmin {
   /**
    * Clear the stream described by the spec.
    * @param streamSpec  The spec for the physical stream on the system.
+   * @return {@code true} if the stream was successfully cleared.
+   *         {@code false} if clearing stream failed.
    */
   default boolean clearStream(StreamSpec streamSpec) {
     throw new UnsupportedOperationException();
