@@ -37,6 +37,7 @@
   powerMockVersion = "1.6.6"
   rocksdbVersion = "5.0.1"
   scalaTestVersion = "3.0.1"
+  scoverageVersion = "1.3.0"
   slf4jVersion = "1.6.2"
   yarnVersion = "2.6.1"
   zkClientVersion = "0.8"

@@ -25,6 +25,11 @@ buildscript {
   apply from: file('gradle/buildscript.gradle'), to: buildscript
 }
 
+plugins {
+  id "org.sonarqube" version "2.5"
+  id "org.scoverage" version "2.1.0"
+}
+
 allprojects {
   repositories {
     mavenCentral()
@@ -38,6 +43,11 @@ apply from: file("gradle/release.gradle")
 apply from: file("gradle/rat.gradle")
 apply from: file('gradle/customize.gradle')
 
+dependencies {
+    scoverage "org.scoverage:scalac-scoverage-plugin_$scalaVersion:$scoverageVersion", "org.scoverage:scalac-scoverage-runtime_$scalaVersion:$scoverageVersion"
+}
+
+//task aggregateScoverage(type: org.scoverage.ScoverageAggregate)
 
 rat {
   excludes = [
@@ -105,6 +115,8 @@ allprojects {
 subprojects {
   apply plugin: 'eclipse'
   apply plugin: 'project-report'
+  apply plugin: 'java'
+  apply plugin: 'jacoco'
 
   tasks.withType(Test) {
     test {
@@ -115,9 +127,37 @@ subprojects {
         displayGranularity = maxGranularity
         exceptionFormat = 'full'
       }
+      finalizedBy jacocoTestReport
+    }
+
+    jacocoTestReport {
+      reports {
+        xml.enabled true
+      }
+      executionData = files('build/jacoco/test.exec')
     }
   }
 }
+
+
+apply plugin: 'java'
+apply plugin: 'jacoco'
+jacocoTestReport {
+  executionData = fileTree(project.rootDir.absolutePath).include("**/build/jacoco/*.exec")
+
+  subprojects.each {
+    sourceSets it.sourceSets.main
+  }
+
+  reports {
+    xml.enabled true
+    xml.destination "${buildDir}/reports/jacoco/report.xml"
+    html.enabled false
+    csv.enabled false
+  }
+}
+
+task aggregateScoverage(type: org.scoverage.ScoverageAggregate)
 
 project(':samza-api') {
   apply plugin: 'java'
@@ -137,6 +177,7 @@ project(':samza-api') {
 project(":samza-core_$scalaVersion") {
   apply plugin: 'scala'
   apply plugin: 'checkstyle'
+  apply plugin: 'org.scoverage'
 
   // Force scala joint compilation
   sourceSets.main.scala.srcDir "src/main/java"
@@ -173,6 +214,7 @@ project(":samza-core_$scalaVersion") {
     testCompile "org.powermock:powermock-core:$powerMockVersion"
     testCompile "org.powermock:powermock-module-junit4:$powerMockVersion"
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
+    scoverage "org.scoverage:scalac-scoverage-plugin_$scalaVersion:$scoverageVersion", "org.scoverage:scalac-scoverage-runtime_$scalaVersion:$scoverageVersion"
   }
 
   checkstyle {
@@ -204,6 +246,7 @@ project(':samza-azure') {
 project(":samza-autoscaling_$scalaVersion") {
   apply plugin: 'scala'
   apply plugin: 'checkstyle'
+  apply plugin: 'org.scoverage'
 
   // Force scala joint compilation
   sourceSets.main.scala.srcDir "src/main/java"
@@ -234,6 +277,7 @@ project(":samza-autoscaling_$scalaVersion") {
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-all:$mockitoVersion"
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
+    scoverage "org.scoverage:scalac-scoverage-plugin_$scalaVersion:$scoverageVersion", "org.scoverage:scalac-scoverage-runtime_$scalaVersion:$scoverageVersion"
   }
 
   checkstyle {
@@ -261,6 +305,7 @@ project(':samza-elasticsearch') {
 
 project(":samza-kafka_$scalaVersion") {
   apply plugin: 'scala'
+  //apply plugin: 'org.scoverage'
 
   // Force scala joint compilation
   sourceSets.main.scala.srcDir "src/main/java"
@@ -296,6 +341,7 @@ project(":samza-kafka_$scalaVersion") {
 
     // Logging in tests is good.
     testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
+    //scoverage "org.scoverage:scalac-scoverage-plugin_$scalaVersion:$scoverageVersion", "org.scoverage:scalac-scoverage-runtime_$scalaVersion:$scoverageVersion"
   }
 
   test {
@@ -332,6 +378,7 @@ project(':samza-log4j') {
 project(":samza-yarn_$scalaVersion") {
   apply plugin: 'scala'
   apply plugin: 'lesscss'
+  apply plugin: 'org.scoverage'
 
   // Force scala joint compilation
   sourceSets.main.scala.srcDir "src/main/java"
@@ -384,6 +431,7 @@ project(":samza-yarn_$scalaVersion") {
     testCompile "org.mockito:mockito-all:$mockitoVersion"
     testCompile project(":samza-core_$scalaVersion").sourceSets.test.output
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
+    scoverage "org.scoverage:scalac-scoverage-plugin_$scalaVersion:$scoverageVersion", "org.scoverage:scalac-scoverage-runtime_$scalaVersion:$scoverageVersion"
   }
 
   repositories {
@@ -468,6 +516,7 @@ project(":samza-shell") {
 project(":samza-kv_$scalaVersion") {
   apply plugin: 'scala'
   apply plugin: 'checkstyle'
+  apply plugin: 'org.scoverage'
 
   // Force scala joint compilation
   sourceSets.main.scala.srcDir "src/main/java"
@@ -485,6 +534,7 @@ project(":samza-kv_$scalaVersion") {
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-all:$mockitoVersion"
+    scoverage "org.scoverage:scalac-scoverage-plugin_$scalaVersion:$scoverageVersion", "org.scoverage:scalac-scoverage-runtime_$scalaVersion:$scoverageVersion"
   }
 
   checkstyle {
@@ -495,6 +545,7 @@ project(":samza-kv_$scalaVersion") {
 
 project(":samza-kv-inmemory_$scalaVersion") {
   apply plugin: 'scala'
+  apply plugin: 'org.scoverage'
 
   dependencies {
     compile project(':samza-api')
@@ -503,11 +554,13 @@ project(":samza-kv-inmemory_$scalaVersion") {
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     compile "com.google.guava:guava:$guavaVersion"
     testCompile "junit:junit:$junitVersion"
+    scoverage "org.scoverage:scalac-scoverage-plugin_$scalaVersion:$scoverageVersion", "org.scoverage:scalac-scoverage-runtime_$scalaVersion:$scoverageVersion"
   }
 }
 
 project(":samza-kv-rocksdb_$scalaVersion") {
   apply plugin: 'scala'
+  apply plugin: 'org.scoverage'
 
   // Force scala joint compilation
   sourceSets.main.scala.srcDir "src/main/java"
@@ -526,11 +579,13 @@ project(":samza-kv-rocksdb_$scalaVersion") {
     compile "org.rocksdb:rocksdbjni:$rocksdbVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
+    scoverage "org.scoverage:scalac-scoverage-plugin_$scalaVersion:$scoverageVersion", "org.scoverage:scalac-scoverage-runtime_$scalaVersion:$scoverageVersion"
   }
 }
 
 project(":samza-hdfs_$scalaVersion") {
   apply plugin: 'scala'
+  apply plugin: 'org.scoverage'
 
   // Force scala joint compilation
   sourceSets.main.scala.srcDir "src/main/java"
@@ -558,6 +613,7 @@ project(":samza-hdfs_$scalaVersion") {
     testCompile "junit:junit:$junitVersion"
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
     testCompile "org.apache.hadoop:hadoop-minicluster:$yarnVersion"
+    scoverage "org.scoverage:scalac-scoverage-plugin_$scalaVersion:$scoverageVersion", "org.scoverage:scalac-scoverage-runtime_$scalaVersion:$scoverageVersion"
   }
 }
 
@@ -624,6 +680,7 @@ project(":samza-rest") {
 project(":samza-test_$scalaVersion") {
   apply plugin: 'scala'
   apply plugin: 'checkstyle'
+  apply plugin: 'org.scoverage'
 
   // Force scala joint compilation
   sourceSets.main.scala.srcDir "src/main/java"
@@ -664,6 +721,7 @@ project(":samza-test_$scalaVersion") {
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
     testCompile "org.mockito:mockito-all:$mockitoVersion"
     testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
+    scoverage "org.scoverage:scalac-scoverage-plugin_$scalaVersion:$scoverageVersion", "org.scoverage:scalac-scoverage-runtime_$scalaVersion:$scoverageVersion"
   }
 
   test {
