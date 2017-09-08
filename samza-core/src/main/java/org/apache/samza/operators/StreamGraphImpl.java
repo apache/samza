@@ -74,13 +74,13 @@ public class StreamGraphImpl implements StreamGraph {
 
   @Override
   public void setDefaultKeySerde(Serde<?> keySerde) {
-    Preconditions.checkNotNull(keySerde, "defaultKeySerde must not be null");
+    Preconditions.checkNotNull(keySerde, "default keySerde must not be null");
     this.defaultKeySerde = keySerde;
   }
 
   @Override
   public void setDefaultMsgSerde(Serde<?> msgSerde) {
-    Preconditions.checkNotNull(msgSerde, "defaultMsgSerde must not be null");
+    Preconditions.checkNotNull(msgSerde, "default msgSerde must not be null");
     this.defaultMsgSerde = msgSerde;
   }
 
