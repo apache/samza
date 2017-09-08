@@ -26,6 +26,7 @@ import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowPane;
+import org.apache.samza.serializers.Serde;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -171,8 +172,7 @@ public interface MessageStream<M> {
    * intermediate stream on the {@code job.default.system}. This intermediate stream is both an output and
    * input to the job.
    * <p>
-   * The key and message Serdes configured for the default system must be able to serialize and deserialize
-   * types K and M respectively.
+   * Uses the provided {@code keySerde} and {@code msgSerde} for serialization.
    * <p>
    * The number of partitions for this intermediate stream is determined as follows:
    * If the stream is an eventual input to a {@link #join}, and the number of partitions for the other stream is known,
@@ -181,6 +181,21 @@ public interface MessageStream<M> {
    * configuration, if present.
    * Else, the number of partitions is set to to the max of number of partitions for all input and output streams
    * (excluding intermediate streams).
+   *
+   * @param keySerde the {@link Serde} to use for partition key
+   * @param msgSerde the {@link Serde} to use for output message.
+   * @param keyExtractor the {@link Function} to extract the output message key and partition key from
+   *                     the input message
+   * @param <K> the type of output message key and partition key
+   * @return the repartitioned {@link MessageStream}
+   */
+  <K> MessageStream<M> partitionBy(Serde<K> keySerde, Serde<M> msgSerde, Function<? super M, ? extends K> keyExtractor);
+
+  /**
+   * Same as {@link #partitionBy(Serde, Serde, Function)}, but uses the default key and message Serdes
+   * provided via {@link StreamGraph#setDefaultKeySerde} and {@link StreamGraph#setDefaultMsgSerde(Serde)}
+   * to serde types K and M. If no default key and message serdes have been provided <b>before</b> calling
+   * this method, a no-op serde is used.
    *
    * @param keyExtractor the {@link Function} to extract the output message key and partition key from
    *                     the input message

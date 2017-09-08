@@ -27,6 +27,7 @@ import org.apache.samza.operators.spec.OperatorSpec.OpCode;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
 import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
 import org.junit.Test;
 
@@ -49,7 +50,8 @@ public class TestStreamGraphImpl {
     StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mock(Config.class));
     BiFunction<String, String, TestMessageEnvelope> mockMsgBuilder = mock(BiFunction.class);
 
-    MessageStream<TestMessageEnvelope> inputStream = graph.getInputStream("test-stream-1", mockMsgBuilder);
+    MessageStream<TestMessageEnvelope> inputStream =
+        graph.getInputStream("test-stream-1", mock(Serde.class), mock(Serde.class), mockMsgBuilder);
 
     InputOperatorSpec<String, String, TestMessageEnvelope> inputOpSpec =
         (InputOperatorSpec) ((MessageStreamImpl<TestMessageEnvelope>) inputStream).getOperatorSpec();
@@ -67,7 +69,8 @@ public class TestStreamGraphImpl {
     StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mock(Config.class));
     BiFunction<String, String, TestMessageEnvelope> mockMsgBuilder = mock(BiFunction.class);
 
-    MessageStream<TestMessageEnvelope> inputStream = graph.getInputStream("test-stream-1", mockMsgBuilder);
+    MessageStream<TestMessageEnvelope> inputStream =
+        graph.getInputStream("test-stream-1", mock(Serde.class), mock(Serde.class), mockMsgBuilder);
 
     InputOperatorSpec<String, String, TestMessageEnvelope> inputOpSpec =
         (InputOperatorSpec) ((MessageStreamImpl<TestMessageEnvelope>) inputStream).getOperatorSpec();
@@ -86,8 +89,10 @@ public class TestStreamGraphImpl {
     when(mockRunner.getStreamSpec("test-stream-2")).thenReturn(mockStreamSpec2);
 
     StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mock(Config.class));
-    MessageStream<Object> inputStream1 = graph.getInputStream("test-stream-1", mock(BiFunction.class));
-    MessageStream<Object> inputStream2 = graph.getInputStream("test-stream-2", mock(BiFunction.class));
+    MessageStream<Object> inputStream1 =
+        graph.getInputStream("test-stream-1", mock(Serde.class), mock(Serde.class), mock(BiFunction.class));
+    MessageStream<Object> inputStream2 =
+        graph.getInputStream("test-stream-2", mock(Serde.class), mock(Serde.class), mock(BiFunction.class));
 
     InputOperatorSpec<String, String, TestMessageEnvelope> inputOpSpec1 =
         (InputOperatorSpec) ((MessageStreamImpl<Object>) inputStream1).getOperatorSpec();
@@ -105,8 +110,9 @@ public class TestStreamGraphImpl {
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mock(StreamSpec.class));
 
     StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mock(Config.class));
-    graph.getInputStream("test-stream-1", mock(BiFunction.class));
-    graph.getInputStream("test-stream-1", mock(BiFunction.class)); // should throw exception
+    graph.getInputStream("test-stream-1", mock(Serde.class), mock(Serde.class), mock(BiFunction.class));
+    // should throw exception
+    graph.getInputStream("test-stream-1", mock(Serde.class), mock(Serde.class), mock(BiFunction.class));
   }
 
   @Test
@@ -121,7 +127,8 @@ public class TestStreamGraphImpl {
     Function<TestMessageEnvelope, String> mockMsgExtractor = mock(Function.class);
 
     OutputStream<String, String, TestMessageEnvelope> outputStream =
-        graph.getOutputStream("test-stream-1", mockKeyExtractor, mockMsgExtractor);
+        graph.getOutputStream("test-stream-1", mock(Serde.class), mock(Serde.class),
+            mockKeyExtractor, mockMsgExtractor);
 
     OutputStreamImpl<String, String, TestMessageEnvelope> outputOpSpec = (OutputStreamImpl) outputStream;
     assertEquals(graph.getOutputStreams().get(mockStreamSpec), outputOpSpec);
@@ -136,8 +143,10 @@ public class TestStreamGraphImpl {
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mock(StreamSpec.class));
 
     StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mock(Config.class));
-    graph.getOutputStream("test-stream-1", mock(Function.class), mock(Function.class));
-    graph.getOutputStream("test-stream-1", mock(Function.class), mock(Function.class)); // should throw exception
+    graph.getOutputStream("test-stream-1", mock(Serde.class), mock(Serde.class),
+        mock(Function.class), mock(Function.class));
+    graph.getOutputStream("test-stream-1", mock(Serde.class), mock(Serde.class),
+        mock(Function.class), mock(Function.class)); // should throw exception
   }
 
   @Test
@@ -155,7 +164,8 @@ public class TestStreamGraphImpl {
     BiFunction<String, String, TestMessageEnvelope> mockMsgBuilder = mock(BiFunction.class);
 
     IntermediateMessageStreamImpl<?, ?, TestMessageEnvelope> intermediateStreamImpl =
-        graph.getIntermediateStream("test-stream-1", mockKeyExtractor, mockMsgExtractor, mockMsgBuilder);
+        graph.getIntermediateStream("test-stream-1", mock(Serde.class), mock(Serde.class),
+            mockKeyExtractor, mockMsgExtractor, mockMsgBuilder);
 
     assertEquals(graph.getInputOperators().get(mockStreamSpec), intermediateStreamImpl.getOperatorSpec());
     assertEquals(graph.getOutputStreams().get(mockStreamSpec), intermediateStreamImpl.getOutputStream());
@@ -171,8 +181,10 @@ public class TestStreamGraphImpl {
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mock(StreamSpec.class));
 
     StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mock(Config.class));
-    graph.getIntermediateStream("test-stream-1", mock(Function.class), mock(Function.class), mock(BiFunction.class));
-    graph.getIntermediateStream("test-stream-1", mock(Function.class), mock(Function.class), mock(BiFunction.class));
+    graph.getIntermediateStream("test-stream-1", mock(Serde.class), mock(Serde.class),
+        mock(Function.class), mock(Function.class), mock(BiFunction.class));
+    graph.getIntermediateStream("test-stream-1", mock(Serde.class), mock(Serde.class),
+        mock(Function.class), mock(Function.class), mock(BiFunction.class));
   }
 
   @Test
@@ -199,9 +211,9 @@ public class TestStreamGraphImpl {
     StreamSpec testStreamSpec3 = new StreamSpec("test-stream-3", "physical-stream-3", "test-system");
     when(mockRunner.getStreamSpec("test-stream-3")).thenReturn(testStreamSpec3);
 
-    graph.getInputStream("test-stream-1", (k, v) -> v);
-    graph.getInputStream("test-stream-2", (k, v) -> v);
-    graph.getInputStream("test-stream-3", (k, v) -> v);
+    graph.getInputStream("test-stream-1", mock(Serde.class), mock(Serde.class), (k, v) -> v);
+    graph.getInputStream("test-stream-2", mock(Serde.class), mock(Serde.class), (k, v) -> v);
+    graph.getInputStream("test-stream-3", mock(Serde.class), mock(Serde.class), (k, v) -> v);
 
     List<InputOperatorSpec> inputSpecs = new ArrayList<>(graph.getInputOperators().values());
     Assert.assertEquals(inputSpecs.size(), 3);

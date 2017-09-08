@@ -30,6 +30,7 @@ import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
@@ -123,10 +124,12 @@ public class TestExecutionPlanner {
      */
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
     Function mockFn = mock(Function.class);
-    OutputStream<Object, Object, Object> output1 = streamGraph.getOutputStream("output1", mockFn, mockFn);
+    OutputStream<Object, Object, Object> output1 =
+        streamGraph.getOutputStream("output1", new JsonSerde<>(), new JsonSerde<>(), mockFn, mockFn);
     BiFunction mockBuilder = mock(BiFunction.class);
-    streamGraph.getInputStream("input1", mockBuilder)
-        .partitionBy(m -> "yes!!!").map(m -> m)
+    streamGraph
+        .getInputStream("input1", new JsonSerde<>(), new JsonSerde<>(), mockBuilder)
+        .partitionBy(new JsonSerde<>(), new JsonSerde<>(), m -> "yes!!!").map(m -> m)
         .sendTo(output1);
     return streamGraph;
   }
@@ -146,12 +149,23 @@ public class TestExecutionPlanner {
 
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
     BiFunction msgBuilder = mock(BiFunction.class);
-    MessageStream m1 = streamGraph.getInputStream("input1", msgBuilder).map(m -> m);
-    MessageStream m2 = streamGraph.getInputStream("input2", msgBuilder).partitionBy(m -> "haha").filter(m -> true);
-    MessageStream m3 = streamGraph.getInputStream("input3", msgBuilder).filter(m -> true).partitionBy(m -> "hehe").map(m -> m);
+    MessageStream m1 =
+        streamGraph.getInputStream("input1", new JsonSerde<>(), new JsonSerde<>(), msgBuilder)
+            .map(m -> m);
+    MessageStream m2 =
+        streamGraph.getInputStream("input2", new JsonSerde<>(), new JsonSerde<>(), msgBuilder)
+            .partitionBy(new JsonSerde<>(), new JsonSerde<>(), m -> "haha")
+            .filter(m -> true);
+    MessageStream m3 =
+        streamGraph.getInputStream("input3", new JsonSerde<>(), new JsonSerde<>(), msgBuilder)
+            .filter(m -> true)
+            .partitionBy(new JsonSerde<>(), new JsonSerde<>(), m -> "hehe")
+            .map(m -> m);
     Function mockFn = mock(Function.class);
-    OutputStream<Object, Object, Object> output1 = streamGraph.getOutputStream("output1", mockFn, mockFn);
-    OutputStream<Object, Object, Object> output2 = streamGraph.getOutputStream("output2", mockFn, mockFn);
+    OutputStream<Object, Object, Object> output1 =
+        streamGraph.getOutputStream("output1", new JsonSerde<>(), new JsonSerde<>(), mockFn, mockFn);
+    OutputStream<Object, Object, Object> output2 =
+        streamGraph.getOutputStream("output2", new JsonSerde<>(), new JsonSerde<>(), mockFn, mockFn);
 
     m1.join(m2, mock(JoinFunction.class), Duration.ofHours(2)).sendTo(output1);
     m3.join(m2, mock(JoinFunction.class), Duration.ofHours(1)).sendTo(output2);
@@ -163,12 +177,23 @@ public class TestExecutionPlanner {
 
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
     BiFunction msgBuilder = mock(BiFunction.class);
-    MessageStream m1 = streamGraph.getInputStream("input1", msgBuilder).map(m -> m);
-    MessageStream m2 = streamGraph.getInputStream("input2", msgBuilder).partitionBy(m -> "haha").filter(m -> true);
-    MessageStream m3 = streamGraph.getInputStream("input3", msgBuilder).filter(m -> true).partitionBy(m -> "hehe").map(m -> m);
+    MessageStream m1 =
+        streamGraph.getInputStream("input1", new JsonSerde<>(), new JsonSerde<>(), msgBuilder)
+            .map(m -> m);
+    MessageStream m2 =
+        streamGraph.getInputStream("input2", new JsonSerde<>(), new JsonSerde<>(), msgBuilder)
+            .partitionBy(new JsonSerde<>(), new JsonSerde<>(), m -> "haha")
+            .filter(m -> true);
+    MessageStream m3 =
+        streamGraph.getInputStream("input3", new JsonSerde<>(), new JsonSerde<>(), msgBuilder)
+            .filter(m -> true)
+            .partitionBy(new JsonSerde<>(), new JsonSerde<>(), m -> "hehe")
+            .map(m -> m);
     Function mockFn = mock(Function.class);
-    OutputStream<Object, Object, Object> output1 = streamGraph.getOutputStream("output1", mockFn, mockFn);
-    OutputStream<Object, Object, Object> output2 = streamGraph.getOutputStream("output2", mockFn, mockFn);
+    OutputStream<Object, Object, Object> output1 =
+        streamGraph.getOutputStream("output1", new JsonSerde<>(), new JsonSerde<>(), mockFn, mockFn);
+    OutputStream<Object, Object, Object> output2 =
+        streamGraph.getOutputStream("output2", new JsonSerde<>(), new JsonSerde<>(), mockFn, mockFn);
 
     m1.map(m -> m)
         .filter(m->true)

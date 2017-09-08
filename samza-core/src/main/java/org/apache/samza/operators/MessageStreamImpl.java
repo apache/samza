@@ -35,6 +35,7 @@ import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
 import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
+import org.apache.samza.serializers.Serde;
 
 import java.time.Duration;
 import java.util.Collection;
@@ -51,6 +52,7 @@ import java.util.function.Function;
  *
  * @param <M>  type of messages in this {@link MessageStream}
  */
+@SuppressWarnings("unchecked")
 public class MessageStreamImpl<M> implements MessageStream<M> {
   /**
    * The {@link StreamGraphImpl} that contains this {@link MessageStreamImpl}
@@ -130,6 +132,19 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     otherStreams.forEach(other ->
         ((MessageStreamImpl<M>) other).getOperatorSpec().registerNextOperatorSpec(opSpec));
     return new MessageStreamImpl<>(this.graph, opSpec);
+  }
+
+  @Override
+  public <K> MessageStream<M> partitionBy(Serde<K> keySerde, Serde<M> msgSerde,
+      Function<? super M, ? extends K> keyExtractor) {
+    int opId = this.graph.getNextOpId();
+    String opName = String.format("%s-%s", OperatorSpec.OpCode.PARTITION_BY.name().toLowerCase(), opId);
+    IntermediateMessageStreamImpl<K, M, M> intermediateStream =
+        this.graph.getIntermediateStream(opName, keySerde, msgSerde, keyExtractor, m -> m, (k, m) -> m);
+    OutputOperatorSpec<M> partitionByOperatorSpec = OperatorSpecs.createPartitionByOperatorSpec(
+        intermediateStream.getOutputStream(), opId);
+    this.operatorSpec.registerNextOperatorSpec(partitionByOperatorSpec);
+    return intermediateStream;
   }
 
   @Override

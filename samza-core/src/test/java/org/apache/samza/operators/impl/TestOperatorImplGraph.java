@@ -30,6 +30,7 @@ import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.spec.OperatorSpec.OpCode;
 import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.MessageCollector;
@@ -73,9 +74,11 @@ public class TestOperatorImplGraph {
     when(mockRunner.getStreamSpec(eq("output"))).thenReturn(mock(StreamSpec.class));
     StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mock(Config.class));
 
-    MessageStream<Object> inputStream = streamGraph.getInputStream("input", mock(BiFunction.class));
+    MessageStream<Object> inputStream =
+        streamGraph.getInputStream("input", mock(Serde.class), mock(Serde.class), mock(BiFunction.class));
     OutputStream<Object, Object, Object> outputStream =
-        streamGraph.getOutputStream("output", mock(Function.class), mock(Function.class));
+        streamGraph.getOutputStream("output", mock(Serde.class), mock(Serde.class),
+            mock(Function.class), mock(Function.class));
 
     inputStream
         .filter(mock(FilterFunction.class))
@@ -109,7 +112,8 @@ public class TestOperatorImplGraph {
     when(mockRunner.getStreamSpec(eq("input"))).thenReturn(new StreamSpec("input", "input-stream", "input-system"));
     StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mock(Config.class));
 
-    MessageStream<Object> inputStream = streamGraph.getInputStream("input", mock(BiFunction.class));
+    MessageStream<Object> inputStream =
+        streamGraph.getInputStream("input", mock(Serde.class), mock(Serde.class), mock(BiFunction.class));
     inputStream.filter(mock(FilterFunction.class));
     inputStream.map(mock(MapFunction.class));
 
@@ -132,7 +136,8 @@ public class TestOperatorImplGraph {
     when(mockRunner.getStreamSpec(eq("input"))).thenReturn(new StreamSpec("input", "input-stream", "input-system"));
     StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mock(Config.class));
 
-    MessageStream<Object> inputStream = streamGraph.getInputStream("input", mock(BiFunction.class));
+    MessageStream<Object> inputStream =
+        streamGraph.getInputStream("input", mock(Serde.class), mock(Serde.class), mock(BiFunction.class));
     MessageStream<Object> stream1 = inputStream.filter(mock(FilterFunction.class));
     MessageStream<Object> stream2 = inputStream.map(mock(MapFunction.class));
     MessageStream<Object> mergedStream = stream1.merge(Collections.singleton(stream2));
@@ -156,8 +161,10 @@ public class TestOperatorImplGraph {
     StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mock(Config.class));
 
     JoinFunction mockJoinFunction = mock(JoinFunction.class);
-    MessageStream<Object> inputStream1 = streamGraph.getInputStream("input1", (k, v) -> v);
-    MessageStream<Object> inputStream2 = streamGraph.getInputStream("input2", (k, v) -> v);
+    MessageStream<Object> inputStream1 =
+        streamGraph.getInputStream("input1", mock(Serde.class), mock(Serde.class), (k, v) -> v);
+    MessageStream<Object> inputStream2 = streamGraph.getInputStream("input2",
+        mock(Serde.class), mock(Serde.class), (k, v) -> v);
     inputStream1.join(inputStream2, mockJoinFunction, Duration.ofHours(1));
 
     TaskContext mockTaskContext = mock(TaskContext.class);
@@ -205,8 +212,10 @@ public class TestOperatorImplGraph {
     when(mockContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mockConfig);
 
-    MessageStream<Object> inputStream1 = streamGraph.getInputStream("input1", (k, v) -> v);
-    MessageStream<Object> inputStream2 = streamGraph.getInputStream("input2", (k, v) -> v);
+    MessageStream<Object> inputStream1 =
+        streamGraph.getInputStream("input1", mock(Serde.class), mock(Serde.class), (k, v) -> v);
+    MessageStream<Object> inputStream2 =
+        streamGraph.getInputStream("input2", mock(Serde.class), mock(Serde.class), (k, v) -> v);
 
     List<String> initializedOperators = new ArrayList<>();
     List<String> closedOperators = new ArrayList<>();

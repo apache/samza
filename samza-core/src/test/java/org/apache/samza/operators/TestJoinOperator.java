@@ -25,6 +25,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
@@ -277,9 +278,9 @@ public class TestJoinOperator {
     @Override
     public void init(StreamGraph graph, Config config) {
       MessageStream<FirstStreamIME> inStream =
-          graph.getInputStream("instream", FirstStreamIME::new);
+          graph.getInputStream("instream", new IntegerSerde(), new IntegerSerde(), FirstStreamIME::new);
       MessageStream<SecondStreamIME> inStream2 =
-          graph.getInputStream("instream2", SecondStreamIME::new);
+          graph.getInputStream("instream2", new IntegerSerde(), new IntegerSerde(), SecondStreamIME::new);
 
       SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
       inStream

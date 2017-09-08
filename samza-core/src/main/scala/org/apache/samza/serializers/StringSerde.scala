@@ -30,6 +30,11 @@ class StringSerdeFactory extends SerdeFactory[String] {
 }
 
 class StringSerde(val encoding: String) extends Serde[String] {
+  // constructor (for Java) that defaults to UTF-8 encoding
+  def this() {
+    this("UTF-8")
+  }
+
   def toBytes(obj: String): Array[Byte] = if (obj != null) {
     obj.toString.getBytes(encoding)
   } else {

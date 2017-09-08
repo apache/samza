@@ -16,25 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.samza.serializers
-import org.apache.samza.config.Config
-import org.codehaus.jackson.map.ObjectMapper
-import org.apache.samza.metrics.reporter.MetricsSnapshot
 
-class MetricsSnapshotSerde extends Serde[MetricsSnapshot] {
-  @transient lazy val jsonMapper = new ObjectMapper
-
-  def toBytes(obj: MetricsSnapshot) = jsonMapper
-    .writeValueAsString(obj.getAsMap)
-    .getBytes("UTF-8")
-
-  def fromBytes(bytes: Array[Byte]) = {
-    val metricMap = jsonMapper.readValue(bytes, classOf[java.util.Map[String, java.util.Map[String, Object]]])
-    MetricsSnapshot.fromMap(metricMap)
-  }
-}
-
-class MetricsSnapshotSerdeFactory extends SerdeFactory[MetricsSnapshot] {
-  def getSerde(name: String, config: Config) = new MetricsSnapshotSerde
+/**
+  * A marker serde class to indicate that messages should not be serialized or deserialized.
+  * This is the same behavior as when no serde is provided, and is intended for use cases where
+  * a Serde parameter or configuration is required.
+  * This is different than [[ByteSerde]] which is a pass-through serde for byte arrays.
+  *
+  * @tparam T type of messages which should not be serialized or deserialized
+  */
+class NoOpSerde[T] extends Serde[T] {
+  override def fromBytes(bytes: Array[Byte]): T =
+    throw new NotImplementedError("NoOpSerde fromBytes should not be invoked by the framework.")
+  override def toBytes(obj: T): Array[Byte] =
+    throw new NotImplementedError("NoOpSerde toBytes should not be invoked by the framework.")
 }

@@ -41,11 +41,11 @@ public class TestRepartitionWindowApp extends StreamApplicationIntegrationTestHa
     createTopic(OUTPUT_TOPIC, 1);
 
     // produce messages to different partitions.
-    produceMessage(INPUT_TOPIC, 0, "userId1", "userId1,india,5.com");
-    produceMessage(INPUT_TOPIC, 1, "userId2", "userId2,china,4.com");
-    produceMessage(INPUT_TOPIC, 2, "userId1", "userId1,india,1.com");
-    produceMessage(INPUT_TOPIC, 0, "userId1", "userId1,india,2.com");
-    produceMessage(INPUT_TOPIC, 1, "userId1", "userId1,india,3.com");
+    produceMessage(INPUT_TOPIC, 0, "userId1", "{\"user-id\":\"userId1\", \"country\":\"india\",\"url\":\"5.com\"}");
+    produceMessage(INPUT_TOPIC, 1, "userId2", "{\"user-id\":\"userId2\", \"country\":\"china\",\"url\":\"4.com\"}");
+    produceMessage(INPUT_TOPIC, 2, "userId1", "{\"user-id\":\"userId1\", \"country\":\"india\",\"url\":\"1.com\"}");
+    produceMessage(INPUT_TOPIC, 0, "userId1", "{\"user-id\":\"userId1\", \"country\":\"india\",\"url\":\"2.com\"}");
+    produceMessage(INPUT_TOPIC, 1, "userId1", "{\"user-id\":\"userId1\", \"country\":\"india\",\"url\":\"3.com\"}");
 
     // run the application
     RepartitionWindowApp app = new RepartitionWindowApp();

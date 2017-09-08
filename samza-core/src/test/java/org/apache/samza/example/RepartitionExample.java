@@ -26,6 +26,8 @@ import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.serializers.JsonSerde;
+import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
@@ -40,12 +42,14 @@ public class RepartitionExample implements StreamApplication {
   @Override public void init(StreamGraph graph, Config config) {
     Supplier<Integer> initialValue = () -> 0;
     MessageStream<PageViewEvent> pageViewEvents =
-        graph.getInputStream("pageViewEventStream", (k, m) -> (PageViewEvent) m);
+        graph.getInputStream("pageViewEventStream", new StringSerde(), new JsonSerde<>(PageViewEvent.class),
+            (k, m) -> m);
     OutputStream<String, MyStreamOutput, MyStreamOutput> pageViewEventPerMemberStream = graph
-        .getOutputStream("pageViewEventPerMemberStream", m -> m.memberId, m -> m);
+        .getOutputStream("pageViewEventPerMemberStream", new StringSerde(), new JsonSerde<>(MyStreamOutput.class),
+            m -> m.memberId, m -> m);
 
     pageViewEvents
-        .partitionBy(m -> m.memberId)
+        .partitionBy(new StringSerde(), new JsonSerde<>(PageViewEvent.class), m -> m.memberId)
         .window(Windows.keyedTumblingWindow(m -> m.memberId, Duration.ofMinutes(5), initialValue, (m, c) -> c + 1))
         .map(MyStreamOutput::new)
         .sendTo(pageViewEventPerMemberStream);

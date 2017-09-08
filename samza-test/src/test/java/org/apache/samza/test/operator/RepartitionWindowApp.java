@@ -26,12 +26,13 @@ import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
+import org.apache.samza.serializers.JsonSerde;
+import org.apache.samza.serializers.StringSerde;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.Collection;
-import java.util.function.Function;
 
 /**
  * A {@link StreamApplication} that demonstrates a repartition followed by a windowed count.
@@ -42,16 +43,20 @@ public class RepartitionWindowApp implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
+    graph.setDefaultKeySerde(new StringSerde());
+    // will fail with class cast in partitionBy if (optional) PageView.class param not provided
+    graph.setDefaultMsgSerde(new JsonSerde<>(PageView.class));
 
-    MessageStream<String> pageViews = graph.<String, String, String>getInputStream("page-views", (k, v) -> v);
-    Function<String, String> keyFn = pageView -> new PageView(pageView).getUserId();
+    MessageStream<PageView> pageViews = graph.getInputStream("page-views", (k, v) -> (PageView) v);
 
-    OutputStream<String, String, WindowPane<String, Collection<String>>> outputStream = graph
-        .getOutputStream(TestRepartitionWindowApp.OUTPUT_TOPIC, m -> m.getKey().getKey(), m -> new Integer(m.getMessage().size()).toString());
+    OutputStream<String, String, WindowPane<String, Collection<PageView>>> outputStream =
+        graph.getOutputStream(TestRepartitionWindowApp.OUTPUT_TOPIC,
+            new StringSerde(), new StringSerde(),
+            m -> m.getKey().getKey(), m -> Integer.toString(m.getMessage().size()));
 
     pageViews
-        .partitionBy(keyFn)
-        .window(Windows.keyedSessionWindow(keyFn, Duration.ofSeconds(3)))
+        .partitionBy(PageView::getUserId)
+        .window(Windows.keyedSessionWindow(PageView::getUserId, Duration.ofSeconds(3)))
         .sendTo(outputStream);
   }
 }

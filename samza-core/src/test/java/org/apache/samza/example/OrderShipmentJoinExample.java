@@ -25,6 +25,8 @@ import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.serializers.JsonSerde;
+import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
@@ -36,10 +38,13 @@ public class OrderShipmentJoinExample implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    MessageStream<OrderRecord> orders = graph.getInputStream("orderStream", (k, m) -> (OrderRecord) m);
-    MessageStream<ShipmentRecord> shipments = graph.getInputStream("shipmentStream", (k, m) -> (ShipmentRecord) m);
+    MessageStream<OrderRecord> orders =
+        graph.getInputStream("orderStream", new StringSerde("UTF-8"), new JsonSerde<OrderRecord>(), (k, m) -> m);
+    MessageStream<ShipmentRecord> shipments =
+        graph.getInputStream("shipmentStream", new StringSerde("UTF-8"), new JsonSerde<ShipmentRecord>(), (k, m) ->  m);
     OutputStream<String, FulFilledOrderRecord, FulFilledOrderRecord> joinedOrderShipmentStream =
-        graph.getOutputStream("joinedOrderShipmentStream", m -> m.orderId, m -> m);
+        graph.getOutputStream("joinedOrderShipmentStream", new StringSerde("UTF-8"),
+            new JsonSerde<FulFilledOrderRecord>(), m -> m.orderId, m -> m);
 
     orders
         .join(shipments, new MyJoinFunction(), Duration.ofMinutes(1))

@@ -47,6 +47,8 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.serializers.NoOpSerde;
+import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.test.StandaloneIntegrationTestHarness;
 import org.apache.samza.test.StandaloneTestUtils;
 import org.apache.samza.util.NoOpMetricsRegistry;
@@ -523,7 +525,8 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 
     @Override
     public void init(StreamGraph graph, Config config) {
-      MessageStream<String> inputStream = graph.getInputStream(inputTopic,  (key, msg) -> {
+      MessageStream<String> inputStream = graph.getInputStream(inputTopic,
+          new NoOpSerde(), new NoOpSerde<>(), (key, msg) -> {
           TestKafkaEvent incomingMessage = TestKafkaEvent.fromString((String) msg);
           if (streamApplicationCallback != null) {
             streamApplicationCallback.onMessageReceived(incomingMessage);
@@ -536,7 +539,9 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
           }
           return incomingMessage.toString();
         });
-      OutputStream<String, String, String> outputStream = graph.getOutputStream(outputTopic, event -> null, event -> event);
+      OutputStream<String, String, String> outputStream =
+          graph.getOutputStream(outputTopic, new StringSerde(), new StringSerde(),
+              event -> null, event -> event);
       inputStream.sendTo(outputStream);
     }
   }

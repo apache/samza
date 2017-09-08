@@ -24,9 +24,8 @@ import java.nio.file.Path
 import java.util
 import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
 import java.net.{URL, UnknownHostException}
+import java.util.Base64
 
-import org.apache.samza.serializers.IntermediateMessageSerde
-import org.apache.samza.serializers.StringSerde
 import org.apache.samza.{SamzaContainerStatus, SamzaException}
 import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.config.JobConfig.Config2Job
@@ -50,8 +49,13 @@ import org.apache.samza.metrics.JmxServer
 import org.apache.samza.metrics.JvmMetrics
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.metrics.MetricsReporter
+import org.apache.samza.serializers.IntermediateMessageSerde
+import org.apache.samza.serializers.NoOpSerde
+import org.apache.samza.serializers.SerializableSerde
+import org.apache.samza.serializers.Serde
 import org.apache.samza.serializers.SerdeFactory
 import org.apache.samza.serializers.SerdeManager
+import org.apache.samza.serializers.StringSerde
 import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.storage.StorageEngineFactory
 import org.apache.samza.storage.TaskStorageManager
@@ -168,10 +172,6 @@ object SamzaContainer extends Logging {
 
     info("Got serde streams: %s" format serdeStreams)
 
-    val serdeNames = config.getSerdeNames
-
-    info("Got serde names: %s" format serdeNames)
-
     val systemFactories = systemNames.map(systemName => {
       val systemFactoryClassName = config
         .getSystemFactory(systemName)
@@ -222,7 +222,7 @@ object SamzaContainer extends Logging {
 
     info("Got system producers: %s" format producers.keys)
 
-    val serdes = serdeNames.map(serdeName => {
+    val serdesFromFactories = config.getSerdeNames.map(serdeName => {
       val serdeClassName = config
         .getSerdeClass(serdeName)
         .getOrElse(Util.defaultSerdeFactoryFromSerdeName(serdeName))
@@ -232,8 +232,27 @@ object SamzaContainer extends Logging {
 
       (serdeName, serde)
     }).toMap
+    info("Got serdes from factories: %s" format serdesFromFactories.keys)
 
-    info("Got serdes: %s" format serdes.keys)
+    val serdesFromSerializedInstances = config.subset(SerializerConfig.SERIALIZER_PREFIX format "").asScala
+        .filter { case (key, value) => key.endsWith(SerializerConfig.SERIALIZED_INSTANCE_SUFFIX) }
+        .flatMap { case (key, value) =>
+          val serdeName = key.replace(SerializerConfig.SERIALIZED_INSTANCE_SUFFIX, "")
+          debug(s"Trying to deserialize serde instance for $serdeName")
+          try {
+            val bytes = Base64.getDecoder.decode(value)
+            val serde = new SerializableSerde[Serde[Object]]().fromBytes(bytes)
+            debug(s"Returning serialized instance for $serdeName")
+            Some((serdeName, serde))
+          } catch {
+            case e: Exception =>
+              warn(s"Ignoring invalid serialized instance for $serdeName: $value", e)
+              None
+          }
+        }
+    info("Got serdes from serialized instances: %s" format serdesFromSerializedInstances.keys)
+
+    val serdes = serdesFromFactories ++ serdesFromSerializedInstances
 
     /*
      * A Helper function to build a Map[String, Serde] (systemName -> Serde) for systems defined
@@ -242,11 +261,16 @@ object SamzaContainer extends Logging {
     val buildSystemSerdeMap = (getSerdeName: (String) => Option[String]) => {
       systemNames
         .filter(systemName => getSerdeName(systemName).isDefined)
-              .map(systemName => {
+        .flatMap(systemName => {
           val serdeName = getSerdeName(systemName).get
           val serde = serdes.getOrElse(serdeName,
             throw new SamzaException("buildSystemSerdeMap: No class defined for serde: %s." format serdeName))
-          (systemName, serde)
+
+          // this shouldn't happen since system level serdes can't be set programmatically using the high level
+          // API, but adding this for safety.
+          Option(serde)
+            .filter(!_.isInstanceOf[NoOpSerde[Any]])
+            .map(serde => (systemName, serde))
         }).toMap
     }
 
@@ -257,11 +281,15 @@ object SamzaContainer extends Logging {
     val buildSystemStreamSerdeMap = (getSerdeName: (SystemStream) => Option[String]) => {
       (serdeStreams ++ inputSystemStreamPartitions)
         .filter(systemStream => getSerdeName(systemStream).isDefined)
-        .map(systemStream => {
+        .flatMap(systemStream => {
           val serdeName = getSerdeName(systemStream).get
           val serde = serdes.getOrElse(serdeName,
-            throw new SamzaException("buildSystemStreamSerdeMap: No class defined for serde: %s." format serdeName))
-          (systemStream, serde)
+            throw new SamzaException("buildSystemStreamSerdeMap: No serde found for name: %s." format serdeName))
+
+          // respect explicitly set no-op serdes in high level API
+          Option(serde)
+            .filter(!_.isInstanceOf[NoOpSerde[Any]])
+            .map(serde => (systemStream, serde))
         }).toMap
     }
 

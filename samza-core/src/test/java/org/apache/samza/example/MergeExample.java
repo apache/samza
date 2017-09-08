@@ -26,17 +26,23 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.serializers.IntegerSerde;
+import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.util.CommandLine;
 
 public class MergeExample implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    MessageStream<Object> inputStream1 = graph.getInputStream("inputStream1", (k, m) -> m);
-    MessageStream<Object> inputStream2 = graph.getInputStream("inputStream2", (k, m) -> m);
-    MessageStream<Object> inputStream3 = graph.getInputStream("inputStream3", (k, m) -> m);
-    OutputStream<Integer, Object, Object> outputStream = graph
-        .getOutputStream("outputStream", Object::hashCode, m -> m);
+    StringSerde stringSerde = new StringSerde("UTF-8");
+    graph.setDefaultKeySerde(stringSerde);
+    graph.setDefaultMsgSerde(stringSerde);
+
+    MessageStream<String> inputStream1 = graph.getInputStream("inputStream1", (k, m) -> (String) m);
+    MessageStream<String> inputStream2 = graph.getInputStream("inputStream2", (k, m) -> (String) m);
+    MessageStream<String> inputStream3 = graph.getInputStream("inputStream3", (k, m) -> (String) m);
+    OutputStream<Integer, String, String> outputStream = graph
+        .getOutputStream("outputStream", new IntegerSerde(), stringSerde, Object::hashCode, m -> m);
 
     MessageStream.mergeAll(ImmutableList.of(inputStream1, inputStream2, inputStream3))
         .sendTo(outputStream);

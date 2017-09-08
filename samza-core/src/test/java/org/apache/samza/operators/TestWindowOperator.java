@@ -34,6 +34,7 @@ import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
@@ -389,8 +390,8 @@ public class TestWindowOperator {
 
     @Override
     public void init(StreamGraph graph, Config config) {
-      MessageStream<IntegerEnvelope> inStream = graph.getInputStream("integers",
-          (k, m) -> new IntegerEnvelope((Integer) k));
+      MessageStream<IntegerEnvelope> inStream = graph.getInputStream("integers", new IntegerSerde(), new IntegerSerde(),
+          (k, m) -> new IntegerEnvelope(k));
       Function<IntegerEnvelope, Integer> keyFn = m -> (Integer) m.getKey();
       inStream
         .map(m -> m)
@@ -418,8 +419,8 @@ public class TestWindowOperator {
 
     @Override
     public void init(StreamGraph graph, Config config) {
-      MessageStream<IntegerEnvelope> inStream = graph.getInputStream("integers",
-          (k, m) -> new IntegerEnvelope((Integer) k));
+      MessageStream<IntegerEnvelope> inStream = graph.getInputStream("integers", new IntegerSerde(), new IntegerSerde(),
+          (k, m) -> new IntegerEnvelope(k));
       Function<IntegerEnvelope, Integer> keyFn = m -> (Integer) m.getKey();
       inStream
           .map(m -> m)
@@ -444,8 +445,8 @@ public class TestWindowOperator {
 
     @Override
     public void init(StreamGraph graph, Config config) {
-      MessageStream<IntegerEnvelope> inStream = graph.getInputStream("integers",
-          (k, m) -> new IntegerEnvelope((Integer) k));
+      MessageStream<IntegerEnvelope> inStream = graph.getInputStream("integers", new IntegerSerde(), new IntegerSerde(),
+          (k, m) -> new IntegerEnvelope(k));
       Function<IntegerEnvelope, Integer> keyFn = m -> (Integer) m.getKey();
 
       inStream

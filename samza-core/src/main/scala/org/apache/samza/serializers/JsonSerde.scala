@@ -22,26 +22,36 @@ package org.apache.samza.serializers
 import org.apache.samza.SamzaException
 import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.codehaus.jackson.`type`.TypeReference
-import org.codehaus.jackson.map.ObjectMapper
 import org.apache.samza.config.Config
 
 class JsonSerde[T] extends Serde[T] {
-  val mapper = SamzaObjectMapper.getObjectMapper()
+  @transient lazy val mapper = SamzaObjectMapper.getObjectMapper()
+  var clazzOption: Option[Class[T]] = None
+
+  def this(clazz: Class[T]) {
+    this()
+    if (clazz == null) throw new SamzaException("clazz must not be null.")
+    this.clazzOption = Option(clazz)
+  }
 
   def toBytes(obj: T): Array[Byte] = {
     try {
-      mapper.writeValueAsString(obj).getBytes("UTF-8")
-    }
-    catch {
+      val str = mapper.writeValueAsString(obj)
+      str.getBytes("UTF-8")
+    } catch {
       case e: Exception => throw new SamzaException(e);
     }
   }
 
   def fromBytes(bytes: Array[Byte]): T = {
+    val str = new String(bytes, "UTF-8")
      try {
-         mapper.readValue(new String(bytes, "UTF-8"), new TypeReference[T]() {})}
-     catch {
-       case e: Exception => throw new SamzaException(e);
+       clazzOption match {
+         case Some(clazz) => mapper.readValue(str, clazz)
+         case None => mapper.readValue(str, new TypeReference[T]() {})
+       }
+     } catch {
+       case e: Exception => throw new SamzaException(e)
      }
   }
 

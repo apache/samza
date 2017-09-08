@@ -33,6 +33,7 @@ import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -106,12 +107,23 @@ public class TestJobGraphJsonGenerator {
 
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
     BiFunction mockBuilder = mock(BiFunction.class);
-    MessageStream m1 = streamGraph.getInputStream("input1", mockBuilder).map(m -> m);
-    MessageStream m2 = streamGraph.getInputStream("input2", mockBuilder).partitionBy(m -> "haha").filter(m -> true);
-    MessageStream m3 = streamGraph.getInputStream("input3", mockBuilder).filter(m -> true).partitionBy(m -> "hehe").map(m -> m);
+    MessageStream m1 =
+        streamGraph.getInputStream("input1", new JsonSerde<>(), new JsonSerde<>(), mockBuilder)
+            .map(m -> m);
+    MessageStream m2 =
+        streamGraph.getInputStream("input2", new JsonSerde<>(), new JsonSerde<>(), mockBuilder)
+            .partitionBy(new JsonSerde<>(), new JsonSerde<>(), m -> "haha")
+            .filter(m -> true);
+    MessageStream m3 =
+        streamGraph.getInputStream("input3", new JsonSerde<>(), new JsonSerde<>(), mockBuilder)
+            .filter(m -> true)
+            .partitionBy(new JsonSerde<>(), new JsonSerde<>(), m -> "hehe")
+            .map(m -> m);
     Function mockFn = mock(Function.class);
-    OutputStream<Object, Object, Object> outputStream1 = streamGraph.getOutputStream("output1", mockFn, mockFn);
-    OutputStream<Object, Object, Object> outputStream2 = streamGraph.getOutputStream("output2", mockFn, mockFn);
+    OutputStream<Object, Object, Object> outputStream1 =
+        streamGraph.getOutputStream("output1", new JsonSerde<>(), new JsonSerde<>(), mockFn, mockFn);
+    OutputStream<Object, Object, Object> outputStream2 =
+        streamGraph.getOutputStream("output2", new JsonSerde<>(), new JsonSerde<>(), mockFn, mockFn);
 
     m1.join(m2, mock(JoinFunction.class), Duration.ofHours(2)).sendTo(outputStream1);
     m2.sink((message, collector, coordinator) -> { });

@@ -19,6 +19,7 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
 
 import java.util.function.BiFunction;
@@ -34,16 +35,30 @@ import java.util.function.BiFunction;
 public class InputOperatorSpec<K, V, M> extends OperatorSpec<Pair<K, V>, M> {
 
   private final StreamSpec streamSpec;
+  private final Serde<K> keySerde;
+  private final Serde<V> valueSerde;
   private final BiFunction<K, V, M> msgBuilder;
 
-  public InputOperatorSpec(StreamSpec streamSpec, BiFunction<K, V, M> msgBuilder, int opId) {
+  public InputOperatorSpec(StreamSpec streamSpec,
+      Serde<K> keySerde, Serde<V> valueSerde,
+      BiFunction<K, V, M> msgBuilder, int opId) {
     super(OpCode.INPUT, opId);
     this.streamSpec = streamSpec;
+    this.keySerde = keySerde;
+    this.valueSerde = valueSerde;
     this.msgBuilder = msgBuilder;
   }
 
   public StreamSpec getStreamSpec() {
     return this.streamSpec;
+  }
+
+  public Serde<K> getKeySerde() {
+    return keySerde;
+  }
+
+  public Serde<V> getValueSerde() {
+    return valueSerde;
   }
 
   public BiFunction<K, V, M> getMsgBuilder() {

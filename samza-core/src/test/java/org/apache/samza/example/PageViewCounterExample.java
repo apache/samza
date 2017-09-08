@@ -29,6 +29,8 @@ import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.serializers.JsonSerde;
+import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
@@ -42,9 +44,10 @@ public class PageViewCounterExample implements StreamApplication {
 
   @Override public void init(StreamGraph graph, Config config) {
     MessageStream<PageViewEvent> pageViewEvents =
-        graph.getInputStream("pageViewEventStream", (k, m) -> (PageViewEvent) m);
-    OutputStream<String, PageViewCount, PageViewCount> pageViewEventPerMemberStream = graph
-        .getOutputStream("pageViewEventPerMemberStream", m -> m.memberId, m -> m);
+        graph.getInputStream("pageViewEventStream", new StringSerde(), new JsonSerde<>(PageViewEvent.class), (k, m) -> m);
+    OutputStream<String, PageViewCount, PageViewCount> pageViewEventPerMemberStream =
+        graph.getOutputStream("pageViewEventPerMemberStream", new StringSerde(), new JsonSerde<PageViewCount>(),
+            m -> m.memberId, m -> m);
 
     Supplier<Integer> initialValue = () -> 0;
     FoldLeftFunction<PageViewEvent, Integer> foldLeftFn = (m, c) -> c + 1;

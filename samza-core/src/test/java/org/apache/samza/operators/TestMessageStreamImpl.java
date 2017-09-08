@@ -39,6 +39,7 @@ import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
 import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
+import org.apache.samza.serializers.Serde;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -194,13 +195,15 @@ public class TestMessageStreamImpl {
     Function<TestMessageEnvelope, String> mockKeyFn = mock(Function.class);
     OutputStreamImpl mockOutputOpSpec = mock(OutputStreamImpl.class);
     IntermediateMessageStreamImpl mockIntermediateStream = mock(IntermediateMessageStreamImpl.class);
-    when(mockGraph.getIntermediateStream(eq(streamName), eq(mockKeyFn), any(Function.class), any(BiFunction.class)))
+    when(mockGraph
+        .getIntermediateStream(eq(streamName), any(Serde.class), any(Serde.class),
+            eq(mockKeyFn), any(Function.class), any(BiFunction.class)))
         .thenReturn(mockIntermediateStream);
     when(mockIntermediateStream.getOutputStream())
         .thenReturn(mockOutputOpSpec);
 
     MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
-    inputStream.partitionBy(mockKeyFn);
+    inputStream.partitionBy(mock(Serde.class), mock(Serde.class), mockKeyFn);
 
     ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
     verify(mockOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());

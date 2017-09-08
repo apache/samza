@@ -26,6 +26,8 @@ import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.serializers.JsonSerde;
+import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.CommandLine;
@@ -43,14 +45,15 @@ public class KeyValueStoreExample implements StreamApplication {
 
   @Override public void init(StreamGraph graph, Config config) {
     MessageStream<PageViewEvent> pageViewEvents = graph.getInputStream(
-        "pageViewEventStream", (k, v) -> (PageViewEvent) v);
-    OutputStream<String, StatsOutput, StatsOutput> pageViewEventPerMemberStream = graph.getOutputStream(
-        "pageViewEventPerMemberStream", statsOutput -> statsOutput.memberId, statsOutput -> statsOutput);
+        "pageViewEventStream", new StringSerde("UTF-8"), new JsonSerde<PageViewEvent>(), (k, v) -> v);
+    OutputStream<String, StatsOutput, StatsOutput> pageViewEventPerMemberStream =
+        graph.getOutputStream("pageViewEventPerMemberStream", new StringSerde("UTF-8"), new JsonSerde<StatsOutput>(),
+            statsOutput -> statsOutput.memberId, statsOutput -> statsOutput);
 
-    pageViewEvents.
-        partitionBy(m -> m.memberId).
-        flatMap(new MyStatsCounter()).
-        sendTo(pageViewEventPerMemberStream);
+    pageViewEvents
+        .partitionBy(new StringSerde("UTF-8"), new JsonSerde<>(), m -> m.memberId)
+        .flatMap(new MyStatsCounter())
+        .sendTo(pageViewEventPerMemberStream);
   }
 
   // local execution mode
