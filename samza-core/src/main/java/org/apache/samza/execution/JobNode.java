@@ -201,7 +201,7 @@ public class JobNode {
         msgSerdes.put(streamId, valueSerde);
       });
 
-    // for each unique serde instance, generate a UUID and serialize to config
+    // for each unique serde instance, generate a unique name and serialize to config
     HashSet<Serde> serdes = new HashSet<>(keySerdes.values());
     serdes.addAll(msgSerdes.values());
     SerializableSerde<Serde> serializableSerde = new SerializableSerde<>();
