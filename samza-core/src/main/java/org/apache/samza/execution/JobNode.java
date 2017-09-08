@@ -146,6 +146,7 @@ public class JobNode {
     if (allowedConfigs.containsKey(TaskConfig.INPUT_STREAMS())) {
       log.warn("Specifying task inputs in configuration is not allowed with Fluent API. "
           + "Ignoring configured value for " + TaskConfig.INPUT_STREAMS());
+      allowedConfigs.remove(TaskConfig.INPUT_STREAMS());
     }
 
     // Disallow user specified system or stream serdes in configuration. Must provide serdes in code instead.
