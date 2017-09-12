@@ -295,6 +295,8 @@ class TaskInstance(
   def commit {
     metrics.commits.inc
 
+    val checkpoint = offsetManager.buildCheckpoint(taskName)
+
     trace("Flushing producers for taskName: %s" format taskName)
 
     collector.flush
@@ -307,7 +309,7 @@ class TaskInstance(
 
     trace("Checkpointing offsets for taskName: %s" format taskName)
 
-    offsetManager.checkpoint(taskName)
+    offsetManager.writeCheckpoint(taskName, checkpoint)
   }
 
   def shutdownTask {

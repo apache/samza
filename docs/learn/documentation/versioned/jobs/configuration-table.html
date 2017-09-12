@@ -429,7 +429,19 @@
                         Required only for non-cluster-managed applications. Please see the required value for <a href=#task-name-grouper-factory>task-name-grouper-factory </a>
                     </td>
                 </tr>
-
+                <tr>
+                    <td class="property" id="job.coordination.utils.factory">job.coordination.utils.factory</td>
+                    <td class="default">org.apache.samza.zk.ZkCoordinationUtilsFactory</td>
+                    <td class="description">
+                        Class to use to create CoordinationUtils. Currently available values are:
+                        <dl>
+                            <dt><code>org.apache.samza.zk.ZkCoordinationUtilsFactory</code></dt>
+                            <dd>ZooKeeper based coordination utils.</dd>
+                            <dt><code>org.apache.samza.coordinator.AzureCoordinationUtilsFactory</code></dt>
+                            <dd>Azure based coordination utils.</dd>
+                        These coordination utils are currently used for intermediate stream creation.
+                    </td>
+                </tr>
                 <tr>
                                               <!-- change link to StandAlone design/tutorial doc. SAMZA-1299 -->
                 <th colspan="3" class="section" id="ZkBasedJobCoordination"><a href="../index.html">Zookeeper-based job configuration</a></th>

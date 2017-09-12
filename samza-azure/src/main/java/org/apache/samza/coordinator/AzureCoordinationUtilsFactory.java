@@ -16,21 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.samza.coordinator;
 
 import org.apache.samza.config.Config;
 
+public class AzureCoordinationUtilsFactory implements CoordinationUtilsFactory {
 
-/**
- * factory to instantiate a c{@link CoordinationUtils} service
- */
-public interface CoordinationServiceFactory {
-  /**
-   * get a unique service instance
-   * @param groupId - unique id to identify the service
-   * @param participantId - a unique id that identifies the participant in the service
-   * @param updatedConfig - configs, to define the details of the service
-   * @return a unique service instance
-   */
-  CoordinationUtils getCoordinationService(String groupId, String participantId, Config updatedConfig);
+  @Override
+  public CoordinationUtils getCoordinationUtils(String groupId, String participantId, Config config) {
+    return new AzureCoordinationUtils(config);
+  }
 }

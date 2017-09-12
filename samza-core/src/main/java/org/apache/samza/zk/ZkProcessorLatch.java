@@ -20,6 +20,7 @@ package org.apache.samza.zk;
 
 import java.util.concurrent.TimeUnit;
 
+import java.util.concurrent.TimeoutException;
 import org.apache.samza.coordinator.Latch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +31,7 @@ import org.slf4j.LoggerFactory;
  * When Nth node is created await() call returns.
  */
 public class ZkProcessorLatch implements Latch {
-  private static final Logger LOGGER = LoggerFactory.getLogger(ZkProcessorLatch.class);
+  private static final Logger LOG = LoggerFactory.getLogger(ZkProcessorLatch.class);
 
   private final ZkUtils zkUtils;
   private final String participantId;
@@ -45,22 +46,28 @@ public class ZkProcessorLatch implements Latch {
     ZkKeyBuilder keyBuilder = this.zkUtils.getKeyBuilder();
 
     latchPath = String.format("%s/%s", keyBuilder.getRootPath(), LATCH_PATH + "_" + latchId);
-    // TODO: Verify that makeSurePersistentPathsExists doesn't fail with exceptions
-    zkUtils.makeSurePersistentPathsExists(new String[] {latchPath});
+    // TODO: Verify that validatePaths doesn't fail with exceptions
+    zkUtils.validatePaths(new String[] {latchPath});
     targetPath =  String.format("%s/%010d", latchPath, size - 1);
 
-    LOGGER.debug("ZkProcessorLatch targetPath " + targetPath);
+    LOG.debug("ZkProcessorLatch targetPath " + targetPath);
   }
 
   @Override
-  public void await(long timeout, TimeUnit tu) {
-    zkUtils.getZkClient().waitUntilExists(targetPath, TimeUnit.MILLISECONDS, timeout);
+  public void await(long timeout, TimeUnit timeUnit) throws TimeoutException {
+    // waitUntilExists signals timeout by returning false as opposed to throwing exception. We internally need to map
+    // the non-existence to a TimeoutException in order to respect the contract defined in Latch interface
+    boolean targetPathExists = zkUtils.getZkClient().waitUntilExists(targetPath, timeUnit, timeout);
+
+    if (!targetPathExists) {
+      throw new TimeoutException("Timed out waiting for the targetPath");
+    }
   }
 
   @Override
   public void countDown() {
-    // create persistent (should be ephemeral? Probably not)
+    // create persistent node
     String path = zkUtils.getZkClient().createPersistentSequential(latchPath + "/", participantId);
-    LOGGER.debug("ZKProcessorLatch countDown created " + path);
+    LOG.debug("ZKProcessorLatch countDown created " + path);
   }
 }
