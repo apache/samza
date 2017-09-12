@@ -31,6 +31,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.standalone.PassthroughCoordinationUtilsFactory;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.test.controlmessages.TestData.PageView;
 import org.apache.samza.test.controlmessages.TestData.PageViewJsonSerdeFactory;
@@ -47,7 +48,6 @@ import static org.junit.Assert.assertEquals;
  * It verifies the pipeline will stop and the number of output messages should equal to the input.
  */
 public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
-
 
   private static final String[] PAGEKEYS = {"inbox", "home", "search", "pymk", "group", "job"};
 
@@ -71,6 +71,7 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
 
     configs.put(JobConfig.JOB_NAME(), "test-eos-job");
     configs.put(JobConfig.PROCESSOR_ID(), "1");
+    configs.put(JobCoordinatorConfig.JOB_COORDINATION_UTILS_FACTORY, PassthroughCoordinationUtilsFactory.class.getName());
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     configs.put(TaskConfig.GROUPER_FACTORY(), SingleContainerGrouperFactory.class.getName());
 
