@@ -96,8 +96,9 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
   /*package private*/ StreamSpec getStreamSpec(String streamId, String physicalName, String system) {
     StreamConfig streamConfig = new StreamConfig(config);
     Map<String, String> properties = streamConfig.getStreamProperties(streamId);
+    boolean isBounded = streamConfig.getIsBounded(streamId);
 
-    return new StreamSpec(streamId, physicalName, system, properties);
+    return new StreamSpec(streamId, physicalName, system, isBounded, properties);
   }
 
   final ExecutionPlan getExecutionPlan(StreamApplication app) throws Exception {

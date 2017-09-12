@@ -40,6 +40,11 @@ public class ApplicationConfig extends MapConfig {
   @Deprecated
   public static final String PROCESSOR_ID = "processor.id";
 
+  public enum ApplicationMode {
+    STREAM,
+    BATCH
+  }
+
   /**
    * Class implementing the {@link org.apache.samza.runtime.ProcessorIdGenerator} interface
    * Used to generate a unique identifier for a {@link org.apache.samza.processor.StreamProcessor} based on the runtime
@@ -49,6 +54,7 @@ public class ApplicationConfig extends MapConfig {
   public static final String APP_NAME = "app.name";
   public static final String APP_ID = "app.id";
   public static final String APP_CLASS = "app.class";
+  public static final String APP_MODE = "app.mode";
 
   public ApplicationConfig(Config config) {
     super(config);
@@ -81,6 +87,10 @@ public class ApplicationConfig extends MapConfig {
   @Deprecated
   public String getProcessorId() {
     return get(PROCESSOR_ID, null);
+  }
+
+  public ApplicationMode getAppMode() {
+    return ApplicationMode.valueOf(get(APP_MODE, ApplicationMode.STREAM.name()).toUpperCase());
   }
 
 }

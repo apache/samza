@@ -50,7 +50,6 @@ import org.slf4j.LoggerFactory;
 public class JobNode {
   private static final Logger log = LoggerFactory.getLogger(JobNode.class);
   private static final String CONFIG_JOB_PREFIX = "jobs.%s.";
-  private static final String CONFIG_INTERNAL_EXECUTION_PLAN = "samza.internal.execution.plan";
 
   private final String jobName;
   private final String jobId;
@@ -102,10 +101,10 @@ public class JobNode {
 
   /**
    * Generate the configs for a job
-   * @param executionPlanJson JSON representation of the execution plan
+   * @param otherConfigs other configs that apply to the job
    * @return config of the job
    */
-  public JobConfig generateConfig(String executionPlanJson) {
+  public JobConfig generateConfig(Map<String, String> otherConfigs) {
     Map<String, String> configs = new HashMap<>();
     configs.put(JobConfig.JOB_NAME(), jobName);
 
@@ -122,7 +121,7 @@ public class JobNode {
       }
     }
 
-    configs.put(CONFIG_INTERNAL_EXECUTION_PLAN, executionPlanJson);
+    configs.putAll(otherConfigs);
 
     // write input/output streams to configs
     inEdges.stream().filter(StreamEdge::isIntermediate).forEach(edge -> addStreamConfig(edge, configs));
@@ -195,7 +194,7 @@ public class JobNode {
     config.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), spec.getId()), spec.getSystemName());
     config.put(String.format(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID(), spec.getId()), spec.getPhysicalName());
     if (edge.isIntermediate()) {
-      config.put(String.format(StreamConfig.IS_INTERMEDIATE_FROM_STREAM_ID(), spec.getId()), "true");
+      config.put(String.format(StreamConfig.IS_INTERMEDIATE_FOR_STREAM_ID(), spec.getId()), "true");
     }
     spec.getConfig().forEach((property, value) -> {
         config.put(String.format(StreamConfig.STREAM_ID_PREFIX(), spec.getId()) + property, value);

@@ -30,14 +30,17 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Collectors;
+
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.system.StreamSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.apache.samza.config.ApplicationConfig.ApplicationMode;
 
 /**
  * The JobGraph is the physical execution graph for a multi-stage Samza application.
@@ -49,6 +52,7 @@ import org.slf4j.LoggerFactory;
  */
 /* package private */ class JobGraph implements ExecutionPlan {
   private static final Logger log = LoggerFactory.getLogger(JobGraph.class);
+  private static final String CONFIG_INTERNAL_EXECUTION_PLAN = "samza.internal.execution.plan";
 
   private final Map<String, JobNode> nodes = new HashMap<>();
   private final Map<String, StreamEdge> edges = new HashMap<>();
@@ -68,15 +72,8 @@ import org.slf4j.LoggerFactory;
 
   @Override
   public List<JobConfig> getJobConfigs() {
-    String json = "";
-    try {
-      json = getPlanAsJson();
-    } catch (Exception e) {
-      log.warn("Failed to generate plan JSON", e);
-    }
-
-    final String planJson = json;
-    return getJobNodes().stream().map(n -> n.generateConfig(planJson)).collect(Collectors.toList());
+    Map<String, String> globalConfig = genGlobalConfig();
+    return getJobNodes().stream().map(n -> n.generateConfig(globalConfig)).collect(Collectors.toList());
   }
 
   @Override
@@ -91,12 +88,30 @@ import org.slf4j.LoggerFactory;
     return jsonGenerator.toJson(this);
   }
 
-  /**
-   * Returns the config for this application
-   * @return {@link ApplicationConfig}
-   */
+  @Override
   public ApplicationConfig getApplicationConfig() {
-    return new ApplicationConfig(config);
+    Map<String, String> appConfig = new HashMap<>(config);
+    appConfig.putAll(genGlobalConfig());
+    return new ApplicationConfig(new MapConfig(appConfig));
+  }
+
+  private Map<String, String> genGlobalConfig() {
+    Map<String, String> globalConfig = new HashMap<>();
+
+    // is this a batch job?
+    boolean isBatch = sources.stream().allMatch(edge -> edge.getStreamSpec().isBounded());
+    ApplicationMode mode = isBatch ? ApplicationMode.BATCH : ApplicationMode.STREAM;
+    globalConfig.put(ApplicationConfig.APP_MODE, mode.name());
+
+    // generate the plan json
+    String planJson = "";
+    try {
+      planJson = getPlanAsJson();
+    } catch (Exception e) {
+      log.warn("Failed to generate plan JSON", e);
+    }
+    globalConfig.put(CONFIG_INTERNAL_EXECUTION_PLAN, planJson);
+    return globalConfig;
   }
 
   /**
