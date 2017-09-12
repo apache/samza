@@ -34,7 +34,7 @@ Samza builds with [Scala](http://www.scala-lang.org/) 2.10 or 2.11 and [YARN](ht
 
 ### Testing Samza
 
-To run all tests:
+To run all unit tests:
 
     ./gradlew clean test
 

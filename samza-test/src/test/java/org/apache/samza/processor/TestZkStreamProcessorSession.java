@@ -43,7 +43,8 @@ public class TestZkStreamProcessorSession extends TestZkStreamProcessorBase {
     testStreamProcessorWithSessionRestart(new String[]{"1"});
   }
 
-  @Test
+  // TODO: SAMZA-1399 fix the flaky test testTwoStreamProcessors and re-enable it
+  // @Test
   public void testTwoStreamProcessors() {
     testStreamProcessorWithSessionRestart(new String[]{"2", "3"});
   }
