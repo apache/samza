@@ -42,15 +42,12 @@ class KafkaSystemProducer(systemName: String,
                           getProducer: () => Producer[Array[Byte], Array[Byte]],
                           metrics: KafkaSystemProducerMetrics,
                           val clock: () => Long = () => System.nanoTime,
-                          val dropProducerExceptions: Boolean = false) extends SystemProducer with Logging with TimerUtils
-{
+                          val dropProducerExceptions: Boolean = false) extends SystemProducer with Logging with TimerUtils {
 
-  /**
-    * Represents a fatal error that caused the producer to close.
-    */
+  // Represents a fatal error that caused the producer to close.
   val fatalException: AtomicReference[SystemProducerException] = new AtomicReference[SystemProducerException]()
   @volatile var producer: Producer[Array[Byte], Array[Byte]] = null
-  var producerLock: Object = new Object
+  val producerLock: Object = new Object
   val StreamNameNullOrEmptyErrorMsg = "Stream Name should be specified in the stream configuration file."
 
   def start(): Unit = {
@@ -64,17 +61,18 @@ class KafkaSystemProducer(systemName: String,
     producerLock.synchronized {
       try {
         if (producer != null) {
-          producer.close
-          producer = null
+          producer.close  // Also performs the equivalent of a flush()
         }
 
-        // Scan the sourceData for all sources and log the errors for posterity
+        // Log error for debugging purposes.
         val exception = fatalException.get()
         if (exception != null) {
-          error("Observed unhandled error while closing producer", exception)
+          error("Observed send() error while closing producer", exception)
         }
       } catch {
         case e: Exception => error("Error while closing producer for system: " + systemName, e)
+      } finally {
+        producer = null
       }
     }
   }
@@ -97,6 +95,9 @@ class KafkaSystemProducer(systemName: String,
     }
 
     val currentProducer = producer
+    if (currentProducer == null) {
+      throw new SystemProducerException("Kafka producer is null.")
+    }
 
     // Java-based Kafka producer API requires an "Integer" type partitionKey and does not allow custom overriding of Partitioners
     // Any kind of custom partitioning has to be done on the client-side
@@ -138,6 +139,10 @@ class KafkaSystemProducer(systemName: String,
     updateTimer(metrics.flushNs) {
       metrics.flushes.inc
 
+      if (producer == null) {
+        throw new SystemProducerException("Kafka producer is null.")
+      }
+
       // Only throws InterruptedException, all other errors are handled in send() callbacks
       producer.flush()
 
@@ -146,8 +151,6 @@ class KafkaSystemProducer(systemName: String,
       // 2. the producer is closed and one or more sources have exceptions to handle
       //   2a. all new sends get a ProducerClosedException or IllegalStateException (depending on kafka version)
       //   2b. there are no messages in flight because the producer is closed
-
-      // Flush can be called concurrently for different sources, so any modification of shared objects must be threadsafe
 
       // We must check for an exception AFTER flush() because when flush() returns all callbacks for messages sent
       // in that flush() are guaranteed to have completed and we update the exception in the callback.
@@ -170,7 +173,7 @@ class KafkaSystemProducer(systemName: String,
     // source could send on the new producer before handling its own exceptions and produce out of order messages.
     // So we have to handle it right here in the SystemProducer or never recreate the producer.
     if (dropProducerExceptions) {
-      warn("Ignoring producer exception. All messages in the failed produce request will be dropped!", producerException)
+      warn("Ignoring producer exception. All messages in the failed producer request will be dropped!", producerException)
 
       if (isFatalException) {
         producerLock.synchronized {
@@ -193,6 +196,10 @@ class KafkaSystemProducer(systemName: String,
     }
   }
 
+  // A fatal exception is one that corrupts the producer or otherwise makes it unusable.
+  // We want to handle non-fatal exceptions differently because they can often be handled by the user
+  // and that's preferable because it allows users that drop exceptions a way to do that with less
+  // data loss (no collateral damage from batches of messages getting dropped)
   private def isFatalException(exception: Exception): Boolean = {
     exception match {
       case _: SerializationException => false
