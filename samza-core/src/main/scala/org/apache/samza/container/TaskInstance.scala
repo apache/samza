@@ -207,9 +207,7 @@ class TaskInstance(
 
     trace("Flushing producers for taskName: %s" format taskName)
 
-    exceptionHandler.maybeHandle { // Allow users to decide whether to swallow producer exceptions
-      collector.flush
-    }
+    collector.flush
 
     trace("Flushing state stores for taskName: %s" format taskName)
 

@@ -175,7 +175,7 @@ class TestKafkaSystemProducer {
   }
 
   /**
-    * If there's an exception, we should:
+    * If there's an exception, we should: TODO update this
     * 1. Close the producer (from the one-and-only kafka send thread) to prevent subsequent sends from going out of order.
     * 2. Nullify the producer from systemProducer.flush() to cause it to be recreated on the next send
     * 3. Throw the exception from systemProducer.flush() to prevent a checkpoint

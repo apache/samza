@@ -273,6 +273,8 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
         e.printStackTrace();
       } catch (ExecutionException ee) {
         ee.printStackTrace();
+      } finally {
+        executor.shutdownNow();
       }
     }
   }

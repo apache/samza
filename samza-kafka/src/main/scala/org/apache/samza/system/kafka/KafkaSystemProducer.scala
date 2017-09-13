@@ -23,7 +23,6 @@ package org.apache.samza.system.kafka
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.TimeUnit
 
-import kafka.producer.ProducerClosedException
 import org.apache.kafka.clients.producer.Callback
 import org.apache.kafka.clients.producer.Producer
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -38,8 +37,6 @@ import org.apache.samza.util.KafkaUtil
 import org.apache.samza.util.Logging
 import org.apache.samza.util.TimerUtils
 
-import scala.collection.mutable
-
 class KafkaSystemProducer(systemName: String,
                           retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
                           getProducer: () => Producer[Array[Byte], Array[Byte]],
@@ -52,10 +49,9 @@ class KafkaSystemProducer(systemName: String,
     * Represents a fatal error that caused the producer to close.
     */
   val fatalException: AtomicReference[SystemProducerException] = new AtomicReference[SystemProducerException]()
-  var producer: Producer[Array[Byte], Array[Byte]] = null
+  @volatile var producer: Producer[Array[Byte], Array[Byte]] = null
   var producerLock: Object = new Object
   val StreamNameNullOrEmptyErrorMsg = "Stream Name should be specified in the stream configuration file."
-  val sources: mutable.Set[String] = new mutable.HashSet[String]
 
   def start(): Unit = {
     producer = getProducer()
@@ -84,9 +80,6 @@ class KafkaSystemProducer(systemName: String,
   }
 
   def register(source: String) {
-    if(!sources.add(source)) {
-      throw new SystemProducerException("%s is already registered with the %s system producer" format (source, systemName))
-    }
   }
 
   def send(source: String, envelope: OutgoingMessageEnvelope) {
@@ -95,10 +88,6 @@ class KafkaSystemProducer(systemName: String,
     val topicName = envelope.getSystemStream.getStream
     if (topicName == null || topicName == "") {
       throw new IllegalArgumentException(StreamNameNullOrEmptyErrorMsg)
-    }
-
-    if (!sources.contains(source)) {
-      throw new IllegalArgumentException("Source %s must be registered first before send." format source)
     }
 
     val globalProducerException = fatalException.get()
@@ -188,6 +177,7 @@ class KafkaSystemProducer(systemName: String,
           // Prevent each callback from recreating producer for the same failed event.
           if (currentProducer == producer) {
             info("Creating a new producer for system %s." format systemName)
+            currentProducer.close(0, TimeUnit.MILLISECONDS)
             producer = getProducer()
           }
         }
@@ -197,8 +187,8 @@ class KafkaSystemProducer(systemName: String,
       // Close producer to ensure messages queued in-flight are not sent and hence, avoid re-ordering
       // This works because the callback thread is singular and no sends can complete until the callback returns.
       if (isFatalException) {
-        producer.close(0, TimeUnit.MILLISECONDS)
         fatalException.compareAndSet(null, producerException)
+        producer.close(0, TimeUnit.MILLISECONDS)
       }
     }
   }
@@ -206,8 +196,7 @@ class KafkaSystemProducer(systemName: String,
   private def isFatalException(exception: Exception): Boolean = {
     exception match {
       case _: SerializationException => false
-      case _: IllegalStateException => false
-      case _: ProducerClosedException => false
+      case _: ClassCastException => false
       case _ => true
     }
   }
