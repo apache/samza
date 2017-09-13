@@ -53,7 +53,9 @@ import org.junit.Test;
 import scala.Option$;
 
 import static org.mockito.Matchers.anyObject;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
 
 
 public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
@@ -76,11 +78,11 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     // Note: createTopics needs to be called before creating a StreamProcessor. Otherwise it fails with a
     // TopicExistsException since StreamProcessor auto-creates them.
     createTopics(inputTopic, outputTopic);
-    final Mocks mocks = new Mocks(configs, IdentityStreamTask::new, bootstrapServers());
+    final TestStubs stubs = new TestStubs(configs, IdentityStreamTask::new, bootstrapServers());
 
-    produceMessages(mocks.producer, inputTopic, messageCount);
-    run(mocks.processor, mocks.latch);
-    verifyNumMessages(mocks.consumer, outputTopic, messageCount);
+    produceMessages(stubs.producer, inputTopic, messageCount);
+    run(stubs.processor, stubs.shutdownLatch);
+    verifyNumMessages(stubs.consumer, outputTopic, messageCount);
   }
 
   /**
@@ -95,11 +97,11 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
 
     final Config configs = new MapConfig(createConfigs("1", testSystem, inputTopic, outputTopic, messageCount));
     createTopics(inputTopic, outputTopic);
-    final Mocks mocks = new Mocks(configs, IdentityStreamTask::new, bootstrapServers());
+    final TestStubs stubs = new TestStubs(configs, IdentityStreamTask::new, bootstrapServers());
 
-    produceMessages(mocks.producer, inputTopic, messageCount);
-    run(mocks.processor, mocks.latch);
-    verifyNumMessages(mocks.consumer, outputTopic, messageCount);
+    produceMessages(stubs.producer, inputTopic, messageCount);
+    run(stubs.processor, stubs.shutdownLatch);
+    verifyNumMessages(stubs.consumer, outputTopic, messageCount);
   }
 
   /**
@@ -116,11 +118,11 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     final ExecutorService executorService = Executors.newSingleThreadExecutor();
     createTopics(inputTopic, outputTopic);
     final AsyncStreamTaskFactory stf = () -> new AsyncStreamTaskAdapter(new IdentityStreamTask(), executorService);
-    final Mocks mocks = new Mocks(configs, stf, bootstrapServers());
+    final TestStubs stubs = new TestStubs(configs, stf, bootstrapServers());
 
-    produceMessages(mocks.producer, inputTopic, messageCount);
-    run(mocks.processor, mocks.latch);
-    verifyNumMessages(mocks.consumer, outputTopic, messageCount);
+    produceMessages(stubs.producer, inputTopic, messageCount);
+    run(stubs.processor, stubs.shutdownLatch);
+    verifyNumMessages(stubs.consumer, outputTopic, messageCount);
     executorService.shutdownNow();
   }
 
@@ -137,9 +139,9 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     final Map<String, String> configMap = createConfigs("1", testSystem, inputTopic, outputTopic, messageCount);
     configMap.remove("task.class");
     final Config configs = new MapConfig(configMap);
-    final Mocks mocks = new Mocks(configs, (StreamTaskFactory) null, bootstrapServers());
+    final TestStubs stubs = new TestStubs(configs, (StreamTaskFactory) null, bootstrapServers());
 
-    run(mocks.processor, mocks.latch);
+    run(stubs.processor, stubs.shutdownLatch);
   }
 
   private void createTopics(String inputTopic, String outputTopic) {
@@ -221,26 +223,30 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     Assert.assertEquals(count, expectedNumMessages);
   }
 
-  private static class Mocks {
-    CountDownLatch latch;
+  /**
+   * A wrapper class to consolidate all the components required to be either mocked or stubbed prior to unit testing
+   * the stream processor.
+   */
+  private static class TestStubs {
+    CountDownLatch shutdownLatch;
     KafkaConsumer consumer;
     KafkaProducer producer;
     StreamProcessor processor;
     StreamProcessorLifecycleListener listener;
 
-    private Mocks(String bootstrapServer) {
-      latch = new CountDownLatch(1);
-      initProcessListener();
+    private TestStubs(String bootstrapServer) {
+      shutdownLatch = new CountDownLatch(1);
+      initProcessorListener();
       initConsumer(bootstrapServer);
       initProducer(bootstrapServer);
     }
 
-    Mocks(Config config, StreamTaskFactory taskFactory, String bootstrapServer) {
+    TestStubs(Config config, StreamTaskFactory taskFactory, String bootstrapServer) {
       this(bootstrapServer);
       processor = new StreamProcessor(config, new HashMap<>(), taskFactory, listener);
     }
 
-    Mocks(Config config, AsyncStreamTaskFactory taskFactory, String bootstrapServer) {
+    TestStubs(Config config, AsyncStreamTaskFactory taskFactory, String bootstrapServer) {
       this(bootstrapServer);
       processor = new StreamProcessor(config, new HashMap<>(), taskFactory, listener);
     }
@@ -259,12 +265,12 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
           Option$.MODULE$.empty());
     }
 
-    private void initProcessListener() {
+    private void initProcessorListener() {
       listener = mock(StreamProcessorLifecycleListener.class);
       doNothing().when(listener).onStart();
       doNothing().when(listener).onFailure(anyObject());
       doAnswer(invocation -> {
-          latch.countDown();
+          shutdownLatch.countDown();
           return null;
         }).when(listener).onShutdown();
     }
