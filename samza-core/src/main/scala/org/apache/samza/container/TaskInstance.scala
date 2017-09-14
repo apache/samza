@@ -25,7 +25,10 @@ import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.config.Config
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.storage.TaskStorageManager
-import org.apache.samza.system.{IncomingMessageEnvelope, SystemAdmin, SystemConsumers, SystemStreamPartition}
+import org.apache.samza.system.IncomingMessageEnvelope
+import org.apache.samza.system.SystemAdmin
+import org.apache.samza.system.SystemConsumers
+import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.AsyncStreamTask
 import org.apache.samza.task.ClosableTask
 import org.apache.samza.task.EndOfStreamListenerTask
