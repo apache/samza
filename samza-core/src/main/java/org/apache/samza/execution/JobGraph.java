@@ -61,6 +61,7 @@ import static org.apache.samza.config.ApplicationConfig.ApplicationMode;
   private final Set<StreamEdge> intermediateStreams = new HashSet<>();
   private final Config config;
   private final JobGraphJsonGenerator jsonGenerator = new JobGraphJsonGenerator();
+  private final Map<String, String> runtimeConfigs = new HashMap<>();
 
   /**
    * The JobGraph is only constructed by the {@link ExecutionPlanner}.
@@ -68,18 +69,38 @@ import static org.apache.samza.config.ApplicationConfig.ApplicationMode;
    */
   JobGraph(Config config) {
     this.config = config;
+    runtimeConfigs.put(ApplicationConfig.APP_MODE, ApplicationMode.BATCH.name());
   }
 
   @Override
   public List<JobConfig> getJobConfigs() {
-    Map<String, String> globalConfig = genGlobalConfig();
-    return getJobNodes().stream().map(n -> n.generateConfig(globalConfig)).collect(Collectors.toList());
+    if (!runtimeConfigs.containsKey(CONFIG_INTERNAL_EXECUTION_PLAN)) {
+      String planJson = "";
+      try {
+        planJson = getPlanAsJson();
+      } catch (Exception e) {
+        log.warn("Failed to generate plan JSON", e);
+      }
+      runtimeConfigs.put(CONFIG_INTERNAL_EXECUTION_PLAN, planJson);
+    }
+
+    return getJobNodes().stream().map(n -> n.generateConfig(runtimeConfigs)).collect(Collectors.toList());
   }
 
   @Override
   public List<StreamSpec> getIntermediateStreams() {
+    boolean isBatch = sources.stream().allMatch(edge -> edge.getStreamSpec().isBounded());
+    String runId = new ApplicationConfig(config).getRunId();
     return getIntermediateStreamEdges().stream()
         .map(streamEdge -> streamEdge.getStreamSpec())
+        .map(spec -> {
+            if (isBatch && runId != null) {
+              StreamSpec newSpec = spec.copyWithPhysicalName(spec.getPhysicalName() + "-" + runId);
+              return newSpec;
+            } else {
+              return spec;
+            }
+          })
         .collect(Collectors.toList());
   }
 
@@ -91,27 +112,8 @@ import static org.apache.samza.config.ApplicationConfig.ApplicationMode;
   @Override
   public ApplicationConfig getApplicationConfig() {
     Map<String, String> appConfig = new HashMap<>(config);
-    appConfig.putAll(genGlobalConfig());
+    appConfig.putAll(runtimeConfigs);
     return new ApplicationConfig(new MapConfig(appConfig));
-  }
-
-  private Map<String, String> genGlobalConfig() {
-    Map<String, String> globalConfig = new HashMap<>();
-
-    // is this a batch job?
-    boolean isBatch = sources.stream().allMatch(edge -> edge.getStreamSpec().isBounded());
-    ApplicationMode mode = isBatch ? ApplicationMode.BATCH : ApplicationMode.STREAM;
-    globalConfig.put(ApplicationConfig.APP_MODE, mode.name());
-
-    // generate the plan json
-    String planJson = "";
-    try {
-      planJson = getPlanAsJson();
-    } catch (Exception e) {
-      log.warn("Failed to generate plan JSON", e);
-    }
-    globalConfig.put(CONFIG_INTERNAL_EXECUTION_PLAN, planJson);
-    return globalConfig;
   }
 
   /**
@@ -124,6 +126,10 @@ import static org.apache.samza.config.ApplicationConfig.ApplicationMode;
     edge.addTargetNode(node);
     node.addInEdge(edge);
     sources.add(edge);
+
+    if (!input.isBounded()) {
+      runtimeConfigs.put(ApplicationConfig.APP_MODE, ApplicationMode.STREAM.name());
+    }
   }
 
   /**

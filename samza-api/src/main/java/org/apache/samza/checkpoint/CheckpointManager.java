@@ -50,4 +50,8 @@ public interface CheckpointManager {
 
   void stop();
 
+  /**
+   * doc
+   */
+  default void clearCheckpoints() { };
 }

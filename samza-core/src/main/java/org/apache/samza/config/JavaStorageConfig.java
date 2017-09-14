@@ -71,6 +71,12 @@ public class JavaStorageConfig extends MapConfig {
     } else {
       systemStreamRes = systemStream;
     }
+
+    ApplicationConfig appConfig = new ApplicationConfig(this);
+    if (appConfig.getAppMode() == ApplicationConfig.ApplicationMode.BATCH && appConfig.getRunId() != null) {
+      systemStreamRes += "-" + appConfig.getRunId();
+    }
+
     return systemStreamRes;
   }
 

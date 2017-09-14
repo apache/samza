@@ -18,14 +18,8 @@
  */
 package org.apache.samza.runtime;
 
-import java.io.File;
-import java.io.PrintWriter;
-import java.util.Map;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaSystemConfig;
-import org.apache.samza.config.ShellCommandConfig;
-import org.apache.samza.config.StreamConfig;
+import org.apache.samza.config.*;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.execution.ExecutionPlanner;
 import org.apache.samza.execution.StreamManager;
@@ -33,6 +27,11 @@ import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.system.StreamSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.PrintWriter;
+import java.util.HashMap;
+import java.util.Map;
 
 
 /**
@@ -42,12 +41,10 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
   private static final Logger log = LoggerFactory.getLogger(AbstractApplicationRunner.class);
 
   private final StreamManager streamManager;
-  private final ExecutionPlanner planner;
 
   public AbstractApplicationRunner(Config config) {
     super(config);
     this.streamManager = new StreamManager(new JavaSystemConfig(config).getSystemAdmins());
-    this.planner = new ExecutionPlanner(config, streamManager);
   }
 
   @Override
@@ -101,16 +98,32 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
     return new StreamSpec(streamId, physicalName, system, isBounded, properties);
   }
 
-  final ExecutionPlan getExecutionPlan(StreamApplication app) throws Exception {
+  /* package private */
+  ExecutionPlan getExecutionPlan(StreamApplication app) throws Exception {
+    return getExecutionPlan(app, null);
+  }
+
+  /* package private */
+  ExecutionPlan getExecutionPlan(StreamApplication app, String runId) throws Exception {
     // build stream graph
     StreamGraphImpl streamGraph = new StreamGraphImpl(this, config);
     app.init(streamGraph, config);
 
     // create the physical execution plan
+    final Config planConfig;
+    if (runId != null) {
+      Map<String, String> cfg = new HashMap<>(config);
+      cfg.put(ApplicationConfig.APP_RUN_ID, runId);
+      planConfig = new MapConfig(cfg);
+    } else {
+      planConfig = config;
+    }
+    ExecutionPlanner planner = new ExecutionPlanner(planConfig, streamManager);
     return planner.plan(streamGraph);
   }
 
-  final StreamManager getStreamManager() {
+  /* package private for testing */
+  StreamManager getStreamManager() {
     return streamManager;
   }
 

@@ -359,7 +359,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         throws Exception {
       LOG.info("Got new session created event for processor=" + processorId);
 
-
       LOG.info("register zk controller for the new session");
       zkController.register();
     }

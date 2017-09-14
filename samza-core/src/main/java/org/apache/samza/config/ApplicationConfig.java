@@ -55,6 +55,7 @@ public class ApplicationConfig extends MapConfig {
   public static final String APP_ID = "app.id";
   public static final String APP_CLASS = "app.class";
   public static final String APP_MODE = "app.mode";
+  public static final String APP_RUN_ID = "app.run.id";
 
   public ApplicationConfig(Config config) {
     super(config);
@@ -87,6 +88,10 @@ public class ApplicationConfig extends MapConfig {
   @Deprecated
   public String getProcessorId() {
     return get(PROCESSOR_ID, null);
+  }
+
+  public String getRunId() {
+    return get(APP_RUN_ID, null);
   }
 
   public ApplicationMode getAppMode() {

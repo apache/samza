@@ -78,7 +78,7 @@ object JobModelManager extends Logging {
    * and writes it to the coordinator stream.
    * d) Builds JobModelManager using the jobModel read from coordinator stream.
    * @param coordinatorSystemConfig A config object that contains job.name
-   *                                job.id, and all system.&lt;job-coordinator-system-name&gt;.*
+   *                                job.id, and all system.&lt;job-coordinator-system-name&gt;.*Ch
    *                                configuration. The method will use this config to read all configuration
    *                                from the coordinator stream, and instantiate a JobModelManager.
    */

@@ -24,8 +24,8 @@ import java.util.concurrent.atomic.AtomicLong
 import kafka.admin.AdminUtils
 import kafka.utils.ZkUtils
 import org.apache.kafka.common.PartitionInfo
-import org.apache.samza.config.Config
-import org.apache.samza.config.ConfigException
+import org.apache.samza.config.ApplicationConfig.ApplicationMode
+import org.apache.samza.config.{ApplicationConfig, Config, ConfigException}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.system.OutgoingMessageEnvelope
 import kafka.common.{ErrorMapping, ReplicaNotAvailableException}
@@ -57,8 +57,16 @@ object KafkaUtil extends Logging {
     abs(envelope.getPartitionKey.hashCode()) % numPartitions
   }
 
-  def getCheckpointTopic(jobName: String, jobId: String) =
-    "__samza_checkpoint_ver_%d_for_%s_%s" format (CHECKPOINT_LOG_VERSION_NUMBER, jobName.replaceAll("_", "-"), jobId.replaceAll("_", "-"))
+  def getCheckpointTopic(jobName: String, jobId: String, config: Config) = {
+    val appConfig = new ApplicationConfig(config)
+    if (appConfig.getAppMode == ApplicationMode.BATCH && appConfig.getRunId != null) {
+      "__samza_checkpoint_ver_%d_for_%s_%s_%s" format(CHECKPOINT_LOG_VERSION_NUMBER,
+        jobName.replaceAll("_", "-"), jobId.replaceAll("_", "-"), appConfig.getRunId)
+    } else {
+      "__samza_checkpoint_ver_%d_for_%s_%s" format(CHECKPOINT_LOG_VERSION_NUMBER,
+        jobName.replaceAll("_", "-"), jobId.replaceAll("_", "-"))
+    }
+  }
 
   /**
    * Exactly the same as Kafka's ErrorMapping.maybeThrowException

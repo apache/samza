@@ -180,6 +180,10 @@ public class StreamSpec {
     return new StreamSpec(id, physicalName, systemName, partitionCount, this.isBounded, config);
   }
 
+  public StreamSpec copyWithPhysicalName(String physicalName) {
+    return new StreamSpec(id, physicalName, systemName, partitionCount, this.isBounded, config);
+  }
+
   public String getId() {
     return id;
   }
