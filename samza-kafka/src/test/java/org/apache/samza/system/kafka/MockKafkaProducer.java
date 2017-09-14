@@ -50,9 +50,11 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
   private List<FutureTask<RecordMetadata>> _callbacksList = new ArrayList<FutureTask<RecordMetadata>>();
   private boolean shouldBuffer = false;
   private boolean errorNext = false;
+  private boolean errorInCallback = true;
   private Exception exception = null;
   private AtomicInteger msgsSent = new AtomicInteger(0);
   private boolean closed = false;
+  private int openCount = 0;
 
   /*
    * Helps mock out buffered behavior seen in KafkaProducer. This MockKafkaProducer enables you to:
@@ -74,8 +76,9 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
     this.shouldBuffer = shouldBuffer;
   }
 
-  public void setErrorNext(boolean errorNext, Exception exception) {
+  public void setErrorNext(boolean errorNext, boolean errorInCallback, Exception exception) {
     this.errorNext = errorNext;
+    this.errorInCallback = errorInCallback;
     this.exception = exception;
   }
 
@@ -104,6 +107,10 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
       throw new ProducerClosedException();
     }
     if (errorNext) {
+      if (!errorInCallback) {
+        this.errorNext = false;
+        throw (RuntimeException)exception;
+      }
       if (shouldBuffer) {
         FutureTask<RecordMetadata> f = new FutureTask<RecordMetadata>(new Callable<RecordMetadata>() {
           @Override
@@ -168,10 +175,15 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
 
   public void open() {
     this.closed = false;
+    openCount++;
   }
 
   public boolean isClosed() {
     return closed;
+  }
+
+  public int getOpenCount() {
+    return openCount;
   }
 
   public synchronized void flush () {
