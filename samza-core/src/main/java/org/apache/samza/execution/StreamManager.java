@@ -30,10 +30,7 @@ import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.checkpoint.CheckpointManagerFactory;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.StorageConfig;
-import org.apache.samza.config.StreamConfig;
-import org.apache.samza.config.TaskConfig;
+import org.apache.samza.config.*;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
@@ -95,18 +92,21 @@ public class StreamManager {
    * checkpoint stream and changelog streams.
    * For batch processing, we always clean up the previous internal streams and create a new set for each run.
    * @param prevConfig config of the previous run
-   * @param runner current {@link ApplicationRunner}
    */
-  public void clearStreamsFromPreviousRun(Config prevConfig, ApplicationRunner runner) {
+  public void clearStreamsFromPreviousRun(Config prevConfig) {
     try {
+      ApplicationConfig appConfig = new ApplicationConfig(prevConfig);
+      LOGGER.info("run.id from previous run is {}", appConfig.getRunId());
+
       StreamConfig streamConfig = new StreamConfig(prevConfig);
 
       //Find all intermediate streams and clean up
       Set<StreamSpec> intStreams = JavaConversions.asJavaCollection(streamConfig.getStreamIds()).stream()
           .filter(streamConfig::getIsIntermediate)
-          .map(runner::getStreamSpec)
+          .map(id -> new StreamSpec(id, streamConfig.getPhysicalName(id), streamConfig.getSystem(id)))
           .collect(Collectors.toSet());
       intStreams.forEach(stream -> {
+          LOGGER.info("Clear intermediate stream {} in system {}", stream.getPhysicalName(), stream.getSystemName());
           sysAdmins.get(stream.getSystemName()).clearStream(stream);
         });
 
@@ -124,6 +124,7 @@ public class StreamManager {
       for (String store : JavaConversions.asJavaCollection(storageConfig.getStoreNames())) {
         String changelog = storageConfig.getChangelogStream(store).getOrElse(defaultValue(null));
         if (changelog != null) {
+          LOGGER.info("Clear store {} changelog {}", store, changelog);
           SystemStream systemStream = Util.getSystemStreamFromNames(changelog);
           StreamSpec spec = StreamSpec.createChangeLogStreamSpec(systemStream.getStream(), systemStream.getSystem(), 1);
           sysAdmins.get(spec.getSystemName()).clearStream(spec);

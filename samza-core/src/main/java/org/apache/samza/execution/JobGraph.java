@@ -30,17 +30,14 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Collectors;
-
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.system.StreamSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.samza.config.ApplicationConfig.ApplicationMode;
 
 /**
  * The JobGraph is the physical execution graph for a multi-stage Samza application.
@@ -52,7 +49,6 @@ import static org.apache.samza.config.ApplicationConfig.ApplicationMode;
  */
 /* package private */ class JobGraph implements ExecutionPlan {
   private static final Logger log = LoggerFactory.getLogger(JobGraph.class);
-  private static final String CONFIG_INTERNAL_EXECUTION_PLAN = "samza.internal.execution.plan";
 
   private final Map<String, JobNode> nodes = new HashMap<>();
   private final Map<String, StreamEdge> edges = new HashMap<>();
@@ -61,7 +57,6 @@ import static org.apache.samza.config.ApplicationConfig.ApplicationMode;
   private final Set<StreamEdge> intermediateStreams = new HashSet<>();
   private final Config config;
   private final JobGraphJsonGenerator jsonGenerator = new JobGraphJsonGenerator();
-  private final Map<String, String> runtimeConfigs = new HashMap<>();
 
   /**
    * The JobGraph is only constructed by the {@link ExecutionPlanner}.
@@ -69,38 +64,25 @@ import static org.apache.samza.config.ApplicationConfig.ApplicationMode;
    */
   JobGraph(Config config) {
     this.config = config;
-    runtimeConfigs.put(ApplicationConfig.APP_MODE, ApplicationMode.BATCH.name());
   }
 
   @Override
   public List<JobConfig> getJobConfigs() {
-    if (!runtimeConfigs.containsKey(CONFIG_INTERNAL_EXECUTION_PLAN)) {
-      String planJson = "";
-      try {
-        planJson = getPlanAsJson();
-      } catch (Exception e) {
-        log.warn("Failed to generate plan JSON", e);
-      }
-      runtimeConfigs.put(CONFIG_INTERNAL_EXECUTION_PLAN, planJson);
+    String json = "";
+    try {
+      json = getPlanAsJson();
+    } catch (Exception e) {
+      log.warn("Failed to generate plan JSON", e);
     }
 
-    return getJobNodes().stream().map(n -> n.generateConfig(runtimeConfigs)).collect(Collectors.toList());
+    final String planJson = json;
+    return getJobNodes().stream().map(n -> n.generateConfig(planJson)).collect(Collectors.toList());
   }
 
   @Override
   public List<StreamSpec> getIntermediateStreams() {
-    boolean isBatch = sources.stream().allMatch(edge -> edge.getStreamSpec().isBounded());
-    String runId = new ApplicationConfig(config).getRunId();
     return getIntermediateStreamEdges().stream()
         .map(streamEdge -> streamEdge.getStreamSpec())
-        .map(spec -> {
-            if (isBatch && runId != null) {
-              StreamSpec newSpec = spec.copyWithPhysicalName(spec.getPhysicalName() + "-" + runId);
-              return newSpec;
-            } else {
-              return spec;
-            }
-          })
         .collect(Collectors.toList());
   }
 
@@ -109,11 +91,12 @@ import static org.apache.samza.config.ApplicationConfig.ApplicationMode;
     return jsonGenerator.toJson(this);
   }
 
-  @Override
+  /**
+   * Returns the config for this application
+   * @return {@link ApplicationConfig}
+   */
   public ApplicationConfig getApplicationConfig() {
-    Map<String, String> appConfig = new HashMap<>(config);
-    appConfig.putAll(runtimeConfigs);
-    return new ApplicationConfig(new MapConfig(appConfig));
+    return new ApplicationConfig(config);
   }
 
   /**
@@ -126,10 +109,6 @@ import static org.apache.samza.config.ApplicationConfig.ApplicationMode;
     edge.addTargetNode(node);
     node.addInEdge(edge);
     sources.add(edge);
-
-    if (!input.isBounded()) {
-      runtimeConfigs.put(ApplicationConfig.APP_MODE, ApplicationMode.STREAM.name());
-    }
   }
 
   /**
@@ -194,7 +173,7 @@ import static org.apache.samza.config.ApplicationConfig.ApplicationMode;
     String streamId = streamSpec.getId();
     StreamEdge edge = edges.get(streamId);
     if (edge == null) {
-      edge = new StreamEdge(streamSpec, isIntermediate);
+      edge = new StreamEdge(streamSpec, isIntermediate, config);
       edges.put(streamId, edge);
     }
     return edge;

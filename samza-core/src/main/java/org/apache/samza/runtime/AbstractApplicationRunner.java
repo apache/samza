@@ -18,6 +18,7 @@
  */
 package org.apache.samza.runtime;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.*;
 import org.apache.samza.execution.ExecutionPlan;
@@ -31,7 +32,9 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.PrintWriter;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 
 /**
@@ -110,15 +113,21 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
     app.init(streamGraph, config);
 
     // create the physical execution plan
-    final Config planConfig;
-    if (runId != null) {
-      Map<String, String> cfg = new HashMap<>(config);
+    Map<String, String> cfg = new HashMap<>(config);
+    if (StringUtils.isNoneEmpty(runId)) {
       cfg.put(ApplicationConfig.APP_RUN_ID, runId);
-      planConfig = new MapConfig(cfg);
-    } else {
-      planConfig = config;
     }
-    ExecutionPlanner planner = new ExecutionPlanner(planConfig, streamManager);
+
+    Set<StreamSpec> inputStreams = new HashSet<>(streamGraph.getInputOperators().keySet());
+    inputStreams.removeAll(streamGraph.getOutputStreams().keySet());
+    boolean isBatch = inputStreams.stream().allMatch(StreamSpec::isBounded);
+    if (isBatch) {
+      cfg.put(ApplicationConfig.APP_MODE, ApplicationConfig.ApplicationMode.BATCH.name());
+    } else {
+      cfg.put(ApplicationConfig.APP_MODE, ApplicationConfig.ApplicationMode.STREAM.name());
+    }
+
+    ExecutionPlanner planner = new ExecutionPlanner(new MapConfig(cfg), streamManager);
     return planner.plan(streamGraph);
   }
 

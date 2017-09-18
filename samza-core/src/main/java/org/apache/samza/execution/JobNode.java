@@ -50,6 +50,7 @@ import org.slf4j.LoggerFactory;
 public class JobNode {
   private static final Logger log = LoggerFactory.getLogger(JobNode.class);
   private static final String CONFIG_JOB_PREFIX = "jobs.%s.";
+  private static final String CONFIG_INTERNAL_EXECUTION_PLAN = "samza.internal.execution.plan";
 
   private final String jobName;
   private final String jobId;
@@ -101,10 +102,10 @@ public class JobNode {
 
   /**
    * Generate the configs for a job
-   * @param otherConfigs other configs that apply to the job
+   * @param executionPlanJson JSON representation of the execution plan
    * @return config of the job
    */
-  public JobConfig generateConfig(Map<String, String> otherConfigs) {
+  public JobConfig generateConfig(String executionPlanJson) {
     Map<String, String> configs = new HashMap<>();
     configs.put(JobConfig.JOB_NAME(), jobName);
 
@@ -121,7 +122,7 @@ public class JobNode {
       }
     }
 
-    configs.putAll(otherConfigs);
+    configs.put(CONFIG_INTERNAL_EXECUTION_PLAN, executionPlanJson);
 
     // write input/output streams to configs
     inEdges.stream().filter(StreamEdge::isIntermediate).forEach(edge -> addStreamConfig(edge, configs));

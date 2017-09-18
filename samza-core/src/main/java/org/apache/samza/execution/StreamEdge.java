@@ -21,6 +21,9 @@ package org.apache.samza.execution;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import org.apache.samza.config.ApplicationConfig;
+import org.apache.samza.config.Config;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.Util;
@@ -37,19 +40,21 @@ public class StreamEdge {
   private final StreamSpec streamSpec;
   private final List<JobNode> sourceNodes = new ArrayList<>();
   private final List<JobNode> targetNodes = new ArrayList<>();
+  private final Config config;
 
   private String name = "";
   private int partitions = PARTITIONS_UNKNOWN;
   private final boolean isIntermediate;
 
-  StreamEdge(StreamSpec streamSpec) {
-    this(streamSpec, false);
+  StreamEdge(StreamSpec streamSpec, Config config) {
+    this(streamSpec, false, config);
   }
 
-  StreamEdge(StreamSpec streamSpec, boolean isIntermediate) {
+  StreamEdge(StreamSpec streamSpec, boolean isIntermediate, Config config) {
     this.streamSpec = streamSpec;
     this.name = Util.getNameFromSystemStream(getSystemStream());
     this.isIntermediate = isIntermediate;
+    this.config = config;
   }
 
   void addSourceNode(JobNode sourceNode) {
@@ -61,11 +66,16 @@ public class StreamEdge {
   }
 
   public StreamSpec getStreamSpec() {
-    if (partitions == PARTITIONS_UNKNOWN) {
-      return streamSpec;
-    } else {
-      return streamSpec.copyWithPartitionCount(partitions);
+    StreamSpec spec = (partitions == PARTITIONS_UNKNOWN) ?
+        streamSpec : streamSpec.copyWithPartitionCount(partitions);
+
+    if (isIntermediate) {
+      ApplicationConfig appConfig = new ApplicationConfig(config);
+      if (appConfig.getAppMode() == ApplicationConfig.ApplicationMode.BATCH && appConfig.getRunId() != null) {
+        spec = spec.copyWithPhysicalName(spec.getPhysicalName() + "-" + appConfig.getRunId());
+      }
     }
+    return spec;
   }
 
   SystemStream getSystemStream() {

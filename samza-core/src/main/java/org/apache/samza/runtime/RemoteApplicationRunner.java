@@ -66,7 +66,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
       // 2. create the necessary streams
       if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
-        getStreamManager().clearStreamsFromPreviousRun(getConfigFromPrevRun(), this);
+        getStreamManager().clearStreamsFromPreviousRun(getConfigFromPrevRun());
       }
       getStreamManager().createStreams(plan.getIntermediateStreams());
 
@@ -152,6 +152,9 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     consumer.start();
     consumer.bootstrap();
     consumer.stop();
-    return consumer.getConfig();
+
+    Config cfg = consumer.getConfig();
+    LOG.info("Previous config is: " + cfg.toString());
+    return cfg;
   }
 }
