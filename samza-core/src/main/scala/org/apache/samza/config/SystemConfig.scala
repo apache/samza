@@ -35,7 +35,7 @@ object SystemConfig {
 }
 
 class SystemConfig(config: Config) extends ScalaMapConfig(config) with Logging {
-  def getSystemFactory(name: String) = getOption(SystemConfig.SYSTEM_FACTORY format name)
+  def getSystemFactory(name: String) = getNonEmptyOption(SystemConfig.SYSTEM_FACTORY format name)
 
   def getSystemKeySerde(name: String) = getSystemDefaultStreamProperty(name, StreamConfig.KEY_SERDE)
 
