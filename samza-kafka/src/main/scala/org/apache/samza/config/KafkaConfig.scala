@@ -20,24 +20,19 @@
 package org.apache.samza.config
 
 
+import java.util
 import java.util.regex.Pattern
-
-import org.apache.samza.util.Util
-import org.apache.samza.util.Logging
-
-import scala.collection.JavaConverters._
-import kafka.consumer.ConsumerConfig
 import java.util.{Properties, UUID}
 
+import kafka.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerConfig
+import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.samza.SamzaException
-import java.util
+import org.apache.samza.config.SystemConfig.Config2System
+import org.apache.samza.system.kafka.KafkaSystemFactory
+import org.apache.samza.util.{Logging, Util}
 
 import scala.collection.JavaConverters._
-import org.apache.samza.system.kafka.KafkaSystemFactory
-import org.apache.samza.config.SystemConfig.Config2System
-import org.apache.samza.config.StreamConfig.Config2Stream
-import org.apache.kafka.common.serialization.ByteArraySerializer
 
 object KafkaConfig {
   val TOPIC_REPLICATION_FACTOR = "replication.factor"
@@ -278,7 +273,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
                                     injectedProps: Map[String, String] = Map()) = {
 
     val subConf = config.subset("systems.%s.producer." format systemName, true)
-    val producerProps = new util.HashMap[String, Object]()
+    val producerProps = new util.HashMap[String, String]()
     producerProps.putAll(subConf)
     producerProps.put("client.id", clientId)
     producerProps.putAll(injectedProps.asJava)
@@ -288,7 +283,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
 
 class KafkaProducerConfig(val systemName: String,
                           val clientId: String = "",
-                          properties: java.util.Map[String, Object] = new util.HashMap[String, Object]()) extends Logging {
+                          properties: java.util.Map[String, String] = new util.HashMap[String, String]()) extends Logging {
 
   // Copied from new Kafka API - Workaround until KAFKA-1794 is resolved
   val RECONNECT_BACKOFF_MS_DEFAULT = 10L

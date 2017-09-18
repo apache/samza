@@ -19,29 +19,21 @@
 
 package org.apache.samza.util
 
-import java.net._
-import java.io._
+import java.io.{InputStreamReader, _}
 import java.lang.management.ManagementFactory
-import java.util.zip.CRC32
-import org.apache.samza.{SamzaException, Partition}
-import org.apache.samza.system.{SystemFactory, SystemStreamPartition, SystemStream}
+import java.net._
 import java.util.Random
+import java.util.zip.CRC32
 
-import org.apache.samza.config.Config
-import org.apache.samza.config.ConfigException
-import org.apache.samza.config.ConfigRewriter
-import org.apache.samza.config.JobConfig
-import org.apache.samza.config.MapConfig
-import org.apache.samza.config.SystemConfig
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.SystemConfig.Config2System
+import org.apache.samza.config._
+import org.apache.samza.serializers._
+import org.apache.samza.system.{SystemFactory, SystemStream, SystemStreamPartition}
+import org.apache.samza.{Partition, SamzaException}
 
 import scala.collection.JavaConverters._
-import java.io.InputStreamReader
-
-
 import scala.collection.immutable.Map
-import org.apache.samza.serializers._
 
 object Util extends Logging {
   val random = new Random
@@ -238,6 +230,25 @@ object Util extends Logging {
       .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY format systemName))
     val systemFactory = Util.getObj[SystemFactory](systemFactoryClassName)
     (coordinatorSystemStream, systemFactory)
+  }
+
+  /**
+   * Get the Checkpoint System and system factory from the configuration
+   * @param config
+   * @return system name and system factory
+   */
+  def getCheckpointSystemStreamAndFactory(config: Config) = {
+    val CHECKPOINT_SYSTEM = "task.checkpoint.system"
+
+    val systemName = config.get(CHECKPOINT_SYSTEM.toString, "")
+    if (systemName.isEmpty)
+      throw new SamzaException("no system defined for Kafka's checkpoint manager.")
+
+    val systemFactoryClassName = config
+            .getSystemFactory(systemName)
+            .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY format systemName))
+    val systemFactory = Util.getObj[SystemFactory](systemFactoryClassName)
+    (systemName, systemFactory)
   }
 
   /**

@@ -69,7 +69,7 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
   override def setUp {
     super.setUp
 
-    val config = new java.util.HashMap[String, Object]()
+    val config = new java.util.HashMap[String, String]()
 
     brokers = brokerList.split(",").map(p => "localhost" + p).mkString(",")
 

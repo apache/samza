@@ -19,22 +19,22 @@
 
 package org.apache.samza.checkpoint.kafka
 
-import kafka.admin.AdminUtils
-import kafka.common.{InvalidMessageSizeException, UnknownTopicOrPartitionException}
-import kafka.message.InvalidMessageException
-import kafka.server.{KafkaConfig, KafkaServer, ConfigType}
-import kafka.utils.{CoreUtils, TestUtils, ZkUtils}
-import kafka.integration.KafkaServerTestHarness
+import _root_.kafka.admin.AdminUtils
+import _root_.kafka.common.{InvalidMessageSizeException, UnknownTopicOrPartitionException}
+import _root_.kafka.message.InvalidMessageException
+import _root_.kafka.server.{KafkaConfig, KafkaServer, ConfigType}
+import _root_.kafka.utils.{CoreUtils, TestUtils, ZkUtils}
+import _root_.kafka.integration.KafkaServerTestHarness
 
 import org.apache.kafka.common.security.JaasUtils
 import org.apache.kafka.clients.producer.{KafkaProducer, Producer, ProducerConfig, ProducerRecord}
 import org.apache.samza.checkpoint.Checkpoint
-import org.apache.samza.config.{JobConfig, KafkaProducerConfig, MapConfig}
+import org.apache.samza.config._
 import org.apache.samza.container.TaskName
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
 import org.apache.samza.serializers.CheckpointSerde
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtilException, TopicMetadataStore}
+import org.apache.samza.system._
+import org.apache.samza.util.{NoOpMetricsRegistry, ClientUtilTopicMetadataStore, KafkaUtilException, TopicMetadataStore}
 import org.apache.samza.{Partition, SamzaException}
 import org.junit.Assert._
 import org.junit._
@@ -69,23 +69,39 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
 
   val systemStreamPartitionGrouperFactoryString = classOf[GroupByPartitionFactory].getCanonicalName
 
+  var systemConsumerF: ()=>SystemConsumer = ()=>{null}
+  var systemProducerF: ()=>SystemProducer = ()=>{null}
+  var systemAdminF: ()=>SystemAdmin = ()=>{null}
+
   @Before
   override def setUp {
     super.setUp
 
     TestUtils.waitUntilTrue(() => servers.head.metadataCache.getAliveBrokers.size == numBrokers, "Wait for cache to update")
 
-    val config = new java.util.HashMap[String, Object]()
+    val systemName = "kafka"
     val brokers = brokerList.split(",").map(p => "localhost" + p).mkString(",")
-
+    val config = new java.util.HashMap[String, String]()
     config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers)
     config.put("acks", "all")
     config.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "1")
     config.put(ProducerConfig.RETRIES_CONFIG, (new Integer(java.lang.Integer.MAX_VALUE-1)).toString)
     config.putAll(KafkaCheckpointManagerFactory.INJECTED_PRODUCER_PROPERTIES.asJava)
-    producerConfig = new KafkaProducerConfig("kafka", "i001", config)
+    producerConfig = new KafkaProducerConfig(systemName, "i001", config)
 
     metadataStore = new ClientUtilTopicMetadataStore(brokers, "some-job-name")
+
+    config.put(SystemConfig.SYSTEM_FACTORY format systemName, "org.apache.samza.system.kafka.KafkaSystemFactory")
+    config.put(org.apache.samza.config.KafkaConfig.CHECKPOINT_SYSTEM, systemName);
+    config.put(JobConfig.JOB_NAME, "some-job-name");
+    config.put(JobConfig.JOB_ID, "i001");
+    config.put("systems.%s.producer.%s" format (systemName, ProducerConfig.BOOTSTRAP_SERVERS_CONFIG), brokers)
+    config.put("systems.%s.consumer.zookeeper.connect" format systemName, zkConnect)
+    val cfg: SystemConfig = new SystemConfig(new MapConfig(config))
+    val (sName: String, systemConsumerFactory : SystemFactory) =  org.apache.samza.util.Util.getCheckpointSystemStreamAndFactory(cfg)
+    systemConsumerF = () => {systemConsumerFactory.getConsumer(sName, cfg, new NoOpMetricsRegistry())}
+    systemProducerF = () => {systemConsumerFactory.getProducer(sName, cfg, new NoOpMetricsRegistry())}
+    systemAdminF = () => {systemConsumerFactory.getAdmin(sName, cfg)}
   }
 
   @After
@@ -171,6 +187,45 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     kcm.stop
   }
 
+
+  @Test
+  def testCheckpointReadTwice {
+    val kcm = getKafkaCheckpointManager
+    val taskName = new TaskName(partition.toString)
+    kcm.register(taskName)
+    createCheckpointTopic()
+    kcm.kafkaUtil.validateTopicPartitionCount(checkpointTopic, "kafka", metadataStore, 1)
+
+    // check that log compaction is enabled.
+    val zkClient = ZkUtils(zkConnect, 6000, 6000, zkSecure)
+    val topicConfig = AdminUtils.fetchEntityConfig(zkClient, ConfigType.Topic, checkpointTopic)
+    zkClient.close
+    assertEquals("compact", topicConfig.get("cleanup.policy"))
+    assertEquals("26214400", topicConfig.get("segment.bytes"))
+
+    // read before topic exists should result in a null checkpoint
+    var readCp = kcm.readLastCheckpoint(taskName)
+    assertNull(readCp)
+
+    // create topic the first time around
+    writeCheckpoint(taskName, cp1)
+    readCp = kcm.readLastCheckpoint(taskName)
+    assertEquals(cp1, readCp)
+
+    // writing a second message should work, too
+    writeCheckpoint(taskName, cp2)
+    readCp = kcm.readLastCheckpoint(taskName)
+    assertEquals(cp2, readCp)
+    kcm.stop
+
+    // get new KCM for the same stream
+    val kcm1 = getKafkaCheckpointManager
+    kcm1.register(taskName)
+    readCp = kcm1.readLastCheckpoint(taskName)
+    assertEquals(cp2, readCp)
+    kcm1.stop
+  }
+
   @Test
   def testUnrecoverableKafkaErrorShouldThrowKafkaCheckpointManagerException {
     val exceptions = List("InvalidMessageException", "InvalidMessageSizeException", "UnknownTopicOrPartitionException")
@@ -184,9 +239,10 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
       // because serde will throw unrecoverable errors, it should result a KafkaCheckpointException
       try {
         kcm.readLastCheckpoint(taskName)
-        fail("Expected a KafkaUtilException.")
+        fail("Expected an Exception.")
       } catch {
         case e: KafkaUtilException => None
+        case e: Exception => None
       }
       kcm.stop
     }
@@ -229,8 +285,11 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     socketTimeout = 30000,
     bufferSize = 64 * 1024,
     fetchSize = 300 * 1024,
+    systemConsumerF,
+    systemAdminF,
     metadataStore = metadataStore,
-    connectProducer = () => new KafkaProducer(producerConfig.getProducerProperties),
+    //connectProducer = () => new KafkaProducer(producerConfig.getProducerProperties),
+    systemProducerF,
     connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure),
     systemStreamPartitionGrouperFactoryString = systemStreamPartitionGrouperFactoryString,
     failOnCheckpointValidation = failOnTopicValidation,
@@ -248,8 +307,11 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     socketTimeout = 30000,
     bufferSize = 64 * 1024,
     fetchSize = 300 * 1024,
+    systemConsumerF,
+    systemAdminF,
     metadataStore = metadataStore,
-    connectProducer = () => new KafkaProducer(producerConfig.getProducerProperties),
+    //connectProducer = () => new KafkaProducer(producerConfig.getProducerProperties),
+    systemProducerF,
     connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure),
     systemStreamPartitionGrouperFactoryString = systemStreamPartitionGrouperFactoryString,
     failOnCheckpointValidation = failOnTopicValidation,

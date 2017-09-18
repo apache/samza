@@ -29,7 +29,9 @@ import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.KafkaConfig.Config2Kafka
 import org.apache.samza.config.{Config, KafkaConfig}
 import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtil, Logging}
+import org.apache.samza.system.kafka.KafkaSystemProducer
+import org.apache.samza.system.{SystemConsumer, SystemFactory}
+import org.apache.samza.util.{NoOpMetricsRegistry, ClientUtilTopicMetadataStore, KafkaUtil, Logging}
 
 object KafkaCheckpointManagerFactory {
   val INJECTED_PRODUCER_PROPERTIES = Map(
@@ -62,16 +64,26 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
     val jobName = config.getName.getOrElse(throw new SamzaException("Missing job name in configs"))
     val jobId = config.getJobId.getOrElse("1")
 
+    val (systemName: String, systemFactory : SystemFactory) =  org.apache.samza.util.Util.getCheckpointSystemStreamAndFactory(config)
+    /*
     val systemName = config
       .getCheckpointSystem
       .getOrElse(throw new SamzaException("no system defined for Kafka's checkpoint manager."))
-
+*/
     val producerConfig = config.getKafkaSystemProducerConfig(
       systemName,
       clientId,
       INJECTED_PRODUCER_PROPERTIES)
-    val connectProducer = () => {
-      new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
+    val connectProducerF = () => {
+      //new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
+      systemFactory.getProducer(systemName, config, new NoOpMetricsRegistry())
+    }
+    val systemConsumerF = () => {
+      systemFactory.getConsumer(systemName, config, new NoOpMetricsRegistry())
+    }
+
+    val systemAdminF = () => {
+      systemFactory.getAdmin(systemName, config)
     }
 
     val consumerConfig = config.getKafkaSystemConsumerConfig(systemName, clientId)
@@ -82,6 +94,7 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
     }
     val socketTimeout = consumerConfig.socketTimeoutMs
 
+    //val consumer: SystemConsumer = systemFactory.getConsumer(systemName, config, new NoOpMetricsRegistry())
 
     new KafkaCheckpointManager(
       clientId,
@@ -91,8 +104,10 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
       socketTimeout,
       consumerConfig.socketReceiveBufferBytes,
       consumerConfig.fetchMessageMaxBytes,            // must be > buffer size
+      systemConsumerF,
+      systemAdminF,
       new ClientUtilTopicMetadataStore(producerConfig.bootsrapServers, clientId, socketTimeout),
-      connectProducer,
+      connectProducerF,
       connectZk,
       config.getSystemStreamPartitionGrouperFactory,      // To find out the SSPGrouperFactory class so it can be included/verified in the key
       config.failOnCheckpointValidation,
