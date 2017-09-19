@@ -81,10 +81,17 @@ object Util extends Logging {
    * Instantiate a class instance from a given className.
    */
   def getObj[T](className: String) = {
-    Class
-      .forName(className)
-      .newInstance
-      .asInstanceOf[T]
+    try {
+      Class
+        .forName(className)
+        .newInstance
+        .asInstanceOf[T]
+    } catch {
+      case e: Throwable => {
+        error("Unable to instantiate a class instance for %s." format className, e)
+        throw e
+      }
+    }
   }
 
   /**
