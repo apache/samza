@@ -25,22 +25,43 @@ import org.junit.Assert._
 import org.junit.Test
 
 class TestSystemConfig {
-  @Test
+  val MOCK_SYSTEM_NAME1 = "mocksystem1"
+  val MOCK_SYSTEM_NAME2 = "mocksystem2"
+  val MOCK_SYSTEM_FACTORY_NAME1 = SYSTEM_FACTORY.format(MOCK_SYSTEM_NAME1)
+  val MOCK_SYSTEM_FACTORY_NAME2 = SYSTEM_FACTORY.format(MOCK_SYSTEM_NAME2)
+  val MOCK_SYSTEM_FACTORY_CLASSNAME1 = "some.factory.Class1"
+  val MOCK_SYSTEM_FACTORY_CLASSNAME2 = "some.factory.Class2"
+
   def testClassName {
-    val mockClassName = "some.factory.Class"
     val configMap = Map[String, String](
-      SYSTEM_FACTORY.format("mocksystem") -> mockClassName
+      MOCK_SYSTEM_FACTORY_NAME1 -> MOCK_SYSTEM_FACTORY_CLASSNAME1
     )
     val config = new MapConfig(configMap.asJava)
-    assertEquals(mockClassName, config.getSystemFactory("mocksystem").getOrElse(""))
+
+    assertEquals(MOCK_SYSTEM_FACTORY_CLASSNAME1, config.getSystemFactory(MOCK_SYSTEM_NAME1).getOrElse(""))
   }
 
   @Test
   def testGetEmptyClassNameAsNull {
     val configMap = Map[String, String](
-      SYSTEM_FACTORY.format("mocksystem") -> ""
+      MOCK_SYSTEM_FACTORY_NAME1 -> "",
+      MOCK_SYSTEM_FACTORY_NAME1 -> " "
     )
     val config = new MapConfig(configMap.asJava)
-    assertEquals(config.getSystemFactory("mocksystem"), None)
+
+    assertEquals(config.getSystemFactory(MOCK_SYSTEM_NAME1), None)
+    assertEquals(config.getSystemFactory(MOCK_SYSTEM_NAME2), None)
+  }
+
+  def testGetSystemNames {
+    val configMap = Map[String, String](
+      MOCK_SYSTEM_FACTORY_NAME1 -> MOCK_SYSTEM_FACTORY_CLASSNAME1,
+      MOCK_SYSTEM_FACTORY_NAME2 -> MOCK_SYSTEM_FACTORY_CLASSNAME2
+    )
+    val config = new MapConfig(configMap.asJava)
+    val systemNames = config.getSystemNames()
+
+    assertTrue(systemNames.contains(MOCK_SYSTEM_NAME1))
+    assertTrue(systemNames.contains(MOCK_SYSTEM_NAME2))
   }
 }

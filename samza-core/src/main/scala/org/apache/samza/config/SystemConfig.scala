@@ -27,15 +27,17 @@ import org.apache.samza.util.Logging
   */
 object SystemConfig {
   // system config constants
-  val SYSTEM_PREFIX = "systems.%s."
-  val SYSTEM_FACTORY = "systems.%s.samza.factory"
+  val SYSTEM_PREFIX = JavaSystemConfig.SYSTEM_PREFIX + "%s."
+  val SYSTEM_FACTORY = JavaSystemConfig.SYSTEM_FACTORY_FORMAT
   val CONSUMER_OFFSET_DEFAULT = SYSTEM_PREFIX + "samza.offset.default"
 
   implicit def Config2System(config: Config) = new SystemConfig(config)
 }
 
 class SystemConfig(config: Config) extends ScalaMapConfig(config) with Logging {
-  def getSystemFactory(name: String) = getNonEmptyOption(SystemConfig.SYSTEM_FACTORY format name)
+  val javaSystemConfig = new JavaSystemConfig(config)
+
+  def getSystemFactory(name: String) = Option(javaSystemConfig.getSystemFactory(name))
 
   def getSystemKeySerde(name: String) = getSystemDefaultStreamProperty(name, StreamConfig.KEY_SERDE)
 
@@ -47,14 +49,10 @@ class SystemConfig(config: Config) extends ScalaMapConfig(config) with Logging {
    * Returns a list of all system names from the config file. Useful for
    * getting individual systems.
    */
-  def getSystemNames() = {
-    val subConf = config.subset("systems.", true)
-    // find all .samza.factory keys, and strip the suffix
-    subConf.asScala.keys.filter(k => k.endsWith(".samza.factory")).map(_.replace(".samza.factory", ""))
-  }
+  def getSystemNames() = javaSystemConfig.getSystemNames().asScala
 
   private def getSystemDefaultStreamProperty(name: String, property: String) = {
-    val defaultStreamProperties = new JavaSystemConfig(config).getDefaultStreamProperties(name)
+    val defaultStreamProperties = javaSystemConfig.getDefaultStreamProperties(name)
     val streamDefault = defaultStreamProperties.get(property)
     if (!(streamDefault == null || streamDefault.isEmpty)) {
       Option(streamDefault)
