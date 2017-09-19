@@ -27,8 +27,11 @@ package org.apache.samza.serializers
   * @tparam T type of messages which should not be serialized or deserialized
   */
 class NoOpSerde[T] extends Serde[T] {
+
   override def fromBytes(bytes: Array[Byte]): T =
     throw new NotImplementedError("NoOpSerde fromBytes should not be invoked by the framework.")
+
   override def toBytes(obj: T): Array[Byte] =
     throw new NotImplementedError("NoOpSerde toBytes should not be invoked by the framework.")
+  
 }
