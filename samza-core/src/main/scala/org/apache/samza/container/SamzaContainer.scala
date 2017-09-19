@@ -841,10 +841,10 @@ class SamzaContainer(
         localityManager.writeContainerToHostMapping(containerContext.id, hostInet.getHostName, jmxUrl, jmxTunnelingUrl)
       } catch {
         case uhe: UnknownHostException =>
-          warn("Received UnknownHostException when persisting locality info for container %d: " +
+          warn("Received UnknownHostException when persisting locality info for container %s: " +
             "%s" format (containerContext.id, uhe.getMessage))  //No-op
         case unknownException: Throwable =>
-          warn("Received an exception when persisting locality info for container %d: " +
+          warn("Received an exception when persisting locality info for container %s: " +
             "%s" format (containerContext.id, unknownException.getMessage))
       }
     }
