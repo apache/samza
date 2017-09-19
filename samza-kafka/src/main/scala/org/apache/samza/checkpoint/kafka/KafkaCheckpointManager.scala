@@ -298,7 +298,7 @@ class KafkaCheckpointManager(
 
   override def clearCheckpoints = {
     info("Clear checkpoint stream %s in system %s" format (checkpointTopic, systemName))
-    val spec = new StreamSpec("checkpoint", checkpointTopic, systemName)
+    val spec = StreamSpec.createCheckpointStreamSpec(checkpointTopic, systemName)
     systemAdmin.clearStream(spec)
   }
 

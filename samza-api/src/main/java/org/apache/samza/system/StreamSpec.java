@@ -43,6 +43,9 @@ public class StreamSpec {
   // Internal coordinator stream id. It is used for creating coordinator StreamSpec.
   private static final String COORDINATOR_STREAM_ID = "samza-internal-coordinator-stream-id";
 
+  // Internal checkpoint stream id. It is used for creating checkpoint StreamSpec.
+  private static final String CHECKPOINT_STREAM_ID = "samza-internal-checkpoint-stream-id";
+
   /**
    * Unique identifier for the stream in a Samza application.
    * This identifier is used as a key for stream properties in the
@@ -255,5 +258,9 @@ public class StreamSpec {
 
   public static StreamSpec createCoordinatorStreamSpec(String physicalName, String systemName) {
     return new StreamSpec(COORDINATOR_STREAM_ID, physicalName, systemName, 1);
+  }
+
+  public static StreamSpec createCheckpointStreamSpec(String physicalName, String systemName) {
+    return new StreamSpec(CHECKPOINT_STREAM_ID, physicalName, systemName, 1);
   }
 }

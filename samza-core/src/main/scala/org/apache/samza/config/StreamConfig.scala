@@ -37,7 +37,7 @@ object StreamConfig {
   val BOOTSTRAP =               SAMZA_PROPERTY + "bootstrap"
   val PRIORITY =                SAMZA_PROPERTY + "priority"
   val IS_INTERMEDIATE =         SAMZA_PROPERTY + "intermediate"
-  val IS_BOUNDED =            SAMZA_PROPERTY + "bounded"
+  val IS_BOUNDED =              SAMZA_PROPERTY + "bounded"
 
   // We don't want any external dependencies on these patterns while both exist. Use getProperty to ensure proper values.
   private val STREAMS_PREFIX = "streams."
@@ -48,6 +48,7 @@ object StreamConfig {
   val PHYSICAL_NAME_FOR_STREAM_ID = STREAM_ID_PREFIX + PHYSICAL_NAME
   val IS_INTERMEDIATE_FOR_STREAM_ID = STREAM_ID_PREFIX + IS_INTERMEDIATE
   val IS_BOUNDED_FOR_STREAM_ID = STREAM_ID_PREFIX + IS_BOUNDED
+  val CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID = STREAM_ID_PREFIX + CONSUMER_OFFSET_DEFAULT
 
   implicit def Config2Stream(config: Config) = new StreamConfig(config)
 }

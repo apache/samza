@@ -32,7 +32,6 @@ import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.checkpoint.CheckpointManagerFactory;
 import org.apache.samza.config.*;
 import org.apache.samza.metrics.MetricsRegistryMap;
-import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStream;

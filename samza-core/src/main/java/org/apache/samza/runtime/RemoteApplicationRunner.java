@@ -57,8 +57,9 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   @Override
   public void run(StreamApplication app) {
     try {
-      // TODO: generating run id will be addressed in another JIRA
+      // TODO: this is a tmp solution and the run.id generation will be addressed in another JIRA
       String runId = String.valueOf(System.currentTimeMillis());
+      LOG.info("The run id for this run is {}", runId);
 
       // 1. initialize and plan
       ExecutionPlan plan = getExecutionPlan(app, runId);
