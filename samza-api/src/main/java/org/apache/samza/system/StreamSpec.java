@@ -128,6 +128,8 @@ public class StreamSpec {
    * @param systemName    The System name on which this stream will exist. Corresponds to a named implementation of the
    *                      Samza System abstraction. See {@link SystemFactory}
    *
+   * @param isBounded     The stream is bounded or not.
+   *
    * @param config        A map of properties for the stream. These may be System-specfic.
    */
   public StreamSpec(String id, String physicalName, String systemName, boolean isBounded, Map<String, String> config) {
@@ -147,6 +149,8 @@ public class StreamSpec {
    *                        Samza System abstraction. See {@link SystemFactory}
    *
    * @param partitionCount  The number of partitionts for the stream. A value of {@code 1} indicates unpartitioned.
+   *
+   * @param isBounded       The stream is bounded or not.
    *
    * @param config          A map of properties for the stream. These may be System-specfic.
    */

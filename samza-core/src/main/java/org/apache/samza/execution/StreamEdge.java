@@ -131,8 +131,8 @@ public class StreamEdge {
       config.put(String.format(StreamConfig.IS_BOUNDED_FOR_STREAM_ID(), spec.getId()), "true");
     }
     spec.getConfig().forEach((property, value) -> {
-      config.put(String.format(StreamConfig.STREAM_ID_PREFIX(), spec.getId()) + property, value);
-    });
+        config.put(String.format(StreamConfig.STREAM_ID_PREFIX(), spec.getId()) + property, value);
+      });
     return new MapConfig(config);
   }
 }
