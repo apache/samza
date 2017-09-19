@@ -16,22 +16,33 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.operators;
 
-package org.apache.samza.operators.functions;
-
-import org.apache.samza.annotation.InterfaceStability;
 
 /**
- * A function that can be closed after its execution.
+ * A key and value pair.
  *
- * <p> Implement {@link #close()} to free resources used during the execution of the function, clean up state etc.
- *
- * <p> Order of finalization: {@link ClosableFunction}s are closed in the reverse topological order of operators in the
- * {@link org.apache.samza.operators.StreamGraph}. For any two operators A and B in the graph, if operator B consumes results
- * from operator A, then operator B is guaranteed to be closed before operator A.
- *
+ * @param <K> type of the key
+ * @param <V> type of the value
  */
-@InterfaceStability.Unstable
-public interface ClosableFunction {
-  default void close() {}
+public class KV<K, V> {
+  public final K key;
+  public final V value;
+
+  public static <K, V> KV<K, V> of(K key, V value) {
+    return new KV<>(key, value);
+  }
+
+  public KV(K key, V value) {
+    this.key = key;
+    this.value = value;
+  }
+
+  public K getKey() {
+    return key;
+  }
+
+  public V getValue() {
+    return value;
+  }
 }

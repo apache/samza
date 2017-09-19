@@ -19,9 +19,9 @@
 
 package org.apache.samza.operators.impl;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.config.Config;
 import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraphImpl;
@@ -30,7 +30,7 @@ import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.spec.OperatorSpec.OpCode;
 import org.apache.samza.runtime.ApplicationRunner;
-import org.apache.samza.serializers.Serde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.MessageCollector;
@@ -44,8 +44,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
@@ -74,11 +72,8 @@ public class TestOperatorImplGraph {
     when(mockRunner.getStreamSpec(eq("output"))).thenReturn(mock(StreamSpec.class));
     StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mock(Config.class));
 
-    MessageStream<Object> inputStream =
-        streamGraph.getInputStream("input", mock(Serde.class), mock(Serde.class), mock(BiFunction.class));
-    OutputStream<Object, Object, Object> outputStream =
-        streamGraph.getOutputStream("output", mock(Serde.class), mock(Serde.class),
-            mock(Function.class), mock(Function.class));
+    MessageStream<Object> inputStream = streamGraph.getInputStream("input");
+    OutputStream<Object> outputStream = streamGraph.getOutputStream("output");
 
     inputStream
         .filter(mock(FilterFunction.class))
@@ -112,8 +107,7 @@ public class TestOperatorImplGraph {
     when(mockRunner.getStreamSpec(eq("input"))).thenReturn(new StreamSpec("input", "input-stream", "input-system"));
     StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mock(Config.class));
 
-    MessageStream<Object> inputStream =
-        streamGraph.getInputStream("input", mock(Serde.class), mock(Serde.class), mock(BiFunction.class));
+    MessageStream<Object> inputStream = streamGraph.getInputStream("input");
     inputStream.filter(mock(FilterFunction.class));
     inputStream.map(mock(MapFunction.class));
 
@@ -136,8 +130,7 @@ public class TestOperatorImplGraph {
     when(mockRunner.getStreamSpec(eq("input"))).thenReturn(new StreamSpec("input", "input-stream", "input-system"));
     StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mock(Config.class));
 
-    MessageStream<Object> inputStream =
-        streamGraph.getInputStream("input", mock(Serde.class), mock(Serde.class), mock(BiFunction.class));
+    MessageStream<Object> inputStream = streamGraph.getInputStream("input");
     MessageStream<Object> stream1 = inputStream.filter(mock(FilterFunction.class));
     MessageStream<Object> stream2 = inputStream.map(mock(MapFunction.class));
     MessageStream<Object> mergedStream = stream1.merge(Collections.singleton(stream2));
@@ -161,10 +154,8 @@ public class TestOperatorImplGraph {
     StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mock(Config.class));
 
     JoinFunction mockJoinFunction = mock(JoinFunction.class);
-    MessageStream<Object> inputStream1 =
-        streamGraph.getInputStream("input1", mock(Serde.class), mock(Serde.class), (k, v) -> v);
-    MessageStream<Object> inputStream2 = streamGraph.getInputStream("input2",
-        mock(Serde.class), mock(Serde.class), (k, v) -> v);
+    MessageStream<Object> inputStream1 = streamGraph.getInputStream("input1", new NoOpSerde<>());
+    MessageStream<Object> inputStream2 = streamGraph.getInputStream("input2", new NoOpSerde<>());
     inputStream1.join(inputStream2, mockJoinFunction, Duration.ofHours(1));
 
     TaskContext mockTaskContext = mock(TaskContext.class);
@@ -189,13 +180,13 @@ public class TestOperatorImplGraph {
     // verify that left partial join operator calls getFirstKey
     Object mockLeftMessage = mock(Object.class);
     when(mockJoinFunction.getFirstKey(eq(mockLeftMessage))).thenReturn(joinKey);
-    inputOpImpl1.onMessage(Pair.of("", mockLeftMessage), mock(MessageCollector.class), mock(TaskCoordinator.class));
+    inputOpImpl1.onMessage(KV.of("", mockLeftMessage), mock(MessageCollector.class), mock(TaskCoordinator.class));
     verify(mockJoinFunction, times(1)).getFirstKey(mockLeftMessage);
 
     // verify that right partial join operator calls getSecondKey
     Object mockRightMessage = mock(Object.class);
     when(mockJoinFunction.getSecondKey(eq(mockRightMessage))).thenReturn(joinKey);
-    inputOpImpl2.onMessage(Pair.of("", mockRightMessage), mock(MessageCollector.class), mock(TaskCoordinator.class));
+    inputOpImpl2.onMessage(KV.of("", mockRightMessage), mock(MessageCollector.class), mock(TaskCoordinator.class));
     verify(mockJoinFunction, times(1)).getSecondKey(mockRightMessage);
 
     // verify that the join function apply is called with the correct messages on match
@@ -212,10 +203,8 @@ public class TestOperatorImplGraph {
     when(mockContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mockConfig);
 
-    MessageStream<Object> inputStream1 =
-        streamGraph.getInputStream("input1", mock(Serde.class), mock(Serde.class), (k, v) -> v);
-    MessageStream<Object> inputStream2 =
-        streamGraph.getInputStream("input2", mock(Serde.class), mock(Serde.class), (k, v) -> v);
+    MessageStream<Object> inputStream1 = streamGraph.getInputStream("input1");
+    MessageStream<Object> inputStream2 = streamGraph.getInputStream("input2");
 
     List<String> initializedOperators = new ArrayList<>();
     List<String> closedOperators = new ArrayList<>();

@@ -37,6 +37,9 @@ import java.util.Set;
 
 /**
  * Abstract base class for all stream operator implementations.
+ *
+ * @param <M> type of the input to this operator
+ * @param <RM> type of the results of applying this operator
  */
 public abstract class OperatorImpl<M, RM> {
   private static final String METRICS_GROUP = OperatorImpl.class.getName();

@@ -21,29 +21,24 @@ package org.apache.samza.operators;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.serializers.Serde;
 
-import java.util.function.BiFunction;
-import java.util.function.Function;
 
 /**
- * Provides access to {@link MessageStream}s and {@link OutputStream}s used to describe the processing logic.
+ * Provides access to {@link MessageStream}s and {@link OutputStream}s used to describe application logic.
  */
 @InterfaceStability.Unstable
 public interface StreamGraph {
-
   /**
-   * Sets the default {@link Serde} to use for keys.
-   * If no default key serde is provided, a no-op serde is used as default.
+   * Sets the default {@link Serde} to use for (de)serializing messages.
+   * <p>.
+   * If the the default serde is set, it must be set <b>before</b> creating any input or output streams.
+   * The default value for the default serde is a KVSerde&lt;NoOpSerde, NoOpSerde&gt;. This means that any streams
+   * created when using the the default value for the default serde will be recieve messages of type KV&lt;Object, Object&gt;.
+   * Providing an incompatible message type for the input/output streams that use the default serde will result in
+   * {@link ClassCastException}s at runtime.
    *
-   * @param keySerde the default key {@link Serde} to use
+   * @param serde the default message {@link Serde} to use
    */
-  void setDefaultKeySerde(Serde<?> keySerde);
-
-  /**
-   * Sets the default {@link Serde} to use for messages.
-   *
-   * @param msgSerde the default message {@link Serde} to use
-   */
-  void setDefaultMsgSerde(Serde<?> msgSerde);
+  void setDefaultSerde(Serde<?> serde);
 
   /**
    * Gets the input {@link MessageStream} corresponding to the {@code streamId}.
@@ -51,34 +46,27 @@ public interface StreamGraph {
    * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
    * @param streamId the unique ID for the stream
-   * @param keySerde the {@link Serde} to use for deserializing incoming key
-   * @param valueSerde the {@link Serde} to use for deserializing incoming message
-   * @param msgBuilder the {@link BiFunction} to convert the incoming key and message to a message
-   *                   in the input {@link MessageStream}
-   * @param <K> the type of key in the incoming message
-   * @param <V> the type of message in the incoming message
-   * @param <M> the type of message in the input {@link MessageStream}
+   * @param serde the {@link Serde} to use for deserializing incoming messages
+   * @param <M> the type of messages in the input {@link MessageStream}
    * @return the input {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
-  <K, V, M> MessageStream<M> getInputStream(String streamId, Serde<K> keySerde, Serde<V> valueSerde,
-      BiFunction<? super K, ? super V, ? extends M> msgBuilder);
+  <M> MessageStream<M> getInputStream(String streamId, Serde<M> serde);
 
   /**
-   * Same as {@link #getInputStream(String, Serde, Serde, BiFunction)}, but uses the default key and message Serdes
-   * provided via {@link #setDefaultKeySerde} and {@link #setDefaultMsgSerde(Serde)} to serde types K and V. If no
-   * default key and message serdes have been provided <b>before</b> calling this method, a no-op serde is used.
+   * Same as {@link #getInputStream(String, Serde)}, but uses the default {@link Serde} provided via
+   * {@link #setDefaultSerde(Serde)} for deserializing input messages.
+   * <p>
+   * If no default serde has been provided <b>before</b> calling this method, a no-op serde is used.
+   * Providing a message type {@code M} that is incompatible with the default Serde will result in runtime exceptions.
+   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
    * @param streamId the unique ID for the stream
-   * @param msgBuilder the {@link BiFunction} to convert the incoming key and message to a message
-   *                   in the input {@link MessageStream}
-   * @param <K> the type of key in the incoming message
-   * @param <V> the type of message in the incoming message
    * @param <M> the type of message in the input {@link MessageStream}
    * @return the input {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
-  <K, V, M> MessageStream<M> getInputStream(String streamId, BiFunction<? super K, ? super V, ? extends M> msgBuilder);
+  <M> MessageStream<M> getInputStream(String streamId);
 
   /**
    * Gets the {@link OutputStream} corresponding to the {@code streamId}.
@@ -86,36 +74,27 @@ public interface StreamGraph {
    * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
    * @param streamId the unique ID for the stream
-   * @param keySerde the {@link Serde} to use for serializing outgoing key from the output message
-   * @param msgSerde the {@link Serde} to use for serializing outgoing message from the output message
-   * @param keyExtractor the {@link Function} to extract the outgoing key from the output message
-   * @param msgExtractor the {@link Function} to extract the outgoing message from the output message
-   * @param <K> the type of key in the outgoing message
-   * @param <V> the type of message in the outgoing message
-   * @param <M> the type of message in the {@link OutputStream}
+   * @param serde the {@link Serde} to use for serializing outgoing messages
+   * @param <M> the type of messages in the {@link OutputStream}
    * @return the output {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
-  <K, V, M> OutputStream<K, V, M> getOutputStream(String streamId, Serde<K> keySerde, Serde<V> msgSerde,
-      Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor);
+  <M> OutputStream<M> getOutputStream(String streamId, Serde<M> serde);
 
   /**
-   * Same as {@link #getOutputStream(String, Serde, Serde, Function, Function)}, but uses the default key and
-   * message Serdes provided via {@link #setDefaultKeySerde} and {@link #setDefaultMsgSerde(Serde)} to serde
-   * types K and V. If no default key and message serdes have been provided <b>before</b> calling this method,
-   * a no-op serde is used.
+   * Same as {@link #getOutputStream(String, Serde)}, but uses the default {@link Serde} provided via
+   * {@link #setDefaultSerde(Serde)} for serializing output messages.
+   * <p>
+   * If no default serde has been provided <b>before</b> calling this method, a no-op serde is used.
+   * Providing a message type {@code M} that is incompatible with the default Serde will result in runtime exceptions.
+   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
    * @param streamId the unique ID for the stream
-   * @param keyExtractor the {@link Function} to extract the outgoing key from the output message
-   * @param msgExtractor the {@link Function} to extract the outgoing message from the output message
-   * @param <K> the type of key in the outgoing message
-   * @param <V> the type of message in the outgoing message
-   * @param <M> the type of message in the {@link OutputStream}
+   * @param <M> the type of messages in the {@link OutputStream}
    * @return the output {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
-  <K, V, M> OutputStream<K, V, M> getOutputStream(String streamId,
-      Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor);
+  <M> OutputStream<M> getOutputStream(String streamId);
 
   /**
    * Sets the {@link ContextManager} for this {@link StreamGraph}.

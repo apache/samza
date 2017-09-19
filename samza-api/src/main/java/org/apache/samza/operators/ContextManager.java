@@ -32,9 +32,9 @@ public interface ContextManager {
   /**
    * Allows initializing and setting a custom context that is shared across multiple operator functions in a task.
    * <p>
-   * This method is invoked before any {@link org.apache.samza.operators.functions.InitableFunction}s are initialized.
+   * This method is invoked before any {@link org.apache.samza.operators.functions.Initable} functions are initialized.
    * Use {@link TaskContext#setUserContext(Object)} to set the context here and {@link TaskContext#getUserContext()} to
-   * get it in InitableFunctions.
+   * get it in initable functions.
    *
    * @param config the {@link Config} for the application
    * @param context the {@link TaskContext} for this task

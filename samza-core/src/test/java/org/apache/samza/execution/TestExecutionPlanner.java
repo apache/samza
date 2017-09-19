@@ -24,13 +24,15 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.ApplicationRunner;
-import org.apache.samza.serializers.JsonSerde;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
@@ -46,8 +48,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -117,19 +117,18 @@ public class TestExecutionPlanner {
 
   private StreamGraphImpl createSimpleGraph() {
     /**
-     * a simple graph of partitionBy and map
+     * a simple graph of repartition and map
      *
-     * input1 -> partitionBy -> map -> output1
+     * input1 -> repartition -> map -> output1
      *
      */
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
-    Function mockFn = mock(Function.class);
-    OutputStream<Object, Object, Object> output1 =
-        streamGraph.getOutputStream("output1", new JsonSerde<>(), new JsonSerde<>(), mockFn, mockFn);
-    BiFunction mockBuilder = mock(BiFunction.class);
-    streamGraph
-        .getInputStream("input1", new JsonSerde<>(), new JsonSerde<>(), mockBuilder)
-        .partitionBy(new JsonSerde<>(), new JsonSerde<>(), m -> "yes!!!").map(m -> m)
+    streamGraph.setDefaultSerde(KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+    MessageStream<KV<Object, Object>> input1 = streamGraph.getInputStream("input1");
+    OutputStream<KV<Object, Object>> output1 = streamGraph.getOutputStream("output1");
+    input1
+        .repartition(m -> m.key, m -> m.value)
+        .map(kv -> kv)
         .sendTo(output1);
     return streamGraph;
   }
@@ -141,31 +140,28 @@ public class TestExecutionPlanner {
      *
      *                               input1 (64) -> map -> join -> output1 (8)
      *                                                       |
-     *          input2 (16) -> partitionBy ("64") -> filter -|
+     *          input2 (16) -> repartition ("64") -> filter -|
      *                                                       |
-     * input3 (32) -> filter -> partitionBy ("64") -> map -> join -> output2 (16)
+     * input3 (32) -> filter -> repartition ("64") -> map -> join -> output2 (16)
      *
      */
 
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
-    BiFunction msgBuilder = mock(BiFunction.class);
-    MessageStream m1 =
-        streamGraph.getInputStream("input1", new JsonSerde<>(), new JsonSerde<>(), msgBuilder)
+    streamGraph.setDefaultSerde(KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+    MessageStream<KV<Object, Object>> m1 =
+        streamGraph.<KV<Object, Object>>getInputStream("input1")
             .map(m -> m);
-    MessageStream m2 =
-        streamGraph.getInputStream("input2", new JsonSerde<>(), new JsonSerde<>(), msgBuilder)
-            .partitionBy(new JsonSerde<>(), new JsonSerde<>(), m -> "haha")
+    MessageStream<KV<Object, Object>> m2 =
+        streamGraph.<KV<Object, Object>>getInputStream("input2")
+            .repartition(m -> m.key, m -> m.value)
             .filter(m -> true);
-    MessageStream m3 =
-        streamGraph.getInputStream("input3", new JsonSerde<>(), new JsonSerde<>(), msgBuilder)
+    MessageStream<KV<Object, Object>> m3 =
+        streamGraph.<KV<Object, Object>>getInputStream("input3")
             .filter(m -> true)
-            .partitionBy(new JsonSerde<>(), new JsonSerde<>(), m -> "hehe")
+            .repartition(m -> m.key, m -> m.value)
             .map(m -> m);
-    Function mockFn = mock(Function.class);
-    OutputStream<Object, Object, Object> output1 =
-        streamGraph.getOutputStream("output1", new JsonSerde<>(), new JsonSerde<>(), mockFn, mockFn);
-    OutputStream<Object, Object, Object> output2 =
-        streamGraph.getOutputStream("output2", new JsonSerde<>(), new JsonSerde<>(), mockFn, mockFn);
+    OutputStream<KV<Object, Object>> output1 = streamGraph.getOutputStream("output1");
+    OutputStream<KV<Object, Object>> output2 = streamGraph.getOutputStream("output2");
 
     m1.join(m2, mock(JoinFunction.class), Duration.ofHours(2)).sendTo(output1);
     m3.join(m2, mock(JoinFunction.class), Duration.ofHours(1)).sendTo(output2);
@@ -176,32 +172,29 @@ public class TestExecutionPlanner {
   private StreamGraphImpl createStreamGraphWithJoinAndWindow() {
 
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
-    BiFunction msgBuilder = mock(BiFunction.class);
-    MessageStream m1 =
-        streamGraph.getInputStream("input1", new JsonSerde<>(), new JsonSerde<>(), msgBuilder)
+    streamGraph.setDefaultSerde(KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+    MessageStream<KV<Object, Object>> m1 =
+        streamGraph.<KV<Object, Object>>getInputStream("input1")
             .map(m -> m);
-    MessageStream m2 =
-        streamGraph.getInputStream("input2", new JsonSerde<>(), new JsonSerde<>(), msgBuilder)
-            .partitionBy(new JsonSerde<>(), new JsonSerde<>(), m -> "haha")
+    MessageStream<KV<Object, Object>> m2 =
+        streamGraph.<KV<Object, Object>>getInputStream("input2")
+            .repartition(m -> m.key, m -> m.value)
             .filter(m -> true);
-    MessageStream m3 =
-        streamGraph.getInputStream("input3", new JsonSerde<>(), new JsonSerde<>(), msgBuilder)
+    MessageStream<KV<Object, Object>> m3 =
+        streamGraph.<KV<Object, Object>>getInputStream("input3")
             .filter(m -> true)
-            .partitionBy(new JsonSerde<>(), new JsonSerde<>(), m -> "hehe")
+            .repartition(m -> m.key, m -> m.value)
             .map(m -> m);
-    Function mockFn = mock(Function.class);
-    OutputStream<Object, Object, Object> output1 =
-        streamGraph.getOutputStream("output1", new JsonSerde<>(), new JsonSerde<>(), mockFn, mockFn);
-    OutputStream<Object, Object, Object> output2 =
-        streamGraph.getOutputStream("output2", new JsonSerde<>(), new JsonSerde<>(), mockFn, mockFn);
+    OutputStream<KV<Object, Object>> output1 = streamGraph.getOutputStream("output1");
+    OutputStream<KV<Object, Object>> output2 = streamGraph.getOutputStream("output2");
 
     m1.map(m -> m)
         .filter(m->true)
-        .window(Windows.<Object, Object>keyedTumblingWindow(m -> m, Duration.ofMillis(8)));
+        .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(8)));
 
     m2.map(m -> m)
         .filter(m->true)
-        .window(Windows.<Object, Object>keyedTumblingWindow(m -> m, Duration.ofMillis(16)));
+        .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(16)));
 
     m1.join(m2, mock(JoinFunction.class), Duration.ofMillis(1600)).sendTo(output1);
     m3.join(m2, mock(JoinFunction.class), Duration.ofMillis(100)).sendTo(output2);
@@ -265,7 +258,7 @@ public class TestExecutionPlanner {
     JobGraph jobGraph = planner.createJobGraph(streamGraph);
     assertTrue(jobGraph.getSources().size() == 3);
     assertTrue(jobGraph.getSinks().size() == 2);
-    assertTrue(jobGraph.getIntermediateStreams().size() == 2); // two streams generated by partitionBy
+    assertTrue(jobGraph.getIntermediateStreams().size() == 2); // two streams generated by repartition
   }
 
   @Test

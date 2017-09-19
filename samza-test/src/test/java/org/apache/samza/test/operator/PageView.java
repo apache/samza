@@ -18,33 +18,11 @@
  */
 package org.apache.samza.test.operator;
 
-import org.codehaus.jackson.annotate.JsonProperty;
 
 class PageView {
   private String userId;
   private String country;
   private String url;
-
-  /**
-   * Constructs a {@link PageView} from the provided string.
-   *
-   * @param message in the following CSV format - userId,country,url
-   */
-  PageView(String message) {
-    String[] pageViewFields = message.split(",");
-    userId = pageViewFields[0];
-    country = pageViewFields[1];
-    url = pageViewFields[2];
-  }
-
-  // the "user-id" property name is required since Samza's JsonSerde's ObjectMapper dasherizes field names.
-  public PageView(@JsonProperty("user-id") String userId,
-      @JsonProperty("country") String country,
-      @JsonProperty("url") String url) {
-    this.userId = userId;
-    this.country = country;
-    this.url = url;
-  }
 
   public String getUserId() {
     return userId;

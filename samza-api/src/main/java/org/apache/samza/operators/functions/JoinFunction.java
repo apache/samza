@@ -20,6 +20,8 @@ package org.apache.samza.operators.functions;
 
 import org.apache.samza.annotation.InterfaceStability;
 
+import java.io.Serializable;
+
 
 /**
  * Joins incoming messages in two streams by key.
@@ -30,7 +32,7 @@ import org.apache.samza.annotation.InterfaceStability;
  * @param <RM>  type of the joined message
  */
 @InterfaceStability.Unstable
-public interface JoinFunction<K, M, JM, RM>  extends InitableFunction, ClosableFunction {
+public interface JoinFunction<K, M, JM, RM>  extends Initable, Closable, Serializable {
 
   /**
    * Joins the provided messages and returns the joined message.

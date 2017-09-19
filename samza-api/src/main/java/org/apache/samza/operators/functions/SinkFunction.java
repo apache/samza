@@ -22,6 +22,8 @@ import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 
+import java.io.Serializable;
+
 
 /**
  * Allows sending a message to an output system.
@@ -30,7 +32,7 @@ import org.apache.samza.task.TaskCoordinator;
  */
 @InterfaceStability.Unstable
 @FunctionalInterface
-public interface SinkFunction<M>  extends InitableFunction, ClosableFunction {
+public interface SinkFunction<M>  extends Initable, Closable, Serializable {
 
   /**
    * Allows sending the provided message to an output {@link org.apache.samza.system.SystemStream} using

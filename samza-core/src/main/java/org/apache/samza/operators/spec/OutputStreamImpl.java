@@ -22,43 +22,35 @@ import org.apache.samza.operators.OutputStream;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
 
-import java.util.function.Function;
 
-public class OutputStreamImpl<K, V, M> implements OutputStream<K, V, M> {
+public class OutputStreamImpl<M> implements OutputStream<M> {
 
   private final StreamSpec streamSpec;
-  private final Serde<K> keySerde;
-  private final Serde<V> valueSerde;
-  private final Function<M, K> keyExtractor;
-  private final Function<M, V> msgExtractor;
+  private final Serde keySerde;
+  private final Serde valueSerde;
+  private final boolean isKeyedOutput;
 
   public OutputStreamImpl(StreamSpec streamSpec,
-      Serde<K> keySerde, Serde<V> valueSerde,
-      Function<M, K> keyExtractor, Function<M, V> msgExtractor) {
+      Serde keySerde, Serde valueSerde, boolean isKeyedOutput) {
     this.streamSpec = streamSpec;
     this.keySerde = keySerde;
     this.valueSerde = valueSerde;
-    this.keyExtractor = keyExtractor;
-    this.msgExtractor = msgExtractor;
+    this.isKeyedOutput = isKeyedOutput;
   }
 
   public StreamSpec getStreamSpec() {
     return streamSpec;
   }
 
-  public Serde<K> getKeySerde() {
+  public Serde getKeySerde() {
     return keySerde;
   }
 
-  public Serde<V> getValueSerde() {
+  public Serde getValueSerde() {
     return valueSerde;
   }
 
-  public Function<M, K> getKeyExtractor() {
-    return keyExtractor;
-  }
-
-  public Function<M, V> getMsgExtractor() {
-    return msgExtractor;
+  public boolean isKeyedOutput() {
+    return isKeyedOutput;
   }
 }

@@ -20,6 +20,8 @@ package org.apache.samza.operators.functions;
 
 import org.apache.samza.annotation.InterfaceStability;
 
+import java.io.Serializable;
+
 
 /**
  * Specifies whether a message should be retained for further processing.
@@ -28,7 +30,7 @@ import org.apache.samza.annotation.InterfaceStability;
  */
 @InterfaceStability.Unstable
 @FunctionalInterface
-public interface FilterFunction<M> extends InitableFunction, ClosableFunction {
+public interface FilterFunction<M> extends Initable, Closable, Serializable {
 
   /**
    * Returns a boolean indicating whether this message should be retained or filtered out.

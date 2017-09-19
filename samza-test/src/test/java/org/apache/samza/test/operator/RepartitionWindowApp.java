@@ -21,42 +21,92 @@ package org.apache.samza.test.operator;
 
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.serializers.JsonSerde;
+import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
-import java.util.Collection;
 
 /**
  * A {@link StreamApplication} that demonstrates a repartition followed by a windowed count.
  */
 public class RepartitionWindowApp implements StreamApplication {
-
-  private static final Logger LOG = LoggerFactory.getLogger(RepartitionWindowApp.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(RepartitionWindowApp.class);
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    graph.setDefaultKeySerde(new StringSerde());
-    // will fail with class cast in partitionBy if (optional) PageView.class param not provided
-    graph.setDefaultMsgSerde(new JsonSerde<>(PageView.class));
+    MessageStream<PageView> pageViews =
+        graph.getInputStream("page-views", new JsonSerde<>(PageView.class));
 
-    MessageStream<PageView> pageViews = graph.getInputStream("page-views", (k, v) -> (PageView) v);
-
-    OutputStream<String, String, WindowPane<String, Collection<PageView>>> outputStream =
+    OutputStream<KV<String, String>> outputStream =
         graph.getOutputStream(TestRepartitionWindowApp.OUTPUT_TOPIC,
-            new StringSerde(), new StringSerde(),
-            m -> m.getKey().getKey(), m -> Integer.toString(m.getMessage().size()));
+            new KVSerde<>(new StringSerde(), new StringSerde()));
 
     pageViews
-        .partitionBy(PageView::getUserId)
-        .window(Windows.keyedSessionWindow(PageView::getUserId, Duration.ofSeconds(3)))
+        .repartition(PageView::getUserId, pageView -> pageView,
+            new KVSerde<>(new StringSerde(), new JsonSerde<>(PageView.class)))
+        .window(Windows.keyedSessionWindow(m -> m.getValue().getUserId(), Duration.ofSeconds(3)))
+        .map(windowPane -> KV.of(windowPane.getKey().getKey(), String.valueOf(windowPane.getMessage().size())))
         .sendTo(outputStream);
+
+//    pageViews
+//        .repartition(PageView::getUserId, pageView -> pageView)
+//        .window(Windows.keyedSessionWindow(Pair::getKey, Duration.ofSeconds(3)))
+//        .map(windowPane -> new PageViewCount(windowPane.getKey().getKey(), windowPane.getMessage().size()))
+//        .sendTo(outputStream); // bad idea in kafka
+
+    // ===================================================
+//
+//    MessageStream<KV<String, PageView>> keyedPageViews = graph
+//        .getInputStream("page-views", new KVSerde<>(new StringSerde(), new JsonSerde<>(PageView.class)));
+//
+//    OutputStream<KV<String, PageViewCount>> keyedOutputStream =
+//        graph.getOutputStream(TestRepartitionWindowApp.OUTPUT_TOPIC,
+//            new KVSerde<>(new StringSerde(), new JsonSerde<>(PageViewCount.class)));
+//
+//    keyedPageViews
+//        .repartition(Pair::getKey, Pair::getValue, new KVSerde<>(new StringSerde(), new JsonSerde<>(PageView.class)))
+//        .window(Windows.keyedSessionWindow(Pair::getKey, Duration.ofSeconds(3)))
+//        .map(m -> Pair.of(m.getKey().getKey(), new PageViewCount(m.getKey().getKey(), m.getMessage().size())))
+//        .sendTo(keyedOutputStream);
+//
+//    keyedPageViews
+//        .repartition(Pair::getKey, Pair::getValue)
+//        .window(Windows.keyedSessionWindow(Pair::getKey, Duration.ofSeconds(3)))
+//        .map(m -> Pair.of(m.getKey().getKey(), new PageViewCount(m.getKey().getKey(), m.getMessage().size())))
+//        .sendTo(keyedOutputStream);
   }
+
+//  static class PageViewCount {
+//    String userId;
+//    int count;
+//
+//    public PageViewCount(String userId, int count) {
+//      this.userId = userId;
+//      this.count = count;
+//    }
+//
+//    public String getUserId() {
+//      return userId;
+//    }
+//
+//    public void setUserId(String userId) {
+//      this.userId = userId;
+//    }
+//
+//    public int getCount() {
+//      return count;
+//    }
+//
+//    public void setCount(int count) {
+//      this.count = count;
+//    }
+//  }
 }

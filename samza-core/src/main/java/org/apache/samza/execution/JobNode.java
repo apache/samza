@@ -149,16 +149,6 @@ public class JobNode {
       allowedConfigs.remove(TaskConfig.INPUT_STREAMS());
     }
 
-    // Disallow user specified system or stream serdes in configuration. Must provide serdes in code instead.
-    allowedConfigs.keySet().removeIf(configKey -> {
-        if (configKey.contains(StreamConfig.KEY_SERDE()) || configKey.contains(StreamConfig.MSG_SERDE())) {
-          log.warn("Specifying serdes in configuration is not allowed with Fluent API. "
-              + "Ignoring configured value for " + configKey);
-          return true;
-        }
-        return false;
-      });
-
     log.debug("Job {} has allowed configs {}", jobName, allowedConfigs);
     return new JobConfig(
         Util.rewriteConfig(

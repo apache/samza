@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import java.util.ArrayList;
 import kafka.admin.AdminUtils;
 import kafka.server.KafkaServer;
 import kafka.utils.TestUtils;
@@ -64,6 +63,7 @@ import org.slf4j.LoggerFactory;
 import scala.collection.JavaConverters;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -525,24 +525,23 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 
     @Override
     public void init(StreamGraph graph, Config config) {
-      MessageStream<String> inputStream = graph.getInputStream(inputTopic,
-          new NoOpSerde(), new NoOpSerde<>(), (key, msg) -> {
-          TestKafkaEvent incomingMessage = TestKafkaEvent.fromString((String) msg);
-          if (streamApplicationCallback != null) {
-            streamApplicationCallback.onMessageReceived(incomingMessage);
-          }
-          if (processedMessagesLatch != null) {
-            processedMessagesLatch.countDown();
-          }
-          if (kafkaEventsConsumedLatch != null) {
-            kafkaEventsConsumedLatch.countDown();
-          }
-          return incomingMessage.toString();
-        });
-      OutputStream<String, String, String> outputStream =
-          graph.getOutputStream(outputTopic, new StringSerde(), new StringSerde(),
-              event -> null, event -> event);
-      inputStream.sendTo(outputStream);
+      MessageStream<String> inputStream = graph.getInputStream(inputTopic, new NoOpSerde<String>());
+      OutputStream<String> outputStream = graph.getOutputStream(outputTopic, new StringSerde());
+      inputStream
+          .map(msg -> {
+              TestKafkaEvent incomingMessage = TestKafkaEvent.fromString((String) msg);
+              if (streamApplicationCallback != null) {
+                streamApplicationCallback.onMessageReceived(incomingMessage);
+              }
+              if (processedMessagesLatch != null) {
+                processedMessagesLatch.countDown();
+              }
+              if (kafkaEventsConsumedLatch != null) {
+                kafkaEventsConsumedLatch.countDown();
+              }
+              return incomingMessage.toString();
+            })
+          .sendTo(outputStream);
     }
   }
 }

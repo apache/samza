@@ -29,10 +29,10 @@ import java.util.List;
  * Test driver for {@link RepartitionWindowApp}.
  */
 public class TestRepartitionWindowApp extends StreamApplicationIntegrationTestHarness {
-
+  private static final String APP_NAME = "RepartitionedSessionizer";
   static final String INPUT_TOPIC = "page-views";
   static final String OUTPUT_TOPIC = "Result";
-  private static final String APP_NAME = "RepartitionedSessionizer";
+
 
   @Test
   public void testRepartitionedSessionWindowCounter() throws Exception {
@@ -41,11 +41,11 @@ public class TestRepartitionWindowApp extends StreamApplicationIntegrationTestHa
     createTopic(OUTPUT_TOPIC, 1);
 
     // produce messages to different partitions.
-    produceMessage(INPUT_TOPIC, 0, "userId1", "{\"user-id\":\"userId1\", \"country\":\"india\",\"url\":\"5.com\"}");
-    produceMessage(INPUT_TOPIC, 1, "userId2", "{\"user-id\":\"userId2\", \"country\":\"china\",\"url\":\"4.com\"}");
-    produceMessage(INPUT_TOPIC, 2, "userId1", "{\"user-id\":\"userId1\", \"country\":\"india\",\"url\":\"1.com\"}");
-    produceMessage(INPUT_TOPIC, 0, "userId1", "{\"user-id\":\"userId1\", \"country\":\"india\",\"url\":\"2.com\"}");
-    produceMessage(INPUT_TOPIC, 1, "userId1", "{\"user-id\":\"userId1\", \"country\":\"india\",\"url\":\"3.com\"}");
+    produceMessage(INPUT_TOPIC, 0, "userId1", "{\"userId\":\"userId1\", \"country\":\"india\",\"url\":\"5.com\"}");
+    produceMessage(INPUT_TOPIC, 1, "userId2", "{\"userId\":\"userId2\", \"country\":\"china\",\"url\":\"4.com\"}");
+    produceMessage(INPUT_TOPIC, 2, "userId1", "{\"userId\":\"userId1\", \"country\":\"india\",\"url\":\"1.com\"}");
+    produceMessage(INPUT_TOPIC, 0, "userId1", "{\"userId\":\"userId1\", \"country\":\"india\",\"url\":\"2.com\"}");
+    produceMessage(INPUT_TOPIC, 1, "userId1", "{\"userId\":\"userId1\", \"country\":\"india\",\"url\":\"3.com\"}");
 
     // run the application
     RepartitionWindowApp app = new RepartitionWindowApp();
@@ -61,9 +61,9 @@ public class TestRepartitionWindowApp extends StreamApplicationIntegrationTestHa
       // Assert that there are 4 messages for userId1 and 1 message for userId2.
       Assert.assertTrue(key.equals("userId1") || key.equals("userId2"));
       if ("userId1".equals(key)) {
-        Assert.assertEquals(value, "4");
+        Assert.assertEquals("4", value);
       } else {
-        Assert.assertEquals(value, "1");
+        Assert.assertEquals("1", value);
       }
     }
   }

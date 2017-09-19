@@ -29,17 +29,17 @@ import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpecs;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
-import org.apache.samza.operators.spec.StreamOperatorSpec;
+import org.apache.samza.operators.spec.RepartitionOperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
+import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
 import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
-import org.apache.samza.serializers.Serde;
+import org.apache.samza.serializers.KVSerde;
 
 import java.time.Duration;
 import java.util.Collection;
-import java.util.function.Function;
 
 
 /**
@@ -52,7 +52,6 @@ import java.util.function.Function;
  *
  * @param <M>  type of messages in this {@link MessageStream}
  */
-@SuppressWarnings("unchecked")
 public class MessageStreamImpl<M> implements MessageStream<M> {
   /**
    * The {@link StreamGraphImpl} that contains this {@link MessageStreamImpl}
@@ -97,9 +96,9 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <K, V> void sendTo(OutputStream<K, V, M> outputStream) {
+  public void sendTo(OutputStream<M> outputStream) {
     OutputOperatorSpec<M> op = OperatorSpecs.createSendToOperatorSpec(
-        (OutputStreamImpl<K, V, M>) outputStream, this.graph.getNextOpId());
+        (OutputStreamImpl<M>) outputStream, this.graph.getNextOpId());
     this.operatorSpec.registerNextOperatorSpec(op);
   }
 
@@ -135,28 +134,22 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <K> MessageStream<M> partitionBy(Serde<K> keySerde, Serde<M> msgSerde,
-      Function<? super M, ? extends K> keyExtractor) {
+  public <K, V> MessageStream<KV<K, V>> repartition(MapFunction<? super M, ? extends K> keyExtractor,
+      MapFunction<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde) {
     int opId = this.graph.getNextOpId();
     String opName = String.format("%s-%s", OperatorSpec.OpCode.PARTITION_BY.name().toLowerCase(), opId);
-    IntermediateMessageStreamImpl<K, M, M> intermediateStream =
-        this.graph.getIntermediateStream(opName, keySerde, msgSerde, keyExtractor, m -> m, (k, m) -> m);
-    OutputOperatorSpec<M> partitionByOperatorSpec = OperatorSpecs.createPartitionByOperatorSpec(
-        intermediateStream.getOutputStream(), opId);
-    this.operatorSpec.registerNextOperatorSpec(partitionByOperatorSpec);
+    IntermediateMessageStreamImpl<KV<K, V>> intermediateStream = this.graph.getIntermediateStream(opName, serde);
+    RepartitionOperatorSpec<M, K, V> repartitionOperatorSpec =
+        OperatorSpecs.createRepartitionOperatorSpec(
+            intermediateStream.getOutputStream(), keyExtractor, valueExtractor, opId);
+    this.operatorSpec.registerNextOperatorSpec(repartitionOperatorSpec);
     return intermediateStream;
   }
 
   @Override
-  public <K> MessageStream<M> partitionBy(Function<? super M, ? extends K> keyExtractor) {
-    int opId = this.graph.getNextOpId();
-    String opName = String.format("%s-%s", OperatorSpec.OpCode.PARTITION_BY.name().toLowerCase(), opId);
-    IntermediateMessageStreamImpl<K, M, M> intermediateStream =
-        this.graph.getIntermediateStream(opName, keyExtractor, m -> m, (k, m) -> m);
-    OutputOperatorSpec<M> partitionByOperatorSpec = OperatorSpecs.createPartitionByOperatorSpec(
-        intermediateStream.getOutputStream(), opId);
-    this.operatorSpec.registerNextOperatorSpec(partitionByOperatorSpec);
-    return intermediateStream;
+  public <K, V> MessageStream<KV<K, V>> repartition(MapFunction<? super M, ? extends K> keyExtractor,
+      MapFunction<? super M, ? extends V> valueExtractor) {
+    return repartition(keyExtractor, valueExtractor, null);
   }
 
   /**

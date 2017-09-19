@@ -18,11 +18,13 @@
  */
 package org.apache.samza.operators.impl;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
+import org.apache.samza.operators.spec.RepartitionOperatorSpec;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.MessageCollector;
@@ -34,19 +36,25 @@ import java.util.Collections;
 
 
 /**
- * An operator that sends incoming messages to an output {@link SystemStream}.
+ * An operator that sends sends messages to an output {@link SystemStream} for repartitioning them.
  */
-class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
+class RepartitionOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
 
-  private final OutputOperatorSpec<M> outputOpSpec;
-  private final OutputStreamImpl<M> outputStream;
+  private final RepartitionOperatorSpec<M, K, V> repartitionOpSpec;
+  private final OutputStreamImpl<KV<K, V>> outputStream;
   private final SystemStream systemStream;
+  private final MapFunction<? super M, ? extends K> keyFunction;
+  private final MapFunction<? super M, ? extends V> valueFunction;
 
-  OutputOperatorImpl(OutputOperatorSpec<M> outputOpSpec, Config config, TaskContext context) {
-    this.outputOpSpec = outputOpSpec;
-    this.outputStream = outputOpSpec.getOutputStream();
-    this.systemStream = new SystemStream(outputStream.getStreamSpec().getSystemName(),
+  RepartitionOperatorImpl(RepartitionOperatorSpec<M, K, V> repartitionOpSpec, Config config, TaskContext context) {
+    this.repartitionOpSpec = repartitionOpSpec;
+    this.outputStream = repartitionOpSpec.getOutputStream();
+    if (!outputStream.isKeyedOutput()) throw new SamzaException("Output stream for repartitioning must be a keyed stream.");
+    this.systemStream = new SystemStream(
+        outputStream.getStreamSpec().getSystemName(),
         outputStream.getStreamSpec().getPhysicalName());
+    this.keyFunction = repartitionOpSpec.getKeyFunction();
+    this.valueFunction = repartitionOpSpec.getValueFunction();
   }
 
   @Override
@@ -56,15 +64,8 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
   @Override
   public Collection<Void> handleMessage(M message, MessageCollector collector,
       TaskCoordinator coordinator) {
-    Object key, value;
-    if (outputStream.isKeyedOutput()) {
-      key = ((KV) message).getKey();
-      value = ((KV) message).getValue();
-    } else {
-      key = null;
-      value = message;
-    }
-
+    K key = keyFunction.apply(message);
+    V value = valueFunction.apply(message);
     collector.send(new OutgoingMessageEnvelope(systemStream, null, key, value));
     return Collections.emptyList();
   }
@@ -75,6 +76,6 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
 
   @Override
   protected OperatorSpec<M, Void> getOperatorSpec() {
-    return outputOpSpec;
+    return repartitionOpSpec;
   }
 }

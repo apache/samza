@@ -20,6 +20,7 @@ package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
@@ -30,6 +31,7 @@ import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.JsonSerde;
+import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.util.CommandLine;
 
@@ -44,10 +46,10 @@ public class PageViewCounterExample implements StreamApplication {
 
   @Override public void init(StreamGraph graph, Config config) {
     MessageStream<PageViewEvent> pageViewEvents =
-        graph.getInputStream("pageViewEventStream", new StringSerde(), new JsonSerde<>(PageViewEvent.class), (k, m) -> m);
-    OutputStream<String, PageViewCount, PageViewCount> pageViewEventPerMemberStream =
-        graph.getOutputStream("pageViewEventPerMemberStream", new StringSerde(), new JsonSerde<PageViewCount>(),
-            m -> m.memberId, m -> m);
+        graph.getInputStream("pageViewEventStream", new JsonSerde<>(PageViewEvent.class));
+    OutputStream<KV<String, PageViewCount>> pageViewEventPerMemberStream =
+        graph.getOutputStream("pageViewEventPerMemberStream",
+            KVSerde.of(new StringSerde(), new JsonSerde<>(PageViewCount.class)));
 
     Supplier<Integer> initialValue = () -> 0;
     FoldLeftFunction<PageViewEvent, Integer> foldLeftFn = (m, c) -> c + 1;
@@ -55,7 +57,7 @@ public class PageViewCounterExample implements StreamApplication {
         .window(Windows.keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), initialValue, foldLeftFn)
             .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
             .setAccumulationMode(AccumulationMode.DISCARDING))
-        .map(PageViewCount::new)
+        .map(windowPane -> KV.of(windowPane.getKey().getKey(), new PageViewCount(windowPane)))
         .sendTo(pageViewEventPerMemberStream);
   }
 

@@ -32,6 +32,7 @@ import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec.OpCode;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
+import org.apache.samza.operators.spec.RepartitionOperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
@@ -39,14 +40,13 @@ import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
 import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.serializers.Serde;
+import org.apache.samza.serializers.KVSerde;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -187,31 +187,32 @@ public class TestMessageStreamImpl {
   }
 
   @Test
-  public void testPartitionBy() {
+  public void testRepartition() {
     StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
 
     String streamName = String.format("%s-%s", OperatorSpec.OpCode.PARTITION_BY.name().toLowerCase(), 0);
-    Function<TestMessageEnvelope, String> mockKeyFn = mock(Function.class);
-    OutputStreamImpl mockOutputOpSpec = mock(OutputStreamImpl.class);
+    OutputStreamImpl mockOutputStreamImpl = mock(OutputStreamImpl.class);
     IntermediateMessageStreamImpl mockIntermediateStream = mock(IntermediateMessageStreamImpl.class);
-    when(mockGraph
-        .getIntermediateStream(eq(streamName), any(Serde.class), any(Serde.class),
-            eq(mockKeyFn), any(Function.class), any(BiFunction.class)))
+    when(mockGraph.getIntermediateStream(eq(streamName), any(KVSerde.class)))
         .thenReturn(mockIntermediateStream);
     when(mockIntermediateStream.getOutputStream())
-        .thenReturn(mockOutputOpSpec);
+        .thenReturn(mockOutputStreamImpl);
 
     MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
-    inputStream.partitionBy(mock(Serde.class), mock(Serde.class), mockKeyFn);
+    MapFunction mockKeyFunction = mock(MapFunction.class);
+    MapFunction mockValueFunction = mock(MapFunction.class);
+    inputStream.repartition(mockKeyFunction, mockValueFunction, mock(KVSerde.class));
 
     ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
     verify(mockOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());
     OperatorSpec<?, TestMessageEnvelope> registeredOpSpec = registeredOpCaptor.getValue();
 
-    assertTrue(registeredOpSpec instanceof OutputOperatorSpec);
+    assertTrue(registeredOpSpec instanceof RepartitionOperatorSpec);
     assertEquals(OpCode.PARTITION_BY, registeredOpSpec.getOpCode());
-    assertEquals(mockOutputOpSpec, ((OutputOperatorSpec) registeredOpSpec).getOutputStream());
+    assertEquals(mockOutputStreamImpl, ((RepartitionOperatorSpec) registeredOpSpec).getOutputStream());
+    assertEquals(mockKeyFunction, ((RepartitionOperatorSpec) registeredOpSpec).getKeyFunction());
+    assertEquals(mockValueFunction, ((RepartitionOperatorSpec) registeredOpSpec).getValueFunction());
   }
 
   @Test

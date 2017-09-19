@@ -20,18 +20,21 @@
 package org.apache.samza.serializers
 
 import org.apache.samza.SamzaException
-import org.apache.samza.serializers.model.SamzaObjectMapper
-import org.codehaus.jackson.`type`.TypeReference
 import org.apache.samza.config.Config
+import org.codehaus.jackson.`type`.TypeReference
+import org.codehaus.jackson.map.ObjectMapper
+import org.slf4j.LoggerFactory
 
-class JsonSerde[T] extends Serde[T] {
-  @transient lazy val mapper = SamzaObjectMapper.getObjectMapper()
-  var clazzOption: Option[Class[T]] = None
+class JsonSerde[T](clazzOption: Option[Class[T]]) extends Serde[T] {
+  val LOG = LoggerFactory.getLogger(classOf[JsonSerde[T]])
+  @transient lazy val mapper = new ObjectMapper()
+
+  def this() {
+    this(None)
+  }
 
   def this(clazz: Class[T]) {
-    this()
-    if (clazz == null) throw new SamzaException("clazz must not be null.")
-    this.clazzOption = Option(clazz)
+    this(Option(clazz))
   }
 
   def toBytes(obj: T): Array[Byte] = {
@@ -51,7 +54,9 @@ class JsonSerde[T] extends Serde[T] {
          case None => mapper.readValue(str, new TypeReference[T]() {})
        }
      } catch {
-       case e: Exception => throw new SamzaException(e)
+       case e: Exception =>
+         LOG.debug(s"Error deserializing message: $str", e)
+         throw new SamzaException(e)
      }
   }
 

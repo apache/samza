@@ -234,6 +234,7 @@ object SamzaContainer extends Logging {
     }).toMap
     info("Got serdes from factories: %s" format serdesFromFactories.keys)
 
+    val serializableSerde = new SerializableSerde[Serde[Object]]()
     val serdesFromSerializedInstances = config.subset(SerializerConfig.SERIALIZER_PREFIX format "").asScala
         .filter { case (key, value) => key.endsWith(SerializerConfig.SERIALIZED_INSTANCE_SUFFIX) }
         .flatMap { case (key, value) =>
@@ -241,9 +242,9 @@ object SamzaContainer extends Logging {
           debug(s"Trying to deserialize serde instance for $serdeName")
           try {
             val bytes = Base64.getDecoder.decode(value)
-            val serde = new SerializableSerde[Serde[Object]]().fromBytes(bytes)
+            val serdeInstance = serializableSerde.fromBytes(bytes)
             debug(s"Returning serialized instance for $serdeName")
-            Some((serdeName, serde))
+            Some((serdeName, serdeInstance))
           } catch {
             case e: Exception =>
               warn(s"Ignoring invalid serialized instance for $serdeName: $value", e)

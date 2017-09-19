@@ -24,7 +24,8 @@ import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.functions.InitableFunction;
+import org.apache.samza.operators.functions.Closable;
+import org.apache.samza.operators.functions.Initable;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.TaskContext;
 
@@ -69,7 +70,7 @@ import org.apache.samza.task.TaskContext;
  * Functions implemented for transforms in StreamApplications ({@link org.apache.samza.operators.functions.MapFunction},
  * {@link org.apache.samza.operators.functions.FilterFunction} for e.g.) are initable and closable. They are initialized
  * before messages are delivered to them and closed after their execution when the {@link StreamTask} instance is closed.
- * See {@link InitableFunction} and {@link org.apache.samza.operators.functions.ClosableFunction}.
+ * See {@link Initable} and {@link Closable}.
  */
 @InterfaceStability.Unstable
 public interface StreamApplication {
@@ -81,11 +82,11 @@ public interface StreamApplication {
    * transformed into other {@link MessageStream}s or sent to an {@link OutputStream} using the {@link MessageStream}
    * operators.
    * <p>
-   * Most operators accept custom functions for doing the transformations. These functions are {@link InitableFunction}s
+   * Most operators accept custom functions for doing the transformations. These functions are {@link Initable}s
    * and are provided the {@link Config} and {@link TaskContext} during their own initialization. The config and the
    * context can be used, for example, to create custom metrics or access durable state stores.
    * <p>
-   * A shared context between {@link InitableFunction}s for different operators within a task instance can be set
+   * A shared context between {@link Initable}s for different operators within a task instance can be set
    * up by providing a {@link ContextManager} using {@link StreamGraph#withContextManager}.
    *
    * @param graph the {@link StreamGraph} to get input/output streams from
