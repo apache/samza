@@ -37,25 +37,6 @@ import org.apache.samza.util.KafkaUtil
 import org.apache.samza.util.Logging
 import org.apache.samza.util.TimerUtils
 
-object KafkaSystemProducer {
-  // Send messages
-  val SendMsgFormat = "Enqueuing message: %s, %s."
-  val StreamNameNullOrEmptyErrorMsg = "Stream Name should be specified in the stream configuration file."
-  val PreviousErrorMsg = "Producer was unable to recover from previous exception."
-  val NullProducerMsg = "Kafka producer is null."
-  val FailedSendMsgFormat = "Failed to send message for Source: %s on System:%s Topic:%s Partition:%s"
-  val DropErrorMsg = "Ignoring producer exception. All messages in the failed producer request will be dropped!"
-  val NewProducerMsgFormat = "Creating a new producer for system %s."
-
-  // Flush messages
-  val FailedFlushMsg = "Flush failed. One or more batches of messages were not sent!"
-
-  // Stop messages
-  val StopMsg = "Stopping producer for system: "
-  val UnhandledSendErrorMsg = "Observed an earlier send() error while closing producer"
-  val ErrorClosingMsg = "Error while closing producer for system: "
-}
-
 class KafkaSystemProducer(systemName: String,
                           retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
                           getProducer: () => Producer[Array[Byte], Array[Byte]],
@@ -73,7 +54,7 @@ class KafkaSystemProducer(systemName: String,
   }
 
   def stop() {
-    info(KafkaSystemProducer.StopMsg + this.systemName)
+    info("Stopping producer for system: " + this.systemName)
 
     // stop() should not happen often so no need to optimize locking
     producerLock.synchronized {
@@ -82,13 +63,12 @@ class KafkaSystemProducer(systemName: String,
           producer.close  // Also performs the equivalent of a flush()
         }
 
-        // Log error for debugging purposes.
         val exception = fatalException.get()
         if (exception != null) {
-          error(KafkaSystemProducer.UnhandledSendErrorMsg, exception)
+          error("Observed an earlier send() error while closing producer", exception)
         }
       } catch {
-        case e: Exception => error(KafkaSystemProducer.ErrorClosingMsg + systemName, e)
+        case e: Exception => error("Error while closing producer for system: " + systemName, e)
       } finally {
         producer = null
       }
@@ -99,22 +79,22 @@ class KafkaSystemProducer(systemName: String,
   }
 
   def send(source: String, envelope: OutgoingMessageEnvelope) {
-    trace(KafkaSystemProducer.SendMsgFormat format (source, envelope))
+    trace("Enqueuing message: %s, %s." format (source, envelope))
 
     val topicName = envelope.getSystemStream.getStream
     if (topicName == null || topicName == "") {
-      throw new IllegalArgumentException(KafkaSystemProducer.StreamNameNullOrEmptyErrorMsg)
+      throw new IllegalArgumentException("Invalid system stream: " + envelope.getSystemStream)
     }
 
     val globalProducerException = fatalException.get()
     if (globalProducerException != null) {
       metrics.sendFailed.inc
-      throw new SystemProducerException(KafkaSystemProducer.PreviousErrorMsg, globalProducerException)
+      throw new SystemProducerException("Producer was unable to recover from previous exception.", globalProducerException)
     }
 
     val currentProducer = producer
     if (currentProducer == null) {
-      throw new SystemProducerException(KafkaSystemProducer.NullProducerMsg)
+      throw new SystemProducerException("Kafka producer is null.")
     }
 
     // Java-based Kafka producer API requires an "Integer" type partitionKey and does not allow custom overriding of Partitioners
@@ -130,11 +110,9 @@ class KafkaSystemProducer(systemName: String,
       currentProducer.send(record, new Callback {
         def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = {
           if (exception == null) {
-            //send was successful.
             metrics.sendSuccess.inc
-          }
-          else {
-            val producerException = new SystemProducerException(KafkaSystemProducer.FailedSendMsgFormat
+          } else {
+            val producerException = new SystemProducerException("Failed to send message for Source: %s on System:%s Topic:%s Partition:%s"
               .format(source, systemName, topicName, partitionKey), exception)
 
             handleSendException(currentProducer, producerException, true)
@@ -143,11 +121,11 @@ class KafkaSystemProducer(systemName: String,
       })
       metrics.sends.inc
     } catch {
-      case e : Exception =>
-        val producerException = new SystemProducerException(KafkaSystemProducer.FailedSendMsgFormat
-          .format(source, systemName, topicName, partitionKey), e)
+      case originalException : Exception =>
+        val producerException = new SystemProducerException("Failed to send message for Source: %s on System:%s Topic:%s Partition:%s"
+          .format(source, systemName, topicName, partitionKey), originalException)
 
-        handleSendException(currentProducer, producerException, isFatalException(e))
+        handleSendException(currentProducer, producerException, isFatalException(originalException))
         throw producerException
     }
   }
@@ -157,12 +135,13 @@ class KafkaSystemProducer(systemName: String,
     updateTimer(metrics.flushNs) {
       metrics.flushes.inc
 
-      if (producer == null) {
-        throw new SystemProducerException(KafkaSystemProducer.NullProducerMsg)
+      val currentProducer = producer
+      if (currentProducer == null) {
+        throw new SystemProducerException("Kafka producer is null.")
       }
 
       // Flush only throws InterruptedException, all other errors are handled in send() callbacks
-      producer.flush()
+      currentProducer.flush()
 
       // Invariant: At this point either
       // 1. The producer is fine and there are no exceptions to handle   OR
@@ -176,7 +155,7 @@ class KafkaSystemProducer(systemName: String,
       val exception = fatalException.get()
       if (exception != null) {
         metrics.flushFailed.inc
-        throw new SystemProducerException(KafkaSystemProducer.FailedFlushMsg, exception)
+        throw new SystemProducerException("Flush failed. One or more batches of messages were not sent!", exception)
       }
       trace("Flushed %s." format source)
     }
@@ -186,19 +165,23 @@ class KafkaSystemProducer(systemName: String,
   private def handleSendException(currentProducer: Producer[Array[Byte], Array[Byte]], producerException: SystemProducerException, isFatalException: Boolean) = {
     metrics.sendFailed.inc
     error(producerException)
-    // The SystemProducer contract is synchronous, so there's no way for us to guarantee that an exception will
+    // The SystemProducer API is synchronous, so there's no way for us to guarantee that an exception will
     // be handled by the Task before we recreate the producer, and if it isn't handled, a concurrent send() from another
-    // source could send on the new producer before handling its own exceptions and produce out of order messages.
+    // Task could send on the new producer before the first Task properly handled the exception and produce out of order messages.
     // So we have to handle it right here in the SystemProducer.
     if (dropProducerExceptions) {
-      warn(KafkaSystemProducer.DropErrorMsg, producerException)
+      warn("Ignoring producer exception. All messages in the failed producer request will be dropped!")
 
       if (isFatalException) {
         producerLock.synchronized {
-          // Prevent each callback from recreating producer for the same failed event.
+          // Prevent each callback from recreating producer for the same failure.
           if (currentProducer == producer) {
-            info(KafkaSystemProducer.NewProducerMsgFormat format systemName)
-            currentProducer.close(0, TimeUnit.MILLISECONDS)
+            info("Creating a new producer for system %s." format systemName)
+            try {
+              currentProducer.close(0, TimeUnit.MILLISECONDS)
+            } catch {
+              case _: Exception => error("Exception while closing producer.", _)
+            }
             producer = getProducer()
           }
         }
@@ -206,18 +189,27 @@ class KafkaSystemProducer(systemName: String,
     } else {
       // If there is an exception in the callback, it means that the Kafka producer has exhausted the max-retries
       // Close producer to ensure messages queued in-flight are not sent and hence, avoid re-ordering
-      // This works because the callback thread is singular and no sends can complete until the callback returns.
+      // This works because there is only 1 callback thread and no sends can complete until the callback returns.
       if (isFatalException) {
         fatalException.compareAndSet(null, producerException)
-        producer.close(0, TimeUnit.MILLISECONDS)
+        try {
+          currentProducer.close(0, TimeUnit.MILLISECONDS)
+        } catch {
+          case _: Exception => error("Exception while closing producer.", _)
+        }
       }
     }
   }
 
-  // A fatal exception is one that corrupts the producer or otherwise makes it unusable.
-  // We want to handle non-fatal exceptions differently because they can often be handled by the user
-  // and that's preferable because it allows users that drop exceptions a way to do that with less
-  // data loss (no collateral damage from batches of messages getting dropped)
+  /**
+    * A fatal exception is one that corrupts the producer or otherwise makes it unusable.
+    * We want to handle non-fatal exceptions differently because they can often be handled by the user
+    * and that's preferable because it gives users that drop exceptions a way to do that with less
+    * data loss (no collateral damage from batches of messages getting dropped)
+    *
+    * @param exception  the exception to check
+    * @return           true if the exception is unrecoverable.
+    */
   private def isFatalException(exception: Exception): Boolean = {
     exception match {
       case _: SerializationException => false
