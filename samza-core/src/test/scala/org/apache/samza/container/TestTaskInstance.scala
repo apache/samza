@@ -419,7 +419,11 @@ class TestTaskInstance {
       storageManager,
       systemStreamPartitions = Set(systemStreamPartition))
 
-    taskInstance.commit // Should not swallow the SystemProducerException
+    try {
+      taskInstance.commit // Should not swallow the SystemProducerException
+    } finally {
+      Mockito.verify(offsetManager, times(0)).writeCheckpoint(any(classOf[TaskName]), any(classOf[Checkpoint]))
+    }
   }
 
 }
