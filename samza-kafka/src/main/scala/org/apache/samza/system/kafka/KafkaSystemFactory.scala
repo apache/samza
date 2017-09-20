@@ -26,7 +26,7 @@ import org.apache.samza.util.{Logging, KafkaUtil, ExponentialSleepStrategy, Clie
 import org.apache.samza.config.Config
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.config.KafkaConfig.Config2Kafka
-import org.apache.samza.config.JobConfig.Config2Job
+import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.samza.system.SystemFactory
 import org.apache.samza.config.StorageConfig._
@@ -97,7 +97,8 @@ class KafkaSystemFactory extends SystemFactory with Logging {
       systemName,
       new ExponentialSleepStrategy(initialDelayMs = producerConfig.reconnectIntervalMs),
       getProducer,
-      metrics)
+      metrics,
+      dropProducerExceptions = config.getDropProducerError)
   }
 
   def getAdmin(systemName: String, config: Config): SystemAdmin = {
