@@ -31,6 +31,7 @@ import org.apache.samza.task.TaskContext;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.function.Function;
 
 
 /**
@@ -149,21 +150,21 @@ public class OperatorSpecs {
   }
 
   /**
-   * Creates a {@link RepartitionOperatorSpec} for the repartition operator.
+   * Creates a {@link PartitionByOperatorSpec} for the partitionBy operator.
    *
+   * @param <M> the type of messages being repartitioned
+   * @param <K> the type of key in the repartitioned {@link OutputStreamImpl}
+   * @param <V> the type of value in the repartitioned {@link OutputStreamImpl}
    * @param outputStream  the {@link OutputStreamImpl} to send messages to
    * @param keyFunction  the {@link MapFunction} for extracting the key from the message
    * @param valueFunction  the {@link MapFunction} for extracting the value from the message
    * @param opId  the unique ID of the operator
-   * @param <M> the type of messages being repartitioned
-   * @param <K> the type of key in the repartitioned {@link OutputStreamImpl}
-   * @param <V> the type of value in the repartitioned {@link OutputStreamImpl}
-   * @return  the {@link OutputOperatorSpec} for the repartition operator
+   * @return  the {@link OutputOperatorSpec} for the partitionBy operator
    */
-  public static <M, K, V> RepartitionOperatorSpec<M, K, V> createRepartitionOperatorSpec(
-      OutputStreamImpl<KV<K, V>> outputStream, MapFunction<? super M, ? extends K> keyFunction,
-      MapFunction<? super M, ? extends V> valueFunction, int opId) {
-    return new RepartitionOperatorSpec<>(outputStream, keyFunction, valueFunction, opId);
+  public static <M, K, V> PartitionByOperatorSpec<M, K, V> createRepartitionOperatorSpec(
+      OutputStreamImpl<KV<K, V>> outputStream, Function<? super M, ? extends K> keyFunction,
+      Function<? super M, ? extends V> valueFunction, int opId) {
+    return new PartitionByOperatorSpec<>(outputStream, keyFunction, valueFunction, opId);
   }
 
   /**

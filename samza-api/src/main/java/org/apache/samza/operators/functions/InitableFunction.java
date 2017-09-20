@@ -24,14 +24,15 @@ import org.apache.samza.task.TaskContext;
 
 
 /**
- * An interface for functions that can be initialized before their execution.
- * <p>
- * Order of initialization: {@link Initable}s are invoked in the topological order of operators in the
- * {@link org.apache.samza.operators.StreamGraph}. For any two operators A and B in the graph, if operator B
- * consumes results from operator A, then operator A is guaranteed to be initialized before operator B.
+ * A function that can be initialized before execution.
+ *
+ * <p> Order of initialization: {@link InitableFunction}s are invoked in the topological order of operators in the
+ * {@link org.apache.samza.operators.StreamGraph}. For any two operators A and B in the graph, if operator B consumes results
+ * from operator A, then operator A is guaranteed to be initialized before operator B.
+ *
  */
 @InterfaceStability.Unstable
-public interface Initable {
+public interface InitableFunction {
 
   /**
    * Initializes the function before any messages are processed.

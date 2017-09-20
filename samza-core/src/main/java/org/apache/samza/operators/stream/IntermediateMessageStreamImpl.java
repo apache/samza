@@ -31,7 +31,7 @@ import org.apache.samza.system.StreamSpec;
  * <p>
  * This implementation accepts a pair of {@link InputOperatorSpec} and {@link OutputStreamImpl} associated
  * with the same logical {@code streamId}. It provides access to its {@link OutputStreamImpl} for
- * {@link MessageStreamImpl#repartition} to send messages out to. It's also a {@link MessageStreamImpl} with
+ * the partitionBy operator to send messages out to. It's also a {@link MessageStreamImpl} with
  * {@link InputOperatorSpec} as its operator spec, so that further operations can be chained on the
  * {@link InputOperatorSpec}.
  *

@@ -105,7 +105,7 @@ public class TestOperatorImplGraph {
   }
 
   @Test
-  public void testRepartitionChain() {
+  public void testPartitionByChain() {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     when(mockRunner.getStreamSpec(eq("input"))).thenReturn(new StreamSpec("input", "input-stream", "input-system"));
     when(mockRunner.getStreamSpec(eq("output"))).thenReturn(new StreamSpec("output", "output-stream", "output-system"));
@@ -117,7 +117,7 @@ public class TestOperatorImplGraph {
         .getOutputStream("output", KVSerde.of(mock(IntegerSerde.class), mock(StringSerde.class)));
 
     inputStream
-        .repartition(Object::hashCode, Object::toString, KVSerde.of(mock(IntegerSerde.class), mock(StringSerde.class)))
+        .partitionBy(Object::hashCode, Object::toString, KVSerde.of(mock(IntegerSerde.class), mock(StringSerde.class)))
         .sendTo(outputStream);
 
     TaskContext mockTaskContext = mock(TaskContext.class);
@@ -128,9 +128,9 @@ public class TestOperatorImplGraph {
     InputOperatorImpl inputOpImpl = opImplGraph.getInputOperator(new SystemStream("input-system", "input-stream"));
     assertEquals(1, inputOpImpl.registeredOperators.size());
 
-    OperatorImpl repartitionOpImpl = (RepartitionOperatorImpl) inputOpImpl.registeredOperators.iterator().next();
-    assertEquals(0, repartitionOpImpl.registeredOperators.size()); // is terminal but paired with an input operator
-    assertEquals(OpCode.PARTITION_BY, repartitionOpImpl.getOperatorSpec().getOpCode());
+    OperatorImpl partitionByOpImpl = (PartitionByOperatorImpl) inputOpImpl.registeredOperators.iterator().next();
+    assertEquals(0, partitionByOpImpl.registeredOperators.size()); // is terminal but paired with an input operator
+    assertEquals(OpCode.PARTITION_BY, partitionByOpImpl.getOperatorSpec().getOpCode());
 
     InputOperatorImpl repartitionedInputOpImpl =
         opImplGraph.getInputOperator(new SystemStream("intermediate-system", "intermediate-stream"));

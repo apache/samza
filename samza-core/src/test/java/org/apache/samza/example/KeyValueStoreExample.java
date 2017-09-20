@@ -53,7 +53,7 @@ public class KeyValueStoreExample implements StreamApplication {
             KVSerde.of(new StringSerde(), new JsonSerde<>(StatsOutput.class)));
 
     pageViewEvents
-        .repartition(pve -> pve.memberId, pve -> pve,
+        .partitionBy(pve -> pve.memberId, pve -> pve,
             KVSerde.of(new StringSerde(), new JsonSerde<>(PageViewEvent.class)))
         .map(KV::getValue)
         .flatMap(new MyStatsCounter())

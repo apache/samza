@@ -23,7 +23,7 @@ import org.apache.samza.storage.kv.KeyValueStore;
 /**
  * An internal function that maintains state and join logic for one side of a two-way join.
  */
-public interface PartialJoinFunction<K, M, JM, RM> extends Initable, Closable {
+public interface PartialJoinFunction<K, M, JM, RM> extends InitableFunction, ClosableFunction {
 
   /**
    * Joins a message in this stream with a message from another stream.

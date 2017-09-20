@@ -56,9 +56,9 @@ public class TestJobGraphJsonGenerator {
      * number in parentheses in quotes ("") indicates expected partition count.
      * number in square brackets [] indicates operator ID.
      *
-     * input3 (32) -> filter [7] -> repartition [8] ("64") -> map [10] -> join [14] -> sendTo(output2) [15] (16)
+     * input3 (32) -> filter [7] -> partitionBy [8] ("64") -> map [10] -> join [14] -> sendTo(output2) [15] (16)
      *                                                                   |
-     *              input2 (16) -> repartition [3] ("64") -> filter [5] -| -> sink [13]
+     *              input2 (16) -> partitionBy [3] ("64") -> filter [5] -| -> sink [13]
      *                                                                   |
      *                                         input1 (64) -> map [1] -> join [11] -> sendTo(output1) [12] (8)
      *
@@ -112,12 +112,12 @@ public class TestJobGraphJsonGenerator {
             .map(m -> m);
     MessageStream<KV<Object, Object>> m2 =
         streamGraph.<KV<Object, Object>>getInputStream("input2")
-            .repartition(m -> m.key, m -> m.value)
+            .partitionBy(m -> m.key, m -> m.value)
             .filter(m -> true);
     MessageStream<KV<Object, Object>> m3 =
         streamGraph.<KV<Object, Object>>getInputStream("input3")
             .filter(m -> true)
-            .repartition(m -> m.key, m -> m.value)
+            .partitionBy(m -> m.key, m -> m.value)
             .map(m -> m);
     OutputStream<KV<Object, Object>> outputStream1 = streamGraph.getOutputStream("output1");
     OutputStream<KV<Object, Object>> outputStream2 = streamGraph.getOutputStream("output2");

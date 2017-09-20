@@ -33,7 +33,7 @@ import org.apache.samza.serializers.StringSerde;
 import java.time.Duration;
 
 /**
- * A {@link StreamApplication} that demonstrates a repartition followed by a windowed count.
+ * A {@link StreamApplication} that demonstrates a partitionBy followed by a windowed count.
  */
 public class RepartitionWindowApp implements StreamApplication {
   static final String INPUT_TOPIC = "page-views";
@@ -47,7 +47,7 @@ public class RepartitionWindowApp implements StreamApplication {
         graph.getOutputStream(OUTPUT_TOPIC, new KVSerde<>(new StringSerde(), new StringSerde()));
 
     pageViews
-        .repartition(PageView::getUserId, pv -> pv, new KVSerde<>(new StringSerde(), new JsonSerde<>(PageView.class)))
+        .partitionBy(PageView::getUserId, pv -> pv, new KVSerde<>(new StringSerde(), new JsonSerde<>(PageView.class)))
         .window(Windows.keyedSessionWindow(KV::getKey, Duration.ofSeconds(3)))
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), String.valueOf(windowPane.getMessage().size())))
         .sendTo(outputStream);

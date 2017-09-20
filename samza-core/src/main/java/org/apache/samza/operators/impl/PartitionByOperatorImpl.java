@@ -21,10 +21,9 @@ package org.apache.samza.operators.impl;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
-import org.apache.samza.operators.spec.RepartitionOperatorSpec;
+import org.apache.samza.operators.spec.PartitionByOperatorSpec;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.MessageCollector;
@@ -33,29 +32,30 @@ import org.apache.samza.task.TaskCoordinator;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.function.Function;
 
 
 /**
  * An operator that sends sends messages to an output {@link SystemStream} for repartitioning them.
  */
-class RepartitionOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
+class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
 
-  private final RepartitionOperatorSpec<M, K, V> repartitionOpSpec;
+  private final PartitionByOperatorSpec<M, K, V> partitionByOpSpec;
   private final SystemStream systemStream;
-  private final MapFunction<? super M, ? extends K> keyFunction;
-  private final MapFunction<? super M, ? extends V> valueFunction;
+  private final Function<? super M, ? extends K> keyFunction;
+  private final Function<? super M, ? extends V> valueFunction;
 
-  RepartitionOperatorImpl(RepartitionOperatorSpec<M, K, V> repartitionOpSpec, Config config, TaskContext context) {
-    this.repartitionOpSpec = repartitionOpSpec;
-    OutputStreamImpl<KV<K, V>> outputStream = repartitionOpSpec.getOutputStream();
+  PartitionByOperatorImpl(PartitionByOperatorSpec<M, K, V> partitionByOpSpec, Config config, TaskContext context) {
+    this.partitionByOpSpec = partitionByOpSpec;
+    OutputStreamImpl<KV<K, V>> outputStream = partitionByOpSpec.getOutputStream();
     if (!outputStream.isKeyedOutput()) {
       throw new SamzaException("Output stream for repartitioning must be a keyed stream.");
     }
     this.systemStream = new SystemStream(
         outputStream.getStreamSpec().getSystemName(),
         outputStream.getStreamSpec().getPhysicalName());
-    this.keyFunction = repartitionOpSpec.getKeyFunction();
-    this.valueFunction = repartitionOpSpec.getValueFunction();
+    this.keyFunction = partitionByOpSpec.getKeyFunction();
+    this.valueFunction = partitionByOpSpec.getValueFunction();
   }
 
   @Override
@@ -77,6 +77,6 @@ class RepartitionOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
 
   @Override
   protected OperatorSpec<M, Void> getOperatorSpec() {
-    return repartitionOpSpec;
+    return partitionByOpSpec;
   }
 }

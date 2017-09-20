@@ -19,13 +19,10 @@
 
 package org.apache.samza.operators.functions;
 
-import java.io.Serializable;
-
-
 /**
  * Incrementally updates the window value as messages are added to the window.
  */
-public interface FoldLeftFunction<M, WV> extends Initable, Closable, Serializable {
+public interface FoldLeftFunction<M, WV> extends InitableFunction, ClosableFunction {
 
   /**
    * Incrementally updates the window value as messages are added to the window.
@@ -35,5 +32,4 @@ public interface FoldLeftFunction<M, WV> extends Initable, Closable, Serializabl
    * @return the new value
    */
   WV apply(M message, WV oldValue);
-
 }

@@ -29,7 +29,7 @@ import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpecs;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
-import org.apache.samza.operators.spec.RepartitionOperatorSpec;
+import org.apache.samza.operators.spec.PartitionByOperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
@@ -40,6 +40,7 @@ import org.apache.samza.serializers.KVSerde;
 
 import java.time.Duration;
 import java.util.Collection;
+import java.util.function.Function;
 
 
 /**
@@ -134,22 +135,22 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <K, V> MessageStream<KV<K, V>> repartition(MapFunction<? super M, ? extends K> keyExtractor,
-      MapFunction<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde) {
+  public <K, V> MessageStream<KV<K, V>> partitionBy(Function<? super M, ? extends K> keyExtractor,
+      Function<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde) {
     int opId = this.graph.getNextOpId();
     String opName = String.format("%s-%s", OperatorSpec.OpCode.PARTITION_BY.name().toLowerCase(), opId);
     IntermediateMessageStreamImpl<KV<K, V>> intermediateStream = this.graph.getIntermediateStream(opName, serde);
-    RepartitionOperatorSpec<M, K, V> repartitionOperatorSpec =
+    PartitionByOperatorSpec<M, K, V> partitionByOperatorSpec =
         OperatorSpecs.createRepartitionOperatorSpec(
             intermediateStream.getOutputStream(), keyExtractor, valueExtractor, opId);
-    this.operatorSpec.registerNextOperatorSpec(repartitionOperatorSpec);
+    this.operatorSpec.registerNextOperatorSpec(partitionByOperatorSpec);
     return intermediateStream;
   }
 
   @Override
-  public <K, V> MessageStream<KV<K, V>> repartition(MapFunction<? super M, ? extends K> keyExtractor,
-      MapFunction<? super M, ? extends V> valueExtractor) {
-    return repartition(keyExtractor, valueExtractor, null);
+  public <K, V> MessageStream<KV<K, V>> partitionBy(Function<? super M, ? extends K> keyExtractor,
+      Function<? super M, ? extends V> valueExtractor) {
+    return partitionBy(keyExtractor, valueExtractor, null);
   }
 
   /**

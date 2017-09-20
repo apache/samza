@@ -19,7 +19,8 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.functions.MapFunction;
+
+import java.util.function.Function;
 
 
 /**
@@ -33,23 +34,23 @@ import org.apache.samza.operators.functions.MapFunction;
  * @param <K> the type of key in the message
  * @param <V> the type of value in the message
  */
-public class RepartitionOperatorSpec<M, K, V> extends OperatorSpec<M, Void> {
+public class PartitionByOperatorSpec<M, K, V> extends OperatorSpec<M, Void> {
 
   private final OutputStreamImpl<KV<K, V>> outputStream;
-  private final MapFunction<? super M, ? extends K> keyFunction;
-  private final MapFunction<? super M, ? extends V> valueFunction;
+  private final Function<? super M, ? extends K> keyFunction;
+  private final Function<? super M, ? extends V> valueFunction;
 
   /**
-   * Constructs an {@link RepartitionOperatorSpec} to send messages to the provided {@code outputStream}
+   * Constructs an {@link PartitionByOperatorSpec} to send messages to the provided {@code outputStream}
    *
    * @param outputStream the {@link OutputStreamImpl} to send messages to
-   * @param keyFunction the {@link MapFunction} for extracting the key from the message
-   * @param valueFunction the {@link MapFunction} for extracting the value from the message
+   * @param keyFunction the {@link Function} for extracting the key from the message
+   * @param valueFunction the {@link Function} for extracting the value from the message
    * @param opId the unique ID of this {@link SinkOperatorSpec} in the graph
    */
-  RepartitionOperatorSpec(OutputStreamImpl<KV<K, V>> outputStream,
-      MapFunction<? super M, ? extends K> keyFunction,
-      MapFunction<? super M, ? extends V> valueFunction, int opId) {
+  PartitionByOperatorSpec(OutputStreamImpl<KV<K, V>> outputStream,
+      Function<? super M, ? extends K> keyFunction,
+      Function<? super M, ? extends V> valueFunction, int opId) {
     super(OpCode.PARTITION_BY, opId);
     this.outputStream = outputStream;
     this.keyFunction = keyFunction;
@@ -64,11 +65,11 @@ public class RepartitionOperatorSpec<M, K, V> extends OperatorSpec<M, Void> {
     return this.outputStream;
   }
 
-  public MapFunction<? super M, ? extends K> getKeyFunction() {
+  public Function<? super M, ? extends K> getKeyFunction() {
     return keyFunction;
   }
 
-  public MapFunction<? super M, ? extends V> getValueFunction() {
+  public Function<? super M, ? extends V> getValueFunction() {
     return valueFunction;
   }
 

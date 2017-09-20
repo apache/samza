@@ -32,7 +32,7 @@ import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec.OpCode;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
-import org.apache.samza.operators.spec.RepartitionOperatorSpec;
+import org.apache.samza.operators.spec.PartitionByOperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
@@ -208,19 +208,19 @@ public class TestMessageStreamImpl {
         .thenReturn(mockOutputStreamImpl);
 
     MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
-    MapFunction mockKeyFunction = mock(MapFunction.class);
-    MapFunction mockValueFunction = mock(MapFunction.class);
-    inputStream.repartition(mockKeyFunction, mockValueFunction, mockKVSerde);
+    Function mockKeyFunction = mock(Function.class);
+    Function mockValueFunction = mock(Function.class);
+    inputStream.partitionBy(mockKeyFunction, mockValueFunction, mockKVSerde);
 
     ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
     verify(mockOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());
     OperatorSpec<?, TestMessageEnvelope> registeredOpSpec = registeredOpCaptor.getValue();
 
-    assertTrue(registeredOpSpec instanceof RepartitionOperatorSpec);
+    assertTrue(registeredOpSpec instanceof PartitionByOperatorSpec);
     assertEquals(OpCode.PARTITION_BY, registeredOpSpec.getOpCode());
-    assertEquals(mockOutputStreamImpl, ((RepartitionOperatorSpec) registeredOpSpec).getOutputStream());
-    assertEquals(mockKeyFunction, ((RepartitionOperatorSpec) registeredOpSpec).getKeyFunction());
-    assertEquals(mockValueFunction, ((RepartitionOperatorSpec) registeredOpSpec).getValueFunction());
+    assertEquals(mockOutputStreamImpl, ((PartitionByOperatorSpec) registeredOpSpec).getOutputStream());
+    assertEquals(mockKeyFunction, ((PartitionByOperatorSpec) registeredOpSpec).getKeyFunction());
+    assertEquals(mockValueFunction, ((PartitionByOperatorSpec) registeredOpSpec).getValueFunction());
   }
 
   @Test
@@ -237,19 +237,19 @@ public class TestMessageStreamImpl {
         .thenReturn(mockOutputStreamImpl);
 
     MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
-    MapFunction mockKeyFunction = mock(MapFunction.class);
-    MapFunction mockValueFunction = mock(MapFunction.class);
-    inputStream.repartition(mockKeyFunction, mockValueFunction);
+    Function mockKeyFunction = mock(Function.class);
+    Function mockValueFunction = mock(Function.class);
+    inputStream.partitionBy(mockKeyFunction, mockValueFunction);
 
     ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
     verify(mockOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());
     OperatorSpec<?, TestMessageEnvelope> registeredOpSpec = registeredOpCaptor.getValue();
 
-    assertTrue(registeredOpSpec instanceof RepartitionOperatorSpec);
+    assertTrue(registeredOpSpec instanceof PartitionByOperatorSpec);
     assertEquals(OpCode.PARTITION_BY, registeredOpSpec.getOpCode());
-    assertEquals(mockOutputStreamImpl, ((RepartitionOperatorSpec) registeredOpSpec).getOutputStream());
-    assertEquals(mockKeyFunction, ((RepartitionOperatorSpec) registeredOpSpec).getKeyFunction());
-    assertEquals(mockValueFunction, ((RepartitionOperatorSpec) registeredOpSpec).getValueFunction());
+    assertEquals(mockOutputStreamImpl, ((PartitionByOperatorSpec) registeredOpSpec).getOutputStream());
+    assertEquals(mockKeyFunction, ((PartitionByOperatorSpec) registeredOpSpec).getKeyFunction());
+    assertEquals(mockValueFunction, ((PartitionByOperatorSpec) registeredOpSpec).getValueFunction());
   }
 
   @Test

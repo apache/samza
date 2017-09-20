@@ -48,7 +48,7 @@ public class RepartitionExample implements StreamApplication {
             KVSerde.of(new StringSerde(), new JsonSerde<>(MyStreamOutput.class)));
 
     pageViewEvents
-        .repartition(pve -> pve.memberId, pve -> pve,
+        .partitionBy(pve -> pve.memberId, pve -> pve,
             KVSerde.of(new StringSerde(), new JsonSerde<>(PageViewEvent.class)))
         .window(Windows.keyedTumblingWindow(KV::getKey, Duration.ofMinutes(5), () -> 0, (m, c) -> c + 1))
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), new MyStreamOutput(windowPane)))

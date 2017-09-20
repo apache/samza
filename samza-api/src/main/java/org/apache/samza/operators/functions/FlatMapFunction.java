@@ -20,7 +20,6 @@ package org.apache.samza.operators.functions;
 
 import org.apache.samza.annotation.InterfaceStability;
 
-import java.io.Serializable;
 import java.util.Collection;
 
 
@@ -32,7 +31,7 @@ import java.util.Collection;
  */
 @InterfaceStability.Unstable
 @FunctionalInterface
-public interface FlatMapFunction<M, OM>  extends Initable, Closable, Serializable {
+public interface FlatMapFunction<M, OM>  extends InitableFunction, ClosableFunction {
 
   /**
    * Transforms the provided message into a collection of 0 or more messages.

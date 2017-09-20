@@ -31,6 +31,7 @@ import org.apache.samza.serializers.KVSerde;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.function.Function;
 
 
 /**
@@ -181,18 +182,18 @@ public interface MessageStream<M> {
    * Else, the number of partitions is set to to the max of number of partitions for all input and output streams
    * (excluding intermediate streams).
    *
+   * @param <K> the type of output key
+   * @param <V> the type of output value
    * @param keyExtractor the {@link MapFunction} to extract the message and partition key from the input message
    * @param valueExtractor the {@link MapFunction} to extract the value from the input message
    * @param serde the {@link KVSerde} to use for (de)serializing the key and value.
-   * @param <K> the type of output key
-   * @param <V> the type of output value
    * @return the repartitioned {@link MessageStream}
    */
-  <K, V> MessageStream<KV<K, V>> repartition(MapFunction<? super M, ? extends K> keyExtractor,
-      MapFunction<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde);
+  <K, V> MessageStream<KV<K, V>> partitionBy(Function<? super M, ? extends K> keyExtractor,
+      Function<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde);
 
   /**
-   * Same as calling {@link #repartition(MapFunction, MapFunction, KVSerde)} with a null KVSerde.
+   * Same as calling {@link #partitionBy(Function, Function, KVSerde)} with a null KVSerde.
    *
    * @param keyExtractor the {@link MapFunction} to extract the message and partition key from the input message
    * @param valueExtractor the {@link MapFunction} to extract the value from the input message
@@ -200,6 +201,6 @@ public interface MessageStream<M> {
    * @param <V> the type of output value
    * @return the repartitioned {@link MessageStream}
    */
-  <K, V> MessageStream<KV<K, V>> repartition(MapFunction<? super M, ? extends K> keyExtractor,
-      MapFunction<? super M, ? extends V> valueExtractor);
+  <K, V> MessageStream<KV<K, V>> partitionBy(Function<? super M, ? extends K> keyExtractor,
+      Function<? super M, ? extends V> valueExtractor);
 }

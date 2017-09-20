@@ -28,7 +28,7 @@ import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
-import org.apache.samza.operators.spec.RepartitionOperatorSpec;
+import org.apache.samza.operators.spec.PartitionByOperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
@@ -168,8 +168,8 @@ public class OperatorImplGraph {
       return new SinkOperatorImpl((SinkOperatorSpec) operatorSpec, config, context);
     } else if (operatorSpec instanceof OutputOperatorSpec) {
       return new OutputOperatorImpl((OutputOperatorSpec) operatorSpec, config, context);
-    } else if (operatorSpec instanceof RepartitionOperatorSpec) {
-      return new RepartitionOperatorImpl((RepartitionOperatorSpec) operatorSpec, config, context);
+    } else if (operatorSpec instanceof PartitionByOperatorSpec) {
+      return new PartitionByOperatorImpl((PartitionByOperatorSpec) operatorSpec, config, context);
     } else if (operatorSpec instanceof WindowOperatorSpec) {
       return new WindowOperatorImpl((WindowOperatorSpec) operatorSpec, clock);
     } else if (operatorSpec instanceof JoinOperatorSpec) {

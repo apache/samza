@@ -20,8 +20,6 @@ package org.apache.samza.operators.functions;
 
 import org.apache.samza.annotation.InterfaceStability;
 
-import java.io.Serializable;
-
 
 /**
  * Transforms an input message into another message, possibly of a different type.
@@ -31,7 +29,7 @@ import java.io.Serializable;
  */
 @InterfaceStability.Unstable
 @FunctionalInterface
-public interface MapFunction<M, OM>  extends Initable, Closable, Serializable {
+public interface MapFunction<M, OM>  extends InitableFunction, ClosableFunction {
 
   /**
    * Transforms the provided message into another message.
