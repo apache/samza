@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
@@ -33,10 +34,10 @@ import org.apache.samza.util.Util;
  * a java version of the system config
  */
 public class JavaSystemConfig extends MapConfig {
-  private static final String SYSTEM_PREFIX = "systems.";
-  private static final String SYSTEM_FACTORY_SUFFIX = ".samza.factory";
-  private static final String SYSTEM_FACTORY_FORMAT = SYSTEM_PREFIX + "%s" + SYSTEM_FACTORY_SUFFIX;
-  private static final String SYSTEM_DEFAULT_STREAMS_PREFIX = SYSTEM_PREFIX + "%s" + ".default.stream.";
+  public static final String SYSTEM_PREFIX = "systems.";
+  public static final String SYSTEM_FACTORY_SUFFIX = ".samza.factory";
+  public static final String SYSTEM_FACTORY_FORMAT = SYSTEM_PREFIX + "%s" + SYSTEM_FACTORY_SUFFIX;
+  private static final String SYSTEM_DEFAULT_STREAMS_PREFIX_FORMAT = SYSTEM_PREFIX + "%s" + ".default.stream.";
   private static final String EMPTY = "";
 
   public JavaSystemConfig(Config config) {
@@ -48,7 +49,8 @@ public class JavaSystemConfig extends MapConfig {
       return null;
     }
     String systemFactory = String.format(SYSTEM_FACTORY_FORMAT, name);
-    return get(systemFactory, null);
+    String value = get(systemFactory, null);
+    return (StringUtils.isBlank(value)) ? null : value;
   }
 
   /**
@@ -108,6 +110,6 @@ public class JavaSystemConfig extends MapConfig {
    * @return a subset of the config with the system prefix removed.
    */
   public Config getDefaultStreamProperties(String systemName) {
-    return subset(String.format(SYSTEM_DEFAULT_STREAMS_PREFIX, systemName), true);
+    return subset(String.format(SYSTEM_DEFAULT_STREAMS_PREFIX_FORMAT, systemName), true);
   }
 }
