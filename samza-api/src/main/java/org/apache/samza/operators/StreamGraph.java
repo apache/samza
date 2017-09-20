@@ -27,6 +27,7 @@ import org.apache.samza.serializers.Serde;
  */
 @InterfaceStability.Unstable
 public interface StreamGraph {
+
   /**
    * Sets the default {@link Serde} to use for (de)serializing messages.
    * <p>.

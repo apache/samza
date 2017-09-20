@@ -33,5 +33,5 @@ class NoOpSerde[T] extends Serde[T] {
 
   override def toBytes(obj: T): Array[Byte] =
     throw new NotImplementedError("NoOpSerde toBytes should not be invoked by the framework.")
-  
+
 }

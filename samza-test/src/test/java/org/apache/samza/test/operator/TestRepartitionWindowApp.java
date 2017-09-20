@@ -25,14 +25,14 @@ import org.junit.Test;
 import java.util.Collections;
 import java.util.List;
 
+import static org.apache.samza.test.operator.RepartitionWindowApp.INPUT_TOPIC;
+import static org.apache.samza.test.operator.RepartitionWindowApp.OUTPUT_TOPIC;
+
 /**
  * Test driver for {@link RepartitionWindowApp}.
  */
 public class TestRepartitionWindowApp extends StreamApplicationIntegrationTestHarness {
   private static final String APP_NAME = "RepartitionedSessionizer";
-  static final String INPUT_TOPIC = "page-views";
-  static final String OUTPUT_TOPIC = "Result";
-
 
   @Test
   public void testRepartitionedSessionWindowCounter() throws Exception {

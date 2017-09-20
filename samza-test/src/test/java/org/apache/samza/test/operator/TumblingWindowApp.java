@@ -37,14 +37,14 @@ import java.time.Duration;
  * A {@link StreamApplication} that demonstrates a filter followed by a tumbling window.
  */
 public class TumblingWindowApp implements StreamApplication {
-
+  private static final String INPUT_TOPIC = "page-views";
+  private static final String OUTPUT_TOPIC = "page-view-counts";
   private static final String FILTER_KEY = "badKey";
-  private static final String OUTPUT_TOPIC = "Result";
 
   @Override
   public void init(StreamGraph graph, Config config) {
     MessageStream<PageView> pageViews =
-        graph.getInputStream("page-views", new JsonSerde<>(PageView.class));
+        graph.getInputStream(INPUT_TOPIC, new JsonSerde<>(PageView.class));
     OutputStream<KV<String, Integer>> outputStream =
         graph.getOutputStream(OUTPUT_TOPIC, new KVSerde<>(new StringSerde(), new IntegerSerde()));
 

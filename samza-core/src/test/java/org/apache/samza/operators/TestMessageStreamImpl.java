@@ -53,7 +53,6 @@ import java.util.function.Supplier;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
@@ -173,9 +172,8 @@ public class TestMessageStreamImpl {
     StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
-
-    OutputStreamImpl mockOutputOpSpec = mock(OutputStreamImpl.class);
-    inputStream.sendTo(mockOutputOpSpec);
+    OutputStreamImpl<TestMessageEnvelope> mockOutputStreamImpl = mock(OutputStreamImpl.class);
+    inputStream.sendTo(mockOutputStreamImpl);
 
     ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
     verify(mockOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());
@@ -183,7 +181,16 @@ public class TestMessageStreamImpl {
 
     assertTrue(registeredOpSpec instanceof OutputOperatorSpec);
     assertEquals(OpCode.SEND_TO, registeredOpSpec.getOpCode());
-    assertEquals(mockOutputOpSpec, ((OutputOperatorSpec) registeredOpSpec).getOutputStream());
+    assertEquals(mockOutputStreamImpl, ((OutputOperatorSpec) registeredOpSpec).getOutputStream());
+
+    // same behavior as above so nothing new to assert. but ensures that this variant compiles.
+    MessageStreamImpl<KV<String, TestMessageEnvelope>> keyedInputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
+    OutputStreamImpl<KV<String, TestMessageEnvelope>> mockKeyedOutputStreamImpl = mock(OutputStreamImpl.class);
+    keyedInputStream.sendTo(mockKeyedOutputStreamImpl);
+
+    // can't unit test it, but the following variants should not compile
+//    inputStream.sendTo(mockKeyedOutputStreamImpl);
+//    keyedInputStream.sendTo(mockOutputStreamImpl);
   }
 
   @Test
@@ -193,8 +200,9 @@ public class TestMessageStreamImpl {
 
     String streamName = String.format("%s-%s", OperatorSpec.OpCode.PARTITION_BY.name().toLowerCase(), 0);
     OutputStreamImpl mockOutputStreamImpl = mock(OutputStreamImpl.class);
+    KVSerde mockKVSerde = mock(KVSerde.class);
     IntermediateMessageStreamImpl mockIntermediateStream = mock(IntermediateMessageStreamImpl.class);
-    when(mockGraph.getIntermediateStream(eq(streamName), any(KVSerde.class)))
+    when(mockGraph.getIntermediateStream(eq(streamName), eq(mockKVSerde)))
         .thenReturn(mockIntermediateStream);
     when(mockIntermediateStream.getOutputStream())
         .thenReturn(mockOutputStreamImpl);
@@ -202,7 +210,36 @@ public class TestMessageStreamImpl {
     MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
     MapFunction mockKeyFunction = mock(MapFunction.class);
     MapFunction mockValueFunction = mock(MapFunction.class);
-    inputStream.repartition(mockKeyFunction, mockValueFunction, mock(KVSerde.class));
+    inputStream.repartition(mockKeyFunction, mockValueFunction, mockKVSerde);
+
+    ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
+    verify(mockOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());
+    OperatorSpec<?, TestMessageEnvelope> registeredOpSpec = registeredOpCaptor.getValue();
+
+    assertTrue(registeredOpSpec instanceof RepartitionOperatorSpec);
+    assertEquals(OpCode.PARTITION_BY, registeredOpSpec.getOpCode());
+    assertEquals(mockOutputStreamImpl, ((RepartitionOperatorSpec) registeredOpSpec).getOutputStream());
+    assertEquals(mockKeyFunction, ((RepartitionOperatorSpec) registeredOpSpec).getKeyFunction());
+    assertEquals(mockValueFunction, ((RepartitionOperatorSpec) registeredOpSpec).getValueFunction());
+  }
+
+  @Test
+  public void testRepartitionWithoutSerde() {
+    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    OperatorSpec mockOpSpec = mock(OperatorSpec.class);
+
+    String streamName = String.format("%s-%s", OperatorSpec.OpCode.PARTITION_BY.name().toLowerCase(), 0);
+    OutputStreamImpl mockOutputStreamImpl = mock(OutputStreamImpl.class);
+    IntermediateMessageStreamImpl mockIntermediateStream = mock(IntermediateMessageStreamImpl.class);
+    when(mockGraph.getIntermediateStream(eq(streamName), eq(null)))
+        .thenReturn(mockIntermediateStream);
+    when(mockIntermediateStream.getOutputStream())
+        .thenReturn(mockOutputStreamImpl);
+
+    MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
+    MapFunction mockKeyFunction = mock(MapFunction.class);
+    MapFunction mockValueFunction = mock(MapFunction.class);
+    inputStream.repartition(mockKeyFunction, mockValueFunction);
 
     ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
     verify(mockOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());

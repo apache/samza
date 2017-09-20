@@ -41,15 +41,16 @@ import java.util.Collections;
 class RepartitionOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
 
   private final RepartitionOperatorSpec<M, K, V> repartitionOpSpec;
-  private final OutputStreamImpl<KV<K, V>> outputStream;
   private final SystemStream systemStream;
   private final MapFunction<? super M, ? extends K> keyFunction;
   private final MapFunction<? super M, ? extends V> valueFunction;
 
   RepartitionOperatorImpl(RepartitionOperatorSpec<M, K, V> repartitionOpSpec, Config config, TaskContext context) {
     this.repartitionOpSpec = repartitionOpSpec;
-    this.outputStream = repartitionOpSpec.getOutputStream();
-    if (!outputStream.isKeyedOutput()) throw new SamzaException("Output stream for repartitioning must be a keyed stream.");
+    OutputStreamImpl<KV<K, V>> outputStream = repartitionOpSpec.getOutputStream();
+    if (!outputStream.isKeyedOutput()) {
+      throw new SamzaException("Output stream for repartitioning must be a keyed stream.");
+    }
     this.systemStream = new SystemStream(
         outputStream.getStreamSpec().getSystemName(),
         outputStream.getStreamSpec().getPhysicalName());

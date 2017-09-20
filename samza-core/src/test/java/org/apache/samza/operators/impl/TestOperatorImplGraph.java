@@ -30,7 +30,10 @@ import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.spec.OperatorSpec.OpCode;
 import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.serializers.IntegerSerde;
+import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
+import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.MessageCollector;
@@ -97,6 +100,43 @@ public class TestOperatorImplGraph {
     assertEquals(OpCode.MAP, mapOpImpl.getOperatorSpec().getOpCode());
 
     OperatorImpl sendToOpImpl = (OutputOperatorImpl) mapOpImpl.registeredOperators.iterator().next();
+    assertEquals(0, sendToOpImpl.registeredOperators.size());
+    assertEquals(OpCode.SEND_TO, sendToOpImpl.getOperatorSpec().getOpCode());
+  }
+
+  @Test
+  public void testRepartitionChain() {
+    ApplicationRunner mockRunner = mock(ApplicationRunner.class);
+    when(mockRunner.getStreamSpec(eq("input"))).thenReturn(new StreamSpec("input", "input-stream", "input-system"));
+    when(mockRunner.getStreamSpec(eq("output"))).thenReturn(new StreamSpec("output", "output-stream", "output-system"));
+    when(mockRunner.getStreamSpec(eq("null-null-partition_by-1")))
+        .thenReturn(new StreamSpec("intermediate", "intermediate-stream", "intermediate-system"));
+    StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mock(Config.class));
+    MessageStream<Object> inputStream = streamGraph.getInputStream("input");
+    OutputStream<KV<Integer, String>> outputStream = streamGraph
+        .getOutputStream("output", KVSerde.of(mock(IntegerSerde.class), mock(StringSerde.class)));
+
+    inputStream
+        .repartition(Object::hashCode, Object::toString, KVSerde.of(mock(IntegerSerde.class), mock(StringSerde.class)))
+        .sendTo(outputStream);
+
+    TaskContext mockTaskContext = mock(TaskContext.class);
+    when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
+    OperatorImplGraph opImplGraph =
+        new OperatorImplGraph(streamGraph, mock(Config.class), mockTaskContext, mock(Clock.class));
+
+    InputOperatorImpl inputOpImpl = opImplGraph.getInputOperator(new SystemStream("input-system", "input-stream"));
+    assertEquals(1, inputOpImpl.registeredOperators.size());
+
+    OperatorImpl repartitionOpImpl = (RepartitionOperatorImpl) inputOpImpl.registeredOperators.iterator().next();
+    assertEquals(0, repartitionOpImpl.registeredOperators.size()); // is terminal but paired with an input operator
+    assertEquals(OpCode.PARTITION_BY, repartitionOpImpl.getOperatorSpec().getOpCode());
+
+    InputOperatorImpl repartitionedInputOpImpl =
+        opImplGraph.getInputOperator(new SystemStream("intermediate-system", "intermediate-stream"));
+    assertEquals(1, repartitionedInputOpImpl.registeredOperators.size());
+
+    OperatorImpl sendToOpImpl = (OutputOperatorImpl) repartitionedInputOpImpl.registeredOperators.iterator().next();
     assertEquals(0, sendToOpImpl.registeredOperators.size());
     assertEquals(OpCode.SEND_TO, sendToOpImpl.getOperatorSpec().getOpCode());
   }
