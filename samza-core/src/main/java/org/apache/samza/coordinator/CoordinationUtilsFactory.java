@@ -26,7 +26,7 @@ import org.apache.samza.util.*;
 /**
  * factory to instantiate a c{@link CoordinationUtils} service
  */
-public interface CoordinationUtilsFactory {
+public abstract class CoordinationUtilsFactory {
 
   public static CoordinationUtilsFactory getCoordinationUtilsFactory(Config config) {
     // load the class
@@ -43,5 +43,5 @@ public interface CoordinationUtilsFactory {
    * @param updatedConfig - configs, to define the details of the service
    * @return a unique service instance
    */
-  CoordinationUtils getCoordinationUtils(String groupId, String participantId, Config updatedConfig);
+  public abstract CoordinationUtils getCoordinationUtils(String groupId, String participantId, Config updatedConfig);
 }
