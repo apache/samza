@@ -31,7 +31,6 @@ import org.scalatest.Assertions.intercept
 class TestKafkaSystemProducer {
   val systemStream = new SystemStream("testSystem", "testStream")
   val someMessage = new OutgoingMessageEnvelope(systemStream, "test".getBytes)
-  val StreamNameNullOrEmptyErrorMsg = "Stream Name should be specified in the stream configuration file.";
 
   @Test
   def testKafkaProducer {
@@ -581,7 +580,7 @@ class TestKafkaSystemProducer {
       producer.send("testSrc2", omeStreamNameEmpty)
       assertEquals(0, mockProducer.getMsgsSent)
     }
-    assertTrue(thrownNull.getMessage() == StreamNameNullOrEmptyErrorMsg)
-    assertTrue(thrownEmpty.getMessage() == StreamNameNullOrEmptyErrorMsg)
+    assertTrue(thrownNull.getMessage() == "Invalid system stream: " + omeStreamNameNull.getSystemStream)
+    assertTrue(thrownEmpty.getMessage() == "Invalid system stream: " + omeStreamNameEmpty.getSystemStream)
   }
 }

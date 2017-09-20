@@ -180,7 +180,7 @@ class KafkaSystemProducer(systemName: String,
             try {
               currentProducer.close(0, TimeUnit.MILLISECONDS)
             } catch {
-              case _: Exception => error("Exception while closing producer.", _)
+              case exception: Exception => error("Exception while closing producer.", exception)
             }
             producer = getProducer()
           }
@@ -195,7 +195,7 @@ class KafkaSystemProducer(systemName: String,
         try {
           currentProducer.close(0, TimeUnit.MILLISECONDS)
         } catch {
-          case _: Exception => error("Exception while closing producer.", _)
+          case exception: Exception => error("Exception while closing producer.", exception)
         }
       }
     }
