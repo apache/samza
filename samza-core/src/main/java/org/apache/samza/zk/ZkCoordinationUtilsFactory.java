@@ -31,7 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-public class ZkCoordinationUtilsFactory extends CoordinationUtilsFactory {
+public class ZkCoordinationUtilsFactory implements CoordinationUtilsFactory {
   private static final Logger LOG = LoggerFactory.getLogger(ZkCoordinationUtilsFactory.class);
 
   public CoordinationUtils getCoordinationUtils(String groupId, String participantId, Config config) {
