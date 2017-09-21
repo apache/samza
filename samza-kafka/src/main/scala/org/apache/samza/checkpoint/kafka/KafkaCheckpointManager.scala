@@ -65,8 +65,7 @@ class KafkaCheckpointManager(
   import org.apache.samza.checkpoint.kafka.KafkaCheckpointManager._
 
   var taskNames = Set[TaskName]()
-  //var producer: Producer[Array[Byte], Array[Byte]] = null
-  var systemProducer : SystemProducer = null
+  var systemProducer: SystemProducer = null
   var taskNamesToOffsets: Map[TaskName, Checkpoint] = null
 
   var startingOffset: Option[Long] = None // Where to start reading for each subsequent call of readCheckpoint
@@ -95,9 +94,8 @@ class KafkaCheckpointManager(
           systemProducer.start
         }
 
-        //producer.send(new ProducerRecord(checkpointTopic, 0, keyBytes, msgBytes)).get()
         val systemStream = new SystemStream(systemName, checkpointTopic)
-        val envelope : OutgoingMessageEnvelope = new OutgoingMessageEnvelope(systemStream, keyBytes, msgBytes)
+        val envelope: OutgoingMessageEnvelope = new OutgoingMessageEnvelope(systemStream, keyBytes, msgBytes)
         systemProducer.send(taskName.getTaskName, envelope)
         systemProducer.flush(taskName.getTaskName) // make sure it is written
         loop.done
@@ -129,7 +127,7 @@ class KafkaCheckpointManager(
 
     new SimpleConsumer(leader.host, leader.port, socketTimeout, bufferSize, clientId)
   }
-  
+
   /**
    * Read the last checkpoint for specified TaskName
    *
@@ -176,11 +174,10 @@ class KafkaCheckpointManager(
     checkpoints.toMap /* of the immutable kind */
   }
 
-
-  private def getEarliestOffset(topic : String, partition: Partition): String = {
+  private def getEarliestOffset(topic: String, partition: Partition): String = {
     val systemAdmin = getSystemAdmin()
-    val metaData : java.util.Map[String, SystemStreamMetadata] = systemAdmin.getSystemStreamMetadata(Collections.singleton(topic))
-    val checkpointMetadata:SystemStreamMetadata = metaData.get(topic)
+    val metaDataMap: java.util.Map[String, SystemStreamMetadata] = systemAdmin.getSystemStreamMetadata(Collections.singleton(topic))
+    val checkpointMetadata: SystemStreamMetadata = metaDataMap.get(topic)
     if(checkpointMetadata == null)
       throw new SamzaException("Cannot get metadata for system=%s, topic=%s" format (systemName, topic))
 
@@ -190,6 +187,7 @@ class KafkaCheckpointManager(
 
     partitionMetaData.getOldestOffset
   }
+
   /**
    * Code for reading checkpoint log
    *
@@ -211,8 +209,7 @@ class KafkaCheckpointManager(
       while (!done) {
         // Map[SystemStreamPartition, List[IncomingMessageEnvelope]]
         val envelops = systemConsumer.poll(Collections.singleton(ssp), 1000)
-        System.out.println("Checkpoint read %d envelops" format envelops.size());
-        //val consumerRecords : ConsumerRecords[Long, String]  =
+        debug("CheckpointMgr read %d envelops" format envelops.size());
         val messages: util.List[IncomingMessageEnvelope] = envelops.get(ssp);
         if (envelops.isEmpty || messages.isEmpty) {
           // fully read the log
@@ -241,8 +238,7 @@ class KafkaCheckpointManager(
     } finally {
       systemConsumer.stop();
     }
-    System.out.println("DONE reading %s msgs from checkpoint stream %s:%s" format(count, systemName, checkpointTopic));
-
+    info("done reading %s msgs from checkpoint stream  %s:%s" format(count, systemName, checkpointTopic));
   }
 
   def start {

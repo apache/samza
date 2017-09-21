@@ -65,19 +65,16 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
     val jobId = config.getJobId.getOrElse("1")
 
     val (systemName: String, systemFactory : SystemFactory) =  org.apache.samza.util.Util.getCheckpointSystemStreamAndFactory(config)
-    /*
-    val systemName = config
-      .getCheckpointSystem
-      .getOrElse(throw new SamzaException("no system defined for Kafka's checkpoint manager."))
-*/
+
     val producerConfig = config.getKafkaSystemProducerConfig(
       systemName,
       clientId,
       INJECTED_PRODUCER_PROPERTIES)
-    val connectProducerF = () => {
-      //new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
+
+    val systemProducerF = () => {
       systemFactory.getProducer(systemName, config, new NoOpMetricsRegistry())
     }
+
     val systemConsumerF = () => {
       systemFactory.getConsumer(systemName, config, new NoOpMetricsRegistry())
     }
@@ -94,8 +91,6 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
     }
     val socketTimeout = consumerConfig.socketTimeoutMs
 
-    //val consumer: SystemConsumer = systemFactory.getConsumer(systemName, config, new NoOpMetricsRegistry())
-
     new KafkaCheckpointManager(
       clientId,
       KafkaUtil.getCheckpointTopic(jobName, jobId),
@@ -107,7 +102,7 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
       systemConsumerF,
       systemAdminF,
       new ClientUtilTopicMetadataStore(producerConfig.bootsrapServers, clientId, socketTimeout),
-      connectProducerF,
+      systemProducerF,
       connectZk,
       config.getSystemStreamPartitionGrouperFactory,      // To find out the SSPGrouperFactory class so it can be included/verified in the key
       config.failOnCheckpointValidation,
