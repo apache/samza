@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
@@ -44,6 +45,7 @@ import org.apache.samza.system.StreamSpec;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
@@ -53,11 +55,10 @@ import static org.junit.Assert.assertNotNull;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.*;
-import static org.powermock.api.mockito.PowerMockito.mockStatic;
 
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest(CoordinationUtilsFactory.class)
+@PrepareForTest(LocalApplicationRunner.class)
 public class TestLocalApplicationRunner {
 
   private static final String PLAN_JSON =
@@ -105,9 +106,10 @@ public class TestLocalApplicationRunner {
     };
     when(planner.plan(anyObject())).thenReturn(plan);
 
-    mockStatic(CoordinationUtilsFactory.class);
     CoordinationUtilsFactory coordinationUtilsFactory = mock(CoordinationUtilsFactory.class);
-    when(CoordinationUtilsFactory.getCoordinationUtilsFactory(anyObject())).thenReturn(coordinationUtilsFactory);
+    JobCoordinatorConfig mockJcConfig = mock(JobCoordinatorConfig.class);
+    when(mockJcConfig.getCoordinationUtilsFactory()).thenReturn(coordinationUtilsFactory);
+    PowerMockito.whenNew(JobCoordinatorConfig.class).withAnyArguments().thenReturn(mockJcConfig);
 
     LocalApplicationRunner spy = spy(runner);
     try {
@@ -164,8 +166,9 @@ public class TestLocalApplicationRunner {
 
     CoordinationUtils coordinationUtils = mock(CoordinationUtils.class);
     CoordinationUtilsFactory coordinationUtilsFactory = mock(CoordinationUtilsFactory.class);
-    mockStatic(CoordinationUtilsFactory.class);
-    when(CoordinationUtilsFactory.getCoordinationUtilsFactory(anyObject())).thenReturn(coordinationUtilsFactory);
+    JobCoordinatorConfig mockJcConfig = mock(JobCoordinatorConfig.class);
+    when(mockJcConfig.getCoordinationUtilsFactory()).thenReturn(coordinationUtilsFactory);
+    PowerMockito.whenNew(JobCoordinatorConfig.class).withAnyArguments().thenReturn(mockJcConfig);
 
     DistributedLockWithState lock = mock(DistributedLockWithState.class);
     when(lock.lockIfNotSet(anyLong(), anyObject())).thenReturn(true);

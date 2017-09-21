@@ -21,6 +21,8 @@ package org.apache.samza.config;
 
 import com.google.common.base.Strings;
 import org.apache.samza.SamzaException;
+import org.apache.samza.coordinator.CoordinationUtilsFactory;
+import org.apache.samza.util.ClassLoaderHelper;
 import org.apache.samza.zk.ZkCoordinationUtilsFactory;
 
 public class JobCoordinatorConfig extends MapConfig {
@@ -47,6 +49,13 @@ public class JobCoordinatorConfig extends MapConfig {
     }
 
     return className;
+  }
+
+  public CoordinationUtilsFactory getCoordinationUtilsFactory() {
+    // load the class
+    String coordinationUtilsFactoryClass = getJobCoordinationUtilsFactoryClassName();
+
+    return ClassLoaderHelper.fromClassName(coordinationUtilsFactoryClass, CoordinationUtilsFactory.class);
   }
 
   public String getJobCoordinatorFactoryClassName() {
