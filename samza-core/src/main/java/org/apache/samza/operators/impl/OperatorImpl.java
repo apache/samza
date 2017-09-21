@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.impl;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.metrics.Counter;
@@ -116,7 +117,19 @@ public abstract class OperatorImpl<M, RM> {
   public final void onMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
     this.numMessage.inc();
     long startNs = this.highResClock.nanoTime();
-    Collection<RM> results = handleMessage(message, collector, coordinator);
+    Collection<RM> results;
+    try {
+      results = handleMessage(message, collector, coordinator);
+    } catch (ClassCastException e) {
+      String actualType = e.getMessage().replaceFirst(" cannot be cast to .*", "");
+      String expectedType = e.getMessage().replaceFirst(".* cannot be cast to ", "");
+      throw new SamzaException(
+          String.format("Error applying operator %s (created at %s) to its input message. "
+                  + "Expected input message to be of type %s, but found it to be of type %s. "
+                  + "Are Serdes for the inputs to this operator configured correctly?",
+              getOperatorName(), getOperatorSpec().getSourceLocation(), expectedType, actualType), e);
+    }
+
     long endNs = this.highResClock.nanoTime();
     this.handleMessageNs.update(endNs - startNs);
 

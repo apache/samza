@@ -168,7 +168,7 @@ public class JobNode {
    *
    * @param configs the configs to add serialized serde instances and stream serde configs to
    */
-  private void addSerdeConfigs(Map<String, String> configs) {
+  protected void addSerdeConfigs(Map<String, String> configs) {
     // collect all key and msg serde instances for streams
     Map<String, Serde> keySerdes = new HashMap<>();
     Map<String, Serde> msgSerdes = new HashMap<>();
