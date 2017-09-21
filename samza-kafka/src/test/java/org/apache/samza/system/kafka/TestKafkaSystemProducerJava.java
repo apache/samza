@@ -48,7 +48,7 @@ public class TestKafkaSystemProducerJava {
       public Object apply() {
         return System.currentTimeMillis();
       }
-    });
+    }, false);
 
     long now = System.currentTimeMillis();
     assertTrue((Long)ksp.clock().apply() >= now);

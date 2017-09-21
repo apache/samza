@@ -291,8 +291,10 @@ class KafkaProducerConfig(val systemName: String,
   //Overrides specific to samza-kafka (these are considered as defaults in Samza & can be overridden by user
   val MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT: java.lang.Integer = 1.asInstanceOf[Integer]
   val RETRIES_DEFAULT: java.lang.Integer = Integer.MAX_VALUE
+  val LINGER_MS_DEFAULT: java.lang.Integer = 10
 
   def getProducerProperties = {
+
     val byteArraySerializerClassName = classOf[ByteArraySerializer].getCanonicalName
     val producerProperties: java.util.Map[String, Object] = new util.HashMap[String, Object]()
     producerProperties.putAll(properties)
@@ -315,14 +317,17 @@ class KafkaProducerConfig(val systemName: String,
       producerProperties.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT)
     }
 
-    if (producerProperties.containsKey(ProducerConfig.RETRIES_CONFIG)
-      && producerProperties.get(ProducerConfig.RETRIES_CONFIG).asInstanceOf[String].toInt < RETRIES_DEFAULT) {
-      warn("Samza does not provide producer failure handling. Consider setting '%s' to a large value, like Int.MAX." format ProducerConfig.RETRIES_CONFIG)
-    } else {
-      // Retries config is set to Max so that when all attempts fail, Samza also fails the send. We do not have any special handler
-      // for producer failure
+    if (!producerProperties.containsKey(ProducerConfig.RETRIES_CONFIG)) {
+      debug("%s undefined. Defaulting to %s." format(ProducerConfig.RETRIES_CONFIG, RETRIES_DEFAULT))
       producerProperties.put(ProducerConfig.RETRIES_CONFIG, RETRIES_DEFAULT)
     }
+    producerProperties.get(ProducerConfig.RETRIES_CONFIG).toString.toInt // Verify int
+
+    if (!producerProperties.containsKey(ProducerConfig.LINGER_MS_CONFIG)) {
+      debug("%s undefined. Defaulting to %s." format(ProducerConfig.LINGER_MS_CONFIG, LINGER_MS_DEFAULT))
+      producerProperties.put(ProducerConfig.LINGER_MS_CONFIG, LINGER_MS_DEFAULT)
+    }
+    producerProperties.get(ProducerConfig.LINGER_MS_CONFIG).toString.toInt // Verify int
 
     producerProperties
   }
