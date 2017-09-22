@@ -205,15 +205,15 @@ class KafkaCheckpointManager(
 
     var count = 0
     try {
-      var done = false;
+      var done = false
       while (!done) {
         // Map[SystemStreamPartition, List[IncomingMessageEnvelope]]
         val envelops = systemConsumer.poll(Collections.singleton(ssp), 1000)
-        debug("CheckpointMgr read %d envelops" format envelops.size());
-        val messages: util.List[IncomingMessageEnvelope] = envelops.get(ssp);
+        debug("CheckpointMgr read %d envelops" format envelops.size())
+        val messages: util.List[IncomingMessageEnvelope] = envelops.get(ssp)
         if (envelops.isEmpty || messages.isEmpty) {
           // fully read the log
-          done = true;
+          done = true
         }
         else {
           count += messages.size()
@@ -238,7 +238,7 @@ class KafkaCheckpointManager(
     } finally {
       systemConsumer.stop();
     }
-    info("done reading %s msgs from checkpoint stream  %s:%s" format(count, systemName, checkpointTopic));
+    info("done reading %s msgs from checkpoint stream  %s:%s" format(count, systemName, checkpointTopic))
   }
 
   def start {
