@@ -318,18 +318,6 @@ class MockSystemAdmin extends ExtendedSystemAdmin {
     Map(streamNames.asScala.toList.head -> new SystemStreamMetadata("foo", partitionMetadata.asJava)).asJava
   }
 
-  override def createChangelogStream(topicName: String, numOfChangeLogPartitions: Int) {
-    new UnsupportedOperationException("Method not implemented.")
-  }
-
-  override def validateChangelogStream(topicName: String, numOfChangeLogPartitions: Int) {
-    new UnsupportedOperationException("Method not implemented.")
-  }
-
-  override def createCoordinatorStream(streamName: String) {
-    new UnsupportedOperationException("Method not implemented.")
-  }
-
   override def offsetComparator(offset1: String, offset2: String) = null
 
   override def getSystemStreamPartitionCounts(streamNames: util.Set[String],

@@ -63,21 +63,6 @@ public class SimpleSystemAdmin implements SystemAdmin {
   }
 
   @Override
-  public void createChangelogStream(String streamName, int numOfPartitions) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public void validateChangelogStream(String streamName, int numOfPartitions) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public void createCoordinatorStream(String streamName) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
   public Integer offsetComparator(String offset1, String offset2) {
     if (offset1 == null) {
       return offset2 == null ? 0 : -1;

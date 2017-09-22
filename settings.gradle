@@ -46,3 +46,20 @@ rootProject.children.each {
     it.name = it.name + "_" + scalaVersion
   }
 }
+
+/**
+ * Skips execution of all integration tests in project 'samza-test'.
+ * To run integration tests in samza-test: './gradlew clean build -PrunIntegrationTests'
+ */
+gradle.taskGraph.whenReady { taskGraph ->
+  taskGraph.getAllTasks().each { task ->
+    def project = task.getProject()
+    task.onlyIf {
+      /**
+       * Behaves as pass through filter for all tasks when `runIntegrationTests` property is turned on.
+       * Filters 'test' task of 'samza-test' project otherwise.
+       */
+      project.hasProperty("runIntegrationTests") || !(project.getName().contains("samza-test") && task.getName() == "test")
+    }
+  }
+}

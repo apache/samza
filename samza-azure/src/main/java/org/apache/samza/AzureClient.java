@@ -20,8 +20,12 @@
 package org.apache.samza;
 
 import com.microsoft.azure.storage.CloudStorageAccount;
+import com.microsoft.azure.storage.RetryLinearRetry;
+import com.microsoft.azure.storage.RetryPolicy;
+import com.microsoft.azure.storage.blob.BlobRequestOptions;
 import com.microsoft.azure.storage.blob.CloudBlobClient;
 import com.microsoft.azure.storage.table.CloudTableClient;
+import com.microsoft.azure.storage.table.TableRequestOptions;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import org.slf4j.Logger;
@@ -41,14 +45,26 @@ public class AzureClient {
   /**
    * Creates a reference to the Azure Storage account according to the connection string that the client passes.
    * Also creates references to Azure Blob Storage and Azure Table Storage.
-   * @param storageConnectionString Connection string to conenct to Azure Storage Account, format: "DefaultEndpointsProtocol=<https>;AccountName=<>;AccountKey=<>"
+   * @param storageConnectionString Connection string to connect to Azure Storage Account
+   *                                Format: DefaultEndpointsProtocol=https;AccountName="Insert your account name";AccountKey="Insert your account key"
    * @throws AzureException If an Azure storage service error occurred, or when the storageConnectionString is invalid.
    */
-  AzureClient(String storageConnectionString) {
+  public AzureClient(String storageConnectionString) {
     try {
       account = CloudStorageAccount.parse(storageConnectionString);
+      RetryPolicy retryPolicy = new RetryLinearRetry(5000,  3);
+
       blobClient = account.createCloudBlobClient();
+      // Set retry policy for operations on the blob. In this case, every failed operation on the blob will be retried thrice, after 5 second intervals.
+      BlobRequestOptions blobOptions = new BlobRequestOptions();
+      blobOptions.setRetryPolicyFactory(retryPolicy);
+      blobClient.setDefaultRequestOptions(blobOptions);
+
+      // Set retry policy for operations on the table. In this case, every failed operation on the table will be retried thrice, after 5 second intervals.
       tableClient = account.createCloudTableClient();
+      TableRequestOptions tableOptions = new TableRequestOptions();
+      tableOptions.setRetryPolicyFactory(retryPolicy);
+      tableClient.setDefaultRequestOptions(tableOptions);
     } catch (IllegalArgumentException | URISyntaxException e) {
       LOG.error("Connection string {} specifies an invalid URI.", storageConnectionString);
       LOG.error("Please confirm the connection string is in the Azure connection string format.");

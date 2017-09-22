@@ -18,7 +18,9 @@
  */
 package org.apache.samza.rest;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.util.Map;
+import java.util.concurrent.ThreadFactory;
 import joptsimple.OptionSet;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.MetricsConfig;
@@ -84,6 +86,7 @@ public class SamzaRestService {
    */
   public static void main(String[] args)
       throws Exception {
+    ScheduledExecutorSchedulingProvider schedulingProvider = null;
     try {
       SamzaRestConfig config = parseConfig(args);
       ReadableMetricsRegistry metricsRegistry = new MetricsRegistryMap();
@@ -99,8 +102,11 @@ public class SamzaRestService {
       restService.addServlet(container, "/*");
 
       // Schedule monitors to run
-      ScheduledExecutorService schedulingService = Executors.newScheduledThreadPool(1);
-      ScheduledExecutorSchedulingProvider schedulingProvider = new ScheduledExecutorSchedulingProvider(schedulingService);
+      ThreadFactory threadFactory = new ThreadFactoryBuilder().setDaemon(true)
+                                                              .setNameFormat("MonitorThread-%d")
+                                                              .build();
+      ScheduledExecutorService schedulingService = Executors.newScheduledThreadPool(1, threadFactory);
+      schedulingProvider = new ScheduledExecutorSchedulingProvider(schedulingService);
       SamzaMonitorService monitorService = new SamzaMonitorService(config,
                                                                    metricsRegistry,
                                                                    schedulingProvider);
@@ -110,6 +116,10 @@ public class SamzaRestService {
       monitorService.stop();
     } catch (Throwable t) {
       log.error("Exception in main.", t);
+    } finally {
+      if (schedulingProvider != null){
+        schedulingProvider.stop();
+      }
     }
   }
 
