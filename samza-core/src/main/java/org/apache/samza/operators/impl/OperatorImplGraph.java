@@ -96,7 +96,7 @@ public class OperatorImplGraph {
     TaskContextImpl taskContext = (TaskContextImpl) context;
     Map<SystemStream, Integer> producerTaskCounts = hasIntermediateStreams(streamGraph) ?
         getProducerTaskCountForIntermediateStreams(getStreamToConsumerTasks(taskContext.getJobModel()),
-            getIntermediateToInputStreams(streamGraph)) :
+            getIntermediateToInputStreamsMap(streamGraph)) :
         Collections.EMPTY_MAP;
     producerTaskCounts.forEach((stream, count) -> {
         LOG.info("{} has {} producer tasks.", stream, count);
@@ -112,7 +112,7 @@ public class OperatorImplGraph {
     streamGraph.getInputOperators().forEach((streamSpec, inputOpSpec) -> {
         SystemStream systemStream = new SystemStream(streamSpec.getSystemName(), streamSpec.getPhysicalName());
         InputOperatorImpl inputOperatorImpl =
-            (InputOperatorImpl) createAndRegisterOperatorImpl(null, inputOpSpec, config, context);
+            (InputOperatorImpl) createAndRegisterOperatorImpl(null, inputOpSpec, systemStream, config, context);
         this.inputOperators.put(systemStream, inputOperatorImpl);
       });
   }
@@ -153,17 +153,18 @@ public class OperatorImplGraph {
    * @return  the operator implementation for the operatorSpec
    */
   OperatorImpl createAndRegisterOperatorImpl(OperatorSpec prevOperatorSpec, OperatorSpec operatorSpec,
-      Config config, TaskContext context) {
+      SystemStream inputStream, Config config, TaskContext context) {
     if (!operatorImpls.containsKey(operatorSpec.getOpName()) || operatorSpec instanceof JoinOperatorSpec) {
       // Either this is the first time we've seen this operatorSpec, or this is a join operator spec
       // and we need to create 2 partial join operator impls for it. Initialize and register the sub-DAG.
       OperatorImpl operatorImpl = createOperatorImpl(prevOperatorSpec, operatorSpec, config, context);
       operatorImpl.init(config, context);
+      operatorImpl.registerInputStream(inputStream);
       operatorImpls.put(operatorImpl.getOperatorName(), operatorImpl);
 
       Collection<OperatorSpec> registeredSpecs = operatorSpec.getRegisteredOperatorSpecs();
       registeredSpecs.forEach(registeredSpec -> {
-          OperatorImpl nextImpl = createAndRegisterOperatorImpl(operatorSpec, registeredSpec, config, context);
+          OperatorImpl nextImpl = createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, config, context);
           operatorImpl.registerNextOperator(nextImpl);
         });
       return operatorImpl;
@@ -317,7 +318,7 @@ public class OperatorImplGraph {
    * @param streamGraph the user {@link StreamGraphImpl} instance
    * @return mapping from output streams to input streams
    */
-  static Multimap<SystemStream, SystemStream> getIntermediateToInputStreams(StreamGraphImpl streamGraph) {
+  static Multimap<SystemStream, SystemStream> getIntermediateToInputStreamsMap(StreamGraphImpl streamGraph) {
     Multimap<SystemStream, SystemStream> outputToInputStreams = HashMultimap.create();
     streamGraph.getInputOperators().entrySet().stream()
         .forEach(

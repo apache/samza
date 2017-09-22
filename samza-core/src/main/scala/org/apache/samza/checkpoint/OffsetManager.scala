@@ -217,6 +217,10 @@ class OffsetManager(
     }
   }
 
+  def setStartingOffset(taskName: TaskName, ssp: SystemStreamPartition, offset: String): Unit = {
+    startingOffsets += taskName -> (startingOffsets(taskName) + (ssp -> offset))
+  }
+
   /**
    * Checkpoint all offsets for a given TaskName using the CheckpointManager.
    */

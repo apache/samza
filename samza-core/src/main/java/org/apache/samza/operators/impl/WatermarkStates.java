@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.WatermarkMessage;
@@ -31,12 +32,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * This class manages the state of the watermarks in a task. Internally it keeps track of the latest
- * watermark timestamp from each upstream task, and use the min as the consolidated watermark time.
+ * This class manages the watermarks coming from input/intermediate streams in a task. Internally it keeps track
+ * of the latest watermark timestamp from each upstream task, and use the min as the consolidated watermark time.
  *
- * This class and the inner WatermarkState class are not thread-safe. The WatermarkStates object
- * can only be accessed from a single thread, since Samza allows at-most one thread per task
- * in order to keep the ordering of the event processing,
+ * This class is thread-safe. However, having parallelism within a task may result in out-of-order processing
+ * and inaccurate watermarks. In this scenario, watermarks might be emitted before the previous messages fully processed.
  */
 class WatermarkStates {
   private static final Logger LOG = LoggerFactory.getLogger(WatermarkStates.class);
@@ -46,20 +46,18 @@ class WatermarkStates {
   private final static class WatermarkState {
     private final int expectedTotal;
     private final Map<String, Long> timestamps = new HashMap<>();
-    private long watermarkTime = WATERMARK_NOT_EXIST;
+    private volatile long watermarkTime = WATERMARK_NOT_EXIST;
 
     WatermarkState(int expectedTotal) {
       this.expectedTotal = expectedTotal;
     }
 
-    boolean update(long timestamp, String taskName) {
-      final long preWatermarkTime = watermarkTime;
+    synchronized void update(long timestamp, String taskName) {
       if (taskName != null) {
         Long ts = timestamps.get(taskName);
         if (ts != null && ts > timestamp) {
           LOG.warn(String.format("Incoming watermark %s is smaller than existing watermark %s for upstream task %s",
               timestamp, ts, taskName));
-          return false;
         } else {
           timestamps.put(taskName, timestamp);
         }
@@ -74,8 +72,6 @@ class WatermarkStates {
         Optional<Long> min = timestamps.values().stream().min(Long::compare);
         watermarkTime = min.orElse(timestamp);
       }
-
-      return preWatermarkTime != watermarkTime;
     }
 
     long getWatermarkTime() {
@@ -84,13 +80,11 @@ class WatermarkStates {
   }
 
   private final Map<SystemStreamPartition, WatermarkState> watermarkStates;
-  private final Map<SystemStream, Long> watermarks = new HashMap<>();
 
   WatermarkStates(Set<SystemStreamPartition> ssps, Map<SystemStream, Integer> producerTaskCounts) {
     Map<SystemStreamPartition, WatermarkState> states = new HashMap<>();
     ssps.forEach(ssp -> {
         states.put(ssp, new WatermarkState(producerTaskCounts.getOrDefault(ssp.getSystemStream(), 0)));
-        watermarks.put(ssp.getSystemStream(), WATERMARK_NOT_EXIST);
       });
     this.watermarkStates = Collections.unmodifiableMap(states);
   }
@@ -101,29 +95,21 @@ class WatermarkStates {
    * @param ssp system stream partition
    * @return true iff the stream has a new watermark
    */
-  boolean update(WatermarkMessage watermarkMessage, SystemStreamPartition ssp) {
+  void update(WatermarkMessage watermarkMessage, SystemStreamPartition ssp) {
     WatermarkState state = watermarkStates.get(ssp);
-    boolean updated = state.update(watermarkMessage.getTimestamp(), watermarkMessage.getTaskName());
-
-    if (updated) {
-      long minTimestamp = watermarkStates.entrySet().stream()
-          .filter(entry -> entry.getKey().getSystemStream().equals(ssp.getSystemStream()))
-          .map(entry -> entry.getValue().getWatermarkTime())
-          .min(Long::compare)
-          .get();
-      Long curWatermark = watermarks.get(ssp.getSystemStream());
-      assert curWatermark != null;
-
-      if (curWatermark < minTimestamp) {
-        watermarks.put(ssp.getSystemStream(), minTimestamp);
-        return true;
-      }
+    if (state != null) {
+      state.update(watermarkMessage.getTimestamp(), watermarkMessage.getTaskName());
+    } else {
+      LOG.error("SSP {} doesn't have watermark states", ssp);
     }
-    return false;
   }
 
   long getWatermark(SystemStream systemStream) {
-    return watermarks.get(systemStream);
+    return watermarkStates.entrySet().stream()
+        .filter(entry -> entry.getKey().getSystemStream().equals(systemStream))
+        .map(entry -> entry.getValue().getWatermarkTime())
+        .min(Long::compare)
+        .orElse(WATERMARK_NOT_EXIST);
   }
 
   /* package private for testing */

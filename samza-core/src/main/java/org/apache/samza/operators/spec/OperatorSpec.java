@@ -19,7 +19,7 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.functions.InitableFunction;
+import org.apache.samza.operators.functions.WatermarkFunction;
 
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -120,5 +120,5 @@ public abstract class OperatorSpec<M, OM> {
     return String.format("%s-%s", getOpCode().name().toLowerCase(), getOpId());
   }
 
-  abstract public InitableFunction getTransformFn();
+  abstract public WatermarkFunction getWatermarkFn();
 }

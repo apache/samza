@@ -19,7 +19,8 @@
 
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.operators.functions.InitableFunction;
+import org.apache.samza.operators.functions.FoldLeftFunction;
+import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.triggers.AnyTrigger;
 import org.apache.samza.operators.triggers.RepeatingTrigger;
 import org.apache.samza.operators.triggers.TimeBasedTrigger;
@@ -112,7 +113,8 @@ public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK
   }
 
   @Override
-  public InitableFunction getTransformFn() {
-    return window.getFoldLeftFunction();
+  public WatermarkFunction getWatermarkFn() {
+    FoldLeftFunction fn = window.getFoldLeftFunction();
+    return fn instanceof WatermarkFunction ? (WatermarkFunction) fn : null;
   }
 }

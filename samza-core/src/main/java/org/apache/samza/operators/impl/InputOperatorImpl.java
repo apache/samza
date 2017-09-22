@@ -18,12 +18,10 @@
  */
 package org.apache.samza.operators.impl;
 
-import java.util.Set;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
@@ -64,9 +62,5 @@ public final class InputOperatorImpl<K, V, M> extends OperatorImpl<Pair<K, V>, M
 
   protected OperatorSpec<Pair<K, V>, M> getOperatorSpec() {
     return this.inputOpSpec;
-  }
-
-  protected Set<SystemStream> getInputStreams() {
-    return Collections.singleton(inputOpSpec.getStreamSpec().toSystemStream());
   }
 }

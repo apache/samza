@@ -19,7 +19,7 @@
 package org.apache.samza.operators.spec;
 
 
-import org.apache.samza.operators.functions.InitableFunction;
+import org.apache.samza.operators.functions.WatermarkFunction;
 
 /**
  * The spec for an operator that outputs a {@link org.apache.samza.operators.MessageStream} to a
@@ -56,7 +56,7 @@ public class OutputOperatorSpec<M> extends OperatorSpec<M, Void> {
   }
 
   @Override
-  public InitableFunction getTransformFn() {
+  public WatermarkFunction getWatermarkFn() {
     return null;
   }
 }

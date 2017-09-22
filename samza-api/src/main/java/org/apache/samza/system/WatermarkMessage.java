@@ -29,6 +29,10 @@ import org.codehaus.jackson.annotate.JsonProperty;
 public class WatermarkMessage extends ControlMessage {
   private final long timestamp;
 
+  public WatermarkMessage(long watermark) {
+    this(watermark, null);
+  }
+
   @JsonCreator
   public WatermarkMessage(@JsonProperty("timestamp") long timestamp,
                           @JsonProperty("task-name") String taskName) {

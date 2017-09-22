@@ -27,6 +27,9 @@ import org.codehaus.jackson.annotate.JsonProperty;
  *  once the task has consumed to the end of a bounded stream.
  */
 public class EndOfStreamMessage extends ControlMessage {
+  public EndOfStreamMessage() {
+    this(null);
+  }
 
   @JsonCreator
   public EndOfStreamMessage(@JsonProperty("task-name") String taskName) {

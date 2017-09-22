@@ -354,7 +354,7 @@ public class TestOperatorImplGraph {
     m1.join(m2, mock(JoinFunction.class), Duration.ofHours(2)).partitionBy(m -> "haha").sendTo(om1);
     m3.join(m2, mock(JoinFunction.class), Duration.ofHours(1)).sendTo(om2);
 
-    Multimap<SystemStream, SystemStream> outputToInput = OperatorImplGraph.getIntermediateToInputStreams(streamGraph);
+    Multimap<SystemStream, SystemStream> outputToInput = OperatorImplGraph.getIntermediateToInputStreamsMap(streamGraph);
     Collection<SystemStream> inputs = outputToInput.get(int1.toSystemStream());
     assertEquals(inputs.size(), 2);
     assertTrue(inputs.contains(input1.toSystemStream()));
@@ -367,6 +367,17 @@ public class TestOperatorImplGraph {
 
   @Test
   public void testGetProducerTaskCountForIntermediateStreams() {
+    /**
+     * the task assignment looks like the following:
+     *
+     * input1 -----> task0, task1 -----> int1
+     *                                    ^
+     * input2 ------> task1, task2--------|
+     *                                    v
+     * input3 ------> task1 -----------> int2
+     *
+     */
+
     SystemStream input1 = new SystemStream("system1", "intput1");
     SystemStream input2 = new SystemStream("system2", "intput2");
     SystemStream input3 = new SystemStream("system2", "intput3");
@@ -392,7 +403,6 @@ public class TestOperatorImplGraph {
     Multimap<SystemStream, SystemStream> intermediateToInputStreams = HashMultimap.create();
     intermediateToInputStreams.put(int1, input1);
     intermediateToInputStreams.put(int1, input2);
-    intermediateToInputStreams.put(int1, input3);
 
     intermediateToInputStreams.put(int2, input2);
     intermediateToInputStreams.put(int2, input3);

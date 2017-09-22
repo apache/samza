@@ -24,7 +24,11 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
-import org.apache.samza.system.*;
+import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.StreamMetadataCache;
+import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.SystemStreamMetadata;
+import org.apache.samza.system.WatermarkMessage;
 import org.apache.samza.task.MessageCollector;
 import org.junit.Test;
 

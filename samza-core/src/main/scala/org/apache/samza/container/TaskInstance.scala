@@ -39,65 +39,11 @@ import org.apache.samza.task.InitableTask
 import org.apache.samza.task.ReadableCoordinator
 import org.apache.samza.task.StreamTask
 import org.apache.samza.task.TaskCallbackFactory
-import org.apache.samza.task.TaskContext
 import org.apache.samza.task.TaskInstanceCollector
 import org.apache.samza.task.WindowableTask
 import org.apache.samza.util.Logging
 
 import scala.collection.JavaConverters._
-
-class TaskContextImpl(
-  taskName: TaskName,
-  metrics: TaskInstanceMetrics,
-  containerContext: SamzaContainerContext,
-  systemStreamPartitions: Set[SystemStreamPartition],
-  offsetManager: OffsetManager,
-  storageManager: TaskStorageManager,
-  jobModel: JobModel,
-  streamMetadataCache: StreamMetadataCache) extends TaskContext with Logging  {
-
-  var userContext: Object = null
-  var objectRegistry: Map[String, Object] = Map()
-  def getMetricsRegistry = metrics.registry
-  def getSystemStreamPartitions = systemStreamPartitions.asJava
-  def getStore(storeName: String) = if (storageManager != null) {
-    storageManager(storeName)
-  } else {
-    warn("No store found for name: %s" format storeName)
-    null
-  }
-  def getTaskName = taskName
-  def getSamzaContainerContext = containerContext
-
-  override def setStartingOffset(ssp: SystemStreamPartition, offset: String): Unit = {
-    val startingOffsets = offsetManager.startingOffsets
-    offsetManager.startingOffsets += taskName -> (startingOffsets(taskName) + (ssp -> offset))
-  }
-
-  override def setUserContext(context: Object): Unit = {
-    userContext = context
-  }
-
-  override def getUserContext: Object = {
-    userContext
-  }
-
-  def registerObject(name: String, value: Object) = {
-    objectRegistry += name -> value
-  }
-
-  def fetchObject(name: String): Object = {
-    objectRegistry.getOrElse(name, null)
-  }
-
-  def getJobModel(): JobModel = {
-    jobModel
-  }
-
-  def getStreamMetadataCache(): StreamMetadataCache = {
-    streamMetadataCache
-  }
-}
 
 class TaskInstance(
   val task: Any,
@@ -121,7 +67,7 @@ class TaskInstance(
   val isClosableTask = task.isInstanceOf[ClosableTask]
   val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
 
-  val context = new TaskContextImpl(taskName,metrics, containerContext, systemStreamPartitions, offsetManager,
+  val context = new TaskContextImpl(taskName,metrics, containerContext, systemStreamPartitions.asJava, offsetManager,
                                     storageManager, jobModel, streamMetadataCache)
 
   // store the (ssp -> if this ssp is catched up) mapping. "catched up"

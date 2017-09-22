@@ -22,12 +22,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.operators.functions.InitableFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.metrics.Counter;
@@ -63,6 +61,7 @@ public abstract class OperatorImpl<M, RM> {
 
   Set<OperatorImpl<RM, ?>> registeredOperators;
   Set<OperatorImpl<?, M>> prevOperators;
+  Set<SystemStream> inputStreams;
 
   // end-of-stream states
   private EndOfStreamStates eosStates;
@@ -89,6 +88,7 @@ public abstract class OperatorImpl<M, RM> {
     this.highResClock = createHighResClock(config);
     registeredOperators = new HashSet<>();
     prevOperators = new HashSet<>();
+    inputStreams = new HashSet<>();
     MetricsRegistry metricsRegistry = context.getMetricsRegistry();
     this.numMessage = metricsRegistry.newCounter(METRICS_GROUP, opName + "-messages");
     this.handleMessageNs = metricsRegistry.newTimer(METRICS_GROUP, opName + "-handle-message-ns");
@@ -131,6 +131,10 @@ public abstract class OperatorImpl<M, RM> {
     this.prevOperators.add(prevOperator);
   }
 
+  void registerInputStream(SystemStream input) {
+    this.inputStreams.add(input);
+  }
+
   /**
    * Handle the incoming {@code message} for this {@link OperatorImpl} and propagate results to registered operators.
    * <p>
@@ -149,20 +153,11 @@ public abstract class OperatorImpl<M, RM> {
 
     results.forEach(rm -> this.registeredOperators.forEach(op -> op.onMessage(rm, collector, coordinator)));
 
-    InitableFunction transformFn = getOperatorSpec().getTransformFn();
-    if (transformFn instanceof WatermarkFunction) {
+    WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
+    if (watermarkFn != null) {
       // check whether there is new watermark emitted from the user function
-      Long outputWm = ((WatermarkFunction) transformFn).getOutputWatermark();
-      if (outputWm != null) {
-        if (outputWatermark < outputWm) {
-          // advance the watermark
-          outputWatermark = outputWm;
-          LOG.debug("Advance output watermark to {} in operator {}", outputWatermark, getOperatorName());
-          this.registeredOperators.forEach(op -> op.onWatermark(outputWatermark, collector, coordinator));
-        } else if (outputWatermark > outputWm) {
-          LOG.warn("Ignore watermark {} that is smaller than the previous watermark {}.", outputWm, outputWatermark);
-        }
-      }
+      Long outputWm = watermarkFn.getOutputWatermark();
+      propagateWatermark(outputWm, collector, coordinator);
     }
   }
 
@@ -242,7 +237,7 @@ public abstract class OperatorImpl<M, RM> {
    * @param coordinator task coordinator
    */
   private final void onEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
-    if (getInputStreams().stream().allMatch(input -> eosStates.isEndOfStream(input))) {
+    if (inputStreams.stream().allMatch(input -> eosStates.isEndOfStream(input))) {
       handleEndOfStream(collector, coordinator);
       this.registeredOperators.forEach(op -> op.onEndOfStream(collector, coordinator));
     }
@@ -251,6 +246,8 @@ public abstract class OperatorImpl<M, RM> {
   /**
    * All input streams to this operator reach to the end.
    * Inherited class should handle end-of-stream by overriding this function.
+   * By default noop implementation is for in-memory operator to handle the EOS. Output operator need to
+   * override this to actually propagate EOS over the wire.
    * @param collector message collector
    * @param coordinator task coordinator
    */
@@ -269,9 +266,9 @@ public abstract class OperatorImpl<M, RM> {
   public final void aggregateWatermark(WatermarkMessage watermarkMessage, SystemStreamPartition ssp,
       MessageCollector collector, TaskCoordinator coordinator) {
     LOG.debug("Received watermark {} from {}", watermarkMessage.getTimestamp(), ssp);
-    boolean updated = watermarkStates.update(watermarkMessage, ssp);
-    if (updated) {
-      long watermark = watermarkStates.getWatermark(ssp.getSystemStream());
+    watermarkStates.update(watermarkMessage, ssp);
+    long watermark = watermarkStates.getWatermark(ssp.getSystemStream());
+    if (watermark != WatermarkStates.WATERMARK_NOT_EXIST) {
       LOG.debug("Got watermark {} from stream {}", watermark, ssp.getSystemStream());
       onWatermark(watermark, collector, coordinator);
     }
@@ -291,7 +288,7 @@ public abstract class OperatorImpl<M, RM> {
       // for input operator, use the watermark time coming from the source input
       inputWatermarkMin = watermark;
     } else {
-      // InputWatermark(op) = min { OutputWatermark(op') | op1 is upstream of op}
+      // InputWatermark(op) = min { OutputWatermark(op') | op' is upstream of op}
       inputWatermarkMin = prevOperators.stream().map(op -> op.getOutputWatermark()).min(Long::compare).get();
     }
 
@@ -301,10 +298,9 @@ public abstract class OperatorImpl<M, RM> {
       LOG.trace("Advance input watermark to {} in operator {}", inputWatermark, getOperatorName());
 
       final Long outputWm;
-      InitableFunction transformFn = getOperatorSpec().getTransformFn();
-      if (transformFn instanceof WatermarkFunction) {
+      WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
+      if (watermarkFn != null) {
         // user-overrided watermark handling here
-        WatermarkFunction watermarkFn = (WatermarkFunction) transformFn;
         watermarkFn.processWatermark(inputWatermark);
         outputWm = watermarkFn.getOutputWatermark();
       } else {
@@ -313,22 +309,27 @@ public abstract class OperatorImpl<M, RM> {
         outputWm = handleWatermark(inputWatermark, collector, coordinator);
       }
 
-      if (outputWm != null) {
-        if (outputWatermark < outputWm) {
-          // advance the watermark
-          outputWatermark = outputWm;
-          LOG.debug("Advance output watermark to {} in operator {}", outputWatermark, getOperatorName());
-          this.registeredOperators.forEach(op -> op.onWatermark(outputWatermark, collector, coordinator));
-        } else if (outputWatermark > outputWm) {
-          LOG.warn("Ignore watermark {} that is smaller than the previous watermark {}.", outputWm, outputWatermark);
-        }
+      propagateWatermark(outputWm, collector, coordinator);
+    }
+  }
+
+  private void propagateWatermark(Long outputWm, MessageCollector collector, TaskCoordinator coordinator) {
+    if (outputWm != null) {
+      if (outputWatermark < outputWm) {
+        // advance the watermark
+        outputWatermark = outputWm;
+        LOG.debug("Advance output watermark to {} in operator {}", outputWatermark, getOperatorName());
+        this.registeredOperators.forEach(op -> op.onWatermark(outputWatermark, collector, coordinator));
+      } else if (outputWatermark > outputWm) {
+        LOG.warn("Ignore watermark {} that is smaller than the previous watermark {}.", outputWm, outputWatermark);
       }
     }
   }
 
   /**
    * Handling of the input watermark and returns the output watermark.
-   * Override this function to fire trigger here.
+   * In-memory operator can override this to fire event-time triggers. Output operators need to override it
+   * so it can propagate watermarks over the wire. By default it simply returns the input watermark.
    * @param inputWatermark  input watermark
    * @param collector message collector
    * @param coordinator task coordinator
@@ -366,10 +367,6 @@ public abstract class OperatorImpl<M, RM> {
    * @return the {@link OperatorSpec} for this {@link OperatorImpl}
    */
   protected abstract OperatorSpec<M, RM> getOperatorSpec();
-
-  protected Set<SystemStream> getInputStreams() {
-    return prevOperators.stream().flatMap(op -> op.getInputStreams().stream()).collect(Collectors.toSet());
-  }
 
   /**
    * Get the unique name for this {@link OperatorImpl} in the DAG.

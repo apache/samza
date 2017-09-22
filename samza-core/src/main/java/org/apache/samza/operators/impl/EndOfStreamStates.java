@@ -34,6 +34,8 @@ import org.apache.samza.system.SystemStreamPartition;
  * messages received from upstream tasks for each system stream partition (ssp). If messages have been received from
  * all tasks, it will mark the ssp as end-of-stream. For a stream to be end-of-stream, all its partitions need to be
  * end-of-stream.
+ *
+ * This class is thread-safe.
  */
 class EndOfStreamStates {
 
@@ -41,13 +43,13 @@ class EndOfStreamStates {
     // set of upstream tasks
     private final Set<String> tasks = new HashSet<>();
     private final int expectedTotal;
-    private boolean isEndOfStream = false;
+    private volatile boolean isEndOfStream = false;
 
     EndOfStreamState(int expectedTotal) {
       this.expectedTotal = expectedTotal;
     }
 
-    void update(String taskName) {
+    synchronized void update(String taskName) {
       if (taskName != null) {
         tasks.add(taskName);
       }
@@ -61,6 +63,11 @@ class EndOfStreamStates {
 
   private final Map<SystemStreamPartition, EndOfStreamState> eosStates;
 
+  /**
+   * Constructing the end-of-stream states for a task
+   * @param ssps all the ssps assigned to this task
+   * @param producerTaskCounts mapping from a stream to the number of upstream tasks that produce to it
+   */
   EndOfStreamStates(Set<SystemStreamPartition> ssps, Map<SystemStream, Integer> producerTaskCounts) {
     Map<SystemStreamPartition, EndOfStreamState> states = new HashMap<>();
     ssps.forEach(ssp -> {

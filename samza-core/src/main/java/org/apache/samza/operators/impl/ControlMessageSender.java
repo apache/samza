@@ -19,7 +19,12 @@
 
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.system.*;
+import org.apache.samza.system.ControlMessage;
+import org.apache.samza.system.MessageType;
+import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.StreamMetadataCache;
+import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.task.MessageCollector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,7 +49,7 @@ class ControlMessageSender {
         MessageType.of(message).name(), message.getTaskName(), systemStream, partitionCount));
 
     for (int i = 0; i < partitionCount; i++) {
-      OutgoingMessageEnvelope envelopeOut = new OutgoingMessageEnvelope(systemStream, i, "", message);
+      OutgoingMessageEnvelope envelopeOut = new OutgoingMessageEnvelope(systemStream, i, null, message);
       collector.send(envelopeOut);
     }
   }

@@ -18,8 +18,8 @@
  */
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.operators.functions.InitableFunction;
 import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.operators.functions.WatermarkFunction;
 
 
 /**
@@ -51,7 +51,7 @@ public class SinkOperatorSpec<M> extends OperatorSpec<M, Void> {
   }
 
   @Override
-  public InitableFunction getTransformFn() {
-    return sinkFn;
+  public WatermarkFunction getWatermarkFn() {
+    return sinkFn instanceof WatermarkFunction ? (WatermarkFunction) sinkFn : null;
   }
 }
