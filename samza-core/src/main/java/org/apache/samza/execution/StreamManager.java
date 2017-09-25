@@ -138,14 +138,13 @@ public class StreamManager {
    * Create a unique stream name if it's batch mode and has a valid run.id.
    * @param stream physical name of the stream
    * @param config {@link Config} object
-   * @return
+   * @return stream name created
    */
   public static String createUniqueNameForBatch(String stream, Config config) {
     ApplicationConfig appConfig = new ApplicationConfig(config);
     if (appConfig.getAppMode() == ApplicationConfig.ApplicationMode.BATCH && appConfig.getRunId() != null) {
       return stream + "-" + appConfig.getRunId();
-    }
-    else {
+    } else {
       return stream;
     }
   }
