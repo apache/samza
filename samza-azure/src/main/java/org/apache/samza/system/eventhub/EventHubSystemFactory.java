@@ -14,37 +14,35 @@ import org.apache.samza.system.eventhub.consumer.EventHubSystemConsumer;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer;
 
 import java.lang.reflect.Constructor;
-import java.util.HashMap;
-import java.util.Map;
 
 public class EventHubSystemFactory implements SystemFactory {
 
-    @Override
-    public SystemConsumer getConsumer(String systemName, Config config, MetricsRegistry registry) {
-        return new EventHubSystemConsumer(new EventHubConfig(config, systemName),
-                new EventHubEntityConnectionFactory(), registry);
+  @SuppressWarnings("unchecked")
+  public static SerdeFactory<byte[]> getSerdeFactory(String serdeFactoryClassName) {
+    SerdeFactory<byte[]> factory;
+    try {
+      Class<SerdeFactory<byte[]>> classObj = (Class<SerdeFactory<byte[]>>) Class.forName(serdeFactoryClassName);
+      Constructor<SerdeFactory<byte[]>> ctor = classObj.getDeclaredConstructor();
+      factory = ctor.newInstance();
+    } catch (Exception e) {
+      throw new SamzaException("Failed to create Serde Factory for: " + serdeFactoryClassName, e);
     }
+    return factory;
+  }
 
-    @Override
-    public SystemProducer getProducer(String systemName, Config config, MetricsRegistry registry) {
-        return new EventHubSystemProducer(systemName, config, registry);
-    }
+  @Override
+  public SystemConsumer getConsumer(String systemName, Config config, MetricsRegistry registry) {
+    return new EventHubSystemConsumer(new EventHubConfig(config, systemName),
+            new EventHubEntityConnectionFactory(), registry);
+  }
 
-    @Override
-    public SystemAdmin getAdmin(String systemName, Config config) {
-        return new EventHubSystemAdmin(systemName, new EventHubConfig(config, systemName));
-    }
+  @Override
+  public SystemProducer getProducer(String systemName, Config config, MetricsRegistry registry) {
+    return new EventHubSystemProducer(systemName, config, registry);
+  }
 
-    @SuppressWarnings("unchecked")
-    public static SerdeFactory<byte[]> getSerdeFactory(String serdeFactoryClassName) {
-        SerdeFactory<byte[]> factory;
-        try {
-            Class<SerdeFactory<byte[]>> classObj = (Class<SerdeFactory<byte[]>>) Class.forName(serdeFactoryClassName);
-            Constructor<SerdeFactory<byte[]>> ctor = classObj.getDeclaredConstructor();
-            factory = ctor.newInstance();
-        } catch (Exception e) {
-            throw new SamzaException("Failed to create Serde Factory for: " + serdeFactoryClassName, e);
-        }
-        return factory;
-    }
+  @Override
+  public SystemAdmin getAdmin(String systemName, Config config) {
+    return new EventHubSystemAdmin(systemName, new EventHubConfig(config, systemName));
+  }
 }
