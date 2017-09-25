@@ -130,6 +130,9 @@ public class StreamManager {
         }
       }
     } catch (Exception e) {
+      // For batch, we always create a new set of internal streams (checkpoint, changelog and intermediate) with unique
+      // id. So if clearStream doesn't work, it won't affect the correctness of the results.
+      // We log a warning here and rely on retention to clean up the streams later.
       LOGGER.warn("Fail to clear internal streams from previous run. Please clean up manually.", e);
     }
   }
