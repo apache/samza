@@ -28,7 +28,10 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.ApplicationConfig;
+import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.StreamGraphImpl;
@@ -56,6 +59,8 @@ public class ExecutionPlanner {
   }
 
   public ExecutionPlan plan(StreamGraphImpl streamGraph) throws Exception {
+    validateConfig();
+
     // create physical job graph based on stream graph
     JobGraph jobGraph = createJobGraph(streamGraph);
 
@@ -68,6 +73,16 @@ public class ExecutionPlanner {
     }
 
     return jobGraph;
+  }
+
+  private void validateConfig() {
+    ApplicationConfig appConfig = new ApplicationConfig(config);
+    ClusterManagerConfig clusterConfig = new ClusterManagerConfig(config);
+    // currently we don't support host-affinity in batch mode
+    if (appConfig.getAppMode() == ApplicationConfig.ApplicationMode.BATCH
+        && clusterConfig.getHostAffinityEnabled()) {
+      throw new SamzaException("Host affinity is not supported in batch mode. Please configure job.host-affinity.enabled=false.");
+    }
   }
 
   /**

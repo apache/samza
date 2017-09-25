@@ -27,9 +27,10 @@ import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.{CheckpointManager, CheckpointManagerFactory}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.KafkaConfig.Config2Kafka
-import org.apache.samza.config.{Config, KafkaConfig}
+import org.apache.samza.config.{SystemConfig, JavaSystemConfig, Config, KafkaConfig}
 import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtil, Logging}
+import org.apache.samza.system.{SystemFactory, SystemAdmin}
+import org.apache.samza.util.{Util, ClientUtilTopicMetadataStore, KafkaUtil, Logging}
 
 object KafkaCheckpointManagerFactory {
   val INJECTED_PRODUCER_PROPERTIES = Map(
@@ -82,10 +83,14 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
     }
     val socketTimeout = consumerConfig.socketTimeoutMs
 
+    val systemConfig = new SystemConfig(config)
+    val systemFactoryClassName = systemConfig.getSystemFactory(systemName).get
+    val systemFactory: SystemFactory = Util.getObj(systemFactoryClassName)
+    val systemAdmin = systemFactory.getAdmin(systemName, config)
 
     new KafkaCheckpointManager(
       clientId,
-      KafkaUtil.getCheckpointTopic(jobName, jobId),
+      KafkaUtil.getCheckpointTopic(jobName, jobId, config),
       systemName,
       config.getCheckpointReplicationFactor.getOrElse("3").toInt,
       socketTimeout,
@@ -96,6 +101,7 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
       connectZk,
       config.getSystemStreamPartitionGrouperFactory,      // To find out the SSPGrouperFactory class so it can be included/verified in the key
       config.failOnCheckpointValidation,
-      checkpointTopicProperties = getCheckpointTopicProperties(config))
+      checkpointTopicProperties = getCheckpointTopicProperties(config),
+      systemAdmin = systemAdmin)
   }
 }

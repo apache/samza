@@ -43,6 +43,9 @@ public class StreamSpec {
   // Internal coordinator stream id. It is used for creating coordinator StreamSpec.
   private static final String COORDINATOR_STREAM_ID = "samza-internal-coordinator-stream-id";
 
+  // Internal checkpoint stream id. It is used for creating checkpoint StreamSpec.
+  private static final String CHECKPOINT_STREAM_ID = "samza-internal-checkpoint-stream-id";
+
   /**
    * Unique identifier for the stream in a Samza application.
    * This identifier is used as a key for stream properties in the
@@ -69,6 +72,11 @@ public class StreamSpec {
   private final int partitionCount;
 
   /**
+   * Bounded or unbounded stream
+   */
+  private final boolean isBounded;
+
+  /**
    * A set of all system-specific configurations for the stream.
    */
   private final Map<String, String> config;
@@ -86,7 +94,7 @@ public class StreamSpec {
    *                      Samza System abstraction. See {@link SystemFactory}
    */
   public StreamSpec(String id, String physicalName, String systemName) {
-    this(id, physicalName, systemName, DEFAULT_PARTITION_COUNT, Collections.emptyMap());
+    this(id, physicalName, systemName, DEFAULT_PARTITION_COUNT, false, Collections.emptyMap());
   }
 
   /**
@@ -105,7 +113,7 @@ public class StreamSpec {
    * @param partitionCount  The number of partitionts for the stream. A value of {@code 1} indicates unpartitioned.
    */
   public StreamSpec(String id, String physicalName, String systemName, int partitionCount) {
-    this(id, physicalName, systemName, partitionCount, Collections.emptyMap());
+    this(id, physicalName, systemName, partitionCount, false, Collections.emptyMap());
   }
 
   /**
@@ -120,10 +128,12 @@ public class StreamSpec {
    * @param systemName    The System name on which this stream will exist. Corresponds to a named implementation of the
    *                      Samza System abstraction. See {@link SystemFactory}
    *
+   * @param isBounded     The stream is bounded or not.
+   *
    * @param config        A map of properties for the stream. These may be System-specfic.
    */
-  public StreamSpec(String id, String physicalName, String systemName, Map<String, String> config) {
-    this(id, physicalName, systemName, DEFAULT_PARTITION_COUNT, config);
+  public StreamSpec(String id, String physicalName, String systemName, boolean isBounded, Map<String, String> config) {
+    this(id, physicalName, systemName, DEFAULT_PARTITION_COUNT, isBounded, config);
   }
 
   /**
@@ -140,9 +150,11 @@ public class StreamSpec {
    *
    * @param partitionCount  The number of partitionts for the stream. A value of {@code 1} indicates unpartitioned.
    *
+   * @param isBounded       The stream is bounded or not.
+   *
    * @param config          A map of properties for the stream. These may be System-specfic.
    */
-  public StreamSpec(String id, String physicalName, String systemName, int partitionCount,  Map<String, String> config) {
+  public StreamSpec(String id, String physicalName, String systemName, int partitionCount, boolean isBounded, Map<String, String> config) {
     validateLogicalIdentifier("streamId", id);
     validateLogicalIdentifier("systemName", systemName);
 
@@ -154,6 +166,7 @@ public class StreamSpec {
     this.systemName = systemName;
     this.physicalName = physicalName;
     this.partitionCount = partitionCount;
+    this.isBounded = isBounded;
 
     if (config != null) {
       this.config = Collections.unmodifiableMap(new HashMap<>(config));
@@ -171,7 +184,11 @@ public class StreamSpec {
    * @return                A copy of this StreamSpec with the specified partitionCount.
    */
   public StreamSpec copyWithPartitionCount(int partitionCount) {
-    return new StreamSpec(id, physicalName, systemName, partitionCount, config);
+    return new StreamSpec(id, physicalName, systemName, partitionCount, this.isBounded, config);
+  }
+
+  public StreamSpec copyWithPhysicalName(String physicalName) {
+    return new StreamSpec(id, physicalName, systemName, partitionCount, this.isBounded, config);
   }
 
   public String getId() {
@@ -214,6 +231,10 @@ public class StreamSpec {
     return id.equals(COORDINATOR_STREAM_ID);
   }
 
+  public boolean isBounded() {
+    return isBounded;
+  }
+
   private void validateLogicalIdentifier(String identifierName, String identifierValue) {
     if (identifierValue == null || !identifierValue.matches("[A-Za-z0-9_-]+")) {
       throw new IllegalArgumentException(String.format("Identifier '%s' is '%s'. It must match the expression [A-Za-z0-9_-]+", identifierName, identifierValue));
@@ -241,5 +262,9 @@ public class StreamSpec {
 
   public static StreamSpec createCoordinatorStreamSpec(String physicalName, String systemName) {
     return new StreamSpec(COORDINATOR_STREAM_ID, physicalName, systemName, 1);
+  }
+
+  public static StreamSpec createCheckpointStreamSpec(String physicalName, String systemName) {
+    return new StreamSpec(CHECKPOINT_STREAM_ID, physicalName, systemName, 1);
   }
 }

@@ -33,8 +33,10 @@ import org.apache.kafka.common.utils.Utils
 import org.apache.kafka.clients.producer.{Producer, ProducerRecord}
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
+import org.apache.samza.config.JavaSystemConfig
 import org.apache.samza.container.TaskName
 import org.apache.samza.serializers.CheckpointSerde
+import org.apache.samza.system.{StreamSpec, SystemAdmin}
 import org.apache.samza.system.kafka.TopicMetadataCache
 import org.apache.samza.util._
 
@@ -62,7 +64,8 @@ class KafkaCheckpointManager(
                               failOnCheckpointValidation: Boolean,
                               val retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
                               serde: CheckpointSerde = new CheckpointSerde,
-                              checkpointTopicProperties: Properties = new Properties) extends CheckpointManager with Logging {
+                              checkpointTopicProperties: Properties = new Properties,
+                              systemAdmin: SystemAdmin = null) extends CheckpointManager with Logging {
   import org.apache.samza.checkpoint.kafka.KafkaCheckpointManager._
 
   var taskNames = Set[TaskName]()
@@ -71,6 +74,8 @@ class KafkaCheckpointManager(
 
   var startingOffset: Option[Long] = None // Where to start reading for each subsequent call of readCheckpoint
   val kafkaUtil: KafkaUtil = new KafkaUtil(retryBackoff, connectZk)
+
+
 
   KafkaCheckpointLogKey.setSystemStreamPartitionGrouperFactoryString(systemStreamPartitionGrouperFactoryString)
 
@@ -275,20 +280,26 @@ class KafkaCheckpointManager(
 
   }
 
-  def start {
+  override def start {
     kafkaUtil.createTopic(checkpointTopic, 1, replicationFactor, checkpointTopicProperties)
     kafkaUtil.validateTopicPartitionCount(checkpointTopic, systemName, metadataStore, 1, failOnCheckpointValidation)
   }
 
-  def register(taskName: TaskName) {
+  override def register(taskName: TaskName) {
     debug("Adding taskName " + taskName + " to " + this)
     taskNames += taskName
   }
 
-  def stop = {
+  override def stop = {
     if (producer != null) {
       producer.close
     }
+  }
+
+  override def clearCheckpoints = {
+    info("Clear checkpoint stream %s in system %s" format (checkpointTopic, systemName))
+    val spec = StreamSpec.createCheckpointStreamSpec(checkpointTopic, systemName)
+    systemAdmin.clearStream(spec)
   }
 
   override def toString = "KafkaCheckpointManager [systemName=%s, checkpointTopic=%s]" format(systemName, checkpointTopic)

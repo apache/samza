@@ -402,6 +402,7 @@ class KafkaSystemAdmin(
    * @inheritdoc
    */
   override def createStream(spec: StreamSpec): Boolean = {
+    info("Create topic %s in system %s" format (spec.getPhysicalName, systemName))
     val kSpec = toKafkaSpec(spec)
     var streamCreated = false
 
@@ -501,6 +502,7 @@ class KafkaSystemAdmin(
    * Otherwise it's a no-op.
    */
   override def clearStream(spec: StreamSpec): Boolean = {
+    info("Delete topic %s in system %s" format (spec.getPhysicalName, systemName))
     val kSpec = KafkaStreamSpec.fromSpec(spec)
     var retries = CLEAR_STREAM_RETRIES
     new ExponentialSleepStrategy().run(

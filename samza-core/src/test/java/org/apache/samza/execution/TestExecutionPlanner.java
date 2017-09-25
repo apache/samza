@@ -371,13 +371,13 @@ public class TestExecutionPlanner {
   @Test
   public void testMaxPartition() {
     Collection<StreamEdge> edges = new ArrayList<>();
-    StreamEdge edge = new StreamEdge(input1);
+    StreamEdge edge = new StreamEdge(input1, config);
     edge.setPartitionCount(2);
     edges.add(edge);
-    edge = new StreamEdge(input2);
+    edge = new StreamEdge(input2, config);
     edge.setPartitionCount(32);
     edges.add(edge);
-    edge = new StreamEdge(input3);
+    edge = new StreamEdge(input3, config);
     edge.setPartitionCount(16);
     edges.add(edge);
 

@@ -173,7 +173,7 @@ import org.slf4j.LoggerFactory;
     String streamId = streamSpec.getId();
     StreamEdge edge = edges.get(streamId);
     if (edge == null) {
-      edge = new StreamEdge(streamSpec, isIntermediate);
+      edge = new StreamEdge(streamSpec, isIntermediate, config);
       edges.put(streamId, edge);
     }
     return edge;
