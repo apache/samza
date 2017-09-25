@@ -133,4 +133,20 @@ public class StreamManager {
       LOGGER.warn("Fail to clear internal streams from previous run. Please clean up manually.", e);
     }
   }
+
+  /**
+   * Create a unique stream name if it's batch mode and has a valid run.id.
+   * @param stream physical name of the stream
+   * @param config {@link Config} object
+   * @return
+   */
+  public static String createUniqueNameForBatch(String stream, Config config) {
+    ApplicationConfig appConfig = new ApplicationConfig(config);
+    if (appConfig.getAppMode() == ApplicationConfig.ApplicationMode.BATCH && appConfig.getRunId() != null) {
+      return stream + "-" + appConfig.getRunId();
+    }
+    else {
+      return stream;
+    }
+  }
 }

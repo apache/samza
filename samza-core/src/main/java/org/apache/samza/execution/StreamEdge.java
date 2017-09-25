@@ -24,7 +24,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
@@ -74,9 +73,9 @@ public class StreamEdge {
         streamSpec : streamSpec.copyWithPartitionCount(partitions);
 
     if (isIntermediate) {
-      ApplicationConfig appConfig = new ApplicationConfig(config);
-      if (appConfig.getAppMode() == ApplicationConfig.ApplicationMode.BATCH && appConfig.getRunId() != null) {
-        spec = spec.copyWithPhysicalName(spec.getPhysicalName() + "-" + appConfig.getRunId());
+      String physicalName = StreamManager.createUniqueNameForBatch(spec.getPhysicalName(), config);
+      if (!physicalName.equals(spec.getPhysicalName())) {
+        spec = spec.copyWithPhysicalName(physicalName);
       }
     }
     return spec;

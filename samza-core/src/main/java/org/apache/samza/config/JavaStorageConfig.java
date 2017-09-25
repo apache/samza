@@ -22,6 +22,7 @@ package org.apache.samza.config;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.samza.SamzaException;
+import org.apache.samza.execution.StreamManager;
 
 
 /**
@@ -72,11 +73,7 @@ public class JavaStorageConfig extends MapConfig {
       systemStreamRes = systemStream;
     }
 
-    ApplicationConfig appConfig = new ApplicationConfig(this);
-    if (appConfig.getAppMode() == ApplicationConfig.ApplicationMode.BATCH && appConfig.getRunId() != null) {
-      systemStreamRes += "-" + appConfig.getRunId();
-    }
-
+    systemStreamRes = StreamManager.createUniqueNameForBatch(systemStreamRes, this);
     return systemStreamRes;
   }
 

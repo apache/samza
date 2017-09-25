@@ -27,6 +27,7 @@ import org.apache.kafka.common.PartitionInfo
 import org.apache.samza.config.ApplicationConfig.ApplicationMode
 import org.apache.samza.config.{ApplicationConfig, Config, ConfigException}
 import org.apache.samza.config.JobConfig.Config2Job
+import org.apache.samza.execution.StreamManager
 import org.apache.samza.system.OutgoingMessageEnvelope
 import kafka.common.{ErrorMapping, ReplicaNotAvailableException}
 import org.apache.kafka.common.errors.TopicExistsException
@@ -58,14 +59,9 @@ object KafkaUtil extends Logging {
   }
 
   def getCheckpointTopic(jobName: String, jobId: String, config: Config) = {
-    val appConfig = new ApplicationConfig(config)
-    if (appConfig.getAppMode == ApplicationMode.BATCH && appConfig.getRunId != null) {
-      "__samza_checkpoint_ver_%d_for_%s_%s_%s" format(CHECKPOINT_LOG_VERSION_NUMBER,
-        jobName.replaceAll("_", "-"), jobId.replaceAll("_", "-"), appConfig.getRunId)
-    } else {
-      "__samza_checkpoint_ver_%d_for_%s_%s" format(CHECKPOINT_LOG_VERSION_NUMBER,
-        jobName.replaceAll("_", "-"), jobId.replaceAll("_", "-"))
-    }
+    val checkpointTopic = "__samza_checkpoint_ver_%d_for_%s_%s" format(CHECKPOINT_LOG_VERSION_NUMBER,
+      jobName.replaceAll("_", "-"), jobId.replaceAll("_", "-"))
+    StreamManager.createUniqueNameForBatch(checkpointTopic, config)
   }
 
   /**
