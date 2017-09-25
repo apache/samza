@@ -6,30 +6,22 @@ import com.microsoft.azure.eventhubs.PartitionReceiver;
 import com.microsoft.azure.servicebus.ServiceBusException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.MapConfig;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.eventhub.EventHubClientWrapper;
-import org.apache.samza.system.eventhub.EventHubConfig;
 import org.apache.samza.system.eventhub.EventHubSystemFactory;
+import org.apache.samza.system.eventhub.MockConfigFactory;
+import org.apache.samza.system.eventhub.consumer.EventHubSystemConsumer;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
+import static org.apache.samza.system.eventhub.MockConfigFactory.*;
 
 public class TestEventHubSystemProducer {
-  public static final String EVENTHUB_NAMESPACE = "" +
-          "";
-  public static final String EVENTHUB_ENTITY1 = "";
-  public static final String EVENTHUB_KEY_NAME = "";
-  public static final String EVENTHUB_KEY = "";
-  public static final String SYSTEM_NAME = "system1";
-  public static final String STREAM_NAME1 = "test_stream1";
-  public static final String STREAM_NAME2 = "test_stream2";
   private static final Logger LOG = LoggerFactory.getLogger(TestEventHubSystemProducer.class.getName());
 
   @Test
@@ -46,34 +38,14 @@ public class TestEventHubSystemProducer {
   }
 
   private Config createEventHubConfig() {
-    return createEventHubConfig(EventHubClientWrapper.PartitioningMethod.EVENT_HUB_HASHING);
-  }
-
-  private Config createEventHubConfig(EventHubClientWrapper.PartitioningMethod partitioningMethod) {
-    HashMap<String, String> mapConfig = new HashMap<>();
-    mapConfig.put(EventHubSystemProducer.CONFIG_PARTITIONING_METHOD, partitioningMethod.toString());
-    mapConfig.put(String.format(EventHubConfig.CONFIG_STREAM_LIST, SYSTEM_NAME), STREAM_NAME1);
-    mapConfig.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, SYSTEM_NAME, STREAM_NAME1), EVENTHUB_NAMESPACE);
-    mapConfig.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, SYSTEM_NAME, STREAM_NAME1), EVENTHUB_ENTITY1);
-    mapConfig.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, SYSTEM_NAME, STREAM_NAME1), EVENTHUB_KEY_NAME);
-    mapConfig.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, SYSTEM_NAME, STREAM_NAME1), EVENTHUB_KEY);
-    mapConfig.put(String.format(EventHubConfig.CONFIG_STREAM_CONSUMER_START_POSITION, SYSTEM_NAME, STREAM_NAME1), "earliest");
-
-    mapConfig.put(String.format(EventHubConfig.CONFIG_STREAM_LIST, SYSTEM_NAME), STREAM_NAME2);
-    mapConfig.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, SYSTEM_NAME, STREAM_NAME2), EVENTHUB_NAMESPACE);
-    mapConfig.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, SYSTEM_NAME, STREAM_NAME2), EVENTHUB_ENTITY1);
-    mapConfig.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, SYSTEM_NAME, STREAM_NAME2), EVENTHUB_KEY_NAME);
-    mapConfig.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, SYSTEM_NAME, STREAM_NAME2), EVENTHUB_KEY);
-    mapConfig.put(String.format(EventHubConfig.CONFIG_STREAM_CONSUMER_START_POSITION, SYSTEM_NAME, STREAM_NAME2), "earliest");
-
-    return new MapConfig(mapConfig);
+    return MockConfigFactory.getEventHubConfig(EventHubClientWrapper.PartitioningMethod.EVENT_HUB_HASHING);
   }
 
   @Test
   public void testSend() {
     Config eventHubConfig = createEventHubConfig();
     EventHubSystemFactory systemFactory = new EventHubSystemFactory();
-    SystemProducer systemProducer = systemFactory.getProducer("system1", eventHubConfig, new NoOpMetricsRegistry());
+    SystemProducer systemProducer = systemFactory.getProducer(SYSTEM_NAME, eventHubConfig, new NoOpMetricsRegistry());
 
     systemProducer.register(STREAM_NAME1);
 
@@ -110,7 +82,7 @@ public class TestEventHubSystemProducer {
     EventHubClient client = wrapper.getEventHubClient();
     PartitionReceiver receiver =
             client.createReceiverSync(EventHubClient.DEFAULT_CONSUMER_GROUP_NAME, "0",
-                    "163456", true);
+                    EventHubSystemConsumer.START_OF_STREAM, true);
     receiveMessages(receiver, 300);
   }
 
@@ -120,24 +92,20 @@ public class TestEventHubSystemProducer {
 
       Iterable<EventData> messages = receiver.receiveSync(100);
       if (messages == null) {
-        System.out.println("End of stream");
         break;
       }
       for (EventData data : messages) {
         count++;
         LOG.info("Data" + new String(data.getBody()));
-        System.out.println("\nDATA: " + new String(data.getBody()));
-        System.out.println("BYTES_SIZE: " + data.getBytes().length);
-        System.out.println("OFFSET: " + data.getSystemProperties().getOffset());
       }
     }
   }
 
   @Test
   public void testSendToSpecificPartition() {
-    Config eventHubConfig = createEventHubConfig(EventHubClientWrapper.PartitioningMethod.PARTITION_KEY_AS_PARTITION);
+    Config eventHubConfig = MockConfigFactory.getEventHubConfig(EventHubClientWrapper.PartitioningMethod.PARTITION_KEY_AS_PARTITION);
     EventHubSystemFactory systemFactory = new EventHubSystemFactory();
-    SystemProducer systemProducer = systemFactory.getProducer("system1", eventHubConfig, new NoOpMetricsRegistry());
+    SystemProducer systemProducer = systemFactory.getProducer(SYSTEM_NAME, eventHubConfig, new NoOpMetricsRegistry());
 
     systemProducer.register(STREAM_NAME1);
     systemProducer.start();
@@ -163,7 +131,7 @@ public class TestEventHubSystemProducer {
     Config eventHubConfig = createEventHubConfig();
     EventHubSystemFactory systemFactory = new EventHubSystemFactory();
     EventHubSystemProducer systemProducer =
-            (EventHubSystemProducer) systemFactory.getProducer("system1", eventHubConfig, new NoOpMetricsRegistry());
+            (EventHubSystemProducer) systemFactory.getProducer(SYSTEM_NAME, eventHubConfig, new NoOpMetricsRegistry());
     systemProducer.register(STREAM_NAME1);
     systemProducer.register(STREAM_NAME2);
     systemProducer.start();
