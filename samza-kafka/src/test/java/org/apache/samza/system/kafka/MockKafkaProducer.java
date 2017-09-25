@@ -31,15 +31,16 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReferenceArray;
+import kafka.producer.ProducerClosedException;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.Metric;
+import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.record.Record;
 import org.apache.kafka.test.TestUtils;
 
@@ -49,8 +50,11 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
   private List<FutureTask<RecordMetadata>> _callbacksList = new ArrayList<FutureTask<RecordMetadata>>();
   private boolean shouldBuffer = false;
   private boolean errorNext = false;
+  private boolean errorInCallback = true;
   private Exception exception = null;
   private AtomicInteger msgsSent = new AtomicInteger(0);
+  private boolean closed = false;
+  private int openCount = 0;
 
   /*
    * Helps mock out buffered behavior seen in KafkaProducer. This MockKafkaProducer enables you to:
@@ -72,8 +76,9 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
     this.shouldBuffer = shouldBuffer;
   }
 
-  public void setErrorNext(boolean errorNext, Exception exception) {
+  public void setErrorNext(boolean errorNext, boolean errorInCallback, Exception exception) {
     this.errorNext = errorNext;
+    this.errorInCallback = errorInCallback;
     this.exception = exception;
   }
 
@@ -82,27 +87,7 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
   }
 
   public Thread startDelayedSendThread(final int sleepTime) {
-    Thread t = new Thread(new Runnable() {
-      @Override
-      public void run() {
-        FutureTask[] callbackArray = new FutureTask[_callbacksList.size()];
-        AtomicReferenceArray<FutureTask> _bufferList = new AtomicReferenceArray<FutureTask>(_callbacksList.toArray(callbackArray));
-        ExecutorService executor = Executors.newFixedThreadPool(10);
-        try {
-          for(int i = 0; i < _bufferList.length(); i++) {
-            Thread.sleep(sleepTime);
-            FutureTask f = _bufferList.get(i);
-            if(!f.isDone()) {
-              executor.submit(f).get();
-            }
-          }
-        } catch (InterruptedException e) {
-          e.printStackTrace();
-        } catch (ExecutionException ee) {
-          ee.printStackTrace();
-        }
-      }
-    });
+    Thread t = new Thread(new FlushRunnable(sleepTime));
     t.start();
     return t;
   }
@@ -118,7 +103,14 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
 
   @Override
   public Future<RecordMetadata> send(final ProducerRecord record, final Callback callback) {
+    if (closed) {
+      throw new ProducerClosedException();
+    }
     if (errorNext) {
+      if (!errorInCallback) {
+        this.errorNext = false;
+        throw (RuntimeException)exception;
+      }
       if (shouldBuffer) {
         FutureTask<RecordMetadata> f = new FutureTask<RecordMetadata>(new Callable<RecordMetadata>() {
           @Override
@@ -171,16 +163,31 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
 
   @Override
   public void close() {
-
+    close(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
   }
 
   @Override
   public void close(long timeout, TimeUnit timeUnit) {
+    closed = true;
+    // The real producer will flush messages as part of closing. We'll invoke flush here to approximate that behavior.
+    new FlushRunnable(0).run();
+  }
 
+  public void open() {
+    this.closed = false;
+    openCount++;
+  }
+
+  public boolean isClosed() {
+    return closed;
+  }
+
+  public int getOpenCount() {
+    return openCount;
   }
 
   public synchronized void flush () {
-
+    new FlushRunnable(0).run();
   }
 
 
@@ -251,6 +258,36 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
     @Override
     public boolean isDone() {
       return true;
+    }
+  }
+
+  private class FlushRunnable implements Runnable {
+    private final int _sleepTime;
+
+    public FlushRunnable(int sleepTime) {
+      _sleepTime = sleepTime;
+    }
+
+    public void run() {
+      FutureTask[] callbackArray = new FutureTask[_callbacksList.size()];
+      AtomicReferenceArray<FutureTask> _bufferList =
+          new AtomicReferenceArray<FutureTask>(_callbacksList.toArray(callbackArray));
+      ExecutorService executor = Executors.newFixedThreadPool(10);
+      try {
+        for (int i = 0; i < _bufferList.length(); i++) {
+          Thread.sleep(_sleepTime);
+          FutureTask f = _bufferList.get(i);
+          if (!f.isDone()) {
+            executor.submit(f).get();
+          }
+        }
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      } catch (ExecutionException ee) {
+        ee.printStackTrace();
+      } finally {
+        executor.shutdownNow();
+      }
     }
   }
 }

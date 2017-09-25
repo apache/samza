@@ -16,22 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.coordinator;
+package org.apache.samza.system;
 
-import org.apache.samza.config.Config;
+import org.apache.samza.SamzaException;
 
 
-/**
- * factory to instantiate a c{@link CoordinationUtils} service
- */
-public interface CoordinationUtilsFactory {
+public class SystemProducerException extends SamzaException {
+  private static final long serialVersionUID = 1L;
 
-  /**
-   * get a unique service instance
-   * @param groupId - unique id to identify the service
-   * @param participantId - a unique id that identifies the participant in the service
-   * @param updatedConfig - configs, to define the details of the service
-   * @return a unique service instance
-   */
-  CoordinationUtils getCoordinationUtils(String groupId, String participantId, Config updatedConfig);
+  public SystemProducerException(String s) {
+    super(s);
+  }
+
+  public SystemProducerException(Throwable t) {
+    super(t);
+  }
+
+  public SystemProducerException(String s, Throwable t) {
+    super(s, t);
+  }
 }
