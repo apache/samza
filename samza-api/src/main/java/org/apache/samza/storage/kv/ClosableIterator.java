@@ -26,7 +26,7 @@ import java.util.Iterator;
  *
  * <p> Implement close to free resources assigned to the iterator such as open file handles, persistent state etc.
  *
- * @param <V>
+ * @param <V> the type of value returned by this iterator
  */
 public interface ClosableIterator<V> extends Iterator<V> {
 

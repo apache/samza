@@ -20,7 +20,7 @@
 package org.apache.samza.operators.impl.store;
 
 /**
- * An immutable pair for a value, and its corresponding timestamp.
+ * An immutable pair of a value, and its corresponding timestamp.
  *
  * <p> Iterators on {@link TimeSeriesStore}s always return {@link TimeSeriesValue}s
  *
