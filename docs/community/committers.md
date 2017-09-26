@@ -88,6 +88,10 @@ Committer, and PMC member<br/>
 <a href="https://www.linkedin.com/in/zjshen" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
 <a href="https://twitter.com/zhijieshen" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
 
+**Boris Shkolnik**<br/>
+Committer<br/>
+<a href="https://www.linkedin.com/in/boryas" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
+<a href="https://twitter.com/sborya" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
 
 
 
