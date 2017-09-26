@@ -82,13 +82,13 @@ A Maven-based Samza project can pull in all required dependencies Samza dependen
 </dependency>
 <dependency>
   <groupId>org.apache.samza</groupId>
-  <artifactId>samza-timeSeriesValue-rocksdb_2.11</artifactId>
+  <artifactId>samza-kv-rocksdb_2.11</artifactId>
   <version>0.13.1</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
   <groupId>org.apache.samza</groupId>
-  <artifactId>samza-timeSeriesValue-inmemory_2.11</artifactId>
+  <artifactId>samza-kv-inmemory_2.11</artifactId>
   <version>0.13.1</version>
   <scope>runtime</scope>
 </dependency>

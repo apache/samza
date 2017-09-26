@@ -44,7 +44,7 @@ To run a single test:
 
 To run key-value performance tests:
 
-    ./gradlew samza-shell:kvPerformanceTest -PconfigPath=file://$PWD/samza-test/src/main/config/perf/timeSeriesValue-perf.properties
+    ./gradlew samza-shell:kvPerformanceTest -PconfigPath=file://$PWD/samza-test/src/main/config/perf/kv-perf.properties
 
 To run all integration tests:
 

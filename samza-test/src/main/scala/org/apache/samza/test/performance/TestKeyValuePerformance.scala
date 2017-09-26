@@ -209,7 +209,7 @@ class TestKeyValuePerformance extends Logging {
   }
 
   /**
-   * Test that successively writes a set of fixed-size messages to the TimeSeriesValue store
+   * Test that successively writes a set of fixed-size messages to the KV store
    * and computes the total time for the operations
    * @param store Key-Value store instance that is being tested
    * @param numMsgs Total number of messages to write to the store

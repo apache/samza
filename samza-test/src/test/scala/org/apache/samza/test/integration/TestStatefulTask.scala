@@ -97,7 +97,7 @@ class TestStatefulTask extends StreamTaskTestUtil {
     TestStatefulTask.MESSAGES_SEND_1.foreach(m => send(task, m))
 
     // Validate that messages appear in store stream.
-    val messages = readAll(TestStatefulTask.STATE_TOPIC_STREAM, TestStatefulTask.MESSAGES_RECV_1.length-1, "testShouldStartTaskForFirstTime")
+    val messages = readAll(TestStatefulTask.STATE_TOPIC_STREAM, 5, "testShouldStartTaskForFirstTime")
 
     assertEquals(TestStatefulTask.MESSAGES_RECV_1, messages)
 

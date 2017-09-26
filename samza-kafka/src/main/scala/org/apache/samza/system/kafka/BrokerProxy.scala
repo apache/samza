@@ -228,7 +228,7 @@ class BrokerProxy(
     // Convert FetchResponse into easier-to-work-with Errors
     val errors = for (
       (topicAndPartition, responseData) <- errorResponses;
-      errorCode <- Option(response.errorCode(topicAndPartition.topic, topicAndPartition.partition)); // Scala's being cranky about referring to error.getValue values...
+      errorCode <- Option(response.errorCode(topicAndPartition.topic, topicAndPartition.partition)); // Scala's being cranky about referring to error.getKey values...
       exception <- Option(ErrorMapping.exceptionFor(errorCode))
     ) yield new Error(topicAndPartition, errorCode, exception)
 

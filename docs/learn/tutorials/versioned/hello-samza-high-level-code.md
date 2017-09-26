@@ -335,11 +335,11 @@ Tip: Because the MessageStream type information is preserved in the operator cha
 #### KVStore
 We now have an operational Wikipedia application which provides stats aggregated over a 10 second interval. One of those stats is a count of the number of edits within the 10s window. But what if we want to keep an additional durable counter of the total edits?
 
-We will do this by keeping a separate count outside the window and persisting it in a [KeyValueStore](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/storage/timeSeriesValue/KeyValueStore.html).
+We will do this by keeping a separate count outside the window and persisting it in a [KeyValueStore](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/storage/kv/KeyValueStore.html).
 
 We start by defining the store in the config file:
 {% highlight bash %}
-stores.wikipedia-stats.factory=org.apache.samza.storage.timeSeriesValue.RocksDbKeyValueStorageEngineFactory
+stores.wikipedia-stats.factory=org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory
 stores.wikipedia-stats.changelog=kafka.wikipedia-stats-changelog
 stores.wikipedia-stats.key.serde=string
 stores.wikipedia-stats.msg.serde=integer

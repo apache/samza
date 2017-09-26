@@ -180,7 +180,7 @@ class TestTaskStorageManager extends MockitoSugar {
 
   /**
    * This tests the entire TaskStorageManager lifecycle for an InMemory Logged Store
-   * For example, an InMemory TimeSeriesValue store with changelog should not update the offset file on flush & stop
+   * For example, an InMemory KV store with changelog should not update the offset file on flush & stop
    * When the task is restarted, it should ALWAYS restore correctly from the earliest offset
    */
   @Test

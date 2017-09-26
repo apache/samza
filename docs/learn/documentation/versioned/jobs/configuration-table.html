@@ -675,24 +675,6 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="task-drop-producer-errors">task.drop.producer.errors</td>
-                    <td class="default">false</td>
-                    <td class="description">
-                        If true, producer errors will be logged and ignored. The only exceptions that will be thrown are
-                        those which are likely caused by the application itself (e.g. serializaiton errors). If false,
-                        the producer will be closed and producer errors will be propagated upward until the container
-                        ultimately fails. Failing the container is a safety precaution to ensure the latest checkpoints
-                        only reflect the events that  have been completely and successfully processed. However, some
-                        applications prefer to remain running at all costs, even if that means lost messages. Setting
-                        this property to true will enable applications to recover from producer errors at the expense of
-                        one or many (in the case of batching producers) dropped messages. If you enable this, it is highly
-                        recommended that you also configure alerting on the 'producer-send-failed' metric, since the
-                        producer might drop messages indefinitely. The logic for this property is specific to each
-                        SystemProducer implementation. It will have no effect for SystemProducers that ignore the property.
-                    </td>
-                </tr>
-
-                <tr>
                     <td class="property" id="task-log4j-system">task.log4j.system</td>
                     <td class="default"></td>
                     <td class="description">
@@ -1543,7 +1525,7 @@
                         <a href="../api/javadocs/org/apache/samza/storage/StorageEngineFactory.html">StorageEngineFactory</a>.
                         Samza currently ships with one storage engine implementation:
                         <dl>
-                            <dt><code>org.apache.samza.storage.timeSeriesValue.RocksDbKeyValueStorageEngineFactory</code></dt>
+                            <dt><code>org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory</code></dt>
                             <dd>An on-disk storage engine with a key-value interface, implemented using
                                 <a href="http://rocksdb.org/">RocksDB</a>. It supports fast random-access
                                 reads and writes, as well as range queries on keys. RocksDB can be configured with
@@ -1604,7 +1586,7 @@
                         <span class="subtitle">
                             (This section applies if you have set
                             <a href="#stores-factory" class="property">stores.*.factory</a>
-                            <code>= org.apache.samza.storage.timeSeriesValue.RocksDbKeyValueStorageEngineFactory</code>)
+                            <code>= org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory</code>)
                         </span>
                     </th>
                 </tr>

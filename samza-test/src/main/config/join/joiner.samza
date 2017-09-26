@@ -23,7 +23,7 @@ job.name=joiner
 task.class=org.apache.samza.test.integration.join.Joiner
 task.inputs=kafka.emitted
 
-stores.joiner-state.factory=org.apache.samza.storage.timeSeriesValue.RocksDbKeyValueStorageEngineFactory
+stores.joiner-state.factory=org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory
 stores.joiner-state.key.serde=string
 stores.joiner-state.msg.serde=string
 stores.joiner-state.changelog=kafka.joiner-state

@@ -43,7 +43,7 @@ required in organizations that run tens or hundreds of jobs.
 #### Pre-requisite for split deployment
 Each deployment will now consist of two separate packages:<p>
 
-1. **Samza framework** - This includes all Samza libraries and scripts, such as samza-api, samza-core, samza-log4j, samza-kafka, samza-yarn, samza-timeSeriesValue, samza-timeSeriesValue-inmemory, samza-timeSeriesValue-rocksdb, samza-shell, samza-hdfs and all their dependencies.
+1. **Samza framework** - This includes all Samza libraries and scripts, such as samza-api, samza-core, samza-log4j, samza-kafka, samza-yarn, samza-kv, samza-kv-inmemory, samza-kv-rocksdb, samza-shell, samza-hdfs and all their dependencies.
 2. **User's job** - This includes the job package: all user code for the StreamTask implementation, configs, and other libraries required by the job. The job's package should depend only samza-api and no other Samza libraries. The package won't be able to start by itself. In order to start, it will need to use the Samza framework.
 
 #### Deployment steps

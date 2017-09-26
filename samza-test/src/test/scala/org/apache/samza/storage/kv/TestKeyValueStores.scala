@@ -278,7 +278,7 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
    * Samza gets around this by manually updating the field itself. See SAMZA-80
    * for details.
    *
-   * This issue is exposed in Samza's TimeSeriesValue cache implementation, which uses
+   * This issue is exposed in Samza's KV cache implementation, which uses
    * DoubleLinkedList, so all comments in this method are discussing the cached
    * implementation, but the test is still useful as a sanity check for
    * non-cached stores.

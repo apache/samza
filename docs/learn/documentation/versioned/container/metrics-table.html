@@ -595,7 +595,7 @@
     </tr>
 
     <tr>
-        <th colspan="2" class="section" id="key-value-storage-engine-metrics">org.apache.samza.storage.timeSeriesValue.KeyValueStorageEngineMetrics</th>
+        <th colspan="2" class="section" id="key-value-storage-engine-metrics">org.apache.samza.storage.kv.KeyValueStorageEngineMetrics</th>
     </tr>
     <tr>
         <td><span class="store">store-name</span>-puts</td>
@@ -655,27 +655,27 @@
     </tr>
 
     <tr>
-        <th colspan="2" class="section" id="key-value-store-metrics">org.apache.samza.storage.timeSeriesValue.KeyValueStoreMetrics</th>
+        <th colspan="2" class="section" id="key-value-store-metrics">org.apache.samza.storage.kv.KeyValueStoreMetrics</th>
     </tr>
     <tr>
         <td><span class="store">store-name</span>-puts</td>
-        <td>Total number of updating the mapping of the specified key-value pair. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/timeSeriesValue/KeyValueStore.html#put-K-V-"><code>put</code></a> method</td>
+        <td>Total number of updating the mapping of the specified key-value pair. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/kv/KeyValueStore.html#put-K-V-"><code>put</code></a> method</td>
     </tr>
     <tr>
         <td><span class="store">store-name</span>-gets</td>
-        <td>Total number of looking for the <code>value</code> associated with the specified <code>key</code>. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/timeSeriesValue/KeyValueStore.html#get-K-"><code>get</code></a> method</td>
+        <td>Total number of looking for the <code>value</code> associated with the specified <code>key</code>. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/kv/KeyValueStore.html#get-K-"><code>get</code></a> method</td>
     </tr>
     <tr>
         <td><span class="store">store-name</span>-getalls</td>
-        <td>Total number of looking for <code>values</code> associated with the specified <code>keys</code>. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/timeSeriesValue/KeyValueStore.html#getAll-java.util.List-"><code>getAll</code></a> method</td>
+        <td>Total number of looking for <code>values</code> associated with the specified <code>keys</code>. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/kv/KeyValueStore.html#getAll-java.util.List-"><code>getAll</code></a> method</td>
     </tr>
     <tr>
         <td><span class="store">store-name</span>-alls</td>
-        <td>Total number of accessing the iterator for all entries in this key-value store. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/timeSeriesValue/KeyValueStore.html#all--"><code>all</code></a> method</td>
+        <td>Total number of accessing the iterator for all entries in this key-value store. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/kv/KeyValueStore.html#all--"><code>all</code></a> method</td>
     </tr>
     <tr>
         <td><span class="store">store-name</span>-ranges</td>
-        <td>Total number of accessing the iterator for a sorted range of entries. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/timeSeriesValue/KeyValueStore.html#range-K-K-"><code>range</code></a> method</td>
+        <td>Total number of accessing the iterator for a sorted range of entries. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/kv/KeyValueStore.html#range-K-K-"><code>range</code></a> method</td>
     </tr>
     <tr>
         <td><span class="store">store-name</span>-bytes-written</td>
@@ -687,19 +687,19 @@
     </tr>
     <tr>
         <td><span class="store">store-name</span>-flushes</td>
-        <td>Total number of key-value store flushes. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/timeSeriesValue/KeyValueStore.html#flush--"><code>flush</code></a> method</td>
+        <td>Total number of key-value store flushes. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/kv/KeyValueStore.html#flush--"><code>flush</code></a> method</td>
     </tr>
     <tr>
         <td><span class="store">store-name</span>-deletes</td>
-        <td>Total number of deleting the mapping for the specified <code>key</code> from the key-value store. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/timeSeriesValue/KeyValueStore.html#delete-K-"><code>delete</code></a> method</td>
+        <td>Total number of deleting the mapping for the specified <code>key</code> from the key-value store. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/kv/KeyValueStore.html#delete-K-"><code>delete</code></a> method</td>
     </tr>
     <tr>
         <td><span class="store">store-name</span>-deletealls</td>
-        <td>Total number of deleting the mappings for the specified <code>keys</code> from this key-value store. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/timeSeriesValue/KeyValueStore.html#deleteAll-java.util.List-"><code>deleteAll</code></a> method</td>
+        <td>Total number of deleting the mappings for the specified <code>keys</code> from this key-value store. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/kv/KeyValueStore.html#deleteAll-java.util.List-"><code>deleteAll</code></a> method</td>
     </tr>
 
     <tr>
-        <th colspan="2" class="section" id="logged-store-metrics">org.apache.samza.storage.timeSeriesValue.LoggedStoreMetrics</th>
+        <th colspan="2" class="section" id="logged-store-metrics">org.apache.samza.storage.kv.LoggedStoreMetrics</th>
     </tr>
     <tr>
         <td><span class="store">store-name</span>-puts</td>
@@ -727,7 +727,7 @@
     </tr>
 
     <tr>
-        <th colspan="2" class="section" id="serialized-key-value-store-metrics">org.apache.samza.storage.timeSeriesValue.SerializedKeyValueStoreMetrics</th>
+        <th colspan="2" class="section" id="serialized-key-value-store-metrics">org.apache.samza.storage.kv.SerializedKeyValueStoreMetrics</th>
     </tr>
     <tr>
         <td><span class="store">store-name</span>-puts</td>
@@ -763,7 +763,7 @@
     </tr>
 
     <tr>
-        <th colspan="2" class="section" id="cached-store-metrics">org.apache.samza.storage.timeSeriesValue.CachedStoreMetrics</th>
+        <th colspan="2" class="section" id="cached-store-metrics">org.apache.samza.storage.kv.CachedStoreMetrics</th>
     </tr>
     <tr>
         <td><span class="store">store-name</span>-puts</td>

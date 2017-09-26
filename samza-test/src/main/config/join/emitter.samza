@@ -26,7 +26,7 @@ task.commit.ms=1000
 task.window.ms=5
 
 
-stores.emitter-state.factory=org.apache.samza.storage.timeSeriesValue.RocksDbKeyValueStorageEngineFactory
+stores.emitter-state.factory=org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory
 stores.emitter-state.key.serde=string
 stores.emitter-state.msg.serde=string
 stores.emitter-state.changelog=kafka.emitter-state

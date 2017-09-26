@@ -85,7 +85,7 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
     val accessLog = storageConfig.getBoolean("accesslog.enabled", false)
 
     if (storeFactory == null) {
-      throw new SamzaException("Store factory not defined. Cannot proceed with TimeSeriesValue store creation!")
+      throw new SamzaException("Store factory not defined. Cannot proceed with KV store creation!")
     }
     if (!storeFactory.equals(INMEMORY_KV_STORAGE_ENGINE_FACTORY)) {
       storePropertiesBuilder = storePropertiesBuilder.setPersistedToDisk(true)
