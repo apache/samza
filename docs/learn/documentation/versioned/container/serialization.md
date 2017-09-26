@@ -47,7 +47,7 @@ systems.kafka.streams.PageViewEvent.samza.msg.serde=json
 
 # Define a key-value store which stores the most recent page view for each user ID.
 # Again, the key is an integer user ID, and the value is JSON.
-stores.LastPageViewPerUser.factory=org.apache.samza.storage.kv.KeyValueStorageEngineFactory
+stores.LastPageViewPerUser.factory=org.apache.samza.storage.timeSeriesValue.KeyValueStorageEngineFactory
 stores.LastPageViewPerUser.changelog=kafka.last-page-view-per-user
 stores.LastPageViewPerUser.key.serde=integer
 stores.LastPageViewPerUser.msg.serde=json

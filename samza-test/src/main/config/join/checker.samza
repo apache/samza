@@ -26,7 +26,7 @@ systems.kafka.samza.offset.default=oldest
 task.class=org.apache.samza.test.integration.join.Checker
 task.inputs=kafka.completed-keys
 
-stores.checker-state.factory=org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory
+stores.checker-state.factory=org.apache.samza.storage.timeSeriesValue.RocksDbKeyValueStorageEngineFactory
 stores.checker-state.key.serde=string
 stores.checker-state.msg.serde=string
 stores.checker-state.changelog=kafka.checker-state

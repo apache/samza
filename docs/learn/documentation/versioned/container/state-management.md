@@ -87,7 +87,7 @@ Some academic systems produce *diffs* in addition to full checkpoints, which are
 
 Another common pattern for stateful processing is to store the state in an external database or key-value store. Conventional database replication can be used to make that database fault-tolerant. The architecture looks something like this:
 
-![state-kv-store](/img/{{site.version}}/learn/documentation/container/stream_job_and_db.png)
+![state-timeSeriesValue-store](/img/{{site.version}}/learn/documentation/container/stream_job_and_db.png)
 
 Samza allows this style of processing &mdash; there is nothing to stop you querying a remote database or service within your job. However, there are a few reasons why a remote database can be problematic for stateful stream processing:
 
@@ -136,7 +136,7 @@ To use a key-value store in your job, add the following to your job config:
 
 {% highlight jproperties %}
 # Use the key-value store implementation for a store called "my-store"
-stores.my-store.factory=org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory
+stores.my-store.factory=org.apache.samza.storage.timeSeriesValue.RocksDbKeyValueStorageEngineFactory
 
 # Use the Kafka topic "my-store-changelog" as the changelog stream for this store.
 # This enables automatic recovery of the store after a failure. If you don't

@@ -17,41 +17,30 @@
  * under the License.
  *
  */
-package org.apache.samza.operators.impl;
+package org.apache.samza.operators.impl.store;
 
 /**
- * A key used in {@link TimeSeriesStoreImpl}
+ * An immutable pair for a value, and its corresponding timestamp.
+ *
+ * <p> Iterators on {@link TimeSeriesStore}s always return {@link TimeSeriesValue}s
+ *
+ * @param <V>, the type of the value
  */
-public class TimeSeriesKey<K> {
+public class TimeSeriesValue<V> {
+  private final V value;
+  private final Long timestamp;
 
-  private final K key;
-  private final long timestamp;
-  private final int seqNum;
-
-  public TimeSeriesKey(K k, long time, int seq) {
-    key = k;
+  public TimeSeriesValue(V v, Long time) {
+    value = v;
     timestamp = time;
-    seqNum = seq;
   }
 
-  public K getKey() {
-    return key;
+  public V getValue() {
+    return value;
   }
 
-  public long getTimestamp() {
+  public Long getTimestamp() {
     return timestamp;
-  }
-
-  public int getSeqNum() {
-    return seqNum;
-  }
-
-  @Override
-  public int hashCode() {
-    int result = key != null ? key.hashCode() : 0;
-    result = 31 * result + (int) (timestamp ^ (timestamp >>> 32));
-    result = 31 * result + seqNum;
-    return result;
   }
 
   @Override
@@ -59,20 +48,16 @@ public class TimeSeriesKey<K> {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
 
-    TimeSeriesKey<?> that = (TimeSeriesKey<?>) o;
+    TimeSeriesValue<?> that = (TimeSeriesValue<?>) o;
 
-    if (timestamp != that.timestamp) return false;
-    if (seqNum != that.seqNum) return false;
-    return key != null ? key.equals(that.key) : that.key == null;
+    if (value != null ? !value.equals(that.value) : that.value != null) return false;
+    return timestamp.equals(that.timestamp);
   }
 
   @Override
-  public String toString() {
-    return "TimeSeriesKey{" +
-            "key=" + key +
-            ", timestamp=" + timestamp +
-            ", seqNum=" + seqNum +
-            '}';
+  public int hashCode() {
+    int result = value != null ? value.hashCode() : 0;
+    result = 31 * result + timestamp.hashCode();
+    return result;
   }
 }
-

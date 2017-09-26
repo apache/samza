@@ -45,7 +45,7 @@ class TestCachedStore {
   def testLRUCacheEviction() {
     val kv = spy(new MockKeyValueStore())
     val store = new CachedStore[String, String](kv, 2, 2)
-    assertFalse("KV store should be empty", kv.all().hasNext)
+    assertFalse("TimeSeriesValue store should be empty", kv.all().hasNext)
 
     // Below eviction threshold
     store.put("test1-key", "test1-value")
@@ -58,7 +58,7 @@ class TestCachedStore {
     // kv.putAll() should have been called, verified below.
 
     // All dirty values should have been added to the underlying store
-    // KV store should have both items
+    // TimeSeriesValue store should have both items
     val kvItr = kv.all();
     assertNotNull(kvItr.next())
     assertNotNull(kvItr.next())
@@ -67,7 +67,7 @@ class TestCachedStore {
     // Above eviction threshold but eldest entries are not dirty
     store.put("test3-key", "test3-value")
 
-    // KV store should not have the 3rd item. We only purge if the batch size is exceeded or if the eldest(expiring) entry is dirty.
+    // TimeSeriesValue store should not have the 3rd item. We only purge if the batch size is exceeded or if the eldest(expiring) entry is dirty.
     val kvItr2 = kv.all();
     assertNotNull(kvItr2.next())
     assertNotNull(kvItr2.next())
@@ -79,7 +79,7 @@ class TestCachedStore {
     // Add one more. We should not purge all items again. Only when dirty items exceed the threshold.
     store.put("test4-key", "test4-value")
 
-    // The eldest item should have been purged along with the just-added item, so the KV store should have all 4 items.
+    // The eldest item should have been purged along with the just-added item, so the TimeSeriesValue store should have all 4 items.
     val kvItr3 = kv.all();
     assertNotNull(kvItr3.next())
     assertNotNull(kvItr3.next())

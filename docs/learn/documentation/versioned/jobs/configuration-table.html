@@ -1543,7 +1543,7 @@
                         <a href="../api/javadocs/org/apache/samza/storage/StorageEngineFactory.html">StorageEngineFactory</a>.
                         Samza currently ships with one storage engine implementation:
                         <dl>
-                            <dt><code>org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory</code></dt>
+                            <dt><code>org.apache.samza.storage.timeSeriesValue.RocksDbKeyValueStorageEngineFactory</code></dt>
                             <dd>An on-disk storage engine with a key-value interface, implemented using
                                 <a href="http://rocksdb.org/">RocksDB</a>. It supports fast random-access
                                 reads and writes, as well as range queries on keys. RocksDB can be configured with
@@ -1604,7 +1604,7 @@
                         <span class="subtitle">
                             (This section applies if you have set
                             <a href="#stores-factory" class="property">stores.*.factory</a>
-                            <code>= org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory</code>)
+                            <code>= org.apache.samza.storage.timeSeriesValue.RocksDbKeyValueStorageEngineFactory</code>)
                         </span>
                     </th>
                 </tr>

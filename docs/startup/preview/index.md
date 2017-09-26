@@ -116,7 +116,7 @@ For more details on running Samza in embedded mode, take a look at the [flexible
 
 #### IV. Processor
 
-The lowest execution unit of a Samza application is the processor. It reads the configs generated from the [ApplicationRunner](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/runtime/ApplicationRunner.html) and processes the input stream partitions assigned by the JobCoordinator. It can access local state using a [KeyValueStore](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/storage/kv/KeyValueStore.html) implementation (e.g. RocksDB or in-memory) and remote state (e.g. REST service) using multithreading.
+The lowest execution unit of a Samza application is the processor. It reads the configs generated from the [ApplicationRunner](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/runtime/ApplicationRunner.html) and processes the input stream partitions assigned by the JobCoordinator. It can access local state using a [KeyValueStore](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/storage/timeSeriesValue/KeyValueStore.html) implementation (e.g. RocksDB or in-memory) and remote state (e.g. REST service) using multithreading.
 
 ---
 

@@ -17,7 +17,7 @@
  * under the License.
  *
  */
-package org.apache.samza.operators.impl;
+package org.apache.samza.operators.impl.store;
 
 import org.apache.samza.serializers.Serde;
 import java.nio.ByteBuffer;
@@ -25,7 +25,14 @@ import java.nio.ByteBuffer;
 /**
  * A {@link Serde} for {@link TimeSeriesKey}s.
  *
- * <p> This wraps the actual keySerde with a timestamp wrapper.
+ * <p> This wraps the actual key's serde with serializers for timestamp and sequence number.
+ *
+ *  A {@link TimeSeriesKeySerde} serializes a key as follows:
+ *    +-------------------------+------------------+------------+
+ *    |  serialized-key bytes   |  timestamp       | seq num    |
+ *    |(serialized by keySerde) |                  |            |
+ *    +-------------------------+------------------+------------+
+ *    +---serialized key len----+-------8 bytes----+---4 bytes--+
  *
  * @param <K>, the type of the wrapped key
  */
@@ -49,6 +56,7 @@ public class TimeSeriesKeySerde<K> implements Serde<TimeSeriesKey<K>> {
     byte[] serializedKey = keySerde.toBytes(key);
     int keySize = serializedKey == null ? 0 : serializedKey.length;
 
+    // append the timestamp and sequence number to the serialized key bytes
     ByteBuffer buf = ByteBuffer.allocate(keySize + TIMESTAMP_SIZE + SEQNUM_SIZE);
     if (serializedKey != null) {
       buf.put(serializedKey);
@@ -61,8 +69,8 @@ public class TimeSeriesKeySerde<K> implements Serde<TimeSeriesKey<K>> {
 
   @Override
   public TimeSeriesKey<K> fromBytes(byte[] timeSeriesKeyBytes) {
+    // First obtain the key bytes, and deserialize them. Later de-serialize the timestamp and sequence number
     ByteBuffer buf = ByteBuffer.wrap(timeSeriesKeyBytes);
-
     int keySize =  timeSeriesKeyBytes.length - TIMESTAMP_SIZE - SEQNUM_SIZE;
     K key = null;
 
@@ -75,7 +83,6 @@ public class TimeSeriesKeySerde<K> implements Serde<TimeSeriesKey<K>> {
     long timeStamp = buf.getLong();
     int seqNum = buf.getInt();
 
-    TimeSeriesKey<K> timeSeriesKey = new TimeSeriesKey(key, timeStamp, seqNum);
-    return timeSeriesKey;
+    return new TimeSeriesKey(key, timeStamp, seqNum);
   }
 }
