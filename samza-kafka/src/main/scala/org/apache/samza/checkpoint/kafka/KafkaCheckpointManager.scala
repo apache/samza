@@ -185,7 +185,12 @@ class KafkaCheckpointManager(
     if(partitionMetaData == null)
       throw new SamzaException("Cannot get partitionMetaData for system=%s, topic=%s" format (systemName, topic))
 
-    (partitionMetaData.getOldestOffset, partitionMetaData.getNewestOffset)
+    val newestOffset = if (partitionMetaData.getNewestOffset == null)
+        "-1"
+      else
+        partitionMetaData.getNewestOffset()
+
+    (partitionMetaData.getOldestOffset, newestOffset)
   }
 
   /**

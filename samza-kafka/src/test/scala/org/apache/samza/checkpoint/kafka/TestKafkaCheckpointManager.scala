@@ -21,20 +21,19 @@ package org.apache.samza.checkpoint.kafka
 
 import _root_.kafka.admin.AdminUtils
 import _root_.kafka.common.{InvalidMessageSizeException, UnknownTopicOrPartitionException}
-import _root_.kafka.message.InvalidMessageException
-import _root_.kafka.server.{KafkaConfig, KafkaServer, ConfigType}
-import _root_.kafka.utils.{CoreUtils, TestUtils, ZkUtils}
 import _root_.kafka.integration.KafkaServerTestHarness
-
-import org.apache.kafka.common.security.JaasUtils
+import _root_.kafka.message.InvalidMessageException
+import _root_.kafka.server.{ConfigType, KafkaConfig}
+import _root_.kafka.utils.{CoreUtils, TestUtils, ZkUtils}
 import org.apache.kafka.clients.producer.{KafkaProducer, Producer, ProducerConfig, ProducerRecord}
+import org.apache.kafka.common.security.JaasUtils
 import org.apache.samza.checkpoint.Checkpoint
 import org.apache.samza.config._
 import org.apache.samza.container.TaskName
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
 import org.apache.samza.serializers.CheckpointSerde
 import org.apache.samza.system._
-import org.apache.samza.util.{NoOpMetricsRegistry, ClientUtilTopicMetadataStore, KafkaUtilException, TopicMetadataStore}
+import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtilException, NoOpMetricsRegistry, TopicMetadataStore}
 import org.apache.samza.{Partition, SamzaException}
 import org.junit.Assert._
 import org.junit._
