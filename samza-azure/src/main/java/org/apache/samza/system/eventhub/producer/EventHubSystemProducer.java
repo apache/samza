@@ -24,7 +24,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class EventHubSystemProducer implements SystemProducer {
-  public static final String EVENT_SOURCE_TIMESTAMP = "event-source-timestamp";
   public static final String PRODUCE_TIMESTAMP = "produce-timestamp";
   public static final String AGGREGATE = "aggregate";
   public final static String CONFIG_PARTITIONING_METHOD = "partitioningMethod";
@@ -44,10 +43,7 @@ public class EventHubSystemProducer implements SystemProducer {
   private static SamzaHistogram _aggSendCallbackLatency = null;
   private static Counter _aggSendErrors = null;
   private final int _destinationPartitions;
-  private final boolean _sendKeyInEventProperties;
-  private final EventHubConfig _eventHubsConfig;
-  private final Config _config;
-  private final EventHubClientWrapper.PartitioningMethod _partitioningMethod;
+  private final EventHubConfig _config;
   private final String _systemName;
   private final MetricsRegistry _registry;
   private Throwable _sendExceptionOnCallback;
@@ -65,19 +61,13 @@ public class EventHubSystemProducer implements SystemProducer {
 
   private Map<Long, CompletableFuture<Void>> _pendingFutures = new ConcurrentHashMap<>();
 
-  public EventHubSystemProducer(String systemName, Config config, MetricsRegistry registry) {
+  public EventHubSystemProducer(String systemName, EventHubConfig config, MetricsRegistry registry) {
     _messageId = 0;
     _systemName = systemName;
-    _registry = registry;
     _config = config;
-    _partitioningMethod =
-            EventHubClientWrapper.PartitioningMethod.valueOf(getConfigValue(config, CONFIG_PARTITIONING_METHOD, DEFAULT_PARTITIONING_METHOD));
+    _registry = registry;
 
-    _eventHubsConfig = new EventHubConfig(config, systemName);
-    _sendKeyInEventProperties =
-            Boolean.parseBoolean(getConfigValue(config, CONFIG_SEND_KEY_IN_EVENT_PROPERTIES, "false"));
-
-    // TODO this should be removed when we are able to find the number of partitions.
+    // TODO this should be removed when we are able to find the number of partitions. Remove
     _destinationPartitions = Integer.parseInt(getConfigValue(config, CONFIG_DESTINATION_NUM_PARTITION, "-1"));
   }
 
@@ -132,15 +122,15 @@ public class EventHubSystemProducer implements SystemProducer {
       throw new SamzaException(msg);
     }
 
-    String ehNamespace = _eventHubsConfig.getStreamNamespace(streamName);
-    String ehName = _eventHubsConfig.getStreamEntityPath(streamName);
+    String ehNamespace = _config.getStreamNamespace(streamName);
+    String ehName = _config.getStreamEntityPath(streamName);
 
     EventHubClientWrapper ehClient =
-            new EventHubClientWrapper(_partitioningMethod, _destinationPartitions, ehNamespace, ehName,
-                    _eventHubsConfig.getStreamSasKeyName(streamName), _eventHubsConfig.getStreamSasToken(streamName));
+            new EventHubClientWrapper(_config.getPartitioningMethod(), _destinationPartitions, ehNamespace, ehName,
+                    _config.getStreamSasKeyName(streamName), _config.getStreamSasToken(streamName));
 
     _eventHubClients.put(streamName, ehClient);
-    _eventHubsConfig.getSerde(streamName).ifPresent(x -> _serdes.put(streamName, x));
+    _config.getSerde(streamName).ifPresent(x -> _serdes.put(streamName, x));
   }
 
   @Override
@@ -217,7 +207,7 @@ public class EventHubSystemProducer implements SystemProducer {
 
     eventData.getProperties().put(PRODUCE_TIMESTAMP, Long.toString(System.currentTimeMillis()));
 
-    if (_sendKeyInEventProperties) {
+    if (_config.getSendKeyInEventProperties()) {
       String keyValue = "";
       if (envelope.getKey() != null) {
         keyValue = (envelope.getKey() instanceof byte[]) ? new String((byte[]) envelope.getKey())

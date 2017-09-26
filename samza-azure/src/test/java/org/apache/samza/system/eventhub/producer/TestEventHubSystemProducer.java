@@ -77,8 +77,8 @@ public class TestEventHubSystemProducer {
   @Test
   public void testReceive() throws ServiceBusException {
     EventHubClientWrapper wrapper =
-            new EventHubClientWrapper(EventHubClientWrapper.PartitioningMethod.EVENT_HUB_HASHING, 8, EVENTHUB_NAMESPACE,
-                    EVENTHUB_ENTITY1, EVENTHUB_KEY_NAME, EVENTHUB_KEY);
+            new EventHubClientWrapper(EventHubClientWrapper.PartitioningMethod.EVENT_HUB_HASHING, 8,
+                    EVENTHUB_NAMESPACE, EVENTHUB_ENTITY1, EVENTHUB_KEY_NAME, EVENTHUB_KEY);
     EventHubClient client = wrapper.getEventHubClient();
     PartitionReceiver receiver =
             client.createReceiverSync(EventHubClient.DEFAULT_CONSUMER_GROUP_NAME, "0",

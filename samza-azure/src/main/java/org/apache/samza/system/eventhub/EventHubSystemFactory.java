@@ -38,7 +38,7 @@ public class EventHubSystemFactory implements SystemFactory {
 
   @Override
   public SystemProducer getProducer(String systemName, Config config, MetricsRegistry registry) {
-    return new EventHubSystemProducer(systemName, config, registry);
+    return new EventHubSystemProducer(systemName, new EventHubConfig(config, systemName), registry);
   }
 
   @Override

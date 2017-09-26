@@ -30,6 +30,14 @@ public class EventHubConfig extends MapConfig {
 
   public static final String CONFIG_STREAM_CONSUMER_START_POSITION = "systems.%s.streams.%s.eventhubs.start.position";
   public static final String DEFAULT_CONFIG_STREAM_CONSUMER_START_POSITION = StartPosition.LATEST.name();
+
+  public static final String CONFIG_PRODUCER_PARTITION_METHOD = "systems.%s.eventhubs.partition.method";
+  public static final String DEFAULT_CONFIG_PRODUCER_PARTITION_METHOD = EventHubClientWrapper
+          .PartitioningMethod.EVENT_HUB_HASHING.name();
+
+  public static final String CONFIG_SEND_KEY_IN_EVENT_PROPERTIES = "systems.%s.eventhubs.send.key";
+  public static final String DEFAULT_CONFIG_SEND_KEY_IN_EVENT_PROPERTIES = Boolean.toString(false);
+
   private final String _system;
 
   public EventHubConfig(Map<String, String> config, String systemName) {
@@ -117,6 +125,29 @@ public class EventHubConfig extends MapConfig {
     String startPositionStr = get(String.format(CONFIG_STREAM_CONSUMER_START_POSITION, _system, streamName),
             DEFAULT_CONFIG_STREAM_CONSUMER_START_POSITION);
     return StartPosition.valueOf(startPositionStr.toUpperCase());
+  }
+
+  /**
+   * Get the partition method of the system. By default partitioning is handed by EventHub.
+   *
+   * @return The method the producer should use to partition the outgoing data
+   */
+  public EventHubClientWrapper.PartitioningMethod getPartitioningMethod() {
+    String partitioningMethod = get(String.format(CONFIG_PRODUCER_PARTITION_METHOD, _system),
+            DEFAULT_CONFIG_PRODUCER_PARTITION_METHOD);
+    return EventHubClientWrapper.PartitioningMethod.valueOf(partitioningMethod);
+
+  }
+
+  /**
+   * Returns true if the OutgoingMessageEnvelope key should be sent in the outgoing envelope, false otherwise
+   *
+   * @return Boolean, is send key included
+   */
+  public Boolean getSendKeyInEventProperties() {
+    String isSendKeyIncluded = get(String.format(CONFIG_SEND_KEY_IN_EVENT_PROPERTIES, _system),
+            DEFAULT_CONFIG_SEND_KEY_IN_EVENT_PROPERTIES);
+    return Boolean.valueOf(isSendKeyIncluded);
   }
 
   @Override
