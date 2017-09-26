@@ -7,7 +7,7 @@ import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.eventhub.EventHubClientWrapper;
 import org.apache.samza.system.eventhub.EventHubSystemFactory;
-import org.apache.samza.system.eventhub.MockConfigFactory;
+import org.apache.samza.system.eventhub.MockEventHubConfigFactory;
 import org.apache.samza.system.eventhub.consumer.EventHubSystemConsumer;
 import org.junit.Test;
 
@@ -16,7 +16,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import static org.apache.samza.system.eventhub.MockConfigFactory.*;
+import static org.apache.samza.system.eventhub.MockEventHubConfigFactory.*;
 
 public class TestEventHubSystemAdmin {
 
@@ -24,7 +24,7 @@ public class TestEventHubSystemAdmin {
   public void testOffsetComparison() {
     EventHubSystemFactory eventHubSystemFactory = new EventHubSystemFactory();
     EventHubSystemAdmin eventHubSystemAdmin = (EventHubSystemAdmin) eventHubSystemFactory.getAdmin(SYSTEM_NAME,
-            MockConfigFactory.getEventHubConfig(EventHubClientWrapper.PartitioningMethod.EVENT_HUB_HASHING));
+            MockEventHubConfigFactory.getEventHubConfig(EventHubClientWrapper.PartitioningMethod.EVENT_HUB_HASHING));
     Assert.assertEquals(-1, eventHubSystemAdmin.offsetComparator("100", "200").intValue());
     Assert.assertEquals(0, eventHubSystemAdmin.offsetComparator("150", "150").intValue());
     Assert.assertEquals(1, eventHubSystemAdmin.offsetComparator("200", "100").intValue());
@@ -43,7 +43,7 @@ public class TestEventHubSystemAdmin {
   public void testGetNextOffset() {
     EventHubSystemFactory eventHubSystemFactory = new EventHubSystemFactory();
     SystemAdmin eventHubSystemAdmin = eventHubSystemFactory.getAdmin(SYSTEM_NAME,
-            MockConfigFactory.getEventHubConfig(EventHubClientWrapper.PartitioningMethod.EVENT_HUB_HASHING));
+            MockEventHubConfigFactory.getEventHubConfig(EventHubClientWrapper.PartitioningMethod.EVENT_HUB_HASHING));
     Map<SystemStreamPartition, String> offsets = new HashMap<>();
     SystemStreamPartition ssp0 = new SystemStreamPartition(SYSTEM_NAME, STREAM_NAME1, new Partition(0));
     SystemStreamPartition ssp1 = new SystemStreamPartition(SYSTEM_NAME, STREAM_NAME1, new Partition(1));
@@ -63,7 +63,7 @@ public class TestEventHubSystemAdmin {
   public void testGetStreamMetadata() {
     EventHubSystemFactory eventHubSystemFactory = new EventHubSystemFactory();
     SystemAdmin eventHubSystemAdmin = eventHubSystemFactory.getAdmin(SYSTEM_NAME,
-            MockConfigFactory.getEventHubConfig(EventHubClientWrapper.PartitioningMethod.EVENT_HUB_HASHING));
+            MockEventHubConfigFactory.getEventHubConfig(EventHubClientWrapper.PartitioningMethod.EVENT_HUB_HASHING));
     Set<String> streams = new HashSet<>();
     streams.add(STREAM_NAME1);
     streams.add(STREAM_NAME2);
@@ -77,6 +77,7 @@ public class TestEventHubSystemAdmin {
       Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadataMap =
               metadataMap.get(stream).getSystemStreamPartitionMetadata();
       Assert.assertTrue(partitionMetadataMap.size() >= MIN_EVENTHUB_ENTITY_PARTITION);
+      Assert.assertTrue(partitionMetadataMap.size() <= MAX_EVENTHUB_ENTITY_PARTITION);
       partitionMetadataMap.forEach((partition, metadata) -> {
         Assert.assertEquals(EventHubSystemConsumer.START_OF_STREAM, metadata.getOldestOffset());
         Assert.assertEquals(EventHubSystemConsumer.END_OF_STREAM, metadata.getNewestOffset());

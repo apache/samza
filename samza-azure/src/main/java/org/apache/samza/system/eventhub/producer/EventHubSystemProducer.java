@@ -24,35 +24,38 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class EventHubSystemProducer implements SystemProducer {
-  public static final String PRODUCE_TIMESTAMP = "produce-timestamp";
-  public static final String AGGREGATE = "aggregate";
-  public final static String CONFIG_PARTITIONING_METHOD = "partitioningMethod";
-  public final static String DEFAULT_PARTITIONING_METHOD = EventHubClientWrapper.PartitioningMethod.EVENT_HUB_HASHING.toString();
+  private static final Logger LOG = LoggerFactory.getLogger(EventHubSystemProducer.class.getName());
+
   public static final String CONFIG_DESTINATION_NUM_PARTITION = "destinationPartitions";
-  public static final String CONFIG_SEND_KEY_IN_EVENT_PROPERTIES = "sendKeyInEventProperties";
+  public static final String PRODUCE_TIMESTAMP = "produce-timestamp";
+
+  // Metrics recording
+  public static final String AGGREGATE = "aggregate";
   private static final String EVENT_WRITE_RATE = "eventWriteRate";
   private static final String EVENT_BYTE_WRITE_RATE = "eventByteWriteRate";
   private static final String SEND_ERRORS = "sendErrors";
   private static final String SEND_LATENCY = "sendLatency";
   private static final String SEND_CALLBACK_LATENCY = "sendCallbackLatency";
-  private static final Duration SHUTDOWN_WAIT_TIME = Duration.ofMinutes(1L);
-  private static final Logger LOG = LoggerFactory.getLogger(EventHubSystemProducer.class.getName());
   private static Counter _aggEventWriteRate = null;
   private static Counter _aggEventByteWriteRate = null;
+  private static Counter _aggSendErrors = null;
   private static SamzaHistogram _aggSendLatency = null;
   private static SamzaHistogram _aggSendCallbackLatency = null;
-  private static Counter _aggSendErrors = null;
-  private final int _destinationPartitions;
-  private final EventHubConfig _config;
-  private final String _systemName;
-  private final MetricsRegistry _registry;
-  private Throwable _sendExceptionOnCallback;
-  private boolean _isStarted;
   private HashMap<String, Counter> _eventWriteRate = new HashMap<>();
   private HashMap<String, Counter> _eventByteWriteRate = new HashMap<>();
   private HashMap<String, SamzaHistogram> _sendLatency = new HashMap<>();
   private HashMap<String, SamzaHistogram> _sendCallbackLatency = new HashMap<>();
   private HashMap<String, Counter> _sendErrors = new HashMap<>();
+  private static final Duration SHUTDOWN_WAIT_TIME = Duration.ofMinutes(1L);
+
+  private final int _destinationPartitions;
+  private final EventHubConfig _config;
+  private final String _systemName;
+  private final MetricsRegistry _registry;
+
+  private Throwable _sendExceptionOnCallback;
+  private boolean _isStarted;
+
   // Map of the system name to the event hub client.
   private Map<String, EventHubClientWrapper> _eventHubClients = new HashMap<>();
 
@@ -68,17 +71,7 @@ public class EventHubSystemProducer implements SystemProducer {
     _registry = registry;
 
     // TODO this should be removed when we are able to find the number of partitions. Remove
-    _destinationPartitions = Integer.parseInt(getConfigValue(config, CONFIG_DESTINATION_NUM_PARTITION, "-1"));
-  }
-
-  private String getConfigValue(Config config, String configKey, String defaultValue) {
-    String configValue = config.get(configKey, defaultValue);
-
-    if (configValue == null) {
-      throw new SamzaException(configKey + " is not configured.");
-    }
-
-    return configValue;
+    _destinationPartitions = Integer.parseInt(config.get(CONFIG_DESTINATION_NUM_PARTITION, "-1"));
   }
 
   @Override

@@ -11,7 +11,7 @@ import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.eventhub.EventHubClientWrapper;
 import org.apache.samza.system.eventhub.EventHubSystemFactory;
-import org.apache.samza.system.eventhub.MockConfigFactory;
+import org.apache.samza.system.eventhub.MockEventHubConfigFactory;
 import org.apache.samza.system.eventhub.consumer.EventHubSystemConsumer;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.Assert;
@@ -19,7 +19,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.samza.system.eventhub.MockConfigFactory.*;
+import static org.apache.samza.system.eventhub.MockEventHubConfigFactory.*;
 
 public class TestEventHubSystemProducer {
   private static final Logger LOG = LoggerFactory.getLogger(TestEventHubSystemProducer.class.getName());
@@ -38,7 +38,7 @@ public class TestEventHubSystemProducer {
   }
 
   private Config createEventHubConfig() {
-    return MockConfigFactory.getEventHubConfig(EventHubClientWrapper.PartitioningMethod.EVENT_HUB_HASHING);
+    return MockEventHubConfigFactory.getEventHubConfig(EventHubClientWrapper.PartitioningMethod.EVENT_HUB_HASHING);
   }
 
   @Test
@@ -103,7 +103,7 @@ public class TestEventHubSystemProducer {
 
   @Test
   public void testSendToSpecificPartition() {
-    Config eventHubConfig = MockConfigFactory.getEventHubConfig(EventHubClientWrapper.PartitioningMethod.PARTITION_KEY_AS_PARTITION);
+    Config eventHubConfig = MockEventHubConfigFactory.getEventHubConfig(EventHubClientWrapper.PartitioningMethod.PARTITION_KEY_AS_PARTITION);
     EventHubSystemFactory systemFactory = new EventHubSystemFactory();
     SystemProducer systemProducer = systemFactory.getProducer(SYSTEM_NAME, eventHubConfig, new NoOpMetricsRegistry());
 

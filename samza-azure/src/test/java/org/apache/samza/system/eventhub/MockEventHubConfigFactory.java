@@ -2,11 +2,10 @@ package org.apache.samza.system.eventhub;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.system.eventhub.producer.EventHubSystemProducer;
 
 import java.util.HashMap;
 
-public class MockConfigFactory {
+public class MockEventHubConfigFactory {
 
   public static final String SYSTEM_NAME = "eventhub-s1";
   public static final String STREAM_NAME1 = "test_stream1";
@@ -20,10 +19,11 @@ public class MockConfigFactory {
   public static final String EVENTHUB_ENTITY2 = "";
 
   public static final int MIN_EVENTHUB_ENTITY_PARTITION = 2;
+  public static final int MAX_EVENTHUB_ENTITY_PARTITION = 32;
 
   public static Config getEventHubConfig(EventHubClientWrapper.PartitioningMethod partitioningMethod) {
     HashMap<String, String> mapConfig = new HashMap<>();
-    mapConfig.put(EventHubSystemProducer.CONFIG_PARTITIONING_METHOD, partitioningMethod.toString());
+    mapConfig.put(String.format(EventHubConfig.CONFIG_PRODUCER_PARTITION_METHOD, SYSTEM_NAME), partitioningMethod.toString());
     mapConfig.put(String.format(EventHubConfig.CONFIG_STREAM_LIST, SYSTEM_NAME), STREAM_NAME1);
     mapConfig.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, SYSTEM_NAME, STREAM_NAME1), EVENTHUB_NAMESPACE);
     mapConfig.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, SYSTEM_NAME, STREAM_NAME1), EVENTHUB_ENTITY1);
