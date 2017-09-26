@@ -68,7 +68,7 @@ class KafkaCheckpointManager(
   var systemProducer: SystemProducer = null
   var taskNamesToOffsets: Map[TaskName, Checkpoint] = null
 
-  var startingOffset: Option[Long] = None // Where to start reading for each subsequent call of readCheckpoint
+  //var startingOffset: Option[Long] = None // Where to start reading for each subsequent call of readCheckpoint
   val kafkaUtil: KafkaUtil = new KafkaUtil(retryBackoff, connectZk)
 
   KafkaCheckpointLogKey.setSystemStreamPartitionGrouperFactoryString(systemStreamPartitionGrouperFactoryString)
@@ -174,7 +174,7 @@ class KafkaCheckpointManager(
     checkpoints.toMap /* of the immutable kind */
   }
 
-  private def getEarliestOffset(topic: String, partition: Partition): String = {
+  private def getEarliestOffset(topic: String, partition: Partition): (String, String) = {
     val systemAdmin = getSystemAdmin()
     val metaDataMap: java.util.Map[String, SystemStreamMetadata] = systemAdmin.getSystemStreamMetadata(Collections.singleton(topic))
     val checkpointMetadata: SystemStreamMetadata = metaDataMap.get(topic)
@@ -185,7 +185,7 @@ class KafkaCheckpointManager(
     if(partitionMetaData == null)
       throw new SamzaException("Cannot get partitionMetaData for system=%s, topic=%s" format (systemName, topic))
 
-    partitionMetaData.getOldestOffset
+    (partitionMetaData.getOldestOffset, partitionMetaData.getNewestOffset)
   }
 
   /**
@@ -199,27 +199,34 @@ class KafkaCheckpointManager(
 
     val ssp: SystemStreamPartition = new SystemStreamPartition(systemName, checkpointTopic, new Partition(0))
     val systemConsumer = getSystemConsumer()
-    val offset = getEarliestOffset(checkpointTopic, new Partition(0))
-    systemConsumer.register(ssp, offset); // checkpoint stream should always be read from the beginning
+    val (oldestOffset, newestOffset) = getEarliestOffset(checkpointTopic, new Partition(0))
+    systemConsumer.register(ssp, oldestOffset); // checkpoint stream should always be read from the beginning
     systemConsumer.start();
 
     var count = 0
     try {
       var done = false
-      while (!done) {
+      var currentOffset = -1L
+      val newestOffsetLong = newestOffset.toLong
+      while (currentOffset < newestOffsetLong) {
         // Map[SystemStreamPartition, List[IncomingMessageEnvelope]]
-        val envelops = systemConsumer.poll(Collections.singleton(ssp), 1000)
-        debug("CheckpointMgr read %d envelops" format envelops.size())
-        val messages: util.List[IncomingMessageEnvelope] = envelops.get(ssp)
-        if (envelops.isEmpty || messages.isEmpty) {
+        val envelopes = systemConsumer.poll(Collections.singleton(ssp), 1000)
+
+        val messages: util.List[IncomingMessageEnvelope] = envelopes.get(ssp)
+        val messagesSize = if (messages != null) messages.size else -1
+        info("CheckpointMgr read %s envelopes (%s messages) from ssp %s"
+                     format (envelopes.size(), messagesSize, ssp))
+        if (envelopes.isEmpty || messages.isEmpty) {
           // fully read the log
-          done = true
+          info("Got empty list of messages")
+          //done = true
         }
         else {
           count += messages.size()
           // check the key
           for (msg: IncomingMessageEnvelope <- messages) {
             val key = msg.getKey.asInstanceOf[Array[Byte]]
+            currentOffset = msg.getOffset().toLong
             if (key == null)
               throw new KafkaUtilException("While reading checkpoint stream encountered message without key.")
 
