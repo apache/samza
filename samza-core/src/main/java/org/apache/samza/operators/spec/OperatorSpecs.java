@@ -161,7 +161,7 @@ public class OperatorSpecs {
    * @param opId  the unique ID of the operator
    * @return  the {@link OutputOperatorSpec} for the partitionBy operator
    */
-  public static <M, K, V> PartitionByOperatorSpec<M, K, V> createRepartitionOperatorSpec(
+  public static <M, K, V> PartitionByOperatorSpec<M, K, V> createPartitionByOperatorSpec(
       OutputStreamImpl<KV<K, V>> outputStream, Function<? super M, ? extends K> keyFunction,
       Function<? super M, ? extends V> valueFunction, int opId) {
     return new PartitionByOperatorSpec<>(outputStream, keyFunction, valueFunction, opId);

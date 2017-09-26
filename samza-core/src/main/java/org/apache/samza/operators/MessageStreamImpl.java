@@ -141,7 +141,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     String opName = String.format("%s-%s", OperatorSpec.OpCode.PARTITION_BY.name().toLowerCase(), opId);
     IntermediateMessageStreamImpl<KV<K, V>> intermediateStream = this.graph.getIntermediateStream(opName, serde);
     PartitionByOperatorSpec<M, K, V> partitionByOperatorSpec =
-        OperatorSpecs.createRepartitionOperatorSpec(
+        OperatorSpecs.createPartitionByOperatorSpec(
             intermediateStream.getOutputStream(), keyExtractor, valueExtractor, opId);
     this.operatorSpec.registerNextOperatorSpec(partitionByOperatorSpec);
     return intermediateStream;
