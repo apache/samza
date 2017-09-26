@@ -34,7 +34,7 @@ import java.nio.ByteBuffer;
  *    +-------------------------+------------------+------------+
  *    +---serialized key len----+-------8 bytes----+---4 bytes--+
  *
- * @param <K>, the type of the wrapped key
+ * @param <K> the type of the wrapped key
  */
 public class TimeSeriesKeySerde<K> implements Serde<TimeSeriesKey<K>> {
 

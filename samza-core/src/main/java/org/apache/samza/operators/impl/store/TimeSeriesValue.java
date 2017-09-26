@@ -24,7 +24,7 @@ package org.apache.samza.operators.impl.store;
  *
  * <p> Iterators on {@link TimeSeriesStore}s always return {@link TimeSeriesValue}s
  *
- * @param <V>, the type of the value
+ * @param <V> the type of the value
  */
 public class TimeSeriesValue<V> {
   private final V value;

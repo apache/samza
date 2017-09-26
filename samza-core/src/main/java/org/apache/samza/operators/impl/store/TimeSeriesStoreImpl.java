@@ -63,8 +63,8 @@ import java.util.List;
  *
  *  <p> This class is thread-safe and concurrent reads/writes are expected.
  *
- * @param <K>, the type of key in the store
- * @param <V>, the type of value in the store
+ * @param <K> the type of key in the store
+ * @param <V> the type of value in the store
  */
 
 public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {

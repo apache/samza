@@ -27,8 +27,8 @@ import org.apache.samza.storage.kv.ClosableIterator;
  *
  * Operations on the store can be invoked from multiple threads. Hence, implementations are expected to be thread-safe.
  *
- * @param <K>, the type of key in the store
- * @param <V>, the type of value in the store
+ * @param <K> the type of key in the store
+ * @param <V> the type of value in the store
  */
 
 public interface TimeSeriesStore<K, V> {
