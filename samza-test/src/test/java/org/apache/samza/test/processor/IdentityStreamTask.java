@@ -23,19 +23,14 @@ import org.apache.samza.config.Config;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.task.ClosableTask;
 import org.apache.samza.task.InitableTask;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 
-import java.util.concurrent.CountDownLatch;
 
-public class IdentityStreamTask implements StreamTask , InitableTask , ClosableTask  {
-  // static field since there's no other way to share state b/w a task instance and
-  // stream processor when constructed from "task.class".
-  static CountDownLatch endLatch = new CountDownLatch(1);
+public class IdentityStreamTask implements StreamTask , InitableTask  {
   private int processedMessageCount = 0;
   private int expectedMessageCount;
   private String outputTopic;
@@ -59,14 +54,7 @@ public class IdentityStreamTask implements StreamTask , InitableTask , ClosableT
             incomingMessageEnvelope.getMessage()));
     processedMessageCount++;
     if (processedMessageCount == expectedMessageCount) {
-      endLatch.countDown();
+      taskCoordinator.shutdown(TaskCoordinator.RequestScope.ALL_TASKS_IN_CONTAINER);
     }
-  }
-
-  @Override
-  public void close() throws Exception {
-    // need to create a new latch after each test since it's a static field.
-    // tests are assumed to run sequentially.
-    endLatch = new CountDownLatch(1);
   }
 }
