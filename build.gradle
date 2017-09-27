@@ -105,6 +105,8 @@ allprojects {
 subprojects {
   apply plugin: 'eclipse'
   apply plugin: 'project-report'
+  apply plugin: 'java'
+  apply plugin: 'jacoco'
 
   tasks.withType(Test) {
     test {
