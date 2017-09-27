@@ -27,7 +27,7 @@ import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.runtime.LocalApplicationRunner;
-import org.apache.samza.serializers.JsonSerde;
+import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.storage.kv.KeyValueStore;
@@ -47,14 +47,14 @@ public class KeyValueStoreExample implements StreamApplication {
 
   @Override public void init(StreamGraph graph, Config config) {
     MessageStream<PageViewEvent> pageViewEvents =
-        graph.getInputStream("pageViewEventStream", new JsonSerde<>(PageViewEvent.class));
+        graph.getInputStream("pageViewEventStream", new JsonSerdeV2<>(PageViewEvent.class));
     OutputStream<KV<String, StatsOutput>> pageViewEventPerMember =
         graph.getOutputStream("pageViewEventPerMember",
-            KVSerde.of(new StringSerde(), new JsonSerde<>(StatsOutput.class)));
+            KVSerde.of(new StringSerde(), new JsonSerdeV2<>(StatsOutput.class)));
 
     pageViewEvents
         .partitionBy(pve -> pve.memberId, pve -> pve,
-            KVSerde.of(new StringSerde(), new JsonSerde<>(PageViewEvent.class)))
+            KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageViewEvent.class)))
         .map(KV::getValue)
         .flatMap(new MyStatsCounter())
         .map(stats -> KV.of(stats.memberId, stats))

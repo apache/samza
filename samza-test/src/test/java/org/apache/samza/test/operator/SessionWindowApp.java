@@ -27,7 +27,7 @@ import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.serializers.IntegerSerde;
-import org.apache.samza.serializers.JsonSerde;
+import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
 
@@ -43,7 +43,7 @@ public class SessionWindowApp implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    MessageStream<PageView> pageViews = graph.getInputStream(INPUT_TOPIC, new JsonSerde<>(PageView.class));
+    MessageStream<PageView> pageViews = graph.getInputStream(INPUT_TOPIC, new JsonSerdeV2<>(PageView.class));
     OutputStream<KV<String, Integer>> outputStream =
         graph.getOutputStream(OUTPUT_TOPIC, new KVSerde<>(new StringSerde(), new IntegerSerde()));
 

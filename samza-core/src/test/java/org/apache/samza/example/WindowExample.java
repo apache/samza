@@ -30,7 +30,7 @@ import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
-import org.apache.samza.serializers.JsonSerde;
+import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
@@ -47,7 +47,7 @@ public class WindowExample implements StreamApplication {
   public void init(StreamGraph graph, Config config) {
     Supplier<Integer> initialValue = () -> 0;
     FoldLeftFunction<PageViewEvent, Integer> counter = (m, c) -> c == null ? 1 : c + 1;
-    MessageStream<PageViewEvent> inputStream = graph.getInputStream("inputStream", new JsonSerde<PageViewEvent>());
+    MessageStream<PageViewEvent> inputStream = graph.getInputStream("inputStream", new JsonSerdeV2<PageViewEvent>());
     OutputStream<Integer> outputStream = graph.getOutputStream("outputStream", new IntegerSerde());
 
     // create a tumbling window that outputs the number of message collected every 10 minutes.

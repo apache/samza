@@ -26,7 +26,7 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.runtime.LocalApplicationRunner;
-import org.apache.samza.serializers.JsonSerde;
+import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.util.CommandLine;
@@ -39,7 +39,7 @@ public class BroadcastExample implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    graph.setDefaultSerde(KVSerde.of(new StringSerde(), new JsonSerde<>(PageViewEvent.class)));
+    graph.setDefaultSerde(KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageViewEvent.class)));
 
     MessageStream<KV<String, PageViewEvent>> inputStream = graph.getInputStream("inputStream");
     OutputStream<KV<String, PageViewEvent>> outputStream1 = graph.getOutputStream("outputStream1");

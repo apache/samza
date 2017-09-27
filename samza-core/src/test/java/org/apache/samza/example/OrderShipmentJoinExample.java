@@ -26,7 +26,7 @@ import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.runtime.LocalApplicationRunner;
-import org.apache.samza.serializers.JsonSerde;
+import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.util.CommandLine;
@@ -41,12 +41,12 @@ public class OrderShipmentJoinExample implements StreamApplication {
   @Override
   public void init(StreamGraph graph, Config config) {
     MessageStream<OrderRecord> orders =
-        graph.getInputStream("orders", new JsonSerde<>(OrderRecord.class));
+        graph.getInputStream("orders", new JsonSerdeV2<>(OrderRecord.class));
     MessageStream<ShipmentRecord> shipments =
-        graph.getInputStream("shipments", new JsonSerde<>(ShipmentRecord.class));
+        graph.getInputStream("shipments", new JsonSerdeV2<>(ShipmentRecord.class));
     OutputStream<KV<String, FulfilledOrderRecord>> fulfilledOrders =
         graph.getOutputStream("fulfilledOrders",
-            KVSerde.of(new StringSerde(), new JsonSerde<>(FulfilledOrderRecord.class)));
+            KVSerde.of(new StringSerde(), new JsonSerdeV2<>(FulfilledOrderRecord.class)));
 
     orders
         .join(shipments, new MyJoinFunction(), Duration.ofMinutes(1))

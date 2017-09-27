@@ -25,7 +25,6 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.message.EndOfStreamMessage;
 import org.apache.samza.message.MessageType;
 import org.apache.samza.message.WatermarkMessage;
-import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,36 +53,14 @@ import org.slf4j.LoggerFactory;
 public class IntermediateMessageSerde implements Serde<Object> {
   private static final Logger LOGGER = LoggerFactory.getLogger(IntermediateMessageSerde.class);
 
-  private static final class WatermarkSerde extends JsonSerde<WatermarkMessage> {
-    @Override
-    public WatermarkMessage fromBytes(byte[] bytes) {
-      try {
-        return mapper().readValue(new String(bytes, "UTF-8"), new TypeReference<WatermarkMessage>() { });
-      } catch (Exception e) {
-        throw new SamzaException(e);
-      }
-    }
-  }
-
-  private static final class EndOfStreamSerde extends JsonSerde<EndOfStreamMessage> {
-    @Override
-    public EndOfStreamMessage fromBytes(byte[] bytes) {
-      try {
-        return mapper().readValue(new String(bytes, "UTF-8"), new TypeReference<EndOfStreamMessage>() { });
-      } catch (Exception e) {
-        throw new SamzaException(e);
-      }
-    }
-  }
-
   private final Serde userMessageSerde;
   private final Serde<WatermarkMessage> watermarkSerde;
   private final Serde<EndOfStreamMessage> eosSerde;
 
   public IntermediateMessageSerde(Serde userMessageSerde) {
     this.userMessageSerde = userMessageSerde;
-    this.watermarkSerde = new WatermarkSerde();
-    this.eosSerde = new EndOfStreamSerde();
+    this.watermarkSerde = new JsonSerdeV2<>(WatermarkMessage.class);
+    this.eosSerde = new JsonSerdeV2<>(EndOfStreamMessage.class);
   }
 
   @Override

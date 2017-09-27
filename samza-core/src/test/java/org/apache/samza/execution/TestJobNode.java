@@ -27,7 +27,7 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.runtime.ApplicationRunner;
-import org.apache.samza.serializers.JsonSerde;
+import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerializableSerde;
@@ -58,7 +58,7 @@ public class TestJobNode {
     doReturn(partitionBySpec).when(mockRunner).getStreamSpec("null-null-partition_by-1");
 
     StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mock(Config.class));
-    streamGraph.setDefaultSerde(KVSerde.of(new StringSerde(), new JsonSerde<>()));
+    streamGraph.setDefaultSerde(KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
     MessageStream<KV<String, Object>> input = streamGraph.getInputStream("input");
     OutputStream<KV<String, Object>> output = streamGraph.getOutputStream("output");
     input.partitionBy(KV::getKey, KV::getValue).sendTo(output);
@@ -91,21 +91,21 @@ public class TestJobNode {
     assertTrue(deserializedSerdes.containsKey(inputKeySerde));
     assertTrue(inputKeySerde.startsWith(StringSerde.class.getSimpleName()));
     assertTrue(deserializedSerdes.containsKey(inputMsgSerde));
-    assertTrue(inputMsgSerde.startsWith(JsonSerde.class.getSimpleName()));
+    assertTrue(inputMsgSerde.startsWith(JsonSerdeV2.class.getSimpleName()));
 
     String outputKeySerde = mapConfig.get("streams.output.samza.key.serde");
     String outputMsgSerde = mapConfig.get("streams.output.samza.msg.serde");
     assertTrue(deserializedSerdes.containsKey(outputKeySerde));
     assertTrue(outputKeySerde.startsWith(StringSerde.class.getSimpleName()));
     assertTrue(deserializedSerdes.containsKey(outputMsgSerde));
-    assertTrue(outputMsgSerde.startsWith(JsonSerde.class.getSimpleName()));
+    assertTrue(outputMsgSerde.startsWith(JsonSerdeV2.class.getSimpleName()));
 
     String partitionByKeySerde = mapConfig.get("streams.null-null-partition_by-1.samza.key.serde");
     String partitionByMsgSerde = mapConfig.get("streams.null-null-partition_by-1.samza.msg.serde");
     assertTrue(deserializedSerdes.containsKey(partitionByKeySerde));
     assertTrue(partitionByKeySerde.startsWith(StringSerde.class.getSimpleName()));
     assertTrue(deserializedSerdes.containsKey(partitionByMsgSerde));
-    assertTrue(partitionByMsgSerde.startsWith(JsonSerde.class.getSimpleName()));
+    assertTrue(partitionByMsgSerde.startsWith(JsonSerdeV2.class.getSimpleName()));
   }
 
 }

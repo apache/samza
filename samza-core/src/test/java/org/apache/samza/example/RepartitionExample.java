@@ -27,7 +27,7 @@ import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.LocalApplicationRunner;
-import org.apache.samza.serializers.JsonSerde;
+import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.util.CommandLine;
@@ -42,14 +42,14 @@ public class RepartitionExample implements StreamApplication {
 
   @Override public void init(StreamGraph graph, Config config) {
     MessageStream<PageViewEvent> pageViewEvents =
-        graph.getInputStream("pageViewEvent", new JsonSerde<>(PageViewEvent.class));
+        graph.getInputStream("pageViewEvent", new JsonSerdeV2<>(PageViewEvent.class));
     OutputStream<KV<String, MyStreamOutput>> pageViewEventPerMember =
         graph.getOutputStream("pageViewEventPerMember",
-            KVSerde.of(new StringSerde(), new JsonSerde<>(MyStreamOutput.class)));
+            KVSerde.of(new StringSerde(), new JsonSerdeV2<>(MyStreamOutput.class)));
 
     pageViewEvents
         .partitionBy(pve -> pve.memberId, pve -> pve,
-            KVSerde.of(new StringSerde(), new JsonSerde<>(PageViewEvent.class)))
+            KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageViewEvent.class)))
         .window(Windows.keyedTumblingWindow(KV::getKey, Duration.ofMinutes(5), () -> 0, (m, c) -> c + 1))
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), new MyStreamOutput(windowPane)))
         .sendTo(pageViewEventPerMember);
