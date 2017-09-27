@@ -23,13 +23,15 @@ import scala.collection.JavaConverters._
 object SerializerConfig {
   // serializer config constants
   val SERIALIZER_PREFIX = "serializers.registry.%s"
-  val SERDE = "serializers.registry.%s.class"
+  val SERDE_FACTORY_CLASS = "serializers.registry.%s.class"
+  val SERIALIZED_INSTANCE_SUFFIX = ".samza.serialized.instance"
+  val SERDE_SERIALIZED_INSTANCE = SERIALIZER_PREFIX + SERIALIZED_INSTANCE_SUFFIX
 
   implicit def Config2Serializer(config: Config) = new SerializerConfig(config)
 }
 
 class SerializerConfig(config: Config) extends ScalaMapConfig(config) {
-  def getSerdeClass(name: String) = getOption(SerializerConfig.SERDE format name)
+  def getSerdeClass(name: String) = getOption(SerializerConfig.SERDE_FACTORY_CLASS format name)
 
   /**
    * Returns a list of all serializer names from the config file. Useful for

@@ -19,24 +19,25 @@
 
 package org.apache.samza.execution;
 
-import java.time.Duration;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Test;
+
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.apache.samza.execution.TestExecutionPlanner.createSystemAdmin;
 import static org.junit.Assert.assertEquals;
@@ -105,13 +106,21 @@ public class TestJobGraphJsonGenerator {
     StreamManager streamManager = new StreamManager(systemAdmins);
 
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
-    BiFunction mockBuilder = mock(BiFunction.class);
-    MessageStream m1 = streamGraph.getInputStream("input1", mockBuilder).map(m -> m);
-    MessageStream m2 = streamGraph.getInputStream("input2", mockBuilder).partitionBy(m -> "haha").filter(m -> true);
-    MessageStream m3 = streamGraph.getInputStream("input3", mockBuilder).filter(m -> true).partitionBy(m -> "hehe").map(m -> m);
-    Function mockFn = mock(Function.class);
-    OutputStream<Object, Object, Object> outputStream1 = streamGraph.getOutputStream("output1", mockFn, mockFn);
-    OutputStream<Object, Object, Object> outputStream2 = streamGraph.getOutputStream("output2", mockFn, mockFn);
+    streamGraph.setDefaultSerde(KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+    MessageStream<KV<Object, Object>> m1 =
+        streamGraph.<KV<Object, Object>>getInputStream("input1")
+            .map(m -> m);
+    MessageStream<KV<Object, Object>> m2 =
+        streamGraph.<KV<Object, Object>>getInputStream("input2")
+            .partitionBy(m -> m.key, m -> m.value)
+            .filter(m -> true);
+    MessageStream<KV<Object, Object>> m3 =
+        streamGraph.<KV<Object, Object>>getInputStream("input3")
+            .filter(m -> true)
+            .partitionBy(m -> m.key, m -> m.value)
+            .map(m -> m);
+    OutputStream<KV<Object, Object>> outputStream1 = streamGraph.getOutputStream("output1");
+    OutputStream<KV<Object, Object>> outputStream2 = streamGraph.getOutputStream("output2");
 
     m1.join(m2, mock(JoinFunction.class), Duration.ofHours(2)).sendTo(outputStream1);
     m2.sink((message, collector, coordinator) -> { });
