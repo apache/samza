@@ -184,8 +184,8 @@ public interface MessageStream<M> {
    *
    * @param <K> the type of output key
    * @param <V> the type of output value
-   * @param keyExtractor the {@link MapFunction} to extract the message and partition key from the input message
-   * @param valueExtractor the {@link MapFunction} to extract the value from the input message
+   * @param keyExtractor the {@link Function} to extract the message and partition key from the input message
+   * @param valueExtractor the {@link Function} to extract the value from the input message
    * @param serde the {@link KVSerde} to use for (de)serializing the key and value.
    * @return the repartitioned {@link MessageStream}
    */
@@ -195,8 +195,8 @@ public interface MessageStream<M> {
   /**
    * Same as calling {@link #partitionBy(Function, Function, KVSerde)} with a null KVSerde.
    *
-   * @param keyExtractor the {@link MapFunction} to extract the message and partition key from the input message
-   * @param valueExtractor the {@link MapFunction} to extract the value from the input message
+   * @param keyExtractor the {@link Function} to extract the message and partition key from the input message
+   * @param valueExtractor the {@link Function} to extract the value from the input message
    * @param <K> the type of output key
    * @param <V> the type of output value
    * @return the repartitioned {@link MessageStream}

@@ -31,8 +31,6 @@ import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.ApplicationRunner;
-import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
@@ -123,7 +121,6 @@ public class TestExecutionPlanner {
      *
      */
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
-    streamGraph.setDefaultSerde(KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
     MessageStream<KV<Object, Object>> input1 = streamGraph.getInputStream("input1");
     OutputStream<KV<Object, Object>> output1 = streamGraph.getOutputStream("output1");
     input1
@@ -147,7 +144,6 @@ public class TestExecutionPlanner {
      */
 
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
-    streamGraph.setDefaultSerde(KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
     MessageStream<KV<Object, Object>> m1 =
         streamGraph.<KV<Object, Object>>getInputStream("input1")
             .map(m -> m);
@@ -172,7 +168,6 @@ public class TestExecutionPlanner {
   private StreamGraphImpl createStreamGraphWithJoinAndWindow() {
 
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
-    streamGraph.setDefaultSerde(KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
     MessageStream<KV<Object, Object>> m1 =
         streamGraph.<KV<Object, Object>>getInputStream("input1")
             .map(m -> m);

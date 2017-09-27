@@ -31,9 +31,9 @@ public interface StreamGraph {
   /**
    * Sets the default {@link Serde} to use for (de)serializing messages.
    * <p>.
-   * If the the default serde is set, it must be set <b>before</b> creating any input or output streams.
-   * The default value for the default serde is a KVSerde&lt;NoOpSerde, NoOpSerde&gt;. This means that any streams
-   * created when using the the default value for the default serde will be recieve messages of type KV&lt;Object, Object&gt;.
+   * If the default serde is set, it must be set <b>before</b> creating any input or output streams.
+   * If no explicit or default serdes are provided, a NoOpSerde is used for keys and values. This means that any
+   * streams created without explicit or default serdes should be cast to MessageStream&lt;KV&lt;Object, Object&gt;&gt;.
    * Providing an incompatible message type for the input/output streams that use the default serde will result in
    * {@link ClassCastException}s at runtime.
    *
@@ -59,7 +59,8 @@ public interface StreamGraph {
    * {@link #setDefaultSerde(Serde)} for deserializing input messages.
    * <p>
    * If no default serde has been provided <b>before</b> calling this method, a no-op serde is used.
-   * Providing a message type {@code M} that is incompatible with the default Serde will result in runtime exceptions.
+   * Providing a message type {@code M} that is incompatible with the default Serde will result in
+   * {@link ClassCastException}s at runtime.
    * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
    * @param streamId the unique ID for the stream
@@ -87,7 +88,8 @@ public interface StreamGraph {
    * {@link #setDefaultSerde(Serde)} for serializing output messages.
    * <p>
    * If no default serde has been provided <b>before</b> calling this method, a no-op serde is used.
-   * Providing a message type {@code M} that is incompatible with the default Serde will result in runtime exceptions.
+   * Providing a message type {@code M} that is incompatible with the default Serde will result in
+   * {@link ClassCastException}s at runtime.
    * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
    * @param streamId the unique ID for the stream
