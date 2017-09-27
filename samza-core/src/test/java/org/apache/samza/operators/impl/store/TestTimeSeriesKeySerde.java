@@ -19,6 +19,7 @@
  */
 package org.apache.samza.operators.impl.store;
 
+import com.google.common.primitives.Longs;
 import org.apache.samza.serializers.LongSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.junit.Test;
@@ -68,4 +69,16 @@ public class TestTimeSeriesKeySerde {
 
     assertEquals(storeKey, deserializedTimeSeriesKey);
   }
+
+  @Test
+  public void longBehavior() {
+    byte version = 0x03;
+    long versionInt = 0x13FFFFFFFFFFFFFFl;
+    byte[] bytes1 = Longs.toByteArray(versionInt);
+    long val1 = (0xffffffffffffffffl & versionInt) & version << 56;
+    byte[] bytes = Longs.toByteArray(val1);
+
+
+  }
+
 }

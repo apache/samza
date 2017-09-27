@@ -38,8 +38,11 @@ import java.nio.ByteBuffer;
  */
 public class TimeSeriesKeySerde<K> implements Serde<TimeSeriesKey<K>> {
 
+  private static final long SEQUENCE_NUM_MASK = 0x00ffffffffffffffL;
+  private static final long VERSION_MASK = ~SEQUENCE_NUM_MASK;
+
   private static final int TIMESTAMP_SIZE = 8;
-  private static final int SEQNUM_SIZE = 4;
+  private static final int SEQNUM_SIZE = 8;
 
   private final Serde<K> keySerde;
 
@@ -51,7 +54,7 @@ public class TimeSeriesKeySerde<K> implements Serde<TimeSeriesKey<K>> {
   public byte[] toBytes(TimeSeriesKey<K> timeSeriesKey) {
     K key = timeSeriesKey.getKey();
     long timestamp = timeSeriesKey.getTimestamp();
-    int seqNum = timeSeriesKey.getSeqNum();
+    long seqNum = timeSeriesKey.getSeqNum();
 
     byte[] serializedKey = keySerde.toBytes(key);
     int keySize = serializedKey == null ? 0 : serializedKey.length;
@@ -62,7 +65,7 @@ public class TimeSeriesKeySerde<K> implements Serde<TimeSeriesKey<K>> {
       buf.put(serializedKey);
     }
     buf.putLong(timestamp);
-    buf.putInt(seqNum);
+    buf.putLong(seqNum & SEQUENCE_NUM_MASK);
 
     return buf.array();
   }

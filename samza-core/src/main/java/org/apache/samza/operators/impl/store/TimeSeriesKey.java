@@ -27,10 +27,10 @@ public class TimeSeriesKey<K> {
   private final K key;
   private final long timestamp;
 
-  // allows a maximum of 2 Billion entries per window per key. maybe, long?
-  private final int seqNum;
+  private final long seqNum;
+  private final byte VERSION = 0x00;
 
-  public TimeSeriesKey(K k, long time, int seq) {
+  public TimeSeriesKey(K k, long time, long seq) {
     key = k;
     timestamp = time;
     seqNum = seq;
@@ -44,22 +44,12 @@ public class TimeSeriesKey<K> {
     return timestamp;
   }
 
-  public int getSeqNum() {
-    return seqNum;
-  }
-
-  @Override
-  public int hashCode() {
-    int result = key != null ? key.hashCode() : 0;
-    result = 31 * result + (int) (timestamp ^ (timestamp >>> 32));
-    result = 31 * result + seqNum;
-    return result;
-  }
+  public long getVersion() { return VERSION; }
 
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (o == null || !getClass().equals(o.getClass())) return false;
+    if (o == null || getClass() != o.getClass()) return false;
 
     TimeSeriesKey<?> that = (TimeSeriesKey<?>) o;
 
@@ -67,6 +57,19 @@ public class TimeSeriesKey<K> {
     if (seqNum != that.seqNum) return false;
     return key != null ? key.equals(that.key) : that.key == null;
   }
+
+  @Override
+  public int hashCode() {
+    int result = key != null ? key.hashCode() : 0;
+    result = 31 * result + (int) (timestamp ^ (timestamp >>> 32));
+    result = 31 * result + (int) (seqNum ^ (seqNum >>> 32));
+    return result;
+  }
+
+  public long getSeqNum() {
+    return seqNum;
+  }
+
 
   @Override
   public String toString() {
