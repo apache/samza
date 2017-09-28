@@ -178,7 +178,10 @@ class KafkaCheckpointManager(
   private def readLog(shouldHandleEntry: (KafkaCheckpointLogKey) => Boolean,
                       handleEntry: (ByteBuffer, KafkaCheckpointLogKey) => Unit): Unit = {
 
-    val UNKNOWN_OFFSET: String = "-1L"
+    val UNKNOWN_OFFSET: String = "-1"
+    var attempts = 10
+    val POLL_TIMEOUT = 1000L
+
     val ssp: SystemStreamPartition = new SystemStreamPartition(systemName, checkpointTopic, new Partition(0))
     val systemConsumer = getSystemConsumer()
     val partitionMetadata = getEarliestOffset(checkpointTopic, new Partition(0))
@@ -190,8 +193,6 @@ class KafkaCheckpointManager(
 
     var msgCount = 0
     try {
-      var attempts = 10
-      val POLL_TIMEOUT = 1000L
       val emptyEnvelops = util.Collections.emptyMap[SystemStreamPartition, java.util.List[IncomingMessageEnvelope]]
       // convert offsets to long
       var currentOffset = UNKNOWN_OFFSET.toLong
