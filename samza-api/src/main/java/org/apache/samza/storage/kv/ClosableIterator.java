@@ -22,7 +22,7 @@ package org.apache.samza.storage.kv;
 import java.util.Iterator;
 
 /**
- * An iterator that can be closed.
+ * An iterator that must be closed.
  *
  * <p>
  * Implement close to free resources assigned to the iterator such as open file handles, persistent state etc.

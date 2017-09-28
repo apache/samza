@@ -26,7 +26,7 @@ import java.nio.ByteBuffer;
  * A {@link Serde} for {@link TimeSeriesKey}s.
  *
  * <p>
- * This wraps the actual key's serde with serializers for timestamp and sequence number.
+ * This wraps the actual key's serde with serializers for timestamp, version number and sequence number.
  *
  * A {@link TimeSeriesKeySerde} serializes a key as follows:
  *    +-------------------------+------------------+----------------+------------------+

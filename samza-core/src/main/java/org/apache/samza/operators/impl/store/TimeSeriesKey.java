@@ -73,7 +73,6 @@ public class TimeSeriesKey<K> {
     return seqNum;
   }
 
-
   @Override
   public String toString() {
     return String.format("TimeSeriesKey {key: %s timestamp: %s seqNum: %s}", key, timestamp, seqNum);
