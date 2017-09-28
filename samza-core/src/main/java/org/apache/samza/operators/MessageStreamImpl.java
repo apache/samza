@@ -37,6 +37,7 @@ import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.Serde;
 
 import java.time.Duration;
 import java.util.Collection;
@@ -112,15 +113,16 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <K, JM, TM> MessageStream<TM> join(MessageStream<JM> otherStream,
-      JoinFunction<? extends K, ? super M, ? super JM, ? extends TM> joinFn, Duration ttl) {
-    OperatorSpec<?, JM> otherOpSpec = ((MessageStreamImpl<JM>) otherStream).getOperatorSpec();
-    JoinOperatorSpec<K, M, JM, TM> joinOpSpec =
-        OperatorSpecs.createJoinOperatorSpec(this.operatorSpec, otherOpSpec,
-            (JoinFunction<K, M, JM, TM>) joinFn, ttl.toMillis(), this.graph.getNextOpId());
+  public <K, OM, JM> MessageStream<JM> join(MessageStream<OM> otherStream,
+      JoinFunction<? extends K, ? super M, ? super OM, ? extends JM> joinFn,
+      Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde, Duration ttl) {
+    OperatorSpec<?, OM> otherOpSpec = ((MessageStreamImpl<OM>) otherStream).getOperatorSpec();
+    JoinOperatorSpec<K, M, OM, JM> joinOpSpec =
+        OperatorSpecs.createJoinOperatorSpec(this.operatorSpec, otherOpSpec, (JoinFunction<K, M, OM, JM>) joinFn,
+            keySerde, messageSerde, otherMessageSerde, ttl.toMillis(), this.graph.getNextOpId());
 
     this.operatorSpec.registerNextOperatorSpec(joinOpSpec);
-    otherOpSpec.registerNextOperatorSpec((OperatorSpec<JM, ?>) joinOpSpec);
+    otherOpSpec.registerNextOperatorSpec((OperatorSpec<OM, ?>) joinOpSpec);
 
     return new MessageStreamImpl<>(this.graph, joinOpSpec);
   }

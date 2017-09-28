@@ -24,8 +24,10 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.operators.functions.JoinFunction;
+import org.apache.samza.operators.util.InternalInMemoryStore;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
+import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
@@ -49,6 +51,7 @@ import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -261,6 +264,9 @@ public class TestJoinOperator {
         .of(new SystemStreamPartition("insystem", "instream", new Partition(0)),
             new SystemStreamPartition("insystem2", "instream2", new Partition(0))));
     when(taskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
+    // need to return different stores for left and right side
+    when(taskContext.getStore(eq("join-4-L"))).thenReturn(new InternalInMemoryStore<>());
+    when(taskContext.getStore(eq("join-4-R"))).thenReturn(new InternalInMemoryStore<>());
 
     Config config = mock(Config.class);
 
@@ -287,7 +293,9 @@ public class TestJoinOperator {
 
       SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
       inStream
-          .join(inStream2, joinFn, JOIN_TTL)
+          .join(inStream2, joinFn,
+              new IntegerSerde(), new JsonSerdeV2<>(FirstStreamIME.class), new JsonSerdeV2<>(SecondStreamIME.class),
+              JOIN_TTL)
           .sink((message, messageCollector, taskCoordinator) -> {
               messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
             });

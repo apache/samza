@@ -213,7 +213,6 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
    * @param overriddenConfigs configs to override
    */
   public void runApplication(StreamApplication streamApplication, String appName, Config overriddenConfigs) {
-
     Map<String, String> configs = new HashMap<>();
     configs.put("job.factory.class", "org.apache.samza.job.local.ThreadJobFactory");
     configs.put("job.name", appName);
@@ -230,6 +229,17 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     configs.put("job.default.system", "kafka");
     configs.put("job.coordinator.replication.factor", "1");
     configs.put("task.window.ms", "1000");
+
+    // This is to prevent tests from taking a long time to stop after they're done. The issue is that
+    // tearDown currently doesn't call runner.kill(app), and shuts down the Kafka and ZK servers immediately.
+    // The test process then exits, triggering the SamzaContainer shutdown hook, which in turn tries to flush any
+    // store changelogs, which then get stuck trying to produce to the stopped Kafka server.
+    // Calling runner.kill doesn't work since RemoteApplicationRunner creates a new ThreadJob instance when
+    // kill is called. We can't use LocalApplicationRunner since ZkJobCoordinator doesn't currently create
+    // changelog streams. Hence we just force an unclean shutdown here to. This _should be_ OK
+    // since the test method has already executed by the time the shutdown hook is called. The side effect is
+    // that buffered state (e.g. changelog contents) might not be flushed correctly after the test run.
+    configs.put("task.shutdown.ms", "100");
 
     if (overriddenConfigs != null) {
       configs.putAll(overriddenConfigs);

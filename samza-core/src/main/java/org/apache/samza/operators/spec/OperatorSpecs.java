@@ -27,6 +27,7 @@ import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.windows.internal.WindowInternal;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.task.TaskContext;
 
 import java.util.ArrayList;
@@ -189,18 +190,22 @@ public class OperatorSpecs {
    * @param leftInputOpSpec  the operator spec for the stream on the left side of the join
    * @param rightInputOpSpec  the operator spec for the stream on the right side of the join
    * @param joinFn  the user-defined join function to get join keys and results
+   * @param keySerde  the serde for the join key
+   * @param messageSerde  the serde for messages in the stream on the lefta side of the join
+   * @param otherMessageSerde  the serde for messages in the stream on the right side of the join
    * @param ttlMs  the ttl in ms for retaining messages in each stream
    * @param opId  the unique ID of the operator
    * @param <K>  the type of join key
    * @param <M>  the type of input message
-   * @param <JM>  the type of message in the other join stream
-   * @param <RM>  the type of join result
+   * @param <OM>  the type of message in the other stream
+   * @param <JM>  the type of join result
    * @return  the {@link JoinOperatorSpec}
    */
-  public static <K, M, JM, RM> JoinOperatorSpec<K, M, JM, RM> createJoinOperatorSpec(
-      OperatorSpec<?, M> leftInputOpSpec, OperatorSpec<?, JM> rightInputOpSpec,
-      JoinFunction<K, M, JM, RM> joinFn, long ttlMs, int opId) {
-    return new JoinOperatorSpec<>(leftInputOpSpec, rightInputOpSpec, joinFn, ttlMs, opId);
+  public static <K, M, OM, JM> JoinOperatorSpec<K, M, OM, JM> createJoinOperatorSpec(
+      OperatorSpec<?, M> leftInputOpSpec, OperatorSpec<?, OM> rightInputOpSpec, JoinFunction<K, M, OM, JM> joinFn,
+      Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde, long ttlMs, int opId) {
+    return new JoinOperatorSpec<>(leftInputOpSpec, rightInputOpSpec, joinFn,
+        keySerde, messageSerde, otherMessageSerde, ttlMs, opId);
   }
 
   /**

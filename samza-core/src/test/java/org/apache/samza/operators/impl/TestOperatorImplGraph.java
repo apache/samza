@@ -44,6 +44,7 @@ import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.spec.OperatorSpec.OpCode;
+import org.apache.samza.operators.util.InternalInMemoryStore;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
@@ -218,10 +219,13 @@ public class TestOperatorImplGraph {
     JoinFunction mockJoinFunction = mock(JoinFunction.class);
     MessageStream<Object> inputStream1 = streamGraph.getInputStream("input1", new NoOpSerde<>());
     MessageStream<Object> inputStream2 = streamGraph.getInputStream("input2", new NoOpSerde<>());
-    inputStream1.join(inputStream2, mockJoinFunction, Duration.ofHours(1));
+    inputStream1.join(inputStream2, mockJoinFunction,
+        mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1));
 
     TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
+    when(mockTaskContext.getStore(eq("join-2-L"))).thenReturn(new InternalInMemoryStore<>());
+    when(mockTaskContext.getStore(eq("join-2-R"))).thenReturn(new InternalInMemoryStore<>());
     OperatorImplGraph opImplGraph =
         new OperatorImplGraph(streamGraph, mock(Config.class), mockTaskContext, mock(Clock.class));
 
