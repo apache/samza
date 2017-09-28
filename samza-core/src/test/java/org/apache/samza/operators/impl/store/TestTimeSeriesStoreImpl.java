@@ -207,5 +207,4 @@ public class TestTimeSeriesStoreImpl {
             false, storeName, new WriteOptions(), new FlushOptions(),
             new KeyValueStoreMetrics(storeName, new MetricsRegistryMap()));
   }
-
 }
