@@ -1138,7 +1138,14 @@
                             <dt><code>org.apache.samza.serializers.StringSerdeFactory</code></dt>
                             <dd>Encodes <code>java.lang.String</code> objects as UTF-8.</dd>
                             <dt><code>org.apache.samza.serializers.JsonSerdeFactory</code></dt>
-                            <dd>Encodes nested structures of <code>java.util.Map</code>, <code>java.util.List</code> etc. as JSON.</dd>
+                            <dd>Encodes nested structures of <code>java.util.Map</code>, <code>java.util.List</code> etc. as JSON.<br/>
+                                Note: This Serde enforces a dash-separated property naming convention, while JsonSerdeV2 doesn't.
+                                This serde is primarily meant for Samza's internal usage, and is publicly available for backwards compatibility.</dd>
+                            <dt><code>org.apache.samza.serializers.JsonSerdeV2Factory</code></dt>
+                            <dd>Encodes nested structures of <code>java.util.Map</code>, <code>java.util.List</code> etc. as JSON.<br/>
+                                Note: This Serde uses Jackson's default (camelCase) property naming convention. This serde should be <br/>
+                                preferred over JsonSerde, especially in High Level API, unless the dasherized naming convention is required <br/>
+                                (e.g., for backwards compatibility).</dd>
                             <dt><code>org.apache.samza.serializers.LongSerdeFactory</code></dt>
                             <dd>Encodes <code>java.lang.Long</code> as binary (8 bytes fixed-length big-endian encoding).</dd>
                             <dt><code>org.apache.samza.serializers.DoubleSerdeFactory</code></dt>

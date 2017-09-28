@@ -20,11 +20,13 @@
 package org.apache.samza.serializers;
 
 import java.util.Arrays;
+
 import org.apache.samza.SamzaException;
 import org.apache.samza.message.EndOfStreamMessage;
 import org.apache.samza.message.MessageType;
 import org.apache.samza.message.WatermarkMessage;
-import org.codehaus.jackson.type.TypeReference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -49,28 +51,7 @@ import org.codehaus.jackson.type.TypeReference;
  * For control message, we use json serde.
  */
 public class IntermediateMessageSerde implements Serde<Object> {
-
-  private static final class WatermarkSerde extends JsonSerde<WatermarkMessage> {
-    @Override
-    public WatermarkMessage fromBytes(byte[] bytes) {
-      try {
-        return mapper().readValue(new String(bytes, "UTF-8"), new TypeReference<WatermarkMessage>() { });
-      } catch (Exception e) {
-        throw new SamzaException(e);
-      }
-    }
-  }
-
-  private static final class EndOfStreamSerde extends JsonSerde<EndOfStreamMessage> {
-    @Override
-    public EndOfStreamMessage fromBytes(byte[] bytes) {
-      try {
-        return mapper().readValue(new String(bytes, "UTF-8"), new TypeReference<EndOfStreamMessage>() { });
-      } catch (Exception e) {
-        throw new SamzaException(e);
-      }
-    }
-  }
+  private static final Logger LOGGER = LoggerFactory.getLogger(IntermediateMessageSerde.class);
 
   private final Serde userMessageSerde;
   private final Serde<WatermarkMessage> watermarkSerde;
@@ -78,8 +59,8 @@ public class IntermediateMessageSerde implements Serde<Object> {
 
   public IntermediateMessageSerde(Serde userMessageSerde) {
     this.userMessageSerde = userMessageSerde;
-    this.watermarkSerde = new WatermarkSerde();
-    this.eosSerde = new EndOfStreamSerde();
+    this.watermarkSerde = new JsonSerdeV2<>(WatermarkMessage.class);
+    this.eosSerde = new JsonSerdeV2<>(EndOfStreamMessage.class);
   }
 
   @Override
@@ -110,7 +91,13 @@ public class IntermediateMessageSerde implements Serde<Object> {
       // 1) the first byte is not a valid type so it will cause ArrayOutOfBound exception
       // 2) the first byte happens to be a valid type, but the deserialization fails with certain exception
       // For these cases, we fall back to user-provided serde
-      return userMessageSerde.fromBytes(bytes);
+      try {
+        return userMessageSerde.fromBytes(bytes);
+      } catch (Exception umse) {
+        LOGGER.error("Error deserializing from both intermediate message serde and user message serde. "
+            + "Original exception: ", e);
+        throw umse;
+      }
     }
   }
 

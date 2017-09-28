@@ -246,7 +246,7 @@ public class StreamAppender extends AppenderSkeleton {
       SerdeFactory<LoggingEvent> serdeFactory = Util.<SerdeFactory<LoggingEvent>>getObj(serdeClass);
       serde = serdeFactory.getSerde(systemName, config);
     } else {
-      String serdeKey = String.format(SerializerConfig.SERDE(), serdeName);
+      String serdeKey = String.format(SerializerConfig.SERDE_FACTORY_CLASS(), serdeName);
       throw new SamzaException("Can not find serializers class for key '" + serdeName + "'. Please specify " +
           serdeKey + " property");
     }

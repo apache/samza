@@ -16,16 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
-
-import org.apache.samza.annotation.InterfaceStability;
+package org.apache.samza.serializers
 
 /**
- * An output stream to send messages to.
- *
- * @param <M> the type of message being sent to this {@link OutputStream}
- */
-@InterfaceStability.Unstable
-public interface OutputStream<M> {
+  * A marker serde class to indicate that messages should not be serialized or deserialized.
+  * This is the same behavior as when no serde is provided, and is intended for use cases where
+  * a Serde parameter or configuration is required.
+  * This is different than [[ByteSerde]] which is a pass-through serde for byte arrays.
+  *
+  * @tparam T type of messages which should not be serialized or deserialized
+  */
+class NoOpSerde[T] extends Serde[T] {
+
+  override def fromBytes(bytes: Array[Byte]): T =
+    throw new NotImplementedError("NoOpSerde fromBytes should not be invoked by the framework.")
+
+  override def toBytes(obj: T): Array[Byte] =
+    throw new NotImplementedError("NoOpSerde toBytes should not be invoked by the framework.")
 
 }

@@ -21,10 +21,14 @@ package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.serializers.JsonSerdeV2;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.util.CommandLine;
 
 
@@ -35,14 +39,12 @@ public class BroadcastExample implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    MessageStream<PageViewEvent> inputStream =
-        graph.getInputStream("inputStream", (k, m) -> (PageViewEvent) m);
-    OutputStream<String, PageViewEvent, PageViewEvent> outputStream1 =
-        graph.getOutputStream("outputStream1", m -> m.key, m -> m);
-    OutputStream<String, PageViewEvent, PageViewEvent> outputStream2 =
-        graph.getOutputStream("outputStream2", m -> m.key, m -> m);
-    OutputStream<String, PageViewEvent, PageViewEvent> outputStream3 =
-        graph.getOutputStream("outputStream3", m -> m.key, m -> m);
+    graph.setDefaultSerde(KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageViewEvent.class)));
+
+    MessageStream<KV<String, PageViewEvent>> inputStream = graph.getInputStream("inputStream");
+    OutputStream<KV<String, PageViewEvent>> outputStream1 = graph.getOutputStream("outputStream1");
+    OutputStream<KV<String, PageViewEvent>> outputStream2 = graph.getOutputStream("outputStream2");
+    OutputStream<KV<String, PageViewEvent>> outputStream3 = graph.getOutputStream("outputStream3");
 
     inputStream.filter(m -> m.key.equals("key1")).sendTo(outputStream1);
     inputStream.filter(m -> m.key.equals("key2")).sendTo(outputStream2);

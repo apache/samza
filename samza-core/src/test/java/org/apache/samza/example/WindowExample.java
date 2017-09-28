@@ -29,6 +29,8 @@ import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.serializers.IntegerSerde;
+import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
@@ -45,9 +47,8 @@ public class WindowExample implements StreamApplication {
   public void init(StreamGraph graph, Config config) {
     Supplier<Integer> initialValue = () -> 0;
     FoldLeftFunction<PageViewEvent, Integer> counter = (m, c) -> c == null ? 1 : c + 1;
-    MessageStream<PageViewEvent> inputStream = graph.getInputStream("inputStream", (k, m) -> (PageViewEvent) m);
-    OutputStream<String, Integer, WindowPane<Void, Integer>> outputStream = graph
-        .getOutputStream("outputStream", m -> m.getKey().getPaneId(), m -> m.getMessage());
+    MessageStream<PageViewEvent> inputStream = graph.getInputStream("inputStream", new JsonSerdeV2<PageViewEvent>());
+    OutputStream<Integer> outputStream = graph.getOutputStream("outputStream", new IntegerSerde());
 
     // create a tumbling window that outputs the number of message collected every 10 minutes.
     // also emit early results if either the number of messages collected reaches 30000, or if no new messages arrive
@@ -55,6 +56,7 @@ public class WindowExample implements StreamApplication {
     inputStream
         .window(Windows.tumblingWindow(Duration.ofMinutes(10), initialValue, counter)
             .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceLastMessage(Duration.ofMinutes(1)))))
+        .map(WindowPane::getMessage)
         .sendTo(outputStream);
   }
 

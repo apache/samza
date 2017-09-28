@@ -18,35 +18,46 @@
  */
 package org.apache.samza.operators.spec;
 
-import org.apache.commons.lang3.tuple.Pair;
+import org.apache.samza.operators.KV;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
-
-import java.util.function.BiFunction;
 
 /**
  * The spec for an operator that receives incoming messages from an input stream
  * and converts them to the input message.
  *
- * @param <K> the type of key in the incoming message
- * @param <V> the type of message in the incoming message
- * @param <M> the type of input message
+ * @param <K> the type of input key
+ * @param <V> the type of input value
  */
-public class InputOperatorSpec<K, V, M> extends OperatorSpec<Pair<K, V>, M> {
+public class InputOperatorSpec<K, V> extends OperatorSpec<KV<K, V>, Object> { // Object == KV<K, V> | V
 
   private final StreamSpec streamSpec;
-  private final BiFunction<K, V, M> msgBuilder;
+  private final Serde<K> keySerde;
+  private final Serde<V> valueSerde;
+  private final boolean isKeyedInput;
 
-  public InputOperatorSpec(StreamSpec streamSpec, BiFunction<K, V, M> msgBuilder, int opId) {
+  public InputOperatorSpec(StreamSpec streamSpec,
+      Serde<K> keySerde, Serde<V> valueSerde, boolean isKeyedInput, int opId) {
     super(OpCode.INPUT, opId);
     this.streamSpec = streamSpec;
-    this.msgBuilder = msgBuilder;
+    this.keySerde = keySerde;
+    this.valueSerde = valueSerde;
+    this.isKeyedInput = isKeyedInput;
   }
 
   public StreamSpec getStreamSpec() {
     return this.streamSpec;
   }
 
-  public BiFunction<K, V, M> getMsgBuilder() {
-    return this.msgBuilder;
+  public Serde<K> getKeySerde() {
+    return keySerde;
+  }
+
+  public Serde<V> getValueSerde() {
+    return valueSerde;
+  }
+
+  public boolean isKeyedInput() {
+    return isKeyedInput;
   }
 }

@@ -41,7 +41,7 @@ public class TestStreamOperatorImpl {
 
   @Test
   @SuppressWarnings("unchecked")
-  public void testSimpleOperator() {
+  public void testStreamOperator() {
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> mockOp = mock(StreamOperatorSpec.class);
     FlatMapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> txfmFn = mock(FlatMapFunction.class);
     when(mockOp.getTransformFn()).thenReturn(txfmFn);
@@ -61,7 +61,7 @@ public class TestStreamOperatorImpl {
   }
 
   @Test
-  public void testSimpleOperatorClose() {
+  public void testStreamOperatorClose() {
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> mockOp = mock(StreamOperatorSpec.class);
     FlatMapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> txfmFn = mock(FlatMapFunction.class);
     when(mockOp.getTransformFn()).thenReturn(txfmFn);
