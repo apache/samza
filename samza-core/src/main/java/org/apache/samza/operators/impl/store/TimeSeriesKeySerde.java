@@ -25,9 +25,10 @@ import java.nio.ByteBuffer;
 /**
  * A {@link Serde} for {@link TimeSeriesKey}s.
  *
- * <p> This wraps the actual key's serde with serializers for timestamp and sequence number.
+ * <p>
+ * This wraps the actual key's serde with serializers for timestamp and sequence number.
  *
- *  A {@link TimeSeriesKeySerde} serializes a key as follows:
+ * A {@link TimeSeriesKeySerde} serializes a key as follows:
  *    +-------------------------+------------------+----------------+------------------+
  *    |  serialized-key bytes   |  timestamp       | version (0)    | seqNum           |
  *    |(serialized by keySerde) |                  |                |                  |
@@ -83,7 +84,7 @@ public class TimeSeriesKeySerde<K> implements Serde<TimeSeriesKey<K>> {
     }
 
     long timeStamp = buf.getLong();
-    int seqNum = buf.getInt();
+    long seqNum = buf.getLong();
 
     return new TimeSeriesKey(key, timeStamp, seqNum);
   }

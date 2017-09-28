@@ -30,7 +30,6 @@ import org.apache.samza.storage.kv.ClosableIterator;
  * @param <K> the type of key in the store
  * @param <V> the type of value in the store
  */
-
 public interface TimeSeriesStore<K, V> {
 
   /**
@@ -38,22 +37,22 @@ public interface TimeSeriesStore<K, V> {
    *
    * @param key the key to insert
    * @param val the value to insert
-   * @param timeStamp the timestamp in milliseconds
+   * @param timestamp the timestamp in milliseconds
    */
-  void put(K key, V val, Long timeStamp);
+  void put(K key, V val, long timestamp);
 
   /**
    * Returns an iterator over values for the given key in the provided time-range - [{@code startTimestamp}, {@code endTimestamp})
    *
    * Values returned by the iterator are ordered by their timestamp. Values with the same timestamp are
-   * returned in their order of insertion.
+   * returned in their order of insertion. The iterator must be closed after use by calling {@link #close}.
    *
    * @param key the key to look up in the store
    * @param startTimestamp the start timestamp of the range, inclusive
-   * @param endTimeStamp the end timestamp of the range, exclusive
-   * @throws IllegalArgumentException when startTimeStamp &gt; endTimeStamp, or when either of them is negative
+   * @param endTimestamp the end timestamp of the range, exclusive
+   * @throws IllegalArgumentException when startTimeStamp &gt; endTimestamp, or when either of them is negative
    */
-  ClosableIterator<TimeSeriesValue<V>> get(K key, Long startTimestamp, Long endTimeStamp);
+  ClosableIterator<TimeSeriesValue<V>> get(K key, long startTimestamp, long endTimestamp);
 
   /**
    * Removes all values for this key in the given time-range.
@@ -63,7 +62,20 @@ public interface TimeSeriesStore<K, V> {
    * @param endTimeStamp the end timestamp of the range, exclusive
    * @throws IllegalArgumentException when startTimeStamp &gt; endTimeStamp, or when either of them is negative
    */
-  void remove(K key, Long startTimestamp, Long endTimeStamp);
+  void remove(K key, long startTimestamp, long endTimeStamp);
+
+  /**
+   * Removes all values for this key.
+   *
+   * @param key the key to look up in the store
+   * @throws IllegalArgumentException when startTimeStamp &gt; endTimeStamp, or when either of them is negative
+   */
+  void remove(K key);
+
+  /**
+   * Flushes this time series store, if applicable.
+   */
+  void flush();
 
   /**
    * Closes this store.

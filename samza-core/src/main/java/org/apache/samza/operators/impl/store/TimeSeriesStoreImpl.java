@@ -26,17 +26,21 @@ import org.apache.samza.storage.kv.KeyValueStore;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Provides a view on top of a {@link KeyValueStore} that allows retrieval of entries by time ranges.
  *
- * <p> A {@link TimeSeriesStoreImpl} can be backed by persistent stores like rocksDB, in-memory stores, change-logged
+ * <p>
+ * A {@link TimeSeriesStoreImpl} can be backed by persistent stores like rocksDB, in-memory stores, change-logged
  * stores, cached stores (or any combination of these).
  *
- * <p> Range iterators in the store return values in the order of their timestamp. Within the same key and timestamp,
+ * <p>
+ * Range iterators in the store return values in the order of their timestamp. Within the same key and timestamp,
  * values are returned in their order of insertion.
  *
- * <p> This store has two modes of operation depending on how duplicates are handled:
+ * <p>
+ * This store has two modes of operation depending on how duplicates are handled:
  * <ol>
  *   <li>
  *     Overwrite Mode: In this mode, the store only retains the most recent value for a given key and timestamp. ie.,Calling
@@ -47,9 +51,10 @@ import java.util.List;
  *     with an existing key and timestamp will append the value to the list.
  *   </li>
  * </ol>
- * <p> Implementation Notes:
+ * <p>
+ * Implementation Notes:
  *
- *  Data is serialized and organized into K-V pairs as follows:
+ * Data is serialized and organized into K-V pairs as follows:
  *  <pre>
  *    +-----------------------+------------------+------------+------------------------+-----------------------+
  *    |  serialized-key bytes |  timestamp       | version    |       sequence number  | serialized value      |
@@ -75,43 +80,53 @@ public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
    * Since timestamps are at the granularity of milliseconds, multiple entries added in the same
    * millisecond are distinguished by a monotonically increasing sequence number.
    */
-  private int seqNum = 0;
-  private final Object seqNumLock = new Object();
+  private final AtomicLong seqNum = new AtomicLong();
   private final boolean appendMode;
 
+  /**
+   * Creates a {@link TimeSeriesStoreImpl}
+   *
+   * @param kvStore the backing kv store to use
+   * @param appendMode should the store be used in appendMode
+   */
   public TimeSeriesStoreImpl(KeyValueStore<TimeSeriesKey<K>, V> kvStore, boolean appendMode) {
     this.kvStore = kvStore;
     this.appendMode = appendMode;
   }
 
+  /**
+   * Creates a {@link TimeSeriesStoreImpl} in append mode.
+   *
+   * @param kvStore the backing kv store to use
+   */
   public TimeSeriesStoreImpl(KeyValueStore<TimeSeriesKey<K>, V> kvStore) {
     this(kvStore, true);
   }
 
   @Override
-  public void put(K key, V val, Long timeStamp) {
+  public void put(K key, V val, long timestamp) {
     // For append mode, values are differentiated by an unique sequence number. For overwrite mode, the sequence
     // number is always zero. This ensures that only the most recent value is retained.
     if (appendMode) {
-      incrementSeqNum();
+      seqNum.getAndIncrement();
     }
-    TimeSeriesKey<K> timeSeriesKey = new TimeSeriesKey<>(key, timeStamp, seqNum);
+    TimeSeriesKey<K> timeSeriesKey = new TimeSeriesKey<>(key, timestamp, seqNum.get());
     kvStore.put(timeSeriesKey, val);
   }
 
   @Override
-  public ClosableIterator<TimeSeriesValue<V>> get(K key, Long startTimestamp, Long endTimeStamp) {
-    validateRanges(startTimestamp, endTimeStamp);
+  public ClosableIterator<TimeSeriesValue<V>> get(K key, long startTimestamp, long endTimestamp) {
+    validateRange(startTimestamp, endTimestamp);
     TimeSeriesKey<K> fromKey = new TimeSeriesKey(key, startTimestamp, 0);
-    TimeSeriesKey<K> toKey = new TimeSeriesKey(key, endTimeStamp, 0);
+    TimeSeriesKey<K> toKey = new TimeSeriesKey(key, endTimestamp, 0);
 
     KeyValueIterator<TimeSeriesKey<K>, V> range = kvStore.range(fromKey, toKey);
     return new TimeSeriesStoreIterator<>(range);
   }
 
   @Override
-  public void remove(K key, Long startTimestamp, Long endTimeStamp) {
-    validateRanges(startTimestamp, endTimeStamp);
+  public void remove(K key, long startTimestamp, long endTimeStamp) {
+    validateRange(startTimestamp, endTimeStamp);
     TimeSeriesKey<K> fromKey = new TimeSeriesKey(key, startTimestamp, 0);
     TimeSeriesKey<K> toKey = new TimeSeriesKey(key, endTimeStamp, 0);
 
@@ -126,28 +141,31 @@ public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
   }
 
   @Override
+  public void remove(K key) {
+    remove(key, 0L, Long.MAX_VALUE);
+  }
+
+  @Override
+  public void flush() {
+    kvStore.flush();
+  }
+
+  @Override
   public void close() {
     kvStore.close();
   }
 
-  private void incrementSeqNum() {
-    synchronized (seqNumLock) {
-      // cycles the seqNum back without a modulo operation
-      seqNum = (seqNum + 1) & Integer.MAX_VALUE;
-    }
-  }
-
-  private void validateRanges(Long startTimestamp, Long endTimeStamp) throws IllegalArgumentException {
+  private void validateRange(long startTimestamp, long endTimestamp) throws IllegalArgumentException {
     if (startTimestamp < 0) {
       throw new IllegalArgumentException(String.format("Start timestamp :%d is less than zero", startTimestamp));
     }
 
-    if (endTimeStamp < 0) {
-      throw new IllegalArgumentException(String.format("End timestamp :%d is less than zero", endTimeStamp));
+    if (endTimestamp < 0) {
+      throw new IllegalArgumentException(String.format("End timestamp :%d is less than zero", endTimestamp));
     }
 
-    if (endTimeStamp < startTimestamp) {
-      throw new IllegalArgumentException(String.format("End timestamp :%d is less than start timestamp: %d", endTimeStamp, startTimestamp));
+    if (endTimestamp < startTimestamp) {
+      throw new IllegalArgumentException(String.format("End timestamp :%d is less than start timestamp: %d", endTimestamp, startTimestamp));
     }
   }
 

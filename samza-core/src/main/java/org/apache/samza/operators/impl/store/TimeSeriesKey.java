@@ -45,7 +45,9 @@ public class TimeSeriesKey<K> {
     return timestamp;
   }
 
-  public byte getVersion() { return VERSION; }
+  public byte getVersion() {
+    return VERSION;
+  }
 
   @Override
   public boolean equals(Object o) {
@@ -74,10 +76,6 @@ public class TimeSeriesKey<K> {
 
   @Override
   public String toString() {
-    return "TimeSeriesKey{" +
-            "key=" + key +
-            ", timestamp=" + timestamp +
-            ", seqNum=" + seqNum +
-            '}';
+    return String.format("TimeSeriesKey {key: %s timestamp: %s seqNum: %s}", key, timestamp, seqNum);
   }
 }
