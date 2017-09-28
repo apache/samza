@@ -51,14 +51,14 @@ import java.util.List;
  *
  *  Data is serialized and organized into K-V pairs as follows:
  *  <pre>
- *    +-----------------------+------------------+------------+------------------------+
- *    |  serialized-key bytes |  timestamp       | seq num    |serialized-value bytes  |
- *    |                       |                  |            |                        |
- *    +-----------------------+------------------+------------+------------------------+
- *    +----------------------+--------8 bytes----+----4 bytes--
- *    +------------------STORE KEY----------------------------+-------STORE VAL--------+
+ *    +-----------------------+------------------+------------+------------------------+-----------------------+
+ *    |  serialized-key bytes |  timestamp       | version    |       sequence number  | serialized value      |
+ *    |                       |                  |            |                        |                       |
+ *    +-----------------------+------------------+------------+------------------------+-----------------------+
+ *    +----------------------+--------8 bytes----+----1 bytes-+---------7 bytes--------+----value size----------
+ *    +----------------------------------STORE KEY-------------------------------------+---STORE VAL-----------+
  *  </pre>
- *  An 8 byte timestamp, and a 4 byte sequence number are appended to the provided key and this
+ *  An 8 byte timestamp, a one byte version and a 7 byte sequence number are appended to the provided key and this
  *  combination is used as the key in the k-v store. The provided value is stored as is.
  *
  *  <p> This class is thread-safe and concurrent reads/writes are expected.

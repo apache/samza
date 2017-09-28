@@ -55,14 +55,6 @@ public interface TimeSeriesStore<K, V> {
    */
   ClosableIterator<TimeSeriesValue<V>> get(K key, Long startTimestamp, Long endTimeStamp);
 
-  // tsv
-  //KeyValueIterator<K, TimeSeriesValue<V>>
-  // expose seq
-  //KeyValueIterator<TimeSeriesKey<K>, V>
-  //KeyValueIterator<V, L>
-
-
-  //
   /**
    * Removes all values for this key in the given time-range.
    *

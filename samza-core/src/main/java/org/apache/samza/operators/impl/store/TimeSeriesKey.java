@@ -24,11 +24,12 @@ package org.apache.samza.operators.impl.store;
  */
 public class TimeSeriesKey<K> {
 
+  // version for backwards compatibility
+  private static final byte VERSION = 0x00;
   private final K key;
   private final long timestamp;
 
   private final long seqNum;
-  private final byte VERSION = 0x00;
 
   public TimeSeriesKey(K k, long time, long seq) {
     key = k;
@@ -44,7 +45,7 @@ public class TimeSeriesKey<K> {
     return timestamp;
   }
 
-  public long getVersion() { return VERSION; }
+  public byte getVersion() { return VERSION; }
 
   @Override
   public boolean equals(Object o) {

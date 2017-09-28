@@ -28,18 +28,17 @@ import java.nio.ByteBuffer;
  * <p> This wraps the actual key's serde with serializers for timestamp and sequence number.
  *
  *  A {@link TimeSeriesKeySerde} serializes a key as follows:
- *    +-------------------------+------------------+------------+
- *    |  serialized-key bytes   |  timestamp       | seq num    |
- *    |(serialized by keySerde) |                  |            |
- *    +-------------------------+------------------+------------+
- *    +---serialized key len----+-------8 bytes----+---4 bytes--+
+ *    +-------------------------+------------------+----------------+------------------+
+ *    |  serialized-key bytes   |  timestamp       | version (0)    | seqNum           |
+ *    |(serialized by keySerde) |                  |                |                  |
+ *    +-------------------------+------------------+----------------+------------------+
+ *    +---serialized key len----+-------8 bytes----+---1 byte-------+---7 bytes---------+
  *
  * @param <K> the type of the wrapped key
  */
 public class TimeSeriesKeySerde<K> implements Serde<TimeSeriesKey<K>> {
 
   private static final long SEQUENCE_NUM_MASK = 0x00ffffffffffffffL;
-  private static final long VERSION_MASK = ~SEQUENCE_NUM_MASK;
 
   private static final int TIMESTAMP_SIZE = 8;
   private static final int SEQNUM_SIZE = 8;
