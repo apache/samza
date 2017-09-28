@@ -25,6 +25,8 @@ import org.apache.samza.config.Config;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.serializers.IntegerSerde;
+import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
@@ -276,10 +278,11 @@ public class TestJoinOperator {
 
     @Override
     public void init(StreamGraph graph, Config config) {
+      KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
       MessageStream<FirstStreamIME> inStream =
-          graph.getInputStream("instream", FirstStreamIME::new);
+          graph.getInputStream("instream", kvSerde).map(FirstStreamIME::new);
       MessageStream<SecondStreamIME> inStream2 =
-          graph.getInputStream("instream2", SecondStreamIME::new);
+          graph.getInputStream("instream2", kvSerde).map(SecondStreamIME::new);
 
       SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
       inStream
@@ -330,14 +333,24 @@ public class TestJoinOperator {
   }
 
   private static class FirstStreamIME extends IncomingMessageEnvelope {
+    FirstStreamIME(KV<Integer, Integer> message) {
+      super(new SystemStreamPartition(
+          "insystem", "instream", new Partition(0)), "1", message.getKey(), message.getValue());
+    }
+
     FirstStreamIME(Integer key, Integer message) {
-      super(new SystemStreamPartition("insystem", "instream", new Partition(0)), "1", key, message);
+      this(KV.of(key, message));
     }
   }
 
   private static class SecondStreamIME extends IncomingMessageEnvelope {
+    SecondStreamIME(KV<Integer, Integer> message) {
+      super(new SystemStreamPartition(
+          "insystem2", "instream2", new Partition(0)), "1", message.getKey(), message.getValue());
+    }
+
     SecondStreamIME(Integer key, Integer message) {
-      super(new SystemStreamPartition("insystem2", "instream2", new Partition(0)), "1", key, message);
+      this(KV.of(key, message));
     }
   }
 }

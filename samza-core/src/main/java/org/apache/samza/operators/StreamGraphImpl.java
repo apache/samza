@@ -18,14 +18,20 @@
  */
 package org.apache.samza.operators;
 
+import com.google.common.base.Preconditions;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.spec.InputOperatorSpec;
+import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
-import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -33,8 +39,6 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -42,6 +46,7 @@ import java.util.stream.Collectors;
  * create the DAG of transforms.
  */
 public class StreamGraphImpl implements StreamGraph {
+  private static final Logger LOGGER = LoggerFactory.getLogger(StreamGraphImpl.class);
 
   /**
    * Unique identifier for each {@link org.apache.samza.operators.spec.OperatorSpec} in the graph.
@@ -55,6 +60,7 @@ public class StreamGraphImpl implements StreamGraph {
   private final ApplicationRunner runner;
   private final Config config;
 
+  private Serde<?> defaultSerde = new KVSerde(new NoOpSerde(), new NoOpSerde());
   private ContextManager contextManager = null;
 
   public StreamGraphImpl(ApplicationRunner runner, Config config) {
@@ -65,43 +71,48 @@ public class StreamGraphImpl implements StreamGraph {
   }
 
   @Override
-  public <K, V, M> MessageStream<M> getInputStream(String streamId,
-      BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
-    if (msgBuilder == null) {
-      throw new IllegalArgumentException("msgBuilder can't be null for an input stream");
-    }
+  public void setDefaultSerde(Serde<?> serde) {
+    Preconditions.checkNotNull(serde, "Default serde must not be null");
+    Preconditions.checkState(inputOperators.isEmpty() && outputStreams.isEmpty(),
+        "Default serde must be set before creating any input or output streams.");
+    this.defaultSerde = serde;
+  }
 
-    if (inputOperators.containsKey(runner.getStreamSpec(streamId))) {
-      throw new IllegalStateException("getInputStream() invoked multiple times "
-          + "with the same streamId: " + streamId);
-    }
+  @Override
+  public <M> MessageStream<M> getInputStream(String streamId, Serde<M> serde) {
+    Preconditions.checkNotNull(serde, "serde must not be null for an input stream.");
+    Preconditions.checkState(!inputOperators.containsKey(runner.getStreamSpec(streamId)),
+        "getInputStream must not be called multiple times with the same streamId: " + streamId);
 
     StreamSpec streamSpec = runner.getStreamSpec(streamId);
+    KV<Serde, Serde> kvSerdes = getKVSerdes(streamId, serde);
+    boolean isKeyedInput = serde instanceof KVSerde;
     inputOperators.put(streamSpec,
-        new InputOperatorSpec<>(streamSpec, (BiFunction<K, V, M>) msgBuilder, this.getNextOpId()));
+        new InputOperatorSpec<>(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyedInput, this.getNextOpId()));
     return new MessageStreamImpl<>(this, inputOperators.get(streamSpec));
   }
 
   @Override
-  public <K, V, M> OutputStream<K, V, M> getOutputStream(String streamId,
-      Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor) {
-    if (keyExtractor == null) {
-      throw new IllegalArgumentException("keyExtractor can't be null for an output stream.");
-    }
+  public <M> MessageStream<M> getInputStream(String streamId) {
+    return (MessageStream<M>) getInputStream(streamId, defaultSerde);
+  }
 
-    if (msgExtractor == null) {
-      throw new IllegalArgumentException("msgExtractor can't be null for an output stream.");
-    }
-
-    if (outputStreams.containsKey(runner.getStreamSpec(streamId))) {
-      throw new IllegalStateException("getOutputStream() invoked multiple times "
-          + "with the same streamId: " + streamId);
-    }
+  @Override
+  public <M> OutputStream<M> getOutputStream(String streamId, Serde<M> serde) {
+    Preconditions.checkNotNull(serde, "serde must not be null for an output stream.");
+    Preconditions.checkState(!outputStreams.containsKey(runner.getStreamSpec(streamId)),
+        "getOutputStream must not be called multiple times with the same streamId: " + streamId);
 
     StreamSpec streamSpec = runner.getStreamSpec(streamId);
+    KV<Serde, Serde> kvSerdes = getKVSerdes(streamId, serde);
     outputStreams.put(streamSpec,
-        new OutputStreamImpl<>(streamSpec, (Function<M, K>) keyExtractor, (Function<M, V>) msgExtractor));
+        new OutputStreamImpl<>(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), serde instanceof KVSerde));
     return outputStreams.get(streamSpec);
+  }
+
+  @Override
+  public <M> OutputStream<M> getOutputStream(String streamId) {
+    return (OutputStream<M>) getOutputStream(streamId, defaultSerde);
   }
 
   @Override
@@ -116,38 +127,31 @@ public class StreamGraphImpl implements StreamGraph {
    *
    * @param streamName the name of the stream to be created. Will be prefixed with job name and id to generate the
    *                   logical streamId.
-   * @param keyExtractor the {@link Function} to extract the outgoing key from the intermediate message
-   * @param msgExtractor the {@link Function} to extract the outgoing message from the intermediate message
-   * @param msgBuilder the {@link BiFunction} to convert the incoming key and message to a message
-   *                   in the intermediate {@link MessageStream}
-   * @param <K> the type of key in the intermediate message
-   * @param <V> the type of message in the intermediate message
+   * @param serde the {@link Serde} to use for the message in the intermediate stream. If null, the default serde
+   *              is used.
    * @param <M> the type of messages in the intermediate {@link MessageStream}
    * @return  the intermediate {@link MessageStreamImpl}
    */
-  <K, V, M> IntermediateMessageStreamImpl<K, V, M> getIntermediateStream(String streamName,
-      Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor,
-      BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
+  <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamName, Serde<M> serde) {
     String streamId = String.format("%s-%s-%s",
         config.get(JobConfig.JOB_NAME()),
         config.get(JobConfig.JOB_ID(), "1"),
         streamName);
-    if (msgBuilder == null) {
-      throw new IllegalArgumentException("msgBuilder cannot be null for an intermediate stream");
-    }
-    if (keyExtractor == null) {
-      throw new IllegalArgumentException("keyExtractor can't be null for an output stream.");
-    }
-    if (msgExtractor == null) {
-      throw new IllegalArgumentException("msgExtractor can't be null for an output stream.");
-    }
     StreamSpec streamSpec = runner.getStreamSpec(streamId);
-    if (inputOperators.containsKey(streamSpec) || outputStreams.containsKey(streamSpec)) {
-      throw new IllegalStateException("getIntermediateStream() invoked multiple times "
-          + "with the same streamId: " + streamId);
+
+    Preconditions.checkState(!inputOperators.containsKey(streamSpec) && !outputStreams.containsKey(streamSpec),
+        "getIntermediateStream must not be called multiple times with the same streamId: " + streamId);
+
+    if (serde == null) {
+      LOGGER.info("Using default serde for intermediate stream: " + streamId);
+      serde = (Serde<M>) defaultSerde;
     }
-    inputOperators.put(streamSpec, new InputOperatorSpec(streamSpec, msgBuilder, this.getNextOpId()));
-    outputStreams.put(streamSpec, new OutputStreamImpl(streamSpec, keyExtractor, msgExtractor));
+
+    boolean isKeyed = serde instanceof KVSerde;
+    KV<Serde, Serde> kvSerdes = getKVSerdes(streamId, serde);
+    inputOperators.put(streamSpec,
+        new InputOperatorSpec<>(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed, this.getNextOpId()));
+    outputStreams.put(streamSpec, new OutputStreamImpl(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed));
     return new IntermediateMessageStreamImpl<>(this, inputOperators.get(streamSpec), outputStreams.get(streamSpec));
   }
 
@@ -204,5 +208,28 @@ public class StreamGraphImpl implements StreamGraph {
         .collect(Collectors.toSet());
 
     return windowOrJoinSpecs.size() != 0;
+  }
+
+  private KV<Serde, Serde> getKVSerdes(String streamId, Serde serde) {
+    Serde keySerde, valueSerde;
+
+    if (serde instanceof KVSerde) {
+      keySerde = ((KVSerde) serde).getKeySerde();
+      valueSerde = ((KVSerde) serde).getValueSerde();
+    } else {
+      keySerde = new NoOpSerde();
+      valueSerde = serde;
+    }
+
+    if (keySerde instanceof NoOpSerde) {
+      LOGGER.info("Using NoOpSerde as the key serde for stream " + streamId +
+          ". Keys will not be (de)serialized");
+    }
+    if (valueSerde instanceof NoOpSerde) {
+      LOGGER.info("Using NoOpSerde as the value serde for stream " + streamId +
+          ". Values will not be (de)serialized");
+    }
+
+    return KV.of(keySerde, valueSerde);
   }
 }

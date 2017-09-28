@@ -21,35 +21,36 @@ package org.apache.samza.test.operator;
 
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.samza.serializers.IntegerSerde;
+import org.apache.samza.serializers.JsonSerdeV2;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.StringSerde;
 
 import java.time.Duration;
-import java.util.Collection;
 
 /**
  * A {@link StreamApplication} that demonstrates a filter followed by a session window.
  */
 public class SessionWindowApp implements StreamApplication {
-
-  private static final Logger LOG = LoggerFactory.getLogger(SessionWindowApp.class);
+  private static final String INPUT_TOPIC = "page-views";
+  private static final String OUTPUT_TOPIC = "page-view-counts";
   private static final String FILTER_KEY = "badKey";
-  private static final String OUTPUT_TOPIC = "Result";
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    MessageStream<PageView> pageViews = graph.<String, String, PageView>getInputStream("page-views", (k, v) -> new PageView(v));
-    OutputStream<String, String, WindowPane<String, Collection<PageView>>> outputStream = graph
-        .getOutputStream(OUTPUT_TOPIC, m -> m.getKey().getKey(), m -> new Integer(m.getMessage().size()).toString());
+    MessageStream<PageView> pageViews = graph.getInputStream(INPUT_TOPIC, new JsonSerdeV2<>(PageView.class));
+    OutputStream<KV<String, Integer>> outputStream =
+        graph.getOutputStream(OUTPUT_TOPIC, new KVSerde<>(new StringSerde(), new IntegerSerde()));
 
     pageViews
         .filter(m -> !FILTER_KEY.equals(m.getUserId()))
-        .window(Windows.keyedSessionWindow(pageView -> pageView.getUserId(), Duration.ofSeconds(3)))
+        .window(Windows.keyedSessionWindow(PageView::getUserId, Duration.ofSeconds(3)))
+        .map(m -> KV.of(m.getKey().getKey(), m.getMessage().size()))
         .sendTo(outputStream);
   }
 }

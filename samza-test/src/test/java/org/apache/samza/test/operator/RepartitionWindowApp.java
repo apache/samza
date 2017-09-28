@@ -21,37 +21,35 @@ package org.apache.samza.test.operator;
 
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.samza.serializers.JsonSerdeV2;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.StringSerde;
 
 import java.time.Duration;
-import java.util.Collection;
-import java.util.function.Function;
 
 /**
- * A {@link StreamApplication} that demonstrates a repartition followed by a windowed count.
+ * A {@link StreamApplication} that demonstrates a partitionBy followed by a windowed count.
  */
 public class RepartitionWindowApp implements StreamApplication {
-
-  private static final Logger LOG = LoggerFactory.getLogger(RepartitionWindowApp.class);
+  static final String INPUT_TOPIC = "page-views";
+  static final String OUTPUT_TOPIC = "page-view-counts";
 
   @Override
   public void init(StreamGraph graph, Config config) {
+    MessageStream<PageView> pageViews = graph.getInputStream(INPUT_TOPIC, new JsonSerdeV2<>(PageView.class));
 
-    MessageStream<String> pageViews = graph.<String, String, String>getInputStream("page-views", (k, v) -> v);
-    Function<String, String> keyFn = pageView -> new PageView(pageView).getUserId();
-
-    OutputStream<String, String, WindowPane<String, Collection<String>>> outputStream = graph
-        .getOutputStream(TestRepartitionWindowApp.OUTPUT_TOPIC, m -> m.getKey().getKey(), m -> new Integer(m.getMessage().size()).toString());
+    OutputStream<KV<String, String>> outputStream =
+        graph.getOutputStream(OUTPUT_TOPIC, new KVSerde<>(new StringSerde(), new StringSerde()));
 
     pageViews
-        .partitionBy(keyFn)
-        .window(Windows.keyedSessionWindow(keyFn, Duration.ofSeconds(3)))
+        .partitionBy(PageView::getUserId, pv -> pv, new KVSerde<>(new StringSerde(), new JsonSerdeV2<>(PageView.class)))
+        .window(Windows.keyedSessionWindow(KV::getKey, Duration.ofSeconds(3)))
+        .map(windowPane -> KV.of(windowPane.getKey().getKey(), String.valueOf(windowPane.getMessage().size())))
         .sendTo(outputStream);
   }
 }
