@@ -29,7 +29,7 @@ addons:
 jdk:
   - oraclejdk8
 
-script: "./gradlew clean test && sonar-scanner"
+script: "./gradlew clean build && sonar-scanner"
 
 before_cache:
   - rm -f  $HOME/.gradle/caches/modules-2/modules-2.lock
