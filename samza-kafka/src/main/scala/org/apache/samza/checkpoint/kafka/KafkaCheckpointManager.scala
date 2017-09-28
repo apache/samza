@@ -98,6 +98,7 @@ class KafkaCheckpointManager(
         val envelope: OutgoingMessageEnvelope = new OutgoingMessageEnvelope(systemStream, keyBytes, msgBytes)
         systemProducer.send(taskName.getTaskName, envelope)
         systemProducer.flush(taskName.getTaskName) // make sure it is written
+        info("Completed writing checkpoint=%s into %s topic for system %s." format(checkpoint, checkpointTopic, systemName) )
         loop.done
       },
 
