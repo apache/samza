@@ -161,20 +161,6 @@ public class TestTimeSeriesStoreImpl {
     Assert.assertEquals(values.size(), 0);
   }
 
-
-  private static <K, V> List<TimeSeriesValue<V>> readStore(TimeSeriesStore<K, V> store, K key, long startTimestamp, long endTimestamp) {
-    List<TimeSeriesValue<V>> list = new ArrayList<>();
-    ClosableIterator<TimeSeriesValue<V>> storeValuesIterator = store.get(key, startTimestamp, endTimestamp);
-
-    while (storeValuesIterator.hasNext()) {
-      TimeSeriesValue<V> next = storeValuesIterator.next();
-      list.add(next);
-    }
-
-    storeValuesIterator.close();
-    return list;
-  }
-
   @Test
   public void testDeletesInOverwriteMode() {
     // instantiate a store in overwrite mode
@@ -193,6 +179,19 @@ public class TestTimeSeriesStoreImpl {
     Assert.assertEquals(values.size(), 0);
   }
 
+  private static <K, V> List<TimeSeriesValue<V>> readStore(TimeSeriesStore<K, V> store, K key, long startTimestamp, long endTimestamp) {
+    List<TimeSeriesValue<V>> list = new ArrayList<>();
+    ClosableIterator<TimeSeriesValue<V>> storeValuesIterator = store.get(key, startTimestamp, endTimestamp);
+
+    while (storeValuesIterator.hasNext()) {
+      TimeSeriesValue<V> next = storeValuesIterator.next();
+      list.add(next);
+    }
+
+    storeValuesIterator.close();
+    return list;
+  }
+  
   private static <K> TimeSeriesStore<K, byte[]> newTimeSeriesStore(String storeName, Serde<K> keySerde, boolean appendMode) {
     RocksDbKeyValueStore rocksKVStore = newRocksDbStore("someStore");
     SerializedKeyValueStore<TimeSeriesKey<K>, byte[]> kvStore = new SerializedKeyValueStore<>(rocksKVStore,

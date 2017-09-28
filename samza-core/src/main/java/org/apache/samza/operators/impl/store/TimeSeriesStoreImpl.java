@@ -71,7 +71,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * @param <K> the type of key in the store
  * @param <V> the type of value in the store
  */
-
 public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
 
   private final KeyValueStore<TimeSeriesKey<K>, V> kvStore;
@@ -190,9 +189,7 @@ public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
     @Override
     public TimeSeriesValue<V> next() {
       Entry<TimeSeriesKey<K>, V> next = wrappedIterator.next();
-
-      TimeSeriesValue<V> kv = new TimeSeriesValue<>(next.getValue(), next.getKey().getTimestamp());
-      return kv;
+      return new TimeSeriesValue<>(next.getValue(), next.getKey().getTimestamp());
     }
 
     @Override
