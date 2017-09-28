@@ -31,7 +31,7 @@ jdk:
 
 script:
   - ./gradlew clean build
-  - sonar-scanner
+  - type sonar-scanner &>/dev/null; if [ $? -eq 0 ]; then sonar-scanner; else echo "Not running sonar"; fi
 
 before_cache:
   - rm -f  $HOME/.gradle/caches/modules-2/modules-2.lock
@@ -45,4 +45,4 @@ cache:
 
 env:
   global:
-    - secure: liks8uabmOxZq/vnA7J0vh3qjScsze3FiCu0cRrTGYIAT9rA5/AhdMTD3ebfF87E05FV7tP8TlZ710bNIrTkRE57IktLNl06m95OAqaj7+usRvblI/w8nFTvRdGwVsHpmnyXzydl8xdaWpCwFlLEIXjweJOKF4Oes58AGzVK2B8=
+    - secure: S8MhhgBq1SVgthw3jDBmsKtUu1so4t+uVMSEpGSVENpxJc55APQKMJNfZAtxLlObjJSClTvtZj0tjNTTrfyKebrunJ1xGriJRTCvhiKeywDE3iRHBIV4ZIUS8Yc4i8CqVTF8gqbshf2gvwc+kvOj2r2BvMPPM3MkjcTI3f9q56I=
