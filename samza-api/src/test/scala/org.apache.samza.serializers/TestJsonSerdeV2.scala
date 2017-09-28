@@ -16,16 +16,30 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
 
-import org.apache.samza.annotation.InterfaceStability;
+package org.apache.samza.serializers
 
-/**
- * An output stream to send messages to.
- *
- * @param <M> the type of message being sent to this {@link OutputStream}
- */
-@InterfaceStability.Unstable
-public interface OutputStream<M> {
 
+import org.junit.Assert._
+import org.junit.Test
+
+import scala.collection.JavaConverters._
+
+
+class TestJsonSerdeV2 {
+  @Test
+  def testJsonSerdeV2ShouldWork {
+    val serde = new JsonSerdeV2[java.util.HashMap[String, Object]]
+    val obj = new java.util.HashMap[String, Object](Map[String, Object]("hi" -> "bye", "why" -> new java.lang.Integer(2)).asJava)
+    val bytes = serde.toBytes(obj)
+    assertEquals(obj, serde.fromBytes(bytes))
+    val serdeHashMapEntry = new JsonSerdeV2[java.util.Map.Entry[String, Object]]
+    obj.entrySet().asScala.foreach(entry => {
+      try {
+        val entryBytes = serdeHashMapEntry.toBytes(entry)
+      } catch {
+        case e: Exception => fail("HashMap Entry serialization failed!")
+      }
+    })
+  }
 }

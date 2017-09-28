@@ -16,16 +16,34 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
 
-import org.apache.samza.annotation.InterfaceStability;
+package org.apache.samza.serializers
+
+import org.apache.samza.config.Config
 
 /**
- * An output stream to send messages to.
- *
- * @param <M> the type of message being sent to this {@link OutputStream}
+ * A serializer for strings
  */
-@InterfaceStability.Unstable
-public interface OutputStream<M> {
+class StringSerdeFactory extends SerdeFactory[String] {
+  def getSerde(name: String, config: Config): Serde[String] =
+    new StringSerde(config.get("encoding", "UTF-8"))
+}
 
+class StringSerde(val encoding: String) extends Serde[String] {
+  // constructor (for Java) that defaults to UTF-8 encoding
+  def this() {
+    this("UTF-8")
+  }
+
+  def toBytes(obj: String): Array[Byte] = if (obj != null) {
+    obj.toString.getBytes(encoding)
+  } else {
+    null
+  }
+
+  def fromBytes(bytes: Array[Byte]): String = if (bytes != null) {
+    new String(bytes, 0, bytes.size, encoding)
+  } else {
+    null
+  }
 }
