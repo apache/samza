@@ -33,7 +33,7 @@ import org.apache.samza.storage.kv.ClosableIterator;
 public interface TimeSeriesStore<K, V> {
 
   /**
-   * Insert a key and the value to the store with the provided timestamp.
+   * Insert a key and the value in the store with the provided timestamp.
    *
    * @param key the key to insert
    * @param val the value to insert
@@ -52,7 +52,7 @@ public interface TimeSeriesStore<K, V> {
    * @param endTimestamp the end timestamp of the range, exclusive
    * @throws IllegalArgumentException when startTimeStamp &gt; endTimestamp, or when either of them is negative
    */
-  ClosableIterator<TimeSeriesValue<V>> get(K key, long startTimestamp, long endTimestamp);
+  ClosableIterator<TimestampedValue<V>> get(K key, long startTimestamp, long endTimestamp);
 
   /**
    * Removes all values for this key in the given time-range.

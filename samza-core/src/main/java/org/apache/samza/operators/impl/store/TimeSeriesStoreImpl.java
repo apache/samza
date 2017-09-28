@@ -43,11 +43,11 @@ import java.util.concurrent.atomic.AtomicLong;
  * This store has two modes of operation depending on how duplicates are handled:
  * <ol>
  *   <li>
- *     Overwrite Mode: In this mode, the store only retains the most recent value for a given key and timestamp. ie.,Calling
+ *     Overwrite Mode: In this mode, the store only retains the most recent value for a given key and timestamp. I.e.,Calling
  *     {@link #put} on an existing key and timestamp will overwrite the previously stored value for that key.
  *   </li>
  *   <li>
- *     Append Mode: In this mode, the store retains all previous values for a given key and timestamp. ie., Calling {@link #put}
+ *     Append Mode: In this mode, the store retains all previous values for a given key and timestamp. I.e., Calling {@link #put}
  *     with an existing key and timestamp will append the value to the list.
  *   </li>
  * </ol>
@@ -114,7 +114,7 @@ public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
   }
 
   @Override
-  public ClosableIterator<TimeSeriesValue<V>> get(K key, long startTimestamp, long endTimestamp) {
+  public ClosableIterator<TimestampedValue<V>> get(K key, long startTimestamp, long endTimestamp) {
     validateRange(startTimestamp, endTimestamp);
     TimeSeriesKey<K> fromKey = new TimeSeriesKey(key, startTimestamp, 0);
     TimeSeriesKey<K> toKey = new TimeSeriesKey(key, endTimestamp, 0);
@@ -168,7 +168,7 @@ public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
     }
   }
 
-  private static class TimeSeriesStoreIterator<K, V> implements ClosableIterator<TimeSeriesValue<V>> {
+  private static class TimeSeriesStoreIterator<K, V> implements ClosableIterator<TimestampedValue<V>> {
 
     private final KeyValueIterator<TimeSeriesKey<K>, V> wrappedIterator;
 
@@ -187,9 +187,9 @@ public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
     }
 
     @Override
-    public TimeSeriesValue<V> next() {
+    public TimestampedValue<V> next() {
       Entry<TimeSeriesKey<K>, V> next = wrappedIterator.next();
-      return new TimeSeriesValue<>(next.getValue(), next.getKey().getTimestamp());
+      return new TimestampedValue<>(next.getValue(), next.getKey().getTimestamp());
     }
 
     @Override

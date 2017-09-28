@@ -22,15 +22,15 @@ package org.apache.samza.operators.impl.store;
 /**
  * An immutable pair of a value, and its corresponding timestamp.
  *
- * <p> Iterators on {@link TimeSeriesStore}s always return {@link TimeSeriesValue}s
+ * <p> Iterators on {@link TimeSeriesStore}s always return {@link TimestampedValue}s
  *
  * @param <V> the type of the value
  */
-public class TimeSeriesValue<V> {
+public class TimestampedValue<V> {
   private final V value;
   private final Long timestamp;
 
-  public TimeSeriesValue(V v, Long time) {
+  public TimestampedValue(V v, Long time) {
     value = v;
     timestamp = time;
   }
@@ -48,7 +48,7 @@ public class TimeSeriesValue<V> {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
 
-    TimeSeriesValue<?> that = (TimeSeriesValue<?>) o;
+    TimestampedValue<?> that = (TimestampedValue<?>) o;
 
     if (value != null ? !value.equals(that.value) : that.value != null) return false;
     return timestamp.equals(that.timestamp);

@@ -53,7 +53,7 @@ public class TestTimeSeriesStoreImpl {
     timeSeriesStore.put("hello", "world-2".getBytes(), 2L);
 
     // read from time-range
-    List<TimeSeriesValue<byte[]>> values = readStore(timeSeriesStore, "hello", 0L, 1L);
+    List<TimestampedValue<byte[]>> values = readStore(timeSeriesStore, "hello", 0L, 1L);
     Assert.assertEquals(values.size(), 0);
 
     // read from time-range [1,2) should return one entry
@@ -86,7 +86,7 @@ public class TestTimeSeriesStoreImpl {
     timeSeriesStore.put("hello", "world-1".getBytes(), 1L);
 
     // read from a non-existent key
-    List<TimeSeriesValue<byte[]>> values = readStore(timeSeriesStore, "non-existent-key", 0, Integer.MAX_VALUE);
+    List<TimestampedValue<byte[]>> values = readStore(timeSeriesStore, "non-existent-key", 0, Integer.MAX_VALUE);
     Assert.assertEquals(values.size(), 0);
 
     // read from an existing key but out of range timestamp
@@ -105,7 +105,7 @@ public class TestTimeSeriesStoreImpl {
     }
 
     // read from time-range [0,2) should return 100 entries
-    List<TimeSeriesValue<byte[]>> values = readStore(timeSeriesStore, "hello", 0L, 2L);
+    List<TimestampedValue<byte[]>> values = readStore(timeSeriesStore, "hello", 0L, 2L);
     Assert.assertEquals(values.size(), 100);
     values.forEach(timeSeriesValue -> {
         Assert.assertEquals(new String(timeSeriesValue.getValue()), "world-1");
@@ -134,7 +134,7 @@ public class TestTimeSeriesStoreImpl {
     timeSeriesStore.put("hello", "world-2".getBytes(), 2L);
 
     // read from time-range
-    List<TimeSeriesValue<byte[]>> values = readStore(timeSeriesStore, "hello", 0L, 1L);
+    List<TimestampedValue<byte[]>> values = readStore(timeSeriesStore, "hello", 0L, 1L);
     Assert.assertEquals(values.size(), 0);
 
     // read from time-range [1,2) should return one entry
@@ -171,7 +171,7 @@ public class TestTimeSeriesStoreImpl {
     timeSeriesStore.put("hello", "world-1".getBytes(), 2L);
     timeSeriesStore.put("hello", "world-2".getBytes(), 2L);
 
-    List<TimeSeriesValue<byte[]>> values = readStore(timeSeriesStore, "hello", 1L, 3L);
+    List<TimestampedValue<byte[]>> values = readStore(timeSeriesStore, "hello", 1L, 3L);
     Assert.assertEquals(values.size(), 2);
 
     timeSeriesStore.remove("hello", 0L, 3L);
@@ -179,19 +179,19 @@ public class TestTimeSeriesStoreImpl {
     Assert.assertEquals(values.size(), 0);
   }
 
-  private static <K, V> List<TimeSeriesValue<V>> readStore(TimeSeriesStore<K, V> store, K key, long startTimestamp, long endTimestamp) {
-    List<TimeSeriesValue<V>> list = new ArrayList<>();
-    ClosableIterator<TimeSeriesValue<V>> storeValuesIterator = store.get(key, startTimestamp, endTimestamp);
+  private static <K, V> List<TimestampedValue<V>> readStore(TimeSeriesStore<K, V> store, K key, long startTimestamp, long endTimestamp) {
+    List<TimestampedValue<V>> list = new ArrayList<>();
+    ClosableIterator<TimestampedValue<V>> storeValuesIterator = store.get(key, startTimestamp, endTimestamp);
 
     while (storeValuesIterator.hasNext()) {
-      TimeSeriesValue<V> next = storeValuesIterator.next();
+      TimestampedValue<V> next = storeValuesIterator.next();
       list.add(next);
     }
 
     storeValuesIterator.close();
     return list;
   }
-  
+
   private static <K> TimeSeriesStore<K, byte[]> newTimeSeriesStore(String storeName, Serde<K> keySerde, boolean appendMode) {
     RocksDbKeyValueStore rocksKVStore = newRocksDbStore("someStore");
     SerializedKeyValueStore<TimeSeriesKey<K>, byte[]> kvStore = new SerializedKeyValueStore<>(rocksKVStore,
