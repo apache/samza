@@ -23,14 +23,13 @@ import java.nio.ByteBuffer
 import java.util
 import java.util.{Collections, Properties}
 
-import _root_.kafka.consumer.SimpleConsumer
-import _root_.kafka.utils.ZkUtils
+import kafka.utils.ZkUtils
 import org.apache.kafka.common.utils.Utils
 import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
 import org.apache.samza.container.TaskName
 import org.apache.samza.serializers.CheckpointSerde
+import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.apache.samza.system._
-import org.apache.samza.system.kafka.TopicMetadataCache
 import org.apache.samza.util._
 import org.apache.samza.{Partition, SamzaException}
 
@@ -52,8 +51,8 @@ class KafkaCheckpointManager(
                               socketTimeout: Int,
                               bufferSize: Int,
                               fetchSize: Int,
-                              val getSystemConsumer: () => SystemConsumer,
-                              val getSystemAdmin: () => SystemAdmin,
+                              getSystemConsumer: () => SystemConsumer,
+                              getSystemAdmin: () => SystemAdmin,
                               val metadataStore: TopicMetadataStore,
                               getSystemProducer: () => SystemProducer,
                               val connectZk: () => ZkUtils,
@@ -62,19 +61,16 @@ class KafkaCheckpointManager(
                               val retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
                               serde: CheckpointSerde = new CheckpointSerde,
                               checkpointTopicProperties: Properties = new Properties) extends CheckpointManager with Logging {
-  import org.apache.samza.checkpoint.kafka.KafkaCheckpointManager._
 
   var taskNames = Set[TaskName]()
   var systemProducer: SystemProducer = null
   var taskNamesToOffsets: Map[TaskName, Checkpoint] = null
 
-  //var startingOffset: Option[Long] = None // Where to start reading for each subsequent call of readCheckpoint
   val kafkaUtil: KafkaUtil = new KafkaUtil(retryBackoff, connectZk)
 
   KafkaCheckpointLogKey.setSystemStreamPartitionGrouperFactoryString(systemStreamPartitionGrouperFactoryString)
 
   info("Creating KafkaCheckpointManager with: clientId=%s, checkpointTopic=%s, systemName=%s" format(clientId, checkpointTopic, systemName))
-
 
   /**
    * Write Checkpoint for specified taskName to log
@@ -86,16 +82,21 @@ class KafkaCheckpointManager(
     val key = KafkaCheckpointLogKey.getCheckpointKey(taskName)
     val keyBytes = key.toBytes()
     val msgBytes = serde.toBytes(checkpoint)
+    val systemStream = new SystemStream(systemName, checkpointTopic)
+    val envelope = new OutgoingMessageEnvelope(systemStream, keyBytes, msgBytes)
+
     retryBackoff.run(
       loop => {
         if (systemProducer == null) {
-          systemProducer = getSystemProducer()
-          systemProducer.register(taskName.getTaskName)
-          systemProducer.start
+          systemProducer.synchronized {
+            if (systemProducer == null) {
+              systemProducer = getSystemProducer()
+              systemProducer.register(taskName.getTaskName)
+              systemProducer.start
+            }
+          }
         }
 
-        val systemStream = new SystemStream(systemName, checkpointTopic)
-        val envelope: OutgoingMessageEnvelope = new OutgoingMessageEnvelope(systemStream, keyBytes, msgBytes)
         systemProducer.send(taskName.getTaskName, envelope)
         systemProducer.flush(taskName.getTaskName) // make sure it is written
         info("Completed writing checkpoint=%s into %s topic for system %s." format(checkpoint, checkpointTopic, systemName) )
@@ -103,30 +104,10 @@ class KafkaCheckpointManager(
       },
 
       (exception, loop) => {
-        warn("Failed to write %s partition entry %s: %s. Retrying." format(CHECKPOINT_LOG4J_ENTRY, key, exception))
+        warn("Failed to write checkpoint log partition entry %s: %s. Retrying." format(key, exception))
         debug("Exception detail:", exception)
-        if (systemProducer != null) {
-          systemProducer.stop
-        }
-        systemProducer = null
       }
     )
-  }
-
-  private def getConsumer(): SimpleConsumer = {
-    val metadataMap = TopicMetadataCache.getTopicMetadata(Set(checkpointTopic), systemName, (topics: Set[String]) => metadataStore.getTopicInfo(topics))
-    val metadata = metadataMap(checkpointTopic)
-    val partitionMetadata = metadata.partitionsMetadata
-      .filter(_.partitionId == 0)
-      .headOption
-      .getOrElse(throw new KafkaUtilException("Tried to find partition information for partition 0 for checkpoint topic, but it didn't exist in Kafka."))
-    val leader = partitionMetadata
-      .leader
-      .getOrElse(throw new SamzaException("No leader available for topic %s" format checkpointTopic))
-
-    info("Connecting to leader %s:%d for topic %s and to fetch all checkpoint messages." format(leader.host, leader.port, checkpointTopic))
-
-    new SimpleConsumer(leader.host, leader.port, socketTimeout, bufferSize, clientId)
   }
 
   /**
@@ -171,87 +152,99 @@ class KafkaCheckpointManager(
       checkpoints.put(taskName, checkpoint) // replacing any existing, older checkpoints as we go
     }
 
-    readLog(CHECKPOINT_LOG4J_ENTRY, shouldHandleEntry, handleCheckpoint)
+    readLog(shouldHandleEntry, handleCheckpoint)
     checkpoints.toMap /* of the immutable kind */
   }
 
-  private def getEarliestOffset(topic: String, partition: Partition): (String, String) = {
+  private def getEarliestOffset(topic: String, partition: Partition): SystemStreamPartitionMetadata = {
     val systemAdmin = getSystemAdmin()
     val metaDataMap: java.util.Map[String, SystemStreamMetadata] = systemAdmin.getSystemStreamMetadata(Collections.singleton(topic))
     val checkpointMetadata: SystemStreamMetadata = metaDataMap.get(topic)
     if(checkpointMetadata == null)
       throw new SamzaException("Cannot get metadata for system=%s, topic=%s" format (systemName, topic))
 
-    val partitionMetaData = checkpointMetadata.getSystemStreamPartitionMetadata().get(partition);
+    val partitionMetaData = checkpointMetadata.getSystemStreamPartitionMetadata().get(partition)
     if(partitionMetaData == null)
       throw new SamzaException("Cannot get partitionMetaData for system=%s, topic=%s" format (systemName, topic))
 
-    val newestOffset = if (partitionMetaData.getNewestOffset == null)
-        "-1"
-      else
-        partitionMetaData.getNewestOffset()
-
-    (partitionMetaData.getOldestOffset, newestOffset)
+    return partitionMetaData
   }
 
   /**
-   * Code for reading checkpoint log
+   * Reads an entry from the checkpoint log and invokes the provided lambda on that entry.
    *
-   * @param entryType What type of entry to look for within the log key's
    * @param handleEntry Code to handle an entry in the log once it's found
    */
-  private def readLog(entryType:String, shouldHandleEntry: (KafkaCheckpointLogKey) => Boolean,
+  private def readLog(shouldHandleEntry: (KafkaCheckpointLogKey) => Boolean,
                       handleEntry: (ByteBuffer, KafkaCheckpointLogKey) => Unit): Unit = {
 
+    val UNKNOWN_OFFSET: String = "-1L"
     val ssp: SystemStreamPartition = new SystemStreamPartition(systemName, checkpointTopic, new Partition(0))
     val systemConsumer = getSystemConsumer()
-    val (oldestOffset, newestOffset) = getEarliestOffset(checkpointTopic, new Partition(0))
-    systemConsumer.register(ssp, oldestOffset); // checkpoint stream should always be read from the beginning
-    systemConsumer.start();
+    val partitionMetadata = getEarliestOffset(checkpointTopic, new Partition(0))
+    // offsets returned are strings
+    val newestOffset = if (partitionMetadata.getNewestOffset == null) UNKNOWN_OFFSET else partitionMetadata.getNewestOffset
+    val oldestOffset = partitionMetadata.getOldestOffset
+    systemConsumer.register(ssp, oldestOffset) // checkpoint stream should always be read from the beginning
+    systemConsumer.start()
 
-    var count = 0
+    var msgCount = 0
     try {
-      var done = false
-      var currentOffset = -1L
+      var attempts = 10
+      val POLL_TIMEOUT = 1000L
+      val emptyEnvelops = util.Collections.emptyMap[SystemStreamPartition, java.util.List[IncomingMessageEnvelope]]
+      // convert offsets to long
+      var currentOffset = UNKNOWN_OFFSET.toLong
       val newestOffsetLong = newestOffset.toLong
+      val sspToPoll = Collections.singleton(ssp)
       while (currentOffset < newestOffsetLong) {
-        // Map[SystemStreamPartition, List[IncomingMessageEnvelope]]
-        val envelopes = systemConsumer.poll(Collections.singleton(ssp), 1000)
+
+        val envelopes: java.util.Map[SystemStreamPartition, java.util.List[IncomingMessageEnvelope]] =
+        try {
+          systemConsumer.poll(sspToPoll, POLL_TIMEOUT)
+        } catch {
+          case e: Exception => {
+            // these exceptions are most likely intermediate
+            warn("Got %s exception while polling the consumer for checkpoints." format e.getMessage)
+            if (attempts == 0) throw new SamzaException("Multiple attempts failed while reading the checkpoints. Giving up.")
+            attempts -= 1
+            emptyEnvelops
+          }
+        }
 
         val messages: util.List[IncomingMessageEnvelope] = envelopes.get(ssp)
-        val messagesSize = if (messages != null) messages.size else -1
-        info("CheckpointMgr read %s envelopes (%s messages) from ssp %s"
-                     format (envelopes.size(), messagesSize, ssp))
-        if (envelopes.isEmpty || messages.isEmpty) {
-          // fully read the log
-          info("Got empty list of messages")
-          //done = true
-        }
-        else {
-          count += messages.size()
+        val messagesNum = if (messages != null) messages.size else 0
+        info("CheckpointMgr read %s envelopes (%s messages) from ssp %s. Current offset is %s, newest is %s"
+                     format (envelopes.size(), messagesNum, ssp, currentOffset, newestOffset))
+        if (envelopes.isEmpty || messagesNum <= 0) {
+          info("Got empty/null list of messages")
+        } else {
+          msgCount += messages.size()
           // check the key
           for (msg: IncomingMessageEnvelope <- messages) {
             val key = msg.getKey.asInstanceOf[Array[Byte]]
             currentOffset = msg.getOffset().toLong
-            if (key == null)
-              throw new KafkaUtilException("While reading checkpoint stream encountered message without key.")
+            if (key == null) {
+              throw new KafkaUtilException("While reading checkpoint (currentOffset=%s) stream encountered message without key."
+                                                   format currentOffset)
+            }
 
             val checkpointKey = KafkaCheckpointLogKey.fromBytes(key)
 
             if (!shouldHandleEntry(checkpointKey)) {
-              info("Skipping " + entryType + " entry with key " + checkpointKey)
-            }
-            else {
-              val bbuf: java.nio.ByteBuffer = ByteBuffer.wrap(msg.getMessage.asInstanceOf[Array[Byte]])
-              handleEntry(bbuf, checkpointKey)
+              info("Skipping checkpoint log entry at offset %S with key %s." format(currentOffset, checkpointKey))
+            } else {
+              // handleEntry requires ByteBuffer
+              val checkpointPayload = ByteBuffer.wrap(msg.getMessage.asInstanceOf[Array[Byte]])
+              handleEntry(checkpointPayload, checkpointKey)
             }
           }
         }
       }
     } finally {
-      systemConsumer.stop();
+      systemConsumer.stop()
     }
-    info("done reading %s msgs from checkpoint stream  %s:%s" format(count, systemName, checkpointTopic))
+    info("Done reading %s messages from checkpoint system:%s topic:%s" format(msgCount, systemName, checkpointTopic))
   }
 
   def start {
@@ -272,9 +265,4 @@ class KafkaCheckpointManager(
   }
 
   override def toString = "KafkaCheckpointManager [systemName=%s, checkpointTopic=%s]" format(systemName, checkpointTopic)
-}
-
-object KafkaCheckpointManager {
-  val CHECKPOINT_LOG4J_ENTRY = "checkpoint log"
-  val CHANGELOG_PARTITION_MAPPING_LOG4j = "changelog partition mapping"
 }

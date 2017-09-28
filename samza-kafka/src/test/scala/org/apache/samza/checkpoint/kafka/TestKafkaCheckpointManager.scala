@@ -97,7 +97,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     config.put("systems.%s.producer.%s" format (systemName, ProducerConfig.BOOTSTRAP_SERVERS_CONFIG), brokers)
     config.put("systems.%s.consumer.zookeeper.connect" format systemName, zkConnect)
     val cfg: SystemConfig = new SystemConfig(new MapConfig(config))
-    val (sName: String, systemConsumerFactory : SystemFactory) =  org.apache.samza.util.Util.getCheckpointSystemStreamAndFactory(cfg)
+    val (sName: String, systemConsumerFactory : SystemFactory) =  KafkaCheckpointManagerFactory.getCheckpointSystemStreamAndFactory(cfg)
     systemConsumerF = () => {systemConsumerFactory.getConsumer(sName, cfg, new NoOpMetricsRegistry())}
     systemProducerF = () => {systemConsumerFactory.getProducer(sName, cfg, new NoOpMetricsRegistry())}
     systemAdminF = () => {systemConsumerFactory.getAdmin(sName, cfg)}

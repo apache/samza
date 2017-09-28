@@ -19,7 +19,7 @@
 
 package org.apache.samza.util
 
-import java.io.{InputStreamReader, _}
+import java.io._
 import java.lang.management.ManagementFactory
 import java.net._
 import java.util.Random
@@ -187,8 +187,8 @@ object Util extends Logging {
   }
 
   /**
-   * Generates a coordinator stream name based off of the job name and job id
-   * for the jobd. The format is of the stream name will be
+   * Generates a coordinator stream name based on the job name and job id
+   * for the job. The format of the stream name will be:
    * &#95;&#95;samza_coordinator_&lt;JOBNAME&gt;_&lt;JOBID&gt;.
    */
   def getCoordinatorStreamName(jobName: String, jobId: String) = {
@@ -223,7 +223,7 @@ object Util extends Logging {
   }
 
   /**
-   * Get the Coordinator System and system factory from the configuration
+   * Get the coordinator system and system factory from the configuration
    * @param config
    * @return
    */
@@ -237,25 +237,6 @@ object Util extends Logging {
       .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY format systemName))
     val systemFactory = Util.getObj[SystemFactory](systemFactoryClassName)
     (coordinatorSystemStream, systemFactory)
-  }
-
-  /**
-   * Get the Checkpoint System and system factory from the configuration
-   * @param config
-   * @return system name and system factory
-   */
-  def getCheckpointSystemStreamAndFactory(config: Config) = {
-    val CHECKPOINT_SYSTEM = "task.checkpoint.system"
-
-    val systemName = config.get(CHECKPOINT_SYSTEM.toString, "")
-    if (systemName.isEmpty)
-      throw new SamzaException("no system defined for Kafka's checkpoint manager.")
-
-    val systemFactoryClassName = config
-            .getSystemFactory(systemName)
-            .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY format systemName))
-    val systemFactory = Util.getObj[SystemFactory](systemFactoryClassName)
-    (systemName, systemFactory)
   }
 
   /**
