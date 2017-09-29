@@ -175,11 +175,11 @@ public class EventHubSystemProducer implements SystemProducer {
     }
 
     EventData eventData = createEventData(destination, envelope);
-
+    int eventDataLength =  eventData.getBytes() == null ? 0 : eventData.getBytes().length;
     eventWriteRate.get(destination).inc();
     aggEventWriteRate.inc();
-    eventByteWriteRate.get(destination).inc(eventData.getBodyLength());
-    aggEventByteWriteRate.inc(eventData.getBodyLength());
+    eventByteWriteRate.get(destination).inc(eventDataLength);
+    aggEventByteWriteRate.inc(eventDataLength);
     EventHubClientWrapper ehClient = eventHubClients.get(destination);
 
     Instant startTime = Instant.now();

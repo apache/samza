@@ -115,7 +115,7 @@ public class TestEventHubSystemProducer {
       }
       for (EventData data : messages) {
         count++;
-        LOG.info("Data" + new String(data.getBody()));
+        LOG.info("Data" + new String(data.getBytes()));
       }
     }
   }

@@ -201,7 +201,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
       if (events != null) {
 
         events.forEach(event -> {
-            byte[] decryptedBody = event.getBody();
+            byte[] decryptedBody = event.getBytes();
             if (serde != null) {
               decryptedBody = serde.fromBytes(decryptedBody);
             }
@@ -221,10 +221,11 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
     }
 
     private void updateMetrics(EventData event) {
+      int eventDataLength =  event.getBytes() == null ? 0 : event.getBytes().length;
       eventReadRate.inc();
       aggEventReadRate.inc();
-      eventByteReadRate.inc(event.getBodyLength());
-      aggEventByteReadRate.inc(event.getBodyLength());
+      eventByteReadRate.inc(eventDataLength);
+      aggEventByteReadRate.inc(eventDataLength);
       long latencyMs = Duration.between(Instant.now(), event.getSystemProperties().getEnqueuedTime()).toMillis();
       readLatency.update(latencyMs);
       aggReadLatency.update(latencyMs);

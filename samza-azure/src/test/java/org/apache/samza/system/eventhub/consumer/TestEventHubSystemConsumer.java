@@ -46,7 +46,7 @@ public class TestEventHubSystemConsumer {
       IncomingMessageEnvelope message = messages.get(i);
       EventData eventData = eventDataList.get(i);
       Assert.assertEquals(message.getKey(), eventData.getSystemProperties().getPartitionKey());
-      Assert.assertEquals(((EventDataWrapper) message.getMessage()).getDecryptedBody(), eventData.getBody());
+      Assert.assertEquals(((EventDataWrapper) message.getMessage()).getDecryptedBody(), eventData.getBytes());
       Assert.assertEquals(message.getOffset(), eventData.getSystemProperties().getOffset());
     }
   }
