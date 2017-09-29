@@ -158,8 +158,9 @@ public class StreamSpec {
     validateLogicalIdentifier("streamId", id);
     validateLogicalIdentifier("systemName", systemName);
 
-    if (partitionCount < 1) {
-      throw new IllegalArgumentException("Parameter 'partitionCount' must be greater than 0");
+    // partition count being 0 is a valid use case in Hadoop when the output stream is an empty folder
+    if (partitionCount < 0) {
+      throw new IllegalArgumentException("Parameter 'partitionCount' must be >= 0");
     }
 
     this.id = id;

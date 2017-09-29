@@ -73,7 +73,9 @@ public class JavaStorageConfig extends MapConfig {
       systemStreamRes = systemStream;
     }
 
-    systemStreamRes = StreamManager.createUniqueNameForBatch(systemStreamRes, this);
+    if (systemStreamRes != null) {
+      systemStreamRes = StreamManager.createUniqueNameForBatch(systemStreamRes, this);
+    }
     return systemStreamRes;
   }
 

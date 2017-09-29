@@ -82,7 +82,8 @@ public class StreamEdge {
   }
 
   SystemStream getSystemStream() {
-    return new SystemStream(streamSpec.getSystemName(), streamSpec.getPhysicalName());
+    StreamSpec spec = getStreamSpec();
+    return new SystemStream(spec.getSystemName(), spec.getPhysicalName());
   }
 
   String getFormattedSystemStream() {
