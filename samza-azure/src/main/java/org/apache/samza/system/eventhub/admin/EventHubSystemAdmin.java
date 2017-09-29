@@ -1,3 +1,22 @@
+/*
+* Licensed to the Apache Software Foundation (ASF) under one
+* or more contributor license agreements.  See the NOTICE file
+* distributed with this work for additional information
+* regarding copyright ownership.  The ASF licenses this file
+* to you under the Apache License, Version 2.0 (the
+* "License"); you may not use this file except in compliance
+* with the License.  You may obtain a copy of the License at
+*
+*   http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing,
+* software distributed under the License is distributed on an
+* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+* KIND, either express or implied.  See the License for the
+* specific language governing permissions and limitations
+* under the License.
+*/
+
 package org.apache.samza.system.eventhub.admin;
 
 import com.microsoft.azure.eventhubs.EventHubRuntimeInformation;
@@ -17,17 +36,20 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class EventHubSystemAdmin implements SystemAdmin {
   private static final Logger LOG = LoggerFactory.getLogger(EventHubSystemAdmin.class);
-  private final EventHubClientFactory _eventHubClientFactory = new EventHubClientFactory();
-  private String _systemName;
-  private EventHubConfig _config;
-  private Map<String, EventHubClientWrapper> _eventHubClients = new HashMap<>();
+  private final EventHubClientFactory eventHubClientFactory = new EventHubClientFactory();
+  private String systemName;
+  private EventHubConfig eventHubConfig;
+  private Map<String, EventHubClientWrapper> eventHubClients = new HashMap<>();
 
   public EventHubSystemAdmin(String systemName, EventHubConfig config) {
-    _systemName = systemName;
-    _config = config;
+    this.systemName = systemName;
+    eventHubConfig = config;
   }
 
   private static String getNextOffset(String currentOffset) {
@@ -49,32 +71,37 @@ public class EventHubSystemAdmin implements SystemAdmin {
     Map<String, SystemStreamMetadata> requestedMetadata = new HashMap<>();
     Map<String, CompletableFuture<EventHubRuntimeInformation>> ehRuntimeInfos = new HashMap<>();
     streamNames.forEach((streamName) -> {
-      if (!_eventHubClients.containsKey(streamName)) {
-        _eventHubClients.put(streamName, _eventHubClientFactory
-                .getEventHubClient(_config.getStreamNamespace(streamName), _config.getStreamEntityPath(streamName),
-                        _config.getStreamSasKeyName(streamName), _config.getStreamSasToken(streamName), _config));
-        _eventHubClients.get(streamName).init();
-      }
-      ehRuntimeInfos.put(streamName,
-              _eventHubClients.get(streamName).getEventHubClient().getRuntimeInformation());
-    });
-    ehRuntimeInfos.forEach((streamName, ehRuntimeInfo) -> {
-      try {
-        EventHubRuntimeInformation ehInfo = ehRuntimeInfo.get(); // TODO: timeout
-        Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> sspMetadataMap = new HashMap<>();
-        for (String partition : ehInfo.getPartitionIds()) { //TODO getPartitionRuntimeInformation
-          sspMetadataMap.put(new Partition(Integer.parseInt(partition)),
-                  new SystemStreamMetadata.SystemStreamPartitionMetadata(EventHubSystemConsumer.START_OF_STREAM,
-                          EventHubSystemConsumer.END_OF_STREAM, EventHubSystemConsumer.END_OF_STREAM));
+        if (!eventHubClients.containsKey(streamName)) {
+          eventHubClients.put(streamName, eventHubClientFactory
+                  .getEventHubClient(eventHubConfig.getStreamNamespace(streamName), eventHubConfig.getStreamEntityPath(streamName),
+                          eventHubConfig.getStreamSasKeyName(streamName), eventHubConfig.getStreamSasToken(streamName), eventHubConfig));
+          eventHubClients.get(streamName).init();
         }
-        requestedMetadata.put(streamName, new SystemStreamMetadata(streamName, sspMetadataMap));
-      } catch (Exception e) {
-        String msg = String.format("Error while fetching EventHubRuntimeInfo for System:%s, Stream:%s",
-                _systemName, streamName);
-        LOG.error(msg);
-        throw new SamzaException(msg);
-      }
-    });
+        ehRuntimeInfos.put(streamName,
+                eventHubClients.get(streamName).getEventHubClient().getRuntimeInformation());
+      });
+    ehRuntimeInfos.forEach((streamName, ehRuntimeInfo) -> {
+        try {
+          EventHubRuntimeInformation ehInfo = ehRuntimeInfo.get(eventHubConfig.getRuntimeInfoWaitTimeMS(), TimeUnit.MILLISECONDS);
+          Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> sspMetadataMap = new HashMap<>();
+          for (String partition : ehInfo.getPartitionIds()) {
+            sspMetadataMap.put(new Partition(Integer.parseInt(partition)),
+                    new SystemStreamMetadata.SystemStreamPartitionMetadata(EventHubSystemConsumer.START_OF_STREAM,
+                            EventHubSystemConsumer.END_OF_STREAM, EventHubSystemConsumer.END_OF_STREAM));
+          }
+          requestedMetadata.put(streamName, new SystemStreamMetadata(streamName, sspMetadataMap));
+        } catch (InterruptedException | ExecutionException e) {
+          String msg = String.format("Error while fetching EventHubRuntimeInfo for System:%s, Stream:%s",
+                  systemName, streamName);
+          LOG.error(msg, e);
+          throw new SamzaException(msg);
+        } catch (TimeoutException e) {
+          String msg = String.format("Timed out while fetching EventHubRuntimeInfo for System:%s, Stream:%s",
+                  systemName, streamName);
+          LOG.error(msg, e);
+          throw new SamzaException(msg);
+        }
+      });
     return requestedMetadata;
   }
 

@@ -1,3 +1,22 @@
+/*
+* Licensed to the Apache Software Foundation (ASF) under one
+* or more contributor license agreements.  See the NOTICE file
+* distributed with this work for additional information
+* regarding copyright ownership.  The ASF licenses this file
+* to you under the Apache License, Version 2.0 (the
+* "License"); you may not use this file except in compliance
+* with the License.  You may obtain a copy of the License at
+*
+*   http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing,
+* software distributed under the License is distributed on an
+* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+* KIND, either express or implied.  See the License for the
+* specific language governing permissions and limitations
+* under the License.
+*/
+
 package org.apache.samza.system.eventhub;
 
 import com.microsoft.azure.eventhubs.EventHubClient;
@@ -7,6 +26,7 @@ import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeFactory;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -37,16 +57,19 @@ public class EventHubConfig extends MapConfig {
           .PartitioningMethod.EVENT_HUB_HASHING.name();
 
   public static final String CONFIG_SEND_KEY_IN_EVENT_PROPERTIES = "systems.%s.eventhubs.send.key";
-  public static final String DEFAULT_CONFIG_SEND_KEY_IN_EVENT_PROPERTIES = Boolean.toString(false);
+  public static final Boolean DEFAULT_CONFIG_SEND_KEY_IN_EVENT_PROPERTIES = false;
 
-  public static final String CONFIG_GET_RUNTIME_INFO_TIMEOUT_MILLIS = "systems.%s.eventhubs.getruntime.timeout";
-  public static final String DEFAULT_CONFIG_GET_RUNTIME_INFO_TIMEOUT_MILLIS = Integer.toString(1000);
+  public static final String CONFIG_CONNECTION_SHUTDOWN_TIMEOUT_MILLIS = "systems.%s.eventhubs.shutdown.timeout";
+  public static final long DEFAULT_CONFIG_CONNECTION_SHUTDOWN_TIMEOUT_MILLIS = Duration.ofMinutes(1L).toMillis();
 
-  private final String _system;
+  public static final String CONFIG_FETCH_RUNTIME_INFO_TIMEOUT_MILLIS = "systems.%s.eventhubs.runtime.info.timeout";
+  public static final long DEFAULT_CONFIG_FETCH_RUNTIME_INFO_TIMEOUT_MILLIS = Duration.ofMinutes(1L).toMillis();
+
+  private final String systemName;
 
   public EventHubConfig(Map<String, String> config, String systemName) {
     super(config);
-    _system = systemName;
+    this.systemName = systemName;
   }
 
   /**
@@ -56,7 +79,7 @@ public class EventHubConfig extends MapConfig {
    * @return list of stream names
    */
   public List<String> getStreamList() {
-    return getList(String.format(CONFIG_STREAM_LIST, _system));
+    return getList(String.format(CONFIG_STREAM_LIST, systemName));
   }
 
   /**
@@ -66,7 +89,7 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs namespace
    */
   public String getStreamNamespace(String streamName) {
-    return get(String.format(CONFIG_STREAM_NAMESPACE, _system, streamName));
+    return get(String.format(CONFIG_STREAM_NAMESPACE, systemName, streamName));
   }
 
   /**
@@ -76,7 +99,7 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs entity path
    */
   public String getStreamEntityPath(String streamName) {
-    return get(String.format(CONFIG_STREAM_ENTITYPATH, _system, streamName));
+    return get(String.format(CONFIG_STREAM_ENTITYPATH, systemName, streamName));
   }
 
   /**
@@ -86,7 +109,7 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs SAS key name
    */
   public String getStreamSasKeyName(String streamName) {
-    return get(String.format(CONFIG_STREAM_SAS_KEY_NAME, _system, streamName));
+    return get(String.format(CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName));
   }
 
   /**
@@ -96,15 +119,15 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs SAS token
    */
   public String getStreamSasToken(String streamName) {
-    return get(String.format(CONFIG_STREAM_SAS_TOKEN, _system, streamName));
+    return get(String.format(CONFIG_STREAM_SAS_TOKEN, systemName, streamName));
   }
 
   public Optional<Serde<byte[]>> getSerde(String streamName) {
     Serde<byte[]> serde = null;
-    String serdeFactoryClassName = this.get(String.format(CONFIG_STREAM_SERDE_FACTORY, _system, streamName));
+    String serdeFactoryClassName = this.get(String.format(CONFIG_STREAM_SERDE_FACTORY, systemName, streamName));
     if (!StringUtils.isEmpty(serdeFactoryClassName)) {
       SerdeFactory<byte[]> factory = EventHubSystemFactory.getSerdeFactory(serdeFactoryClassName);
-      serde = factory.getSerde(streamName, this.subset(String.format(CONFIG_STREAM_SERDE_PREFIX, _system, streamName)));
+      serde = factory.getSerde(streamName, this.subset(String.format(CONFIG_STREAM_SERDE_PREFIX, systemName, streamName)));
     }
     return Optional.ofNullable(serde);
   }
@@ -116,7 +139,7 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs consumer group
    */
   public String getStreamConsumerGroup(String streamName) {
-    return get(String.format(CONFIG_STREAM_CONSUMER_GROUP, _system, streamName), DEFAULT_CONFIG_STREAM_CONSUMER_GROUP);
+    return get(String.format(CONFIG_STREAM_CONSUMER_GROUP, systemName, streamName), DEFAULT_CONFIG_STREAM_CONSUMER_GROUP);
   }
 
   /**
@@ -126,18 +149,18 @@ public class EventHubConfig extends MapConfig {
    * @return Starting position when no checkpoints
    */
   public StartPosition getStartPosition(String streamName) {
-    String startPositionStr = get(String.format(CONFIG_STREAM_CONSUMER_START_POSITION, _system, streamName),
+    String startPositionStr = get(String.format(CONFIG_STREAM_CONSUMER_START_POSITION, systemName, streamName),
             DEFAULT_CONFIG_STREAM_CONSUMER_START_POSITION);
     return StartPosition.valueOf(startPositionStr.toUpperCase());
   }
 
   /**
-   * Get the partition method of the system. By default partitioning is handed by EventHub.
+   * Get the partition method of the systemName. By default partitioning is handed by EventHub.
    *
    * @return The method the producer should use to partition the outgoing data
    */
   public EventHubSystemProducer.PartitioningMethod getPartitioningMethod() {
-    String partitioningMethod = get(String.format(CONFIG_PRODUCER_PARTITION_METHOD, _system),
+    String partitioningMethod = get(String.format(CONFIG_PRODUCER_PARTITION_METHOD, systemName),
             DEFAULT_CONFIG_PRODUCER_PARTITION_METHOD);
     return EventHubSystemProducer.PartitioningMethod.valueOf(partitioningMethod);
 
@@ -149,19 +172,47 @@ public class EventHubConfig extends MapConfig {
    * @return Boolean, is send key included
    */
   public Boolean getSendKeyInEventProperties() {
-    String isSendKeyIncluded = get(String.format(CONFIG_SEND_KEY_IN_EVENT_PROPERTIES, _system),
-            DEFAULT_CONFIG_SEND_KEY_IN_EVENT_PROPERTIES);
+    String isSendKeyIncluded = get(String.format(CONFIG_SEND_KEY_IN_EVENT_PROPERTIES, systemName));
+    if (isSendKeyIncluded == null) {
+      return DEFAULT_CONFIG_SEND_KEY_IN_EVENT_PROPERTIES;
+    }
     return Boolean.valueOf(isSendKeyIncluded);
+  }
+
+  /**
+   * Get the timeout for terminating the connection to EventHub client
+   *
+   * @return long, timeout in millis for the shutdown of EventHub Connection
+   */
+  public long getShutdownWaitTimeMS() {
+    String timeoutStr = get(String.format(CONFIG_CONNECTION_SHUTDOWN_TIMEOUT_MILLIS, systemName));
+    if (timeoutStr == null) {
+      return DEFAULT_CONFIG_CONNECTION_SHUTDOWN_TIMEOUT_MILLIS;
+    }
+    return Long.valueOf(timeoutStr);
+  }
+
+  /**
+   * Get the timeout for the getRuntimeInfo request to EventHub client
+   *
+   * @return long, timeout in millis for fetching RuntimeInfo
+   */
+  public long getRuntimeInfoWaitTimeMS() {
+    String timeoutStr = get(String.format(CONFIG_FETCH_RUNTIME_INFO_TIMEOUT_MILLIS, systemName));
+    if (timeoutStr == null) {
+      return DEFAULT_CONFIG_FETCH_RUNTIME_INFO_TIMEOUT_MILLIS;
+    }
+    return Long.valueOf(timeoutStr);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(super.hashCode(), _system);
+    return Objects.hash(super.hashCode(), systemName);
   }
 
   @Override
   public boolean equals(Object obj) {
-    return super.equals(obj) && _system.equals(((EventHubConfig) obj)._system);
+    return super.equals(obj) && systemName.equals(((EventHubConfig) obj).systemName);
   }
 
   public enum StartPosition {
