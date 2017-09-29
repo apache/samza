@@ -22,7 +22,6 @@ package org.apache.samza.system.eventhub;
 import com.microsoft.azure.eventhubs.EventHubClient;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
-import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeFactory;
