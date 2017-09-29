@@ -21,6 +21,8 @@ package org.apache.samza.system.eventhub;
 
 import com.microsoft.azure.eventhubs.EventHubClient;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.SamzaException;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeFactory;
@@ -72,6 +74,14 @@ public class EventHubConfig extends MapConfig {
     this.systemName = systemName;
   }
 
+  private String getRequiredConfigValue(String configKey, String streamName) {
+    String configValue = get(String.format(configKey, systemName, streamName), null);
+    if (configValue == null) {
+      throw new SamzaException(configKey + " is not configured.");
+    }
+    return configValue;
+  }
+
   /**
    * Get the list of streams that are defined. Each stream has enough
    * information for connecting to a certain EventHub entity.
@@ -89,7 +99,7 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs namespace
    */
   public String getStreamNamespace(String streamName) {
-    return get(String.format(CONFIG_STREAM_NAMESPACE, systemName, streamName));
+    return getRequiredConfigValue(CONFIG_STREAM_NAMESPACE, streamName);
   }
 
   /**
@@ -99,7 +109,7 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs entity path
    */
   public String getStreamEntityPath(String streamName) {
-    return get(String.format(CONFIG_STREAM_ENTITYPATH, systemName, streamName));
+    return getRequiredConfigValue(CONFIG_STREAM_ENTITYPATH, streamName);
   }
 
   /**
@@ -109,7 +119,7 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs SAS key name
    */
   public String getStreamSasKeyName(String streamName) {
-    return get(String.format(CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName));
+    return getRequiredConfigValue(CONFIG_STREAM_SAS_KEY_NAME, streamName);
   }
 
   /**
@@ -119,7 +129,7 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs SAS token
    */
   public String getStreamSasToken(String streamName) {
-    return get(String.format(CONFIG_STREAM_SAS_TOKEN, systemName, streamName));
+    return getRequiredConfigValue(CONFIG_STREAM_SAS_TOKEN, streamName);
   }
 
   public Optional<Serde<byte[]>> getSerde(String streamName) {
