@@ -32,8 +32,8 @@ import org.apache.samza.system.SystemStreamPartition;
 /**
  * This class manages the end-of-stream state of the streams in a task. Internally it keeps track of end-of-stream
  * messages received from upstream tasks for each system stream partition (ssp). If messages have been received from
- * all tasks, it will mark the ssp as end-of-stream. For a stream to be end-of-stream, all its partitions need to be
- * end-of-stream.
+ * all tasks, it will mark the ssp as end-of-stream. For a stream to be end-of-stream, all its partitions assigned to
+ * the task need to be end-of-stream.
  *
  * This class is thread-safe.
  */
