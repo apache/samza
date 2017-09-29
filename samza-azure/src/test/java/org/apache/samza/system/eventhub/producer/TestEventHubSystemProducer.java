@@ -9,9 +9,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.system.eventhub.EventHubClientWrapper;
-import org.apache.samza.system.eventhub.EventHubSystemFactory;
-import org.apache.samza.system.eventhub.MockEventHubConfigFactory;
+import org.apache.samza.system.eventhub.*;
 import org.apache.samza.system.eventhub.consumer.EventHubSystemConsumer;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.Assert;
@@ -38,7 +36,7 @@ public class TestEventHubSystemProducer {
   }
 
   private Config createEventHubConfig() {
-    return MockEventHubConfigFactory.getEventHubConfig(EventHubClientWrapper.PartitioningMethod.EVENT_HUB_HASHING);
+    return MockEventHubConfigFactory.getEventHubConfig(EventHubSystemProducer.PartitioningMethod.EVENT_HUB_HASHING);
   }
 
   @Test
@@ -76,9 +74,11 @@ public class TestEventHubSystemProducer {
 
   @Test
   public void testReceive() throws ServiceBusException {
-    EventHubClientWrapper wrapper =
-            new EventHubClientWrapper(EventHubClientWrapper.PartitioningMethod.EVENT_HUB_HASHING, 8,
-                    EVENTHUB_NAMESPACE, EVENTHUB_ENTITY1, EVENTHUB_KEY_NAME, EVENTHUB_KEY);
+    EventHubClientFactory clientFactory = new EventHubClientFactory();
+    EventHubClientWrapper wrapper = clientFactory
+            .getEventHubClient(EVENTHUB_NAMESPACE, EVENTHUB_ENTITY1, EVENTHUB_KEY_NAME, EVENTHUB_KEY,
+                    new EventHubConfig(createEventHubConfig(), SYSTEM_NAME));
+    wrapper.init();
     EventHubClient client = wrapper.getEventHubClient();
     PartitionReceiver receiver =
             client.createReceiverSync(EventHubClient.DEFAULT_CONSUMER_GROUP_NAME, "0",
@@ -103,7 +103,7 @@ public class TestEventHubSystemProducer {
 
   @Test
   public void testSendToSpecificPartition() {
-    Config eventHubConfig = MockEventHubConfigFactory.getEventHubConfig(EventHubClientWrapper.PartitioningMethod.PARTITION_KEY_AS_PARTITION);
+    Config eventHubConfig = MockEventHubConfigFactory.getEventHubConfig(EventHubSystemProducer.PartitioningMethod.PARTITION_KEY_AS_PARTITION);
     EventHubSystemFactory systemFactory = new EventHubSystemFactory();
     SystemProducer systemProducer = systemFactory.getProducer(SYSTEM_NAME, eventHubConfig, new NoOpMetricsRegistry());
 

@@ -5,6 +5,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeFactory;
+import org.apache.samza.system.eventhub.producer.EventHubSystemProducer;
 
 import java.util.List;
 import java.util.Map;
@@ -32,11 +33,14 @@ public class EventHubConfig extends MapConfig {
   public static final String DEFAULT_CONFIG_STREAM_CONSUMER_START_POSITION = StartPosition.LATEST.name();
 
   public static final String CONFIG_PRODUCER_PARTITION_METHOD = "systems.%s.eventhubs.partition.method";
-  public static final String DEFAULT_CONFIG_PRODUCER_PARTITION_METHOD = EventHubClientWrapper
+  public static final String DEFAULT_CONFIG_PRODUCER_PARTITION_METHOD = EventHubSystemProducer
           .PartitioningMethod.EVENT_HUB_HASHING.name();
 
   public static final String CONFIG_SEND_KEY_IN_EVENT_PROPERTIES = "systems.%s.eventhubs.send.key";
   public static final String DEFAULT_CONFIG_SEND_KEY_IN_EVENT_PROPERTIES = Boolean.toString(false);
+
+  public static final String CONFIG_GET_RUNTIME_INFO_TIMEOUT_MILLIS = "systems.%s.eventhubs.getruntime.timeout";
+  public static final String DEFAULT_CONFIG_GET_RUNTIME_INFO_TIMEOUT_MILLIS = Integer.toString(1000);
 
   private final String _system;
 
@@ -132,10 +136,10 @@ public class EventHubConfig extends MapConfig {
    *
    * @return The method the producer should use to partition the outgoing data
    */
-  public EventHubClientWrapper.PartitioningMethod getPartitioningMethod() {
+  public EventHubSystemProducer.PartitioningMethod getPartitioningMethod() {
     String partitioningMethod = get(String.format(CONFIG_PRODUCER_PARTITION_METHOD, _system),
             DEFAULT_CONFIG_PRODUCER_PARTITION_METHOD);
-    return EventHubClientWrapper.PartitioningMethod.valueOf(partitioningMethod);
+    return EventHubSystemProducer.PartitioningMethod.valueOf(partitioningMethod);
 
   }
 

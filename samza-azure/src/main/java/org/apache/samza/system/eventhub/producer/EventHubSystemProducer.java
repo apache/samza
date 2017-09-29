@@ -1,32 +1,31 @@
 package org.apache.samza.system.eventhub.producer;
 
 import com.microsoft.azure.eventhubs.EventData;
+import com.microsoft.azure.eventhubs.EventHubClient;
+import com.microsoft.azure.eventhubs.PartitionSender;
+import com.microsoft.azure.servicebus.ServiceBusException;
 import org.apache.samza.SamzaException;
-import org.apache.samza.config.Config;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
+import org.apache.samza.system.eventhub.EventHubClientFactory;
 import org.apache.samza.system.eventhub.EventHubClientWrapper;
 import org.apache.samza.system.eventhub.EventHubConfig;
 import org.apache.samza.system.eventhub.metrics.SamzaHistogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.charset.Charset;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.*;
+import java.util.concurrent.*;
 
 public class EventHubSystemProducer implements SystemProducer {
   private static final Logger LOG = LoggerFactory.getLogger(EventHubSystemProducer.class.getName());
 
-  public static final String CONFIG_DESTINATION_NUM_PARTITION = "destinationPartitions";
   public static final String PRODUCE_TIMESTAMP = "produce-timestamp";
 
   // Metrics recording
@@ -46,18 +45,20 @@ public class EventHubSystemProducer implements SystemProducer {
   private HashMap<String, SamzaHistogram> _sendLatency = new HashMap<>();
   private HashMap<String, SamzaHistogram> _sendCallbackLatency = new HashMap<>();
   private HashMap<String, Counter> _sendErrors = new HashMap<>();
-  private static final Duration SHUTDOWN_WAIT_TIME = Duration.ofMinutes(1L);
+  public static final Duration SHUTDOWN_WAIT_TIME = Duration.ofMinutes(1L);
 
-  private final int _destinationPartitions;
+  private final EventHubClientFactory _eventHubClientFactory = new EventHubClientFactory();
   private final EventHubConfig _config;
   private final String _systemName;
   private final MetricsRegistry _registry;
+  private final PartitioningMethod _partitioningMethod;
 
   private Throwable _sendExceptionOnCallback;
   private boolean _isStarted;
 
   // Map of the system name to the event hub client.
   private Map<String, EventHubClientWrapper> _eventHubClients = new HashMap<>();
+  private Map<String, Map<Integer, PartitionSender>> _streamPartitionSenders = new HashMap<>();
 
   private long _messageId;
   private Map<String, Serde<byte[]>> _serdes = new HashMap<>();
@@ -69,9 +70,7 @@ public class EventHubSystemProducer implements SystemProducer {
     _systemName = systemName;
     _config = config;
     _registry = registry;
-
-    // TODO this should be removed when we are able to find the number of partitions. Remove
-    _destinationPartitions = Integer.parseInt(config.get(CONFIG_DESTINATION_NUM_PARTITION, "-1"));
+    _partitioningMethod = _config.getPartitioningMethod();
   }
 
   @Override
@@ -102,7 +101,17 @@ public class EventHubSystemProducer implements SystemProducer {
   @Override
   public synchronized void stop() {
     LOG.info("Stopping system producer.");
-    _eventHubClients.values().forEach(ehClient -> ehClient.closeSync(SHUTDOWN_WAIT_TIME.toMillis()));
+    _streamPartitionSenders.values().forEach((streamPartitionSender) -> {
+      List<CompletableFuture<Void>> futures = new ArrayList<>();
+      streamPartitionSender.forEach((key, value) -> futures.add(value.close()));
+      CompletableFuture<Void> future = CompletableFuture.allOf(futures.toArray(new CompletableFuture[futures.size()]));
+      try {
+        future.get(SHUTDOWN_WAIT_TIME.toMillis(), TimeUnit.MILLISECONDS);
+      } catch (ExecutionException | InterruptedException | TimeoutException e) {
+        LOG.warn("Closing the partition sender failed ", e);
+      }
+    });
+    _eventHubClients.values().forEach(ehClient -> ehClient.close(SHUTDOWN_WAIT_TIME.toMillis()));
     _eventHubClients.clear();
   }
 
@@ -115,14 +124,13 @@ public class EventHubSystemProducer implements SystemProducer {
       throw new SamzaException(msg);
     }
 
-    String ehNamespace = _config.getStreamNamespace(streamName);
-    String ehName = _config.getStreamEntityPath(streamName);
+    EventHubClientWrapper ehClient = _eventHubClientFactory
+            .getEventHubClient(_config.getStreamNamespace(streamName), _config.getStreamEntityPath(streamName),
+                    _config.getStreamSasKeyName(streamName), _config.getStreamSasToken(streamName), _config);
 
-    EventHubClientWrapper ehClient =
-            new EventHubClientWrapper(_config.getPartitioningMethod(), _destinationPartitions, ehNamespace, ehName,
-                    _config.getStreamSasKeyName(streamName), _config.getStreamSasToken(streamName));
-
+    ehClient.init();
     _eventHubClients.put(streamName, ehClient);
+    _streamPartitionSenders.put(streamName, new HashMap<>());
     _config.getSerde(streamName).ifPresent(x -> _serdes.put(streamName, x));
   }
 
@@ -157,7 +165,7 @@ public class EventHubSystemProducer implements SystemProducer {
     Instant startTime = Instant.now();
 
     CompletableFuture<Void> sendResult;
-    sendResult = ehClient.send(eventData, envelope.getPartitionKey());
+    sendResult = sendToEventHub(destination, eventData, envelope.getPartitionKey(), ehClient.getEventHubClient());
 
     Instant endTime = Instant.now();
     long latencyMs = Duration.between(startTime, endTime).toMillis();
@@ -187,6 +195,58 @@ public class EventHubSystemProducer implements SystemProducer {
       _pendingFutures.remove(messageId);
       return aVoid;
     }));
+  }
+
+  private CompletableFuture<Void> sendToEventHub(String streamName, EventData eventData, Object partitionKey,
+                                                 EventHubClient eventHubClient) {
+    if (_partitioningMethod == PartitioningMethod.EVENT_HUB_HASHING) {
+      return eventHubClient.send(eventData, convertPartitionKeyToString(partitionKey));
+    } else if (_partitioningMethod == PartitioningMethod.PARTITION_KEY_AS_PARTITION) {
+      if (!(partitionKey instanceof Integer)) {
+        String msg = "Partition key should be of type Integer";
+        LOG.error(msg);
+        throw new SamzaException(msg);
+      }
+
+      PartitionSender sender = getPartitionSender(streamName, (int) partitionKey, eventHubClient);
+      return sender.send(eventData);
+    } else {
+      throw new SamzaException("Unknown partitioning method " + _partitioningMethod);
+    }
+  }
+
+  private String convertPartitionKeyToString(Object partitionKey) {
+    if (partitionKey instanceof String) {
+      return (String) partitionKey;
+    } else if (partitionKey instanceof Integer) {
+      return String.valueOf(partitionKey);
+    } else if (partitionKey instanceof byte[]) {
+      return new String((byte[]) partitionKey, Charset.defaultCharset());
+    } else {
+      throw new SamzaException("Unsupported key type: " + partitionKey.getClass().toString());
+    }
+  }
+
+  private PartitionSender getPartitionSender(String streamName, int partition, EventHubClient eventHubClient) {
+    Map<Integer, PartitionSender> partitionSenders = _streamPartitionSenders.get(streamName);
+    if (!partitionSenders.containsKey(partition)) {
+      try {
+        int numPartitions = eventHubClient.getRuntimeInformation().get().getPartitionCount();
+        PartitionSender partitionSender =
+                eventHubClient.createPartitionSenderSync(String.valueOf(partition % numPartitions));
+        partitionSenders.put(partition, partitionSender);
+      } catch (ServiceBusException e) {
+        String msg = "Creation of partition sender failed with exception";
+        LOG.error(msg, e);
+        throw new SamzaException(msg, e);
+      } catch (InterruptedException | ExecutionException e) {
+        String msg = "Failed to fetch number of Event Hub partitions for partition sender creation";
+        LOG.error(msg, e);
+        throw new SamzaException(msg, e);
+      }
+    }
+
+    return partitionSenders.get(partition);
   }
 
   private EventData createEventData(String streamName, OutgoingMessageEnvelope envelope) {
@@ -238,5 +298,10 @@ public class EventHubSystemProducer implements SystemProducer {
 
   Collection<CompletableFuture<Void>> getPendingFutures() {
     return _pendingFutures.values();
+  }
+
+  public enum PartitioningMethod {
+    EVENT_HUB_HASHING,
+    PARTITION_KEY_AS_PARTITION,
   }
 }

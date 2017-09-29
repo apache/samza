@@ -5,7 +5,10 @@ import com.microsoft.azure.eventhubs.PartitionReceiver;
 import com.microsoft.azure.servicebus.ServiceBusException;
 import com.microsoft.azure.servicebus.StringUtil;
 import org.apache.samza.SamzaException;
+import org.apache.samza.system.eventhub.EventHubClientFactory;
 import org.apache.samza.system.eventhub.EventHubClientWrapper;
+import org.apache.samza.system.eventhub.EventHubConfig;
+import org.apache.samza.system.eventhub.SamzaEventHubClientWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,16 +25,20 @@ public class EventHubEntityConnection {
   private final String _sasKeyName;
   private final String _sasKey;
   private final String _consumerName;
+  private final EventHubConfig _config;
   private final Map<Integer, PartitionReceiver> _receivers = new TreeMap<>();
   private EventHubClientWrapper _ehClientWrapper;
+  private final EventHubClientFactory _eventHubClientFactory = new EventHubClientFactory();
   private boolean _isStarted = false;
 
-  EventHubEntityConnection(String namespace, String entityPath, String sasKeyName, String sasKey, String consumerName) {
+  EventHubEntityConnection(String namespace, String entityPath, String sasKeyName, String sasKey,
+                           String consumerName, EventHubConfig config) {
     _namespace = namespace;
     _entityPath = entityPath;
     _sasKeyName = sasKeyName;
     _sasKey = sasKey;
     _consumerName = consumerName;
+    _config = config;
   }
 
   // add partitions and handlers for this connection. This can be called multiple times
@@ -51,9 +58,9 @@ public class EventHubEntityConnection {
     try {
       LOG.info(String.format("Starting connection for namespace=%s, entity=%s ", _namespace, _entityPath));
       // upon the instantiation of the client, the connection will be established
-      _ehClientWrapper =
-              new EventHubClientWrapper(null, 0,
-                      _namespace, _entityPath, _sasKeyName, _sasKey);
+      _ehClientWrapper = _eventHubClientFactory
+              .getEventHubClient(_namespace, _entityPath, _sasKeyName, _sasKey, _config);
+      _ehClientWrapper.init();
       for (Map.Entry<Integer, String> entry : _offsets.entrySet()) {
         Integer id = entry.getKey();
         String offset = entry.getValue();
@@ -94,7 +101,7 @@ public class EventHubEntityConnection {
       for (PartitionReceiver receiver : _receivers.values()) {
         receiver.closeSync();
       }
-      _ehClientWrapper.closeSync();
+      _ehClientWrapper.close(0);
     } catch (ServiceBusException e) {
       throw new SamzaException(
               String.format("Failed to stop connection for namespace=%s, entity=%s ", _namespace, _entityPath), e);

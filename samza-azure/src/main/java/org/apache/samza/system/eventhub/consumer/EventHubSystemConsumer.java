@@ -96,7 +96,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
       _connections.put(stream, connectionFactory.createConnection(
               config.getStreamNamespace(stream), config.getStreamEntityPath(stream),
               config.getStreamSasKeyName(stream), config.getStreamSasToken(stream),
-              config.getStreamConsumerGroup(stream)));
+              config.getStreamConsumerGroup(stream), config));
       _serdes.put(stream, config.getSerde(stream).orElse(null));
     });
     _eventReadRates = streamList.stream()

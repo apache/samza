@@ -2,6 +2,8 @@ package org.apache.samza.system.eventhub.consumer;
 
 import com.microsoft.azure.eventhubs.EventData;
 import com.microsoft.azure.eventhubs.PartitionReceiveHandler;
+import org.apache.samza.system.eventhub.EventHubClientFactory;
+import org.apache.samza.system.eventhub.EventHubConfig;
 
 import java.util.List;
 import java.util.Map;
@@ -16,7 +18,7 @@ class MockEventHubEntityConnectionFactory extends EventHubEntityConnectionFactor
 
   @Override
   EventHubEntityConnection createConnection(String namespace, String entityPath, String sasKeyName, String sasKey,
-                                            String consumerName) {
+                                            String consumerName, EventHubConfig eventHubConfig) {
     return new MockEventHubEntityConnection(entityPath, _eventData.get(entityPath));
   }
 
@@ -24,7 +26,7 @@ class MockEventHubEntityConnectionFactory extends EventHubEntityConnectionFactor
     private final Map<Integer, List<EventData>> _eventData;
 
     MockEventHubEntityConnection(String entity, Map<Integer, List<EventData>> eventData) {
-      super(null, entity, null, null, null);
+      super(null, entity, null, null, null, null);
       assert eventData != null : "No event data found for entity:" + entity;
       _eventData = eventData;
     }

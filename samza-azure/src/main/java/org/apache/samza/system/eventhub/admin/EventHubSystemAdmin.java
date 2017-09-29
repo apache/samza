@@ -6,6 +6,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.system.eventhub.EventHubClientFactory;
 import org.apache.samza.system.eventhub.EventHubClientWrapper;
 import org.apache.samza.system.eventhub.EventHubConfig;
 import org.apache.samza.system.eventhub.consumer.EventHubSystemConsumer;
@@ -19,7 +20,7 @@ import java.util.concurrent.CompletableFuture;
 
 public class EventHubSystemAdmin implements SystemAdmin {
   private static final Logger LOG = LoggerFactory.getLogger(EventHubSystemAdmin.class);
-
+  private final EventHubClientFactory _eventHubClientFactory = new EventHubClientFactory();
   private String _systemName;
   private EventHubConfig _config;
   private Map<String, EventHubClientWrapper> _eventHubClients = new HashMap<>();
@@ -49,7 +50,10 @@ public class EventHubSystemAdmin implements SystemAdmin {
     Map<String, CompletableFuture<EventHubRuntimeInformation>> ehRuntimeInfos = new HashMap<>();
     streamNames.forEach((streamName) -> {
       if (!_eventHubClients.containsKey(streamName)) {
-        addEventHubClient(streamName);
+        _eventHubClients.put(streamName, _eventHubClientFactory
+                .getEventHubClient(_config.getStreamNamespace(streamName), _config.getStreamEntityPath(streamName),
+                        _config.getStreamSasKeyName(streamName), _config.getStreamSasToken(streamName), _config));
+        _eventHubClients.get(streamName).init();
       }
       ehRuntimeInfos.put(streamName,
               _eventHubClients.get(streamName).getEventHubClient().getRuntimeInformation());
@@ -72,13 +76,6 @@ public class EventHubSystemAdmin implements SystemAdmin {
       }
     });
     return requestedMetadata;
-  }
-
-  private void addEventHubClient(String streamName) {
-    String ehNamespace = _config.getStreamNamespace(streamName);
-    String ehEntityPath = _config.getStreamEntityPath(streamName);
-    _eventHubClients.put(streamName, new EventHubClientWrapper(null, 0,
-            ehNamespace, ehEntityPath, _config.getStreamSasKeyName(streamName), _config.getStreamSasToken(streamName)));
   }
 
   @Override
