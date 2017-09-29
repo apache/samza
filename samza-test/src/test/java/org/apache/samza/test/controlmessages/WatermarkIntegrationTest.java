@@ -36,8 +36,6 @@ import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.TaskInstance;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
-import org.apache.samza.control.EndOfStreamManager;
-import org.apache.samza.control.WatermarkManager;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.operators.impl.InputOperatorImpl;
 import org.apache.samza.operators.impl.OperatorImpl;
@@ -85,14 +83,14 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
   static {
     TEST_DATA.add(createIncomingMessage(new PageView("inbox", 1), SSP0));
     TEST_DATA.add(createIncomingMessage(new PageView("home", 2), SSP1));
-    TEST_DATA.add(WatermarkManager.buildWatermarkEnvelope(1, SSP0));
-    TEST_DATA.add(WatermarkManager.buildWatermarkEnvelope(2, SSP1));
-    TEST_DATA.add(WatermarkManager.buildWatermarkEnvelope(4, SSP0));
-    TEST_DATA.add(WatermarkManager.buildWatermarkEnvelope(3, SSP1));
+    TEST_DATA.add(IncomingMessageEnvelope.buildWatermarkEnvelope(SSP0, 1));
+    TEST_DATA.add(IncomingMessageEnvelope.buildWatermarkEnvelope(SSP1, 2));
+    TEST_DATA.add(IncomingMessageEnvelope.buildWatermarkEnvelope(SSP0, 4));
+    TEST_DATA.add(IncomingMessageEnvelope.buildWatermarkEnvelope(SSP1, 3));
     TEST_DATA.add(createIncomingMessage(new PageView("search", 3), SSP0));
     TEST_DATA.add(createIncomingMessage(new PageView("pymk", 4), SSP1));
-    TEST_DATA.add(EndOfStreamManager.buildEndOfStreamEnvelope(SSP0));
-    TEST_DATA.add(EndOfStreamManager.buildEndOfStreamEnvelope(SSP1));
+    TEST_DATA.add(IncomingMessageEnvelope.buildEndOfStreamEnvelope(SSP0));
+    TEST_DATA.add(IncomingMessageEnvelope.buildEndOfStreamEnvelope(SSP1));
   }
 
   public final static class TestSystemFactory implements SystemFactory {

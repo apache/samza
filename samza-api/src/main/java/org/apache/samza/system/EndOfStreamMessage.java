@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.message;
+package org.apache.samza.system;
 
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
@@ -27,10 +27,12 @@ import org.codehaus.jackson.annotate.JsonProperty;
  *  once the task has consumed to the end of a bounded stream.
  */
 public class EndOfStreamMessage extends ControlMessage {
+  public EndOfStreamMessage() {
+    this(null);
+  }
 
   @JsonCreator
-  public EndOfStreamMessage(@JsonProperty("task-name") String taskName,
-                            @JsonProperty("task-count") int taskCount) {
-    super(taskName, taskCount);
+  public EndOfStreamMessage(@JsonProperty("task-name") String taskName) {
+    super(taskName);
   }
 }

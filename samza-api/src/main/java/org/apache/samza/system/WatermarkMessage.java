@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.message;
+package org.apache.samza.system;
 
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
@@ -29,11 +29,14 @@ import org.codehaus.jackson.annotate.JsonProperty;
 public class WatermarkMessage extends ControlMessage {
   private final long timestamp;
 
+  public WatermarkMessage(long watermark) {
+    this(watermark, null);
+  }
+
   @JsonCreator
   public WatermarkMessage(@JsonProperty("timestamp") long timestamp,
-                          @JsonProperty("task-name") String taskName,
-                          @JsonProperty("task-count") int taskCount) {
-    super(taskName, taskCount);
+                          @JsonProperty("task-name") String taskName) {
+    super(taskName);
     this.timestamp = timestamp;
   }
 

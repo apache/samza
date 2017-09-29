@@ -21,25 +21,28 @@ package org.apache.samza.task;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.control.ControlMessageListenerTask;
-import org.apache.samza.control.Watermark;
+import org.apache.samza.system.EndOfStreamMessage;
+import org.apache.samza.system.MessageType;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.impl.InputOperatorImpl;
 import org.apache.samza.operators.impl.OperatorImplGraph;
-import org.apache.samza.control.IOGraph;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.WatermarkMessage;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.SystemClock;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
  * A {@link StreamTask} implementation that brings all the operator API implementation components together and
  * feeds the input messages into the user-defined transformation chains in {@link StreamApplication}.
  */
-public final class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask, ControlMessageListenerTask {
+public final class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask {
+  private static final Logger LOG = LoggerFactory.getLogger(StreamOperatorTask.class);
 
   private final StreamApplication streamApplication;
   private final ApplicationRunner runner;
@@ -47,7 +50,6 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
 
   private OperatorImplGraph operatorImplGraph;
   private ContextManager contextManager;
-  private IOGraph ioGraph;
 
   /**
    * Constructs an adaptor task to run the user-implemented {@link StreamApplication}.
@@ -91,7 +93,6 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
 
     // create the operator impl DAG corresponding to the logical operator spec DAG
     this.operatorImplGraph = new OperatorImplGraph(streamGraph, config, context, clock);
-    this.ioGraph = streamGraph.toIOGraph();
   }
 
   /**
@@ -110,7 +111,21 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
     SystemStream systemStream = ime.getSystemStreamPartition().getSystemStream();
     InputOperatorImpl inputOpImpl = operatorImplGraph.getInputOperator(systemStream);
     if (inputOpImpl != null) {
-      inputOpImpl.onMessage(Pair.of(ime.getKey(), ime.getMessage()), collector, coordinator);
+      switch (MessageType.of(ime.getMessage())) {
+        case USER_MESSAGE:
+          inputOpImpl.onMessage(Pair.of(ime.getKey(), ime.getMessage()), collector, coordinator);
+          break;
+
+        case END_OF_STREAM:
+          EndOfStreamMessage eosMessage = (EndOfStreamMessage) ime.getMessage();
+          inputOpImpl.aggregateEndOfStream(eosMessage, ime.getSystemStreamPartition(), collector, coordinator);
+          break;
+
+        case WATERMARK:
+          WatermarkMessage watermarkMessage = (WatermarkMessage) ime.getMessage();
+          inputOpImpl.aggregateWatermark(watermarkMessage, ime.getSystemStreamPartition(), collector, coordinator);
+          break;
+      }
     }
   }
 
@@ -118,22 +133,6 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
   public final void window(MessageCollector collector, TaskCoordinator coordinator)  {
     operatorImplGraph.getAllInputOperators()
         .forEach(inputOperator -> inputOperator.onTimer(collector, coordinator));
-  }
-
-  @Override
-  public IOGraph getIOGraph() {
-    return ioGraph;
-  }
-
-  @Override
-  public final void onWatermark(Watermark watermark,
-      SystemStream systemStream,
-      MessageCollector collector,
-      TaskCoordinator coordinator) {
-    InputOperatorImpl inputOpImpl = operatorImplGraph.getInputOperator(systemStream);
-    if (inputOpImpl != null) {
-      inputOpImpl.onWatermark(watermark, collector, coordinator);
-    }
   }
 
   @Override

@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.message;
+package org.apache.samza.system;
 
 /**
  * The abstract class of all control messages, containing
@@ -26,20 +26,14 @@ package org.apache.samza.message;
  */
 public abstract class ControlMessage {
   private final String taskName;
-  private final int taskCount;
   private int version = 1;
 
-  public ControlMessage(String taskName, int taskCount) {
+  public ControlMessage(String taskName) {
     this.taskName = taskName;
-    this.taskCount = taskCount;
   }
 
   public String getTaskName() {
     return taskName;
-  }
-
-  public int getTaskCount() {
-    return taskCount;
   }
 
   public void setVersion(int version) {

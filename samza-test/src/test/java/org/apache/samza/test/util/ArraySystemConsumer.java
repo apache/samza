@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.config.Config;
-import org.apache.samza.control.EndOfStreamManager;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemStreamPartition;
@@ -62,7 +61,7 @@ public class ArraySystemConsumer implements SystemConsumer {
       set.forEach(ssp -> {
           List<IncomingMessageEnvelope> envelopes = Arrays.stream(getArrayObjects(ssp.getSystemStream().getStream(), config))
               .map(object -> new IncomingMessageEnvelope(ssp, null, null, object)).collect(Collectors.toList());
-          envelopes.add(EndOfStreamManager.buildEndOfStreamEnvelope(ssp));
+          envelopes.add(IncomingMessageEnvelope.buildEndOfStreamEnvelope(ssp));
           envelopeMap.put(ssp, envelopes);
         });
       done = true;

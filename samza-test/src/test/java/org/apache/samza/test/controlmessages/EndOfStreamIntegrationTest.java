@@ -54,7 +54,7 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
   @Test
   public void testPipeline() throws  Exception {
     Random random = new Random();
-    int count = 100;
+    int count = 10;
     PageView[] pageviews = new PageView[count];
     for (int i = 0; i < count; i++) {
       String pagekey = PAGEKEYS[random.nextInt(PAGEKEYS.length - 1)];

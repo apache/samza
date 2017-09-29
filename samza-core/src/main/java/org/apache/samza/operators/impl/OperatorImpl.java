@@ -24,22 +24,29 @@ import java.util.HashSet;
 import java.util.Set;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MetricsConfig;
-import org.apache.samza.control.Watermark;
-import org.apache.samza.control.WatermarkManager;
+import org.apache.samza.container.TaskContextImpl;
+import org.apache.samza.container.TaskName;
+import org.apache.samza.operators.functions.WatermarkFunction;
+import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.system.WatermarkMessage;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.util.HighResolutionClock;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Abstract base class for all stream operator implementations.
  */
 public abstract class OperatorImpl<M, RM> {
+  private static final Logger LOG = LoggerFactory.getLogger(OperatorImpl.class);
   private static final String METRICS_GROUP = OperatorImpl.class.getName();
 
   private boolean initialized;
@@ -48,11 +55,18 @@ public abstract class OperatorImpl<M, RM> {
   private Counter numMessage;
   private Timer handleMessageNs;
   private Timer handleTimerNs;
-  private long inputWatermarkTime = WatermarkManager.TIME_NOT_EXIST;
-  private long outputWatermarkTime = WatermarkManager.TIME_NOT_EXIST;
+  private long inputWatermark = WatermarkStates.WATERMARK_NOT_EXIST;
+  private long outputWatermark = WatermarkStates.WATERMARK_NOT_EXIST;
+  private TaskName taskName;
 
   Set<OperatorImpl<RM, ?>> registeredOperators;
   Set<OperatorImpl<?, M>> prevOperators;
+  Set<SystemStream> inputStreams;
+
+  // end-of-stream states
+  private EndOfStreamStates eosStates;
+  // watermark states
+  private WatermarkStates watermarkStates;
 
   /**
    * Initialize this {@link OperatorImpl} and its user-defined functions.
@@ -74,10 +88,16 @@ public abstract class OperatorImpl<M, RM> {
     this.highResClock = createHighResClock(config);
     registeredOperators = new HashSet<>();
     prevOperators = new HashSet<>();
+    inputStreams = new HashSet<>();
     MetricsRegistry metricsRegistry = context.getMetricsRegistry();
     this.numMessage = metricsRegistry.newCounter(METRICS_GROUP, opName + "-messages");
     this.handleMessageNs = metricsRegistry.newTimer(METRICS_GROUP, opName + "-handle-message-ns");
     this.handleTimerNs = metricsRegistry.newTimer(METRICS_GROUP, opName + "-handle-timer-ns");
+    this.taskName = context.getTaskName();
+
+    TaskContextImpl taskContext = (TaskContextImpl) context;
+    this.eosStates = (EndOfStreamStates) taskContext.fetchObject(EndOfStreamStates.class.getName());
+    this.watermarkStates = (WatermarkStates) taskContext.fetchObject(WatermarkStates.class.getName());
 
     handleInit(config, context);
 
@@ -111,6 +131,10 @@ public abstract class OperatorImpl<M, RM> {
     this.prevOperators.add(prevOperator);
   }
 
+  void registerInputStream(SystemStream input) {
+    this.inputStreams.add(input);
+  }
+
   /**
    * Handle the incoming {@code message} for this {@link OperatorImpl} and propagate results to registered operators.
    * <p>
@@ -128,6 +152,13 @@ public abstract class OperatorImpl<M, RM> {
     this.handleMessageNs.update(endNs - startNs);
 
     results.forEach(rm -> this.registeredOperators.forEach(op -> op.onMessage(rm, collector, coordinator)));
+
+    WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
+    if (watermarkFn != null) {
+      // check whether there is new watermark emitted from the user function
+      Long outputWm = watermarkFn.getOutputWatermark();
+      propagateWatermark(outputWm, collector, coordinator);
+    }
   }
 
   /**
@@ -174,68 +205,149 @@ public abstract class OperatorImpl<M, RM> {
   }
 
   /**
-   * Populate the watermarks based on the following equations:
-   *
-   * <ul>
-   *   <li>InputWatermark(op) = min { OutputWatermark(op') | op1 is upstream of op}</li>
-   *   <li>OutputWatermark(op) = min { InputWatermark(op), OldestWorkTime(op) }</li>
-   * </ul>
-   *
-   * @param watermark incoming watermark
+   * Aggregate {@link EndOfStreamMessage} from each ssp of the stream.
+   * Invoke onEndOfStream() if the stream reaches the end.
+   * @param eos {@link EndOfStreamMessage} object
+   * @param ssp system stream partition
    * @param collector message collector
    * @param coordinator task coordinator
    */
-  public final void onWatermark(Watermark watermark,
-      MessageCollector collector,
+  public final void aggregateEndOfStream(EndOfStreamMessage eos, SystemStreamPartition ssp, MessageCollector collector,
       TaskCoordinator coordinator) {
-    final long inputWatermarkMin;
-    if (prevOperators.isEmpty()) {
-      // for input operator, use the watermark time coming from the source input
-      inputWatermarkMin = watermark.getTimestamp();
-    } else {
-      // InputWatermark(op) = min { OutputWatermark(op') | op1 is upstream of op}
-      inputWatermarkMin = prevOperators.stream().map(op -> op.getOutputWatermarkTime()).min(Long::compare).get();
-    }
+    LOG.info("Received end-of-stream message from task {} in {}", eos.getTaskName(), ssp);
+    eosStates.update(eos, ssp);
 
-    if (inputWatermarkTime < inputWatermarkMin) {
-      // advance the watermark time of this operator
-      inputWatermarkTime = inputWatermarkMin;
-      Watermark inputWatermark = watermark.copyWithTimestamp(inputWatermarkTime);
-      long oldestWorkTime = handleWatermark(inputWatermark, collector, coordinator);
+    SystemStream stream = ssp.getSystemStream();
+    if (eosStates.isEndOfStream(stream)) {
+      LOG.info("Input {} reaches the end for task {}", stream.toString(), taskName.getTaskName());
+      onEndOfStream(collector, coordinator);
 
-      // OutputWatermark(op) = min { InputWatermark(op), OldestWorkTime(op) }
-      long outputWatermarkMin = Math.min(inputWatermarkTime, oldestWorkTime);
-      if (outputWatermarkTime < outputWatermarkMin) {
-        // populate the watermark to downstream
-        outputWatermarkTime = outputWatermarkMin;
-        Watermark outputWatermark = watermark.copyWithTimestamp(outputWatermarkTime);
-        this.registeredOperators.forEach(op -> op.onWatermark(outputWatermark, collector, coordinator));
+      if (eosStates.allEndOfStream()) {
+        // all inputs have been end-of-stream, shut down the task
+        LOG.info("All input streams have reached the end for task {}", taskName.getTaskName());
+        coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
       }
     }
   }
 
   /**
-   * Returns the oldest time of the envelops that haven't been processed by this operator
-   * Default implementation of handling watermark, which returns the input watermark time
-   * @param inputWatermark input watermark
+   * Invoke handleEndOfStream() if all the input streams to the current operator reach the end.
+   * Propagate the end-of-stream to downstream operators.
    * @param collector message collector
    * @param coordinator task coordinator
-   * @return time of oldest processing envelope
    */
-  protected long handleWatermark(Watermark inputWatermark,
-      MessageCollector collector,
-      TaskCoordinator coordinator) {
-    return inputWatermark.getTimestamp();
+  private final void onEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
+    if (inputStreams.stream().allMatch(input -> eosStates.isEndOfStream(input))) {
+      handleEndOfStream(collector, coordinator);
+      this.registeredOperators.forEach(op -> op.onEndOfStream(collector, coordinator));
+    }
   }
 
-  /* package private */
-  long getInputWatermarkTime() {
-    return this.inputWatermarkTime;
+  /**
+   * All input streams to this operator reach to the end.
+   * Inherited class should handle end-of-stream by overriding this function.
+   * By default noop implementation is for in-memory operator to handle the EOS. Output operator need to
+   * override this to actually propagate EOS over the wire.
+   * @param collector message collector
+   * @param coordinator task coordinator
+   */
+  protected void handleEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
+    //Do nothing by default
   }
 
-  /* package private */
-  long getOutputWatermarkTime() {
-    return this.outputWatermarkTime;
+  /**
+   * Aggregate the {@link WatermarkMessage} from each ssp into a watermark. Then call onWatermark() if
+   * a new watermark exits.
+   * @param watermarkMessage a {@link WatermarkMessage} object
+   * @param ssp {@link SystemStreamPartition} that the message is coming from.
+   * @param collector message collector
+   * @param coordinator task coordinator
+   */
+  public final void aggregateWatermark(WatermarkMessage watermarkMessage, SystemStreamPartition ssp,
+      MessageCollector collector, TaskCoordinator coordinator) {
+    LOG.debug("Received watermark {} from {}", watermarkMessage.getTimestamp(), ssp);
+    watermarkStates.update(watermarkMessage, ssp);
+    long watermark = watermarkStates.getWatermark(ssp.getSystemStream());
+    if (watermark != WatermarkStates.WATERMARK_NOT_EXIST) {
+      LOG.debug("Got watermark {} from stream {}", watermark, ssp.getSystemStream());
+      onWatermark(watermark, collector, coordinator);
+    }
+  }
+
+  /**
+   * A watermark comes from an upstream operator. This function decides whether we should update the
+   * input watermark based on the watermark time of all the previous operators, and then call handleWatermark()
+   * to let the inherited operator to act on it.
+   * @param watermark incoming watermark from an upstream operator
+   * @param collector message collector
+   * @param coordinator task coordinator
+   */
+  private final void onWatermark(long watermark, MessageCollector collector, TaskCoordinator coordinator) {
+    final long inputWatermarkMin;
+    if (prevOperators.isEmpty()) {
+      // for input operator, use the watermark time coming from the source input
+      inputWatermarkMin = watermark;
+    } else {
+      // InputWatermark(op) = min { OutputWatermark(op') | op' is upstream of op}
+      inputWatermarkMin = prevOperators.stream().map(op -> op.getOutputWatermark()).min(Long::compare).get();
+    }
+
+    if (inputWatermark < inputWatermarkMin) {
+      // advance the watermark time of this operator
+      inputWatermark = inputWatermarkMin;
+      LOG.trace("Advance input watermark to {} in operator {}", inputWatermark, getOperatorName());
+
+      final Long outputWm;
+      WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
+      if (watermarkFn != null) {
+        // user-overrided watermark handling here
+        watermarkFn.processWatermark(inputWatermark);
+        outputWm = watermarkFn.getOutputWatermark();
+      } else {
+        // use samza-provided watermark handling
+        // default is to propagate the input watermark
+        outputWm = handleWatermark(inputWatermark, collector, coordinator);
+      }
+
+      propagateWatermark(outputWm, collector, coordinator);
+    }
+  }
+
+  private void propagateWatermark(Long outputWm, MessageCollector collector, TaskCoordinator coordinator) {
+    if (outputWm != null) {
+      if (outputWatermark < outputWm) {
+        // advance the watermark
+        outputWatermark = outputWm;
+        LOG.debug("Advance output watermark to {} in operator {}", outputWatermark, getOperatorName());
+        this.registeredOperators.forEach(op -> op.onWatermark(outputWatermark, collector, coordinator));
+      } else if (outputWatermark > outputWm) {
+        LOG.warn("Ignore watermark {} that is smaller than the previous watermark {}.", outputWm, outputWatermark);
+      }
+    }
+  }
+
+  /**
+   * Handling of the input watermark and returns the output watermark.
+   * In-memory operator can override this to fire event-time triggers. Output operators need to override it
+   * so it can propagate watermarks over the wire. By default it simply returns the input watermark.
+   * @param inputWatermark  input watermark
+   * @param collector message collector
+   * @param coordinator task coordinator
+   * @return output watermark, or null if the output watermark should not be updated.
+   */
+  protected Long handleWatermark(long inputWatermark, MessageCollector collector, TaskCoordinator coordinator) {
+    // Default is no handling. Simply pass on the input watermark as output.
+    return inputWatermark;
+  }
+
+  /* package private for testing */
+  final long getInputWatermark() {
+    return this.inputWatermark;
+  }
+
+  /* package private for testing */
+  final long getOutputWatermark() {
+    return this.outputWatermark;
   }
 
   public void close() {
