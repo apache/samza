@@ -22,8 +22,6 @@ package org.apache.samza.operators.impl.store;
 /**
  * An immutable pair of a value, and its corresponding timestamp.
  *
- * <p> Iterators on {@link TimeSeriesStore}s always return {@link TimestampedValue}s
- *
  * @param <V> the type of the value
  */
 public class TimestampedValue<V> {

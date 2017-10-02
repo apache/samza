@@ -63,10 +63,10 @@ import java.util.concurrent.atomic.AtomicLong;
  *    +----------------------+--------8 bytes----+----1 bytes-+---------7 bytes--------+----value size----------
  *    +----------------------------------STORE KEY-------------------------------------+---STORE VAL-----------+
  *  </pre>
- *  An 8 byte timestamp, a one byte version and a 7 byte sequence number are appended to the provided key and this
- *  combination is used as the key in the k-v store. The provided value is stored as is.
+ * An 8 byte timestamp, a one byte version and a 7 byte sequence number are appended to the provided key and this
+ * combination is used as the key in the k-v store. The provided value is stored as is.
  *
- *  <p> This class is thread-safe and concurrent reads/writes are expected.
+ * <p> This class is thread-safe and concurrent reads/writes are expected.
  *
  * @param <K> the type of key in the store
  * @param <V> the type of value in the store
@@ -137,11 +137,6 @@ public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
     }
 
     kvStore.deleteAll(keysToDelete);
-  }
-
-  @Override
-  public void remove(K key) {
-    remove(key, 0L, Long.MAX_VALUE);
   }
 
   @Override

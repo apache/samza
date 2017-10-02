@@ -19,7 +19,9 @@
  */
 package org.apache.samza.operators.impl.store;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.serializers.Serde;
+
 import java.nio.ByteBuffer;
 
 /**
@@ -40,7 +42,6 @@ import java.nio.ByteBuffer;
 public class TimeSeriesKeySerde<K> implements Serde<TimeSeriesKey<K>> {
 
   private static final long SEQUENCE_NUM_MASK = 0x00ffffffffffffffL;
-
   private static final int TIMESTAMP_SIZE = 8;
   private static final int SEQNUM_SIZE = 8;
 
@@ -85,7 +86,11 @@ public class TimeSeriesKeySerde<K> implements Serde<TimeSeriesKey<K>> {
 
     long timeStamp = buf.getLong();
     long seqNum = buf.getLong();
+    long version = seqNum & ~SEQUENCE_NUM_MASK;
 
+    if (version != 0) {
+      throw new SamzaException("Version is not zero. Sequence number: " + seqNum);
+    }
     return new TimeSeriesKey(key, timeStamp, seqNum);
   }
 }

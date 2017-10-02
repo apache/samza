@@ -45,7 +45,9 @@ public interface TimeSeriesStore<K, V> {
    * Returns an iterator over values for the given key in the provided time-range - [{@code startTimestamp}, {@code endTimestamp})
    *
    * Values returned by the iterator are ordered by their timestamp. Values with the same timestamp are
-   * returned in their order of insertion. The iterator must be closed after use by calling {@link #close}.
+   * returned in their order of insertion.
+   *
+   * <p> The iterator <b>must</b> be closed after use by calling {@link #close}. Not doing so will result in memory leaks.
    *
    * @param key the key to look up in the store
    * @param startTimestamp the start timestamp of the range, inclusive
@@ -63,14 +65,6 @@ public interface TimeSeriesStore<K, V> {
    * @throws IllegalArgumentException when startTimeStamp &gt; endTimeStamp, or when either of them is negative
    */
   void remove(K key, long startTimestamp, long endTimeStamp);
-
-  /**
-   * Removes all values for this key.
-   *
-   * @param key the key to look up in the store
-   * @throws IllegalArgumentException when startTimeStamp &gt; endTimeStamp, or when either of them is negative
-   */
-  void remove(K key);
 
   /**
    * Flushes this time series store, if applicable.
