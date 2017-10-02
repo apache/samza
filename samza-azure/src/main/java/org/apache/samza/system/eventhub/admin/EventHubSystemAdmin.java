@@ -19,11 +19,13 @@
 
 package org.apache.samza.system.eventhub.admin;
 
+import com.microsoft.azure.eventhubs.EventHubPartitionRuntimeInformation;
 import com.microsoft.azure.eventhubs.EventHubRuntimeInformation;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
+import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.eventhub.EventHubClientFactory;
 import org.apache.samza.system.eventhub.EventHubClientWrapper;
@@ -71,25 +73,16 @@ public class EventHubSystemAdmin implements SystemAdmin {
     Map<String, SystemStreamMetadata> requestedMetadata = new HashMap<>();
     Map<String, CompletableFuture<EventHubRuntimeInformation>> ehRuntimeInfos = new HashMap<>();
     streamNames.forEach((streamName) -> {
-        if (!eventHubClients.containsKey(streamName)) {
-          eventHubClients.put(streamName, eventHubClientFactory
-                  .getEventHubClient(eventHubConfig.getStreamNamespace(streamName), eventHubConfig.getStreamEntityPath(streamName),
-                          eventHubConfig.getStreamSasKeyName(streamName), eventHubConfig.getStreamSasToken(streamName), eventHubConfig));
-          eventHubClients.get(streamName).init();
-        }
+        EventHubClientWrapper eventHubClientWrapper = getEventHubClient(streamName);
         ehRuntimeInfos.put(streamName,
-                eventHubClients.get(streamName).getEventHubClient().getRuntimeInformation());
+                eventHubClientWrapper.getEventHubClient().getRuntimeInformation());
       });
     ehRuntimeInfos.forEach((streamName, ehRuntimeInfo) -> {
         try {
-          EventHubRuntimeInformation ehInfo = ehRuntimeInfo.get(eventHubConfig.getRuntimeInfoWaitTimeMS(), TimeUnit.MILLISECONDS);
-          Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> sspMetadataMap = new HashMap<>();
-          for (String partition : ehInfo.getPartitionIds()) {
-            sspMetadataMap.put(new Partition(Integer.parseInt(partition)),
-                    new SystemStreamMetadata.SystemStreamPartitionMetadata(EventHubSystemConsumer.START_OF_STREAM,
-                            EventHubSystemConsumer.END_OF_STREAM, EventHubSystemConsumer.END_OF_STREAM));
-          }
-          requestedMetadata.put(streamName, new SystemStreamMetadata(streamName, sspMetadataMap));
+          EventHubRuntimeInformation ehInfo = ehRuntimeInfo.get(eventHubConfig.getRuntimeInfoWaitTimeMS(),
+                  TimeUnit.MILLISECONDS);
+          requestedMetadata.put(streamName, new SystemStreamMetadata(streamName,
+                  getPartitionMetadata(streamName, ehInfo.getPartitionIds())));
         } catch (InterruptedException | ExecutionException e) {
           String msg = String.format("Error while fetching EventHubRuntimeInfo for System:%s, Stream:%s",
                   systemName, streamName);
@@ -103,6 +96,49 @@ public class EventHubSystemAdmin implements SystemAdmin {
         }
       });
     return requestedMetadata;
+  }
+
+  private EventHubClientWrapper getEventHubClient(String streamName) {
+    if (!eventHubClients.containsKey(streamName)) {
+      eventHubClients.put(streamName, eventHubClientFactory
+              .getEventHubClient(eventHubConfig.getStreamNamespace(streamName),
+                      eventHubConfig.getStreamEntityPath(streamName), eventHubConfig.getStreamSasKeyName(streamName),
+                      eventHubConfig.getStreamSasToken(streamName), eventHubConfig));
+      eventHubClients.get(streamName).init();
+    }
+    return eventHubClients.get(streamName);
+  }
+
+  private Map<Partition, SystemStreamPartitionMetadata> getPartitionMetadata(String streamName, String[] partitionIds) {
+    EventHubClientWrapper eventHubClientWrapper = getEventHubClient(streamName);
+    Map<Partition, SystemStreamPartitionMetadata> sspMetadataMap = new HashMap<>();
+    Map<String, CompletableFuture<EventHubPartitionRuntimeInformation>> ehRuntimeInfos = new HashMap<>();
+    for (String partition : partitionIds) {
+      ehRuntimeInfos.put(partition, eventHubClientWrapper.getEventHubClient()
+               .getPartitionRuntimeInformation(partition));
+    }
+    ehRuntimeInfos.forEach((partitionId, ehPartitionRuntimeInfo) -> {
+        try {
+          EventHubPartitionRuntimeInformation ehPartitionInfo = ehPartitionRuntimeInfo
+                  .get(eventHubConfig.getRuntimeInfoWaitTimeMS(), TimeUnit.MILLISECONDS);
+          sspMetadataMap.put(new Partition(Integer.parseInt(partitionId)),
+                  new SystemStreamPartitionMetadata(EventHubSystemConsumer.START_OF_STREAM,
+                  ehPartitionInfo.getLastEnqueuedOffset(), EventHubSystemConsumer.END_OF_STREAM));
+        } catch (InterruptedException | ExecutionException e) {
+          String msg = String.format(
+                  "Error while fetching EventHubPartitionRuntimeInfo for System:%s, Stream:%s, Partition:%s",
+                  systemName, streamName, partitionId);
+          LOG.error(msg, e);
+          throw new SamzaException(msg);
+        } catch (TimeoutException e) {
+          String msg = String.format(
+                  "Timed out while fetching EventHubRuntimeInfo for System:%s, Stream:%s, , Partition:%s",
+                  systemName, streamName, partitionId);
+          LOG.error(msg, e);
+          throw new SamzaException(msg);
+        }
+      });
+    return sspMetadataMap;
   }
 
   @Override
