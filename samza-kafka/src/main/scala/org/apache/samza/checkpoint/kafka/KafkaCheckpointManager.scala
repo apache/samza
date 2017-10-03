@@ -148,7 +148,6 @@ class KafkaCheckpointManager(
     def handleCheckpoint(payload: ByteBuffer, checkpointKey:KafkaCheckpointLogKey): Unit = {
       val taskName = checkpointKey.getCheckpointTaskName
       val checkpoint = serde.fromBytes(Utils.readBytes(payload))
-      debug("Adding checkpoint " + checkpoint + " for taskName " + taskName)
       checkpoints.put(taskName, checkpoint) // replacing any existing, older checkpoints as we go
     }
 
@@ -235,7 +234,7 @@ class KafkaCheckpointManager(
             val checkpointKey = KafkaCheckpointLogKey.fromBytes(key)
 
             if (!shouldHandleEntry(checkpointKey)) {
-              info("Skipping checkpoint log entry at offset %S with key %s." format(currentOffset, checkpointKey))
+              info("Skipping checkpoint log entry at offset %s with key %s." format(currentOffset, checkpointKey))
             } else {
               // handleEntry requires ByteBuffer
               val checkpointPayload = ByteBuffer.wrap(msg.getMessage.asInstanceOf[Array[Byte]])
