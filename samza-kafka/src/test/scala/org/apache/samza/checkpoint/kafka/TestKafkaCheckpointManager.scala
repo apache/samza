@@ -68,9 +68,9 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
 
   val systemStreamPartitionGrouperFactoryString = classOf[GroupByPartitionFactory].getCanonicalName
 
-  var systemConsumerF: ()=>SystemConsumer = ()=>{null}
-  var systemProducerF: ()=>SystemProducer = ()=>{null}
-  var systemAdminF: ()=>SystemAdmin = ()=>{null}
+  var systemConsumerFn: ()=>SystemConsumer = ()=>{null}
+  var systemProducerFn: ()=>SystemProducer = ()=>{null}
+  var systemAdminFn: ()=>SystemAdmin = ()=>{null}
 
   @Before
   override def setUp {
@@ -97,10 +97,11 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     config.put("systems.%s.producer.%s" format (systemName, ProducerConfig.BOOTSTRAP_SERVERS_CONFIG), brokers)
     config.put("systems.%s.consumer.zookeeper.connect" format systemName, zkConnect)
     val cfg: SystemConfig = new SystemConfig(new MapConfig(config))
-    val (sName: String, systemConsumerFactory : SystemFactory) =  KafkaCheckpointManagerFactory.getCheckpointSystemStreamAndFactory(cfg)
-    systemConsumerF = () => {systemConsumerFactory.getConsumer(sName, cfg, new NoOpMetricsRegistry())}
-    systemProducerF = () => {systemConsumerFactory.getProducer(sName, cfg, new NoOpMetricsRegistry())}
-    systemAdminF = () => {systemConsumerFactory.getAdmin(sName, cfg)}
+    val (systemStreamName: String, systemConsumerFactory : SystemFactory) =
+      KafkaCheckpointManagerFactory.getCheckpointSystemStreamAndFactory(cfg)
+    systemConsumerFn = () => {systemConsumerFactory.getConsumer(systemStreamName, cfg, new NoOpMetricsRegistry())}
+    systemProducerFn = () => {systemConsumerFactory.getProducer(systemStreamName, cfg, new NoOpMetricsRegistry())}
+    systemAdminFn = () => {systemConsumerFactory.getAdmin(systemStreamName, cfg)}
   }
 
   @After
@@ -284,10 +285,10 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     socketTimeout = 30000,
     bufferSize = 64 * 1024,
     fetchSize = 300 * 1024,
-    getSystemConsumer = systemConsumerF,
-    getSystemAdmin = systemAdminF,
+    getSystemConsumer = systemConsumerFn,
+    getSystemAdmin = systemAdminFn,
     metadataStore = metadataStore,
-    getSystemProducer = systemProducerF,
+    getSystemProducer = systemProducerFn,
     connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure),
     systemStreamPartitionGrouperFactoryString = systemStreamPartitionGrouperFactoryString,
     failOnCheckpointValidation = failOnTopicValidation,
@@ -305,10 +306,10 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     socketTimeout = 30000,
     bufferSize = 64 * 1024,
     fetchSize = 300 * 1024,
-    getSystemConsumer = systemConsumerF,
-    getSystemAdmin = systemAdminF,
+    getSystemConsumer = systemConsumerFn,
+    getSystemAdmin = systemAdminFn,
     metadataStore = metadataStore,
-    getSystemProducer = systemProducerF,
+    getSystemProducer = systemProducerFn,
     connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure),
     systemStreamPartitionGrouperFactoryString = systemStreamPartitionGrouperFactoryString,
     failOnCheckpointValidation = failOnTopicValidation,

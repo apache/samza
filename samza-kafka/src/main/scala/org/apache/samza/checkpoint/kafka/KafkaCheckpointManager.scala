@@ -88,7 +88,7 @@ class KafkaCheckpointManager(
     retryBackoff.run(
       loop => {
         if (systemProducer == null) {
-          systemProducer.synchronized {
+          synchronized {
             if (systemProducer == null) {
               systemProducer = getSystemProducer()
               systemProducer.register(taskName.getTaskName)
@@ -156,35 +156,37 @@ class KafkaCheckpointManager(
     checkpoints.toMap /* of the immutable kind */
   }
 
-  private def getEarliestOffset(topic: String, partition: Partition): SystemStreamPartitionMetadata = {
+  private def getSSPMetadata(topic: String, partition: Partition): SystemStreamPartitionMetadata = {
     val systemAdmin = getSystemAdmin()
     val metaDataMap: java.util.Map[String, SystemStreamMetadata] = systemAdmin.getSystemStreamMetadata(Collections.singleton(topic))
     val checkpointMetadata: SystemStreamMetadata = metaDataMap.get(topic)
-    if(checkpointMetadata == null)
-      throw new SamzaException("Cannot get metadata for system=%s, topic=%s" format (systemName, topic))
+    if (checkpointMetadata == null) {
+      throw new SamzaException("Cannot get metadata for system=%s, topic=%s" format(systemName, topic))
+    }
 
     val partitionMetaData = checkpointMetadata.getSystemStreamPartitionMetadata().get(partition)
-    if(partitionMetaData == null)
-      throw new SamzaException("Cannot get partitionMetaData for system=%s, topic=%s" format (systemName, topic))
+    if (partitionMetaData == null) {
+      throw new SamzaException("Cannot get partitionMetaData for system=%s, topic=%s" format(systemName, topic))
+    }
 
     return partitionMetaData
   }
 
   /**
-   * Reads an entry from the checkpoint log and invokes the provided lambda on that entry.
+   * Reads an entry from the checkpoint log and invokes the provided lambda on it.
    *
    * @param handleEntry Code to handle an entry in the log once it's found
    */
   private def readLog(shouldHandleEntry: (KafkaCheckpointLogKey) => Boolean,
                       handleEntry: (ByteBuffer, KafkaCheckpointLogKey) => Unit): Unit = {
 
-    val UNKNOWN_OFFSET: String = "-1"
+    val UNKNOWN_OFFSET = "-1"
     var attempts = 10
     val POLL_TIMEOUT = 1000L
 
     val ssp: SystemStreamPartition = new SystemStreamPartition(systemName, checkpointTopic, new Partition(0))
     val systemConsumer = getSystemConsumer()
-    val partitionMetadata = getEarliestOffset(checkpointTopic, new Partition(0))
+    val partitionMetadata = getSSPMetadata(checkpointTopic, new Partition(0))
     // offsets returned are strings
     val newestOffset = if (partitionMetadata.getNewestOffset == null) UNKNOWN_OFFSET else partitionMetadata.getNewestOffset
     val oldestOffset = partitionMetadata.getOldestOffset
@@ -193,7 +195,7 @@ class KafkaCheckpointManager(
 
     var msgCount = 0
     try {
-      val emptyEnvelops = util.Collections.emptyMap[SystemStreamPartition, java.util.List[IncomingMessageEnvelope]]
+      val emptyEnvelopes = util.Collections.emptyMap[SystemStreamPartition, java.util.List[IncomingMessageEnvelope]]
       // convert offsets to long
       var currentOffset = UNKNOWN_OFFSET.toLong
       val newestOffsetLong = newestOffset.toLong
@@ -206,10 +208,10 @@ class KafkaCheckpointManager(
         } catch {
           case e: Exception => {
             // these exceptions are most likely intermediate
-            warn("Got %s exception while polling the consumer for checkpoints." format e.getMessage)
-            if (attempts == 0) throw new SamzaException("Multiple attempts failed while reading the checkpoints. Giving up.")
+            warn("Got %s exception while polling the consumer for checkpoints." format e)
+            if (attempts == 0) throw new SamzaException("Multiple attempts failed while reading the checkpoints. Giving up.", e)
             attempts -= 1
-            emptyEnvelops
+            emptyEnvelopes
           }
         }
 
@@ -259,10 +261,12 @@ class KafkaCheckpointManager(
   }
 
   def stop = {
-    if (systemProducer != null) {
-      systemProducer.stop
-      systemProducer = null
-    }
+    synchronized (
+      if (systemProducer != null) {
+        systemProducer.stop
+        systemProducer = null
+      }
+    )
   }
 
   override def toString = "KafkaCheckpointManager [systemName=%s, checkpointTopic=%s]" format(systemName, checkpointTopic)

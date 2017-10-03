@@ -35,6 +35,7 @@ import org.apache.samza.{Partition, SamzaException}
 import scala.collection.JavaConverters._
 import scala.collection.immutable.Map
 
+
 object Util extends Logging {
   val random = new Random
 
