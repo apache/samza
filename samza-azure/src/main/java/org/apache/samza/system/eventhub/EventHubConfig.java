@@ -66,6 +66,10 @@ public class EventHubConfig extends MapConfig {
   public static final String CONFIG_FETCH_RUNTIME_INFO_TIMEOUT_MILLIS = "systems.%s.eventhubs.runtime.info.timeout";
   public static final long DEFAULT_CONFIG_FETCH_RUNTIME_INFO_TIMEOUT_MILLIS = Duration.ofMinutes(1L).toMillis();
 
+  public static final String CONFIG_CONSUMER_BUFFER_CAPACITY = "systems.%s.eventhubs.receive.queue.size";
+  public static final int DEFAULT_CONFIG_CONSUMER_BUFFER_CAPACITY = 100;
+
+
   private final String systemName;
 
   public EventHubConfig(Map<String, String> config, String systemName) {
@@ -212,6 +216,19 @@ public class EventHubConfig extends MapConfig {
       return DEFAULT_CONFIG_FETCH_RUNTIME_INFO_TIMEOUT_MILLIS;
     }
     return Long.valueOf(timeoutStr);
+  }
+
+  /**
+   * Get the capacity of the Event Hub consumer buffer - the blocking queue used for storing messages
+   *
+   * @return int, number of buffered messages per SystemStreamPartition
+   */
+  public int getConsumerBufferCapacity() {
+    String bufferCapacity = get(String.format(CONFIG_CONSUMER_BUFFER_CAPACITY, systemName));
+    if (bufferCapacity == null) {
+      return DEFAULT_CONFIG_CONSUMER_BUFFER_CAPACITY;
+    }
+    return Integer.parseInt(bufferCapacity);
   }
 
   @Override

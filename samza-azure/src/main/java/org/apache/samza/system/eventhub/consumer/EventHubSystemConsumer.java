@@ -41,6 +41,8 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -92,7 +94,6 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   public static final String READ_ERRORS = "readErrors";
   private static final Logger LOG = LoggerFactory.getLogger(EventHubSystemConsumer.class);
   private static final int MAX_EVENT_COUNT_PER_PARTITION_POLL = 50;
-  private static final int BLOCKING_QUEUE_SIZE = 100;
   private static Counter aggEventReadRate = null;
   private static Counter aggEventByteReadRate = null;
   private static SamzaHistogram aggReadLatency = null;
@@ -174,6 +175,11 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   @Override
   public void stop() {
     connections.values().forEach(EventHubEntityConnection::stop);
+  }
+
+  @Override
+  protected BlockingQueue<IncomingMessageEnvelope> newBlockingQueue() {
+    return new LinkedBlockingQueue<>(config.getConsumerBufferCapacity());
   }
 
   private class PartitionReceiverHandlerImpl extends PartitionReceiveHandler {
