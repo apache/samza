@@ -78,6 +78,7 @@ public class EventHubSystemProducer implements SystemProducer {
   // Map of the system name to the event hub client.
   private Map<String, EventHubClientWrapper> eventHubClients = new HashMap<>();
   private Map<String, Map<Integer, PartitionSender>> streamPartitionSenders = new HashMap<>();
+  private Map<String, Integer> streamPartitionCounts = new HashMap<>();
 
   // Running count for the next message Id
   private long messageId;
@@ -251,10 +252,12 @@ public class EventHubSystemProducer implements SystemProducer {
     Map<Integer, PartitionSender> partitionSenders = streamPartitionSenders.get(streamName);
     if (!partitionSenders.containsKey(partition)) {
       try {
-        int numPartitions = eventHubClient.getRuntimeInformation()
-                .get(config.getRuntimeInfoWaitTimeMS(), TimeUnit.MILLISECONDS).getPartitionCount();
-        PartitionSender partitionSender =
-                eventHubClient.createPartitionSenderSync(String.valueOf(partition % numPartitions));
+        if (!streamPartitionCounts.containsKey(streamName)) {
+          streamPartitionCounts.put(streamName, eventHubClient.getRuntimeInformation()
+                  .get(config.getRuntimeInfoWaitTimeMS(), TimeUnit.MILLISECONDS).getPartitionCount());
+        }
+        PartitionSender partitionSender = eventHubClient
+                .createPartitionSenderSync(String.valueOf(partition % streamPartitionCounts.get(streamName)));
         partitionSenders.put(partition, partitionSender);
       } catch (ServiceBusException e) {
         String msg = "Creation of partition sender failed with exception";
