@@ -80,12 +80,21 @@ public class StreamGraphImpl implements StreamGraph {
 
   @Override
   public <M> MessageStream<M> getInputStream(String streamId, Serde<M> serde) {
+    StreamSpec streamSpec = runner.getStreamSpec(streamId);
     Preconditions.checkNotNull(serde, "serde must not be null for an input stream.");
-    Preconditions.checkState(!inputOperators.containsKey(runner.getStreamSpec(streamId)),
+    Preconditions.checkState(!inputOperators.containsKey(streamSpec),
         "getInputStream must not be called multiple times with the same streamId: " + streamId);
 
-    StreamSpec streamSpec = runner.getStreamSpec(streamId);
     KV<Serde, Serde> kvSerdes = getKVSerdes(streamId, serde);
+    if (outputStreams.containsKey(streamSpec)) {
+      OutputStreamImpl outputStream = outputStreams.get(streamSpec);
+      Serde keySerde = outputStream.getKeySerde();
+      Serde valueSerde = outputStream.getValueSerde();
+      Preconditions.checkState(kvSerdes.getKey().equals(keySerde) && kvSerdes.getValue().equals(valueSerde),
+          String.format("Stream %s is being used both as an input and an output stream. Serde in Samza happens at "
+              + "stream level, so the same key and message Serde must be used for both.", streamId));
+    }
+
     boolean isKeyedInput = serde instanceof KVSerde;
     inputOperators.put(streamSpec,
         new InputOperatorSpec<>(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyedInput, this.getNextOpId()));
@@ -99,14 +108,24 @@ public class StreamGraphImpl implements StreamGraph {
 
   @Override
   public <M> OutputStream<M> getOutputStream(String streamId, Serde<M> serde) {
+    StreamSpec streamSpec = runner.getStreamSpec(streamId);
     Preconditions.checkNotNull(serde, "serde must not be null for an output stream.");
-    Preconditions.checkState(!outputStreams.containsKey(runner.getStreamSpec(streamId)),
+    Preconditions.checkState(!outputStreams.containsKey(streamSpec),
         "getOutputStream must not be called multiple times with the same streamId: " + streamId);
 
-    StreamSpec streamSpec = runner.getStreamSpec(streamId);
     KV<Serde, Serde> kvSerdes = getKVSerdes(streamId, serde);
+    if (inputOperators.containsKey(streamSpec)) {
+      InputOperatorSpec inputOperatorSpec = inputOperators.get(streamSpec);
+      Serde keySerde = inputOperatorSpec.getKeySerde();
+      Serde valueSerde = inputOperatorSpec.getValueSerde();
+      Preconditions.checkState(kvSerdes.getKey().equals(keySerde) && kvSerdes.getValue().equals(valueSerde),
+          String.format("Stream %s is being used both as an input and an output stream. Serde in Samza happens at "
+              + "stream level, so the same key and message Serde must be used for both.", streamId));
+    }
+
+    boolean isKeyedOutput = serde instanceof KVSerde;
     outputStreams.put(streamSpec,
-        new OutputStreamImpl<>(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), serde instanceof KVSerde));
+        new OutputStreamImpl<>(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyedOutput));
     return outputStreams.get(streamSpec);
   }
 
