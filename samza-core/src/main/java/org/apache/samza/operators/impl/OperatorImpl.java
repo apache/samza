@@ -18,10 +18,7 @@
  */
 package org.apache.samza.operators.impl;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.container.TaskContextImpl;
@@ -42,8 +39,17 @@ import org.apache.samza.util.HighResolutionClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
+
 /**
  * Abstract base class for all stream operator implementations.
+ *
+ * @param <M> type of the input to this operator
+ * @param <RM> type of the results of applying this operator
  */
 public abstract class OperatorImpl<M, RM> {
   private static final Logger LOG = LoggerFactory.getLogger(OperatorImpl.class);
@@ -147,11 +153,25 @@ public abstract class OperatorImpl<M, RM> {
   public final void onMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
     this.numMessage.inc();
     long startNs = this.highResClock.nanoTime();
-    Collection<RM> results = handleMessage(message, collector, coordinator);
+    Collection<RM> results;
+    try {
+      results = handleMessage(message, collector, coordinator);
+    } catch (ClassCastException e) {
+      String actualType = e.getMessage().replaceFirst(" cannot be cast to .*", "");
+      String expectedType = e.getMessage().replaceFirst(".* cannot be cast to ", "");
+      throw new SamzaException(
+          String.format("Error applying operator %s (created at %s) to its input message. "
+                  + "Expected input message to be of type %s, but found it to be of type %s. "
+                  + "Are Serdes for the inputs to this operator configured correctly?",
+              getOperatorName(), getOperatorSpec().getSourceLocation(), expectedType, actualType), e);
+    }
+
     long endNs = this.highResClock.nanoTime();
     this.handleMessageNs.update(endNs - startNs);
 
-    results.forEach(rm -> this.registeredOperators.forEach(op -> op.onMessage(rm, collector, coordinator)));
+    results.forEach(rm ->
+        this.registeredOperators.forEach(op ->
+            op.onMessage(rm, collector, coordinator)));    
 
     WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
     if (watermarkFn != null) {
@@ -186,7 +206,9 @@ public abstract class OperatorImpl<M, RM> {
     long endNs = this.highResClock.nanoTime();
     this.handleTimerNs.update(endNs - startNs);
 
-    results.forEach(rm -> this.registeredOperators.forEach(op -> op.onMessage(rm, collector, coordinator)));
+    results.forEach(rm ->
+        this.registeredOperators.forEach(op ->
+            op.onMessage(rm, collector, coordinator)));
     this.registeredOperators.forEach(op ->
         op.onTimer(collector, coordinator));
   }

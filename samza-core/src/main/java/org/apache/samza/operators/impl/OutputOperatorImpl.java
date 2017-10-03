@@ -18,22 +18,19 @@
  */
 package org.apache.samza.operators.impl;
 
-import java.util.Collection;
-import java.util.Collections;
 import org.apache.samza.config.Config;
-import org.apache.samza.container.TaskContextImpl;
-import org.apache.samza.system.ControlMessage;
-import org.apache.samza.system.EndOfStreamMessage;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.system.OutgoingMessageEnvelope;
-import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.system.WatermarkMessage;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
+
+import java.util.Collection;
+import java.util.Collections;
 
 
 /**
@@ -42,17 +39,14 @@ import org.apache.samza.task.TaskCoordinator;
 class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
 
   private final OutputOperatorSpec<M> outputOpSpec;
-  private final OutputStreamImpl<?, ?, M> outputStream;
-  private final String taskName;
-  private final ControlMessageSender controlMessageSender;
+  private final OutputStreamImpl<M> outputStream;
+  private final SystemStream systemStream;
 
   OutputOperatorImpl(OutputOperatorSpec<M> outputOpSpec, Config config, TaskContext context) {
     this.outputOpSpec = outputOpSpec;
     this.outputStream = outputOpSpec.getOutputStream();
-    this.taskName = context.getTaskName().getTaskName();
-
-    StreamMetadataCache streamMetadataCache = ((TaskContextImpl) context).getStreamMetadataCache();
-    this.controlMessageSender = new ControlMessageSender(streamMetadataCache);
+    this.systemStream = new SystemStream(outputStream.getStreamSpec().getSystemName(),
+        outputStream.getStreamSpec().getPhysicalName());
   }
 
   @Override
@@ -62,12 +56,16 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
   @Override
   public Collection<Void> handleMessage(M message, MessageCollector collector,
       TaskCoordinator coordinator) {
-    // TODO: SAMZA-1148 - need to find a way to directly pass in the serde class names
-    SystemStream systemStream = new SystemStream(outputStream.getStreamSpec().getSystemName(),
-        outputStream.getStreamSpec().getPhysicalName());
-    Object key = outputStream.getKeyExtractor().apply(message);
-    Object msg = outputStream.getMsgExtractor().apply(message);
-    collector.send(new OutgoingMessageEnvelope(systemStream, key, msg));
+    Object key, value;
+    if (outputStream.isKeyedOutput()) {
+      key = ((KV) message).getKey();
+      value = ((KV) message).getValue();
+    } else {
+      key = null;
+      value = message;
+    }
+
+    collector.send(new OutgoingMessageEnvelope(systemStream, null, key, value));
     return Collections.emptyList();
   }
 
@@ -78,25 +76,5 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
   @Override
   protected OperatorSpec<M, Void> getOperatorSpec() {
     return outputOpSpec;
-  }
-
-  @Override
-  protected void handleEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
-    if (outputOpSpec.getOpCode() == OperatorSpec.OpCode.PARTITION_BY) {
-      sendControlMessage(new EndOfStreamMessage(taskName), collector);
-    }
-  }
-
-  @Override
-  protected Long handleWatermark(long watermark, MessageCollector collector, TaskCoordinator coordinator) {
-    if (outputOpSpec.getOpCode() == OperatorSpec.OpCode.PARTITION_BY) {
-      sendControlMessage(new WatermarkMessage(watermark, taskName), collector);
-    }
-    return watermark;
-  }
-
-  private void sendControlMessage(ControlMessage message, MessageCollector collector) {
-    SystemStream outputStream = outputOpSpec.getOutputStream().getStreamSpec().toSystemStream();
-    controlMessageSender.send(message, outputStream, collector);
   }
 }

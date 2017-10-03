@@ -110,4 +110,17 @@ class TestUtil {
     assertEquals(Long.MinValue, Util.clampAdd(Long.MinValue, Long.MinValue))
     assertEquals(-1, Util.clampAdd(Long.MaxValue, Long.MinValue))
   }
+
+  @Test
+  def testGetObjExistingClass() {
+    val obj = Util.getObj[MapConfig]("org.apache.samza.config.MapConfig")
+    assertNotNull(obj)
+    assertEquals(classOf[MapConfig], obj.getClass())
+  }
+
+  @Test(expected = classOf[ClassNotFoundException])
+  def testGetObjNonexistentClass() {
+    Util.getObj("this.class.does.NotExist")
+    assert(false, "This should not get hit.")
+  }
 }

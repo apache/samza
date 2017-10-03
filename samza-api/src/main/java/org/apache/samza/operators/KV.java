@@ -16,29 +16,33 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.operators;
 
-package org.apache.samza.serializers
-
-import org.apache.samza.config.Config
 
 /**
- * A serializer for strings
+ * A key and value pair.
+ *
+ * @param <K> type of the key
+ * @param <V> type of the value
  */
-class StringSerdeFactory extends SerdeFactory[String] {
-  def getSerde(name: String, config: Config): Serde[String] =
-    new StringSerde(config.get("encoding", "UTF-8"))
-}
+public class KV<K, V> {
+  public final K key;
+  public final V value;
 
-class StringSerde(val encoding: String) extends Serde[String] {
-  def toBytes(obj: String): Array[Byte] = if (obj != null) {
-    obj.toString.getBytes(encoding)
-  } else {
-    null
+  public static <K, V> KV<K, V> of(K key, V value) {
+    return new KV<>(key, value);
   }
 
-  def fromBytes(bytes: Array[Byte]): String = if (bytes != null) {
-    new String(bytes, 0, bytes.size, encoding)
-  } else {
-    null
+  public KV(K key, V value) {
+    this.key = key;
+    this.value = value;
+  }
+
+  public K getKey() {
+    return key;
+  }
+
+  public V getValue() {
+    return value;
   }
 }

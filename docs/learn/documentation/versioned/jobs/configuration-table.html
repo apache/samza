@@ -707,6 +707,24 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="task-drop-producer-errors">task.drop.producer.errors</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        If true, producer errors will be logged and ignored. The only exceptions that will be thrown are
+                        those which are likely caused by the application itself (e.g. serializaiton errors). If false,
+                        the producer will be closed and producer errors will be propagated upward until the container
+                        ultimately fails. Failing the container is a safety precaution to ensure the latest checkpoints
+                        only reflect the events that  have been completely and successfully processed. However, some
+                        applications prefer to remain running at all costs, even if that means lost messages. Setting
+                        this property to true will enable applications to recover from producer errors at the expense of
+                        one or many (in the case of batching producers) dropped messages. If you enable this, it is highly
+                        recommended that you also configure alerting on the 'producer-send-failed' metric, since the
+                        producer might drop messages indefinitely. The logic for this property is specific to each
+                        SystemProducer implementation. It will have no effect for SystemProducers that ignore the property.
+                    </td>
+                </tr>
+
+                <tr>
                     <td class="property" id="task-log4j-system">task.log4j.system</td>
                     <td class="default"></td>
                     <td class="description">
@@ -1152,7 +1170,14 @@
                             <dt><code>org.apache.samza.serializers.StringSerdeFactory</code></dt>
                             <dd>Encodes <code>java.lang.String</code> objects as UTF-8.</dd>
                             <dt><code>org.apache.samza.serializers.JsonSerdeFactory</code></dt>
-                            <dd>Encodes nested structures of <code>java.util.Map</code>, <code>java.util.List</code> etc. as JSON.</dd>
+                            <dd>Encodes nested structures of <code>java.util.Map</code>, <code>java.util.List</code> etc. as JSON.<br/>
+                                Note: This Serde enforces a dash-separated property naming convention, while JsonSerdeV2 doesn't.
+                                This serde is primarily meant for Samza's internal usage, and is publicly available for backwards compatibility.</dd>
+                            <dt><code>org.apache.samza.serializers.JsonSerdeV2Factory</code></dt>
+                            <dd>Encodes nested structures of <code>java.util.Map</code>, <code>java.util.List</code> etc. as JSON.<br/>
+                                Note: This Serde uses Jackson's default (camelCase) property naming convention. This serde should be <br/>
+                                preferred over JsonSerde, especially in High Level API, unless the dasherized naming convention is required <br/>
+                                (e.g., for backwards compatibility).</dd>
                             <dt><code>org.apache.samza.serializers.LongSerdeFactory</code></dt>
                             <dd>Encodes <code>java.lang.Long</code> as binary (8 bytes fixed-length big-endian encoding).</dd>
                             <dt><code>org.apache.samza.serializers.DoubleSerdeFactory</code></dt>

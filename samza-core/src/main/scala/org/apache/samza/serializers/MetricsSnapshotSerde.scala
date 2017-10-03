@@ -20,12 +20,10 @@
 package org.apache.samza.serializers
 import org.apache.samza.config.Config
 import org.codehaus.jackson.map.ObjectMapper
-import java.util.Map
-import java.nio.ByteBuffer
 import org.apache.samza.metrics.reporter.MetricsSnapshot
 
 class MetricsSnapshotSerde extends Serde[MetricsSnapshot] {
-  val jsonMapper = new ObjectMapper
+  @transient lazy val jsonMapper = new ObjectMapper
 
   def toBytes(obj: MetricsSnapshot) = jsonMapper
     .writeValueAsString(obj.getAsMap)

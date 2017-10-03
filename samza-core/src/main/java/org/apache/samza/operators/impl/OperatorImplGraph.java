@@ -22,10 +22,10 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import java.util.stream.Collectors;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.PartialJoinFunction;
@@ -33,8 +33,9 @@ import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
-import org.apache.samza.operators.spec.StreamOperatorSpec;
+import org.apache.samza.operators.spec.PartitionByOperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
+import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.util.InternalInMemoryStore;
 import org.apache.samza.storage.kv.KeyValueStore;
@@ -77,7 +78,7 @@ public class OperatorImplGraph {
    * the two {@link PartialJoinOperatorImpl}s for a {@link JoinOperatorSpec} with each other since they're
    * reached from different {@link OperatorSpec} during DAG traversals.
    */
-  private final Map<Integer, Pair<PartialJoinFunction, PartialJoinFunction>> joinFunctions = new HashMap<>();
+  private final Map<Integer, KV<PartialJoinFunction, PartialJoinFunction>> joinFunctions = new HashMap<>();
 
   private final Clock clock;
 
@@ -193,6 +194,8 @@ public class OperatorImplGraph {
       return new SinkOperatorImpl((SinkOperatorSpec) operatorSpec, config, context);
     } else if (operatorSpec instanceof OutputOperatorSpec) {
       return new OutputOperatorImpl((OutputOperatorSpec) operatorSpec, config, context);
+    } else if (operatorSpec instanceof PartitionByOperatorSpec) {
+      return new PartitionByOperatorImpl((PartitionByOperatorSpec) operatorSpec, config, context);
     } else if (operatorSpec instanceof WindowOperatorSpec) {
       return new WindowOperatorImpl((WindowOperatorSpec) operatorSpec, clock);
     } else if (operatorSpec instanceof JoinOperatorSpec) {
@@ -204,19 +207,19 @@ public class OperatorImplGraph {
 
   private PartialJoinOperatorImpl createPartialJoinOperatorImpl(OperatorSpec prevOperatorSpec,
       JoinOperatorSpec joinOpSpec, Config config, TaskContext context, Clock clock) {
-    Pair<PartialJoinFunction, PartialJoinFunction> partialJoinFunctions = getOrCreatePartialJoinFunctions(joinOpSpec);
+    KV<PartialJoinFunction, PartialJoinFunction> partialJoinFunctions = getOrCreatePartialJoinFunctions(joinOpSpec);
     if (joinOpSpec.getLeftInputOpSpec().equals(prevOperatorSpec)) { // we got here from the left side of the join
       return new PartialJoinOperatorImpl(joinOpSpec, /* isLeftSide */ true,
-          partialJoinFunctions.getLeft(), partialJoinFunctions.getRight(), config, context, clock);
+          partialJoinFunctions.getKey(), partialJoinFunctions.getValue(), config, context, clock);
     } else { // we got here from the right side of the join
       return new PartialJoinOperatorImpl(joinOpSpec, /* isLeftSide */ false,
-          partialJoinFunctions.getRight(), partialJoinFunctions.getLeft(), config, context, clock);
+          partialJoinFunctions.getValue(), partialJoinFunctions.getKey(), config, context, clock);
     }
   }
 
-  private Pair<PartialJoinFunction, PartialJoinFunction> getOrCreatePartialJoinFunctions(JoinOperatorSpec joinOpSpec) {
+  private KV<PartialJoinFunction, PartialJoinFunction> getOrCreatePartialJoinFunctions(JoinOperatorSpec joinOpSpec) {
     return joinFunctions.computeIfAbsent(joinOpSpec.getOpId(),
-        joinOpId -> Pair.of(createLeftJoinFn(joinOpSpec.getJoinFn()), createRightJoinFn(joinOpSpec.getJoinFn())));
+        joinOpId -> KV.of(createLeftJoinFn(joinOpSpec.getJoinFn()), createRightJoinFn(joinOpSpec.getJoinFn())));
   }
 
   private PartialJoinFunction<Object, Object, Object, Object> createLeftJoinFn(JoinFunction joinFn) {
@@ -328,11 +331,9 @@ public class OperatorImplGraph {
 
   private static void computeOutputToInput(SystemStream input, OperatorSpec opSpec,
       Multimap<SystemStream, SystemStream> outputToInputStreams) {
-    if (opSpec instanceof OutputOperatorSpec) {
-      OutputOperatorSpec outputOpSpec = (OutputOperatorSpec) opSpec;
-      if (outputOpSpec.getOpCode() == OperatorSpec.OpCode.PARTITION_BY) {
-        outputToInputStreams.put(outputOpSpec.getOutputStream().getStreamSpec().toSystemStream(), input);
-      }
+    if (opSpec instanceof PartitionByOperatorSpec) {
+      PartitionByOperatorSpec spec = (PartitionByOperatorSpec) opSpec;
+      outputToInputStreams.put(spec.getOutputStream().getStreamSpec().toSystemStream(), input);
     } else {
       Collection<OperatorSpec> nextOperators = opSpec.getRegisteredOperatorSpecs();
       nextOperators.forEach(spec -> computeOutputToInput(input, spec, outputToInputStreams));

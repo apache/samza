@@ -30,6 +30,8 @@ import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
+import org.apache.samza.operators.KV;
+import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.standalone.PassthroughCoordinationUtilsFactory;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
@@ -89,15 +91,22 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
     final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
     List<PageView> received = new ArrayList<>();
     final StreamApplication app = (streamGraph, cfg) -> {
-      streamGraph.getInputStream("PageView", (k, v) -> (PageView) v)
-        .partitionBy(PageView::getMemberId)
+      streamGraph.<KV<String, PageView>>getInputStream("PageView")
+        .map(Values.create())
+        .partitionBy(pv -> pv.getMemberId(), pv -> pv)
         .sink((m, collector, coordinator) -> {
-            received.add(m);
+            received.add(m.getValue());
           });
     };
     runner.run(app);
     runner.waitForFinish();
 
     assertEquals(received.size(), count * partitionCount);
+  }
+
+  public static final class Values {
+    public static <K, V, M extends KV<K, V>> MapFunction<M, V> create() {
+      return (M m) -> m.getValue();
+    }
   }
 }

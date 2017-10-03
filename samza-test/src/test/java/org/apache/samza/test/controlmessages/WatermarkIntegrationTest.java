@@ -37,6 +37,7 @@ import org.apache.samza.container.TaskInstance;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.impl.InputOperatorImpl;
 import org.apache.samza.operators.impl.OperatorImpl;
 import org.apache.samza.operators.impl.OperatorImplGraph;
@@ -142,10 +143,11 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
     final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
     List<PageView> received = new ArrayList<>();
     final StreamApplication app = (streamGraph, cfg) -> {
-      streamGraph.getInputStream("PageView", (k, v) -> (PageView) v)
-          .partitionBy(PageView::getMemberId)
+      streamGraph.<KV<String, PageView>>getInputStream("PageView")
+          .map(EndOfStreamIntegrationTest.Values.create())
+          .partitionBy(pv -> pv.getMemberId(), pv -> pv)
           .sink((m, collector, coordinator) -> {
-              received.add(m);
+              received.add(m.getValue());
             });
     };
     runner.run(app);

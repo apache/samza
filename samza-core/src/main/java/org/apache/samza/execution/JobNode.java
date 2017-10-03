@@ -21,24 +21,33 @@ package org.apache.samza.execution;
 
 import com.google.common.base.Joiner;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.SerializerConfig;
+import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.util.MathUtils;
+import org.apache.samza.serializers.Serde;
+import org.apache.samza.serializers.SerializableSerde;
+import org.apache.samza.system.StreamSpec;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 
 /**
  * A JobNode is a physical execution unit. In RemoteExecutionEnvironment, it's a job that will be submitted
@@ -125,11 +134,88 @@ public class JobNode {
     // write input/output streams to configs
     inEdges.stream().filter(StreamEdge::isIntermediate).forEach(edge -> configs.putAll(edge.generateConfig()));
 
+    // write serialized serde instances and stream serde configs to configs
+    addSerdeConfigs(configs);
+
     log.info("Job {} has generated configs {}", jobName, configs);
 
     String configPrefix = String.format(CONFIG_JOB_PREFIX, jobName);
-    // TODO: Disallow user specifying job inputs/outputs. This info comes strictly from the pipeline.
-    return new JobConfig(Util.rewriteConfig(extractScopedConfig(config, new MapConfig(configs), configPrefix)));
+
+    // Disallow user specified job inputs/outputs. This info comes strictly from the pipeline.
+    Map<String, String> allowedConfigs = new HashMap<>(config);
+    if (allowedConfigs.containsKey(TaskConfig.INPUT_STREAMS())) {
+      log.warn("Specifying task inputs in configuration is not allowed with Fluent API. "
+          + "Ignoring configured value for " + TaskConfig.INPUT_STREAMS());
+      allowedConfigs.remove(TaskConfig.INPUT_STREAMS());
+    }
+
+    log.debug("Job {} has allowed configs {}", jobName, allowedConfigs);
+    return new JobConfig(
+        Util.rewriteConfig(
+            extractScopedConfig(new MapConfig(allowedConfigs), new MapConfig(configs), configPrefix)));
+  }
+
+  /**
+   * Serializes the {@link Serde} instances for operators, adds them to the provided config, and
+   * sets the serde configuration for the input/output/intermediate streams appropriately.
+   *
+   * We try to preserve the number of Serde instances before and after serialization. However we don't
+   * guarantee that references shared between these serdes instances (e.g. an Jackson ObjectMapper shared
+   * between two json serdes) are shared after deserialization too.
+   *
+   * Ideally all the user defined objects in the application should be serialized and de-serialized in one pass
+   * from the same output/input stream so that we can maintain reference sharing relationships.
+   *
+   * @param configs the configs to add serialized serde instances and stream serde configs to
+   */
+  protected void addSerdeConfigs(Map<String, String> configs) {
+    // collect all key and msg serde instances for streams
+    Map<String, Serde> keySerdes = new HashMap<>();
+    Map<String, Serde> msgSerdes = new HashMap<>();
+    Map<StreamSpec, InputOperatorSpec> inputOperators = streamGraph.getInputOperators();
+    inEdges.forEach(edge -> {
+        String streamId = edge.getStreamSpec().getId();
+        InputOperatorSpec inputOperatorSpec = inputOperators.get(edge.getStreamSpec());
+        Serde keySerde = inputOperatorSpec.getKeySerde();
+        Serde valueSerde = inputOperatorSpec.getValueSerde();
+        keySerdes.put(streamId, keySerde);
+        msgSerdes.put(streamId, valueSerde);
+      });
+    Map<StreamSpec, OutputStreamImpl> outputStreams = streamGraph.getOutputStreams();
+    outEdges.forEach(edge -> {
+        String streamId = edge.getStreamSpec().getId();
+        OutputStreamImpl outputStream = outputStreams.get(edge.getStreamSpec());
+        Serde keySerde = outputStream.getKeySerde();
+        Serde valueSerde = outputStream.getValueSerde();
+        keySerdes.put(streamId, keySerde);
+        msgSerdes.put(streamId, valueSerde);
+      });
+
+    // for each unique serde instance, generate a unique name and serialize to config
+    HashSet<Serde> serdes = new HashSet<>(keySerdes.values());
+    serdes.addAll(msgSerdes.values());
+    SerializableSerde<Serde> serializableSerde = new SerializableSerde<>();
+    Base64.Encoder base64Encoder = Base64.getEncoder();
+    Map<Serde, String> serdeUUIDs = new HashMap<>();
+    serdes.forEach(serde -> {
+        String serdeName = serdeUUIDs.computeIfAbsent(serde,
+            s -> serde.getClass().getSimpleName() + "-" + UUID.randomUUID().toString());
+        configs.putIfAbsent(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE(), serdeName),
+            base64Encoder.encodeToString(serializableSerde.toBytes(serde)));
+      });
+
+    // set key and msg serdes for streams to the serde names generated above
+    keySerdes.forEach((streamId, serde) -> {
+        String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX(), streamId);
+        String keySerdeConfigKey = streamIdPrefix + StreamConfig.KEY_SERDE();
+        configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
+      });
+
+    msgSerdes.forEach((streamId, serde) -> {
+        String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX(), streamId);
+        String valueSerdeConfigKey = streamIdPrefix + StreamConfig.MSG_SERDE();
+        configs.put(valueSerdeConfigKey, serdeUUIDs.get(serde));
+      });
   }
 
   /**

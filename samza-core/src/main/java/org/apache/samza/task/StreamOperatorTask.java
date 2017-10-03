@@ -18,12 +18,12 @@
  */
 package org.apache.samza.task;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.MessageType;
 import org.apache.samza.operators.ContextManager;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.impl.InputOperatorImpl;
 import org.apache.samza.operators.impl.OperatorImplGraph;
@@ -113,7 +113,7 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
     if (inputOpImpl != null) {
       switch (MessageType.of(ime.getMessage())) {
         case USER_MESSAGE:
-          inputOpImpl.onMessage(Pair.of(ime.getKey(), ime.getMessage()), collector, coordinator);
+          inputOpImpl.onMessage(KV.of(ime.getKey(), ime.getMessage()), collector, coordinator);
           break;
 
         case END_OF_STREAM:

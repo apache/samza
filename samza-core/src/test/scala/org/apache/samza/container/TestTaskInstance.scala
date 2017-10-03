@@ -400,6 +400,41 @@ class TestTaskInstance {
     // Finally, checkpoint the inputs with the snapshotted checkpoint captured at the beginning of commit
     mockOrder.verify(offsetManager).writeCheckpoint(taskName, checkpoint)
   }
+
+  @Test(expected = classOf[SystemProducerException])
+  def testProducerExceptionsIsPropagated {
+    // Simple objects
+    val partition = new Partition(0)
+    val taskName = new TaskName("taskName")
+    val systemStream = new SystemStream("test-system", "test-stream")
+    val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
+
+    // Mocks
+    val collector = Mockito.mock(classOf[TaskInstanceCollector])
+    when(collector.flush).thenThrow(new SystemProducerException("Test"))
+    val storageManager = Mockito.mock(classOf[TaskStorageManager])
+    val offsetManager = Mockito.mock(classOf[OffsetManager])
+
+    val taskInstance: TaskInstance = new TaskInstance(
+      Mockito.mock(classOf[StreamTask]).asInstanceOf[StreamTask],
+      taskName,
+      new MapConfig,
+      new TaskInstanceMetrics,
+      null,
+      Mockito.mock(classOf[SystemConsumers]),
+      collector,
+      Mockito.mock(classOf[SamzaContainerContext]),
+      offsetManager,
+      storageManager,
+      systemStreamPartitions = Set(systemStreamPartition))
+
+    try {
+      taskInstance.commit // Should not swallow the SystemProducerException
+    } finally {
+      Mockito.verify(offsetManager, times(0)).writeCheckpoint(any(classOf[TaskName]), any(classOf[Checkpoint]))
+    }
+  }
+
 }
 
 class MockSystemAdmin extends SystemAdmin {

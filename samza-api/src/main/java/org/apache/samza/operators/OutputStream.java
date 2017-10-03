@@ -23,11 +23,9 @@ import org.apache.samza.annotation.InterfaceStability;
 /**
  * An output stream to send messages to.
  *
- * @param <K> the type of key in the outgoing message
- * @param <V> the type of message in the outgoing message
- * @param <M> the type of message in this {@link OutputStream}
+ * @param <M> the type of message being sent to this {@link OutputStream}
  */
 @InterfaceStability.Unstable
-public interface OutputStream<K, V, M> {
+public interface OutputStream<M> {
 
 }

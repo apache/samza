@@ -20,6 +20,8 @@ package org.apache.samza.operators.spec;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.functions.WatermarkFunction;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.MessageStreamImpl;
 
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -106,9 +108,23 @@ public abstract class OperatorSpec<M, OM> {
     // [2] SomeOperatorSpec.<init>()
     // [3] OperatorSpecs.createSomeOperatorSpec()
     // [4] MessageStreamImpl.someOperator()
-    // [5] User code that calls [4]
-    // we are interested in [5] here
+    // [5] User/MessageStreamImpl code that calls [4]
+    // We are interested in the first call below this that originates from user code
     StackTraceElement element = this.creationStackTrace[5];
+
+    /**
+     * Sometimes [5] above is a call from MessageStream/MessageStreamImpl itself (e.g. for
+     * {@link org.apache.samza.operators.MessageStream#mergeAll(Collection)} or
+     * {@link MessageStreamImpl#partitionBy(Function, Function)}).
+     * If that's the case, find the first call from a class other than these.
+     */
+    for (int i = 5; i < creationStackTrace.length; i++) {
+      if (!creationStackTrace[i].getClassName().equals(MessageStreamImpl.class.getName())
+          && !creationStackTrace[i].getClassName().equals(MessageStream.class.getName())) {
+        element = creationStackTrace[i];
+        break;
+      }
+    }
     return String.format("%s:%s", element.getFileName(), element.getLineNumber());
   }
 

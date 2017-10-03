@@ -27,15 +27,42 @@ import java.util.Map;
 import org.junit.Test;
 
 public class TestJavaSystemConfig {
+  private static final String MOCK_SYSTEM_NAME1 = "mocksystem1";
+  private static final String MOCK_SYSTEM_NAME2 = "mocksystem2";
+  private static final String MOCK_SYSTEM_FACTORY_NAME1 = String.format(JavaSystemConfig.SYSTEM_FACTORY_FORMAT, MOCK_SYSTEM_NAME1);
+  private static final String MOCK_SYSTEM_FACTORY_NAME2 = String.format(JavaSystemConfig.SYSTEM_FACTORY_FORMAT, MOCK_SYSTEM_NAME2);
+  private static final String MOCK_SYSTEM_FACTORY_CLASSNAME1 = "some.factory.Class1";
+  private static final String MOCK_SYSTEM_FACTORY_CLASSNAME2 = "some.factory.Class2";
+
+  @Test
+  public void testClassName() {
+    Map<String, String> map = new HashMap<String, String>();
+    map.put(MOCK_SYSTEM_FACTORY_NAME1, MOCK_SYSTEM_FACTORY_CLASSNAME1);
+    JavaSystemConfig systemConfig = new JavaSystemConfig(new MapConfig(map));
+
+    assertEquals(MOCK_SYSTEM_FACTORY_CLASSNAME1, systemConfig.getSystemFactory(MOCK_SYSTEM_NAME1));
+  }
+
+  @Test
+  public void testGetEmptyClassNameAsNull() {
+    Map<String, String> map = new HashMap<String, String>();
+    map.put(MOCK_SYSTEM_FACTORY_NAME1, "");
+    map.put(MOCK_SYSTEM_FACTORY_NAME2, " ");
+    JavaSystemConfig systemConfig = new JavaSystemConfig(new MapConfig(map));
+
+    assertNull(systemConfig.getSystemFactory(MOCK_SYSTEM_NAME1));
+    assertNull(systemConfig.getSystemFactory(MOCK_SYSTEM_NAME2));
+  }
 
   @Test
   public void testGetSystemNames() {
     Map<String, String> map = new HashMap<String, String>();
-    map.put("systems.system1.samza.factory", "1");
-    map.put("systems.system2.samza.factory", "2");
-    JavaSystemConfig systemConfig = new JavaSystemConfig(
-        new MapConfig(map));
+    map.put(MOCK_SYSTEM_FACTORY_NAME1, MOCK_SYSTEM_FACTORY_CLASSNAME1);
+    map.put(MOCK_SYSTEM_FACTORY_NAME2, MOCK_SYSTEM_FACTORY_CLASSNAME2);
+    JavaSystemConfig systemConfig = new JavaSystemConfig(new MapConfig(map));
 
     assertEquals(2, systemConfig.getSystemNames().size());
+    assertTrue(systemConfig.getSystemNames().contains(MOCK_SYSTEM_NAME1));
+    assertTrue(systemConfig.getSystemNames().contains(MOCK_SYSTEM_NAME2));
   }
 }
