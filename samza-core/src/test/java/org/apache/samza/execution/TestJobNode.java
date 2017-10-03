@@ -64,9 +64,10 @@ public class TestJobNode {
     input.partitionBy(KV::getKey, KV::getValue).sendTo(output);
 
     JobNode jobNode = new JobNode("jobName", "jobId", streamGraph, mock(Config.class));
-    StreamEdge inputEdge = new StreamEdge(inputSpec);
-    StreamEdge outputEdge = new StreamEdge(outputSpec);
-    StreamEdge repartitionEdge = new StreamEdge(partitionBySpec, true);
+    Config config = new MapConfig();
+    StreamEdge inputEdge = new StreamEdge(inputSpec, config);
+    StreamEdge outputEdge = new StreamEdge(outputSpec, config);
+    StreamEdge repartitionEdge = new StreamEdge(partitionBySpec, true, config);
     jobNode.addInEdge(inputEdge);
     jobNode.addOutEdge(outputEdge);
     jobNode.addInEdge(repartitionEdge);

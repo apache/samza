@@ -17,36 +17,12 @@
  * under the License.
  */
 
-package org.apache.samza.message;
+package org.apache.samza.processor;
 
-/**
- * The abstract class of all control messages, containing
- * the task that produces the control message, the total number of producer tasks,
- * and a version number.
- */
-public abstract class ControlMessage {
-  private final String taskName;
-  private final int taskCount;
-  private int version = 1;
+import org.apache.samza.container.SamzaContainer;
 
-  public ControlMessage(String taskName, int taskCount) {
-    this.taskName = taskName;
-    this.taskCount = taskCount;
-  }
-
-  public String getTaskName() {
-    return taskName;
-  }
-
-  public int getTaskCount() {
-    return taskCount;
-  }
-
-  public void setVersion(int version) {
-    this.version = version;
-  }
-
-  public int getVersion() {
-    return version;
+public class TestStreamProcessorUtil {
+  public static SamzaContainer getContainer(StreamProcessor processor) {
+    return processor.getContainer();
   }
 }

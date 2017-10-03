@@ -17,20 +17,14 @@
  * under the License.
  */
 
-package org.apache.samza.message;
+package org.apache.samza.task;
 
-import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonProperty;
+import org.apache.samza.operators.impl.OperatorImplGraph;
 
-/**
- *  The EndOfStreamMessage is a control message that is sent out to next stage
- *  once the task has consumed to the end of a bounded stream.
- */
-public class EndOfStreamMessage extends ControlMessage {
 
-  @JsonCreator
-  public EndOfStreamMessage(@JsonProperty("task-name") String taskName,
-                            @JsonProperty("task-count") int taskCount) {
-    super(taskName, taskCount);
+public class TestStreamOperatorTask {
+
+  public static OperatorImplGraph getOperatorImplGraph(StreamOperatorTask task) {
+    return task.getOperatorImplGraph();
   }
 }

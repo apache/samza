@@ -37,10 +37,8 @@ import scala.collection.JavaConverters._
 
 
 object KafkaSystemAdmin extends Logging {
-  // Use a dummy string for the stream id. The physical name and partition count are all that matter for changelog creation, so the dummy string should not be used.
-  // We cannot use the topic name, as it may include special chars which are not allowed in stream IDs. See SAMZA-1317 and 1387
-  val CHANGELOG_STREAMID = "unused-temp-changelog-stream-id"
-  val COORDINATOR_STREAMID = "unused-temp-coordinator-stream-id"
+
+  val CLEAR_STREAM_RETRIES = 3
 
   /**
    * A helper method that takes oldest, newest, and upcoming offsets for each
@@ -329,23 +327,11 @@ class KafkaSystemAdmin(
      offset
   }
 
-  override def createCoordinatorStream(streamName: String) {
-    info("Attempting to create coordinator stream %s." format streamName)
-
-    val streamSpec = new KafkaStreamSpec(COORDINATOR_STREAMID, streamName, systemName, 1, coordinatorStreamReplicationFactor, coordinatorStreamProperties)
-
-    if (createStream(streamSpec)) {
-      info("Created coordinator stream %s." format streamName)
-    } else {
-      info("Coordinator stream %s already exists." format streamName)
-    }
-  }
-
   /**
    * Helper method to use topic metadata cache when fetching metadata, so we
    * don't hammer Kafka more than we need to.
    */
-  protected def getTopicMetadata(topics: Set[String]) = {
+  def getTopicMetadata(topics: Set[String]) = {
     new ClientUtilTopicMetadataStore(brokerListString, clientId, timeout)
       .getTopicInfo(topics)
   }
@@ -416,7 +402,8 @@ class KafkaSystemAdmin(
    * @inheritdoc
    */
   override def createStream(spec: StreamSpec): Boolean = {
-    val kSpec = KafkaStreamSpec.fromSpec(spec);
+    info("Create topic %s in system %s" format (spec.getPhysicalName, systemName))
+    val kSpec = toKafkaSpec(spec)
     var streamCreated = false
 
     new ExponentialSleepStrategy(initialDelayMs = 500).run(
@@ -449,6 +436,23 @@ class KafkaSystemAdmin(
       })
 
     streamCreated
+  }
+
+  /**
+   * Converts a StreamSpec into a KafakStreamSpec. Special handling for coordinator and changelog stream.
+   * @param spec a StreamSpec object
+   * @return KafkaStreamSpec object
+   */
+  def toKafkaSpec(spec: StreamSpec): KafkaStreamSpec = {
+    if (spec.isChangeLogStream) {
+      val topicName = spec.getPhysicalName
+      val topicMeta = topicMetaInformation.getOrElse(topicName, throw new StreamValidationException("Unable to find topic information for topic " + topicName))
+      new KafkaStreamSpec(spec.getId, topicName, systemName, spec.getPartitionCount, topicMeta.replicationFactor, topicMeta.kafkaProps)
+    } else if (spec.isCoordinatorStream){
+      new KafkaStreamSpec(spec.getId, spec.getPhysicalName, systemName, 1, coordinatorStreamReplicationFactor, coordinatorStreamProperties)
+    } else {
+      KafkaStreamSpec.fromSpec(spec)
+    }
   }
 
   /**
@@ -492,32 +496,42 @@ class KafkaSystemAdmin(
   }
 
   /**
-    * Exception to be thrown when the change log stream creation or validation has failed
-    */
-  class KafkaChangelogException(s: String, t: Throwable) extends SamzaException(s, t) {
-    def this(s: String) = this(s, null)
-  }
+   * @inheritdoc
+   *
+   * Delete a stream in Kafka. Deleting topics works only when the broker is configured with "delete.topic.enable=true".
+   * Otherwise it's a no-op.
+   */
+  override def clearStream(spec: StreamSpec): Boolean = {
+    info("Delete topic %s in system %s" format (spec.getPhysicalName, systemName))
+    val kSpec = KafkaStreamSpec.fromSpec(spec)
+    var retries = CLEAR_STREAM_RETRIES
+    new ExponentialSleepStrategy().run(
+      loop => {
+        val zkClient = connectZk()
+        try {
+          AdminUtils.deleteTopic(
+            zkClient,
+            kSpec.getPhysicalName)
+        } finally {
+          zkClient.close
+        }
 
-  override def createChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {
-    val topicMeta = topicMetaInformation.getOrElse(topicName, throw new KafkaChangelogException("Unable to find topic information for topic " + topicName))
-    val spec = new KafkaStreamSpec(CHANGELOG_STREAMID, topicName, systemName, numKafkaChangelogPartitions, topicMeta.replicationFactor, topicMeta.kafkaProps)
+        loop.done
+      },
 
-    if (createStream(spec)) {
-      info("Created changelog stream %s." format topicName)
-    } else {
-      info("Changelog stream %s already exists." format topicName)
-    }
+      (exception, loop) => {
+        if (retries > 0) {
+          warn("Exception while trying to delete topic %s: %s. Retrying." format (spec.getPhysicalName, exception))
+          retries -= 1
+        } else {
+          warn("Fail to delete topic %s: %s" format (spec.getPhysicalName, exception))
+          loop.done
+          throw exception
+        }
+      })
 
-    validateStream(spec)
-  }
-
-  /**
-    * Validates a stream in Kafka. Should not be called before createStream(),
-    * since ClientUtils.fetchTopicMetadata(), used by different Kafka clients, is not read-only and
-    * will auto-create a new topic.
-    */
-  override def validateChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {
-    validateStream(new KafkaStreamSpec(CHANGELOG_STREAMID, topicName, systemName, numKafkaChangelogPartitions))
+    val topicMetadata = getTopicMetadata(Set(kSpec.getPhysicalName)).get(kSpec.getPhysicalName).get
+    topicMetadata.partitionsMetadata.isEmpty
   }
 
   /**

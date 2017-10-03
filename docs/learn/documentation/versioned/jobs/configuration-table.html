@@ -116,6 +116,38 @@
         <table>
             <tbody>
                 <tr><th>Name</th><th>Default</th><th>Description</th></tr>
+
+                <tr>
+                    <th colspan="3" class="section" id="application">Samza application configuration</th>
+                </tr>
+                <tr>
+                    <td class="property" id="app-name">app.name</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        <strong>Required:</strong> The name of your application.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="app-id">app.id</td>
+                    <td class="default">1</td>
+                    <td class="description">
+                        If you run several instances of your application at the same time, you need to give each instance a
+                        different <code>app.id</code>. This is important, since otherwise the applications will overwrite each
+                        others' checkpoints, and perhaps interfere with each other in other ways.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="app-class">app.class</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        <strong>Required:</strong> The application to run. The value is a fully-qualified Java classname,
+                        which must implement <a href="../api/javadocs/org/apache/samza/application/StreamApplication.html">StreamApplication</a>.
+                        A StreamApplication describes as a series of transformations on the streams.
+                    </td>
+                </tr>
+
                 <tr>
                     <th colspan="3" class="section" id="job"><a href="configuration.html">Samza job configuration</a></th>
                 </tr>

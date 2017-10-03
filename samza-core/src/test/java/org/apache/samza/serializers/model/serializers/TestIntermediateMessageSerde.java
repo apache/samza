@@ -24,11 +24,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
-import org.apache.samza.message.EndOfStreamMessage;
-import org.apache.samza.message.WatermarkMessage;
-import org.apache.samza.message.MessageType;
 import org.apache.samza.serializers.IntermediateMessageSerde;
 import org.apache.samza.serializers.Serde;
+import org.apache.samza.system.EndOfStreamMessage;
+import org.apache.samza.system.MessageType;
+import org.apache.samza.system.WatermarkMessage;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -106,12 +106,11 @@ public class TestIntermediateMessageSerde {
   public void testWatermarkMessageSerde() {
     IntermediateMessageSerde imserde = new IntermediateMessageSerde(new ObjectSerde());
     String taskName = "task-1";
-    WatermarkMessage watermark = new WatermarkMessage(System.currentTimeMillis(), taskName, 8);
+    WatermarkMessage watermark = new WatermarkMessage(System.currentTimeMillis(), taskName);
     byte[] bytes = imserde.toBytes(watermark);
     WatermarkMessage de = (WatermarkMessage) imserde.fromBytes(bytes);
     assertEquals(MessageType.of(de), MessageType.WATERMARK);
     assertEquals(de.getTaskName(), taskName);
-    assertEquals(de.getTaskCount(), 8);
     assertTrue(de.getTimestamp() > 0);
   }
 
@@ -120,12 +119,11 @@ public class TestIntermediateMessageSerde {
     IntermediateMessageSerde imserde = new IntermediateMessageSerde(new ObjectSerde());
     String streamId = "test-stream";
     String taskName = "task-1";
-    EndOfStreamMessage eos = new EndOfStreamMessage(taskName, 8);
+    EndOfStreamMessage eos = new EndOfStreamMessage(taskName);
     byte[] bytes = imserde.toBytes(eos);
     EndOfStreamMessage de = (EndOfStreamMessage) imserde.fromBytes(bytes);
     assertEquals(MessageType.of(de), MessageType.END_OF_STREAM);
     assertEquals(de.getTaskName(), taskName);
-    assertEquals(de.getTaskCount(), 8);
     assertEquals(de.getVersion(), 1);
   }
 }

@@ -50,4 +50,8 @@ public interface CheckpointManager {
 
   void stop();
 
+  /**
+   * Clear the checkpoints in the checkpoint stream.
+   */
+  default void clearCheckpoints() { };
 }

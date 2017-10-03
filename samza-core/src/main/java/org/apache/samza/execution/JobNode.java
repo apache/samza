@@ -132,7 +132,7 @@ public class JobNode {
     configs.put(CONFIG_INTERNAL_EXECUTION_PLAN, executionPlanJson);
 
     // write input/output streams to configs
-    inEdges.stream().filter(StreamEdge::isIntermediate).forEach(edge -> addStreamConfig(edge, configs));
+    inEdges.stream().filter(StreamEdge::isIntermediate).forEach(edge -> configs.putAll(edge.generateConfig()));
 
     // write serialized serde instances and stream serde configs to configs
     addSerdeConfigs(configs);
@@ -272,18 +272,6 @@ public class JobNode {
     log.debug("Prefix '{}' has merged config {}", configPrefix, scopedConfig);
 
     return scopedConfig;
-  }
-
-  private static void addStreamConfig(StreamEdge edge, Map<String, String> config) {
-    StreamSpec spec = edge.getStreamSpec();
-    config.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), spec.getId()), spec.getSystemName());
-    config.put(String.format(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID(), spec.getId()), spec.getPhysicalName());
-    if (edge.isIntermediate()) {
-      config.put(String.format(StreamConfig.IS_INTERMEDIATE_FROM_STREAM_ID(), spec.getId()), "true");
-    }
-    spec.getConfig().forEach((property, value) -> {
-        config.put(String.format(StreamConfig.STREAM_ID_PREFIX(), spec.getId()) + property, value);
-      });
   }
 
   static String createId(String jobName, String jobId) {

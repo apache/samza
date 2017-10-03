@@ -25,14 +25,7 @@ import org.apache.samza.config.ConfigException;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.serializers.JsonSerde;
-import org.apache.samza.system.SystemAdmin;
-import org.apache.samza.system.SystemConsumer;
-import org.apache.samza.system.SystemFactory;
-import org.apache.samza.system.SystemStream;
-import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.system.SystemProducer;
-import org.apache.samza.system.OutgoingMessageEnvelope;
-import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.*;
 import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin;
 import org.apache.samza.util.Util;
 
@@ -208,8 +201,10 @@ public class MockCoordinatorStreamSystemFactory implements SystemFactory {
   }
 
   public static final class MockSystemAdmin extends SinglePartitionWithoutOffsetsSystemAdmin implements SystemAdmin {
-    public void createCoordinatorStream(String streamName) {
+    @Override
+    public boolean createStream(StreamSpec streamSpec) {
       // Do nothing.
+      return true;
     }
   }
 

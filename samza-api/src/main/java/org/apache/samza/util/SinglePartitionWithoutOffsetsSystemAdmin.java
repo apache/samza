@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.samza.Partition;
-import org.apache.samza.SamzaException;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
@@ -56,16 +55,6 @@ public class SinglePartitionWithoutOffsetsSystemAdmin implements SystemAdmin {
   }
 
   @Override
-  public void createChangelogStream(String streamName, int numOfPartitions) {
-    throw new SamzaException("Method not implemented");
-  }
-
-  @Override
-  public void validateChangelogStream(String streamName, int numOfPartitions) {
-    throw new SamzaException("Method not implemented");
-  }
-
-  @Override
   public Map<SystemStreamPartition, String> getOffsetsAfter(Map<SystemStreamPartition, String> offsets) {
     Map<SystemStreamPartition, String> offsetsAfter = new HashMap<SystemStreamPartition, String>();
 
@@ -74,11 +63,6 @@ public class SinglePartitionWithoutOffsetsSystemAdmin implements SystemAdmin {
     }
 
     return offsetsAfter;
-  }
-
-  @Override
-  public void createCoordinatorStream(String streamName) {
-    throw new UnsupportedOperationException("Single partition admin can't create coordinator streams.");
   }
 
   @Override

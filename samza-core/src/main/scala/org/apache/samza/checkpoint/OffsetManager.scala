@@ -24,6 +24,7 @@ package org.apache.samza.checkpoint
 import java.util.HashMap
 import java.util.concurrent.ConcurrentHashMap
 
+import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.SamzaException
 import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
@@ -193,7 +194,7 @@ class OffsetManager(
    */
   def update(taskName: TaskName, systemStreamPartition: SystemStreamPartition, offset: String) {
     lastProcessedOffsets.putIfAbsent(taskName, new ConcurrentHashMap[SystemStreamPartition, String]())
-    if (offset != null) {
+    if (offset != null && !offset.equals(IncomingMessageEnvelope.END_OF_STREAM_OFFSET)) {
       lastProcessedOffsets.get(taskName).put(systemStreamPartition, offset)
     }
   }
@@ -214,6 +215,10 @@ class OffsetManager(
       case Some(sspToOffsets) => sspToOffsets.get(systemStreamPartition)
       case None => None
     }
+  }
+
+  def setStartingOffset(taskName: TaskName, ssp: SystemStreamPartition, offset: String): Unit = {
+    startingOffsets += taskName -> (startingOffsets(taskName) + (ssp -> offset))
   }
 
   /**
