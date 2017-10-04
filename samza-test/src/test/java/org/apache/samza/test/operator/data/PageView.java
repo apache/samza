@@ -16,27 +16,35 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
-package org.apache.samza.coordinator;
-
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+package org.apache.samza.test.operator.data;
 
 
-public interface DistributedLockWithState {
+public class PageView {
+  private String viewId;
+  private String pageId;
+  private String userId;
 
-  /**
-   * Try to acquire the lock, but first check if the state flag is set. If it is set, return false.
-   * If the flag is not set, and lock is acquired - return true.
-   * @param timeout Duration of lock acquiring timeout.
-   * @param unit Time Unit of the timeout defined above.
-   * @return true if lock is acquired successfully, false if state is already set.
-   * @throws TimeoutException if could not acquire the lock.
-   */
-  boolean lockIfNotSet(long timeout, TimeUnit unit) throws TimeoutException;
+  public String getViewId() {
+    return viewId;
+  }
 
-  /**
-   * Release the lock and set the state
-   */
-  void unlockAndSet();
+  public void setViewId(String viewId) {
+    this.viewId = viewId;
+  }
+
+  public String getPageId() {
+    return pageId;
+  }
+
+  public void setPageId(String pageId) {
+    this.pageId = pageId;
+  }
+
+  public String getUserId() {
+    return userId;
+  }
+
+  public void setUserId(String userId) {
+    this.userId = userId;
+  }
 }

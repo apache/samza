@@ -49,7 +49,9 @@ public class OrderShipmentJoinExample implements StreamApplication {
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(FulfilledOrderRecord.class)));
 
     orders
-        .join(shipments, new MyJoinFunction(), Duration.ofMinutes(1))
+        .join(shipments, new MyJoinFunction(),
+            new StringSerde(), new JsonSerdeV2<>(OrderRecord.class), new JsonSerdeV2<>(ShipmentRecord.class),
+            Duration.ofMinutes(1))
         .map(fulFilledOrder -> KV.of(fulFilledOrder.orderId, fulFilledOrder))
         .sendTo(fulfilledOrders);
   }

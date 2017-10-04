@@ -26,18 +26,18 @@ package org.apache.samza.operators.impl.store;
  */
 public class TimestampedValue<V> {
   private final V value;
-  private final Long timestamp;
+  private final long timestamp;
 
-  public TimestampedValue(V v, Long time) {
-    value = v;
-    timestamp = time;
+  public TimestampedValue(V v, long timestamp) {
+    this.value = v;
+    this.timestamp = timestamp;
   }
 
   public V getValue() {
     return value;
   }
 
-  public Long getTimestamp() {
+  public long getTimestamp() {
     return timestamp;
   }
 
@@ -48,14 +48,14 @@ public class TimestampedValue<V> {
 
     TimestampedValue<?> that = (TimestampedValue<?>) o;
 
-    if (value != null ? !value.equals(that.value) : that.value != null) return false;
-    return timestamp.equals(that.timestamp);
+    if (timestamp != that.timestamp) return false;
+    return value != null ? value.equals(that.value) : (that.value == null);
   }
 
   @Override
   public int hashCode() {
     int result = value != null ? value.hashCode() : 0;
-    result = 31 * result + timestamp.hashCode();
+    result = 31 * result + (int) (timestamp ^ (timestamp >>> 32));
     return result;
   }
 }

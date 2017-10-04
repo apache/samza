@@ -37,7 +37,7 @@ import org.apache.samza.operators.spec.PartitionByOperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
-import org.apache.samza.operators.util.InternalInMemoryStore;
+import org.apache.samza.operators.impl.store.TimestampedValue;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.TaskContext;
@@ -219,16 +219,17 @@ public class OperatorImplGraph {
 
   private KV<PartialJoinFunction, PartialJoinFunction> getOrCreatePartialJoinFunctions(JoinOperatorSpec joinOpSpec) {
     return joinFunctions.computeIfAbsent(joinOpSpec.getOpId(),
-        joinOpId -> KV.of(createLeftJoinFn(joinOpSpec.getJoinFn()), createRightJoinFn(joinOpSpec.getJoinFn())));
+        joinOpId -> KV.of(createLeftJoinFn(joinOpSpec), createRightJoinFn(joinOpSpec)));
   }
 
-  private PartialJoinFunction<Object, Object, Object, Object> createLeftJoinFn(JoinFunction joinFn) {
+  private PartialJoinFunction<Object, Object, Object, Object> createLeftJoinFn(JoinOperatorSpec joinOpSpec) {
     return new PartialJoinFunction<Object, Object, Object, Object>() {
-      private KeyValueStore<Object, PartialJoinMessage<Object>> leftStreamState = new InternalInMemoryStore<>();
+      private final JoinFunction joinFn = joinOpSpec.getJoinFn();
+      private KeyValueStore<Object, TimestampedValue<Object>> leftStreamState;
 
       @Override
-      public Object apply(Object m, Object jm) {
-        return joinFn.apply(m, jm);
+      public Object apply(Object m, Object om) {
+        return joinFn.apply(m, om);
       }
 
       @Override
@@ -237,12 +238,15 @@ public class OperatorImplGraph {
       }
 
       @Override
-      public KeyValueStore<Object, PartialJoinMessage<Object>> getState() {
+      public KeyValueStore<Object, TimestampedValue<Object>> getState() {
         return leftStreamState;
       }
 
       @Override
       public void init(Config config, TaskContext context) {
+        String leftStoreName = joinOpSpec.getLeftOpName();
+        leftStreamState = (KeyValueStore<Object, TimestampedValue<Object>>) context.getStore(leftStoreName);
+
         // user-defined joinFn should only be initialized once, so we do it only in left partial join function.
         joinFn.init(config, context);
       }
@@ -255,13 +259,14 @@ public class OperatorImplGraph {
     };
   }
 
-  private PartialJoinFunction<Object, Object, Object, Object> createRightJoinFn(JoinFunction joinFn) {
+  private PartialJoinFunction<Object, Object, Object, Object> createRightJoinFn(JoinOperatorSpec joinOpSpec) {
     return new PartialJoinFunction<Object, Object, Object, Object>() {
-      private KeyValueStore<Object, PartialJoinMessage<Object>> rightStreamState = new InternalInMemoryStore<>();
+      private final JoinFunction joinFn = joinOpSpec.getJoinFn();
+      private KeyValueStore<Object, TimestampedValue<Object>> rightStreamState;
 
       @Override
-      public Object apply(Object m, Object jm) {
-        return joinFn.apply(jm, m);
+      public Object apply(Object m, Object om) {
+        return joinFn.apply(om, m);
       }
 
       @Override
@@ -270,7 +275,16 @@ public class OperatorImplGraph {
       }
 
       @Override
-      public KeyValueStore<Object, PartialJoinMessage<Object>> getState() {
+      public void init(Config config, TaskContext context) {
+        String rightStoreName = joinOpSpec.getRightOpName();
+        rightStreamState = (KeyValueStore<Object, TimestampedValue<Object>>) context.getStore(rightStoreName);
+
+        // user-defined joinFn should only be initialized once,
+        // so we do it only in left partial join function and not here again.
+      }
+
+      @Override
+      public KeyValueStore<Object, TimestampedValue<Object>> getState() {
         return rightStreamState;
       }
     };

@@ -31,6 +31,7 @@ import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
@@ -130,14 +131,14 @@ public class TestExecutionPlanner {
      */
 
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
-    MessageStream<KV<Object, Object>> m1 =
+    MessageStream<KV<Object, Object>> messageStream1 =
         streamGraph.<KV<Object, Object>>getInputStream("input1")
             .map(m -> m);
-    MessageStream<KV<Object, Object>> m2 =
+    MessageStream<KV<Object, Object>> messageStream2 =
         streamGraph.<KV<Object, Object>>getInputStream("input2")
             .partitionBy(m -> m.key, m -> m.value)
             .filter(m -> true);
-    MessageStream<KV<Object, Object>> m3 =
+    MessageStream<KV<Object, Object>> messageStream3 =
         streamGraph.<KV<Object, Object>>getInputStream("input3")
             .filter(m -> true)
             .partitionBy(m -> m.key, m -> m.value)
@@ -145,8 +146,14 @@ public class TestExecutionPlanner {
     OutputStream<KV<Object, Object>> output1 = streamGraph.getOutputStream("output1");
     OutputStream<KV<Object, Object>> output2 = streamGraph.getOutputStream("output2");
 
-    m1.join(m2, mock(JoinFunction.class), Duration.ofHours(2)).sendTo(output1);
-    m3.join(m2, mock(JoinFunction.class), Duration.ofHours(1)).sendTo(output2);
+    messageStream1
+        .join(messageStream2, mock(JoinFunction.class),
+            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2))
+        .sendTo(output1);
+    messageStream3
+        .join(messageStream2, mock(JoinFunction.class),
+            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1))
+        .sendTo(output2);
 
     return streamGraph;
   }
@@ -154,14 +161,14 @@ public class TestExecutionPlanner {
   private StreamGraphImpl createStreamGraphWithJoinAndWindow() {
 
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
-    MessageStream<KV<Object, Object>> m1 =
+    MessageStream<KV<Object, Object>> messageStream1 =
         streamGraph.<KV<Object, Object>>getInputStream("input1")
             .map(m -> m);
-    MessageStream<KV<Object, Object>> m2 =
+    MessageStream<KV<Object, Object>> messageStream2 =
         streamGraph.<KV<Object, Object>>getInputStream("input2")
             .partitionBy(m -> m.key, m -> m.value)
             .filter(m -> true);
-    MessageStream<KV<Object, Object>> m3 =
+    MessageStream<KV<Object, Object>> messageStream3 =
         streamGraph.<KV<Object, Object>>getInputStream("input3")
             .filter(m -> true)
             .partitionBy(m -> m.key, m -> m.value)
@@ -169,17 +176,26 @@ public class TestExecutionPlanner {
     OutputStream<KV<Object, Object>> output1 = streamGraph.getOutputStream("output1");
     OutputStream<KV<Object, Object>> output2 = streamGraph.getOutputStream("output2");
 
-    m1.map(m -> m)
+    messageStream1.map(m -> m)
         .filter(m->true)
         .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(8)));
 
-    m2.map(m -> m)
+    messageStream2.map(m -> m)
         .filter(m->true)
         .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(16)));
 
-    m1.join(m2, mock(JoinFunction.class), Duration.ofMillis(1600)).sendTo(output1);
-    m3.join(m2, mock(JoinFunction.class), Duration.ofMillis(100)).sendTo(output2);
-    m3.join(m2, mock(JoinFunction.class), Duration.ofMillis(252)).sendTo(output2);
+    messageStream1
+        .join(messageStream2, mock(JoinFunction.class),
+            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(1600))
+        .sendTo(output1);
+    messageStream3
+        .join(messageStream2, mock(JoinFunction.class),
+            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(100))
+        .sendTo(output2);
+    messageStream3
+        .join(messageStream2, mock(JoinFunction.class),
+            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(252))
+        .sendTo(output2);
 
     return streamGraph;
   }

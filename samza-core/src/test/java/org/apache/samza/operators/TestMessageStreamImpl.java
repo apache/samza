@@ -41,6 +41,7 @@ import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.Serde;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -288,7 +289,7 @@ public class TestMessageStreamImpl {
         mock(JoinFunction.class);
 
     Duration joinTtl = Duration.ofMinutes(1);
-    source1.join(source2, mockJoinFn, joinTtl);
+    source1.join(source2, mockJoinFn, mock(Serde.class), mock(Serde.class), mock(Serde.class), joinTtl);
 
     ArgumentCaptor<OperatorSpec> leftRegisteredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
     verify(leftInputOpSpec).registerNextOperatorSpec(leftRegisteredOpCaptor.capture());

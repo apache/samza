@@ -805,7 +805,7 @@ class SamzaContainer(
    */
   def shutdown(): Unit = {
     if (status == SamzaContainerStatus.STOPPED || status == SamzaContainerStatus.FAILED) {
-      throw new IllegalContainerStateException("Cannot shutdown a container with status - " + status)
+      throw new IllegalContainerStateException("Cannot shutdown a container with status " + status)
     }
     shutdownRunLoop()
   }
@@ -936,16 +936,18 @@ class SamzaContainer(
     val runLoopThread = Thread.currentThread()
     shutdownHookThread = new Thread("CONTAINER-SHUTDOWN-HOOK") {
       override def run() = {
-        info("Shutting down, will wait up to %s ms" format shutdownMs)
+        info("Shutting down, will wait up to %s ms." format shutdownMs)
         shutdownRunLoop()  //TODO: Pull out shutdown hook to LocalContainerRunner or SP
         try {
           runLoopThread.join(shutdownMs)
         } catch {
           case e: Throwable => // Ignore to avoid deadlock with uncaughtExceptionHandler. See SAMZA-1220
-            error("Did not shut down within %s ms, exiting" format shutdownMs, e)
+            error("Did not shut down within %s ms, exiting." format shutdownMs, e)
         }
         if (!runLoopThread.isAlive) {
           info("Shutdown complete")
+        } else {
+          error("Did not shut down within %s ms, exiting." format shutdownMs)
         }
       }
     }
