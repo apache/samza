@@ -151,6 +151,10 @@ public class KafkaStreamSpec extends StreamSpec {
       Properties properties) {
     super(id, topicName, systemName, partitionCount, false, propertiesToMap(properties));
 
+    if (partitionCount < 1) {
+      throw new IllegalArgumentException("Parameter 'partitionCount' must be > 0");
+    }
+
     if (replicationFactor <= 0) {
       throw new IllegalArgumentException(
           String.format("Replication factor %d must be greater than 0.", replicationFactor));

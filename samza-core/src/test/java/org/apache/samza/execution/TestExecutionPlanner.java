@@ -67,6 +67,7 @@ public class TestExecutionPlanner {
   private StreamSpec input1;
   private StreamSpec input2;
   private StreamSpec input3;
+  private StreamSpec input4;
   private StreamSpec output1;
   private StreamSpec output2;
 
@@ -194,6 +195,7 @@ public class TestExecutionPlanner {
     input1 = new StreamSpec("input1", "input1", "system1");
     input2 = new StreamSpec("input2", "input2", "system2");
     input3 = new StreamSpec("input3", "input3", "system2");
+    input4 = new StreamSpec("input4", "input4", "system1");
 
     output1 = new StreamSpec("output1", "output1", "system1");
     output2 = new StreamSpec("output2", "output2", "system2");
@@ -202,6 +204,7 @@ public class TestExecutionPlanner {
     Map<String, Integer> system1Map = new HashMap<>();
     system1Map.put("input1", 64);
     system1Map.put("output1", 8);
+    system1Map.put("input4", ExecutionPlanner.MAX_INFERRED_PARTITIONS * 2);
     Map<String, Integer> system2Map = new HashMap<>();
     system2Map.put("input2", 16);
     system2Map.put("input3", 32);
@@ -218,6 +221,7 @@ public class TestExecutionPlanner {
     when(runner.getStreamSpec("input1")).thenReturn(input1);
     when(runner.getStreamSpec("input2")).thenReturn(input2);
     when(runner.getStreamSpec("input3")).thenReturn(input3);
+    when(runner.getStreamSpec("input4")).thenReturn(input4);
     when(runner.getStreamSpec("output1")).thenReturn(output1);
     when(runner.getStreamSpec("output2")).thenReturn(output2);
 
@@ -316,10 +320,10 @@ public class TestExecutionPlanner {
     StreamGraphImpl streamGraph = createStreamGraphWithJoinAndWindow();
     ExecutionPlan plan = planner.plan(streamGraph);
     List<JobConfig> jobConfigs = plan.getJobConfigs();
-    assertEquals(jobConfigs.size(), 1);
+    assertEquals(1, jobConfigs.size());
 
     // GCD of 8, 16, 1600 and 252 is 4
-    assertEquals(jobConfigs.get(0).get(TaskConfig.WINDOW_MS()), "4");
+    assertEquals("4", jobConfigs.get(0).get(TaskConfig.WINDOW_MS()));
   }
 
   @Test
@@ -333,10 +337,10 @@ public class TestExecutionPlanner {
     StreamGraphImpl streamGraph = createStreamGraphWithJoinAndWindow();
     ExecutionPlan plan = planner.plan(streamGraph);
     List<JobConfig> jobConfigs = plan.getJobConfigs();
-    assertEquals(jobConfigs.size(), 1);
+    assertEquals(1, jobConfigs.size());
 
     // GCD of 8, 16, 1600 and 252 is 4
-    assertEquals(jobConfigs.get(0).get(TaskConfig.WINDOW_MS()), "4");
+    assertEquals("4", jobConfigs.get(0).get(TaskConfig.WINDOW_MS()));
   }
 
 
@@ -350,7 +354,7 @@ public class TestExecutionPlanner {
     StreamGraphImpl streamGraph = createSimpleGraph();
     ExecutionPlan plan = planner.plan(streamGraph);
     List<JobConfig> jobConfigs = plan.getJobConfigs();
-    assertEquals(jobConfigs.size(), 1);
+    assertEquals(1, jobConfigs.size());
     assertFalse(jobConfigs.get(0).containsKey(TaskConfig.WINDOW_MS()));
   }
 
@@ -365,8 +369,8 @@ public class TestExecutionPlanner {
     StreamGraphImpl streamGraph = createSimpleGraph();
     ExecutionPlan plan = planner.plan(streamGraph);
     List<JobConfig> jobConfigs = plan.getJobConfigs();
-    assertEquals(jobConfigs.size(), 1);
-    assertEquals(jobConfigs.get(0).get(TaskConfig.WINDOW_MS()), "2000");
+    assertEquals(1, jobConfigs.size());
+    assertEquals("2000", jobConfigs.get(0).get(TaskConfig.WINDOW_MS()));
   }
 
   @Test
@@ -377,7 +381,7 @@ public class TestExecutionPlanner {
 
     // the partitions should be the same as input1
     jobGraph.getIntermediateStreams().forEach(edge -> {
-        assertTrue(edge.getPartitionCount() == 64); // max of input1 and output1
+        assertEquals(64, edge.getPartitionCount()); // max of input1 and output1
       });
   }
 
@@ -394,9 +398,27 @@ public class TestExecutionPlanner {
     edge.setPartitionCount(16);
     edges.add(edge);
 
-    assertEquals(ExecutionPlanner.maxPartition(edges), 32);
+    assertEquals(32, ExecutionPlanner.maxPartition(edges));
 
     edges = Collections.emptyList();
-    assertEquals(ExecutionPlanner.maxPartition(edges), StreamEdge.PARTITIONS_UNKNOWN);
+    assertEquals(StreamEdge.PARTITIONS_UNKNOWN, ExecutionPlanner.maxPartition(edges));
+  }
+
+  @Test
+  public void testMaxPartitionLimit() throws Exception {
+    int partitionLimit = ExecutionPlanner.MAX_INFERRED_PARTITIONS;
+
+    ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
+    StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
+
+    MessageStream<KV<Object, Object>> input1 = streamGraph.getInputStream("input4");
+    OutputStream<KV<Object, Object>> output1 = streamGraph.getOutputStream("output1");
+    input1.partitionBy(m -> m.key, m -> m.value).map(kv -> kv).sendTo(output1);
+    JobGraph jobGraph = (JobGraph) planner.plan(streamGraph);
+
+    // the partitions should be the same as input1
+    jobGraph.getIntermediateStreams().forEach(edge -> {
+        assertEquals(partitionLimit, edge.getPartitionCount()); // max of input1 and output1
+      });
   }
 }
