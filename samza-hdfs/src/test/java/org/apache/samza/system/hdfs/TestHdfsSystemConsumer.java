@@ -107,11 +107,11 @@ public class TestHdfsSystemConsumer {
     // verify events read from consumer
     int eventsReceived = 0;
     int totalEvents = (NUM_EVENTS + 1) * NUM_FILES; // one "End of Stream" event in the end
-    int remainingRetires = 100;
+    int remainingRetries = 100;
     Map<SystemStreamPartition, List<IncomingMessageEnvelope>> overallResults = new HashMap<>();
-    while (eventsReceived < totalEvents && remainingRetires > 0) {
-      remainingRetires--;
-      Map<SystemStreamPartition, List<IncomingMessageEnvelope>> result = systemConsumer.poll(systemStreamPartitionSet, 2000);
+    while (eventsReceived < totalEvents && remainingRetries > 0) {
+      remainingRetries--;
+      Map<SystemStreamPartition, List<IncomingMessageEnvelope>> result = systemConsumer.poll(systemStreamPartitionSet, 1000);
       for(SystemStreamPartition ssp : result.keySet()) {
         List<IncomingMessageEnvelope> messageEnvelopeList = result.get(ssp);
         overallResults.putIfAbsent(ssp, new ArrayList<>());
@@ -122,7 +122,7 @@ public class TestHdfsSystemConsumer {
         eventsReceived += messageEnvelopeList.size();
       }
     }
-    Assert.assertEquals(eventsReceived, totalEvents);
+    Assert.assertEquals("Did not receive all the events. Retry counter = " + remainingRetries, totalEvents, eventsReceived);
     Assert.assertEquals(NUM_FILES, overallResults.size());
     overallResults.values().forEach(messages -> {
       Assert.assertEquals(NUM_EVENTS + 1, messages.size());
