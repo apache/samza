@@ -273,7 +273,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
                                     injectedProps: Map[String, String] = Map()) = {
 
     val subConf = config.subset("systems.%s.producer." format systemName, true)
-    val producerProps = new util.HashMap[String, Object]()
+    val producerProps = new util.HashMap[String, String]()
     producerProps.putAll(subConf)
     producerProps.put("client.id", clientId)
     producerProps.putAll(injectedProps.asJava)
@@ -283,7 +283,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
 
 class KafkaProducerConfig(val systemName: String,
                           val clientId: String = "",
-                          properties: java.util.Map[String, Object] = new util.HashMap[String, Object]()) extends Logging {
+                          properties: java.util.Map[String, String] = new util.HashMap[String, String]()) extends Logging {
 
   // Copied from new Kafka API - Workaround until KAFKA-1794 is resolved
   val RECONNECT_BACKOFF_MS_DEFAULT = 10L
