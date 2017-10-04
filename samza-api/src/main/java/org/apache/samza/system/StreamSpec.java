@@ -81,6 +81,10 @@ public class StreamSpec {
    */
   private final Map<String, String> config;
 
+  @Override
+  public String toString() {
+    return String.format("StreamSpec: id=%s, systemName=%s, pName=%s, partCount=%d.", id, systemName, physicalName, partitionCount);
+  }
   /**
    *  @param id           The application-unique logical identifier for the stream. It is used to distinguish between
    *                      streams in a Samza application so it must be unique in the context of one deployable unit.

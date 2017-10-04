@@ -133,54 +133,6 @@ class KafkaUtil(val retryBackoff: ExponentialSleepStrategy = new ExponentialSlee
   }
 
   /**
-   * Common code to validate partition count in a topic
-   *
-   * @param topicName Name of the topic to be validated
-   * @param systemName  Kafka system to use
-   * @param metadataStore Topic Metadata store
-   * @param expectedPartitionCount  Expected number of partitions
-   * @param failOnValidation If true - fail the job if the validation fails
-   */
-  def validateTopicPartitionCount(topicName: String,
-                                  systemName: String,
-                                  metadataStore: TopicMetadataStore,
-                                  expectedPartitionCount: Int,
-                                  failOnValidation: Boolean = true) {
-    info("Validating topic %s. Expecting partition count: %d" format (topicName, expectedPartitionCount))
-    retryBackoff.run(
-      loop => {
-        val topicMetadataMap = TopicMetadataCache.getTopicMetadata(Set(topicName), systemName, metadataStore.getTopicInfo)
-        val topicMetadata = topicMetadataMap(topicName)
-        KafkaUtil.maybeThrowException(topicMetadata.errorCode)
-
-        val partitionCount = topicMetadata.partitionsMetadata.length
-        if (partitionCount != expectedPartitionCount)
-        {
-          val msg = "Validation failed for topic %s because partition count %s did not " +
-                  "match expected partition count of %d." format(topicName, partitionCount, expectedPartitionCount)
-          if (failOnValidation) {
-            throw new KafkaUtilException(msg)
-          } else {
-            warn(msg + " Ignoring the failure.")
-          }
-        }
-
-        info("Successfully validated topic %s." format topicName)
-        loop.done
-      },
-
-      (exception, loop) => {
-        exception match {
-          case e: KafkaUtilException => throw e
-          case e: Exception =>
-            warn("While trying to validate topic %s: %s. Retrying." format(topicName, e))
-            debug("Exception detail:", e)
-        }
-      }
-    )
-  }
-
-  /**
    * Code to verify that a topic exists
    *
    * @param topicName Name of the topic

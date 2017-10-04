@@ -19,6 +19,9 @@
 
 package org.apache.samza.checkpoint.kafka
 
+
+import java.util.Properties
+
 import _root_.kafka.admin.AdminUtils
 import _root_.kafka.common.{InvalidMessageSizeException, UnknownTopicOrPartitionException}
 import _root_.kafka.integration.KafkaServerTestHarness
@@ -33,6 +36,7 @@ import org.apache.samza.container.TaskName
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
 import org.apache.samza.serializers.CheckpointSerde
 import org.apache.samza.system._
+import org.apache.samza.system.kafka.{KafkaSystemAdmin, KafkaStreamSpec}
 import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtilException, NoOpMetricsRegistry, TopicMetadataStore}
 import org.apache.samza.{Partition, SamzaException}
 import org.junit.Assert._
@@ -71,6 +75,11 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
   var systemConsumerFn: ()=>SystemConsumer = ()=>{null}
   var systemProducerFn: ()=>SystemProducer = ()=>{null}
   var systemAdminFn: ()=>SystemAdmin = ()=>{null}
+  
+  val systemName = "kafka"
+  val kafkaStreamSpec = new KafkaStreamSpec(KafkaSystemAdmin.CHECKPOINT_STREAMID,
+                                 checkpointTopic, systemName, 1,
+                                 1, new Properties())
 
   @Before
   override def setUp {
@@ -78,7 +87,6 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
 
     TestUtils.waitUntilTrue(() => servers.head.metadataCache.getAliveBrokers.size == numBrokers, "Wait for cache to update")
 
-    val systemName = "kafka"
     val brokers = brokerList.split(",").map(p => "localhost" + p).mkString(",")
     val config = new java.util.HashMap[String, String]()
     config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers)
@@ -102,6 +110,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     systemConsumerFn = () => {systemConsumerFactory.getConsumer(systemStreamName, cfg, new NoOpMetricsRegistry())}
     systemProducerFn = () => {systemConsumerFactory.getProducer(systemStreamName, cfg, new NoOpMetricsRegistry())}
     systemAdminFn = () => {systemConsumerFactory.getAdmin(systemStreamName, cfg)}
+    
   }
 
   @After
@@ -153,7 +162,8 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val taskName = new TaskName(partition.toString)
     kcm.register(taskName)
     createCheckpointTopic()
-    kcm.kafkaUtil.validateTopicPartitionCount(checkpointTopic, "kafka", metadataStore, 1)
+    val systemAdmin = systemAdminFn()
+    systemAdmin.validateStream(kafkaStreamSpec)
 
     // check that log compaction is enabled.
     val zkClient = ZkUtils(zkConnect, 6000, 6000, zkSecure)
@@ -194,7 +204,9 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val taskName = new TaskName(partition.toString)
     kcm.register(taskName)
     createCheckpointTopic()
-    kcm.kafkaUtil.validateTopicPartitionCount(checkpointTopic, "kafka", metadataStore, 1)
+    val systemAdmin = systemAdminFn()
+    systemAdmin.validateStream(kafkaStreamSpec)
+
 
     // check that log compaction is enabled.
     val zkClient = ZkUtils(zkConnect, 6000, 6000, zkSecure)
@@ -234,7 +246,9 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
       val taskName = new TaskName(partition.toString)
       kcm.register(taskName)
       createCheckpointTopic(serdeCheckpointTopic)
-      kcm.kafkaUtil.validateTopicPartitionCount(serdeCheckpointTopic, "kafka", metadataStore, 1)
+      val systemAdmin = systemAdminFn()
+      systemAdmin.validateStream(kafkaStreamSpec)
+
       writeCheckpoint(taskName, cp1, serdeCheckpointTopic)
       // because serde will throw unrecoverable errors, it should result a KafkaCheckpointException
       try {
@@ -261,7 +275,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
       kcm.start
       fail("Expected a KafkaUtilException for invalid number of partitions in the topic.")
     }catch {
-      case e: KafkaUtilException => None
+      case e: StreamValidationException => None
     }
     kcm.stop
 
