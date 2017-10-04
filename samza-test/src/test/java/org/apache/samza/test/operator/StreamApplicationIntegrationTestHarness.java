@@ -239,7 +239,7 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     // changelog streams. Hence we just force an unclean shutdown here to. This _should be_ OK
     // since the test method has already executed by the time the shutdown hook is called. The side effect is
     // that buffered state (e.g. changelog contents) might not be flushed correctly after the test run.
-    configs.put("task.shutdown.ms", "100");
+    configs.put("task.shutdown.ms", "1");
 
     if (overriddenConfigs != null) {
       configs.putAll(overriddenConfigs);

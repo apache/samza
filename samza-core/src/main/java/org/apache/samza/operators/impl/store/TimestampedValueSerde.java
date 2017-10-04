@@ -22,7 +22,9 @@ import org.apache.samza.serializers.Serde;
 
 import java.nio.ByteBuffer;
 
+
 public class TimestampedValueSerde<V> implements Serde<TimestampedValue<V>> {
+  private static final int TIMESTAMP_BYTES = 8;
   private final Serde<V> vSerde;
 
   public TimestampedValueSerde(Serde<V> vSerde) {
@@ -32,7 +34,7 @@ public class TimestampedValueSerde<V> implements Serde<TimestampedValue<V>> {
   @Override
   public TimestampedValue<V> fromBytes(byte[] bytes) {
     ByteBuffer bb = ByteBuffer.wrap(bytes);
-    byte[] vBytes = new byte[bytes.length - 8 /* long ts bytes */];
+    byte[] vBytes = new byte[bytes.length - TIMESTAMP_BYTES];
     bb.get(vBytes, 0, vBytes.length);
     V v = vSerde.fromBytes(vBytes);
     long ts = bb.getLong();
@@ -42,8 +44,11 @@ public class TimestampedValueSerde<V> implements Serde<TimestampedValue<V>> {
   @Override
   public byte[] toBytes(TimestampedValue<V> tv) {
     byte[] vBytes = vSerde.toBytes(tv.getValue());
-    ByteBuffer bb = ByteBuffer.allocate(vBytes.length + 8 /* long ts bytes */);
-    bb.put(vBytes);
+    int vBytesLength = vBytes != null ? vBytes.length : 0;
+    ByteBuffer bb = ByteBuffer.allocate(vBytesLength + TIMESTAMP_BYTES);
+    if (vBytes != null) {
+      bb.put(vBytes);
+    }
     bb.putLong(tv.getTimestamp());
     return bb.array();
   }
