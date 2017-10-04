@@ -111,7 +111,7 @@ public class TestHdfsSystemConsumer {
     Map<SystemStreamPartition, List<IncomingMessageEnvelope>> overallResults = new HashMap<>();
     while (eventsReceived < totalEvents && remainingRetires > 0) {
       remainingRetires--;
-      Map<SystemStreamPartition, List<IncomingMessageEnvelope>> result = systemConsumer.poll(systemStreamPartitionSet, 200);
+      Map<SystemStreamPartition, List<IncomingMessageEnvelope>> result = systemConsumer.poll(systemStreamPartitionSet, 2000);
       for(SystemStreamPartition ssp : result.keySet()) {
         List<IncomingMessageEnvelope> messageEnvelopeList = result.get(ssp);
         overallResults.putIfAbsent(ssp, new ArrayList<>());
