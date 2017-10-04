@@ -19,29 +19,22 @@
 
 package org.apache.samza.util
 
-import java.net._
 import java.io._
 import java.lang.management.ManagementFactory
-import java.util.zip.CRC32
-import org.apache.samza.{SamzaException, Partition}
-import org.apache.samza.system.{SystemFactory, SystemStreamPartition, SystemStream}
+import java.net._
 import java.util.Random
+import java.util.zip.CRC32
 
-import org.apache.samza.config.Config
-import org.apache.samza.config.ConfigException
-import org.apache.samza.config.ConfigRewriter
-import org.apache.samza.config.JobConfig
-import org.apache.samza.config.MapConfig
-import org.apache.samza.config.SystemConfig
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.SystemConfig.Config2System
+import org.apache.samza.config._
+import org.apache.samza.serializers._
+import org.apache.samza.system.{SystemFactory, SystemStream, SystemStreamPartition}
+import org.apache.samza.{Partition, SamzaException}
 
 import scala.collection.JavaConverters._
-import java.io.InputStreamReader
-
-
 import scala.collection.immutable.Map
-import org.apache.samza.serializers._
+
 
 object Util extends Logging {
   val random = new Random
@@ -195,8 +188,8 @@ object Util extends Logging {
   }
 
   /**
-   * Generates a coordinator stream name based off of the job name and job id
-   * for the jobd. The format is of the stream name will be
+   * Generates a coordinator stream name based on the job name and job id
+   * for the job. The format of the stream name will be:
    * &#95;&#95;samza_coordinator_&lt;JOBNAME&gt;_&lt;JOBID&gt;.
    */
   def getCoordinatorStreamName(jobName: String, jobId: String) = {
@@ -231,7 +224,7 @@ object Util extends Logging {
   }
 
   /**
-   * Get the Coordinator System and system factory from the configuration
+   * Get the coordinator system and system factory from the configuration
    * @param config
    * @return
    */
