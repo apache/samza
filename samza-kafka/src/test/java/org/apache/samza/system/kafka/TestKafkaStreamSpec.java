@@ -57,4 +57,9 @@ public class TestKafkaStreamSpec {
     assertNull(kafkaConfig.get("replication.factor"));
     assertEquals("4", kafkaConfig.get("segment.bytes"));
   }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testInvalidPartitionCount() {
+    new KafkaStreamSpec("dummyId","dummyPhysicalName", "dummySystemName", 0);
+  }
 }

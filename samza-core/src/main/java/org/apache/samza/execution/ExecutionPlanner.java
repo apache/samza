@@ -50,7 +50,7 @@ import org.slf4j.LoggerFactory;
 public class ExecutionPlanner {
   private static final Logger log = LoggerFactory.getLogger(ExecutionPlanner.class);
 
-  private static final int MAX_INFERRED_PARTITIONS = 256;
+  static final int MAX_INFERRED_PARTITIONS = 256;
 
   private final Config config;
   private final StreamManager streamManager;
@@ -255,10 +255,17 @@ public class ExecutionPlanner {
     if (partitions < 0) {
       // use the following simple algo to figure out the partitions
       // partition = MAX(MAX(Input topic partitions), MAX(Output topic partitions))
-      // partition will be further bounded by MAX_INFERRED_PARTITIONS. This is important when running in hadoop.
+      // partition will be further bounded by MAX_INFERRED_PARTITIONS.
+      // This is important when running in hadoop where an HDFS input can have lots of files (partitions).
       int maxInPartitions = maxPartition(jobGraph.getSources());
       int maxOutPartitions = maxPartition(jobGraph.getSinks());
-      partitions = Math.min(Math.max(maxInPartitions, maxOutPartitions), MAX_INFERRED_PARTITIONS);
+      partitions = Math.max(maxInPartitions, maxOutPartitions);
+
+      if (partitions > MAX_INFERRED_PARTITIONS) {
+        partitions = MAX_INFERRED_PARTITIONS;
+        log.warn(String.format("Inferred intermediate stream partition count %d is greater than the max %d. Using the max.",
+            partitions, MAX_INFERRED_PARTITIONS));
+      }
     }
     for (StreamEdge edge : jobGraph.getIntermediateStreamEdges()) {
       if (edge.getPartitionCount() <= 0) {
