@@ -16,46 +16,31 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package samza.examples.cookbook;
+package samza.examples.cookbook.data;
+
+import org.codehaus.jackson.annotate.JsonProperty;
 
 /**
- * Represents a Page view event
+ * A page view event
  */
-class PageView {
-  /**
-   * The user that viewed the page
-   */
-  private final String userId;
-  /**
-   * The region that the page was viewed from
-   */
-  private final String country;
-  /**
-   * A trackingId for the page
-   */
-  private final String pageId;
+public class PageView {
+  public final String userId;
+  public final String country;
+  public final String pageId;
 
   /**
-   * Constructs a {@link PageView} from the provided string.
+   * Constructs a page view event.
    *
-   * @param message in the following CSV format - userId,country,url
+   * @param pageId the id for the page that was viewed
+   * @param userId the user that viewed the page
+   * @param country the country that the page was viewed from
    */
-  PageView(String message) {
-    String[] pageViewFields = message.split(",");
-    userId = pageViewFields[0];
-    country = pageViewFields[1];
-    pageId = pageViewFields[2];
-  }
-
-  String getUserId() {
-    return userId;
-  }
-
-  String getCountry() {
-    return country;
-  }
-
-  String getPageId() {
-    return pageId;
+  public PageView(
+      @JsonProperty("pageId") String pageId,
+      @JsonProperty("userId") String userId,
+      @JsonProperty("countryId") String country) {
+    this.userId = userId;
+    this.country = country;
+    this.pageId = pageId;
   }
 }

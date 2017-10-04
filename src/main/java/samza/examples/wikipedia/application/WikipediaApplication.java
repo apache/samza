@@ -20,11 +20,6 @@
 package samza.examples.wikipedia.application;
 
 import com.google.common.collect.ImmutableList;
-import java.time.Duration;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.metrics.Counter;
@@ -34,12 +29,20 @@ import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
+import org.apache.samza.serializers.JsonSerdeV2;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.task.TaskContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import samza.examples.wikipedia.model.WikipediaParser;
 import samza.examples.wikipedia.system.WikipediaFeed.WikipediaFeedEvent;
+
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 
 /**
@@ -82,43 +85,29 @@ public class WikipediaApplication implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
+    // Messages come from WikipediaConsumer so we know that they don't have a key and don't need to be deserialized.
+    graph.setDefaultSerde(new NoOpSerde<>());
+
     // Inputs
     // Messages come from WikipediaConsumer so we know the type is WikipediaFeedEvent
-    // They are un-keyed, so the 'k' parameter to the msgBuilder is not used
-    MessageStream<WikipediaFeedEvent> wikipediaEvents = graph.getInputStream(WIKIPEDIA_STREAM_ID, (k, v) -> (WikipediaFeedEvent) v);
-    MessageStream<WikipediaFeedEvent> wiktionaryEvents = graph.getInputStream(WIKTIONARY_STREAM_ID, (k, v) -> (WikipediaFeedEvent) v);
-    MessageStream<WikipediaFeedEvent> wikiNewsEvents = graph.getInputStream(WIKINEWS_STREAM_ID, (k, v) -> (WikipediaFeedEvent) v);
+    MessageStream<WikipediaFeedEvent> wikipediaEvents = graph.getInputStream(WIKIPEDIA_STREAM_ID);
+    MessageStream<WikipediaFeedEvent> wiktionaryEvents = graph.getInputStream(WIKTIONARY_STREAM_ID);
+    MessageStream<WikipediaFeedEvent> wikiNewsEvents = graph.getInputStream(WIKINEWS_STREAM_ID);
 
-    // Output (also un-keyed, so no keyExtractor)
-    OutputStream<Void, Map<String, Integer>, Map<String, Integer>> wikipediaStats = graph.getOutputStream(STATS_STREAM_ID, m -> null, m -> m);
+    // Output (also un-keyed)
+    OutputStream<WikipediaStatsOutput> wikipediaStats =
+        graph.getOutputStream(STATS_STREAM_ID, new JsonSerdeV2<>(WikipediaStatsOutput.class));
 
     // Merge inputs
-    MessageStream<WikipediaFeedEvent> allWikipediaEvents = MessageStream.mergeAll(ImmutableList.of(wikipediaEvents, wiktionaryEvents, wikiNewsEvents));
+    MessageStream<WikipediaFeedEvent> allWikipediaEvents =
+        MessageStream.mergeAll(ImmutableList.of(wikipediaEvents, wiktionaryEvents, wikiNewsEvents));
 
     // Parse, update stats, prepare output, and send
-    allWikipediaEvents.map(WikipediaParser::parseEvent)
+    allWikipediaEvents
+        .map(WikipediaParser::parseEvent)
         .window(Windows.tumblingWindow(Duration.ofSeconds(10), WikipediaStats::new, new WikipediaStatsAggregator()))
         .map(this::formatOutput)
         .sendTo(wikipediaStats);
-  }
-
-  /**
-   * A few statistics about the incoming messages.
-   */
-  private static class WikipediaStats {
-    // Windowed stats
-    int edits = 0;
-    int byteDiff = 0;
-    Set<String> titles = new HashSet<String>();
-    Map<String, Integer> counts = new HashMap<String, Integer>();
-
-    // Total stats
-    int totalEdits = 0;
-
-    @Override
-    public String toString() {
-      return String.format("Stats {edits:%d, byteDiff:%d, titles:%s, counts:%s}", edits, byteDiff, titles, counts);
-    }
   }
 
   /**
@@ -177,17 +166,46 @@ public class WikipediaApplication implements StreamApplication {
   /**
    * Format the stats for output to Kafka.
    */
-  private Map<String, Integer> formatOutput(WindowPane<Void, WikipediaStats> statsWindowPane) {
-
+  private WikipediaStatsOutput formatOutput(WindowPane<Void, WikipediaStats> statsWindowPane) {
     WikipediaStats stats = statsWindowPane.getMessage();
+    return new WikipediaStatsOutput(
+        stats.edits, stats.totalEdits, stats.byteDiff, stats.titles.size(), stats.counts);
+  }
 
-    Map<String, Integer> counts = new HashMap<String, Integer>(stats.counts);
-    counts.put("edits", stats.edits);
-    counts.put("edits-all-time", stats.totalEdits);
-    counts.put("bytes-added", stats.byteDiff);
-    counts.put("unique-titles", stats.titles.size());
+  /**
+   * A few statistics about the incoming messages.
+   */
+  private static class WikipediaStats {
+    // Windowed stats
+    int edits = 0;
+    int byteDiff = 0;
+    Set<String> titles = new HashSet<>();
+    Map<String, Integer> counts = new HashMap<>();
 
-    return counts;
+    // Total stats
+    int totalEdits = 0;
+
+    @Override
+    public String toString() {
+      return String.format("Stats {edits:%d, byteDiff:%d, titles:%s, counts:%s}", edits, byteDiff, titles, counts);
+    }
+  }
+
+  static class WikipediaStatsOutput {
+    public int edits;
+    public int editsAllTime;
+    public int bytesAdded;
+    public int uniqueTitles;
+    public Map<String, Integer> counts;
+
+    public WikipediaStatsOutput(int edits, int editsAllTime, int bytesAdded, int uniqueTitles,
+        Map<String, Integer> counts) {
+      this.edits = edits;
+      this.editsAllTime = editsAllTime;
+      this.bytesAdded = bytesAdded;
+      this.uniqueTitles = uniqueTitles;
+      this.counts = counts;
+    }
   }
 }
 

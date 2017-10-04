@@ -17,42 +17,38 @@
  * under the License.
  */
 
-package samza.examples.cookbook;
+package samza.examples.cookbook.data;
 
 /**
- * Represents an ad click event.
+ * An ad click event.
  */
 public class AdClick {
-  /*
-   * An unique identifier for the ad
-   */
-  private final String adId;
-  /**
-   * The user that clicked the ad
-   */
-  private final String userId;
-  /**
-   * The id of the page that the ad was served from
-   */
-  private final String pageId;
 
-  public AdClick(String message) {
-    String[] adClickFields = message.split(",");
-    this.adId = adClickFields[0];
-    this.userId = adClickFields[1];
-    this.pageId = adClickFields[2];
+  private String pageId; // the unique id of the page that the ad was clicked on
+  private String adId; // an unique id for the ad
+  private String userId; // the user that clicked the ad
+
+  public String getPageId() {
+    return pageId;
+  }
+
+  public void setPageId(String pageId) {
+    this.pageId = pageId;
   }
 
   public String getAdId() {
     return adId;
   }
 
+  public void setAdId(String adId) {
+    this.adId = adId;
+  }
+
   public String getUserId() {
     return userId;
   }
 
-  public String getPageId() {
-    return pageId;
+  public void setUserId(String userId) {
+    this.userId = userId;
   }
-
 }
