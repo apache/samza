@@ -141,7 +141,7 @@ public class JobNode {
 
     String configPrefix = String.format(CONFIG_JOB_PREFIX, jobName);
 
-    // Disallow user specified job inputs/outputs. This info comes strictly from the pipeline.
+    // Disallow user specified job inputs/outputs. This info comes strictly from the user application.
     Map<String, String> allowedConfigs = new HashMap<>(config);
     if (allowedConfigs.containsKey(TaskConfig.INPUT_STREAMS())) {
       log.warn("Specifying task inputs in configuration is not allowed with Fluent API. "
