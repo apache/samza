@@ -16,35 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.test.operator;
+
+package org.apache.samza.operators.spec;
+
+import java.util.Collection;
 
 
-class PageView {
-  private String userId;
-  private String country;
-  private String url;
+/**
+ * Spec for stateful operators.
+ */
+public interface StatefulOperatorSpec {
 
-  public String getUserId() {
-    return userId;
-  }
+  /**
+   * Get the store descriptors for stores required by this operator.
+   *
+   * @return store descriptors for this operator's stores
+   */
+  Collection<StoreDescriptor> getStoreDescriptors();
 
-  public String getCountry() {
-    return country;
-  }
-
-  public String getUrl() {
-    return url;
-  }
-
-  public void setUserId(String userId) {
-    this.userId = userId;
-  }
-
-  public void setCountry(String country) {
-    this.country = country;
-  }
-
-  public void setUrl(String url) {
-    this.url = url;
-  }
 }

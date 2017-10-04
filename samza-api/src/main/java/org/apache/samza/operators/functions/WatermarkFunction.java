@@ -20,14 +20,14 @@
 package org.apache.samza.operators.functions;
 
 /**
- * Allows user-specific handling of Watermark
+ * Allows handling of watermarks.
  */
 public interface WatermarkFunction {
 
   /**
    * Processes the input watermark coming from upstream operators.
-   * This allows user-defined watermark handling, such as trigger events
-   * or propagate it to downstream.
+   * This allows custom watermark handling, such as triggering events or propagating it downstream.
+   *
    * @param watermark input watermark
    */
   void processWatermark(long watermark);
@@ -35,24 +35,19 @@ public interface WatermarkFunction {
   /**
    * Returns the output watermark. This function will be invoked immediately after either
    * of the following events:
-   *
    * <ol>
-   *
-   * <li> Return of the transform function, e.g. {@link FlatMapFunction}.
-   *
-   * <li> Return of the processWatermark function.
-   *
+   *  <li> Return from the transform function, e.g. {@link FlatMapFunction}.
+   *  <li> Return from the {@link #processWatermark} function.
    * </ol>
+
+   * Note: If the transform function returns a collection of messages, the output watermark
+   * will be emitted after the output collection has been propagated to downstream operators.
+   * This might delay the watermark propagation, which will cause more buffering and might
+   * have a performance impact.
    *
-   *
-   *
-   * Note: If the transform function returns a collection of output, the output watermark
-   * will be emitted after the output collection is propagated to downstream operators. So
-   * it might delay the watermark propagation. The delay will cause more buffering and might
-   * have performance impact.
-   *
-   * @return output watermark, or null if the output watermark should not be updated. Samza
-   * guarantees that the same watermark value will be only emitted once.
+   * @return output watermark, or null if the output watermark should not be updated.
+   *         Samza guarantees that the same watermark value will only be emitted once.
    */
   Long getOutputWatermark();
+
 }

@@ -216,13 +216,14 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   public void onNewJobModelAvailable(final String version) {
     debounceTimer.scheduleAfterDebounceTime(JOB_MODEL_VERSION_CHANGE, 0, () ->
       {
-        LOG.info("pid=" + processorId + "new JobModel available");
+        LOG.info("pid=" + processorId + ": new JobModel available");
         // get the new job model from ZK
         newJobModel = zkUtils.getJobModel(version);
         LOG.info("pid=" + processorId + ": new JobModel available. ver=" + version + "; jm = " + newJobModel);
 
         if (!newJobModel.getContainers().containsKey(processorId)) {
-          LOG.info("JobModel: {} does not contain the processorId: {}. Stopping the processor.", newJobModel, processorId);
+          LOG.info("New JobModel does not contain pid={}. Stopping this processor. New JobModel: {}",
+              processorId, newJobModel);
           stop();
         } else {
           // stop current work

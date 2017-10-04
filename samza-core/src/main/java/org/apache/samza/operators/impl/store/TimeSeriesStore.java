@@ -52,6 +52,7 @@ public interface TimeSeriesStore<K, V> {
    * @param key the key to look up in the store
    * @param startTimestamp the start timestamp of the range, inclusive
    * @param endTimestamp the end timestamp of the range, exclusive
+   * @return an iterator over the values for the given key in the provided time-range that must be closed after use
    * @throws IllegalArgumentException when startTimeStamp &gt; endTimestamp, or when either of them is negative
    */
   ClosableIterator<TimestampedValue<V>> get(K key, long startTimestamp, long endTimestamp);
