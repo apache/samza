@@ -63,7 +63,7 @@ class KafkaCheckpointManager(
                               checkpointTopicProperties: Properties = new Properties) extends CheckpointManager with Logging {
 
   var taskNames = Set[TaskName]()
-  var systemProducer: SystemProducer = null
+  @volatile var  systemProducer: SystemProducer = null
   var taskNamesToOffsets: Map[TaskName, Checkpoint] = null
   val systemAdmin = getSystemAdmin()
 
