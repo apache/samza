@@ -17,30 +17,22 @@
  * under the License.
  */
 
-package org.apache.samza.message;
+package org.apache.samza.system;
+
+import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonProperty;
 
 /**
- * The type of the intermediate stream message. The enum will be encoded using its ordinal value and
- * put in the first byte of the serialization of intermediate message.
- * For more details, see {@link org.apache.samza.serializers.IntermediateMessageSerde}
+ *  The EndOfStreamMessage is a control message that is sent out to next stage
+ *  once the task has consumed to the end of a bounded stream.
  */
-public enum MessageType {
-  USER_MESSAGE,
-  WATERMARK,
-  END_OF_STREAM;
+public class EndOfStreamMessage extends ControlMessage {
+  public EndOfStreamMessage() {
+    this(null);
+  }
 
-  /**
-   * Returns the {@link MessageType} of a particular intermediate stream message.
-   * @param message an intermediate stream message
-   * @return type of the message
-   */
-  public static MessageType of(Object message) {
-    if (message instanceof WatermarkMessage) {
-      return WATERMARK;
-    } else if (message instanceof EndOfStreamMessage) {
-      return END_OF_STREAM;
-    } else {
-      return USER_MESSAGE;
-    }
+  @JsonCreator
+  public EndOfStreamMessage(@JsonProperty("task-name") String taskName) {
+    super(taskName);
   }
 }

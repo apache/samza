@@ -19,6 +19,7 @@
 
 package org.apache.samza.container
 
+
 import java.util.concurrent.ConcurrentHashMap
 
 import org.apache.samza.Partition
@@ -26,6 +27,14 @@ import org.apache.samza.checkpoint.{Checkpoint, OffsetManager}
 import org.apache.samza.config.{Config, MapConfig}
 import org.apache.samza.metrics.{Counter, Metric, MetricsRegistryMap}
 import org.apache.samza.serializers.SerdeManager
+import org.apache.samza.system.IncomingMessageEnvelope
+import org.apache.samza.system.SystemAdmin
+import org.apache.samza.system.SystemConsumer
+import org.apache.samza.system.SystemConsumers
+import org.apache.samza.system.SystemProducer
+import org.apache.samza.system.SystemProducers
+import org.apache.samza.system.SystemStream
+import org.apache.samza.system.SystemStreamMetadata
 import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.apache.samza.system._
@@ -108,9 +117,9 @@ class TestTaskInstance {
    */
   class TroublesomeTask extends StreamTask with WindowableTask {
     def process(
-      envelope: IncomingMessageEnvelope,
-      collector: MessageCollector,
-      coordinator: TaskCoordinator) {
+                 envelope: IncomingMessageEnvelope,
+                 collector: MessageCollector,
+                 coordinator: TaskCoordinator) {
 
       envelope.getOffset().toInt match {
         case offset if offset % 2 == 0 => throw new TroublesomeException
@@ -127,8 +136,8 @@ class TestTaskInstance {
    * Helper method used to retrieve the value of a counter from a group.
    */
   private def getCount(
-    group: ConcurrentHashMap[String, Metric],
-    name: String): Long = {
+                        group: ConcurrentHashMap[String, Metric],
+                        name: String): Long = {
     group.get("exception-ignored-" + name.toLowerCase).asInstanceOf[Counter].getCount
   }
 
@@ -431,9 +440,6 @@ class TestTaskInstance {
 class MockSystemAdmin extends SystemAdmin {
   override def getOffsetsAfter(offsets: java.util.Map[SystemStreamPartition, String]) = { offsets }
   override def getSystemStreamMetadata(streamNames: java.util.Set[String]) = null
-  override def createCoordinatorStream(stream: String) = {}
-  override def createChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {}
-  override def validateChangelogStream(topicName: String, numOfPartitions: Int) = {}
 
   override def offsetComparator(offset1: String, offset2: String) = {
     offset1.toLong compare offset2.toLong

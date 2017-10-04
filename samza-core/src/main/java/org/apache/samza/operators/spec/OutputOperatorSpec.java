@@ -19,6 +19,8 @@
 package org.apache.samza.operators.spec;
 
 
+import org.apache.samza.operators.functions.WatermarkFunction;
+
 /**
  * The spec for an operator that outputs a {@link org.apache.samza.operators.MessageStream} to a
  * {@link org.apache.samza.system.SystemStream}.
@@ -48,5 +50,10 @@ public class OutputOperatorSpec<M> extends OperatorSpec<M, Void> {
    */
   public OutputStreamImpl<M> getOutputStream() {
     return this.outputStream;
+  }
+
+  @Override
+  public WatermarkFunction getWatermarkFn() {
+    return null;
   }
 }

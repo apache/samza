@@ -21,6 +21,7 @@ package org.apache.samza.execution;
 
 import java.util.List;
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.system.StreamSpec;
 
@@ -37,6 +38,12 @@ public interface ExecutionPlan {
    * @return list of job configs
    */
   List<JobConfig> getJobConfigs();
+
+  /**
+   * Returns the config for this application
+   * @return {@link ApplicationConfig}
+   */
+  ApplicationConfig getApplicationConfig();
 
   /**
    * Returns the intermediate streams that need to be created.

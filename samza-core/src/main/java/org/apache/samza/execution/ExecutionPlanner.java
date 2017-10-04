@@ -28,7 +28,10 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.ApplicationConfig;
+import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.StreamGraphImpl;
@@ -47,6 +50,8 @@ import org.slf4j.LoggerFactory;
 public class ExecutionPlanner {
   private static final Logger log = LoggerFactory.getLogger(ExecutionPlanner.class);
 
+  private static final int MAX_INFERRED_PARTITIONS = 256;
+
   private final Config config;
   private final StreamManager streamManager;
 
@@ -56,6 +61,8 @@ public class ExecutionPlanner {
   }
 
   public ExecutionPlan plan(StreamGraphImpl streamGraph) throws Exception {
+    validateConfig();
+
     // create physical job graph based on stream graph
     JobGraph jobGraph = createJobGraph(streamGraph);
 
@@ -68,6 +75,16 @@ public class ExecutionPlanner {
     }
 
     return jobGraph;
+  }
+
+  private void validateConfig() {
+    ApplicationConfig appConfig = new ApplicationConfig(config);
+    ClusterManagerConfig clusterConfig = new ClusterManagerConfig(config);
+    // currently we don't support host-affinity in batch mode
+    if (appConfig.getAppMode() == ApplicationConfig.ApplicationMode.BATCH
+        && clusterConfig.getHostAffinityEnabled()) {
+      throw new SamzaException("Host affinity is not supported in batch mode. Please configure job.host-affinity.enabled=false.");
+    }
   }
 
   /**
@@ -238,9 +255,10 @@ public class ExecutionPlanner {
     if (partitions < 0) {
       // use the following simple algo to figure out the partitions
       // partition = MAX(MAX(Input topic partitions), MAX(Output topic partitions))
+      // partition will be further bounded by MAX_INFERRED_PARTITIONS. This is important when running in hadoop.
       int maxInPartitions = maxPartition(jobGraph.getSources());
       int maxOutPartitions = maxPartition(jobGraph.getSinks());
-      partitions = Math.max(maxInPartitions, maxOutPartitions);
+      partitions = Math.min(Math.max(maxInPartitions, maxOutPartitions), MAX_INFERRED_PARTITIONS);
     }
     for (StreamEdge edge : jobGraph.getIntermediateStreamEdges()) {
       if (edge.getPartitionCount() <= 0) {

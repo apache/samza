@@ -22,9 +22,9 @@ package org.apache.samza.serializers;
 import java.util.Arrays;
 
 import org.apache.samza.SamzaException;
-import org.apache.samza.message.EndOfStreamMessage;
-import org.apache.samza.message.MessageType;
-import org.apache.samza.message.WatermarkMessage;
+import org.apache.samza.system.EndOfStreamMessage;
+import org.apache.samza.system.MessageType;
+import org.apache.samza.system.WatermarkMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

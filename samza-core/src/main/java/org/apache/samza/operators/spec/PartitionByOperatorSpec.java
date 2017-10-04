@@ -19,6 +19,7 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.functions.WatermarkFunction;
 
 import java.util.function.Function;
 
@@ -73,4 +74,8 @@ public class PartitionByOperatorSpec<M, K, V> extends OperatorSpec<M, Void> {
     return valueFunction;
   }
 
+  @Override
+  public WatermarkFunction getWatermarkFn() {
+    return null;
+  }
 }

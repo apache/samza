@@ -19,6 +19,7 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.operators.functions.WatermarkFunction;
 
 
 /**
@@ -47,5 +48,10 @@ public class SinkOperatorSpec<M> extends OperatorSpec<M, Void> {
 
   public SinkFunction<M> getSinkFn() {
     return this.sinkFn;
+  }
+
+  @Override
+  public WatermarkFunction getWatermarkFn() {
+    return sinkFn instanceof WatermarkFunction ? (WatermarkFunction) sinkFn : null;
   }
 }

@@ -23,9 +23,12 @@ package org.apache.samza.container
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.config.Config
+import org.apache.samza.config.StreamConfig.Config2Stream
+import org.apache.samza.job.model.JobModel
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system.IncomingMessageEnvelope
+import org.apache.samza.system.StreamMetadataCache
 import org.apache.samza.system.SystemAdmin
 import org.apache.samza.system.SystemConsumers
 import org.apache.samza.system.SystemStreamPartition
@@ -36,7 +39,6 @@ import org.apache.samza.task.InitableTask
 import org.apache.samza.task.ReadableCoordinator
 import org.apache.samza.task.StreamTask
 import org.apache.samza.task.TaskCallbackFactory
-import org.apache.samza.task.TaskContext
 import org.apache.samza.task.TaskInstanceCollector
 import org.apache.samza.task.WindowableTask
 import org.apache.samza.util.Logging
@@ -44,7 +46,7 @@ import org.apache.samza.util.Logging
 import scala.collection.JavaConverters._
 
 class TaskInstance(
-  task: Any,
+  val task: Any,
   val taskName: TaskName,
   config: Config,
   val metrics: TaskInstanceMetrics,
@@ -56,46 +58,26 @@ class TaskInstance(
   storageManager: TaskStorageManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
   val systemStreamPartitions: Set[SystemStreamPartition] = Set(),
-  val exceptionHandler: TaskInstanceExceptionHandler = new TaskInstanceExceptionHandler) extends Logging {
+  val exceptionHandler: TaskInstanceExceptionHandler = new TaskInstanceExceptionHandler,
+  jobModel: JobModel = null,
+  streamMetadataCache: StreamMetadataCache = null) extends Logging {
   val isInitableTask = task.isInstanceOf[InitableTask]
   val isWindowableTask = task.isInstanceOf[WindowableTask]
   val isEndOfStreamListenerTask = task.isInstanceOf[EndOfStreamListenerTask]
   val isClosableTask = task.isInstanceOf[ClosableTask]
   val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
 
-  val context = new TaskContext {
-    var userContext: Object = null;
-    def getMetricsRegistry = metrics.registry
-    def getSystemStreamPartitions = systemStreamPartitions.asJava
-    def getStore(storeName: String) = if (storageManager != null) {
-      storageManager(storeName)
-    } else {
-      warn("No store found for name: %s" format storeName)
+  val context = new TaskContextImpl(taskName,metrics, containerContext, systemStreamPartitions.asJava, offsetManager,
+                                    storageManager, jobModel, streamMetadataCache)
 
-      null
-    }
-    def getTaskName = taskName
-    def getSamzaContainerContext = containerContext
-
-    override def setStartingOffset(ssp: SystemStreamPartition, offset: String): Unit = {
-      val startingOffsets = offsetManager.startingOffsets
-      offsetManager.startingOffsets += taskName -> (startingOffsets(taskName) + (ssp -> offset))
-    }
-
-    override def setUserContext(context: Object): Unit = {
-      userContext = context
-    }
-
-    override def getUserContext: Object = {
-      userContext
-    }
-  }
   // store the (ssp -> if this ssp is catched up) mapping. "catched up"
   // means the same ssp in other taskInstances have the same offset as
   // the one here.
-  var ssp2catchedupMapping: scala.collection.mutable.Map[SystemStreamPartition, Boolean] =
+  var ssp2CaughtupMapping: scala.collection.mutable.Map[SystemStreamPartition, Boolean] =
     scala.collection.mutable.Map[SystemStreamPartition, Boolean]()
-  systemStreamPartitions.foreach(ssp2catchedupMapping += _ -> false)
+  systemStreamPartitions.foreach(ssp2CaughtupMapping += _ -> false)
+
+  val hasIntermediateStreams = config.getStreamIds.exists(config.getIsIntermediate(_))
 
   def registerMetrics {
     debug("Registering metrics for taskName: %s" format taskName)
@@ -154,12 +136,12 @@ class TaskInstance(
     callbackFactory: TaskCallbackFactory = null) {
     metrics.processes.inc
 
-    if (!ssp2catchedupMapping.getOrElse(envelope.getSystemStreamPartition,
+    if (!ssp2CaughtupMapping.getOrElse(envelope.getSystemStreamPartition,
       throw new SamzaException(envelope.getSystemStreamPartition + " is not registered!"))) {
       checkCaughtUp(envelope)
     }
 
-    if (ssp2catchedupMapping(envelope.getSystemStreamPartition)) {
+    if (ssp2CaughtupMapping(envelope.getSystemStreamPartition)) {
       metrics.messagesActuallyProcessed.inc
 
       trace("Processing incoming message envelope for taskName and SSP: %s, %s"
@@ -254,24 +236,28 @@ class TaskInstance(
    * it's already catched-up.
    */
   private def checkCaughtUp(envelope: IncomingMessageEnvelope) = {
-    systemAdmins match {
-      case null => {
-        warn("systemAdmin is null. Set all SystemStreamPartitions to catched-up")
-        ssp2catchedupMapping(envelope.getSystemStreamPartition) = true
-      }
-      case others => {
-        val startingOffset = offsetManager.getStartingOffset(taskName, envelope.getSystemStreamPartition)
-            .getOrElse(throw new SamzaException("No offset defined for SystemStreamPartition: %s" format envelope.getSystemStreamPartition))
-        val system = envelope.getSystemStreamPartition.getSystem
-        others(system).offsetComparator(envelope.getOffset, startingOffset) match {
-          case null => {
-            info("offsets in " + system + " is not comparable. Set all SystemStreamPartitions to catched-up")
-            ssp2catchedupMapping(envelope.getSystemStreamPartition) = true // not comparable
-          }
-          case result => {
-            if (result >= 0) {
-              info(envelope.getSystemStreamPartition.toString + " is catched up.")
-              ssp2catchedupMapping(envelope.getSystemStreamPartition) = true
+    if (IncomingMessageEnvelope.END_OF_STREAM_OFFSET.equals(envelope.getOffset)) {
+      ssp2CaughtupMapping(envelope.getSystemStreamPartition) = true
+    } else {
+      systemAdmins match {
+        case null => {
+          warn("systemAdmin is null. Set all SystemStreamPartitions to catched-up")
+          ssp2CaughtupMapping(envelope.getSystemStreamPartition) = true
+        }
+        case others => {
+          val startingOffset = offsetManager.getStartingOffset(taskName, envelope.getSystemStreamPartition)
+              .getOrElse(throw new SamzaException("No offset defined for SystemStreamPartition: %s" format envelope.getSystemStreamPartition))
+          val system = envelope.getSystemStreamPartition.getSystem
+          others(system).offsetComparator(envelope.getOffset, startingOffset) match {
+            case null => {
+              info("offsets in " + system + " is not comparable. Set all SystemStreamPartitions to catched-up")
+              ssp2CaughtupMapping(envelope.getSystemStreamPartition) = true // not comparable
+            }
+            case result => {
+              if (result >= 0) {
+                info(envelope.getSystemStreamPartition.toString + " is catched up.")
+                ssp2CaughtupMapping(envelope.getSystemStreamPartition) = true
+              }
             }
           }
         }

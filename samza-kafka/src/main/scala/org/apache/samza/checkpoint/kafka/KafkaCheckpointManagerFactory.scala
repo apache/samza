@@ -25,10 +25,11 @@ import kafka.utils.ZkUtils
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.{CheckpointManager, CheckpointManagerFactory}
 import org.apache.samza.config.JobConfig.Config2Job
-import org.apache.samza.config.{SystemConfig, Config, KafkaConfig}
+import org.apache.samza.config.{Config, KafkaConfig, SystemConfig}
 import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.system.{SystemFactory}
-import org.apache.samza.util._
+import org.apache.samza.system.SystemFactory
+import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtil, Logging, Util, _}
+
 
 object KafkaCheckpointManagerFactory {
   val INJECTED_PRODUCER_PROPERTIES = Map(
@@ -96,9 +97,10 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
     }
     val socketTimeout = consumerConfig.socketTimeoutMs
 
+
     new KafkaCheckpointManager(
       clientId,
-      KafkaUtil.getCheckpointTopic(jobName, jobId),
+      KafkaUtil.getCheckpointTopic(jobName, jobId, config),
       systemName,
       kafkaConfig.getCheckpointReplicationFactor.get.toInt,
       socketTimeout,
