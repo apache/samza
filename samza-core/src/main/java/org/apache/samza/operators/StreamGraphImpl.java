@@ -95,9 +95,9 @@ public class StreamGraphImpl implements StreamGraph {
               + "stream level, so the same key and message Serde must be used for both.", streamId));
     }
 
-    boolean isKeyedInput = serde instanceof KVSerde;
+    boolean isKeyed = serde instanceof KVSerde;
     inputOperators.put(streamSpec,
-        new InputOperatorSpec<>(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyedInput, this.getNextOpId()));
+        new InputOperatorSpec<>(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed, this.getNextOpId()));
     return new MessageStreamImpl<>(this, inputOperators.get(streamSpec));
   }
 
@@ -123,9 +123,9 @@ public class StreamGraphImpl implements StreamGraph {
               + "stream level, so the same key and message Serde must be used for both.", streamId));
     }
 
-    boolean isKeyedOutput = serde instanceof KVSerde;
+    boolean isKeyed = serde instanceof KVSerde;
     outputStreams.put(streamSpec,
-        new OutputStreamImpl<>(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyedOutput));
+        new OutputStreamImpl<>(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed));
     return outputStreams.get(streamSpec);
   }
 
