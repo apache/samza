@@ -23,8 +23,8 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.samza.checkpoint.OffsetManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
-import org.apache.samza.storage.StorageEngine;
 import org.apache.samza.storage.TaskStorageManager;
+import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.TaskContext;
@@ -79,9 +79,9 @@ public class TaskContextImpl implements TaskContext {
   }
 
   @Override
-  public StorageEngine getStore(String storeName) {
+  public KeyValueStore getStore(String storeName) {
     if (storageManager != null) {
-      return storageManager.apply(storeName);
+      return (KeyValueStore) storageManager.apply(storeName);
     } else {
       LOG.warn("No store found for name: {}", storeName);
       return null;

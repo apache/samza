@@ -129,6 +129,9 @@ public interface MessageStream<M> {
    * @param otherStream the other {@link MessageStream} to be joined with
    * @param joinFn the function to join messages from this and the other {@link MessageStream}
    * @param ttl the ttl for messages in each stream
+   * @param keySerde the serde for the join key
+   * @param messageSerde the serde for messages in this stream
+   * @param otherMessageSerde the serde for messages in the other stream
    * @param <K> the type of join key
    * @param <OM> the type of messages in the other stream
    * @param <JM> the type of messages resulting from the {@code joinFn}

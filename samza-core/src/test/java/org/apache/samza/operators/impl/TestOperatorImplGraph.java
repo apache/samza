@@ -390,15 +390,22 @@ public class TestOperatorImplGraph {
         .thenReturn(int2);
 
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
-    Serde inputSerde = new NoOpSerde<>();
-    MessageStream m1 = streamGraph.getInputStream("input1", inputSerde).map(m -> m);
-    MessageStream m2 = streamGraph.getInputStream("input2", inputSerde).filter(m -> true);
-    MessageStream m3 = streamGraph.getInputStream("input3", inputSerde).filter(m -> true).partitionBy(m -> "hehe", m -> m).map(m -> m);
-    OutputStream<Object> om1 = streamGraph.getOutputStream("output1");
-    OutputStream<Object> om2 = streamGraph.getOutputStream("output2");
+    MessageStream messageStream1 = streamGraph.getInputStream("input1").map(m -> m);
+    MessageStream messageStream2 = streamGraph.getInputStream("input2").filter(m -> true);
+    MessageStream messageStream3 =
+        streamGraph.getInputStream("input3").filter(m -> true).partitionBy(m -> "hehe", m -> m).map(m -> m);
+    OutputStream<Object> outputStream1 = streamGraph.getOutputStream("output1");
+    OutputStream<Object> outputStream2 = streamGraph.getOutputStream("output2");
 
-    m1.join(m2, mock(JoinFunction.class), Duration.ofHours(2)).partitionBy(m -> "haha", m -> m).sendTo(om1);
-    m3.join(m2, mock(JoinFunction.class), Duration.ofHours(1)).sendTo(om2);
+    messageStream1
+        .join(messageStream2, mock(JoinFunction.class),
+            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2))
+        .partitionBy(m -> "haha", m -> m)
+        .sendTo(outputStream1);
+    messageStream3
+        .join(messageStream2, mock(JoinFunction.class),
+            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1))
+        .sendTo(outputStream2);
 
     Multimap<SystemStream, SystemStream> outputToInput = OperatorImplGraph.getIntermediateToInputStreamsMap(streamGraph);
     Collection<SystemStream> inputs = outputToInput.get(int1.toSystemStream());
