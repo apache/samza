@@ -19,7 +19,8 @@
 
 package org.apache.samza.serializers
 
-import org.apache.samza.SamzaException
+import java.nio.ByteBuffer
+
 import org.apache.samza.operators.KV
 
 object KVSerde {
@@ -27,26 +28,39 @@ object KVSerde {
 }
 
 /**
-  * A marker serde class to indicate that messages are keyed and should be deserialized as K-V pairs.
-  * This class is intended for use cases where a single Serde parameter or configuration is required.
+  * A serde for [[KV]] key-value pairs.
+  *
+  * When this serde is used for streams in the High Level API, Samza wires up and uses the provided
+  * keySerde and valueSerde for the keys and values in the stream separately. I.e., the fromBytes and toBytes
+  * methods in this class aren't used directly for streams.
   *
   * @tparam K type of the key in the message
   * @tparam V type of the value in the message
   */
 class KVSerde[K, V](keySerde: Serde[K], valueSerde: Serde[V]) extends Serde[KV[K, V]] {
-  /**
-    * Implementation Note: This serde must not be used by the framework for serialization/deserialization directly.
-    * Wire up and use the constituent keySerde and valueSerde instead.
-    */
-
-  override def fromBytes(bytes: Array[Byte]): Nothing = {
-    throw new NotImplementedError("This is a marker serde and must not be used directly. " +
-      "Samza must wire up and use the keySerde and valueSerde instead.")
+  override def fromBytes(bytes: Array[Byte]): KV[K, V] = {
+    val byteBuffer = ByteBuffer.wrap(bytes)
+    val keyLength = byteBuffer.getInt()
+    val keyBytes = new Array[Byte](keyLength)
+    byteBuffer.get(keyBytes)
+    val valueLength = byteBuffer.getInt()
+    val valueBytes = new Array[Byte](valueLength)
+    byteBuffer.get(valueBytes)
+    val key = keySerde.fromBytes(keyBytes)
+    val value = valueSerde.fromBytes(valueBytes)
+    KV.of(key, value)
   }
 
-  override def toBytes(`object`: KV[K, V]): Nothing = {
-    throw new SamzaException("This is a marker serde and must not be used directly. " +
-      "Samza must wire up and use the keySerde and valueSerde instead.")
+  override def toBytes(obj: KV[K, V]): Array[Byte] = {
+    val keyBytes = keySerde.toBytes(obj.key)
+    val valueBytes = valueSerde.toBytes(obj.value)
+    val bytes = new Array[Byte](8 + keyBytes.length + 8 + valueBytes.length)
+    val byteBuffer = ByteBuffer.wrap(bytes)
+    byteBuffer.putInt(keyBytes.length)
+    byteBuffer.put(keyBytes)
+    byteBuffer.putInt(valueBytes.length)
+    byteBuffer.put(valueBytes)
+    byteBuffer.array()
   }
 
   def getKeySerde: Serde[K] = keySerde
