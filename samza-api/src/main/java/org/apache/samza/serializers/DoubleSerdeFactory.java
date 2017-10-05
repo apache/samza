@@ -17,29 +17,13 @@
  * under the License.
  */
 
-package org.apache.samza.serializers
+package org.apache.samza.serializers;
 
-import java.nio.ByteBuffer
-import org.apache.samza.config.Config
+import org.apache.samza.config.Config;
 
-/**
- * A serializer for integers
- */
-class IntegerSerdeFactory extends SerdeFactory[java.lang.Integer] {
-  def getSerde(name: String, config: Config): Serde[java.lang.Integer] = new IntegerSerde
-}
+public class DoubleSerdeFactory implements SerdeFactory<Double> {
 
-class IntegerSerde extends Serde[java.lang.Integer] {
-  def toBytes(obj: java.lang.Integer): Array[Byte] = if (obj != null) {
-    ByteBuffer.allocate(4).putInt(obj.intValue).array
-  } else {
-    null
-  }
-
-  // big-endian by default
-  def fromBytes(bytes: Array[Byte]): java.lang.Integer = if (bytes != null) {
-    ByteBuffer.wrap(bytes).getInt
-  } else {
-    null
+  public Serde<Double> getSerde(String name, Config config) {
+    return new DoubleSerde();
   }
 }

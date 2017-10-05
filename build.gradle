@@ -121,22 +121,12 @@ subprojects {
 }
 
 project(':samza-api') {
-  apply plugin: 'scala'
   apply plugin: 'checkstyle'
-
-  // Force scala joint compilation
-  sourceSets.main.scala.srcDir "src/main/java"
-  sourceSets.test.scala.srcDir "src/test/java"
-
-  // Disable the Javac compiler by forcing joint compilation by scalac. This is equivalent to setting
-  // tasks.compileTestJava.enabled = false
-  sourceSets.main.java.srcDirs = []
-  sourceSets.test.java.srcDirs = []
+  apply plugin: 'java'
 
   dependencies {
     compile "org.slf4j:slf4j-api:$slf4jVersion"
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
-    compile "org.scala-lang:scala-library:$scalaLibVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-all:$mockitoVersion"
   }

@@ -17,33 +17,33 @@
  * under the License.
  */
 
-package org.apache.samza.serializers
+package org.apache.samza.serializers;
 
-import org.apache.samza.config.Config
+import java.nio.ByteBuffer;
+import java.util.UUID;
 
 /**
- * A serializer for strings
+ * A serializer for UUID
  */
-class StringSerdeFactory extends SerdeFactory[String] {
-  def getSerde(name: String, config: Config): Serde[String] =
-    new StringSerde(config.get("encoding", "UTF-8"))
-}
+public class UUIDSerde implements Serde<UUID> {
 
-class StringSerde(val encoding: String) extends Serde[String] {
-  // constructor (for Java) that defaults to UTF-8 encoding
-  def this() {
-    this("UTF-8")
+  public byte[] toBytes(UUID obj) {
+    if (obj != null) {
+      return ByteBuffer.allocate(16)
+          .putLong(obj.getMostSignificantBits())
+          .putLong(obj.getLeastSignificantBits())
+          .array();
+    } else {
+      return null;
+    }
   }
 
-  def toBytes(obj: String): Array[Byte] = if (obj != null) {
-    obj.toString.getBytes(encoding)
-  } else {
-    null
-  }
-
-  def fromBytes(bytes: Array[Byte]): String = if (bytes != null) {
-    new String(bytes, 0, bytes.size, encoding)
-  } else {
-    null
+  public UUID fromBytes(byte[] bytes) {
+    if (bytes != null) {
+      ByteBuffer buffer = ByteBuffer.wrap(bytes);
+      return new UUID(buffer.getLong(), buffer.getLong());
+    } else {
+      return null;
+    }
   }
 }

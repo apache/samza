@@ -17,29 +17,12 @@
  * under the License.
  */
 
-package org.apache.samza.serializers
+package org.apache.samza.serializers;
 
-import java.nio.ByteBuffer
-import org.apache.samza.config.Config
+import org.apache.samza.config.Config;
 
-/**
- * A serializer for doubles
- */
-class DoubleSerdeFactory extends SerdeFactory[java.lang.Double] {
-  def getSerde(name: String, config: Config): Serde[java.lang.Double] = new DoubleSerde
-}
-
-class DoubleSerde extends Serde[java.lang.Double] {
-  def toBytes(obj: java.lang.Double): Array[Byte] = if (obj != null) {
-    ByteBuffer.allocate(8).putDouble(obj.doubleValue()).array
-  } else {
-    null
-  }
-
-  // big-endian by default
-  def fromBytes(bytes: Array[Byte]): java.lang.Double = if (bytes != null) {
-    ByteBuffer.wrap(bytes).getDouble
-  } else {
-    null
+public class JsonSerdeV2Factory implements SerdeFactory<Object> {
+  public JsonSerdeV2<Object> getSerde(String name, Config config) {
+    return new JsonSerdeV2<>();
   }
 }
