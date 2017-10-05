@@ -253,10 +253,6 @@ class KafkaCheckpointManager(
   }
 
   override def start {
-    /*
-    kafkaUtil.createTopic(checkpointTopic, 1, replicationFactor, checkpointTopicProperties)
-    kafkaUtil.validateTopicPartitionCount(checkpointTopic, systemName, metadataStore, 1, failOnCheckpointValidation)
-    */
     val CHECKPOINT_STREAMID = "unused-temp-checkpoint-stream-id"
     val spec = new KafkaStreamSpec(CHECKPOINT_STREAMID,
                                    checkpointTopic, systemName, 1,

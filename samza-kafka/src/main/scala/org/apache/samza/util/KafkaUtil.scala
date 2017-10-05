@@ -91,46 +91,6 @@ object KafkaUtil extends Logging {
 
 class KafkaUtil(val retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
                 val connectZk: () => ZkUtils) extends Logging {
-  /**
-   * Common code for creating a topic in Kafka
-   *
-   * @param topicName Name of the topic to be created
-   * @param partitionCount  Number of partitions in the topic
-   * @param replicationFactor Number of replicas for the topic
-   * @param topicProperties Any topic related properties
-   */
-  def createTopic(topicName: String, partitionCount: Int, replicationFactor: Int, topicProperties: Properties = new Properties) {
-    info("Attempting to create topic %s." format topicName)
-    retryBackoff.run(
-      loop => {
-        val zkClient = connectZk()
-        try {
-          AdminUtils.createTopic(
-            zkClient,
-            topicName,
-            partitionCount,
-            replicationFactor,
-            topicProperties)
-        } finally {
-          zkClient.close
-        }
-
-        info("Created topic %s." format topicName)
-        loop.done
-      },
-
-      (exception, loop) => {
-        exception match {
-          case tee: TopicExistsException =>
-            info("Topic %s already exists." format topicName)
-            loop.done
-          case e: Exception =>
-            warn("Failed to create topic %s: %s. Retrying." format(topicName, e))
-            debug("Exception detail:", e)
-        }
-      }
-    )
-  }
 
   /**
    * Code to verify that a topic exists
