@@ -77,7 +77,8 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
   var systemAdminFn: ()=>SystemAdmin = ()=>{null}
   
   val systemName = "kafka"
-  val kafkaStreamSpec = new KafkaStreamSpec(KafkaSystemAdmin.CHECKPOINT_STREAMID,
+  val CHECKPOINT_STREAMID = "unused-temp-checkpoint-stream-id"
+  val kafkaStreamSpec = new KafkaStreamSpec(CHECKPOINT_STREAMID,
                                  checkpointTopic, systemName, 1,
                                  1, new Properties())
 
