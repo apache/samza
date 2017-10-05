@@ -22,6 +22,7 @@ import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.Window;
+import org.apache.samza.serializers.Serde;
 
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -66,19 +67,42 @@ public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
    */
   private final WindowType windowType;
 
+  private final Serde<WK> keySerde;
+  private final Serde<WV> windowValSerde;
+  private final Serde<M> msgSerde;
+
+  public Serde<WK> getKeySerde() {
+    return keySerde;
+  }
+
+  public Serde<WV> getWindowValSerde() {
+    return windowValSerde;
+  }
+
+  public Serde<M> getMsgSerde() {
+    return msgSerde;
+  }
+
+  public AccumulationMode getMode() {
+    return mode;
+  }
+
   private Trigger<M> earlyTrigger;
 
   private Trigger<M> lateTrigger;
 
   private AccumulationMode mode;
 
-  public WindowInternal(Trigger<M> defaultTrigger, Supplier<WV> initialValue, FoldLeftFunction<M, WV> foldLeftFunction, Function<M, WK> keyExtractor, Function<M, Long> eventTimeExtractor, WindowType windowType) {
+  public WindowInternal(Trigger<M> defaultTrigger, Supplier<WV> initialValue, FoldLeftFunction<M, WV> foldLeftFunction, Function<M, WK> keyExtractor, Function<M, Long> eventTimeExtractor, WindowType windowType, Serde<WK> keySerde, Serde<WV> valSerde, Serde<M> msgSerde) {
     this.defaultTrigger = defaultTrigger;
     this.initializer = initialValue;
     this.foldLeftFunction = foldLeftFunction;
     this.eventTimeExtractor = eventTimeExtractor;
     this.keyExtractor = keyExtractor;
     this.windowType = windowType;
+    this.keySerde = keySerde;
+    this.windowValSerde = valSerde;
+    this.msgSerde = msgSerde;
   }
 
   @Override

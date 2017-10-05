@@ -26,9 +26,9 @@ import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.operators.windows.internal.WindowType;
+import org.apache.samza.serializers.Serde;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -125,11 +125,11 @@ public final class Windows {
    */
   public static <M, K, WV> Window<M, K, WV> keyedTumblingWindow(
       Function<? super M, ? extends K> keyFn, Duration interval,
-      Supplier<? extends WV> initialValue, FoldLeftFunction<? super M, WV> aggregator) {
+      Supplier<? extends WV> initialValue, FoldLeftFunction<? super M, WV> aggregator, Serde<K> keySerde, Serde<WV> valSerde) {
 
     Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
     return new WindowInternal<>(defaultTrigger, (Supplier<WV>) initialValue, (FoldLeftFunction<M, WV>) aggregator,
-        (Function<M, K>) keyFn, null, WindowType.TUMBLING);
+        (Function<M, K>) keyFn, null, WindowType.TUMBLING, keySerde, valSerde, null);
   }
 
 
@@ -154,11 +154,10 @@ public final class Windows {
    * @return the created {@link Window} function
    */
   public static <M, K> Window<M, K, Collection<M>> keyedTumblingWindow(
-      Function<? super M, ? extends K> keyFn, Duration interval) {
-    FoldLeftFunction<M, Collection<M>> aggregator = createAggregator();
+      Function<? super M, ? extends K> keyFn, Duration interval, Serde<K> keySerde, Serde<M> msgSerde) {
 
-    Supplier<Collection<M>> initialValue = ArrayList::new;
-    return keyedTumblingWindow(keyFn, interval, initialValue, aggregator);
+    Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
+    return new WindowInternal<>(defaultTrigger, null, null, null, null, WindowType.TUMBLING, keySerde, null, msgSerde);
   }
 
   /**
@@ -185,10 +184,10 @@ public final class Windows {
    * @return the created {@link Window} function
    */
   public static <M, WV> Window<M, Void, WV> tumblingWindow(Duration interval, Supplier<? extends WV> initialValue,
-      FoldLeftFunction<? super M, WV> aggregator) {
+      FoldLeftFunction<? super M, WV> aggregator, Serde<WV> valSerde) {
     Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
     return new WindowInternal<>(defaultTrigger, (Supplier<WV>) initialValue, (FoldLeftFunction<M, WV>) aggregator,
-        null, null, WindowType.TUMBLING);
+        null, null, WindowType.TUMBLING, null, valSerde, null);
   }
 
   /**
@@ -212,11 +211,13 @@ public final class Windows {
    * @param <M> the type of the input message
    * @return the created {@link Window} function
    */
-  public static <M> Window<M, Void, Collection<M>> tumblingWindow(Duration duration) {
-    FoldLeftFunction<M, Collection<M>> aggregator = createAggregator();
+  public static <M> Window<M, Void, Collection<M>> tumblingWindow(Duration duration, Serde<M> msgSerde) {
+    FoldLeftFunction<M, Collection<M>> aggregator = null;
 
-    Supplier<Collection<M>> initialValue = ArrayList::new;
-    return tumblingWindow(duration, initialValue, aggregator);
+    Supplier<Collection<M>> initialValue = null;
+    Trigger<M> defaultTrigger = new TimeTrigger<>(duration);
+
+    return new WindowInternal<>(defaultTrigger, null, null, null, null, WindowType.TUMBLING, null, null, msgSerde);
   }
 
   /**
@@ -251,10 +252,10 @@ public final class Windows {
    */
   public static <M, K, WV> Window<M, K, WV> keyedSessionWindow(
       Function<? super M, ? extends K> keyFn, Duration sessionGap,
-      Supplier<? extends WV> initialValue, FoldLeftFunction<? super M, WV> aggregator) {
+      Supplier<? extends WV> initialValue, FoldLeftFunction<? super M, WV> aggregator, Serde<K> keySerde, Serde<WV> valSerde) {
     Trigger<M> defaultTrigger = Triggers.timeSinceLastMessage(sessionGap);
     return new WindowInternal<>(defaultTrigger, (Supplier<WV>) initialValue, (FoldLeftFunction<M, WV>) aggregator,
-        (Function<M, K>) keyFn, null, WindowType.SESSION);
+        (Function<M, K>) keyFn, null, WindowType.SESSION, keySerde, valSerde, null);
   }
 
   /**
@@ -284,20 +285,13 @@ public final class Windows {
    * @return the created {@link Window} function
    */
   public static <M, K> Window<M, K, Collection<M>> keyedSessionWindow(
-      Function<? super M, ? extends K> keyFn, Duration sessionGap) {
+          Function<? super M, ? extends K> keyFn, Duration sessionGap, Serde<M> msgSerde, Serde<K> keySerde) {
 
-    FoldLeftFunction<M, Collection<M>> aggregator = createAggregator();
+    FoldLeftFunction<M, Collection<M>> aggregator = null;
 
-    Supplier<Collection<M>> initialValue = ArrayList::new;
-    return keyedSessionWindow(keyFn, sessionGap, initialValue, aggregator);
+    Supplier<Collection<M>> initialValue = null;
+    Trigger<M> defaultTrigger = Triggers.timeSinceLastMessage(sessionGap);
+
+    return new WindowInternal<M, K, Collection<M>>(defaultTrigger, null, null, (Function<M, K>) keyFn, null, WindowType.SESSION, keySerde, null, msgSerde);
   }
-
-
-  private static <M> FoldLeftFunction<M, Collection<M>> createAggregator() {
-    return (m, c) -> {
-      c.add(m);
-      return c;
-    };
-  }
-
 }

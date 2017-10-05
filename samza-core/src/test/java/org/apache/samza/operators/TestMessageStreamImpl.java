@@ -264,7 +264,7 @@ public class TestMessageStreamImpl {
 
     // should compile since TestMessageEnvelope (input for functions) is base class of TestInputMessageEnvelope (M)
     Window<TestInputMessageEnvelope, String, Integer> window = Windows
-        .keyedTumblingWindow(keyExtractor, Duration.ofHours(1), initialValue, aggregator);
+        .keyedTumblingWindow(keyExtractor, Duration.ofHours(1), initialValue, aggregator, null, null);
     MessageStream<WindowPane<String, Integer>> windowedStream = inputStream.window(window);
 
     ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);

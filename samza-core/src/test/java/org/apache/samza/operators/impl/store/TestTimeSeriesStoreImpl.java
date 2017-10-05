@@ -22,6 +22,7 @@ package org.apache.samza.operators.impl.store;
 import com.google.common.io.Files;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.operators.impl.InternalInMemoryStore;
 import org.apache.samza.serializers.ByteSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerde;
@@ -197,7 +198,9 @@ public class TestTimeSeriesStoreImpl {
     SerializedKeyValueStore<TimeSeriesKey<K>, byte[]> kvStore = new SerializedKeyValueStore<>(rocksKVStore,
             new TimeSeriesKeySerde<>(keySerde), new ByteSerde(),
             new SerializedKeyValueStoreMetrics("", new MetricsRegistryMap()));
-    return new TimeSeriesStoreImpl<>(kvStore, appendMode);
+
+    InternalInMemoryStore<TimeSeriesKey<K>, byte[]> kvStore1 = new InternalInMemoryStore<>(new TimeSeriesKeySerde<>(keySerde), new ByteSerde());
+    return new TimeSeriesStoreImpl<>(kvStore1, appendMode);
   }
 
   private static RocksDbKeyValueStore newRocksDbStore(String storeName) {

@@ -397,7 +397,7 @@ public class TestWindowOperator {
       Function<IntegerEnvelope, Integer> keyFn = m -> (Integer) m.getKey();
       inStream
         .map(m -> m)
-        .window(Windows.keyedTumblingWindow(keyFn, duration).setEarlyTrigger(earlyTrigger)
+        .window(Windows.keyedTumblingWindow(keyFn, duration, null, null).setEarlyTrigger(earlyTrigger)
           .setAccumulationMode(mode))
           .sink((message, messageCollector, taskCoordinator) -> {
               messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
@@ -427,7 +427,7 @@ public class TestWindowOperator {
       Function<IntegerEnvelope, Integer> keyFn = m -> (Integer) m.getKey();
       inStream
           .map(m -> m)
-          .window(Windows.<IntegerEnvelope>tumblingWindow(duration).setEarlyTrigger(earlyTrigger)
+          .window(Windows.<IntegerEnvelope>tumblingWindow(duration, null).setEarlyTrigger(earlyTrigger)
               .setAccumulationMode(mode))
           .sink((message, messageCollector, taskCoordinator) -> {
               messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
@@ -455,7 +455,7 @@ public class TestWindowOperator {
 
       inStream
           .map(m -> m)
-          .window(Windows.keyedSessionWindow(keyFn, duration)
+          .window(Windows.keyedSessionWindow(keyFn, duration, null, null)
               .setAccumulationMode(mode))
           .sink((message, messageCollector, taskCoordinator) -> {
               messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));

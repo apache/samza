@@ -54,7 +54,7 @@ public class WindowExample implements StreamApplication {
     // also emit early results if either the number of messages collected reaches 30000, or if no new messages arrive
     // for 1 minute.
     inputStream
-        .window(Windows.tumblingWindow(Duration.ofMinutes(10), initialValue, counter)
+        .window(Windows.tumblingWindow(Duration.ofMinutes(10), initialValue, counter, null)
             .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceLastMessage(Duration.ofMinutes(1)))))
         .map(WindowPane::getMessage)
         .sendTo(outputStream);

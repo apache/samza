@@ -185,11 +185,11 @@ public class TestExecutionPlanner {
 
     m1.map(m -> m)
         .filter(m->true)
-        .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(8)));
+        .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(8), null, null));
 
     m2.map(m -> m)
         .filter(m->true)
-        .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(16)));
+        .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(16), null, null));
 
     m1.join(m2, mock(JoinFunction.class), Duration.ofMillis(1600)).sendTo(output1);
     m3.join(m2, mock(JoinFunction.class), Duration.ofMillis(100)).sendTo(output2);
