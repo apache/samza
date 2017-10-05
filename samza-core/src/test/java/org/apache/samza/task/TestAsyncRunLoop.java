@@ -234,14 +234,10 @@ public class TestAsyncRunLoop {
     task0ProcessedMessages.await();
     task1ProcessedMessages.await();
 
-    assertEquals(2L, t0.metrics().newCounter("async-callback-complete-calls").getCount());
-    assertEquals(1L, t1.metrics().newCounter("async-callback-complete-calls").getCount());
-    assertEquals(0L, t0.metrics().newCounter("async-callback-failure-calls").getCount());
-    assertEquals(0L, t1.metrics().newCounter("async-callback-failure-calls").getCount());
+    assertEquals(2L, t0.metrics().asyncCallbackCompleted().getCount());
+    assertEquals(1L, t1.metrics().asyncCallbackCompleted().getCount());
     assertEquals(5L, containerMetrics.envelopes().getCount());
     assertEquals(3L, containerMetrics.processes().getCount());
-    assertEquals(3L, containerMetrics.newCounter("async-callback-complete-calls").getCount());
-    assertEquals(0L, containerMetrics.newCounter("async-callback-failure-calls").getCount());
   }
 
   //@Test

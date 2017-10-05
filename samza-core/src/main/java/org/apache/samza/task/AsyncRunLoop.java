@@ -39,7 +39,6 @@ import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.container.TaskInstance;
 import org.apache.samza.container.TaskInstanceMetrics;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.metrics.Counter;
 import org.apache.samza.util.HighResolutionClock;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemConsumers;
@@ -69,8 +68,6 @@ public class AsyncRunLoop implements Runnable, Throttleable {
   private final long commitMs;
   private final long callbackTimeoutMs;
   private final SamzaContainerMetrics containerMetrics;
-  private final Counter containerMetricsCompletedCounter;
-  private final Counter containerMetricsFailureCounter;
   private final ScheduledExecutorService workerTimer;
   private final ScheduledExecutorService callbackTimer;
   private final ThrottlingScheduler callbackExecutor;
@@ -94,8 +91,6 @@ public class AsyncRunLoop implements Runnable, Throttleable {
     this.threadPool = threadPool;
     this.consumerMultiplexer = consumerMultiplexer;
     this.containerMetrics = containerMetrics;
-    this.containerMetricsCompletedCounter = containerMetrics.newCounter("async-callback-complete-calls");
-    this.containerMetricsFailureCounter = containerMetrics.newCounter("async-callback-failure-calls");
     this.windowMs = windowMs;
     this.commitMs = commitMs;
     this.maxConcurrency = maxConcurrency;
@@ -532,8 +527,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
         public void run() {
           try {
             state.doneProcess();
-            state.taskMetricsCompletedCounter.inc();
-            containerMetricsCompletedCounter.inc();
+            state.taskMetrics.asyncCallbackCompleted().inc();
             TaskCallbackImpl callbackImpl = (TaskCallbackImpl) callback;
             containerMetrics.processNs().update(clock.nanoTime() - callbackImpl.timeCreatedNs);
             log.trace("Got callback complete for task {}, ssp {}",
@@ -569,8 +563,6 @@ public class AsyncRunLoop implements Runnable, Throttleable {
     public void onFailure(TaskCallback callback, Throwable t) {
       try {
         state.doneProcess();
-        state.taskMetricsFailureCounter.inc();
-        containerMetricsFailureCounter.inc();
         abort(t);
         // update pending count, but not offset
         TaskCallbackImpl callbackImpl = (TaskCallbackImpl) callback;
@@ -605,14 +597,10 @@ public class AsyncRunLoop implements Runnable, Throttleable {
     private final TaskName taskName;
     private final TaskInstanceMetrics taskMetrics;
     private final boolean hasIntermediateStreams;
-    private final Counter taskMetricsCompletedCounter;
-    private final Counter taskMetricsFailureCounter;
 
     AsyncTaskState(TaskName taskName, TaskInstanceMetrics taskMetrics, Set<SystemStreamPartition> sspSet, boolean hasIntermediateStreams) {
       this.taskName = taskName;
       this.taskMetrics = taskMetrics;
-      this.taskMetricsCompletedCounter = taskMetrics.newCounter("async-callback-complete-calls");
-      this.taskMetricsFailureCounter = taskMetrics.newCounter("async-callback-failure-calls");
       this.pendingEnvelopeQueue = new ArrayDeque<>();
       this.processingSspSet = sspSet;
       this.hasIntermediateStreams = hasIntermediateStreams;
