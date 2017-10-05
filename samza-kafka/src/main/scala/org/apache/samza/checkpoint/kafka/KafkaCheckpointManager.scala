@@ -29,6 +29,7 @@ import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
 import org.apache.samza.container.TaskName
 import org.apache.samza.serializers.CheckpointSerde
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
+import org.apache.samza.system.kafka.{KafkaSystemAdmin, KafkaStreamSpec}
 import org.apache.samza.system.{StreamSpec, SystemAdmin, _}
 import org.apache.samza.util._
 import org.apache.samza.{Partition, SamzaException}
@@ -252,8 +253,26 @@ class KafkaCheckpointManager(
   }
 
   override def start {
-    kafkaUtil.createTopic(checkpointTopic, 1, replicationFactor, checkpointTopicProperties)
-    kafkaUtil.validateTopicPartitionCount(checkpointTopic, systemName, metadataStore, 1, failOnCheckpointValidation)
+    val CHECKPOINT_STREAMID = "unused-temp-checkpoint-stream-id"
+    val spec = new KafkaStreamSpec(CHECKPOINT_STREAMID,
+                                   checkpointTopic, systemName, 1,
+                                   replicationFactor, checkpointTopicProperties)
+
+    info("About to create checkpoint stream: " + spec)
+    systemAdmin.createStream(spec)
+    info("Created checkpoint stream: " + spec)
+    try {
+      systemAdmin.validateStream(spec) // SPECIAL VALIDATION FOR CHECKPOINT. DO NOT FAIL IF failOnCheckpointValidation IS FALSE
+      info("Validated spec: " + spec)
+    } catch {
+      case e : StreamValidationException =>
+             if (failOnCheckpointValidation) {
+               throw e
+             } else {
+               warn("Checkpoint stream validation partially failed. Ignoring it because failOnCheckpointValidation=" + failOnCheckpointValidation)
+             }
+      case e1 : Exception => throw e1
+    }
   }
 
   override def register(taskName: TaskName) {
