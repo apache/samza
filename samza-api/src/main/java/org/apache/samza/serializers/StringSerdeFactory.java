@@ -17,20 +17,13 @@
  * under the License.
  */
 
-package org.apache.samza.serializers
+package org.apache.samza.serializers;
 
-import org.apache.samza.config.Config
+import org.apache.samza.config.Config;
 
-/**
- * A serializer for bytes that is effectively a no-op but can be useful for 
- * binary messages.
- */
-class ByteSerdeFactory extends SerdeFactory[Array[Byte]] {
-  def getSerde(name: String, config: Config): Serde[Array[Byte]] = new ByteSerde
-}
+public class StringSerdeFactory implements SerdeFactory<String> {
 
-class ByteSerde extends Serde[Array[Byte]] {
-  def toBytes(bytes: Array[Byte]) = bytes
-
-  def fromBytes(bytes: Array[Byte]) = bytes
+  public Serde<String> getSerde(String name, Config config) {
+    return new StringSerde(config.get("encoding", "UTF-8"));
+  }
 }

@@ -17,32 +17,13 @@
  * under the License.
  */
 
-package org.apache.samza.serializers
+package org.apache.samza.serializers;
 
-import org.apache.samza.config.Config
-import java.nio.ByteBuffer
+import org.apache.samza.config.Config;
 
-/**
- * A serializer for ByteBuffers.
- */
-class ByteBufferSerdeFactory extends SerdeFactory[ByteBuffer] {
-  def getSerde(name: String, config: Config): Serde[ByteBuffer] = new ByteBufferSerde
-}
+public class IntegerSerdeFactory implements SerdeFactory<Integer> {
 
-class ByteBufferSerde extends Serde[ByteBuffer] {
-  def toBytes(byteBuffer: ByteBuffer) = {
-    if (byteBuffer != null) {
-      val bytes = new Array[Byte](byteBuffer.remaining())
-      byteBuffer.duplicate().get(bytes)
-      bytes
-    } else {
-      null
-    }
-  }
-
-  def fromBytes(bytes: Array[Byte]) = if (bytes != null) {
-    ByteBuffer.wrap(bytes)
-  } else {
-    null
+  public Serde<Integer> getSerde(String name, Config config) {
+    return new IntegerSerde();
   }
 }
