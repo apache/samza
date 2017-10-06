@@ -323,5 +323,8 @@ The JobsResource properties should be specified in the same file as the Samza RE
     <tr>
       <td>job.config.factory.class</td><td>The config factory to use for reading Samza job configs. This is used to fetch the job.name and job.id properties for each job instance in the InstallationRecord. It's also used to validate that a particular directory within the installations path actually contains Samza jobs. If not specified <pre>org.apache.samza.config.factories.PropertiesConfigFactory</pre> will be used. </td>
     </tr>
+    <tr>
+      <td>yarn.resourcemanager.api.endpoint</td><td> An optional config if YARN is used as the cluster manager. This provides the host and port at which the YARN ResourceManager REST API is exposed. If not specified <pre>localhost:8088</pre> will be used.</td>
+    </tr>
   </tbody>
 </table>

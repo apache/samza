@@ -39,6 +39,7 @@ public class YarnJobResourceConfig extends JobsResourceConfig {
   private static final String CONFIG_DEFAULT_YARN_RESOURCE_MANAGER_API_ENDPOINT = "localhost:8088";
 
   /**
+   * Returns the configured YARN Resource Manager REST API endpoint.
    * @see YarnJobResourceConfig#CONFIG_YARN_RESOURCE_MANAGER_API_ENDPOINT
    * @return the ResourceManager host and port on which the REST API is exposed.
    */

@@ -16,45 +16,49 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.rest.model;
+package org.apache.samza.rest.model.yarn;
 
+import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.codehaus.jackson.annotate.JsonProperty;
-import org.codehaus.jackson.map.annotate.JsonRootName;
 import java.util.List;
-import java.util.Objects;
+import org.codehaus.jackson.map.annotate.JsonRootName;
 
 
 @JsonRootName("apps")
-public class ApplicationInfoWrapper {
+public class ApplicationInfo {
   @JsonProperty("app")
-  private List<ApplicationInfo> apps;
+  private List<Application> apps;
 
-  ApplicationInfoWrapper() {
-
+  public ApplicationInfo() {
   }
 
-  public ApplicationInfoWrapper(List<ApplicationInfo> apps) {
+  public ApplicationInfo(List<Application> apps) {
     this.apps = apps;
   }
 
-  public List<ApplicationInfo> getApps() {
+  public List<Application> getApps() {
     return apps;
   }
 
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (o == null || getClass() != o.getClass()) {
-      return false;
-    }
-    ApplicationInfoWrapper that = (ApplicationInfoWrapper) o;
-    return Objects.equals(apps, that.apps);
-  }
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public static class Application {
+    private String state;
+    private String name;
 
-  @Override
-  public int hashCode() {
-    return Objects.hash(apps);
+    public Application() {
+    }
+
+    public Application(String state, String name) {
+      this.state = state;
+      this.name = name;
+    }
+
+    public String getState() {
+      return state;
+    }
+
+    public String getName() {
+      return name;
+    }
   }
 }
