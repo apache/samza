@@ -48,16 +48,16 @@ import org.slf4j.LoggerFactory;
 public class YarnRestJobStatusProvider implements JobStatusProvider {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(YarnRestJobStatusProvider.class);
-  private final String _apiEndpoint;
-  private final HttpClient _httpClient;
-  private final ObjectMapper _objectMapper;
+  private final String apiEndpoint;
+  private final HttpClient httpClient;
+  private final ObjectMapper objectMapper;
 
   public YarnRestJobStatusProvider(JobsResourceConfig config) {
     YarnJobResourceConfig yarnConfig = new YarnJobResourceConfig(config);
-    this._objectMapper = new ObjectMapper();
-    this._objectMapper.configure(DeserializationConfig.Feature.UNWRAP_ROOT_VALUE, true);
-    this._httpClient = new HttpClient();
-    this._apiEndpoint = String.format("http://%s/ws/v1/cluster/apps?states=RUNNING,NEW,NEW_SAVING,SUBMITTED,ACCEPTED",
+    this.objectMapper = new ObjectMapper();
+    this.objectMapper.configure(DeserializationConfig.Feature.UNWRAP_ROOT_VALUE, true);
+    this.httpClient = new HttpClient();
+    this.apiEndpoint = String.format("http://%s/ws/v1/cluster/apps?states=RUNNING,NEW,NEW_SAVING,SUBMITTED,ACCEPTED",
         yarnConfig.getYarnResourceManagerEndpoint());
   }
 
@@ -78,8 +78,8 @@ public class YarnRestJobStatusProvider implements JobStatusProvider {
 
     // Hit the rest endpoint and fetch the current status
     try {
-      byte[] response = httpGet(_apiEndpoint);
-      ApplicationInfoWrapper appInfoWrapper = _objectMapper.readValue(response, ApplicationInfoWrapper.class);
+      byte[] response = httpGet(apiEndpoint);
+      ApplicationInfoWrapper appInfoWrapper = objectMapper.readValue(response, ApplicationInfoWrapper.class);
       for (ApplicationInfo appInfo:  appInfoWrapper.getApps()) {
         String qualifiedName = appInfo.getName();
         JobStatus samzaStatus = yarnStateToSamzaStatus(YarnApplicationState.valueOf(appInfo.getState().toUpperCase()));
@@ -149,7 +149,7 @@ public class YarnRestJobStatusProvider implements JobStatusProvider {
   private byte[] httpGet(String requestUrl) throws IOException {
     GetMethod getMethod = new GetMethod(requestUrl);
     try {
-      int responseCode = this._httpClient.executeMethod(getMethod);
+      int responseCode = this.httpClient.executeMethod(getMethod);
       LOGGER.debug("Received response code: {} for the get request on the url: {}", responseCode, requestUrl);
       byte[] response = getMethod.getResponseBody();
       if (responseCode != HttpStatus.SC_OK) {

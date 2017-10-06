@@ -24,88 +24,88 @@ import org.codehaus.jackson.annotate.JsonProperty;
 
 public class ApplicationInfo {
   @JsonProperty("finishTime")
-  private long _finishTime;
+  private long finishTime;
 
   @JsonProperty("amContainerLogs")
-  private String _amContainerLogs;
+  private String amContainerLogs;
 
   @JsonProperty("trackingUI")
-  private String _trackingHistory;
+  private String trackingHistory;
 
   @JsonProperty("state")
-  private String _state;
+  private String state;
 
   @JsonProperty("user")
-  private String _user;
+  private String user;
 
   @JsonProperty("id")
-  private String _id;
+  private String id;
 
   @JsonProperty("clusterId")
-  private String _clusterId;
+  private String clusterId;
 
   @JsonProperty("finalStatus")
-  private String _finalStatus;
+  private String finalStatus;
 
   @JsonProperty("amHostHttpAddress")
-  private String _amHostHttpAddress;
+  private String amHostHttpAddress;
 
   @JsonProperty("applicationType")
-  private String _applicationType;
+  private String applicationType;
 
   @JsonProperty("applicationTags")
-  private String _applicationTags;
+  private String applicationTags;
 
   @JsonProperty("finishedTime")
-  private String _finishedTime;
+  private String finishedTime;
 
   @JsonProperty("preemptedResourceMB")
-  private String _preemptedResourceMB;
+  private String preemptedResourceMB;
 
   @JsonProperty("preemptedResourceVCores")
-  private String _preemptedResourceVCores;
+  private String preemptedResourceVCores;
 
   @JsonProperty("numNonAMContainerPreempted")
-  private String _numNonAMContainerPreempted;
+  private String numNonAMContainerPreempted;
 
   @JsonProperty("numAMContainerPreempted")
-  private String _numAMContainerPreempted;
+  private String numAMContainerPreempted;
 
   @JsonProperty("progress")
-  private int _progress;
+  private int progress;
 
   @JsonProperty("name")
-  private String _name;
+  private String name;
 
   @JsonProperty("startedTime")
-  private long _startedTime;
+  private long startedTime;
 
   @JsonProperty("elapsedTime")
-  private long _elapsedTime;
+  private long elapsedTime;
 
   @JsonProperty("diagnostics")
-  private String _diagnostics;
+  private String diagnostics;
 
   @JsonProperty("trackingUrl")
-  private String _trackingUrl;
+  private String trackingUrl;
 
   @JsonProperty("queue")
-  private String _queue;
+  private String queue;
 
   @JsonProperty("allocatedMB")
-  private int _allocatedMB;
+  private int allocatedMB;
 
   @JsonProperty("allocatedVCores")
-  private int _allocatedVCores;
+  private int allocatedVCores;
 
   @JsonProperty("runningContainers")
-  private int _runningContainers;
+  private int runningContainers;
 
   @JsonProperty("memorySeconds")
-  private int _memorySeconds;
+  private int memorySeconds;
 
   @JsonProperty("vcoreSeconds")
-  private int _vcoreSeconds;
+  private int vcoreSeconds;
 
   ApplicationInfo() {
 
@@ -117,34 +117,34 @@ public class ApplicationInfo {
       String numNonAMContainerPreempted, String numAMContainerPreempted, int progress, String name, long startedTime,
       long elapsedTime, String diagnostics, String trackingUrl, String queue, int allocatedMB, int allocatedVCores,
       int runningContainers, int memorySeconds, int vcoreSeconds) {
-    _finishTime = finishTime;
-    _amContainerLogs = amContainerLogs;
-    _trackingHistory = trackingHistory;
-    _state = state;
-    _user = user;
-    _id = id;
-    _clusterId = clusterId;
-    _finalStatus = finalStatus;
-    _amHostHttpAddress = amHostHttpAddress;
-    _applicationType = applicationType;
-    _applicationTags = applicationTags;
-    _finishedTime = finishedTime;
-    _preemptedResourceMB = preemptedResourceMB;
-    _preemptedResourceVCores = preemptedResourceVCores;
-    _numNonAMContainerPreempted = numNonAMContainerPreempted;
-    _numAMContainerPreempted = numAMContainerPreempted;
-    _progress = progress;
-    _name = name;
-    _startedTime = startedTime;
-    _elapsedTime = elapsedTime;
-    _diagnostics = diagnostics;
-    _trackingUrl = trackingUrl;
-    _queue = queue;
-    _allocatedMB = allocatedMB;
-    _allocatedVCores = allocatedVCores;
-    _runningContainers = runningContainers;
-    _memorySeconds = memorySeconds;
-    _vcoreSeconds = vcoreSeconds;
+    this.finishTime = finishTime;
+    this.amContainerLogs = amContainerLogs;
+    this.trackingHistory = trackingHistory;
+    this.state = state;
+    this.user = user;
+    this.id = id;
+    this.clusterId = clusterId;
+    this.finalStatus = finalStatus;
+    this.amHostHttpAddress = amHostHttpAddress;
+    this.applicationType = applicationType;
+    this.applicationTags = applicationTags;
+    this.finishedTime = finishedTime;
+    this.preemptedResourceMB = preemptedResourceMB;
+    this.preemptedResourceVCores = preemptedResourceVCores;
+    this.numNonAMContainerPreempted = numNonAMContainerPreempted;
+    this.numAMContainerPreempted = numAMContainerPreempted;
+    this.progress = progress;
+    this.name = name;
+    this.startedTime = startedTime;
+    this.elapsedTime = elapsedTime;
+    this.diagnostics = diagnostics;
+    this.trackingUrl = trackingUrl;
+    this.queue = queue;
+    this.allocatedMB = allocatedMB;
+    this.allocatedVCores = allocatedVCores;
+    this.runningContainers = runningContainers;
+    this.memorySeconds = memorySeconds;
+    this.vcoreSeconds = vcoreSeconds;
   }
 
   @Override
@@ -156,140 +156,139 @@ public class ApplicationInfo {
       return false;
     }
     ApplicationInfo that = (ApplicationInfo) o;
-    return _finishTime == that._finishTime && _progress == that._progress && _startedTime == that._startedTime
-        && _elapsedTime == that._elapsedTime && _allocatedMB == that._allocatedMB
-        && _allocatedVCores == that._allocatedVCores && _runningContainers == that._runningContainers
-        && _memorySeconds == that._memorySeconds && _vcoreSeconds == that._vcoreSeconds && Objects.equals(
-        _amContainerLogs, that._amContainerLogs) && Objects.equals(_trackingHistory, that._trackingHistory)
-        && Objects.equals(_state, that._state) && Objects.equals(_user, that._user) && Objects.equals(_id, that._id)
-        && Objects.equals(_clusterId, that._clusterId) && Objects.equals(_finalStatus, that._finalStatus)
-        && Objects.equals(_amHostHttpAddress, that._amHostHttpAddress) && Objects.equals(_applicationType,
-        that._applicationType) && Objects.equals(_applicationTags, that._applicationTags) && Objects.equals(
-        _finishedTime, that._finishedTime) && Objects.equals(_preemptedResourceMB, that._preemptedResourceMB) && Objects
-        .equals(_preemptedResourceVCores, that._preemptedResourceVCores) && Objects.equals(_numNonAMContainerPreempted,
-        that._numNonAMContainerPreempted) && Objects.equals(_numAMContainerPreempted, that._numAMContainerPreempted)
-        && Objects.equals(_name, that._name) && Objects.equals(_diagnostics, that._diagnostics) && Objects.equals(
-        _trackingUrl, that._trackingUrl) && Objects.equals(_queue, that._queue);
+    return finishTime == that.finishTime && progress == that.progress && startedTime == that.startedTime
+        && elapsedTime == that.elapsedTime && allocatedMB == that.allocatedMB
+        && allocatedVCores == that.allocatedVCores && runningContainers == that.runningContainers
+        && memorySeconds == that.memorySeconds && vcoreSeconds == that.vcoreSeconds && Objects.equals(
+        amContainerLogs, that.amContainerLogs) && Objects.equals(trackingHistory, that.trackingHistory)
+        && Objects.equals(state, that.state) && Objects.equals(user, that.user) && Objects.equals(id, that.id)
+        && Objects.equals(clusterId, that.clusterId) && Objects.equals(finalStatus, that.finalStatus)
+        && Objects.equals(amHostHttpAddress, that.amHostHttpAddress) && Objects.equals(applicationType,
+        that.applicationType) && Objects.equals(applicationTags, that.applicationTags) && Objects.equals(finishedTime, that.finishedTime) && Objects.equals(
+        preemptedResourceMB, that.preemptedResourceMB) && Objects
+        .equals(preemptedResourceVCores, that.preemptedResourceVCores) && Objects.equals(numNonAMContainerPreempted,
+        that.numNonAMContainerPreempted) && Objects.equals(numAMContainerPreempted, that.numAMContainerPreempted)
+        && Objects.equals(name, that.name) && Objects.equals(diagnostics, that.diagnostics) && Objects.equals(
+        trackingUrl, that.trackingUrl) && Objects.equals(queue, that.queue);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(_finishTime, _amContainerLogs, _trackingHistory, _state, _user, _id, _clusterId, _finalStatus,
-        _amHostHttpAddress, _applicationType, _applicationTags, _finishedTime, _preemptedResourceMB,
-        _preemptedResourceVCores, _numNonAMContainerPreempted, _numAMContainerPreempted, _progress, _name, _startedTime,
-        _elapsedTime, _diagnostics, _trackingUrl, _queue, _allocatedMB, _allocatedVCores, _runningContainers,
-        _memorySeconds, _vcoreSeconds);
+    return Objects.hash(finishTime, amContainerLogs, trackingHistory, state, user, id, clusterId, finalStatus,
+        amHostHttpAddress, applicationType, applicationTags, finishedTime, preemptedResourceMB, preemptedResourceVCores,
+        numNonAMContainerPreempted, numAMContainerPreempted, progress, name, startedTime, elapsedTime, diagnostics,
+        trackingUrl, queue, allocatedMB, allocatedVCores, runningContainers, memorySeconds, vcoreSeconds);
   }
 
   public long getFinishTime() {
-    return _finishTime;
+    return finishTime;
   }
 
   public String getAmContainerLogs() {
-    return _amContainerLogs;
+    return amContainerLogs;
   }
 
   public String getTrackingHistory() {
-    return _trackingHistory;
+    return trackingHistory;
   }
 
   public String getState() {
-    return _state;
+    return state;
   }
 
   public String getUser() {
-    return _user;
+    return user;
   }
 
   public String getId() {
-    return _id;
+    return id;
   }
 
   public String getClusterId() {
-    return _clusterId;
+    return clusterId;
   }
 
   public String getFinalStatus() {
-    return _finalStatus;
+    return finalStatus;
   }
 
   public String getAmHostHttpAddress() {
-    return _amHostHttpAddress;
+    return amHostHttpAddress;
   }
 
   public int getProgress() {
-    return _progress;
+    return progress;
   }
 
   public String getName() {
-    return _name;
+    return name;
   }
 
   public long getStartedTime() {
-    return _startedTime;
+    return startedTime;
   }
 
   public long getElapsedTime() {
-    return _elapsedTime;
+    return elapsedTime;
   }
 
   public String getDiagnostics() {
-    return _diagnostics;
+    return diagnostics;
   }
 
   public String getTrackingUrl() {
-    return _trackingUrl;
+    return trackingUrl;
   }
 
   public String getQueue() {
-    return _queue;
+    return queue;
   }
 
   public int getAllocatedMB() {
-    return _allocatedMB;
+    return allocatedMB;
   }
 
   public int getAllocatedVCores() {
-    return _allocatedVCores;
+    return allocatedVCores;
   }
 
   public int getRunningContainers() {
-    return _runningContainers;
+    return runningContainers;
   }
 
   public int getMemorySeconds() {
-    return _memorySeconds;
+    return memorySeconds;
   }
 
   public int getVcoreSeconds() {
-    return _vcoreSeconds;
+    return vcoreSeconds;
   }
 
   public String getApplicationType() {
-    return _applicationType;
+    return applicationType;
   }
 
   public String getApplicationTags() {
-    return _applicationTags;
+    return applicationTags;
   }
 
   public String getFinishedTime() {
-    return _finishedTime;
+    return finishedTime;
   }
 
   public String getPreemptedResourceMB() {
-    return _preemptedResourceMB;
+    return preemptedResourceMB;
   }
 
   public String getPreemptedResourceVCores() {
-    return _preemptedResourceVCores;
+    return preemptedResourceVCores;
   }
 
   public String getNumNonAMContainerPreempted() {
-    return _numNonAMContainerPreempted;
+    return numNonAMContainerPreempted;
   }
 
   public String getNumAMContainerPreempted() {
-    return _numAMContainerPreempted;
+    return numAMContainerPreempted;
   }
 }
