@@ -73,7 +73,8 @@ class ExponentialSleepStrategy(
    * @param loopOperation The operation that should be attempted and may fail.
    * @param onException Handler function that determines what to do with an exception.
    * @return If loopOperation succeeded, an option containing the return value of
-   *         the last invocation. If done was called in the exception hander, None.
+   *         the last invocation. If done was called in the exception handler or the
+    *        thread was interrupted, None.
    */
   def run[A](loopOperation: RetryLoop => A, onException: (Exception, RetryLoop) => Unit): Option[A] = {
     val loop = startLoop
