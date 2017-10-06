@@ -20,65 +20,37 @@
 package org.apache.samza.container
 
 import java.io.File
+import java.net.{URL, UnknownHostException}
 import java.nio.file.Path
 import java.util
-import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
-import java.net.{URL, UnknownHostException}
 import java.util.Base64
+import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
 
-import org.apache.samza.{SamzaContainerStatus, SamzaException}
 import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
 import org.apache.samza.config.SerializerConfig.Config2Serializer
-import org.apache.samza.config._
 import org.apache.samza.config.StorageConfig.Config2Storage
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
-import org.apache.samza.container.disk.DiskQuotaPolicyFactory
-import org.apache.samza.container.disk.DiskSpaceMonitor
+import org.apache.samza.config._
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
-import org.apache.samza.container.disk.NoThrottlingDiskQuotaPolicyFactory
-import org.apache.samza.container.disk.PollingScanDiskSpaceMonitor
+import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor, NoThrottlingDiskQuotaPolicyFactory, PollingScanDiskSpaceMonitor}
 import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStatistics, SystemStatisticsMonitor}
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
-import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.job.model.JobModel
-import org.apache.samza.metrics.JmxServer
-import org.apache.samza.metrics.JvmMetrics
-import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.metrics.MetricsReporter
-import org.apache.samza.serializers.IntermediateMessageSerde
-import org.apache.samza.serializers.NoOpSerde
-import org.apache.samza.serializers.SerializableSerde
-import org.apache.samza.serializers.Serde
-import org.apache.samza.serializers.SerdeFactory
-import org.apache.samza.serializers.SerdeManager
-import org.apache.samza.serializers.StringSerde
+import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.serializers.model.SamzaObjectMapper
-import org.apache.samza.storage.StorageEngineFactory
-import org.apache.samza.storage.TaskStorageManager
-import org.apache.samza.system.StreamMetadataCache
-import org.apache.samza.system.SystemConsumers
-import org.apache.samza.system.SystemConsumersMetrics
-import org.apache.samza.system.SystemFactory
-import org.apache.samza.system.SystemProducers
-import org.apache.samza.system.SystemProducersMetrics
-import org.apache.samza.system.SystemStream
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.system.chooser.DefaultChooser
-import org.apache.samza.system.chooser.MessageChooserFactory
-import org.apache.samza.system.chooser.RoundRobinChooserFactory
+import org.apache.samza.serializers._
+import org.apache.samza.storage.{StorageEngineFactory, TaskStorageManager}
+import org.apache.samza.system._
+import org.apache.samza.system.chooser.{DefaultChooser, MessageChooserFactory, RoundRobinChooserFactory}
+import org.apache.samza.table.TableManager
 import org.apache.samza.task._
-import org.apache.samza.util.HighResolutionClock
-import org.apache.samza.util.ExponentialSleepStrategy
-import org.apache.samza.util.Logging
-import org.apache.samza.util.Throttleable
-import org.apache.samza.util.MetricsReporterLoader
-import org.apache.samza.util.SystemClock
-import org.apache.samza.util.Util
 import org.apache.samza.util.Util.asScalaClock
+import org.apache.samza.util._
+import org.apache.samza.{SamzaContainerStatus, SamzaException}
 
 import scala.collection.JavaConverters._
 
@@ -568,6 +540,10 @@ object SamzaContainer extends Logging {
         new StorageConfig(config).getChangeLogDeleteRetentionsInMs,
         new SystemClock)
 
+      val tableManager = new TableManager(config, taskStores.asJava)
+
+      info("Got table manager");
+
       val systemStreamPartitions = taskModel
         .getSystemStreamPartitions
         .asScala
@@ -586,6 +562,7 @@ object SamzaContainer extends Logging {
           containerContext = containerContext,
           offsetManager = offsetManager,
           storageManager = storageManager,
+          tableManager = tableManager,
           reporters = reporters,
           systemStreamPartitions = systemStreamPartitions,
           exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics, config),
@@ -711,6 +688,7 @@ class SamzaContainer(
       startOffsetManager
       startLocalityManager
       startStores
+      startTableManager
       startDiskSpaceMonitor
       startHostStatisticsMonitor
       startProducers
@@ -745,6 +723,7 @@ class SamzaContainer(
 
       shutdownConsumers
       shutdownTask
+      shutdownTableManager
       shutdownStores
       shutdownDiskSpaceMonitor
       shutdownHostStatisticsMonitor
@@ -898,6 +877,12 @@ class SamzaContainer(
     })
   }
 
+  def startTableManager: Unit = {
+    info("Starting task instance table manager.")
+
+    taskInstances.values.foreach(_.startTableManager)
+  }
+
   def startTask {
     info("Initializing stream tasks.")
 
@@ -1001,6 +986,12 @@ class SamzaContainer(
     info("Shutting down task instance stores.")
 
     taskInstances.values.foreach(_.shutdownStores)
+  }
+
+  def shutdownTableManager: Unit = {
+    info("Shutting down task instance table manager.")
+
+    taskInstances.values.foreach(_.shutdownTableManager)
   }
 
   def shutdownLocalityManager {

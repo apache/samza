@@ -19,6 +19,10 @@
 
 package org.apache.samza.operators.spec;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.function.Function;
+
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.FilterFunction;
@@ -26,13 +30,11 @@ import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.serializers.Serde;
+import org.apache.samza.table.TableSpec;
 import org.apache.samza.task.TaskContext;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.function.Function;
 
 
 /**
@@ -224,4 +226,43 @@ public class OperatorSpecs {
         },
         OperatorSpec.OpCode.MERGE, opId);
   }
+
+  /**
+   * Creates a {@link StreamTableJoinOperatorSpec} with a join function.
+   *
+   * @param leftInputOpSpec the operator spec for the stream on the left side of the join
+   * @param tableSpec the table spec for the table on the right side of the join
+   * @param joinFn the user-defined join function to get join keys and results
+   * @param opId the unique ID of the operator
+   * @param <M> the type of the incoming message
+   * @param <K> the type of the table record key
+   * @param <R> the type of the table record value
+   * @param <OM> the type of the join result
+   * @return the {@link StreamTableJoinOperatorSpec}
+   */
+  public static <K, M, R, OM> StreamTableJoinOperatorSpec<K, M, R, OM> createStreamTableJoinOperatorSpec(
+      OperatorSpec<?, M> leftInputOpSpec, TableSpec tableSpec,
+      StreamTableJoinFunction<K, M, R, OM> joinFn, int opId) {
+    return new StreamTableJoinOperatorSpec<>(leftInputOpSpec, tableSpec, joinFn, opId);
+  }
+
+  /**
+   * Creates a {@link WriteToOperatorSpec} with a key extractor and a value extractor function.
+   *
+   * @param inputOpSpec the operator spec for the input stream
+   * @param tableSpec the table spec for the underlying table
+   * @param keyExtractor user-defined function to extract the record key from the incoming message
+   * @param valueExtractor user-defined function to extract the record value from the incoming message
+   * @param opId the unique ID of the operator
+   * @param <M> the type of the incoming message
+   * @param <K> the type of the table record key
+   * @param <V> the type of the table record value
+   * @return the {@link WriteToOperatorSpec}
+   */
+  public static <K, V, M> WriteToOperatorSpec<K, V, M> createWriteToOperatorSpec(
+      OperatorSpec<?, M> inputOpSpec, TableSpec tableSpec,
+      Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> valueExtractor, int opId) {
+    return new WriteToOperatorSpec(inputOpSpec, tableSpec, keyExtractor, valueExtractor, opId);
+  }
+
 }

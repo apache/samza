@@ -18,7 +18,14 @@
  */
 package org.apache.samza.operators;
 
-import com.google.common.base.Preconditions;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.spec.InputOperatorSpec;
@@ -30,16 +37,12 @@ import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
+import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
+import com.google.common.base.Preconditions;
+
 
 /**
  * A {@link StreamGraph} that provides APIs for accessing {@link MessageStream}s to be used to
@@ -57,6 +60,7 @@ public class StreamGraphImpl implements StreamGraph {
   // We use a LHM for deterministic order in initializing and closing operators.
   private final Map<StreamSpec, InputOperatorSpec> inputOperators = new LinkedHashMap<>();
   private final Map<StreamSpec, OutputStreamImpl> outputStreams = new LinkedHashMap<>();
+  private final Map<TableSpec, RecordTableImpl> tables = new LinkedHashMap<>();
   private final ApplicationRunner runner;
   private final Config config;
 
@@ -135,6 +139,18 @@ public class StreamGraphImpl implements StreamGraph {
   }
 
   @Override
+  public <K, V> RecordTable<K, V> getRecordTable(TableDescriptor<K, V, ?> tableDesc) {
+    TableSpec tableSpec = tableDesc.getTableSpec();
+    if (tables.containsKey(tableSpec)) {
+      throw new IllegalStateException(String.format(
+          "getRecordTable() invoked multiple times with the same tableId: %s",
+          tableDesc.getTableId()));
+    }
+    tables.put(tableSpec, new RecordTableImpl(tableSpec));
+    return tables.get(tableSpec);
+  }
+
+  @Override
   public StreamGraph withContextManager(ContextManager contextManager) {
     this.contextManager = contextManager;
     return this;
@@ -180,6 +196,10 @@ public class StreamGraphImpl implements StreamGraph {
 
   public Map<StreamSpec, OutputStreamImpl> getOutputStreams() {
     return Collections.unmodifiableMap(outputStreams);
+  }
+
+  public Map<TableSpec, RecordTableImpl> getRecordTables() {
+    return Collections.unmodifiableMap(tables);
   }
 
   public ContextManager getContextManager() {

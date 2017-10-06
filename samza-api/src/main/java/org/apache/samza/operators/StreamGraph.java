@@ -21,7 +21,6 @@ package org.apache.samza.operators;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.serializers.Serde;
 
-
 /**
  * Provides access to {@link MessageStream}s and {@link OutputStream}s used to describe application logic.
  */
@@ -98,6 +97,19 @@ public interface StreamGraph {
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
   <M> OutputStream<M> getOutputStream(String streamId);
+
+  /**
+   * Gets the {@link RecordTable} corresponding to the {@link TableDescriptor}.
+   * <p>
+   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
+   *
+   * @param tableDesc the {@link TableDescriptor}
+   * @param <K> the type of the key
+   * @param <V> the type of the value
+   * @return the {@link RecordTable}
+   * @throws IllegalStateException when invoked multiple times with the same {@link TableDescriptor}
+   */
+  <K, V> RecordTable<K, V> getRecordTable(TableDescriptor<K, V, ?> tableDesc);
 
   /**
    * Sets the {@link ContextManager} for this {@link StreamGraph}.

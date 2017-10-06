@@ -37,6 +37,8 @@ public interface TaskContext {
 
   Object getStore(String name);
 
+  Object getTable(String tableId);
+
   TaskName getTaskName();
 
   SamzaContainerContext getSamzaContainerContext();
