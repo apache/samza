@@ -25,6 +25,8 @@ import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.io.UnsupportedEncodingException;
 
 /**
@@ -47,7 +49,7 @@ public class JsonSerdeV2<T> implements Serde<T> {
 
   private static final Logger LOG = LoggerFactory.getLogger(JsonSerdeV2.class);
   private final Class<T> clazz;
-  private transient final ObjectMapper mapper = new ObjectMapper();
+  private transient ObjectMapper mapper = new ObjectMapper();
 
   /**
    * Constructs a JsonSerdeV2 that returns a LinkedHashMap&lt;String, Object&lt; upon deserialization.
@@ -104,5 +106,10 @@ public class JsonSerdeV2<T> implements Serde<T> {
     } else {
       return null;
     }
+  }
+
+  private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+    in.defaultReadObject();
+    this.mapper = new ObjectMapper();
   }
 }
