@@ -19,6 +19,8 @@
 
 package org.apache.samza.util
 
+import java.util.concurrent.{CountDownLatch, TimeUnit}
+
 import org.apache.samza.util.ExponentialSleepStrategy.RetryLoop
 import org.junit.Assert._
 import org.junit.Test
@@ -116,45 +118,57 @@ class TestExponentialSleepStrategy {
     assertEquals(0, loopObject.sleepCount)
   }
 
-  def interruptedThread(operation: => Unit) = {
+  def interruptedThread(operationStartLatch: CountDownLatch, operation: => Unit): Option[Throwable] = {
     var exception: Option[Throwable] = None
     val interruptee = new Thread(new Runnable {
       def run {
         try { operation } catch { case e: Exception => exception = Some(e) }
       }
     })
-    interruptee.start
-    Thread.sleep(10) // give the thread a chance to make some progress before we interrupt it
-    interruptee.interrupt
-    interruptee.join
+    interruptee.start()
+    assertTrue("Operation start latch timed out.", operationStartLatch.await(1, TimeUnit.MINUTES))
+    interruptee.interrupt()
+    interruptee.join()
     exception
   }
 
-  // TODO fix in SAMZA-1269
-  // @Test
-  def testThreadInterruptInRetryLoop {
+  @Test def testThreadInterruptInRetryLoop {
     val strategy = new ExponentialSleepStrategy
     var iterations = 0
     var loopObject: RetryLoop = null
-    val exception = interruptedThread {
+    val loopStartLatch = new CountDownLatch(1) // ensures that we've executed the operation at least once
+    val exception = interruptedThread(
+      loopStartLatch,
       strategy.run(
-        loop => { iterations += 1; loopObject = loop },
+        loop => { loopObject = loop; loopStartLatch.countDown(); iterations += 1; },
         (exception, loop) => throw exception
       )
-    }
-    assertEquals(classOf[InterruptedException], exception.get.getClass)
+    )
+
+    // The interrupt can cause either,
+    // 1. the retry loop to exit with None result, no exception and isDone == false, or
+    // 2. the sleeping thread (during the back-off) to throw an InterruptedException.
+    assertTrue((!loopObject.isDone && exception.isEmpty) ||
+      exception.get.getClass.equals(classOf[InterruptedException]))
   }
 
   @Test def testThreadInterruptInOperationSleep {
     val strategy = new ExponentialSleepStrategy
     var iterations = 0
     var loopObject: RetryLoop = null
-    val exception = interruptedThread {
+    val loopStartLatch = new CountDownLatch(1) // ensures that we've executed the operation at least once
+    val exception = interruptedThread(
+      loopStartLatch,
       strategy.run(
-        loop => { iterations += 1; loopObject = loop; Thread.sleep(1000) },
+        loop => { loopObject = loop; iterations += 1; loopStartLatch.countDown(); Thread.sleep(1000) },
         (exception, loop) => throw exception
       )
-    }
-    assertEquals(classOf[InterruptedException], exception.get.getClass)
+    )
+
+    // The interrupt can cause either,
+    // 1. the retry loop to exit with None result, no exception and isDone == false, or
+    // 2. the sleeping thread (in the operation or during the back-off) to throw an InterruptedException.
+    assertTrue((!loopObject.isDone && exception.isEmpty) ||
+      exception.get.getClass.equals(classOf[InterruptedException]))
   }
 }
