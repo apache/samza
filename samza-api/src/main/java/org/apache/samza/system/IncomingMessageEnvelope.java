@@ -22,7 +22,7 @@ package org.apache.samza.system;
 import java.nio.charset.Charset;
 
 /**
- * This class represents a message entvelope that is received by a StreamTask for each message that is received from a
+ * This class represents a message envelope that is received by a StreamTask for each message that is received from a
  * partition of a specific input stream.
  */
 public class IncomingMessageEnvelope {

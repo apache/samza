@@ -17,29 +17,15 @@
  * under the License.
  */
 
-package org.apache.samza.serializers
+package org.apache.samza.serializers;
 
-import java.nio.ByteBuffer
-import org.apache.samza.config.Config
+import org.apache.samza.config.Config;
 
-/**
- * A serializer for longs
- */
-class LongSerdeFactory extends SerdeFactory[java.lang.Long] {
-  def getSerde(name: String, config: Config): Serde[java.lang.Long] = new LongSerde
-}
+import java.nio.ByteBuffer;
 
-class LongSerde extends Serde[java.lang.Long] {
-  def toBytes(obj: java.lang.Long): Array[Byte] = if (obj != null) {
-    ByteBuffer.allocate(8).putLong(obj.longValue()).array
-  } else {
-    null
-  }
+public class ByteBufferSerdeFactory implements SerdeFactory<ByteBuffer> {
 
-  // big-endian by default
-  def fromBytes(bytes: Array[Byte]): java.lang.Long = if (bytes != null) {
-    ByteBuffer.wrap(bytes).getLong
-  } else {
-    null
+  public Serde<ByteBuffer> getSerde(String name, Config config) {
+    return new ByteBufferSerde();
   }
 }

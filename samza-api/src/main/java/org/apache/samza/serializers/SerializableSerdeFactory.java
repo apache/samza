@@ -17,31 +17,15 @@
  * under the License.
  */
 
-package org.apache.samza.serializers
+package org.apache.samza.serializers;
 
-import java.nio.ByteBuffer
-import java.util.UUID
+import org.apache.samza.config.Config;
 
-import org.apache.samza.config.Config
+import java.io.Serializable;
 
-/**
- * A serializer for UUID
- */
-class UUIDSerdeFactory extends SerdeFactory[UUID] {
-  def getSerde(name: String, config: Config): Serde[UUID] = new UUIDSerde
-}
+public class SerializableSerdeFactory<T extends Serializable> implements SerdeFactory<T> {
 
-class UUIDSerde() extends Serde[UUID] {
-  def toBytes(obj: UUID): Array[Byte] = if (obj != null) {
-    ByteBuffer.allocate(16).putLong(obj.getMostSignificantBits).putLong(obj.getLeastSignificantBits).array
-  } else {
-    null
-  }
-
-  def fromBytes(bytes: Array[Byte]): UUID = if (bytes != null) {
-    val buffer = ByteBuffer.wrap(bytes)
-    new UUID(buffer.getLong, buffer.getLong)
-  } else {
-    null
+  public Serde<T> getSerde(String name, Config config) {
+    return new SerializableSerde<>();
   }
 }

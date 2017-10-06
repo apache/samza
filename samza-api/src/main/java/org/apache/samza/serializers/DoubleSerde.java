@@ -16,22 +16,30 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.serializers
+
+package org.apache.samza.serializers;
+
+import java.nio.ByteBuffer;
 
 /**
-  * A marker serde class to indicate that messages should not be serialized or deserialized.
-  * This is the same behavior as when no serde is provided, and is intended for use cases where
-  * a Serde parameter or configuration is required.
-  * This is different than [[ByteSerde]] which is a pass-through serde for byte arrays.
-  *
-  * @tparam T type of messages which should not be serialized or deserialized
-  */
-class NoOpSerde[T] extends Serde[T] {
+ * A serializer for doubles
+ */
+public class DoubleSerde implements Serde<Double> {
 
-  override def fromBytes(bytes: Array[Byte]): T =
-    throw new NotImplementedError("NoOpSerde fromBytes should not be invoked by the framework.")
+  public byte[] toBytes(Double obj) {
+    if (obj != null) {
+      return ByteBuffer.allocate(8).putDouble(obj).array();
+    } else {
+      return null;
+    }
+  }
 
-  override def toBytes(obj: T): Array[Byte] =
-    throw new NotImplementedError("NoOpSerde toBytes should not be invoked by the framework.")
-
+  // big-endian by default
+  public Double fromBytes(byte[] bytes) {
+    if (bytes != null) {
+      return ByteBuffer.wrap(bytes).getDouble();
+    } else {
+      return null;
+    }
+  }
 }
