@@ -19,7 +19,7 @@
 
 package org.apache.samza.util
 
-import java.util.concurrent.CountDownLatch
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import org.apache.samza.util.ExponentialSleepStrategy.RetryLoop
 import org.junit.Assert._
@@ -118,7 +118,7 @@ class TestExponentialSleepStrategy {
     assertEquals(0, loopObject.sleepCount)
   }
 
-  def interruptedThread(latch: CountDownLatch, operation: => Unit): Option[Throwable] = {
+  def interruptedThread(operationStartLatch: CountDownLatch, operation: => Unit): Option[Throwable] = {
     var exception: Option[Throwable] = None
     val interruptee = new Thread(new Runnable {
       def run {
@@ -126,7 +126,7 @@ class TestExponentialSleepStrategy {
       }
     })
     interruptee.start()
-    latch.await()
+    assertTrue("Operation start latch timed out.", operationStartLatch.await(1, TimeUnit.MINUTES))
     interruptee.interrupt()
     interruptee.join()
     exception
