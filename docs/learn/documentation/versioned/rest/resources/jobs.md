@@ -295,7 +295,7 @@ After validating each request, the JobsResource invokes the appropriate JobProxy
 
 The provided [SimpleInstallationFinder](../javadocs/org/apache/samza/rest/proxy/installation/SimpleInstallationFinder.html) crawls the file system, starting in the directory specified by the `job.installations.path` looking for valid Samza job config files. It extracts the `job.name` and `job.id` property values and creates an [InstallationRecord](../javadocs/org/apache/samza/rest/proxy/installation/InstallationRecord.html) for the each job instance. The InstallationRecord contains all the information needed to start, stop, and get the status for the job.
 
-The provided [YarnCliJobStatusProvider](../javadocs/org/apache/samza/rest/proxy/job/YarnCliJobStatusProvider.html) leverages a ScriptRunner to fetch job status using the Yarn ApplicationCLI.
+The provided [YarnRestJobStatusProvider](../javadocs/org/apache/samza/rest/proxy/job/YarnRestJobStatusProvider.html) uses the Resource Manager's REST API to fetch the job status.
 
 The [SimpleYarnJobProxy](../javadocs/org/apache/samza/rest/proxy/job/SimpleYarnJobProxy.html) relies on the scripts in the InstallationRecord scriptFilePath (`/bin`) directory to start and stop jobs.
 
