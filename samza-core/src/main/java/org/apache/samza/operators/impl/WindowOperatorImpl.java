@@ -20,6 +20,7 @@
  */
 package org.apache.samza.operators.impl;
 
+import com.google.common.base.Preconditions;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.impl.store.*;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -30,8 +31,8 @@ import org.apache.samza.operators.windows.WindowKey;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.operators.windows.internal.WindowType;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.storage.kv.ClosableIterator;
-import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
@@ -60,17 +61,16 @@ import java.util.function.Function;
  *
  * @param <M> the type of the incoming message
  * @param <K> the type of the key in this {@link org.apache.samza.operators.MessageStream}
- * @param <WV> the type of the value in the emitted window pane
  *
  */
-public class WindowOperatorImpl<M, K, WV> extends OperatorImpl<M, WindowPane<K, WV>> {
+public class WindowOperatorImpl<M, K, Object> extends OperatorImpl<M, WindowPane<K, Object>> {
 
   private static final Logger LOG = LoggerFactory.getLogger(WindowOperatorImpl.class);
 
-  private final WindowOperatorSpec<M, K, WV> windowOpSpec;
+  private final WindowOperatorSpec<M, K, Object> windowOpSpec;
+  // Object = Collection<M> or WV
   private final Clock clock;
-  private final WindowInternal<M, K, WV> window;
-  private final KeyValueStore<WindowKey<K>, WindowState<WV>> store = new org.apache.samza.operators.util.InternalInMemoryStore<>();
+  private final WindowInternal<M, K, Object> window;
 
   private TimeSeriesStore<K, Object> timeSeriesDb;
 
@@ -79,137 +79,34 @@ public class WindowOperatorImpl<M, K, WV> extends OperatorImpl<M, WindowPane<K, 
   // The trigger state corresponding to each {@link TriggerKey}.
   private final Map<TriggerKey<K>, TriggerImplHandler> triggers = new HashMap<>();
 
-  public WindowOperatorImpl(WindowOperatorSpec<M, K, WV> windowOpSpec, Clock clock) {
+  public WindowOperatorImpl(WindowOperatorSpec<M, K, Object> windowOpSpec, Clock clock) {
     this.windowOpSpec = windowOpSpec;
     this.clock = clock;
     this.window = windowOpSpec.getWindow();
+    System.out.println(window);
     this.triggerScheduler= new TriggerScheduler(clock);
   }
 
   @Override
   protected void handleInit(Config config, TaskContext context) {
-    WindowInternal<M, K, WV> window = windowOpSpec.getWindow();
+    WindowInternal<M, K, Object> window = windowOpSpec.getWindow();
+
+    TimeSeriesKeySerde<K> timeSeriesSerde = new TimeSeriesKeySerde<>(window.getKeySerde());
+
     if (window.getFoldLeftFunction() != null) {
       window.getFoldLeftFunction().init(config, context);
-      InternalInMemoryStore<TimeSeriesKey<K>, Object> timeSeries = (InternalInMemoryStore<TimeSeriesKey<K>, Object>)new InternalInMemoryStore<>(new TimeSeriesKeySerde<>(window.getKeySerde()), window.getWindowValSerde());
+      InternalInMemoryStore<TimeSeriesKey<K>, Object> timeSeries = new InternalInMemoryStore<>(timeSeriesSerde, window.getWindowValSerde());
       timeSeriesDb = new TimeSeriesStoreImpl<>(timeSeries, false);
     } else {
-      InternalInMemoryStore<TimeSeriesKey<K>, Object> timeSeries = (InternalInMemoryStore<TimeSeriesKey<K>, Object>)new InternalInMemoryStore<>(new TimeSeriesKeySerde<>(window.getKeySerde()), window.getMsgSerde());
+      InternalInMemoryStore<TimeSeriesKey<K>, Object> timeSeries = new InternalInMemoryStore<>(timeSeriesSerde, (Serde<Object>)window.getMsgSerde());
       timeSeriesDb = new TimeSeriesStoreImpl<>(timeSeries, true);
     }
   }
 
-  @Override
-  public Collection<WindowPane<K, WV>> handleMessage(
-      M message, MessageCollector collector, TaskCoordinator coordinator) {
-    LOG.trace("Processing message envelope: {}", message);
-    List<WindowPane<K, WV>> results = new ArrayList<>();
-
-    WindowKey<K> storeKey =  getStoreKey(message);
-    WindowState<WV> existingState = store.get(storeKey);
-    LOG.trace("Store key ({}) has existing state ({})", storeKey, existingState);
-    WindowState<WV> newState = applyFoldFunction(existingState, message);
-
-    LOG.trace("New window value: {}, earliest timestamp: {}",
-        newState.getWindowValue(), newState.getEarliestTimestamp());
-
-    // compute key
-    K key = null;
-    if (window.getKeyExtractor() != null) {
-      key = window.getKeyExtractor().apply(message);
-    }
-
-    // compute timestamp
-    long timestamp = 0l;
-    if (window.getWindowType() == WindowType.TUMBLING) {
-      long triggerDurationMs = ((TimeTrigger<M>) window.getDefaultTrigger()).getDuration().toMillis();
-      final long now = clock.currentTimeMillis();
-      Long windowBoundary = now - now % triggerDurationMs;
-      timestamp = windowBoundary;
-    }
-
-    // compute value
-    Object val = null;
-    if (window.getFoldLeftFunction() == null) {
-      val = message;
-    } else {
-      WV oldVal = (WV)readVal(key, timestamp);
-      val = window.getFoldLeftFunction().apply(message, oldVal);
-    }
-
-    timeSeriesDb.put(key, val, timestamp);
-
-    store.put(storeKey, newState);
-
-    if (window.getEarlyTrigger() != null) {
-      TriggerKey<K> triggerKey = new TriggerKey<>(FiringType.EARLY, storeKey);
-
-      TriggerImplHandler triggerImplHandler = getOrCreateTriggerImplHandler(triggerKey, window.getEarlyTrigger());
-      Optional<WindowPane<K, WV>> maybeTriggeredPane =
-          triggerImplHandler.onMessage(triggerKey, message, collector, coordinator);
-      maybeTriggeredPane.ifPresent(results::add);
-    }
-
-    if (window.getDefaultTrigger() != null) {
-      TriggerKey<K> triggerKey = new TriggerKey<>(FiringType.DEFAULT, storeKey);
-      TriggerImplHandler triggerImplHandler = getOrCreateTriggerImplHandler(triggerKey, window.getDefaultTrigger());
-      Optional<WindowPane<K, WV>> maybeTriggeredPane =
-          triggerImplHandler.onMessage(triggerKey, message, collector, coordinator);
-      maybeTriggeredPane.ifPresent(results::add);
-    }
-
-    return results;
-  }
-
-  private Object readVal(K key, long timestamp) {
-    ClosableIterator<TimestampedValue<Object>> timestampedValueClosableIterator = timeSeriesDb.get(key, timestamp, timestamp);
-    Object wVal = null;
-    while(timestampedValueClosableIterator.hasNext()) {
-      TimestampedValue<Object> next = timestampedValueClosableIterator.next();
-      wVal = next.getValue();
-    }
-    timestampedValueClosableIterator.close();
-    return wVal;
-  }
-
-  @Override
-  public Collection<WindowPane<K, WV>> handleTimer(MessageCollector collector, TaskCoordinator coordinator) {
-    LOG.trace("Processing timer.");
-    List<WindowPane<K, WV>> results = new ArrayList<>();
-
-    List<TriggerKey<K>> keys = triggerScheduler.runPendingCallbacks();
-
-    for (TriggerKey<K> key : keys) {
-      TriggerImplHandler triggerImplHandler = triggers.get(key);
-      if (triggerImplHandler != null) {
-        Optional<WindowPane<K, WV>> maybeTriggeredPane = triggerImplHandler.onTimer(key, collector, coordinator);
-        maybeTriggeredPane.ifPresent(results::add);
-      }
-    }
-    LOG.trace("Triggered panes: " + results.size());
-    return results;
-  }
-
-  @Override
-  protected OperatorSpec<M, WindowPane<K, WV>> getOperatorSpec() {
-    return windowOpSpec;
-  }
-
-  @Override
-  protected void handleClose() {
-    WindowInternal<M, K, WV> window = windowOpSpec.getWindow();
-
-    if (window.getFoldLeftFunction() != null) {
-      window.getFoldLeftFunction().close();
-    }
-  }
-
-  /**
-   * Get the key to be used for lookups in the store for this message.
-   */
   private WindowKey<K> getStoreKey(M message) {
     Function<M, K> keyExtractor = window.getKeyExtractor();
     K key = null;
+    long timestamp = 0l;
 
     if (keyExtractor != null) {
       key = keyExtractor.apply(message);
@@ -218,32 +115,137 @@ public class WindowOperatorImpl<M, K, WV> extends OperatorImpl<M, WindowPane<K, 
     String paneId = null;
 
     if (window.getWindowType() == WindowType.TUMBLING) {
-      long triggerDurationMs = ((TimeTrigger<M>) window.getDefaultTrigger()).getDuration().toMillis();
-      final long now = clock.currentTimeMillis();
-      Long windowBoundary = now - now % triggerDurationMs;
-      paneId = windowBoundary.toString();
+      timestamp = getTumblingWindowTimestamp(message);
+      paneId = Long.toString(timestamp);
+    } else if (window.getWindowType() == WindowType.SESSION) {
+      timestamp = getSessionWindowTimestamp(message);
+      paneId = Long.toString(timestamp);
     }
 
-    return new WindowKey<>(key, paneId, 0);
+    return new WindowKey<>(key, paneId, timestamp);
   }
 
-  private WindowState<WV> applyFoldFunction(WindowState<WV> existingState, M message) {
-    WV wv;
-    long earliestTimestamp;
+  private long getTumblingWindowTimestamp(M message) {
+    long triggerDurationMs = ((TimeTrigger<M>) window.getDefaultTrigger()).getDuration().toMillis();
+    final long now = clock.currentTimeMillis();
+    long timestamp = now - now % triggerDurationMs;
+    return timestamp;
+  }
 
-    if (existingState == null) {
-      LOG.trace("No existing state found for key. Invoking initializer.");
-      wv = window.getInitializer().get();
-      earliestTimestamp = clock.currentTimeMillis();
+  private long getSessionWindowTimestamp(M message) {
+    K key = window.getKeyExtractor().apply(message);
+    ClosableIterator<TimestampedValue<Object>> iterator = timeSeriesDb.get(key, 0, Long.MAX_VALUE);
+    long timestamp = -1;
+
+    while (iterator.hasNext()) {
+      TimestampedValue<Object> next = iterator.next();
+      timestamp = next.getTimestamp();
+      break;
+    }
+    iterator.close();
+
+    if (timestamp == -1) {
+      timestamp = clock.currentTimeMillis();
+    }
+    return timestamp;
+  }
+
+
+  @Override
+  public Collection<WindowPane<K, Object>> handleMessage(
+      M message, MessageCollector collector, TaskCoordinator coordinator) {
+    LOG.trace("Processing message envelope: {}", message);
+    List<WindowPane<K, Object>> results = new ArrayList<>();
+
+    WindowKey<K> storeKey =  getStoreKey(message);
+    K key = storeKey.getKey();
+    Object storeVal = null;
+
+    if (window.getFoldLeftFunction() == null) {
+      storeVal = (Object)message;
     } else {
-      wv = existingState.getWindowValue();
-      earliestTimestamp = existingState.getEarliestTimestamp();
+      List<Object> existingState = getExistingState(storeKey);
+      Preconditions.checkState(existingState.size() == 1, "Store with FoldLeftFunction should not contain more than one entry per window");
+      storeVal = applyFoldFunction(existingState.get(0), message);
     }
 
-    WV newVal = window.getFoldLeftFunction().apply(message, wv);
-    WindowState<WV> newState = new WindowState(newVal, earliestTimestamp);
+    timeSeriesDb.put(storeKey.getKey(), storeVal, storeKey.getTimestamp());
 
-    return newState;
+    if (window.getEarlyTrigger() != null) {
+      TriggerKey<K> triggerKey = new TriggerKey<>(FiringType.EARLY, storeKey);
+
+      TriggerImplHandler triggerImplHandler = getOrCreateTriggerImplHandler(triggerKey, window.getEarlyTrigger());
+      Optional<WindowPane<K, Object>> maybeTriggeredPane =
+          triggerImplHandler.onMessage(triggerKey, message, collector, coordinator);
+      maybeTriggeredPane.ifPresent(results::add);
+    }
+
+    if (window.getDefaultTrigger() != null) {
+      TriggerKey<K> triggerKey = new TriggerKey<>(FiringType.DEFAULT, storeKey);
+      TriggerImplHandler triggerImplHandler = getOrCreateTriggerImplHandler(triggerKey, window.getDefaultTrigger());
+      Optional<WindowPane<K, Object>> maybeTriggeredPane =
+          triggerImplHandler.onMessage(triggerKey, message, collector, coordinator);
+      maybeTriggeredPane.ifPresent(results::add);
+    }
+
+    return results;
+  }
+
+  private List<Object> getExistingState(WindowKey<K> storeKey) {
+    ClosableIterator<TimestampedValue<Object>> iterator = timeSeriesDb.get(storeKey.getKey(), storeKey.getTimestamp(), storeKey.getTimestamp() + 1);
+    Object wVal = null;
+    List<Object> values = new ArrayList<>();
+
+    while(iterator.hasNext()) {
+      TimestampedValue<Object> next = iterator.next();
+      wVal = next.getValue();
+      values.add(wVal);
+    }
+
+    iterator.close();
+    return values;
+  }
+
+  @Override
+  public Collection<WindowPane<K, Object>> handleTimer(MessageCollector collector, TaskCoordinator coordinator) {
+    LOG.trace("Processing timer.");
+    List<WindowPane<K, Object>> results = new ArrayList<>();
+
+    List<TriggerKey<K>> keys = triggerScheduler.runPendingCallbacks();
+
+    for (TriggerKey<K> key : keys) {
+      TriggerImplHandler triggerImplHandler = triggers.get(key);
+      if (triggerImplHandler != null) {
+        Optional<WindowPane<K, Object>> maybeTriggeredPane = triggerImplHandler.onTimer(key, collector, coordinator);
+        maybeTriggeredPane.ifPresent(results::add);
+      }
+    }
+    LOG.trace("Triggered panes: " + results.size());
+    return results;
+  }
+
+  @Override
+  protected OperatorSpec<M, WindowPane<K, Object>> getOperatorSpec() {
+    return windowOpSpec;
+  }
+
+  @Override
+  protected void handleClose() {
+    WindowInternal<M, K, Object> window = windowOpSpec.getWindow();
+
+    if (window.getFoldLeftFunction() != null) {
+      window.getFoldLeftFunction().close();
+    }
+  }
+
+  private Object applyFoldFunction(Object oldVal, M message) {
+    if (oldVal == null) {
+      LOG.trace("No existing state found for key. Invoking initializer.");
+      oldVal = window.getInitializer().get();
+    }
+
+    Object newVal = window.getFoldLeftFunction().apply(message, oldVal);
+    return newVal;
   }
 
   private TriggerImplHandler getOrCreateTriggerImplHandler(TriggerKey<K> triggerKey, Trigger<M> trigger) {
@@ -265,25 +267,31 @@ public class WindowOperatorImpl<M, K, WV> extends OperatorImpl<M, WindowPane<K, 
   /**
    * Handles trigger firings and returns the optional result.
    */
-  private Optional<WindowPane<K, WV>> onTriggerFired(
+  private Optional<WindowPane<K, Object>> onTriggerFired(
           TriggerKey<K> triggerKey, MessageCollector collector, TaskCoordinator coordinator) {
     LOG.trace("Trigger key {} fired." , triggerKey);
 
     TriggerImplHandler wrapper = triggers.get(triggerKey);
     WindowKey<K> windowKey = triggerKey.getKey();
-    WindowState<WV> state = store.get(windowKey);
+    List<Object> existingState = getExistingState(windowKey);
 
-    if (state == null) {
+    if (existingState == null || existingState.size() == 0) {
       LOG.trace("No state found for triggerKey: {}", triggerKey);
       return Optional.empty();
     }
 
-    WindowPane<K, WV> paneOutput = computePaneOutput(triggerKey, state);
+    Object windowVal = null;
+    if (window.getFoldLeftFunction() == null) {
+      windowVal = (Object) existingState;
+    } else {
+      windowVal = existingState.get(0);
+    }
 
+    WindowPane<K, Object> paneOutput = computePaneOutput(triggerKey, windowVal);
     // Handle accumulation modes.
     if (window.getAccumulationMode() == AccumulationMode.DISCARDING) {
       LOG.trace("Clearing state for trigger key: {}", triggerKey);
-      store.put(windowKey, null);
+      timeSeriesDb.remove(windowKey.getKey(), 0, Long.MAX_VALUE);
     }
 
     // Cancel all early triggers too when the default trigger fires. Also, clean all state for the key.
@@ -295,7 +303,7 @@ public class WindowOperatorImpl<M, K, WV> extends OperatorImpl<M, WindowPane<K, 
       cancelTrigger(triggerKey, true);
       cancelTrigger(new TriggerKey(FiringType.EARLY, triggerKey.getKey()), true);
       WindowKey<K> key = triggerKey.getKey();
-      store.delete(key);
+      timeSeriesDb.remove(windowKey.getKey(), 0, Long.MAX_VALUE);
     }
 
     // Cancel non-repeating early triggers. All early triggers should be removed from the "triggers" map only after the
@@ -313,22 +321,10 @@ public class WindowOperatorImpl<M, K, WV> extends OperatorImpl<M, WindowPane<K, 
   /**
    * Computes the pane output corresponding to a {@link TriggerKey} that fired.
    */
-  private WindowPane<K, WV> computePaneOutput(TriggerKey<K> triggerKey, WindowState<WV> state) {
+  private WindowPane<K, Object> computePaneOutput(TriggerKey<K> triggerKey, Object windowVal) {
     WindowKey<K> windowKey = triggerKey.getKey();
-    WV windowVal = state.getWindowValue();
 
-    // For session windows, we will create a new window key by using the time of the first message in the window as
-    //the paneId.
-    if (window.getWindowType() == WindowType.SESSION) {
-      windowKey = new WindowKey<>(windowKey.getKey(), Long.toString(state.getEarliestTimestamp()), state.getEarliestTimestamp());
-    }
-
-    // Make a defensive copy so that we are immune to further mutations on the collection
-    if (windowVal instanceof Collection) {
-      windowVal = (WV) new ArrayList<>((Collection<WV>) windowVal);
-    }
-
-    WindowPane<K, WV> paneOutput =
+    WindowPane<K, Object> paneOutput =
         new WindowPane<>(windowKey, windowVal, window.getAccumulationMode(), triggerKey.getType());
     LOG.trace("Emitting pane output for trigger key {}", triggerKey);
     return paneOutput;
@@ -360,7 +356,7 @@ public class WindowOperatorImpl<M, K, WV> extends OperatorImpl<M, WindowPane<K, 
       this.impl = impl;
     }
 
-    public Optional<WindowPane<K, WV>> onMessage(TriggerKey<K> triggerKey, M message,
+    public Optional<WindowPane<K, Object>> onMessage(TriggerKey<K> triggerKey, M message,
                                                  MessageCollector collector, TaskCoordinator coordinator) {
       if (!isCancelled) {
         LOG.trace("Forwarding callbacks for {}", message);
@@ -377,7 +373,7 @@ public class WindowOperatorImpl<M, K, WV> extends OperatorImpl<M, WindowPane<K, 
       return Optional.empty();
     }
 
-    public Optional<WindowPane<K, WV>> onTimer(
+    public Optional<WindowPane<K, Object>> onTimer(
             TriggerKey<K> key, MessageCollector collector, TaskCoordinator coordinator) {
       if (impl.shouldFire() && !isCancelled) {
         LOG.trace("Triggering timer triggers");

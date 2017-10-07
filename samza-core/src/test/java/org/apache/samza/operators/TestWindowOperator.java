@@ -36,6 +36,7 @@ import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
@@ -397,7 +398,7 @@ public class TestWindowOperator {
       Function<IntegerEnvelope, Integer> keyFn = m -> (Integer) m.getKey();
       inStream
         .map(m -> m)
-        .window(Windows.keyedTumblingWindow(keyFn, duration, null, null).setEarlyTrigger(earlyTrigger)
+        .window(Windows.keyedTumblingWindow(keyFn, duration, new IntegerSerde(), new IntegerEnvelopeSerde()).setEarlyTrigger(earlyTrigger)
           .setAccumulationMode(mode))
           .sink((message, messageCollector, taskCoordinator) -> {
               messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
@@ -427,7 +428,7 @@ public class TestWindowOperator {
       Function<IntegerEnvelope, Integer> keyFn = m -> (Integer) m.getKey();
       inStream
           .map(m -> m)
-          .window(Windows.<IntegerEnvelope>tumblingWindow(duration, null).setEarlyTrigger(earlyTrigger)
+          .window(Windows.tumblingWindow(duration, new IntegerEnvelopeSerde()).setEarlyTrigger(earlyTrigger)
               .setAccumulationMode(mode))
           .sink((message, messageCollector, taskCoordinator) -> {
               messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
@@ -455,7 +456,7 @@ public class TestWindowOperator {
 
       inStream
           .map(m -> m)
-          .window(Windows.keyedSessionWindow(keyFn, duration, null, null)
+          .window(Windows.keyedSessionWindow(keyFn, duration, new IntegerEnvelopeSerde(), new IntegerSerde())
               .setAccumulationMode(mode))
           .sink((message, messageCollector, taskCoordinator) -> {
               messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
@@ -467,6 +468,19 @@ public class TestWindowOperator {
 
     IntegerEnvelope(Integer key) {
       super(new SystemStreamPartition("kafka", "integers", new Partition(0)), "1", key, key);
+    }
+  }
+
+  private class IntegerEnvelopeSerde implements Serde<IntegerEnvelope> {
+    private final IntegerSerde intSerde = new IntegerSerde();
+    @Override
+    public byte[] toBytes(IntegerEnvelope object) {
+      return intSerde.toBytes((Integer)object.getKey());
+    }
+
+    @Override
+    public IntegerEnvelope fromBytes(byte[] bytes) {
+      return new IntegerEnvelope(intSerde.fromBytes(bytes));
     }
   }
 }

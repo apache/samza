@@ -28,6 +28,7 @@ public class TimeSeriesKey<K> {
   private final long timestamp;
 
   private final long seqNum;
+  public static int VERSION = 0;
 
   public TimeSeriesKey(K k, long time, long seq) {
     key = k;

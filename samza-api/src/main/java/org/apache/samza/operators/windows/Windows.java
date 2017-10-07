@@ -154,10 +154,10 @@ public final class Windows {
    * @return the created {@link Window} function
    */
   public static <M, K> Window<M, K, Collection<M>> keyedTumblingWindow(
-      Function<? super M, ? extends K> keyFn, Duration interval, Serde<K> keySerde, Serde<M> msgSerde) {
+      Function<M, K> keyFn, Duration interval, Serde<K> keySerde, Serde<M> msgSerde) {
 
     Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
-    return new WindowInternal<>(defaultTrigger, null, null, null, null, WindowType.TUMBLING, keySerde, null, msgSerde);
+    return new WindowInternal<>(defaultTrigger, null, null, keyFn, null, WindowType.TUMBLING, keySerde, null, msgSerde);
   }
 
   /**
@@ -212,9 +212,6 @@ public final class Windows {
    * @return the created {@link Window} function
    */
   public static <M> Window<M, Void, Collection<M>> tumblingWindow(Duration duration, Serde<M> msgSerde) {
-    FoldLeftFunction<M, Collection<M>> aggregator = null;
-
-    Supplier<Collection<M>> initialValue = null;
     Trigger<M> defaultTrigger = new TimeTrigger<>(duration);
 
     return new WindowInternal<>(defaultTrigger, null, null, null, null, WindowType.TUMBLING, null, null, msgSerde);
