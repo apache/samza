@@ -22,14 +22,14 @@ package org.apache.samza.checkpoint.kafka
 import java.util.Properties
 
 import kafka.utils.ZkUtils
-import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.{CheckpointManager, CheckpointManagerFactory}
 import org.apache.samza.config.JobConfig.Config2Job
-import org.apache.samza.config.KafkaConfig.Config2Kafka
-import org.apache.samza.config.{Config, KafkaConfig}
+import org.apache.samza.config.{Config, KafkaConfig, SystemConfig}
 import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtil, Logging}
+import org.apache.samza.system.SystemFactory
+import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtil, Logging, Util, _}
+
 
 object KafkaCheckpointManagerFactory {
   val INJECTED_PRODUCER_PROPERTIES = Map(
@@ -46,11 +46,28 @@ object KafkaCheckpointManagerFactory {
     val segmentBytes: Int = if (config == null) {
       KafkaConfig.DEFAULT_CHECKPOINT_SEGMENT_BYTES
     } else {
-      config.getCheckpointSegmentBytes()
+      new KafkaConfig(config).getCheckpointSegmentBytes()
     }
     (new Properties /: Map(
       "cleanup.policy" -> "compact",
       "segment.bytes" -> String.valueOf(segmentBytes))) { case (props, (k, v)) => props.put(k, v); props }
+  }
+
+  /**
+   * Get the checkpoint system and system factory from the configuration
+   * @param config
+   * @return system name and system factory
+   */
+  def getCheckpointSystemStreamAndFactory(config: Config) = {
+
+    val kafkaConfig = new KafkaConfig(config)
+    val systemName = kafkaConfig.getCheckpointSystem.getOrElse(throw new SamzaException("no system defined for Kafka's checkpoint manager."))
+
+    val systemFactoryClassName = new SystemConfig(config)
+            .getSystemFactory(systemName)
+            .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY format systemName))
+    val systemFactory = Util.getObj[SystemFactory](systemFactoryClassName)
+    (systemName, systemFactory)
   }
 }
 
@@ -62,19 +79,17 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
     val jobName = config.getName.getOrElse(throw new SamzaException("Missing job name in configs"))
     val jobId = config.getJobId.getOrElse("1")
 
-    val systemName = config
-      .getCheckpointSystem
-      .getOrElse(throw new SamzaException("no system defined for Kafka's checkpoint manager."))
+    val (systemName: String, systemFactory : SystemFactory) =  getCheckpointSystemStreamAndFactory(config)
 
-    val producerConfig = config.getKafkaSystemProducerConfig(
+    val kafkaConfig = new KafkaConfig(config)
+    val producerConfig = kafkaConfig.getKafkaSystemProducerConfig(
       systemName,
       clientId,
       INJECTED_PRODUCER_PROPERTIES)
-    val connectProducer = () => {
-      new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
-    }
 
-    val consumerConfig = config.getKafkaSystemConsumerConfig(systemName, clientId)
+    val noOpMetricsRegistry = new NoOpMetricsRegistry()
+
+    val consumerConfig = kafkaConfig.getKafkaSystemConsumerConfig(systemName, clientId)
     val zkConnect = Option(consumerConfig.zkConnect)
       .getOrElse(throw new SamzaException("no zookeeper.connect defined in config"))
     val connectZk = () => {
@@ -85,14 +100,16 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
 
     new KafkaCheckpointManager(
       clientId,
-      KafkaUtil.getCheckpointTopic(jobName, jobId),
+      KafkaUtil.getCheckpointTopic(jobName, jobId, config),
       systemName,
-      config.getCheckpointReplicationFactor.getOrElse("3").toInt,
+      kafkaConfig.getCheckpointReplicationFactor.get.toInt,
       socketTimeout,
       consumerConfig.socketReceiveBufferBytes,
       consumerConfig.fetchMessageMaxBytes,            // must be > buffer size
+      () => systemFactory.getConsumer(systemName, config, noOpMetricsRegistry),
+      () => systemFactory.getAdmin(systemName, config),
       new ClientUtilTopicMetadataStore(producerConfig.bootsrapServers, clientId, socketTimeout),
-      connectProducer,
+      () => systemFactory.getProducer(systemName, config, noOpMetricsRegistry),
       connectZk,
       config.getSystemStreamPartitionGrouperFactory,      // To find out the SSPGrouperFactory class so it can be included/verified in the key
       config.failOnCheckpointValidation,

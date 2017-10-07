@@ -24,9 +24,10 @@ import java.util.concurrent.atomic.AtomicLong
 import kafka.admin.AdminUtils
 import kafka.utils.ZkUtils
 import org.apache.kafka.common.PartitionInfo
-import org.apache.samza.config.Config
-import org.apache.samza.config.ConfigException
+import org.apache.samza.config.ApplicationConfig.ApplicationMode
+import org.apache.samza.config.{ApplicationConfig, Config, ConfigException}
 import org.apache.samza.config.JobConfig.Config2Job
+import org.apache.samza.execution.StreamManager
 import org.apache.samza.system.OutgoingMessageEnvelope
 import kafka.common.{ErrorMapping, ReplicaNotAvailableException}
 import org.apache.kafka.common.errors.TopicExistsException
@@ -57,8 +58,11 @@ object KafkaUtil extends Logging {
     abs(envelope.getPartitionKey.hashCode()) % numPartitions
   }
 
-  def getCheckpointTopic(jobName: String, jobId: String) =
-    "__samza_checkpoint_ver_%d_for_%s_%s" format (CHECKPOINT_LOG_VERSION_NUMBER, jobName.replaceAll("_", "-"), jobId.replaceAll("_", "-"))
+  def getCheckpointTopic(jobName: String, jobId: String, config: Config) = {
+    val checkpointTopic = "__samza_checkpoint_ver_%d_for_%s_%s" format(CHECKPOINT_LOG_VERSION_NUMBER,
+      jobName.replaceAll("_", "-"), jobId.replaceAll("_", "-"))
+    StreamManager.createUniqueNameForBatch(checkpointTopic, config)
+  }
 
   /**
    * Exactly the same as Kafka's ErrorMapping.maybeThrowException
@@ -87,94 +91,6 @@ object KafkaUtil extends Logging {
 
 class KafkaUtil(val retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
                 val connectZk: () => ZkUtils) extends Logging {
-  /**
-   * Common code for creating a topic in Kafka
-   *
-   * @param topicName Name of the topic to be created
-   * @param partitionCount  Number of partitions in the topic
-   * @param replicationFactor Number of replicas for the topic
-   * @param topicProperties Any topic related properties
-   */
-  def createTopic(topicName: String, partitionCount: Int, replicationFactor: Int, topicProperties: Properties = new Properties) {
-    info("Attempting to create topic %s." format topicName)
-    retryBackoff.run(
-      loop => {
-        val zkClient = connectZk()
-        try {
-          AdminUtils.createTopic(
-            zkClient,
-            topicName,
-            partitionCount,
-            replicationFactor,
-            topicProperties)
-        } finally {
-          zkClient.close
-        }
-
-        info("Created topic %s." format topicName)
-        loop.done
-      },
-
-      (exception, loop) => {
-        exception match {
-          case tee: TopicExistsException =>
-            info("Topic %s already exists." format topicName)
-            loop.done
-          case e: Exception =>
-            warn("Failed to create topic %s: %s. Retrying." format(topicName, e))
-            debug("Exception detail:", e)
-        }
-      }
-    )
-  }
-
-  /**
-   * Common code to validate partition count in a topic
-   *
-   * @param topicName Name of the topic to be validated
-   * @param systemName  Kafka system to use
-   * @param metadataStore Topic Metadata store
-   * @param expectedPartitionCount  Expected number of partitions
-   * @param failOnValidation If true - fail the job if the validation fails
-   */
-  def validateTopicPartitionCount(topicName: String,
-                                  systemName: String,
-                                  metadataStore: TopicMetadataStore,
-                                  expectedPartitionCount: Int,
-                                  failOnValidation: Boolean = true) {
-    info("Validating topic %s. Expecting partition count: %d" format (topicName, expectedPartitionCount))
-    retryBackoff.run(
-      loop => {
-        val topicMetadataMap = TopicMetadataCache.getTopicMetadata(Set(topicName), systemName, metadataStore.getTopicInfo)
-        val topicMetadata = topicMetadataMap(topicName)
-        KafkaUtil.maybeThrowException(topicMetadata.errorCode)
-
-        val partitionCount = topicMetadata.partitionsMetadata.length
-        if (partitionCount != expectedPartitionCount)
-        {
-          val msg = "Validation failed for topic %s because partition count %s did not " +
-                  "match expected partition count of %d." format(topicName, partitionCount, expectedPartitionCount)
-          if (failOnValidation) {
-            throw new KafkaUtilException(msg)
-          } else {
-            warn(msg + " Ignoring the failure.")
-          }
-        }
-
-        info("Successfully validated topic %s." format topicName)
-        loop.done
-      },
-
-      (exception, loop) => {
-        exception match {
-          case e: KafkaUtilException => throw e
-          case e: Exception =>
-            warn("While trying to validate topic %s: %s. Retrying." format(topicName, e))
-            debug("Exception detail:", e)
-        }
-      }
-    )
-  }
 
   /**
    * Code to verify that a topic exists

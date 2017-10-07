@@ -30,6 +30,7 @@ import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -107,14 +108,14 @@ public class TestJobGraphJsonGenerator {
 
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
     streamGraph.setDefaultSerde(KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
-    MessageStream<KV<Object, Object>> m1 =
+    MessageStream<KV<Object, Object>> messageStream1 =
         streamGraph.<KV<Object, Object>>getInputStream("input1")
             .map(m -> m);
-    MessageStream<KV<Object, Object>> m2 =
+    MessageStream<KV<Object, Object>> messageStream2 =
         streamGraph.<KV<Object, Object>>getInputStream("input2")
             .partitionBy(m -> m.key, m -> m.value)
             .filter(m -> true);
-    MessageStream<KV<Object, Object>> m3 =
+    MessageStream<KV<Object, Object>> messageStream3 =
         streamGraph.<KV<Object, Object>>getInputStream("input3")
             .filter(m -> true)
             .partitionBy(m -> m.key, m -> m.value)
@@ -122,9 +123,15 @@ public class TestJobGraphJsonGenerator {
     OutputStream<KV<Object, Object>> outputStream1 = streamGraph.getOutputStream("output1");
     OutputStream<KV<Object, Object>> outputStream2 = streamGraph.getOutputStream("output2");
 
-    m1.join(m2, mock(JoinFunction.class), Duration.ofHours(2)).sendTo(outputStream1);
-    m2.sink((message, collector, coordinator) -> { });
-    m3.join(m2, mock(JoinFunction.class), Duration.ofHours(1)).sendTo(outputStream2);
+    messageStream1
+        .join(messageStream2, mock(JoinFunction.class),
+            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2))
+        .sendTo(outputStream1);
+    messageStream2.sink((message, collector, coordinator) -> { });
+    messageStream3
+        .join(messageStream2, mock(JoinFunction.class),
+            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1))
+        .sendTo(outputStream2);
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
     ExecutionPlan plan = planner.plan(streamGraph);

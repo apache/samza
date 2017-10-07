@@ -22,7 +22,7 @@ package org.apache.samza.system;
 import java.nio.charset.Charset;
 
 /**
- * This class represents a message entvelope that is received by a StreamTask for each message that is received from a
+ * This class represents a message envelope that is received by a StreamTask for each message that is received from a
  * partition of a specific input stream.
  */
 public class IncomingMessageEnvelope {
@@ -91,14 +91,17 @@ public class IncomingMessageEnvelope {
   }
 
   /**
-   * Builds an end-of-stream envelope for an SSP. This is used by a {@link SystemConsumer} implementation to
-   * indicate that it is at end-of-stream. The end-of-stream message should not delivered to the task implementation.
+   * This method is deprecated in favor of WatermarkManager.buildEndOfStreamEnvelope(SystemStreamPartition ssp).
    *
    * @param ssp The SSP that is at end-of-stream.
    * @return an IncomingMessageEnvelope corresponding to end-of-stream for that SSP.
    */
   public static IncomingMessageEnvelope buildEndOfStreamEnvelope(SystemStreamPartition ssp) {
-    return new IncomingMessageEnvelope(ssp, END_OF_STREAM_OFFSET, null, null);
+    return new IncomingMessageEnvelope(ssp, END_OF_STREAM_OFFSET, null, new EndOfStreamMessage(null));
+  }
+
+  public static IncomingMessageEnvelope buildWatermarkEnvelope(SystemStreamPartition ssp, long watermark) {
+    return new IncomingMessageEnvelope(ssp, null, null, new WatermarkMessage(watermark, null));
   }
 
   @Override

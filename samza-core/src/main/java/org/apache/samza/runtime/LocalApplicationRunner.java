@@ -154,7 +154,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       writePlanJsonFile(executionPlanJson);
 
       // 2. create the necessary streams
-      // TODO: System generated intermediate streams should have robust naming scheme. Refer JIRA-1391
+      // TODO: System generated intermediate streams should have robust naming scheme. See SAMZA-1391
       String planId = String.valueOf(executionPlanJson.hashCode());
       createStreams(planId, plan.getIntermediateStreams());
 
@@ -269,5 +269,10 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       throw new SamzaException(String.format("%s is not a valid task factory",
           taskFactory.getClass().getCanonicalName()));
     }
+  }
+
+  /* package private for testing */
+  Set<StreamProcessor> getProcessors() {
+    return processors;
   }
 }

@@ -20,12 +20,17 @@ package org.apache.samza.operators.impl;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.spec.PartitionByOperatorSpec;
+import org.apache.samza.system.ControlMessage;
+import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.WatermarkMessage;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
@@ -44,6 +49,8 @@ class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
   private final SystemStream systemStream;
   private final Function<? super M, ? extends K> keyFunction;
   private final Function<? super M, ? extends V> valueFunction;
+  private final String taskName;
+  private final ControlMessageSender controlMessageSender;
 
   PartitionByOperatorImpl(PartitionByOperatorSpec<M, K, V> partitionByOpSpec, Config config, TaskContext context) {
     this.partitionByOpSpec = partitionByOpSpec;
@@ -56,6 +63,9 @@ class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
         outputStream.getStreamSpec().getPhysicalName());
     this.keyFunction = partitionByOpSpec.getKeyFunction();
     this.valueFunction = partitionByOpSpec.getValueFunction();
+    this.taskName = context.getTaskName().getTaskName();
+    StreamMetadataCache streamMetadataCache = ((TaskContextImpl) context).getStreamMetadataCache();
+    this.controlMessageSender = new ControlMessageSender(streamMetadataCache);
   }
 
   @Override
@@ -78,5 +88,21 @@ class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
   @Override
   protected OperatorSpec<M, Void> getOperatorSpec() {
     return partitionByOpSpec;
+  }
+
+  @Override
+  protected void handleEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
+    sendControlMessage(new EndOfStreamMessage(taskName), collector);
+  }
+
+  @Override
+  protected Long handleWatermark(long watermark, MessageCollector collector, TaskCoordinator coordinator) {
+    sendControlMessage(new WatermarkMessage(watermark, taskName), collector);
+    return watermark;
+  }
+
+  private void sendControlMessage(ControlMessage message, MessageCollector collector) {
+    SystemStream outputStream = partitionByOpSpec.getOutputStream().getStreamSpec().toSystemStream();
+    controlMessageSender.send(message, outputStream, collector);
   }
 }

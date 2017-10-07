@@ -23,6 +23,7 @@ import org.apache.samza.operators.functions.*;
 import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.Serde;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -124,13 +125,17 @@ public interface MessageStream<M> {
    * @param otherStream the other {@link MessageStream} to be joined with
    * @param joinFn the function to join messages from this and the other {@link MessageStream}
    * @param ttl the ttl for messages in each stream
+   * @param keySerde the serde for the join key
+   * @param messageSerde the serde for messages in this stream
+   * @param otherMessageSerde the serde for messages in the other stream
    * @param <K> the type of join key
-   * @param <JM> the type of messages in the other stream
-   * @param <OM> the type of messages resulting from the {@code joinFn}
+   * @param <OM> the type of messages in the other stream
+   * @param <JM> the type of messages resulting from the {@code joinFn}
    * @return the joined {@link MessageStream}
    */
-  <K, JM, OM> MessageStream<OM> join(MessageStream<JM> otherStream,
-      JoinFunction<? extends K, ? super M, ? super JM, ? extends OM> joinFn, Duration ttl);
+  <K, OM, JM> MessageStream<JM> join(MessageStream<OM> otherStream,
+      JoinFunction<? extends K, ? super M, ? super OM, ? extends JM> joinFn,
+      Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde, Duration ttl);
 
   /**
    * Merges all {@code otherStreams} with this {@link MessageStream}.

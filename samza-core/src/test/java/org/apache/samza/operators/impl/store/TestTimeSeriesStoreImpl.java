@@ -19,26 +19,14 @@
  */
 package org.apache.samza.operators.impl.store;
 
-import com.google.common.io.Files;
-import org.apache.samza.config.MapConfig;
-import org.apache.samza.metrics.MetricsRegistryMap;
-import org.apache.samza.operators.impl.InternalInMemoryStore;
 import org.apache.samza.serializers.ByteSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.storage.kv.ClosableIterator;
-import org.apache.samza.storage.kv.KeyValueStoreMetrics;
-import org.apache.samza.storage.kv.RocksDbKeyValueStore;
-import org.apache.samza.storage.kv.SerializedKeyValueStore;
-import org.apache.samza.storage.kv.SerializedKeyValueStoreMetrics;
+import org.apache.samza.storage.kv.KeyValueStore;
 import org.junit.Assert;
 import org.junit.Test;
-import org.rocksdb.CompressionType;
-import org.rocksdb.FlushOptions;
-import org.rocksdb.Options;
-import org.rocksdb.WriteOptions;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -46,7 +34,7 @@ public class TestTimeSeriesStoreImpl {
 
   @Test
   public void testGetOnTimestampBoundaries() {
-    TimeSeriesStore<String, byte[]> timeSeriesStore = newTimeSeriesStore("my-store", new StringSerde("UTF-8"), true);
+    TimeSeriesStore<String, byte[]> timeSeriesStore = newTimeSeriesStore(new StringSerde("UTF-8"), true);
 
     // insert an entry with key "hello" at timestamps "1" and "2"
     timeSeriesStore.put("hello", "world-1".getBytes(), 1L);
@@ -55,49 +43,49 @@ public class TestTimeSeriesStoreImpl {
 
     // read from time-range
     List<TimestampedValue<byte[]>> values = readStore(timeSeriesStore, "hello", 0L, 1L);
-    Assert.assertEquals(values.size(), 0);
+    Assert.assertEquals(0, values.size());
 
     // read from time-range [1,2) should return one entry
     values = readStore(timeSeriesStore, "hello", 1L, 2L);
-    Assert.assertEquals(values.size(), 1);
-    Assert.assertEquals(new String(values.get(0).getValue()), "world-1");
+    Assert.assertEquals(1, values.size());
+    Assert.assertEquals("world-1", new String(values.get(0).getValue()));
 
     // read from time-range [2,3) should return two entries
     values = readStore(timeSeriesStore, "hello", 2L, 3L);
-    Assert.assertEquals(values.size(), 2);
-    Assert.assertEquals(new String(values.get(0).getValue()), "world-1");
-    Assert.assertEquals(values.get(0).getTimestamp(), new Long(2));
+    Assert.assertEquals(2, values.size());
+    Assert.assertEquals("world-1", new String(values.get(0).getValue()));
+    Assert.assertEquals(2L, values.get(0).getTimestamp());
 
     // read from time-range [0,3) should return three entries
     values = readStore(timeSeriesStore, "hello", 0L, 3L);
-    Assert.assertEquals(values.size(), 3);
+    Assert.assertEquals(3, values.size());
 
     // read from time-range [2,999999) should return two entries
     values = readStore(timeSeriesStore, "hello", 2L, 999999L);
-    Assert.assertEquals(values.size(), 2);
+    Assert.assertEquals(2, values.size());
 
     // read from time-range [3,4) should return no entries
     values = readStore(timeSeriesStore, "hello", 3L, 4L);
-    Assert.assertEquals(values.size(), 0);
+    Assert.assertEquals(0, values.size());
   }
 
   @Test
   public void testGetWithNonExistentKeys() {
-    TimeSeriesStore<String, byte[]> timeSeriesStore = newTimeSeriesStore("my-store", new StringSerde("UTF-8"), true);
+    TimeSeriesStore<String, byte[]> timeSeriesStore = newTimeSeriesStore(new StringSerde("UTF-8"), true);
     timeSeriesStore.put("hello", "world-1".getBytes(), 1L);
 
     // read from a non-existent key
     List<TimestampedValue<byte[]>> values = readStore(timeSeriesStore, "non-existent-key", 0, Integer.MAX_VALUE);
-    Assert.assertEquals(values.size(), 0);
+    Assert.assertEquals(0, values.size());
 
     // read from an existing key but out of range timestamp
     values = readStore(timeSeriesStore, "hello", 2, Integer.MAX_VALUE);
-    Assert.assertEquals(values.size(), 0);
+    Assert.assertEquals(0, values.size());
   }
 
   @Test
   public void testPutWithMultipleEntries() {
-    TimeSeriesStore<String, byte[]> timeSeriesStore = newTimeSeriesStore("my-store", new StringSerde("UTF-8"), true);
+    TimeSeriesStore<String, byte[]> timeSeriesStore = newTimeSeriesStore(new StringSerde("UTF-8"), true);
 
     // insert 100 entries at timestamps "1" and "2"
     for (int i = 0; i < 100; i++) {
@@ -107,27 +95,27 @@ public class TestTimeSeriesStoreImpl {
 
     // read from time-range [0,2) should return 100 entries
     List<TimestampedValue<byte[]>> values = readStore(timeSeriesStore, "hello", 0L, 2L);
-    Assert.assertEquals(values.size(), 100);
+    Assert.assertEquals(100, values.size());
     values.forEach(timeSeriesValue -> {
-        Assert.assertEquals(new String(timeSeriesValue.getValue()), "world-1");
+        Assert.assertEquals("world-1", new String(timeSeriesValue.getValue()));
       });
 
     // read from time-range [2,4) should return 100 entries
     values = readStore(timeSeriesStore, "hello", 2L, 4L);
-    Assert.assertEquals(values.size(), 100);
+    Assert.assertEquals(100, values.size());
     values.forEach(timeSeriesValue -> {
-        Assert.assertEquals(new String(timeSeriesValue.getValue()), "world-2");
+        Assert.assertEquals("world-2", new String(timeSeriesValue.getValue()));
       });
 
     // read all entries in the store
     values = readStore(timeSeriesStore, "hello", 0L, Integer.MAX_VALUE);
-    Assert.assertEquals(values.size(), 200);
+    Assert.assertEquals(200, values.size());
   }
 
   @Test
   public void testGetOnTimestampBoundariesWithOverwriteMode() {
     // instantiate a store in overwrite mode
-    TimeSeriesStore<String, byte[]> timeSeriesStore = newTimeSeriesStore("my-store", new StringSerde("UTF-8"), false);
+    TimeSeriesStore<String, byte[]> timeSeriesStore = newTimeSeriesStore(new StringSerde("UTF-8"), false);
 
     // insert an entry with key "hello" at timestamps "1" and "2"
     timeSeriesStore.put("hello", "world-1".getBytes(), 1L);
@@ -136,36 +124,36 @@ public class TestTimeSeriesStoreImpl {
 
     // read from time-range
     List<TimestampedValue<byte[]>> values = readStore(timeSeriesStore, "hello", 0L, 1L);
-    Assert.assertEquals(values.size(), 0);
+    Assert.assertEquals(0, values.size());
 
     // read from time-range [1,2) should return one entry
     values = readStore(timeSeriesStore, "hello", 1L, 2L);
-    Assert.assertEquals(values.size(), 1);
-    Assert.assertEquals(new String(values.get(0).getValue()), "world-1");
+    Assert.assertEquals(1, values.size());
+    Assert.assertEquals("world-1", new String(values.get(0).getValue()));
 
     // read from time-range [2,3) should return the most recent entry
     values = readStore(timeSeriesStore, "hello", 2L, 3L);
-    Assert.assertEquals(values.size(), 1);
-    Assert.assertEquals(new String(values.get(0).getValue()), "world-2");
-    Assert.assertEquals(values.get(0).getTimestamp(), new Long(2));
+    Assert.assertEquals(1, values.size());
+    Assert.assertEquals("world-2", new String(values.get(0).getValue()));
+    Assert.assertEquals(2L, values.get(0).getTimestamp());
 
     // read from time-range [0,3) should return two entries
     values = readStore(timeSeriesStore, "hello", 0L, 3L);
-    Assert.assertEquals(values.size(), 2);
+    Assert.assertEquals(2, values.size());
 
     // read from time-range [2,999999) should return one entry
     values = readStore(timeSeriesStore, "hello", 2L, 999999L);
-    Assert.assertEquals(values.size(), 1);
+    Assert.assertEquals(1, values.size());
 
     // read from time-range [3,4) should return no entries
     values = readStore(timeSeriesStore, "hello", 3L, 4L);
-    Assert.assertEquals(values.size(), 0);
+    Assert.assertEquals(0, values.size());
   }
 
   @Test
   public void testDeletesInOverwriteMode() {
     // instantiate a store in overwrite mode
-    TimeSeriesStore<String, byte[]> timeSeriesStore = newTimeSeriesStore("my-store", new StringSerde("UTF-8"), false);
+    TimeSeriesStore<String, byte[]> timeSeriesStore = newTimeSeriesStore(new StringSerde("UTF-8"), false);
 
     // insert an entry with key "hello" at timestamps "1" and "2"
     timeSeriesStore.put("hello", "world-1".getBytes(), 1L);
@@ -173,14 +161,15 @@ public class TestTimeSeriesStoreImpl {
     timeSeriesStore.put("hello", "world-2".getBytes(), 2L);
 
     List<TimestampedValue<byte[]>> values = readStore(timeSeriesStore, "hello", 1L, 3L);
-    Assert.assertEquals(values.size(), 2);
+    Assert.assertEquals(2, values.size());
 
     timeSeriesStore.remove("hello", 0L, 3L);
     values = readStore(timeSeriesStore, "hello", 1L, 3L);
-    Assert.assertEquals(values.size(), 0);
+    Assert.assertEquals(0, values.size());
   }
 
-  private static <K, V> List<TimestampedValue<V>> readStore(TimeSeriesStore<K, V> store, K key, long startTimestamp, long endTimestamp) {
+  private static <K, V> List<TimestampedValue<V>> readStore(
+      TimeSeriesStore<K, V> store, K key, long startTimestamp, long endTimestamp) {
     List<TimestampedValue<V>> list = new ArrayList<>();
     ClosableIterator<TimestampedValue<V>> storeValuesIterator = store.get(key, startTimestamp, endTimestamp);
 
@@ -193,21 +182,9 @@ public class TestTimeSeriesStoreImpl {
     return list;
   }
 
-  private static <K> TimeSeriesStore<K, byte[]> newTimeSeriesStore(String storeName, Serde<K> keySerde, boolean appendMode) {
-    RocksDbKeyValueStore rocksKVStore = newRocksDbStore("someStore");
-    SerializedKeyValueStore<TimeSeriesKey<K>, byte[]> kvStore = new SerializedKeyValueStore<>(rocksKVStore,
-            new TimeSeriesKeySerde<>(keySerde), new ByteSerde(),
-            new SerializedKeyValueStoreMetrics("", new MetricsRegistryMap()));
-
-    InternalInMemoryStore<TimeSeriesKey<K>, byte[]> kvStore1 = new InternalInMemoryStore<>(new TimeSeriesKeySerde<>(keySerde), new ByteSerde());
-    return new TimeSeriesStoreImpl<>(kvStore1, appendMode);
-  }
-
-  private static RocksDbKeyValueStore newRocksDbStore(String storeName) {
-    File dir = Files.createTempDir();
-    return new RocksDbKeyValueStore(dir,
-            new Options().setCreateIfMissing(true).setCompressionType(CompressionType.SNAPPY_COMPRESSION), new MapConfig(),
-            false, storeName, new WriteOptions(), new FlushOptions(),
-            new KeyValueStoreMetrics(storeName, new MetricsRegistryMap()));
+  private static <K> TimeSeriesStore<K, byte[]> newTimeSeriesStore(Serde<K> keySerde, boolean appendMode) {
+    KeyValueStore<TimeSeriesKey<K>, byte[]> kvStore =
+        new TestInMemoryStore(new TimeSeriesKeySerde<>(keySerde), new ByteSerde());
+    return new TimeSeriesStoreImpl<>(kvStore, appendMode);
   }
 }

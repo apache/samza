@@ -46,6 +46,7 @@ import org.apache.samza.system.SystemConsumers;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.TestSystemConsumers;
 import org.junit.Before;
+import org.junit.Test;
 import scala.Option;
 import scala.collection.JavaConverters;
 
@@ -85,7 +86,7 @@ public class TestAsyncRunLoop {
     scala.collection.immutable.Set<SystemStreamPartition> sspSet = JavaConverters.asScalaSetConverter(Collections.singleton(ssp)).asScala().toSet();
     return new TaskInstance(task, taskName, mock(Config.class), taskInstanceMetrics,
         null, consumers, mock(TaskInstanceCollector.class), mock(SamzaContainerContext.class),
-        manager, null, null, sspSet, new TaskInstanceExceptionHandler(taskInstanceMetrics, new scala.collection.immutable.HashSet<String>()));
+        manager, null, null, sspSet, new TaskInstanceExceptionHandler(taskInstanceMetrics, new scala.collection.immutable.HashSet<String>()), null, null);
   }
 
   TaskInstance createTaskInstance(AsyncStreamTask task, TaskName taskName, SystemStreamPartition ssp) {
@@ -198,6 +199,45 @@ public class TestAsyncRunLoop {
   @Before
   public void setup() {
     when(consumerMultiplexer.pollIntervalMs()).thenReturn(10);
+  }
+
+  @Test
+  public void testMetrics() throws Exception {
+    CountDownLatch task0ProcessedMessages = new CountDownLatch(2);
+    CountDownLatch task1ProcessedMessages = new CountDownLatch(1);
+
+    TestTask task0 = new TestTask(true, true, false, task0ProcessedMessages);
+    TestTask task1 = new TestTask(true, true, false, task1ProcessedMessages);
+    TaskInstance t0 = createTaskInstance(task0, taskName0, ssp0);
+    TaskInstance t1 = createTaskInstance(task1, taskName1, ssp1);
+
+    Map<TaskName, TaskInstance> tasks = new HashMap<>();
+    tasks.put(taskName0, t0);
+    tasks.put(taskName1, t1);
+    //task0.callbackHandler = buildOutofOrderCallback(task0);
+
+    int maxMessagesInFlight = 1;
+    AsyncRunLoop runLoop = new AsyncRunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
+        callbackTimeoutMs, maxThrottlingDelayMs, containerMetrics, () -> 0L, false);
+
+    when(consumerMultiplexer.choose(false))
+        .thenReturn(envelope0)
+        .thenReturn(envelope3)
+        .thenReturn(envelope1)
+        .thenReturn(null)
+        .thenReturn(ssp0EndOfStream)
+        .thenReturn(ssp1EndOfStream)
+        .thenReturn(null);
+
+    runLoop.run();
+
+    task0ProcessedMessages.await();
+    task1ProcessedMessages.await();
+
+    assertEquals(2L, t0.metrics().asyncCallbackCompleted().getCount());
+    assertEquals(1L, t1.metrics().asyncCallbackCompleted().getCount());
+    assertEquals(5L, containerMetrics.envelopes().getCount());
+    assertEquals(3L, containerMetrics.processes().getCount());
   }
 
   //@Test

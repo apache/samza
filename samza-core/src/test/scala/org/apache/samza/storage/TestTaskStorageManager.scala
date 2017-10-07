@@ -95,7 +95,8 @@ class TestTaskStorageManager extends MockitoSugar {
     val mockStreamMetadataCache = mock[StreamMetadataCache]
     val mockSystemConsumer = mock[SystemConsumer]
     val mockSystemAdmin = mock[SystemAdmin]
-    doNothing().when(mockSystemAdmin).validateChangelogStream("testStream", 1)
+    val changelogSpec = StreamSpec.createChangeLogStreamSpec("testStream", "kafka", 1)
+    doNothing().when(mockSystemAdmin).validateStream(changelogSpec)
     var registerOffset = "0"
     when(mockSystemConsumer.register(any(), any())).thenAnswer(new Answer[Unit] {
       override def answer(invocation: InvocationOnMock): Unit = {
@@ -204,7 +205,8 @@ class TestTaskStorageManager extends MockitoSugar {
     // Mock for StreamMetadataCache, SystemConsumer, SystemAdmin
     val mockStreamMetadataCache = mock[StreamMetadataCache]
     val mockSystemAdmin = mock[SystemAdmin]
-    doNothing().when(mockSystemAdmin).validateChangelogStream("testStream", 1)
+    val changelogSpec = StreamSpec.createChangeLogStreamSpec("testStream", "kafka", 1)
+    doNothing().when(mockSystemAdmin).validateStream(changelogSpec)
 
     val mockSystemConsumer = mock[SystemConsumer]
     when(mockSystemConsumer.register(any(), any())).thenAnswer(new Answer[Unit] {

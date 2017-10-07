@@ -18,12 +18,13 @@
  */
 package org.apache.samza.runtime;
 
-import java.io.File;
-import java.io.PrintWriter;
-import java.util.Map;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.config.ApplicationConfig;
+import org.apache.samza.config.ApplicationConfig.ApplicationMode;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.execution.ExecutionPlan;
@@ -34,6 +35,13 @@ import org.apache.samza.system.StreamSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.PrintWriter;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
 
 /**
  * Defines common, core behavior for implementations of the {@link ApplicationRunner} API
@@ -42,12 +50,10 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
   private static final Logger log = LoggerFactory.getLogger(AbstractApplicationRunner.class);
 
   private final StreamManager streamManager;
-  private final ExecutionPlanner planner;
 
   public AbstractApplicationRunner(Config config) {
     super(config);
     this.streamManager = new StreamManager(new JavaSystemConfig(config).getSystemAdmins());
-    this.planner = new ExecutionPlanner(config, streamManager);
   }
 
   @Override
@@ -96,20 +102,40 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
   /*package private*/ StreamSpec getStreamSpec(String streamId, String physicalName, String system) {
     StreamConfig streamConfig = new StreamConfig(config);
     Map<String, String> properties = streamConfig.getStreamProperties(streamId);
+    boolean isBounded = streamConfig.getIsBounded(streamId);
 
-    return new StreamSpec(streamId, physicalName, system, properties);
+    return new StreamSpec(streamId, physicalName, system, isBounded, properties);
   }
 
-  final ExecutionPlan getExecutionPlan(StreamApplication app) throws Exception {
+  /* package private */
+  ExecutionPlan getExecutionPlan(StreamApplication app) throws Exception {
+    return getExecutionPlan(app, null);
+  }
+
+  /* package private */
+  ExecutionPlan getExecutionPlan(StreamApplication app, String runId) throws Exception {
     // build stream graph
     StreamGraphImpl streamGraph = new StreamGraphImpl(this, config);
     app.init(streamGraph, config);
 
     // create the physical execution plan
+    Map<String, String> cfg = new HashMap<>(config);
+    if (StringUtils.isNoneEmpty(runId)) {
+      cfg.put(ApplicationConfig.APP_RUN_ID, runId);
+    }
+
+    Set<StreamSpec> inputStreams = new HashSet<>(streamGraph.getInputOperators().keySet());
+    inputStreams.removeAll(streamGraph.getOutputStreams().keySet());
+    ApplicationMode mode = inputStreams.stream().allMatch(StreamSpec::isBounded)
+        ? ApplicationMode.BATCH : ApplicationMode.STREAM;
+    cfg.put(ApplicationConfig.APP_MODE, mode.name());
+
+    ExecutionPlanner planner = new ExecutionPlanner(new MapConfig(cfg), streamManager);
     return planner.plan(streamGraph);
   }
 
-  final StreamManager getStreamManager() {
+  /* package private for testing */
+  StreamManager getStreamManager() {
     return streamManager;
   }
 

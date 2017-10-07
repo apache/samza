@@ -18,8 +18,13 @@
  */
 package org.apache.samza.operators.impl;
 
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Multimap;
+import java.util.stream.Collectors;
 import org.apache.samza.config.Config;
+import org.apache.samza.container.TaskContextImpl;
+import org.apache.samza.job.model.JobModel;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.functions.JoinFunction;
@@ -32,11 +37,13 @@ import org.apache.samza.operators.spec.PartitionByOperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
-import org.apache.samza.operators.util.InternalInMemoryStore;
+import org.apache.samza.operators.impl.store.TimestampedValue;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.Clock;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -51,6 +58,7 @@ import java.util.Map;
  * The DAG of {@link OperatorImpl}s corresponding to the DAG of {@link OperatorSpec}s.
  */
 public class OperatorImplGraph {
+  private static final Logger LOG = LoggerFactory.getLogger(OperatorImplGraph.class);
 
   /**
    * A mapping from operator names to their {@link OperatorImpl}s in this graph. Used to avoid creating
@@ -85,10 +93,27 @@ public class OperatorImplGraph {
    */
   public OperatorImplGraph(StreamGraphImpl streamGraph, Config config, TaskContext context, Clock clock) {
     this.clock = clock;
+
+    TaskContextImpl taskContext = (TaskContextImpl) context;
+    Map<SystemStream, Integer> producerTaskCounts = hasIntermediateStreams(streamGraph) ?
+        getProducerTaskCountForIntermediateStreams(getStreamToConsumerTasks(taskContext.getJobModel()),
+            getIntermediateToInputStreamsMap(streamGraph)) :
+        Collections.EMPTY_MAP;
+    producerTaskCounts.forEach((stream, count) -> {
+        LOG.info("{} has {} producer tasks.", stream, count);
+      });
+
+    // set states for end-of-stream
+    taskContext.registerObject(EndOfStreamStates.class.getName(),
+        new EndOfStreamStates(context.getSystemStreamPartitions(), producerTaskCounts));
+    // set states for watermark
+    taskContext.registerObject(WatermarkStates.class.getName(),
+        new WatermarkStates(context.getSystemStreamPartitions(), producerTaskCounts));
+
     streamGraph.getInputOperators().forEach((streamSpec, inputOpSpec) -> {
         SystemStream systemStream = new SystemStream(streamSpec.getSystemName(), streamSpec.getPhysicalName());
         InputOperatorImpl inputOperatorImpl =
-            (InputOperatorImpl) createAndRegisterOperatorImpl(null, inputOpSpec, config, context);
+            (InputOperatorImpl) createAndRegisterOperatorImpl(null, inputOpSpec, systemStream, config, context);
         this.inputOperators.put(systemStream, inputOperatorImpl);
       });
   }
@@ -129,17 +154,18 @@ public class OperatorImplGraph {
    * @return  the operator implementation for the operatorSpec
    */
   OperatorImpl createAndRegisterOperatorImpl(OperatorSpec prevOperatorSpec, OperatorSpec operatorSpec,
-      Config config, TaskContext context) {
+      SystemStream inputStream, Config config, TaskContext context) {
     if (!operatorImpls.containsKey(operatorSpec.getOpName()) || operatorSpec instanceof JoinOperatorSpec) {
       // Either this is the first time we've seen this operatorSpec, or this is a join operator spec
       // and we need to create 2 partial join operator impls for it. Initialize and register the sub-DAG.
       OperatorImpl operatorImpl = createOperatorImpl(prevOperatorSpec, operatorSpec, config, context);
       operatorImpl.init(config, context);
+      operatorImpl.registerInputStream(inputStream);
       operatorImpls.put(operatorImpl.getOperatorName(), operatorImpl);
 
       Collection<OperatorSpec> registeredSpecs = operatorSpec.getRegisteredOperatorSpecs();
       registeredSpecs.forEach(registeredSpec -> {
-          OperatorImpl nextImpl = createAndRegisterOperatorImpl(operatorSpec, registeredSpec, config, context);
+          OperatorImpl nextImpl = createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, config, context);
           operatorImpl.registerNextOperator(nextImpl);
         });
       return operatorImpl;
@@ -193,16 +219,17 @@ public class OperatorImplGraph {
 
   private KV<PartialJoinFunction, PartialJoinFunction> getOrCreatePartialJoinFunctions(JoinOperatorSpec joinOpSpec) {
     return joinFunctions.computeIfAbsent(joinOpSpec.getOpId(),
-        joinOpId -> KV.of(createLeftJoinFn(joinOpSpec.getJoinFn()), createRightJoinFn(joinOpSpec.getJoinFn())));
+        joinOpId -> KV.of(createLeftJoinFn(joinOpSpec), createRightJoinFn(joinOpSpec)));
   }
 
-  private PartialJoinFunction<Object, Object, Object, Object> createLeftJoinFn(JoinFunction joinFn) {
+  private PartialJoinFunction<Object, Object, Object, Object> createLeftJoinFn(JoinOperatorSpec joinOpSpec) {
     return new PartialJoinFunction<Object, Object, Object, Object>() {
-      private KeyValueStore<Object, PartialJoinMessage<Object>> leftStreamState = new InternalInMemoryStore<>();
+      private final JoinFunction joinFn = joinOpSpec.getJoinFn();
+      private KeyValueStore<Object, TimestampedValue<Object>> leftStreamState;
 
       @Override
-      public Object apply(Object m, Object jm) {
-        return joinFn.apply(m, jm);
+      public Object apply(Object m, Object om) {
+        return joinFn.apply(m, om);
       }
 
       @Override
@@ -211,12 +238,15 @@ public class OperatorImplGraph {
       }
 
       @Override
-      public KeyValueStore<Object, PartialJoinMessage<Object>> getState() {
+      public KeyValueStore<Object, TimestampedValue<Object>> getState() {
         return leftStreamState;
       }
 
       @Override
       public void init(Config config, TaskContext context) {
+        String leftStoreName = joinOpSpec.getLeftOpName();
+        leftStreamState = (KeyValueStore<Object, TimestampedValue<Object>>) context.getStore(leftStoreName);
+
         // user-defined joinFn should only be initialized once, so we do it only in left partial join function.
         joinFn.init(config, context);
       }
@@ -229,13 +259,14 @@ public class OperatorImplGraph {
     };
   }
 
-  private PartialJoinFunction<Object, Object, Object, Object> createRightJoinFn(JoinFunction joinFn) {
+  private PartialJoinFunction<Object, Object, Object, Object> createRightJoinFn(JoinOperatorSpec joinOpSpec) {
     return new PartialJoinFunction<Object, Object, Object, Object>() {
-      private KeyValueStore<Object, PartialJoinMessage<Object>> rightStreamState = new InternalInMemoryStore<>();
+      private final JoinFunction joinFn = joinOpSpec.getJoinFn();
+      private KeyValueStore<Object, TimestampedValue<Object>> rightStreamState;
 
       @Override
-      public Object apply(Object m, Object jm) {
-        return joinFn.apply(jm, m);
+      public Object apply(Object m, Object om) {
+        return joinFn.apply(om, m);
       }
 
       @Override
@@ -244,9 +275,82 @@ public class OperatorImplGraph {
       }
 
       @Override
-      public KeyValueStore<Object, PartialJoinMessage<Object>> getState() {
+      public void init(Config config, TaskContext context) {
+        String rightStoreName = joinOpSpec.getRightOpName();
+        rightStreamState = (KeyValueStore<Object, TimestampedValue<Object>>) context.getStore(rightStoreName);
+
+        // user-defined joinFn should only be initialized once,
+        // so we do it only in left partial join function and not here again.
+      }
+
+      @Override
+      public KeyValueStore<Object, TimestampedValue<Object>> getState() {
         return rightStreamState;
       }
     };
+  }
+
+  private boolean hasIntermediateStreams(StreamGraphImpl streamGraph) {
+    return !Collections.disjoint(streamGraph.getInputOperators().keySet(), streamGraph.getOutputStreams().keySet());
+  }
+
+  /**
+   * calculate the task count that produces to each intermediate streams
+   * @param streamToConsumerTasks input streams to task mapping
+   * @param intermediateToInputStreams intermediate stream to input streams mapping
+   * @return mapping from intermediate stream to task count
+   */
+  static Map<SystemStream, Integer> getProducerTaskCountForIntermediateStreams(
+      Multimap<SystemStream, String> streamToConsumerTasks,
+      Multimap<SystemStream, SystemStream> intermediateToInputStreams) {
+    Map<SystemStream, Integer> result = new HashMap<>();
+    intermediateToInputStreams.asMap().entrySet().forEach(entry -> {
+        result.put(entry.getKey(),
+            entry.getValue().stream()
+                .flatMap(systemStream -> streamToConsumerTasks.get(systemStream).stream())
+                .collect(Collectors.toSet()).size());
+      });
+    return result;
+  }
+
+  /**
+   * calculate the mapping from input streams to consumer tasks
+   * @param jobModel JobModel object
+   * @return mapping from input stream to tasks
+   */
+  static Multimap<SystemStream, String> getStreamToConsumerTasks(JobModel jobModel) {
+    Multimap<SystemStream, String> streamToConsumerTasks = HashMultimap.create();
+    jobModel.getContainers().values().forEach(containerModel -> {
+        containerModel.getTasks().values().forEach(taskModel -> {
+            taskModel.getSystemStreamPartitions().forEach(ssp -> {
+                streamToConsumerTasks.put(ssp.getSystemStream(), taskModel.getTaskName().getTaskName());
+              });
+          });
+      });
+    return streamToConsumerTasks;
+  }
+
+  /**
+   * calculate the mapping from output streams to input streams
+   * @param streamGraph the user {@link StreamGraphImpl} instance
+   * @return mapping from output streams to input streams
+   */
+  static Multimap<SystemStream, SystemStream> getIntermediateToInputStreamsMap(StreamGraphImpl streamGraph) {
+    Multimap<SystemStream, SystemStream> outputToInputStreams = HashMultimap.create();
+    streamGraph.getInputOperators().entrySet().stream()
+        .forEach(
+            entry -> computeOutputToInput(entry.getKey().toSystemStream(), entry.getValue(), outputToInputStreams));
+    return outputToInputStreams;
+  }
+
+  private static void computeOutputToInput(SystemStream input, OperatorSpec opSpec,
+      Multimap<SystemStream, SystemStream> outputToInputStreams) {
+    if (opSpec instanceof PartitionByOperatorSpec) {
+      PartitionByOperatorSpec spec = (PartitionByOperatorSpec) opSpec;
+      outputToInputStreams.put(spec.getOutputStream().getStreamSpec().toSystemStream(), input);
+    } else {
+      Collection<OperatorSpec> nextOperators = opSpec.getRegisteredOperatorSpecs();
+      nextOperators.forEach(spec -> computeOutputToInput(input, spec, outputToInputStreams));
+    }
   }
 }

@@ -50,38 +50,6 @@ public interface SystemAdmin {
   Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames);
 
   /**
-   * An API to create a change log stream
-   *
-   * @param streamName
-   *          The name of the stream to be created in the underlying stream
-   * @param numOfPartitions
-   *          The number of partitions in the changelog stream
-   * @deprecated since 0.12.1, use {@link #createStream(StreamSpec)}
-   */
-  void createChangelogStream(String streamName, int numOfPartitions);
-
-  /**
-   * Validates change log stream
-   *
-   * @param streamName
-   *          The name of the stream to be created in the underlying stream
-   * @param numOfPartitions
-   *          The number of partitions in the changelog stream
-   * @deprecated since 0.12.1, use {@link #validateStream(StreamSpec)}
-   */
-  void validateChangelogStream(String streamName, int numOfPartitions);
-
-  /**
-   * Create a stream for the job coordinator. If the stream already exists, this
-   * call should simply return.
-   *
-   * @param streamName
-   *          The name of the coordinator stream to create.
-   * @deprecated since 0.12.1, use {@link #createStream(StreamSpec)}
-   */
-  void createCoordinatorStream(String streamName);
-
-  /**
    * Compare the two offsets. -1, 0, +1 means offset1 &lt; offset2,
    * offset1 == offset2 and offset1 &gt; offset2 respectively. Return
    * null if those two offsets are not comparable
@@ -112,6 +80,16 @@ public interface SystemAdmin {
    * @throws StreamValidationException if validation fails.
    */
   default void validateStream(StreamSpec streamSpec) throws StreamValidationException {
+    throw new UnsupportedOperationException();
+  }
+
+  /**
+   * Clear the stream described by the spec.
+   * @param streamSpec  The spec for the physical stream on the system.
+   * @return {@code true} if the stream was successfully cleared.
+   *         {@code false} if clearing stream failed.
+   */
+  default boolean clearStream(StreamSpec streamSpec) {
     throw new UnsupportedOperationException();
   }
 }

@@ -26,12 +26,12 @@ import java.util.concurrent.TimeoutException;
 public interface DistributedLockWithState {
 
   /**
-   * Trie to acquire the lock, but first check if the state flag is set. If it is set, return false.
+   * Try to acquire the lock, but first check if the state flag is set. If it is set, return false.
    * If the flag is not set, and lock is acquired - return true.
-   * Throw TimeOutException if could not acquire the lock.
    * @param timeout Duration of lock acquiring timeout.
    * @param unit Time Unit of the timeout defined above.
    * @return true if lock is acquired successfully, false if state is already set.
+   * @throws TimeoutException if could not acquire the lock.
    */
   boolean lockIfNotSet(long timeout, TimeUnit unit) throws TimeoutException;
 
