@@ -41,7 +41,8 @@ public class TestWindowOperatorSpec {
                 Triggers.timeSinceFirstMessage(Duration.ofMillis(25)),
                 Triggers.timeSinceLastMessage(Duration.ofMillis(15))))));
 
-    WindowInternal window = new WindowInternal(defaultTrigger, null, null, null, null, WindowType.SESSION, null, null, null);
+    WindowInternal window = new WindowInternal(defaultTrigger, null, null, null,
+            null, WindowType.SESSION, null, null, null);
     window.setEarlyTrigger(earlyTrigger);
     window.setLateTrigger(lateTrigger);
 
@@ -54,7 +55,8 @@ public class TestWindowOperatorSpec {
     Trigger defaultTrigger = Triggers.timeSinceFirstMessage(Duration.ofMillis(150));
     Trigger earlyTrigger = Triggers.repeat(Triggers.count(5));
 
-    WindowInternal window = new WindowInternal(defaultTrigger, null, null, null, null, WindowType.SESSION, null, null, null);
+    WindowInternal window = new WindowInternal(defaultTrigger, null, null, null,
+            null, WindowType.SESSION, null, null, null);
     window.setEarlyTrigger(earlyTrigger);
 
     WindowOperatorSpec spec = new WindowOperatorSpec(window, 0);

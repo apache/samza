@@ -48,7 +48,8 @@ public class RepartitionWindowApp implements StreamApplication {
 
     pageViews
         .partitionBy(PageView::getUserId, pv -> pv, new KVSerde<>(new StringSerde(), new JsonSerdeV2<>(PageView.class)))
-        .window(Windows.keyedSessionWindow(KV::getKey, Duration.ofSeconds(3), null, null))
+        .map(kv -> kv.getValue())
+        .window(Windows.keyedSessionWindow(PageView::getUserId, Duration.ofSeconds(3), new JsonSerdeV2<>(PageView.class), new StringSerde()))
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), String.valueOf(windowPane.getMessage().size())))
         .sendTo(outputStream);
   }
