@@ -473,9 +473,10 @@ public class TestWindowOperator {
 
   private class IntegerEnvelopeSerde implements Serde<IntegerEnvelope> {
     private final IntegerSerde intSerde = new IntegerSerde();
+
     @Override
     public byte[] toBytes(IntegerEnvelope object) {
-      return intSerde.toBytes((Integer)object.getKey());
+      return intSerde.toBytes((Integer) object.getKey());
     }
 
     @Override

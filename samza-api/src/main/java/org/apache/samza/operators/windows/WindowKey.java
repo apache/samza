@@ -52,7 +52,10 @@ public class WindowKey<K> {
     return paneId;
   }
 
-  public long getTimestamp() {return timestamp;}
+  public long getTimestamp() {
+    return timestamp;
+  }
+
   @Override
   public String toString() {
     String wndKey = "";

@@ -22,10 +22,19 @@ package org.apache.samza.operators.impl;
 
 import com.google.common.base.Preconditions;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.impl.store.*;
+import org.apache.samza.operators.impl.store.TestInMemoryStore;
+import org.apache.samza.operators.impl.store.TimeSeriesKeySerde;
+import org.apache.samza.operators.impl.store.TimeSeriesStore;
+import org.apache.samza.operators.impl.store.TimeSeriesStoreImpl;
+import org.apache.samza.operators.impl.store.TimestampedValue;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
-import org.apache.samza.operators.triggers.*;
+import org.apache.samza.operators.triggers.FiringType;
+import org.apache.samza.operators.triggers.RepeatingTriggerImpl;
+import org.apache.samza.operators.triggers.TimeTrigger;
+import org.apache.samza.operators.triggers.Trigger;
+import org.apache.samza.operators.triggers.TriggerImpl;
+import org.apache.samza.operators.triggers.TriggerImpls;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.WindowKey;
 import org.apache.samza.operators.windows.WindowPane;
@@ -40,7 +49,12 @@ import org.apache.samza.util.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 /**
@@ -48,27 +62,30 @@ import java.util.function.Function;
  *
  * This class implements the processing logic for various types of windows and triggers. It tracks and manages state for
  * all open windows, the active triggers that correspond to each of the windows and the pending callbacks. It provides
- * an implementation of {@link TriggerScheduler} that {@link TriggerImpl}s can use to schedule and cancel callbacks. It
- * also orchestrates the flow of messages through the various {@link TriggerImpl}s.
+ * an implementation of {@link TriggerScheduler} that {@link org.apache.samza.operators.triggers.TriggerImpl}s can use
+ * to schedule and cancel callbacks. It also orchestrates the flow of messages through the various
+ * {@link org.apache.samza.operators.triggers.TriggerImpl}s.
  *
- * <p> An instance of a {@link TriggerImplHandler} is created corresponding to each {@link Trigger} configured for a
- * particular window. For every message added to the window, this class looks up the corresponding {@link TriggerImplHandler}
- * for the trigger and invokes {@link TriggerImplHandler#onMessage(TriggerKey, Object, MessageCollector, TaskCoordinator)}.
- * The {@link TriggerImplHandler} maintains the {@link TriggerImpl} instance along with whether it has been canceled yet
- * or not. Then, the {@link TriggerImplHandler} invokes onMessage on underlying its {@link TriggerImpl} instance. A
- * {@link TriggerImpl} instance is scoped to a window and its firing determines when results for its window are emitted.
+ * <p> An instance of a {@link TriggerImplHandler} is created corresponding to each {@link org.apache.samza.operators.triggers.Trigger}
+ * configured for a particular window. For every message added to the window, this class looks up the corresponding {@link TriggerImplHandler}
+ * for the trigger and invokes {@link TriggerImplHandler#onMessage(TriggerKey, Object, MessageCollector, TaskCoordinator)}
+ * The {@link TriggerImplHandler} maintains the {@link org.apache.samza.operators.triggers.TriggerImpl} instance along with
+ * whether it has been canceled yet or not. Then, the {@link TriggerImplHandler} invokes onMessage on underlying its
+ * {@link org.apache.samza.operators.triggers.TriggerImpl} instance. A {@link org.apache.samza.operators.triggers.TriggerImpl}
+ * instance is scoped to a window and its firing determines when results for its window are emitted.
+ *
  * The {@link WindowOperatorImpl} checks if the trigger fired and returns the result of the firing.
  *
  * @param <M> the type of the incoming message
  * @param <K> the type of the key in this {@link org.apache.samza.operators.MessageStream}
  *
  */
-public class WindowOperatorImpl<M, K, Object> extends OperatorImpl<M, WindowPane<K, Object>> {
+public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Object>> {
+  // Object = Collection<M> or WV
 
   private static final Logger LOG = LoggerFactory.getLogger(WindowOperatorImpl.class);
 
   private final WindowOperatorSpec<M, K, Object> windowOpSpec;
-  // Object = Collection<M> or WV
   private final Clock clock;
   private final WindowInternal<M, K, Object> window;
 
@@ -83,7 +100,6 @@ public class WindowOperatorImpl<M, K, Object> extends OperatorImpl<M, WindowPane
     this.windowOpSpec = windowOpSpec;
     this.clock = clock;
     this.window = windowOpSpec.getWindow();
-    System.out.println(window);
     this.triggerScheduler= new TriggerScheduler(clock);
   }
 
@@ -95,11 +111,9 @@ public class WindowOperatorImpl<M, K, Object> extends OperatorImpl<M, WindowPane
 
     if (window.getFoldLeftFunction() != null) {
       window.getFoldLeftFunction().init(config, context);
-      InternalInMemoryStore<TimeSeriesKey<K>, Object> timeSeries = new InternalInMemoryStore<>(timeSeriesSerde, window.getWindowValSerde());
-      timeSeriesDb = new TimeSeriesStoreImpl<>(timeSeries, false);
+      timeSeriesDb = new TimeSeriesStoreImpl<>(new TestInMemoryStore<>(timeSeriesSerde, window.getWindowValSerde()), false);
     } else {
-      InternalInMemoryStore<TimeSeriesKey<K>, Object> timeSeries = new InternalInMemoryStore<>(timeSeriesSerde, (Serde<Object>)window.getMsgSerde());
-      timeSeriesDb = new TimeSeriesStoreImpl<>(timeSeries, true);
+      timeSeriesDb = new TimeSeriesStoreImpl<>(new TestInMemoryStore<>(timeSeriesSerde, (Serde<Object>)window.getMsgSerde()), true);
     }
   }
 
@@ -111,7 +125,7 @@ public class WindowOperatorImpl<M, K, Object> extends OperatorImpl<M, WindowPane
     if (keyExtractor != null) {
       key = keyExtractor.apply(message);
     }
-
+    System.out.println(windowOpSpec.getOpName());
     String paneId = null;
 
     if (window.getWindowType() == WindowType.TUMBLING) {

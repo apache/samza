@@ -68,7 +68,7 @@ public class RepartitionJoinWindowApp implements StreamApplication {
         .partitionBy(UserPageAdClick::getUserId, upac -> upac,
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(UserPageAdClick.class)))
         .map(KV::getValue)
-        .window(Windows.keyedSessionWindow(UserPageAdClick::getUserId, Duration.ofSeconds(3)))
+        .window(Windows.keyedSessionWindow(UserPageAdClick::getUserId, Duration.ofSeconds(3), new JsonSerdeV2<>(UserPageAdClick.class), new StringSerde()))
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), String.valueOf(windowPane.getMessage().size())))
         .sendTo(outputStream);
   }

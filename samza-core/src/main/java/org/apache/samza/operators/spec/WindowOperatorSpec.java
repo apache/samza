@@ -19,8 +19,10 @@
 
 package org.apache.samza.operators.spec;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
+import org.apache.samza.operators.impl.store.TimeSeriesKeySerde;
 import org.apache.samza.operators.triggers.AnyTrigger;
 import org.apache.samza.operators.triggers.RepeatingTrigger;
 import org.apache.samza.operators.triggers.TimeBasedTrigger;
@@ -28,11 +30,15 @@ import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.util.MathUtils;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
+import org.apache.samza.serializers.Serde;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 
@@ -43,7 +49,7 @@ import java.util.stream.Collectors;
  * @param <WK>  the type of key of the window
  * @param <WV>  the type of aggregated value in the window output {@link WindowPane}
  */
-public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK, WV>> {
+public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK, WV>> implements StatefulOperatorSpec {
 
   private static final Logger LOG = LoggerFactory.getLogger(WindowOperatorSpec.class);
   private final WindowInternal<M, WK, WV> window;
@@ -116,5 +122,23 @@ public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK
   public WatermarkFunction getWatermarkFn() {
     FoldLeftFunction fn = window.getFoldLeftFunction();
     return fn instanceof WatermarkFunction ? (WatermarkFunction) fn : null;
+  }
+
+  @Override
+  public Collection<StoreDescriptor> getStoreDescriptors() {
+    String storeName = getOpName();
+    String storeFactory = "org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory";
+    long ttlMs = window.getTtlMs();
+
+    Serde storeKeySerde = new TimeSeriesKeySerde<>(window.getKeySerde());
+    Serde storeValSerde = window.getFoldLeftFunction() == null ? window.getMsgSerde() : window.getWindowValSerde();
+
+    Map<String, String> otherProperties = ImmutableMap.of(
+        String.format("stores.%s.rocksdb.ttl.ms", storeName), Long.toString(ttlMs),
+        String.format("stores.%s.changelog.kafka.cleanup.policy", storeName), "delete",
+        String.format("stores.%s.changelog.kafka.retention.ms", storeName), Long.toString(ttlMs));
+
+    StoreDescriptor descriptor = new StoreDescriptor(storeName, storeFactory, storeKeySerde, storeValSerde, storeName, otherProperties);
+    return Collections.singletonList(descriptor);
   }
 }
