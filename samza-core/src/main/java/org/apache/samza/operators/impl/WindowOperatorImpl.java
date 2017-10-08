@@ -22,8 +22,7 @@ package org.apache.samza.operators.impl;
 
 import com.google.common.base.Preconditions;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.impl.store.TestInMemoryStore;
-import org.apache.samza.operators.impl.store.TimeSeriesKeySerde;
+import org.apache.samza.operators.impl.store.TimeSeriesKey;
 import org.apache.samza.operators.impl.store.TimeSeriesStore;
 import org.apache.samza.operators.impl.store.TimeSeriesStoreImpl;
 import org.apache.samza.operators.impl.store.TimestampedValue;
@@ -40,8 +39,8 @@ import org.apache.samza.operators.windows.WindowKey;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.operators.windows.internal.WindowType;
-import org.apache.samza.serializers.Serde;
 import org.apache.samza.storage.kv.ClosableIterator;
+import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
@@ -107,13 +106,13 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
   protected void handleInit(Config config, TaskContext context) {
     WindowInternal<M, K, Object> window = windowOpSpec.getWindow();
 
-    TimeSeriesKeySerde<K> timeSeriesSerde = new TimeSeriesKeySerde<>(window.getKeySerde());
+    KeyValueStore<TimeSeriesKey<K>, Object> store = (KeyValueStore<TimeSeriesKey<K>, Object>) context.getStore(windowOpSpec.getOpName());
 
     if (window.getFoldLeftFunction() != null) {
       window.getFoldLeftFunction().init(config, context);
-      timeSeriesDb = new TimeSeriesStoreImpl<>(new TestInMemoryStore<>(timeSeriesSerde, window.getWindowValSerde()), false);
+      timeSeriesDb = new TimeSeriesStoreImpl(store, false);
     } else {
-      timeSeriesDb = new TimeSeriesStoreImpl<>(new TestInMemoryStore<>(timeSeriesSerde, (Serde<Object>)window.getMsgSerde()), true);
+      timeSeriesDb = new TimeSeriesStoreImpl<>(store, true);
     }
   }
 
@@ -125,7 +124,6 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
     if (keyExtractor != null) {
       key = keyExtractor.apply(message);
     }
-    System.out.println(windowOpSpec.getOpName());
     String paneId = null;
 
     if (window.getWindowType() == WindowType.TUMBLING) {
