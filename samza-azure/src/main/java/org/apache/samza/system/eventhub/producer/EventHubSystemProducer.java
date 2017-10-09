@@ -185,7 +185,7 @@ public class EventHubSystemProducer implements SystemProducer {
 
     Instant startTime = Instant.now();
 
-    CompletableFuture<Void> sendResult = sendToEventHub(destination, eventData, envelope.getPartitionKey(),
+    CompletableFuture<Void> sendResult = sendToEventHub(destination, eventData, getEnvelopePartitionId(envelope),
             ehClient.getEventHubClient());
 
     Instant endTime = Instant.now();
@@ -234,6 +234,10 @@ public class EventHubSystemProducer implements SystemProducer {
     } else {
       throw new SamzaException("Unknown partitioning method " + partitioningMethod);
     }
+  }
+
+  private Object getEnvelopePartitionId(OutgoingMessageEnvelope envelope) {
+    return envelope.getPartitionKey();
   }
 
   private String convertPartitionKeyToString(Object partitionKey) {
