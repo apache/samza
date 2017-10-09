@@ -29,7 +29,7 @@ import org.apache.commons.httpclient.HttpStatus;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.samza.SamzaException;
-import org.apache.samza.rest.model.yarn.ApplicationInfo;
+import org.apache.samza.rest.model.yarn.YarnApplicationInfo;
 import org.apache.samza.rest.model.Job;
 import org.apache.samza.rest.model.JobStatus;
 import org.apache.samza.rest.resources.JobsResourceConfig;
@@ -48,7 +48,7 @@ public class YarnRestJobStatusProvider implements JobStatusProvider {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(YarnRestJobStatusProvider.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-  private static final String JOB_NAME_ID_FORMAT = "%s_%s";
+
   private final String apiEndpoint;
   private final HttpClient httpClient;
 
@@ -66,27 +66,21 @@ public class YarnRestJobStatusProvider implements JobStatusProvider {
     if (jobs == null || jobs.isEmpty()) {
       return;
     }
-
-    // We will identify jobs returned by the YARN application states by their qualified names, so build a map
-    // to translate back from that name to the JobInfo we wish to populate. This avoids parsing/delimiter issues.
-    final Map<String, Job> qualifiedJobToInfo = new HashMap<>();
-    for (Job job : jobs) {
-      qualifiedJobToInfo.put(getQualifiedJobName(new JobInstance(job.getJobName(), job.getJobId())), job);
-    }
-
-    // Hit the rest endpoint and fetch the current status
     try {
       byte[] response = httpGet(apiEndpoint);
-      ApplicationInfo appInfo = OBJECT_MAPPER.readValue(response, ApplicationInfo.class);
-      for (ApplicationInfo.Application app : appInfo.getApps()) {
-        String qualifiedName = app.getName();
-        JobStatus samzaStatus = yarnStateToSamzaStatus(YarnApplicationState.valueOf(app.getState().toUpperCase()));
-        Job job = qualifiedJobToInfo.get(qualifiedName);
-
-        // If job is null, it wasn't requested.  The default status is STOPPED because there could be many
-        // application attempts in that status. Only update the job status if it's not STOPPED.
-        if (job != null && (job.getStatusDetail() == null || samzaStatus != JobStatus.STOPPED)) {
-          job.setStatusDetail(app.getState());
+      YarnApplicationInfo yarnApplicationInfo = OBJECT_MAPPER.readValue(response, YarnApplicationInfo.class);
+      Map<String, YarnApplicationInfo.YarnApplication> yarnApplications = yarnApplicationInfo.getApplications();
+      for (Job job: jobs) {
+        String qualifiedJobName = YarnApplicationInfo.getQualifiedJobName(new JobInstance(job.getJobName(), job.getJobId()));
+        YarnApplicationInfo.YarnApplication yarnApp = yarnApplications.get(qualifiedJobName);
+        if (yarnApp == null) {
+          job.setStatusDetail(JobStatus.UNKNOWN.toString());
+          job.setStatus(JobStatus.UNKNOWN);
+          continue;
+        }
+        JobStatus samzaStatus = yarnStateToSamzaStatus(YarnApplicationState.valueOf(yarnApp.getState().toUpperCase()));
+        if (job.getStatusDetail() == null || samzaStatus != JobStatus.STOPPED) {
+          job.setStatusDetail(yarnApp.getState());
           job.setStatus(samzaStatus);
         }
       }
@@ -101,17 +95,6 @@ public class YarnRestJobStatusProvider implements JobStatusProvider {
     Job info = new Job(jobInstance.getJobName(), jobInstance.getJobId());
     getJobStatuses(Collections.singletonList(info));
     return info;
-  }
-
-  /**
-   * Constructs the job name used in YARN. This is the value returned by the "name"
-   * attribute form the Resource Manager API /ws/v1/cluster/apps.
-   *
-   * @param jobInstance the instance of the job.
-   * @return the job name to use for the job in YARN.
-   */
-  public static String getQualifiedJobName(JobInstance jobInstance) {
-    return String.format(JOB_NAME_ID_FORMAT, jobInstance.getJobName(), jobInstance.getJobId());
   }
 
   /**

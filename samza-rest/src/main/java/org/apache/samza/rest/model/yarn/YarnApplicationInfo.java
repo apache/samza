@@ -18,6 +18,9 @@
  */
 package org.apache.samza.rest.model.yarn;
 
+import java.util.HashMap;
+import java.util.Map;
+import org.apache.samza.rest.proxy.job.JobInstance;
 import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.codehaus.jackson.annotate.JsonProperty;
 import java.util.List;
@@ -25,30 +28,49 @@ import org.codehaus.jackson.map.annotate.JsonRootName;
 
 
 @JsonRootName("apps")
-public class ApplicationInfo {
+public class YarnApplicationInfo {
   @JsonProperty("app")
-  private List<Application> apps;
+  private List<YarnApplication> apps;
 
-  public ApplicationInfo() {
+  public YarnApplicationInfo() {
   }
 
-  public ApplicationInfo(List<Application> apps) {
+  public YarnApplicationInfo(List<YarnApplication> apps) {
     this.apps = apps;
   }
 
-  public List<Application> getApps() {
-    return apps;
+  /**
+   * Returns a Map with all the apps and their names as the key.
+   */
+  public Map<String, YarnApplication> getApplications() {
+    Map<String, YarnApplication> applications = new HashMap<>();
+    for (YarnApplication app: this.apps) {
+      applications.put(app.getName(), app);
+    }
+    return applications;
+  }
+
+  /**
+   * Constructs the job name used in YARN. This is the value returned by the "name"
+   * attribute form the Resource Manager API /ws/v1/cluster/apps.
+   *
+   * @param jobInstance the instance of the job.
+   * @return the job name to use for the job in YARN.
+   */
+  public static String getQualifiedJobName(JobInstance jobInstance) {
+    final String JOB_NAME_ID_FORMAT = "%s_%s";
+    return String.format(JOB_NAME_ID_FORMAT, jobInstance.getJobName(), jobInstance.getJobId());
   }
 
   @JsonIgnoreProperties(ignoreUnknown = true)
-  public static class Application {
+  public static class YarnApplication {
     private String state;
     private String name;
 
-    public Application() {
+    public YarnApplication() {
     }
 
-    public Application(String state, String name) {
+    public YarnApplication(String state, String name) {
       this.state = state;
       this.name = name;
     }

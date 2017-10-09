@@ -21,6 +21,7 @@ package org.apache.samza.rest.proxy.job;
 import java.util.Set;
 import org.apache.samza.SamzaException;
 import org.apache.samza.rest.model.JobStatus;
+import org.apache.samza.rest.model.yarn.YarnApplicationInfo;
 import org.apache.samza.rest.proxy.installation.InstallationFinder;
 import org.apache.samza.rest.proxy.installation.InstallationRecord;
 import org.apache.samza.rest.proxy.installation.SimpleInstallationFinder;
@@ -79,7 +80,7 @@ public class SimpleYarnJobProxy extends ScriptJobProxy {
     }
 
     String scriptPath = getScriptPath(jobInstance, STOP_SCRIPT_NAME);
-    int resultCode = scriptRunner.runScript(scriptPath, YarnRestJobStatusProvider.getQualifiedJobName(jobInstance));
+    int resultCode = scriptRunner.runScript(scriptPath, YarnApplicationInfo.getQualifiedJobName(jobInstance));
     if (resultCode != 0) {
       throw new SamzaException("Failed to stop job. Result code: " + resultCode);
     }
