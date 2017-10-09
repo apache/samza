@@ -105,7 +105,7 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
 
     KeyValueStore<TimeSeriesKey<K>, Object> store = (KeyValueStore<TimeSeriesKey<K>, Object>) context.getStore(windowOpSpec.getOpName());
 
-    // For windows that have a configured fold function, we use the store in over-write mode since we only retain the aggregatred
+    // For windows that have a configured fold function, we use the store in over-write mode since we only retain the aggregated
     // value. Else, we use the store in append-mode.
     if (window.getFoldLeftFunction() != null) {
       window.getFoldLeftFunction().init(config, context);
@@ -218,8 +218,7 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
     try {
       while (iterator.hasNext()) {
         TimestampedValue<Object> next = iterator.next();
-        Object wVal = next.getValue();
-        values.add(wVal);
+        values.add(next.getValue());
       }
     } finally {
       iterator.close();
@@ -301,16 +300,12 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
       LOG.trace("No state found for triggerKey: {}", triggerKey);
       return Optional.empty();
     }
-
-    Object windowVal;
-    if (window.getFoldLeftFunction() == null) {
-      windowVal = existingState;
-    } else {
-      windowVal = existingState.get(0);
-    }
+    // For windows that have a fold function configured return the aggregated value. Else, return the entire list of messages
+    Object windowVal = window.getFoldLeftFunction() == null ? existingState : existingState.get(0);
 
     WindowPane<K, Object> paneOutput = computePaneOutput(triggerKey, windowVal);
-    // Handle accumulation modes.
+
+    // Handle different accumulation modes.
     if (window.getAccumulationMode() == AccumulationMode.DISCARDING) {
       LOG.trace("Clearing state for trigger key: {}", triggerKey);
       timeSeriesDb.remove(windowKey.getKey(), timestamp);
