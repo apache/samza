@@ -25,6 +25,8 @@ import com.microsoft.azure.eventhubs.EventHubClient;
 import com.microsoft.azure.eventhubs.PartitionReceiver;
 import org.apache.samza.Partition;
 import org.apache.samza.metrics.Counter;
+import org.apache.samza.serializers.ByteSerde;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.eventhub.*;
@@ -67,6 +69,8 @@ public class TestEventHubSystemConsumer {
     TestMetricsRegistry testMetrics = new TestMetricsRegistry();
     Map<SystemStreamPartition, List<EventData>> eventData = new HashMap<>();
     SystemStreamPartition ssp = new SystemStreamPartition(systemName, streamName, new Partition(partitionId));
+    Map<String, Serde<byte[]>> serdes = new HashMap<>();
+    serdes.put(streamName, new ByteSerde());
 
     // create EventData
     List<EventData> singlePartitionEventData = MockEventData.generateEventData(numEvents);
@@ -84,7 +88,8 @@ public class TestEventHubSystemConsumer {
     MockEventHubClientFactory eventHubClientWrapperFactory = new MockEventHubClientFactory(eventData);
 
     EventHubSystemConsumer consumer =
-            new EventHubSystemConsumer(new EventHubConfig(configMap, systemName), eventHubClientWrapperFactory, testMetrics);
+            new EventHubSystemConsumer(new EventHubConfig(configMap, systemName), eventHubClientWrapperFactory, serdes,
+                    testMetrics);
     consumer.register(ssp, null);
     consumer.start();
 
@@ -114,6 +119,8 @@ public class TestEventHubSystemConsumer {
     Map<SystemStreamPartition, List<EventData>> eventData = new HashMap<>();
     SystemStreamPartition ssp1 = new SystemStreamPartition(systemName, streamName, new Partition(partitionId1));
     SystemStreamPartition ssp2 = new SystemStreamPartition(systemName, streamName, new Partition(partitionId2));
+    Map<String, Serde<byte[]>> serdes = new HashMap<>();
+    serdes.put(streamName, new ByteSerde());
 
     // create EventData
     List<EventData> singlePartitionEventData1 = MockEventData.generateEventData(numEvents);
@@ -132,7 +139,7 @@ public class TestEventHubSystemConsumer {
     MockEventHubClientFactory eventHubClientWrapperFactory = new MockEventHubClientFactory(eventData);
 
     EventHubSystemConsumer consumer =
-            new EventHubSystemConsumer(new EventHubConfig(configMap, systemName), eventHubClientWrapperFactory,
+            new EventHubSystemConsumer(new EventHubConfig(configMap, systemName), eventHubClientWrapperFactory, serdes,
                     testMetrics);
     consumer.register(ssp1, EventHubSystemConsumer.START_OF_STREAM);
     consumer.register(ssp2, EventHubSystemConsumer.START_OF_STREAM);
@@ -168,6 +175,9 @@ public class TestEventHubSystemConsumer {
     Map<SystemStreamPartition, List<EventData>> eventData = new HashMap<>();
     SystemStreamPartition ssp1 = new SystemStreamPartition(systemName, streamName1, new Partition(partitionId));
     SystemStreamPartition ssp2 = new SystemStreamPartition(systemName, streamName2, new Partition(partitionId));
+    Map<String, Serde<byte[]>> serdes = new HashMap<>();
+    serdes.put(streamName1, new ByteSerde());
+    serdes.put(streamName2, new ByteSerde());
 
     List<EventData> singlePartitionEventData1 = MockEventData.generateEventData(numEvents);
     List<EventData> singlePartitionEventData2 = MockEventData.generateEventData(numEvents);
@@ -189,7 +199,7 @@ public class TestEventHubSystemConsumer {
     MockEventHubClientFactory eventHubClientWrapperFactory = new MockEventHubClientFactory(eventData);
 
     EventHubSystemConsumer consumer =
-            new EventHubSystemConsumer(new EventHubConfig(configMap, systemName), eventHubClientWrapperFactory,
+            new EventHubSystemConsumer(new EventHubConfig(configMap, systemName), eventHubClientWrapperFactory, serdes,
                     testMetrics);
 
     consumer.register(ssp1, EventHubSystemConsumer.START_OF_STREAM);

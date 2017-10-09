@@ -111,14 +111,16 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   private final Map<SystemStreamPartition, PartitionReceiver> streamPartitionReceivers = new HashMap<>();
   private final Map<String, EventHubClientWrapper> streamEventHubClients = new HashMap<>();
   private final Map<SystemStreamPartition, String> streamPartitionStartingOffsets = new HashMap<>();
+  private Map<String, Serde<byte[]>> serdes;
   private boolean isStarted = false;
   private final EventHubConfig config;
 
   public EventHubSystemConsumer(EventHubConfig config, EventHubClientWrapperFactory eventHubClientWrapperFactory,
-                                MetricsRegistry registry) {
+                                Map<String, Serde<byte[]>> serdes,  MetricsRegistry registry) {
     super(registry, System::currentTimeMillis);
 
     this.config = config;
+    this.serdes = serdes;
     List<String> streamList = config.getStreamList();
 
     // Create and initiate connections to Event Hubs
@@ -187,7 +189,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
         }
         PartitionReceiveHandler handler = new PartitionReceiverHandlerImpl(ssp, eventReadRates.get(streamName),
                 eventByteReadRates.get(streamName), readLatencies.get(streamName), readErrors.get(streamName),
-                config.getSerde(streamName).orElse(null));
+                serdes.getOrDefault(streamName, null));
         streamPartitionHandlers.put(ssp, handler);
         receiver.setReceiveHandler(handler);
         streamPartitionReceivers.put(ssp, receiver);

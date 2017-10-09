@@ -68,7 +68,6 @@ public class EventHubSystemProducer implements SystemProducer {
 
   private final EventHubClientWrapperFactory eventHubClientWrapperFactory;
   private final EventHubConfig config;
-  private final String systemName;
   private final MetricsRegistry registry;
   private final PartitioningMethod partitioningMethod;
 
@@ -82,18 +81,18 @@ public class EventHubSystemProducer implements SystemProducer {
 
   // Running count for the next message Id
   private long messageId;
-  private Map<String, Serde<byte[]>> serdes = new HashMap<>();
+  private Map<String, Serde<byte[]>> serdes;
 
   private Map<Long, CompletableFuture<Void>> pendingFutures = new ConcurrentHashMap<>();
 
-  public EventHubSystemProducer(String systemName, EventHubConfig config, EventHubClientWrapperFactory eventHubClientWrapperFactory,
-                                MetricsRegistry registry) {
+  public EventHubSystemProducer(EventHubConfig config, EventHubClientWrapperFactory eventHubClientWrapperFactory,
+                                Map<String, Serde<byte[]>> serdes, MetricsRegistry registry) {
     messageId = 0;
-    this.systemName = systemName;
     this.config = config;
     this.registry = registry;
     partitioningMethod = this.config.getPartitioningMethod();
     this.eventHubClientWrapperFactory = eventHubClientWrapperFactory;
+    this.serdes = serdes;
   }
 
   @Override
@@ -154,7 +153,6 @@ public class EventHubSystemProducer implements SystemProducer {
     ehClient.init();
     eventHubClients.put(streamName, ehClient);
     streamPartitionSenders.put(streamName, new HashMap<>());
-    config.getSerde(streamName).ifPresent(x -> serdes.put(streamName, x));
   }
 
   @Override

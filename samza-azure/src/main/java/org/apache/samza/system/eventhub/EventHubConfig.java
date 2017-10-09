@@ -20,18 +20,14 @@
 package org.apache.samza.system.eventhub;
 
 import com.microsoft.azure.eventhubs.EventHubClient;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.serializers.Serde;
-import org.apache.samza.serializers.SerdeFactory;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer;
 
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 public class EventHubConfig extends MapConfig {
   public static final String CONFIG_STREAM_LIST = "systems.%s.stream.list";
@@ -43,9 +39,6 @@ public class EventHubConfig extends MapConfig {
   public static final String CONFIG_STREAM_SAS_KEY_NAME = "systems.%s.streams.%s.eventhubs.sas.keyname";
 
   public static final String CONFIG_STREAM_SAS_TOKEN = "systems.%s.streams.%s.eventhubs.sas.token";
-
-  public static final String CONFIG_STREAM_SERDE_FACTORY = "systems.%s.streams.%s.eventhubs.serdeFactory";
-  public static final String CONFIG_STREAM_SERDE_PREFIX = "systems.%s.streams.%s.eventhubs.serde.";
 
   public static final String CONFIG_STREAM_CONSUMER_GROUP = "systems.%s.streams.%s.eventhubs.consumer.group";
   public static final String DEFAULT_CONFIG_STREAM_CONSUMER_GROUP = EventHubClient.DEFAULT_CONSUMER_GROUP_NAME;
@@ -133,16 +126,6 @@ public class EventHubConfig extends MapConfig {
    */
   public String getStreamSasToken(String streamName) {
     return getRequiredConfigValue(CONFIG_STREAM_SAS_TOKEN, streamName);
-  }
-
-  public Optional<Serde<byte[]>> getSerde(String streamName) {
-    Serde<byte[]> serde = null;
-    String serdeFactoryClassName = this.get(String.format(CONFIG_STREAM_SERDE_FACTORY, systemName, streamName));
-    if (!StringUtils.isEmpty(serdeFactoryClassName)) {
-      SerdeFactory<byte[]> factory = EventHubSystemFactory.getSerdeFactory(serdeFactoryClassName);
-      serde = factory.getSerde(streamName, this.subset(String.format(CONFIG_STREAM_SERDE_PREFIX, systemName, streamName)));
-    }
-    return Optional.ofNullable(serde);
   }
 
   /**
