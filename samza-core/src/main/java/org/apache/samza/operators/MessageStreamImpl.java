@@ -129,10 +129,10 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
 
   @Override
   public MessageStream<M> merge(Collection<? extends MessageStream<? extends M>> otherStreams) {
+    if (otherStreams.isEmpty()) return this;
     StreamOperatorSpec<M, M> opSpec = OperatorSpecs.createMergeOperatorSpec(this.graph.getNextOpId());
     this.operatorSpec.registerNextOperatorSpec(opSpec);
-    otherStreams.forEach(other ->
-        ((MessageStreamImpl<M>) other).getOperatorSpec().registerNextOperatorSpec(opSpec));
+    otherStreams.forEach(other -> ((MessageStreamImpl<M>) other).getOperatorSpec().registerNextOperatorSpec(opSpec));
     return new MessageStreamImpl<>(this.graph, opSpec);
   }
 
