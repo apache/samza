@@ -21,21 +21,27 @@ package org.apache.samza.system.eventhub.consumer;
 
 
 import com.microsoft.azure.eventhubs.EventData;
+import com.microsoft.azure.eventhubs.EventHubClient;
+import com.microsoft.azure.eventhubs.PartitionReceiver;
 import org.apache.samza.Partition;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.system.eventhub.EventDataWrapper;
-import org.apache.samza.system.eventhub.EventHubConfig;
-import org.apache.samza.system.eventhub.MockEventData;
-import org.apache.samza.system.eventhub.TestMetricsRegistry;
+import org.apache.samza.system.eventhub.*;
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.PowerMockRunner;
 
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static org.apache.samza.system.eventhub.MockEventHubConfigFactory.*;
+
+@RunWith(PowerMockRunner.class)
+@PrepareForTest({PartitionReceiver.class, EventHubClient.class})
 public class TestEventHubSystemConsumer {
   private static final String MOCK_ENTITY_1 = "mocktopic1";
   private static final String MOCK_ENTITY_2 = "mocktopic2";
@@ -59,25 +65,34 @@ public class TestEventHubSystemConsumer {
     int partitionId = 0;
 
     TestMetricsRegistry testMetrics = new TestMetricsRegistry();
-    Map<String, Map<Integer, List<EventData>>> eventData = new HashMap<>();
-    Map<Integer, List<EventData>> singleTopicEventData = new HashMap<>();
+    Map<SystemStreamPartition, List<EventData>> eventData = new HashMap<>();
+    SystemStreamPartition ssp = new SystemStreamPartition(systemName, streamName, new Partition(partitionId));
 
+    // create EventData
     List<EventData> singlePartitionEventData = MockEventData.generateEventData(numEvents);
-    singleTopicEventData.put(partitionId, singlePartitionEventData);
-    eventData.put(MOCK_ENTITY_1, singleTopicEventData);
-    EventHubEntityConnectionFactory connectionFactory = new MockEventHubEntityConnectionFactory(eventData);
+    eventData.put(ssp, singlePartitionEventData);
 
+    // Set configs
     Map<String, String> configMap = new HashMap<>();
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_LIST, systemName), streamName);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, systemName, streamName), EVENTHUB_NAMESPACE);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName), EVENTHUB_KEY_NAME);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, systemName, streamName), EVENTHUB_KEY);
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, systemName, streamName), MOCK_ENTITY_1);
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_CONSUMER_START_POSITION, systemName, streamName), "latest");
-    EventHubSystemConsumer consumer =
-            new EventHubSystemConsumer(new EventHubConfig(configMap, systemName), connectionFactory, testMetrics);
 
-    SystemStreamPartition ssp = new SystemStreamPartition(systemName, streamName, new Partition(partitionId));
+    MockEventHubClientFactory eventHubClientWrapperFactory = new MockEventHubClientFactory(eventData);
+
+    EventHubSystemConsumer consumer =
+            new EventHubSystemConsumer(new EventHubConfig(configMap, systemName), eventHubClientWrapperFactory, testMetrics);
     consumer.register(ssp, null);
     consumer.start();
+
+    // Mock received data from EventHub
+    eventHubClientWrapperFactory.sendToHandlers(consumer.streamPartitionHandlers);
+
     List<IncomingMessageEnvelope> result = consumer.poll(Collections.singleton(ssp), 1000).get(ssp);
+
     verifyEvents(result, singlePartitionEventData);
     Assert.assertEquals(testMetrics.getCounters(streamName).size(), 3);
     Assert.assertEquals(testMetrics.getGauges(streamName).size(), 2);
@@ -96,27 +111,36 @@ public class TestEventHubSystemConsumer {
     int partitionId1 = 0;
     int partitionId2 = 1;
     TestMetricsRegistry testMetrics = new TestMetricsRegistry();
+    Map<SystemStreamPartition, List<EventData>> eventData = new HashMap<>();
+    SystemStreamPartition ssp1 = new SystemStreamPartition(systemName, streamName, new Partition(partitionId1));
+    SystemStreamPartition ssp2 = new SystemStreamPartition(systemName, streamName, new Partition(partitionId2));
 
-    Map<String, Map<Integer, List<EventData>>> eventData = new HashMap<>();
-    Map<Integer, List<EventData>> singleTopicEventData = new HashMap<>();
+    // create EventData
     List<EventData> singlePartitionEventData1 = MockEventData.generateEventData(numEvents);
     List<EventData> singlePartitionEventData2 = MockEventData.generateEventData(numEvents);
-    singleTopicEventData.put(partitionId1, singlePartitionEventData1);
-    singleTopicEventData.put(partitionId2, singlePartitionEventData2);
-    eventData.put(MOCK_ENTITY_1, singleTopicEventData);
-    EventHubEntityConnectionFactory connectionFactory = new MockEventHubEntityConnectionFactory(eventData);
+    eventData.put(ssp1, singlePartitionEventData1);
+    eventData.put(ssp2, singlePartitionEventData2);
 
+    // Set configs
     Map<String, String> configMap = new HashMap<>();
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_LIST, systemName), streamName);
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, systemName, streamName), MOCK_ENTITY_1);
-    EventHubSystemConsumer consumer =
-            new EventHubSystemConsumer(new EventHubConfig(configMap, systemName), connectionFactory, testMetrics);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, systemName, streamName), EVENTHUB_NAMESPACE);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName), EVENTHUB_KEY_NAME);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, systemName, streamName), EVENTHUB_KEY);
 
-    SystemStreamPartition ssp1 = new SystemStreamPartition(systemName, streamName, new Partition(partitionId1));
+    MockEventHubClientFactory eventHubClientWrapperFactory = new MockEventHubClientFactory(eventData);
+
+    EventHubSystemConsumer consumer =
+            new EventHubSystemConsumer(new EventHubConfig(configMap, systemName), eventHubClientWrapperFactory,
+                    testMetrics);
     consumer.register(ssp1, EventHubSystemConsumer.START_OF_STREAM);
-    SystemStreamPartition ssp2 = new SystemStreamPartition(systemName, streamName, new Partition(partitionId2));
     consumer.register(ssp2, EventHubSystemConsumer.START_OF_STREAM);
     consumer.start();
+
+    // Mock received data from EventHub
+    eventHubClientWrapperFactory.sendToHandlers(consumer.streamPartitionHandlers);
+
     Set<SystemStreamPartition> ssps = new HashSet<>();
     ssps.add(ssp1);
     ssps.add(ssp2);
@@ -141,31 +165,40 @@ public class TestEventHubSystemConsumer {
     int numEvents = 10; // needs to be less than BLOCKING_QUEUE_SIZE
     int partitionId = 0;
     TestMetricsRegistry testMetrics = new TestMetricsRegistry();
+    Map<SystemStreamPartition, List<EventData>> eventData = new HashMap<>();
+    SystemStreamPartition ssp1 = new SystemStreamPartition(systemName, streamName1, new Partition(partitionId));
+    SystemStreamPartition ssp2 = new SystemStreamPartition(systemName, streamName2, new Partition(partitionId));
 
-    Map<String, Map<Integer, List<EventData>>> eventData = new HashMap<>();
-    Map<Integer, List<EventData>> singleTopicEventData1 = new HashMap<>();
     List<EventData> singlePartitionEventData1 = MockEventData.generateEventData(numEvents);
-    singleTopicEventData1.put(partitionId, singlePartitionEventData1);
-    eventData.put(MOCK_ENTITY_1, singleTopicEventData1);
-    Map<Integer, List<EventData>> singleTopicEventData2 = new HashMap<>();
     List<EventData> singlePartitionEventData2 = MockEventData.generateEventData(numEvents);
-    singleTopicEventData2.put(partitionId, singlePartitionEventData2);
-    eventData.put(MOCK_ENTITY_2, singleTopicEventData2);
-    EventHubEntityConnectionFactory connectionFactory = new MockEventHubEntityConnectionFactory(eventData);
+    eventData.put(ssp1, singlePartitionEventData1);
+    eventData.put(ssp2, singlePartitionEventData2);
 
     Map<String, String> configMap = new HashMap<>();
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_LIST, systemName),
             String.format("%s,%s", streamName1, streamName2));
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, systemName, streamName1), MOCK_ENTITY_1);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, systemName, streamName1), EVENTHUB_NAMESPACE);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName1), EVENTHUB_KEY_NAME);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, systemName, streamName1), EVENTHUB_KEY);
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, systemName, streamName2), MOCK_ENTITY_2);
-    EventHubSystemConsumer consumer =
-            new EventHubSystemConsumer(new EventHubConfig(configMap, systemName), connectionFactory, testMetrics);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, systemName, streamName2), EVENTHUB_NAMESPACE);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName2), EVENTHUB_KEY_NAME);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, systemName, streamName2), EVENTHUB_KEY);
 
-    SystemStreamPartition ssp1 = new SystemStreamPartition(systemName, streamName1, new Partition(partitionId));
+    MockEventHubClientFactory eventHubClientWrapperFactory = new MockEventHubClientFactory(eventData);
+
+    EventHubSystemConsumer consumer =
+            new EventHubSystemConsumer(new EventHubConfig(configMap, systemName), eventHubClientWrapperFactory,
+                    testMetrics);
+
     consumer.register(ssp1, EventHubSystemConsumer.START_OF_STREAM);
-    SystemStreamPartition ssp2 = new SystemStreamPartition(systemName, streamName2, new Partition(partitionId));
     consumer.register(ssp2, EventHubSystemConsumer.START_OF_STREAM);
     consumer.start();
+
+    // Mock received data from EventHub
+    eventHubClientWrapperFactory.sendToHandlers(consumer.streamPartitionHandlers);
+
     Set<SystemStreamPartition> ssps = new HashSet<>();
     ssps.add(ssp1);
     ssps.add(ssp2);

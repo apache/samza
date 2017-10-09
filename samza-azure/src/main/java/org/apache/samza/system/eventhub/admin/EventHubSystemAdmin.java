@@ -27,10 +27,10 @@ import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.system.eventhub.EventHubClientFactory;
 import org.apache.samza.system.eventhub.EventHubClientWrapper;
 import org.apache.samza.system.eventhub.EventHubConfig;
 import org.apache.samza.system.eventhub.consumer.EventHubSystemConsumer;
+import org.apache.samza.system.eventhub.EventHubClientWrapperFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,15 +44,17 @@ import java.util.concurrent.TimeoutException;
 
 public class EventHubSystemAdmin implements SystemAdmin {
   private static final Logger LOG = LoggerFactory.getLogger(EventHubSystemAdmin.class);
-  private final EventHubClientFactory eventHubClientFactory = new EventHubClientFactory();
+  private final EventHubClientWrapperFactory eventHubClientWrapperFactory;
   private String systemName;
   private EventHubConfig eventHubConfig;
   private Map<String, EventHubClientWrapper> eventHubClients = new HashMap<>();
   private Map<String, String[]> streamPartitions = new HashMap<>();
 
-  public EventHubSystemAdmin(String systemName, EventHubConfig config) {
+  public EventHubSystemAdmin(String systemName, EventHubConfig eventHubConfig,
+                             EventHubClientWrapperFactory eventHubClientWrapperFactory) {
     this.systemName = systemName;
-    eventHubConfig = config;
+    this.eventHubConfig = eventHubConfig;
+    this.eventHubClientWrapperFactory = eventHubClientWrapperFactory;
   }
 
   private static String getNextOffset(String currentOffset) {
@@ -106,8 +108,8 @@ public class EventHubSystemAdmin implements SystemAdmin {
 
   private EventHubClientWrapper getStreamEventHubClient(String streamName) {
     if (!eventHubClients.containsKey(streamName)) {
-      eventHubClients.put(streamName, eventHubClientFactory
-              .getEventHubClient(eventHubConfig.getStreamNamespace(streamName),
+      eventHubClients.put(streamName, eventHubClientWrapperFactory
+              .getEventHubClientWrapper(eventHubConfig.getStreamNamespace(streamName),
                       eventHubConfig.getStreamEntityPath(streamName), eventHubConfig.getStreamSasKeyName(streamName),
                       eventHubConfig.getStreamSasToken(streamName), eventHubConfig));
       eventHubClients.get(streamName).init();

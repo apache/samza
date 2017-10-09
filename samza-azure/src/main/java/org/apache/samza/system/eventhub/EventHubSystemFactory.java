@@ -28,7 +28,6 @@ import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.eventhub.admin.EventHubSystemAdmin;
-import org.apache.samza.system.eventhub.consumer.EventHubEntityConnectionFactory;
 import org.apache.samza.system.eventhub.consumer.EventHubSystemConsumer;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer;
 
@@ -51,17 +50,17 @@ public class EventHubSystemFactory implements SystemFactory {
 
   @Override
   public SystemConsumer getConsumer(String systemName, Config config, MetricsRegistry registry) {
-    return new EventHubSystemConsumer(new EventHubConfig(config, systemName),
-            new EventHubEntityConnectionFactory(), registry);
+    return new EventHubSystemConsumer(new EventHubConfig(config, systemName), new EventHubClientWrapperFactory(), registry);
   }
 
   @Override
   public SystemProducer getProducer(String systemName, Config config, MetricsRegistry registry) {
-    return new EventHubSystemProducer(systemName, new EventHubConfig(config, systemName), registry);
+    return new EventHubSystemProducer(systemName, new EventHubConfig(config, systemName), new EventHubClientWrapperFactory(),
+            registry);
   }
 
   @Override
   public SystemAdmin getAdmin(String systemName, Config config) {
-    return new EventHubSystemAdmin(systemName, new EventHubConfig(config, systemName));
+    return new EventHubSystemAdmin(systemName, new EventHubConfig(config, systemName), new EventHubClientWrapperFactory());
   }
 }

@@ -19,7 +19,6 @@
 
 package org.apache.samza.system.eventhub.admin;
 
-import junit.framework.Assert;
 import org.apache.samza.Partition;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
@@ -28,6 +27,7 @@ import org.apache.samza.system.eventhub.EventHubSystemFactory;
 import org.apache.samza.system.eventhub.MockEventHubConfigFactory;
 import org.apache.samza.system.eventhub.consumer.EventHubSystemConsumer;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer;
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.HashMap;

@@ -93,9 +93,9 @@ public class TestEventHubSystemProducer {
 
   @Test
   public void testReceive() throws ServiceBusException {
-    EventHubClientFactory clientFactory = new EventHubClientFactory();
+    EventHubClientWrapperFactory clientFactory = new EventHubClientWrapperFactory();
     EventHubClientWrapper wrapper = clientFactory
-            .getEventHubClient(EVENTHUB_NAMESPACE, EVENTHUB_ENTITY1, EVENTHUB_KEY_NAME, EVENTHUB_KEY,
+            .getEventHubClientWrapper(EVENTHUB_NAMESPACE, EVENTHUB_ENTITY1, EVENTHUB_KEY_NAME, EVENTHUB_KEY,
                     new EventHubConfig(createEventHubConfig(), SYSTEM_NAME));
     wrapper.init();
     EventHubClient client = wrapper.getEventHubClient();

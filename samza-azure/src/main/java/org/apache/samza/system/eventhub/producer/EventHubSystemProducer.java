@@ -29,9 +29,9 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
-import org.apache.samza.system.eventhub.EventHubClientFactory;
 import org.apache.samza.system.eventhub.EventHubClientWrapper;
 import org.apache.samza.system.eventhub.EventHubConfig;
+import org.apache.samza.system.eventhub.EventHubClientWrapperFactory;
 import org.apache.samza.system.eventhub.metrics.SamzaHistogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,7 +66,7 @@ public class EventHubSystemProducer implements SystemProducer {
   private HashMap<String, SamzaHistogram> sendCallbackLatency = new HashMap<>();
   private HashMap<String, Counter> sendErrors = new HashMap<>();
 
-  private final EventHubClientFactory eventHubClientFactory = new EventHubClientFactory();
+  private final EventHubClientWrapperFactory eventHubClientWrapperFactory;
   private final EventHubConfig config;
   private final String systemName;
   private final MetricsRegistry registry;
@@ -86,12 +86,14 @@ public class EventHubSystemProducer implements SystemProducer {
 
   private Map<Long, CompletableFuture<Void>> pendingFutures = new ConcurrentHashMap<>();
 
-  public EventHubSystemProducer(String systemName, EventHubConfig config, MetricsRegistry registry) {
+  public EventHubSystemProducer(String systemName, EventHubConfig config, EventHubClientWrapperFactory eventHubClientWrapperFactory,
+                                MetricsRegistry registry) {
     messageId = 0;
     this.systemName = systemName;
     this.config = config;
     this.registry = registry;
     partitioningMethod = this.config.getPartitioningMethod();
+    this.eventHubClientWrapperFactory = eventHubClientWrapperFactory;
   }
 
   @Override
@@ -121,7 +123,7 @@ public class EventHubSystemProducer implements SystemProducer {
 
   @Override
   public synchronized void stop() {
-    LOG.info("Stopping system producer.");
+    LOG.info("Stopping event hub system producer...");
     streamPartitionSenders.values().forEach((streamPartitionSender) -> {
         List<CompletableFuture<Void>> futures = new ArrayList<>();
         streamPartitionSender.forEach((key, value) -> futures.add(value.close()));
@@ -129,7 +131,7 @@ public class EventHubSystemProducer implements SystemProducer {
         try {
           future.get(config.getShutdownWaitTimeMS(), TimeUnit.MILLISECONDS);
         } catch (ExecutionException | InterruptedException | TimeoutException e) {
-          LOG.warn("Closing the partition sender failed ", e);
+          throw new SamzaException("Closing the partition sender failed ", e);
         }
       });
     eventHubClients.values().forEach(ehClient -> ehClient.close(config.getShutdownWaitTimeMS()));
@@ -145,8 +147,8 @@ public class EventHubSystemProducer implements SystemProducer {
       throw new SamzaException(msg);
     }
 
-    EventHubClientWrapper ehClient = eventHubClientFactory
-            .getEventHubClient(config.getStreamNamespace(streamName), config.getStreamEntityPath(streamName),
+    EventHubClientWrapper ehClient = eventHubClientWrapperFactory
+            .getEventHubClientWrapper(config.getStreamNamespace(streamName), config.getStreamEntityPath(streamName),
                     config.getStreamSasKeyName(streamName), config.getStreamSasToken(streamName), config);
 
     ehClient.init();
@@ -185,8 +187,8 @@ public class EventHubSystemProducer implements SystemProducer {
 
     Instant startTime = Instant.now();
 
-    CompletableFuture<Void> sendResult;
-    sendResult = sendToEventHub(destination, eventData, envelope.getPartitionKey(), ehClient.getEventHubClient());
+    CompletableFuture<Void> sendResult = sendToEventHub(destination, eventData, envelope.getPartitionKey(),
+            ehClient.getEventHubClient());
 
     Instant endTime = Instant.now();
     long latencyMs = Duration.between(startTime, endTime).toMillis();

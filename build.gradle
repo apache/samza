@@ -199,13 +199,17 @@ project(':samza-azure') {
     compile project(":samza-core_$scalaVersion")
     compile "org.slf4j:slf4j-api:$slf4jVersion"
     testCompile "junit:junit:$junitVersion"
+    testCompile "org.mockito:mockito-all:$mockitoVersion"
+    testCompile "org.powermock:powermock-api-mockito:$powerMockVersion"
+    testCompile "org.powermock:powermock-core:$powerMockVersion"
+    testCompile "org.powermock:powermock-module-junit4:$powerMockVersion"
   }
   checkstyle {
     configFile = new File(rootDir, "checkstyle/checkstyle.xml")
     toolVersion = "$checkstyleVersion"
   }
   test {
-    exclude 'org/apache/samza/system/eventhub/**'
+    exclude 'org/apache/samza/system/eventhub/producer/**'
   }
 }
 
