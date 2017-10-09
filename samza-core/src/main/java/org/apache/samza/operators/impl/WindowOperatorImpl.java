@@ -83,6 +83,7 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
   // Object = Collection<M> or WV
 
   private static final Logger LOG = LoggerFactory.getLogger(WindowOperatorImpl.class);
+  private static final long INVALID_TIMESTAMP = -1;
 
   private final WindowOperatorSpec<M, K, Object> windowOpSpec;
   private final Clock clock;
@@ -127,27 +128,25 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
     String paneId = null;
 
     if (window.getWindowType() == WindowType.TUMBLING) {
-      timestamp = getTumblingWindowTimestamp(message);
-      paneId = Long.toString(timestamp);
+      paneId = getTumblingWindowPaneId(message);
     } else if (window.getWindowType() == WindowType.SESSION) {
-      timestamp = getSessionWindowTimestamp(message);
-      paneId = Long.toString(timestamp);
+      paneId = getSessionWindowPaneId(message);
     }
 
-    return new WindowKey<>(key, paneId, timestamp);
+    return new WindowKey<>(key, paneId);
   }
 
-  private long getTumblingWindowTimestamp(M message) {
+  private String getTumblingWindowPaneId(M message) {
     long triggerDurationMs = ((TimeTrigger<M>) window.getDefaultTrigger()).getDuration().toMillis();
     final long now = clock.currentTimeMillis();
     long timestamp = now - now % triggerDurationMs;
-    return timestamp;
+    return Long.toString(timestamp);
   }
 
-  private long getSessionWindowTimestamp(M message) {
+  private String getSessionWindowPaneId(M message) {
     K key = window.getKeyExtractor().apply(message);
     ClosableIterator<TimestampedValue<Object>> iterator = timeSeriesDb.get(key, 0, Long.MAX_VALUE);
-    long timestamp = -1;
+    long timestamp = INVALID_TIMESTAMP;
 
     while (iterator.hasNext()) {
       TimestampedValue<Object> next = iterator.next();
@@ -156,10 +155,10 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
     }
     iterator.close();
 
-    if (timestamp == -1) {
+    if (timestamp == INVALID_TIMESTAMP) {
       timestamp = clock.currentTimeMillis();
     }
-    return timestamp;
+    return Long.toString(timestamp);
   }
 
 
@@ -171,17 +170,18 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
 
     WindowKey<K> storeKey =  getStoreKey(message);
     K key = storeKey.getKey();
-    Object storeVal = null;
+    Object storeVal;
 
     if (window.getFoldLeftFunction() == null) {
-      storeVal = (Object)message;
+      storeVal = message;
     } else {
       List<Object> existingState = getExistingState(storeKey);
       Preconditions.checkState(existingState.size() == 1, "Store with FoldLeftFunction should not contain more than one entry per window");
       storeVal = applyFoldFunction(existingState.get(0), message);
     }
 
-    timeSeriesDb.put(storeKey.getKey(), storeVal, storeKey.getTimestamp());
+    long timestamp = Long.parseLong(storeKey.getPaneId());
+    timeSeriesDb.put(storeKey.getKey(), storeVal, timestamp);
 
     if (window.getEarlyTrigger() != null) {
       TriggerKey<K> triggerKey = new TriggerKey<>(FiringType.EARLY, storeKey);
@@ -204,8 +204,9 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
   }
 
   private List<Object> getExistingState(WindowKey<K> storeKey) {
-    ClosableIterator<TimestampedValue<Object>> iterator = timeSeriesDb.get(storeKey.getKey(), storeKey.getTimestamp(), storeKey.getTimestamp() + 1);
-    Object wVal = null;
+    long timestamp = Long.parseLong(storeKey.getPaneId());
+    ClosableIterator<TimestampedValue<Object>> iterator = timeSeriesDb.get(storeKey.getKey(), timestamp, timestamp + 1);
+    Object wVal;
     List<Object> values = new ArrayList<>();
 
     while(iterator.hasNext()) {
@@ -292,9 +293,9 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
       return Optional.empty();
     }
 
-    Object windowVal = null;
+    Object windowVal;
     if (window.getFoldLeftFunction() == null) {
-      windowVal = (Object) existingState;
+      windowVal = existingState;
     } else {
       windowVal = existingState.get(0);
     }

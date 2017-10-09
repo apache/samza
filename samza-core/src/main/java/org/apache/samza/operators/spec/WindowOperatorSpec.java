@@ -128,15 +128,12 @@ public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK
   public Collection<StoreDescriptor> getStoreDescriptors() {
     String storeName = getOpName();
     String storeFactory = "org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory";
-    long ttlMs = window.getTtlMs();
 
     Serde storeKeySerde = new TimeSeriesKeySerde<>(window.getKeySerde());
     Serde storeValSerde = window.getFoldLeftFunction() == null ? window.getMsgSerde() : window.getWindowValSerde();
 
     Map<String, String> otherProperties = ImmutableMap.of(
-        String.format("stores.%s.rocksdb.ttl.ms", storeName), Long.toString(ttlMs),
-        String.format("stores.%s.changelog.kafka.cleanup.policy", storeName), "delete",
-        String.format("stores.%s.changelog.kafka.retention.ms", storeName), Long.toString(ttlMs));
+        String.format("stores.%s.changelog.kafka.cleanup.policy", storeName), "compact");
 
     StoreDescriptor descriptor = new StoreDescriptor(storeName, storeFactory, storeKeySerde, storeValSerde, storeName, otherProperties);
     return Collections.singletonList(descriptor);

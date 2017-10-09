@@ -36,12 +36,9 @@ public class WindowKey<K> {
 
   private final String paneId;
 
-  private final long timestamp;
-
-  public WindowKey(K key, String  paneId, long timestamp) {
+  public WindowKey(K key, String  paneId) {
     this.key = key;
     this.paneId = paneId;
-    this.timestamp = timestamp;
   }
 
   public K getKey() {
@@ -50,10 +47,6 @@ public class WindowKey<K> {
 
   public String getPaneId() {
     return paneId;
-  }
-
-  public long getTimestamp() {
-    return timestamp;
   }
 
   @Override
@@ -72,7 +65,6 @@ public class WindowKey<K> {
 
     WindowKey<?> windowKey = (WindowKey<?>) o;
 
-    if (timestamp != windowKey.timestamp) return false;
     if (key != null ? !key.equals(windowKey.key) : windowKey.key != null) return false;
     return paneId != null ? paneId.equals(windowKey.paneId) : windowKey.paneId == null;
   }
@@ -81,7 +73,6 @@ public class WindowKey<K> {
   public int hashCode() {
     int result = key != null ? key.hashCode() : 0;
     result = 31 * result + (paneId != null ? paneId.hashCode() : 0);
-    result = 31 * result + (int) (timestamp ^ (timestamp >>> 32));
     return result;
   }
 }

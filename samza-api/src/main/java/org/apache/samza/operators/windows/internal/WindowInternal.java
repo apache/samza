@@ -68,10 +68,12 @@ public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
    */
   private final WindowType windowType;
 
+  /*
+   * Serdes for key (if any), windowValue, and the input message
+   */
   private final Serde<WK> keySerde;
   private final Serde<WV> windowValSerde;
   private final Serde<M> msgSerde;
-  private long ttl;
 
   private Trigger<M> earlyTrigger;
   private Trigger<M> lateTrigger;
@@ -105,7 +107,6 @@ public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
     this.keySerde = keySerde;
     this.windowValSerde = valSerde;
     this.msgSerde = msgSerde;
-    this.ttl = DEFAULT_TTL;
   }
 
   @Override
@@ -123,12 +124,6 @@ public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
   @Override
   public Window<M, WK, WV> setAccumulationMode(AccumulationMode mode) {
     this.mode = mode;
-    return this;
-  }
-
-  @Override
-  public Window<M, WK, WV> setTtl(Duration ttl) {
-    this.ttl = ttl.toMillis();
     return this;
   }
 
@@ -166,10 +161,6 @@ public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
 
   public AccumulationMode getAccumulationMode() {
     return mode;
-  }
-
-  public long getTtlMs() {
-    return ttl;
   }
 
 }

@@ -21,8 +21,6 @@ package org.apache.samza.operators.windows;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.triggers.Trigger;
 
-import java.time.Duration;
-
 /**
  * Groups incoming messages in the {@link org.apache.samza.operators.MessageStream} into finite windows for processing.
  *
@@ -106,6 +104,4 @@ public interface Window<M, K, WV> {
    * @return the {@link Window} function with {@code mode} set as its {@link AccumulationMode}.
    */
   Window<M, K, WV> setAccumulationMode(AccumulationMode mode);
-
-  Window<M, K, WV> setTtl(Duration ttl);
 }
