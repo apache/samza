@@ -28,6 +28,7 @@ import org.apache.samza.system.eventhub.MockEventHubConfigFactory;
 import org.apache.samza.system.eventhub.consumer.EventHubSystemConsumer;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.HashMap;
@@ -78,6 +79,7 @@ public class TestEventHubSystemAdmin {
     Assert.assertEquals("0", updatedOffsets.get(ssp2));
   }
 
+  @Ignore("Integration Test")
   @Test
   public void testGetStreamMetadata() {
     EventHubSystemFactory eventHubSystemFactory = new EventHubSystemFactory();
