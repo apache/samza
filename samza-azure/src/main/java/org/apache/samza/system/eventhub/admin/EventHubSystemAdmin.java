@@ -150,21 +150,6 @@ public class EventHubSystemAdmin implements SystemAdmin {
   }
 
   @Override
-  public void createChangelogStream(String streamName, int numOfPartitions) {
-    throw new UnsupportedOperationException("Event Hubs does not support change log stream.");
-  }
-
-  @Override
-  public void validateChangelogStream(String streamName, int numOfPartitions) {
-    throw new UnsupportedOperationException("Event Hubs does not support change log stream.");
-  }
-
-  @Override
-  public void createCoordinatorStream(String streamName) {
-    throw new UnsupportedOperationException("Event Hubs does not support coordinator stream.");
-  }
-
-  @Override
   public Integer offsetComparator(String offset1, String offset2) {
     try {
       if (offset1.equals(EventHubSystemConsumer.END_OF_STREAM)) {
