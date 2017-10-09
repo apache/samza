@@ -80,8 +80,6 @@ import java.util.function.Function;
  *
  */
 public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Object>> {
-  // Object = Collection<M> or WV
-
   private static final Logger LOG = LoggerFactory.getLogger(WindowOperatorImpl.class);
   private static final long INVALID_TIMESTAMP = -1;
 
@@ -90,7 +88,6 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
   private final WindowInternal<M, K, Object> window;
 
   private TimeSeriesStore<K, Object> timeSeriesDb;
-
   private TriggerScheduler<K> triggerScheduler;
 
   // The trigger state corresponding to each {@link TriggerKey}.
@@ -113,19 +110,18 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
       window.getFoldLeftFunction().init(config, context);
       timeSeriesDb = new TimeSeriesStoreImpl(store, false);
     } else {
-      timeSeriesDb = new TimeSeriesStoreImpl<>(store, true);
+      timeSeriesDb = new TimeSeriesStoreImpl(store, true);
     }
   }
 
   private WindowKey<K> getStoreKey(M message) {
     Function<M, K> keyExtractor = window.getKeyExtractor();
     K key = null;
-    long timestamp = 0l;
+    String paneId = null;
 
     if (keyExtractor != null) {
       key = keyExtractor.apply(message);
     }
-    String paneId = null;
 
     if (window.getWindowType() == WindowType.TUMBLING) {
       paneId = getTumblingWindowPaneId(message);
@@ -136,6 +132,16 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
     return new WindowKey<>(key, paneId);
   }
 
+  /**
+   * Computes the paneId of the window this message should belong to.
+   *
+   * In the case of tumbling windows, paneId of a window is defined as the start time-stamp of its corresponding window
+   * interval. For instance, if the tumbling interval is 10 seconds, all messages that arrive between [1000, 1010]
+   * are assigned to the window with paneId "1000"
+   *
+   * @param message the input message
+   * @return the paneId of the window this message should belong to
+   */
   private String getTumblingWindowPaneId(M message) {
     long triggerDurationMs = ((TimeTrigger<M>) window.getDefaultTrigger()).getDuration().toMillis();
     final long now = clock.currentTimeMillis();
@@ -143,21 +149,22 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
     return Long.toString(timestamp);
   }
 
+  /**
+   * Computes the paneId of the window this message should belong to.
+   *
+   * In the case of session windows, paneId is defined as the timestamp of the earliest message in the window.
+   * For instance, if the session gap is 10 seconds, and the first message in the window arrives at "1002" seconds,
+   * all messages (that arrive within 10 seconds of their previous message) are assigned a paneId "1002".
+   *
+   * @param message the input message
+   * @return the paneId of the window this message should belong to
+   */
+
   private String getSessionWindowPaneId(M message) {
     K key = window.getKeyExtractor().apply(message);
-    ClosableIterator<TimestampedValue<Object>> iterator = timeSeriesDb.get(key, 0, Long.MAX_VALUE);
-    long timestamp = INVALID_TIMESTAMP;
+    List<TimestampedValue<Object>> timestampedValues = timeSeriesDb.get(key, 0, Long.MAX_VALUE, 1);
+    long timestamp = (timestampedValues.isEmpty())? clock.currentTimeMillis() : timestampedValues.get(0).getTimestamp();
 
-    while (iterator.hasNext()) {
-      TimestampedValue<Object> next = iterator.next();
-      timestamp = next.getTimestamp();
-      break;
-    }
-    iterator.close();
-
-    if (timestamp == INVALID_TIMESTAMP) {
-      timestamp = clock.currentTimeMillis();
-    }
     return Long.toString(timestamp);
   }
 
@@ -205,17 +212,17 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
 
   private List<Object> getExistingState(WindowKey<K> storeKey) {
     long timestamp = Long.parseLong(storeKey.getPaneId());
-    ClosableIterator<TimestampedValue<Object>> iterator = timeSeriesDb.get(storeKey.getKey(), timestamp, timestamp + 1);
-    Object wVal;
+    ClosableIterator<TimestampedValue<Object>> iterator = timeSeriesDb.get(storeKey.getKey(), timestamp);
     List<Object> values = new ArrayList<>();
-
-    while(iterator.hasNext()) {
-      TimestampedValue<Object> next = iterator.next();
-      wVal = next.getValue();
-      values.add(wVal);
+    try {
+      while (iterator.hasNext()) {
+        TimestampedValue<Object> next = iterator.next();
+        Object wVal = next.getValue();
+        values.add(wVal);
+      }
+    } finally {
+      iterator.close();
     }
-
-    iterator.close();
     return values;
   }
 

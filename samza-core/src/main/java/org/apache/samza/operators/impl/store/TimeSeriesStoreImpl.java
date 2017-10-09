@@ -24,6 +24,7 @@ import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueIterator;
 import org.apache.samza.storage.kv.KeyValueStore;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -121,6 +122,29 @@ public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
 
     KeyValueIterator<TimeSeriesKey<K>, V> range = kvStore.range(fromKey, toKey);
     return new TimeSeriesStoreIterator<>(range);
+  }
+
+  @Override
+  public List<TimestampedValue<V>> get(K key, long startTimestamp, long endTimestamp, int maxMessages) {
+    ClosableIterator<TimestampedValue<V>> iterator = get(key, startTimestamp, endTimestamp);
+    List<TimestampedValue<V>> values = new ArrayList<>(maxMessages);
+    int numMessagesRead = 0;
+    try {
+      while (iterator.hasNext() && numMessagesRead < maxMessages) {
+        values.add(iterator.next());
+        numMessagesRead++;
+      }
+    } finally {
+      if (iterator != null) {
+        iterator.close();
+      }
+    }
+    return values;
+  }
+
+  @Override
+  public ClosableIterator<TimestampedValue<V>> get(K key, long timestamp) {
+    return get(key, timestamp, timestamp + 1);
   }
 
   @Override

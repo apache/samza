@@ -24,7 +24,6 @@ import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.Window;
 import org.apache.samza.serializers.Serde;
 
-import java.time.Duration;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -78,8 +77,6 @@ public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
   private Trigger<M> earlyTrigger;
   private Trigger<M> lateTrigger;
   private AccumulationMode mode;
-
-  private static final long DEFAULT_TTL = Duration.ofDays(1).toMillis();
 
   public Serde<WK> getKeySerde() {
     return keySerde;
@@ -162,5 +159,4 @@ public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
   public AccumulationMode getAccumulationMode() {
     return mode;
   }
-
 }
