@@ -60,7 +60,7 @@ public interface TimeSeriesStore<K, V> {
   ClosableIterator<TimestampedValue<V>> get(K key, long startTimestamp, long endTimestamp);
 
   /**
-   * Returns upto {@param maxMessages} for the given key in the provided time-range - [{@code startTimestamp}, {@code endTimestamp})
+   * Returns upto {@code maxMessages} for the given key in the provided time-range - [{@code startTimestamp}, {@code endTimestamp})
    *
    * The values in the returned list are ordered by their timestamp. Values with the same timestamp are returned in the order of insertion.
    * If there are no values in the store for the key in the provided time-range, an empty list is returned.
@@ -69,7 +69,7 @@ public interface TimeSeriesStore<K, V> {
    * @param startTimestamp the start timestamp of the range, inclusive
    * @param endTimestamp the end timestamp of the range, exclusive
    * @param maxMessages the maximum number of messages to return
-   * @return a list of values with upto {@param maxMessages} elements
+   * @return a list of values with upto {@code maxMessages} elements
    */
   List<TimestampedValue<V>> get(K key, long startTimestamp, long endTimestamp, int maxMessages);
 

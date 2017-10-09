@@ -114,15 +114,11 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
     }
   }
 
-  private WindowKey<K> getStoreKey(M message) {
+  private WindowKey<K> getWindowKey(M message) {
     Function<M, K> keyExtractor = window.getKeyExtractor();
-    K key = null;
+    K key = (keyExtractor != null) ? keyExtractor.apply(message) : null ;
+
     String paneId = null;
-
-    if (keyExtractor != null) {
-      key = keyExtractor.apply(message);
-    }
-
     if (window.getWindowType() == WindowType.TUMBLING) {
       paneId = getTumblingWindowPaneId(message);
     } else if (window.getWindowType() == WindowType.SESSION) {
@@ -135,7 +131,7 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
   /**
    * Computes the paneId of the window this message should belong to.
    *
-   * In the case of tumbling windows, paneId of a window is defined as the start time-stamp of its corresponding window
+   * In the case of tumbling windows, paneId of a window is defined as the start timestamp of its corresponding window
    * interval. For instance, if the tumbling interval is 10 seconds, all messages that arrive between [1000, 1010]
    * are assigned to the window with paneId "1000"
    *
@@ -175,24 +171,25 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
     LOG.trace("Processing message envelope: {}", message);
     List<WindowPane<K, Object>> results = new ArrayList<>();
 
-    WindowKey<K> storeKey =  getStoreKey(message);
+    WindowKey<K> storeKey =  getWindowKey(message);
+    long timestamp = Long.parseLong(storeKey.getPaneId());
+
     K key = storeKey.getKey();
-    Object storeVal;
+
+    // For windows with a fold function configured (aka. aggregating windows), we only store the aggregated window value.
+    // For windows with no fold function configured, we store all messages in the window.
 
     if (window.getFoldLeftFunction() == null) {
-      storeVal = message;
+      timeSeriesDb.put(key, message, timestamp);
     } else {
-      List<Object> existingState = getExistingState(storeKey);
+      List<Object> existingState = getValues(storeKey);
       Preconditions.checkState(existingState.size() == 1, "Store with FoldLeftFunction should not contain more than one entry per window");
-      storeVal = applyFoldFunction(existingState.get(0), message);
+      Object aggregatedValue = applyFoldFunction(existingState.get(0), message);
+      timeSeriesDb.put(key, aggregatedValue, timestamp);
     }
-
-    long timestamp = Long.parseLong(storeKey.getPaneId());
-    timeSeriesDb.put(storeKey.getKey(), storeVal, timestamp);
 
     if (window.getEarlyTrigger() != null) {
       TriggerKey<K> triggerKey = new TriggerKey<>(FiringType.EARLY, storeKey);
-
       TriggerImplHandler triggerImplHandler = getOrCreateTriggerImplHandler(triggerKey, window.getEarlyTrigger());
       Optional<WindowPane<K, Object>> maybeTriggeredPane =
           triggerImplHandler.onMessage(triggerKey, message, collector, coordinator);
@@ -210,7 +207,7 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
     return results;
   }
 
-  private List<Object> getExistingState(WindowKey<K> storeKey) {
+  private List<Object> getValues(WindowKey<K> storeKey) {
     long timestamp = Long.parseLong(storeKey.getPaneId());
     ClosableIterator<TimestampedValue<Object>> iterator = timeSeriesDb.get(storeKey.getKey(), timestamp);
     List<Object> values = new ArrayList<>();
@@ -293,7 +290,7 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
 
     TriggerImplHandler wrapper = triggers.get(triggerKey);
     WindowKey<K> windowKey = triggerKey.getKey();
-    List<Object> existingState = getExistingState(windowKey);
+    List<Object> existingState = getValues(windowKey);
 
     if (existingState == null || existingState.size() == 0) {
       LOG.trace("No state found for triggerKey: {}", triggerKey);
@@ -322,7 +319,6 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
 
       cancelTrigger(triggerKey, true);
       cancelTrigger(new TriggerKey(FiringType.EARLY, triggerKey.getKey()), true);
-      WindowKey<K> key = triggerKey.getKey();
       timeSeriesDb.remove(windowKey.getKey(), 0, Long.MAX_VALUE);
     }
 
