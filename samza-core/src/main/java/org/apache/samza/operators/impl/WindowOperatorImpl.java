@@ -81,7 +81,6 @@ import java.util.function.Function;
  */
 public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Object>> {
   private static final Logger LOG = LoggerFactory.getLogger(WindowOperatorImpl.class);
-  private static final long INVALID_TIMESTAMP = -1;
 
   private final WindowOperatorSpec<M, K, Object> windowOpSpec;
   private final Clock clock;
@@ -106,6 +105,8 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
 
     KeyValueStore<TimeSeriesKey<K>, Object> store = (KeyValueStore<TimeSeriesKey<K>, Object>) context.getStore(windowOpSpec.getOpName());
 
+    // For windows that have a configured fold function, we use the store in over-write mode since we only retain the aggregatred
+    // value. Else, we use the store in append-mode.
     if (window.getFoldLeftFunction() != null) {
       window.getFoldLeftFunction().init(config, context);
       timeSeriesDb = new TimeSeriesStoreImpl(store, false);
@@ -158,7 +159,11 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
 
   private String getSessionWindowPaneId(M message) {
     K key = window.getKeyExtractor().apply(message);
+    // get the value with the earliest timestamp for the provided key.
     List<TimestampedValue<Object>> timestampedValues = timeSeriesDb.get(key, 0, Long.MAX_VALUE, 1);
+
+    // If there are no existing sessions for the key, we use the current timestamp as the paneId. If not, use the
+    // timestamp of the earliest message as the paneId.
     long timestamp = (timestampedValues.isEmpty())? clock.currentTimeMillis() : timestampedValues.get(0).getTimestamp();
 
     return Long.toString(timestamp);
@@ -178,7 +183,6 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
 
     // For windows with a fold function configured (aka. aggregating windows), we only store the aggregated window value.
     // For windows with no fold function configured, we store all messages in the window.
-
     if (window.getFoldLeftFunction() == null) {
       timeSeriesDb.put(key, message, timestamp);
     } else {
@@ -290,6 +294,7 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
 
     TriggerImplHandler wrapper = triggers.get(triggerKey);
     WindowKey<K> windowKey = triggerKey.getKey();
+    long timestamp = Long.parseLong(windowKey.getPaneId());
     List<Object> existingState = getValues(windowKey);
 
     if (existingState == null || existingState.size() == 0) {
@@ -308,7 +313,7 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
     // Handle accumulation modes.
     if (window.getAccumulationMode() == AccumulationMode.DISCARDING) {
       LOG.trace("Clearing state for trigger key: {}", triggerKey);
-      timeSeriesDb.remove(windowKey.getKey(), 0, Long.MAX_VALUE);
+      timeSeriesDb.remove(windowKey.getKey(), timestamp);
     }
 
     // Cancel all early triggers too when the default trigger fires. Also, clean all state for the key.
@@ -319,7 +324,7 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
 
       cancelTrigger(triggerKey, true);
       cancelTrigger(new TriggerKey(FiringType.EARLY, triggerKey.getKey()), true);
-      timeSeriesDb.remove(windowKey.getKey(), 0, Long.MAX_VALUE);
+      timeSeriesDb.remove(windowKey.getKey(), timestamp);
     }
 
     // Cancel non-repeating early triggers. All early triggers should be removed from the "triggers" map only after the

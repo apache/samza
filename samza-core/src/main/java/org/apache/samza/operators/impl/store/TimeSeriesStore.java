@@ -99,6 +99,14 @@ public interface TimeSeriesStore<K, V> {
   void remove(K key, long startTimestamp, long endTimeStamp);
 
   /**
+   * Removes all values for the given key and timestamp
+   *
+   * @param key the key to look up in the store
+   * @param timestamp the timestamp to look up in the store
+   */
+  void remove(K key, long timestamp);
+
+  /**
    * Flushes this time series store, if applicable.
    */
   void flush();

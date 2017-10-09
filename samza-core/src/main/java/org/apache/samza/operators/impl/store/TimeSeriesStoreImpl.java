@@ -164,6 +164,11 @@ public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
   }
 
   @Override
+  public void remove(K key, long timestamp) {
+    remove(key, timestamp, timestamp + 1);
+  }
+
+  @Override
   public void flush() {
     kvStore.flush();
   }
