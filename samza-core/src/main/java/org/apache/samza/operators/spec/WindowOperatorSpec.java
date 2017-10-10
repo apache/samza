@@ -19,7 +19,6 @@
 
 package org.apache.samza.operators.spec;
 
-import com.google.common.collect.ImmutableMap;
 import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.impl.store.TimeSeriesKeySerde;
@@ -38,7 +37,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 
@@ -132,10 +130,7 @@ public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK
     Serde storeKeySerde = new TimeSeriesKeySerde<>(window.getKeySerde());
     Serde storeValSerde = window.getFoldLeftFunction() == null ? window.getMsgSerde() : window.getWindowValSerde();
 
-    Map<String, String> otherProperties = ImmutableMap.of(
-        String.format("stores.%s.changelog.kafka.cleanup.policy", storeName), "compact");
-
-    StoreDescriptor descriptor = new StoreDescriptor(storeName, storeFactory, storeKeySerde, storeValSerde, storeName, otherProperties);
+    StoreDescriptor descriptor = new StoreDescriptor(storeName, storeFactory, storeKeySerde, storeValSerde, storeName, Collections.emptyMap());
     return Collections.singletonList(descriptor);
   }
 }

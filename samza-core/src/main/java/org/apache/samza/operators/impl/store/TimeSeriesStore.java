@@ -87,7 +87,6 @@ public interface TimeSeriesStore<K, V> {
    */
   ClosableIterator<TimestampedValue<V>> get(K key, long timestamp);
 
-
   /**
    * Removes all values for this key in the given time-range.
    *
