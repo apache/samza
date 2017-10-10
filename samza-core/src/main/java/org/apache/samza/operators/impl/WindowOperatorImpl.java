@@ -130,7 +130,7 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
   }
 
   /**
-   * Computes the paneId of the window this message should belong to.
+   * Computes the paneId of the tumbling window this message should belong to.
    *
    * In the case of tumbling windows, paneId of a window is defined as the start timestamp of its corresponding window
    * interval. For instance, if the tumbling interval is 10 seconds, all messages that arrive between [1000, 1010]
@@ -147,7 +147,7 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
   }
 
   /**
-   * Computes the paneId of the window this message should belong to.
+   * Computes the paneId of the session window this message should belong to.
    *
    * In the case of session windows, paneId is defined as the timestamp of the earliest message in the window.
    * For instance, if the session gap is 10 seconds, and the first message in the window arrives at "1002" seconds,
