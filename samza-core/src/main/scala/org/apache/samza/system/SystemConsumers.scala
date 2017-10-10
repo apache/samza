@@ -327,7 +327,7 @@ class SystemConsumers (
     val q = unprocessedMessagesBySSP.get(systemStreamPartition)
 
     while (q.size > 0 && !updated) {
-      val rawEnvelope : IncomingMessageEnvelope = q.remove
+      val rawEnvelope = q.remove
       val deserializedEnvelope = try {
         Some(serdeManager.fromBytes(rawEnvelope))
       } catch {
