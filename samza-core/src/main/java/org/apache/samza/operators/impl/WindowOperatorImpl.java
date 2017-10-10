@@ -176,24 +176,24 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
     LOG.trace("Processing message envelope: {}", message);
     List<WindowPane<K, Object>> results = new ArrayList<>();
 
-    WindowKey<K> storeKey =  getWindowKey(message);
-    long timestamp = Long.parseLong(storeKey.getPaneId());
+    WindowKey<K> windowKey =  getWindowKey(message);
+    long timestamp = Long.parseLong(windowKey.getPaneId());
 
-    K key = storeKey.getKey();
+    K key = windowKey.getKey();
 
     // For windows with a fold function configured (aka. aggregating windows), we only store the aggregated window value.
     // For windows with no fold function configured, we store all messages in the window.
     if (window.getFoldLeftFunction() == null) {
       timeSeriesDb.put(key, message, timestamp);
     } else {
-      List<Object> existingState = getValues(storeKey);
+      List<Object> existingState = getValues(windowKey);
       Preconditions.checkState(existingState.size() == 1, "Store with FoldLeftFunction should not contain more than one entry per window");
       Object aggregatedValue = applyFoldFunction(existingState.get(0), message);
       timeSeriesDb.put(key, aggregatedValue, timestamp);
     }
 
     if (window.getEarlyTrigger() != null) {
-      TriggerKey<K> triggerKey = new TriggerKey<>(FiringType.EARLY, storeKey);
+      TriggerKey<K> triggerKey = new TriggerKey<>(FiringType.EARLY, windowKey);
       TriggerImplHandler triggerImplHandler = getOrCreateTriggerImplHandler(triggerKey, window.getEarlyTrigger());
       Optional<WindowPane<K, Object>> maybeTriggeredPane =
           triggerImplHandler.onMessage(triggerKey, message, collector, coordinator);
@@ -201,7 +201,7 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
     }
 
     if (window.getDefaultTrigger() != null) {
-      TriggerKey<K> triggerKey = new TriggerKey<>(FiringType.DEFAULT, storeKey);
+      TriggerKey<K> triggerKey = new TriggerKey<>(FiringType.DEFAULT, windowKey);
       TriggerImplHandler triggerImplHandler = getOrCreateTriggerImplHandler(triggerKey, window.getDefaultTrigger());
       Optional<WindowPane<K, Object>> maybeTriggeredPane =
           triggerImplHandler.onMessage(triggerKey, message, collector, coordinator);
@@ -211,9 +211,9 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
     return results;
   }
 
-  private List<Object> getValues(WindowKey<K> storeKey) {
-    long timestamp = Long.parseLong(storeKey.getPaneId());
-    ClosableIterator<TimestampedValue<Object>> iterator = timeSeriesDb.get(storeKey.getKey(), timestamp);
+  private List<Object> getValues(WindowKey<K> windowKey) {
+    long timestamp = Long.parseLong(windowKey.getPaneId());
+    ClosableIterator<TimestampedValue<Object>> iterator = timeSeriesDb.get(windowKey.getKey(), timestamp);
     List<Object> values = new ArrayList<>();
     try {
       while (iterator.hasNext()) {
