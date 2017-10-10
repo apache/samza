@@ -25,6 +25,7 @@ import org.apache.samza.storage.kv.KeyValueIterator;
 import org.apache.samza.storage.kv.KeyValueStore;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -139,7 +140,7 @@ public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
         iterator.close();
       }
     }
-    return values;
+    return Collections.unmodifiableList(values);
   }
 
   @Override

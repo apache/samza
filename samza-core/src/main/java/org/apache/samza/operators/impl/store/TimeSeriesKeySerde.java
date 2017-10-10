@@ -91,7 +91,7 @@ public class TimeSeriesKeySerde<K> implements Serde<TimeSeriesKey<K>> {
     long seqNum = buf.getLong();
     long version = seqNum & ~SEQUENCE_NUM_MASK;
 
-    if (version != 0) {
+    if (version != TimeSeriesKey.VERSION) {
       throw new SamzaException(String.format("Invalid version detected in TimeSeriesKey. " +
           "Expected Version: %s Actual Version: %s Sequence number: %s", TimeSeriesKey.VERSION, version, seqNum));
     }
