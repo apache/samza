@@ -56,7 +56,7 @@ public class YarnRestJobStatusProvider implements JobStatusProvider {
     YarnJobResourceConfig yarnConfig = new YarnJobResourceConfig(config);
     this.httpClient = new HttpClient();
     OBJECT_MAPPER.configure(DeserializationConfig.Feature.UNWRAP_ROOT_VALUE, true);
-    this.apiEndpoint = String.format("http://%s/ws/v1/cluster/apps?states=RUNNING,NEW,NEW_SAVING,SUBMITTED,ACCEPTED",
+    this.apiEndpoint = String.format("http://%s/ws/v1/cluster/apps",
         yarnConfig.getYarnResourceManagerEndpoint());
   }
 
@@ -121,10 +121,9 @@ public class YarnRestJobStatusProvider implements JobStatusProvider {
   }
 
   /**
-   * This method initiates http get request on the request url and returns the
-   * response returned from the http get.
-   * @param requestUrl url on which the http get request has to be performed.
-   * @return the http get response.
+   * Issues a HTTP Get request to the provided url and returns the response
+   * @param requestUrl the request url
+   * @return the response
    * @throws IOException if there are problems with the http get request.
    */
   private byte[] httpGet(String requestUrl)
