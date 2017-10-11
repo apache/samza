@@ -129,8 +129,10 @@ public class EventHubSystemProducer implements SystemProducer {
         CompletableFuture<Void> future = CompletableFuture.allOf(futures.toArray(new CompletableFuture[futures.size()]));
         try {
           future.get(config.getShutdownWaitTimeMS(), TimeUnit.MILLISECONDS);
-        } catch (ExecutionException | InterruptedException | TimeoutException e) {
-          throw new SamzaException("Closing the partition sender failed ", e);
+        } catch (ExecutionException | InterruptedException e) {
+          LOG.warn("Closing the partition sender failed ", e);
+        } catch (TimeoutException e) {
+          LOG.warn("Closing the partition sender timed out ", e);
         }
       });
     eventHubClients.values().forEach(ehClient -> ehClient.close(config.getShutdownWaitTimeMS()));

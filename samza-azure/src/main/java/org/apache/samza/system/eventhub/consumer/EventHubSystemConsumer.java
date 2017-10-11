@@ -213,9 +213,11 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
     streamPartitionReceivers.values().forEach((receiver) -> futures.add(receiver.close()));
     CompletableFuture<Void> future = CompletableFuture.allOf(futures.toArray(new CompletableFuture[futures.size()]));
     try {
-      future.get(config.getRuntimeInfoWaitTimeMS(), TimeUnit.MILLISECONDS);
-    } catch (ExecutionException | InterruptedException | TimeoutException e) {
-      throw new SamzaException("Failed to close receivers", e);
+      future.get(config.getShutdownWaitTimeMS(), TimeUnit.MILLISECONDS);
+    } catch (ExecutionException | InterruptedException e) {
+      LOG.warn("Failed to close receivers", e);
+    } catch (TimeoutException e) {
+      LOG.warn("Closing the partition sender timed out ", e);
     }
     streamEventHubClients.values().forEach(ehClient -> ehClient.close(config.getShutdownWaitTimeMS()));
     streamEventHubClients.clear();
