@@ -21,6 +21,7 @@ package org.apache.samza.rest.proxy.job;
 import java.util.Set;
 import org.apache.samza.SamzaException;
 import org.apache.samza.rest.model.JobStatus;
+import org.apache.samza.rest.model.yarn.YarnApplicationInfo;
 import org.apache.samza.rest.proxy.installation.InstallationFinder;
 import org.apache.samza.rest.proxy.installation.InstallationRecord;
 import org.apache.samza.rest.proxy.installation.SimpleInstallationFinder;
@@ -41,7 +42,7 @@ public class SimpleYarnJobProxy extends ScriptJobProxy {
   private static final String CONFIG_FACTORY_PARAM = "--config-factory=org.apache.samza.config.factories.PropertiesConfigFactory";
   private static final String CONFIG_PATH_PARAM_FORMAT = "--config-path=file://%s";
 
-  private final JobStatusProvider statusProvider = new YarnCliJobStatusProvider(this);
+  private final JobStatusProvider statusProvider;
 
   private final InstallationFinder installFinder;
 
@@ -49,6 +50,7 @@ public class SimpleYarnJobProxy extends ScriptJobProxy {
     super(config);
     this.installFinder = new SimpleInstallationFinder(config.getInstallationsPath(),
                                                       ClassLoaderHelper.fromClassName(config.getJobConfigFactory()));
+    this.statusProvider = new YarnRestJobStatusProvider(config);
   }
 
   @Override
@@ -78,7 +80,7 @@ public class SimpleYarnJobProxy extends ScriptJobProxy {
     }
 
     String scriptPath = getScriptPath(jobInstance, STOP_SCRIPT_NAME);
-    int resultCode = scriptRunner.runScript(scriptPath, YarnCliJobStatusProvider.getQualifiedJobName(jobInstance));
+    int resultCode = scriptRunner.runScript(scriptPath, YarnApplicationInfo.getQualifiedJobName(jobInstance));
     if (resultCode != 0) {
       throw new SamzaException("Failed to stop job. Result code: " + resultCode);
     }
