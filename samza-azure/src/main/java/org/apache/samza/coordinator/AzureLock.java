@@ -75,7 +75,7 @@ public class AzureLock implements DistributedLockWithState {
         try {
           Thread.sleep(random.nextInt(1000));
         } catch (InterruptedException e) {
-          Thread.interrupted();
+          Thread.currentThread().interrupt();
         }
         LOG.info("Trying to acquire lock again...");
       }

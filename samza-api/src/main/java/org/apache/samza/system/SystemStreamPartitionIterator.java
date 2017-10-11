@@ -90,6 +90,7 @@ public class SystemStreamPartitionIterator implements Iterator<IncomingMessageEn
           peeks.addAll(systemStreamPartitionEnvelopes);
         }
       } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
         throw new SamzaException(e);
       }
     }
