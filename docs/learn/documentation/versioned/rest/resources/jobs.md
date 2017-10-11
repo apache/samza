@@ -295,7 +295,7 @@ After validating each request, the JobsResource invokes the appropriate JobProxy
 
 The provided [SimpleInstallationFinder](../javadocs/org/apache/samza/rest/proxy/installation/SimpleInstallationFinder.html) crawls the file system, starting in the directory specified by the `job.installations.path` looking for valid Samza job config files. It extracts the `job.name` and `job.id` property values and creates an [InstallationRecord](../javadocs/org/apache/samza/rest/proxy/installation/InstallationRecord.html) for the each job instance. The InstallationRecord contains all the information needed to start, stop, and get the status for the job.
 
-The provided [YarnCliJobStatusProvider](../javadocs/org/apache/samza/rest/proxy/job/YarnCliJobStatusProvider.html) leverages a ScriptRunner to fetch job status using the Yarn ApplicationCLI.
+The provided [YarnRestJobStatusProvider](../javadocs/org/apache/samza/rest/proxy/job/YarnRestJobStatusProvider.html) uses the Resource Manager's REST API to fetch the job status.
 
 The [SimpleYarnJobProxy](../javadocs/org/apache/samza/rest/proxy/job/SimpleYarnJobProxy.html) relies on the scripts in the InstallationRecord scriptFilePath (`/bin`) directory to start and stop jobs.
 
@@ -322,6 +322,9 @@ The JobsResource properties should be specified in the same file as the Samza RE
     </tr>
     <tr>
       <td>job.config.factory.class</td><td>The config factory to use for reading Samza job configs. This is used to fetch the job.name and job.id properties for each job instance in the InstallationRecord. It's also used to validate that a particular directory within the installations path actually contains Samza jobs. If not specified <pre>org.apache.samza.config.factories.PropertiesConfigFactory</pre> will be used. </td>
+    </tr>
+    <tr>
+      <td>yarn.resourcemanager.api.endpoint</td><td> An optional config if YARN is used as the cluster manager. This provides the host and port at which the YARN ResourceManager REST API is exposed. If not specified <pre>localhost:8088</pre> will be used.</td>
     </tr>
   </tbody>
 </table>
