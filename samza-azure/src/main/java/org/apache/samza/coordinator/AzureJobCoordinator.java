@@ -427,7 +427,7 @@ public class AzureJobCoordinator implements JobCoordinator {
           try {
             Thread.sleep(random.nextInt(5000));
           } catch (InterruptedException e) {
-            Thread.interrupted();
+            Thread.currentThread().interrupt();
           }
           LOG.info("Checking for barrier state on the blob again...");
           blobBarrierState = leaderBlob.getBarrierState();
