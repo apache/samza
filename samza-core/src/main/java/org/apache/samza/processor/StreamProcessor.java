@@ -222,6 +222,7 @@ public class StreamProcessor {
               LOGGER.info("Container was not running.", icse);
               shutdownComplete = true;
             } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
               LOGGER.warn("Container shutdown was interrupted!" + container.toString(), e);
             }
             LOGGER.info("Shutting down container done for pid=" + processorId + "; complete =" + shutdownComplete);
