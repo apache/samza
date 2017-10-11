@@ -145,8 +145,8 @@ public class TestJobNode {
         "Serialized intermediate stream msg serde should be a StringSerde",
         partitionByMsgSerde.startsWith(JsonSerdeV2.class.getSimpleName()));
 
-    String leftJoinStoreKeySerde = mapConfig.get("stores.join-6-L.key.serde");
-    String leftJoinStoreMsgSerde = mapConfig.get("stores.join-6-L.msg.serde");
+    String leftJoinStoreKeySerde = mapConfig.get("stores.null-null-join-6-L.key.serde");
+    String leftJoinStoreMsgSerde = mapConfig.get("stores.null-null-join-6-L.msg.serde");
     assertTrue("Serialized serdes should contain left join store key serde",
         deserializedSerdes.containsKey(leftJoinStoreKeySerde));
     assertTrue("Serialized left join store key serde should be a StringSerde",
@@ -156,8 +156,8 @@ public class TestJobNode {
     assertTrue("Serialized left join store msg serde should be a TimestampedValueSerde",
         leftJoinStoreMsgSerde.startsWith(TimestampedValueSerde.class.getSimpleName()));
 
-    String rightJoinStoreKeySerde = mapConfig.get("stores.join-6-R.key.serde");
-    String rightJoinStoreMsgSerde = mapConfig.get("stores.join-6-R.msg.serde");
+    String rightJoinStoreKeySerde = mapConfig.get("stores.null-null-join-6-R.key.serde");
+    String rightJoinStoreMsgSerde = mapConfig.get("stores.null-null-join-6-R.msg.serde");
     assertTrue("Serialized serdes should contain right join store key serde",
         deserializedSerdes.containsKey(rightJoinStoreKeySerde));
     assertTrue("Serialized right join store key serde should be a StringSerde",

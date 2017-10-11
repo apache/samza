@@ -69,14 +69,14 @@ import org.codehaus.jackson.map.ObjectMapper;
     @JsonProperty("outputStreams")
     List<StreamJson> outputStreams;
     @JsonProperty("operators")
-    Map<Integer, Map<String, Object>> operators = new HashMap<>();
+    Map<String, Map<String, Object>> operators = new HashMap<>();
   }
 
   static final class StreamJson {
     @JsonProperty("streamId")
     String streamId;
     @JsonProperty("nextOperatorIds")
-    Set<Integer>  nextOperatorIds = new HashSet<>();
+    Set<String>  nextOperatorIds = new HashSet<>();
   }
 
   static final class JobNodeJson {

@@ -19,10 +19,13 @@
 package org.apache.samza.operators;
 
 import com.google.common.base.Preconditions;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.operators.spec.OperatorSpec.OpCode;
+import org.apache.samza.operators.spec.OperatorSpecs;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
 import org.apache.samza.runtime.ApplicationRunner;
@@ -48,18 +51,18 @@ import java.util.stream.Collectors;
 public class StreamGraphImpl implements StreamGraph {
   private static final Logger LOGGER = LoggerFactory.getLogger(StreamGraphImpl.class);
 
-  /**
-   * Unique identifier for each {@link org.apache.samza.operators.spec.OperatorSpec} in the graph.
-   * Should only be accessed by {@link MessageStreamImpl} via {@link #getNextOpId()}.
-   */
-  private int opId = 0;
-
   // We use a LHM for deterministic order in initializing and closing operators.
   private final Map<StreamSpec, InputOperatorSpec> inputOperators = new LinkedHashMap<>();
   private final Map<StreamSpec, OutputStreamImpl> outputStreams = new LinkedHashMap<>();
   private final ApplicationRunner runner;
   private final Config config;
 
+  /**
+   * The 0-based position of the next operator in the graph.
+   * Part of the unique ID for each OperatorSpec in the graph.
+   * Should only accessed and incremented via {@link #getNextOpId(OpCode, String)}.
+   */
+  private int nextOpNum = 0;
   private Serde<?> defaultSerde = new KVSerde(new NoOpSerde(), new NoOpSerde());
   private ContextManager contextManager = null;
 
@@ -96,8 +99,11 @@ public class StreamGraphImpl implements StreamGraph {
     }
 
     boolean isKeyed = serde instanceof KVSerde;
+    InputOperatorSpec inputOperatorSpec =
+        OperatorSpecs.createInputOperatorSpec(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(),
+            isKeyed, this.getNextOpId(OpCode.INPUT, null));
     inputOperators.put(streamSpec,
-        new InputOperatorSpec<>(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed, this.getNextOpId()));
+        inputOperatorSpec);
     return new MessageStreamImpl<>(this, inputOperators.get(streamSpec));
   }
 
@@ -144,18 +150,13 @@ public class StreamGraphImpl implements StreamGraph {
    * Internal helper for {@link MessageStreamImpl} to add an intermediate {@link MessageStream} to the graph.
    * An intermediate {@link MessageStream} is both an output and an input stream.
    *
-   * @param streamName the name of the stream to be created. Will be prefixed with job name and id to generate the
-   *                   logical streamId.
+   * @param streamId the id of the stream to be created.
    * @param serde the {@link Serde} to use for the message in the intermediate stream. If null, the default serde
    *              is used.
    * @param <M> the type of messages in the intermediate {@link MessageStream}
    * @return  the intermediate {@link MessageStreamImpl}
    */
-  <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamName, Serde<M> serde) {
-    String streamId = String.format("%s-%s-%s",
-        config.get(JobConfig.JOB_NAME()),
-        config.get(JobConfig.JOB_ID(), "1"),
-        streamName);
+  <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde) {
     StreamSpec streamSpec = runner.getStreamSpec(streamId);
 
     Preconditions.checkState(!inputOperators.containsKey(streamSpec) && !outputStreams.containsKey(streamSpec),
@@ -168,8 +169,10 @@ public class StreamGraphImpl implements StreamGraph {
 
     boolean isKeyed = serde instanceof KVSerde;
     KV<Serde, Serde> kvSerdes = getKVSerdes(streamId, serde);
-    inputOperators.put(streamSpec,
-        new InputOperatorSpec<>(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed, this.getNextOpId()));
+    InputOperatorSpec inputOperatorSpec =
+        OperatorSpecs.createInputOperatorSpec(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(),
+            isKeyed, this.getNextOpId(OpCode.INPUT, null));
+    inputOperators.put(streamSpec, inputOperatorSpec);
     outputStreams.put(streamSpec, new OutputStreamImpl(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed));
     return new IntermediateMessageStreamImpl<>(this, inputOperators.get(streamSpec), outputStreams.get(streamSpec));
   }
@@ -186,8 +189,22 @@ public class StreamGraphImpl implements StreamGraph {
     return this.contextManager;
   }
 
-  /* package private */ int getNextOpId() {
-    return this.opId++;
+  /**
+   * Gets the unique ID for the next operator in the graph.
+   * The ID is of the following format: jobName-jobId-opCode-(opName|nextOpNum);
+   *
+   * @param opCode the {@link OpCode} of the next operator
+   * @param opName the optional user-provided name of the next operator or null
+   * @return the unique ID for the next operator in the graph
+   */
+  /* package private */ String getNextOpId(OpCode opCode, String opName) {
+    String nextOpId = String.format("%s-%s-%s-%s",
+        config.get(JobConfig.JOB_NAME()),
+        config.get(JobConfig.JOB_ID(), "1"),
+        opCode.name().toLowerCase(),
+        StringUtils.isNotBlank(opName) ? opName.trim() : String.valueOf(nextOpNum));
+    nextOpNum++;
+    return nextOpId;
   }
 
   /**

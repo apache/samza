@@ -116,6 +116,23 @@ public interface MessageStream<M> {
   <K, WV> MessageStream<WindowPane<K, WV>> window(Window<M, K, WV> window);
 
   /**
+   * Same as {@link #window(Window)}, and uses {@code name} as the name for this windowing transform.
+   * This name will be used as a part of the name of any stores and streams created in this transform.
+   * <p>
+   * Providing a meaningful transform name is highly recommended since it helps with readability and
+   * debuggability. It's also important for reusing durable state (e.g. stores and intermediate streams)
+   * across application upgrades.
+   *
+   * @param window the window to group and process messages from this {@link MessageStream}
+   * @param name the unique name of this transform
+   * @param <K> the type of key in the message in this {@link MessageStream}. If a key is specified,
+   *            panes are emitted per-key.
+   * @param <WV> the type of value in the {@link WindowPane} in the transformed {@link MessageStream}
+   * @return the transformed {@link MessageStream}
+   */
+  <K, WV> MessageStream<WindowPane<K, WV>> window(Window<M, K, WV> window, String name);
+
+  /**
    * Joins this {@link MessageStream} with another {@link MessageStream} using the provided
    * pairwise {@link JoinFunction}.
    * <p>
@@ -123,15 +140,13 @@ public interface MessageStream<M> {
    * emitted as matches are found.
    * <p>
    * Both inputs being joined must have the same number of partitions, and should be partitioned by the join key.
-   * <p>
-   * <b>Warning:</b> As of version 0.13.0, messages in joins are kept in memory and will be lost during restarts.
    *
    * @param otherStream the other {@link MessageStream} to be joined with
    * @param joinFn the function to join messages from this and the other {@link MessageStream}
-   * @param ttl the ttl for messages in each stream
    * @param keySerde the serde for the join key
    * @param messageSerde the serde for messages in this stream
    * @param otherMessageSerde the serde for messages in the other stream
+   * @param ttl the ttl for messages in each stream
    * @param <K> the type of join key
    * @param <OM> the type of messages in the other stream
    * @param <JM> the type of messages resulting from the {@code joinFn}
@@ -140,6 +155,32 @@ public interface MessageStream<M> {
   <K, OM, JM> MessageStream<JM> join(MessageStream<OM> otherStream,
       JoinFunction<? extends K, ? super M, ? super OM, ? extends JM> joinFn,
       Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde, Duration ttl);
+
+  /**
+   * Same as {@link #join(MessageStream, JoinFunction, Serde, Serde, Serde, Duration)}, and uses {@code name}
+   * as the name for this transform. This name will be used as a part of the name of any stores and streams created
+   * in this transform.
+   * <p>
+   * Providing a meaningful transform name is highly recommended since it helps with readability and
+   * debuggability. It's also required for reusing durable state (e.g. stores and intermediate streams)
+   * across application upgrades.
+   *
+   * @param otherStream the other {@link MessageStream} to be joined with
+   * @param joinFn the function to join messages from this and the other {@link MessageStream}
+   * @param keySerde the serde for the join key
+   * @param messageSerde the serde for messages in this stream
+   * @param otherMessageSerde the serde for messages in the other stream
+   * @param ttl the ttl for messages in each stream
+   * @param name the unique name of this transform
+   * @param <K> the type of join key
+   * @param <OM> the type of messages in the other stream
+   * @param <JM> the type of messages resulting from the {@code joinFn}
+   * @return the joined {@link MessageStream}
+   */
+  <K, OM, JM> MessageStream<JM> join(MessageStream<OM> otherStream,
+      JoinFunction<? extends K, ? super M, ? super OM, ? extends JM> joinFn,
+      Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde,
+      Duration ttl, String name);
 
   /**
    * Merges all {@code otherStreams} with this {@link MessageStream}.
@@ -187,15 +228,35 @@ public interface MessageStream<M> {
    * Else, the number of partitions is set to to the max of number of partitions for all input and output streams
    * (excluding intermediate streams).
    *
-   * @param <K> the type of output key
-   * @param <V> the type of output value
    * @param keyExtractor the {@link Function} to extract the message and partition key from the input message
    * @param valueExtractor the {@link Function} to extract the value from the input message
    * @param serde the {@link KVSerde} to use for (de)serializing the key and value.
+   * @param <K> the type of output key
+   * @param <V> the type of output value
    * @return the repartitioned {@link MessageStream}
    */
   <K, V> MessageStream<KV<K, V>> partitionBy(Function<? super M, ? extends K> keyExtractor,
       Function<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde);
+
+  /**
+   * Same as {@link #partitionBy(Function, Function, KVSerde)}, and uses {@code name}
+   * as the name for this transform. This name will be used as a part of the name of the
+   * intermediate stream created in this transform.
+   * <p>
+   * Providing a meaningful transform name is highly recommended since it helps with readability and
+   * debuggability. It's also required for reusing durable state (e.g. stores and intermediate streams)
+   * across application upgrades.
+   *
+   * @param keyExtractor the {@link Function} to extract the message and partition key from the input message
+   * @param valueExtractor the {@link Function} to extract the value from the input message
+   * @param serde the {@link KVSerde} to use for (de)serializing the key and value.
+   * @param name the unique name of this transform
+   * @param <K> the type of output key
+   * @param <V> the type of output value
+   * @return the repartitioned {@link MessageStream}
+   */
+  <K, V> MessageStream<KV<K, V>> partitionBy(Function<? super M, ? extends K> keyExtractor,
+      Function<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde, String name);
 
   /**
    * Same as calling {@link #partitionBy(Function, Function, KVSerde)} with a null KVSerde.
@@ -208,4 +269,23 @@ public interface MessageStream<M> {
    */
   <K, V> MessageStream<KV<K, V>> partitionBy(Function<? super M, ? extends K> keyExtractor,
       Function<? super M, ? extends V> valueExtractor);
+
+  /**
+   * Same as calling {@link #partitionBy(Function, Function, KVSerde, String)} with a null KVSerde.
+   * Uses {@code name} as the name for this transform. This name will be used as a part of the name of
+   * the intermediate stream created in this transform.
+   * <p>
+   * Providing a meaningful transform name is highly recommended since it helps with readability and
+   * debuggability. It's also required for reusing durable state (e.g. stores and intermediate streams)
+   * across application upgrades.
+   *
+   * @param keyExtractor the {@link Function} to extract the message and partition key from the input message
+   * @param valueExtractor the {@link Function} to extract the value from the input message
+   * @param name the unique name of this transform
+   * @param <K> the type of output key
+   * @param <V> the type of output value
+   * @return the repartitioned {@link MessageStream}
+   */
+  <K, V> MessageStream<KV<K, V>> partitionBy(Function<? super M, ? extends K> keyExtractor,
+      Function<? super M, ? extends V> valueExtractor, String name);
 }

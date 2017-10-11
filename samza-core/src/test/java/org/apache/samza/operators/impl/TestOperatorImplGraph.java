@@ -226,9 +226,9 @@ public class TestOperatorImplGraph {
     TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     KeyValueStore mockLeftStore = mock(KeyValueStore.class);
-    when(mockTaskContext.getStore(eq("join-2-L"))).thenReturn(mockLeftStore);
+    when(mockTaskContext.getStore(eq("null-null-join-2-L"))).thenReturn(mockLeftStore);
     KeyValueStore mockRightStore = mock(KeyValueStore.class);
-    when(mockTaskContext.getStore(eq("join-2-R"))).thenReturn(mockRightStore);
+    when(mockTaskContext.getStore(eq("null-null-join-2-R"))).thenReturn(mockRightStore);
     OperatorImplGraph opImplGraph =
         new OperatorImplGraph(streamGraph, mock(Config.class), mockTaskContext, mock(Clock.class));
 

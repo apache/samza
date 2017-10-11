@@ -20,6 +20,7 @@ package org.apache.samza.operators;
 
 import com.google.common.collect.ImmutableSet;
 import org.apache.samza.Partition;
+import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskContextImpl;
@@ -75,6 +76,25 @@ public class TestJoinOperator {
 
     int outputSum = output.stream().reduce(0, (s, m) -> s + m);
     assertEquals(110, outputSum);
+  }
+
+  @Test(expected = SamzaException.class)
+  public void joinWithSelfThrowsException() throws Exception {
+    StreamApplication app = new StreamApplication() {
+      @Override
+      public void init(StreamGraph graph, Config config) {
+        IntegerSerde integerSerde = new IntegerSerde();
+        KVSerde<Integer, Integer> kvSerde = KVSerde.of(integerSerde, integerSerde);
+        MessageStream<KV<Integer, Integer>> inStream = graph.getInputStream("instream", kvSerde);
+
+        SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
+        inStream
+            .join(inStream, new TestJoinFunction(), integerSerde, kvSerde, kvSerde, JOIN_TTL)
+            .sink((m, mc, tc) -> mc.send(new OutgoingMessageEnvelope(outputSystemStream, m)));
+      }
+    };
+
+    createStreamOperatorTask(new SystemClock(), app);
   }
 
   @Test
@@ -277,8 +297,10 @@ public class TestJoinOperator {
     // need to return different stores for left and right side
     IntegerSerde integerSerde = new IntegerSerde();
     TimestampedValueSerde timestampedValueSerde = new TimestampedValueSerde(new KVSerde(integerSerde, integerSerde));
-    when(taskContext.getStore(eq("join-2-L"))).thenReturn(new TestInMemoryStore(integerSerde, timestampedValueSerde));
-    when(taskContext.getStore(eq("join-2-R"))).thenReturn(new TestInMemoryStore(integerSerde, timestampedValueSerde));
+    when(taskContext.getStore(eq("null-null-join-2-L")))
+        .thenReturn(new TestInMemoryStore(integerSerde, timestampedValueSerde));
+    when(taskContext.getStore(eq("null-null-join-2-R")))
+        .thenReturn(new TestInMemoryStore(integerSerde, timestampedValueSerde));
 
     Config config = mock(Config.class);
 
@@ -305,9 +327,7 @@ public class TestJoinOperator {
       SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
       inStream
           .join(inStream2, joinFn, integerSerde, kvSerde, kvSerde, JOIN_TTL)
-          .sink((message, messageCollector, taskCoordinator) -> {
-              messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
-            });
+          .sink((m, mc, tc) -> mc.send(new OutgoingMessageEnvelope(outputSystemStream, m)));
     }
   }
 
