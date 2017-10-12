@@ -19,6 +19,7 @@
 
 package org.apache.samza.operators.spec;
 
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.internal.WindowInternal;
@@ -27,6 +28,8 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.time.Duration;
+
+import static org.mockito.Mockito.mock;
 
 public class TestWindowOperatorSpec {
   @Test
@@ -42,7 +45,7 @@ public class TestWindowOperatorSpec {
                 Triggers.timeSinceLastMessage(Duration.ofMillis(15))))));
 
     WindowInternal window = new WindowInternal(defaultTrigger, null, null, null,
-            null, WindowType.SESSION, null, null, null);
+            null, WindowType.SESSION, null, null, mock(Serde.class));
     window.setEarlyTrigger(earlyTrigger);
     window.setLateTrigger(lateTrigger);
 
@@ -56,7 +59,7 @@ public class TestWindowOperatorSpec {
     Trigger earlyTrigger = Triggers.repeat(Triggers.count(5));
 
     WindowInternal window = new WindowInternal(defaultTrigger, null, null, null,
-            null, WindowType.SESSION, null, null, null);
+            null, WindowType.SESSION, null, null, mock(Serde.class));
     window.setEarlyTrigger(earlyTrigger);
 
     WindowOperatorSpec spec = new WindowOperatorSpec(window, 0);

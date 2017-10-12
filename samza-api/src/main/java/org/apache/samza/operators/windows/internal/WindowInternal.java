@@ -67,9 +67,6 @@ public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
    */
   private final WindowType windowType;
 
-  /*
-   * Serdes for key (if any), windowValue, and the input message
-   */
   private final Serde<WK> keySerde;
   private final Serde<WV> windowValSerde;
   private final Serde<M> msgSerde;
@@ -78,50 +75,38 @@ public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
   private Trigger<M> lateTrigger;
   private AccumulationMode mode;
 
-  public Serde<WK> getKeySerde() {
-    return keySerde;
-  }
-
-  public Serde<WV> getWindowValSerde() {
-    return windowValSerde;
-  }
-
-  public Serde<M> getMsgSerde() {
-    return msgSerde;
-  }
-
-  public AccumulationMode getMode() {
-    return mode;
-  }
-
-  public WindowInternal(Trigger<M> defaultTrigger, Supplier<WV> initialValue, FoldLeftFunction<M, WV> foldLeftFunction, Function<M, WK> keyExtractor, Function<M, Long> eventTimeExtractor, WindowType windowType, Serde<WK> keySerde, Serde<WV> valSerde, Serde<M> msgSerde) {
+  public WindowInternal(Trigger<M> defaultTrigger, Supplier<WV> initializer, FoldLeftFunction<M, WV> foldLeftFunction,
+      Function<M, WK> keyExtractor, Function<M, Long> eventTimeExtractor, WindowType windowType, Serde<WK> keySerde,
+      Serde<WV> windowValueSerde, Serde<M> msgSerde) {
     this.defaultTrigger = defaultTrigger;
-    this.initializer = initialValue;
+    this.initializer = initializer;
     this.foldLeftFunction = foldLeftFunction;
     this.eventTimeExtractor = eventTimeExtractor;
     this.keyExtractor = keyExtractor;
     this.windowType = windowType;
     this.keySerde = keySerde;
-    this.windowValSerde = valSerde;
+    this.windowValSerde = windowValueSerde;
     this.msgSerde = msgSerde;
-  }
 
-  @Override
-  public Window<M, WK, WV> setEarlyTrigger(Trigger<M> trigger) {
-    this.earlyTrigger = trigger;
-    return this;
-  }
+    if (defaultTrigger == null) {
+      throw new IllegalArgumentException("A window must not have a null default trigger");
+    }
 
-  @Override
-  public Window<M, WK, WV> setLateTrigger(Trigger<M> trigger) {
-    this.lateTrigger = trigger;
-    return this;
-  }
+    if (msgSerde == null && windowValueSerde == null) {
+      throw new IllegalArgumentException("A window must not have a null msg serde and a null windowValue serde");
+    }
 
-  @Override
-  public Window<M, WK, WV> setAccumulationMode(AccumulationMode mode) {
-    this.mode = mode;
-    return this;
+    if (foldLeftFunction != null && windowValSerde == null) {
+      throw new IllegalArgumentException("A window with a FoldLeftFunction must have a windowValue serde");
+    }
+
+    if (foldLeftFunction != null && initializer == null) {
+      throw new IllegalArgumentException("A window with a FoldLeftFunction must have an initializer");
+    }
+
+    if (foldLeftFunction == null && initializer != null) {
+      throw new IllegalArgumentException("A window without a provided FoldLeftFunction must not have an initializer");
+    }
   }
 
   public Trigger<M> getDefaultTrigger() {
@@ -158,5 +143,39 @@ public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
 
   public AccumulationMode getAccumulationMode() {
     return mode;
+  }
+
+  public Serde<WK> getKeySerde() {
+    return keySerde;
+  }
+
+  public Serde<WV> getWindowValSerde() {
+    return windowValSerde;
+  }
+
+  public Serde<M> getMsgSerde() {
+    return msgSerde;
+  }
+
+  public AccumulationMode getMode() {
+    return mode;
+  }
+
+  @Override
+  public Window<M, WK, WV> setEarlyTrigger(Trigger<M> trigger) {
+    this.earlyTrigger = trigger;
+    return this;
+  }
+
+  @Override
+  public Window<M, WK, WV> setLateTrigger(Trigger<M> trigger) {
+    this.lateTrigger = trigger;
+    return this;
+  }
+
+  @Override
+  public Window<M, WK, WV> setAccumulationMode(AccumulationMode mode) {
+    this.mode = mode;
+    return this;
   }
 }

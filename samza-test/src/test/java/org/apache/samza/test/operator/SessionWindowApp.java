@@ -50,7 +50,8 @@ public class SessionWindowApp implements StreamApplication {
 
     pageViews
         .filter(m -> !FILTER_KEY.equals(m.getUserId()))
-        .window(Windows.keyedSessionWindow(PageView::getUserId, Duration.ofSeconds(3), null, null))
+        .window(Windows.keyedSessionWindow(PageView::getUserId, Duration.ofSeconds(3), new StringSerde(),
+            new JsonSerdeV2<>(PageView.class)))
         .map(m -> KV.of(m.getKey().getKey(), m.getMessage().size()))
         .sendTo(outputStream);
   }

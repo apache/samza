@@ -118,20 +118,20 @@ public final class Windows {
    * @param initialValue the initial value supplier for the aggregator. Invoked when a new window is created.
    * @param aggregator the function to incrementally update the window value. Invoked when a new message
    *                   arrives for the window.
+   * @param keySerde the serde for the window key
+   * @param windowValueSerde the serde for the window value
    * @param <M> the type of the input message
    * @param <WV> the type of the {@link WindowPane} output value
    * @param <K> the type of the key in the {@link Window}
-   * @param keySerde the serde for the window key
-   * @param wvSerde the serde for the window value
    * @return the created {@link Window} function.
    */
-  public static <M, K, WV> Window<M, K, WV> keyedTumblingWindow(
-      Function<? super M, ? extends K> keyFn, Duration interval,
-      Supplier<? extends WV> initialValue, FoldLeftFunction<? super M, WV> aggregator, Serde<K> keySerde, Serde<WV> wvSerde) {
+  public static <M, K, WV> Window<M, K, WV> keyedTumblingWindow(Function<? super M, ? extends K> keyFn, Duration interval,
+      Supplier<? extends WV> initialValue, FoldLeftFunction<? super M, WV> aggregator, Serde<K> keySerde,
+      Serde<WV> windowValueSerde) {
 
     Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
     return new WindowInternal<>(defaultTrigger, (Supplier<WV>) initialValue, (FoldLeftFunction<M, WV>) aggregator,
-        (Function<M, K>) keyFn, null, WindowType.TUMBLING, keySerde, wvSerde, null);
+        (Function<M, K>) keyFn, null, WindowType.TUMBLING, keySerde, windowValueSerde, null);
   }
 
 
@@ -157,8 +157,8 @@ public final class Windows {
    * @param <K> the type of the key in the {@link Window}
    * @return the created {@link Window} function
    */
-  public static <M, K> Window<M, K, Collection<M>> keyedTumblingWindow(
-      Function<M, K> keyFn, Duration interval, Serde<K> keySerde, Serde<M> msgSerde) {
+  public static <M, K> Window<M, K, Collection<M>> keyedTumblingWindow(Function<M, K> keyFn, Duration interval,
+      Serde<K> keySerde, Serde<M> msgSerde) {
 
     Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
     return new WindowInternal<>(defaultTrigger, null, null, keyFn, null,
@@ -184,16 +184,16 @@ public final class Windows {
    * @param initialValue the initial value supplier for the aggregator. Invoked when a new window is created.
    * @param aggregator the function to incrementally update the window value. Invoked when a new message
    *                   arrives for the window.
-   * @param wvSerde the serde for the window value
+   * @param windowValueSerde the serde for the window value
    * @param <M> the type of the input message
    * @param <WV> the type of the {@link WindowPane} output value
    * @return the created {@link Window} function
    */
   public static <M, WV> Window<M, Void, WV> tumblingWindow(Duration interval, Supplier<? extends WV> initialValue,
-      FoldLeftFunction<? super M, WV> aggregator, Serde<WV> wvSerde) {
+      FoldLeftFunction<? super M, WV> aggregator, Serde<WV> windowValueSerde) {
     Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
     return new WindowInternal<>(defaultTrigger, (Supplier<WV>) initialValue, (FoldLeftFunction<M, WV>) aggregator,
-        null, null, WindowType.TUMBLING, null, wvSerde, null);
+        null, null, WindowType.TUMBLING, null, windowValueSerde, null);
   }
 
   /**
@@ -216,7 +216,6 @@ public final class Windows {
    * @param duration the duration in processing time
    * @param msgSerde the serde for the input message
    * @param <M> the type of the input message
-   *
    * @return the created {@link Window} function
    */
   public static <M> Window<M, Void, Collection<M>> tumblingWindow(Duration duration, Serde<M> msgSerde) {
@@ -252,18 +251,18 @@ public final class Windows {
    * @param aggregator the function to incrementally update the window value. Invoked when a new message
    *                   arrives for the window.
    * @param keySerde the serde for the window key
-   * @param wvSerde the serde for the window value
+   * @param windowValueSerde the serde for the window value
    * @param <M> the type of the input message
    * @param <K> the type of the key in the {@link Window}
    * @param <WV> the type of the output value in the {@link WindowPane}
    * @return the created {@link Window} function
    */
-  public static <M, K, WV> Window<M, K, WV> keyedSessionWindow(
-      Function<? super M, ? extends K> keyFn, Duration sessionGap,
-      Supplier<? extends WV> initialValue, FoldLeftFunction<? super M, WV> aggregator, Serde<K> keySerde, Serde<WV> wvSerde) {
+  public static <M, K, WV> Window<M, K, WV> keyedSessionWindow(Function<? super M, ? extends K> keyFn,
+      Duration sessionGap, Supplier<? extends WV> initialValue, FoldLeftFunction<? super M, WV> aggregator,
+      Serde<K> keySerde, Serde<WV> windowValueSerde) {
     Trigger<M> defaultTrigger = Triggers.timeSinceLastMessage(sessionGap);
     return new WindowInternal<>(defaultTrigger, (Supplier<WV>) initialValue, (FoldLeftFunction<M, WV>) aggregator,
-        (Function<M, K>) keyFn, null, WindowType.SESSION, keySerde, wvSerde, null);
+        (Function<M, K>) keyFn, null, WindowType.SESSION, keySerde, windowValueSerde, null);
   }
 
   /**
@@ -286,18 +285,19 @@ public final class Windows {
    * }
    * </pre>
    *
-   * @param keyFn the function to extract the window key from a message}
-   * @param sessionGap the timeout gap for defining the session
-   * @param msgSerde the serde for the input message
-   * @param keySerde the serde for the window key
    * @param <M> the type of the input message
    * @param <K> the type of the key in the {@link Window}
+   * @param keyFn the function to extract the window key from a message}
+   * @param sessionGap the timeout gap for defining the session
+   * @param keySerde the serde for the window key
+   * @param msgSerde the serde for the input message
    * @return the created {@link Window} function
    */
-  public static <M, K> Window<M, K, Collection<M>> keyedSessionWindow(
-          Function<? super M, ? extends K> keyFn, Duration sessionGap, Serde<M> msgSerde, Serde<K> keySerde) {
+  public static <M, K> Window<M, K, Collection<M>> keyedSessionWindow(Function<? super M, ? extends K> keyFn,
+      Duration sessionGap, Serde<K> keySerde, Serde<M> msgSerde) {
 
     Trigger<M> defaultTrigger = Triggers.timeSinceLastMessage(sessionGap);
-    return new WindowInternal<>(defaultTrigger, null, null, (Function<M, K>) keyFn, null, WindowType.SESSION, keySerde, null, msgSerde);
+    return new WindowInternal<>(defaultTrigger, null, null, (Function<M, K>) keyFn,
+        null, WindowType.SESSION, keySerde, null, msgSerde);
   }
 }

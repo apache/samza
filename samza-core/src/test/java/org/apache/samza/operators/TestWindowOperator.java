@@ -462,7 +462,7 @@ public class TestWindowOperator {
 
       inStream
           .map(m -> m)
-          .window(Windows.keyedSessionWindow(keyFn, duration, new IntegerEnvelopeSerde(), new IntegerSerde())
+          .window(Windows.keyedSessionWindow(keyFn, duration, new IntegerSerde(), new IntegerEnvelopeSerde())
               .setAccumulationMode(mode))
           .sink((message, messageCollector, taskCoordinator) -> {
               messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));

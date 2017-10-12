@@ -22,6 +22,7 @@ package org.apache.samza.operators.impl;
 
 import com.google.common.base.Preconditions;
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.impl.store.TimeSeriesKey;
 import org.apache.samza.operators.impl.store.TimeSeriesStore;
 import org.apache.samza.operators.impl.store.TimeSeriesStoreImpl;
@@ -55,41 +56,43 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Implementation of a window operator that groups messages into finite windows for processing.
  *
  * This class implements the processing logic for various types of windows and triggers. It tracks and manages state for
  * all open windows, the active triggers that correspond to each of the windows and the pending callbacks. It provides
- * an implementation of {@link TriggerScheduler} that {@link org.apache.samza.operators.triggers.TriggerImpl}s can use
+ * an implementation of {@link TriggerScheduler} that {@link TriggerImpl}s can use
  * to schedule and cancel callbacks. It also orchestrates the flow of messages through the various
  * {@link org.apache.samza.operators.triggers.TriggerImpl}s.
  *
- * <p> An instance of a {@link TriggerImplHandler} is created corresponding to each {@link org.apache.samza.operators.triggers.Trigger}
- * configured for a particular window. For every message added to the window, this class looks up the corresponding {@link TriggerImplHandler}
- * for the trigger and invokes {@link TriggerImplHandler#onMessage(TriggerKey, Object, MessageCollector, TaskCoordinator)}
- * The {@link TriggerImplHandler} maintains the {@link org.apache.samza.operators.triggers.TriggerImpl} instance along with
- * whether it has been canceled yet or not. Then, the {@link TriggerImplHandler} invokes onMessage on underlying its
- * {@link org.apache.samza.operators.triggers.TriggerImpl} instance. A {@link org.apache.samza.operators.triggers.TriggerImpl}
- * instance is scoped to a window and its firing determines when results for its window are emitted.
+ * <p> An instance of a {@link TriggerImplHandler} is created corresponding to each {@link Trigger}
+ * configured for a particular window. For every message added to the window, this class looks up the corresponding
+ * {@link TriggerImplHandler} for the trigger and invokes {@link TriggerImplHandler#onMessage(TriggerKey, Object,
+ * MessageCollector, TaskCoordinator)} The {@link TriggerImplHandler} maintains the {@link TriggerImpl} instance along
+ * with whether it has been canceled yet or not. Then, the {@link TriggerImplHandler} invokes onMessage on underlying
+ * its {@link TriggerImpl} instance. A {@link TriggerImpl} instance is scoped to a window and its firing determines when
+ * results for its window are emitted.
  *
  * The {@link WindowOperatorImpl} checks if the trigger fired and returns the result of the firing.
  *
  * @param <M> the type of the incoming message
- * @param <K> the type of the key in this {@link org.apache.samza.operators.MessageStream}
+ * @param <K> the type of the key in the incoming message
  *
  */
 public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Object>> {
+  // Object == Collection<M> || WV
   private static final Logger LOG = LoggerFactory.getLogger(WindowOperatorImpl.class);
 
   private final WindowOperatorSpec<M, K, Object> windowOpSpec;
   private final Clock clock;
   private final WindowInternal<M, K, Object> window;
+  private final FoldLeftFunction<M, Object> foldLeftFn;
+  private final Supplier<Object> initializer;
 
-  private TimeSeriesStore<K, Object> timeSeriesDb;
+  private TimeSeriesStore<K, Object> timeSeriesStore;
   private TriggerScheduler<K> triggerScheduler;
-
-  // The trigger state corresponding to each {@link TriggerKey}.
   private final Map<TriggerKey<K>, TriggerImplHandler> triggers = new HashMap<>();
 
   public WindowOperatorImpl(WindowOperatorSpec<M, K, Object> windowOpSpec, Clock clock) {
@@ -97,6 +100,8 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
     this.clock = clock;
     this.window = windowOpSpec.getWindow();
     this.triggerScheduler= new TriggerScheduler(clock);
+    this.foldLeftFn = window.getFoldLeftFunction();
+    this.initializer = window.getInitializer();
   }
 
   @Override
@@ -105,19 +110,19 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
 
     KeyValueStore<TimeSeriesKey<K>, Object> store = (KeyValueStore<TimeSeriesKey<K>, Object>) context.getStore(windowOpSpec.getOpName());
 
-    // For windows that have a configured fold function, we use the store in over-write mode since we only retain the aggregated
+    // For aggregating windows, we use the store in over-write mode since we only retain the aggregated
     // value. Else, we use the store in append-mode.
-    if (window.getFoldLeftFunction() != null) {
-      window.getFoldLeftFunction().init(config, context);
-      timeSeriesDb = new TimeSeriesStoreImpl(store, false);
+    if (foldLeftFn != null) {
+      foldLeftFn.init(config, context);
+      timeSeriesStore = new TimeSeriesStoreImpl(store, false);
     } else {
-      timeSeriesDb = new TimeSeriesStoreImpl(store, true);
+      timeSeriesStore = new TimeSeriesStoreImpl(store, true);
     }
   }
 
-  private WindowKey<K> getWindowKey(M message) {
+  private WindowKey<K> createWindowKey(M message) {
     Function<M, K> keyExtractor = window.getKeyExtractor();
-    K key = (keyExtractor != null) ? keyExtractor.apply(message) : null ;
+    K key = (keyExtractor != null) ? keyExtractor.apply(message) : null;
 
     String paneId = null;
     if (window.getWindowType() == WindowType.TUMBLING) {
@@ -156,11 +161,10 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
    * @param message the input message
    * @return the paneId of the window this message should belong to
    */
-
   private String getSessionWindowPaneId(M message) {
     K key = window.getKeyExtractor().apply(message);
     // get the value with the earliest timestamp for the provided key.
-    List<TimestampedValue<Object>> timestampedValues = timeSeriesDb.get(key, 0, Long.MAX_VALUE, 1);
+    List<TimestampedValue<Object>> timestampedValues = timeSeriesStore.get(key, 0, Long.MAX_VALUE, 1);
 
     // If there are no existing sessions for the key, we use the current timestamp as the paneId. If not, use the
     // timestamp of the earliest message as the paneId.
@@ -169,27 +173,34 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
     return Long.toString(timestamp);
   }
 
-
   @Override
   public Collection<WindowPane<K, Object>> handleMessage(
       M message, MessageCollector collector, TaskCoordinator coordinator) {
     LOG.trace("Processing message envelope: {}", message);
     List<WindowPane<K, Object>> results = new ArrayList<>();
 
-    WindowKey<K> windowKey =  getWindowKey(message);
+    WindowKey<K> windowKey =  createWindowKey(message);
     long timestamp = Long.parseLong(windowKey.getPaneId());
 
     K key = windowKey.getKey();
 
-    // For windows with a fold function configured (aka. aggregating windows), we only store the aggregated window value.
-    // For windows with no fold function configured, we store all messages in the window.
-    if (window.getFoldLeftFunction() == null) {
-      timeSeriesDb.put(key, message, timestamp);
+    // For aggregating windows, we only store the aggregated window value.
+    // For non-aggregating windows, we store all messages in the window.
+    if (foldLeftFn == null) {
+      timeSeriesStore.put(key, message, timestamp); // store is in append mode
     } else {
       List<Object> existingState = getValues(windowKey);
-      Preconditions.checkState(existingState.size() == 1, "Store with FoldLeftFunction should not contain more than one entry per window");
-      Object aggregatedValue = applyFoldFunction(existingState.get(0), message);
-      timeSeriesDb.put(key, aggregatedValue, timestamp);
+      Preconditions.checkState(existingState.size() == 1, "WindowState for aggregating windows " +
+          "must not contain more than one entry per window");
+
+      Object oldVal = existingState.get(0);
+      if (oldVal == null) {
+        LOG.trace("No existing state found for key. Invoking initializer.");
+        oldVal = window.getInitializer().get();
+      }
+
+      Object aggregatedValue = foldLeftFn.apply(message, oldVal);
+      timeSeriesStore.put(key, aggregatedValue, timestamp);
     }
 
     if (window.getEarlyTrigger() != null) {
@@ -209,21 +220,6 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
     }
 
     return results;
-  }
-
-  private List<Object> getValues(WindowKey<K> windowKey) {
-    long timestamp = Long.parseLong(windowKey.getPaneId());
-    ClosableIterator<TimestampedValue<Object>> iterator = timeSeriesDb.get(windowKey.getKey(), timestamp);
-    List<Object> values = new ArrayList<>();
-    try {
-      while (iterator.hasNext()) {
-        TimestampedValue<Object> next = iterator.next();
-        values.add(next.getValue());
-      }
-    } finally {
-      iterator.close();
-    }
-    return values;
   }
 
   @Override
@@ -251,21 +247,9 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
 
   @Override
   protected void handleClose() {
-    WindowInternal<M, K, Object> window = windowOpSpec.getWindow();
-
-    if (window.getFoldLeftFunction() != null) {
-      window.getFoldLeftFunction().close();
+    if (foldLeftFn != null) {
+      foldLeftFn.close();
     }
-  }
-
-  private Object applyFoldFunction(Object oldVal, M message) {
-    if (oldVal == null) {
-      LOG.trace("No existing state found for key. Invoking initializer.");
-      oldVal = window.getInitializer().get();
-    }
-
-    Object newVal = window.getFoldLeftFunction().apply(message, oldVal);
-    return newVal;
   }
 
   private TriggerImplHandler getOrCreateTriggerImplHandler(TriggerKey<K> triggerKey, Trigger<M> trigger) {
@@ -285,6 +269,26 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
   }
 
   /**
+   * Return all values in the store for the provided windowKey
+   * @param windowKey
+   * @return the list of values for the provided key
+   */
+  private List<Object> getValues(WindowKey<K> windowKey) {
+    long timestamp = Long.parseLong(windowKey.getPaneId());
+    ClosableIterator<TimestampedValue<Object>> iterator = timeSeriesStore.get(windowKey.getKey(), timestamp);
+    List<Object> values = new ArrayList<>();
+    try {
+      while (iterator.hasNext()) {
+        TimestampedValue<Object> next = iterator.next();
+        values.add(next.getValue());
+      }
+    } finally {
+      iterator.close();
+    }
+    return values;
+  }
+
+  /**
    * Handles trigger firings and returns the optional result.
    */
   private Optional<WindowPane<K, Object>> onTriggerFired(
@@ -300,7 +304,7 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
       LOG.trace("No state found for triggerKey: {}", triggerKey);
       return Optional.empty();
     }
-    // For windows that have a fold function configured return the aggregated value. Else, return the entire list of messages
+
     Object windowVal = window.getFoldLeftFunction() == null ? existingState : existingState.get(0);
 
     WindowPane<K, Object> paneOutput = computePaneOutput(triggerKey, windowVal);
@@ -308,7 +312,7 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
     // Handle different accumulation modes.
     if (window.getAccumulationMode() == AccumulationMode.DISCARDING) {
       LOG.trace("Clearing state for trigger key: {}", triggerKey);
-      timeSeriesDb.remove(windowKey.getKey(), timestamp);
+      timeSeriesStore.remove(windowKey.getKey(), timestamp);
     }
 
     // Cancel all early triggers too when the default trigger fires. Also, clean all state for the key.
@@ -319,7 +323,7 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
 
       cancelTrigger(triggerKey, true);
       cancelTrigger(new TriggerKey(FiringType.EARLY, triggerKey.getKey()), true);
-      timeSeriesDb.remove(windowKey.getKey(), timestamp);
+      timeSeriesStore.remove(windowKey.getKey(), timestamp);
     }
 
     // Cancel non-repeating early triggers. All early triggers should be removed from the "triggers" map only after the
@@ -373,7 +377,7 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
     }
 
     public Optional<WindowPane<K, Object>> onMessage(TriggerKey<K> triggerKey, M message,
-                                                 MessageCollector collector, TaskCoordinator coordinator) {
+        MessageCollector collector, TaskCoordinator coordinator) {
       if (!isCancelled) {
         LOG.trace("Forwarding callbacks for {}", message);
         impl.onMessage(message, triggerScheduler);
