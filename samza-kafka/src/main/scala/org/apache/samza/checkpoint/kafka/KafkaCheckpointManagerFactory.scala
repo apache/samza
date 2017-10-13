@@ -24,8 +24,9 @@ import java.util.Properties
 import kafka.utils.ZkUtils
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.{CheckpointManager, CheckpointManagerFactory}
+import org.apache.samza.config.ApplicationConfig.ApplicationMode
 import org.apache.samza.config.JobConfig.Config2Job
-import org.apache.samza.config.{Config, KafkaConfig, SystemConfig}
+import org.apache.samza.config.{ApplicationConfig, Config, KafkaConfig, SystemConfig}
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system.SystemFactory
 import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtil, Logging, Util, _}
@@ -48,9 +49,18 @@ object KafkaCheckpointManagerFactory {
     } else {
       new KafkaConfig(config).getCheckpointSegmentBytes()
     }
-    (new Properties /: Map(
-      "cleanup.policy" -> "compact",
-      "segment.bytes" -> String.valueOf(segmentBytes))) { case (props, (k, v)) => props.put(k, v); props }
+
+    val appConfig = new ApplicationConfig(config)
+    if (appConfig.getAppMode == ApplicationMode.STREAM) {
+      (new Properties /: Map(
+        "cleanup.policy" -> "compact",
+        "segment.bytes" -> String.valueOf(segmentBytes))) { case (props, (k, v)) => props.put(k, v); props }
+    } else {
+      (new Properties /: Map(
+        "cleanup.policy" -> "compact,delete",
+        "retention.ms" -> String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH),
+        "segment.bytes" -> String.valueOf(segmentBytes))) { case (props, (k, v)) => props.put(k, v); props }
+    }
   }
 
   /**

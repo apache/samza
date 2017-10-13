@@ -21,6 +21,7 @@ package org.apache.samza.config
 
 
 import java.util
+import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 import java.util.{Properties, UUID}
 
@@ -28,6 +29,7 @@ import kafka.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.samza.SamzaException
+import org.apache.samza.config.ApplicationConfig.ApplicationMode
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.system.kafka.KafkaSystemFactory
 import org.apache.samza.util.{Logging, Util}
@@ -76,6 +78,8 @@ object KafkaConfig {
     * If the value of this property is > 0 then this takes precedence over CONSUMER_FETCH_THRESHOLD config.
     */
   val CONSUMER_FETCH_THRESHOLD_BYTES = SystemConfig.SYSTEM_PREFIX + "samza.fetch.threshold.bytes"
+
+  val DEFAULT_RETENTION_MS_FOR_BATCH = TimeUnit.DAYS.toMillis(1)
 
   implicit def Config2Kafka(config: Config) = new KafkaConfig(config)
 }
@@ -246,7 +250,14 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   def getChangelogKafkaProperties(name: String) = {
     val filteredConfigs = config.subset(KafkaConfig.CHANGELOG_STREAM_KAFKA_SETTINGS format name, true)
     val kafkaChangeLogProperties = new Properties
-    kafkaChangeLogProperties.setProperty("cleanup.policy", "compact")
+
+    val appConfig = new ApplicationConfig(config)
+    if (appConfig.getAppMode == ApplicationMode.STREAM) {
+      kafkaChangeLogProperties.setProperty("cleanup.policy", "compact")
+    } else{
+      kafkaChangeLogProperties.setProperty("cleanup.policy", "compact,delete")
+      kafkaChangeLogProperties.setProperty("retention.ms", String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH))
+    }
     kafkaChangeLogProperties.setProperty("segment.bytes", KafkaConfig.CHANGELOG_DEFAULT_SEGMENT_SIZE)
     kafkaChangeLogProperties.setProperty("delete.retention.ms", String.valueOf(new StorageConfig(config).getChangeLogDeleteRetentionInMs(name)))
     filteredConfigs.asScala.foreach { kv => kafkaChangeLogProperties.setProperty(kv._1, kv._2) }
