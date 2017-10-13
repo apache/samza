@@ -130,6 +130,14 @@ class TestKafkaConfig {
     assertEquals("mychangelog1", storeToChangelog.get("test1").getOrElse(""))
     assertEquals("mychangelog2", storeToChangelog.get("test2").getOrElse(""))
     assertEquals("otherstream", storeToChangelog.get("test3").getOrElse(""))
+
+    props.setProperty("systems." + SYSTEM_NAME + ".samza.factory", "org.apache.samza.system.kafka.SomeOtherFactory")
+    val mapConfig1 = new MapConfig(props.asScala.asJava)
+    val kafkaConfig1 = new KafkaConfig(mapConfig)
+    val storeToChangelog1 = kafkaConfig.getKafkaChangelogEnabledStores()
+    assertEquals("mychangelog1", storeToChangelog1.get("test1").getOrElse(""))
+    assertEquals("mychangelog2", storeToChangelog1.get("test2").getOrElse(""))
+    assertEquals("otherstream", storeToChangelog1.get("test3").getOrElse(""))
   }
 
   @Test
