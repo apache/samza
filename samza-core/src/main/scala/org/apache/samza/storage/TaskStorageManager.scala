@@ -74,7 +74,6 @@ class TaskStorageManager(
   def apply(storageEngineName: String) = taskStores(storageEngineName)
 
   def init {
-    println("changeLogSystemStreams=" + changeLogSystemStreams)
     cleanBaseDirs()
     setupBaseDirs()
     validateChangelogStreams()

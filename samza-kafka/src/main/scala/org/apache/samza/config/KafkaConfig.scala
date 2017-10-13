@@ -29,7 +29,6 @@ import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.samza.SamzaException
 import org.apache.samza.config.SystemConfig.Config2System
-import org.apache.samza.system.kafka.KafkaSystemFactory
 import org.apache.samza.util.{Logging, Util}
 
 import scala.collection.JavaConverters._
