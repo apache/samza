@@ -29,7 +29,6 @@ import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.samza.SamzaException
 import org.apache.samza.config.SystemConfig.Config2System
-import org.apache.samza.system.kafka.KafkaSystemFactory
 import org.apache.samza.util.{Logging, Util}
 
 import scala.collection.JavaConverters._
@@ -235,9 +234,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
       val changelogName = storageConfig.getChangelogStream(storeName).getOrElse(throw new SamzaException("unable to get SystemStream for store:" + changelogConfig));
       val systemStream = Util.getSystemStreamFromNames(changelogName)
       val factoryName = config.getSystemFactory(systemStream.getSystem).getOrElse(new SamzaException("Unable to determine factory for system: " + systemStream.getSystem))
-      if (classOf[KafkaSystemFactory].getCanonicalName == factoryName) {
-        storeToChangelog += storeName -> systemStream.getStream
-      }
+      storeToChangelog += storeName -> systemStream.getStream
     }
     storeToChangelog
   }
