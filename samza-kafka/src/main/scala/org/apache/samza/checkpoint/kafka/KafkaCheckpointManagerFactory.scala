@@ -50,8 +50,14 @@ object KafkaCheckpointManagerFactory {
       new KafkaConfig(config).getCheckpointSegmentBytes()
     }
 
-    val appConfig = new ApplicationConfig(config)
-    if (appConfig.getAppMode == ApplicationMode.STREAM) {
+    val isStreamMode = if (config != null) {
+      val appConfig = new ApplicationConfig(config)
+      appConfig.getAppMode == ApplicationMode.STREAM
+    } else {
+      true
+    }
+
+    if (isStreamMode) {
       (new Properties /: Map(
         "cleanup.policy" -> "compact",
         "segment.bytes" -> String.valueOf(segmentBytes))) { case (props, (k, v)) => props.put(k, v); props }

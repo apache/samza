@@ -140,6 +140,10 @@ class KafkaSystemAdmin(
    * Kafka properties to be used during the Changelog topic creation
    */
   topicMetaInformation: Map[String, ChangelogInfo] = Map[String, ChangelogInfo](),
+
+  /**
+   * Kafka properties to be used during the intermediate topic creation
+   */
   intermediateStreamProperties: Map[String, Properties] = Map()) extends ExtendedSystemAdmin with Logging {
 
   import KafkaSystemAdmin._
