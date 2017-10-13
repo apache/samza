@@ -22,8 +22,6 @@ package org.apache.samza.operators.impl.store;
 
 import org.apache.samza.storage.kv.ClosableIterator;
 
-import java.util.List;
-
 /**
  * A key-value store that allows entries to be queried and stored based on time ranges.
  *
@@ -71,7 +69,7 @@ public interface TimeSeriesStore<K, V> {
    * @param maxMessages the maximum number of messages to return
    * @return a list of values with upto {@code maxMessages} elements
    */
-  List<TimestampedValue<V>> get(K key, long startTimestamp, long endTimestamp, int maxMessages);
+  ClosableIterator<TimestampedValue<V>> get(K key, long startTimestamp, long endTimestamp, int maxMessages);
 
   /**
    * Returns an iterator over values for the given key and timestamp

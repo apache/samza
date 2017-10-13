@@ -51,12 +51,14 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * Implementation of a window operator that groups messages into finite windows for processing.
@@ -164,7 +166,8 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
   private String getSessionWindowPaneId(M message) {
     K key = window.getKeyExtractor().apply(message);
     // get the value with the earliest timestamp for the provided key.
-    List<TimestampedValue<Object>> timestampedValues = timeSeriesStore.get(key, 0, Long.MAX_VALUE, 1);
+    ClosableIterator<TimestampedValue<Object>> iterator = timeSeriesStore.get(key, 0, Long.MAX_VALUE, 1);
+    List<TimestampedValue<Object>> timestampedValues = toList(iterator);
 
     // If there are no existing sessions for the key, we use the current timestamp as the paneId. If not, use the
     // timestamp of the earliest message as the paneId.
@@ -276,15 +279,8 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
   private List<Object> getValues(WindowKey<K> windowKey) {
     long timestamp = Long.parseLong(windowKey.getPaneId());
     ClosableIterator<TimestampedValue<Object>> iterator = timeSeriesStore.get(windowKey.getKey(), timestamp);
-    List<Object> values = new ArrayList<>();
-    try {
-      while (iterator.hasNext()) {
-        TimestampedValue<Object> next = iterator.next();
-        values.add(next.getValue());
-      }
-    } finally {
-      iterator.close();
-    }
+    List<TimestampedValue<Object>> timestampedValues = toList(iterator);
+    List<Object> values = timestampedValues.stream().map(element -> element.getValue()).collect(Collectors.toList());
     return values;
   }
 
@@ -364,6 +360,28 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
   }
 
   /**
+   * Returns an unmodifiable list of all elements in the provided iterator.
+   * The iterator is guaranteed to be closed after its execution.
+   *
+   * @param iterator the provided iterator.
+   * @param <V> the type of elements in the iterator
+   * @return a list of all elements returned by the iterator
+   */
+  static <V>  List<V> toList(ClosableIterator<V> iterator) {
+    List<V> values = new ArrayList<>();
+    try {
+      while (iterator.hasNext()) {
+        values.add(iterator.next());
+      }
+    } finally {
+      if (iterator != null) {
+        iterator.close();
+      }
+    }
+    return Collections.unmodifiableList(values);
+  }
+
+  /**
    * State corresponding to a created {@link TriggerImpl} instance.
    */
   private class TriggerImplHandler {
@@ -393,8 +411,8 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
       return Optional.empty();
     }
 
-    public Optional<WindowPane<K, Object>> onTimer(
-            TriggerKey<K> key, MessageCollector collector, TaskCoordinator coordinator) {
+    public Optional<WindowPane<K, Object>> onTimer(TriggerKey<K> key, MessageCollector collector,
+         TaskCoordinator coordinator) {
       if (impl.shouldFire() && !isCancelled) {
         LOG.trace("Triggering timer triggers");
 
