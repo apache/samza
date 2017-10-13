@@ -205,7 +205,7 @@ class TaskStorageManager(
   }
 
   private def validateChangelogStreams() = {
-    info("Validating change log streams" + changeLogSystemStreams)
+    info("Validating change log streams: " + changeLogSystemStreams)
 
     for ((storeName, systemStream) <- changeLogSystemStreams) {
       val systemAdmin = systemAdmins
