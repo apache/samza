@@ -57,7 +57,10 @@ public class TimeSeriesKeySerde<K> implements Serde<TimeSeriesKey<K>> {
     long timestamp = timeSeriesKey.getTimestamp();
     long seqNum = timeSeriesKey.getSeqNum();
 
-    byte[] serializedKey = keySerde.toBytes(key);
+    byte[] serializedKey = null;
+    if (keySerde != null) {
+      serializedKey = keySerde.toBytes(key);
+    }
     int keySize = serializedKey == null ? 0 : serializedKey.length;
 
     // append the timestamp and sequence number to the serialized key bytes
@@ -88,8 +91,9 @@ public class TimeSeriesKeySerde<K> implements Serde<TimeSeriesKey<K>> {
     long seqNum = buf.getLong();
     long version = seqNum & ~SEQUENCE_NUM_MASK;
 
-    if (version != 0) {
-      throw new SamzaException("Version is not zero. Sequence number: " + seqNum);
+    if (version != TimeSeriesKey.VERSION) {
+      throw new SamzaException(String.format("Invalid version detected in TimeSeriesKey. " +
+          "Expected Version: %s Actual Version: %s Sequence number: %s", TimeSeriesKey.VERSION, version, seqNum));
     }
     return new TimeSeriesKey(key, timeStamp, seqNum);
   }

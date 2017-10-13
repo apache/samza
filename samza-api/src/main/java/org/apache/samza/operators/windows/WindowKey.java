@@ -66,8 +66,7 @@ public class WindowKey<K> {
     WindowKey<?> windowKey = (WindowKey<?>) o;
 
     if (key != null ? !key.equals(windowKey.key) : windowKey.key != null) return false;
-    return !(paneId != null ? !paneId.equals(windowKey.paneId) : windowKey.paneId != null);
-
+    return paneId != null ? paneId.equals(windowKey.paneId) : windowKey.paneId == null;
   }
 
   @Override

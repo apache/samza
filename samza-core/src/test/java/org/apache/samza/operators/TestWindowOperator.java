@@ -28,6 +28,8 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.operators.impl.store.TestInMemoryStore;
+import org.apache.samza.operators.impl.store.TimeSeriesKeySerde;
 import org.apache.samza.operators.triggers.FiringType;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.triggers.Triggers;
@@ -37,6 +39,7 @@ import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
@@ -70,9 +73,13 @@ public class TestWindowOperator {
     config = mock(Config.class);
     taskContext = mock(TaskContextImpl.class);
     runner = mock(ApplicationRunner.class);
+    Serde storeKeySerde = new TimeSeriesKeySerde(new IntegerSerde());
+    Serde storeValSerde = new IntegerEnvelopeSerde();
+
     when(taskContext.getSystemStreamPartitions()).thenReturn(ImmutableSet
         .of(new SystemStreamPartition("kafka", "integers", new Partition(0))));
     when(taskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
+    when(taskContext.getStore("window-3")).thenReturn(new TestInMemoryStore<>(storeKeySerde, storeValSerde));
     when(runner.getStreamSpec("integers")).thenReturn(new StreamSpec("integers", "integers", "kafka"));
   }
 
@@ -397,7 +404,7 @@ public class TestWindowOperator {
       Function<IntegerEnvelope, Integer> keyFn = m -> (Integer) m.getKey();
       inStream
         .map(m -> m)
-        .window(Windows.keyedTumblingWindow(keyFn, duration).setEarlyTrigger(earlyTrigger)
+        .window(Windows.keyedTumblingWindow(keyFn, duration, new IntegerSerde(), new IntegerEnvelopeSerde()).setEarlyTrigger(earlyTrigger)
           .setAccumulationMode(mode))
           .sink((message, messageCollector, taskCoordinator) -> {
               messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
@@ -427,7 +434,7 @@ public class TestWindowOperator {
       Function<IntegerEnvelope, Integer> keyFn = m -> (Integer) m.getKey();
       inStream
           .map(m -> m)
-          .window(Windows.<IntegerEnvelope>tumblingWindow(duration).setEarlyTrigger(earlyTrigger)
+          .window(Windows.tumblingWindow(duration, new IntegerEnvelopeSerde()).setEarlyTrigger(earlyTrigger)
               .setAccumulationMode(mode))
           .sink((message, messageCollector, taskCoordinator) -> {
               messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
@@ -455,7 +462,7 @@ public class TestWindowOperator {
 
       inStream
           .map(m -> m)
-          .window(Windows.keyedSessionWindow(keyFn, duration)
+          .window(Windows.keyedSessionWindow(keyFn, duration, new IntegerSerde(), new IntegerEnvelopeSerde())
               .setAccumulationMode(mode))
           .sink((message, messageCollector, taskCoordinator) -> {
               messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
@@ -467,6 +474,20 @@ public class TestWindowOperator {
 
     IntegerEnvelope(Integer key) {
       super(new SystemStreamPartition("kafka", "integers", new Partition(0)), "1", key, key);
+    }
+  }
+
+  private class IntegerEnvelopeSerde implements Serde<IntegerEnvelope> {
+    private final IntegerSerde intSerde = new IntegerSerde();
+
+    @Override
+    public byte[] toBytes(IntegerEnvelope object) {
+      return intSerde.toBytes((Integer) object.getKey());
+    }
+
+    @Override
+    public IntegerEnvelope fromBytes(byte[] bytes) {
+      return new IntegerEnvelope(intSerde.fromBytes(bytes));
     }
   }
 }

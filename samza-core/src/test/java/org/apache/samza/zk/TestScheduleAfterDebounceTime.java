@@ -19,14 +19,15 @@
 
 package org.apache.samza.zk;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import org.junit.Assert;
 import org.junit.Rule;
-import org.junit.rules.Timeout;
 import org.junit.Test;
+import org.junit.rules.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class TestScheduleAfterDebounceTime {
   private static final Logger LOG = LoggerFactory.getLogger(TestScheduleAfterDebounceTime.class);

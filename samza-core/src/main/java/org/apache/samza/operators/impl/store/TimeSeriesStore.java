@@ -58,6 +58,34 @@ public interface TimeSeriesStore<K, V> {
   ClosableIterator<TimestampedValue<V>> get(K key, long startTimestamp, long endTimestamp);
 
   /**
+   * Returns upto {@code maxMessages} for the given key in the provided time-range - [{@code startTimestamp}, {@code endTimestamp})
+   *
+   * The values in the returned list are ordered by their timestamp. Values with the same timestamp are returned in the order of insertion.
+   * If there are no values in the store for the key in the provided time-range, an empty list is returned.
+   *
+   * @param key the key to look up in the store
+   * @param startTimestamp the start timestamp of the range, inclusive
+   * @param endTimestamp the end timestamp of the range, exclusive
+   * @param maxMessages the maximum number of messages to return
+   * @return a list of values with upto {@code maxMessages} elements
+   */
+  ClosableIterator<TimestampedValue<V>> get(K key, long startTimestamp, long endTimestamp, int maxMessages);
+
+  /**
+   * Returns an iterator over values for the given key and timestamp
+   *
+   * Values returned by the iterator are in their insertion order.
+   *
+   * <p> The iterator <b>must</b> be closed after use by calling {@link #close}. Not doing so will result in memory leaks.
+   *
+   * @param key the key to look up in the store
+   * @param timestamp the timestamp to look up in the store
+   * @return an iterator over the values for the given key and timestamp that must be closed after use
+   * @throws IllegalArgumentException when the provided timestamp is negative
+   */
+  ClosableIterator<TimestampedValue<V>> get(K key, long timestamp);
+
+  /**
    * Removes all values for this key in the given time-range.
    *
    * @param key the key to look up in the store
@@ -66,6 +94,14 @@ public interface TimeSeriesStore<K, V> {
    * @throws IllegalArgumentException when startTimeStamp &gt; endTimeStamp, or when either of them is negative
    */
   void remove(K key, long startTimestamp, long endTimeStamp);
+
+  /**
+   * Removes all values for the given key and timestamp
+   *
+   * @param key the key to look up in the store
+   * @param timestamp the timestamp to look up in the store
+   */
+  void remove(K key, long timestamp);
 
   /**
    * Flushes this time series store, if applicable.
