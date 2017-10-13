@@ -20,16 +20,20 @@
 package org.apache.samza.system.eventhub;
 
 import com.microsoft.azure.eventhubs.EventHubClient;
-import org.apache.samza.SamzaException;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer;
 
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 public class EventHubConfig extends MapConfig {
+
+  public enum StartPosition {
+    EARLIEST,
+    LATEST
+  }
+
   public static final String CONFIG_STREAM_LIST = "systems.%s.stream.list";
 
   public static final String CONFIG_STREAM_NAMESPACE = "systems.%s.streams.%s.eventhubs.namespace";
@@ -53,9 +57,6 @@ public class EventHubConfig extends MapConfig {
   public static final String CONFIG_SEND_KEY_IN_EVENT_PROPERTIES = "systems.%s.eventhubs.send.key";
   public static final Boolean DEFAULT_CONFIG_SEND_KEY_IN_EVENT_PROPERTIES = false;
 
-  public static final String CONFIG_CONNECTION_SHUTDOWN_TIMEOUT_MILLIS = "systems.%s.eventhubs.shutdown.timeout";
-  public static final long DEFAULT_CONFIG_CONNECTION_SHUTDOWN_TIMEOUT_MILLIS = Duration.ofMinutes(1L).toMillis();
-
   public static final String CONFIG_FETCH_RUNTIME_INFO_TIMEOUT_MILLIS = "systems.%s.eventhubs.runtime.info.timeout";
   public static final long DEFAULT_CONFIG_FETCH_RUNTIME_INFO_TIMEOUT_MILLIS = Duration.ofMinutes(1L).toMillis();
 
@@ -63,88 +64,84 @@ public class EventHubConfig extends MapConfig {
   public static final int DEFAULT_CONFIG_CONSUMER_BUFFER_CAPACITY = 100;
 
 
-  private final String systemName;
-
-  public EventHubConfig(Map<String, String> config, String systemName) {
+  public EventHubConfig(Map<String, String> config) {
     super(config);
-    this.systemName = systemName;
-  }
-
-  private String getRequiredConfigValue(String configKey, String streamName) {
-    String configValue = get(String.format(configKey, systemName, streamName), null);
-    if (configValue == null) {
-      throw new SamzaException(configKey + " is not configured.");
-    }
-    return configValue;
   }
 
   /**
    * Get the list of streams that are defined. Each stream has enough
    * information for connecting to a certain EventHub entity.
    *
+   * @param systemName name of the system
    * @return list of stream names
    */
-  public List<String> getStreamList() {
+  public List<String> getStreams(String systemName) {
     return getList(String.format(CONFIG_STREAM_LIST, systemName));
   }
 
   /**
    * Get the EventHubs namespace for the stream
    *
+   * @param systemName name of the system
    * @param streamName name of stream
    * @return EventHubs namespace
    */
-  public String getStreamNamespace(String streamName) {
-    return getRequiredConfigValue(CONFIG_STREAM_NAMESPACE, streamName);
+  public String getStreamNamespace(String systemName, String streamName) {
+    return get(String.format(CONFIG_STREAM_NAMESPACE, systemName, streamName));
   }
 
   /**
    * Get the EventHubs entity path (topic name) for the stream
    *
+   * @param systemName name of the system
    * @param streamName name of stream
    * @return EventHubs entity path
    */
-  public String getStreamEntityPath(String streamName) {
-    return getRequiredConfigValue(CONFIG_STREAM_ENTITYPATH, streamName);
+  public String getStreamEntityPath(String systemName, String streamName) {
+    return get(String.format(CONFIG_STREAM_ENTITYPATH, systemName, streamName));
   }
 
   /**
    * Get the EventHubs SAS (Shared Access Signature) key name for the stream
    *
+   * @param systemName name of the system
    * @param streamName name of stream
    * @return EventHubs SAS key name
    */
-  public String getStreamSasKeyName(String streamName) {
-    return getRequiredConfigValue(CONFIG_STREAM_SAS_KEY_NAME, streamName);
+  public String getStreamSasKeyName(String systemName, String streamName) {
+    return get(String.format(CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName));
   }
 
   /**
    * Get the EventHubs SAS (Shared Access Signature) token for the stream
    *
+   * @param systemName name of the system
    * @param streamName name of stream
    * @return EventHubs SAS token
    */
-  public String getStreamSasToken(String streamName) {
-    return getRequiredConfigValue(CONFIG_STREAM_SAS_TOKEN, streamName);
+  public String getStreamSasToken(String systemName, String streamName) {
+    return get(String.format(CONFIG_STREAM_SAS_TOKEN, systemName, streamName));
   }
 
   /**
    * Get the EventHubs consumer group used for consumption for the stream
    *
+   * @param systemName name of the system
    * @param streamName name of stream
    * @return EventHubs consumer group
    */
-  public String getStreamConsumerGroup(String streamName) {
+  public String getStreamConsumerGroup(String systemName, String streamName) {
     return get(String.format(CONFIG_STREAM_CONSUMER_GROUP, systemName, streamName), DEFAULT_CONFIG_STREAM_CONSUMER_GROUP);
   }
 
   /**
    * Get the start position when there is no checkpoints. By default the consumer starts from latest (end of stream)
    *
+   * @param systemName name of the system
    * @param streamName name of the stream
    * @return Starting position when no checkpoints
    */
-  public StartPosition getStartPosition(String streamName) {
+  public StartPosition getStartPosition(String systemName, String streamName) {
     String startPositionStr = get(String.format(CONFIG_STREAM_CONSUMER_START_POSITION, systemName, streamName),
             DEFAULT_CONFIG_STREAM_CONSUMER_START_POSITION);
     return StartPosition.valueOf(startPositionStr.toUpperCase());
@@ -153,9 +150,10 @@ public class EventHubConfig extends MapConfig {
   /**
    * Get the partition method of the systemName. By default partitioning is handed by EventHub.
    *
+   * @param systemName name of the system
    * @return The method the producer should use to partition the outgoing data
    */
-  public EventHubSystemProducer.PartitioningMethod getPartitioningMethod() {
+  public EventHubSystemProducer.PartitioningMethod getPartitioningMethod(String systemName) {
     String partitioningMethod = get(String.format(CONFIG_PRODUCER_PARTITION_METHOD, systemName),
             DEFAULT_CONFIG_PRODUCER_PARTITION_METHOD);
     return EventHubSystemProducer.PartitioningMethod.valueOf(partitioningMethod);
@@ -165,9 +163,10 @@ public class EventHubConfig extends MapConfig {
   /**
    * Returns true if the OutgoingMessageEnvelope key should be sent in the outgoing envelope, false otherwise
    *
+   * @param systemName name of the system
    * @return Boolean, is send key included
    */
-  public Boolean getSendKeyInEventProperties() {
+  public Boolean getSendKeyInEventProperties(String systemName) {
     String isSendKeyIncluded = get(String.format(CONFIG_SEND_KEY_IN_EVENT_PROPERTIES, systemName));
     if (isSendKeyIncluded == null) {
       return DEFAULT_CONFIG_SEND_KEY_IN_EVENT_PROPERTIES;
@@ -176,57 +175,28 @@ public class EventHubConfig extends MapConfig {
   }
 
   /**
-   * Get the timeout for terminating the connection to EventHub client
-   *
-   * @return long, timeout in millis for the shutdown of EventHub Connection
-   */
-  public long getShutdownWaitTimeMS() {
-    String timeoutStr = get(String.format(CONFIG_CONNECTION_SHUTDOWN_TIMEOUT_MILLIS, systemName));
-    if (timeoutStr == null) {
-      return DEFAULT_CONFIG_CONNECTION_SHUTDOWN_TIMEOUT_MILLIS;
-    }
-    return Long.valueOf(timeoutStr);
-  }
-
-  /**
    * Get the timeout for the getRuntimeInfo request to EventHub client
    *
+   * @param systemName name of the systems
    * @return long, timeout in millis for fetching RuntimeInfo
    */
-  public long getRuntimeInfoWaitTimeMS() {
-    String timeoutStr = get(String.format(CONFIG_FETCH_RUNTIME_INFO_TIMEOUT_MILLIS, systemName));
-    if (timeoutStr == null) {
-      return DEFAULT_CONFIG_FETCH_RUNTIME_INFO_TIMEOUT_MILLIS;
-    }
-    return Long.valueOf(timeoutStr);
+  public long getRuntimeInfoWaitTimeMS(String systemName) {
+    return getLong(String.format(CONFIG_FETCH_RUNTIME_INFO_TIMEOUT_MILLIS, systemName),
+            DEFAULT_CONFIG_FETCH_RUNTIME_INFO_TIMEOUT_MILLIS);
   }
 
   /**
    * Get the capacity of the Event Hub consumer buffer - the blocking queue used for storing messages
    *
+   * @param systemName name of the system
    * @return int, number of buffered messages per SystemStreamPartition
    */
-  public int getConsumerBufferCapacity() {
+  public int getConsumerBufferCapacity(String systemName) {
     String bufferCapacity = get(String.format(CONFIG_CONSUMER_BUFFER_CAPACITY, systemName));
     if (bufferCapacity == null) {
       return DEFAULT_CONFIG_CONSUMER_BUFFER_CAPACITY;
     }
     return Integer.parseInt(bufferCapacity);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(super.hashCode(), systemName);
-  }
-
-  @Override
-  public boolean equals(Object obj) {
-    return super.equals(obj) && systemName.equals(((EventHubConfig) obj).systemName);
-  }
-
-  public enum StartPosition {
-    EARLIEST,
-    LATEST
   }
 
 }

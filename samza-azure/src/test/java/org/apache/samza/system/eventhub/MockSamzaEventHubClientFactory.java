@@ -17,16 +17,13 @@
 * under the License.
 */
 
-package org.apache.samza.system.eventhub.consumer;
+package org.apache.samza.system.eventhub;
 
 import com.microsoft.azure.eventhubs.EventData;
 import com.microsoft.azure.eventhubs.EventHubClient;
 import com.microsoft.azure.eventhubs.PartitionReceiveHandler;
 import com.microsoft.azure.eventhubs.PartitionReceiver;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.system.eventhub.EventHubClientWrapper;
-import org.apache.samza.system.eventhub.EventHubClientWrapperFactory;
-import org.apache.samza.system.eventhub.EventHubConfig;
 import org.junit.Assert;
 import org.mockito.stubbing.Answer;
 import org.powermock.api.mockito.PowerMockito;
@@ -39,29 +36,28 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyString;
 
-public class MockEventHubClientFactory extends EventHubClientWrapperFactory {
+public class MockSamzaEventHubClientFactory extends SamzaEventHubClientFactory {
   private Map<SystemStreamPartition, List<EventData>> eventData;
 
-  MockEventHubClientFactory(Map<SystemStreamPartition, List<EventData>> eventData) {
+  public MockSamzaEventHubClientFactory(Map<SystemStreamPartition, List<EventData>> eventData) {
     this.eventData = eventData;
   }
 
   @Override
-  public EventHubClientWrapper getEventHubClientWrapper(String eventHubNamespace, String entityPath, String sasKeyName,
-                                                        String sasToken, EventHubConfig config) {
-    return new MockEventHubClientWrapper();
+  public SamzaEventHubClient getSamzaEventHubClient(String systemName, String streamName, EventHubConfig config) {
+    return new MockSamzaEventHubClient();
   }
 
   // Emulate EventHub sending data
-  void sendToHandlers(Map<SystemStreamPartition, PartitionReceiveHandler> handlers) {
+  public void sendToHandlers(Map<SystemStreamPartition, PartitionReceiveHandler> handlers) {
     handlers.forEach((ssp, value) -> value.onReceive(eventData.get(ssp)));
   }
 
-  private class MockEventHubClientWrapper implements EventHubClientWrapper {
+  private class MockSamzaEventHubClient implements SamzaEventHubClient {
     Boolean initiated = false;
     EventHubClient mockEventHubClient = PowerMockito.mock(EventHubClient.class);
 
-    MockEventHubClientWrapper() {
+    MockSamzaEventHubClient() {
       PartitionReceiver mockPartitionReceiver = PowerMockito.mock(PartitionReceiver.class);
 
       // Set mocks
@@ -91,7 +87,7 @@ public class MockEventHubClientFactory extends EventHubClientWrapperFactory {
     @Override
     public EventHubClient getEventHubClient() {
       if (!initiated) {
-        Assert.fail("Should have called init() on EventHubClient before getEventHubClientWrapper()");
+        Assert.fail("Should have called init() on EventHubClient before getEventHubClient()");
       }
       return mockEventHubClient;
     }

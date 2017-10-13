@@ -19,9 +19,14 @@
 
 package org.apache.samza.system.eventhub;
 
-public class EventHubClientWrapperFactory {
-  public EventHubClientWrapper getEventHubClientWrapper(String eventHubNamespace, String entityPath, String sasKeyName,
-                                                        String sasToken, EventHubConfig config) {
-    return new SamzaEventHubClientWrapper(eventHubNamespace, entityPath, sasKeyName, sasToken);
+public class SamzaEventHubClientFactory {
+  public SamzaEventHubClient getSamzaEventHubClient(String systemName, String streamName, EventHubConfig config) {
+
+    String eventHubNamespace = config.getStreamNamespace(systemName, streamName);
+    String entityPath = config.getStreamEntityPath(systemName, streamName);
+    String sasKeyName = config.getStreamSasKeyName(systemName, streamName);
+    String sasToken = config.getStreamSasToken(systemName, streamName);
+
+    return new SamzaEventHubClientImpl(eventHubNamespace, entityPath, sasKeyName, sasToken);
   }
 }

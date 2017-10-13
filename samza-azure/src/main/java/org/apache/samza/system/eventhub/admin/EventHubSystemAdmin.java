@@ -27,10 +27,10 @@ import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.system.eventhub.EventHubClientWrapper;
+import org.apache.samza.system.eventhub.SamzaEventHubClient;
 import org.apache.samza.system.eventhub.EventHubConfig;
 import org.apache.samza.system.eventhub.consumer.EventHubSystemConsumer;
-import org.apache.samza.system.eventhub.EventHubClientWrapperFactory;
+import org.apache.samza.system.eventhub.SamzaEventHubClientFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,17 +44,17 @@ import java.util.concurrent.TimeoutException;
 
 public class EventHubSystemAdmin implements SystemAdmin {
   private static final Logger LOG = LoggerFactory.getLogger(EventHubSystemAdmin.class);
-  private final EventHubClientWrapperFactory eventHubClientWrapperFactory;
+  private final SamzaEventHubClientFactory samzaEventHubClientFactory;
   private String systemName;
   private EventHubConfig eventHubConfig;
-  private Map<String, EventHubClientWrapper> eventHubClients = new HashMap<>();
+  private Map<String, SamzaEventHubClient> eventHubClients = new HashMap<>();
   private Map<String, String[]> streamPartitions = new HashMap<>();
 
   public EventHubSystemAdmin(String systemName, EventHubConfig eventHubConfig,
-                             EventHubClientWrapperFactory eventHubClientWrapperFactory) {
+                             SamzaEventHubClientFactory samzaEventHubClientFactory) {
     this.systemName = systemName;
     this.eventHubConfig = eventHubConfig;
-    this.eventHubClientWrapperFactory = eventHubClientWrapperFactory;
+    this.samzaEventHubClientFactory = samzaEventHubClientFactory;
   }
 
   private static String getNextOffset(String currentOffset) {
@@ -67,6 +67,7 @@ public class EventHubSystemAdmin implements SystemAdmin {
   @Override
   public Map<SystemStreamPartition, String> getOffsetsAfter(Map<SystemStreamPartition, String> offsets) {
     Map<SystemStreamPartition, String> results = new HashMap<>();
+
     offsets.forEach((partition, offset) -> results.put(partition, getNextOffset(offset)));
     return results;
   }
@@ -75,74 +76,79 @@ public class EventHubSystemAdmin implements SystemAdmin {
   public Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames) {
     Map<String, SystemStreamMetadata> requestedMetadata = new HashMap<>();
     Map<String, CompletableFuture<EventHubRuntimeInformation>> ehRuntimeInfos = new HashMap<>();
+
     streamNames.forEach((streamName) -> {
         if (!streamPartitions.containsKey(streamName)) {
-          EventHubClientWrapper eventHubClientWrapper = getStreamEventHubClient(streamName);
-          ehRuntimeInfos.put(streamName,
-                  eventHubClientWrapper.getEventHubClient().getRuntimeInformation());
+          SamzaEventHubClient samzaEventHubClient = getOrCreateStreamEventHubClient(streamName);
+          CompletableFuture<EventHubRuntimeInformation> runtimeInfo = samzaEventHubClient.getEventHubClient()
+                  .getRuntimeInformation();
+
+          ehRuntimeInfos.put(streamName, runtimeInfo);
         }
       });
     ehRuntimeInfos.forEach((streamName, ehRuntimeInfo) -> {
         if (!streamPartitions.containsKey(streamName)) {
           try {
-            EventHubRuntimeInformation ehInfo = ehRuntimeInfo.get(eventHubConfig.getRuntimeInfoWaitTimeMS(),
-                    TimeUnit.MILLISECONDS);
+            long timeoutMs = eventHubConfig.getRuntimeInfoWaitTimeMS(systemName);
+            EventHubRuntimeInformation ehInfo = ehRuntimeInfo.get(timeoutMs, TimeUnit.MILLISECONDS);
+
             streamPartitions.put(streamName, ehInfo.getPartitionIds());
-          } catch (InterruptedException | ExecutionException e) {
+          } catch (InterruptedException | ExecutionException | TimeoutException e) {
             String msg = String.format("Error while fetching EventHubRuntimeInfo for System:%s, Stream:%s",
                     systemName, streamName);
-            LOG.error(msg, e);
-            throw new SamzaException(msg);
-          } catch (TimeoutException e) {
-            String msg = String.format("Timed out while fetching EventHubRuntimeInfo for System:%s, Stream:%s",
-                    systemName, streamName);
-            LOG.error(msg, e);
             throw new SamzaException(msg);
           }
         }
-        requestedMetadata.put(streamName, new SystemStreamMetadata(streamName,
-                getPartitionMetadata(streamName, streamPartitions.get(streamName))));
+        String[] partitionIds = streamPartitions.get(streamName);
+        Map<Partition, SystemStreamPartitionMetadata> sspMetadataMap = getPartitionMetadata(streamName, partitionIds);
+        SystemStreamMetadata systemStreamMetadata = new SystemStreamMetadata(streamName, sspMetadataMap);
+        requestedMetadata.put(streamName, systemStreamMetadata);
       });
     return requestedMetadata;
   }
 
-  private EventHubClientWrapper getStreamEventHubClient(String streamName) {
+  private SamzaEventHubClient getOrCreateStreamEventHubClient(String streamName) {
     if (!eventHubClients.containsKey(streamName)) {
-      eventHubClients.put(streamName, eventHubClientWrapperFactory
-              .getEventHubClientWrapper(eventHubConfig.getStreamNamespace(streamName),
-                      eventHubConfig.getStreamEntityPath(streamName), eventHubConfig.getStreamSasKeyName(streamName),
-                      eventHubConfig.getStreamSasToken(streamName), eventHubConfig));
-      eventHubClients.get(streamName).init();
+      SamzaEventHubClient samzaEventHubClient = samzaEventHubClientFactory
+              .getSamzaEventHubClient(systemName, streamName, eventHubConfig);
+
+      samzaEventHubClient.init();
+      eventHubClients.put(streamName, samzaEventHubClient);
     }
     return eventHubClients.get(streamName);
   }
 
   private Map<Partition, SystemStreamPartitionMetadata> getPartitionMetadata(String streamName, String[] partitionIds) {
-    EventHubClientWrapper eventHubClientWrapper = getStreamEventHubClient(streamName);
+    SamzaEventHubClient samzaEventHubClient = getOrCreateStreamEventHubClient(streamName);
     Map<Partition, SystemStreamPartitionMetadata> sspMetadataMap = new HashMap<>();
     Map<String, CompletableFuture<EventHubPartitionRuntimeInformation>> ehRuntimeInfos = new HashMap<>();
+
     for (String partition : partitionIds) {
-      ehRuntimeInfos.put(partition, eventHubClientWrapper.getEventHubClient()
-               .getPartitionRuntimeInformation(partition));
+      CompletableFuture<EventHubPartitionRuntimeInformation> partitionRuntimeInfo = samzaEventHubClient
+              .getEventHubClient()
+              .getPartitionRuntimeInformation(partition);
+
+      ehRuntimeInfos.put(partition, partitionRuntimeInfo);
     }
+
     ehRuntimeInfos.forEach((partitionId, ehPartitionRuntimeInfo) -> {
         try {
-          EventHubPartitionRuntimeInformation ehPartitionInfo = ehPartitionRuntimeInfo
-                  .get(eventHubConfig.getRuntimeInfoWaitTimeMS(), TimeUnit.MILLISECONDS);
-          sspMetadataMap.put(new Partition(Integer.parseInt(partitionId)),
-                  new SystemStreamPartitionMetadata(EventHubSystemConsumer.START_OF_STREAM,
-                  ehPartitionInfo.getLastEnqueuedOffset(), EventHubSystemConsumer.END_OF_STREAM));
-        } catch (InterruptedException | ExecutionException e) {
+          long timeoutMs = eventHubConfig.getRuntimeInfoWaitTimeMS(systemName);
+          EventHubPartitionRuntimeInformation ehPartitionInfo = ehPartitionRuntimeInfo.get(timeoutMs, TimeUnit.MILLISECONDS);
+
+          String startingOffset = EventHubSystemConsumer.START_OF_STREAM;
+          String newestOffset = ehPartitionInfo.getLastEnqueuedOffset();
+          String upcomingOffset = EventHubSystemConsumer.END_OF_STREAM;
+          SystemStreamPartitionMetadata sspMetadata = new SystemStreamPartitionMetadata(startingOffset, newestOffset,
+                  upcomingOffset);
+
+          Partition partition = new Partition(Integer.parseInt(partitionId));
+
+          sspMetadataMap.put(partition, sspMetadata);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
           String msg = String.format(
                   "Error while fetching EventHubPartitionRuntimeInfo for System:%s, Stream:%s, Partition:%s",
                   systemName, streamName, partitionId);
-          LOG.error(msg, e);
-          throw new SamzaException(msg);
-        } catch (TimeoutException e) {
-          String msg = String.format(
-                  "Timed out while fetching EventHubRuntimeInfo for System:%s, Stream:%s, , Partition:%s",
-                  systemName, streamName, partitionId);
-          LOG.error(msg, e);
           throw new SamzaException(msg);
         }
       });
@@ -151,6 +157,9 @@ public class EventHubSystemAdmin implements SystemAdmin {
 
   @Override
   public Integer offsetComparator(String offset1, String offset2) {
+    if (offset1 == null || offset2 == null) {
+      return null;
+    }
     try {
       if (offset1.equals(EventHubSystemConsumer.END_OF_STREAM)) {
         return offset2.equals(EventHubSystemConsumer.END_OF_STREAM) ? 0 : 1;

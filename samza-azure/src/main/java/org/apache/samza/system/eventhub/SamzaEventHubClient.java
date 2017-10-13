@@ -21,7 +21,10 @@ package org.apache.samza.system.eventhub;
 
 import com.microsoft.azure.eventhubs.EventHubClient;
 
-public interface EventHubClientWrapper {
+/**
+ * Wraps the {@link EventHubClient} with lifestyle hooks for initialization and close
+ */
+public interface SamzaEventHubClient {
   /**
    * Initiate the connection to EventHub
    */
@@ -37,9 +40,9 @@ public interface EventHubClientWrapper {
   /**
    * Timed synchronous connection close to the EventHub.
    *
-   * @param timeoutMS
-   *            Time in Milliseconds to wait for individual components to
-   *            shutdown before moving to the next stage.
+   * @param timeoutMs
+   *          Time in Milliseconds to wait for individual components to
+   *          shutdown before moving to the next stage.
    */
-  void close(long timeoutMS);
+  void close(long timeoutMs);
 }

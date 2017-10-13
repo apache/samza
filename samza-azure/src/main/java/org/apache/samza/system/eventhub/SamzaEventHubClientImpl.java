@@ -29,12 +29,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
-public class SamzaEventHubClientWrapper implements EventHubClientWrapper {
-  private static final Logger LOG = LoggerFactory.getLogger(SamzaEventHubClientWrapper.class.getName());
+public class SamzaEventHubClientImpl implements SamzaEventHubClient {
+  private static final Logger LOG = LoggerFactory.getLogger(SamzaEventHubClientImpl.class.getName());
   private static final String EVENTHUB_REMOTE_HOST_FORMAT = "%s.servicebus.windows.net";
 
   private EventHubClient eventHubClient;
@@ -44,7 +42,7 @@ public class SamzaEventHubClientWrapper implements EventHubClientWrapper {
   private final String sasKeyName;
   private final String sasKey;
 
-  public SamzaEventHubClientWrapper(String eventHubNamespace, String entityPath, String sasKeyName, String sasKey) {
+  public SamzaEventHubClientImpl(String eventHubNamespace, String entityPath, String sasKeyName, String sasKey) {
     this.eventHubNamespace = eventHubNamespace;
     this.entityPath = entityPath;
     this.sasKeyName = sasKeyName;
@@ -58,12 +56,9 @@ public class SamzaEventHubClientWrapper implements EventHubClientWrapper {
               new ConnectionStringBuilder(eventHubNamespace, entityPath, sasKeyName, sasKey);
 
       eventHubClient = EventHubClient.createFromConnectionStringSync(connectionStringBuilder.toString());
-    } catch (IOException ioe) {
-      throw new IllegalStateException(
-              "Failed to connect to remote host " + remoteHost + ":" + ClientConstants.AMQPS_PORT, ioe);
-    } catch (ServiceBusException e) {
-      String msg = String.format("Creation of event hub client failed for eventHub %s %s %s %s with exception",
-              entityPath, eventHubNamespace, sasKeyName, sasKey);
+    } catch (IOException | ServiceBusException e) {
+      String msg = String.format("Creation of EventHub client failed for eventHub %s %s %s %s on remote host %s:%d",
+              entityPath, eventHubNamespace, sasKeyName, sasKey, remoteHost, ClientConstants.AMQPS_PORT);
       LOG.error(msg, e);
       throw new SamzaException(msg, e);
     }
@@ -75,21 +70,16 @@ public class SamzaEventHubClientWrapper implements EventHubClientWrapper {
 
 
   public void close(long timeoutMS) {
-    if (timeoutMS <= 0) {
-      try {
+    try {
+      if (timeoutMS <= 0) {
         eventHubClient.closeSync();
-      } catch (ServiceBusException e) {
-        LOG.warn("Closing the event hub client failed ", e);
-      }
-    } else {
-      CompletableFuture<Void> future = eventHubClient.close();
-      try {
+      } else {
+        CompletableFuture<Void> future = eventHubClient.close();
         future.get(timeoutMS, TimeUnit.MILLISECONDS);
-      } catch (ExecutionException | InterruptedException | TimeoutException e) {
-        LOG.warn("Closing the event hub client failed ", e);
       }
+    } catch (Exception e) {
+      LOG.warn("Closing the event hub client failed ", e);
     }
-
   }
 
 }

@@ -54,7 +54,7 @@ public class TestEventHubSystemConsumer {
       IncomingMessageEnvelope message = messages.get(i);
       EventData eventData = eventDataList.get(i);
       Assert.assertEquals(message.getKey(), eventData.getSystemProperties().getPartitionKey());
-      Assert.assertEquals(((EventDataWrapper) message.getMessage()).getDecryptedBody(), eventData.getBytes());
+      Assert.assertEquals(((EventDataWrapper) message.getMessage()).getBody(), eventData.getBytes());
       Assert.assertEquals(message.getOffset(), eventData.getSystemProperties().getOffset());
     }
   }
@@ -85,10 +85,10 @@ public class TestEventHubSystemConsumer {
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, systemName, streamName), MOCK_ENTITY_1);
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_CONSUMER_START_POSITION, systemName, streamName), "latest");
 
-    MockEventHubClientFactory eventHubClientWrapperFactory = new MockEventHubClientFactory(eventData);
+    MockSamzaEventHubClientFactory eventHubClientWrapperFactory = new MockSamzaEventHubClientFactory(eventData);
 
     EventHubSystemConsumer consumer =
-            new EventHubSystemConsumer(new EventHubConfig(configMap, systemName), eventHubClientWrapperFactory, serdes,
+            new EventHubSystemConsumer(new EventHubConfig(configMap), systemName, eventHubClientWrapperFactory, serdes,
                     testMetrics);
     consumer.register(ssp, null);
     consumer.start();
@@ -136,10 +136,10 @@ public class TestEventHubSystemConsumer {
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName), EVENTHUB_KEY_NAME);
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, systemName, streamName), EVENTHUB_KEY);
 
-    MockEventHubClientFactory eventHubClientWrapperFactory = new MockEventHubClientFactory(eventData);
+    MockSamzaEventHubClientFactory eventHubClientWrapperFactory = new MockSamzaEventHubClientFactory(eventData);
 
     EventHubSystemConsumer consumer =
-            new EventHubSystemConsumer(new EventHubConfig(configMap, systemName), eventHubClientWrapperFactory, serdes,
+            new EventHubSystemConsumer(new EventHubConfig(configMap), systemName, eventHubClientWrapperFactory, serdes,
                     testMetrics);
     consumer.register(ssp1, EventHubSystemConsumer.START_OF_STREAM);
     consumer.register(ssp2, EventHubSystemConsumer.START_OF_STREAM);
@@ -196,10 +196,10 @@ public class TestEventHubSystemConsumer {
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName2), EVENTHUB_KEY_NAME);
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, systemName, streamName2), EVENTHUB_KEY);
 
-    MockEventHubClientFactory eventHubClientWrapperFactory = new MockEventHubClientFactory(eventData);
+    MockSamzaEventHubClientFactory eventHubClientWrapperFactory = new MockSamzaEventHubClientFactory(eventData);
 
     EventHubSystemConsumer consumer =
-            new EventHubSystemConsumer(new EventHubConfig(configMap, systemName), eventHubClientWrapperFactory, serdes,
+            new EventHubSystemConsumer(new EventHubConfig(configMap), systemName, eventHubClientWrapperFactory, serdes,
                     testMetrics);
 
     consumer.register(ssp1, EventHubSystemConsumer.START_OF_STREAM);

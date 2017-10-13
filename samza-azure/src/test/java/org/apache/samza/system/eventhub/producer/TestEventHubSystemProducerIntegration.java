@@ -25,9 +25,7 @@ import com.microsoft.azure.eventhubs.PartitionReceiver;
 import com.microsoft.azure.servicebus.ServiceBusException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.system.OutgoingMessageEnvelope;
-import org.apache.samza.system.SystemProducer;
-import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.*;
 import org.apache.samza.system.eventhub.*;
 import org.apache.samza.system.eventhub.consumer.EventHubSystemConsumer;
 import org.apache.samza.util.NoOpMetricsRegistry;
@@ -38,8 +36,8 @@ import org.slf4j.LoggerFactory;
 
 import static org.apache.samza.system.eventhub.MockEventHubConfigFactory.*;
 
-public class TestEventHubSystemProducer {
-  private static final Logger LOG = LoggerFactory.getLogger(TestEventHubSystemProducer.class.getName());
+public class TestEventHubSystemProducerIntegration {
+  private static final Logger LOG = LoggerFactory.getLogger(TestEventHubSystemProducerIntegration.class.getName());
 
   @Test
   public void testSystemFactoryCreateAndStartProducer() {
@@ -93,10 +91,9 @@ public class TestEventHubSystemProducer {
 
   @Test
   public void testReceive() throws ServiceBusException {
-    EventHubClientWrapperFactory clientFactory = new EventHubClientWrapperFactory();
-    EventHubClientWrapper wrapper = clientFactory
-            .getEventHubClientWrapper(EVENTHUB_NAMESPACE, EVENTHUB_ENTITY1, EVENTHUB_KEY_NAME, EVENTHUB_KEY,
-                    new EventHubConfig(createEventHubConfig(), SYSTEM_NAME));
+    SamzaEventHubClientFactory clientFactory = new SamzaEventHubClientFactory();
+    SamzaEventHubClient wrapper = clientFactory
+            .getSamzaEventHubClient(SYSTEM_NAME, STREAM_NAME1, new EventHubConfig(createEventHubConfig()));
     wrapper.init();
     EventHubClient client = wrapper.getEventHubClient();
     PartitionReceiver receiver =

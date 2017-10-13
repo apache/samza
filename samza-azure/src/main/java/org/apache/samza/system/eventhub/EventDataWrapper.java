@@ -41,13 +41,8 @@ public class EventDataWrapper {
    * @return the body of decrypted body of the message. In case no encryption is setup for this topic,
    * just returns the body of the message.
    */
-  public byte[] getDecryptedBody() {
+  public byte[] getBody() {
     return body;
-  }
-
-  @Override
-  public String toString() {
-    return "EventDataWrapper: body: " + (new String(body)) + ",  EventData " + eventData;
   }
 
 }

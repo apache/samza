@@ -37,29 +37,30 @@ import java.util.Map;
 
 public class EventHubSystemFactory implements SystemFactory {
 
-  private Map<String, Serde<byte[]>> getSerdesMap(EventHubConfig config) {
+  private Map<String, Serde<byte[]>> getSerdesMap(EventHubConfig config, String systemName) {
     Map<String, Serde<byte[]>> serdes = new HashMap<>();
-    List<String> streamList = config.getStreamList();
+    List<String> streamList = config.getStreams(systemName);
     streamList.forEach((streamName) -> serdes.put(streamName, new ByteSerde()));
     return serdes;
   }
 
   @Override
   public SystemConsumer getConsumer(String systemName, Config config, MetricsRegistry registry) {
-    EventHubConfig eventHubConfig = new EventHubConfig(config, systemName);
-    return new EventHubSystemConsumer(eventHubConfig, new EventHubClientWrapperFactory(), getSerdesMap(eventHubConfig),
-            registry);
+    EventHubConfig eventHubConfig = new EventHubConfig(config);
+    return new EventHubSystemConsumer(eventHubConfig, systemName, new SamzaEventHubClientFactory(),
+            getSerdesMap(eventHubConfig, systemName), registry);
   }
 
   @Override
   public SystemProducer getProducer(String systemName, Config config, MetricsRegistry registry) {
-    EventHubConfig eventHubConfig = new EventHubConfig(config, systemName);
-    return new EventHubSystemProducer(eventHubConfig, new EventHubClientWrapperFactory(), getSerdesMap(eventHubConfig),
+    EventHubConfig eventHubConfig = new EventHubConfig(config);
+    return new EventHubSystemProducer(eventHubConfig, systemName, new SamzaEventHubClientFactory(),
+            getSerdesMap(eventHubConfig, systemName),
             registry);
   }
 
   @Override
   public SystemAdmin getAdmin(String systemName, Config config) {
-    return new EventHubSystemAdmin(systemName, new EventHubConfig(config, systemName), new EventHubClientWrapperFactory());
+    return new EventHubSystemAdmin(systemName, new EventHubConfig(config), new SamzaEventHubClientFactory());
   }
 }

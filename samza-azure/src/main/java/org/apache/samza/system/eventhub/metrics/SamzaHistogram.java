@@ -31,10 +31,12 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-
+/**
+ * Creates a {@link Histogram} metric using {@link ExponentiallyDecayingReservoir}
+ * Keeps a {@link Gauge} for each percentile
+ */
 public class SamzaHistogram {
   private static final List<Double> DEFAULT_HISTOGRAM_PERCENTILES = Arrays.asList(50D, 99D);
-  private final MetricsRegistry registry;
   private final Histogram histogram;
   private final List<Double> percentiles;
   private final Map<Double, Gauge<Double>> gauges;
@@ -44,18 +46,17 @@ public class SamzaHistogram {
   }
 
   public SamzaHistogram(MetricsRegistry registry, String group, String name, List<Double> percentiles) {
-    this.registry = registry;
-    histogram = new Histogram(new ExponentiallyDecayingReservoir());
+    this.histogram = new Histogram(new ExponentiallyDecayingReservoir());
     this.percentiles = percentiles;
-    gauges = this.percentiles.stream()
+    this.gauges = this.percentiles.stream()
             .filter(x -> x > 0 && x <= 100)
             .collect(
-                    Collectors.toMap(Function.identity(), x -> this.registry.newGauge(group, name + "_" + String.valueOf(0), 0D)));
+                    Collectors.toMap(Function.identity(), x -> registry.newGauge(group, name + "_" + String.valueOf(0), 0D)));
   }
 
   public void update(long value) {
     histogram.update(value);
     Snapshot values = histogram.getSnapshot();
-    percentiles.stream().forEach(x -> gauges.get(x).set(values.getValue(x / 100)));
+    percentiles.forEach(x -> gauges.get(x).set(values.getValue(x / 100)));
   }
 }
