@@ -19,17 +19,17 @@
 
 package org.apache.samza.operators.impl;
 
+import org.apache.samza.operators.impl.store.TimestampedValue;
 import org.apache.samza.operators.triggers.FiringType;
-import org.apache.samza.operators.windows.WindowKey;
 
 /**
  * Uniquely identifies a trigger firing
  */
-public class TriggerKey<WK> {
+public class TriggerKey<K> {
   private final FiringType type;
-  private final WindowKey<WK> key;
+  private final TimestampedValue<K> key;
 
-  public TriggerKey(FiringType type, WindowKey<WK> key) {
+  public TriggerKey(FiringType type, TimestampedValue<K> key) {
     if (type == null) {
       throw new IllegalArgumentException("Firing type cannot be null");
     }
@@ -49,7 +49,7 @@ public class TriggerKey<WK> {
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
-    TriggerKey<WK> that = (TriggerKey<WK>) o;
+    TriggerKey<K> that = (TriggerKey<K>) o;
     return type == that.type && key.equals(that.key);
   }
 
@@ -63,7 +63,7 @@ public class TriggerKey<WK> {
     return result;
   }
 
-  public WindowKey<WK> getKey() {
+  public TimestampedValue<K> getKey() {
     return key;
   }
 

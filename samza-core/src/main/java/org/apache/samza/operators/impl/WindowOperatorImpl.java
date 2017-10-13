@@ -122,84 +122,30 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
     }
   }
 
-  private WindowKey<K> createWindowKey(M message) {
-    Function<M, K> keyExtractor = window.getKeyExtractor();
-    K key = (keyExtractor != null) ? keyExtractor.apply(message) : null;
-
-    String paneId = null;
-    if (window.getWindowType() == WindowType.TUMBLING) {
-      paneId = getTumblingWindowPaneId(message);
-    } else if (window.getWindowType() == WindowType.SESSION) {
-      paneId = getSessionWindowPaneId(message);
-    }
-
-    return new WindowKey<>(key, paneId);
-  }
-
-  /**
-   * Computes the paneId of the tumbling window this message should belong to.
-   *
-   * In the case of tumbling windows, paneId of a window is defined as the start timestamp of its corresponding window
-   * interval. For instance, if the tumbling interval is 10 seconds, all messages that arrive between [1000, 1010]
-   * are assigned to the window with paneId "1000"
-   *
-   * @param message the input message
-   * @return the paneId of the window this message should belong to
-   */
-  private String getTumblingWindowPaneId(M message) {
-    long triggerDurationMs = ((TimeTrigger<M>) window.getDefaultTrigger()).getDuration().toMillis();
-    final long now = clock.currentTimeMillis();
-    long timestamp = now - now % triggerDurationMs;
-    return Long.toString(timestamp);
-  }
-
-  /**
-   * Computes the paneId of the session window this message should belong to.
-   *
-   * In the case of session windows, paneId is defined as the timestamp of the earliest message in the window.
-   * For instance, if the session gap is 10 seconds, and the first message in the window arrives at "1002" seconds,
-   * all messages (that arrive within 10 seconds of their previous message) are assigned a paneId "1002".
-   *
-   * @param message the input message
-   * @return the paneId of the window this message should belong to
-   */
-  private String getSessionWindowPaneId(M message) {
-    K key = window.getKeyExtractor().apply(message);
-    // get the value with the earliest timestamp for the provided key.
-    ClosableIterator<TimestampedValue<Object>> iterator = timeSeriesStore.get(key, 0, Long.MAX_VALUE, 1);
-    List<TimestampedValue<Object>> timestampedValues = toList(iterator);
-
-    // If there are no existing sessions for the key, we use the current timestamp as the paneId. If not, use the
-    // timestamp of the earliest message as the paneId.
-    long timestamp = (timestampedValues.isEmpty())? clock.currentTimeMillis() : timestampedValues.get(0).getTimestamp();
-
-    return Long.toString(timestamp);
-  }
-
   @Override
   public Collection<WindowPane<K, Object>> handleMessage(
       M message, MessageCollector collector, TaskCoordinator coordinator) {
     LOG.trace("Processing message envelope: {}", message);
     List<WindowPane<K, Object>> results = new ArrayList<>();
 
-    WindowKey<K> windowKey =  createWindowKey(message);
-    long timestamp = Long.parseLong(windowKey.getPaneId());
+    TimestampedValue<K> windowKey =  createWindowKey(message);
 
-    K key = windowKey.getKey();
+    K key = windowKey.getValue();
+    long timestamp = windowKey.getTimestamp();
 
     // For aggregating windows, we only store the aggregated window value.
     // For non-aggregating windows, we store all messages in the window.
     if (foldLeftFn == null) {
       timeSeriesStore.put(key, message, timestamp); // store is in append mode
     } else {
-      List<Object> existingState = getValues(windowKey);
+      List<Object> existingState = getValues(key, timestamp);
       Preconditions.checkState(existingState.size() == 1, "WindowState for aggregating windows " +
           "must not contain more than one entry per window");
 
       Object oldVal = existingState.get(0);
       if (oldVal == null) {
         LOG.trace("No existing state found for key. Invoking initializer.");
-        oldVal = window.getInitializer().get();
+        oldVal = initializer.get();
       }
 
       Object aggregatedValue = foldLeftFn.apply(message, oldVal);
@@ -272,29 +218,17 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
   }
 
   /**
-   * Return all values in the store for the provided windowKey
-   * @param windowKey
-   * @return the list of values for the provided key
-   */
-  private List<Object> getValues(WindowKey<K> windowKey) {
-    long timestamp = Long.parseLong(windowKey.getPaneId());
-    ClosableIterator<TimestampedValue<Object>> iterator = timeSeriesStore.get(windowKey.getKey(), timestamp);
-    List<TimestampedValue<Object>> timestampedValues = toList(iterator);
-    List<Object> values = timestampedValues.stream().map(element -> element.getValue()).collect(Collectors.toList());
-    return values;
-  }
-
-  /**
    * Handles trigger firings and returns the optional result.
    */
-  private Optional<WindowPane<K, Object>> onTriggerFired(
-          TriggerKey<K> triggerKey, MessageCollector collector, TaskCoordinator coordinator) {
+  private Optional<WindowPane<K, Object>> onTriggerFired(TriggerKey<K> triggerKey, MessageCollector collector,
+      TaskCoordinator coordinator) {
     LOG.trace("Trigger key {} fired." , triggerKey);
 
     TriggerImplHandler wrapper = triggers.get(triggerKey);
-    WindowKey<K> windowKey = triggerKey.getKey();
-    long timestamp = Long.parseLong(windowKey.getPaneId());
-    List<Object> existingState = getValues(windowKey);
+    TimestampedValue<K> windowKey = triggerKey.getKey();
+    long timestamp = windowKey.getTimestamp();
+    K key = windowKey.getValue();
+    List<Object> existingState = getValues(key, timestamp);
 
     if (existingState == null || existingState.size() == 0) {
       LOG.trace("No state found for triggerKey: {}", triggerKey);
@@ -308,7 +242,7 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
     // Handle different accumulation modes.
     if (window.getAccumulationMode() == AccumulationMode.DISCARDING) {
       LOG.trace("Clearing state for trigger key: {}", triggerKey);
-      timeSeriesStore.remove(windowKey.getKey(), timestamp);
+      timeSeriesStore.remove(key, timestamp);
     }
 
     // Cancel all early triggers too when the default trigger fires. Also, clean all state for the key.
@@ -319,7 +253,7 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
 
       cancelTrigger(triggerKey, true);
       cancelTrigger(new TriggerKey(FiringType.EARLY, triggerKey.getKey()), true);
-      timeSeriesStore.remove(windowKey.getKey(), timestamp);
+      timeSeriesStore.remove(key, timestamp);
     }
 
     // Cancel non-repeating early triggers. All early triggers should be removed from the "triggers" map only after the
@@ -338,8 +272,9 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
    * Computes the pane output corresponding to a {@link TriggerKey} that fired.
    */
   private WindowPane<K, Object> computePaneOutput(TriggerKey<K> triggerKey, Object windowVal) {
-    WindowKey<K> windowKey = triggerKey.getKey();
+    TimestampedValue<K> val = triggerKey.getKey();
 
+    WindowKey<K> windowKey = new WindowKey(val.getValue(), Long.toString(val.getTimestamp()));
     WindowPane<K, Object> paneOutput =
         new WindowPane<>(windowKey, windowVal, window.getAccumulationMode(), triggerKey.getType());
     LOG.trace("Emitting pane output for trigger key {}", triggerKey);
@@ -379,6 +314,74 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
       }
     }
     return Collections.unmodifiableList(values);
+  }
+
+  private TimestampedValue<K> createWindowKey(M message) {
+    Function<M, K> keyExtractor = window.getKeyExtractor();
+    K key = (keyExtractor != null) ? keyExtractor.apply(message) : null;
+
+    long timestamp = 0;
+    if (window.getWindowType() == WindowType.TUMBLING) {
+      timestamp = getTumblingWindowTimestamp(message);
+    } else if (window.getWindowType() == WindowType.SESSION) {
+      timestamp = getSessionWindowTimestamp(message);
+    }
+
+    return new TimestampedValue<>(key, timestamp);
+  }
+
+  /**
+   * Computes the paneId of the tumbling window this message should belong to.
+   *
+   * In the case of tumbling windows, paneId of a window is defined as the start timestamp of its corresponding window
+   * interval. For instance, if the tumbling interval is 10 seconds, all messages that arrive between [1000, 1010]
+   * are assigned to the window with paneId "1000"
+   *
+   * @param message the input message
+   * @return the paneId of the window this message should belong to
+   */
+  private long getTumblingWindowTimestamp(M message) {
+    long triggerDurationMs = ((TimeTrigger<M>) window.getDefaultTrigger()).getDuration().toMillis();
+    final long now = clock.currentTimeMillis();
+    long timestamp = now - now % triggerDurationMs;
+    return timestamp;
+  }
+
+  /**
+   * Computes the paneId of the session window this message should belong to.
+   *
+   * In the case of session windows, paneId is defined as the timestamp of the earliest message in the window.
+   * For instance, if the session gap is 10 seconds, and the first message in the window arrives at "1002" seconds,
+   * all messages (that arrive within 10 seconds of their previous message) are assigned a paneId "1002".
+   *
+   * @param message the input message
+   * @return the paneId of the window this message should belong to
+   */
+  private long getSessionWindowTimestamp(M message) {
+    K key = window.getKeyExtractor().apply(message);
+    // get the value with the earliest timestamp for the provided key.
+    ClosableIterator<TimestampedValue<Object>> iterator = timeSeriesStore.get(key, 0, Long.MAX_VALUE, 1);
+    List<TimestampedValue<Object>> timestampedValues = toList(iterator);
+
+    // If there are no existing sessions for the key, we use the current timestamp as the paneId. If not, use the
+    // timestamp of the earliest message as the paneId.
+    long timestamp = (timestampedValues.isEmpty())? clock.currentTimeMillis() : timestampedValues.get(0).getTimestamp();
+
+    return timestamp;
+  }
+
+  /**
+   * Return a list of values in the store for the provided key and timestamp
+   *
+   * @param key the key to look up in the store
+   * @param timestamp the timestamp to look up in the store
+   * @return the list of values for the provided key
+   */
+  private List<Object> getValues(K key, long timestamp) {
+    ClosableIterator<TimestampedValue<Object>> iterator = timeSeriesStore.get(key, timestamp);
+    List<TimestampedValue<Object>> timestampedValues = toList(iterator);
+    List<Object> values = timestampedValues.stream().map(element -> element.getValue()).collect(Collectors.toList());
+    return values;
   }
 
   /**
