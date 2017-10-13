@@ -235,9 +235,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
       val changelogName = storageConfig.getChangelogStream(storeName).getOrElse(throw new SamzaException("unable to get SystemStream for store:" + changelogConfig));
       val systemStream = Util.getSystemStreamFromNames(changelogName)
       val factoryName = config.getSystemFactory(systemStream.getSystem).getOrElse(new SamzaException("Unable to determine factory for system: " + systemStream.getSystem))
-      if (classOf[KafkaSystemFactory].getCanonicalName == factoryName) {
-        storeToChangelog += storeName -> systemStream.getStream
-      }
+      storeToChangelog += storeName -> systemStream.getStream
     }
     storeToChangelog
   }
