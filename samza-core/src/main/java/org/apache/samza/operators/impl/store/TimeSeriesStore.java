@@ -81,7 +81,7 @@ public interface TimeSeriesStore<K, V> {
    * @param key the key to look up in the store
    * @param timestamp the timestamp to look up in the store
    * @return an iterator over the values for the given key and timestamp that must be closed after use
-   * @throws IllegalArgumentException when startTimeStamp &gt; endTimestamp, or when either of them is negative
+   * @throws IllegalArgumentException when the provided timestamp is negative
    */
   ClosableIterator<TimestampedValue<V>> get(K key, long timestamp);
 

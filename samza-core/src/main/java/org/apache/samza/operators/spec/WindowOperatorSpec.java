@@ -130,7 +130,8 @@ public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK
     Serde storeKeySerde = new TimeSeriesKeySerde<>(window.getKeySerde());
     Serde storeValSerde = window.getFoldLeftFunction() == null ? window.getMsgSerde() : window.getWindowValSerde();
 
-    StoreDescriptor descriptor = new StoreDescriptor(storeName, storeFactory, storeKeySerde, storeValSerde, storeName, Collections.emptyMap());
+    StoreDescriptor descriptor = new StoreDescriptor(storeName, storeFactory, storeKeySerde, storeValSerde, storeName,
+        Collections.emptyMap());
     return Collections.singletonList(descriptor);
   }
 }

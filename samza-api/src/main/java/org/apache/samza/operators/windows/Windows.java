@@ -197,6 +197,7 @@ public final class Windows {
   }
 
   /**
+   *
    * Creates a {@link Window} that groups incoming messages into fixed-size, non-overlapping
    * processing time based windows.
    *
@@ -285,12 +286,12 @@ public final class Windows {
    * }
    * </pre>
    *
-   * @param <M> the type of the input message
-   * @param <K> the type of the key in the {@link Window}
    * @param keyFn the function to extract the window key from a message}
    * @param sessionGap the timeout gap for defining the session
    * @param keySerde the serde for the window key
    * @param msgSerde the serde for the input message
+   * @param <M> the type of the input message
+   * @param <K> the type of the key in the {@link Window}
    * @return the created {@link Window} function
    */
   public static <M, K> Window<M, K, Collection<M>> keyedSessionWindow(Function<? super M, ? extends K> keyFn,
