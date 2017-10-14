@@ -28,7 +28,7 @@ import org.rocksdb.TtlDB
 
 object RocksDbKeyValueStore extends Logging {
 
-  def openDB(dir: File, options: Options, storeConfig: Config, isLoggedStore: Boolean, storeName: String): RocksDB = {
+  def openDB(dir: File, options: Options, storeConfig: Config, isLoggedStore: Boolean, storeName: String, metrics: KeyValueStoreMetrics): RocksDB = {
     var ttl = 0L
     var useTTL = false
 
@@ -68,15 +68,29 @@ object RocksDbKeyValueStore extends Logging {
 
     try
     {
-      if (useTTL)
+      val rocksDb =
+        if (useTTL)
+        {
+          info("Opening RocksDB store with TTL value: %s" format ttl)
+          TtlDB.open(options, dir.toString, ttl.toInt, false)
+        }
+        else
+        {
+          RocksDB.open(options, dir.toString)
+        }
+
+      if (storeConfig.containsKey("rocksdb.metrics.list"))
       {
-        info("Opening RocksDB store with TTL value: %s" format ttl)
-        TtlDB.open(options, dir.toString, ttl.toInt, false)
+        storeConfig
+          .get("rocksdb.metrics.list")
+          .split(",")
+          .map(property => property.trim)
+          .foreach(property =>
+            metrics.newGauge(property, () => rocksDb.getProperty(property))
+          )
       }
-      else
-      {
-        RocksDB.open(options, dir.toString)
-      }
+
+      rocksDb
     }
     catch
       {
@@ -104,7 +118,7 @@ class RocksDbKeyValueStore(
 
   // lazy val here is important because the store directories do not exist yet, it can only be opened
   // after the directories are created, which happens much later from now.
-  private lazy val db = RocksDbKeyValueStore.openDB(dir, options, storeConfig, isLoggedStore, storeName)
+  private lazy val db = RocksDbKeyValueStore.openDB(dir, options, storeConfig, isLoggedStore, storeName, metrics)
   private val lexicographic = new LexicographicComparator()
 
   def get(key: Array[Byte]): Array[Byte] = {
