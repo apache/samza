@@ -38,7 +38,7 @@ import java.util.List;
 import static org.apache.samza.system.eventhub.MockEventHubConfigFactory.STREAM_NAME1;
 import static org.apache.samza.system.eventhub.MockEventHubConfigFactory.SYSTEM_NAME;
 
-public class TestEventHubSystemConsumerIntegration {
+public class ITestEventHubSystemConsumer {
 
   private Config createEventHubConfig() {
     return MockEventHubConfigFactory.getEventHubConfig(EventHubSystemProducer.PartitioningMethod.EVENT_HUB_HASHING);

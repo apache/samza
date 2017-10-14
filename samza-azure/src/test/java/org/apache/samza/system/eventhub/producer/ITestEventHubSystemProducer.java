@@ -36,8 +36,8 @@ import org.slf4j.LoggerFactory;
 
 import static org.apache.samza.system.eventhub.MockEventHubConfigFactory.*;
 
-public class TestEventHubSystemProducerIntegration {
-  private static final Logger LOG = LoggerFactory.getLogger(TestEventHubSystemProducerIntegration.class.getName());
+public class ITestEventHubSystemProducer {
+  private static final Logger LOG = LoggerFactory.getLogger(ITestEventHubSystemProducer.class.getName());
 
   @Test
   public void testSystemFactoryCreateAndStartProducer() {

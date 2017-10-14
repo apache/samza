@@ -93,7 +93,6 @@ public class EventHubSystemProducer implements SystemProducer {
   // Map of the system name to the event hub client.
   private final Map<String, SamzaEventHubClient> eventHubClients = new HashMap<>();
   private final Map<String, Map<Integer, PartitionSender>> streamPartitionSenders = new HashMap<>();
-  private final Map<String, Integer> streamPartitionCounts = new HashMap<>();
 
   // Running count for the next message Id
   private long messageId;
@@ -125,12 +124,40 @@ public class EventHubSystemProducer implements SystemProducer {
 
     ehClient.init();
     eventHubClients.put(streamName, ehClient);
-    streamPartitionSenders.put(streamName, new HashMap<>());
   }
 
   @Override
   public synchronized void start() {
     LOG.info("Starting system producer.");
+
+    if (PartitioningMethod.PARTITION_KEY_AS_PARTITION.equals(partitioningMethod)) {
+      // Create all partition senders
+      eventHubClients.forEach((streamName, samzaEventHubClient) -> {
+          EventHubClient ehClient = samzaEventHubClient.getEventHubClient();
+
+          try {
+            Map<Integer, PartitionSender> partitionSenders = new HashMap<>();
+            long timeoutMs = config.getRuntimeInfoWaitTimeMS(systemName);
+            Integer numPartitions = ehClient.getRuntimeInformation().get(timeoutMs, TimeUnit.MILLISECONDS)
+                    .getPartitionCount();
+
+            for (int i = 0; i < numPartitions; i++) { // 32 partitions max
+              String partitionId = String.valueOf(i);
+              PartitionSender partitionSender = ehClient.createPartitionSenderSync(partitionId);
+              partitionSenders.put(i, partitionSender);
+            }
+
+            streamPartitionSenders.put(streamName, partitionSenders);
+          } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            String msg = "Failed to fetch number of Event Hub partitions for partition sender creation";
+            throw new SamzaException(msg, e);
+          } catch (ServiceBusException | IllegalArgumentException e) {
+            String msg = "Creation of partition sender failed with exception";
+            throw new SamzaException(msg, e);
+          }
+        });
+    }
+
     for (String eventHub : eventHubClients.keySet()) {
       eventWriteRate.put(eventHub, registry.newCounter(eventHub, EVENT_WRITE_RATE));
       eventByteWriteRate.put(eventHub, registry.newCounter(eventHub, EVENT_BYTE_WRITE_RATE));
@@ -223,14 +250,17 @@ public class EventHubSystemProducer implements SystemProducer {
         throw new SamzaException(msg);
       }
 
-      PartitionSender sender = getOrCreatePartitionSender(streamName, (int) partitionKey, eventHubClient);
+      Integer numPartition = streamPartitionSenders.get(streamName).size();
+      Integer destinationPartition = (Integer) partitionKey % numPartition;
+
+      PartitionSender sender = streamPartitionSenders.get(streamName).get(destinationPartition);
       return sender.send(eventData);
     } else {
       throw new SamzaException("Unknown partitioning method " + partitioningMethod);
     }
   }
 
-  private Object getEnvelopePartitionId(OutgoingMessageEnvelope envelope) {
+  protected Object getEnvelopePartitionId(OutgoingMessageEnvelope envelope) {
     return envelope.getPartitionKey();
   }
 
@@ -244,33 +274,6 @@ public class EventHubSystemProducer implements SystemProducer {
     } else {
       throw new SamzaException("Unsupported key type: " + partitionKey.getClass().toString());
     }
-  }
-
-  private PartitionSender getOrCreatePartitionSender(String streamName, int partition, EventHubClient eventHubClient) {
-    Map<Integer, PartitionSender> partitionSenders = streamPartitionSenders.get(streamName);
-    if (!partitionSenders.containsKey(partition)) {
-      try {
-        if (!streamPartitionCounts.containsKey(streamName)) {
-          long timeoutMs = config.getRuntimeInfoWaitTimeMS(systemName);
-          Integer numPartitions = eventHubClient.getRuntimeInformation().get(timeoutMs, TimeUnit.MILLISECONDS)
-                  .getPartitionCount();
-
-          streamPartitionCounts.put(streamName, numPartitions);
-        }
-        String partitionId = String.valueOf(partition % streamPartitionCounts.get(streamName));
-
-        PartitionSender partitionSender = eventHubClient.createPartitionSenderSync(partitionId);
-        partitionSenders.put(partition, partitionSender);
-      } catch (ServiceBusException | IllegalArgumentException e) {
-        String msg = "Creation of partition sender failed with exception";
-        throw new SamzaException(msg, e);
-      } catch (InterruptedException | ExecutionException | TimeoutException e) {
-        String msg = "Failed to fetch number of Event Hub partitions for partition sender creation";
-        throw new SamzaException(msg, e);
-      }
-    }
-
-    return partitionSenders.get(partition);
   }
 
   private EventData createEventData(String streamName, OutgoingMessageEnvelope envelope) {

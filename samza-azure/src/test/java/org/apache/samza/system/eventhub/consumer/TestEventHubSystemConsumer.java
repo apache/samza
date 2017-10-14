@@ -20,9 +20,7 @@
 package org.apache.samza.system.eventhub.consumer;
 
 
-import com.microsoft.azure.eventhubs.EventData;
-import com.microsoft.azure.eventhubs.EventHubClient;
-import com.microsoft.azure.eventhubs.PartitionReceiver;
+import com.microsoft.azure.eventhubs.*;
 import org.apache.samza.Partition;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.serializers.ByteSerde;
@@ -43,7 +41,7 @@ import java.util.stream.Collectors;
 import static org.apache.samza.system.eventhub.MockEventHubConfigFactory.*;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({PartitionReceiver.class, EventHubClient.class})
+@PrepareForTest({EventHubRuntimeInformation.class, EventHubClient.class, PartitionReceiver.class, PartitionSender.class})
 public class TestEventHubSystemConsumer {
   private static final String MOCK_ENTITY_1 = "mocktopic1";
   private static final String MOCK_ENTITY_2 = "mocktopic2";
