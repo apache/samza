@@ -38,7 +38,7 @@ import org.apache.samza.system.hdfs.HdfsConfig._
 import org.apache.samza.system.{OutgoingMessageEnvelope, SystemStream}
 import org.apache.samza.util.Logging
 import org.junit.Assert._
-import org.junit.{AfterClass, Test}
+import org.junit.{AfterClass, Ignore, Test}
 
 
 object TestHdfsSystemProducerTestSuite {
@@ -101,7 +101,7 @@ object TestHdfsSystemProducerTestSuite {
 
 }
 
-
+@Ignore
 class TestHdfsSystemProducerTestSuite extends Logging {
   import org.apache.samza.system.hdfs.TestHdfsSystemProducerTestSuite._
 

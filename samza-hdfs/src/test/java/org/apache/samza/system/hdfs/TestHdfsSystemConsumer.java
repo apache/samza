@@ -40,6 +40,7 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.hdfs.reader.TestAvroFileHdfsReader;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -77,7 +78,7 @@ public class TestHdfsSystemConsumer {
    * partitioner, system consumer, and so on, making sure the basic functionality
    * works as expected.
    */
-  @Test
+  @Ignore
   public void testHdfsSystemConsumerE2E() throws Exception {
     Config config = generateDefaultConfig();
     HdfsSystemFactory systemFactory = new HdfsSystemFactory();
