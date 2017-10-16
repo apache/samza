@@ -187,10 +187,6 @@ class RocksDbKeyValueStore(
     put(key, null)
   }
 
-  def deleteAll(keys: java.util.List[Array[Byte]]) = {
-    KeyValueStore.Extension.deleteAll(this, keys)
-  }
-
   def range(from: Array[Byte], to: Array[Byte]): KeyValueIterator[Array[Byte], Array[Byte]] = {
     metrics.ranges.inc
     require(from != null && to != null, "Null bound not allowed.")
