@@ -104,5 +104,4 @@ public interface Window<M, K, WV> {
    * @return the {@link Window} function with {@code mode} set as its {@link AccumulationMode}.
    */
   Window<M, K, WV> setAccumulationMode(AccumulationMode mode);
-
 }

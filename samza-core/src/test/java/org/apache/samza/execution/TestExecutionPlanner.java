@@ -178,11 +178,11 @@ public class TestExecutionPlanner {
 
     messageStream1.map(m -> m)
         .filter(m->true)
-        .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(8)));
+        .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(8), mock(Serde.class), mock(Serde.class)));
 
     messageStream2.map(m -> m)
         .filter(m->true)
-        .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(16)));
+        .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(16), mock(Serde.class), mock(Serde.class)));
 
     messageStream1
         .join(messageStream2, mock(JoinFunction.class),

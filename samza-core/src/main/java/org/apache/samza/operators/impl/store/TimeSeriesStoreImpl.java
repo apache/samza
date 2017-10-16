@@ -26,6 +26,8 @@ import org.apache.samza.storage.kv.KeyValueStore;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -124,6 +126,17 @@ public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
   }
 
   @Override
+  public ClosableIterator<TimestampedValue<V>> get(K key, long startTimestamp, long endTimestamp, int maxValues) {
+    ClosableIterator<TimestampedValue<V>> iterator = get(key, startTimestamp, endTimestamp);
+    return new BoundedClosableIterator<>(iterator, maxValues);
+  }
+
+  @Override
+  public ClosableIterator<TimestampedValue<V>> get(K key, long timestamp) {
+    return get(key, timestamp, timestamp + 1);
+  }
+
+  @Override
   public void remove(K key, long startTimestamp, long endTimeStamp) {
     validateRange(startTimestamp, endTimeStamp);
     TimeSeriesKey<K> fromKey = new TimeSeriesKey(key, startTimestamp, 0);
@@ -137,6 +150,11 @@ public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
     }
 
     kvStore.deleteAll(keysToDelete);
+  }
+
+  @Override
+  public void remove(K key, long timestamp) {
+    remove(key, timestamp, timestamp + 1);
   }
 
   @Override
@@ -192,4 +210,46 @@ public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
       wrappedIterator.remove();
     }
   }
+
+  /**
+   * Wraps a {@link ClosableIterator} to only return the specified number of values
+   *
+   * @param <T> the type of values in the iterator
+   */
+  private static class BoundedClosableIterator<T> implements ClosableIterator<T> {
+
+    private final AtomicInteger currentCount = new AtomicInteger(0);
+    private final ClosableIterator<T> wrappedIterator;
+    private final int maxCount;
+
+    public BoundedClosableIterator(ClosableIterator<T> wrappedIterator, int maxCount) {
+      this.wrappedIterator = wrappedIterator;
+      this.maxCount = maxCount;
+    }
+
+    @Override
+    public boolean hasNext() {
+      return wrappedIterator.hasNext() && currentCount.get() < maxCount;
+    }
+
+    @Override
+    public T next() {
+      if (!hasNext()) {
+        throw new NoSuchElementException();
+      }
+      currentCount.incrementAndGet();
+      return wrappedIterator.next();
+    }
+
+    @Override
+    public void remove() {
+      wrappedIterator.remove();
+    }
+
+    @Override
+    public void close() {
+      wrappedIterator.close();
+    }
+  }
+
 }

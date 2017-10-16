@@ -20,51 +20,55 @@
 package org.apache.samza.operators.impl;
 
 import org.apache.samza.operators.triggers.FiringType;
-import org.apache.samza.operators.windows.WindowKey;
 
 /**
  * Uniquely identifies a trigger firing
  */
-public class TriggerKey<WK> {
+public class TriggerKey<K> {
   private final FiringType type;
-  private final WindowKey<WK> key;
+  private final K key;
+  private final long timestamp;
 
-  public TriggerKey(FiringType type, WindowKey<WK> key) {
+  public TriggerKey(FiringType type, K key, long timestamp) {
     if (type == null) {
       throw new IllegalArgumentException("Firing type cannot be null");
     }
 
-    if (key == null) {
-      throw new IllegalArgumentException("WindowKey cannot be null");
-    }
-
     this.type = type;
     this.key = key;
+    this.timestamp = timestamp;
   }
 
-  /**
-   * Equality is determined by both the type, and the window key.
-   */
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
-    TriggerKey<WK> that = (TriggerKey<WK>) o;
-    return type == that.type && key.equals(that.key);
+
+    TriggerKey<?> that = (TriggerKey<?>) o;
+
+    if (timestamp != that.timestamp) {
+      return false;
+    }
+    if (type != that.type) {
+      return false;
+    }
+    return key != null ? key.equals(that.key) : that.key == null;
   }
 
-  /**
-   * Hashcode is computed by from the type, and the window key.
-   */
   @Override
   public int hashCode() {
     int result = type.hashCode();
-    result = 31 * result + key.hashCode();
+    result = 31 * result + (key != null ? key.hashCode() : 0);
+    result = 31 * result + (int) (timestamp ^ (timestamp >>> 32));
     return result;
   }
 
-  public WindowKey<WK> getKey() {
+  public K getKey() {
     return key;
+  }
+
+  public long getTimestamp() {
+    return timestamp;
   }
 
   public FiringType getType() {
