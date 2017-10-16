@@ -29,7 +29,6 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.system.eventhub.EventDataWrapper;
 import org.apache.samza.system.eventhub.SamzaEventHubClientFactory;
 import org.apache.samza.system.eventhub.SamzaEventHubClient;
 import org.apache.samza.system.eventhub.EventHubConfig;
@@ -273,12 +272,11 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
             if (serde != null) {
               decryptedBody = serde.fromBytes(decryptedBody);
             }
-            EventDataWrapper wrappedEvent = new EventDataWrapper(event, decryptedBody);
             try {
               updateMetrics(event);
               // note that the partition key can be null
-              put(ssp, new IncomingMessageEnvelope(ssp, event.getSystemProperties().getOffset(),
-                      event.getSystemProperties().getPartitionKey(), wrappedEvent));
+              put(ssp, new EventHubIME(ssp, event.getSystemProperties().getOffset(),
+                      event.getSystemProperties().getPartitionKey(), decryptedBody, event));
             } catch (Exception e) {
               String msg = String.format("Exception while adding the event from ssp %s to dispatch queue.", ssp);
               LOG.error(msg, e);

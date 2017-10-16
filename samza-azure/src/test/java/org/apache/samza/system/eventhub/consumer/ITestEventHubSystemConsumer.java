@@ -24,7 +24,6 @@ import org.apache.samza.config.Config;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.system.eventhub.EventDataWrapper;
 import org.apache.samza.system.eventhub.EventHubSystemFactory;
 import org.apache.samza.system.eventhub.MockEventHubConfigFactory;
 import org.apache.samza.system.eventhub.TestMetricsRegistry;
@@ -64,9 +63,9 @@ public class ITestEventHubSystemConsumer {
       List<IncomingMessageEnvelope> result = consumer.poll(Collections.singleton(ssp), 2000).get(ssp);
       numEvents = result == null ? 0 : result.size();
       if (numEvents > 0) {
-        EventDataWrapper eventData = (EventDataWrapper) result.get(0).getMessage();
-        System.out.println("System properties: " + eventData.getEventData().getSystemProperties());
-        System.out.println("Message: " + new String(eventData.getEventData().getBody()));
+        EventHubIME eventData = (EventHubIME) result.get(0);
+        System.out.println("System properties: " + eventData.getSystemProperties());
+        System.out.println("Message: " + new String((byte[]) eventData.getMessage()));
         break;
       }
       System.out.println("Retries left: " + numRetries);
