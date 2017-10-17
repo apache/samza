@@ -65,7 +65,7 @@ class KafkaCheckpointManager(
 
   var taskNames = Set[TaskName]()
   @volatile var systemProducer: SystemProducer = null
-  @volatile var systemConsumer: SystemConsumer = null
+  var systemConsumer: SystemConsumer = null
   var taskNamesToOffsets: Map[TaskName, Checkpoint] = null
   val systemAdmin = getSystemAdmin()
 
@@ -116,6 +116,8 @@ class KafkaCheckpointManager(
 
   /**
    * Read the last checkpoint for specified TaskName
+   *
+   * This method is NOT thread safe
    *
    * @param taskName Specific Samza taskName for which to get the last checkpoint of.
    **/
@@ -188,13 +190,9 @@ class KafkaCheckpointManager(
     val oldestOffset = partitionMetadata.getOldestOffset
 
     if (systemConsumer == null) {
-      synchronized {
-        if (systemConsumer == null) {
-          systemConsumer = getSystemConsumer()
-          systemConsumer.register(ssp, oldestOffset)
-          systemConsumer.start()
-        }
-      }
+      systemConsumer = getSystemConsumer()
+      systemConsumer.register(ssp, oldestOffset)
+      systemConsumer.start()
     }
 
     val iterator =  new SystemStreamPartitionIterator(systemConsumer, ssp);
