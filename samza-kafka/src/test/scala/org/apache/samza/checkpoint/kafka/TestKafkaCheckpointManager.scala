@@ -157,7 +157,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     }
   }
 
-  //@Test
+  @Test
   def testCheckpointShouldBeNullIfCheckpointTopicDoesNotExistShouldBeCreatedOnWriteAndShouldBeReadableAfterWrite {
     val kcm = getKafkaCheckpointManager
     val taskName = new TaskName(partition.toString)
@@ -196,6 +196,47 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     readCp = kcm.readLastCheckpoint(taskName)
     assertEquals(cp2, readCp)
     kcm.stop
+  }
+
+
+  @Test
+  def testCheckpointReadTwice {
+    val kcm = getKafkaCheckpointManager
+    val taskName = new TaskName(partition.toString)
+    kcm.register(taskName)
+    createCheckpointTopic()
+    val systemAdmin = systemAdminFn()
+    systemAdmin.validateStream(kafkaStreamSpec)
+
+
+    // check that log compaction is enabled.
+    val zkClient = ZkUtils(zkConnect, 6000, 6000, zkSecure)
+    val topicConfig = AdminUtils.fetchEntityConfig(zkClient, ConfigType.Topic, checkpointTopic)
+    zkClient.close
+    assertEquals("compact", topicConfig.get("cleanup.policy"))
+    assertEquals("26214400", topicConfig.get("segment.bytes"))
+
+    // read before topic exists should result in a null checkpoint
+    var readCp = kcm.readLastCheckpoint(taskName)
+    assertNull(readCp)
+
+    // create topic the first time around
+    writeCheckpoint(taskName, cp1)
+    readCp = kcm.readLastCheckpoint(taskName)
+    assertEquals(cp1, readCp)
+
+    // writing a second message should work, too
+    writeCheckpoint(taskName, cp2)
+    readCp = kcm.readLastCheckpoint(taskName)
+    assertEquals(cp2, readCp)
+    kcm.stop
+
+    // get new KCM for the same stream
+    val kcm1 = getKafkaCheckpointManager
+    kcm1.register(taskName)
+    readCp = kcm1.readLastCheckpoint(taskName)
+    assertEquals(cp2, readCp)
+    kcm1.stop
   }
 
   @Test
