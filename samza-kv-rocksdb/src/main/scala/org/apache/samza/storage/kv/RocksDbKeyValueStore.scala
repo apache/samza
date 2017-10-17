@@ -20,6 +20,7 @@
 package org.apache.samza.storage.kv
 
 import java.io.File
+import java.util.concurrent.atomic.AtomicReference
 
 import org.apache.samza.SamzaException
 import org.apache.samza.config.Config
@@ -57,7 +58,7 @@ object RocksDbKeyValueStore extends Logging {
       } catch {
         case nfe: NumberFormatException =>
           throw new SamzaException("rocksdb.ttl.ms configuration value %s for store %s is not a number."
-            format (storeConfig.get("rocksdb.ttl.ms"), storeName))
+            format (storeConfig.get("rocksdb.ttl.ms"), storeName), nfe)
       }
     }
 
@@ -81,9 +82,8 @@ object RocksDbKeyValueStore extends Logging {
       rocksDb
     } catch {
       case rocksDBException: RocksDBException =>
-        throw new SamzaException(
-          "Error opening RocksDB store %s at location %s, received the following exception from RocksDB %s".format(
-            storeName, dir.toString, rocksDBException))
+        throw new SamzaException("Error opening RocksDB store %s at location %s" format (storeName, dir.toString),
+          rocksDBException)
     }
   }
 }
@@ -102,6 +102,7 @@ class RocksDbKeyValueStore(
   // after the directories are created, which happens much later from now.
   private lazy val db = RocksDbKeyValueStore.openDB(dir, options, storeConfig, isLoggedStore, storeName, metrics)
   private val lexicographic = new LexicographicComparator()
+  private val stackAtFirstClose = new AtomicReference[Exception](null)
 
   def get(key: Array[Byte]): Array[Byte] = {
     metrics.gets.inc
@@ -183,14 +184,23 @@ class RocksDbKeyValueStore(
   }
 
   def flush {
-    metrics.flushes.inc
-    trace("Flushing store: %s" format storeName)
-    db.flush(flushOptions)
-    trace("Flushed store: %s" format storeName)
+    if (stackAtFirstClose.get() == null) {
+      metrics.flushes.inc
+      trace("Flushing store: %s" format storeName)
+      db.flush(flushOptions)
+      trace("Flushed store: %s" format storeName)
+    } else {
+      throw new SamzaException("Flush called on closed store: %s. " +
+        "Stack at first close is under 'Caused By'." format storeName, stackAtFirstClose.get())
+    }
   }
 
   def close() {
     trace("Closing.")
+    if (!stackAtFirstClose.compareAndSet(null, new Exception())) {
+      throw new SamzaException("Close called on a closed store: %s. " +
+        "Stack at first close is under 'Caused By'." format storeName, stackAtFirstClose.get())
+    }
     db.close()
   }
 
