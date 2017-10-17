@@ -218,18 +218,20 @@ class KafkaCheckpointManager(
         }
 
         debug("CheckpointMgr read %s messages from ssp %s. Current offset is %s, newest is %s"
-                     format (messages.size(), ssp, currentOffset, newestOffset))
+                      format(messages.size(), ssp, currentOffset, newestOffset))
         if (messages.size() <= 0) {
           debug("Got empty/null list of messages")
-        } else {
+        }
+        else {
           msgCount += messages.size()
           // check the key
           for (msg: IncomingMessageEnvelope <- messages) {
             val key = msg.getKey.asInstanceOf[Array[Byte]]
             currentOffset = msg.getOffset().toLong
             if (key == null) {
-              throw new KafkaUtilException("While reading checkpoint (currentOffset=%s) stream encountered message without key."
-                                                   format currentOffset)
+              throw new KafkaUtilException(
+                "While reading checkpoint (currentOffset=%s) stream encountered message without key."
+                        format currentOffset)
             }
 
             val checkpointKey = KafkaCheckpointLogKey.fromBytes(key)
