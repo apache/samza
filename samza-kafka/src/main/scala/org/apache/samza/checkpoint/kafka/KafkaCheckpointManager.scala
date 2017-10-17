@@ -64,12 +64,12 @@ class KafkaCheckpointManager(
                               checkpointTopicProperties: Properties = new Properties) extends CheckpointManager with Logging {
 
   var taskNames = Set[TaskName]()
-  @volatile var  systemProducer: SystemProducer = null
+  @volatile var systemProducer: SystemProducer = null
+  @volatile var systemConsumer: SystemConsumer = null
   var taskNamesToOffsets: Map[TaskName, Checkpoint] = null
   val systemAdmin = getSystemAdmin()
 
   val kafkaUtil: KafkaUtil = new KafkaUtil(retryBackoff, connectZk)
-  var startingOffset: Option[Long] = None // Where to start reading for each subsequent call of readCheckpoint
 
 
   KafkaCheckpointLogKey.setSystemStreamPartitionGrouperFactoryString(systemStreamPartitionGrouperFactoryString)
@@ -183,44 +183,42 @@ class KafkaCheckpointManager(
                       handleEntry: (ByteBuffer, KafkaCheckpointLogKey) => Unit): Unit = {
     info("Reading from checkpoint system:%s topic:%s" format(systemName, checkpointTopic))
 
-    val UNKNOWN_OFFSET = "-1"
-
     val ssp: SystemStreamPartition = new SystemStreamPartition(systemName, checkpointTopic, new Partition(0))
-    val systemConsumer = getSystemConsumer()
     val partitionMetadata = getSSPMetadata(checkpointTopic, new Partition(0))
     val oldestOffset = partitionMetadata.getOldestOffset
 
-    var offset = startingOffset.getOrElse(oldestOffset.toLong)
-    systemConsumer.register(ssp, offset.toString)
-    systemConsumer.start()
+    if (systemConsumer == null) {
+      synchronized {
+        if (systemConsumer == null) {
+          systemConsumer = getSystemConsumer()
+          systemConsumer.register(ssp, oldestOffset)
+          systemConsumer.start()
+        }
+      }
+    }
 
     val iterator =  new SystemStreamPartitionIterator(systemConsumer, ssp);
     var msgCount = 0
-    try {
-      while (iterator.hasNext) {
-        val msg = iterator.next
-        msgCount += 1
+    while (iterator.hasNext) {
+      val msg = iterator.next
+      msgCount += 1
 
-        val key = msg.getKey.asInstanceOf[Array[Byte]]
-        offset = msg.getOffset.toLong
-        startingOffset = Some(offset + 1)
-        if (key == null) {
-          throw new KafkaUtilException("While reading checkpoint (currentOffset=%s) stream encountered message without key."
-                                               format offset)
-        }
-
-        val checkpointKey = KafkaCheckpointLogKey.fromBytes(key)
-
-        if (!shouldHandleEntry(checkpointKey)) {
-          info("Skipping checkpoint log entry at offset %s with key %s." format(offset, checkpointKey))
-        } else {
-          // handleEntry requires ByteBuffer
-          val checkpointPayload = ByteBuffer.wrap(msg.getMessage.asInstanceOf[Array[Byte]])
-          handleEntry(checkpointPayload, checkpointKey)
-        }
+      val key = msg.getKey.asInstanceOf[Array[Byte]]
+      val offset = msg.getOffset
+      if (key == null) {
+        throw new KafkaUtilException("While reading checkpoint (currentOffset=%s) stream encountered message without key."
+                                             format offset)
       }
-    } finally {
-      systemConsumer.stop()
+
+      val checkpointKey = KafkaCheckpointLogKey.fromBytes(key)
+
+      if (!shouldHandleEntry(checkpointKey)) {
+        info("Skipping checkpoint log entry at offset %s with key %s." format(offset, checkpointKey))
+      } else {
+        // handleEntry requires ByteBuffer
+        val checkpointPayload = ByteBuffer.wrap(msg.getMessage.asInstanceOf[Array[Byte]])
+        handleEntry(checkpointPayload, checkpointKey)
+      }
     }
     info("Done reading %s messages from checkpoint system:%s topic:%s" format(msgCount, systemName, checkpointTopic))
   }
@@ -255,12 +253,17 @@ class KafkaCheckpointManager(
 
 
   def stop = {
-    synchronized (
+    synchronized {
       if (systemProducer != null) {
         systemProducer.stop
         systemProducer = null
       }
-    )
+
+      if (systemConsumer != null) {
+        systemConsumer.stop
+        systemConsumer = null
+      }
+    }
 
   }
 
