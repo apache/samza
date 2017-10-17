@@ -204,7 +204,8 @@ class KafkaCheckpointManager(
       val sspToPoll = Collections.singleton(ssp)
       while (currentOffset < newestOffsetLong) {
 
-        val envelopes: java.util.Map[SystemStreamPartition, java.util.List[IncomingMessageEnvelope]] =
+        // will always read a single SSP, but we need to use a map
+        val readSSPs: java.util.Map[SystemStreamPartition, java.util.List[IncomingMessageEnvelope]] =
         try {
           systemConsumer.poll(sspToPoll, POLL_TIMEOUT)
         } catch {
@@ -217,11 +218,11 @@ class KafkaCheckpointManager(
           }
         }
 
-        val messages: util.List[IncomingMessageEnvelope] = envelopes.get(ssp)
+        val messages: util.List[IncomingMessageEnvelope] = readSSPs.get(ssp)
         val messagesNum = if (messages != null) messages.size else 0
-        debug("CheckpointMgr read %s envelopes (%s messages) from ssp %s. Current offset is %s, newest is %s"
-                     format (envelopes.size(), messagesNum, ssp, currentOffset, newestOffset))
-        if (envelopes.isEmpty || messagesNum <= 0) {
+        debug("CheckpointMgr read %s messages from ssp %s. Current offset is %s, newest is %s"
+                     format (messagesNum, ssp, currentOffset, newestOffset))
+        if (readSSPs.isEmpty || messagesNum <= 0) {
           debug("Got empty/null list of messages")
         } else {
           msgCount += messages.size()
