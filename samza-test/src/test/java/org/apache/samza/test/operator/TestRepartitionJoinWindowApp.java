@@ -20,7 +20,6 @@ package org.apache.samza.test.operator;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Assert;
-import org.junit.Test;
 
 import java.util.Collections;
 import java.util.List;
@@ -35,7 +34,7 @@ import static org.apache.samza.test.operator.RepartitionJoinWindowApp.OUTPUT_TOP
 public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTestHarness {
   private static final String APP_NAME = "UserPageAdClickCounter";
 
-  @Test
+  //@Test
   public void testRepartitionJoinWindowApp() throws Exception {
     // create topics
     createTopic(PAGE_VIEWS, 2);
