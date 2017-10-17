@@ -129,6 +129,9 @@ class KafkaCheckpointManager(
     if (taskNamesToOffsets == null) {
       info("No TaskName to checkpoint mapping provided.  Reading for first time.")
       taskNamesToOffsets = readCheckpointsFromLog()
+    } else {
+      info("Already existing checkpoint mapping.  Merging new offsets")
+      taskNamesToOffsets ++= readCheckpointsFromLog()
     }
 
     val checkpoint = taskNamesToOffsets.get(taskName).getOrElse(null)
