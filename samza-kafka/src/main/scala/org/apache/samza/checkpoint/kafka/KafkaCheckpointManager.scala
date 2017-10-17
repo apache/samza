@@ -69,7 +69,7 @@ class KafkaCheckpointManager(
   val systemAdmin = getSystemAdmin()
 
   val kafkaUtil: KafkaUtil = new KafkaUtil(retryBackoff, connectZk)
-
+  var startingOffset: Option[Long] = None // Where to start reading for each subsequent call of readCheckpoint
 
 
   KafkaCheckpointLogKey.setSystemStreamPartitionGrouperFactoryString(systemStreamPartitionGrouperFactoryString)
@@ -181,6 +181,7 @@ class KafkaCheckpointManager(
    */
   private def readLog(shouldHandleEntry: (KafkaCheckpointLogKey) => Boolean,
                       handleEntry: (ByteBuffer, KafkaCheckpointLogKey) => Unit): Unit = {
+    info("Reading from checkpoint system:%s topic:%s" format(systemName, checkpointTopic))
 
     val UNKNOWN_OFFSET = "-1"
     var attempts = 10
@@ -192,7 +193,8 @@ class KafkaCheckpointManager(
     // offsets returned are strings
     val newestOffset = if (partitionMetadata.getNewestOffset == null) UNKNOWN_OFFSET else partitionMetadata.getNewestOffset
     val oldestOffset = partitionMetadata.getOldestOffset
-    systemConsumer.register(ssp, oldestOffset) // checkpoint stream should always be read from the beginning
+    var offsetToRegister = startingOffset.getOrElse(oldestOffset)
+    systemConsumer.register(ssp, offsetToRegister.toString) // checkpoint stream should always be read from the beginning
     systemConsumer.start()
 
     var msgCount = 0
@@ -219,16 +221,17 @@ class KafkaCheckpointManager(
 
         val messages: util.List[IncomingMessageEnvelope] = envelopes.get(ssp)
         val messagesNum = if (messages != null) messages.size else 0
-        info("CheckpointMgr read %s envelopes (%s messages) from ssp %s. Current offset is %s, newest is %s"
+        debug("CheckpointMgr read %s envelopes (%s messages) from ssp %s. Current offset is %s, newest is %s"
                      format (envelopes.size(), messagesNum, ssp, currentOffset, newestOffset))
         if (envelopes.isEmpty || messagesNum <= 0) {
-          info("Got empty/null list of messages")
+          debug("Got empty/null list of messages")
         } else {
           msgCount += messages.size()
           // check the key
           for (msg: IncomingMessageEnvelope <- messages) {
             val key = msg.getKey.asInstanceOf[Array[Byte]]
             currentOffset = msg.getOffset().toLong
+            startingOffset = Some(currentOffset + 1)
             if (key == null) {
               throw new KafkaUtilException("While reading checkpoint (currentOffset=%s) stream encountered message without key."
                                                    format currentOffset)
