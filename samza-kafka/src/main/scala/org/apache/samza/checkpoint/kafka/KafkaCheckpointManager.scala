@@ -219,10 +219,10 @@ class KafkaCheckpointManager(
 
         val messages: util.List[IncomingMessageEnvelope] = envelopes.get(ssp)
         val messagesNum = if (messages != null) messages.size else 0
-        info("CheckpointMgr read %s envelopes (%s messages) from ssp %s. Current offset is %s, newest is %s"
+        debug("CheckpointMgr read %s envelopes (%s messages) from ssp %s. Current offset is %s, newest is %s"
                      format (envelopes.size(), messagesNum, ssp, currentOffset, newestOffset))
         if (envelopes.isEmpty || messagesNum <= 0) {
-          info("Got empty/null list of messages")
+          debug("Got empty/null list of messages")
         } else {
           msgCount += messages.size()
           // check the key
