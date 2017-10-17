@@ -194,7 +194,7 @@ class KafkaCheckpointManager(
     val newestOffset = if (partitionMetadata.getNewestOffset == null) UNKNOWN_OFFSET else partitionMetadata.getNewestOffset
     val oldestOffset = partitionMetadata.getOldestOffset
     var offsetToRegister = startingOffset.getOrElse(oldestOffset)
-    systemConsumer.register(ssp, offsetToRegister.toString) // checkpoint stream should always be read from the beginning
+    systemConsumer.register(ssp, offsetToRegister.toString)
     systemConsumer.start()
 
     var msgCount = 0
