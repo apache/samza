@@ -35,7 +35,7 @@ import static org.apache.samza.test.operator.RepartitionJoinWindowApp.OUTPUT_TOP
 public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTestHarness {
   private static final String APP_NAME = "UserPageAdClickCounter";
 
-  @Test
+  //@Test
   public void testRepartitionJoinWindowApp() throws Exception {
     // create topics
     createTopic(PAGE_VIEWS, 2);
