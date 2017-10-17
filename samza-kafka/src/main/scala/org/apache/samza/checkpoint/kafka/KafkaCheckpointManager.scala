@@ -184,69 +184,39 @@ class KafkaCheckpointManager(
     info("Reading from checkpoint system:%s topic:%s" format(systemName, checkpointTopic))
 
     val UNKNOWN_OFFSET = "-1"
-    var attempts = 10
-    val POLL_TIMEOUT = 1000L
 
     val ssp: SystemStreamPartition = new SystemStreamPartition(systemName, checkpointTopic, new Partition(0))
     val systemConsumer = getSystemConsumer()
     val partitionMetadata = getSSPMetadata(checkpointTopic, new Partition(0))
-    // offsets returned are strings
-    val newestOffset = if (partitionMetadata.getNewestOffset == null) UNKNOWN_OFFSET else partitionMetadata.getNewestOffset
     val oldestOffset = partitionMetadata.getOldestOffset
-    var offsetToRegister = startingOffset.getOrElse(oldestOffset)
-    systemConsumer.register(ssp, offsetToRegister.toString)
+
+    var offset = startingOffset.getOrElse(oldestOffset.toLong)
+    systemConsumer.register(ssp, offset.toString)
     systemConsumer.start()
 
+    val iterator =  new SystemStreamPartitionIterator(systemConsumer, ssp);
     var msgCount = 0
     try {
-      val emptyEnvelopes = util.Collections.emptyMap[SystemStreamPartition, java.util.List[IncomingMessageEnvelope]]
-      // convert offsets to long
-      var currentOffset = UNKNOWN_OFFSET.toLong
-      val newestOffsetLong = newestOffset.toLong
-      val sspToPoll = Collections.singleton(ssp)
-      while (currentOffset < newestOffsetLong) {
+      while (iterator.hasNext) {
+        val msg = iterator.next
+        msgCount += 1
 
-        val envelopes: java.util.Map[SystemStreamPartition, java.util.List[IncomingMessageEnvelope]] =
-        try {
-          systemConsumer.poll(sspToPoll, POLL_TIMEOUT)
-        } catch {
-          case e: Exception => {
-            // these exceptions are most likely intermediate
-            warn("Got %s exception while polling the consumer for checkpoints." format e)
-            if (attempts == 0) throw new SamzaException("Multiple attempts failed while reading the checkpoints. Giving up.", e)
-            attempts -= 1
-            emptyEnvelopes
-          }
+        val key = msg.getKey.asInstanceOf[Array[Byte]]
+        offset = msg.getOffset.toLong
+        startingOffset = Some(offset + 1)
+        if (key == null) {
+          throw new KafkaUtilException("While reading checkpoint (currentOffset=%s) stream encountered message without key."
+                                               format offset)
         }
 
-        val messages: util.List[IncomingMessageEnvelope] = envelopes.get(ssp)
-        val messagesNum = if (messages != null) messages.size else 0
-        debug("CheckpointMgr read %s envelopes (%s messages) from ssp %s. Current offset is %s, newest is %s"
-                     format (envelopes.size(), messagesNum, ssp, currentOffset, newestOffset))
-        if (envelopes.isEmpty || messagesNum <= 0) {
-          debug("Got empty/null list of messages")
+        val checkpointKey = KafkaCheckpointLogKey.fromBytes(key)
+
+        if (!shouldHandleEntry(checkpointKey)) {
+          info("Skipping checkpoint log entry at offset %s with key %s." format(offset, checkpointKey))
         } else {
-          msgCount += messages.size()
-          // check the key
-          for (msg: IncomingMessageEnvelope <- messages) {
-            val key = msg.getKey.asInstanceOf[Array[Byte]]
-            currentOffset = msg.getOffset().toLong
-            startingOffset = Some(currentOffset + 1)
-            if (key == null) {
-              throw new KafkaUtilException("While reading checkpoint (currentOffset=%s) stream encountered message without key."
-                                                   format currentOffset)
-            }
-
-            val checkpointKey = KafkaCheckpointLogKey.fromBytes(key)
-
-            if (!shouldHandleEntry(checkpointKey)) {
-              info("Skipping checkpoint log entry at offset %s with key %s." format(currentOffset, checkpointKey))
-            } else {
-              // handleEntry requires ByteBuffer
-              val checkpointPayload = ByteBuffer.wrap(msg.getMessage.asInstanceOf[Array[Byte]])
-              handleEntry(checkpointPayload, checkpointKey)
-            }
-          }
+          // handleEntry requires ByteBuffer
+          val checkpointPayload = ByteBuffer.wrap(msg.getMessage.asInstanceOf[Array[Byte]])
+          handleEntry(checkpointPayload, checkpointKey)
         }
       }
     } finally {
