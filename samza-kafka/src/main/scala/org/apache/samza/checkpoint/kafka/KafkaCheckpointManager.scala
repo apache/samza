@@ -103,7 +103,7 @@ class KafkaCheckpointManager(
 
         systemProducer.send(taskName.getTaskName, envelope)
         systemProducer.flush(taskName.getTaskName) // make sure it is written
-        info("Completed writing checkpoint=%s into %s topic for system %s." format(checkpoint, checkpointTopic, systemName) )
+        debug("Completed writing checkpoint=%s into %s topic for system %s." format(checkpoint, checkpointTopic, systemName) )
         loop.done
       },
 
@@ -197,41 +197,40 @@ class KafkaCheckpointManager(
 
     var msgCount = 0
     try {
-      val emptyEnvelopes = util.Collections.emptyMap[SystemStreamPartition, java.util.List[IncomingMessageEnvelope]]
       // convert offsets to long
       var currentOffset = UNKNOWN_OFFSET.toLong
       val newestOffsetLong = newestOffset.toLong
       val sspToPoll = Collections.singleton(ssp)
       while (currentOffset < newestOffsetLong) {
 
-        val envelopes: java.util.Map[SystemStreamPartition, java.util.List[IncomingMessageEnvelope]] =
+        // will always read a single SSP
+        val messages: java.util.List[IncomingMessageEnvelope] =
         try {
-          systemConsumer.poll(sspToPoll, POLL_TIMEOUT)
+          systemConsumer.poll(sspToPoll, POLL_TIMEOUT).getOrDefault(ssp, Collections.emptyList())
         } catch {
           case e: Exception => {
             // these exceptions are most likely intermediate
             warn("Got %s exception while polling the consumer for checkpoints." format e)
             if (attempts == 0) throw new SamzaException("Multiple attempts failed while reading the checkpoints. Giving up.", e)
             attempts -= 1
-            emptyEnvelopes
+            Collections.emptyList()
           }
         }
 
-        val messages: util.List[IncomingMessageEnvelope] = envelopes.get(ssp)
-        val messagesNum = if (messages != null) messages.size else 0
-        info("CheckpointMgr read %s envelopes (%s messages) from ssp %s. Current offset is %s, newest is %s"
-                     format (envelopes.size(), messagesNum, ssp, currentOffset, newestOffset))
-        if (envelopes.isEmpty || messagesNum <= 0) {
-          info("Got empty/null list of messages")
-        } else {
+        debug("CheckpointMgr read %s messages from ssp %s. Current offset is %s, newest is %s"
+                      format(messages.size(), ssp, currentOffset, newestOffset))
+        if (messages.size() <= 0) {
+          debug("Got empty/null list of messages")
+        }
+        else {
           msgCount += messages.size()
           // check the key
           for (msg: IncomingMessageEnvelope <- messages) {
             val key = msg.getKey.asInstanceOf[Array[Byte]]
             currentOffset = msg.getOffset().toLong
             if (key == null) {
-              throw new KafkaUtilException("While reading checkpoint (currentOffset=%s) stream encountered message without key."
-                                                   format currentOffset)
+              throw new KafkaUtilException(
+                "While reading checkpoint (currentOffset=%s) stream encountered message without key." format currentOffset)
             }
 
             val checkpointKey = KafkaCheckpointLogKey.fromBytes(key)
