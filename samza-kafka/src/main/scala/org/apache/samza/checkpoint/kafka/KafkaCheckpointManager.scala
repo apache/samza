@@ -186,10 +186,11 @@ class KafkaCheckpointManager(
     info("Reading from checkpoint system:%s topic:%s" format(systemName, checkpointTopic))
 
     val ssp: SystemStreamPartition = new SystemStreamPartition(systemName, checkpointTopic, new Partition(0))
-    val partitionMetadata = getSSPMetadata(checkpointTopic, new Partition(0))
-    val oldestOffset = partitionMetadata.getOldestOffset
 
     if (systemConsumer == null) {
+      val partitionMetadata = getSSPMetadata(checkpointTopic, new Partition(0))
+      val oldestOffset = partitionMetadata.getOldestOffset
+
       systemConsumer = getSystemConsumer()
       systemConsumer.register(ssp, oldestOffset)
       systemConsumer.start()
