@@ -230,8 +230,7 @@ class KafkaCheckpointManager(
             currentOffset = msg.getOffset().toLong
             if (key == null) {
               throw new KafkaUtilException(
-                "While reading checkpoint (currentOffset=%s) stream encountered message without key."
-                        format currentOffset)
+                "While reading checkpoint (currentOffset=%s) stream encountered message without key." format currentOffset)
             }
 
             val checkpointKey = KafkaCheckpointLogKey.fromBytes(key)
