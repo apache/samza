@@ -23,12 +23,11 @@ package org.apache.samza.storage.kv
 import java.io.File
 import java.util
 
-import org.apache.samza.SamzaException
 import org.apache.samza.config.MapConfig
 import org.apache.samza.metrics.{Gauge, MetricsRegistryMap}
 import org.apache.samza.util.ExponentialSleepStrategy
 import org.junit.{Assert, Test}
-import org.rocksdb.{FlushOptions, Options, RocksDB, RocksIterator}
+import org.rocksdb.{RocksIterator, RocksDB, FlushOptions, Options}
 
 class TestRocksDbKeyValueStore
 {
@@ -88,40 +87,6 @@ class TestRocksDbKeyValueStore
     Assert.assertEquals(new String(rocksDBReadOnly.get(key), "UTF-8"), "val")
     rocksDB.close()
     rocksDBReadOnly.close()
-  }
-
-  @Test(expected = classOf[SamzaException])
-  def testFlushAfterCloseThrowsException(): Unit = {
-    val map = new util.HashMap[String, String]()
-    val config = new MapConfig(map)
-    val options = new Options()
-    options.setCreateIfMissing(true)
-
-    val dbDir = new File(System.getProperty("java.io.tmpdir"))
-    val rocksDB = new RocksDbKeyValueStore(dbDir, options, config, false, "dbStore")
-
-    val key = "key".getBytes("UTF-8")
-    rocksDB.put(key, "val".getBytes("UTF-8"))
-
-    rocksDB.close()
-    rocksDB.flush()
-  }
-
-  @Test(expected = classOf[SamzaException])
-  def testCloseAfterCloseThrowsException(): Unit = {
-    val map = new util.HashMap[String, String]()
-    val config = new MapConfig(map)
-    val options = new Options()
-    options.setCreateIfMissing(true)
-
-    val dbDir = new File(System.getProperty("java.io.tmpdir"))
-    val rocksDB = new RocksDbKeyValueStore(dbDir, options, config, false, "dbStore")
-
-    val key = "key".getBytes("UTF-8")
-    rocksDB.put(key, "val".getBytes("UTF-8"))
-
-    rocksDB.close()
-    rocksDB.close()
   }
 
   @Test
