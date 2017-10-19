@@ -20,6 +20,7 @@
 package org.apache.samza.storage.kv
 
 import java.io.File
+import java.util.concurrent.TimeUnit
 
 import org.apache.samza.SamzaException
 import org.apache.samza.config.Config
@@ -43,7 +44,7 @@ object RocksDbKeyValueStore extends Logging {
               "Using 1000 ms instead.", storeName, ttl)
             ttl = 1000
           }
-          ttl = ttl / 1000 // RocksDB accepts TTL in seconds, convert ms to seconds
+          ttl = TimeUnit.MILLISECONDS.toSeconds(ttl)
         } else {
           warn("Non-positive TTL for RocksDB implies infinite TTL for the data. " +
             "More Info - https://github.com/facebook/rocksdb/wiki/Time-to-Live")
