@@ -38,12 +38,13 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.charset.Charset;
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.Collection;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -52,8 +53,8 @@ import java.util.concurrent.TimeUnit;
 
 public class EventHubSystemProducer implements SystemProducer {
   private static final Logger LOG = LoggerFactory.getLogger(EventHubSystemProducer.class.getName());
-  private static final long FLUSH_SLEEP_TIME_MILLIS = 1000;
   private static final long DEFAULT_SHUTDOWN_TIMEOUT_MILLIS = Duration.ofMinutes(1L).toMillis();
+  private static final long DEFAULT_FLUSH_TIMEOUT_MILLIS = Duration.ofMinutes(1L).toMillis();
 
   public static final String PRODUCE_TIMESTAMP = "produce-timestamp";
 
@@ -87,23 +88,20 @@ public class EventHubSystemProducer implements SystemProducer {
   private final PartitioningMethod partitioningMethod;
   private final String systemName;
 
-  private Throwable sendExceptionOnCallback;
+  private volatile Throwable sendExceptionOnCallback;
   private boolean isStarted;
 
   // Map of the system name to the event hub client.
   private final Map<String, SamzaEventHubClient> eventHubClients = new HashMap<>();
   private final Map<String, Map<Integer, PartitionSender>> streamPartitionSenders = new HashMap<>();
 
-  // Running count for the next message Id
-  private long messageId;
   private Map<String, Serde<byte[]>> serdes;
 
-  private final Map<Long, CompletableFuture<Void>> pendingFutures = new ConcurrentHashMap<>();
+  private final Set<CompletableFuture<Void>> pendingFutures = ConcurrentHashMap.newKeySet();
 
   public EventHubSystemProducer(EventHubConfig config, String systemName,
                                 SamzaEventHubClientFactory samzaEventHubClientFactory,
                                 Map<String, Serde<byte[]>> serdes, MetricsRegistry registry) {
-    messageId = 0;
     this.config = config;
     this.registry = registry;
     this.systemName = systemName;
@@ -114,7 +112,7 @@ public class EventHubSystemProducer implements SystemProducer {
 
   @Override
   public synchronized void register(String streamName) {
-    LOG.info("Trying to register {}.", streamName);
+    LOG.debug("Trying to register {}.", streamName);
     if (isStarted) {
       String msg = "Cannot register once the producer is started.";
       throw new SamzaException(msg);
@@ -128,7 +126,7 @@ public class EventHubSystemProducer implements SystemProducer {
 
   @Override
   public synchronized void start() {
-    LOG.info("Starting system producer.");
+    LOG.debug("Starting system producer.");
 
     if (PartitioningMethod.PARTITION_KEY_AS_PARTITION.equals(partitioningMethod)) {
       // Create all partition senders
@@ -192,9 +190,10 @@ public class EventHubSystemProducer implements SystemProducer {
     }
 
     if (sendExceptionOnCallback != null) {
+      Throwable throwable = sendExceptionOnCallback;
       sendExceptionOnCallback = null;
       pendingFutures.clear();
-      throw new SamzaException(sendExceptionOnCallback);
+      throw new SamzaException(throwable);
     }
 
     EventData eventData = createEventData(destination, envelope);
@@ -215,14 +214,8 @@ public class EventHubSystemProducer implements SystemProducer {
     sendLatency.get(destination).update(latencyMs);
     aggSendLatency.update(latencyMs);
 
-    long messageId = ++this.messageId;
 
-    // Rotate the messageIds
-    if (messageId == Long.MAX_VALUE) {
-      this.messageId = 0;
-    }
-
-    pendingFutures.put(messageId, sendResult);
+    pendingFutures.add(sendResult);
 
     // Auto remove the future from the list when they are complete.
     sendResult.handle((aVoid, throwable) -> {
@@ -235,7 +228,6 @@ public class EventHubSystemProducer implements SystemProducer {
           LOG.error("Send message to event hub: {} failed with exception: ", destination, throwable);
           sendExceptionOnCallback = throwable;
         }
-        pendingFutures.remove(messageId);
         return aVoid;
       });
   }
@@ -299,31 +291,31 @@ public class EventHubSystemProducer implements SystemProducer {
   }
 
   @Override
-  public void flush(String source) {
-    LOG.info("Trying to flush pending {} sends messages: {}", pendingFutures.size(), pendingFutures.keySet());
-    // Wait till all the pending sends are complete.
-    while (!pendingFutures.isEmpty()) {
-      try {
-        Thread.sleep(FLUSH_SLEEP_TIME_MILLIS);
-      } catch (InterruptedException e) {
-        String msg = "Flush failed with error";
-        throw new SamzaException(msg, e);
-      }
+  public synchronized void flush(String source) {
+    LOG.debug("Trying to flush pending {} sends messages.", pendingFutures.size());
+
+    CompletableFuture<Void> future = CompletableFuture
+            .allOf(pendingFutures.toArray(new CompletableFuture[pendingFutures.size()]));
+    try {
+      // Wait until all the pending sends are complete or timeout.
+      future.get(DEFAULT_FLUSH_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      String msg = "Flush failed with error";
+      throw new SamzaException(msg, e);
     }
 
+    // Check for send errors from EventHub side
     if (sendExceptionOnCallback != null) {
       String msg = "Sending one of the message failed during flush";
       Throwable throwable = sendExceptionOnCallback;
       sendExceptionOnCallback = null;
       throw new SamzaException(msg, throwable);
     }
-
-    LOG.info("Flush succeeded.");
+    pendingFutures.clear();
   }
 
   @Override
   public synchronized void stop() {
-    LOG.info("Stopping event hub system producer...");
     streamPartitionSenders.values().forEach((streamPartitionSender) -> {
         List<CompletableFuture<Void>> futures = new ArrayList<>();
         streamPartitionSender.forEach((key, value) -> futures.add(value.close()));
@@ -331,7 +323,7 @@ public class EventHubSystemProducer implements SystemProducer {
         try {
           future.get(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
         } catch (ExecutionException | InterruptedException | TimeoutException e) {
-          LOG.warn("Closing the partition sender failed ", e);
+          LOG.error("Closing the partition sender failed ", e);
         }
       });
     eventHubClients.values().forEach(ehClient -> ehClient.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS));
@@ -339,6 +331,6 @@ public class EventHubSystemProducer implements SystemProducer {
   }
 
   Collection<CompletableFuture<Void>> getPendingFutures() {
-    return pendingFutures.values();
+    return pendingFutures;
   }
 }

@@ -22,16 +22,16 @@ package org.apache.samza.system.eventhub;
 import com.microsoft.azure.eventhubs.EventHubClient;
 
 /**
- * Wraps the {@link EventHubClient} with lifestyle hooks for initialization and close
+ * Wraps the {@link EventHubClient} with lifestyle hooks for initialization and close.
  */
 public interface SamzaEventHubClient {
   /**
-   * Initiate the connection to EventHub
+   * Initiate the connection to EventHub.
    */
   void init();
 
   /**
-   * Returns the EventHubClient instance of the wrapper so its methods can be invoked directly
+   * Returns the EventHubClient instance of the wrapper so its methods can be invoked directly.
    *
    * @return EventHub client instance of the wrapper
    */

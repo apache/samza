@@ -22,6 +22,7 @@ package org.apache.samza.system.eventhub.consumer;
 import com.microsoft.azure.eventhubs.EventData;
 import com.microsoft.azure.eventhubs.PartitionReceiveHandler;
 import com.microsoft.azure.eventhubs.PartitionReceiver;
+import com.microsoft.azure.servicebus.ServiceBusException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.metrics.Counter;
@@ -40,11 +41,11 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeoutException;
@@ -92,6 +93,9 @@ import java.util.stream.Collectors;
 public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   private static final Logger LOG = LoggerFactory.getLogger(EventHubSystemConsumer.class);
   private static final int MAX_EVENT_COUNT_PER_PARTITION_POLL = 50;
+
+  // Overall timeout for EventHubClient exponential backoff policy
+  private static final Duration DEFAULT_EVENTHUB_RECEIVER_TIMEOUT = Duration.ofMinutes(10L);
   private static final long DEFAULT_SHUTDOWN_TIMEOUT_MILLIS = Duration.ofMinutes(1L).toMillis();
 
   public static final String START_OF_STREAM = PartitionReceiver.START_OF_STREAM; // -1
@@ -112,10 +116,10 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   private final Map<String, SamzaHistogram> readLatencies;
   private final Map<String, Counter> readErrors;
 
-  final Map<SystemStreamPartition, PartitionReceiveHandler> streamPartitionHandlers = new HashMap<>();
-  private final Map<SystemStreamPartition, PartitionReceiver> streamPartitionReceivers = new HashMap<>();
-  private final Map<String, SamzaEventHubClient> streamEventHubClients = new HashMap<>();
-  private final Map<SystemStreamPartition, String> streamPartitionStartingOffsets = new HashMap<>();
+  final ConcurrentHashMap<SystemStreamPartition, PartitionReceiveHandler> streamPartitionHandlers = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<SystemStreamPartition, PartitionReceiver> streamPartitionReceivers = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, SamzaEventHubClient> streamEventHubClients = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<SystemStreamPartition, String> streamPartitionOffsets = new ConcurrentHashMap<>();
   private final Map<String, Serde<byte[]>> serdes;
   private boolean isStarted = false;
   private final EventHubConfig config;
@@ -161,7 +165,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   }
 
   @Override
-  public synchronized void register(SystemStreamPartition systemStreamPartition, String offset) {
+  public void register(SystemStreamPartition systemStreamPartition, String offset) {
     super.register(systemStreamPartition, offset);
 
     if (isStarted) {
@@ -181,14 +185,14 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
                   config.getStartPosition(systemName, systemStreamPartition.getStream()));
       }
     }
-    streamPartitionStartingOffsets.put(systemStreamPartition, offset);
+    streamPartitionOffsets.put(systemStreamPartition, offset);
   }
 
   @Override
-  public synchronized void start() {
+  public void start() {
     isStarted = true;
     // Create receivers for Event Hubs
-    for (Map.Entry<SystemStreamPartition, String> entry : streamPartitionStartingOffsets.entrySet()) {
+    for (Map.Entry<SystemStreamPartition, String> entry : streamPartitionOffsets.entrySet()) {
       SystemStreamPartition ssp = entry.getKey();
       String streamName = ssp.getStream();
       Integer partitionId = ssp.getPartition().getPartitionId();
@@ -196,14 +200,14 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
       String consumerGroup = config.getStreamConsumerGroup(systemName, streamName);
       String namespace = config.getStreamNamespace(systemName, streamName);
       String entityPath = config.getStreamEntityPath(systemName, streamName);
-      SamzaEventHubClient ehClientWrapper = streamEventHubClients.get(streamName);
+      SamzaEventHubClient samzaEventHubClient = streamEventHubClients.get(streamName);
       try {
         PartitionReceiver receiver;
         if (offset.equals(EventHubSystemConsumer.END_OF_STREAM)) {
-          receiver = ehClientWrapper.getEventHubClient()
+          receiver = samzaEventHubClient.getEventHubClient()
                   .createReceiverSync(consumerGroup, partitionId.toString(), Instant.now());
         } else {
-          receiver = ehClientWrapper.getEventHubClient()
+          receiver = samzaEventHubClient.getEventHubClient()
                   .createReceiverSync(consumerGroup, partitionId.toString(), offset,
                           !offset.equals(EventHubSystemConsumer.START_OF_STREAM));
         }
@@ -212,6 +216,8 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
                 serdes.getOrDefault(streamName, null));
         streamPartitionHandlers.put(ssp, handler);
 
+        // Timeout for EventHubClient exponential backoff policy
+        receiver.setReceiveTimeout(DEFAULT_EVENTHUB_RECEIVER_TIMEOUT);
         receiver.setReceiveHandler(handler);
         streamPartitionReceivers.put(ssp, receiver);
       } catch (Exception e) {
@@ -219,14 +225,37 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
                 String.format("Failed to create receiver for EventHubs: namespace=%s, entity=%s, partitionId=%d",
                         namespace, entityPath, partitionId), e);
       }
-      LOG.info(String.format("Connection successfully started for namespace=%s, entity=%s ", namespace, entityPath));
+      LOG.debug(String.format("Connection successfully started for namespace=%s, entity=%s ", namespace, entityPath));
 
     }
   }
 
+  private void renewPartitionReceiver(SystemStreamPartition ssp) {
+    LOG.error(String.format("EventHub receiver timed out encountered an error for SystemStreamPartition=%s", ssp.toString()));
+
+    SamzaEventHubClient samzaEventHubClient = streamEventHubClients.get(ssp.getStream());
+    String offset = streamPartitionOffsets.get(ssp);
+    Integer partitionId = ssp.getPartition().getPartitionId();
+    String consumerGroup = config.getStreamConsumerGroup(ssp.getSystem(), ssp.getStream());
+
+    try {
+      PartitionReceiver receiver = samzaEventHubClient.getEventHubClient()
+              .createReceiverSync(consumerGroup, partitionId.toString(), offset,
+                      !offset.equals(EventHubSystemConsumer.START_OF_STREAM));
+
+      receiver.setReceiveTimeout(DEFAULT_EVENTHUB_RECEIVER_TIMEOUT);
+      receiver.setReceiveHandler(streamPartitionHandlers.get(ssp));
+      streamPartitionReceivers.put(ssp, receiver);
+    } catch (ServiceBusException e) {
+      throw new SamzaException(
+              String.format("Failed to recreate receiver after ReceiverHandlerError for EventHubs for SystemStreamPartition=%s",
+                      ssp), e);
+    }
+  }
+
   @Override
-  public synchronized void stop() {
-    LOG.info("Stopping event hub system consumer...");
+  public void stop() {
+    LOG.debug("Stopping event hub system consumer...");
     List<CompletableFuture<Void>> futures = new ArrayList<>();
     streamPartitionReceivers.values().forEach((receiver) -> futures.add(receiver.close()));
     CompletableFuture<Void> future = CompletableFuture.allOf(futures.toArray(new CompletableFuture[futures.size()]));
@@ -266,22 +295,26 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
     @Override
     public void onReceive(Iterable<EventData> events) {
       if (events != null) {
-
         events.forEach(event -> {
             byte[] decryptedBody = event.getBytes();
             if (serde != null) {
               decryptedBody = serde.fromBytes(decryptedBody);
             }
+            String offset = event.getSystemProperties().getOffset();
+            Object partitionKey = event.getSystemProperties().getPartitionKey();
             try {
               updateMetrics(event);
+
               // note that the partition key can be null
-              put(ssp, new EventHubIME(ssp, event.getSystemProperties().getOffset(),
-                      event.getSystemProperties().getPartitionKey(), decryptedBody, event));
+              put(ssp, new EventHubIME(ssp, offset, partitionKey, decryptedBody, event));
             } catch (Exception e) {
               String msg = String.format("Exception while adding the event from ssp %s to dispatch queue.", ssp);
               LOG.error(msg, e);
               throw new SamzaException(msg, e);
             }
+
+            // Cache latest checkpoint
+            streamPartitionOffsets.put(ssp, offset);
           });
       }
     }
@@ -299,6 +332,8 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
 
     @Override
     public void onError(Throwable throwable) {
+      // Retry creating a receiver
+      renewPartitionReceiver(ssp);
       errorRate.inc();
       aggReadErrors.inc();
       LOG.error(String.format("Received error from event hub connection (ssp=%s): ", ssp), throwable);
