@@ -198,7 +198,7 @@ class RocksDbKeyValueStore(
     trace("Flushed store: %s" format storeName)
   }
 
-  def close() {
+  def close(): Unit = {
     stateChangeLock.writeLock().lock()
     try {
       trace("Closing.")
