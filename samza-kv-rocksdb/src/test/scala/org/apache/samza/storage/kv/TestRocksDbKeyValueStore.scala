@@ -33,7 +33,7 @@ class TestRocksDbKeyValueStore
 {
   @Test
   def testTTL() {
-    val map = new java.util.HashMap[String, String]();
+    val map = new java.util.HashMap[String, String]()
     map.put("rocksdb.ttl.ms", "1000")
     val config = new MapConfig(map)
     val options = new Options()
@@ -173,5 +173,7 @@ class TestRocksDbKeyValueStore
 
     val estimateLiveDataSizeMetric = metricsGroup.get("dbstore-rocksdb.estimate-live-data-size")
     assert(estimateLiveDataSizeMetric.isInstanceOf[Gauge[String]])
+
+    rocksDB.close()
   }
 }
