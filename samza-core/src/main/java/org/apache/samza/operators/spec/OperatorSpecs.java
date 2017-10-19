@@ -19,6 +19,7 @@
 
 package org.apache.samza.operators.spec;
 
+import java.io.IOException;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.FilterFunction;
@@ -52,7 +53,7 @@ public class OperatorSpecs {
    * @return  the {@link StreamOperatorSpec}
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createMapOperatorSpec(
-      MapFunction<? super M, ? extends OM> mapFn, int opId) {
+      MapFunction<? super M, ? extends OM> mapFn, int opId) throws IOException {
     return new StreamOperatorSpec<>(new FlatMapFunction<M, OM>() {
       @Override
       public Collection<OM> apply(M message) {
@@ -87,7 +88,7 @@ public class OperatorSpecs {
    * @return  the {@link StreamOperatorSpec}
    */
   public static <M> StreamOperatorSpec<M, M> createFilterOperatorSpec(
-      FilterFunction<? super M> filterFn, int opId) {
+      FilterFunction<? super M> filterFn, int opId) throws IOException {
     return new StreamOperatorSpec<>(new FlatMapFunction<M, M>() {
       @Override
       public Collection<M> apply(M message) {
@@ -122,7 +123,7 @@ public class OperatorSpecs {
    * @return  the {@link StreamOperatorSpec}
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createFlatMapOperatorSpec(
-      FlatMapFunction<? super M, ? extends OM> flatMapFn, int opId) {
+      FlatMapFunction<? super M, ? extends OM> flatMapFn, int opId) throws IOException {
     return new StreamOperatorSpec<>((FlatMapFunction<M, OM>) flatMapFn, OperatorSpec.OpCode.FLAT_MAP, opId);
   }
 
@@ -134,7 +135,8 @@ public class OperatorSpecs {
    * @param <M>  type of input message
    * @return  the {@link SinkOperatorSpec} for the sink operator
    */
-  public static <M> SinkOperatorSpec<M> createSinkOperatorSpec(SinkFunction<? super M> sinkFn, int opId) {
+  public static <M> SinkOperatorSpec<M> createSinkOperatorSpec(SinkFunction<? super M> sinkFn, int opId)
+      throws IOException {
     return new SinkOperatorSpec<>((SinkFunction<M>) sinkFn, opId);
   }
 
@@ -146,7 +148,7 @@ public class OperatorSpecs {
    * @param <M> the type of message in the {@link OutputStreamImpl}
    * @return  the {@link OutputOperatorSpec} for the sendTo operator
    */
-  public static <M> OutputOperatorSpec<M> createSendToOperatorSpec(OutputStreamImpl<M> outputStream, int opId) {
+  public static <M> OutputOperatorSpec<M> createSendToOperatorSpec(OutputStreamImpl<M> outputStream, int opId) throws IOException {
     return new OutputOperatorSpec<>(outputStream, opId);
   }
 
@@ -164,8 +166,8 @@ public class OperatorSpecs {
    */
   public static <M, K, V> PartitionByOperatorSpec<M, K, V> createPartitionByOperatorSpec(
       OutputStreamImpl<KV<K, V>> outputStream, Function<? super M, ? extends K> keyFunction,
-      Function<? super M, ? extends V> valueFunction, int opId) {
-    return new PartitionByOperatorSpec<>(outputStream, keyFunction, valueFunction, opId);
+      Function<? super M, ? extends V> valueFunction, int opId) throws IOException {
+    return new PartitionByOperatorSpec<>(outputStream, (Function<M, K>) keyFunction, (Function<M, V>) valueFunction, opId);
   }
 
   /**
@@ -180,7 +182,7 @@ public class OperatorSpecs {
    */
 
   public static <M, WK, WV> WindowOperatorSpec<M, WK, WV> createWindowOperatorSpec(
-      WindowInternal<M, WK, WV> window, int opId) {
+      WindowInternal<M, WK, WV> window, int opId) throws IOException {
     return new WindowOperatorSpec<>(window, opId);
   }
 
@@ -203,7 +205,7 @@ public class OperatorSpecs {
    */
   public static <K, M, OM, JM> JoinOperatorSpec<K, M, OM, JM> createJoinOperatorSpec(
       OperatorSpec<?, M> leftInputOpSpec, OperatorSpec<?, OM> rightInputOpSpec, JoinFunction<K, M, OM, JM> joinFn,
-      Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde, long ttlMs, int opId) {
+      Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde, long ttlMs, int opId) throws IOException {
     return new JoinOperatorSpec<>(leftInputOpSpec, rightInputOpSpec, joinFn,
         keySerde, messageSerde, otherMessageSerde, ttlMs, opId);
   }
@@ -215,7 +217,7 @@ public class OperatorSpecs {
    * @param <M>  the type of input message
    * @return  the {@link StreamOperatorSpec} for the merge
    */
-  public static <M> StreamOperatorSpec<M, M> createMergeOperatorSpec(int opId) {
+  public static <M> StreamOperatorSpec<M, M> createMergeOperatorSpec(int opId) throws IOException {
     return new StreamOperatorSpec<>(message ->
         new ArrayList<M>() {
           {

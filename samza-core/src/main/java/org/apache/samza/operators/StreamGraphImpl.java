@@ -57,17 +57,15 @@ public class StreamGraphImpl implements StreamGraph {
   // We use a LHM for deterministic order in initializing and closing operators.
   private final Map<StreamSpec, InputOperatorSpec> inputOperators = new LinkedHashMap<>();
   private final Map<StreamSpec, OutputStreamImpl> outputStreams = new LinkedHashMap<>();
-  private final ApplicationRunner runner;
   private final Config config;
+  private final ApplicationRunner runner;
 
   private Serde<?> defaultSerde = new KVSerde(new NoOpSerde(), new NoOpSerde());
   private ContextManager contextManager = null;
 
   public StreamGraphImpl(ApplicationRunner runner, Config config) {
-    // TODO: SAMZA-1118 - Move StreamSpec and ApplicationRunner out of StreamGraphImpl once Systems
-    // can use streamId to send and receive messages.
-    this.runner = runner;
     this.config = config;
+    this.runner = runner;
   }
 
   @Override
@@ -135,9 +133,8 @@ public class StreamGraphImpl implements StreamGraph {
   }
 
   @Override
-  public StreamGraph withContextManager(ContextManager contextManager) {
+  public void setContextManager(ContextManager contextManager) {
     this.contextManager = contextManager;
-    return this;
   }
 
   /**
@@ -251,4 +248,5 @@ public class StreamGraphImpl implements StreamGraph {
 
     return KV.of(keySerde, valueSerde);
   }
+
 }

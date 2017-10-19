@@ -19,6 +19,12 @@
 
 package org.apache.samza.execution;
 
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -34,19 +40,12 @@ import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
+import java.util.Map;
+import java.util.Set;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Before;
 import org.junit.Test;
-
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -147,11 +146,13 @@ public class TestExecutionPlanner {
     OutputStream<KV<Object, Object>> output2 = streamGraph.getOutputStream("output2");
 
     messageStream1
-        .join(messageStream2, mock(JoinFunction.class),
+        .join(messageStream2,
+            (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
             mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2))
         .sendTo(output1);
     messageStream3
-        .join(messageStream2, mock(JoinFunction.class),
+        .join(messageStream2,
+            (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
             mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1))
         .sendTo(output2);
 
@@ -185,15 +186,18 @@ public class TestExecutionPlanner {
         .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(16), mock(Serde.class), mock(Serde.class)));
 
     messageStream1
-        .join(messageStream2, mock(JoinFunction.class),
+        .join(messageStream2,
+            (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
             mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(1600))
         .sendTo(output1);
     messageStream3
-        .join(messageStream2, mock(JoinFunction.class),
+        .join(messageStream2,
+            (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
             mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(100))
         .sendTo(output2);
     messageStream3
-        .join(messageStream2, mock(JoinFunction.class),
+        .join(messageStream2,
+            (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
             mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(252))
         .sendTo(output2);
 
@@ -437,4 +441,5 @@ public class TestExecutionPlanner {
         assertEquals(partitionLimit, edge.getPartitionCount()); // max of input1 and output1
       });
   }
+
 }

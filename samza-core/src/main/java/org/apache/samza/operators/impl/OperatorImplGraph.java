@@ -21,7 +21,6 @@ package org.apache.samza.operators.impl;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-import java.util.stream.Collectors;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.job.model.JobModel;
@@ -45,6 +44,7 @@ import org.apache.samza.util.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -52,7 +52,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
+import java.util.stream.Collectors;
 
 /**
  * The DAG of {@link OperatorImpl}s corresponding to the DAG of {@link OperatorSpec}s.
@@ -112,8 +112,13 @@ public class OperatorImplGraph {
 
     streamGraph.getInputOperators().forEach((streamSpec, inputOpSpec) -> {
         SystemStream systemStream = new SystemStream(streamSpec.getSystemName(), streamSpec.getPhysicalName());
-        InputOperatorImpl inputOperatorImpl =
-            (InputOperatorImpl) createAndRegisterOperatorImpl(null, inputOpSpec, systemStream, config, context);
+        InputOperatorImpl inputOperatorImpl = null;
+        try {
+          inputOperatorImpl =
+              (InputOperatorImpl) createAndRegisterOperatorImpl(null, inputOpSpec, systemStream, config, context);
+        } catch (IOException | ClassNotFoundException e) {
+          throw new RuntimeException("Exception in OperatorImplGraph constructor while creating operator impls.", e);
+        }
         this.inputOperators.put(systemStream, inputOperatorImpl);
       });
   }
@@ -154,7 +159,7 @@ public class OperatorImplGraph {
    * @return  the operator implementation for the operatorSpec
    */
   OperatorImpl createAndRegisterOperatorImpl(OperatorSpec prevOperatorSpec, OperatorSpec operatorSpec,
-      SystemStream inputStream, Config config, TaskContext context) {
+      SystemStream inputStream, Config config, TaskContext context) throws IOException, ClassNotFoundException {
     if (!operatorImpls.containsKey(operatorSpec.getOpName()) || operatorSpec instanceof JoinOperatorSpec) {
       // Either this is the first time we've seen this operatorSpec, or this is a join operator spec
       // and we need to create 2 partial join operator impls for it. Initialize and register the sub-DAG.
@@ -165,7 +170,12 @@ public class OperatorImplGraph {
 
       Collection<OperatorSpec> registeredSpecs = operatorSpec.getRegisteredOperatorSpecs();
       registeredSpecs.forEach(registeredSpec -> {
-          OperatorImpl nextImpl = createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, config, context);
+          OperatorImpl nextImpl = null;
+          try {
+            nextImpl = createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, config, context);
+          } catch (IOException | ClassNotFoundException e) {
+            throw new RuntimeException("Exception in lambda while creating operator impls.", e);
+          }
           operatorImpl.registerNextOperator(nextImpl);
         });
       return operatorImpl;
@@ -185,21 +195,21 @@ public class OperatorImplGraph {
    * @return  the {@link OperatorImpl} implementation instance
    */
   OperatorImpl createOperatorImpl(OperatorSpec prevOperatorSpec, OperatorSpec operatorSpec,
-      Config config, TaskContext context) {
+      Config config, TaskContext context) throws IOException, ClassNotFoundException {
     if (operatorSpec instanceof InputOperatorSpec) {
-      return new InputOperatorImpl((InputOperatorSpec) operatorSpec);
+      return new InputOperatorImpl(((InputOperatorSpec) operatorSpec).copy());
     } else if (operatorSpec instanceof StreamOperatorSpec) {
-      return new StreamOperatorImpl((StreamOperatorSpec) operatorSpec, config, context);
+      return new StreamOperatorImpl(((StreamOperatorSpec) operatorSpec).copy(), config, context);
     } else if (operatorSpec instanceof SinkOperatorSpec) {
-      return new SinkOperatorImpl((SinkOperatorSpec) operatorSpec, config, context);
+      return new SinkOperatorImpl(((SinkOperatorSpec) operatorSpec).copy(), config, context);
     } else if (operatorSpec instanceof OutputOperatorSpec) {
-      return new OutputOperatorImpl((OutputOperatorSpec) operatorSpec, config, context);
+      return new OutputOperatorImpl(((OutputOperatorSpec) operatorSpec).copy());
     } else if (operatorSpec instanceof PartitionByOperatorSpec) {
-      return new PartitionByOperatorImpl((PartitionByOperatorSpec) operatorSpec, config, context);
+      return new PartitionByOperatorImpl(((PartitionByOperatorSpec) operatorSpec).copy(), config, context);
     } else if (operatorSpec instanceof WindowOperatorSpec) {
-      return new WindowOperatorImpl((WindowOperatorSpec) operatorSpec, clock);
+      return new WindowOperatorImpl(((WindowOperatorSpec) operatorSpec).copy(), clock);
     } else if (operatorSpec instanceof JoinOperatorSpec) {
-      return createPartialJoinOperatorImpl(prevOperatorSpec, (JoinOperatorSpec) operatorSpec, config, context, clock);
+      return createPartialJoinOperatorImpl(prevOperatorSpec, ((JoinOperatorSpec) operatorSpec).copy(), config, context, clock);
     }
     throw new IllegalArgumentException(
         String.format("Unsupported OperatorSpec: %s", operatorSpec.getClass().getName()));
@@ -208,7 +218,7 @@ public class OperatorImplGraph {
   private PartialJoinOperatorImpl createPartialJoinOperatorImpl(OperatorSpec prevOperatorSpec,
       JoinOperatorSpec joinOpSpec, Config config, TaskContext context, Clock clock) {
     KV<PartialJoinFunction, PartialJoinFunction> partialJoinFunctions = getOrCreatePartialJoinFunctions(joinOpSpec);
-    if (joinOpSpec.getLeftInputOpSpec().equals(prevOperatorSpec)) { // we got here from the left side of the join
+    if (joinOpSpec.getLeftInputOpSpec().isClone(prevOperatorSpec)) { // we got here from the left side of the join
       return new PartialJoinOperatorImpl(joinOpSpec, /* isLeftSide */ true,
           partialJoinFunctions.getKey(), partialJoinFunctions.getValue(), config, context, clock);
     } else { // we got here from the right side of the join

@@ -19,10 +19,11 @@
 
 package org.apache.samza.job.local
 
+import org.apache.samza.application.StreamApplicationInternal
 import org.apache.samza.config.Config
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
-import org.apache.samza.container.{SamzaContainerListener, SamzaContainer}
+import org.apache.samza.container.{SamzaContainer, SamzaContainerListener}
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.{JmxServer, MetricsReporter}
@@ -42,7 +43,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     val jmxServer = new JmxServer
     val streamApp = TaskFactoryUtil.createStreamApplication(config)
     val appRunner = new LocalContainerRunner(jobModel, "0")
-    val taskFactory = TaskFactoryUtil.createTaskFactory(config, streamApp, appRunner)
+    val taskFactory = TaskFactoryUtil.createTaskFactory(config, new StreamApplicationInternal(streamApp), appRunner)
 
     // Give developers a nice friendly warning if they've specified task.opts and are using a threaded job.
     config.getTaskOpts match {

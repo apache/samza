@@ -50,9 +50,10 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
   private static final Logger log = LoggerFactory.getLogger(AbstractApplicationRunner.class);
 
   private final StreamManager streamManager;
+  protected final Config config;
 
   public AbstractApplicationRunner(Config config) {
-    super(config);
+    this.config = config;
     this.streamManager = new StreamManager(new JavaSystemConfig(config).getSystemAdmins());
   }
 

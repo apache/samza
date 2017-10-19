@@ -18,6 +18,12 @@
  */
 package org.apache.samza.operators.spec;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.MessageStream;
@@ -28,7 +34,7 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
- * A stream operator specification that holds all the information required to transform 
+ * A stream operator specification that holds all the information required to transform
  * the input {@link org.apache.samza.operators.MessageStreamImpl} and produce the output
  * {@link org.apache.samza.operators.MessageStreamImpl}.
  *
@@ -36,7 +42,7 @@ import java.util.Set;
  * @param <OM>  the type of output message from the operator
  */
 @InterfaceStability.Unstable
-public abstract class OperatorSpec<M, OM> {
+public abstract class OperatorSpec<M, OM> implements Serializable {
 
   public enum OpCode {
     INPUT,
@@ -67,6 +73,15 @@ public abstract class OperatorSpec<M, OM> {
     this.opCode = opCode;
     this.opId = opId;
     this.creationStackTrace = Thread.currentThread().getStackTrace();
+  }
+
+  protected Object copy() throws IOException, ClassNotFoundException {
+    ByteArrayOutputStream serializedBytes = new ByteArrayOutputStream();
+    ObjectOutputStream outputStream = new ObjectOutputStream(serializedBytes);
+    outputStream.writeObject(this);
+    ByteArrayInputStream bStream = new ByteArrayInputStream(serializedBytes.toByteArray());
+    ObjectInputStream inputStream = new ObjectInputStream(bStream);
+    return inputStream.readObject();
   }
 
   /**
@@ -137,4 +152,8 @@ public abstract class OperatorSpec<M, OM> {
   }
 
   abstract public WatermarkFunction getWatermarkFn();
+
+  public final boolean isClone(OperatorSpec other) {
+    return this.getClass().isAssignableFrom(other.getClass()) && this.opCode.equals(other.opCode) && this.opId == other.opId;
+  }
 }

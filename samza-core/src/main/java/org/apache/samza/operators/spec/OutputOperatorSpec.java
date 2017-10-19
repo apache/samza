@@ -18,6 +18,8 @@
  */
 package org.apache.samza.operators.spec;
 
+import java.io.IOException;
+
 
 import org.apache.samza.operators.functions.WatermarkFunction;
 
@@ -56,4 +58,9 @@ public class OutputOperatorSpec<M> extends OperatorSpec<M, Void> {
   public WatermarkFunction getWatermarkFn() {
     return null;
   }
+
+  public OutputOperatorSpec<M> copy() throws IOException, ClassNotFoundException {
+    return (OutputOperatorSpec<M>) super.copy();
+  }
+
 }

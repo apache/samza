@@ -18,55 +18,57 @@
  */
 package org.apache.samza.example;
 
+import java.io.IOException;
+import java.time.Duration;
+import java.util.HashMap;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.KV;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.functions.FoldLeftFunction;
+import org.apache.samza.system.kafka.KafkaSystem;
+import org.apache.samza.operators.StreamDescriptor;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.runtime.LocalApplicationRunner;
-import org.apache.samza.serializers.JsonSerdeV2;
-import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.util.CommandLine;
-
-import java.time.Duration;
-import java.util.function.Supplier;
 
 
 /**
  * Example code to implement window-based counter
  */
-public class PageViewCounterExample implements StreamApplication {
-
-  @Override public void init(StreamGraph graph, Config config) {
-    MessageStream<PageViewEvent> pageViewEvents =
-        graph.getInputStream("pageViewEventStream", new JsonSerdeV2<>(PageViewEvent.class));
-    OutputStream<KV<String, PageViewCount>> pageViewEventPerMemberStream =
-        graph.getOutputStream("pageViewEventPerMemberStream",
-            KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageViewCount.class)));
-
-    Supplier<Integer> initialValue = () -> 0;
-    FoldLeftFunction<PageViewEvent, Integer> foldLeftFn = (m, c) -> c + 1;
-    pageViewEvents
-        .window(Windows.keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), initialValue, foldLeftFn, null, null)
-            .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
-            .setAccumulationMode(AccumulationMode.DISCARDING))
-        .map(windowPane -> KV.of(windowPane.getKey().getKey(), new PageViewCount(windowPane)))
-        .sendTo(pageViewEventPerMemberStream);
-  }
+public class AppWithGlobalConfigExample {
 
   // local execution mode
-  public static void main(String[] args) {
+  public static void main(String[] args) throws IOException {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    LocalApplicationRunner localRunner = new LocalApplicationRunner(config);
-    localRunner.run(new PageViewCounterExample());
+
+    KafkaSystem kafkaSystem = KafkaSystem.create("kafka")
+        .withBootstrapServers("localhost:9192")
+        .withConsumerProperties(config)
+        .withProducerProperties(config);
+
+    StreamDescriptor.Input<String, PageViewEvent> input = StreamDescriptor.<String, PageViewEvent>input("myPageViewEevent")
+        .withKeySerde(new StringSerde("UTF-8"))
+        .withMsgSerde(new JsonSerde<>())
+        .from(kafkaSystem);
+    StreamDescriptor.Output<String, PageViewCount> output = StreamDescriptor.<String, PageViewCount>output("pageViewEventPerMemberStream")
+        .withKeySerde(new StringSerde("UTF-8"))
+        .withMsgSerde(new JsonSerde<>())
+        .from(kafkaSystem);
+
+    StreamApplication app = StreamApplications.createStreamApp(config).withMetricsReporters(new HashMap<>());
+    app.openInput(input)
+        .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), () -> 0, (m, c) -> c + 1)
+            .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
+            .setAccumulationMode(AccumulationMode.DISCARDING))
+        .map(PageViewCount::new)
+        .sendTo(app.openOutput(output, m -> m.memberId));
+
+    app.run();
+    app.waitForFinish();
   }
 
   class PageViewEvent {
@@ -81,7 +83,7 @@ public class PageViewCounterExample implements StreamApplication {
     }
   }
 
-  class PageViewCount {
+  static class PageViewCount {
     String memberId;
     long timestamp;
     int count;

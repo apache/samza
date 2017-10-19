@@ -42,7 +42,7 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
   private final OutputStreamImpl<M> outputStream;
   private final SystemStream systemStream;
 
-  OutputOperatorImpl(OutputOperatorSpec<M> outputOpSpec, Config config, TaskContext context) {
+  OutputOperatorImpl(OutputOperatorSpec<M> outputOpSpec) {
     this.outputOpSpec = outputOpSpec;
     this.outputStream = outputOpSpec.getOutputStream();
     this.systemStream = new SystemStream(outputStream.getStreamSpec().getSystemName(),

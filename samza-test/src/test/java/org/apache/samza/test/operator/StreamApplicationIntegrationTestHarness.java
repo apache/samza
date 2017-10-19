@@ -18,6 +18,8 @@
  */
 package org.apache.samza.test.operator;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import kafka.utils.TestUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -29,8 +31,6 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
-import org.apache.samza.config.MapConfig;
-import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import scala.Option;
 import scala.Option$;
@@ -97,8 +97,6 @@ import java.util.Properties;
 public class StreamApplicationIntegrationTestHarness extends AbstractIntegrationTestHarness {
   private KafkaProducer producer;
   private KafkaConsumer consumer;
-  private StreamApplication app;
-  private ApplicationRunner runner;
 
   private int numEmptyPolls = 3;
   private static final Duration POLL_TIMEOUT_MS = Duration.ofSeconds(20);
@@ -208,22 +206,23 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
    * Executes the provided {@link StreamApplication} as a {@link org.apache.samza.job.local.ThreadJob}. The
    * {@link StreamApplication} runs in its own separate thread.
    *
-   * @param streamApplication the application to run
    * @param appName the name of the application
    * @param overriddenConfigs configs to override
    */
-  public void runApplication(StreamApplication streamApplication, String appName, Config overriddenConfigs) {
+  public void runApplication(String userAppClass, String appName, Config overriddenConfigs)
+      throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+
     Map<String, String> configs = new HashMap<>();
+    configs.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
     configs.put("job.factory.class", "org.apache.samza.job.local.ThreadJobFactory");
     configs.put("job.name", appName);
-    configs.put("app.class", streamApplication.getClass().getCanonicalName());
     configs.put("serializers.registry.json.class", "org.apache.samza.serializers.JsonSerdeFactory");
     configs.put("serializers.registry.string.class", "org.apache.samza.serializers.StringSerdeFactory");
     configs.put("systems.kafka.samza.factory", "org.apache.samza.system.kafka.KafkaSystemFactory");
     configs.put("systems.kafka.consumer.zookeeper.connect", zkConnect());
     configs.put("systems.kafka.producer.bootstrap.servers", bootstrapUrl());
     configs.put("systems.kafka.samza.key.serde", "string");
-    configs.put("systems.kafka.samza.msg.serde", "string");
+    configs.put("systems.kafka.samza.msg.serde", "json");
     configs.put("systems.kafka.samza.offset.default", "oldest");
     configs.put("job.coordinator.system", "kafka");
     configs.put("job.default.system", "kafka");
@@ -245,9 +244,21 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
       configs.putAll(overriddenConfigs);
     }
 
-    app = streamApplication;
-    runner = ApplicationRunner.fromConfig(new MapConfig(configs));
-    runner.run(streamApplication);
+    Class<?> cls = Class.forName(userAppClass);
+    Method mainMethod = cls.getMethod("main", String[].class);
+    String[] params = getCommandLineConfigs(configs);
+    mainMethod.invoke(null, (Object) params);
+  }
+
+  private String[] getCommandLineConfigs(Map<String, String> configs) {
+    String[] cliParams = new String[configs.size()*2+1];
+    int i = 0;
+    cliParams[i++] = "--config-path=./resources/test-config.prop";
+    for(Map.Entry<String, String> entry : configs.entrySet()) {
+      cliParams[i++] = "--config";
+      cliParams[i++] = String.format("%s=%s", entry.getKey(), entry.getValue());
+    }
+    return cliParams;
   }
 
   public void setNumEmptyPolls(int numEmptyPolls) {

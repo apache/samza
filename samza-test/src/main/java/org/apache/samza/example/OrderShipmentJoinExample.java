@@ -19,6 +19,7 @@
 package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
@@ -28,6 +29,7 @@ import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.util.CommandLine;
 
@@ -36,16 +38,20 @@ import java.time.Duration;
 /**
  * Simple 2-way stream-to-stream join example
  */
-public class OrderShipmentJoinExample implements StreamApplication {
+public class OrderShipmentJoinExample {
 
-  @Override
-  public void init(StreamGraph graph, Config config) {
+  // local execution mode
+  public static void main(String[] args) throws Exception {
+    CommandLine cmdLine = new CommandLine();
+    Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
+    StreamApplication app = StreamApplications.createStreamApp(config);
+
     MessageStream<OrderRecord> orders =
-        graph.getInputStream("orders", new JsonSerdeV2<>(OrderRecord.class));
+        app.openInput("orders", new JsonSerdeV2<>(OrderRecord.class));
     MessageStream<ShipmentRecord> shipments =
-        graph.getInputStream("shipments", new JsonSerdeV2<>(ShipmentRecord.class));
+        app.openInput("shipments", new JsonSerdeV2<>(ShipmentRecord.class));
     OutputStream<KV<String, FulfilledOrderRecord>> fulfilledOrders =
-        graph.getOutputStream("fulfilledOrders",
+        app.openOutput("fulfilledOrders",
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(FulfilledOrderRecord.class)));
 
     orders
@@ -54,17 +60,12 @@ public class OrderShipmentJoinExample implements StreamApplication {
             Duration.ofMinutes(1))
         .map(fulFilledOrder -> KV.of(fulFilledOrder.orderId, fulFilledOrder))
         .sendTo(fulfilledOrders);
+
+    app.run();
+    app.waitForFinish();
   }
 
-  // local execution mode
-  public static void main(String[] args) throws Exception {
-    CommandLine cmdLine = new CommandLine();
-    Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    LocalApplicationRunner localRunner = new LocalApplicationRunner(config);
-    localRunner.run(new OrderShipmentJoinExample());
-  }
-
-  class MyJoinFunction implements JoinFunction<String, OrderRecord, ShipmentRecord, FulfilledOrderRecord> {
+  static class MyJoinFunction implements JoinFunction<String, OrderRecord, ShipmentRecord, FulfilledOrderRecord> {
     @Override
     public FulfilledOrderRecord apply(OrderRecord message, ShipmentRecord otherMessage) {
       return new FulfilledOrderRecord(message.orderId, message.orderTimeMs, otherMessage.shipTimeMs);
@@ -101,7 +102,7 @@ public class OrderShipmentJoinExample implements StreamApplication {
     }
   }
 
-  class FulfilledOrderRecord {
+  static class FulfilledOrderRecord {
     String orderId;
     long orderTimeMs;
     long shipTimeMs;

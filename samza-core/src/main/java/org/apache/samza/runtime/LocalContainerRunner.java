@@ -23,7 +23,9 @@ import java.util.HashMap;
 import java.util.Random;
 import org.apache.log4j.MDC;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.ApplicationBase;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationInternal;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
@@ -37,10 +39,11 @@ import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.task.TaskFactoryUtil;
-import org.apache.samza.util.ScalaToJavaUtils;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.apache.samza.util.ScalaToJavaUtils.defaultValue;
 
 /**
  * LocalContainerRunner is the local runner for Yarn {@link SamzaContainer}s. It is an intermediate step to
@@ -51,7 +54,7 @@ import org.slf4j.LoggerFactory;
  * Since we don't have the {@link org.apache.samza.coordinator.JobCoordinator} implementation in Yarn, the components (jobModel and containerId)
  * are directly inside the runner.
  */
-public class LocalContainerRunner extends AbstractApplicationRunner {
+public class LocalContainerRunner extends ApplicationRunnerBase {
   private static final Logger log = LoggerFactory.getLogger(LocalContainerRunner.class);
   private final JobModel jobModel;
   private final String containerId;
@@ -71,52 +74,79 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
   }
 
   @Override
-  public void run(StreamApplication streamApp) {
-    Object taskFactory = TaskFactoryUtil.createTaskFactory(config, streamApp, this);
-
-    container = SamzaContainer$.MODULE$.apply(
-        containerId,
-        jobModel,
-        config,
-        Util.<String, MetricsReporter>javaMapAsScalaMap(new HashMap<>()),
-        taskFactory);
-    container.setContainerListener(
-        new SamzaContainerListener() {
-          @Override
-          public void onContainerStart() {
-            log.info("Container Started");
-          }
-
-          @Override
-          public void onContainerStop(boolean invokedExternally) {
-            log.info("Container Stopped");
-          }
-
-          @Override
-          public void onContainerFailed(Throwable t) {
-            log.info("Container Failed");
-            containerRunnerException = t;
-          }
-        });
-    startContainerHeartbeatMonitor();
-    container.run();
-    stopContainerHeartbeatMonitor();
-    if (containerRunnerException != null) {
-      log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
-      System.exit(1);
+  ApplicationRuntimeInstance createRuntimeInstance(ApplicationBase streamApp) {
+    if (streamApp instanceof StreamApplication) {
+      return new StreamAppRuntime(new StreamApplicationInternal((StreamApplication) streamApp));
     }
+
+    throw new IllegalArgumentException("Application type " + streamApp.getClass().getCanonicalName() + " is not supported by LocalContainerRunner");
   }
 
-  @Override
-  public void kill(StreamApplication streamApp) {
-    // Ultimately this class probably won't end up extending ApplicationRunner, so this will be deleted
-    throw new UnsupportedOperationException();
-  }
+  private class StreamAppRuntime implements ApplicationRuntimeInstance {
+    private final StreamApplicationInternal app;
 
-  @Override
-  public ApplicationStatus status(StreamApplication streamApp) {
-    // Ultimately this class probably won't end up extending ApplicationRunner, so this will be deleted
-    throw new UnsupportedOperationException();
+    StreamAppRuntime(StreamApplicationInternal streamApp) {
+      this.app = streamApp;
+    }
+
+    @Override
+    public void run() {
+      Object taskFactory = TaskFactoryUtil.createTaskFactory(config, app, LocalContainerRunner.this);
+
+      container = SamzaContainer$.MODULE$.apply(
+          containerId,
+          jobModel,
+          config,
+          Util.<String, MetricsReporter>javaMapAsScalaMap(new HashMap<>()),
+          taskFactory);
+      container.setContainerListener(
+          new SamzaContainerListener() {
+            @Override
+            public void onContainerStart() {
+              log.info("Container Started");
+            }
+
+            @Override
+            public void onContainerStop(boolean invokedExternally) {
+              log.info("Container Stopped");
+            }
+
+            @Override
+            public void onContainerFailed(Throwable t) {
+              log.info("Container Failed");
+              containerRunnerException = t;
+            }
+          });
+      startContainerHeartbeatMonitor();
+      container.run();
+      stopContainerHeartbeatMonitor();
+      if (containerRunnerException != null) {
+        log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
+        System.exit(1);
+      }
+    }
+
+    @Override
+    public void kill() {
+      // Ultimately this class probably won't end up extending ApplicationRunner, so this will be deleted
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ApplicationStatus status() {
+      // Ultimately this class probably won't end up extending ApplicationRunner, so this will be deleted
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void waitForFinish() {
+
+    }
+
+    @Override
+    public ApplicationBase getUserApp() {
+      return this.app.getUserApp();
+    }
   }
 
   public static void main(String[] args) throws Exception {
@@ -137,7 +167,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
       throw new SamzaException("can not find the job name");
     }
     String jobName = jobConfig.getName().get();
-    String jobId = jobConfig.getJobId().getOrElse(ScalaToJavaUtils.defaultValue("1"));
+    String jobId = jobConfig.getJobId().getOrElse(defaultValue("1"));
     MDC.put("containerName", "samza-container-" + containerId);
     MDC.put("jobName", jobName);
     MDC.put("jobId", jobId);
@@ -168,4 +198,5 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
       containerHeartbeatMonitor.stop();
     }
   }
+
 }

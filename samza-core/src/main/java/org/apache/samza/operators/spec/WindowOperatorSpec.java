@@ -22,6 +22,7 @@ package org.apache.samza.operators.spec;
 import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.impl.store.TimeSeriesKeySerde;
+import java.io.IOException;
 import org.apache.samza.operators.triggers.AnyTrigger;
 import org.apache.samza.operators.triggers.RepeatingTrigger;
 import org.apache.samza.operators.triggers.TimeBasedTrigger;
@@ -134,4 +135,9 @@ public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK
         Collections.emptyMap());
     return Collections.singletonList(descriptor);
   }
+
+  public WindowOperatorSpec<M, WK, WV> copy() throws IOException, ClassNotFoundException {
+    return (WindowOperatorSpec<M, WK, WV>) super.copy();
+  }
+
 }

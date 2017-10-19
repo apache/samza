@@ -530,4 +530,5 @@ public class TestStreamGraphImpl {
     Assert.assertEquals(inputSpecs.get(1).getStreamSpec(), testStreamSpec2);
     Assert.assertEquals(inputSpecs.get(2).getStreamSpec(), testStreamSpec3);
   }
+
 }

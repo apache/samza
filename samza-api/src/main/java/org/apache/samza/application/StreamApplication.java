@@ -18,15 +18,24 @@
  */
 package org.apache.samza.application;
 
+import java.io.IOException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.ContextManager;
+import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.operators.IOSystem;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OutputStream;
+import org.apache.samza.operators.StreamDescriptor;
 import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.functions.InitableFunction;
+import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.TaskContext;
+
+import java.util.Map;
+
 
 /**
  * Describes and initializes the transforms for processing message streams and generating results.
@@ -72,25 +81,77 @@ import org.apache.samza.task.TaskContext;
  * See {@link InitableFunction} and {@link org.apache.samza.operators.functions.ClosableFunction}.
  */
 @InterfaceStability.Unstable
-public interface StreamApplication {
+public class StreamApplication extends ApplicationBase {
+
+  /*package private*/
+  final StreamGraph graph;
+
+  StreamApplication(ApplicationRunner runner, Config config) {
+    super(runner, config);
+    this.graph = runner.createGraph();
+  }
 
   /**
-   * Describes and initializes the transforms for processing message streams and generating results.
+   * Gets the input {@link MessageStream} corresponding to the {@code streamId}.
    * <p>
-   * The {@link StreamGraph} provides access to input and output streams. Input {@link MessageStream}s can be
-   * transformed into other {@link MessageStream}s or sent to an {@link OutputStream} using the {@link MessageStream}
-   * operators.
-   * <p>
-   * Most operators accept custom functions for doing the transformations. These functions are {@link InitableFunction}s
-   * and are provided the {@link Config} and {@link TaskContext} during their own initialization. The config and the
-   * context can be used, for example, to create custom metrics or access durable state stores.
-   * <p>
-   * A shared context between {@link InitableFunction}s for different operators within a task instance can be set
-   * up by providing a {@link ContextManager} using {@link StreamGraph#withContextManager}.
+   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
-   * @param graph the {@link StreamGraph} to get input/output streams from
-   * @param config the configuration for the application
+   * @param streamId the input {@link StreamDescriptor.Input}
+   * @return the input {@link MessageStream}
+   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
-  void init(StreamGraph graph, Config config);
+  public <M> MessageStream<M> openInput(String streamId, Serde<M> serde) throws IOException {
+    return this.graph.getInputStream(streamId, serde);
+  }
 
+  /**
+   * Gets the input {@link MessageStream} corresponding to the {@code streamId}.
+   * <p>
+   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
+   *
+   * @param <M> the type of message in the input {@link MessageStream}
+   * @param streamId the input {@link StreamDescriptor.Input}
+   * @return the input {@link MessageStream}
+   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
+   */
+  public <M> MessageStream<M> openInput(String streamId) throws IOException {
+    return this.graph.getInputStream(streamId);
+  }
+
+  /**
+   * Gets the {@link OutputStream} corresponding to the {@code streamId}.
+   * <p>
+   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
+   *
+   * @param <M> the type of message in the {@link OutputStream}
+   * @param output the {@link StreamDescriptor.Output} to describe the {@code output} object
+   * @return the output {@link OutputStream}
+   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
+   */
+  public <M> OutputStream<M> openOutput(String output, Serde<M> serde) {
+    return this.graph.getOutputStream(output, serde);
+  }
+
+  /**
+   * Gets the {@link OutputStream} corresponding to the {@code streamId}.
+   * <p>
+   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
+   *
+   * @param output the {@link StreamDescriptor.Output} to describe the {@code output} object
+   * @return the output {@link OutputStream}
+   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
+   */
+  public <M> OutputStream<M> openOutput(String output) {
+    return this.graph.getOutputStream(output);
+  }
+
+  public StreamApplication withMetricsReporters(Map<String, MetricsReporter> metrics) {
+    super.withMetricsReports(metrics);
+    return this;
+  }
+
+  public StreamApplication withContextFactory(ProcessorContextFactory factory) {
+    super.setContextFactory(factory);
+    return this;
+  }
 }

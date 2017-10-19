@@ -18,14 +18,14 @@
  */
 package org.apache.samza.operators.windows.internal;
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.operators.functions.SupplierFunction;
 import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.Window;
 import org.apache.samza.serializers.Serde;
 
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
  *  Internal representation of a {@link Window}. This specifies default, early and late triggers for the {@link Window}
@@ -45,7 +45,7 @@ public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
   /**
    * The supplier of initial value to be used for windowed aggregations
    */
-  private final Supplier<WV> initializer;
+  private final SupplierFunction<WV> initializer;
 
   /*
    * The function that is applied each time a {@link MessageEnvelope} is added to this window.
@@ -55,12 +55,12 @@ public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
   /*
    * The function that extracts the key from a {@link MessageEnvelope}
    */
-  private final Function<M, WK> keyExtractor;
+  private final MapFunction<M, WK> keyExtractor;
 
   /*
    * The function that extracts the event time from a {@link MessageEnvelope}
    */
-  private final Function<M, Long> eventTimeExtractor;
+  private final MapFunction<M, Long> eventTimeExtractor;
 
   /**
    * The type of this window. Tumbling and Session windows are supported for now.
@@ -75,8 +75,8 @@ public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
   private Trigger<M> lateTrigger;
   private AccumulationMode mode;
 
-  public WindowInternal(Trigger<M> defaultTrigger, Supplier<WV> initializer, FoldLeftFunction<M, WV> foldLeftFunction,
-      Function<M, WK> keyExtractor, Function<M, Long> eventTimeExtractor, WindowType windowType, Serde<WK> keySerde,
+  public WindowInternal(Trigger<M> defaultTrigger, SupplierFunction<WV> initializer, FoldLeftFunction<M, WV> foldLeftFunction,
+      MapFunction<M, WK> keyExtractor, MapFunction<M, Long> eventTimeExtractor, WindowType windowType, Serde<WK> keySerde,
       Serde<WV> windowValueSerde, Serde<M> msgSerde) {
     this.defaultTrigger = defaultTrigger;
     this.initializer = initializer;
@@ -121,7 +121,7 @@ public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
     return lateTrigger;
   }
 
-  public Supplier<WV> getInitializer() {
+  public SupplierFunction<WV> getInitializer() {
     return initializer;
   }
 
@@ -129,11 +129,11 @@ public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
     return foldLeftFunction;
   }
 
-  public Function<M, WK> getKeyExtractor() {
+  public MapFunction<M, WK> getKeyExtractor() {
     return keyExtractor;
   }
 
-  public Function<M, Long> getEventTimeExtractor() {
+  public MapFunction<M, Long> getEventTimeExtractor() {
     return eventTimeExtractor;
   }
 

@@ -58,4 +58,6 @@ public interface ExecutionPlan {
    *                   and {@link org.codehaus.jackson.JsonGenerationException}
    */
   String getPlanAsJson() throws Exception;
+
+  String getId();
 }

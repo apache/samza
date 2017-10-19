@@ -18,7 +18,7 @@
  */
 package org.apache.samza.task;
 
-import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationInternal;
 import org.apache.samza.config.Config;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.MessageType;
@@ -27,7 +27,6 @@ import org.apache.samza.operators.KV;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.impl.InputOperatorImpl;
 import org.apache.samza.operators.impl.OperatorImplGraph;
-import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.WatermarkMessage;
@@ -39,38 +38,35 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A {@link StreamTask} implementation that brings all the operator API implementation components together and
- * feeds the input messages into the user-defined transformation chains in {@link StreamApplication}.
+ * feeds the input messages into the user-defined transformation chains in {@link StreamApplicationInternal}.
  */
 public final class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask {
   private static final Logger LOG = LoggerFactory.getLogger(StreamOperatorTask.class);
 
-  private final StreamApplication streamApplication;
-  private final ApplicationRunner runner;
+  private final StreamApplicationInternal streamApplication;
   private final Clock clock;
 
   private OperatorImplGraph operatorImplGraph;
   private ContextManager contextManager;
 
   /**
-   * Constructs an adaptor task to run the user-implemented {@link StreamApplication}.
-   * @param streamApplication the user-implemented {@link StreamApplication} that creates the logical DAG
-   * @param runner the {@link ApplicationRunner} to get the mapping between logical and physical streams
+   * Constructs an adaptor task to run the user-implemented {@link StreamApplicationInternal}.
+   * @param streamApplication the user-implemented {@link StreamApplicationInternal} that creates the logical DAG
    * @param clock the {@link Clock} to use for time-keeping
    */
-  public StreamOperatorTask(StreamApplication streamApplication, ApplicationRunner runner, Clock clock) {
+  public StreamOperatorTask(StreamApplicationInternal streamApplication, Clock clock) {
     this.streamApplication = streamApplication;
-    this.runner = runner;
     this.clock = clock;
   }
 
-  public StreamOperatorTask(StreamApplication application, ApplicationRunner runner) {
-    this(application, runner, SystemClock.instance());
+  public StreamOperatorTask(StreamApplicationInternal application) {
+    this(application, SystemClock.instance());
   }
 
   /**
    * Initializes this task during startup.
    * <p>
-   * Implementation: Initializes the user-implemented {@link StreamApplication}. The {@link StreamApplication} sets
+   * Implementation: Initializes the user-implemented {@link StreamApplicationInternal}. The {@link StreamApplicationInternal} sets
    * the input and output streams and the task-wide context manager using the {@link StreamGraphImpl} APIs,
    * and the logical transforms using the {@link org.apache.samza.operators.MessageStream} APIs. It then uses
    * the {@link StreamGraphImpl} to create the {@link OperatorImplGraph} corresponding to the logical DAG.
@@ -81,12 +77,16 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
    */
   @Override
   public final void init(Config config, TaskContext context) throws Exception {
-    StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
+    // TODO: getStreamGraphImpl() need to return a new instance of StreamGraphImpl per task, not a shared instance
+    StreamGraphImpl streamGraph = this.streamApplication.getStreamGraphImpl();
     // initialize the user-implemented stream application.
-    this.streamApplication.init(streamGraph, config);
+    // this.streamApplication.init(streamGraph, config);
 
     // get the user-implemented context manager and initialize it
-    this.contextManager = streamGraph.getContextManager();
+    // NOTE: if we don't clone for each task, global variables used across different tasks are possible. If we clone
+    // the context manager for each task, the shared context is only across operators in the same task instance. I am ignoring
+    // the global shared variable in this case and only focus on shared context within a single task instance for now.
+    this.contextManager = streamGraph.getContextManager().getContextManagerPerTask();
     if (this.contextManager != null) {
       this.contextManager.init(config, context);
     }

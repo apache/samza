@@ -18,16 +18,17 @@
  */
 package org.apache.samza.testUtils;
 
-import org.apache.samza.config.Config;
-import org.apache.samza.operators.StreamGraph;
+//import org.apache.samza.config.Config;
+//import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.application.StreamApplication;
 
 /**
  * Test implementation class for {@link StreamApplication}
  */
-public class TestStreamApplication implements StreamApplication {
-  @Override
-  public void init(StreamGraph graph, Config config) {
-
-  }
+public class TestStreamApplication {
+//public class TestStreamApplication implements StreamApplication {
+//  @Override
+//  public void init(StreamGraph graph, Config config) {
+//
+//  }
 }

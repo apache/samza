@@ -19,6 +19,7 @@
 package org.apache.samza.operators.spec;
 
 import com.google.common.collect.ImmutableMap;
+import java.io.IOException;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.impl.store.TimestampedValueSerde;
@@ -120,4 +121,9 @@ public class JoinOperatorSpec<K, M, OM, JM> extends OperatorSpec<Object, JM> imp
   public long getTtlMs() {
     return ttlMs;
   }
+
+  public JoinOperatorSpec<K, M, OM, JM> copy() throws IOException, ClassNotFoundException {
+    return (JoinOperatorSpec<K, M, OM, JM>) super.copy();
+  }
+
 }

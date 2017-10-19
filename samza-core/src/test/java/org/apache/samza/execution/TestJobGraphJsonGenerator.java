@@ -124,12 +124,14 @@ public class TestJobGraphJsonGenerator {
     OutputStream<KV<Object, Object>> outputStream2 = streamGraph.getOutputStream("output2");
 
     messageStream1
-        .join(messageStream2, mock(JoinFunction.class),
+        .join(messageStream2,
+            (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
             mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2))
         .sendTo(outputStream1);
     messageStream2.sink((message, collector, coordinator) -> { });
     messageStream3
-        .join(messageStream2, mock(JoinFunction.class),
+        .join(messageStream2,
+            (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
             mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1))
         .sendTo(outputStream2);
 
@@ -147,4 +149,5 @@ public class TestJobGraphJsonGenerator {
     assertEquals(2, nodes.sinkStreams.size());
     assertEquals(2, nodes.intermediateStreams.size());
   }
+
 }

@@ -20,16 +20,24 @@
 package org.apache.samza.runtime;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.ApplicationBase;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
+import org.apache.samza.application.StreamApplicationInternal;
+import org.apache.samza.application.TaskApplication;
+import org.apache.samza.application.TaskApplicationInternal;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory;
 import org.apache.samza.execution.ExecutionPlan;
+import org.apache.samza.execution.ExecutionPlanner;
+import org.apache.samza.execution.StreamManager;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
 import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.system.StreamSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,7 +45,7 @@ import org.slf4j.LoggerFactory;
 /**
  * This class implements the {@link ApplicationRunner} that runs the applications in a remote cluster
  */
-public class RemoteApplicationRunner extends AbstractApplicationRunner {
+public class RemoteApplicationRunner extends ApplicationRunnerBase {
 
   private static final Logger LOG = LoggerFactory.getLogger(RemoteApplicationRunner.class);
 
@@ -45,104 +53,174 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     super(config);
   }
 
-  @Override
+  @Deprecated
   public void runTask() {
     throw new UnsupportedOperationException("Running StreamTask is not implemented for RemoteReplicationRunner");
   }
 
-  /**
-   * Run the {@link StreamApplication} on the remote cluster
-   * @param app a StreamApplication
-   */
   @Override
-  public void run(StreamApplication app) {
-    try {
-      // TODO: this is a tmp solution and the run.id generation will be addressed in another JIRA
-      String runId = String.valueOf(System.currentTimeMillis());
-      LOG.info("The run id for this run is {}", runId);
+  public StreamSpec getStreamSpec(String streamId) {
+    //TODO: fix it w/ actual config lookup
+    return null;
+  }
 
-      // 1. initialize and plan
-      ExecutionPlan plan = getExecutionPlan(app, runId);
-      writePlanJsonFile(plan.getPlanAsJson());
+  public void waitForFinish() {
+    throw new UnsupportedOperationException("waitForFinish is not supported in RemoteApplicationRunner");
+  }
 
-      // 2. create the necessary streams
-      if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
-        getStreamManager().clearStreamsFromPreviousRun(getConfigFromPrevRun());
+  private class StreamTaskAppRuntime implements ApplicationRuntimeInstance {
+    private final TaskApplicationInternal app;
+
+    StreamTaskAppRuntime(TaskApplicationInternal app) {
+      this.app = app;
+    }
+
+    @Override
+    public void run() {
+      // TODO: take the task factory and config to invoke a jobRunner.run()
+    }
+
+    @Override
+    public void kill() {
+      // TODO: take the task factory and config to invoke jobRunner.kill()
+    }
+
+    @Override
+    public ApplicationStatus status() {
+      // TODO: take the task factory and config to get jobRunner.status()
+      return null;
+    }
+
+    @Override
+    public void waitForFinish() {
+      RemoteApplicationRunner.this.waitForFinish();
+    }
+
+    @Override
+    public ApplicationBase getUserApp() {
+      return this.app.getUserApp();
+    }
+  }
+
+  private class StreamAppRuntime implements ApplicationRuntimeInstance {
+    private final StreamApplicationInternal app;
+    private final StreamManager streamManager;
+    private final ExecutionPlanner planner;
+
+    StreamAppRuntime(StreamApplicationInternal app) {
+      this.app = app;
+      this.streamManager = new StreamManager(new JavaSystemConfig(config).getSystemAdmins());
+      this.planner = new ExecutionPlanner(config, streamManager);
+    }
+
+    @Override
+    public void run() {
+      try {
+        // 1. initialize and plan
+        ExecutionPlan plan = getExecutionPlan(this.app);
+        writePlanJsonFile(plan.getPlanAsJson());
+
+        // 2. create the necessary streams
+        this.streamManager.createStreams(plan.getIntermediateStreams());
+
+        // 3. submit jobs for remote execution
+        plan.getJobConfigs().forEach(jobConfig -> {
+            LOG.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
+            JobRunner runner = new JobRunner(jobConfig);
+            runner.run(true);
+          });
+      } catch (Throwable t) {
+        throw new SamzaException("Failed to run application", t);
       }
-      getStreamManager().createStreams(plan.getIntermediateStreams());
-
-      // 3. submit jobs for remote execution
-      plan.getJobConfigs().forEach(jobConfig -> {
-          LOG.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
-          JobRunner runner = new JobRunner(jobConfig);
-          runner.run(true);
-        });
-    } catch (Throwable t) {
-      throw new SamzaException("Failed to run application", t);
     }
-  }
 
-  @Override
-  public void kill(StreamApplication app) {
-    try {
-      ExecutionPlan plan = getExecutionPlan(app);
-
-      plan.getJobConfigs().forEach(jobConfig -> {
-          LOG.info("Killing job {}", jobConfig.getName());
-          JobRunner runner = new JobRunner(jobConfig);
-          runner.kill();
-        });
-    } catch (Throwable t) {
-      throw new SamzaException("Failed to kill application", t);
+    private ExecutionPlan getExecutionPlan(StreamApplicationInternal app) throws Exception {
+      return this.planner.plan(app.getStreamGraphImpl());
     }
-  }
 
-  @Override
-  public ApplicationStatus status(StreamApplication app) {
-    try {
-      boolean hasNewJobs = false;
-      boolean hasRunningJobs = false;
-      ApplicationStatus unsuccessfulFinishStatus = null;
+    @Override
+    public void kill() {
+      try {
+        ExecutionPlan plan = getExecutionPlan(app);
 
-      ExecutionPlan plan = getExecutionPlan(app);
-      for (JobConfig jobConfig : plan.getJobConfigs()) {
-        JobRunner runner = new JobRunner(jobConfig);
-        ApplicationStatus status = runner.status();
-        LOG.debug("Status is {} for job {}", new Object[]{status, jobConfig.getName()});
+        plan.getJobConfigs().forEach(jobConfig -> {
+            LOG.info("Killing job {}", jobConfig.getName());
+            JobRunner runner = new JobRunner(jobConfig);
+            runner.kill();
+          });
+      } catch (Throwable t) {
+        throw new SamzaException("Failed to kill application", t);
+      }
+    }
 
-        switch (status.getStatusCode()) {
-          case New:
-            hasNewJobs = true;
-            break;
-          case Running:
-            hasRunningJobs = true;
-            break;
-          case UnsuccessfulFinish:
-            unsuccessfulFinishStatus = status;
-            break;
-          case SuccessfulFinish:
-            break;
-          default:
-            // Do nothing
+    @Override
+    public ApplicationStatus status() {
+      try {
+        boolean hasNewJobs = false;
+        boolean hasRunningJobs = false;
+        ApplicationStatus unsuccessfulFinishStatus = null;
+
+        ExecutionPlan plan = getExecutionPlan(app);
+        for (JobConfig jobConfig : plan.getJobConfigs()) {
+          JobRunner runner = new JobRunner(jobConfig);
+          ApplicationStatus status = runner.status();
+          LOG.debug("Status is {} for job {}", new Object[]{status, jobConfig.getName()});
+
+          switch (status.getStatusCode()) {
+            case New:
+              hasNewJobs = true;
+              break;
+            case Running:
+              hasRunningJobs = true;
+              break;
+            case UnsuccessfulFinish:
+              unsuccessfulFinishStatus = status;
+              break;
+            case SuccessfulFinish:
+              break;
+            default:
+              // Do nothing
+          }
         }
-      }
 
-      if (hasNewJobs) {
-        // There are jobs not started, report as New
-        return ApplicationStatus.New;
-      } else if (hasRunningJobs) {
-        // All jobs are started, some are running
-        return ApplicationStatus.Running;
-      } else if (unsuccessfulFinishStatus != null) {
-        // All jobs are finished, some are not successful
-        return unsuccessfulFinishStatus;
-      } else {
-        // All jobs are finished successfully
-        return ApplicationStatus.SuccessfulFinish;
+        if (hasNewJobs) {
+          // There are jobs not started, report as New
+          return ApplicationStatus.New;
+        } else if (hasRunningJobs) {
+          // All jobs are started, some are running
+          return ApplicationStatus.Running;
+        } else if (unsuccessfulFinishStatus != null) {
+          // All jobs are finished, some are not successful
+          return unsuccessfulFinishStatus;
+        } else {
+          // All jobs are finished successfully
+          return ApplicationStatus.SuccessfulFinish;
+        }
+      } catch (Throwable t) {
+        throw new SamzaException("Failed to get status for application", t);
       }
-    } catch (Throwable t) {
-      throw new SamzaException("Failed to get status for application", t);
     }
+
+    @Override
+    public void waitForFinish() {
+      RemoteApplicationRunner.this.waitForFinish();
+    }
+
+    @Override
+    public ApplicationBase getUserApp() {
+      return this.app.getUserApp();
+    }
+  }
+
+  ApplicationRuntimeInstance createRuntimeInstance(ApplicationBase streamApp) {
+    if (streamApp instanceof StreamApplication) {
+      return new StreamAppRuntime(new StreamApplicationInternal((StreamApplication) streamApp));
+    }
+    if (streamApp instanceof TaskApplication) {
+      return new StreamTaskAppRuntime(new TaskApplicationInternal((TaskApplication) streamApp));
+    }
+
+    throw new IllegalArgumentException("Application type " + streamApp.getClass().getCanonicalName() + " is not supported by RemoteApplicationRunner");
   }
 
   private Config getConfigFromPrevRun() {

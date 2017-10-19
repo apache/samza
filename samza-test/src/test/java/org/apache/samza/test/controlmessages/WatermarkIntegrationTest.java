@@ -26,7 +26,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
+import org.apache.samza.application.ApplicationBase;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -118,6 +120,7 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
   @Test
   public void testWatermark() throws Exception {
     Map<String, String> configs = new HashMap<>();
+    configs.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
     configs.put("systems.test.samza.factory", TestSystemFactory.class.getName());
     configs.put("streams.PageView.samza.system", "test");
     configs.put("streams.PageView.partitionCount", String.valueOf(PARTITION_COUNT));
@@ -140,20 +143,18 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
     configs.put("serializers.registry.string.class", StringSerdeFactory.class.getName());
     configs.put("serializers.registry.json.class", PageViewJsonSerdeFactory.class.getName());
 
-    final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
     List<PageView> received = new ArrayList<>();
-    final StreamApplication app = (streamGraph, cfg) -> {
-      streamGraph.<KV<String, PageView>>getInputStream("PageView")
+    final StreamApplication app = StreamApplications.createStreamApp(new MapConfig(configs));
+    app.<KV<String, PageView>>openInput("PageView")
           .map(EndOfStreamIntegrationTest.Values.create())
           .partitionBy(pv -> pv.getMemberId(), pv -> pv)
           .sink((m, collector, coordinator) -> {
               received.add(m.getValue());
             });
-    };
-    runner.run(app);
-    Map<String, StreamOperatorTask> tasks = getTaskOperationGraphs(runner);
+    app.run();
+    Map<String, StreamOperatorTask> tasks = getTaskOperationGraphs(app);
 
-    runner.waitForFinish();
+    app.waitForFinish();
 
     StreamOperatorTask task0 = tasks.get("Partition 0");
     OperatorImplGraph graph = TestStreamOperatorTask.getOperatorImplGraph(task0);
@@ -174,7 +175,10 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
     assertEquals(TestOperatorImpl.getOutputWatermark(sink), 3);
   }
 
-  Map<String, StreamOperatorTask> getTaskOperationGraphs(LocalApplicationRunner runner) throws Exception {
+  Map<String, StreamOperatorTask> getTaskOperationGraphs(StreamApplication app) throws Exception {
+    Field appRunnerField = ApplicationBase.class.getDeclaredField("runner");
+    appRunnerField.setAccessible(true);
+    LocalApplicationRunner runner = (LocalApplicationRunner) appRunnerField.get(app);
     StreamProcessor processor = TestLocalApplicationRunner.getProcessors(runner).iterator().next();
     SamzaContainer container = TestStreamProcessorUtil.getContainer(processor);
     Map<TaskName, TaskInstance> taskInstances = JavaConverters.mapAsJavaMapConverter(container.getTaskInstances()).asJava();

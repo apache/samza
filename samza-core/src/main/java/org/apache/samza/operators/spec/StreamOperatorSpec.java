@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.spec;
 
+import java.io.IOException;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
@@ -39,7 +40,7 @@ public class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
    * @param opCode  the {@link OpCode} for this {@link StreamOperatorSpec}
    * @param opId  the unique ID for this {@link StreamOperatorSpec}
    */
-  StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, OperatorSpec.OpCode opCode, int opId) {
+  StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, OperatorSpec.OpCode opCode, int opId) throws IOException {
     super(opCode, opId);
     this.transformFn = transformFn;
   }
@@ -51,5 +52,9 @@ public class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
   @Override
   public WatermarkFunction getWatermarkFn() {
     return transformFn instanceof WatermarkFunction ? (WatermarkFunction) transformFn : null;
+  }
+
+  public StreamOperatorSpec<M, OM> copy() throws IOException, ClassNotFoundException {
+    return (StreamOperatorSpec<M, OM>) super.copy();
   }
 }

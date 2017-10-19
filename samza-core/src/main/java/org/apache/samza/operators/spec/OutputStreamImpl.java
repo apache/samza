@@ -53,4 +53,5 @@ public class OutputStreamImpl<M> implements OutputStream<M> {
   public boolean isKeyedOutput() {
     return isKeyedOutput;
   }
+
 }

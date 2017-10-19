@@ -19,7 +19,9 @@
 
 package org.apache.samza.test.operator;
 
+import java.io.IOException;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
@@ -33,20 +35,28 @@ import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.test.operator.data.PageView;
 
 import java.time.Duration;
+import org.apache.samza.util.CommandLine;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * A {@link StreamApplication} that demonstrates a filter followed by a session window.
+ * A {@link org.apache.samza.application.StreamApplication} that demonstrates a filter followed by a session window.
  */
-public class SessionWindowApp implements StreamApplication {
+public class SessionWindowApp {
   private static final String INPUT_TOPIC = "page-views";
   private static final String OUTPUT_TOPIC = "page-view-counts";
+
+  private static final Logger LOG = LoggerFactory.getLogger(SessionWindowApp.class);
   private static final String FILTER_KEY = "badKey";
 
-  @Override
-  public void init(StreamGraph graph, Config config) {
-    MessageStream<PageView> pageViews = graph.getInputStream(INPUT_TOPIC, new JsonSerdeV2<>(PageView.class));
+  public static void main(String[] args) throws IOException {
+    CommandLine cmdLine = new CommandLine();
+    Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
+    StreamApplication app = StreamApplications.createStreamApp(config);
+
+    MessageStream<PageView> pageViews = app.openInput(INPUT_TOPIC, new JsonSerdeV2<>(PageView.class));
     OutputStream<KV<String, Integer>> outputStream =
-        graph.getOutputStream(OUTPUT_TOPIC, new KVSerde<>(new StringSerde(), new IntegerSerde()));
+        app.openOutput(OUTPUT_TOPIC, new KVSerde<>(new StringSerde(), new IntegerSerde()));
 
     pageViews
         .filter(m -> !FILTER_KEY.equals(m.getUserId()))
