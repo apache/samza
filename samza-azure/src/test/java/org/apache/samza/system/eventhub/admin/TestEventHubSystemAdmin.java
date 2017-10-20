@@ -104,7 +104,8 @@ public class TestEventHubSystemAdmin {
           Assert.assertNotSame(EventHubSystemConsumer.END_OF_STREAM, metadata.getNewestOffset());
           Assert.assertTrue(Long.parseLong(EventHubSystemConsumer.END_OF_STREAM)
                   <= Long.parseLong(metadata.getNewestOffset()));
-          Assert.assertEquals(EventHubSystemConsumer.END_OF_STREAM, metadata.getUpcomingOffset());
+          String expectedUpcomingOffset = String.valueOf(Long.parseLong(metadata.getNewestOffset()) + 1);
+          Assert.assertEquals(expectedUpcomingOffset, metadata.getUpcomingOffset());
         });
     }
   }

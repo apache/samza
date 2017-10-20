@@ -27,10 +27,10 @@ import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.system.eventhub.SamzaEventHubClient;
+import org.apache.samza.system.eventhub.EventHubClientManager;
 import org.apache.samza.system.eventhub.EventHubConfig;
 import org.apache.samza.system.eventhub.consumer.EventHubSystemConsumer;
-import org.apache.samza.system.eventhub.SamzaEventHubClientFactory;
+import org.apache.samza.system.eventhub.EventHubClientManagerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,17 +47,17 @@ public class EventHubSystemAdmin implements SystemAdmin {
   private static final Logger LOG = LoggerFactory.getLogger(EventHubSystemAdmin.class);
   private static final long DEFAULT_SHUTDOWN_TIMEOUT_MILLIS = Duration.ofMinutes(1L).toMillis();
 
-  private final SamzaEventHubClientFactory samzaEventHubClientFactory;
-  private String systemName;
-  private EventHubConfig eventHubConfig;
-  private Map<String, SamzaEventHubClient> eventHubClients = new HashMap<>();
-  private Map<String, String[]> streamPartitions = new HashMap<>();
+  private final EventHubClientManagerFactory eventHubClientManagerFactory;
+  private final String systemName;
+  private final EventHubConfig eventHubConfig;
+  private final Map<String, EventHubClientManager> eventHubClients = new HashMap<>();
+  private final Map<String, String[]> streamPartitions = new HashMap<>();
 
   public EventHubSystemAdmin(String systemName, EventHubConfig eventHubConfig,
-                             SamzaEventHubClientFactory samzaEventHubClientFactory) {
+                             EventHubClientManagerFactory eventHubClientManagerFactory) {
     this.systemName = systemName;
     this.eventHubConfig = eventHubConfig;
-    this.samzaEventHubClientFactory = samzaEventHubClientFactory;
+    this.eventHubClientManagerFactory = eventHubClientManagerFactory;
   }
 
   private static String getNextOffset(String currentOffset) {
@@ -82,8 +82,8 @@ public class EventHubSystemAdmin implements SystemAdmin {
 
     streamNames.forEach((streamName) -> {
         if (!streamPartitions.containsKey(streamName)) {
-          SamzaEventHubClient samzaEventHubClient = getOrCreateStreamEventHubClient(streamName);
-          CompletableFuture<EventHubRuntimeInformation> runtimeInfo = samzaEventHubClient.getEventHubClient()
+          EventHubClientManager eventHubClientManager = getOrCreateStreamEventHubClient(streamName);
+          CompletableFuture<EventHubRuntimeInformation> runtimeInfo = eventHubClientManager.getEventHubClient()
                   .getRuntimeInformation();
 
           ehRuntimeInfos.put(streamName, runtimeInfo);
@@ -94,11 +94,13 @@ public class EventHubSystemAdmin implements SystemAdmin {
       ehRuntimeInfos.forEach((streamName, ehRuntimeInfo) -> {
 
           if (!streamPartitions.containsKey(streamName)) {
+            LOG.debug(String.format("Partition ids for Stream=%s not found", streamName));
             try {
 
               long timeoutMs = eventHubConfig.getRuntimeInfoWaitTimeMS(systemName);
               EventHubRuntimeInformation ehInfo = ehRuntimeInfo.get(timeoutMs, TimeUnit.MILLISECONDS);
 
+              LOG.debug(String.format("Adding partition ids for Stream=%s", streamName));
               streamPartitions.put(streamName, ehInfo.getPartitionIds());
             } catch (InterruptedException | ExecutionException | TimeoutException e) {
 
@@ -125,24 +127,26 @@ public class EventHubSystemAdmin implements SystemAdmin {
     return requestedMetadata;
   }
 
-  private SamzaEventHubClient getOrCreateStreamEventHubClient(String streamName) {
+  private EventHubClientManager getOrCreateStreamEventHubClient(String streamName) {
     if (!eventHubClients.containsKey(streamName)) {
-      SamzaEventHubClient samzaEventHubClient = samzaEventHubClientFactory
-              .getSamzaEventHubClient(systemName, streamName, eventHubConfig);
+      LOG.debug(String.format("Creating EventHubClient for Stream=%s", streamName));
 
-      samzaEventHubClient.init();
-      eventHubClients.put(streamName, samzaEventHubClient);
+      EventHubClientManager eventHubClientManager = eventHubClientManagerFactory
+              .getEventHubClientManager(systemName, streamName, eventHubConfig);
+
+      eventHubClientManager.init();
+      eventHubClients.put(streamName, eventHubClientManager);
     }
     return eventHubClients.get(streamName);
   }
 
   private Map<Partition, SystemStreamPartitionMetadata> getPartitionMetadata(String streamName, String[] partitionIds) {
-    SamzaEventHubClient samzaEventHubClient = getOrCreateStreamEventHubClient(streamName);
+    EventHubClientManager eventHubClientManager = getOrCreateStreamEventHubClient(streamName);
     Map<Partition, SystemStreamPartitionMetadata> sspMetadataMap = new HashMap<>();
     Map<String, CompletableFuture<EventHubPartitionRuntimeInformation>> ehRuntimeInfos = new HashMap<>();
 
     for (String partition : partitionIds) {
-      CompletableFuture<EventHubPartitionRuntimeInformation> partitionRuntimeInfo = samzaEventHubClient
+      CompletableFuture<EventHubPartitionRuntimeInformation> partitionRuntimeInfo = eventHubClientManager
               .getEventHubClient()
               .getPartitionRuntimeInformation(partition);
 

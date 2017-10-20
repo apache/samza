@@ -209,6 +209,7 @@ project(':samza-azure') {
     toolVersion = "$checkstyleVersion"
   }
   test {
+    // Exclude integration tests that require connection to EventHub
     exclude 'org/apache/samza/system/eventhub/producer/*ITest*'
     exclude 'org/apache/samza/system/eventhub/consumer/*ITest*'
   }

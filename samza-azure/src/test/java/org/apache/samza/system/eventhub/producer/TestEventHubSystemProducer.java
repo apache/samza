@@ -25,7 +25,7 @@ import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.eventhub.EventHubConfig;
-import org.apache.samza.system.eventhub.MockSamzaEventHubClientFactory;
+import org.apache.samza.system.eventhub.MockEventHubClientManagerFactory;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer.PartitioningMethod;
 import org.apache.samza.system.eventhub.TestMetricsRegistry;
 import org.junit.Assert;
@@ -78,7 +78,7 @@ public class TestEventHubSystemProducer {
     configMap.put(String.format(EventHubConfig.CONFIG_PRODUCER_PARTITION_METHOD, systemName),
             PartitioningMethod.PARTITION_KEY_AS_PARTITION.toString());
 
-    MockSamzaEventHubClientFactory factory = new MockSamzaEventHubClientFactory();
+    MockEventHubClientManagerFactory factory = new MockEventHubClientManagerFactory();
 
     EventHubSystemProducer producer =
             new EventHubSystemProducer(new EventHubConfig(configMap), systemName, factory, serdes, testMetrics);
@@ -129,7 +129,7 @@ public class TestEventHubSystemProducer {
     configMap.put(String.format(EventHubConfig.CONFIG_PRODUCER_PARTITION_METHOD, systemName),
             PartitioningMethod.EVENT_HUB_HASHING.toString());
 
-    MockSamzaEventHubClientFactory factory = new MockSamzaEventHubClientFactory();
+    MockEventHubClientManagerFactory factory = new MockEventHubClientManagerFactory();
 
     EventHubSystemProducer producer =
             new EventHubSystemProducer(new EventHubConfig(configMap), systemName, factory, serdes, testMetrics);

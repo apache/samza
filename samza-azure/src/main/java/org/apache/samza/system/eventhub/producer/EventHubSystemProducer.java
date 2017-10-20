@@ -29,9 +29,9 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
-import org.apache.samza.system.eventhub.SamzaEventHubClient;
+import org.apache.samza.system.eventhub.EventHubClientManager;
 import org.apache.samza.system.eventhub.EventHubConfig;
-import org.apache.samza.system.eventhub.SamzaEventHubClientFactory;
+import org.apache.samza.system.eventhub.EventHubClientManagerFactory;
 import org.apache.samza.system.eventhub.metrics.SamzaHistogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,7 +59,6 @@ public class EventHubSystemProducer implements SystemProducer {
   public static final String PRODUCE_TIMESTAMP = "produce-timestamp";
 
   // Metrics recording
-  public static final String AGGREGATE = "aggregate";
   private static final String EVENT_WRITE_RATE = "eventWriteRate";
   private static final String EVENT_BYTE_WRITE_RATE = "eventByteWriteRate";
   private static final String SEND_ERRORS = "sendErrors";
@@ -70,6 +69,9 @@ public class EventHubSystemProducer implements SystemProducer {
   private static Counter aggSendErrors = null;
   private static SamzaHistogram aggSendLatency = null;
   private static SamzaHistogram aggSendCallbackLatency = null;
+  private static final String AGGREGATE = "aggregate";
+
+  private static final Object AGGREGATE_METRICS_LOCK = new Object();
 
   public enum PartitioningMethod {
     EVENT_HUB_HASHING,
@@ -82,31 +84,31 @@ public class EventHubSystemProducer implements SystemProducer {
   private final HashMap<String, SamzaHistogram> sendCallbackLatency = new HashMap<>();
   private final HashMap<String, Counter> sendErrors = new HashMap<>();
 
-  private final SamzaEventHubClientFactory samzaEventHubClientFactory;
+  private final EventHubClientManagerFactory eventHubClientManagerFactory;
   private final EventHubConfig config;
   private final MetricsRegistry registry;
   private final PartitioningMethod partitioningMethod;
   private final String systemName;
 
-  private volatile Throwable sendExceptionOnCallback;
-  private boolean isStarted;
+  private volatile Throwable sendExceptionOnCallback = null;
+  private volatile boolean isStarted = false;
 
   // Map of the system name to the event hub client.
-  private final Map<String, SamzaEventHubClient> eventHubClients = new HashMap<>();
+  private final Map<String, EventHubClientManager> eventHubClients = new HashMap<>();
   private final Map<String, Map<Integer, PartitionSender>> streamPartitionSenders = new HashMap<>();
 
-  private Map<String, Serde<byte[]>> serdes;
+  private final Map<String, Serde<byte[]>> serdes;
 
   private final Set<CompletableFuture<Void>> pendingFutures = ConcurrentHashMap.newKeySet();
 
   public EventHubSystemProducer(EventHubConfig config, String systemName,
-                                SamzaEventHubClientFactory samzaEventHubClientFactory,
+                                EventHubClientManagerFactory eventHubClientManagerFactory,
                                 Map<String, Serde<byte[]>> serdes, MetricsRegistry registry) {
     this.config = config;
     this.registry = registry;
     this.systemName = systemName;
     this.partitioningMethod = config.getPartitioningMethod(systemName);
-    this.samzaEventHubClientFactory = samzaEventHubClientFactory;
+    this.eventHubClientManagerFactory = eventHubClientManagerFactory;
     this.serdes = serdes;
   }
 
@@ -118,7 +120,7 @@ public class EventHubSystemProducer implements SystemProducer {
       throw new SamzaException(msg);
     }
 
-    SamzaEventHubClient ehClient = samzaEventHubClientFactory.getSamzaEventHubClient(systemName, streamName, config);
+    EventHubClientManager ehClient = eventHubClientManagerFactory.getEventHubClientManager(systemName, streamName, config);
 
     ehClient.init();
     eventHubClients.put(streamName, ehClient);
@@ -165,7 +167,7 @@ public class EventHubSystemProducer implements SystemProducer {
     }
 
     // Locking to ensure that these aggregated metrics will be created only once across multiple system consumers.
-    synchronized (AGGREGATE) {
+    synchronized (AGGREGATE_METRICS_LOCK) {
       if (aggEventWriteRate == null) {
         aggEventWriteRate = registry.newCounter(AGGREGATE, EVENT_WRITE_RATE);
         aggEventByteWriteRate = registry.newCounter(AGGREGATE, EVENT_BYTE_WRITE_RATE);
@@ -202,7 +204,7 @@ public class EventHubSystemProducer implements SystemProducer {
     aggEventWriteRate.inc();
     eventByteWriteRate.get(destination).inc(eventDataLength);
     aggEventByteWriteRate.inc(eventDataLength);
-    SamzaEventHubClient ehClient = eventHubClients.get(destination);
+    EventHubClientManager ehClient = eventHubClients.get(destination);
 
     long beforeSendTimeMs = System.currentTimeMillis();
 
@@ -217,7 +219,7 @@ public class EventHubSystemProducer implements SystemProducer {
 
     pendingFutures.add(sendResult);
 
-    // Auto remove the future from the list when they are complete.
+    // Auto update the metrics and possible throwable when futures are complete.
     sendResult.handle((aVoid, throwable) -> {
         long callbackLatencyMs = System.currentTimeMillis() - afterSendTimeMs;
         sendCallbackLatency.get(destination).update(callbackLatencyMs);

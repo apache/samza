@@ -19,30 +19,14 @@
 
 package org.apache.samza.system.eventhub;
 
-import com.microsoft.azure.eventhubs.EventHubClient;
+public class EventHubClientManagerFactory {
+  public EventHubClientManager getEventHubClientManager(String systemName, String streamName, EventHubConfig config) {
 
-/**
- * Wraps the {@link EventHubClient} with lifestyle hooks for initialization and close.
- */
-public interface SamzaEventHubClient {
-  /**
-   * Initiate the connection to EventHub.
-   */
-  void init();
+    String eventHubNamespace = config.getStreamNamespace(systemName, streamName);
+    String entityPath = config.getStreamEntityPath(systemName, streamName);
+    String sasKeyName = config.getStreamSasKeyName(systemName, streamName);
+    String sasToken = config.getStreamSasToken(systemName, streamName);
 
-  /**
-   * Returns the EventHubClient instance of the wrapper so its methods can be invoked directly.
-   *
-   * @return EventHub client instance of the wrapper
-   */
-  EventHubClient getEventHubClient();
-
-  /**
-   * Timed synchronous connection close to the EventHub.
-   *
-   * @param timeoutMs
-   *          Time in Milliseconds to wait for individual components to
-   *          shutdown before moving to the next stage.
-   */
-  void close(long timeoutMs);
+    return new SamzaEventHubClientManager(eventHubNamespace, entityPath, sasKeyName, sasToken);
+  }
 }

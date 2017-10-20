@@ -47,20 +47,20 @@ public class EventHubSystemFactory implements SystemFactory {
   @Override
   public SystemConsumer getConsumer(String systemName, Config config, MetricsRegistry registry) {
     EventHubConfig eventHubConfig = new EventHubConfig(config);
-    return new EventHubSystemConsumer(eventHubConfig, systemName, new SamzaEventHubClientFactory(),
+    return new EventHubSystemConsumer(eventHubConfig, systemName, new EventHubClientManagerFactory(),
             getSerdesMap(eventHubConfig, systemName), registry);
   }
 
   @Override
   public SystemProducer getProducer(String systemName, Config config, MetricsRegistry registry) {
     EventHubConfig eventHubConfig = new EventHubConfig(config);
-    return new EventHubSystemProducer(eventHubConfig, systemName, new SamzaEventHubClientFactory(),
+    return new EventHubSystemProducer(eventHubConfig, systemName, new EventHubClientManagerFactory(),
             getSerdesMap(eventHubConfig, systemName),
             registry);
   }
 
   @Override
   public SystemAdmin getAdmin(String systemName, Config config) {
-    return new EventHubSystemAdmin(systemName, new EventHubConfig(config), new SamzaEventHubClientFactory());
+    return new EventHubSystemAdmin(systemName, new EventHubConfig(config), new EventHubClientManagerFactory());
   }
 }

@@ -34,12 +34,12 @@ import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-public class SamzaEventHubClientImpl implements SamzaEventHubClient {
-  private static final Logger LOG = LoggerFactory.getLogger(SamzaEventHubClientImpl.class.getName());
+public class SamzaEventHubClientManager implements EventHubClientManager {
+  private static final Logger LOG = LoggerFactory.getLogger(SamzaEventHubClientManager.class.getName());
 
   private static final String EVENTHUB_REMOTE_HOST_FORMAT = "%s.servicebus.windows.net";
-  private static final Duration MIN_RETRY_BACKOFF = Duration.ofSeconds(0);
-  private static final Duration MAX_RETRY_BACKOFF = Duration.ofSeconds(10);
+  private static final Duration MIN_RETRY_BACKOFF = Duration.ofMillis(100);
+  private static final Duration MAX_RETRY_BACKOFF = Duration.ofMillis(11000);
   private static final int MAX_RETRY_COUNT = 100;
   private static final String SAMZA_EVENTHUB_RETRY = "SAMZA_CONNECTOR_RETRY";
 
@@ -51,13 +51,13 @@ public class SamzaEventHubClientImpl implements SamzaEventHubClient {
   private final String sasKey;
   private final RetryPolicy retryPolicy;
 
-  public SamzaEventHubClientImpl(String eventHubNamespace, String entityPath, String sasKeyName, String sasKey) {
+  public SamzaEventHubClientManager(String eventHubNamespace, String entityPath, String sasKeyName, String sasKey) {
     this(eventHubNamespace, entityPath, sasKeyName, sasKey,
             new RetryExponential(MIN_RETRY_BACKOFF, MAX_RETRY_BACKOFF, MAX_RETRY_COUNT, SAMZA_EVENTHUB_RETRY));
   }
 
-  public SamzaEventHubClientImpl(String eventHubNamespace, String entityPath, String sasKeyName, String sasKey,
-                                 RetryPolicy retryPolicy) {
+  public SamzaEventHubClientManager(String eventHubNamespace, String entityPath, String sasKeyName, String sasKey,
+                                    RetryPolicy retryPolicy) {
     this.eventHubNamespace = eventHubNamespace;
     this.entityPath = entityPath;
     this.sasKeyName = sasKeyName;

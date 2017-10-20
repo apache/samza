@@ -91,9 +91,9 @@ public class ITestEventHubSystemProducer {
 
   @Test
   public void testReceive() throws ServiceBusException {
-    SamzaEventHubClientFactory clientFactory = new SamzaEventHubClientFactory();
-    SamzaEventHubClient wrapper = clientFactory
-            .getSamzaEventHubClient(SYSTEM_NAME, STREAM_NAME1, new EventHubConfig(createEventHubConfig()));
+    EventHubClientManagerFactory clientFactory = new EventHubClientManagerFactory();
+    EventHubClientManager wrapper = clientFactory
+            .getEventHubClientManager(SYSTEM_NAME, STREAM_NAME1, new EventHubConfig(createEventHubConfig()));
     wrapper.init();
     EventHubClient client = wrapper.getEventHubClient();
     PartitionReceiver receiver =

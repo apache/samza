@@ -35,20 +35,20 @@ import java.util.concurrent.TimeUnit;
 
 import static org.mockito.Matchers.*;
 
-public class MockSamzaEventHubClientFactory extends SamzaEventHubClientFactory {
+public class MockEventHubClientManagerFactory extends EventHubClientManagerFactory {
   private Map<SystemStreamPartition, List<EventData>> eventData;
   private Map<String, Map<String, Map<Integer, List<EventData>>>> receivedData;
 
-  public MockSamzaEventHubClientFactory() {
+  public MockEventHubClientManagerFactory() {
     this.receivedData = new HashMap<>();
   }
 
-  public MockSamzaEventHubClientFactory(Map<SystemStreamPartition, List<EventData>> eventData) {
+  public MockEventHubClientManagerFactory(Map<SystemStreamPartition, List<EventData>> eventData) {
     this.eventData = eventData;
   }
 
   @Override
-  public SamzaEventHubClient getSamzaEventHubClient(String systemName, String streamName, EventHubConfig config) {
+  public EventHubClientManager getEventHubClientManager(String systemName, String streamName, EventHubConfig config) {
     if (receivedData != null) {
       if (!receivedData.containsKey(systemName)) {
         receivedData.put(systemName, new HashMap<>());
@@ -60,7 +60,7 @@ public class MockSamzaEventHubClientFactory extends SamzaEventHubClientFactory {
         receivedData.get(systemName).get(streamName).put(1, new ArrayList<>());
       }
     }
-    return new MockSamzaEventHubClient(systemName, streamName);
+    return new MockEventHubClientManager(systemName, streamName);
   }
 
   // Emulate EventHub sending data
@@ -76,13 +76,13 @@ public class MockSamzaEventHubClientFactory extends SamzaEventHubClientFactory {
     return null;
   }
 
-  private class MockSamzaEventHubClient implements SamzaEventHubClient {
+  private class MockEventHubClientManager implements EventHubClientManager {
     Boolean initiated = false;
     EventHubClient mockEventHubClient = PowerMockito.mock(EventHubClient.class);
     String systemName;
     String streamName;
 
-    MockSamzaEventHubClient(String systemName, String streamName) {
+    MockEventHubClientManager(String systemName, String streamName) {
       this.systemName = systemName;
       this.streamName = streamName;
 

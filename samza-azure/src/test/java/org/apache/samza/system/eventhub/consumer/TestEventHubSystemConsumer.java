@@ -83,7 +83,7 @@ public class TestEventHubSystemConsumer {
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, systemName, streamName), MOCK_ENTITY_1);
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_CONSUMER_START_POSITION, systemName, streamName), "latest");
 
-    MockSamzaEventHubClientFactory eventHubClientWrapperFactory = new MockSamzaEventHubClientFactory(eventData);
+    MockEventHubClientManagerFactory eventHubClientWrapperFactory = new MockEventHubClientManagerFactory(eventData);
 
     EventHubSystemConsumer consumer =
             new EventHubSystemConsumer(new EventHubConfig(configMap), systemName, eventHubClientWrapperFactory, serdes,
@@ -134,7 +134,7 @@ public class TestEventHubSystemConsumer {
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName), EVENTHUB_KEY_NAME);
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, systemName, streamName), EVENTHUB_KEY);
 
-    MockSamzaEventHubClientFactory eventHubClientWrapperFactory = new MockSamzaEventHubClientFactory(eventData);
+    MockEventHubClientManagerFactory eventHubClientWrapperFactory = new MockEventHubClientManagerFactory(eventData);
 
     EventHubSystemConsumer consumer =
             new EventHubSystemConsumer(new EventHubConfig(configMap), systemName, eventHubClientWrapperFactory, serdes,
@@ -194,7 +194,7 @@ public class TestEventHubSystemConsumer {
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName2), EVENTHUB_KEY_NAME);
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, systemName, streamName2), EVENTHUB_KEY);
 
-    MockSamzaEventHubClientFactory eventHubClientWrapperFactory = new MockSamzaEventHubClientFactory(eventData);
+    MockEventHubClientManagerFactory eventHubClientWrapperFactory = new MockEventHubClientManagerFactory(eventData);
 
     EventHubSystemConsumer consumer =
             new EventHubSystemConsumer(new EventHubConfig(configMap), systemName, eventHubClientWrapperFactory, serdes,
