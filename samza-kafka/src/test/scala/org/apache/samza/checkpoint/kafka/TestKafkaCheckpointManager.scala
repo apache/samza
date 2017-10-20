@@ -57,6 +57,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
   val checkpointTopic = "checkpoint-topic"
   val serdeCheckpointTopic = "checkpoint-topic-invalid-serde"
   val checkpointTopicConfig = KafkaCheckpointManagerFactory.getCheckpointTopicProperties(null)
+  val checkpointKeySerde = new KafkaCheckpointLogKeySerde
 
   val zkSecure = JaasUtils.isZkSecurityEnabled()
 
@@ -72,16 +73,17 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
 
   val systemStreamPartitionGrouperFactoryString = classOf[GroupByPartitionFactory].getCanonicalName
 
-  var systemConsumerFn: ()=>SystemConsumer = ()=>{null}
-  var systemProducerFn: ()=>SystemProducer = ()=>{null}
-  var systemAdminFn: ()=>SystemAdmin = ()=>{null}
-  
   val systemName = "kafka"
   val CHECKPOINT_STREAMID = "unused-temp-checkpoint-stream-id"
   val kafkaStreamSpec = new KafkaStreamSpec(CHECKPOINT_STREAMID,
                                  checkpointTopic, systemName, 1,
                                  1, new Properties())
 
+  var systemFactory: SystemFactory = _
+  var systemProducer: SystemProducer = _
+  var systemConsumer: SystemConsumer = _
+  var systemAdmin: SystemAdmin = _
+  var config: MapConfig = _
   @Before
   override def setUp {
     super.setUp
@@ -89,29 +91,31 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     TestUtils.waitUntilTrue(() => servers.head.metadataCache.getAliveBrokers.size == numBrokers, "Wait for cache to update")
 
     val brokers = brokerList.split(",").map(p => "localhost" + p).mkString(",")
-    val config = new java.util.HashMap[String, String]()
-    config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers)
-    config.put("acks", "all")
-    config.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "1")
-    config.put(ProducerConfig.RETRIES_CONFIG, (new Integer(java.lang.Integer.MAX_VALUE-1)).toString)
-    config.putAll(KafkaCheckpointManagerFactory.INJECTED_PRODUCER_PROPERTIES.asJava)
-    producerConfig = new KafkaProducerConfig(systemName, "i001", config)
+    val configMap = new java.util.HashMap[String, String]()
+    configMap.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers)
+    configMap.put("acks", "all")
+    configMap.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "1")
+    configMap.put(ProducerConfig.RETRIES_CONFIG, (new Integer(java.lang.Integer.MAX_VALUE-1)).toString)
+    configMap.putAll(KafkaCheckpointManagerFactory.INJECTED_PRODUCER_PROPERTIES.asJava)
+    producerConfig = new KafkaProducerConfig(systemName, "i001", configMap)
 
     metadataStore = new ClientUtilTopicMetadataStore(brokers, "some-job-name")
 
-    config.put(SystemConfig.SYSTEM_FACTORY format systemName, "org.apache.samza.system.kafka.KafkaSystemFactory")
-    config.put(org.apache.samza.config.KafkaConfig.CHECKPOINT_SYSTEM, systemName);
-    config.put(JobConfig.JOB_NAME, "some-job-name");
-    config.put(JobConfig.JOB_ID, "i001");
-    config.put("systems.%s.producer.%s" format (systemName, ProducerConfig.BOOTSTRAP_SERVERS_CONFIG), brokers)
-    config.put("systems.%s.consumer.zookeeper.connect" format systemName, zkConnect)
-    val cfg: SystemConfig = new SystemConfig(new MapConfig(config))
-    val (systemStreamName: String, systemConsumerFactory : SystemFactory) =
+    configMap.put(SystemConfig.SYSTEM_FACTORY format systemName, "org.apache.samza.system.kafka.KafkaSystemFactory")
+    configMap.put(org.apache.samza.config.KafkaConfig.CHECKPOINT_SYSTEM, systemName);
+    configMap.put(JobConfig.JOB_NAME, "some-job-name");
+    configMap.put(JobConfig.JOB_ID, "i001");
+    configMap.put("systems.%s.producer.%s" format (systemName, ProducerConfig.BOOTSTRAP_SERVERS_CONFIG), brokers)
+    configMap.put("systems.%s.consumer.zookeeper.connect" format systemName, zkConnect)
+    val cfg: SystemConfig = new SystemConfig(new MapConfig(configMap))
+    val (checkpointSystem: String, factory : SystemFactory) =
       KafkaCheckpointManagerFactory.getCheckpointSystemStreamAndFactory(cfg)
-    systemConsumerFn = () => {systemConsumerFactory.getConsumer(systemStreamName, cfg, new NoOpMetricsRegistry())}
-    systemProducerFn = () => {systemConsumerFactory.getProducer(systemStreamName, cfg, new NoOpMetricsRegistry())}
-    systemAdminFn = () => {systemConsumerFactory.getAdmin(systemStreamName, cfg)}
-    
+
+    config = new MapConfig(configMap)
+    systemProducer = factory.getProducer(checkpointSystem, config , new NoOpMetricsRegistry)
+    systemConsumer = factory.getConsumer(checkpointSystem, config, new NoOpMetricsRegistry)
+    systemAdmin = factory.getAdmin(systemName, config)
+    systemFactory = factory
   }
 
   @After
@@ -128,7 +132,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val record = new ProducerRecord(
       cpTopic,
       0,
-      KafkaCheckpointLogKey.getCheckpointKey(taskName).toBytes(),
+      checkpointKeySerde.toBytes(new KafkaCheckpointLogKey(systemStreamPartitionGrouperFactoryString, taskName, KafkaCheckpointLogKey.CHECKPOINT_TYPE)),
       new CheckpointSerde().toBytes(checkpoint)
     )
     try {
@@ -163,7 +167,6 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val taskName = new TaskName(partition.toString)
     kcm.register(taskName)
     createCheckpointTopic()
-    val systemAdmin = systemAdminFn()
     systemAdmin.validateStream(kafkaStreamSpec)
 
     // check that log compaction is enabled.
@@ -205,7 +208,6 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val taskName = new TaskName(partition.toString)
     kcm.register(taskName)
     createCheckpointTopic()
-    val systemAdmin = systemAdminFn()
     systemAdmin.validateStream(kafkaStreamSpec)
 
 
@@ -247,7 +249,6 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
       val taskName = new TaskName(partition.toString)
       kcm.register(taskName)
       createCheckpointTopic(serdeCheckpointTopic)
-      val systemAdmin = systemAdminFn()
       systemAdmin.validateStream(kafkaStreamSpec)
 
       writeCheckpoint(taskName, cp1, serdeCheckpointTopic)
@@ -292,44 +293,19 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     kcm1.stop
   }
 
-  private def getKafkaCheckpointManagerWithParam(cpTopic: String) = new KafkaCheckpointManager(
-    clientId = "some-client-id",
-    checkpointTopic = cpTopic,
-    systemName = "kafka",
-    replicationFactor = 3,
-    socketTimeout = 30000,
-    bufferSize = 64 * 1024,
-    fetchSize = 300 * 1024,
-    getSystemConsumer = systemConsumerFn,
-    getSystemAdmin = systemAdminFn,
-    metadataStore = metadataStore,
-    getSystemProducer = systemProducerFn,
-    connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure),
-    systemStreamPartitionGrouperFactoryString = systemStreamPartitionGrouperFactoryString,
-    failOnCheckpointValidation = failOnTopicValidation,
-    checkpointTopicProperties = KafkaCheckpointManagerFactory.getCheckpointTopicProperties(new MapConfig(Map[String, String]().asJava)))
+  private def getKafkaCheckpointManagerWithParam(cpTopic: String) = {
+    val spec = new KafkaStreamSpec("id", cpTopic, systemName, 1, 1, KafkaCheckpointManagerFactory.getCheckpointTopicProperties(new MapConfig()))
+    new KafkaCheckpointManager(spec, systemFactory, systemStreamPartitionGrouperFactoryString, true, config, new NoOpMetricsRegistry)
+  }
 
   // CheckpointManager with a specific checkpoint topic
   private def getKafkaCheckpointManager = getKafkaCheckpointManagerWithParam(checkpointTopic)
 
   // inject serde. Kafka exceptions will be thrown when serde.fromBytes is called
-  private def getKafkaCheckpointManagerWithInvalidSerde(exception: String) = new KafkaCheckpointManager(
-    clientId = "some-client-id-invalid-serde",
-    checkpointTopic = serdeCheckpointTopic,
-    systemName = "kafka",
-    replicationFactor = 3,
-    socketTimeout = 30000,
-    bufferSize = 64 * 1024,
-    fetchSize = 300 * 1024,
-    getSystemConsumer = systemConsumerFn,
-    getSystemAdmin = systemAdminFn,
-    metadataStore = metadataStore,
-    getSystemProducer = systemProducerFn,
-    connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure),
-    systemStreamPartitionGrouperFactoryString = systemStreamPartitionGrouperFactoryString,
-    failOnCheckpointValidation = failOnTopicValidation,
-    checkpointMsgSerde = new InvalideSerde(exception),
-    checkpointTopicProperties = KafkaCheckpointManagerFactory.getCheckpointTopicProperties(new MapConfig(Map[String, String]().asJava)))
+  private def getKafkaCheckpointManagerWithInvalidSerde(exception: String) = {
+    val spec = new KafkaStreamSpec("id", serdeCheckpointTopic, systemName, 1, 1, KafkaCheckpointManagerFactory.getCheckpointTopicProperties(new MapConfig()))
+    new KafkaCheckpointManager(spec, systemFactory, systemStreamPartitionGrouperFactoryString, true, config, new NoOpMetricsRegistry)
+  }
 
   class InvalideSerde(exception: String) extends CheckpointSerde {
     override def fromBytes(bytes: Array[Byte]): Checkpoint = {
