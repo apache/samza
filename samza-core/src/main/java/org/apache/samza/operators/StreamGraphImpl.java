@@ -86,6 +86,7 @@ public class StreamGraphImpl implements StreamGraph {
   @Override
   public <M> MessageStream<M> getInputStream(String streamId, Serde<M> serde) {
     StreamSpec streamSpec = runner.getStreamSpec(streamId);
+    Preconditions.checkState(streamSpec != null, "No StreamSpec found for streamId: " + streamId);
     Preconditions.checkNotNull(serde, "serde must not be null for an input stream.");
     Preconditions.checkState(!inputOperators.containsKey(streamSpec),
         "getInputStream must not be called multiple times with the same streamId: " + streamId);
@@ -117,6 +118,7 @@ public class StreamGraphImpl implements StreamGraph {
   @Override
   public <M> OutputStream<M> getOutputStream(String streamId, Serde<M> serde) {
     StreamSpec streamSpec = runner.getStreamSpec(streamId);
+    Preconditions.checkState(streamSpec != null, "No StreamSpec found for streamId: " + streamId);
     Preconditions.checkNotNull(serde, "serde must not be null for an output stream.");
     Preconditions.checkState(!outputStreams.containsKey(streamSpec),
         "getOutputStream must not be called multiple times with the same streamId: " + streamId);
@@ -160,8 +162,7 @@ public class StreamGraphImpl implements StreamGraph {
    */
   <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde) {
     StreamSpec streamSpec = runner.getStreamSpec(streamId);
-
-    Preconditions.checkState(streamSpec != null, "No StreamSpec found for streamId: " + streamId);
+    
     Preconditions.checkState(!inputOperators.containsKey(streamSpec) && !outputStreams.containsKey(streamSpec),
         "getIntermediateStream must not be called multiple times with the same streamId: " + streamId);
 
