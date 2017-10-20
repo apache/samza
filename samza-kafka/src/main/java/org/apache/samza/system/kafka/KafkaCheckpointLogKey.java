@@ -23,15 +23,35 @@ public class KafkaCheckpointLogKey {
     this.type = type;
   }
 
+  public String getGrouperFactoryClassName() {
+    return grouperFactoryClassName;
+  }
+
+  public TaskName getTaskName() {
+    return taskName;
+  }
+
+  public String getType() {
+    return type;
+  }
+
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
 
     KafkaCheckpointLogKey that = (KafkaCheckpointLogKey) o;
 
-    if (!grouperFactoryClassName.equals(that.grouperFactoryClassName)) return false;
-    if (!taskName.equals(that.taskName)) return false;
+    if (!grouperFactoryClassName.equals(that.grouperFactoryClassName)) {
+      return false;
+    }
+    if (!taskName.equals(that.taskName)) {
+      return false;
+    }
     return type.equals(that.type);
   }
 
@@ -43,16 +63,10 @@ public class KafkaCheckpointLogKey {
     return result;
   }
 
-  public String getGrouperFactoryClassName() {
-    return grouperFactoryClassName;
-  }
-
-  public TaskName getTaskName() {
-    return taskName;
-  }
-
-  public String getType() {
-    return type;
+  @Override
+  public String toString() {
+    return String.format("KafkaCheckpointLogKey[factoryClass: %s, taskName: %s, type: %s]",
+        grouperFactoryClassName, taskName, type);
   }
 
   public static void main(String[] args) throws Exception {
