@@ -22,6 +22,9 @@ package org.apache.samza.example;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.KV;
+import org.apache.samza.serializers.JsonSerdeV2;
+import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.system.kafka.KafkaSystem;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamDescriptor;
@@ -40,34 +43,13 @@ public class BroadcastExample {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
 
-    KafkaSystem kafkaSystem = KafkaSystem.create("kafka")
-        .withBootstrapServers("localhost:9092")
-        .withConsumerProperties(config)
-        .withProducerProperties(config);
-
-    StreamDescriptor.Input<String, PageViewEvent> pageViewEventInput = StreamDescriptor.<String, PageViewEvent>input("pageViewEventStream")
-        .withKeySerde(new StringSerde("UTF-8"))
-        .withMsgSerde(new JsonSerde<>())
-        .from(kafkaSystem);
-    StreamDescriptor.Output<String, PageViewEvent> output1 = StreamDescriptor.<String, PageViewEvent>output("outStream1")
-        .withKeySerde(new StringSerde("UTF-8"))
-        .withMsgSerde(new JsonSerde<>())
-        .from(kafkaSystem);
-    StreamDescriptor.Output<String, PageViewEvent> output2 = StreamDescriptor.<String, PageViewEvent>output("outStream2")
-        .withKeySerde(new StringSerde("UTF-8"))
-        .withMsgSerde(new JsonSerde<>())
-        .from(kafkaSystem);
-    StreamDescriptor.Output<String, PageViewEvent> output3 = StreamDescriptor.<String, PageViewEvent>output("outStream3")
-        .withKeySerde(new StringSerde("UTF-8"))
-        .withMsgSerde(new JsonSerde<>())
-        .from(kafkaSystem);
-
+    KVSerde<String, PageViewEvent> pgeMsgSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class));
     StreamApplication app = StreamApplications.createStreamApp(config);
-    MessageStream<PageViewEvent> inputStream = app.openInput(pageViewEventInput);
+    MessageStream<KV<String, PageViewEvent>> inputStream = app.openInput("pageViewEventStream", pgeMsgSerde);
 
-    inputStream.filter(m -> m.key.equals("key1")).sendTo(app.openOutput(output1, m -> m.key));
-    inputStream.filter(m -> m.key.equals("key2")).sendTo(app.openOutput(output2, m -> m.key));
-    inputStream.filter(m -> m.key.equals("key3")).sendTo(app.openOutput(output3, m -> m.key));
+    inputStream.filter(m -> m.key.equals("key1")).sendTo(app.openOutput("outStream1", pgeMsgSerde));
+    inputStream.filter(m -> m.key.equals("key2")).sendTo(app.openOutput("outStream2", pgeMsgSerde));
+    inputStream.filter(m -> m.key.equals("key3")).sendTo(app.openOutput("outStream3", pgeMsgSerde));
 
     app.run();
     app.waitForFinish();

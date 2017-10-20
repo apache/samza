@@ -24,13 +24,13 @@ import java.util.HashMap;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
-import org.apache.samza.system.kafka.KafkaSystem;
-import org.apache.samza.operators.StreamDescriptor;
+import org.apache.samza.operators.KV;
+import org.apache.samza.serializers.JsonSerdeV2;
+import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.util.CommandLine;
 
@@ -45,27 +45,14 @@ public class AppWithGlobalConfigExample {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
 
-    KafkaSystem kafkaSystem = KafkaSystem.create("kafka")
-        .withBootstrapServers("localhost:9192")
-        .withConsumerProperties(config)
-        .withProducerProperties(config);
-
-    StreamDescriptor.Input<String, PageViewEvent> input = StreamDescriptor.<String, PageViewEvent>input("myPageViewEevent")
-        .withKeySerde(new StringSerde("UTF-8"))
-        .withMsgSerde(new JsonSerde<>())
-        .from(kafkaSystem);
-    StreamDescriptor.Output<String, PageViewCount> output = StreamDescriptor.<String, PageViewCount>output("pageViewEventPerMemberStream")
-        .withKeySerde(new StringSerde("UTF-8"))
-        .withMsgSerde(new JsonSerde<>())
-        .from(kafkaSystem);
-
     StreamApplication app = StreamApplications.createStreamApp(config).withMetricsReporters(new HashMap<>());
-    app.openInput(input)
-        .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), () -> 0, (m, c) -> c + 1)
+    app.openInput("myPageViewEevent", KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class)))
+        .map(KV::getValue)
+        .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), () -> 0, (m, c) -> c + 1, null, null)
             .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
             .setAccumulationMode(AccumulationMode.DISCARDING))
-        .map(PageViewCount::new)
-        .sendTo(app.openOutput(output, m -> m.memberId));
+        .map(m -> KV.of(m.getKey().getKey(), new PageViewCount(m)))
+        .sendTo(app.openOutput("pageViewEventPerMemberStream", KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewCount.class))));
 
     app.run();
     app.waitForFinish();

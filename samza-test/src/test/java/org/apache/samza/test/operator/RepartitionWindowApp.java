@@ -25,14 +25,23 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
+import org.apache.samza.example.BroadcastExample;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamDescriptor;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.operators.windows.WindowKey;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
+import org.apache.samza.serializers.IntegerSerde;
+import org.apache.samza.serializers.JsonSerde;
+import org.apache.samza.serializers.JsonSerdeV2;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.kafka.KafkaSystem;
+import org.apache.samza.test.operator.data.PageView;
 import org.apache.samza.util.CommandLine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,18 +63,16 @@ public class RepartitionWindowApp {
   public static void main(String[] args) throws IOException {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
+    StreamApplication reparApp = StreamApplications.createStreamApp(config);
 
-    KafkaSystem kafka = KafkaSystem.create("kafka").withBootstrapServers(config.get("systems.kafka.producer.bootstrap.servers"));
-    StreamDescriptor.Input<String, String> pveInput = StreamDescriptor.<String, String>input("page-views").from(kafka);
-    StreamDescriptor.Output<String, String> cntOutput = StreamDescriptor.<String, String>output("Result").from(kafka);
+    KVSerde<String, PageView>
+        pgeMsgSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageView.class));
 
-    StreamApplication reparApp = StreamApplications.createStreamApp(config).withDefaultSystem(kafka);
-
-    MapFunction<String, String> keyFn = pageView -> new PageView(pageView).getUserId();
-    reparApp.openInput(pveInput)
-        .partitionBy(keyFn)
-        .window(Windows.keyedSessionWindow(keyFn, Duration.ofSeconds(3)))
-        .sendTo(reparApp.openOutput(cntOutput, m -> m.getKey().getKey(), m -> new Integer(m.getMessage().size()).toString()));
+    reparApp.openInput("pageViewEvent", pgeMsgSerde)
+        .map(KV::getValue)
+        .partitionBy(PageView::getUserId, m -> m, pgeMsgSerde)
+        .window(Windows.keyedSessionWindow(m -> m.getKey(), Duration.ofSeconds(3), () -> 0, (m, c) -> c + 1, new StringSerde("UTF-8"), new IntegerSerde()))
+        .sendTo(reparApp.openOutput("pageViewCount"));
 
     reparApp.run();
     reparApp.waitForFinish();
