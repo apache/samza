@@ -1,4 +1,4 @@
-package org.apache.samza.system.kafka;
+package org.apache.samza.checkpoint.kafka;
 
 import com.google.common.base.Preconditions;
 import org.apache.samza.container.TaskName;

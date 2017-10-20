@@ -1,4 +1,4 @@
-package org.apache.samza.system.kafka;
+package org.apache.samza.checkpoint.kafka;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.TaskName;

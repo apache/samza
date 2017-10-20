@@ -26,7 +26,7 @@ import org.apache.samza.config.{Config, JobConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.serializers.CheckpointSerde
-import org.apache.samza.system.kafka.{KafkaCheckpointLogKey, KafkaCheckpointLogKeySerde, KafkaStreamSpec}
+import org.apache.samza.system.kafka.KafkaStreamSpec
 import org.apache.samza.system._
 import org.apache.samza.util._
 import org.apache.samza.{Partition, SamzaException}
@@ -34,48 +34,48 @@ import org.apache.samza.{Partition, SamzaException}
 import scala.collection.mutable
 
 /**
-  * Kafka checkpoint manager is used to store checkpoints in a Kafka topic.
-  * To read a checkpoint for a specific taskName, we find the newest message
-  * keyed to that taskName. If there is no such message, no checkpoint data
-  * exists.  The underlying log has a single partition into which all
-  * checkpoints and TaskName to changelog partition mappings are written.
+  * A [[CheckpointManager]] that uses a Kafka topic-partition to store the [[Checkpoint]] corresponding to
+  * a task.
   *
-  * This class is thread safe for writing but not for reading checkpoints.
-  * This is currently OK since checkpoints are only read on the main thread.
+  * <p> The Kafka partition provides an abstraction of a log to which all [[Checkpoint]]s are appended to. The
+  * checkpoints written to the log are keyed by their corresponding taskName.
+  *
+  * <p> This class is thread safe for writing but not for reading checkpoints. This is currently OK since checkpoints
+  * are only read on the main thread.
   */
 class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
-                             systemFactory: SystemFactory,
-                             systemStreamPartitionGrouperFactoryString: String,
-                             failOnCheckpointValidation: Boolean,
-                             config: Config,
-                             metricsRegistry: MetricsRegistry
-                            ) extends CheckpointManager with Logging {
-
+  systemFactory: SystemFactory,
+  systemStreamPartitionGrouperFactoryString: String,
+  failOnCheckpointValidation: Boolean,
+  config: Config,
+  metricsRegistry: MetricsRegistry) extends CheckpointManager with Logging {
 
   val checkpointSystem: String = checkpointSpec.getSystemName
   val checkpointTopic: String = checkpointSpec.getPhysicalName
   val checkpointSsp: SystemStreamPartition = new SystemStreamPartition(checkpointSystem, checkpointTopic, new Partition(0))
-  val checkpointMsgSerde: CheckpointSerde = new CheckpointSerde
   val checkpointKeySerde: KafkaCheckpointLogKeySerde = new KafkaCheckpointLogKeySerde
+  val checkpointMsgSerde: CheckpointSerde = new CheckpointSerde
   val grouperFactory = config.get(JobConfig.SSP_GROUPER_FACTORY)
 
-  // producer is volatile for visibility because it is initialized in the main-thread, and accessed in the task threads
+  // producer is volatile for visibility since it is initialized in the main-thread, and accessed in other threads
   @volatile var systemProducer: SystemProducer = _
   var systemConsumer: SystemConsumer = _
   val systemAdmin: SystemAdmin = systemFactory.getAdmin(checkpointSystem, config)
+
   var taskNames = Set[TaskName]()
   var taskNamesToOffsets: Map[TaskName, Checkpoint] = _
 
   info("Creating KafkaCheckpointManager for checkpointTopic=%s, systemName=%s" format(checkpointTopic, checkpointSystem))
 
+  /**
+    * @inheritdoc
+    */
   override def start {
     if (systemProducer == null) {
-      if (systemProducer == null) {
-        info("Starting checkpoint SystemProducer")
-        systemProducer = systemFactory.getProducer(checkpointSystem, config, metricsRegistry)
-        systemProducer.register("checkpoint-source")
-        systemProducer.start
-      }
+      info("Starting checkpoint SystemProducer")
+      systemProducer = systemFactory.getProducer(checkpointSystem, config, metricsRegistry)
+      systemProducer.register("checkpoint-source")
+      systemProducer.start
     }
 
     if (systemConsumer == null) {
@@ -86,7 +86,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
       systemConsumer.start()
     }
 
-    info(s"Creating checkpoint stream")
+    info("Creating checkpoint stream")
     systemAdmin.createStream(checkpointSpec)
 
     if (failOnCheckpointValidation) {
@@ -95,16 +95,17 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     }
   }
 
+  /**
+    * @inheritdoc
+    */
   override def register(taskName: TaskName) {
     debug(s"Registering taskName: $taskName ")
     taskNames += taskName
   }
 
   /**
-    * Read the last checkpoint for specified TaskName
-    *
-    * @param taskName Specific Samza taskName for which to get the last checkpoint of.
-    **/
+    * @inheritdoc
+    */
   override def readLastCheckpoint(taskName: TaskName): Checkpoint = {
     if (!taskNames.contains(taskName)) {
       throw new SamzaException(s"Task: $taskName is not registered with this CheckpointManager")
@@ -114,10 +115,10 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
 
     if (taskNamesToOffsets == null) {
       info("Reading checkpoints for the first time")
-      taskNamesToOffsets = readLog()
+      taskNamesToOffsets = readCheckpoints()
     } else {
       info("Updating existing checkpoint mappings")
-      taskNamesToOffsets ++= readLog()
+      taskNamesToOffsets ++= readCheckpoints()
     }
 
     val checkpoint = taskNamesToOffsets.get(taskName).getOrElse(null)
@@ -127,11 +128,8 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   }
 
   /**
-    * Persists the checkpoint for the given task.
-    *
-    * @param taskName   the taskName
-    * @param checkpoint the checkpoint corresponding to the task.
-    **/
+    * @inheritdoc
+    */
   override def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint) {
     val key = new KafkaCheckpointLogKey(grouperFactory, taskName, KafkaCheckpointLogKey.CHECKPOINT_TYPE)
     val keyBytes = checkpointKeySerde.toBytes(key)
@@ -153,6 +151,9 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     )
   }
 
+  /**
+    * @inheritdoc
+    */
   override def clearCheckpoints = {
     info("Clear checkpoint stream %s in system %s" format(checkpointTopic, checkpointSystem))
     systemAdmin.clearStream(checkpointSpec)
@@ -170,30 +171,28 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     }
   }
 
-  override def toString = "KafkaCheckpointManager [systemName=%s, checkpointTopic=%s]" format(checkpointSystem, checkpointTopic)
-
   /**
-    * Returns the checkpoints from the checkpoint log.
+    * Returns the checkpoints from the log.
     *
     * <p> The underlying {@link SystemConsumer} is stateful and tracks its offsets. Hence, each invocation of this method
     * will read the log from where it left off previously. This allows for multiple efficient calls to [[readLastCheckpoint()]]
     */
-  private def readLog(): Map[TaskName, Checkpoint] = {
+  private def readCheckpoints(): Map[TaskName, Checkpoint] = {
     val checkpoints = mutable.Map[TaskName, Checkpoint]()
 
     val iterator = new SystemStreamPartitionIterator(systemConsumer, checkpointSsp)
     var numMessagesRead = 0
     while (iterator.hasNext) {
       numMessagesRead += 1
-      val checkpointEnvelope : IncomingMessageEnvelope= iterator.next
+      val checkpointEnvelope: IncomingMessageEnvelope = iterator.next
 
       val keyBytes = checkpointEnvelope.getKey.asInstanceOf[Array[Byte]]
-      val checkpointKey = checkpointKeySerde.fromBytes(keyBytes)
       if (keyBytes == null) {
         throw new SamzaException(s"Encountered a checkpoint message without key. Topic:$checkpointTopic " +
           s"Offset:${checkpointEnvelope.getOffset}")
       }
 
+      val checkpointKey = checkpointKeySerde.fromBytes(keyBytes)
       val expectedGrouperFactory = checkpointKey.getGrouperFactoryClassName
       if (!grouperFactory.equals(expectedGrouperFactory)) {
         throw new SamzaException("SSPGrouperFactory in the checkpoint topic does not match the configured value" +
@@ -209,7 +208,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   }
 
   /**
-    * Returns the oldest available offset for the provided ssp.
+    * Returns the oldest available offset for the provided [[SystemStreamPartition]].
     */
   private def getOldestOffset(ssp: SystemStreamPartition): String = {
     val topic: String = ssp.getSystemStream.getStream
@@ -228,5 +227,4 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
 
     return partitionMetaData.getOldestOffset
   }
-
 }

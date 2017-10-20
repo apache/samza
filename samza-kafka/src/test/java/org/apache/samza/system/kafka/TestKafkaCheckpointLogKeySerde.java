@@ -1,5 +1,7 @@
 package org.apache.samza.system.kafka;
 
+import org.apache.samza.checkpoint.kafka.KafkaCheckpointLogKey;
+import org.apache.samza.checkpoint.kafka.KafkaCheckpointLogKeySerde;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory;
 import org.junit.Assert;
