@@ -89,7 +89,7 @@ public class TestJoinOperator {
 
         SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
         inStream
-            .join(inStream, new TestJoinFunction(), integerSerde, kvSerde, kvSerde, JOIN_TTL)
+            .join(inStream, new TestJoinFunction(), integerSerde, kvSerde, kvSerde, JOIN_TTL, "join")
             .sink((m, mc, tc) -> mc.send(new OutgoingMessageEnvelope(outputSystemStream, m)));
       }
     };
@@ -297,9 +297,9 @@ public class TestJoinOperator {
     // need to return different stores for left and right side
     IntegerSerde integerSerde = new IntegerSerde();
     TimestampedValueSerde timestampedValueSerde = new TimestampedValueSerde(new KVSerde(integerSerde, integerSerde));
-    when(taskContext.getStore(eq("null-null-join-2-L")))
+    when(taskContext.getStore(eq("null-null-join-j1-L")))
         .thenReturn(new TestInMemoryStore(integerSerde, timestampedValueSerde));
-    when(taskContext.getStore(eq("null-null-join-2-R")))
+    when(taskContext.getStore(eq("null-null-join-j1-R")))
         .thenReturn(new TestInMemoryStore(integerSerde, timestampedValueSerde));
 
     Config config = mock(Config.class);
@@ -326,7 +326,7 @@ public class TestJoinOperator {
 
       SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
       inStream
-          .join(inStream2, joinFn, integerSerde, kvSerde, kvSerde, JOIN_TTL)
+          .join(inStream2, joinFn, integerSerde, kvSerde, kvSerde, JOIN_TTL, "j1")
           .sink((m, mc, tc) -> mc.send(new OutgoingMessageEnvelope(outputSystemStream, m)));
     }
   }

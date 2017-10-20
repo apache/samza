@@ -56,7 +56,7 @@ public class PageViewCounterExample implements StreamApplication {
     pageViewEvents
         .window(Windows.keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), initialValue, foldLeftFn, null, null)
             .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
-            .setAccumulationMode(AccumulationMode.DISCARDING))
+            .setAccumulationMode(AccumulationMode.DISCARDING), "window")
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), new PageViewCount(windowPane)))
         .sendTo(pageViewEventPerMemberStream);
   }

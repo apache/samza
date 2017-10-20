@@ -111,13 +111,8 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <K, WV> MessageStream<WindowPane<K, WV>> window(Window<M, K, WV> window) {
-    return window(window, null);
-  }
-
-  @Override
-  public <K, WV> MessageStream<WindowPane<K, WV>> window(Window<M, K, WV> window, String name) {
-    String opId = this.graph.getNextOpId(OpCode.WINDOW, name);
+  public <K, WV> MessageStream<WindowPane<K, WV>> window(Window<M, K, WV> window, String userProvidedId) {
+    String opId = this.graph.getNextOpId(OpCode.WINDOW, userProvidedId);
     OperatorSpec<M, WindowPane<K, WV>> op = OperatorSpecs.createWindowOperatorSpec(
         (WindowInternal<M, K, WV>) window, opId);
     this.operatorSpec.registerNextOperatorSpec(op);
@@ -127,18 +122,11 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   @Override
   public <K, OM, JM> MessageStream<JM> join(MessageStream<OM> otherStream,
       JoinFunction<? extends K, ? super M, ? super OM, ? extends JM> joinFn,
-      Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde, Duration ttl) {
-    return join(otherStream, joinFn, keySerde, messageSerde, otherMessageSerde, ttl, null);
-  }
-
-  @Override
-  public <K, OM, JM> MessageStream<JM> join(MessageStream<OM> otherStream,
-      JoinFunction<? extends K, ? super M, ? super OM, ? extends JM> joinFn,
       Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde,
-      Duration ttl, String name) {
+      Duration ttl, String userProvidedId) {
     if (otherStream.equals(this)) throw new SamzaException("Cannot join a MessageStream with itself.");
     OperatorSpec<?, OM> otherOpSpec = ((MessageStreamImpl<OM>) otherStream).getOperatorSpec();
-    String opId = this.graph.getNextOpId(OpCode.JOIN, name);
+    String opId = this.graph.getNextOpId(OpCode.JOIN, userProvidedId);
     JoinOperatorSpec<K, M, OM, JM> joinOpSpec =
         OperatorSpecs.createJoinOperatorSpec(this.operatorSpec, otherOpSpec, (JoinFunction<K, M, OM, JM>) joinFn,
             keySerde, messageSerde, otherMessageSerde, ttl.toMillis(), opId);
@@ -161,14 +149,8 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
 
   @Override
   public <K, V> MessageStream<KV<K, V>> partitionBy(Function<? super M, ? extends K> keyExtractor,
-      Function<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde) {
-    return partitionBy(keyExtractor, valueExtractor, serde, null);
-  }
-
-  @Override
-  public <K, V> MessageStream<KV<K, V>> partitionBy(Function<? super M, ? extends K> keyExtractor,
-      Function<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde, String name) {
-    String opId = this.graph.getNextOpId(OpCode.PARTITION_BY, name);
+      Function<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde, String userProvidedId) {
+    String opId = this.graph.getNextOpId(OpCode.PARTITION_BY, userProvidedId);
     IntermediateMessageStreamImpl<KV<K, V>> intermediateStream = this.graph.getIntermediateStream(opId, serde);
     PartitionByOperatorSpec<M, K, V> partitionByOperatorSpec =
         OperatorSpecs.createPartitionByOperatorSpec(
@@ -179,14 +161,8 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
 
   @Override
   public <K, V> MessageStream<KV<K, V>> partitionBy(Function<? super M, ? extends K> keyExtractor,
-      Function<? super M, ? extends V> valueExtractor) {
-    return partitionBy(keyExtractor, valueExtractor, null, null);
-  }
-
-  @Override
-  public <K, V> MessageStream<KV<K, V>> partitionBy(Function<? super M, ? extends K> keyExtractor,
-      Function<? super M, ? extends V> valueExtractor, String name) {
-    return partitionBy(keyExtractor, valueExtractor, null, name);
+      Function<? super M, ? extends V> valueExtractor, String userProvidedId) {
+    return partitionBy(keyExtractor, valueExtractor, null, userProvidedId);
   }
 
   /**

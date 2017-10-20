@@ -129,7 +129,7 @@ public class TestOperatorImplGraph {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     when(mockRunner.getStreamSpec(eq("input"))).thenReturn(new StreamSpec("input", "input-stream", "input-system"));
     when(mockRunner.getStreamSpec(eq("output"))).thenReturn(new StreamSpec("output", "output-stream", "output-system"));
-    when(mockRunner.getStreamSpec(eq("null-null-partition_by-1")))
+    when(mockRunner.getStreamSpec(eq("null-null-partition_by-p1")))
         .thenReturn(new StreamSpec("intermediate", "intermediate-stream", "intermediate-system"));
     StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mock(Config.class));
     MessageStream<Object> inputStream = streamGraph.getInputStream("input");
@@ -137,7 +137,8 @@ public class TestOperatorImplGraph {
         .getOutputStream("output", KVSerde.of(mock(IntegerSerde.class), mock(StringSerde.class)));
 
     inputStream
-        .partitionBy(Object::hashCode, Object::toString, KVSerde.of(mock(IntegerSerde.class), mock(StringSerde.class)))
+        .partitionBy(Object::hashCode, Object::toString,
+            KVSerde.of(mock(IntegerSerde.class), mock(StringSerde.class)), "p1")
         .sendTo(outputStream);
 
     TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
@@ -221,14 +222,14 @@ public class TestOperatorImplGraph {
     MessageStream<Object> inputStream1 = streamGraph.getInputStream("input1", new NoOpSerde<>());
     MessageStream<Object> inputStream2 = streamGraph.getInputStream("input2", new NoOpSerde<>());
     inputStream1.join(inputStream2, mockJoinFunction,
-        mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1));
+        mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j1");
 
     TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     KeyValueStore mockLeftStore = mock(KeyValueStore.class);
-    when(mockTaskContext.getStore(eq("null-null-join-2-L"))).thenReturn(mockLeftStore);
+    when(mockTaskContext.getStore(eq("null-null-join-j1-L"))).thenReturn(mockLeftStore);
     KeyValueStore mockRightStore = mock(KeyValueStore.class);
-    when(mockTaskContext.getStore(eq("null-null-join-2-R"))).thenReturn(mockRightStore);
+    when(mockTaskContext.getStore(eq("null-null-join-j1-R"))).thenReturn(mockRightStore);
     OperatorImplGraph opImplGraph =
         new OperatorImplGraph(streamGraph, mock(Config.class), mockTaskContext, mock(Clock.class));
 
@@ -388,29 +389,30 @@ public class TestOperatorImplGraph {
     when(runner.getStreamSpec("output2")).thenReturn(output2);
 
     // intermediate streams used in tests
-    StreamSpec int1 = new StreamSpec("test-app-1-partition_by-10", "test-app-1-partition_by-10", "default-system");
-    StreamSpec int2 = new StreamSpec("test-app-1-partition_by-6", "test-app-1-partition_by-6", "default-system");
-    when(runner.getStreamSpec("test-app-1-partition_by-10"))
-        .thenReturn(int1);
-    when(runner.getStreamSpec("test-app-1-partition_by-6"))
-        .thenReturn(int2);
+    StreamSpec int1 = new StreamSpec("test-app-1-partition_by-p2", "test-app-1-partition_by-p2", "default-system");
+    StreamSpec int2 = new StreamSpec("test-app-1-partition_by-p1", "test-app-1-partition_by-p1", "default-system");
+    when(runner.getStreamSpec("test-app-1-partition_by-p2")).thenReturn(int1);
+    when(runner.getStreamSpec("test-app-1-partition_by-p1")).thenReturn(int2);
 
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
     MessageStream messageStream1 = streamGraph.getInputStream("input1").map(m -> m);
     MessageStream messageStream2 = streamGraph.getInputStream("input2").filter(m -> true);
     MessageStream messageStream3 =
-        streamGraph.getInputStream("input3").filter(m -> true).partitionBy(m -> "hehe", m -> m).map(m -> m);
+        streamGraph.getInputStream("input3")
+            .filter(m -> true)
+            .partitionBy(m -> "hehe", m -> m, "p1")
+            .map(m -> m);
     OutputStream<Object> outputStream1 = streamGraph.getOutputStream("output1");
     OutputStream<Object> outputStream2 = streamGraph.getOutputStream("output2");
 
     messageStream1
         .join(messageStream2, mock(JoinFunction.class),
-            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2))
-        .partitionBy(m -> "haha", m -> m)
+            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
+        .partitionBy(m -> "haha", m -> m, "p2")
         .sendTo(outputStream1);
     messageStream3
         .join(messageStream2, mock(JoinFunction.class),
-            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1))
+            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
         .sendTo(outputStream2);
 
     Multimap<SystemStream, SystemStream> outputToInput = OperatorImplGraph.getIntermediateToInputStreamsMap(streamGraph);

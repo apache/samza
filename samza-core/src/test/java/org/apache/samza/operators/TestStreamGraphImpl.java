@@ -19,6 +19,7 @@
 package org.apache.samza.operators;
 
 import junit.framework.Assert;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.data.TestMessageEnvelope;
@@ -504,6 +505,18 @@ public class TestStreamGraphImpl {
     assertEquals("jobName-1234-merge-0", graph.getNextOpId(OpCode.MERGE, null));
     assertEquals("jobName-1234-join-customName", graph.getNextOpId(OpCode.JOIN, "customName"));
     assertEquals("jobName-1234-map-2", graph.getNextOpId(OpCode.MAP, null));
+  }
+
+  @Test(expected = SamzaException.class)
+  public void testGetNextOpIdRejectsDuplicates() {
+    ApplicationRunner mockRunner = mock(ApplicationRunner.class);
+    Config mockConfig = mock(Config.class);
+    when(mockConfig.get(eq(JobConfig.JOB_NAME()))).thenReturn("jobName");
+    when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("1234");
+
+    StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mockConfig);
+    assertEquals("jobName-1234-join-customName", graph.getNextOpId(OpCode.JOIN, "customName"));
+    graph.getNextOpId(OpCode.JOIN, "customName"); // should throw
   }
 
   @Test

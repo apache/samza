@@ -20,6 +20,7 @@ package org.apache.samza.operators;
 
 import com.google.common.base.Preconditions;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.spec.InputOperatorSpec;
@@ -63,6 +64,7 @@ public class StreamGraphImpl implements StreamGraph {
    * Should only accessed and incremented via {@link #getNextOpId(OpCode, String)}.
    */
   private int nextOpNum = 0;
+  private final Set<String> operatorIds = new HashSet<>();
   private Serde<?> defaultSerde = new KVSerde(new NoOpSerde(), new NoOpSerde());
   private ContextManager contextManager = null;
 
@@ -159,6 +161,7 @@ public class StreamGraphImpl implements StreamGraph {
   <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde) {
     StreamSpec streamSpec = runner.getStreamSpec(streamId);
 
+    Preconditions.checkState(streamSpec != null, "No StreamSpec found for streamId: " + streamId);
     Preconditions.checkState(!inputOperators.containsKey(streamSpec) && !outputStreams.containsKey(streamSpec),
         "getIntermediateStream must not be called multiple times with the same streamId: " + streamId);
 
@@ -190,8 +193,8 @@ public class StreamGraphImpl implements StreamGraph {
   }
 
   /**
-   * Gets the unique ID for the next operator in the graph.
-   * The ID is of the following format: jobName-jobId-opCode-(opName|nextOpNum);
+   * Gets the unique ID for the next operator in the graph. The ID is of the following format:
+   * jobName-jobId-opCode-(opName|nextOpNum);
    *
    * @param opCode the {@link OpCode} of the next operator
    * @param opName the optional user-provided name of the next operator or null
@@ -203,6 +206,10 @@ public class StreamGraphImpl implements StreamGraph {
         config.get(JobConfig.JOB_ID(), "1"),
         opCode.name().toLowerCase(),
         StringUtils.isNotBlank(opName) ? opName.trim() : String.valueOf(nextOpNum));
+    if (!operatorIds.add(nextOpId)) {
+      throw new SamzaException(
+          String.format("Found duplicate operator ID %s in the graph. Operator IDs must be unique.", nextOpId));
+    }
     nextOpNum++;
     return nextOpId;
   }
