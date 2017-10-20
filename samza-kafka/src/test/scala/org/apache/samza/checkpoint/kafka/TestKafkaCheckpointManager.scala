@@ -328,7 +328,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure),
     systemStreamPartitionGrouperFactoryString = systemStreamPartitionGrouperFactoryString,
     failOnCheckpointValidation = failOnTopicValidation,
-    serde = new InvalideSerde(exception),
+    checkpointMsgSerde = new InvalideSerde(exception),
     checkpointTopicProperties = KafkaCheckpointManagerFactory.getCheckpointTopicProperties(new MapConfig(Map[String, String]().asJava)))
 
   class InvalideSerde(exception: String) extends CheckpointSerde {

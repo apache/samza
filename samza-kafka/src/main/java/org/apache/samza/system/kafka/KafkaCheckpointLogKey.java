@@ -2,9 +2,8 @@ package org.apache.samza.system.kafka;
 
 import com.google.common.base.Preconditions;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.container.grouper.stream.GroupByPartitionFactory;
 
-public class KafkaCheckpointLogKey1 {
+public class KafkaCheckpointLogKey {
 
   public static final String CHECKPOINT_TYPE = "checkpoint";
 
@@ -12,7 +11,7 @@ public class KafkaCheckpointLogKey1 {
   private final TaskName taskName;
   private final String type;
 
-  public KafkaCheckpointLogKey1(String grouperFactoryClassName, TaskName taskName, String type) {
+  public KafkaCheckpointLogKey(String grouperFactoryClassName, TaskName taskName, String type) {
     Preconditions.checkNotNull(grouperFactoryClassName);
     Preconditions.checkNotNull(taskName);
     Preconditions.checkNotNull(type);
@@ -29,7 +28,7 @@ public class KafkaCheckpointLogKey1 {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
 
-    KafkaCheckpointLogKey1 that = (KafkaCheckpointLogKey1) o;
+    KafkaCheckpointLogKey that = (KafkaCheckpointLogKey) o;
 
     if (!grouperFactoryClassName.equals(that.grouperFactoryClassName)) return false;
     if (!taskName.equals(that.taskName)) return false;
