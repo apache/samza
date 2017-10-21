@@ -56,7 +56,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
 
   val checkpointTopic = "checkpoint-topic"
   val serdeCheckpointTopic = "checkpoint-topic-invalid-serde"
-  val checkpointTopicConfig = KafkaCheckpointManagerFactory.getCheckpointTopicProperties(null)
+  val checkpointTopicConfig = new org.apache.samza.config.KafkaConfig(new MapConfig()).getCheckpointTopicProperties()
 
   val zkSecure = JaasUtils.isZkSecurityEnabled()
 
@@ -307,7 +307,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure),
     systemStreamPartitionGrouperFactoryString = systemStreamPartitionGrouperFactoryString,
     failOnCheckpointValidation = failOnTopicValidation,
-    checkpointTopicProperties = KafkaCheckpointManagerFactory.getCheckpointTopicProperties(new MapConfig(Map[String, String]().asJava)))
+    checkpointTopicProperties = new org.apache.samza.config.KafkaConfig(new MapConfig()).getCheckpointTopicProperties())
 
   // CheckpointManager with a specific checkpoint topic
   private def getKafkaCheckpointManager = getKafkaCheckpointManagerWithParam(checkpointTopic)
@@ -329,7 +329,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     systemStreamPartitionGrouperFactoryString = systemStreamPartitionGrouperFactoryString,
     failOnCheckpointValidation = failOnTopicValidation,
     serde = new InvalideSerde(exception),
-    checkpointTopicProperties = KafkaCheckpointManagerFactory.getCheckpointTopicProperties(new MapConfig(Map[String, String]().asJava)))
+    checkpointTopicProperties = new org.apache.samza.config.KafkaConfig(new MapConfig()).getCheckpointTopicProperties())
 
   class InvalideSerde(exception: String) extends CheckpointSerde {
     override def fromBytes(bytes: Array[Byte]): Checkpoint = {

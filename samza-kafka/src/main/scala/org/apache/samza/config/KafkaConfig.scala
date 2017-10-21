@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 import java.util.{Properties, UUID}
 
+import com.google.common.collect.ImmutableMap
 import kafka.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.ByteArraySerializer
@@ -259,6 +260,29 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     kafkaChangeLogProperties.setProperty("delete.retention.ms", String.valueOf(new StorageConfig(config).getChangeLogDeleteRetentionInMs(name)))
     filteredConfigs.asScala.foreach { kv => kafkaChangeLogProperties.setProperty(kv._1, kv._2) }
     kafkaChangeLogProperties
+  }
+
+  // Set the checkpoint topic configs to have a very small segment size and
+  // enable log compaction. This keeps job startup time small since there
+  // are fewer useless (overwritten) messages to read from the checkpoint
+  // topic.
+  def getCheckpointTopicProperties() = {
+    val segmentBytes: Int = getCheckpointSegmentBytes()
+    val appConfig = new ApplicationConfig(config)
+    val isStreamMode = appConfig.getAppMode == ApplicationMode.STREAM
+    val properties = new Properties()
+
+    if (isStreamMode) {
+      properties.putAll(ImmutableMap.of(
+        "cleanup.policy", "compact",
+        "segment.bytes", String.valueOf(segmentBytes)))
+    } else {
+      properties.putAll(ImmutableMap.of(
+        "cleanup.policy", "compact,delete",
+        "retention.ms", String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH),
+        "segment.bytes", String.valueOf(segmentBytes)))
+    }
+    properties
   }
 
   // kafka config

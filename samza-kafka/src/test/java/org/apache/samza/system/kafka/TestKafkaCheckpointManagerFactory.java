@@ -36,13 +36,13 @@ public class TestKafkaCheckpointManagerFactory {
   @Test
   public void testGetCheckpointTopicProperties() {
     Map<String, String> config = new HashMap<>();
-    Properties properties = KafkaCheckpointManagerFactory.getCheckpointTopicProperties(new MapConfig(config));
+    Properties properties = new KafkaConfig(new MapConfig(config)).getCheckpointTopicProperties();
 
     assertEquals(properties.getProperty("cleanup.policy"), "compact");
     assertEquals(properties.getProperty("segment.bytes"), String.valueOf(KafkaConfig.DEFAULT_CHECKPOINT_SEGMENT_BYTES()));
 
     config.put(ApplicationConfig.APP_MODE, ApplicationConfig.ApplicationMode.BATCH.name());
-    properties = KafkaCheckpointManagerFactory.getCheckpointTopicProperties(new MapConfig(config));
+    properties = new KafkaConfig(new MapConfig(config)).getCheckpointTopicProperties();
 
     assertEquals(properties.getProperty("cleanup.policy"), "compact,delete");
     assertEquals(properties.getProperty("segment.bytes"), String.valueOf(KafkaConfig.DEFAULT_CHECKPOINT_SEGMENT_BYTES()));
