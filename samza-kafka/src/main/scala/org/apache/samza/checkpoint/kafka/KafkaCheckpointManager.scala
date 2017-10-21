@@ -24,6 +24,7 @@ import java.util.Collections
 import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
 import org.apache.samza.config.{Config, JobConfig}
 import org.apache.samza.container.TaskName
+import org.apache.samza.serializers.Serde
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.serializers.CheckpointSerde
 import org.apache.samza.system.kafka.KafkaStreamSpec
@@ -45,25 +46,24 @@ import scala.collection.mutable
   */
 class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   systemFactory: SystemFactory,
-  systemStreamPartitionGrouperFactoryString: String,
   failOnCheckpointValidation: Boolean,
   config: Config,
-  metricsRegistry: MetricsRegistry) extends CheckpointManager with Logging {
+  metricsRegistry: MetricsRegistry,
+  checkpointMsgSerde: Serde[Checkpoint] = new CheckpointSerde) extends CheckpointManager with Logging {
 
   val checkpointSystem: String = checkpointSpec.getSystemName
   val checkpointTopic: String = checkpointSpec.getPhysicalName
   val checkpointSsp: SystemStreamPartition = new SystemStreamPartition(checkpointSystem, checkpointTopic, new Partition(0))
   val checkpointKeySerde: KafkaCheckpointLogKeySerde = new KafkaCheckpointLogKeySerde
-  val checkpointMsgSerde: CheckpointSerde = new CheckpointSerde
   val grouperFactory = config.get(JobConfig.SSP_GROUPER_FACTORY)
 
   // producer is volatile for visibility since it is initialized in the main-thread, and accessed in other threads
-  @volatile var systemProducer: SystemProducer = _
-  var systemConsumer: SystemConsumer = _
+  @volatile var systemProducer: SystemProducer = null
+  var systemConsumer: SystemConsumer = null
   val systemAdmin: SystemAdmin = systemFactory.getAdmin(checkpointSystem, config)
 
   var taskNames = Set[TaskName]()
-  var taskNamesToOffsets: Map[TaskName, Checkpoint] = _
+  var taskNamesToOffsets: Map[TaskName, Checkpoint] = null
 
   info("Creating KafkaCheckpointManager for checkpointTopic=%s, systemName=%s" format(checkpointTopic, checkpointSystem))
 
@@ -71,6 +71,9 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     * @inheritdoc
     */
   override def start {
+    info("Creating checkpoint stream")
+    systemAdmin.createStream(checkpointSpec)
+
     if (systemProducer == null) {
       info("Starting checkpoint SystemProducer")
       systemProducer = systemFactory.getProducer(checkpointSystem, config, metricsRegistry)
@@ -85,9 +88,6 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
       systemConsumer.register(checkpointSsp, oldestOffset)
       systemConsumer.start()
     }
-
-    info("Creating checkpoint stream")
-    systemAdmin.createStream(checkpointSpec)
 
     if (failOnCheckpointValidation) {
       info(s"Validating checkpoint stream")
@@ -127,7 +127,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     checkpoint
   }
 
-  /**
+  /**Int.
     * @inheritdoc
     */
   override def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint) {
@@ -182,6 +182,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
 
     val iterator = new SystemStreamPartitionIterator(systemConsumer, checkpointSsp)
     var numMessagesRead = 0
+    println(systemConsumer)
     while (iterator.hasNext) {
       numMessagesRead += 1
       val checkpointEnvelope: IncomingMessageEnvelope = iterator.next

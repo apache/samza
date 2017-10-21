@@ -28,6 +28,7 @@ import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.{Config, KafkaConfig, SystemConfig}
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system.SystemFactory
+import org.apache.samza.system.kafka.KafkaStreamSpec
 import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtil, Logging, Util, _}
 
 
@@ -48,6 +49,8 @@ object KafkaCheckpointManagerFactory {
     } else {
       new KafkaConfig(config).getCheckpointSegmentBytes()
     }
+    val props = new Properties()
+
     (new Properties /: Map(
       "cleanup.policy" -> "compact",
       "segment.bytes" -> String.valueOf(segmentBytes))) { case (props, (k, v)) => props.put(k, v); props }
@@ -82,10 +85,6 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
     val (systemName: String, systemFactory : SystemFactory) =  getCheckpointSystemStreamAndFactory(config)
 
     val kafkaConfig = new KafkaConfig(config)
-    val producerConfig = kafkaConfig.getKafkaSystemProducerConfig(
-      systemName,
-      clientId,
-      INJECTED_PRODUCER_PROPERTIES)
 
     val noOpMetricsRegistry = new NoOpMetricsRegistry()
 
@@ -95,24 +94,12 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
     val connectZk = () => {
       ZkUtils(zkConnect, 6000, 6000, false)
     }
-    val socketTimeout = consumerConfig.socketTimeoutMs
 
+    val checkpointSpec : KafkaStreamSpec = new KafkaStreamSpec("samza-unused-checkpoint-stream-id",
+        KafkaUtil.getCheckpointTopic(jobName, jobId, config), systemName, 1,
+        kafkaConfig.getCheckpointReplicationFactor.get.toInt,
+        getCheckpointTopicProperties(config));
 
-    new KafkaCheckpointManager(
-      clientId,
-      KafkaUtil.getCheckpointTopic(jobName, jobId, config),
-      systemName,
-      kafkaConfig.getCheckpointReplicationFactor.get.toInt,
-      socketTimeout,
-      consumerConfig.socketReceiveBufferBytes,
-      consumerConfig.fetchMessageMaxBytes,            // must be > buffer size
-      () => systemFactory.getConsumer(systemName, config, noOpMetricsRegistry),
-      () => systemFactory.getAdmin(systemName, config),
-      new ClientUtilTopicMetadataStore(producerConfig.bootsrapServers, clientId, socketTimeout),
-      () => systemFactory.getProducer(systemName, config, noOpMetricsRegistry),
-      connectZk,
-      config.getSystemStreamPartitionGrouperFactory,      // To find out the SSPGrouperFactory class so it can be included/verified in the key
-      config.failOnCheckpointValidation,
-      checkpointTopicProperties = getCheckpointTopicProperties(config))
+    new KafkaCheckpointManager(checkpointSpec, systemFactory, config.failOnCheckpointValidation, config, noOpMetricsRegistry)
   }
 }
