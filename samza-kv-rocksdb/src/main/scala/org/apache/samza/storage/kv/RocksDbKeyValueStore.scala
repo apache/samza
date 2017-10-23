@@ -112,7 +112,7 @@ class RocksDbKeyValueStore(
   private var stackAtFirstClose: Exception = null
   private val stateChangeLock = new ReentrantReadWriteLock()
 
-  def get(key: Array[Byte]): Array[Byte] = withStateCheck {
+  def get(key: Array[Byte]): Array[Byte] = ifOpen {
     metrics.gets.inc
     require(key != null, "Null key not allowed.")
     val found = db.get(key)
@@ -122,7 +122,7 @@ class RocksDbKeyValueStore(
     found
   }
 
-  def getAll(keys: java.util.List[Array[Byte]]): java.util.Map[Array[Byte], Array[Byte]] = withStateCheck {
+  def getAll(keys: java.util.List[Array[Byte]]): java.util.Map[Array[Byte], Array[Byte]] = ifOpen {
     metrics.getAlls.inc
     require(keys != null, "Null keys not allowed.")
     val map = db.multiGet(keys)
@@ -140,7 +140,7 @@ class RocksDbKeyValueStore(
     map
   }
 
-  def put(key: Array[Byte], value: Array[Byte]): Unit = withStateCheck {
+  def put(key: Array[Byte], value: Array[Byte]): Unit = ifOpen {
     metrics.puts.inc
     require(key != null, "Null key not allowed.")
     if (value == null) {
@@ -152,7 +152,7 @@ class RocksDbKeyValueStore(
   }
 
   // Write batch from RocksDB API is not used currently because of: https://github.com/facebook/rocksdb/issues/262
-  def putAll(entries: java.util.List[Entry[Array[Byte], Array[Byte]]]): Unit = withStateCheck {
+  def putAll(entries: java.util.List[Entry[Array[Byte], Array[Byte]]]): Unit = ifOpen {
     val iter = entries.iterator
     var wrote = 0
     var deletes = 0
@@ -173,25 +173,25 @@ class RocksDbKeyValueStore(
     metrics.deletes.inc(deletes)
   }
 
-  def delete(key: Array[Byte]): Unit = withStateCheck {
+  def delete(key: Array[Byte]): Unit = ifOpen {
     metrics.deletes.inc
     put(key, null)
   }
 
-  def range(from: Array[Byte], to: Array[Byte]): KeyValueIterator[Array[Byte], Array[Byte]] = withStateCheck {
+  def range(from: Array[Byte], to: Array[Byte]): KeyValueIterator[Array[Byte], Array[Byte]] = ifOpen {
     metrics.ranges.inc
     require(from != null && to != null, "Null bound not allowed.")
     new RocksDbRangeIterator(db.newIterator(), from, to)
   }
 
-  def all(): KeyValueIterator[Array[Byte], Array[Byte]] = withStateCheck {
+  def all(): KeyValueIterator[Array[Byte], Array[Byte]] = ifOpen {
     metrics.alls.inc
     val iter = db.newIterator()
     iter.seekToFirst()
     new RocksDbIterator(iter)
   }
 
-  def flush(): Unit = withStateCheck {
+  def flush(): Unit = ifOpen {
     metrics.flushes.inc
     trace("Flushing store: %s" format storeName)
     db.flush(flushOptions)
@@ -214,7 +214,7 @@ class RocksDbKeyValueStore(
     }
   }
 
-  private def withStateCheck[T](fn: => T): T = {
+  private def ifOpen[T](fn: => T): T = {
     stateChangeLock.readLock().lock()
     try {
       if (stackAtFirstClose == null) {
@@ -231,21 +231,21 @@ class RocksDbKeyValueStore(
   class RocksDbIterator(iter: RocksIterator) extends KeyValueIterator[Array[Byte], Array[Byte]] {
     private var open = true
 
-    override def close() = withStateCheck {
+    override def close() = ifOpen {
       open = false
       iter.close()
     }
 
     override def remove() = throw new UnsupportedOperationException("RocksDB iterator doesn't support remove")
 
-    override def hasNext() = withStateCheck(iter.isValid)
+    override def hasNext() = ifOpen(iter.isValid)
 
     // The iterator is already pointing to the next element
-    protected def peekKey() = withStateCheck {
+    protected def peekKey() = ifOpen {
       getEntry().getKey
     }
 
-    protected def getEntry() = withStateCheck {
+    protected def getEntry() = ifOpen {
       val key = iter.key
       val value = iter.value
       new Entry(key, value)
@@ -257,7 +257,7 @@ class RocksDbKeyValueStore(
     // current element we are pointing to and advance the iterator to the next 
     // location (The new location may or may not be valid - this will surface
     // when the next next() call is made, the isValid will fail)
-    override def next(): Entry[Array[Byte], Array[Byte]] = withStateCheck {
+    override def next(): Entry[Array[Byte], Array[Byte]] = ifOpen {
       if (!hasNext()) {
         throw new NoSuchElementException
       }
@@ -271,7 +271,7 @@ class RocksDbKeyValueStore(
       entry
     }
 
-    override def finalize(): Unit = withStateCheck {
+    override def finalize(): Unit = ifOpen {
       if (open) {
         trace("Leaked reference to RocksDB iterator, forcing close.")
         close()
@@ -284,9 +284,9 @@ class RocksDbKeyValueStore(
     // comparator to be pluggable, and the default is lexicographic, so it's
     // safe to just force lexicographic comparator here for now.
     val comparator: LexicographicComparator = lexicographic
-    withStateCheck(iter.seek(from))
+    ifOpen(iter.seek(from))
 
-    override def hasNext() = withStateCheck {
+    override def hasNext() = ifOpen {
       super.hasNext() && comparator.compare(peekKey(), to) < 0
     }
   }
