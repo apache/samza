@@ -120,6 +120,11 @@ public class EventHubSystemProducer implements SystemProducer {
       throw new SamzaException(msg);
     }
 
+    if (eventHubClients.containsKey(streamName)) {
+      LOG.warn("Already registered stream {}.", streamName);
+      return;
+    }
+
     EventHubClientManager ehClient = eventHubClientManagerFactory.getEventHubClientManager(systemName, streamName, config);
 
     ehClient.init();
