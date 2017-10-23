@@ -20,7 +20,6 @@ package org.apache.samza.operators;
 
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
-import java.util.function.Function;
 import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.data.TestOutputMessageEnvelope;
 import org.apache.samza.operators.functions.FilterFunction;

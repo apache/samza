@@ -20,7 +20,6 @@
 package org.apache.samza.operators;
 
 import java.io.IOException;
-import java.util.function.Function;
 import org.apache.samza.SamzaException;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
@@ -185,8 +184,8 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     IntermediateMessageStreamImpl<KV<K, V>> intermediateStream = this.graph.getIntermediateStream(opName, serde);
     PartitionByOperatorSpec<M, K, V> partitionByOperatorSpec = null;
     try {
-      OperatorSpecs.createPartitionByOperatorSpec(
-          intermediateStream.getOutputStream(), (Function<M, K>) keyExtractor, (Function<M, V>) valueExtractor, opId);
+      partitionByOperatorSpec = OperatorSpecs.createPartitionByOperatorSpec(
+          intermediateStream.getOutputStream(), (MapFunction<M, K>) keyExtractor, (MapFunction<M, V>) valueExtractor, opId);
     } catch (IOException e) {
       throw new SamzaException("Failed in serializing OutputStreamImpl for intermediate stream " + opName, e);
     }

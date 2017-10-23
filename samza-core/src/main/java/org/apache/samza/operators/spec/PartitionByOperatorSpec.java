@@ -20,9 +20,8 @@ package org.apache.samza.operators.spec;
 
 import java.io.IOException;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
-
-import java.util.function.Function;
 
 
 /**
@@ -39,20 +38,20 @@ import java.util.function.Function;
 public class PartitionByOperatorSpec<M, K, V> extends OperatorSpec<M, Void> {
 
   private final OutputStreamImpl<KV<K, V>> outputStream;
-  private final Function<? super M, ? extends K> keyFunction;
-  private final Function<? super M, ? extends V> valueFunction;
+  private final MapFunction<? super M, ? extends K> keyFunction;
+  private final MapFunction<? super M, ? extends V> valueFunction;
 
   /**
    * Constructs an {@link PartitionByOperatorSpec} to send messages to the provided {@code outputStream}
    *
    * @param outputStream the {@link OutputStreamImpl} to send messages to
-   * @param keyFunction the {@link Function} for extracting the key from the message
-   * @param valueFunction the {@link Function} for extracting the value from the message
+   * @param keyFunction the {@link MapFunction} for extracting the key from the message
+   * @param valueFunction the {@link MapFunction} for extracting the value from the message
    * @param opId the unique ID of this {@link SinkOperatorSpec} in the graph
    */
   PartitionByOperatorSpec(OutputStreamImpl<KV<K, V>> outputStream,
-      Function<? super M, ? extends K> keyFunction,
-      Function<? super M, ? extends V> valueFunction, int opId) {
+      MapFunction<? super M, ? extends K> keyFunction,
+      MapFunction<? super M, ? extends V> valueFunction, int opId) {
     super(OpCode.PARTITION_BY, opId);
     this.outputStream = outputStream;
     this.keyFunction = keyFunction;
@@ -67,11 +66,11 @@ public class PartitionByOperatorSpec<M, K, V> extends OperatorSpec<M, Void> {
     return this.outputStream;
   }
 
-  public Function<? super M, ? extends K> getKeyFunction() {
+  public MapFunction<? super M, ? extends K> getKeyFunction() {
     return keyFunction;
   }
 
-  public Function<? super M, ? extends V> getValueFunction() {
+  public MapFunction<? super M, ? extends V> getValueFunction() {
     return valueFunction;
   }
 

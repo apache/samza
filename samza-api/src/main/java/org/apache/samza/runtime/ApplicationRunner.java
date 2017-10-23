@@ -19,7 +19,7 @@
 package org.apache.samza.runtime;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.application.ApplicationBase;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.job.ApplicationStatus;
@@ -85,13 +85,13 @@ public interface ApplicationRunner {
   @Deprecated
   void runTask();
 
-  void run(ApplicationBase app);
+  void run(StreamApplication app);
 
-  void kill(ApplicationBase app);
+  void kill(StreamApplication app);
 
-  ApplicationStatus status(ApplicationBase app);
+  ApplicationStatus status(StreamApplication app);
 
-  void waitForFinish(ApplicationBase app);
+  void waitForFinish(StreamApplication app);
 
   /**
    * Create an empty {@link StreamGraph} object to instantiate the user defined operator DAG.

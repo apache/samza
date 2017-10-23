@@ -30,13 +30,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.ApplicationBase;
-import org.apache.samza.application.AsyncStreamTaskApplication;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplicationInternal;
-import org.apache.samza.application.StreamTaskApplication;
-import org.apache.samza.application.TaskApplication;
-import org.apache.samza.application.TaskApplicationInternal;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
@@ -74,6 +69,8 @@ public class LocalApplicationRunner extends ApplicationRunnerBase {
   private final AtomicInteger numProcessorsToStart = new AtomicInteger();
   private final AtomicReference<Throwable> failure = new AtomicReference<>();
 
+  private StreamManager streamManager;
+  private ExecutionPlanner planner;
   private ApplicationStatus appStatus = ApplicationStatus.New;
 
   final class LocalStreamProcessorLifeCycleListener implements StreamProcessorLifecycleListener {
@@ -139,200 +136,128 @@ public class LocalApplicationRunner extends ApplicationRunnerBase {
   @Override
   @Deprecated
   public void runTask() {
+    JobConfig jobConfig = new JobConfig(config);
 
+    // validation
+    String taskName = new TaskConfig(config).getTaskClass().getOrElse(defaultValue(null));
+    if (taskName == null) {
+      throw new SamzaException("Neither APP nor task.class are defined defined");
+    }
+    LOG.info("LocalApplicationRunner will run " + taskName);
+    LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
+
+    StreamProcessor processor = createStreamProcessor(jobConfig, TaskFactoryUtil.createTaskFactory(config, null, this), listener);
+
+    numProcessorsToStart.set(1);
+    listener.setProcessor(processor);
+    processor.start();
   }
 
   @Override
-  public StreamSpec getStreamSpec(String streamId) {
-    // TODO: add code to get stream spec from config
-    return null;
-  }
+  public void run(StreamApplication userApp) {
+    StreamApplicationInternal app = new StreamApplicationInternal(userApp);
+    this.streamManager = new StreamManager(new JavaSystemConfig(config).getSystemAdmins());
+    this.planner = new ExecutionPlanner(config, streamManager);
+    try {
+      // 1. initialize and plan
+      ExecutionPlan plan = getExecutionPlan(app);
+      writePlanJsonFile(plan.getPlanAsJson());
 
-  @VisibleForTesting
-  class TaskAppRuntime implements ApplicationRuntimeInstance {
-    private final TaskApplicationInternal app;
+      // 2. create the necessary streams
+      createStreams(plan.getId(), plan.getIntermediateStreams());
 
-    TaskAppRuntime(TaskApplicationInternal app) {
-      this.app = app;
-    }
-
-    @Override
-    public void run() {
-      JobConfig jobConfig = new JobConfig(config);
-
-      // validation
-      String taskName = new TaskConfig(config).getTaskClass().getOrElse(defaultValue(null));
-      if (taskName == null) {
-        throw new SamzaException("Neither APP nor task.class are defined defined");
+      // 3. create the StreamProcessors
+      if (plan.getJobConfigs().isEmpty()) {
+        throw new SamzaException("No jobs to run.");
       }
-      LOG.info("LocalApplicationRunner will run " + taskName);
-      LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
+      plan.getJobConfigs().forEach(jobConfig -> {
+          LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
+          LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
+          StreamProcessor processor = createStreamProcessor(jobConfig, TaskFactoryUtil.createTaskFactory(config, app, LocalApplicationRunner.this), listener);
+          listener.setProcessor(processor);
+          processors.add(processor);
+        });
+      numProcessorsToStart.set(processors.size());
 
-      StreamProcessor processor = createStreamProcessor(jobConfig, app.getTaskFactory(), listener);
-
-      numProcessorsToStart.set(1);
-      listener.setProcessor(processor);
-      processor.start();
-    }
-
-    @Override
-    public void kill() {
-      processors.forEach(StreamProcessor::stop);
-    }
-
-    @Override
-    public ApplicationStatus status() {
-      return appStatus;
-    }
-
-    @Override
-    public void waitForFinish() {
-      LocalApplicationRunner.this.waitForFinish();
-    }
-
-    @Override
-    public ApplicationBase getUserApp() {
-      return this.app.getUserApp();
+      // 4. start the StreamProcessors
+      processors.forEach(StreamProcessor::start);
+    } catch (Exception e) {
+      throw new SamzaException("Failed to start application", e);
     }
   }
 
   @VisibleForTesting
-  class StreamAppRuntime implements ApplicationRuntimeInstance {
-    private final StreamApplicationInternal app;
-    private final StreamManager streamManager;
-    private final ExecutionPlanner planner;
+  ExecutionPlan getExecutionPlan(StreamApplicationInternal app) throws Exception {
+    return this.planner.plan(app.getStreamGraphImpl());
+  }
 
-    StreamAppRuntime(StreamApplicationInternal app) {
-      this.app = app;
-      this.streamManager = new StreamManager(new JavaSystemConfig(config).getSystemAdmins());
-      this.planner = new ExecutionPlanner(config, streamManager);
-    }
+  @Override
+  public void kill(StreamApplication app) {
+    processors.forEach(StreamProcessor::stop);
+  }
 
-    @Override
-    public void run() {
-      try {
-        // 1. initialize and plan
-        ExecutionPlan plan = getExecutionPlan(this.app);
-        writePlanJsonFile(plan.getPlanAsJson());
+  @Override
+  public ApplicationStatus status(StreamApplication app) {
+    return appStatus;
+  }
 
-        // 2. create the necessary streams
-        createStreams(plan.getId(), plan.getIntermediateStreams());
-
-        // 3. create the StreamProcessors
-        if (plan.getJobConfigs().isEmpty()) {
-          throw new SamzaException("No jobs to run.");
-        }
-        plan.getJobConfigs().forEach(jobConfig -> {
-            LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
-            LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
-            StreamProcessor processor = createStreamProcessor(jobConfig, TaskFactoryUtil.createTaskFactory(config, this.app, LocalApplicationRunner.this), listener);
-            listener.setProcessor(processor);
-            processors.add(processor);
-          });
-        numProcessorsToStart.set(processors.size());
-
-        // 4. start the StreamProcessors
-        processors.forEach(StreamProcessor::start);
-      } catch (Exception e) {
-        throw new SamzaException("Failed to start application", e);
-      }
-    }
-
-    @VisibleForTesting
-    ExecutionPlan getExecutionPlan(StreamApplicationInternal app) throws Exception {
-      return this.planner.plan(app.getStreamGraphImpl());
-    }
-
-    @Override
-    public void kill() {
-      processors.forEach(StreamProcessor::stop);
-    }
-
-    @Override
-    public ApplicationStatus status() {
-      return appStatus;
-    }
-
-    @Override
-    public void waitForFinish() {
-      LocalApplicationRunner.this.waitForFinish();
-    }
-
-    @Override
-    public ApplicationBase getUserApp() {
-      return this.app.getUserApp();
-    }
-
-    /**
-     * Create intermediate streams using {@link org.apache.samza.execution.StreamManager}.
-     * If {@link CoordinationUtils} is provided, this function will first invoke leader election, and the leader
-     * will create the streams. All the runner processes will wait on the latch that is released after the leader finishes
-     * stream creation.
-     * @param planId a unique identifier representing the plan used for coordination purpose
-     * @param intStreams list of intermediate {@link StreamSpec}s
-     * @throws TimeoutException exception for latch timeout
-     */
+  /**
+   * Create intermediate streams using {@link org.apache.samza.execution.StreamManager}.
+   * If {@link CoordinationUtils} is provided, this function will first invoke leader election, and the leader
+   * will create the streams. All the runner processes will wait on the latch that is released after the leader finishes
+   * stream creation.
+   * @param planId a unique identifier representing the plan used for coordination purpose
+   * @param intStreams list of intermediate {@link StreamSpec}s
+   * @throws TimeoutException exception for latch timeout
+   */
     /* package private */ void createStreams(String planId, List<StreamSpec> intStreams) throws TimeoutException {
-      if (intStreams.isEmpty()) {
-        LOG.info("Set of intermediate streams is empty. Nothing to create.");
-        return;
-      }
-      LOG.info("A single processor must create the intermediate streams. Processor {} will attempt to acquire the lock.", uid);
-      // Move the scope of coordination utils within stream creation to address long idle connection problem.
-      // Refer SAMZA-1385 for more details
-      JobCoordinatorConfig jcConfig = new JobCoordinatorConfig(config);
-      String coordinationId = new ApplicationConfig(config).getGlobalAppId() + APPLICATION_RUNNER_PATH_SUFFIX;
-      CoordinationUtils coordinationUtils =
-          jcConfig.getCoordinationUtilsFactory().getCoordinationUtils(coordinationId, uid, config);
-      if (coordinationUtils == null) {
-        LOG.warn("Processor {} failed to create utils. Each processor will attempt to create streams.", uid);
-        // each application process will try creating the streams, which
-        // requires stream creation to be idempotent
-        getStreamManager().createStreams(intStreams);
-        return;
-      }
-
-      DistributedLockWithState lockWithState = coordinationUtils.getLockWithState(planId);
-      try {
-        // check if the processor needs to go through leader election and stream creation
-        if (lockWithState.lockIfNotSet(1000, TimeUnit.MILLISECONDS)) {
-          LOG.info("lock acquired for streams creation by " + uid);
-          getStreamManager().createStreams(intStreams);
-          lockWithState.unlockAndSet();
-        } else {
-          LOG.info("Processor {} did not obtain the lock for streams creation. They must've been created by another processor.", uid);
-        }
-      } catch (TimeoutException e) {
-        String msg = String.format("Processor {} failed to get the lock for stream initialization", uid);
-        throw new SamzaException(msg, e);
-      } finally {
-        coordinationUtils.close();
-      }
+    if (intStreams.isEmpty()) {
+      LOG.info("Set of intermediate streams is empty. Nothing to create.");
+      return;
+    }
+    LOG.info("A single processor must create the intermediate streams. Processor {} will attempt to acquire the lock.", uid);
+    // Move the scope of coordination utils within stream creation to address long idle connection problem.
+    // Refer SAMZA-1385 for more details
+    JobCoordinatorConfig jcConfig = new JobCoordinatorConfig(config);
+    String coordinationId = new ApplicationConfig(config).getGlobalAppId() + APPLICATION_RUNNER_PATH_SUFFIX;
+    CoordinationUtils coordinationUtils =
+        jcConfig.getCoordinationUtilsFactory().getCoordinationUtils(coordinationId, uid, config);
+    if (coordinationUtils == null) {
+      LOG.warn("Processor {} failed to create utils. Each processor will attempt to create streams.", uid);
+      // each application process will try creating the streams, which
+      // requires stream creation to be idempotent
+      getStreamManager().createStreams(intStreams);
+      return;
     }
 
-    @VisibleForTesting
-    StreamManager getStreamManager() {
-      return streamManager;
+    DistributedLockWithState lockWithState = coordinationUtils.getLockWithState(planId);
+    try {
+      // check if the processor needs to go through leader election and stream creation
+      if (lockWithState.lockIfNotSet(1000, TimeUnit.MILLISECONDS)) {
+        LOG.info("lock acquired for streams creation by " + uid);
+        getStreamManager().createStreams(intStreams);
+        lockWithState.unlockAndSet();
+      } else {
+        LOG.info("Processor {} did not obtain the lock for streams creation. They must've been created by another processor.", uid);
+      }
+    } catch (TimeoutException e) {
+      String msg = String.format("Processor {} failed to get the lock for stream initialization", uid);
+      throw new SamzaException(msg, e);
+    } finally {
+      coordinationUtils.close();
     }
   }
 
-  @Override
-  ApplicationRuntimeInstance createRuntimeInstance(ApplicationBase app) {
-    if (app instanceof StreamApplication) {
-      return new StreamAppRuntime(new StreamApplicationInternal((StreamApplication) app));
-    }
-
-    if (app instanceof StreamTaskApplication || app instanceof AsyncStreamTaskApplication) {
-      return new TaskAppRuntime(new TaskApplicationInternal((TaskApplication) app));
-    }
-
-    throw new IllegalArgumentException("Application type " + app.getClass().getCanonicalName() + " is not supported by LocalApplicationRunner");
+  @VisibleForTesting
+  StreamManager getStreamManager() {
+    return streamManager;
   }
 
   /**
    * Block until the application finishes
    */
-  public void waitForFinish() {
+  @Override
+  public void waitForFinish(StreamApplication app) {
     try {
       shutdownLatch.await();
     } catch (Exception e) {

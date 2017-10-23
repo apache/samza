@@ -33,7 +33,6 @@ import org.apache.samza.task.TaskContext;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.function.Function;
 
 
 /**
@@ -51,6 +50,7 @@ public class OperatorSpecs {
    * @param <M>  type of input message
    * @param <OM>  type of output message
    * @return  the {@link StreamOperatorSpec}
+   * @throws IOException when fail to create a serializable {@link OperatorSpec}
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createMapOperatorSpec(
       MapFunction<? super M, ? extends OM> mapFn, int opId) throws IOException {
@@ -86,6 +86,7 @@ public class OperatorSpecs {
    * @param opId  the unique ID of the operator
    * @param <M>  type of input message
    * @return  the {@link StreamOperatorSpec}
+   * @throws IOException when fail to create a serializable {@link OperatorSpec}
    */
   public static <M> StreamOperatorSpec<M, M> createFilterOperatorSpec(
       FilterFunction<? super M> filterFn, int opId) throws IOException {
@@ -121,6 +122,7 @@ public class OperatorSpecs {
    * @param <M>  type of input message
    * @param <OM>  type of output message
    * @return  the {@link StreamOperatorSpec}
+   * @throws IOException when fail to create a serializable {@link OperatorSpec}
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createFlatMapOperatorSpec(
       FlatMapFunction<? super M, ? extends OM> flatMapFn, int opId) throws IOException {
@@ -134,6 +136,7 @@ public class OperatorSpecs {
    * @param opId  the unique ID of the operator
    * @param <M>  type of input message
    * @return  the {@link SinkOperatorSpec} for the sink operator
+   * @throws IOException when fail to create a serializable {@link OperatorSpec}
    */
   public static <M> SinkOperatorSpec<M> createSinkOperatorSpec(SinkFunction<? super M> sinkFn, int opId)
       throws IOException {
@@ -147,6 +150,7 @@ public class OperatorSpecs {
    * @param opId  the unique ID of the operator
    * @param <M> the type of message in the {@link OutputStreamImpl}
    * @return  the {@link OutputOperatorSpec} for the sendTo operator
+   * @throws IOException when fail to create a serializable {@link OperatorSpec}
    */
   public static <M> OutputOperatorSpec<M> createSendToOperatorSpec(OutputStreamImpl<M> outputStream, int opId) throws IOException {
     return new OutputOperatorSpec<>(outputStream, opId);
@@ -163,11 +167,12 @@ public class OperatorSpecs {
    * @param valueFunction  the {@link MapFunction} for extracting the value from the message
    * @param opId  the unique ID of the operator
    * @return  the {@link OutputOperatorSpec} for the partitionBy operator
+   * @throws IOException when fail to create a serializable {@link OperatorSpec}
    */
   public static <M, K, V> PartitionByOperatorSpec<M, K, V> createPartitionByOperatorSpec(
-      OutputStreamImpl<KV<K, V>> outputStream, Function<? super M, ? extends K> keyFunction,
-      Function<? super M, ? extends V> valueFunction, int opId) throws IOException {
-    return new PartitionByOperatorSpec<>(outputStream, (Function<M, K>) keyFunction, (Function<M, V>) valueFunction, opId);
+      OutputStreamImpl<KV<K, V>> outputStream, MapFunction<? super M, ? extends K> keyFunction,
+      MapFunction<? super M, ? extends V> valueFunction, int opId) throws IOException {
+    return new PartitionByOperatorSpec<M, K, V>(outputStream, keyFunction, valueFunction, opId);
   }
 
   /**
@@ -179,8 +184,8 @@ public class OperatorSpecs {
    * @param <WK>  the type of key in the window output
    * @param <WV>  the type of value in the window
    * @return  the {@link WindowOperatorSpec}
+   * @throws IOException when fail to create a serializable {@link OperatorSpec}
    */
-
   public static <M, WK, WV> WindowOperatorSpec<M, WK, WV> createWindowOperatorSpec(
       WindowInternal<M, WK, WV> window, int opId) throws IOException {
     return new WindowOperatorSpec<>(window, opId);
@@ -202,6 +207,7 @@ public class OperatorSpecs {
    * @param <OM>  the type of message in the other stream
    * @param <JM>  the type of join result
    * @return  the {@link JoinOperatorSpec}
+   * @throws IOException when fail to create a serializable {@link OperatorSpec}
    */
   public static <K, M, OM, JM> JoinOperatorSpec<K, M, OM, JM> createJoinOperatorSpec(
       OperatorSpec<?, M> leftInputOpSpec, OperatorSpec<?, OM> rightInputOpSpec, JoinFunction<K, M, OM, JM> joinFn,
@@ -216,6 +222,7 @@ public class OperatorSpecs {
    * @param opId  the unique ID of the operator
    * @param <M>  the type of input message
    * @return  the {@link StreamOperatorSpec} for the merge
+   * @throws IOException when fail to create a serializable {@link OperatorSpec}
    */
   public static <M> StreamOperatorSpec<M, M> createMergeOperatorSpec(int opId) throws IOException {
     return new StreamOperatorSpec<>(message ->

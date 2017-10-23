@@ -291,7 +291,9 @@ public class TestJoinOperator {
   }
 
   private StreamApplication getTestJoinStreamApplication(TestJoinFunction joinFn) throws IOException {
-    StreamApplication testApp = StreamApplications.createStreamApp(mock(Config.class));
+    Config mockConfig = mock(Config.class);
+    doReturn("org.apache.samza.runtime.LocalApplicationRunner").when(mockConfig).get("app.runner.class");
+    StreamApplication testApp = StreamApplications.createStreamApp(mockConfig);
     IntegerSerde integerSerde = new IntegerSerde();
     KVSerde<Integer, Integer> kvSerde = KVSerde.of(integerSerde, integerSerde);
     MessageStream<KV<Integer, Integer>> inStream = testApp.openInput("instream", kvSerde);
@@ -301,8 +303,8 @@ public class TestJoinOperator {
     inStream
         .join(inStream2, joinFn, integerSerde, kvSerde, kvSerde, JOIN_TTL)
         .sink((message, messageCollector, taskCoordinator) -> {
-          messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
-        });
+            messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
+          });
     return testApp;
   }
 

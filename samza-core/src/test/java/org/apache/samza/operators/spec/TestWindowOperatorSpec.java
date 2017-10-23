@@ -21,11 +21,8 @@ package org.apache.samza.operators.spec;
 
 import org.apache.samza.serializers.Serde;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.function.Function;
-import java.util.function.Supplier;
 import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SupplierFunction;
@@ -80,7 +77,10 @@ public class TestWindowOperatorSpec {
     Trigger defaultTrigger = Triggers.timeSinceFirstMessage(Duration.ofMillis(150));
     Trigger earlyTrigger = Triggers.repeat(Triggers.count(5));
 
-    FoldLeftFunction<Object, Collection> foldFn = (m, c) -> { c.add(m); return c; };
+    FoldLeftFunction<Object, Collection> foldFn = (m, c) -> {
+      c.add(m);
+      return c;
+    };
     SupplierFunction<Collection> supplierFunction = () -> new ArrayList<>();
     MapFunction<Object, Object> keyFn = m -> m.toString();
     MapFunction<Object, Long> timeFn = m -> 123456L;

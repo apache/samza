@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
-import org.apache.samza.application.ApplicationBase;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
@@ -176,7 +175,7 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
   }
 
   Map<String, StreamOperatorTask> getTaskOperationGraphs(StreamApplication app) throws Exception {
-    Field appRunnerField = ApplicationBase.class.getDeclaredField("runner");
+    Field appRunnerField = StreamApplication.class.getDeclaredField("runner");
     appRunnerField.setAccessible(true);
     LocalApplicationRunner runner = (LocalApplicationRunner) appRunnerField.get(app);
     StreamProcessor processor = TestLocalApplicationRunner.getProcessors(runner).iterator().next();

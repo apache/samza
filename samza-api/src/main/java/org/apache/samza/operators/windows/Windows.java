@@ -33,7 +33,6 @@ import org.apache.samza.serializers.Serde;
 
 import java.time.Duration;
 import java.util.Collection;
-import java.util.function.Supplier;
 
 /**
  * APIs for creating different types of {@link Window}s.
@@ -86,7 +85,7 @@ import java.util.function.Supplier;
  * and triggers are fired and window panes are emitted per-key. It is possible to construct "keyed" variants
  * of the window types above.
  *
- * <p> The value for the window can be updated incrementally by providing an {@code initialValue} {@link Supplier}
+ * <p> The value for the window can be updated incrementally by providing an {@code initialValue} {@link SupplierFunction}
  * and an aggregating {@link FoldLeftFunction}. The initial value supplier is invoked every time a new window is
  * created. The aggregating function is invoked for each incoming message for the window. If these are not provided,
  * the emitted {@link WindowPane} will contain a collection of messages in the window.
@@ -99,7 +98,7 @@ public final class Windows {
 
   private Windows() { }
 
-  private static <M> FoldLeftFunction<M,Collection<M>> defaultAggregator() {
+  private static <M> FoldLeftFunction<M, Collection<M>> defaultAggregator() {
     return (m, c) -> {
       c.add(m);
       return c;
@@ -114,8 +113,8 @@ public final class Windows {
    *
    * <pre> {@code
    *    MessageStream<UserClick> stream = ...;
-   *    Function<UserClick, String> keyFn = ...;
-   *    Supplier<Integer> initialValue = () -> 0;
+   *    MapFunction<UserClick, String> keyFn = ...;
+   *    SupplierFunction<Integer> initialValue = () -> 0;
    *    FoldLeftFunction<UserClick, Integer, Integer> maxAggregator = (m, c) -> Math.max(parseInt(m), c);
    *    MessageStream<WindowPane<String, Integer>> windowedStream = stream.window(
    *        Windows.keyedTumblingWindow(keyFn, Duration.ofSeconds(10), maxAggregator));
@@ -198,7 +197,7 @@ public final class Windows {
    *
    * <pre> {@code
    *    MessageStream<String> stream = ...;
-   *    Supplier<Integer> initialValue = () -> 0;
+   *    SupplierFunction<Integer> initialValue = () -> 0;
    *    FoldLeftFunction<String, Integer, Integer> maxAggregator = (m, c) -> Math.max(parseInt(m), c);
    *    MessageStream<WindowPane<Void, Integer>> windowedStream = stream.window(
    *        Windows.tumblingWindow(Duration.ofSeconds(10), maxAggregator));
@@ -279,7 +278,7 @@ public final class Windows {
    *
    * <pre> {@code
    *    MessageStream<UserClick> stream = ...;
-   *    Supplier<Integer> initialValue = () -> 0;
+   *    SupplierFunction<Integer> initialValue = () -> 0;
    *    FoldLeftFunction<UserClick, Integer, Integer> maxAggregator = (m, c) -> Math.max(parseInt(m), c);
    *    Function<UserClick, String> userIdExtractor = m -> m.getUserId()..;
    *    MessageStream<WindowPane<String, Integer>> windowedStream = stream.window(
@@ -327,7 +326,7 @@ public final class Windows {
    *
    * <pre> {@code
    *    MessageStream<UserClick> stream = ...;
-   *    Supplier<Integer> initialValue = () -> 0;
+   *    SupplierFunction<Integer> initialValue = () -> 0;
    *    FoldLeftFunction<UserClick, Integer, Integer> maxAggregator = (m, c)-> Math.max(parseIntField(m), c);
    *    Function<UserClick, String> userIdExtractor = m -> m.getUserId()..;
    *    MessageStream<WindowPane<String>, Collection<M>> windowedStream = stream.window(

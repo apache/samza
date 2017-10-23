@@ -22,16 +22,14 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.runtime.ApplicationRunner;
-import org.apache.samza.task.AsyncStreamTaskFactory;
-import org.apache.samza.task.StreamTaskFactory;
 
 /**
  * This class defines the methods to create different types of Samza application instances: 1) high-level end-to-end
- * {@link StreamApplication}; 2) task-level {@link StreamTaskApplication}; 3) task-level {@link AsyncStreamTaskApplication}
+ * {@link StreamApplication}; 2) task-level StreamTaskApplication; 3) task-level AsyncStreamTaskApplication
  */
 public class StreamApplications {
   //TODO: add the static map of all created application instances from the user program
-  private static final Map<String, ApplicationBase> USER_APPS = new HashMap<>();
+  private static final Map<String, StreamApplication> USER_APPS = new HashMap<>();
 
   private StreamApplications() {
 
@@ -40,20 +38,6 @@ public class StreamApplications {
   public static StreamApplication createStreamApp(Config config) {
     ApplicationRunner runner = ApplicationRunner.fromConfig(config);
     StreamApplication app = new StreamApplication(runner, config);
-    USER_APPS.put(app.getGlobalAppId(), app);
-    return app;
-  }
-
-  public static StreamTaskApplication createStreamTaskApp(Config config, StreamTaskFactory streamTaskFactory) {
-    ApplicationRunner runner = ApplicationRunner.fromConfig(config);
-    StreamTaskApplication app = new StreamTaskApplication(streamTaskFactory, runner, config);
-    USER_APPS.put(app.getGlobalAppId(), app);
-    return app;
-  }
-
-  public static AsyncStreamTaskApplication createAsyncStreamTaskApp(Config config, AsyncStreamTaskFactory asyncStreamTaskFactory) {
-    ApplicationRunner runner = ApplicationRunner.fromConfig(config);
-    AsyncStreamTaskApplication app = new AsyncStreamTaskApplication(asyncStreamTaskFactory, runner, config);
     USER_APPS.put(app.getGlobalAppId(), app);
     return app;
   }

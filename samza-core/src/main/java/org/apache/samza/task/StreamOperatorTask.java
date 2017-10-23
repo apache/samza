@@ -77,7 +77,6 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
    */
   @Override
   public final void init(Config config, TaskContext context) throws Exception {
-    // TODO: getStreamGraphImpl() need to return a new instance of StreamGraphImpl per task, not a shared instance
     StreamGraphImpl streamGraph = this.streamApplication.getStreamGraphImpl();
     // initialize the user-implemented stream application.
     // this.streamApplication.init(streamGraph, config);

@@ -19,13 +19,9 @@
 package org.apache.samza.runtime;
 
 import java.io.File;
-import org.apache.samza.SamzaException;
-import org.apache.samza.application.ApplicationBase;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationInternal;
 import org.apache.samza.config.Config;
 import org.apache.samza.job.ApplicationStatus;
-import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.system.StreamSpec;
 import org.junit.Test;
 
@@ -91,14 +87,6 @@ public class TestApplicationRunnerMain {
     }
 
     @Override
-    ApplicationRuntimeInstance createRuntimeInstance(ApplicationBase app) {
-      if (app instanceof StreamApplication) {
-        return new StreamApplicationRuntime((StreamApplication) app);
-      }
-      throw new UnsupportedOperationException("Application class not supported");
-    }
-
-    @Override
     public void runTask() {
       throw new UnsupportedOperationException("runTask() not supported in this test");
     }
@@ -108,36 +96,27 @@ public class TestApplicationRunnerMain {
       return null;
     }
 
-    private class StreamApplicationRuntime implements ApplicationRuntimeInstance {
-      public StreamApplicationRuntime(StreamApplication app) {
-      }
-
-      @Override
-      public void run() {
-        TestApplicationRunnerInvocationCounts.this.runCount++;
-      }
-
-      @Override
-      public void kill() {
-        TestApplicationRunnerInvocationCounts.this.killCount++;
-      }
-
-      @Override
-      public ApplicationStatus status() {
-        TestApplicationRunnerInvocationCounts.this.statusCount++;
-        return ApplicationStatus.Running;
-      }
-
-      @Override
-      public void waitForFinish() {
-
-      }
-
-      @Override
-      public ApplicationBase getUserApp() {
-        return null;
-      }
+    @Override
+    public void run(StreamApplication userApp) {
+      TestApplicationRunnerInvocationCounts.this.runCount++;
     }
+
+    @Override
+    public void kill(StreamApplication userApp) {
+      TestApplicationRunnerInvocationCounts.this.killCount++;
+    }
+
+    @Override
+    public ApplicationStatus status(StreamApplication userApp) {
+      TestApplicationRunnerInvocationCounts.this.statusCount++;
+      return ApplicationStatus.Running;
+    }
+
+    @Override
+    public void waitForFinish(StreamApplication userApp) {
+
+    }
+
   }
 
 }

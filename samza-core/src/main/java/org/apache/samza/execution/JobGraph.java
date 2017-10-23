@@ -91,6 +91,11 @@ import org.slf4j.LoggerFactory;
     return jsonGenerator.toJson(this);
   }
 
+  @Override
+  public String getId() {
+    return String.format("%s-%08x", new ApplicationConfig(config).getGlobalAppId(), hashCode());
+  }
+
   /**
    * Returns the config for this application
    * @return {@link ApplicationConfig}
@@ -178,12 +183,6 @@ import org.slf4j.LoggerFactory;
     }
     return edge;
   }
-
-  /**
-   * Get the {@link StreamEdge} for a {@link StreamSpec}. Create one if it does not exist.
-   * @param streamSpec spec of the StreamEdge
-   * @return stream edge
-   */
 
   /**
    * Returns the job nodes to be executed in the topological order

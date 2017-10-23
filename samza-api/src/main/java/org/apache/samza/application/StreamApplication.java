@@ -21,6 +21,8 @@ package org.apache.samza.application;
 import java.io.IOException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.operators.IOSystem;
 import org.apache.samza.operators.KV;
@@ -81,13 +83,16 @@ import java.util.Map;
  * See {@link InitableFunction} and {@link org.apache.samza.operators.functions.ClosableFunction}.
  */
 @InterfaceStability.Unstable
-public class StreamApplication extends ApplicationBase {
+public class StreamApplication {
 
   /*package private*/
+  final ApplicationRunner runner;
+  final Config config;
   final StreamGraph graph;
 
   StreamApplication(ApplicationRunner runner, Config config) {
-    super(runner, config);
+    this.runner = runner;
+    this.config = config;
     this.graph = runner.createGraph();
   }
 
@@ -96,9 +101,12 @@ public class StreamApplication extends ApplicationBase {
    * <p>
    * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
+   * @param <M> the type of input messages
    * @param streamId the input {@link StreamDescriptor.Input}
+   * @param serde the {@link Serde} object used to deserialize input messages
    * @return the input {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
+   * @throws IOException when fail to create a serializable input operator to read the input messages
    */
   public <M> MessageStream<M> openInput(String streamId, Serde<M> serde) throws IOException {
     return this.graph.getInputStream(streamId, serde);
@@ -113,6 +121,7 @@ public class StreamApplication extends ApplicationBase {
    * @param streamId the input {@link StreamDescriptor.Input}
    * @return the input {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
+   * @throws IOException when fail to create a serializable input operator to read the input messages
    */
   public <M> MessageStream<M> openInput(String streamId) throws IOException {
     return this.graph.getInputStream(streamId);
@@ -125,6 +134,7 @@ public class StreamApplication extends ApplicationBase {
    *
    * @param <M> the type of message in the {@link OutputStream}
    * @param output the {@link StreamDescriptor.Output} to describe the {@code output} object
+   * @param serde the {@link Serde} object used to serialize output messages
    * @return the output {@link OutputStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
@@ -137,6 +147,7 @@ public class StreamApplication extends ApplicationBase {
    * <p>
    * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
+   * @param <M> the type of message in the {@link OutputStream}
    * @param output the {@link StreamDescriptor.Output} to describe the {@code output} object
    * @return the output {@link OutputStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
@@ -145,13 +156,79 @@ public class StreamApplication extends ApplicationBase {
     return this.graph.getOutputStream(output);
   }
 
-  public StreamApplication withMetricsReporters(Map<String, MetricsReporter> metrics) {
-    super.withMetricsReports(metrics);
-    return this;
+  /**
+   * Deploy and run the Samza jobs to execute this application.
+   * It is non-blocking so it doesn't wait for the application running.
+   *
+   */
+  public final void run() {
+    this.runner.run(this);
   }
 
-  public StreamApplication withContextFactory(ProcessorContextFactory factory) {
-    super.setContextFactory(factory);
-    return this;
+  /**
+   * Kill the Samza jobs represented by this application
+   * It is non-blocking so it doesn't wait for the application stopping.
+   *
+   */
+  public final void kill() {
+    this.runner.kill(this);
   }
+
+  /**
+   * Get the collective status of the Samza jobs represented by this application.
+   * Returns {@link ApplicationStatus} running if all jobs are running.
+   *
+   * @return the status of the application
+   */
+  public final ApplicationStatus status() {
+    return this.runner.status(this);
+  }
+
+  /**
+   * Method to wait for the runner in the current JVM process to finish.
+   */
+  public final void waitForFinish() {
+    this.runner.waitForFinish(this);
+  }
+
+  public class AppConfig extends MapConfig {
+
+    public static final String APP_NAME = "app.name";
+    public static final String APP_ID = "app.id";
+    public static final String APP_CLASS = "app.class";
+
+    public static final String JOB_NAME = "job.name";
+    public static final String JOB_ID = "job.id";
+
+    public AppConfig(Config config) {
+      super(config);
+    }
+
+    public String getAppName() {
+      return get(APP_NAME, get(JOB_NAME));
+    }
+
+    public String getAppId() {
+      return get(APP_ID, get(JOB_ID, "1"));
+    }
+
+    public String getAppClass() {
+      return get(APP_CLASS, null);
+    }
+
+    /**
+     * returns full application id
+     * @return full app id
+     */
+    public String getGlobalAppId() {
+      return String.format("app-%s-%s", getAppName(), getAppId());
+    }
+
+  }
+
+
+  public String getGlobalAppId() {
+    return new AppConfig(config).getGlobalAppId();
+  }
+
 }

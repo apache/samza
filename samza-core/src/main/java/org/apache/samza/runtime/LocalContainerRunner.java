@@ -23,7 +23,6 @@ import java.util.HashMap;
 import java.util.Random;
 import org.apache.log4j.MDC;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.ApplicationBase;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplicationInternal;
 import org.apache.samza.config.Config;
@@ -74,79 +73,57 @@ public class LocalContainerRunner extends ApplicationRunnerBase {
   }
 
   @Override
-  ApplicationRuntimeInstance createRuntimeInstance(ApplicationBase streamApp) {
-    if (streamApp instanceof StreamApplication) {
-      return new StreamAppRuntime(new StreamApplicationInternal((StreamApplication) streamApp));
-    }
+  public void run(StreamApplication app) {
+    Object taskFactory = TaskFactoryUtil.createTaskFactory(config, new StreamApplicationInternal(app), LocalContainerRunner.this);
 
-    throw new IllegalArgumentException("Application type " + streamApp.getClass().getCanonicalName() + " is not supported by LocalContainerRunner");
+    container = SamzaContainer$.MODULE$.apply(
+        containerId,
+        jobModel,
+        config,
+        Util.<String, MetricsReporter>javaMapAsScalaMap(new HashMap<>()),
+        taskFactory);
+    container.setContainerListener(
+        new SamzaContainerListener() {
+          @Override
+          public void onContainerStart() {
+            log.info("Container Started");
+          }
+
+          @Override
+          public void onContainerStop(boolean invokedExternally) {
+            log.info("Container Stopped");
+          }
+
+          @Override
+          public void onContainerFailed(Throwable t) {
+            log.info("Container Failed");
+            containerRunnerException = t;
+          }
+        });
+    startContainerHeartbeatMonitor();
+    container.run();
+    stopContainerHeartbeatMonitor();
+    if (containerRunnerException != null) {
+      log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
+      System.exit(1);
+    }
   }
 
-  private class StreamAppRuntime implements ApplicationRuntimeInstance {
-    private final StreamApplicationInternal app;
+  @Override
+  public void kill(StreamApplication userApp) {
+    // Ultimately this class probably won't end up extending ApplicationRunner, so this will be deleted
+    throw new UnsupportedOperationException();
+  }
 
-    StreamAppRuntime(StreamApplicationInternal streamApp) {
-      this.app = streamApp;
-    }
+  @Override
+  public ApplicationStatus status(StreamApplication userApp) {
+    // Ultimately this class probably won't end up extending ApplicationRunner, so this will be deleted
+    throw new UnsupportedOperationException();
+  }
 
-    @Override
-    public void run() {
-      Object taskFactory = TaskFactoryUtil.createTaskFactory(config, app, LocalContainerRunner.this);
+  @Override
+  public void waitForFinish(StreamApplication userApp) {
 
-      container = SamzaContainer$.MODULE$.apply(
-          containerId,
-          jobModel,
-          config,
-          Util.<String, MetricsReporter>javaMapAsScalaMap(new HashMap<>()),
-          taskFactory);
-      container.setContainerListener(
-          new SamzaContainerListener() {
-            @Override
-            public void onContainerStart() {
-              log.info("Container Started");
-            }
-
-            @Override
-            public void onContainerStop(boolean invokedExternally) {
-              log.info("Container Stopped");
-            }
-
-            @Override
-            public void onContainerFailed(Throwable t) {
-              log.info("Container Failed");
-              containerRunnerException = t;
-            }
-          });
-      startContainerHeartbeatMonitor();
-      container.run();
-      stopContainerHeartbeatMonitor();
-      if (containerRunnerException != null) {
-        log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
-        System.exit(1);
-      }
-    }
-
-    @Override
-    public void kill() {
-      // Ultimately this class probably won't end up extending ApplicationRunner, so this will be deleted
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ApplicationStatus status() {
-      // Ultimately this class probably won't end up extending ApplicationRunner, so this will be deleted
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void waitForFinish() {
-
-    }
-
-    @Override
-    public ApplicationBase getUserApp() {
-      return this.app.getUserApp();
-    }
   }
 
   public static void main(String[] args) throws Exception {

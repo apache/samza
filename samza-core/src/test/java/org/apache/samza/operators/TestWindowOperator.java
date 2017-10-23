@@ -26,7 +26,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.function.Function;
 import org.apache.samza.Partition;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplicationInternal;
@@ -126,7 +125,7 @@ public class TestWindowOperator {
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
 
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(new StreamApplicationInternal(sgb), testClock);;
+    StreamOperatorTask task = new StreamOperatorTask(new StreamApplicationInternal(sgb), testClock);
     task.init(config, taskContext);
 
     MessageCollector messageCollector = envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
@@ -150,7 +149,7 @@ public class TestWindowOperator {
         Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2)));
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(new StreamApplicationInternal(sgb), testClock);;
+    StreamOperatorTask task = new StreamOperatorTask(new StreamApplicationInternal(sgb), testClock);
     task.init(config, taskContext);
 
     MessageCollector messageCollector = envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
@@ -177,7 +176,7 @@ public class TestWindowOperator {
     StreamApplication sgb = this.getKeyedSessionWindowStreamApplication(AccumulationMode.DISCARDING, Duration.ofMillis(500));
     TestClock testClock = new TestClock();
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
-    StreamOperatorTask task = new StreamOperatorTask(new StreamApplicationInternal(sgb), testClock);;
+    StreamOperatorTask task = new StreamOperatorTask(new StreamApplicationInternal(sgb), testClock);
     task.init(config, taskContext);
     MessageCollector messageCollector = envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
     task.process(new IntegerEnvelope(1), messageCollector, taskCoordinator);
@@ -222,7 +221,7 @@ public class TestWindowOperator {
     StreamApplication sgb = this.getKeyedSessionWindowStreamApplication(AccumulationMode.DISCARDING,
         Duration.ofMillis(500));
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(new StreamApplicationInternal(sgb), testClock);;
+    StreamOperatorTask task = new StreamOperatorTask(new StreamApplicationInternal(sgb), testClock);
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
 
     MessageCollector messageCollector = envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
@@ -253,7 +252,7 @@ public class TestWindowOperator {
     StreamApplication sgb = this.getKeyedTumblingWindowStreamApplication(AccumulationMode.ACCUMULATING,
         Duration.ofSeconds(1), Triggers.count(2));
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(new StreamApplicationInternal(sgb), testClock);;
+    StreamOperatorTask task = new StreamOperatorTask(new StreamApplicationInternal(sgb), testClock);
     task.init(config, taskContext);
 
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
@@ -296,7 +295,7 @@ public class TestWindowOperator {
     StreamApplication sgb = this.getKeyedTumblingWindowStreamApplication(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1),
         Triggers.any(Triggers.count(2), Triggers.timeSinceFirstMessage(Duration.ofMillis(500))));
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(new StreamApplicationInternal(sgb), testClock);;
+    StreamOperatorTask task = new StreamOperatorTask(new StreamApplicationInternal(sgb), testClock);
     task.init(config, taskContext);
 
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
@@ -357,7 +356,7 @@ public class TestWindowOperator {
     MessageCollector messageCollector = envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
 
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(new StreamApplicationInternal(sgb), testClock);;
+    StreamOperatorTask task = new StreamOperatorTask(new StreamApplicationInternal(sgb), testClock);
     task.init(config, taskContext);
 
     task.process(new IntegerEnvelope(1), messageCollector, taskCoordinator);
@@ -388,7 +387,9 @@ public class TestWindowOperator {
   private StreamApplication getKeyedTumblingWindowStreamApplication(AccumulationMode mode,
       Duration duration, Trigger<IntegerEnvelope> earlyTrigger) throws IOException {
     final SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
-    StreamApplication testApp = StreamApplications.createStreamApp(mock(Config.class));
+    Config mockConfig = mock(Config.class);
+    doReturn("org.apache.samza.runtime.LocalApplicationRunner").when(mockConfig).get("app.runner.class");
+    StreamApplication testApp = StreamApplications.createStreamApp(mockConfig);
     MessageStream<IntegerEnvelope> inStream =
         testApp.openInput("integers", KVSerde.of(new IntegerSerde(), new IntegerSerde()))
             .map(kv -> new IntegerEnvelope(kv.getKey()));
@@ -398,15 +399,17 @@ public class TestWindowOperator {
         .window(Windows.keyedTumblingWindow(keyFn, duration, new IntegerSerde(), new IntegerEnvelopeSerde()).setEarlyTrigger(earlyTrigger)
             .setAccumulationMode(mode))
         .sink((message, messageCollector, taskCoordinator) -> {
-          messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
-        });
+            messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
+          });
     return testApp;
   }
 
   private StreamApplication getTumblingWindowStreamApplication(AccumulationMode mode,
       Duration duration, Trigger<IntegerEnvelope> earlyTrigger) throws IOException {
     final SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
-    StreamApplication testApp = StreamApplications.createStreamApp(mock(Config.class));
+    Config mockConfig = mock(Config.class);
+    doReturn("org.apache.samza.runtime.LocalApplicationRunner").when(mockConfig).get("app.runner.class");
+    StreamApplication testApp = StreamApplications.createStreamApp(mockConfig);
     MessageStream<IntegerEnvelope> inStream =
         testApp.openInput("integers", KVSerde.of(new IntegerSerde(), new IntegerSerde()))
             .map(kv -> new IntegerEnvelope(kv.getKey()));
@@ -415,14 +418,16 @@ public class TestWindowOperator {
         .window(Windows.tumblingWindow(duration, new IntegerEnvelopeSerde()).setEarlyTrigger(earlyTrigger)
             .setAccumulationMode(mode))
         .sink((message, messageCollector, taskCoordinator) -> {
-          messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
-        });
+            messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
+          });
     return testApp;
   }
 
   private StreamApplication getKeyedSessionWindowStreamApplication(AccumulationMode mode, Duration duration) throws IOException {
     final SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
-    StreamApplication testApp = StreamApplications.createStreamApp(mock(Config.class));
+    Config mockConfig = mock(Config.class);
+    doReturn("org.apache.samza.runtime.LocalApplicationRunner").when(mockConfig).get("app.runner.class");
+    StreamApplication testApp = StreamApplications.createStreamApp(mockConfig);
     MessageStream<IntegerEnvelope> inStream =
         testApp.openInput("integers", KVSerde.of(new IntegerSerde(), new IntegerSerde()))
             .map(kv -> new IntegerEnvelope(kv.getKey()));
@@ -433,8 +438,8 @@ public class TestWindowOperator {
         .window(Windows.keyedSessionWindow(keyFn, duration, new IntegerSerde(), new IntegerEnvelopeSerde())
             .setAccumulationMode(mode))
         .sink((message, messageCollector, taskCoordinator) -> {
-          messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
-        });
+            messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
+          });
     return testApp;
   }
 
