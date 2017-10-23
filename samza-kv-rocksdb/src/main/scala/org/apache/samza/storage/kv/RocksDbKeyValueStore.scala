@@ -117,7 +117,7 @@ class RocksDbKeyValueStore(
     require(key != null, "Null key not allowed.")
     val found = db.get(key)
     if (found != null) {
-      metrics.bytesRead.inc(found.size)
+      metrics.bytesRead.inc(found.length)
     }
     found
   }
@@ -132,7 +132,7 @@ class RocksDbKeyValueStore(
       while (iterator.hasNext) {
         val value = iterator.next
         if (value != null) {
-          bytesRead += value.size
+          bytesRead += value.length
         }
       }
       metrics.bytesRead.inc(bytesRead)
@@ -165,7 +165,7 @@ class RocksDbKeyValueStore(
       } else {
         val key = curr.getKey
         val value = curr.getValue
-        metrics.bytesWritten.inc(key.size + value.size)
+        metrics.bytesWritten.inc(key.length + value.length)
         db.put(writeOptions, key, value)
       }
     }
