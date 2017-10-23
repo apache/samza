@@ -33,6 +33,7 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.eventhub.EventHubClientManagerFactory;
 import org.apache.samza.system.eventhub.EventHubClientManager;
 import org.apache.samza.system.eventhub.EventHubConfig;
+import org.apache.samza.system.eventhub.admin.EventHubSystemAdmin;
 import org.apache.samza.system.eventhub.metrics.SamzaHistogram;
 import org.apache.samza.util.BlockingEnvelopeMap;
 import org.slf4j.Logger;
@@ -191,6 +192,14 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
         default:
           throw new SamzaException("Unknown starting position config " +
                   config.getStartPosition(systemName, systemStreamPartition.getStream()));
+      }
+    }
+
+    if (streamPartitionOffsets.containsKey(systemStreamPartition)) {
+      String prevOffset = streamPartitionOffsets.get(systemStreamPartition);
+      if (EventHubSystemAdmin.compareOffsets(offset, prevOffset) > -1) {
+        // Only update if new offset is lower than previous offset
+        return;
       }
     }
     streamPartitionOffsets.put(systemStreamPartition, offset);

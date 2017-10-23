@@ -58,6 +58,46 @@ public class TestEventHubSystemConsumer {
   }
 
   @Test
+  public void testMultipleRegistersToSameSSP() throws Exception {
+    String systemName = "eventhubs";
+    String streamName = "testStream";
+    int numEvents = 10; // needs to be less than BLOCKING_QUEUE_SIZE
+    int partitionId = 0;
+
+    TestMetricsRegistry testMetrics = new TestMetricsRegistry();
+    Map<SystemStreamPartition, List<EventData>> eventData = new HashMap<>();
+    SystemStreamPartition ssp = new SystemStreamPartition(systemName, streamName, new Partition(partitionId));
+    Map<String, Serde<byte[]>> serdes = new HashMap<>();
+    serdes.put(streamName, new ByteSerde());
+
+    // create EventData
+    List<EventData> singlePartitionEventData = MockEventData.generateEventData(numEvents);
+    eventData.put(ssp, singlePartitionEventData);
+
+    // Set configs
+    Map<String, String> configMap = new HashMap<>();
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_LIST, systemName), streamName);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, systemName, streamName), EVENTHUB_NAMESPACE);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName), EVENTHUB_KEY_NAME);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, systemName, streamName), EVENTHUB_KEY);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, systemName, streamName), MOCK_ENTITY_1);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_CONSUMER_START_POSITION, systemName, streamName), "earliest");
+
+    MockEventHubClientManagerFactory eventHubClientWrapperFactory = new MockEventHubClientManagerFactory(eventData);
+
+    EventHubSystemConsumer consumer =
+            new EventHubSystemConsumer(new EventHubConfig(configMap), systemName, eventHubClientWrapperFactory, serdes,
+                    testMetrics);
+    consumer.register(ssp, "1");
+    consumer.register(ssp, EventHubSystemConsumer.END_OF_STREAM);
+    consumer.register(ssp, null);
+    consumer.start();
+
+    Assert.assertEquals(EventHubSystemConsumer.START_OF_STREAM,
+            eventHubClientWrapperFactory.getPartitionOffset(String.valueOf(partitionId)));
+  }
+
+  @Test
   public void testSinglePartitionConsumptionHappyPath() throws Exception {
     String systemName = "eventhubs";
     String streamName = "testStream";

@@ -177,8 +177,7 @@ public class EventHubSystemAdmin implements SystemAdmin {
     return sspMetadataMap;
   }
 
-  @Override
-  public Integer offsetComparator(String offset1, String offset2) {
+  public static Integer compareOffsets(String offset1, String offset2) {
     if (offset1 == null || offset2 == null) {
       return null;
     }
@@ -191,5 +190,10 @@ public class EventHubSystemAdmin implements SystemAdmin {
     } catch (NumberFormatException exception) {
       return null;
     }
+  }
+
+  @Override
+  public Integer offsetComparator(String offset1, String offset2) {
+    return compareOffsets(offset1, offset2);
   }
 }

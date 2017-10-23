@@ -21,6 +21,7 @@ package org.apache.samza.system.eventhub;
 
 import com.microsoft.azure.eventhubs.*;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.system.eventhub.consumer.EventHubSystemConsumer;
 import org.junit.Assert;
 import org.mockito.stubbing.Answer;
 import org.powermock.api.mockito.PowerMockito;
@@ -38,6 +39,7 @@ import static org.mockito.Matchers.*;
 public class MockEventHubClientManagerFactory extends EventHubClientManagerFactory {
   private Map<SystemStreamPartition, List<EventData>> eventData;
   private Map<String, Map<String, Map<Integer, List<EventData>>>> receivedData;
+  private Map<String, String> startingOffsets = new HashMap<>();
 
   public MockEventHubClientManagerFactory() {
     this.receivedData = new HashMap<>();
@@ -67,6 +69,10 @@ public class MockEventHubClientManagerFactory extends EventHubClientManagerFacto
   public void sendToHandlers(Map<SystemStreamPartition, PartitionReceiveHandler> handlers) {
     if (eventData == null) return;
     handlers.forEach((ssp, value) -> value.onReceive(eventData.get(ssp)));
+  }
+
+  public String getPartitionOffset(String partitionId) {
+    return startingOffsets.getOrDefault(partitionId, null);
   }
 
   public List<EventData> getSentData(String systemName, String streamName, Integer partitionId) {
@@ -119,9 +125,18 @@ public class MockEventHubClientManagerFactory extends EventHubClientManagerFacto
       try {
         // Consumer calls
         PowerMockito.when(mockEventHubClient.createReceiverSync(anyString(), anyString(), any(Instant.class)))
-                .thenReturn(mockPartitionReceiver);
+                .then((Answer<PartitionReceiver>) invocationOnMock -> {
+                    String partitionId = invocationOnMock.getArgumentAt(1, String.class);
+                    startingOffsets.put(partitionId, EventHubSystemConsumer.END_OF_STREAM);
+                    return mockPartitionReceiver;
+                  });
         PowerMockito.when(mockEventHubClient.createReceiverSync(anyString(), anyString(), anyString(), anyBoolean()))
-                .thenReturn(mockPartitionReceiver);
+                .then((Answer<PartitionReceiver>) invocationOnMock -> {
+                    String partitionId = invocationOnMock.getArgumentAt(1, String.class);
+                    String offset = invocationOnMock.getArgumentAt(2, String.class);
+                    startingOffsets.put(partitionId, offset);
+                    return mockPartitionReceiver;
+                  });
 
         // Producer calls
         PowerMockito.when(mockEventHubClient.createPartitionSenderSync("0")).thenReturn(mockPartitionSender0);
