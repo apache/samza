@@ -195,24 +195,35 @@ public class StreamGraphImpl implements StreamGraph {
 
   /**
    * Gets the unique ID for the next operator in the graph. The ID is of the following format:
-   * jobName-jobId-opCode-(userProvidedName|nextOpNum);
+   * jobName-jobId-opCode-(userDefinedId|nextOpNum);
    *
    * @param opCode the {@link OpCode} of the next operator
-   * @param userProvidedName the optional user-provided name of the next operator or null
+   * @param userDefinedId the optional user-provided name of the next operator or null
    * @return the unique ID for the next operator in the graph
    */
-  /* package private */ String getNextOpId(OpCode opCode, String userProvidedName) {
+  /* package private */ String getNextOpId(OpCode opCode, String userDefinedId) {
     String nextOpId = String.format("%s-%s-%s-%s",
         config.get(JobConfig.JOB_NAME()),
         config.get(JobConfig.JOB_ID(), "1"),
         opCode.name().toLowerCase(),
-        StringUtils.isNotBlank(userProvidedName) ? userProvidedName.trim() : String.valueOf(nextOpNum));
+        StringUtils.isNotBlank(userDefinedId) ? userDefinedId.trim() : String.valueOf(nextOpNum));
     if (!operatorIds.add(nextOpId)) {
       throw new SamzaException(
           String.format("Found duplicate operator ID %s in the graph. Operator IDs must be unique.", nextOpId));
     }
     nextOpNum++;
     return nextOpId;
+  }
+
+  /**
+   * Gets the unique ID for the next operator in the graph. The ID is of the following format:
+   * jobName-jobId-opCode-nextOpNum;
+   *
+   * @param opCode the {@link OpCode} of the next operator
+   * @return the unique ID for the next operator in the graph
+   */
+  /* package private */ String getNextOpId(OpCode opCode) {
+    return getNextOpId(opCode, null);
   }
 
   /**

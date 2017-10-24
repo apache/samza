@@ -20,6 +20,7 @@
 package org.apache.samza.execution;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.operators.KV;
@@ -45,8 +46,11 @@ import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class TestJobNode {
 
@@ -56,13 +60,18 @@ public class TestJobNode {
     StreamSpec input1Spec = new StreamSpec("input1", "input1", "input-system");
     StreamSpec input2Spec = new StreamSpec("input2", "input2", "input-system");
     StreamSpec outputSpec = new StreamSpec("output", "output", "output-system");
-    StreamSpec partitionBySpec = new StreamSpec("null-null-partition_by-p1", "partition_by-p1", "intermediate-system");
+    StreamSpec partitionBySpec =
+        new StreamSpec("jobName-jobId-partition_by-p1", "partition_by-p1", "intermediate-system");
     doReturn(input1Spec).when(mockRunner).getStreamSpec("input1");
     doReturn(input2Spec).when(mockRunner).getStreamSpec("input2");
     doReturn(outputSpec).when(mockRunner).getStreamSpec("output");
-    doReturn(partitionBySpec).when(mockRunner).getStreamSpec("null-null-partition_by-p1");
+    doReturn(partitionBySpec).when(mockRunner).getStreamSpec("jobName-jobId-partition_by-p1");
 
-    StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mock(Config.class));
+    Config mockConfig = mock(Config.class);
+    when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("jobName");
+    when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("jobId");
+
+    StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mockConfig);
     streamGraph.setDefaultSerde(KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
     MessageStream<KV<String, Object>> input1 = streamGraph.getInputStream("input1");
     MessageStream<KV<String, Object>> input2 = streamGraph.getInputStream("input2");
@@ -75,7 +84,7 @@ public class TestJobNode {
             Duration.ofHours(1), "j1")
         .sendTo(output);
 
-    JobNode jobNode = new JobNode("jobName", "jobId", streamGraph, mock(Config.class));
+    JobNode jobNode = new JobNode("jobName", "jobId", streamGraph, mockConfig);
     Config config = new MapConfig();
     StreamEdge input1Edge = new StreamEdge(input1Spec, config);
     StreamEdge input2Edge = new StreamEdge(input2Spec, config);
@@ -134,8 +143,8 @@ public class TestJobNode {
     assertTrue("Serialized output msg serde should be a StringSerde",
         outputMsgSerde.startsWith(JsonSerdeV2.class.getSimpleName()));
 
-    String partitionByKeySerde = mapConfig.get("streams.null-null-partition_by-p1.samza.key.serde");
-    String partitionByMsgSerde = mapConfig.get("streams.null-null-partition_by-p1.samza.msg.serde");
+    String partitionByKeySerde = mapConfig.get("streams.jobName-jobId-partition_by-p1.samza.key.serde");
+    String partitionByMsgSerde = mapConfig.get("streams.jobName-jobId-partition_by-p1.samza.msg.serde");
     assertTrue("Serialized serdes should contain intermediate stream key serde",
         deserializedSerdes.containsKey(partitionByKeySerde));
     assertTrue("Serialized intermediate stream key serde should be a StringSerde",
@@ -146,8 +155,8 @@ public class TestJobNode {
         "Serialized intermediate stream msg serde should be a StringSerde",
         partitionByMsgSerde.startsWith(JsonSerdeV2.class.getSimpleName()));
 
-    String leftJoinStoreKeySerde = mapConfig.get("stores.null-null-join-j1-L.key.serde");
-    String leftJoinStoreMsgSerde = mapConfig.get("stores.null-null-join-j1-L.msg.serde");
+    String leftJoinStoreKeySerde = mapConfig.get("stores.jobName-jobId-join-j1-L.key.serde");
+    String leftJoinStoreMsgSerde = mapConfig.get("stores.jobName-jobId-join-j1-L.msg.serde");
     assertTrue("Serialized serdes should contain left join store key serde",
         deserializedSerdes.containsKey(leftJoinStoreKeySerde));
     assertTrue("Serialized left join store key serde should be a StringSerde",
@@ -157,8 +166,8 @@ public class TestJobNode {
     assertTrue("Serialized left join store msg serde should be a TimestampedValueSerde",
         leftJoinStoreMsgSerde.startsWith(TimestampedValueSerde.class.getSimpleName()));
 
-    String rightJoinStoreKeySerde = mapConfig.get("stores.null-null-join-j1-R.key.serde");
-    String rightJoinStoreMsgSerde = mapConfig.get("stores.null-null-join-j1-R.msg.serde");
+    String rightJoinStoreKeySerde = mapConfig.get("stores.jobName-jobId-join-j1-R.key.serde");
+    String rightJoinStoreMsgSerde = mapConfig.get("stores.jobName-jobId-join-j1-R.msg.serde");
     assertTrue("Serialized serdes should contain right join store key serde",
         deserializedSerdes.containsKey(rightJoinStoreKeySerde));
     assertTrue("Serialized right join store key serde should be a StringSerde",

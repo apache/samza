@@ -258,7 +258,7 @@ public abstract class OperatorImpl<M, RM> {
    * @param collector message collector
    * @param coordinator task coordinator
    */
-  private void onEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
+  private final void onEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
     if (inputStreams.stream().allMatch(input -> eosStates.isEndOfStream(input))) {
       handleEndOfStream(collector, coordinator);
       this.registeredOperators.forEach(op -> op.onEndOfStream(collector, coordinator));

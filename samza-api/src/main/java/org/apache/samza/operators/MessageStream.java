@@ -73,7 +73,7 @@ public interface MessageStream<M> {
    * should be retained in the filtered {@link MessageStream}.
    *
    * @param filterFn the predicate to filter messages from this {@link MessageStream}.
-   * @return the transformed {@link MessageStream}
+   * @return the filtered {@link MessageStream}
    */
   MessageStream<M> filter(FilterFunction<? super M> filterFn);
 
@@ -105,17 +105,17 @@ public interface MessageStream<M> {
    * <p>
    * Use the {@link org.apache.samza.operators.windows.Windows} helper methods to create the appropriate windows.
    * <p>
-   * The {@code id} is used as part of the unique ID for any state stores and streams created by this transform.
-   * If the application logic is changed, this ID must be reused in the new transform to retain the state
-   * from the previous version, and changed for the new transform to discard the state from the previous version.
-   * This {@code id} must be unique for each operator within this application.
+   * The {@code id} must be unique for each operator in this application. It is used as part of the unique ID
+   * for any state stores and streams created by this operator (the full ID also contains the job name, job id and
+   * operator type). If the application logic is changed, this ID must be reused in the new operator to retain
+   * state from the previous version, and changed for the new operator to discard the state from the previous version.
    *
    * @param window the window to group and process messages from this {@link MessageStream}
-   * @param id the unique id of this transform within this application
+   * @param id the unique id of this operator in this application
    * @param <K> the type of key in the message in this {@link MessageStream}. If a key is specified,
    *            panes are emitted per-key.
    * @param <WV> the type of value in the {@link WindowPane} in the transformed {@link MessageStream}
-   * @return the transformed {@link MessageStream}
+   * @return the windowed {@link MessageStream}
    */
   <K, WV> MessageStream<WindowPane<K, WV>> window(Window<M, K, WV> window, String id);
 
@@ -128,10 +128,10 @@ public interface MessageStream<M> {
    * <p>
    * Both inputs being joined must have the same number of partitions, and should be partitioned by the join key.
    * <p>
-   * The {@code id} is used as part of the unique ID for any state stores and streams created by this transform.
-   * If the application logic is changed, this ID must be reused in the new transform to retain the state
-   * from the previous version, and changed for the new transform to discard the state from the previous version.
-   * This {@code id} must be unique for each operator within this application.
+   * The {@code id} must be unique for each operator in this application. It is used as part of the unique ID
+   * for any state stores and streams created by this operator (the full ID also contains the job name, job id and
+   * operator type). If the application logic is changed, this ID must be reused in the new operator to retain
+   * state from the previous version, and changed for the new operator to discard the state from the previous version.
    *
    * @param otherStream the other {@link MessageStream} to be joined with
    * @param joinFn the function to join messages from this and the other {@link MessageStream}
@@ -139,7 +139,7 @@ public interface MessageStream<M> {
    * @param messageSerde the serde for messages in this stream
    * @param otherMessageSerde the serde for messages in the other stream
    * @param ttl the ttl for messages in each stream
-   * @param id the unique id of this transform within this application
+   * @param id the unique id of this operator in this application
    * @param <K> the type of join key
    * @param <OM> the type of messages in the other stream
    * @param <JM> the type of messages resulting from the {@code joinFn}
@@ -196,15 +196,15 @@ public interface MessageStream<M> {
    * Else, the number of partitions is set to to the max of number of partitions for all input and output streams
    * (excluding intermediate streams).
    * <p>
-   * The {@code id} is used as part of the unique ID for any streams created by this transform.
-   * If the application logic is changed, this ID must be reused in the new transform to retain the state
-   * from the previous version, and changed for the new transform to discard the state from the previous version.
-   * This {@code id} must be unique for each operator within this application.
+   * The {@code id} must be unique for each operator in this application. It is used as part of the unique ID
+   * for any state stores and streams created by this operator (the full ID also contains the job name, job id and
+   * operator type). If the application logic is changed, this ID must be reused in the new operator to retain
+   * state from the previous version, and changed for the new operator to discard the state from the previous version.
    *
    * @param keyExtractor the {@link Function} to extract the message and partition key from the input message
    * @param valueExtractor the {@link Function} to extract the value from the input message
    * @param serde the {@link KVSerde} to use for (de)serializing the key and value.
-   * @param id the unique id of this transform within this application
+   * @param id the unique id of this operator in this application
    * @param <K> the type of output key
    * @param <V> the type of output value
    * @return the repartitioned {@link MessageStream}
@@ -218,7 +218,7 @@ public interface MessageStream<M> {
    *
    * @param keyExtractor the {@link Function} to extract the message and partition key from the input message
    * @param valueExtractor the {@link Function} to extract the value from the input message
-   * @param id the unique id of this transform within this application
+   * @param id the unique id of this operator in this application
    * @param <K> the type of output key
    * @param <V> the type of output value
    * @return the repartitioned {@link MessageStream}
