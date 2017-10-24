@@ -87,14 +87,11 @@ public class TestJoinOperator {
         KVSerde<Integer, Integer> kvSerde = KVSerde.of(integerSerde, integerSerde);
         MessageStream<KV<Integer, Integer>> inStream = graph.getInputStream("instream", kvSerde);
 
-        SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
-        inStream
-            .join(inStream, new TestJoinFunction(), integerSerde, kvSerde, kvSerde, JOIN_TTL, "join")
-            .sink((m, mc, tc) -> mc.send(new OutgoingMessageEnvelope(outputSystemStream, m)));
+        inStream.join(inStream, new TestJoinFunction(), integerSerde, kvSerde, kvSerde, JOIN_TTL, "join");
       }
     };
 
-    createStreamOperatorTask(new SystemClock(), app);
+    createStreamOperatorTask(new SystemClock(), app); // should throw an exception
   }
 
   @Test

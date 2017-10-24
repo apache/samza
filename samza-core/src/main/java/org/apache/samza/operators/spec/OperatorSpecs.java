@@ -45,6 +45,7 @@ public class OperatorSpecs {
 
   /**
    * Creates an {@link InputOperatorSpec} for consuming input.
+   *
    * @param streamSpec  the stream spec for the input stream
    * @param keySerde  the serde for the input key
    * @param valueSerde  the serde for the input value

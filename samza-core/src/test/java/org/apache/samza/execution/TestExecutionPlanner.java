@@ -111,7 +111,7 @@ public class TestExecutionPlanner {
     MessageStream<KV<Object, Object>> input1 = streamGraph.getInputStream("input1");
     OutputStream<KV<Object, Object>> output1 = streamGraph.getOutputStream("output1");
     input1
-        .partitionBy(m -> m.key, m -> m.value, "p3")
+        .partitionBy(m -> m.key, m -> m.value, "p1")
         .map(kv -> kv)
         .sendTo(output1);
     return streamGraph;
