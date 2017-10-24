@@ -50,6 +50,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class EventHubSystemProducer implements SystemProducer {
   private static final Logger LOG = LoggerFactory.getLogger(EventHubSystemProducer.class.getName());
@@ -57,6 +58,7 @@ public class EventHubSystemProducer implements SystemProducer {
   private static final long DEFAULT_FLUSH_TIMEOUT_MILLIS = Duration.ofMinutes(1L).toMillis();
 
   public static final String PRODUCE_TIMESTAMP = "produce-timestamp";
+  public static final String FLUSH_ALL = "all";
 
   // Metrics recording
   private static final String EVENT_WRITE_RATE = "eventWriteRate";
@@ -90,7 +92,7 @@ public class EventHubSystemProducer implements SystemProducer {
   private final PartitioningMethod partitioningMethod;
   private final String systemName;
 
-  private volatile Throwable sendExceptionOnCallback = null;
+  private final AtomicReference<Throwable> sendExceptionOnCallback = new AtomicReference<>(null);
   private volatile boolean isStarted = false;
 
   // Map of the system name to the event hub client.
@@ -196,12 +198,7 @@ public class EventHubSystemProducer implements SystemProducer {
       throw new SamzaException(msg);
     }
 
-    if (sendExceptionOnCallback != null) {
-      Throwable throwable = sendExceptionOnCallback;
-      sendExceptionOnCallback = null;
-      pendingFutures.clear();
-      throw new SamzaException(throwable);
-    }
+    checkCallbackThrowable("Received exception on message send");
 
     EventData eventData = createEventData(destination, envelope);
     int eventDataLength =  eventData.getBytes() == null ? 0 : eventData.getBytes().length;
@@ -213,6 +210,7 @@ public class EventHubSystemProducer implements SystemProducer {
 
     long beforeSendTimeMs = System.currentTimeMillis();
 
+    // Async send call
     CompletableFuture<Void> sendResult = sendToEventHub(destination, eventData, getEnvelopePartitionId(envelope),
             ehClient.getEventHubClient());
 
@@ -220,7 +218,6 @@ public class EventHubSystemProducer implements SystemProducer {
     long latencyMs = afterSendTimeMs - beforeSendTimeMs;
     sendLatency.get(destination).update(latencyMs);
     aggSendLatency.update(latencyMs);
-
 
     pendingFutures.add(sendResult);
 
@@ -233,7 +230,7 @@ public class EventHubSystemProducer implements SystemProducer {
           sendErrors.get(destination).inc();
           aggSendErrors.inc();
           LOG.error("Send message to event hub: {} failed with exception: ", destination, throwable);
-          sendExceptionOnCallback = throwable;
+          sendExceptionOnCallback.compareAndSet(null, throwable);
         }
         return aVoid;
       });
@@ -300,29 +297,35 @@ public class EventHubSystemProducer implements SystemProducer {
   @Override
   public synchronized void flush(String source) {
     LOG.debug("Trying to flush pending {} sends messages.", pendingFutures.size());
+    checkCallbackThrowable("Received exception on message send");
 
     CompletableFuture<Void> future = CompletableFuture
-            .allOf(pendingFutures.toArray(new CompletableFuture[pendingFutures.size()]));
+              .allOf(pendingFutures.toArray(new CompletableFuture[pendingFutures.size()]));
+
     try {
-      // Wait until all the pending sends are complete or timeout.
+      // Block until all the pending sends are complete or timeout.
       future.get(DEFAULT_FLUSH_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       String msg = "Flush failed with error";
       throw new SamzaException(msg, e);
     }
 
+    checkCallbackThrowable("Sending one or more of the messages failed during flush");
+  }
+
+  private void checkCallbackThrowable(String msg) {
     // Check for send errors from EventHub side
-    if (sendExceptionOnCallback != null) {
-      String msg = "Sending one of the message failed during flush";
-      Throwable throwable = sendExceptionOnCallback;
-      sendExceptionOnCallback = null;
-      throw new SamzaException(msg, throwable);
+    Throwable sendThrowable = sendExceptionOnCallback.get();
+    if (sendThrowable != null) {
+      throw new SamzaException(msg, sendThrowable);
     }
     pendingFutures.clear();
   }
 
   @Override
   public synchronized void stop() {
+    LOG.debug("Stopping producer.", pendingFutures.size());
+
     streamPartitionSenders.values().forEach((streamPartitionSender) -> {
         List<CompletableFuture<Void>> futures = new ArrayList<>();
         streamPartitionSender.forEach((key, value) -> futures.add(value.close()));
