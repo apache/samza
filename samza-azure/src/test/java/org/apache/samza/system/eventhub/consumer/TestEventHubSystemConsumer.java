@@ -81,7 +81,6 @@ public class TestEventHubSystemConsumer {
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName), EVENTHUB_KEY_NAME);
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, systemName, streamName), EVENTHUB_KEY);
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, systemName, streamName), MOCK_ENTITY_1);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_CONSUMER_START_POSITION, systemName, streamName), "earliest");
 
     MockEventHubClientManagerFactory eventHubClientWrapperFactory = new MockEventHubClientManagerFactory(eventData);
 
@@ -90,7 +89,7 @@ public class TestEventHubSystemConsumer {
                     testMetrics);
     consumer.register(ssp, "1");
     consumer.register(ssp, EventHubSystemConsumer.END_OF_STREAM);
-    consumer.register(ssp, null);
+    consumer.register(ssp, EventHubSystemConsumer.START_OF_STREAM);
     consumer.start();
 
     Assert.assertEquals(EventHubSystemConsumer.START_OF_STREAM,
@@ -121,14 +120,13 @@ public class TestEventHubSystemConsumer {
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName), EVENTHUB_KEY_NAME);
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, systemName, streamName), EVENTHUB_KEY);
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, systemName, streamName), MOCK_ENTITY_1);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_CONSUMER_START_POSITION, systemName, streamName), "latest");
 
     MockEventHubClientManagerFactory eventHubClientWrapperFactory = new MockEventHubClientManagerFactory(eventData);
 
     EventHubSystemConsumer consumer =
             new EventHubSystemConsumer(new EventHubConfig(configMap), systemName, eventHubClientWrapperFactory, serdes,
                     testMetrics);
-    consumer.register(ssp, null);
+    consumer.register(ssp, EventHubSystemConsumer.END_OF_STREAM);
     consumer.start();
 
     // Mock received data from EventHub

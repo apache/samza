@@ -54,7 +54,7 @@ public class ITestEventHubSystemConsumer {
 
     EventHubSystemFactory factory = new EventHubSystemFactory();
     SystemConsumer consumer = factory.getConsumer(SYSTEM_NAME, eventHubConfig, testMetrics);
-    consumer.register(ssp, null);
+    consumer.register(ssp, EventHubSystemConsumer.START_OF_STREAM);
     consumer.start();
 
     int numEvents = 0;

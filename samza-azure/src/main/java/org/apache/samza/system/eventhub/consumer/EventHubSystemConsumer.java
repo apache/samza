@@ -23,7 +23,6 @@ import com.microsoft.azure.eventhubs.EventData;
 import com.microsoft.azure.eventhubs.PartitionReceiveHandler;
 import com.microsoft.azure.eventhubs.PartitionReceiver;
 import com.microsoft.azure.servicebus.ServiceBusException;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -179,20 +178,6 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
 
     if (isStarted) {
       throw new SamzaException("Trying to add partition when the connection has already started.");
-    }
-
-    if (StringUtils.isBlank(offset)) {
-      switch (config.getStartPosition(systemName, systemStreamPartition.getStream())) {
-        case EARLIEST:
-          offset = START_OF_STREAM;
-          break;
-        case LATEST:
-          offset = END_OF_STREAM;
-          break;
-        default:
-          throw new SamzaException("Unknown starting position config " +
-                  config.getStartPosition(systemName, systemStreamPartition.getStream()));
-      }
     }
 
     if (streamPartitionOffsets.containsKey(systemStreamPartition)) {

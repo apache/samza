@@ -29,11 +29,6 @@ import java.util.Map;
 
 public class EventHubConfig extends MapConfig {
 
-  public enum StartPosition {
-    EARLIEST,
-    LATEST
-  }
-
   public static final String CONFIG_STREAM_LIST = "systems.%s.stream.list";
 
   public static final String CONFIG_STREAM_NAMESPACE = "systems.%s.streams.%s.eventhubs.namespace";
@@ -46,9 +41,6 @@ public class EventHubConfig extends MapConfig {
 
   public static final String CONFIG_STREAM_CONSUMER_GROUP = "systems.%s.streams.%s.eventhubs.consumer.group";
   public static final String DEFAULT_CONFIG_STREAM_CONSUMER_GROUP = EventHubClient.DEFAULT_CONSUMER_GROUP_NAME;
-
-  public static final String CONFIG_STREAM_CONSUMER_START_POSITION = "systems.%s.streams.%s.eventhubs.start.position";
-  public static final String DEFAULT_CONFIG_STREAM_CONSUMER_START_POSITION = StartPosition.LATEST.name();
 
   public static final String CONFIG_PRODUCER_PARTITION_METHOD = "systems.%s.eventhubs.partition.method";
   public static final String DEFAULT_CONFIG_PRODUCER_PARTITION_METHOD = EventHubSystemProducer
@@ -132,19 +124,6 @@ public class EventHubConfig extends MapConfig {
    */
   public String getStreamConsumerGroup(String systemName, String streamName) {
     return get(String.format(CONFIG_STREAM_CONSUMER_GROUP, systemName, streamName), DEFAULT_CONFIG_STREAM_CONSUMER_GROUP);
-  }
-
-  /**
-   * Get the start position when there is no checkpoints. By default the consumer starts from latest (end of stream)
-   *
-   * @param systemName name of the system
-   * @param streamName name of the stream
-   * @return Starting position when no checkpoints
-   */
-  public StartPosition getStartPosition(String systemName, String streamName) {
-    String startPositionStr = get(String.format(CONFIG_STREAM_CONSUMER_START_POSITION, systemName, streamName),
-            DEFAULT_CONFIG_STREAM_CONSUMER_START_POSITION);
-    return StartPosition.valueOf(startPositionStr.toUpperCase());
   }
 
   /**
