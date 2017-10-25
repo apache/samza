@@ -263,7 +263,7 @@ Implementation: The job subscribes to the stream of user profile updates and the
 
 If the next stage needs to aggregate by ZIP code, the ZIP code can be used as the partitioning key of the job's output stream. That ensures that all the events for the same ZIP code are sent to the same stream partition.
 
-#### Stream-stream join
+#### <a name="stream-stream-join-example"></a>Stream-stream join
 
 *Example: Join a stream of ad clicks to a stream of ad impressions (to link the information on when the ad was shown to the information on when it was clicked)*
 
