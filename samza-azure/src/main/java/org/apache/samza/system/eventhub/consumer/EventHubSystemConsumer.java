@@ -130,7 +130,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   private final String systemName;
 
   // Partition receiver error propagation
-  private volatile Throwable perminentEventHubError = null;
+  private volatile Throwable permanentEventHubError = null;
   private volatile SystemStreamPartition failedSSPReceiver = null;
 
 
@@ -223,6 +223,8 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
 
         // Timeout for EventHubClient receive
         receiver.setReceiveTimeout(DEFAULT_EVENTHUB_RECEIVER_TIMEOUT);
+
+        // Start the receiver thread
         receiver.setReceiveHandler(handler);
 
         streamPartitionHandlers.put(ssp, handler);
@@ -239,9 +241,9 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
 
   @Override
   public Map<SystemStreamPartition, List<IncomingMessageEnvelope>> poll(Set<SystemStreamPartition> systemStreamPartitions, long timeout) throws InterruptedException {
-    if (perminentEventHubError != null) {
+    if (permanentEventHubError != null) {
       String msg = String.format("Received a non transient error from event hub partition receiver (ssp=%s)", failedSSPReceiver);
-      throw new SamzaException(msg, perminentEventHubError);
+      throw new SamzaException(msg, permanentEventHubError);
     }
     return super.poll(systemStreamPartitions, timeout);
   }
@@ -367,7 +369,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
 
       // Non transient Error propagated to user
       synchronized (receiverErrorLock) {
-        perminentEventHubError = throwable;
+        permanentEventHubError = throwable;
         failedSSPReceiver = ssp;
       }
     }

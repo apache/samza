@@ -60,7 +60,7 @@ public class EventHubSystemAdmin implements SystemAdmin {
     this.eventHubClientManagerFactory = eventHubClientManagerFactory;
   }
 
-  private static String getNextOffset(String currentOffset) {
+  private String getNextOffset(String currentOffset) {
     // EventHub will return the first message AFTER the offset
     // that was specified in the fetch request.
     return currentOffset.equals(EventHubSystemConsumer.END_OF_STREAM) ? currentOffset :

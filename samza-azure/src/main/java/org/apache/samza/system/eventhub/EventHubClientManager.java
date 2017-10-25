@@ -22,27 +22,48 @@ package org.apache.samza.system.eventhub;
 import com.microsoft.azure.eventhubs.EventHubClient;
 
 /**
- * Wraps the {@link EventHubClient} with lifestyle hooks for initialization and close.
+ * <p>
+ * EventHubClient manager is the interface that must be implemented to wrap the
+ * {@link EventHubClient} with lifecycle hooks for initialization and close.
+ * </p>
+ *
+ * <p>
+ * {@link #init()} should be invoked once during the startup and provides a
+ * hook to perform some initialization before the creation of the underlying
+ * {@link EventHubClient}. {@link #close(long)} is invoked once during shut-down
+ * and can be used to perform clean-ups.
+ * </p>
  */
 public interface EventHubClientManager {
   /**
-   * Initiate the connection to EventHub.
+   * A constant that can be used in the close method's timeout parameter to
+   * denote that the close invocation should block until all the teardown
+   * operations for the {@link EventHubClient} are completed
+   */
+  public static int BLOCK_UNTIL_CLOSE = -1;
+
+  /**
+   * Lifecycle hook to perform initializations for the creation of
+   * the underlying {@link EventHubClient}.
    */
   void init();
 
   /**
-   * Returns the EventHubClient instance of the wrapper so its methods can be invoked directly.
+   * Returns the underlying {@link EventHubClient} instance. Multiple invocations
+   * of this method should return the same instance instead of
+   * creating new ones.
    *
    * @return EventHub client instance of the wrapper
    */
   EventHubClient getEventHubClient();
 
   /**
-   * Timed synchronous connection close to the EventHub.
+   * Tries to close the {@link EventHubClient} instance within the provided
+   * timeout. Use this method to perform clean-ups after the execution of the
+   * {@link EventHubClient}. Set timeout the {@link #BLOCK_UNTIL_CLOSE} to
+   * block until the client is closed.
    *
-   * @param timeoutMs
-   *          Time in Milliseconds to wait for individual components to
-   *          shutdown before moving to the next stage.
+   * @param timeoutMs Close timeout in Milliseconds
    */
   void close(long timeoutMs);
 }

@@ -38,6 +38,7 @@ public class SamzaEventHubClientManager implements EventHubClientManager {
   private static final Logger LOG = LoggerFactory.getLogger(SamzaEventHubClientManager.class.getName());
 
   private static final String EVENTHUB_REMOTE_HOST_FORMAT = "%s.servicebus.windows.net";
+
   private static final Duration MIN_RETRY_BACKOFF = Duration.ofMillis(100);
   private static final Duration MAX_RETRY_BACKOFF = Duration.ofMillis(11000);
   private static final int MAX_RETRY_COUNT = 100;
@@ -65,6 +66,7 @@ public class SamzaEventHubClientManager implements EventHubClientManager {
     this.retryPolicy = retryPolicy;
   }
 
+  @Override
   public void init() {
     String remoteHost = String.format(EVENTHUB_REMOTE_HOST_FORMAT, eventHubNamespace);
     try {
@@ -80,21 +82,22 @@ public class SamzaEventHubClientManager implements EventHubClientManager {
     }
   }
 
+  @Override
   public EventHubClient getEventHubClient() {
     return eventHubClient;
   }
 
-
+  @Override
   public void close(long timeoutMS) {
     try {
-      if (timeoutMS <= 0) {
+      if (timeoutMS == EventHubClientManager.BLOCK_UNTIL_CLOSE) {
         eventHubClient.closeSync();
       } else {
         CompletableFuture<Void> future = eventHubClient.close();
         future.get(timeoutMS, TimeUnit.MILLISECONDS);
       }
     } catch (Exception e) {
-      LOG.error("Closing the event hub client failed ", e);
+      LOG.error("Closing the EventHub client failed", e);
     }
   }
 
