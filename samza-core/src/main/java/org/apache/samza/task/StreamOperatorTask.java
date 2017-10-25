@@ -41,7 +41,7 @@ import org.slf4j.LoggerFactory;
  * A {@link StreamTask} implementation that brings all the operator API implementation components together and
  * feeds the input messages into the user-defined transformation chains in {@link StreamApplication}.
  */
-public final class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask {
+public class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask {
   private static final Logger LOG = LoggerFactory.getLogger(StreamOperatorTask.class);
 
   private final StreamApplication streamApplication;
