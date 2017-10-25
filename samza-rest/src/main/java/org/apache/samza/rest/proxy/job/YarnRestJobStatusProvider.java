@@ -29,16 +29,16 @@ import org.apache.commons.httpclient.HttpStatus;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.samza.SamzaException;
-import org.apache.samza.rest.model.yarn.YarnApplicationInfo;
 import org.apache.samza.rest.model.Job;
 import org.apache.samza.rest.model.JobStatus;
+import org.apache.samza.rest.model.yarn.YarnApplicationInfo;
+import org.apache.samza.rest.model.yarn.YarnApplicationInfo.YarnApplication;
 import org.apache.samza.rest.resources.JobsResourceConfig;
 import org.apache.samza.rest.resources.YarnJobResourceConfig;
 import org.codehaus.jackson.map.DeserializationConfig;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 
 /**
  * An implementation of the {@link JobStatusProvider} that retrieves
@@ -52,12 +52,12 @@ public class YarnRestJobStatusProvider implements JobStatusProvider {
   private final String apiEndpoint;
   private final HttpClient httpClient;
 
-  public YarnRestJobStatusProvider(JobsResourceConfig config) {
+  YarnRestJobStatusProvider(JobsResourceConfig config) {
     YarnJobResourceConfig yarnConfig = new YarnJobResourceConfig(config);
+
     this.httpClient = new HttpClient();
+    this.apiEndpoint = String.format("http://%s/ws/v1/cluster/apps", yarnConfig.getYarnResourceManagerEndpoint());
     OBJECT_MAPPER.configure(DeserializationConfig.Feature.UNWRAP_ROOT_VALUE, true);
-    this.apiEndpoint = String.format("http://%s/ws/v1/cluster/apps",
-        yarnConfig.getYarnResourceManagerEndpoint());
   }
 
   @Override
@@ -66,21 +66,28 @@ public class YarnRestJobStatusProvider implements JobStatusProvider {
     if (jobs == null || jobs.isEmpty()) {
       return;
     }
+
+    // We will identify the YARN application states by their qualified names, so build a map
+    // to translate back from that name to the JobInfo we wish to populate.
+    final Map<String, Job> qualifiedJobToInfo = new HashMap<>();
+    for(Job job : jobs) {
+      qualifiedJobToInfo.put(YarnApplicationInfo.getQualifiedJobName(new JobInstance(job.getJobName(), job.getJobId())), job);
+    }
+
     try {
       byte[] response = httpGet(apiEndpoint);
       YarnApplicationInfo yarnApplicationInfo = OBJECT_MAPPER.readValue(response, YarnApplicationInfo.class);
-      Map<String, YarnApplicationInfo.YarnApplication> yarnApplications = yarnApplicationInfo.getApplications();
-      for (Job job: jobs) {
-        String qualifiedJobName = YarnApplicationInfo.getQualifiedJobName(new JobInstance(job.getJobName(), job.getJobId()));
-        YarnApplicationInfo.YarnApplication yarnApp = yarnApplications.get(qualifiedJobName);
-        if (yarnApp == null) {
-          job.setStatusDetail(JobStatus.UNKNOWN.toString());
-          job.setStatus(JobStatus.UNKNOWN);
-          continue;
-        }
-        JobStatus samzaStatus = yarnStateToSamzaStatus(YarnApplicationState.valueOf(yarnApp.getState().toUpperCase()));
-        if (job.getStatusDetail() == null || samzaStatus != JobStatus.STOPPED) {
-          job.setStatusDetail(yarnApp.getState());
+
+      // There can be multiple Yarn apps for each qualified job name, so we iterate the former and match with latter.
+      for (YarnApplication app: yarnApplicationInfo.getYarnApplications()) {
+        Job job = qualifiedJobToInfo.get(app.getName());
+        JobStatus samzaStatus = yarnStateToSamzaStatus(YarnApplicationState.valueOf(app.getState().toUpperCase()));
+
+        // If job is null, it wasn't requested.  The default statusDetail is null so always update in that case.
+        // Only update the job status if the current status is not STOPPED because there could be many
+        // application attempts for the job, and we're interested in the RUNNING one if it exists.
+        if (job != null && (job.getStatusDetail() == null || samzaStatus != JobStatus.STOPPED)) {
+          job.setStatusDetail(app.getState());
           job.setStatus(samzaStatus);
         }
       }
@@ -126,7 +133,7 @@ public class YarnRestJobStatusProvider implements JobStatusProvider {
    * @return the response
    * @throws IOException if there are problems with the http get request.
    */
-  private byte[] httpGet(String requestUrl)
+  byte[] httpGet(String requestUrl)
       throws IOException {
     GetMethod getMethod = new GetMethod(requestUrl);
     try {
