@@ -69,8 +69,8 @@ public class YarnRestJobStatusProvider implements JobStatusProvider {
       return;
     }
 
-    // We will identify jobs returned by the YARN application states by their qualified names, so build a map
-    // to translate back from that name to the JobInfo we wish to populate. This avoids parsing/delimiter issues.
+    // We will identify the YARN application states by their qualified names, so build a map
+    // to translate back from that name to the JobInfo we wish to populate.
     final Map<String, Job> qualifiedJobToInfo = new HashMap<>();
     for(Job job : jobs) {
       qualifiedJobToInfo.put(getQualifiedJobName(new JobInstance(job.getJobName(), job.getJobId())), job);
@@ -85,8 +85,9 @@ public class YarnRestJobStatusProvider implements JobStatusProvider {
         Job job = qualifiedJobToInfo.get(app.getName());
         JobStatus samzaStatus = yarnStateToSamzaStatus(YarnApplicationState.valueOf(app.getState().toUpperCase()));
 
-        // If job is null, it wasn't requested.  The default status is STOPPED because there could be many
-        // application attempts in that status. Only update the job status if it's not STOPPED.
+        // If job is null, it wasn't requested.  The default statusDetail is null so always update in that case.
+        // Only update the job status if the current status is not STOPPED because there could be many
+        // application attempts for the job, and we're interested in the RUNNING one if it exists.
         if (job != null && (job.getStatusDetail() == null || samzaStatus != JobStatus.STOPPED)) {
           job.setStatusDetail(app.getState());
           job.setStatus(samzaStatus);
