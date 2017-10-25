@@ -139,7 +139,12 @@ class KafkaSystemAdmin(
    * Replication factor for the Changelog topic in kafka
    * Kafka properties to be used during the Changelog topic creation
    */
-  topicMetaInformation: Map[String, ChangelogInfo] = Map[String, ChangelogInfo]()) extends ExtendedSystemAdmin with Logging {
+  topicMetaInformation: Map[String, ChangelogInfo] = Map[String, ChangelogInfo](),
+
+  /**
+   * Kafka properties to be used during the intermediate topic creation
+   */
+  intermediateStreamProperties: Map[String, Properties] = Map()) extends ExtendedSystemAdmin with Logging {
 
   import KafkaSystemAdmin._
 
@@ -450,6 +455,8 @@ class KafkaSystemAdmin(
       new KafkaStreamSpec(spec.getId, topicName, systemName, spec.getPartitionCount, topicMeta.replicationFactor, topicMeta.kafkaProps)
     } else if (spec.isCoordinatorStream){
       new KafkaStreamSpec(spec.getId, spec.getPhysicalName, systemName, 1, coordinatorStreamReplicationFactor, coordinatorStreamProperties)
+    } else if (intermediateStreamProperties.contains(spec.getId)) {
+      KafkaStreamSpec.fromSpec(spec).copyWithProperties(intermediateStreamProperties(spec.getId))
     } else {
       KafkaStreamSpec.fromSpec(spec)
     }

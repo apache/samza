@@ -21,11 +21,13 @@ package org.apache.samza.checkpoint.kafka
 
 import java.util.Properties
 
+import com.google.common.collect.ImmutableMap
 import kafka.utils.ZkUtils
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.{CheckpointManager, CheckpointManagerFactory}
+import org.apache.samza.config.ApplicationConfig.ApplicationMode
 import org.apache.samza.config.JobConfig.Config2Job
-import org.apache.samza.config.{Config, KafkaConfig, SystemConfig}
+import org.apache.samza.config._
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system.SystemFactory
 import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtil, Logging, Util, _}
@@ -37,21 +39,6 @@ object KafkaCheckpointManagerFactory {
     // Forcibly disable compression because Kafka doesn't support compression
     // on log compacted topics. Details in SAMZA-586.
     "compression.type" -> "none")
-
-  // Set the checkpoint topic configs to have a very small segment size and
-  // enable log compaction. This keeps job startup time small since there
-  // are fewer useless (overwritten) messages to read from the checkpoint
-  // topic.
-  def getCheckpointTopicProperties(config: Config) = {
-    val segmentBytes: Int = if (config == null) {
-      KafkaConfig.DEFAULT_CHECKPOINT_SEGMENT_BYTES
-    } else {
-      new KafkaConfig(config).getCheckpointSegmentBytes()
-    }
-    (new Properties /: Map(
-      "cleanup.policy" -> "compact",
-      "segment.bytes" -> String.valueOf(segmentBytes))) { case (props, (k, v)) => props.put(k, v); props }
-  }
 
   /**
    * Get the checkpoint system and system factory from the configuration
@@ -113,6 +100,6 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
       connectZk,
       config.getSystemStreamPartitionGrouperFactory,      // To find out the SSPGrouperFactory class so it can be included/verified in the key
       config.failOnCheckpointValidation,
-      checkpointTopicProperties = getCheckpointTopicProperties(config))
+      checkpointTopicProperties = new KafkaConfig(config).getCheckpointTopicProperties())
   }
 }
