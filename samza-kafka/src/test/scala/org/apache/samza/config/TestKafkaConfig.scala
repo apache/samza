@@ -138,6 +138,19 @@ class TestKafkaConfig {
     assertEquals("mychangelog1", storeToChangelog1.get("test1").getOrElse(""))
     assertEquals("mychangelog2", storeToChangelog1.get("test2").getOrElse(""))
     assertEquals("otherstream", storeToChangelog1.get("test3").getOrElse(""))
+
+    props.setProperty(ApplicationConfig.APP_MODE, ApplicationConfig.ApplicationMode.BATCH.name())
+    val batchMapConfig = new MapConfig(props.asScala.asJava)
+    val batchKafkaConfig = new KafkaConfig(batchMapConfig)
+    assertEquals(batchKafkaConfig.getChangelogKafkaProperties("test1").getProperty("cleanup.policy"), "delete")
+    assertEquals(batchKafkaConfig.getChangelogKafkaProperties("test1").getProperty("retention.ms"),
+      String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH))
+    assertEquals(batchKafkaConfig.getChangelogKafkaProperties("test2").getProperty("cleanup.policy"), "compact,delete")
+    assertEquals(batchKafkaConfig.getChangelogKafkaProperties("test2").getProperty("retention.ms"),
+      String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH))
+    assertEquals(batchKafkaConfig.getChangelogKafkaProperties("test3").getProperty("cleanup.policy"), "compact,delete")
+    assertEquals(batchKafkaConfig.getChangelogKafkaProperties("test3").getProperty("retention.ms"),
+      String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH))
   }
 
   @Test

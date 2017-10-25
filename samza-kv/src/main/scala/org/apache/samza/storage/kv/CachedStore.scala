@@ -244,7 +244,7 @@ class CachedStore[K, V](
 
   override def deleteAll(keys: java.util.List[K]) = {
     lock.synchronized({
-      KeyValueStore.Extension.deleteAll(this, keys)
+      super.deleteAll(keys)
     })
   }
 
