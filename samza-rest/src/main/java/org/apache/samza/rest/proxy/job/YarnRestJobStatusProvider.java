@@ -39,6 +39,8 @@ import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.apache.samza.rest.model.yarn.YarnApplicationInfo.*;
+
 
 /**
  * An implementation of the {@link JobStatusProvider} that retrieves
@@ -66,21 +68,27 @@ public class YarnRestJobStatusProvider implements JobStatusProvider {
     if (jobs == null || jobs.isEmpty()) {
       return;
     }
+
+    // We will identify jobs returned by the YARN application states by their qualified names, so build a map
+    // to translate back from that name to the JobInfo we wish to populate. This avoids parsing/delimiter issues.
+    final Map<String, Job> qualifiedJobToInfo = new HashMap<>();
+    for(Job job : jobs) {
+      qualifiedJobToInfo.put(getQualifiedJobName(new JobInstance(job.getJobName(), job.getJobId())), job);
+    }
+
     try {
       byte[] response = httpGet(apiEndpoint);
       YarnApplicationInfo yarnApplicationInfo = OBJECT_MAPPER.readValue(response, YarnApplicationInfo.class);
-      Map<String, YarnApplicationInfo.YarnApplication> yarnApplications = yarnApplicationInfo.getApplications();
-      for (Job job: jobs) {
-        String qualifiedJobName = YarnApplicationInfo.getQualifiedJobName(new JobInstance(job.getJobName(), job.getJobId()));
-        YarnApplicationInfo.YarnApplication yarnApp = yarnApplications.get(qualifiedJobName);
-        if (yarnApp == null) {
-          job.setStatusDetail(JobStatus.UNKNOWN.toString());
-          job.setStatus(JobStatus.UNKNOWN);
-          continue;
-        }
-        JobStatus samzaStatus = yarnStateToSamzaStatus(YarnApplicationState.valueOf(yarnApp.getState().toUpperCase()));
-        if (job.getStatusDetail() == null || samzaStatus != JobStatus.STOPPED) {
-          job.setStatusDetail(yarnApp.getState());
+
+      // There can be multiple Yarn apps for each qualified job name, so we iterate the former and match with latter.
+      for (YarnApplication app: yarnApplicationInfo.getYarnApplications()) {
+        Job job = qualifiedJobToInfo.get(app.getName());
+        JobStatus samzaStatus = yarnStateToSamzaStatus(YarnApplicationState.valueOf(app.getState().toUpperCase()));
+
+        // If job is null, it wasn't requested.  The default status is STOPPED because there could be many
+        // application attempts in that status. Only update the job status if it's not STOPPED.
+        if (job != null && (job.getStatusDetail() == null || samzaStatus != JobStatus.STOPPED)) {
+          job.setStatusDetail(app.getState());
           job.setStatus(samzaStatus);
         }
       }

@@ -18,6 +18,7 @@
  */
 package org.apache.samza.rest.model.yarn;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.rest.proxy.job.JobInstance;
@@ -40,14 +41,11 @@ public class YarnApplicationInfo {
   }
 
   /**
-   * Returns a Map with all the apps and their names as the key.
+   *
+   * @return the full list of Yarn applications. There will likely be more than one per job-instance.
    */
-  public Map<String, YarnApplication> getApplications() {
-    Map<String, YarnApplication> applications = new HashMap<>();
-    for (YarnApplication app: this.apps) {
-      applications.put(app.getName(), app);
-    }
-    return applications;
+  public List<YarnApplication> getYarnApplications() {
+    return Collections.unmodifiableList(apps);
   }
 
   /**
