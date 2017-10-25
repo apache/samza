@@ -51,6 +51,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -108,7 +109,6 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   public static final String AGGREGATE = "aggregate";
 
   private static final Object AGGREGATE_METRICS_LOCK = new Object();
-  private final Object receiverErrorLock = new Object();
 
   private static Counter aggEventReadRate = null;
   private static Counter aggEventByteReadRate = null;
@@ -130,9 +130,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   private final String systemName;
 
   // Partition receiver error propagation
-  private volatile Throwable permanentEventHubError = null;
-  private volatile SystemStreamPartition failedSSPReceiver = null;
-
+  private final AtomicReference<Throwable> eventHubHandlerError = new AtomicReference<>(null);
 
   public EventHubSystemConsumer(EventHubConfig config, String systemName,
                                 EventHubClientManagerFactory eventHubClientManagerFactory,
@@ -241,15 +239,28 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
 
   @Override
   public Map<SystemStreamPartition, List<IncomingMessageEnvelope>> poll(Set<SystemStreamPartition> systemStreamPartitions, long timeout) throws InterruptedException {
-    if (permanentEventHubError != null) {
-      String msg = String.format("Received a non transient error from event hub partition receiver (ssp=%s)", failedSSPReceiver);
-      throw new SamzaException(msg, permanentEventHubError);
+    Throwable handlerError = eventHubHandlerError.get();
+
+    if (handlerError != null) {
+      if (isErrorTransient(handlerError)) {
+        // Log a warning if the error is transient
+        // Partition receiver handler OnError should have handled it by recreating the receiver
+        LOG.warn("Received a transient error from event hub partition receiver, restarted receiver", handlerError);
+      } else {
+        // Propagate the error to user if the throwable is either
+        // 1. permanent ServiceBusException error from client
+        // 2. SamzaException thrown bu the EventHubConsumer
+        //   2a. Interrupted during put operation to BEM
+        //   2b. Failure in renewing the Partititon Receiver
+        String msg = "Received a non transient error from event hub partition receiver";
+        throw new SamzaException(msg, handlerError);
+      }
     }
+
     return super.poll(systemStreamPartitions, timeout);
   }
 
-  private void renewPartitionReceiver(SystemStreamPartition ssp, Throwable throwable) {
-    LOG.warn(String.format("Received a transient error from event hub partition receiver (ssp=%s), restarting receiver: ", ssp), throwable);
+  private void renewPartitionReceiver(SystemStreamPartition ssp) {
 
     EventHubClientManager eventHubClientManager = streamEventHubManagers.get(ssp.getStream());
     String offset = streamPartitionOffsets.get(ssp);
@@ -267,9 +278,9 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
       streamPartitionReceivers.put(ssp, receiver);
 
     } catch (ServiceBusException e) {
-      throw new SamzaException(
+      eventHubHandlerError.set(new SamzaException(
               String.format("Failed to recreate receiver after ReceiverHandlerError for EventHubs for SystemStreamPartition=%s",
-                      ssp), e);
+                      ssp), e));
     }
   }
 
@@ -285,6 +296,14 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
       LOG.warn("Failed to close receivers", e);
     }
     streamEventHubManagers.values().forEach(ehClientManager -> ehClientManager.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS));
+  }
+
+  private boolean isErrorTransient(Throwable throwable) {
+    if (throwable instanceof ServiceBusException) {
+      ServiceBusException serviceBusException = (ServiceBusException) throwable;
+      return serviceBusException.getIsTransient();
+    }
+    return false;
   }
 
   @Override
@@ -360,18 +379,18 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
         ServiceBusException busException = (ServiceBusException) throwable;
 
         if (busException.getIsTransient()) {
-          // Retry creating a receiver since error likely due to timeout
 
-          renewPartitionReceiver(ssp, throwable);
+          // Only set to transient throwable if there has been no previous errors
+          eventHubHandlerError.compareAndSet(null, throwable);
+
+          // Retry creating a receiver since error likely due to timeout
+          renewPartitionReceiver(ssp);
           return;
         }
       }
 
-      // Non transient Error propagated to user
-      synchronized (receiverErrorLock) {
-        permanentEventHubError = throwable;
-        failedSSPReceiver = ssp;
-      }
+      // Propagate non transient or unknown errors
+      eventHubHandlerError.set(throwable);
     }
   }
 }
