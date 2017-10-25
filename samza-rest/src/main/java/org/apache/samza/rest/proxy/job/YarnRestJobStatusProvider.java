@@ -32,15 +32,13 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.rest.model.Job;
 import org.apache.samza.rest.model.JobStatus;
 import org.apache.samza.rest.model.yarn.YarnApplicationInfo;
+import org.apache.samza.rest.model.yarn.YarnApplicationInfo.YarnApplication;
 import org.apache.samza.rest.resources.JobsResourceConfig;
 import org.apache.samza.rest.resources.YarnJobResourceConfig;
 import org.codehaus.jackson.map.DeserializationConfig;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static org.apache.samza.rest.model.yarn.YarnApplicationInfo.*;
-
 
 /**
  * An implementation of the {@link JobStatusProvider} that retrieves
@@ -73,7 +71,7 @@ public class YarnRestJobStatusProvider implements JobStatusProvider {
     // to translate back from that name to the JobInfo we wish to populate.
     final Map<String, Job> qualifiedJobToInfo = new HashMap<>();
     for(Job job : jobs) {
-      qualifiedJobToInfo.put(getQualifiedJobName(new JobInstance(job.getJobName(), job.getJobId())), job);
+      qualifiedJobToInfo.put(YarnApplicationInfo.getQualifiedJobName(new JobInstance(job.getJobName(), job.getJobId())), job);
     }
 
     try {
