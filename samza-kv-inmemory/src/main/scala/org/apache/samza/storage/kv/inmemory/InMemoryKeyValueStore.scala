@@ -81,10 +81,6 @@ class InMemoryKeyValueStore(val metrics: KeyValueStoreMetrics = new KeyValueStor
     put(key, null)
   }
 
-  override def deleteAll(keys: java.util.List[Array[Byte]]) = {
-    KeyValueStore.Extension.deleteAll(this, keys)
-  }
-
   override def putAll(entries: util.List[Entry[Array[Byte], Array[Byte]]]): Unit = {
     // TreeMap's putAll requires a map, so we'd need to iterate over all the entries anyway
     // to use it, in order to putAll here.  Therefore, just iterate here.
@@ -115,9 +111,5 @@ class InMemoryKeyValueStore(val metrics: KeyValueStoreMetrics = new KeyValueStor
       metrics.bytesRead.inc(found.size)
     }
     found
-  }
-
-  override def getAll(keys: java.util.List[Array[Byte]]): java.util.Map[Array[Byte], Array[Byte]] = {
-    KeyValueStore.Extension.getAll(this, keys);
   }
 }
