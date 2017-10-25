@@ -29,9 +29,9 @@ import org.apache.commons.httpclient.HttpStatus;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.samza.SamzaException;
-import org.apache.samza.rest.model.yarn.YarnApplicationInfo;
 import org.apache.samza.rest.model.Job;
 import org.apache.samza.rest.model.JobStatus;
+import org.apache.samza.rest.model.yarn.YarnApplicationInfo;
 import org.apache.samza.rest.resources.JobsResourceConfig;
 import org.apache.samza.rest.resources.YarnJobResourceConfig;
 import org.codehaus.jackson.map.DeserializationConfig;
@@ -54,12 +54,12 @@ public class YarnRestJobStatusProvider implements JobStatusProvider {
   private final String apiEndpoint;
   private final HttpClient httpClient;
 
-  public YarnRestJobStatusProvider(JobsResourceConfig config) {
+  YarnRestJobStatusProvider(JobsResourceConfig config) {
     YarnJobResourceConfig yarnConfig = new YarnJobResourceConfig(config);
+
     this.httpClient = new HttpClient();
+    this.apiEndpoint = String.format("http://%s/ws/v1/cluster/apps", yarnConfig.getYarnResourceManagerEndpoint());
     OBJECT_MAPPER.configure(DeserializationConfig.Feature.UNWRAP_ROOT_VALUE, true);
-    this.apiEndpoint = String.format("http://%s/ws/v1/cluster/apps",
-        yarnConfig.getYarnResourceManagerEndpoint());
   }
 
   @Override
@@ -135,7 +135,7 @@ public class YarnRestJobStatusProvider implements JobStatusProvider {
    * @return the response
    * @throws IOException if there are problems with the http get request.
    */
-  private byte[] httpGet(String requestUrl)
+  byte[] httpGet(String requestUrl)
       throws IOException {
     GetMethod getMethod = new GetMethod(requestUrl);
     try {
