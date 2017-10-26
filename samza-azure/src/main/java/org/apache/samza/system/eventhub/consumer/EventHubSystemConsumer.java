@@ -278,6 +278,8 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
 
       // Timeout for EventHubClient receive
       receiver.setReceiveTimeout(DEFAULT_EVENTHUB_RECEIVER_TIMEOUT);
+
+      // Create and start receiver thread with handler
       receiver.setReceiveHandler(streamPartitionHandlers.get(ssp));
       streamPartitionReceivers.put(ssp, receiver);
 
