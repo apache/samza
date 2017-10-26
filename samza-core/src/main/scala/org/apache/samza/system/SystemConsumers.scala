@@ -28,6 +28,7 @@ import org.apache.samza.util.{Logging, TimerUtils}
 import org.apache.samza.system.chooser.MessageChooser
 import org.apache.samza.SamzaException
 import java.util.ArrayDeque
+import java.util.Collections
 import java.util.HashSet
 import java.util.HashMap
 import java.util.Queue
@@ -186,7 +187,7 @@ class SystemConsumers (
     if (IncomingMessageEnvelope.END_OF_STREAM_OFFSET.equals(offset)) {
       info("Stream : %s is already at end of stream" format (systemStreamPartition))
       endOfStreamSSPs.add(systemStreamPartition)
-      return;
+      return
     }
 
     metrics.registerSystemStreamPartition(systemStreamPartition)
@@ -258,7 +259,14 @@ class SystemConsumers (
 
     trace("Getting fetch map for system: %s" format systemName)
 
-    val systemFetchSet = emptySystemStreamPartitionsBySystem.get(systemName)
+    val systemFetchSet : util.Set[SystemStreamPartition] =
+      if (emptySystemStreamPartitionsBySystem.containsKey(systemName)) {
+        val sspToFetch = new util.HashSet(emptySystemStreamPartitionsBySystem.get(systemName))
+        sspToFetch.removeAll(endOfStreamSSPs)
+        sspToFetch
+      } else {
+        Collections.emptySet()
+      }
 
     // Poll when at least one SSP in this system needs more messages.
 
@@ -293,7 +301,7 @@ class SystemConsumers (
         }
       }
     } else {
-      trace("Skipping polling for %s. Already have messages available for all registered SystemStreamPartitions." format (systemName))
+      trace("Skipping polling for %s. Already have messages available for all registered SystemStreamPartitions." format systemName)
     }
   }
 
