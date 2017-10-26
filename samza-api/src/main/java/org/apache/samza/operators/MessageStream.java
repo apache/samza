@@ -73,7 +73,7 @@ public interface MessageStream<M> {
    * should be retained in the filtered {@link MessageStream}.
    *
    * @param filterFn the predicate to filter messages from this {@link MessageStream}.
-   * @return the transformed {@link MessageStream}
+   * @return the filtered {@link MessageStream}
    */
   MessageStream<M> filter(FilterFunction<? super M> filterFn);
 
@@ -105,15 +105,19 @@ public interface MessageStream<M> {
    * <p>
    * Use the {@link org.apache.samza.operators.windows.Windows} helper methods to create the appropriate windows.
    * <p>
-   * <b>Warning:</b> As of version 0.13.0, messages in windows are kept in memory and will be lost during restarts.
+   * The {@code id} must be unique for each operator in this application. It is used as part of the unique ID
+   * for any state stores and streams created by this operator (the full ID also contains the job name, job id and
+   * operator type). If the application logic is changed, this ID must be reused in the new operator to retain
+   * state from the previous version, and changed for the new operator to discard the state from the previous version.
    *
    * @param window the window to group and process messages from this {@link MessageStream}
+   * @param id the unique id of this operator in this application
    * @param <K> the type of key in the message in this {@link MessageStream}. If a key is specified,
    *            panes are emitted per-key.
    * @param <WV> the type of value in the {@link WindowPane} in the transformed {@link MessageStream}
-   * @return the transformed {@link MessageStream}
+   * @return the windowed {@link MessageStream}
    */
-  <K, WV> MessageStream<WindowPane<K, WV>> window(Window<M, K, WV> window);
+  <K, WV> MessageStream<WindowPane<K, WV>> window(Window<M, K, WV> window, String id);
 
   /**
    * Joins this {@link MessageStream} with another {@link MessageStream} using the provided
@@ -124,14 +128,18 @@ public interface MessageStream<M> {
    * <p>
    * Both inputs being joined must have the same number of partitions, and should be partitioned by the join key.
    * <p>
-   * <b>Warning:</b> As of version 0.13.0, messages in joins are kept in memory and will be lost during restarts.
+   * The {@code id} must be unique for each operator in this application. It is used as part of the unique ID
+   * for any state stores and streams created by this operator (the full ID also contains the job name, job id and
+   * operator type). If the application logic is changed, this ID must be reused in the new operator to retain
+   * state from the previous version, and changed for the new operator to discard the state from the previous version.
    *
    * @param otherStream the other {@link MessageStream} to be joined with
    * @param joinFn the function to join messages from this and the other {@link MessageStream}
-   * @param ttl the ttl for messages in each stream
    * @param keySerde the serde for the join key
    * @param messageSerde the serde for messages in this stream
    * @param otherMessageSerde the serde for messages in the other stream
+   * @param ttl the ttl for messages in each stream
+   * @param id the unique id of this operator in this application
    * @param <K> the type of join key
    * @param <OM> the type of messages in the other stream
    * @param <JM> the type of messages resulting from the {@code joinFn}
@@ -139,7 +147,8 @@ public interface MessageStream<M> {
    */
   <K, OM, JM> MessageStream<JM> join(MessageStream<OM> otherStream,
       JoinFunction<? extends K, ? super M, ? super OM, ? extends JM> joinFn,
-      Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde, Duration ttl);
+      Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde,
+      Duration ttl, String id);
 
   /**
    * Merges all {@code otherStreams} with this {@link MessageStream}.
@@ -186,26 +195,34 @@ public interface MessageStream<M> {
    * configuration, if present.
    * Else, the number of partitions is set to to the max of number of partitions for all input and output streams
    * (excluding intermediate streams).
+   * <p>
+   * The {@code id} must be unique for each operator in this application. It is used as part of the unique ID
+   * for any state stores and streams created by this operator (the full ID also contains the job name, job id and
+   * operator type). If the application logic is changed, this ID must be reused in the new operator to retain
+   * state from the previous version, and changed for the new operator to discard the state from the previous version.
    *
-   * @param <K> the type of output key
-   * @param <V> the type of output value
    * @param keyExtractor the {@link Function} to extract the message and partition key from the input message
    * @param valueExtractor the {@link Function} to extract the value from the input message
    * @param serde the {@link KVSerde} to use for (de)serializing the key and value.
-   * @return the repartitioned {@link MessageStream}
-   */
-  <K, V> MessageStream<KV<K, V>> partitionBy(Function<? super M, ? extends K> keyExtractor,
-      Function<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde);
-
-  /**
-   * Same as calling {@link #partitionBy(Function, Function, KVSerde)} with a null KVSerde.
-   *
-   * @param keyExtractor the {@link Function} to extract the message and partition key from the input message
-   * @param valueExtractor the {@link Function} to extract the value from the input message
+   * @param id the unique id of this operator in this application
    * @param <K> the type of output key
    * @param <V> the type of output value
    * @return the repartitioned {@link MessageStream}
    */
   <K, V> MessageStream<KV<K, V>> partitionBy(Function<? super M, ? extends K> keyExtractor,
-      Function<? super M, ? extends V> valueExtractor);
+      Function<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde, String id);
+
+
+  /**
+   * Same as calling {@link #partitionBy(Function, Function, KVSerde, String)} with a null KVSerde.
+   *
+   * @param keyExtractor the {@link Function} to extract the message and partition key from the input message
+   * @param valueExtractor the {@link Function} to extract the value from the input message
+   * @param id the unique id of this operator in this application
+   * @param <K> the type of output key
+   * @param <V> the type of output value
+   * @return the repartitioned {@link MessageStream}
+   */
+  <K, V> MessageStream<KV<K, V>> partitionBy(Function<? super M, ? extends K> keyExtractor,
+      Function<? super M, ? extends V> valueExtractor, String id);
 }

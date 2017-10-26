@@ -26,6 +26,7 @@ import junit.framework.Assert;
 import org.apache.samza.Partition;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.operators.impl.store.TestInMemoryStore;
@@ -58,6 +59,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.function.Function;
 
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -71,6 +74,8 @@ public class TestWindowOperator {
   @Before
   public void setup() throws Exception {
     config = mock(Config.class);
+    when(config.get(JobConfig.JOB_NAME())).thenReturn("jobName");
+    when(config.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("jobId");
     taskContext = mock(TaskContextImpl.class);
     runner = mock(ApplicationRunner.class);
     Serde storeKeySerde = new TimeSeriesKeySerde(new IntegerSerde());
@@ -79,8 +84,9 @@ public class TestWindowOperator {
     when(taskContext.getSystemStreamPartitions()).thenReturn(ImmutableSet
         .of(new SystemStreamPartition("kafka", "integers", new Partition(0))));
     when(taskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
-    when(taskContext.getStore("window-3")).thenReturn(new TestInMemoryStore<>(storeKeySerde, storeValSerde));
 
+    when(taskContext.getStore("jobName-jobId-window-w1"))
+        .thenReturn(new TestInMemoryStore<>(storeKeySerde, storeValSerde));
     when(runner.getStreamSpec("integers")).thenReturn(new StreamSpec("integers", "integers", "kafka"));
   }
 
@@ -94,7 +100,8 @@ public class TestWindowOperator {
     TestClock testClock = new TestClock();
     StreamOperatorTask task = new StreamOperatorTask(sgb, runner, testClock);
     task.init(config, taskContext);
-    MessageCollector messageCollector = envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
+    MessageCollector messageCollector =
+        envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
     integers.forEach(n -> task.process(new IntegerEnvelope(n), messageCollector, taskCoordinator));
     testClock.advanceTime(Duration.ofSeconds(1));
 
@@ -127,7 +134,8 @@ public class TestWindowOperator {
     StreamOperatorTask task = new StreamOperatorTask(sgb, runner, testClock);
     task.init(config, taskContext);
 
-    MessageCollector messageCollector = envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
+    MessageCollector messageCollector =
+        envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
     Assert.assertEquals(windowPanes.size(), 0);
 
     integers.forEach(n -> task.process(new IntegerEnvelope(n), messageCollector, taskCoordinator));
@@ -144,7 +152,7 @@ public class TestWindowOperator {
   @Test
   public void testTumblingAggregatingWindowsDiscardingMode() throws Exception {
 
-    when(taskContext.getStore("window-2"))
+    when(taskContext.getStore("jobName-jobId-window-w1"))
         .thenReturn(new TestInMemoryStore<>(new TimeSeriesKeySerde(new IntegerSerde()), new IntegerSerde()));
 
     StreamApplication sgb = new AggregateTumblingWindowStreamApplication(AccumulationMode.DISCARDING,
@@ -176,7 +184,8 @@ public class TestWindowOperator {
     StreamOperatorTask task = new StreamOperatorTask(sgb, runner, testClock);
     task.init(config, taskContext);
 
-    MessageCollector messageCollector = envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
+    MessageCollector messageCollector =
+        envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
     integers.forEach(n -> task.process(new IntegerEnvelope(n), messageCollector, taskCoordinator));
     testClock.advanceTime(Duration.ofSeconds(1));
     task.window(messageCollector, taskCoordinator);
@@ -202,7 +211,8 @@ public class TestWindowOperator {
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
     StreamOperatorTask task = new StreamOperatorTask(sgb, runner, testClock);
     task.init(config, taskContext);
-    MessageCollector messageCollector = envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
+    MessageCollector messageCollector =
+        envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
     task.process(new IntegerEnvelope(1), messageCollector, taskCoordinator);
     task.process(new IntegerEnvelope(1), messageCollector, taskCoordinator);
     testClock.advanceTime(Duration.ofSeconds(1));
@@ -248,7 +258,8 @@ public class TestWindowOperator {
     StreamOperatorTask task = new StreamOperatorTask(sgb, runner, testClock);
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
 
-    MessageCollector messageCollector = envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
+    MessageCollector messageCollector =
+        envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
     task.init(config, taskContext);
 
     task.process(new IntegerEnvelope(1), messageCollector, taskCoordinator);
@@ -280,7 +291,8 @@ public class TestWindowOperator {
     task.init(config, taskContext);
 
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
-    MessageCollector messageCollector = envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
+    MessageCollector messageCollector =
+        envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
     task.process(new IntegerEnvelope(1), messageCollector, taskCoordinator);
     task.process(new IntegerEnvelope(1), messageCollector, taskCoordinator);
     Assert.assertEquals(windowPanes.size(), 1);
@@ -323,7 +335,8 @@ public class TestWindowOperator {
     task.init(config, taskContext);
 
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
-    MessageCollector messageCollector = envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
+    MessageCollector messageCollector =
+        envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
     task.process(new IntegerEnvelope(1), messageCollector, taskCoordinator);
     task.process(new IntegerEnvelope(1), messageCollector, taskCoordinator);
     //assert that the count trigger fired
@@ -377,7 +390,8 @@ public class TestWindowOperator {
         Triggers.repeat(Triggers.any(Triggers.count(2), Triggers.timeSinceFirstMessage(Duration.ofMillis(500)))));
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
 
-    MessageCollector messageCollector = envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
+    MessageCollector messageCollector =
+        envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
 
     TestClock testClock = new TestClock();
     StreamOperatorTask task = new StreamOperatorTask(sgb, runner, testClock);
@@ -429,9 +443,10 @@ public class TestWindowOperator {
               .map(kv -> new IntegerEnvelope(kv.getKey()));
       Function<IntegerEnvelope, Integer> keyFn = m -> (Integer) m.getKey();
       inStream
-        .map(m -> m)
-        .window(Windows.keyedTumblingWindow(keyFn, duration, new IntegerSerde(), new IntegerEnvelopeSerde()).setEarlyTrigger(earlyTrigger)
-          .setAccumulationMode(mode))
+          .map(m -> m)
+          .window(Windows.keyedTumblingWindow(keyFn, duration, new IntegerSerde(), new IntegerEnvelopeSerde())
+              .setEarlyTrigger(earlyTrigger)
+              .setAccumulationMode(mode), "w1")
           .sink((message, messageCollector, taskCoordinator) -> {
               messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
             });
@@ -460,8 +475,9 @@ public class TestWindowOperator {
       Function<IntegerEnvelope, Integer> keyFn = m -> (Integer) m.getKey();
       inStream
           .map(m -> m)
-          .window(Windows.tumblingWindow(duration, new IntegerEnvelopeSerde()).setEarlyTrigger(earlyTrigger)
-              .setAccumulationMode(mode))
+          .window(Windows.tumblingWindow(duration, new IntegerEnvelopeSerde())
+              .setEarlyTrigger(earlyTrigger)
+              .setAccumulationMode(mode), "w1")
           .sink((message, messageCollector, taskCoordinator) -> {
               messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
             });
@@ -487,9 +503,11 @@ public class TestWindowOperator {
       MessageStream<KV<Integer, Integer>> integers = graph.getInputStream("integers",
           KVSerde.of(new IntegerSerde(), new IntegerSerde()));
 
-      integers.map(kv -> new IntegerEnvelope(kv.getKey()))
-        .window(Windows.<IntegerEnvelope, Integer>tumblingWindow(this.duration, () -> 0, (m, c) -> c + 1,
-            new IntegerSerde()).setEarlyTrigger(earlyTrigger).setAccumulationMode(mode))
+      integers
+        .map(kv -> new IntegerEnvelope(kv.getKey()))
+        .window(Windows.<IntegerEnvelope, Integer>tumblingWindow(this.duration, () -> 0, (m, c) -> c + 1, new IntegerSerde())
+            .setEarlyTrigger(earlyTrigger)
+            .setAccumulationMode(mode), "w1")
         .sink((message, messageCollector, taskCoordinator) -> {
             messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
           });
@@ -517,7 +535,7 @@ public class TestWindowOperator {
       inStream
           .map(m -> m)
           .window(Windows.keyedSessionWindow(keyFn, duration, new IntegerSerde(), new IntegerEnvelopeSerde())
-              .setAccumulationMode(mode))
+              .setAccumulationMode(mode), "w1")
           .sink((message, messageCollector, taskCoordinator) -> {
               messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
             });

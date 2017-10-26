@@ -58,7 +58,7 @@ public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK
    * @param window  the window function
    * @param opId  auto-generated unique ID of this operator
    */
-  WindowOperatorSpec(WindowInternal<M, WK, WV> window, int opId) {
+  WindowOperatorSpec(WindowInternal<M, WK, WV> window, String opId) {
     super(OpCode.WINDOW, opId);
     this.window = window;
   }
@@ -124,7 +124,7 @@ public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK
 
   @Override
   public Collection<StoreDescriptor> getStoreDescriptors() {
-    String storeName = getOpName();
+    String storeName = getOpId();
     String storeFactory = "org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory";
 
     Serde storeKeySerde = new TimeSeriesKeySerde<>(window.getKeySerde());

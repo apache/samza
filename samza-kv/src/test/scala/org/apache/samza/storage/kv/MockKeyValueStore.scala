@@ -69,12 +69,4 @@ class MockKeyValueStore extends KeyValueStore[String, String] {
   override def flush() {}  // no-op
 
   override def close() { kvMap.clear() }
-
-  override def deleteAll(keys: java.util.List[String]) {
-    KeyValueStore.Extension.deleteAll(this, keys)
-  }
-
-  override def getAll(keys: java.util.List[String]): java.util.Map[String, String] = {
-    KeyValueStore.Extension.getAll(this, keys)
-  }
 }

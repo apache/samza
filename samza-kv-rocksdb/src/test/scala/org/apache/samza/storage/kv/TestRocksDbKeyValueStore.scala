@@ -23,16 +23,18 @@ package org.apache.samza.storage.kv
 import java.io.File
 import java.util
 
+import org.apache.samza.SamzaException
 import org.apache.samza.config.MapConfig
+import org.apache.samza.metrics.{Gauge, MetricsRegistryMap}
 import org.apache.samza.util.ExponentialSleepStrategy
 import org.junit.{Assert, Test}
-import org.rocksdb.{RocksIterator, RocksDB, FlushOptions, Options}
+import org.rocksdb.{FlushOptions, Options, RocksDB, RocksIterator}
 
 class TestRocksDbKeyValueStore
 {
   @Test
   def testTTL() {
-    val map = new java.util.HashMap[String, String]();
+    val map = new java.util.HashMap[String, String]()
     map.put("rocksdb.ttl.ms", "1000")
     val config = new MapConfig(map)
     val options = new Options()
@@ -41,7 +43,8 @@ class TestRocksDbKeyValueStore
                                               options,
                                               config,
                                               false,
-                                              "someStore")
+                                              "someStore",
+                                              null)
     val key = "test".getBytes("UTF-8")
     rocksDB.put(key, "val".getBytes("UTF-8"))
     Assert.assertNotNull(rocksDB.get(key))
@@ -72,7 +75,8 @@ class TestRocksDbKeyValueStore
                                               options,
                                               config,
                                               false,
-                                              "dbStore")
+                                              "dbStore",
+                                              null)
     val key = "key".getBytes("UTF-8")
     rocksDB.put(key, "val".getBytes("UTF-8"))
     // SAMZA-836: Mysteriously,calling new FlushOptions() does not invoke the NativeLibraryLoader in rocksdbjni-3.13.1!
@@ -84,6 +88,39 @@ class TestRocksDbKeyValueStore
     Assert.assertEquals(new String(rocksDBReadOnly.get(key), "UTF-8"), "val")
     rocksDB.close()
     rocksDBReadOnly.close()
+  }
+
+  @Test(expected = classOf[SamzaException])
+  def testFlushAfterCloseThrowsException(): Unit = {
+    val map = new util.HashMap[String, String]()
+    val config = new MapConfig(map)
+    val options = new Options()
+    options.setCreateIfMissing(true)
+
+    val dbDir = new File(System.getProperty("java.io.tmpdir"))
+    val rocksDB = new RocksDbKeyValueStore(dbDir, options, config, false, "dbStore")
+
+    val key = "key".getBytes("UTF-8")
+    rocksDB.put(key, "val".getBytes("UTF-8"))
+
+    rocksDB.close()
+    rocksDB.flush()
+  }
+
+  @Test(expected = classOf[SamzaException])
+  def testGetAfterCloseThrowsException(): Unit = {
+    val map = new util.HashMap[String, String]()
+    val config = new MapConfig(map)
+    val options = new Options()
+    options.setCreateIfMissing(true)
+
+    val dbDir = new File(System.getProperty("java.io.tmpdir"))
+    val rocksDB = new RocksDbKeyValueStore(dbDir, options, config, false, "dbStore")
+
+    rocksDB.close()
+
+    val key = "key".getBytes("UTF-8")
+    rocksDB.get(key)
   }
 
   @Test
@@ -98,7 +135,8 @@ class TestRocksDbKeyValueStore
                                               options,
                                               config,
                                               false,
-                                              "dbStore")
+                                              "dbStore",
+                                              null)
 
     val key = "key".getBytes("UTF-8")
     val key1 = "key1".getBytes("UTF-8")
@@ -141,5 +179,35 @@ class TestRocksDbKeyValueStore
     Assert.assertEquals(rocksDBReadOnly.get(key), null)
     rocksDB.close()
     rocksDBReadOnly.close()
+  }
+
+  @Test
+  def testMetricsConfig(): Unit = {
+    val registry = new MetricsRegistryMap("registrymap")
+    val metrics = new KeyValueStoreMetrics("dbstore", registry)
+
+    val map = new util.HashMap[String, String]()
+    map.put("rocksdb.metrics.list", "rocksdb.estimate-num-keys, rocksdb.estimate-live-data-size")
+    val config = new MapConfig(map)
+    val options = new Options()
+    options.setCreateIfMissing(true)
+    val rocksDB = RocksDbKeyValueStore.openDB(
+      new File(System.getProperty("java.io.tmpdir")),
+      options,
+      config,
+      false,
+      "dbstore",
+      metrics)
+
+    val metricsGroup = registry.getGroup("org.apache.samza.storage.kv.KeyValueStoreMetrics")
+    assert(metricsGroup != null)
+
+    val estimateNumKeysMetric = metricsGroup.get("dbstore-rocksdb.estimate-num-keys")
+    assert(estimateNumKeysMetric.isInstanceOf[Gauge[String]])
+
+    val estimateLiveDataSizeMetric = metricsGroup.get("dbstore-rocksdb.estimate-live-data-size")
+    assert(estimateLiveDataSizeMetric.isInstanceOf[Gauge[String]])
+
+    rocksDB.close()
   }
 }

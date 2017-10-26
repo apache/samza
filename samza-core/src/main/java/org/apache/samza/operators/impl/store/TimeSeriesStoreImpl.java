@@ -172,7 +172,6 @@ public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
 
   @Override
   public void close() {
-    kvStore.close();
   }
 
   private void validateRange(long startTimestamp, long endTimestamp) throws IllegalArgumentException {
