@@ -63,8 +63,8 @@ public class ITestEventHubSystemConsumer {
       List<IncomingMessageEnvelope> result = consumer.poll(Collections.singleton(ssp), 2000).get(ssp);
       numEvents = result == null ? 0 : result.size();
       if (numEvents > 0) {
-        EventHubIME eventData = (EventHubIME) result.get(0);
-        System.out.println("System properties: " + eventData.getSystemProperties());
+        EventHubIncomingMessageEnvelope eventData = (EventHubIncomingMessageEnvelope) result.get(0);
+        System.out.println("System properties: " + eventData.getEventData().getSystemProperties());
         System.out.println("Message: " + new String((byte[]) eventData.getMessage()));
         break;
       }

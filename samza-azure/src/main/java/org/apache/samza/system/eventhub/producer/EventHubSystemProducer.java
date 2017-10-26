@@ -26,12 +26,12 @@ import com.microsoft.azure.servicebus.ServiceBusException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.eventhub.EventHubClientManager;
 import org.apache.samza.system.eventhub.EventHubConfig;
 import org.apache.samza.system.eventhub.EventHubClientManagerFactory;
+import org.apache.samza.system.eventhub.Interceptor;
 import org.apache.samza.system.eventhub.metrics.SamzaHistogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -99,19 +99,19 @@ public class EventHubSystemProducer implements SystemProducer {
   private final Map<String, EventHubClientManager> eventHubClients = new HashMap<>();
   private final Map<String, Map<Integer, PartitionSender>> streamPartitionSenders = new HashMap<>();
 
-  private final Map<String, Serde<byte[]>> serdes;
+  private final Map<String, Interceptor> interceptors;
 
   private final Set<CompletableFuture<Void>> pendingFutures = ConcurrentHashMap.newKeySet();
 
   public EventHubSystemProducer(EventHubConfig config, String systemName,
                                 EventHubClientManagerFactory eventHubClientManagerFactory,
-                                Map<String, Serde<byte[]>> serdes, MetricsRegistry registry) {
+                                Map<String, Interceptor> interceptors, MetricsRegistry registry) {
     this.config = config;
     this.registry = registry;
     this.systemName = systemName;
     this.partitioningMethod = config.getPartitioningMethod(systemName);
     this.eventHubClientManagerFactory = eventHubClientManagerFactory;
-    this.serdes = serdes;
+    this.interceptors = interceptors;
   }
 
   @Override
@@ -273,10 +273,10 @@ public class EventHubSystemProducer implements SystemProducer {
   }
 
   private EventData createEventData(String streamName, OutgoingMessageEnvelope envelope) {
-    Optional<Serde<byte[]>> serde = Optional.ofNullable(serdes.getOrDefault(streamName, null));
+    Optional<Interceptor> interceptor = Optional.ofNullable(interceptors.getOrDefault(streamName, null));
     byte[] eventValue = (byte[]) envelope.getMessage();
-    if (serde.isPresent()) {
-      eventValue = serde.get().toBytes(eventValue);
+    if (interceptor.isPresent()) {
+      eventValue = interceptor.get().intercept(eventValue);
     }
 
     EventData eventData = new EventData(eventValue);

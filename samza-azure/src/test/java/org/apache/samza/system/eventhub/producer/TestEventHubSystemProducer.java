@@ -20,12 +20,12 @@
 package org.apache.samza.system.eventhub.producer;
 
 import com.microsoft.azure.eventhubs.*;
-import org.apache.samza.serializers.ByteSerde;
-import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.eventhub.EventHubConfig;
+import org.apache.samza.system.eventhub.Interceptor;
 import org.apache.samza.system.eventhub.MockEventHubClientManagerFactory;
+import org.apache.samza.system.eventhub.admin.PassThroughInterceptor;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer.PartitioningMethod;
 import org.apache.samza.system.eventhub.TestMetricsRegistry;
 import org.junit.Assert;
@@ -61,8 +61,8 @@ public class TestEventHubSystemProducer {
     int partitionId1 = 1;
 
     TestMetricsRegistry testMetrics = new TestMetricsRegistry();
-    Map<String, Serde<byte[]>> serdes = new HashMap<>();
-    serdes.put(streamName, new ByteSerde());
+    Map<String, Interceptor> interceptor = new HashMap<>();
+    interceptor.put(streamName, new PassThroughInterceptor());
 
     List<String> outgoingMessagesP0 = generateMessages(numEvents);
     List<String> outgoingMessagesP1 = generateMessages(numEvents);
@@ -80,7 +80,7 @@ public class TestEventHubSystemProducer {
     MockEventHubClientManagerFactory factory = new MockEventHubClientManagerFactory();
 
     EventHubSystemProducer producer =
-            new EventHubSystemProducer(new EventHubConfig(configMap), systemName, factory, serdes, testMetrics);
+            new EventHubSystemProducer(new EventHubConfig(configMap), systemName, factory, interceptor, testMetrics);
 
     SystemStream systemStream = new SystemStream(systemName, streamName);
     producer.register(streamName);
@@ -110,8 +110,8 @@ public class TestEventHubSystemProducer {
     String partitionId1 = "235";
 
     TestMetricsRegistry testMetrics = new TestMetricsRegistry();
-    Map<String, Serde<byte[]>> serdes = new HashMap<>();
-    serdes.put(streamName, new ByteSerde());
+    Map<String, Interceptor> interceptor = new HashMap<>();
+    interceptor.put(streamName, new PassThroughInterceptor());
 
     List<String> outgoingMessagesP0 = generateMessages(numEvents);
     List<String> outgoingMessagesP1 = generateMessages(numEvents);
@@ -130,7 +130,7 @@ public class TestEventHubSystemProducer {
     MockEventHubClientManagerFactory factory = new MockEventHubClientManagerFactory();
 
     EventHubSystemProducer producer =
-            new EventHubSystemProducer(new EventHubConfig(configMap), systemName, factory, serdes, testMetrics);
+            new EventHubSystemProducer(new EventHubConfig(configMap), systemName, factory, interceptor, testMetrics);
 
     SystemStream systemStream = new SystemStream(systemName, streamName);
     producer.register(streamName);

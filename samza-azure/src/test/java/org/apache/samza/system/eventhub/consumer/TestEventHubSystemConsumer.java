@@ -23,11 +23,10 @@ package org.apache.samza.system.eventhub.consumer;
 import com.microsoft.azure.eventhubs.*;
 import org.apache.samza.Partition;
 import org.apache.samza.metrics.Counter;
-import org.apache.samza.serializers.ByteSerde;
-import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.eventhub.*;
+import org.apache.samza.system.eventhub.admin.PassThroughInterceptor;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -67,8 +66,8 @@ public class TestEventHubSystemConsumer {
     TestMetricsRegistry testMetrics = new TestMetricsRegistry();
     Map<SystemStreamPartition, List<EventData>> eventData = new HashMap<>();
     SystemStreamPartition ssp = new SystemStreamPartition(systemName, streamName, new Partition(partitionId));
-    Map<String, Serde<byte[]>> serdes = new HashMap<>();
-    serdes.put(streamName, new ByteSerde());
+    Map<String, Interceptor> interceptors = new HashMap<>();
+    interceptors.put(streamName, new PassThroughInterceptor());
 
     // create EventData
     List<EventData> singlePartitionEventData = MockEventData.generateEventData(numEvents);
@@ -85,7 +84,7 @@ public class TestEventHubSystemConsumer {
     MockEventHubClientManagerFactory eventHubClientWrapperFactory = new MockEventHubClientManagerFactory(eventData);
 
     EventHubSystemConsumer consumer =
-            new EventHubSystemConsumer(new EventHubConfig(configMap), systemName, eventHubClientWrapperFactory, serdes,
+            new EventHubSystemConsumer(new EventHubConfig(configMap), systemName, eventHubClientWrapperFactory, interceptors,
                     testMetrics);
     consumer.register(ssp, "1");
     consumer.register(ssp, EventHubSystemConsumer.END_OF_STREAM);
@@ -106,8 +105,8 @@ public class TestEventHubSystemConsumer {
     TestMetricsRegistry testMetrics = new TestMetricsRegistry();
     Map<SystemStreamPartition, List<EventData>> eventData = new HashMap<>();
     SystemStreamPartition ssp = new SystemStreamPartition(systemName, streamName, new Partition(partitionId));
-    Map<String, Serde<byte[]>> serdes = new HashMap<>();
-    serdes.put(streamName, new ByteSerde());
+    Map<String, Interceptor> interceptors = new HashMap<>();
+    interceptors.put(streamName, new PassThroughInterceptor());
 
     // create EventData
     List<EventData> singlePartitionEventData = MockEventData.generateEventData(numEvents);
@@ -124,7 +123,7 @@ public class TestEventHubSystemConsumer {
     MockEventHubClientManagerFactory eventHubClientWrapperFactory = new MockEventHubClientManagerFactory(eventData);
 
     EventHubSystemConsumer consumer =
-            new EventHubSystemConsumer(new EventHubConfig(configMap), systemName, eventHubClientWrapperFactory, serdes,
+            new EventHubSystemConsumer(new EventHubConfig(configMap), systemName, eventHubClientWrapperFactory, interceptors,
                     testMetrics);
     consumer.register(ssp, EventHubSystemConsumer.END_OF_STREAM);
     consumer.start();
@@ -155,8 +154,8 @@ public class TestEventHubSystemConsumer {
     Map<SystemStreamPartition, List<EventData>> eventData = new HashMap<>();
     SystemStreamPartition ssp1 = new SystemStreamPartition(systemName, streamName, new Partition(partitionId1));
     SystemStreamPartition ssp2 = new SystemStreamPartition(systemName, streamName, new Partition(partitionId2));
-    Map<String, Serde<byte[]>> serdes = new HashMap<>();
-    serdes.put(streamName, new ByteSerde());
+    Map<String, Interceptor> interceptor = new HashMap<>();
+    interceptor.put(streamName, new PassThroughInterceptor());
 
     // create EventData
     List<EventData> singlePartitionEventData1 = MockEventData.generateEventData(numEvents);
@@ -175,7 +174,7 @@ public class TestEventHubSystemConsumer {
     MockEventHubClientManagerFactory eventHubClientWrapperFactory = new MockEventHubClientManagerFactory(eventData);
 
     EventHubSystemConsumer consumer =
-            new EventHubSystemConsumer(new EventHubConfig(configMap), systemName, eventHubClientWrapperFactory, serdes,
+            new EventHubSystemConsumer(new EventHubConfig(configMap), systemName, eventHubClientWrapperFactory, interceptor,
                     testMetrics);
     consumer.register(ssp1, EventHubSystemConsumer.START_OF_STREAM);
     consumer.register(ssp2, EventHubSystemConsumer.START_OF_STREAM);
@@ -211,9 +210,9 @@ public class TestEventHubSystemConsumer {
     Map<SystemStreamPartition, List<EventData>> eventData = new HashMap<>();
     SystemStreamPartition ssp1 = new SystemStreamPartition(systemName, streamName1, new Partition(partitionId));
     SystemStreamPartition ssp2 = new SystemStreamPartition(systemName, streamName2, new Partition(partitionId));
-    Map<String, Serde<byte[]>> serdes = new HashMap<>();
-    serdes.put(streamName1, new ByteSerde());
-    serdes.put(streamName2, new ByteSerde());
+    Map<String, Interceptor> interceptor = new HashMap<>();
+    interceptor.put(streamName1, new PassThroughInterceptor());
+    interceptor.put(streamName2, new PassThroughInterceptor());
 
     List<EventData> singlePartitionEventData1 = MockEventData.generateEventData(numEvents);
     List<EventData> singlePartitionEventData2 = MockEventData.generateEventData(numEvents);
@@ -235,7 +234,7 @@ public class TestEventHubSystemConsumer {
     MockEventHubClientManagerFactory eventHubClientWrapperFactory = new MockEventHubClientManagerFactory(eventData);
 
     EventHubSystemConsumer consumer =
-            new EventHubSystemConsumer(new EventHubConfig(configMap), systemName, eventHubClientWrapperFactory, serdes,
+            new EventHubSystemConsumer(new EventHubConfig(configMap), systemName, eventHubClientWrapperFactory, interceptor,
                     testMetrics);
 
     consumer.register(ssp1, EventHubSystemConsumer.START_OF_STREAM);

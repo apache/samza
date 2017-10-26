@@ -20,32 +20,23 @@
 package org.apache.samza.system.eventhub.consumer;
 
 import com.microsoft.azure.eventhubs.EventData;
-import com.microsoft.azure.eventhubs.EventData.SystemProperties;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
-
-import java.util.Map;
 
 /**
  * Extension of {@link IncomingMessageEnvelope} which contains {@link EventData} system and user properties metadata
  */
-public class EventHubIME extends IncomingMessageEnvelope {
-  private SystemProperties systemProperties;
-  private Map<String, Object> userProperties;
+public class EventHubIncomingMessageEnvelope extends IncomingMessageEnvelope {
+  private EventData eventData;
 
-
-  public EventHubIME(SystemStreamPartition systemStreamPartition, String offset, Object key, Object message, EventData eventData) {
+  public EventHubIncomingMessageEnvelope(SystemStreamPartition systemStreamPartition, String offset, Object key,
+                                         Object message, EventData eventData) {
     super(systemStreamPartition, offset, key, message);
 
-    this.systemProperties = eventData.getSystemProperties();
-    this.userProperties = eventData.getProperties();
+    this.eventData = eventData;
   }
 
-  public SystemProperties getSystemProperties() {
-    return systemProperties;
-  }
-
-  public Map<String, Object> getUserProperties() {
-    return userProperties;
+  public EventData getEventData() {
+    return eventData;
   }
 }

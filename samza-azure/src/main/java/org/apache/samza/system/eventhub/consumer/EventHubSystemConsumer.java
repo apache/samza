@@ -26,12 +26,12 @@ import com.microsoft.azure.servicebus.ServiceBusException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.eventhub.EventHubClientManagerFactory;
 import org.apache.samza.system.eventhub.EventHubClientManager;
 import org.apache.samza.system.eventhub.EventHubConfig;
+import org.apache.samza.system.eventhub.Interceptor;
 import org.apache.samza.system.eventhub.admin.EventHubSystemAdmin;
 import org.apache.samza.system.eventhub.metrics.SamzaHistogram;
 import org.apache.samza.util.BlockingEnvelopeMap;
@@ -124,7 +124,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   private final ConcurrentHashMap<SystemStreamPartition, PartitionReceiver> streamPartitionReceivers = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<String, EventHubClientManager> streamEventHubManagers = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<SystemStreamPartition, String> streamPartitionOffsets = new ConcurrentHashMap<>();
-  private final Map<String, Serde<byte[]>> serdes;
+  private final Map<String, Interceptor> interceptors;
   private boolean isStarted = false;
   private final EventHubConfig config;
   private final String systemName;
@@ -134,12 +134,12 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
 
   public EventHubSystemConsumer(EventHubConfig config, String systemName,
                                 EventHubClientManagerFactory eventHubClientManagerFactory,
-                                Map<String, Serde<byte[]>> serdes,  MetricsRegistry registry) {
+                                Map<String, Interceptor> interceptors, MetricsRegistry registry) {
     super(registry, System::currentTimeMillis);
 
     this.config = config;
     this.systemName = systemName;
-    this.serdes = serdes;
+    this.interceptors = interceptors;
     List<String> streamNames = config.getStreams(systemName);
     // Create and initiate connections to Event Hubs
     for (String streamName : streamNames) {
@@ -216,7 +216,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
 
         PartitionReceiveHandler handler = new PartitionReceiverHandlerImpl(ssp, eventReadRates.get(streamName),
                 eventByteReadRates.get(streamName), readLatencies.get(streamName), readErrors.get(streamName),
-                serdes.getOrDefault(streamName, null));
+                interceptors.getOrDefault(streamName, null));
 
 
         // Timeout for EventHubClient receive
@@ -317,27 +317,27 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
     private final Counter eventByteReadRate;
     private final SamzaHistogram readLatency;
     private final Counter errorRate;
-    private final Serde<byte[]> serde;
+    private final Interceptor interceptor;
     SystemStreamPartition ssp;
 
     PartitionReceiverHandlerImpl(SystemStreamPartition ssp, Counter eventReadRate, Counter eventByteReadRate,
-                                 SamzaHistogram readLatency, Counter readErrors, Serde<byte[]> serde) {
+                                 SamzaHistogram readLatency, Counter readErrors, Interceptor interceptor) {
       super(MAX_EVENT_COUNT_PER_PARTITION_POLL);
       this.ssp = ssp;
       this.eventReadRate = eventReadRate;
       this.eventByteReadRate = eventByteReadRate;
       this.readLatency = readLatency;
-      errorRate = readErrors;
-      this.serde = serde;
+      this.errorRate = readErrors;
+      this.interceptor = interceptor;
     }
 
     @Override
     public void onReceive(Iterable<EventData> events) {
       if (events != null) {
         events.forEach(event -> {
-            byte[] decryptedBody = event.getBytes();
-            if (serde != null) {
-              decryptedBody = serde.fromBytes(decryptedBody);
+            byte[] eventDataBody = event.getBytes();
+            if (interceptor != null) {
+              eventDataBody = interceptor.intercept(eventDataBody);
             }
             String offset = event.getSystemProperties().getOffset();
             Object partitionKey = event.getSystemProperties().getPartitionKey();
@@ -345,7 +345,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
               updateMetrics(event);
 
               // note that the partition key can be null
-              put(ssp, new EventHubIME(ssp, offset, partitionKey, decryptedBody, event));
+              put(ssp, new EventHubIncomingMessageEnvelope(ssp, offset, partitionKey, eventDataBody, event));
             } catch (InterruptedException e) {
               String msg = String.format("Interrupted while adding the event from ssp %s to dispatch queue.", ssp);
               LOG.error(msg, e);

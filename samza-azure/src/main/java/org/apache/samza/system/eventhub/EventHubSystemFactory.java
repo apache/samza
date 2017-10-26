@@ -21,13 +21,12 @@ package org.apache.samza.system.eventhub;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.serializers.ByteSerde;
-import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.eventhub.admin.EventHubSystemAdmin;
+import org.apache.samza.system.eventhub.admin.PassThroughInterceptor;
 import org.apache.samza.system.eventhub.consumer.EventHubSystemConsumer;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer;
 
@@ -37,25 +36,25 @@ import java.util.Map;
 
 public class EventHubSystemFactory implements SystemFactory {
 
-  private Map<String, Serde<byte[]>> getSerdesMap(EventHubConfig config, String systemName) {
-    Map<String, Serde<byte[]>> serdes = new HashMap<>();
+  private Map<String, Interceptor> getInterceptorsMap(EventHubConfig config, String systemName) {
+    Map<String, Interceptor> interceptors = new HashMap<>();
     List<String> streamList = config.getStreams(systemName);
-    streamList.forEach((streamName) -> serdes.put(streamName, new ByteSerde()));
-    return serdes;
+    streamList.forEach((streamName) -> interceptors.put(streamName, new PassThroughInterceptor()));
+    return interceptors;
   }
 
   @Override
   public SystemConsumer getConsumer(String systemName, Config config, MetricsRegistry registry) {
     EventHubConfig eventHubConfig = new EventHubConfig(config);
     return new EventHubSystemConsumer(eventHubConfig, systemName, new EventHubClientManagerFactory(),
-            getSerdesMap(eventHubConfig, systemName), registry);
+            getInterceptorsMap(eventHubConfig, systemName), registry);
   }
 
   @Override
   public SystemProducer getProducer(String systemName, Config config, MetricsRegistry registry) {
     EventHubConfig eventHubConfig = new EventHubConfig(config);
     return new EventHubSystemProducer(eventHubConfig, systemName, new EventHubClientManagerFactory(),
-            getSerdesMap(eventHubConfig, systemName),
+            getInterceptorsMap(eventHubConfig, systemName),
             registry);
   }
 
