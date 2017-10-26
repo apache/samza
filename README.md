@@ -1,7 +1,7 @@
 hello-samza
 ===========
 
-Hello Samza is a starter project for [Apache Samza](http://samza.apache.org/) jobs.
+**Hello Samza** is a starter project for [Apache Samza](http://samza.apache.org/) jobs.
 
 ### About
 
@@ -33,7 +33,7 @@ A Samza grid usually comprises three different systems: [YARN](http://hadoop.apa
 
 This command will download, install, and start ZooKeeper, Kafka, and YARN. It will also check out the latest version of Samza and build it. All package files will be put in a sub-directory called "deploy" inside hello-samza's root folder.
 
-If you get a complaint that JAVA_HOME is not set, then you'll need to set it to the path where Java is installed on your system.
+If you get a complaint that _JAVA_HOME_ is not set, then you'll need to set it to the path where Java is installed on your system.
 
 Once the grid command completes, you can verify that YARN is up and running by going to [http://localhost:8088](http://localhost:8088). This is the YARN UI.
 
@@ -41,7 +41,7 @@ Once the grid command completes, you can verify that YARN is up and running by g
 
 Before you can run a Samza application, you need to build a package for it. This package is what YARN uses to deploy your apps on the grid.
 
-NOTE: if you are building from the latest branch of hello-samza project, make sure that you run the following step from your local Samza project first:
+_NOTE_: if you are building from the latest branch of hello-samza project, make sure that you run the following step from your local Samza project first:
 
 ```
 git clone https://github.com/apache/samza.git
@@ -63,9 +63,9 @@ After you've built your Samza package, you can start the example applications on
 
 ##### - High-level API Examples
 
-Package **samza.examples.cookbook** contains various examples of high-level API operator usage, such as map, partitionBy, window and join. Each example is a runnable Samza application, and the steps to run is in the class javadocs, e.g [PageViewAdClickJoiner](https://github.com/apache/samza-hello-samza/blob/master/src/main/java/samza/examples/cookbook/PageViewAdClickJoiner.java).
+Package [samza.examples.cookbook](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/cookbook) contains various examples of high-level API operator usage, such as map, partitionBy, window and join. Each example is a runnable Samza application with the steps in the class javadocs, e.g [PageViewAdClickJoiner](https://github.com/apache/samza-hello-samza/blob/master/src/main/java/samza/examples/cookbook/PageViewAdClickJoiner.java).
 
-Package **samza.examples.wikipedia.application** contains a small Samza application which consumes the real-time feeds from Wikipedia, extracts the metadata of the events, and calculates statistics of all edits in a 10-second window. You can start the app on the grid using the run-app.sh script:
+Package [samza.examples.wikipedia.application](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/wikipedia/application) contains a small Samza application which consumes the real-time feeds from Wikipedia, extracts the metadata of the events, and calculates statistics of all edits in a 10-second window. You can start the app on the grid using the run-app.sh script:
 
 ```
 ./deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-application.properties
@@ -81,7 +81,7 @@ A code walkthrough of this application can be found [here](http://samza.apache.o
 
 ##### - Low-level API Examples
 
-Package **samza.examples.wikipedia.task** contains the low-level API Samza code for the Wikipedia example. To run it, use the following scripts:
+Package [samza.examples.wikipedia.task](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/wikipedia/task) contains the low-level API Samza code for the Wikipedia example. To run it, use the following scripts:
 
 ```
 deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-feed.properties
@@ -89,7 +89,7 @@ deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.P
 deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-stats.properties
 ```
 
-Once the jobs are started, you can use the same _kafka-console-consumer.sh_ command as in High-level API Wikipedia example to check out the output of the statistics.
+Once the jobs are started, you can use the same _kafka-console-consumer.sh_ command as in the high-level API Wikipedia example to check out the output of the statistics.
 
 ### Contribution
 
