@@ -268,6 +268,10 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
     String consumerGroup = config.getStreamConsumerGroup(ssp.getSystem(), ssp.getStream());
 
     try {
+      // Close current receiver
+      streamPartitionReceivers.get(ssp).close().get(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+
+      // Recreate receiver
       PartitionReceiver receiver = eventHubClientManager.getEventHubClient()
               .createReceiverSync(consumerGroup, partitionId.toString(), offset,
                       !offset.equals(EventHubSystemConsumer.START_OF_STREAM));
@@ -277,10 +281,9 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
       receiver.setReceiveHandler(streamPartitionHandlers.get(ssp));
       streamPartitionReceivers.put(ssp, receiver);
 
-    } catch (ServiceBusException e) {
+    } catch (Exception e) {
       eventHubHandlerError.set(new SamzaException(
-              String.format("Failed to recreate receiver after ReceiverHandlerError for EventHubs for SystemStreamPartition=%s",
-                      ssp), e));
+              String.format("Failed to recreate receiver for EventHubs after ReceiverHandlerError (ssp=%s)", ssp), e));
     }
   }
 

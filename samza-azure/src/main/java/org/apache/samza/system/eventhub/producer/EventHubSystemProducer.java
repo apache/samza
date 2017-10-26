@@ -58,7 +58,6 @@ public class EventHubSystemProducer implements SystemProducer {
   private static final long DEFAULT_FLUSH_TIMEOUT_MILLIS = Duration.ofMinutes(1L).toMillis();
 
   public static final String PRODUCE_TIMESTAMP = "produce-timestamp";
-  public static final String FLUSH_ALL = "all";
 
   // Metrics recording
   private static final String EVENT_WRITE_RATE = "eventWriteRate";
