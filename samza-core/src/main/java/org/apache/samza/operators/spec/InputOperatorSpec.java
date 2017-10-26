@@ -38,7 +38,7 @@ public class InputOperatorSpec<K, V> extends OperatorSpec<KV<K, V>, Object> { //
   private final boolean isKeyedInput;
 
   public InputOperatorSpec(StreamSpec streamSpec,
-      Serde<K> keySerde, Serde<V> valueSerde, boolean isKeyedInput, int opId) {
+      Serde<K> keySerde, Serde<V> valueSerde, boolean isKeyedInput, String opId) {
     super(OpCode.INPUT, opId);
     this.streamSpec = streamSpec;
     this.keySerde = keySerde;
