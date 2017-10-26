@@ -209,7 +209,7 @@ public class TestOperatorImpl {
 
   private static class TestOpSpec extends OperatorSpec<Object, Object> {
     TestOpSpec() {
-     super(OpCode.INPUT, 1);
+     super(OpCode.INPUT, "1");
     }
 
     @Override

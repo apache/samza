@@ -49,7 +49,7 @@ public class TestWindowOperatorSpec {
     window.setEarlyTrigger(earlyTrigger);
     window.setLateTrigger(lateTrigger);
 
-    WindowOperatorSpec spec = new WindowOperatorSpec(window, 0);
+    WindowOperatorSpec spec = new WindowOperatorSpec(window, "0");
     Assert.assertEquals(spec.getDefaultTriggerMs(), 5);
   }
 
@@ -62,7 +62,7 @@ public class TestWindowOperatorSpec {
             null, WindowType.SESSION, null, null, mock(Serde.class));
     window.setEarlyTrigger(earlyTrigger);
 
-    WindowOperatorSpec spec = new WindowOperatorSpec(window, 0);
+    WindowOperatorSpec spec = new WindowOperatorSpec(window, "0");
     Assert.assertEquals(spec.getDefaultTriggerMs(), 150);
   }
 }

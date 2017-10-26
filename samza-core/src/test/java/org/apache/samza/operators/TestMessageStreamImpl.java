@@ -198,12 +198,12 @@ public class TestMessageStreamImpl {
   public void testRepartition() {
     StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
-
-    String streamName = String.format("%s-%s", OperatorSpec.OpCode.PARTITION_BY.name().toLowerCase(), 0);
+    String mockOpName = "mockName";
+    when(mockGraph.getNextOpId(anyObject(), anyObject())).thenReturn(mockOpName);
     OutputStreamImpl mockOutputStreamImpl = mock(OutputStreamImpl.class);
     KVSerde mockKVSerde = mock(KVSerde.class);
     IntermediateMessageStreamImpl mockIntermediateStream = mock(IntermediateMessageStreamImpl.class);
-    when(mockGraph.getIntermediateStream(eq(streamName), eq(mockKVSerde)))
+    when(mockGraph.getIntermediateStream(eq(mockOpName), eq(mockKVSerde)))
         .thenReturn(mockIntermediateStream);
     when(mockIntermediateStream.getOutputStream())
         .thenReturn(mockOutputStreamImpl);
@@ -211,7 +211,7 @@ public class TestMessageStreamImpl {
     MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
     Function mockKeyFunction = mock(Function.class);
     Function mockValueFunction = mock(Function.class);
-    inputStream.partitionBy(mockKeyFunction, mockValueFunction, mockKVSerde);
+    inputStream.partitionBy(mockKeyFunction, mockValueFunction, mockKVSerde, "p1");
 
     ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
     verify(mockOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());
@@ -228,11 +228,11 @@ public class TestMessageStreamImpl {
   public void testRepartitionWithoutSerde() {
     StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
-
-    String streamName = String.format("%s-%s", OperatorSpec.OpCode.PARTITION_BY.name().toLowerCase(), 0);
+    String mockOpName = "mockName";
+    when(mockGraph.getNextOpId(anyObject(), anyObject())).thenReturn(mockOpName);
     OutputStreamImpl mockOutputStreamImpl = mock(OutputStreamImpl.class);
     IntermediateMessageStreamImpl mockIntermediateStream = mock(IntermediateMessageStreamImpl.class);
-    when(mockGraph.getIntermediateStream(eq(streamName), eq(null)))
+    when(mockGraph.getIntermediateStream(eq(mockOpName), eq(null)))
         .thenReturn(mockIntermediateStream);
     when(mockIntermediateStream.getOutputStream())
         .thenReturn(mockOutputStreamImpl);
@@ -240,7 +240,7 @@ public class TestMessageStreamImpl {
     MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
     Function mockKeyFunction = mock(Function.class);
     Function mockValueFunction = mock(Function.class);
-    inputStream.partitionBy(mockKeyFunction, mockValueFunction);
+    inputStream.partitionBy(mockKeyFunction, mockValueFunction, "p1");
 
     ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
     verify(mockOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());
@@ -264,9 +264,10 @@ public class TestMessageStreamImpl {
     Supplier<Integer> initialValue = () -> 0;
 
     // should compile since TestMessageEnvelope (input for functions) is base class of TestInputMessageEnvelope (M)
-    Window<TestInputMessageEnvelope, String, Integer> window = Windows
-        .keyedTumblingWindow(keyExtractor, Duration.ofHours(1), initialValue, aggregator, null, mock(Serde.class));
-    MessageStream<WindowPane<String, Integer>> windowedStream = inputStream.window(window);
+    Window<TestInputMessageEnvelope, String, Integer> window =
+        Windows.keyedTumblingWindow(keyExtractor, Duration.ofHours(1), initialValue, aggregator,
+            null, mock(Serde.class));
+    MessageStream<WindowPane<String, Integer>> windowedStream = inputStream.window(window, "w1");
 
     ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
     verify(mockOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());
@@ -289,7 +290,8 @@ public class TestMessageStreamImpl {
         mock(JoinFunction.class);
 
     Duration joinTtl = Duration.ofMinutes(1);
-    source1.join(source2, mockJoinFn, mock(Serde.class), mock(Serde.class), mock(Serde.class), joinTtl);
+    source1.join(source2, mockJoinFn,
+        mock(Serde.class), mock(Serde.class), mock(Serde.class), joinTtl, "j1");
 
     ArgumentCaptor<OperatorSpec> leftRegisteredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
     verify(leftInputOpSpec).registerNextOperatorSpec(leftRegisteredOpCaptor.capture());
