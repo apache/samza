@@ -21,12 +21,12 @@ package org.apache.samza.checkpoint.kafka
 
 import java.util.Properties
 
-import _root_.kafka.admin.AdminUtils
-import _root_.kafka.common.{InvalidMessageSizeException, UnknownTopicOrPartitionException}
-import _root_.kafka.integration.KafkaServerTestHarness
-import _root_.kafka.message.InvalidMessageException
-import _root_.kafka.server.{ConfigType, KafkaConfig}
-import _root_.kafka.utils.{CoreUtils, TestUtils, ZkUtils}
+import kafka.admin.AdminUtils
+import kafka.common.{InvalidMessageSizeException, UnknownTopicOrPartitionException}
+import kafka.integration.KafkaServerTestHarness
+import kafka.message.InvalidMessageException
+import kafka.server.{ConfigType, KafkaConfig}
+import kafka.utils.{CoreUtils, TestUtils, ZkUtils}
 import com.google.common.collect.ImmutableMap
 import org.apache.kafka.clients.producer.{KafkaProducer, Producer, ProducerConfig, ProducerRecord}
 import org.apache.kafka.common.security.JaasUtils
@@ -85,9 +85,6 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val zkClient = ZkUtils(zkConnect, 6000, 6000, JaasUtils.isZkSecurityEnabled())
     val topicConfig = AdminUtils.fetchEntityConfig(zkClient, ConfigType.Topic, checkpointTopic)
 
-    println("retrieved topic config")
-    println(topicConfig)
-
     assertEquals(topicConfig, KafkaCheckpointManagerFactory.getCheckpointTopicProperties(config))
     assertEquals("compact", topicConfig.get("cleanup.policy"))
     assertEquals("26214400", topicConfig.get("segment.bytes"))
@@ -98,8 +95,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     var readCp = kcm.readLastCheckpoint(taskName)
     assertNull(readCp)
 
-    // create topic the first time around
-    writeCheckpoint(taskName, checkpoint1, checkpointTopic)
+    kcm.writeCheckpoint(taskName, checkpoint1)
     readCp = kcm.readLastCheckpoint(taskName)
     assertEquals(checkpoint1, readCp)
 
@@ -113,46 +109,10 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     }
 
     // writing a second message should work, too
-    writeCheckpoint(taskName, checkpoint2, checkpointTopic)
+    kcm.writeCheckpoint(taskName, checkpoint2)
     readCp = kcm.readLastCheckpoint(taskName)
     assertEquals(checkpoint2, readCp)
     kcm.stop
-  }
-
-  @Test
-  def testCheckpointReadTwice {
-    val checkpointTopic = "checkpoint-topic"
-    val kcm = createKafkaCheckpointManager(checkpointTopic)
-    kcm.register(taskName)
-    kcm.start
-
-    // check that log compaction is enabled.
-    val zkClient = ZkUtils(zkConnect, 6000, 6000, JaasUtils.isZkSecurityEnabled)
-    val topicConfig = AdminUtils.fetchEntityConfig(zkClient, ConfigType.Topic, checkpointTopic)
-    zkClient.close
-
-    // read before topic exists should result in a null checkpoint
-    var readCp = kcm.readLastCheckpoint(taskName)
-    assertNull(readCp)
-
-    // create topic the first time around
-    writeCheckpoint(taskName, checkpoint1, checkpointTopic)
-    readCp = kcm.readLastCheckpoint(taskName)
-    assertEquals(checkpoint1, readCp)
-
-    // writing a second message should work, too
-    writeCheckpoint(taskName, checkpoint2, checkpointTopic)
-    readCp = kcm.readLastCheckpoint(taskName)
-    assertEquals(checkpoint2, readCp)
-    kcm.stop
-
-    // get new KCM for the same stream
-    val kcm1 = createKafkaCheckpointManager(checkpointTopic)
-    kcm1.register(taskName)
-    kcm1.start
-    readCp = kcm1.readLastCheckpoint(taskName)
-    assertEquals(checkpoint2, readCp)
-    kcm1.stop
   }
 
   @Test
