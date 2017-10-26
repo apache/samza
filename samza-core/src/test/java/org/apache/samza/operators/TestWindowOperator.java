@@ -80,6 +80,7 @@ public class TestWindowOperator {
         .of(new SystemStreamPartition("kafka", "integers", new Partition(0))));
     when(taskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     when(taskContext.getStore("window-3")).thenReturn(new TestInMemoryStore<>(storeKeySerde, storeValSerde));
+
     when(runner.getStreamSpec("integers")).thenReturn(new StreamSpec("integers", "integers", "kafka"));
   }
 
@@ -140,6 +141,31 @@ public class TestWindowOperator {
     Assert.assertEquals((windowPanes.get(0).getMessage()).size(), 9);
   }
 
+  @Test
+  public void testTumblingAggregatingWindowsDiscardingMode() throws Exception {
+
+    when(taskContext.getStore("window-2"))
+        .thenReturn(new TestInMemoryStore<>(new TimeSeriesKeySerde(new IntegerSerde()), new IntegerSerde()));
+
+    StreamApplication sgb = new AggregateTumblingWindowStreamApplication(AccumulationMode.DISCARDING,
+        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2)));
+    List<WindowPane<Integer, Integer>> windowPanes = new ArrayList<>();
+
+    TestClock testClock = new TestClock();
+    StreamOperatorTask task = new StreamOperatorTask(sgb, runner, testClock);
+    task.init(config, taskContext);
+    MessageCollector messageCollector = envelope -> windowPanes.add((WindowPane<Integer, Integer>) envelope.getMessage());
+    integers.forEach(n -> task.process(new IntegerEnvelope(n), messageCollector, taskCoordinator));
+    testClock.advanceTime(Duration.ofSeconds(1));
+
+    task.window(messageCollector, taskCoordinator);
+    Assert.assertEquals(windowPanes.size(), 5);
+    Assert.assertEquals(windowPanes.get(0).getMessage(), new Integer(2));
+    Assert.assertEquals(windowPanes.get(1).getMessage(), new Integer(2));
+    Assert.assertEquals(windowPanes.get(2).getMessage(), new Integer(2));
+    Assert.assertEquals(windowPanes.get(3).getMessage(), new Integer(2));
+    Assert.assertEquals(windowPanes.get(4).getMessage(), new Integer(1));
+  }
 
   @Test
   public void testTumblingWindowsAccumulatingMode() throws Exception {
@@ -439,6 +465,34 @@ public class TestWindowOperator {
           .sink((message, messageCollector, taskCoordinator) -> {
               messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
             });
+    }
+  }
+
+  private class AggregateTumblingWindowStreamApplication implements StreamApplication {
+
+    private final AccumulationMode mode;
+    private final Duration duration;
+    private final Trigger<IntegerEnvelope> earlyTrigger;
+    private final SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
+
+    AggregateTumblingWindowStreamApplication(AccumulationMode mode, Duration timeDuration,
+        Trigger<IntegerEnvelope> earlyTrigger) {
+      this.mode = mode;
+      this.duration = timeDuration;
+      this.earlyTrigger = earlyTrigger;
+    }
+
+    @Override
+    public void init(StreamGraph graph, Config config) {
+      MessageStream<KV<Integer, Integer>> integers = graph.getInputStream("integers",
+          KVSerde.of(new IntegerSerde(), new IntegerSerde()));
+
+      integers.map(kv -> new IntegerEnvelope(kv.getKey()))
+        .window(Windows.<IntegerEnvelope, Integer>tumblingWindow(this.duration, () -> 0, (m, c) -> c + 1,
+            new IntegerSerde()).setEarlyTrigger(earlyTrigger).setAccumulationMode(mode))
+        .sink((message, messageCollector, taskCoordinator) -> {
+            messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
+          });
     }
   }
 
