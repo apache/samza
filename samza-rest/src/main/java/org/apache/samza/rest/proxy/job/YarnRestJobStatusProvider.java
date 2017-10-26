@@ -52,7 +52,7 @@ public class YarnRestJobStatusProvider implements JobStatusProvider {
   private final String apiEndpoint;
   private final HttpClient httpClient;
 
-  YarnRestJobStatusProvider(JobsResourceConfig config) {
+  public YarnRestJobStatusProvider(JobsResourceConfig config) {
     YarnJobResourceConfig yarnConfig = new YarnJobResourceConfig(config);
 
     this.httpClient = new HttpClient();
