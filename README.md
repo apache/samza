@@ -18,6 +18,11 @@ Check out the hello-samza project:
 ```
 git clone https://git.apache.org/samza-hello-samza.git hello-samza
 cd hello-samza
+```
+
+To build hello-samza with the latest Samza master, you can switch to the _latest_ branch:
+
+```
 git checkout latest
 ```
 
