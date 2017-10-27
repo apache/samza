@@ -23,31 +23,13 @@ import com.microsoft.azure.storage.table.TableServiceEntity;
 
 public class TaskCheckpointEntity extends TableServiceEntity {
 
-  private String streamName;
-  private int partitionId;
   private String offset;
 
   public TaskCheckpointEntity() {}
 
-  public TaskCheckpointEntity(String taskName, String systemName) {
+  public TaskCheckpointEntity(String taskName, String systemStreamPartition) {
     this.partitionKey = taskName;
-    this.rowKey = systemName;
-  }
-
-  public String getStreamName() {
-    return streamName;
-  }
-
-  public void setStreamName(String streamName) {
-    this.streamName = streamName;
-  }
-
-  public int getPartitionId() {
-    return partitionId;
-  }
-
-  public void setPartitionId(int partitionId) {
-    this.partitionId = partitionId;
+    this.rowKey = systemStreamPartition;
   }
 
   public String getOffset() {
