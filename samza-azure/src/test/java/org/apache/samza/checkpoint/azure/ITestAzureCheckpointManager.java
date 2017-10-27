@@ -34,6 +34,7 @@ import org.junit.*;
 import java.util.HashMap;
 import java.util.Map;
 
+@Ignore("Intergration Test")
 public class ITestAzureCheckpointManager {
 
   private static String storageConnectionString = "";
