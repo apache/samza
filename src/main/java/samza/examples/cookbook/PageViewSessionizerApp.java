@@ -27,11 +27,13 @@ import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerde;
 import samza.examples.cookbook.data.PageView;
 import samza.examples.cookbook.data.UserPageViews;
 
 import java.time.Duration;
+import java.util.function.Function;
 
 /**
  * In this example, we group page views by userId into sessions, and compute the number of page views for each user
@@ -74,20 +76,25 @@ public class PageViewSessionizerApp implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    graph.setDefaultSerde(KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageView.class)));
+    Serde<String> stringSerde = new StringSerde();
+    Serde<PageView> pageviewSerde = new JsonSerdeV2<>(PageView.class);
+    KVSerde<String, PageView> pageViewKVSerde = KVSerde.of(stringSerde, pageviewSerde);
+    Serde<UserPageViews> userPageviewSerde = new JsonSerdeV2<>(UserPageViews.class);
+    graph.setDefaultSerde(pageViewKVSerde);
 
     MessageStream<KV<String, PageView>> pageViews = graph.getInputStream(INPUT_TOPIC);
     OutputStream<KV<String, UserPageViews>> userPageViews =
-        graph.getOutputStream(OUTPUT_TOPIC, KVSerde.of(new StringSerde(), new JsonSerdeV2<>(UserPageViews.class)));
+        graph.getOutputStream(OUTPUT_TOPIC, KVSerde.of(stringSerde, userPageviewSerde));
 
     pageViews
-        .partitionBy(kv -> kv.value.userId, kv -> kv.value)
-        .window(Windows.keyedSessionWindow(kv -> kv.value.userId, Duration.ofSeconds(10)))
+        .partitionBy(kv -> kv.value.userId, kv -> kv.value, "pageview")
+        .window(Windows.keyedSessionWindow(kv -> kv.value.userId,
+            Duration.ofSeconds(10), stringSerde, pageViewKVSerde), "usersession")
         .map(windowPane -> {
-            String userId = windowPane.getKey().getKey();
-            int views = windowPane.getMessage().size();
-            return KV.of(userId, new UserPageViews(userId, views));
-          })
+          String userId = windowPane.getKey().getKey();
+          int views = windowPane.getMessage().size();
+          return KV.of(userId, new UserPageViews(userId, views));
+        })
         .sendTo(userPageViews);
   }
 }

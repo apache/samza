@@ -25,6 +25,7 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.windows.Windows;
+import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
@@ -83,14 +84,15 @@ public class TumblingPageViewCounterApp implements StreamApplication {
         graph.getOutputStream(OUTPUT_TOPIC, KVSerde.of(new StringSerde(), new JsonSerdeV2<>(UserPageViews.class)));
 
     pageViews
-        .partitionBy(kv -> kv.value.userId, kv -> kv.value)
+        .partitionBy(kv -> kv.value.userId, kv -> kv.value, "userId")
         .window(Windows.keyedTumblingWindow(
-            kv -> kv.key, Duration.ofSeconds(5), () -> 0, (m, prevCount) -> prevCount + 1))
+            kv -> kv.key, Duration.ofSeconds(5), () -> 0, (m, prevCount) -> prevCount + 1,
+            new StringSerde(), new IntegerSerde()), "count")
         .map(windowPane -> {
-            String userId = windowPane.getKey().getKey();
-            int views = windowPane.getMessage();
-            return KV.of(userId, new UserPageViews(userId, views));
-          })
+          String userId = windowPane.getKey().getKey();
+          int views = windowPane.getMessage();
+          return KV.of(userId, new UserPageViews(userId, views));
+        })
         .sendTo(outputStream);
   }
 }

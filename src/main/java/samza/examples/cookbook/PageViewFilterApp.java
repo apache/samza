@@ -72,7 +72,7 @@ public class PageViewFilterApp implements StreamApplication {
     OutputStream<KV<String, PageView>> filteredPageViews = graph.getOutputStream(OUTPUT_TOPIC);
 
     pageViews
-        .partitionBy(kv -> kv.value.userId, kv -> kv.value)
+        .partitionBy(kv -> kv.value.userId, kv -> kv.value, "pageview")
         .filter(kv -> !INVALID_USER_ID.equals(kv.value.userId))
         .sendTo(filteredPageViews);
   }

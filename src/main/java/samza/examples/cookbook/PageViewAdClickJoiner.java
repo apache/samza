@@ -107,17 +107,17 @@ public class PageViewAdClickJoiner implements StreamApplication {
 
     MessageStream<PageView> repartitionedPageViews =
         pageViews
-            .partitionBy(pv -> pv.pageId, pv -> pv, KVSerde.of(stringSerde, pageViewSerde))
+            .partitionBy(pv -> pv.pageId, pv -> pv, KVSerde.of(stringSerde, pageViewSerde), "pageview")
             .map(KV::getValue);
 
     MessageStream<AdClick> repartitionedAdClicks =
         adClicks
-            .partitionBy(AdClick::getPageId, ac -> ac, KVSerde.of(stringSerde, adClickSerde))
+            .partitionBy(AdClick::getPageId, ac -> ac, KVSerde.of(stringSerde, adClickSerde), "adclick")
             .map(KV::getValue);
 
     repartitionedPageViews
         .join(repartitionedAdClicks, pageViewAdClickJoinFunction,
-            stringSerde, pageViewSerde, adClickSerde, Duration.ofMinutes(3))
+            stringSerde, pageViewSerde, adClickSerde, Duration.ofMinutes(3), "join")
         .sendTo(joinResults);
   }
 

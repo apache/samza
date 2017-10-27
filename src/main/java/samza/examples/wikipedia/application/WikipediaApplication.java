@@ -31,6 +31,7 @@ import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.NoOpSerde;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.task.TaskContext;
 import org.slf4j.Logger;
@@ -38,6 +39,12 @@ import org.slf4j.LoggerFactory;
 import samza.examples.wikipedia.model.WikipediaParser;
 import samza.examples.wikipedia.system.WikipediaFeed.WikipediaFeedEvent;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutput;
+import java.io.DataOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -105,7 +112,8 @@ public class WikipediaApplication implements StreamApplication {
     // Parse, update stats, prepare output, and send
     allWikipediaEvents
         .map(WikipediaParser::parseEvent)
-        .window(Windows.tumblingWindow(Duration.ofSeconds(10), WikipediaStats::new, new WikipediaStatsAggregator()))
+        .window(Windows.tumblingWindow(Duration.ofSeconds(10), WikipediaStats::new,
+                new WikipediaStatsAggregator(), WikipediaStats.serde()), "Tumbling window of WikipediaStats")
         .map(this::formatOutput)
         .sendTo(wikipediaStats);
   }
@@ -175,7 +183,7 @@ public class WikipediaApplication implements StreamApplication {
   /**
    * A few statistics about the incoming messages.
    */
-  private static class WikipediaStats {
+  public static class WikipediaStats {
     // Windowed stats
     int edits = 0;
     int byteDiff = 0;
@@ -188,6 +196,43 @@ public class WikipediaApplication implements StreamApplication {
     @Override
     public String toString() {
       return String.format("Stats {edits:%d, byteDiff:%d, titles:%s, counts:%s}", edits, byteDiff, titles, counts);
+    }
+
+    static Serde<WikipediaStats> serde() {
+      return new WikipediaStatsSerde();
+    }
+
+    public static class WikipediaStatsSerde implements Serde<WikipediaStats> {
+      @Override
+      public WikipediaStats fromBytes(byte[] bytes) {
+        try {
+          ByteArrayInputStream bias = new ByteArrayInputStream(bytes);
+          ObjectInputStream ois = new ObjectInputStream(bias);
+          WikipediaStats stats = new WikipediaStats();
+          stats.edits = ois.readInt();
+          stats.byteDiff = ois.readInt();
+          stats.titles = (Set<String>) ois.readObject();
+          stats.counts = (Map<String, Integer>) ois.readObject();
+          return stats;
+        } catch (Exception e) {
+          throw new RuntimeException(e);
+        }
+      }
+
+      @Override
+      public byte[] toBytes(WikipediaStats wikipediaStats) {
+        try {
+          ByteArrayOutputStream baos = new ByteArrayOutputStream();
+          ObjectOutputStream dos = new ObjectOutputStream(baos);
+          dos.writeInt(wikipediaStats.edits);
+          dos.writeInt(wikipediaStats.byteDiff);
+          dos.writeObject(wikipediaStats.titles);
+          dos.writeObject(wikipediaStats.counts);
+          return baos.toByteArray();
+        } catch (Exception e) {
+          throw new RuntimeException(e);
+        }
+      }
     }
   }
 
