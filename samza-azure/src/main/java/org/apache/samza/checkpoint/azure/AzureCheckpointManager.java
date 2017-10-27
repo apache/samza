@@ -42,6 +42,19 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
+/**
+ * Azure checkpoint manager is used to store checkpoints in a Azure Table.
+ * All the task checkpoints are added to the a single table named "SamzaTaskCheckpoints".
+ * The table entities take the following form:
+ *
+ * +-----------------+---------------------+-------------------+
+ * |                 |     Serialized      |                   |
+ * |   TaskName      |     JSON SSP        |     Offset        |
+ * |                 |                     |                   |
+ * +-----------------+---------------------+-------------------+
+ *
+ *  Each entity have a partitionKey set as the TaskName and the rowKey set as the SSP.
+ */
 public class AzureCheckpointManager implements CheckpointManager {
   private static final Logger LOG = LoggerFactory.getLogger(AzureCheckpointManager.class.getName());
   private static final String PARTITION_KEY = "PartitionKey";
