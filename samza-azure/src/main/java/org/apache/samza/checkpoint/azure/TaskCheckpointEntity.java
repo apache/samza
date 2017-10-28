@@ -27,9 +27,10 @@ public class TaskCheckpointEntity extends TableServiceEntity {
 
   public TaskCheckpointEntity() {}
 
-  public TaskCheckpointEntity(String taskName, String systemStreamPartition) {
+  public TaskCheckpointEntity(String taskName, String systemStreamPartition, String offset) {
     this.partitionKey = taskName;
     this.rowKey = systemStreamPartition;
+    this.offset = offset;
   }
 
   public String getOffset() {

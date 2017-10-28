@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -107,34 +108,29 @@ public class AzureCheckpointManager implements CheckpointManager {
     }
 
     TableBatchOperation batchOperation = new TableBatchOperation();
-    checkpoint.getOffsets().forEach((ssp, offset) -> {
-        // Create table entity
-        TaskCheckpointEntity taskCheckpoint = new TaskCheckpointEntity(taskName.toString(),
-                serializeSystemStreamPartition(ssp));
-        taskCheckpoint.setOffset(offset);
 
-        // Add to batch operation
-        batchOperation.insertOrReplace(taskCheckpoint);
+    Iterator<Map.Entry<SystemStreamPartition, String>> iterator = checkpoint.getOffsets().entrySet().iterator();
+    while(iterator.hasNext()) {
+      Map.Entry<SystemStreamPartition, String> entry = iterator.next();
+      SystemStreamPartition ssp = entry.getKey();
+      String offset = entry.getValue();
 
-        // Execute when batch reaches capacity
-        if (batchOperation.size() >= MAX_WRITE_BATCH_SIZE) {
-          try {
-            cloudTable.execute(batchOperation);
-          } catch (StorageException e) {
-            LOG.error("Executing batch failed for task: {}", taskName);
-            throw new AzureException(e);
-          }
-          batchOperation.clear();
+      // Create table entity
+      TaskCheckpointEntity taskCheckpoint = new TaskCheckpointEntity(taskName.toString(),
+              serializeSystemStreamPartition(ssp), offset);
+
+      // Add to batch operation
+      batchOperation.insertOrReplace(taskCheckpoint);
+
+      // Execute when batch reaches capacity or this is the last item
+      if (batchOperation.size() >= MAX_WRITE_BATCH_SIZE || !iterator.hasNext()) {
+        try {
+          cloudTable.execute(batchOperation);
+        } catch (StorageException e) {
+          LOG.error("Executing batch failed for task: {}", taskName);
+          throw new AzureException(e);
         }
-      });
-
-    if (batchOperation.size() > 0) {
-      // Execute remaining in batch
-      try {
-        cloudTable.execute(batchOperation);
-      } catch (StorageException e) {
-        LOG.error("Executing batch failed for task: {}", taskName);
-        throw new AzureException(e);
+        batchOperation.clear();
       }
     }
   }
@@ -212,36 +208,28 @@ public class AzureCheckpointManager implements CheckpointManager {
               .where(partitionFilter);
 
       // All entities in a given batch must have the same partition key
-      deleteEntities(cloudTable.execute(partitionQuery));
+      deleteEntities(cloudTable.execute(partitionQuery).iterator());
     }
   }
 
-  private void deleteEntities(Iterable<TaskCheckpointEntity> entitiesToDelete) {
+  private void deleteEntities(Iterator<TaskCheckpointEntity> entitiesToDelete) {
     TableBatchOperation batchOperation = new TableBatchOperation();
 
-    entitiesToDelete.forEach(taskCheckpointEntity -> {
-        // Add to batch operation
-        batchOperation.delete(taskCheckpointEntity);
+    while(entitiesToDelete.hasNext()) {
+      TaskCheckpointEntity entity = entitiesToDelete.next();
 
-        // Execute when batch reaches capacity
-        if (batchOperation.size() >= MAX_WRITE_BATCH_SIZE) {
-          try {
-            cloudTable.execute(batchOperation);
-          } catch (StorageException e) {
-            LOG.error("Executing batch failed for deleting checkpoints");
-            throw new AzureException(e);
-          }
-          batchOperation.clear();
+      // Add to batch operation
+      batchOperation.delete(entity);
+
+      // Execute when batch reaches capacity or when this is the last item
+      if (batchOperation.size() >= MAX_WRITE_BATCH_SIZE || !entitiesToDelete.hasNext()) {
+        try {
+          cloudTable.execute(batchOperation);
+        } catch (StorageException e) {
+          LOG.error("Executing batch failed for deleting checkpoints");
+          throw new AzureException(e);
         }
-      });
-
-    if (batchOperation.size() > 0) {
-      // Execute remaining in batch
-      try {
-        cloudTable.execute(batchOperation);
-      } catch (StorageException e) {
-        LOG.error("Executing batch failed for deleting checkpoints");
-        throw new AzureException(e);
+        batchOperation.clear();
       }
     }
   }
