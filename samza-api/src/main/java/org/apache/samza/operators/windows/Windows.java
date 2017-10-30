@@ -98,13 +98,6 @@ public final class Windows {
 
   private Windows() { }
 
-  private static <M> FoldLeftFunction<M, Collection<M>> defaultAggregator() {
-    return (m, c) -> {
-      c.add(m);
-      return c;
-    };
-  }
-
   /**
    * Creates a {@link Window} that groups incoming messages into fixed-size, non-overlapping processing
    * time based windows based on the provided keyFn and applies the provided fold function to them.
@@ -176,11 +169,10 @@ public final class Windows {
       Serde<K> keySerde, Serde<M> msgSerde) {
 
     Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
-    SupplierFunction<Collection<M>> initialValue = ArrayList::new;
     return new WindowInternal<>(
         defaultTrigger,
-        initialValue,
-        defaultAggregator(),
+        null,
+        null,
         keyFn,
         null,
         WindowType.TUMBLING,
@@ -253,11 +245,10 @@ public final class Windows {
    */
   public static <M> Window<M, Void, Collection<M>> tumblingWindow(Duration duration, Serde<M> msgSerde) {
     Trigger<M> defaultTrigger = new TimeTrigger<>(duration);
-    SupplierFunction<Collection<M>> initialValue = ArrayList::new;
     return new WindowInternal<>(
         defaultTrigger,
-        initialValue,
-        defaultAggregator(),
+        null,
+        null,
         null,
        null,
         WindowType.TUMBLING,
@@ -344,12 +335,11 @@ public final class Windows {
    */
   public static <M, K> Window<M, K, Collection<M>> keyedSessionWindow(MapFunction<? super M, ? extends K> keyFn,
       Duration sessionGap, Serde<K> keySerde, Serde<M> msgSerde) {
-    SupplierFunction<Collection<M>> initialValue = ArrayList::new;
     Trigger<M> defaultTrigger = Triggers.timeSinceLastMessage(sessionGap);
     return new WindowInternal<>(
         defaultTrigger,
-        initialValue,
-        defaultAggregator(),
+        null,
+        null,
         (MapFunction<M, K>) keyFn,
         null,
         WindowType.SESSION,

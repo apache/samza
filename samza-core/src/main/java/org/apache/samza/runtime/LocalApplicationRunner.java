@@ -161,10 +161,13 @@ public class LocalApplicationRunner extends ApplicationRunnerBase {
     try {
       // 1. initialize and plan
       ExecutionPlan plan = getExecutionPlan(app);
-      writePlanJsonFile(plan.getPlanAsJson());
+      String executionPlanJson = plan.getPlanAsJson();
+      writePlanJsonFile(executionPlanJson);
 
       // 2. create the necessary streams
-      createStreams(plan.getId(), plan.getIntermediateStreams());
+      // TODO: System generated intermediate streams should have robust naming scheme. See SAMZA-1391
+      String planId = String.valueOf(executionPlanJson.hashCode());
+      createStreams(planId, plan.getIntermediateStreams());
 
       // 3. create the StreamProcessors
       if (plan.getJobConfigs().isEmpty()) {
@@ -199,6 +202,18 @@ public class LocalApplicationRunner extends ApplicationRunnerBase {
   @Override
   public ApplicationStatus status(StreamApplication app) {
     return appStatus;
+  }
+
+  /**
+   * Block until the application finishes
+   */
+  public void waitForFinish(StreamApplication userApp) {
+    try {
+      shutdownLatch.await();
+    } catch (Exception e) {
+      LOG.error("Wait is interrupted by exception", e);
+      throw new SamzaException(e);
+    }
   }
 
   /**
@@ -251,19 +266,6 @@ public class LocalApplicationRunner extends ApplicationRunnerBase {
   @VisibleForTesting
   StreamManager getStreamManager() {
     return streamManager;
-  }
-
-  /**
-   * Block until the application finishes
-   */
-  @Override
-  public void waitForFinish(StreamApplication app) {
-    try {
-      shutdownLatch.await();
-    } catch (Exception e) {
-      LOG.error("Wait is interrupted by exception", e);
-      throw new SamzaException(e);
-    }
   }
 
   /**

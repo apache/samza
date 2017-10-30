@@ -91,11 +91,6 @@ import org.slf4j.LoggerFactory;
     return jsonGenerator.toJson(this);
   }
 
-  @Override
-  public String getId() {
-    return String.format("%s-%08x", new ApplicationConfig(config).getGlobalAppId(), hashCode());
-  }
-
   /**
    * Returns the config for this application
    * @return {@link ApplicationConfig}
