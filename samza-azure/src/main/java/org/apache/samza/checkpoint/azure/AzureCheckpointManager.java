@@ -110,7 +110,7 @@ public class AzureCheckpointManager implements CheckpointManager {
     TableBatchOperation batchOperation = new TableBatchOperation();
 
     Iterator<Map.Entry<SystemStreamPartition, String>> iterator = checkpoint.getOffsets().entrySet().iterator();
-    while(iterator.hasNext()) {
+    while (iterator.hasNext()) {
       Map.Entry<SystemStreamPartition, String> entry = iterator.next();
       SystemStreamPartition ssp = entry.getKey();
       String offset = entry.getValue();
@@ -215,7 +215,7 @@ public class AzureCheckpointManager implements CheckpointManager {
   private void deleteEntities(Iterator<TaskCheckpointEntity> entitiesToDelete) {
     TableBatchOperation batchOperation = new TableBatchOperation();
 
-    while(entitiesToDelete.hasNext()) {
+    while (entitiesToDelete.hasNext()) {
       TaskCheckpointEntity entity = entitiesToDelete.next();
 
       // Add to batch operation
