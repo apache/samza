@@ -274,7 +274,7 @@ public abstract class OperatorImpl<M, RM> {
    * @param coordinator task coordinator
    */
   protected void handleEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
-    //Do nothing by default
+    //do nothing
   }
 
   /**
@@ -318,17 +318,24 @@ public abstract class OperatorImpl<M, RM> {
       // advance the watermark time of this operator
       inputWatermark = inputWatermarkMin;
       LOG.trace("Advance input watermark to {} in operator {}", inputWatermark, getOperatorName());
-
       final Long outputWm;
-      WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
+      final Collection<RM> output;
+      final WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
       if (watermarkFn != null) {
         // user-overrided watermark handling here
-        watermarkFn.processWatermark(inputWatermark);
+        output = (Collection<RM>) watermarkFn.processWatermark(inputWatermark);
         outputWm = watermarkFn.getOutputWatermark();
       } else {
         // use samza-provided watermark handling
         // default is to propagate the input watermark
-        outputWm = handleWatermark(inputWatermark, collector, coordinator);
+        output = handleWatermark(inputWatermark, collector, coordinator);
+        outputWm = getOutputWatermark();
+      }
+
+      if (!output.isEmpty()) {
+        output.forEach(rm ->
+            this.registeredOperators.forEach(op ->
+                op.onMessage(rm, collector, coordinator)));
       }
 
       propagateWatermark(outputWm, collector, coordinator);
@@ -357,9 +364,9 @@ public abstract class OperatorImpl<M, RM> {
    * @param coordinator task coordinator
    * @return output watermark, or null if the output watermark should not be updated.
    */
-  protected Long handleWatermark(long inputWatermark, MessageCollector collector, TaskCoordinator coordinator) {
+  protected Collection<RM> handleWatermark(long inputWatermark, MessageCollector collector, TaskCoordinator coordinator) {
     // Default is no handling. Simply pass on the input watermark as output.
-    return inputWatermark;
+    return Collections.emptyList();
   }
 
   /* package private for testing */
@@ -367,9 +374,13 @@ public abstract class OperatorImpl<M, RM> {
     return this.inputWatermark;
   }
 
-  /* package private for testing */
-  final long getOutputWatermark() {
-    return this.outputWatermark;
+  /**
+   * Returns the output watermark, default is the same as input.
+   * Operators which keep track of watermark should override this to return the current watermark.
+   * @return output watermark
+   */
+  protected long getOutputWatermark() {
+    return this.getInputWatermark();
   }
 
   public void close() {
