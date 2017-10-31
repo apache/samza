@@ -182,7 +182,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
 
     val iterator = new SystemStreamPartitionIterator(systemConsumer, checkpointSsp)
     var numMessagesRead = 0
-    println(systemConsumer)
+
     while (iterator.hasNext) {
       numMessagesRead += 1
       val checkpointEnvelope: IncomingMessageEnvelope = iterator.next
@@ -203,6 +203,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
       val checkpointBytes = checkpointEnvelope.getMessage.asInstanceOf[Array[Byte]]
       val checkpoint = checkpointMsgSerde.fromBytes(checkpointBytes)
       checkpoints.put(checkpointKey.getTaskName, checkpoint)
+      println(iterator.hasNext)
     }
     info(s"Read $numMessagesRead messages from system:$checkpointSystem topic:$checkpointTopic")
     checkpoints.toMap

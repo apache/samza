@@ -46,7 +46,7 @@ import org.junit._
 import scala.collection.JavaConverters._
 import scala.collection._
 
-class TestKafkaCheckpointManager extends KafkaServerTestHarness {
+class TestKafkaCheckpointManagerIntegrationTest extends KafkaServerTestHarness {
 
   protected def numBrokers: Int = 3
 
@@ -113,35 +113,6 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     readCp = kcm.readLastCheckpoint(taskName)
     assertEquals(checkpoint2, readCp)
     kcm.stop
-  }
-
-  @Test
-  def testUnrecoverableKafkaErrorShouldThrowKafkaCheckpointManagerException {
-    val checkpointTopic = "invalid-serde"
-    val checkpointTopicProps = KafkaCheckpointManagerFactory.getCheckpointTopicProperties(config)
-    val exceptions = List(new InvalidMessageException(), new InvalidMessageSizeException(), new UnknownTopicOrPartitionException())
-    exceptions.foreach { exception =>
-      val kcm = createKafkaCheckpointManager(checkpointTopic, new ExceptionThrowingSerde(exception))
-      kcm.register(taskName)
-      kcm.start
-      writeCheckpoint(taskName, checkpoint1, checkpointTopic)
-      // because serde will throw unrecoverable errors, it should result a KafkaCheckpointException
-      try {
-        kcm.readLastCheckpoint(taskName)
-        fail("Expected an Exception.")
-      } catch {
-        case e: KafkaUtilException => {
-          println("ex 1")
-          None
-        }
-        case e: Exception => {
-          println("ex 2")
-
-          None
-        }
-      }
-      kcm.stop
-    }
   }
 
   @Test
@@ -244,11 +215,5 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
 
     val spec = new KafkaStreamSpec("id", cpTopic, checkpointSystemName, 1, 1, props)
     new KafkaCheckpointManager(spec, factory, failOnTopicValidation, config, new NoOpMetricsRegistry, serde)
-  }
-
-  class ExceptionThrowingSerde(exception: Exception) extends CheckpointSerde {
-    override def fromBytes(bytes: Array[Byte]): Checkpoint = {
-        throw exception
-    }
   }
 }
