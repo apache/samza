@@ -80,7 +80,7 @@ class StreamMetadataCache (
           val systemAdmin = systemAdmins
             .getOrElse(systemName, throw new SamzaException("Cannot get metadata for unknown system: %s" format systemName))
           val streamToMetadata = if (partitionsMetadataOnly && systemAdmin.isInstanceOf[ExtendedSystemAdmin]) {
-            systemAdmin.asInstanceOf[ExtendedSystemAdmin].getSystemStreamPartitionCounts(systemStreams.map(_.getStream).asJava, cacheTTLms)
+            systemAdmin.asInstanceOf[ExtendedSystemAdmin].getSystemStreamMetadata(systemStreams.map(_.getStream).asJava)
           } else {
             systemAdmin.getSystemStreamMetadata(systemStreams.map(_.getStream).asJava)
           }

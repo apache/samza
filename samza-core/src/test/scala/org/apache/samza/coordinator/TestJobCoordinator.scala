@@ -321,16 +321,10 @@ class MockSystemAdmin extends ExtendedSystemAdmin {
   override def offsetComparator(offset1: String, offset2: String) = null
 
   override def getSystemStreamPartitionCounts(streamNames: util.Set[String],
-                                              cacheTTL: Long): util.Map[String, SystemStreamMetadata] = {
+                                              cacheTTL: Long): util.Map[String, Integer] = {
     assertEquals(1, streamNames.size())
     val result = streamNames.asScala.map {
-      stream =>
-        val partitionMetadata = Map(
-          new Partition(0) -> new SystemStreamPartitionMetadata("", "", ""),
-          new Partition(1) -> new SystemStreamPartitionMetadata("", "", ""),
-          new Partition(2) -> new SystemStreamPartitionMetadata("", "", "")
-        )
-        stream -> new SystemStreamMetadata(stream, partitionMetadata.asJava)
+      stream => stream -> new Integer(3)
     }.toMap
     result.asJava
   }

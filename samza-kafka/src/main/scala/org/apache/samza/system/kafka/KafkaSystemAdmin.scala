@@ -148,11 +148,11 @@ class KafkaSystemAdmin(
 
   import KafkaSystemAdmin._
 
-  override def getSystemStreamPartitionCounts(streams: util.Set[String], cacheTTL: Long): util.Map[String, SystemStreamMetadata] = {
+  override def getSystemStreamPartitionCounts(streams: util.Set[String], cacheTTL: Long): util.Map[String, Integer] = {
     getSystemStreamPartitionCounts(streams, new ExponentialSleepStrategy(initialDelayMs = 500), cacheTTL)
   }
 
-  def getSystemStreamPartitionCounts(streams: util.Set[String], retryBackoff: ExponentialSleepStrategy, cacheTTL: Long = Long.MaxValue): util.Map[String, SystemStreamMetadata] = {
+  def getSystemStreamPartitionCounts(streams: util.Set[String], retryBackoff: ExponentialSleepStrategy, cacheTTL: Long = Long.MaxValue): util.Map[String, Integer] = {
     debug("Fetching system stream partition count for: %s" format streams)
     var metadataTTL = cacheTTL
     retryBackoff.run(
@@ -165,11 +165,7 @@ class KafkaSystemAdmin(
         val result = metadata.map {
           case (topic, topicMetadata) => {
             KafkaUtil.maybeThrowException(topicMetadata.errorCode)
-            val partitionsMap = topicMetadata.partitionsMetadata.map {
-              pm =>
-                new Partition(pm.partitionId) -> new SystemStreamPartitionMetadata("", "", "")
-            }.toMap[Partition, SystemStreamPartitionMetadata]
-            (topic -> new SystemStreamMetadata(topic, partitionsMap.asJava))
+            (topic -> new Integer(topicMetadata.partitionsMetadata.size))
           }
         }
         loop.done
