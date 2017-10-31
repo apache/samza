@@ -60,7 +60,7 @@ public class JoinOperatorSpec<K, M, OM, JM> extends OperatorSpec<Object, JM> imp
    */
   JoinOperatorSpec(OperatorSpec<?, M> leftInputOpSpec, OperatorSpec<?, OM> rightInputOpSpec,
       JoinFunction<K, M, OM, JM> joinFn, Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde,
-      long ttlMs, int opId) {
+      long ttlMs, String opId) {
     super(OpCode.JOIN, opId);
     this.leftInputOpSpec = leftInputOpSpec;
     this.rightInputOpSpec = rightInputOpSpec;
@@ -74,8 +74,8 @@ public class JoinOperatorSpec<K, M, OM, JM> extends OperatorSpec<Object, JM> imp
   @Override
   public Collection<StoreDescriptor> getStoreDescriptors() {
     String rocksDBStoreFactory = "org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory";
-    String leftStoreName = getLeftOpName();
-    String rightStoreName = getRightOpName();
+    String leftStoreName = getLeftOpId();
+    String rightStoreName = getRightOpId();
     Map<String, String> leftStoreCustomProps = ImmutableMap.of(
         String.format("stores.%s.rocksdb.ttl.ms", leftStoreName), Long.toString(ttlMs),
         String.format("stores.%s.changelog.kafka.cleanup.policy", leftStoreName), "delete",
@@ -105,12 +105,12 @@ public class JoinOperatorSpec<K, M, OM, JM> extends OperatorSpec<Object, JM> imp
     return rightInputOpSpec;
   }
 
-  public String getLeftOpName() {
-    return this.getOpName() + "-L";
+  public String getLeftOpId() {
+    return this.getOpId() + "-L";
   }
 
-  public String getRightOpName() {
-    return this.getOpName() + "-R";
+  public String getRightOpId() {
+    return this.getOpId() + "-R";
   }
 
   public JoinFunction<K, M, OM, JM> getJoinFn() {

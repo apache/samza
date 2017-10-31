@@ -112,7 +112,8 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
   protected void handleInit(Config config, TaskContext context) {
     WindowInternal<M, K, Object> window = windowOpSpec.getWindow();
 
-    KeyValueStore<TimeSeriesKey<K>, Object> store = (KeyValueStore<TimeSeriesKey<K>, Object>) context.getStore(windowOpSpec.getOpName());
+    KeyValueStore<TimeSeriesKey<K>, Object> store =
+        (KeyValueStore<TimeSeriesKey<K>, Object>) context.getStore(windowOpSpec.getOpId());
 
     // For aggregating windows, we use the store in over-write mode since we only retain the aggregated
     // value. Else, we use the store in append-mode.
@@ -139,17 +140,17 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
       timeSeriesStore.put(key, message, timestamp); // store is in append mode
     } else {
       List<Object> existingState = getValues(key, timestamp);
-      Preconditions.checkState(existingState.size() == 1, "WindowState for aggregating windows " +
-          "must not contain more than one entry per window");
 
-      Object oldVal = existingState.get(0);
-      if (oldVal == null) {
-        LOG.trace("No existing state found for key. Invoking initializer.");
-        oldVal = initializer.get();
+      Preconditions.checkState(existingState.size() <= 1, String.format("WindowState for aggregating windows " +
+          "must not contain more than one entry per window. Current size: %s", existingState.size()));
+
+      if (existingState.size() == 0) {
+        LOG.trace("No existing state found for key {} Invoking initializer.", key);
       }
-
+      Object oldVal = existingState.size() == 0 ? initializer.get() : existingState.get(0);
       Object aggregatedValue = foldLeftFn.apply(message, oldVal);
-      timeSeriesStore.put(key, aggregatedValue, timestamp);
+
+      timeSeriesStore.put(key, aggregatedValue, timestamp); // store is in over-write mode
     }
 
     if (window.getEarlyTrigger() != null) {
@@ -339,6 +340,8 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
     ClosableIterator<TimestampedValue<Object>> iterator = timeSeriesStore.get(key, timestamp);
     List<TimestampedValue<Object>> timestampedValues = toList(iterator);
     List<Object> values = timestampedValues.stream().map(element -> element.getValue()).collect(Collectors.toList());
+
+    LOG.trace("Returning {} for key {} and timestamp {}", new Object[] {values, key, timestamp});
     return values;
   }
 
