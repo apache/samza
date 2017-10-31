@@ -51,7 +51,7 @@ public class PartitionByOperatorSpec<M, K, V> extends OperatorSpec<M, Void> {
    */
   PartitionByOperatorSpec(OutputStreamImpl<KV<K, V>> outputStream,
       Function<? super M, ? extends K> keyFunction,
-      Function<? super M, ? extends V> valueFunction, int opId) {
+      Function<? super M, ? extends V> valueFunction, String opId) {
     super(OpCode.PARTITION_BY, opId);
     this.outputStream = outputStream;
     this.keyFunction = keyFunction;

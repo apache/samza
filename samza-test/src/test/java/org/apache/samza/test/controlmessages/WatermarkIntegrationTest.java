@@ -145,7 +145,7 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
     final StreamApplication app = (streamGraph, cfg) -> {
       streamGraph.<KV<String, PageView>>getInputStream("PageView")
           .map(EndOfStreamIntegrationTest.Values.create())
-          .partitionBy(pv -> pv.getMemberId(), pv -> pv)
+          .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
           .sink((m, collector, coordinator) -> {
               received.add(m.getValue());
             });

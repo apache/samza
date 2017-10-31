@@ -41,7 +41,7 @@ public class SinkOperatorSpec<M> extends OperatorSpec<M, Void> {
    *                {@link org.apache.samza.task.TaskCoordinator}.
    * @param opId  the unique ID of this {@link OperatorSpec} in the graph
    */
-  SinkOperatorSpec(SinkFunction<M> sinkFn, int opId) {
+  SinkOperatorSpec(SinkFunction<M> sinkFn, String opId) {
     super(OpCode.SINK, opId);
     this.sinkFn = sinkFn;
   }
