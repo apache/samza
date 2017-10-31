@@ -52,23 +52,26 @@ public class RepartitionJoinWindowApp implements StreamApplication {
         graph.getOutputStream(OUTPUT_TOPIC, new KVSerde<>(new StringSerde(), new StringSerde()));
 
     MessageStream<PageView> pageViewsRepartitionedByViewId = pageViews
-        .partitionBy(PageView::getViewId, pv -> pv, new KVSerde<>(new StringSerde(), new JsonSerdeV2<>(PageView.class)))
+        .partitionBy(PageView::getViewId, pv -> pv,
+            new KVSerde<>(new StringSerde(), new JsonSerdeV2<>(PageView.class)), "pageViewsByViewId")
         .map(KV::getValue);
 
     MessageStream<AdClick> adClicksRepartitionedByViewId = adClicks
-        .partitionBy(AdClick::getViewId, ac -> ac, new KVSerde<>(new StringSerde(), new JsonSerdeV2<>(AdClick.class)))
+        .partitionBy(AdClick::getViewId, ac -> ac,
+            new KVSerde<>(new StringSerde(), new JsonSerdeV2<>(AdClick.class)), "adClicksByViewId")
         .map(KV::getValue);
 
     MessageStream<UserPageAdClick> userPageAdClicks = pageViewsRepartitionedByViewId
         .join(adClicksRepartitionedByViewId, new UserPageViewAdClicksJoiner(),
             new StringSerde(), new JsonSerdeV2<>(PageView.class), new JsonSerdeV2<>(AdClick.class),
-            Duration.ofMinutes(1));
+            Duration.ofMinutes(1), "pageViewAdClickJoin");
 
     userPageAdClicks
         .partitionBy(UserPageAdClick::getUserId, upac -> upac,
-            KVSerde.of(new StringSerde(), new JsonSerdeV2<>(UserPageAdClick.class)))
+            KVSerde.of(new StringSerde(), new JsonSerdeV2<>(UserPageAdClick.class)), "userPageAdClicksByUserId")
         .map(KV::getValue)
-        .window(Windows.keyedSessionWindow(UserPageAdClick::getUserId, Duration.ofSeconds(3), new StringSerde(), new JsonSerdeV2<>(UserPageAdClick.class)))
+        .window(Windows.keyedSessionWindow(UserPageAdClick::getUserId, Duration.ofSeconds(3),
+            new StringSerde(), new JsonSerdeV2<>(UserPageAdClick.class)), "userAdClickWindow")
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), String.valueOf(windowPane.getMessage().size())))
         .sendTo(outputStream);
   }

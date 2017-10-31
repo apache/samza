@@ -52,7 +52,7 @@ import java.util.stream.IntStream;
 
 import static org.mockito.Mockito.*;
 
-public class TestKafkaCheckpointManager {
+public class TestKafkaCheckpointManagerJava {
   private static final TaskName TASK1 = new TaskName("task1");
   private static final String CHECKPOINT_TOPIC = "topic-1";
   private static final String CHECKPOINT_SYSTEM = "system-1";
@@ -66,7 +66,7 @@ public class TestKafkaCheckpointManager {
 
     KafkaStreamSpec checkpointSpec = new KafkaStreamSpec(CHECKPOINT_TOPIC, CHECKPOINT_TOPIC,
         CHECKPOINT_SYSTEM, 1);
-
+    // create an admin that throws an exception during createStream
     SystemAdmin mockAdmin = newAdmin("0", "10");
     doThrow(new TopicAlreadyMarkedForDeletionException("invalid stream")).when(mockAdmin).createStream(checkpointSpec);
 
@@ -74,7 +74,7 @@ public class TestKafkaCheckpointManager {
     KafkaCheckpointManager checkpointManager = new KafkaCheckpointManager(checkpointSpec, factory,
         true, mock(Config.class), mock(MetricsRegistry.class), null);
 
-    // expect an exception
+    // expect an exception during startup
     checkpointManager.start();
   }
 
@@ -84,6 +84,7 @@ public class TestKafkaCheckpointManager {
     KafkaStreamSpec checkpointSpec = new KafkaStreamSpec(CHECKPOINT_TOPIC, CHECKPOINT_TOPIC,
         CHECKPOINT_SYSTEM, 1);
 
+    // create an admin that throws an exception during validateStream
     SystemAdmin mockAdmin = newAdmin("0", "10");
     doThrow(new StreamValidationException("invalid stream")).when(mockAdmin).validateStream(checkpointSpec);
 
@@ -91,7 +92,7 @@ public class TestKafkaCheckpointManager {
     KafkaCheckpointManager checkpointManager = new KafkaCheckpointManager(checkpointSpec, factory,
         true, mock(Config.class), mock(MetricsRegistry.class), null);
 
-    // expect an exception
+    // expect an exception during startup
     checkpointManager.start();
   }
 
@@ -110,6 +111,8 @@ public class TestKafkaCheckpointManager {
 
     SystemAdmin mockAdmin = newAdmin("0", "1");
     SystemFactory factory = newFactory(mock(SystemProducer.class), mockConsumer, mockAdmin);
+
+    // wire up an exception throwing serde with the checkpointmanager
     KafkaCheckpointManager checkpointManager = new KafkaCheckpointManager(checkpointSpec, factory,
         true, mockConfig, mock(MetricsRegistry.class), new ExceptionThrowingCheckpointSerde());
     checkpointManager.register(TASK1);
@@ -140,7 +143,8 @@ public class TestKafkaCheckpointManager {
 
     // 1. verify that consumer.register is called only during checkpointManager.start.
     // 2. verify that consumer.register is called with the oldest offset.
-    // 3. verify that no other operation on the CheckpointManager re-invokes register
+    // 3. verify that no other operation on the CheckpointManager re-invokes register since start offsets are set during
+    // register
     verify(mockConsumer, times(0)).register(CHECKPOINT_SSP, oldestOffset);
     checkpointManager.start();
     verify(mockConsumer, times(1)).register(CHECKPOINT_SSP, oldestOffset);
@@ -156,17 +160,18 @@ public class TestKafkaCheckpointManager {
     Config mockConfig = mock(Config.class);
     when(mockConfig.get(JobConfig.SSP_GROUPER_FACTORY())).thenReturn(GROUPER_FACTORY_CLASS);
 
-    // mock out a consumer that returns multiple checkpoint IMEs
     SystemStreamPartition ssp = new SystemStreamPartition("system-1", "input-topic", new Partition(0));
 
     int oldestOffset = 0;
     int newestOffset = 10;
 
-    // return one message at a time from each poll simulating a KafkaConsumer with max.poll.records = 1
+    // mock out a consumer that returns ten checkpoint IMEs for the same ssp
     List<List<IncomingMessageEnvelope>> pollOutputs = new ArrayList<>();
-    IntStream.rangeClosed(oldestOffset, newestOffset).forEach(offset ->
-        pollOutputs.add(ImmutableList.of(newCheckpointEnvelope(TASK1, ssp, Integer.toString(offset)))));
+    for(int offset = oldestOffset; offset <= newestOffset; offset++) {
+      pollOutputs.add(ImmutableList.of(newCheckpointEnvelope(TASK1, ssp, Integer.toString(offset))));
+    }
 
+    // return one message at a time from each poll simulating a KafkaConsumer with max.poll.records = 1
     SystemConsumer mockConsumer = newConsumer(pollOutputs);
     SystemAdmin mockAdmin = newAdmin(Integer.toString(oldestOffset), Integer.toString(newestOffset));
     SystemFactory factory = newFactory(mock(SystemProducer.class), mockConsumer, mockAdmin);
@@ -176,10 +181,18 @@ public class TestKafkaCheckpointManager {
     checkpointManager.register(TASK1);
     checkpointManager.start();
 
+    // check that all ten messages are read, and the checkpoint is the newest message
     Checkpoint checkpoint = checkpointManager.readLastCheckpoint(TASK1);
     Assert.assertEquals(checkpoint.getOffsets(), ImmutableMap.of(ssp, Integer.toString(newestOffset)));
   }
 
+  /**
+   * Create a new {@link SystemConsumer} that returns a list of messages sequentially at each subsequent poll.
+   *
+   * @param pollOutputs a list of poll outputs to be returned at subsequent polls.
+   *                    The i'th call to consumer.poll() will return the list at pollOutputs[i]
+   * @return the consumer
+   */
   private SystemConsumer newConsumer(List<List<IncomingMessageEnvelope>> pollOutputs) throws Exception {
     SystemConsumer mockConsumer = mock(SystemConsumer.class);
     OngoingStubbing<Map> when = when(mockConsumer.poll(anySet(), anyLong()));
@@ -190,6 +203,9 @@ public class TestKafkaCheckpointManager {
     return mockConsumer;
   }
 
+  /**
+   * Create a new {@link SystemAdmin} that returns the provided oldest and newest offsets for its topics
+   */
   private SystemAdmin newAdmin(String oldestOffset, String newestOffset) {
     SystemStreamMetadata checkpointTopicMetadata = new SystemStreamMetadata(CHECKPOINT_TOPIC,
         ImmutableMap.of(new Partition(0), new SystemStreamPartitionMetadata(oldestOffset,
@@ -208,6 +224,9 @@ public class TestKafkaCheckpointManager {
     return factory;
   }
 
+  /**
+   * Creates a new checkpoint envelope for the provided task, ssp and offset
+   */
   private IncomingMessageEnvelope newCheckpointEnvelope(TaskName taskName, SystemStreamPartition ssp, String offset) {
     KafkaCheckpointLogKey checkpointKey =
         new KafkaCheckpointLogKey(GROUPER_FACTORY_CLASS, taskName, "checkpoint");

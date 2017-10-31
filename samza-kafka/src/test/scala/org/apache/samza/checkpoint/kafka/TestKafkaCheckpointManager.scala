@@ -46,7 +46,7 @@ import org.junit._
 import scala.collection.JavaConverters._
 import scala.collection._
 
-class TestKafkaCheckpointManagerIntegrationTest extends KafkaServerTestHarness {
+class TestKafkaCheckpointManager extends KafkaServerTestHarness {
 
   protected def numBrokers: Int = 3
 
@@ -54,8 +54,8 @@ class TestKafkaCheckpointManagerIntegrationTest extends KafkaServerTestHarness {
   val sspGrouperFactoryName = classOf[GroupByPartitionFactory].getCanonicalName
 
   val ssp = new SystemStreamPartition("kafka", "topic", new Partition(0))
-  val checkpoint1 = new Checkpoint(Map(ssp -> "offset-1").asJava)
-  val checkpoint2 = new Checkpoint(Map(ssp -> "offset-2").asJava)
+  val checkpoint1 = new Checkpoint(ImmutableMap.of(ssp, "offset-1"))
+  val checkpoint2 = new Checkpoint(ImmutableMap.of(ssp, "offset-2"))
   val taskName = new TaskName("Partition 0")
 
   var brokers: String = null
@@ -77,11 +77,11 @@ class TestKafkaCheckpointManagerIntegrationTest extends KafkaServerTestHarness {
   @Test
   def testCheckpointShouldBeNullIfCheckpointTopicDoesNotExistShouldBeCreatedOnWriteAndShouldBeReadableAfterWrite {
     val checkpointTopic = "checkpoint-topic-1"
-    val kcm = createKafkaCheckpointManager(checkpointTopic)
-    kcm.register(taskName)
-    kcm.start
-
-    // check that log compaction is enabled.
+    val kcm1 = createKafkaCheckpointManager(checkpointTopic)
+    kcm1.register(taskName)
+    kcm1.start
+    kcm1.stop
+    // check that start actually creates the topic with log compaction enabled
     val zkClient = ZkUtils(zkConnect, 6000, 6000, JaasUtils.isZkSecurityEnabled())
     val topicConfig = AdminUtils.fetchEntityConfig(zkClient, ConfigType.Topic, checkpointTopic)
 
@@ -92,54 +92,42 @@ class TestKafkaCheckpointManagerIntegrationTest extends KafkaServerTestHarness {
     zkClient.close
 
     // read before topic exists should result in a null checkpoint
-    var readCp = kcm.readLastCheckpoint(taskName)
+    val readCp = readCheckpoint(checkpointTopic, taskName)
     assertNull(readCp)
 
-    kcm.writeCheckpoint(taskName, checkpoint1)
-    readCp = kcm.readLastCheckpoint(taskName)
-    assertEquals(checkpoint1, readCp)
+    writeCheckpoint(checkpointTopic, taskName, checkpoint1)
+    assertEquals(checkpoint1, readCheckpoint(checkpointTopic, taskName))
 
-    // should get an exception if partition doesn't exist
-    try {
-      readCp = kcm.readLastCheckpoint(new TaskName(new Partition(1).toString))
-      fail("Expected a SamzaException, since only one partition (partition 0) should exist.")
-    } catch {
-      case e: SamzaException => None // expected
-      case _: Exception => fail("Expected a SamzaException, since only one partition (partition 0) should exist.")
-    }
-
-    // writing a second message should work, too
-    kcm.writeCheckpoint(taskName, checkpoint2)
-    readCp = kcm.readLastCheckpoint(taskName)
-    assertEquals(checkpoint2, readCp)
-    kcm.stop
+    // writing a second message and reading it returns a more recent checkpoint
+    writeCheckpoint(checkpointTopic, taskName, checkpoint2)
+    assertEquals(checkpoint2, readCheckpoint(checkpointTopic, taskName))
   }
 
   @Test
   def testFailOnTopicValidation {
-    // first case - default case, we should fail on validation
+    // By default, should fail if there is a topic validation error
     val checkpointTopic = "eight-partition-topic";
-    val kcm = createKafkaCheckpointManager(checkpointTopic)
-    kcm.register(taskName)
+    val kcm1 = createKafkaCheckpointManager(checkpointTopic)
+    kcm1.register(taskName)
     createTopic(checkpointTopic, 8, KafkaCheckpointManagerFactory.getCheckpointTopicProperties(config)) // create topic with the wrong number of partitions
     try {
-      kcm.start
-      fail("Expected a KafkaUtilException for invalid number of partitions in the topic.")
-    }catch {
+      kcm1.start
+      fail("Expected an exception for invalid number of partitions in the checkpoint topic.")
+    } catch {
       case e: StreamValidationException => None
     }
-    kcm.stop
-
-    // same validation but ignore the validation error (pass 'false' to validate..)
-    val failOnTopicValidation = false
-    val kcm1 = createKafkaCheckpointManager(checkpointTopic, new CheckpointSerde, failOnTopicValidation)
-    kcm1.register(taskName)
-    try {
-      kcm1.start
-    }catch {
-      case e: KafkaUtilException => fail("Did not expect a KafkaUtilException for invalid number of partitions in the topic.")
-    }
     kcm1.stop
+
+    // Should not fail if failOnTopicValidation = false
+    val failOnTopicValidation = false
+    val kcm2 = createKafkaCheckpointManager(checkpointTopic, new CheckpointSerde, failOnTopicValidation)
+    kcm2.register(taskName)
+    try {
+      kcm2.start
+    } catch {
+      case e: KafkaUtilException => fail("Unexpected exception for invalid number of partitions in the checkpoint topic")
+    }
+    kcm2.stop
   }
 
   @After
@@ -148,7 +136,6 @@ class TestKafkaCheckpointManagerIntegrationTest extends KafkaServerTestHarness {
       servers.foreach(_.shutdown())
       servers.foreach(server => CoreUtils.delete(server.config.logDirs))
     }
-    println("delete data!")
     super.tearDown
   }
 
@@ -174,20 +161,29 @@ class TestKafkaCheckpointManagerIntegrationTest extends KafkaServerTestHarness {
       .build())
   }
 
-  private def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint, topic: String) = {
-    val producer: Producer[Array[Byte], Array[Byte]] = new KafkaProducer(getCheckpointProducerProperties())
-    val checkpointKeySerde = new KafkaCheckpointLogKeySerde
+  private def createKafkaCheckpointManager(cpTopic: String, serde: CheckpointSerde = new CheckpointSerde, failOnTopicValidation: Boolean = true) = {
+    val props = KafkaCheckpointManagerFactory.getCheckpointTopicProperties(config)
+    val (checkpointSystem: String, factory : SystemFactory) =
+      KafkaCheckpointManagerFactory.getCheckpointSystemStreamAndFactory(config)
 
-    val checkpointKeyBytes = checkpointKeySerde.toBytes(new KafkaCheckpointLogKey(sspGrouperFactoryName, taskName, KafkaCheckpointLogKey.CHECKPOINT_TYPE))
-    val checkpointMsgBytes = new CheckpointSerde().toBytes(checkpoint)
-    val record = new ProducerRecord(topic, 0, checkpointKeyBytes, checkpointMsgBytes)
-    try {
-      producer.send(record).get()
-    } catch {
-      case e: Exception => println(e.getMessage)
-    } finally {
-      producer.close()
-    }
+    val spec = new KafkaStreamSpec("id", cpTopic, checkpointSystemName, 1, 1, props)
+    new KafkaCheckpointManager(spec, factory, failOnTopicValidation, config, new NoOpMetricsRegistry, serde)
+  }
+
+  private def readCheckpoint(checkpointTopic: String, taskName: TaskName) : Checkpoint = {
+    val kcm = createKafkaCheckpointManager(checkpointTopic)
+    kcm.register(taskName)
+    kcm.start
+    val checkpoint = kcm.readLastCheckpoint(taskName)
+    kcm.stop
+    checkpoint
+  }
+
+  private def writeCheckpoint(checkpointTopic: String, taskName: TaskName, checkpoint: Checkpoint) = {
+    val kcm = createKafkaCheckpointManager(checkpointTopic)
+    kcm.register(taskName)
+    kcm.start
+    kcm.writeCheckpoint(taskName, checkpoint)
   }
 
   private def createTopic(cpTopic: String, partNum: Int, props: Properties) = {
@@ -206,14 +202,4 @@ class TestKafkaCheckpointManagerIntegrationTest extends KafkaServerTestHarness {
     }
   }
 
-  private def createKafkaCheckpointManager(cpTopic: String, serde: CheckpointSerde = new CheckpointSerde, failOnTopicValidation: Boolean = true) = {
-    val props = KafkaCheckpointManagerFactory.getCheckpointTopicProperties(config)
-    val (checkpointSystem: String, factory : SystemFactory) =
-      KafkaCheckpointManagerFactory.getCheckpointSystemStreamAndFactory(config)
-
-    println(props)
-
-    val spec = new KafkaStreamSpec("id", cpTopic, checkpointSystemName, 1, 1, props)
-    new KafkaCheckpointManager(spec, factory, failOnTopicValidation, config, new NoOpMetricsRegistry, serde)
-  }
 }

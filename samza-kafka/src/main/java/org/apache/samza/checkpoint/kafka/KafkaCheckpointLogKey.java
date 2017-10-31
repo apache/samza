@@ -21,12 +21,25 @@ package org.apache.samza.checkpoint.kafka;
 import com.google.common.base.Preconditions;
 import org.apache.samza.container.TaskName;
 
+/**
+ * The key used for messages that are written to the Kafka checkpoint log.
+ */
 public class KafkaCheckpointLogKey {
 
   public static final String CHECKPOINT_TYPE = "checkpoint";
-
+  /**
+   * The SystemStreamPartitionGrouperFactory configured for this job run. Since, checkpoints of different
+   * groupers are not compatible, we persist and validate them across job runs.
+   */
   private final String grouperFactoryClassName;
+  /**
+   * The taskName corresponding to the checkpoint. Checkpoints in Samza are stored per-task.
+   */
   private final TaskName taskName;
+  /**
+   * The type of this key. Used for supporting multiple key-types. Currently, the only supported key-type is
+   * "checkpoint"
+   */
   private final String type;
 
   public KafkaCheckpointLogKey(String grouperFactoryClassName, TaskName taskName, String type) {
@@ -53,6 +66,9 @@ public class KafkaCheckpointLogKey {
     return type;
   }
 
+  /**
+   * Two {@link KafkaCheckpointLogKey}s are equal iff their grouperFactory class, taskName and type are equal.
+   */
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -73,6 +89,9 @@ public class KafkaCheckpointLogKey {
     return type.equals(that.type);
   }
 
+  /**
+   * Two {@link KafkaCheckpointLogKey}s are equal iff their grouperFactory class, taskName and type are equal.
+   */
   @Override
   public int hashCode() {
     int result = grouperFactoryClassName.hashCode();
@@ -85,8 +104,5 @@ public class KafkaCheckpointLogKey {
   public String toString() {
     return String.format("KafkaCheckpointLogKey[factoryClass: %s, taskName: %s, type: %s]",
         grouperFactoryClassName, taskName, type);
-  }
-
-  public static void main(String[] args) throws Exception {
   }
 }

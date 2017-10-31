@@ -20,7 +20,9 @@
 package org.apache.samza.zk;
 
 import org.junit.Assert;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,6 +33,9 @@ public class TestScheduleAfterDebounceTime {
   private static final Logger LOG = LoggerFactory.getLogger(TestScheduleAfterDebounceTime.class);
 
   private static final long WAIT_TIME = 500;
+
+  @Rule
+  public Timeout testTimeOutInSeconds = new Timeout(10, TimeUnit.SECONDS);
 
   class TestObj {
     private volatile int i = 0;

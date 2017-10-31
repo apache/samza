@@ -18,11 +18,13 @@
  */
 package org.apache.samza.operators.impl;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.functions.PartialJoinFunction;
 import org.apache.samza.operators.impl.store.TimestampedValue;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
@@ -68,13 +70,21 @@ class PartialJoinOperatorImpl<K, M, OM, JM> extends OperatorImpl<M, JM> {
 
   @Override
   public Collection<JM> handleMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
-    K key = thisPartialJoinFn.getKey(message);
-    thisPartialJoinFn.getState().put(key, new TimestampedValue<>(message, clock.currentTimeMillis()));
-    TimestampedValue<OM> otherMessage = otherPartialJoinFn.getState().get(key);
-    long now = clock.currentTimeMillis();
-    if (otherMessage != null && otherMessage.getTimestamp() > now - ttlMs) {
-      JM joinResult = thisPartialJoinFn.apply(message, otherMessage.getValue());
-      return Collections.singletonList(joinResult);
+    try {
+      KeyValueStore<K, TimestampedValue<M>> thisState = thisPartialJoinFn.getState();
+      KeyValueStore<K, TimestampedValue<OM>> otherState = otherPartialJoinFn.getState();
+
+      K key = thisPartialJoinFn.getKey(message);
+      thisState.put(key, new TimestampedValue<>(message, clock.currentTimeMillis()));
+      TimestampedValue<OM> otherMessage = otherState.get(key);
+
+      long now = clock.currentTimeMillis();
+      if (otherMessage != null && otherMessage.getTimestamp() > now - ttlMs) {
+        JM joinResult = thisPartialJoinFn.apply(message, otherMessage.getValue());
+        return Collections.singletonList(joinResult);
+      }
+    } catch (Exception e) {
+      throw new SamzaException("Error handling message in PartialJoinOperatorImpl " + getOpImplId(), e);
     }
     return Collections.emptyList();
   }
@@ -89,13 +99,13 @@ class PartialJoinOperatorImpl<K, M, OM, JM> extends OperatorImpl<M, JM> {
   }
 
   /**
-   * The name for this {@link PartialJoinOperatorImpl} that includes information about which
+   * The ID for this {@link PartialJoinOperatorImpl} that includes information about which
    * side of the join it is for.
    *
-   * @return the {@link PartialJoinOperatorImpl} name.
+   * @return the {@link PartialJoinOperatorImpl} ID.
    */
   @Override
-  protected String getOperatorName() {
-    return isLeftSide ? joinOpSpec.getLeftOpName() : joinOpSpec.getRightOpName();
+  protected String getOpImplId() {
+    return isLeftSide ? joinOpSpec.getLeftOpId() : joinOpSpec.getRightOpId();
   }
 }

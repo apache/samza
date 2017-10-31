@@ -18,6 +18,7 @@
  */
 package org.apache.samza.checkpoint.kafka;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.serializers.Serde;
@@ -33,9 +34,14 @@ import org.codehaus.jackson.map.SerializerProvider;
 import org.codehaus.jackson.map.module.SimpleModule;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 
 /**
- * A serde for {@link KafkaCheckpointLogKey}
+ * A serde for {@link KafkaCheckpointLogKey}.
+ *
+ * <p> Currently, keys in the Kafka checkpoint log are serialized as JSON strings.
+ * {"systemstreampartition-grouper-factory"" :"org.apache.samza.container.grouper.stream.GroupByPartitionFactory",
+ *    "taskName":"Partition 0", "type":"checkpoint"}
  */
 public class KafkaCheckpointLogKeySerde implements Serde<KafkaCheckpointLogKey> {
 
@@ -47,17 +53,16 @@ public class KafkaCheckpointLogKeySerde implements Serde<KafkaCheckpointLogKey> 
 
   public KafkaCheckpointLogKeySerde() {
     mapper = new ObjectMapper();
-
-    SimpleModule module = new SimpleModule("SamzaCheckpoint", new Version(1, 0, 0, ""));
-    module.addSerializer(KafkaCheckpointLogKey.class, new KafkaCheckpointLogKeySerializer());
-    module.addDeserializer(KafkaCheckpointLogKey.class, new KafkaCheckpointLogKeyDeserializer());
-    mapper.registerModule(module);
   }
 
   @Override
   public byte[] toBytes(KafkaCheckpointLogKey key) {
     try {
-      return new String(mapper.writeValueAsString(key)).getBytes();
+      return mapper.writeValueAsBytes(ImmutableMap.of(
+          SSP_GROUPER_FACTORY_FIELD, key.getGrouperFactoryClassName(),
+          TASK_NAME_FIELD, key.getTaskName().toString(),
+          TYPE_FIELD, key.getType()
+        ));
     } catch (Exception e) {
       throw new SamzaException(e);
     }
@@ -66,35 +71,12 @@ public class KafkaCheckpointLogKeySerde implements Serde<KafkaCheckpointLogKey> 
   @Override
   public KafkaCheckpointLogKey fromBytes(byte[] bytes) {
     try {
-      return mapper.readValue(bytes, KafkaCheckpointLogKey.class);
+      LinkedHashMap<String, String> deserializedKey = mapper.readValue(bytes, LinkedHashMap.class);
+      return new KafkaCheckpointLogKey(deserializedKey.get(SSP_GROUPER_FACTORY_FIELD),
+          new TaskName(deserializedKey.get(TASK_NAME_FIELD)),
+          deserializedKey.get(TYPE_FIELD));
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
-
-  private static class KafkaCheckpointLogKeySerializer extends JsonSerializer<KafkaCheckpointLogKey> {
-    @Override
-    public void serialize(KafkaCheckpointLogKey value, JsonGenerator generator, SerializerProvider provider)
-        throws IOException {
-
-      generator.writeStartObject();
-      generator.writeStringField(SSP_GROUPER_FACTORY_FIELD, value.getGrouperFactoryClassName());
-      generator.writeStringField(TASK_NAME_FIELD, value.getTaskName().toString());
-      generator.writeStringField(TYPE_FIELD, value.getType());
-      generator.writeEndObject();
-    }
-  }
-
-  private static class KafkaCheckpointLogKeyDeserializer extends JsonDeserializer<KafkaCheckpointLogKey> {
-    @Override
-    public KafkaCheckpointLogKey deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException {
-      JsonNode node = jp.getCodec().readTree(jp);
-      String grouperClass = node.get(SSP_GROUPER_FACTORY_FIELD).asText();
-      TaskName taskName = new TaskName(node.get(TASK_NAME_FIELD).asText());
-      String type = node.get(TYPE_FIELD).asText();
-
-      return new KafkaCheckpointLogKey(grouperClass, taskName, type);
-    }
-  }
-
 }

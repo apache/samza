@@ -74,6 +74,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     info("Creating checkpoint stream")
     systemAdmin.createStream(checkpointSpec)
 
+    // register and start a producer for the checkpoint topic
     if (systemProducer == null) {
       info("Starting checkpoint SystemProducer")
       systemProducer = systemFactory.getProducer(checkpointSystem, config, metricsRegistry)
@@ -81,6 +82,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
       systemProducer.start
     }
 
+    // register and start a consumer for the checkpoint topic
     if (systemConsumer == null) {
       val oldestOffset = getOldestOffset(checkpointSsp)
       info(s"Starting checkpoint SystemConsumer from oldest offset $oldestOffset")
@@ -119,6 +121,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     } else {
       info("Updating existing checkpoint mappings")
       taskNamesToOffsets ++= readCheckpoints()
+      info("Updating existing checkpoint mappings" + taskNamesToOffsets)
     }
 
     val checkpoint = taskNamesToOffsets.get(taskName).getOrElse(null)
@@ -127,7 +130,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     checkpoint
   }
 
-  /**Int.
+  /**
     * @inheritdoc
     */
   override def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint) {
@@ -169,6 +172,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
       systemConsumer.stop
       systemConsumer = null
     }
+    info("CheckpointManager stopped.")
   }
 
   /**
@@ -203,7 +207,6 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
       val checkpointBytes = checkpointEnvelope.getMessage.asInstanceOf[Array[Byte]]
       val checkpoint = checkpointMsgSerde.fromBytes(checkpointBytes)
       checkpoints.put(checkpointKey.getTaskName, checkpoint)
-      println(iterator.hasNext)
     }
     info(s"Read $numMessagesRead messages from system:$checkpointSystem topic:$checkpointTopic")
     checkpoints.toMap
