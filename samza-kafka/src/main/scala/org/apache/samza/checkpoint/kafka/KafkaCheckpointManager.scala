@@ -57,9 +57,8 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   val checkpointKeySerde: KafkaCheckpointLogKeySerde = new KafkaCheckpointLogKeySerde
   val grouperFactory = config.get(JobConfig.SSP_GROUPER_FACTORY)
 
-  // producer is volatile for visibility since it is initialized in the main-thread, and accessed in other threads
-  @volatile var systemProducer: SystemProducer = null
-  var systemConsumer: SystemConsumer = null
+  val systemProducer: SystemProducer = systemFactory.getProducer(checkpointSystem, config, metricsRegistry)
+  val systemConsumer: SystemConsumer = systemFactory.getConsumer(checkpointSystem, config, metricsRegistry)
   val systemAdmin: SystemAdmin = systemFactory.getAdmin(checkpointSystem, config)
 
   var taskNames = Set[TaskName]()
@@ -77,8 +76,6 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     // register and start a producer for the checkpoint topic
     if (systemProducer == null) {
       info("Starting checkpoint SystemProducer")
-      systemProducer = systemFactory.getProducer(checkpointSystem, config, metricsRegistry)
-      systemProducer.register("checkpoint-source")
       systemProducer.start
     }
 
@@ -86,9 +83,8 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     if (systemConsumer == null) {
       val oldestOffset = getOldestOffset(checkpointSsp)
       info(s"Starting checkpoint SystemConsumer from oldest offset $oldestOffset")
-      systemConsumer = systemFactory.getConsumer(checkpointSystem, config, metricsRegistry)
       systemConsumer.register(checkpointSsp, oldestOffset)
-      systemConsumer.start()
+      systemConsumer.start
     }
 
     if (failOnCheckpointValidation) {
@@ -102,6 +98,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     */
   override def register(taskName: TaskName) {
     debug(s"Registering taskName: $taskName ")
+    systemProducer.register(taskName.getTaskName)
     taskNames += taskName
   }
 
@@ -165,12 +162,10 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   override def stop = {
     if (systemProducer != null) {
       systemProducer.stop
-      systemProducer = null
     }
 
     if (systemConsumer != null) {
       systemConsumer.stop
-      systemConsumer = null
     }
     info("CheckpointManager stopped.")
   }
