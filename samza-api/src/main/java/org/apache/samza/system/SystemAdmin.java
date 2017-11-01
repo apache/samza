@@ -95,7 +95,7 @@ public interface SystemAdmin {
   }
 
   /**
-   * Clear the stream described by the spec.
+   * Clear the entire stream described by the spec.
    * @param streamSpec  The spec for the physical stream on the system.
    * @return {@code true} if the stream was successfully cleared.
    *         {@code false} if clearing stream failed.
@@ -103,4 +103,14 @@ public interface SystemAdmin {
   default boolean clearStream(StreamSpec streamSpec) {
     throw new UnsupportedOperationException();
   }
+
+  /**
+   * Delete records up to (and including) the provided ssp offsets for all system stream partitions specified in the map
+   *
+   * @param offsets a map from system stream partition to offset
+   */
+  default void deleteMessages(Map<SystemStreamPartition, String> offsets) {
+    throw new UnsupportedOperationException();
+  }
+
 }

@@ -18,7 +18,15 @@
  */
 package org.apache.samza.test.operator;
 
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.samza.Partition;
+import org.apache.samza.system.StreamSpec;
+import org.apache.samza.system.SystemStreamMetadata;
+import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
+import org.apache.samza.util.ExponentialSleepStrategy;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -60,7 +68,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
   }
 
   @Test
-  public void testRepartitionJoinWindowApp() throws Exception {
+  public void testRepartitionJoinWindowAppAndDeleteMessagesOnCommit() throws Exception {
     // run the application
     RepartitionJoinWindowApp app = new RepartitionJoinWindowApp();
     final String appName = "UserPageAdClickCounter";
@@ -76,6 +84,27 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
       Assert.assertTrue(key.equals("u1") || key.equals("u2"));
       Assert.assertEquals("2", value);
     }
+
+    // Verify that messages in the intermediate stream will be deleted in 10 seconds
+    long startTimeMs = System.currentTimeMillis();
+    for (StreamSpec spec: runner.getIntermediateStreams(app)) {
+      long remainingMessageNum = -1;
+
+      while (remainingMessageNum != 0 && System.currentTimeMillis() - startTimeMs < 10000) {
+        remainingMessageNum = 0;
+        SystemStreamMetadata metadatas = systemAdmin.getSystemStreamMetadata(
+            new HashSet<>(Arrays.asList(spec.getPhysicalName())), new ExponentialSleepStrategy.Mock(3)
+        ).get(spec.getPhysicalName()).get();
+
+        for (Map.Entry<Partition, SystemStreamPartitionMetadata> entry : metadatas.getSystemStreamPartitionMetadata().entrySet()) {
+          SystemStreamPartitionMetadata metadata = entry.getValue();
+          remainingMessageNum += Long.parseLong(metadata.getUpcomingOffset()) - Long.parseLong(metadata.getOldestOffset());
+        }
+      }
+      Assert.assertEquals(0, remainingMessageNum);
+    }
+
+
   }
 
   @Test

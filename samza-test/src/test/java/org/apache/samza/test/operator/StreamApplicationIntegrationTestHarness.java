@@ -30,7 +30,10 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.execution.TestStreamManager;
 import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.RemoteApplicationRunner;
+import org.apache.samza.system.kafka.KafkaSystemAdmin;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.apache.samza.test.framework.StreamAssert;
 import scala.Option;
@@ -98,8 +101,9 @@ import java.util.Properties;
 public class StreamApplicationIntegrationTestHarness extends AbstractIntegrationTestHarness {
   private KafkaProducer producer;
   private KafkaConsumer consumer;
+  protected KafkaSystemAdmin systemAdmin;
   private StreamApplication app;
-  private ApplicationRunner runner;
+  protected RemoteApplicationRunner runner;
 
   private int numEmptyPolls = 3;
   private static final Duration POLL_TIMEOUT_MS = Duration.ofSeconds(20);
@@ -144,6 +148,9 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
         Option$.MODULE$.<File>empty(),
         Option$.MODULE$.<Properties>empty(),
         Option$.MODULE$.<Properties>apply(consumerDeserializerProperties));
+
+    systemAdmin = createSystemAdmin("kafka");
+    systemAdmin.start();
   }
 
   /**
@@ -226,10 +233,12 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     configs.put("systems.kafka.samza.key.serde", "string");
     configs.put("systems.kafka.samza.msg.serde", "string");
     configs.put("systems.kafka.samza.offset.default", "oldest");
+    configs.put("systems.kafka.samza.delete.messages.enabled", "true");
     configs.put("job.coordinator.system", "kafka");
     configs.put("job.default.system", "kafka");
     configs.put("job.coordinator.replication.factor", "1");
     configs.put("task.window.ms", "1000");
+    configs.put("task.checkpoint.factory", TestStreamManager.MockCheckpointManagerFactory.class.getName());
 
     // This is to prevent tests from taking a long time to stop after they're done. The issue is that
     // tearDown currently doesn't call runner.kill(app), and shuts down the Kafka and ZK servers immediately.
@@ -247,7 +256,7 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     }
 
     app = streamApplication;
-    runner = ApplicationRunner.fromConfig(new MapConfig(configs));
+    runner = (RemoteApplicationRunner) ApplicationRunner.fromConfig(new MapConfig(configs));
     runner.run(streamApplication);
 
     StreamAssert.waitForComplete();
@@ -262,6 +271,9 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
    */
   @Override
   public void tearDown() {
+    systemAdmin.stop();
+    producer.close();
+    consumer.close();
     super.tearDown();
   }
 }

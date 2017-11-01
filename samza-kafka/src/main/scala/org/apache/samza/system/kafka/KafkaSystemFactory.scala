@@ -33,6 +33,7 @@ import org.apache.samza.system.SystemFactory
 import org.apache.samza.config.StorageConfig._
 import org.apache.samza.system.SystemProducer
 import org.apache.samza.system.SystemAdmin
+import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.system.SystemConsumer
 
 object KafkaSystemFactory extends Logging {
@@ -124,9 +125,9 @@ class KafkaSystemFactory extends SystemFactory with Logging {
        val changelogInfo = ChangelogInfo(replicationFactor, config.getChangelogKafkaProperties(storeName))
        info("Creating topic meta information for topic: %s with replication factor: %s" format (topicName, replicationFactor))
        (topicName, changelogInfo)
-    }}.toMap
+    }}
 
-
+    val deleteMessagesEnabled = config.deleteMessagesEnabled(systemName).exists(isEnabled => isEnabled.toBoolean)
     val intermediateStreamProperties: Map[String, Properties] = getIntermediateStreamProperties(config)
     new KafkaSystemAdmin(
       systemName,
@@ -138,7 +139,8 @@ class KafkaSystemFactory extends SystemFactory with Logging {
       bufferSize,
       clientId,
       topicMetaInformation,
-      intermediateStreamProperties)
+      intermediateStreamProperties,
+      deleteMessagesEnabled)
   }
 
   def getCoordinatorTopicProperties(config: Config) = {

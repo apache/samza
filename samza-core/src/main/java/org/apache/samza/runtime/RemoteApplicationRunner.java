@@ -19,6 +19,7 @@
 
 package org.apache.samza.runtime;
 
+import java.util.List;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
@@ -29,6 +30,7 @@ import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
 import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.system.StreamSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -146,6 +148,17 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
       }
     } catch (Throwable t) {
       throw new SamzaException("Failed to get status for application", t);
+    }
+  }
+
+  // Used only by test
+  public List<StreamSpec> getIntermediateStreams(StreamApplication app) {
+    String runId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
+    try {
+      ExecutionPlan plan = getExecutionPlan(app, runId);
+      return plan.getIntermediateStreams();
+    } catch (Throwable t) {
+      throw new SamzaException("Failed to run application", t);
     }
   }
 

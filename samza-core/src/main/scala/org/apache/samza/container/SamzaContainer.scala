@@ -623,8 +623,6 @@ object SamzaContainer extends Logging {
     } else {
       info(s"Disk quotas disabled because polling interval is not set ($DISK_POLL_INTERVAL_KEY)")
     }
-
-
     info("Samza container setup complete.")
 
     new SamzaContainer(
@@ -999,7 +997,6 @@ class SamzaContainer(
 
   def shutdownTask {
     info("Shutting down task instance stream tasks.")
-
 
     if (taskThreadPool != null) {
       info("Shutting down task thread pool")
