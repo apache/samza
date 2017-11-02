@@ -131,6 +131,7 @@ public class ConfigManager {
     } catch (InterruptedException e) {
       e.printStackTrace();
       log.warn("Got interrupt in config manager thread, so shutting down");
+      Thread.currentThread().interrupt();
     } finally {
       log.info("Stopping the config manager");
       stop();
@@ -305,6 +306,7 @@ public class ConfigManager {
       }
     } catch (InterruptedException e) {
       e.printStackTrace();
+      Thread.currentThread().interrupt();
     }
 
     log.info("Killed the current job successfully");

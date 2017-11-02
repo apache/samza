@@ -123,6 +123,7 @@ public class ScriptRunner {
         try {
           p.waitFor();
         } catch (InterruptedException ignore) {
+          Thread.currentThread().interrupt();
           return;
         }
       }

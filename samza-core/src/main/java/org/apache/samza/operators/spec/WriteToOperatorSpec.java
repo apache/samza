@@ -51,7 +51,7 @@ public class WriteToOperatorSpec<K, V, M> extends OperatorSpec<M, Void> {
    * @param opId  the unique ID for this operator
    */
   WriteToOperatorSpec(OperatorSpec<?, M> inputOpSpec, TableSpec tableSpec,
-      Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> valueExtractor, int opId) {
+      Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> valueExtractor, String opId) {
     super(OpCode.WRITE_TO, opId);
     this.inputOpSpec = inputOpSpec;
     this.tableSpec = tableSpec;

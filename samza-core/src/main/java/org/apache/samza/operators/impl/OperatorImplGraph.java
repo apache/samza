@@ -63,7 +63,7 @@ public class OperatorImplGraph {
   private static final Logger LOG = LoggerFactory.getLogger(OperatorImplGraph.class);
 
   /**
-   * A mapping from operator names to their {@link OperatorImpl}s in this graph. Used to avoid creating
+   * A mapping from operator IDs to their {@link OperatorImpl}s in this graph. Used to avoid creating
    * multiple {@link OperatorImpl}s for an {@link OperatorSpec} when it's reached from different
    * {@link OperatorSpec}s during DAG traversals (e.g., for the merge operator).
    * We use a LHM for deterministic ordering in initializing and closing operators.
@@ -76,11 +76,11 @@ public class OperatorImplGraph {
   private final Map<SystemStream, InputOperatorImpl> inputOperators = new HashMap<>();
 
   /**
-   * A mapping from {@link JoinOperatorSpec}s to their two {@link PartialJoinFunction}s. Used to associate
+   * A mapping from {@link JoinOperatorSpec} IDs to their two {@link PartialJoinFunction}s. Used to associate
    * the two {@link PartialJoinOperatorImpl}s for a {@link JoinOperatorSpec} with each other since they're
    * reached from different {@link OperatorSpec} during DAG traversals.
    */
-  private final Map<Integer, KV<PartialJoinFunction, PartialJoinFunction>> joinFunctions = new HashMap<>();
+  private final Map<String, KV<PartialJoinFunction, PartialJoinFunction>> joinFunctions = new HashMap<>();
 
   private final Clock clock;
 
@@ -157,13 +157,17 @@ public class OperatorImplGraph {
    */
   OperatorImpl createAndRegisterOperatorImpl(OperatorSpec prevOperatorSpec, OperatorSpec operatorSpec,
       SystemStream inputStream, Config config, TaskContext context) {
-    if (!operatorImpls.containsKey(operatorSpec.getOpName()) || operatorSpec instanceof JoinOperatorSpec) {
+    if (!operatorImpls.containsKey(operatorSpec.getOpId()) || operatorSpec instanceof JoinOperatorSpec) {
       // Either this is the first time we've seen this operatorSpec, or this is a join operator spec
       // and we need to create 2 partial join operator impls for it. Initialize and register the sub-DAG.
       OperatorImpl operatorImpl = createOperatorImpl(prevOperatorSpec, operatorSpec, config, context);
       operatorImpl.init(config, context);
       operatorImpl.registerInputStream(inputStream);
-      operatorImpls.put(operatorImpl.getOperatorName(), operatorImpl);
+
+      // Note: The key here is opImplId, which may not equal opId for some impls (e.g. PartialJoinOperatorImpl).
+      // This is currently OK since we don't need to look up a partial join operator impl again during traversal
+      // (a join cannot have a cycle).
+      operatorImpls.put(operatorImpl.getOpImplId(), operatorImpl);
 
       Collection<OperatorSpec> registeredSpecs = operatorSpec.getRegisteredOperatorSpecs();
       registeredSpecs.forEach(registeredSpec -> {
@@ -174,7 +178,7 @@ public class OperatorImplGraph {
     } else {
       // the implementation corresponding to operatorSpec has already been instantiated
       // and registered, so we do not need to traverse the DAG further.
-      return operatorImpls.get(operatorSpec.getOpName());
+      return operatorImpls.get(operatorSpec.getOpId());
     }
   }
 
@@ -250,7 +254,7 @@ public class OperatorImplGraph {
 
       @Override
       public void init(Config config, TaskContext context) {
-        String leftStoreName = joinOpSpec.getLeftOpName();
+        String leftStoreName = joinOpSpec.getLeftOpId();
         leftStreamState = (KeyValueStore<Object, TimestampedValue<Object>>) context.getStore(leftStoreName);
 
         // user-defined joinFn should only be initialized once, so we do it only in left partial join function.
@@ -282,7 +286,7 @@ public class OperatorImplGraph {
 
       @Override
       public void init(Config config, TaskContext context) {
-        String rightStoreName = joinOpSpec.getRightOpName();
+        String rightStoreName = joinOpSpec.getRightOpId();
         rightStreamState = (KeyValueStore<Object, TimestampedValue<Object>>) context.getStore(rightStoreName);
 
         // user-defined joinFn should only be initialized once,

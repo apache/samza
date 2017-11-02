@@ -53,7 +53,7 @@ public abstract class OperatorSpec<M, OM> {
     OUTPUT
   }
 
-  private final int opId;
+  private final String opId;
   private final OpCode opCode;
   private StackTraceElement[] creationStackTrace;
 
@@ -64,7 +64,7 @@ public abstract class OperatorSpec<M, OM> {
    */
   private final Set<OperatorSpec<OM, ?>> nextOperatorSpecs = new LinkedHashSet<>();
 
-  public OperatorSpec(OpCode opCode, int opId) {
+  public OperatorSpec(OpCode opCode, String opId) {
     this.opCode = opCode;
     this.opId = opId;
     this.creationStackTrace = Thread.currentThread().getStackTrace();
@@ -94,7 +94,7 @@ public abstract class OperatorSpec<M, OM> {
    * Get the unique ID of this operator in the {@link org.apache.samza.operators.StreamGraph}.
    * @return  the unique operator ID
    */
-  public final int getOpId() {
+  public final String getOpId() {
     return this.opId;
   }
 
@@ -127,14 +127,6 @@ public abstract class OperatorSpec<M, OM> {
       }
     }
     return String.format("%s:%s", element.getFileName(), element.getLineNumber());
-  }
-
-  /**
-   * Get the name for this operator based on its opCode and opId.
-   * @return  the name for this operator
-   */
-  public final String getOpName() {
-    return String.format("%s-%s", getOpCode().name().toLowerCase(), getOpId());
   }
 
   abstract public WatermarkFunction getWatermarkFn();

@@ -25,7 +25,7 @@ Samza's unit tests are written on top of [JUnit](http://junit.org/), and license
 
 To run all tests, and license checks:
 
-    ./gradlew clean check -PrunIntegrationTests
+    ./gradlew clean check
 
 To run a single test:
 

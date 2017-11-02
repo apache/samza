@@ -85,10 +85,10 @@ public class TestJobGraphJsonGenerator {
     when(runner.getStreamSpec("output2")).thenReturn(output2);
 
     // intermediate streams used in tests
-    when(runner.getStreamSpec("test-app-1-partition_by-3"))
-        .thenReturn(new StreamSpec("test-app-1-partition_by-3", "test-app-1-partition_by-3", "default-system"));
-    when(runner.getStreamSpec("test-app-1-partition_by-8"))
-        .thenReturn(new StreamSpec("test-app-1-partition_by-8", "test-app-1-partition_by-8", "default-system"));
+    when(runner.getStreamSpec("test-app-1-partition_by-p1"))
+        .thenReturn(new StreamSpec("test-app-1-partition_by-p1", "test-app-1-partition_by-p1", "default-system"));
+    when(runner.getStreamSpec("test-app-1-partition_by-p2"))
+        .thenReturn(new StreamSpec("test-app-1-partition_by-p2", "test-app-1-partition_by-p2", "default-system"));
 
     // set up external partition count
     Map<String, Integer> system1Map = new HashMap<>();
@@ -113,24 +113,24 @@ public class TestJobGraphJsonGenerator {
             .map(m -> m);
     MessageStream<KV<Object, Object>> messageStream2 =
         streamGraph.<KV<Object, Object>>getInputStream("input2")
-            .partitionBy(m -> m.key, m -> m.value)
+            .partitionBy(m -> m.key, m -> m.value, "p1")
             .filter(m -> true);
     MessageStream<KV<Object, Object>> messageStream3 =
         streamGraph.<KV<Object, Object>>getInputStream("input3")
             .filter(m -> true)
-            .partitionBy(m -> m.key, m -> m.value)
+            .partitionBy(m -> m.key, m -> m.value, "p2")
             .map(m -> m);
     OutputStream<KV<Object, Object>> outputStream1 = streamGraph.getOutputStream("output1");
     OutputStream<KV<Object, Object>> outputStream2 = streamGraph.getOutputStream("output2");
 
     messageStream1
         .join(messageStream2, mock(JoinFunction.class),
-            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2))
+            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
         .sendTo(outputStream1);
     messageStream2.sink((message, collector, coordinator) -> { });
     messageStream3
         .join(messageStream2, mock(JoinFunction.class),
-            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1))
+            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
         .sendTo(outputStream2);
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);

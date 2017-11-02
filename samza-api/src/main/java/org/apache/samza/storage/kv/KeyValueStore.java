@@ -46,7 +46,19 @@ public interface KeyValueStore<K, V> {
    * @return a map of the keys that were found and their respective values.
    * @throws NullPointerException if the specified {@code keys} list, or any of the keys, is {@code null}.
    */
-  Map<K, V> getAll(List<K> keys);
+  default Map<K, V> getAll(List<K> keys) {
+    Map<K, V> map = new HashMap<>(keys.size());
+
+    for (K key : keys) {
+      V value = get(key);
+
+      if (value != null) {
+        map.put(key, value);
+      }
+    }
+
+    return map;
+  }
 
   /**
    * Updates the mapping of the specified key-value pair; Associates the specified {@code key} with the specified {@code value}.
@@ -79,7 +91,11 @@ public interface KeyValueStore<K, V> {
    * @param keys the keys for which the mappings are to be deleted.
    * @throws NullPointerException if the specified {@code keys} list, or any of the keys, is {@code null}.
    */
-  void deleteAll(List<K> keys);
+  default void deleteAll(List<K> keys) {
+    for (K key : keys) {
+      delete(key);
+    }
+  }
 
   /**
    * Returns an iterator for a sorted range of entries specified by [{@code from}, {@code to}).
@@ -111,53 +127,4 @@ public interface KeyValueStore<K, V> {
    * Flushes this key-value store, if applicable.
    */
   void flush();
-
-  /**
-   * Represents an extension for classes that implement {@link KeyValueStore}.
-   */
-  // TODO replace with default interface methods when we can use Java 8 features.
-  class Extension {
-    private Extension() {
-      // This class cannot be instantiated
-    }
-
-    /**
-     * Gets the values with which the specified {@code keys} are associated.
-     *
-     * @param store the key-value store for which this operation is to be performed.
-     * @param keys the keys with which the associated values are to be fetched.
-     * @param <K> the type of keys maintained by the specified {@code store}.
-     * @param <V> the type of values maintained by the specified {@code store}.
-     * @return a map of the keys that were found and their respective values.
-     * @throws NullPointerException if the specified {@code keys} list, or any of the keys, is {@code null}.
-     */
-    public static <K, V> Map<K, V> getAll(final KeyValueStore<K, V> store, final List<K> keys) {
-      final Map<K, V> map = new HashMap<>(keys.size());
-
-      for (final K key : keys) {
-        final V value = store.get(key);
-
-        if (value != null) {
-          map.put(key, value);
-        }
-      }
-
-      return map;
-    }
-
-    /**
-     * Deletes the mappings for the specified {@code keys} from this key-value store (if such mappings exist).
-     *
-     * @param store the key-value store for which this operation is to be performed.
-     * @param keys the keys for which the mappings are to be deleted.
-     * @param <K> the type of keys maintained by the specified {@code store}.
-     * @param <V> the type of values maintained by the specified {@code store}.
-     * @throws NullPointerException if the specified {@code keys} list, or any of the keys, is {@code null}.
-     */
-    public static <K, V> void deleteAll(final KeyValueStore<K, V> store, final List<K> keys) {
-      for (final K key : keys) {
-        store.delete(key);
-      }
-    }
-  }
 }

@@ -124,7 +124,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
           .writeTo(table, m -> m.getMemberId(), m -> m);
 
       streamGraph.getInputStream("PageView", new NoOpSerde<TestTableData.PageView>())
-          .partitionBy(TestTableData.PageView::getMemberId, v -> v)
+          .partitionBy(TestTableData.PageView::getMemberId, v -> v, "p1")
           .join(table, new MyJoinFn())
           .sink((m, collector, coordinator) -> received.add(m));
     };

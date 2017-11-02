@@ -33,6 +33,7 @@ import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.serializers.Serde;
+import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.TableSpec;
 import org.apache.samza.task.TaskContext;
 
@@ -45,6 +46,23 @@ public class OperatorSpecs {
   private OperatorSpecs() {}
 
   /**
+   * Creates an {@link InputOperatorSpec} for consuming input.
+   *
+   * @param streamSpec  the stream spec for the input stream
+   * @param keySerde  the serde for the input key
+   * @param valueSerde  the serde for the input value
+   * @param isKeyed  whether the input stream is keyed
+   * @param opId  the unique ID of the operator
+   * @param <K>  type of input key
+   * @param <V>  type of input value
+   * @return  the {@link InputOperatorSpec}
+   */
+  public static <K, V> InputOperatorSpec<K, V> createInputOperatorSpec(
+    StreamSpec streamSpec, Serde<K> keySerde, Serde<V> valueSerde, boolean isKeyed, String opId) {
+    return new InputOperatorSpec<>(streamSpec, keySerde, valueSerde, isKeyed, opId);
+  }
+
+  /**
    * Creates a {@link StreamOperatorSpec} for {@link MapFunction}
    *
    * @param mapFn  the map function
@@ -54,7 +72,7 @@ public class OperatorSpecs {
    * @return  the {@link StreamOperatorSpec}
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createMapOperatorSpec(
-      MapFunction<? super M, ? extends OM> mapFn, int opId) {
+      MapFunction<? super M, ? extends OM> mapFn, String opId) {
     return new StreamOperatorSpec<>(new FlatMapFunction<M, OM>() {
       @Override
       public Collection<OM> apply(M message) {
@@ -89,7 +107,7 @@ public class OperatorSpecs {
    * @return  the {@link StreamOperatorSpec}
    */
   public static <M> StreamOperatorSpec<M, M> createFilterOperatorSpec(
-      FilterFunction<? super M> filterFn, int opId) {
+      FilterFunction<? super M> filterFn, String opId) {
     return new StreamOperatorSpec<>(new FlatMapFunction<M, M>() {
       @Override
       public Collection<M> apply(M message) {
@@ -124,7 +142,7 @@ public class OperatorSpecs {
    * @return  the {@link StreamOperatorSpec}
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createFlatMapOperatorSpec(
-      FlatMapFunction<? super M, ? extends OM> flatMapFn, int opId) {
+      FlatMapFunction<? super M, ? extends OM> flatMapFn, String opId) {
     return new StreamOperatorSpec<>((FlatMapFunction<M, OM>) flatMapFn, OperatorSpec.OpCode.FLAT_MAP, opId);
   }
 
@@ -136,7 +154,7 @@ public class OperatorSpecs {
    * @param <M>  type of input message
    * @return  the {@link SinkOperatorSpec} for the sink operator
    */
-  public static <M> SinkOperatorSpec<M> createSinkOperatorSpec(SinkFunction<? super M> sinkFn, int opId) {
+  public static <M> SinkOperatorSpec<M> createSinkOperatorSpec(SinkFunction<? super M> sinkFn, String opId) {
     return new SinkOperatorSpec<>((SinkFunction<M>) sinkFn, opId);
   }
 
@@ -148,7 +166,7 @@ public class OperatorSpecs {
    * @param <M> the type of message in the {@link OutputStreamImpl}
    * @return  the {@link OutputOperatorSpec} for the sendTo operator
    */
-  public static <M> OutputOperatorSpec<M> createSendToOperatorSpec(OutputStreamImpl<M> outputStream, int opId) {
+  public static <M> OutputOperatorSpec<M> createSendToOperatorSpec(OutputStreamImpl<M> outputStream, String opId) {
     return new OutputOperatorSpec<>(outputStream, opId);
   }
 
@@ -166,7 +184,7 @@ public class OperatorSpecs {
    */
   public static <M, K, V> PartitionByOperatorSpec<M, K, V> createPartitionByOperatorSpec(
       OutputStreamImpl<KV<K, V>> outputStream, Function<? super M, ? extends K> keyFunction,
-      Function<? super M, ? extends V> valueFunction, int opId) {
+      Function<? super M, ? extends V> valueFunction, String opId) {
     return new PartitionByOperatorSpec<>(outputStream, keyFunction, valueFunction, opId);
   }
 
@@ -182,7 +200,7 @@ public class OperatorSpecs {
    */
 
   public static <M, WK, WV> WindowOperatorSpec<M, WK, WV> createWindowOperatorSpec(
-      WindowInternal<M, WK, WV> window, int opId) {
+      WindowInternal<M, WK, WV> window, String opId) {
     return new WindowOperatorSpec<>(window, opId);
   }
 
@@ -205,7 +223,7 @@ public class OperatorSpecs {
    */
   public static <K, M, OM, JM> JoinOperatorSpec<K, M, OM, JM> createJoinOperatorSpec(
       OperatorSpec<?, M> leftInputOpSpec, OperatorSpec<?, OM> rightInputOpSpec, JoinFunction<K, M, OM, JM> joinFn,
-      Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde, long ttlMs, int opId) {
+      Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde, long ttlMs, String opId) {
     return new JoinOperatorSpec<>(leftInputOpSpec, rightInputOpSpec, joinFn,
         keySerde, messageSerde, otherMessageSerde, ttlMs, opId);
   }
@@ -217,7 +235,7 @@ public class OperatorSpecs {
    * @param <M>  the type of input message
    * @return  the {@link StreamOperatorSpec} for the merge
    */
-  public static <M> StreamOperatorSpec<M, M> createMergeOperatorSpec(int opId) {
+  public static <M> StreamOperatorSpec<M, M> createMergeOperatorSpec(String opId) {
     return new StreamOperatorSpec<>(message ->
         new ArrayList<M>() {
           {
@@ -242,7 +260,7 @@ public class OperatorSpecs {
    */
   public static <K, M, R, OM> StreamTableJoinOperatorSpec<K, M, R, OM> createStreamTableJoinOperatorSpec(
       OperatorSpec<?, M> leftInputOpSpec, TableSpec tableSpec,
-      StreamTableJoinFunction<K, M, R, OM> joinFn, int opId) {
+      StreamTableJoinFunction<K, M, R, OM> joinFn, String opId) {
     return new StreamTableJoinOperatorSpec<>(leftInputOpSpec, tableSpec, joinFn, opId);
   }
 
@@ -261,7 +279,7 @@ public class OperatorSpecs {
    */
   public static <K, V, M> WriteToOperatorSpec<K, V, M> createWriteToOperatorSpec(
       OperatorSpec<?, M> inputOpSpec, TableSpec tableSpec,
-      Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> valueExtractor, int opId) {
+      Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> valueExtractor, String opId) {
     return new WriteToOperatorSpec(inputOpSpec, tableSpec, keyExtractor, valueExtractor, opId);
   }
 

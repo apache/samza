@@ -23,9 +23,13 @@ import org.apache.samza.storage.kv.ClosableIterator;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueIterator;
 import org.apache.samza.storage.kv.KeyValueStore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -73,6 +77,8 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
 
+  private static final Logger LOG = LoggerFactory.getLogger(TimeSeriesStoreImpl.class);
+
   private final KeyValueStore<TimeSeriesKey<K>, V> kvStore;
 
   /**
@@ -110,6 +116,8 @@ public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
       seqNum.getAndIncrement();
     }
     TimeSeriesKey<K> timeSeriesKey = new TimeSeriesKey<>(key, timestamp, seqNum.get());
+
+    LOG.trace("Inserting {} -> {} into the store", timeSeriesKey, val);
     kvStore.put(timeSeriesKey, val);
   }
 
@@ -120,7 +128,20 @@ public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
     TimeSeriesKey<K> toKey = new TimeSeriesKey(key, endTimestamp, 0);
 
     KeyValueIterator<TimeSeriesKey<K>, V> range = kvStore.range(fromKey, toKey);
+
+    LOG.trace("Getting entries in the store for {} from {} to {}", new Object[] {key, startTimestamp, endTimestamp});
     return new TimeSeriesStoreIterator<>(range);
+  }
+
+  @Override
+  public ClosableIterator<TimestampedValue<V>> get(K key, long startTimestamp, long endTimestamp, int maxValues) {
+    ClosableIterator<TimestampedValue<V>> iterator = get(key, startTimestamp, endTimestamp);
+    return new BoundedClosableIterator<>(iterator, maxValues);
+  }
+
+  @Override
+  public ClosableIterator<TimestampedValue<V>> get(K key, long timestamp) {
+    return get(key, timestamp, timestamp + 1);
   }
 
   @Override
@@ -140,13 +161,17 @@ public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
   }
 
   @Override
+  public void remove(K key, long timestamp) {
+    remove(key, timestamp, timestamp + 1);
+  }
+
+  @Override
   public void flush() {
     kvStore.flush();
   }
 
   @Override
   public void close() {
-    kvStore.close();
   }
 
   private void validateRange(long startTimestamp, long endTimestamp) throws IllegalArgumentException {
@@ -192,4 +217,46 @@ public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
       wrappedIterator.remove();
     }
   }
+
+  /**
+   * Wraps a {@link ClosableIterator} to only return the specified number of values
+   *
+   * @param <T> the type of values in the iterator
+   */
+  private static class BoundedClosableIterator<T> implements ClosableIterator<T> {
+
+    private final AtomicInteger currentCount = new AtomicInteger(0);
+    private final ClosableIterator<T> wrappedIterator;
+    private final int maxCount;
+
+    public BoundedClosableIterator(ClosableIterator<T> wrappedIterator, int maxCount) {
+      this.wrappedIterator = wrappedIterator;
+      this.maxCount = maxCount;
+    }
+
+    @Override
+    public boolean hasNext() {
+      return wrappedIterator.hasNext() && currentCount.get() < maxCount;
+    }
+
+    @Override
+    public T next() {
+      if (!hasNext()) {
+        throw new NoSuchElementException();
+      }
+      currentCount.incrementAndGet();
+      return wrappedIterator.next();
+    }
+
+    @Override
+    public void remove() {
+      wrappedIterator.remove();
+    }
+
+    @Override
+    public void close() {
+      wrappedIterator.close();
+    }
+  }
+
 }

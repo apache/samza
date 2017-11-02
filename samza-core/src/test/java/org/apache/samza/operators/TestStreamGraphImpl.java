@@ -12,7 +12,7 @@
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
+ * KIND, either express or implied.  See the License for THE
  * specific language governing permissions and limitations
  * under the License.
  */
@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.data.TestMessageEnvelope;
@@ -41,6 +42,8 @@ import junit.framework.Assert;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -366,15 +369,14 @@ public class TestStreamGraphImpl {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     Config mockConfig = mock(Config.class);
     StreamSpec mockStreamSpec = mock(StreamSpec.class);
-    when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("myJob");
-    when(mockConfig.get(JobConfig.JOB_ID(), "1")).thenReturn("i001");
-    when(mockRunner.getStreamSpec("myJob-i001-test-stream-1")).thenReturn(mockStreamSpec);
+    String mockStreamName = "mockStreamName";
+    when(mockRunner.getStreamSpec(mockStreamName)).thenReturn(mockStreamSpec);
 
     StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mockConfig);
 
     Serde mockValueSerde = mock(Serde.class);
     IntermediateMessageStreamImpl<TestMessageEnvelope> intermediateStreamImpl =
-        graph.getIntermediateStream("test-stream-1", mockValueSerde);
+        graph.getIntermediateStream(mockStreamName, mockValueSerde);
 
     assertEquals(graph.getInputOperators().get(mockStreamSpec), intermediateStreamImpl.getOperatorSpec());
     assertEquals(graph.getOutputStreams().get(mockStreamSpec), intermediateStreamImpl.getOutputStream());
@@ -390,9 +392,8 @@ public class TestStreamGraphImpl {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     Config mockConfig = mock(Config.class);
     StreamSpec mockStreamSpec = mock(StreamSpec.class);
-    when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("myJob");
-    when(mockConfig.get(JobConfig.JOB_ID(), "1")).thenReturn("i001");
-    when(mockRunner.getStreamSpec("myJob-i001-test-stream-1")).thenReturn(mockStreamSpec);
+    String mockStreamName = "mockStreamName";
+    when(mockRunner.getStreamSpec(mockStreamName)).thenReturn(mockStreamSpec);
 
     StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mockConfig);
 
@@ -402,7 +403,7 @@ public class TestStreamGraphImpl {
     doReturn(mockKeySerde).when(mockKVSerde).getKeySerde();
     doReturn(mockValueSerde).when(mockKVSerde).getValueSerde();
     IntermediateMessageStreamImpl<TestMessageEnvelope> intermediateStreamImpl =
-        graph.getIntermediateStream("test-stream-1", mockKVSerde);
+        graph.getIntermediateStream(mockStreamName, mockKVSerde);
 
     assertEquals(graph.getInputOperators().get(mockStreamSpec), intermediateStreamImpl.getOperatorSpec());
     assertEquals(graph.getOutputStreams().get(mockStreamSpec), intermediateStreamImpl.getOutputStream());
@@ -418,16 +419,15 @@ public class TestStreamGraphImpl {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     Config mockConfig = mock(Config.class);
     StreamSpec mockStreamSpec = mock(StreamSpec.class);
-    when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("myJob");
-    when(mockConfig.get(JobConfig.JOB_ID(), "1")).thenReturn("i001");
-    when(mockRunner.getStreamSpec("myJob-i001-test-stream-1")).thenReturn(mockStreamSpec);
+    String mockStreamName = "mockStreamName";
+    when(mockRunner.getStreamSpec(mockStreamName)).thenReturn(mockStreamSpec);
 
     StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mockConfig);
 
     Serde mockValueSerde = mock(Serde.class);
     graph.setDefaultSerde(mockValueSerde);
     IntermediateMessageStreamImpl<TestMessageEnvelope> intermediateStreamImpl =
-        graph.getIntermediateStream("test-stream-1", null);
+        graph.getIntermediateStream(mockStreamName, null);
 
     assertEquals(graph.getInputOperators().get(mockStreamSpec), intermediateStreamImpl.getOperatorSpec());
     assertEquals(graph.getOutputStreams().get(mockStreamSpec), intermediateStreamImpl.getOutputStream());
@@ -443,9 +443,8 @@ public class TestStreamGraphImpl {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     Config mockConfig = mock(Config.class);
     StreamSpec mockStreamSpec = mock(StreamSpec.class);
-    when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("myJob");
-    when(mockConfig.get(JobConfig.JOB_ID(), "1")).thenReturn("i001");
-    when(mockRunner.getStreamSpec("myJob-i001-test-stream-1")).thenReturn(mockStreamSpec);
+    String mockStreamName = "mockStreamName";
+    when(mockRunner.getStreamSpec(mockStreamName)).thenReturn(mockStreamSpec);
 
     StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mockConfig);
 
@@ -456,7 +455,7 @@ public class TestStreamGraphImpl {
     doReturn(mockValueSerde).when(mockKVSerde).getValueSerde();
     graph.setDefaultSerde(mockKVSerde);
     IntermediateMessageStreamImpl<TestMessageEnvelope> intermediateStreamImpl =
-        graph.getIntermediateStream("test-stream-1", null);
+        graph.getIntermediateStream(mockStreamName, null);
 
     assertEquals(graph.getInputOperators().get(mockStreamSpec), intermediateStreamImpl.getOperatorSpec());
     assertEquals(graph.getOutputStreams().get(mockStreamSpec), intermediateStreamImpl.getOutputStream());
@@ -472,13 +471,12 @@ public class TestStreamGraphImpl {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     Config mockConfig = mock(Config.class);
     StreamSpec mockStreamSpec = mock(StreamSpec.class);
-    when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("myJob");
-    when(mockConfig.get(JobConfig.JOB_ID(), "1")).thenReturn("i001");
-    when(mockRunner.getStreamSpec("myJob-i001-test-stream-1")).thenReturn(mockStreamSpec);
+    String mockStreamName = "mockStreamName";
+    when(mockRunner.getStreamSpec(mockStreamName)).thenReturn(mockStreamSpec);
 
     StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mockConfig);
     IntermediateMessageStreamImpl<TestMessageEnvelope> intermediateStreamImpl =
-        graph.getIntermediateStream("test-stream-1", null);
+        graph.getIntermediateStream(mockStreamName, null);
 
     assertEquals(graph.getInputOperators().get(mockStreamSpec), intermediateStreamImpl.getOperatorSpec());
     assertEquals(graph.getOutputStreams().get(mockStreamSpec), intermediateStreamImpl.getOutputStream());
@@ -502,9 +500,26 @@ public class TestStreamGraphImpl {
   @Test
   public void testGetNextOpIdIncrementsId() {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
-    StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mock(Config.class));
-    assertEquals(graph.getNextOpId(), 0);
-    assertEquals(graph.getNextOpId(), 1);
+    Config mockConfig = mock(Config.class);
+    when(mockConfig.get(eq(JobConfig.JOB_NAME()))).thenReturn("jobName");
+    when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("1234");
+
+    StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mockConfig);
+    assertEquals("jobName-1234-merge-0", graph.getNextOpId(OpCode.MERGE, null));
+    assertEquals("jobName-1234-join-customName", graph.getNextOpId(OpCode.JOIN, "customName"));
+    assertEquals("jobName-1234-map-2", graph.getNextOpId(OpCode.MAP, null));
+  }
+
+  @Test(expected = SamzaException.class)
+  public void testGetNextOpIdRejectsDuplicates() {
+    ApplicationRunner mockRunner = mock(ApplicationRunner.class);
+    Config mockConfig = mock(Config.class);
+    when(mockConfig.get(eq(JobConfig.JOB_NAME()))).thenReturn("jobName");
+    when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("1234");
+
+    StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mockConfig);
+    assertEquals("jobName-1234-join-customName", graph.getNextOpId(OpCode.JOIN, "customName"));
+    graph.getNextOpId(OpCode.JOIN, "customName"); // should throw
   }
 
   @Test

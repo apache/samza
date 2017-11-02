@@ -49,7 +49,7 @@ public class StreamTableJoinOperatorSpec<K, M, R, OM> extends OperatorSpec<Objec
    * @param opId  the unique ID for this operator
    */
   StreamTableJoinOperatorSpec(OperatorSpec<?, M> leftInputOpSpec, TableSpec tableSpec,
-      StreamTableJoinFunction<K, M, R, OM> joinFn, int opId) {
+      StreamTableJoinFunction<K, M, R, OM> joinFn, String opId) {
     super(OpCode.JOIN, opId);
     this.leftInputOpSpec = leftInputOpSpec;
     this.tableSpec = tableSpec;

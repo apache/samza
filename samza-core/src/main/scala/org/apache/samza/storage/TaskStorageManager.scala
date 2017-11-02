@@ -205,13 +205,14 @@ class TaskStorageManager(
   }
 
   private def validateChangelogStreams() = {
-    info("Validating change log streams")
+    info("Validating change log streams: " + changeLogSystemStreams)
 
     for ((storeName, systemStream) <- changeLogSystemStreams) {
       val systemAdmin = systemAdmins
         .getOrElse(systemStream.getSystem,
                    throw new SamzaException("Unable to get systemAdmin for store " + storeName + " and systemStream" + systemStream))
       val changelogSpec = StreamSpec.createChangeLogStreamSpec(systemStream.getStream, systemStream.getSystem, changeLogStreamPartitions)
+
       systemAdmin.validateStream(changelogSpec)
     }
 

@@ -90,6 +90,7 @@ public class SamzaMonitorService {
                 } catch (IOException e) {
                     LOGGER.error("Caught IOException during " + monitor.toString() + ".monitor()", e);
                 } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                     LOGGER.error("Caught InterruptedException during " + monitor.toString() + ".monitor()", e);
                 } catch (Exception e) {
                     LOGGER.error("Unexpected exception during {}.monitor()", monitor, e);
