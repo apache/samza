@@ -308,7 +308,7 @@ class TestTaskStorageManager extends MockitoSugar {
     cleanDirMethod.invoke(taskStorageManager, new Array[Object](0):_*)
 
     assertTrue("Offset file was removed. Clean up failed!", offsetFilePath.exists())
-    assertEquals("Offset read does not match what was in the file", "100", taskStorageManager.fileOffset.get(new SystemStreamPartition("kafka", "testStream", new Partition(0))))
+    assertEquals("Offset read does not match what was in the file", "100", taskStorageManager.fileOffsets.get(new SystemStreamPartition("kafka", "testStream", new Partition(0))))
   }
 
   @Test

@@ -68,7 +68,7 @@ class TaskStorageManager(
   }
 
   var changeLogOldestOffsets: Map[SystemStream, String] = Map()
-  val fileOffset: util.Map[SystemStreamPartition, String] = new util.HashMap[SystemStreamPartition, String]()
+  val fileOffsets: util.Map[SystemStreamPartition, String] = new util.HashMap[SystemStreamPartition, String]()
   val offsetFileName = "OFFSET"
 
   def apply(storageEngineName: String) = taskStores(storageEngineName)
@@ -104,7 +104,9 @@ class TaskStorageManager(
       } else {
         val offset = readOffsetFile(loggedStorePartitionDir)
         info("Read offset %s for the store %s from logged storage partition directory %s." format(offset, storeName, loggedStorePartitionDir))
-        fileOffset.put(new SystemStreamPartition(changeLogSystemStreams(storeName), partition), offset)
+        if (offset != null) {
+          fileOffsets.put(new SystemStreamPartition(changeLogSystemStreams(storeName), partition), offset)
+        }
       }
     })
   }
@@ -228,11 +230,28 @@ class TaskStorageManager(
 
     for ((storeName, systemStream) <- changeLogSystemStreams) {
       val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
+      val admin = systemAdmins.getOrElse(systemStream.getSystem,
+        throw new SamzaException("Unable to get systemAdmin for store " + storeName + " and systemStream" + systemStream))
       val consumer = storeConsumers(storeName)
-      val offset =
-        Option(fileOffset.get(systemStreamPartition))
-          .getOrElse(changeLogOldestOffsets
-            .getOrElse(systemStream, throw new SamzaException("Missing a change log offset for %s." format systemStreamPartition)))
+      val fileOffset = fileOffsets.get(systemStreamPartition)
+      val oldestOffset = changeLogOldestOffsets
+        .getOrElse(systemStream, throw new SamzaException("Missing a change log offset for %s." format systemStreamPartition));
+      val offset = if (fileOffset != null) {
+        // File offset was the last message written to the changelog that is also reflected in the store,
+        // so we start with the NEXT offset
+        val resumeOffset = admin.getOffsetsAfter(Map(systemStreamPartition -> fileOffset).asJava).get(systemStreamPartition)
+        // If the offset we plan to use is older than the oldest offset, just use the oldest offset.
+        // This can happen with changelogs configured with a TTL cleanup policy
+        if (admin.offsetComparator(oldestOffset, resumeOffset) <= 0) {
+          resumeOffset
+        } else {
+          warn(s"Local store offset $resumeOffset is lower than the oldest offset $oldestOffset of the changelog. " +
+            s"The values between these offsets cannot be restored.")
+          oldestOffset
+        }
+      } else {
+        oldestOffset
+      }
 
       if (offset != null) {
         info("Registering change log consumer with offset %s for %s." format (offset, systemStreamPartition))
