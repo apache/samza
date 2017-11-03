@@ -43,4 +43,35 @@ public abstract class ControlMessage {
   public int getVersion() {
     return version;
   }
+
+  @Override
+  public int hashCode() {
+    final int prime = 31;
+    int result = Integer.hashCode(version);
+    result = prime * result + (taskName != null ? taskName.hashCode() : 0);
+    return result;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj)
+      return true;
+    if (obj == null)
+      return false;
+    if (getClass() != obj.getClass())
+      return false;
+
+    final ControlMessage other = (ControlMessage) obj;
+    if (version != other.version) {
+      return false;
+    }
+
+    if (taskName != null
+        ? !taskName.equals(other.getTaskName())
+        : other.taskName != null) {
+      return false;
+    }
+
+    return true;
+  }
 }

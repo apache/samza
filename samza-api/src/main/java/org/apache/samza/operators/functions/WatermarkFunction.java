@@ -19,18 +19,21 @@
 
 package org.apache.samza.operators.functions;
 
+import java.util.Collection;
+
 /**
  * Allows handling of watermarks.
  */
-public interface WatermarkFunction {
+public interface WatermarkFunction<T> {
 
   /**
    * Processes the input watermark coming from upstream operators.
    * This allows custom watermark handling, such as triggering events or propagating it downstream.
    *
    * @param watermark input watermark
+   * @return output triggered after processing the watermark
    */
-  void processWatermark(long watermark);
+  Collection<T> processWatermark(long watermark);
 
   /**
    * Returns the output watermark. This function will be invoked immediately after either
