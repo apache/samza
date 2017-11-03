@@ -217,7 +217,7 @@ private[kafka] class KafkaSystemConsumer(
               case _ => debug("Ignoring refresh for %s because we already added it from another thread." format head)
             }
           }
-          tpToRefresh.drop(1)
+          tpToRefresh.tail
         }
 
         while (!tpToRefresh.isEmpty) {
