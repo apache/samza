@@ -23,6 +23,8 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.metrics.Counter;
@@ -64,11 +66,16 @@ public abstract class OperatorImpl<M, RM> {
   private long inputWatermark = WatermarkStates.WATERMARK_NOT_EXIST;
   private long outputWatermark = WatermarkStates.WATERMARK_NOT_EXIST;
   private TaskName taskName;
+  // Although the operator node is in the operator graph, the current task may not consume any message in it.
+  // This can be caused by none of the input stream partitions of this op is assigned to the current task.
+  // It's important to know so we can populate the watermarks correctly.
+  private boolean usedInCurrentTask = false;
 
   Set<OperatorImpl<RM, ?>> registeredOperators;
   Set<OperatorImpl<?, M>> prevOperators;
   Set<SystemStream> inputStreams;
 
+  private TaskModel taskModel;
   // end-of-stream states
   private EndOfStreamStates eosStates;
   // watermark states
@@ -104,6 +111,9 @@ public abstract class OperatorImpl<M, RM> {
     TaskContextImpl taskContext = (TaskContextImpl) context;
     this.eosStates = (EndOfStreamStates) taskContext.fetchObject(EndOfStreamStates.class.getName());
     this.watermarkStates = (WatermarkStates) taskContext.fetchObject(WatermarkStates.class.getName());
+    ContainerModel containerModel = taskContext.getJobModel().getContainers()
+        .get(context.getSamzaContainerContext().id);
+    this.taskModel = containerModel.getTasks().get(taskName);
 
     handleInit(config, context);
 
@@ -139,6 +149,9 @@ public abstract class OperatorImpl<M, RM> {
 
   void registerInputStream(SystemStream input) {
     this.inputStreams.add(input);
+
+    usedInCurrentTask = usedInCurrentTask
+        || taskModel.getSystemStreamPartitions().stream().anyMatch(ssp -> ssp.getSystemStream().equals(input));
   }
 
   /**
@@ -320,15 +333,23 @@ public abstract class OperatorImpl<M, RM> {
       LOG.trace("Advance input watermark to {} in operator {}", inputWatermark, getOpImplId());
 
       final Long outputWm;
-      WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
+      final Collection<RM> output;
+      final WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
       if (watermarkFn != null) {
         // user-overrided watermark handling here
-        watermarkFn.processWatermark(inputWatermark);
+        output = (Collection<RM>) watermarkFn.processWatermark(inputWatermark);
         outputWm = watermarkFn.getOutputWatermark();
       } else {
         // use samza-provided watermark handling
         // default is to propagate the input watermark
-        outputWm = handleWatermark(inputWatermark, collector, coordinator);
+        output = handleWatermark(inputWatermark, collector, coordinator);
+        outputWm = getOutputWatermark();
+      }
+
+      if (!output.isEmpty()) {
+        output.forEach(rm ->
+            this.registeredOperators.forEach(op ->
+                op.onMessage(rm, collector, coordinator)));
       }
 
       propagateWatermark(outputWm, collector, coordinator);
@@ -357,9 +378,9 @@ public abstract class OperatorImpl<M, RM> {
    * @param coordinator task coordinator
    * @return output watermark, or null if the output watermark should not be updated.
    */
-  protected Long handleWatermark(long inputWatermark, MessageCollector collector, TaskCoordinator coordinator) {
-    // Default is no handling. Simply pass on the input watermark as output.
-    return inputWatermark;
+  protected Collection<RM> handleWatermark(long inputWatermark, MessageCollector collector, TaskCoordinator coordinator) {
+    // Default is no handling. Output is empty.
+    return Collections.emptyList();
   }
 
   /* package private for testing */
@@ -367,9 +388,19 @@ public abstract class OperatorImpl<M, RM> {
     return this.inputWatermark;
   }
 
-  /* package private for testing */
-  final long getOutputWatermark() {
-    return this.outputWatermark;
+  /**
+   * Returns the output watermark, default is the same as input.
+   * Operators which keep track of watermark should override this to return the current watermark.
+   * @return output watermark
+   */
+  protected long getOutputWatermark() {
+    if (usedInCurrentTask) {
+      // default as input
+      return getInputWatermark();
+    } else {
+      // always emit the max to indicate no input will be emitted afterwards
+      return Long.MAX_VALUE;
+    }
   }
 
   public void close() {
