@@ -39,7 +39,7 @@ import java.util.LinkedHashMap;
 /**
  * A serde for {@link KafkaCheckpointLogKey}.
  *
- * <p> Currently, keys in the Kafka checkpoint log are serialized as JSON strings.
+ * <p> Keys in the Kafka checkpoint log are serialized as JSON strings.
  * {"systemstreampartition-grouper-factory"" :"org.apache.samza.container.grouper.stream.GroupByPartitionFactory",
  *    "taskName":"Partition 0", "type":"checkpoint"}
  */
