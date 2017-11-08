@@ -24,7 +24,7 @@ import org.apache.samza.checkpoint.{CheckpointManager, CheckpointManagerFactory}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config._
 import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.system.SystemFactory
+import org.apache.samza.system.{StreamSpec, SystemFactory}
 import org.apache.samza.system.kafka.KafkaStreamSpec
 import org.apache.samza.util.{KafkaUtil, Logging, Util, _}
 
@@ -37,17 +37,18 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
     val kafkaConfig = new KafkaConfig(config)
     val checkpointSystemName = kafkaConfig.getCheckpointSystem.getOrElse(
       throw new SamzaException("No system defined for Kafka's checkpoint manager."))
+
     val checkpointSystemFactoryName = new SystemConfig(config)
       .getSystemFactory(checkpointSystemName)
       .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY format checkpointSystemName))
 
     val checkpointSystemFactory = Util.getObj[SystemFactory](checkpointSystemFactoryName)
-    val numCheckpointPartitions = 1
+    val checkpointTopic = KafkaUtil.getCheckpointTopic(jobName, jobId, config)
 
-    val checkpointSpec : KafkaStreamSpec = new KafkaStreamSpec("samza-unused-checkpoint-stream-id",
-        KafkaUtil.getCheckpointTopic(jobName, jobId, config), checkpointSystemName, numCheckpointPartitions,
-        kafkaConfig.getCheckpointReplicationFactor.get.toInt,
-        kafkaConfig.getCheckpointTopicProperties())
+    info(s"Creating a KafkaCheckpointManager to consume from $checkpointTopic")
+    val checkpointSpec = KafkaStreamSpec.fromSpec(StreamSpec.createCheckpointStreamSpec(checkpointTopic, checkpointSystemName))
+        .copyWithReplicationFactor(kafkaConfig.getCheckpointReplicationFactor.get.toInt)
+        .copyWithProperties(kafkaConfig.getCheckpointTopicProperties)
 
     new KafkaCheckpointManager(checkpointSpec, checkpointSystemFactory, config.failOnCheckpointValidation, config,
       new NoOpMetricsRegistry)

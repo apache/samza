@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import kafka.common.KafkaException;
 import kafka.common.TopicAlreadyMarkedForDeletionException;
 import org.apache.samza.Partition;
+import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -48,7 +49,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.IntStream;
 
 import static org.mockito.Mockito.*;
 
@@ -96,7 +96,7 @@ public class TestKafkaCheckpointManagerJava {
     checkpointManager.start();
   }
 
-  @Test(expected = KafkaException.class)
+  @Test(expected = SamzaException.class)
   public void testReadFailsOnSerdeExceptions() throws Exception {
     KafkaStreamSpec checkpointSpec = new KafkaStreamSpec(CHECKPOINT_TOPIC, CHECKPOINT_TOPIC,
         CHECKPOINT_SYSTEM, 1);
@@ -229,7 +229,7 @@ public class TestKafkaCheckpointManagerJava {
    */
   private IncomingMessageEnvelope newCheckpointEnvelope(TaskName taskName, SystemStreamPartition ssp, String offset) {
     KafkaCheckpointLogKey checkpointKey =
-        new KafkaCheckpointLogKey(GROUPER_FACTORY_CLASS, taskName, "checkpoint");
+        new KafkaCheckpointLogKey("checkpoint", taskName, GROUPER_FACTORY_CLASS);
     KafkaCheckpointLogKeySerde checkpointKeySerde = new KafkaCheckpointLogKeySerde();
 
     Checkpoint checkpointMsg = new Checkpoint(ImmutableMap.of(ssp, offset));

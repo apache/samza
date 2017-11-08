@@ -29,8 +29,8 @@ public class TestKafkaCheckpointLogKeySerde {
 
   @Test
   public void testBinaryCompatibility() {
-    KafkaCheckpointLogKey logKey1 = new KafkaCheckpointLogKey(GroupByPartitionFactory.class.getCanonicalName(),
-        new TaskName("Partition 0"), KafkaCheckpointLogKey.CHECKPOINT_TYPE);
+    KafkaCheckpointLogKey logKey1 = new KafkaCheckpointLogKey(KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE,
+        new TaskName("Partition 0"), GroupByPartitionFactory.class.getCanonicalName());
     KafkaCheckpointLogKeySerde checkpointSerde = new KafkaCheckpointLogKeySerde();
 
     byte[] bytes = ("{\"systemstreampartition-grouper-factory\"" +
@@ -42,9 +42,9 @@ public class TestKafkaCheckpointLogKeySerde {
   }
 
   @Test
-  public void testSerDe() {
-    KafkaCheckpointLogKey key = new KafkaCheckpointLogKey(GroupByPartitionFactory.class.getCanonicalName(),
-        new TaskName("Partition 0"), KafkaCheckpointLogKey.CHECKPOINT_TYPE);
+  public void testSerde() {
+    KafkaCheckpointLogKey key = new KafkaCheckpointLogKey(KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE,
+        new TaskName("Partition 0"), GroupByPartitionFactory.class.getCanonicalName());
     KafkaCheckpointLogKeySerde checkpointSerde = new KafkaCheckpointLogKeySerde();
 
     // test that deserialize(serialize(k)) == k

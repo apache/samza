@@ -26,7 +26,7 @@ import org.apache.samza.container.TaskName;
  */
 public class KafkaCheckpointLogKey {
 
-  public static final String CHECKPOINT_TYPE = "checkpoint";
+  public static final String CHECKPOINT_KEY_TYPE = "checkpoint";
   /**
    * The SystemStreamPartitionGrouperFactory configured for this job run. Since, checkpoints of different
    * groupers are not compatible, we persist and validate them across job runs.
@@ -42,12 +42,14 @@ public class KafkaCheckpointLogKey {
    */
   private final String type;
 
-  public KafkaCheckpointLogKey(String grouperFactoryClassName, TaskName taskName, String type) {
+  public KafkaCheckpointLogKey(String type, TaskName taskName, String grouperFactoryClassName) {
     Preconditions.checkNotNull(grouperFactoryClassName);
     Preconditions.checkNotNull(taskName);
     Preconditions.checkNotNull(type);
-    Preconditions.checkState(type.equals(CHECKPOINT_TYPE), String.format("Invalid type provided for checkpoint key. " +
-        "Expected: (%s) Actual: (%s)", CHECKPOINT_TYPE, type));
+    Preconditions.checkState(!grouperFactoryClassName.isEmpty(), "Empty grouper factory class provided");
+
+    Preconditions.checkState(type.equals(CHECKPOINT_KEY_TYPE), String.format("Invalid type provided for checkpoint key. " +
+        "Expected: (%s) Actual: (%s)", CHECKPOINT_KEY_TYPE, type));
 
     this.grouperFactoryClassName = grouperFactoryClassName;
     this.taskName = taskName;

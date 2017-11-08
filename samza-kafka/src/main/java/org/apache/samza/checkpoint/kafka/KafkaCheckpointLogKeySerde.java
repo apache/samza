@@ -22,25 +22,16 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.serializers.Serde;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.JsonParser;
-import org.codehaus.jackson.Version;
-import org.codehaus.jackson.map.DeserializationContext;
-import org.codehaus.jackson.map.JsonDeserializer;
-import org.codehaus.jackson.map.JsonSerializer;
 import org.codehaus.jackson.map.ObjectMapper;
-import org.codehaus.jackson.map.SerializerProvider;
-import org.codehaus.jackson.map.module.SimpleModule;
 
-import java.io.IOException;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 
 /**
  * A serde for {@link KafkaCheckpointLogKey}.
  *
  * <p> Keys in the Kafka checkpoint log are serialized as JSON strings.
- * {"systemstreampartition-grouper-factory"" :"org.apache.samza.container.grouper.stream.GroupByPartitionFactory",
+ * E.g.: {"systemstreampartition-grouper-factory"" :"org.apache.samza.container.grouper.stream.GroupByPartitionFactory",
  *    "taskName":"Partition 0", "type":"checkpoint"}
  */
 public class KafkaCheckpointLogKeySerde implements Serde<KafkaCheckpointLogKey> {
@@ -48,12 +39,7 @@ public class KafkaCheckpointLogKeySerde implements Serde<KafkaCheckpointLogKey> 
   private static final String SSP_GROUPER_FACTORY_FIELD = "systemstreampartition-grouper-factory";
   private static final String TASK_NAME_FIELD = "taskName";
   private static final String TYPE_FIELD = "type";
-
-  private final ObjectMapper mapper;
-
-  public KafkaCheckpointLogKeySerde() {
-    mapper = new ObjectMapper();
-  }
+  private static final ObjectMapper mapper = new ObjectMapper();
 
   @Override
   public byte[] toBytes(KafkaCheckpointLogKey key) {
@@ -64,7 +50,7 @@ public class KafkaCheckpointLogKeySerde implements Serde<KafkaCheckpointLogKey> 
           TYPE_FIELD, key.getType()
         ));
     } catch (Exception e) {
-      throw new SamzaException(e);
+      throw new SamzaException(String.format("Exception in serializing: %s", key), e);
     }
   }
 
@@ -72,11 +58,11 @@ public class KafkaCheckpointLogKeySerde implements Serde<KafkaCheckpointLogKey> 
   public KafkaCheckpointLogKey fromBytes(byte[] bytes) {
     try {
       LinkedHashMap<String, String> deserializedKey = mapper.readValue(bytes, LinkedHashMap.class);
-      return new KafkaCheckpointLogKey(deserializedKey.get(SSP_GROUPER_FACTORY_FIELD),
-          new TaskName(deserializedKey.get(TASK_NAME_FIELD)),
-          deserializedKey.get(TYPE_FIELD));
+      return new KafkaCheckpointLogKey(deserializedKey.get(TYPE_FIELD), new TaskName(deserializedKey.get(TASK_NAME_FIELD)), deserializedKey.get(SSP_GROUPER_FACTORY_FIELD)
+      );
     } catch (Exception e) {
-      throw new SamzaException(e);
+      throw new SamzaException(String.format("Exception in de-serializing checkpoint bytes: %s",
+          Arrays.toString(bytes)), e);
     }
   }
 }
