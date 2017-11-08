@@ -271,7 +271,7 @@ public class EventHubSystemProducer implements SystemProducer {
     }
   }
 
-  private EventData createEventData(String streamName, OutgoingMessageEnvelope envelope) {
+  protected EventData createEventData(String streamName, OutgoingMessageEnvelope envelope) {
     Optional<Interceptor> interceptor = Optional.ofNullable(interceptors.getOrDefault(streamName, null));
     byte[] eventValue = (byte[]) envelope.getMessage();
     if (interceptor.isPresent()) {
