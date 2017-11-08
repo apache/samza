@@ -103,7 +103,7 @@ public class AzureJobCoordinator implements JobCoordinator {
     processorId = createProcessorId(config);
     currentJMVersion = new AtomicReference<>(INITIAL_STATE);
     AzureConfig azureConfig = new AzureConfig(config);
-    client = new AzureClient(azureConfig.getAzureConnect());
+    client = new AzureClient(azureConfig.getAzureConnectionString());
     leaderBlob = new BlobUtils(client, azureConfig.getAzureContainerName(), azureConfig.getAzureBlobName(), azureConfig.getAzureBlobLength());
     errorHandler = (errorMsg) -> {
       LOG.error(errorMsg);
