@@ -116,10 +116,10 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     info(s"Reading checkpoint for taskName $taskName")
 
     if (taskNamesToCheckpoints == null) {
-      info("Reading checkpoints for the first time")
+      debug("Reading checkpoints for the first time")
       taskNamesToCheckpoints = readCheckpoints()
     } else {
-      info("Updating existing checkpoint mappings")
+      debug("Updating existing checkpoint mappings")
       taskNamesToCheckpoints ++= readCheckpoints()
     }
 
