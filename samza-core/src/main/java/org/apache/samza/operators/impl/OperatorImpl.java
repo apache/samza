@@ -111,9 +111,15 @@ public abstract class OperatorImpl<M, RM> {
     TaskContextImpl taskContext = (TaskContextImpl) context;
     this.eosStates = (EndOfStreamStates) taskContext.fetchObject(EndOfStreamStates.class.getName());
     this.watermarkStates = (WatermarkStates) taskContext.fetchObject(WatermarkStates.class.getName());
-    ContainerModel containerModel = taskContext.getJobModel().getContainers()
-        .get(context.getSamzaContainerContext().id);
-    this.taskModel = containerModel.getTasks().get(taskName);
+
+    if (taskContext.getJobModel() != null) {
+      ContainerModel containerModel = taskContext.getJobModel().getContainers()
+          .get(context.getSamzaContainerContext().id);
+      this.taskModel = containerModel.getTasks().get(taskName);
+    } else {
+      this.taskModel = null;
+      this.usedInCurrentTask = true;
+    }
 
     handleInit(config, context);
 
