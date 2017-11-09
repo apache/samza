@@ -64,7 +64,23 @@ class TestUtil {
 
     // Check data returned
     assertEquals(data, result)
+  }
 
+  @Test
+  def testReadInvalidDataFromFile() {
+    // Write garbage to produce a null result when it's read
+    val fos = new FileOutputStream(file)
+    val oos = new ObjectOutputStream(fos)
+    oos.writeLong(1)
+    oos.writeUTF("Junk Data")
+    oos.close()
+    fos.close()
+
+    // Invoke test
+    val result = Util.readDataFromFile(file)
+
+    // Check data returned
+    assertNull(result)
   }
 
   @Test
