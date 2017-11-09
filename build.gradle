@@ -52,6 +52,7 @@ rat {
     '**/*.svg',
     '**/*.ttf',
     '**/*.woff',
+    '**/hs_err_pid*.log',
     '**/.classpath',
     '**/.cache/**',
     '**/.git/**',
@@ -89,7 +90,6 @@ rat {
     'samza-hdfs/src/main/resources/**',
     'samza-hdfs/src/test/resources/**',
     'out/**',
-    'hs_err_pid*.log',
     'state/**'
   ]
 }
