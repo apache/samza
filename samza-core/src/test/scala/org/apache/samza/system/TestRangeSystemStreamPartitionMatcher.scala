@@ -20,7 +20,6 @@ package org.apache.samza.system
 
 import org.apache.samza.checkpoint.TestCheckpointTool.MockCheckpointManagerFactory
 import org.apache.samza.config._
-import org.apache.samza.coordinator.MockSystemFactory
 import org.apache.samza.job.local.ThreadJobFactory
 import org.apache.samza.{Partition, SamzaException}
 import org.junit.Assert._

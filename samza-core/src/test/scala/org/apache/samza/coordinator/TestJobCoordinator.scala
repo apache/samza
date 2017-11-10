@@ -26,8 +26,7 @@ import org.apache.samza.job.local.ProcessJobFactory
 import org.apache.samza.job.local.ThreadJobFactory
 import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.util.Util
-import org.junit.After
-import org.junit.Test
+import org.junit.{After, Before, Test}
 import org.junit.Assert._
 
 import scala.collection.JavaConverters._
@@ -36,10 +35,7 @@ import org.apache.samza.config.TaskConfig
 import org.apache.samza.config.SystemConfig
 import org.apache.samza.container.SamzaContainer
 import org.apache.samza.container.TaskName
-import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.config.Config
 import org.apache.samza.system._
-import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException
 import org.apache.samza.job.model.JobModel
@@ -126,12 +122,7 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
     val jobModelFromCoordinatorUrl = SamzaObjectMapper.getObjectMapper.readValue(Util.read(coordinator.server.getUrl), classOf[JobModel])
     assertEquals(expectedJobModel, jobModelFromCoordinatorUrl)
 
-    // Check the status of Stream Partition Count Monitor
-    assertNotNull(coordinator.streamPartitionCountMonitor)
-    assertTrue(coordinator.streamPartitionCountMonitor.isRunning())
-
     coordinator.stop
-    assertFalse(coordinator.streamPartitionCountMonitor.isRunning())
   }
 
   @Test
@@ -288,54 +279,16 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
     }}.toMap
   }
 
+  @Before
+  def setUp() {
+    // setup the test stream metadata
+    MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("test", "stream1", new Partition(0)), new util.ArrayList[IncomingMessageEnvelope]());
+    MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("test", "stream1", new Partition(1)), new util.ArrayList[IncomingMessageEnvelope]());
+    MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("test", "stream1", new Partition(2)), new util.ArrayList[IncomingMessageEnvelope]());
+  }
 
   @After
   def tearDown() = {
     MockCoordinatorStreamSystemFactory.disableMockConsumerCache()
   }
-}
-
-class MockSystemFactory extends SystemFactory {
-  def getConsumer(systemName: String, config: Config, registry: MetricsRegistry) = new SystemConsumer {
-    def start() {}
-    def stop() {}
-    def register(systemStreamPartition: SystemStreamPartition, offset: String) {}
-    def poll(systemStreamPartitions: java.util.Set[SystemStreamPartition], timeout: Long) = new java.util.HashMap[SystemStreamPartition, java.util.List[IncomingMessageEnvelope]]()
-  }
-  def getProducer(systemName: String, config: Config, registry: MetricsRegistry) = null
-  def getAdmin(systemName: String, config: Config) = new MockSystemAdmin
-}
-
-class MockSystemAdmin extends ExtendedSystemAdmin {
-  def getOffsetsAfter(offsets: java.util.Map[SystemStreamPartition, String]) = null
-  def getSystemStreamMetadata(streamNames: java.util.Set[String]): java.util.Map[String, SystemStreamMetadata] = {
-    assertEquals(1, streamNames.size)
-    val partitionMetadata = Map(
-      new Partition(0) -> new SystemStreamPartitionMetadata(null, null, null),
-      new Partition(1) -> new SystemStreamPartitionMetadata(null, null, null),
-      // Create a new Partition(2), which wasn't in the prior changelog mapping.
-      new Partition(2) -> new SystemStreamPartitionMetadata(null, null, null))
-    Map(streamNames.asScala.toList.head -> new SystemStreamMetadata("foo", partitionMetadata.asJava)).asJava
-  }
-
-  override def offsetComparator(offset1: String, offset2: String) = null
-
-  override def getSystemStreamPartitionCounts(streamNames: util.Set[String],
-                                              cacheTTL: Long): util.Map[String, SystemStreamMetadata] = {
-    assertEquals(1, streamNames.size())
-    val result = streamNames.asScala.map {
-      stream =>
-        val partitionMetadata = Map(
-          new Partition(0) -> new SystemStreamPartitionMetadata("", "", ""),
-          new Partition(1) -> new SystemStreamPartitionMetadata("", "", ""),
-          new Partition(2) -> new SystemStreamPartitionMetadata("", "", "")
-        )
-        stream -> new SystemStreamMetadata(stream, partitionMetadata.asJava)
-    }.toMap
-    result.asJava
-  }
-
-  override def getNewestOffset(ssp: SystemStreamPartition, maxRetries: Integer) = null
-
-
 }

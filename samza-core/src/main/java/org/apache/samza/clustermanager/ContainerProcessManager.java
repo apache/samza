@@ -33,6 +33,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
+
 /**
  * ContainerProcessManager is responsible for requesting containers, handling failures, and notifying the application master that the
  * job is done.
@@ -85,8 +88,10 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    */
   private volatile boolean tooManyFailedContainers = false;
 
+  /**
+   * Exception thrown in callbacks, such as {@code containerAllocator}
+   */
   private volatile Throwable exceptionOccurred = null;
-
 
   /**
    * A map that keeps track of how many times each container failed. The key is the container ID, and the
@@ -95,8 +100,10 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    */
   private final Map<String, ResourceFailure> containerFailures = new HashMap<>();
 
+  /**
+   * Metrics for {@link ContainerProcessManager}
+   */
   private final ContainerProcessManagerMetrics metrics;
-
 
   public ContainerProcessManager(Config config,
                                  SamzaApplicationState state,
@@ -108,7 +115,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.hostAffinityEnabled = clusterManagerConfig.getHostAffinityEnabled();
 
     ResourceManagerFactory factory = getContainerProcessManagerFactory(clusterManagerConfig);
-    this.clusterResourceManager = factory.getClusterResourceManager(this, state);
+    this.clusterResourceManager = checkNotNull(factory.getClusterResourceManager(this, state));
     this.metrics = new ContainerProcessManagerMetrics(config, state, registry);
 
     if (this.hostAffinityEnabled) {
@@ -189,6 +196,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     containerAllocator.stop();
     try {
       allocatorThread.join();
+      log.info("Stopped container allocator");
     } catch (InterruptedException ie) {
       log.error("Allocator Thread join() threw an interrupted exception", ie);
       Thread.currentThread().interrupt();
@@ -197,19 +205,17 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     if (metrics != null) {
       try {
         metrics.stop();
+        log.info("Stopped metrics reporters");
       } catch (Throwable e) {
         log.error("Exception while stopping metrics {}", e);
       }
-      log.info("Stopped metrics reporters");
     }
 
-    if (clusterResourceManager != null) {
-      try {
-        clusterResourceManager.stop(state.status);
-      } catch (Throwable e) {
-        log.error("Exception while stopping cluster resource manager {}", e);
-      }
+    try {
+      clusterResourceManager.stop(state.status);
       log.info("Stopped cluster resource manager");
+    } catch (Throwable e) {
+      log.error("Exception while stopping cluster resource manager {}", e);
     }
 
     log.info("Finished stop of Container process manager");
