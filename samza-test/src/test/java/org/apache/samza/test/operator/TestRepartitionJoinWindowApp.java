@@ -44,8 +44,8 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
 
     // create events for the following user activity.
     // userId: (viewId, pageId, (adIds))
-    // u1: (v1, p1, (a1, a2)), (v2, p2, (a3))
-    // u2: (v3, p1, (a1, a2, a4)), (v4, p3, (a5))
+    // u1: (v1, p1, (a1)), (v2, p2, (a3))
+    // u2: (v3, p1, (a1)), (v4, p3, (a5))
     produceMessage(PAGE_VIEWS, 0, "p1", "{\"viewId\":\"v1\",\"pageId\":\"p1\",\"userId\":\"u1\"}");
     produceMessage(PAGE_VIEWS, 1, "p2", "{\"viewId\":\"v2\",\"pageId\":\"p2\",\"userId\":\"u1\"}");
     produceMessage(PAGE_VIEWS, 0, "p1", "{\"viewId\":\"v3\",\"pageId\":\"p1\",\"userId\":\"u2\"}");
