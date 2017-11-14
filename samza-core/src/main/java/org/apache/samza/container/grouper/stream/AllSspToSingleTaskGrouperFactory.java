@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.IntStream;
 import org.I0Itec.zkclient.ZkClient;
+import org.apache.commons.lang3.Validate;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
@@ -118,6 +119,8 @@ public class AllSspToSingleTaskGrouperFactory implements SystemStreamPartitionGr
       taskCount = config.getInt(YARN_CONTAINER_COUNT);
     }
 
+    Validate.isTrue(taskCount > 0, "Task count cannot be <= 0");
+
     return new AllSspToSingleTaskGrouper(isPassthroughJobCoordinator, containerId, taskCount);
   }
 
@@ -126,6 +129,6 @@ public class AllSspToSingleTaskGrouperFactory implements SystemStreamPartitionGr
     ZkClient zkClient =
         createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
     ZkKeyBuilder keyBuilder = new ZkKeyBuilder(getJobCoordinationZkPath(config));
-    return zkClient.getChildren(keyBuilder.getProcessorsPath()).size();
+    return zkClient.countChildren(keyBuilder.getProcessorsPath());
   }
 }
