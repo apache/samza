@@ -19,35 +19,52 @@
 
 package org.apache.samza.container.grouper.stream;
 
-import org.apache.samza.SamzaException;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
-import org.apache.samza.container.TaskName;
-import org.apache.samza.system.SystemStreamPartition;
-
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.IntStream;
+import org.I0Itec.zkclient.ZkClient;
+import org.apache.samza.SamzaException;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigException;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.JobCoordinatorConfig;
+import org.apache.samza.config.ZkConfig;
+import org.apache.samza.container.TaskName;
+import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
+import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.zk.ZkJobCoordinatorFactory;
+import org.apache.samza.zk.ZkKeyBuilder;
+
+import static org.apache.samza.zk.ZkCoordinationUtilsFactory.*;
+import static org.apache.samza.zk.ZkJobCoordinatorFactory.*;
+
 
 /**
- * AllSspToSingleTaskGrouper, as the name suggests, assigns all partitions to be consumed by a single TaskInstance
- * This is useful, in case of using load-balanced consumers like the new Kafka consumer, Samza doesn't control the
- * partitions being consumed by a task. Hence, it is assumed that there is only 1 task that processes all messages,
- * irrespective of which partition it belongs to.
- * This also implies that container and tasks are synonymous when this grouper is used. Taskname(s) has to be globally
- * unique within a given job.
+ * AllSspToSingleTaskGrouper creates TaskInstances equal to the number of containers and assigns all partitions to be
+ * consumed by each TaskInstance. This is useful, in case of using load-balanced consumers like the high-level Kafka
+ * consumer and Kinesis consumer, where Samza doesn't control the partitions being consumed by the task.
  *
- * Note: This grouper does not take in broadcast streams yet.
+ * Note:
+ * 1. This grouper does not take in broadcast streams yet.
+ * 2. This grouper is supported only with Yarn, Zk-standalone and Passthrough JobCoordinators.
  */
+
 class AllSspToSingleTaskGrouper implements SystemStreamPartitionGrouper {
+  private final boolean isPassthroughJobCoordinator;
+  private final int taskCount;
   private final int containerId;
 
-  public AllSspToSingleTaskGrouper(int containerId) {
+  AllSspToSingleTaskGrouper(boolean isPassthroughJobCoordinator, int containerId, int taskCount) {
+    this.isPassthroughJobCoordinator = isPassthroughJobCoordinator;
     this.containerId = containerId;
+    this.taskCount = taskCount;
   }
 
   @Override
   public Map<TaskName, Set<SystemStreamPartition>> group(final Set<SystemStreamPartition> ssps) {
+    Map<TaskName, Set<SystemStreamPartition>> groupedMap = new HashMap<>();
+
     if (ssps == null) {
       throw new SamzaException("ssp set cannot be null!");
     }
@@ -55,15 +72,60 @@ class AllSspToSingleTaskGrouper implements SystemStreamPartitionGrouper {
       throw new SamzaException("Cannot process stream task with no input system stream partitions");
     }
 
-    final TaskName taskName = new TaskName(String.format("Task-%s", String.valueOf(containerId)));
+    if (isPassthroughJobCoordinator) {
+      final TaskName taskName = new TaskName(String.format("Task-%d", containerId));
+      groupedMap.put(taskName, ssps);
+    } else {
+      // Assign all partitions to each task
+      IntStream.range(0, taskCount).forEach(i -> {
+          final TaskName taskName = new TaskName(String.format("Task-%s", String.valueOf(i)));
+          groupedMap.put(taskName, ssps);
+        });
+    }
 
-    return Collections.singletonMap(taskName, ssps);
+    return groupedMap;
   }
 }
 
 public class AllSspToSingleTaskGrouperFactory implements SystemStreamPartitionGrouperFactory {
+  private static final String YARN_CONTAINER_COUNT = "yarn.container.count";
+  private static final String PASSTHROUGH_JOB_COORDINATOR_FACTORY = PassthroughJobCoordinatorFactory.class.getName();
+  private static final String ZK_JOB_COORDINATOR_FACTORY = ZkJobCoordinatorFactory.class.getName();
+
   @Override
   public SystemStreamPartitionGrouper getSystemStreamPartitionGrouper(Config config) {
-    return new AllSspToSingleTaskGrouper(config.getInt(JobConfig.PROCESSOR_ID()));
+    int taskCount;
+    int containerId = 0;
+    boolean isPassthroughJobCoordinator = false;
+    String jobCoordinatorFactoryClassName = config.get(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY);
+
+    if (jobCoordinatorFactoryClassName != null && !jobCoordinatorFactoryClassName.isEmpty()) {
+      if (jobCoordinatorFactoryClassName.equals(ZK_JOB_COORDINATOR_FACTORY)) {
+        taskCount = getNumProcessors(config);
+      } else if (jobCoordinatorFactoryClassName.equals(PASSTHROUGH_JOB_COORDINATOR_FACTORY)) {
+        if (config.get(JobConfig.PROCESSOR_ID()) == null) {
+          throw new ConfigException("Could not find " + JobConfig.PROCESSOR_ID() + " in Config!");
+        }
+        isPassthroughJobCoordinator = true;
+        containerId = config.getInt(JobConfig.PROCESSOR_ID());
+        taskCount = 1;
+      } else {
+        throw new ConfigException("AllSspToSingleTaskGrouperFactory is not yet supported with "
+            + jobCoordinatorFactoryClassName);
+      }
+    } else {
+      // must be cluster-based jobCoordinator (Yarn)
+      taskCount = config.getInt(YARN_CONTAINER_COUNT);
+    }
+
+    return new AllSspToSingleTaskGrouper(isPassthroughJobCoordinator, containerId, taskCount);
+  }
+
+  private int getNumProcessors(Config config) {
+    ZkConfig zkConfig = new ZkConfig(config);
+    ZkClient zkClient =
+        createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
+    ZkKeyBuilder keyBuilder = new ZkKeyBuilder(getJobCoordinationZkPath(config));
+    return zkClient.getChildren(keyBuilder.getProcessorsPath()).size();
   }
 }
