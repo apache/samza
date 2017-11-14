@@ -19,34 +19,25 @@
 
 package org.apache.samza.storage;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
 import org.apache.samza.system.IncomingMessageEnvelope;
-import org.apache.samza.system.SystemAdmin;
-import org.apache.samza.system.SystemStreamMetadata;
-import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
+import org.apache.samza.system.MockSystemFactory;
 import org.apache.samza.system.SystemStreamPartition;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 public class TestStorageRecovery {
 
-  public static SystemAdmin systemAdmin = null;
   public Config config = null;
-  public SystemStreamMetadata systemStreamMetadata = null;
-  public SystemStreamMetadata inputSystemStreamMetadata = null;
   private static final String SYSTEM_STREAM_NAME = "changelog";
   private static final String INPUT_STREAM = "input";
   private static final String STORE_NAME = "testStore";
@@ -57,16 +48,6 @@ public class TestStorageRecovery {
   public void setup() throws InterruptedException {
     putConfig();
     putMetadata();
-
-    systemAdmin = mock(SystemAdmin.class);
-
-    Set<String> set1 = new HashSet<String>(Arrays.asList(SYSTEM_STREAM_NAME));
-    Set<String> set2 = new HashSet<String>(Arrays.asList(INPUT_STREAM));
-    HashMap<String, SystemStreamMetadata> ssmMap = new HashMap<>();
-    ssmMap.put(SYSTEM_STREAM_NAME, systemStreamMetadata);
-    ssmMap.put(INPUT_STREAM, inputSystemStreamMetadata);
-    when(systemAdmin.getSystemStreamMetadata(set1)).thenReturn(ssmMap);
-    when(systemAdmin.getSystemStreamMetadata(set2)).thenReturn(ssmMap);
   }
 
   @After
@@ -106,15 +87,9 @@ public class TestStorageRecovery {
   }
 
   private void putMetadata() {
-    SystemStreamMetadata.SystemStreamPartitionMetadata sspm = new SystemStreamMetadata.SystemStreamPartitionMetadata("0", "1", "2");
-    HashMap<Partition, SystemStreamPartitionMetadata> map = new HashMap<Partition, SystemStreamPartitionMetadata>();
-    map.put(new Partition(0), sspm);
-    map.put(new Partition(1), sspm);
-    systemStreamMetadata = new SystemStreamMetadata(SYSTEM_STREAM_NAME, map);
-
-    HashMap<Partition, SystemStreamPartitionMetadata> map1 = new HashMap<Partition, SystemStreamPartitionMetadata>();
-    map1.put(new Partition(0), sspm);
-    map1.put(new Partition(1), sspm);
-    inputSystemStreamMetadata = new SystemStreamMetadata(INPUT_STREAM, map1);
+    MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("mockSystem", SYSTEM_STREAM_NAME, new Partition(0)), new ArrayList<IncomingMessageEnvelope>() { { this.add(msg); } });
+    MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("mockSystem", SYSTEM_STREAM_NAME, new Partition(1)), new ArrayList<IncomingMessageEnvelope>() { { this.add(msg); } });
+    MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("mockSystem", INPUT_STREAM, new Partition(0)), new ArrayList<>());
+    MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("mockSystem", INPUT_STREAM, new Partition(1)), new ArrayList<>());
   }
 }
