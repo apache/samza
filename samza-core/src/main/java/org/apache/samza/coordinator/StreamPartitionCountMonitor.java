@@ -64,7 +64,8 @@ public class StreamPartitionCountMonitor {
   private volatile State state = State.INIT;
 
   /**
-   * This callback interface is to be invoked on detection of SSP changes in the input
+   * A callback that is invoked when the {@link StreamPartitionCountMonitor} detects a change in the partition count of
+   * any of its {@link SystemStream}s.
    */
   public interface Callback {
     /**
