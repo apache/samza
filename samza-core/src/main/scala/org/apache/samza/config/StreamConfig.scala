@@ -48,6 +48,7 @@ object StreamConfig {
   val PHYSICAL_NAME_FOR_STREAM_ID = STREAM_ID_PREFIX + PHYSICAL_NAME
   val IS_INTERMEDIATE_FOR_STREAM_ID = STREAM_ID_PREFIX + IS_INTERMEDIATE
   val IS_BOUNDED_FOR_STREAM_ID = STREAM_ID_PREFIX + IS_BOUNDED
+  val PRIORITY_FOR_STREAM_ID = STREAM_ID_PREFIX + PRIORITY
   val CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID = STREAM_ID_PREFIX + CONSUMER_OFFSET_DEFAULT
 
   implicit def Config2Stream(config: Config) = new StreamConfig(config)
@@ -63,18 +64,20 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
       case Some("true") => true
       case Some("false") => false
       case Some(resetOffset) =>
-        warn("Got a .samza.reset.offset configuration for SystemStream %s that is not true, or false (was %s). Defaulting to false."
+        warn("Got a .samza.reset.offset configuration for SystemStream %s that is not true or false (was %s). Defaulting to false."
           format (systemStream.toString format (systemStream.getSystem, systemStream.getStream), resetOffset))
         false
       case _ => false
     }
 
-  def isResetOffsetConfigured(systemStream: SystemStream) = containsSamzaProperty(systemStream, StreamConfig.CONSUMER_RESET_OFFSET)
+  def isResetOffsetConfigured(systemStream: SystemStream) =
+    containsSamzaProperty(systemStream, StreamConfig.CONSUMER_RESET_OFFSET)
 
   def getDefaultStreamOffset(systemStream: SystemStream) =
     Option(getSamzaProperty(systemStream, StreamConfig.CONSUMER_OFFSET_DEFAULT))
 
-  def isDefaultStreamOffsetConfigured(systemStream: SystemStream) = containsSamzaProperty(systemStream, StreamConfig.CONSUMER_OFFSET_DEFAULT)
+  def isDefaultStreamOffsetConfigured(systemStream: SystemStream) =
+    containsSamzaProperty(systemStream, StreamConfig.CONSUMER_OFFSET_DEFAULT)
 
   def getBootstrapEnabled(systemStream: SystemStream) =
     java.lang.Boolean.parseBoolean(getSamzaProperty(systemStream, StreamConfig.BOOTSTRAP))
@@ -123,7 +126,8 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getStreamProperties(streamId: String) = {
     val allProperties = getAllStreamProperties(streamId)
     val samzaProperties = allProperties.subset(StreamConfig.SAMZA_PROPERTY, false)
-    val filteredStreamProperties:java.util.Map[String, String] = allProperties.asScala.filterKeys(k => !samzaProperties.containsKey(k)).asJava
+    val filteredStreamProperties: java.util.Map[String, String] =
+      allProperties.asScala.filterKeys(k => !samzaProperties.containsKey(k)).asJava
     new MapConfig(filteredStreamProperties)
   }
 
@@ -190,7 +194,8 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     */
   protected def getSamzaProperty(systemStream: SystemStream, property: String): String = {
     if (!property.startsWith(StreamConfig.SAMZA_PROPERTY)) {
-      throw new IllegalArgumentException("Attempt to fetch a non samza property for SystemStream %s named %s" format(systemStream, property))
+      throw new IllegalArgumentException(
+        "Attempt to fetch a non samza property for SystemStream %s named %s" format(systemStream, property))
     }
 
     val streamVal = getAllStreamProperties(systemStreamToStreamId(systemStream)).get(property)
@@ -232,9 +237,10 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     */
   protected def containsSamzaProperty(systemStream: SystemStream, property: String): Boolean = {
     if (!property.startsWith(StreamConfig.SAMZA_PROPERTY)) {
-      throw new IllegalArgumentException("Attempt to fetch a non samza property for SystemStream %s named %s" format(systemStream, property))
+      throw new IllegalArgumentException(
+        "Attempt to fetch a non samza property for SystemStream %s named %s" format(systemStream, property))
     }
-    return getSamzaProperty(systemStream, property) != null
+    getSamzaProperty(systemStream, property) != null
   }
 
 
@@ -250,8 +256,8 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     if (systemName == null) {
       Map()
     }
-    val systemConfig = new JavaSystemConfig(config);
-    val defaults = systemConfig.getDefaultStreamProperties(systemName);
+    val systemConfig = new JavaSystemConfig(config)
+    val defaults = systemConfig.getDefaultStreamProperties(systemName)
     val explicitConfigs = config.subset(StreamConfig.STREAM_PREFIX format(systemName, streamName), true)
     new MapConfig(defaults, explicitConfigs)
   }
@@ -269,7 +275,8 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     */
   private def getAllStreamProperties(streamId: String) = {
     val allProperties = subset(StreamConfig.STREAM_ID_PREFIX format streamId)
-    val inheritedLegacyProperties:java.util.Map[String, String] = getSystemStreamProperties(getSystem(streamId), getPhysicalName(streamId))
+    val inheritedLegacyProperties: java.util.Map[String, String] =
+      getSystemStreamProperties(getSystem(streamId), getPhysicalName(streamId))
     new MapConfig(java.util.Arrays.asList(inheritedLegacyProperties, allProperties))
   }
 
@@ -278,7 +285,8 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   }
 
   def systemStreamToStreamId(systemStream: SystemStream): String = {
-   val streamIds = getStreamIdsForSystem(systemStream.getSystem).filter(streamId => systemStream.getStream().equals(getPhysicalName(streamId)))
+    val streamIds = getStreamIdsForSystem(systemStream.getSystem)
+      .filter(streamId => systemStream.getStream().equals(getPhysicalName(streamId)))
     if (streamIds.size > 1) {
       throw new IllegalStateException("There was more than one stream found for system stream %s" format(systemStream))
     }
