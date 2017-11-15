@@ -125,7 +125,7 @@ public class StreamEdge {
     if (isIntermediate()) {
       config.put(String.format(StreamConfig.IS_INTERMEDIATE_FOR_STREAM_ID(), spec.getId()), "true");
       config.put(String.format(StreamConfig.CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID(), spec.getId()), "oldest");
-      config.put(String.format(StreamConfig.PRIORITY_FOR_STREAM_ID(), spec.getId()), "1");
+      config.put(String.format(StreamConfig.PRIORITY_FOR_STREAM_ID(), spec.getId()), String.valueOf(Integer.MAX_VALUE));
     }
     if (spec.isBounded()) {
       config.put(String.format(StreamConfig.IS_BOUNDED_FOR_STREAM_ID(), spec.getId()), "true");
