@@ -329,6 +329,24 @@ project(':samza-sql') {
   }
 }
 
+project(':samza-sql') {
+  apply plugin: 'java'
+
+  dependencies {
+    compile project(':samza-api')
+    compile project(":samza-kafka_$scalaVersion")
+    compile "org.apache.avro:avro:$avroVersion"
+    compile "org.apache.calcite:calcite-core:$calciteVersion"
+    compile "org.slf4j:slf4j-api:$slf4jVersion"
+
+    testCompile project(":samza-test_$scalaVersion")
+    testCompile "junit:junit:$junitVersion"
+    testCompile "org.mockito:mockito-all:$mockitoVersion"
+
+    testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
+  }
+}
+
 project(":samza-kafka_$scalaVersion") {
   apply plugin: 'scala'
 
