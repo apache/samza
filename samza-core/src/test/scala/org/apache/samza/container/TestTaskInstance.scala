@@ -73,7 +73,7 @@ class TestTaskInstance {
     val offsetManager = OffsetManager(Map(systemStream -> testSystemStreamMetadata), config)
     val taskName = new TaskName("taskName")
     val collector = new TaskInstanceCollector(producerMultiplexer)
-    val containerContext = new SamzaContainerContext("0", config, Set(taskName).asJava)
+    val containerContext = new SamzaContainerContext("0", config, Set(taskName).asJava, new MetricsRegistryMap)
     val taskInstance: TaskInstance = new TaskInstance(
       task,
       taskName,
@@ -168,7 +168,7 @@ class TestTaskInstance {
     val offsetManager = OffsetManager(Map(systemStream -> testSystemStreamMetadata), config)
     val taskName = new TaskName("taskName")
     val collector = new TaskInstanceCollector(producerMultiplexer)
-    val containerContext = new SamzaContainerContext("0", config, Set(taskName).asJava)
+    val containerContext = new SamzaContainerContext("0", config, Set(taskName).asJava, new MetricsRegistryMap)
 
     val registry = new MetricsRegistryMap
     val taskMetrics = new TaskInstanceMetrics(registry = registry)
@@ -225,7 +225,7 @@ class TestTaskInstance {
     val offsetManager = OffsetManager(Map(systemStream -> testSystemStreamMetadata), config)
     val taskName = new TaskName("taskName")
     val collector = new TaskInstanceCollector(producerMultiplexer)
-    val containerContext = new SamzaContainerContext("0", config, Set(taskName).asJava)
+    val containerContext = new SamzaContainerContext("0", config, Set(taskName).asJava, new MetricsRegistryMap)
 
     val registry = new MetricsRegistryMap
     val taskMetrics = new TaskInstanceMetrics(registry = registry)
@@ -284,7 +284,7 @@ class TestTaskInstance {
     val metrics = new TaskInstanceMetrics()
     val taskName = new TaskName("Offset Reset Task 0")
     val collector = new TaskInstanceCollector(producers)
-    val containerContext = new SamzaContainerContext("0", config, Set(taskName).asJava)
+    val containerContext = new SamzaContainerContext("0", config, Set(taskName).asJava, new MetricsRegistryMap)
 
     val offsetManager = new OffsetManager()
 
@@ -319,7 +319,7 @@ class TestTaskInstance {
     val metrics = new TaskInstanceMetrics()
     val taskName = new TaskName("testing")
     val collector = new TaskInstanceCollector(producers)
-    val containerContext = new SamzaContainerContext("0", config, Set(taskName).asJava)
+    val containerContext = new SamzaContainerContext("0", config, Set(taskName).asJava, new MetricsRegistryMap)
     val offsetManager = new OffsetManager()
     offsetManager.startingOffsets += taskName -> Map(partition0 -> "0", partition1 -> "100")
     val systemAdmins = Map("system" -> new MockSystemAdmin)
