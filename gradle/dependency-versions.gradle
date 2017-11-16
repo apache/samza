@@ -18,6 +18,8 @@
  */
  ext {
   apacheCommonsCollections4Version = "4.0"
+  avroVersion = "1.7.0"
+  calciteVersion = "1.14.0"
   commonsCodecVersion = "1.9"
   commonsCollectionVersion = "3.2.1"
   commonsHttpClientVersion = "3.1"
