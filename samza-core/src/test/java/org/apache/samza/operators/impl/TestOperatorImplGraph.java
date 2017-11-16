@@ -157,7 +157,7 @@ public class TestOperatorImplGraph {
     when(taskModel.getSystemStreamPartitions()).thenReturn(Collections.emptySet());
     when(mockTaskContext.getJobModel()).thenReturn(jobModel);
     SamzaContainerContext containerContext =
-        new SamzaContainerContext("0", mockConfig, Collections.singleton(new TaskName("task 0")));
+        new SamzaContainerContext("0", mockConfig, Collections.singleton(new TaskName("task 0")), new MetricsRegistryMap());
     when(mockTaskContext.getSamzaContainerContext()).thenReturn(containerContext);
     OperatorImplGraph opImplGraph =
         new OperatorImplGraph(streamGraph, mockConfig, mockTaskContext, mock(Clock.class));

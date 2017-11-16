@@ -52,18 +52,4 @@ public class SamzaContainerContext {
     this.taskNames = Collections.unmodifiableCollection(taskNames);
     this.metricsRegistry = metricsRegistry;
   }
-
-  /**
-   * See also {@link SamzaContainerContext#SamzaContainerContext(String, Config, Collection, MetricsRegistry)}.
-   * NOTE: Used for testing only.
-   * @param id The id of the container.
-   * @param config The job configuration.
-   * @param taskNames The set of taskName keys for which this container is responsible.
-   */
-  public SamzaContainerContext(
-      String id,
-      Config config,
-      Collection<TaskName> taskNames) {
-    this(id, config, taskNames, null);
-  }
 }
