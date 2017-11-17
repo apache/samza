@@ -29,6 +29,7 @@ import org.junit.Assert._
 import org.junit.Test
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 
 class TestCheckpointSerde {
   @Test
@@ -57,4 +58,11 @@ class TestCheckpointSerde {
     assertNotSame(mapping, backToMap)
   }
 
+  @Test
+  def testNullCheckpointSerde: Unit = {
+    val checkpointBytes = null.asInstanceOf[Array[Byte]]
+    val checkpointSerde = new CheckpointSerde
+    val checkpoint = checkpointSerde.fromBytes(checkpointBytes)
+    assertNull(checkpoint)
+  }
 }
