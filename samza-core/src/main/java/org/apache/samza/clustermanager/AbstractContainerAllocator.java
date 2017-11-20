@@ -151,20 +151,10 @@ public abstract class AbstractContainerAllocator implements Runnable {
     log.info("Found available resources on {}. Assigning request for container_id {} with "
             + "timestamp {} to resource {}",
         new Object[]{preferredHost, String.valueOf(containerID), request.getRequestTimestampMs(), resource.getResourceID()});
-    try {
       //launches a StreamProcessor on the resource
-      clusterResourceManager.launchStreamProcessor(resource, builder);
 
-      if (state.neededContainers.decrementAndGet() == 0) {
-        state.jobHealthy.set(true);
-      }
-      state.runningContainers.put(request.getContainerID(), resource);
-
-    } catch (SamzaContainerLaunchException e) {
-      log.warn(String.format("Got exception while starting resource %s. Requesting a new resource on any host", resource), e);
-      resourceRequestState.releaseUnstartableContainer(resource);
-      requestResource(containerID, ResourceRequestState.ANY_HOST);
-    }
+    clusterResourceManager.launchStreamProcessor(resource, builder);
+    state.pendingContainers.put(containerID, resource);
   }
 
   /**

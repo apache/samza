@@ -94,7 +94,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   private volatile Throwable exceptionOccurred = null;
 
   /**
-   * A map that keeps track of how many times each container failed. The key is the container ID, and the
+   * A map that keeps track of how many times each container failed after it has started. The key is the container ID, and the
    * value is the {@link ResourceFailure} object that has a count of failures.
    *
    */
@@ -383,6 +383,50 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     }
   }
 
+  @Override
+  public void onStreamProcessorLaunchSuccess(SamzaResource resource) {
+    if (state.neededContainers.decrementAndGet() == 0) {
+      state.jobHealthy.set(true);
+    }
+
+    String containerId = null;
+
+    for (Map.Entry<String, SamzaResource> entry: state.pendingContainers.entrySet()) {
+      if (entry.getValue().getResourceID().equals(resource.getResourceID())) {
+        log.info("Matching container ID found " + entry.getKey() + " " + entry.getValue());
+        containerId = entry.getKey();
+        break;
+      }
+    }
+
+    state.runningContainers.put(containerId, resource);
+  }
+
+  @Override
+  public void onStreamProcessorLaunchFailure(SamzaResource resource, Throwable t) {
+    log.info("Got a launch failure for SamzaResource {} with exception {}", resource, t);
+
+    log.info("Releasing unstartable container {}", resource.getResourceID());
+    clusterResourceManager.releaseResources(resource);
+
+    String containerId = null;
+    for (Map.Entry<String, SamzaResource> entry: state.pendingContainers.entrySet()) {
+      if (entry.getValue().getResourceID().equals(resource.getResourceID())) {
+        log.info("Matching container ID found " + entry.getKey() + " " + entry.getValue());
+        containerId = entry.getKey();
+        break;
+      }
+    }
+
+    if (containerId != null) {
+      log.info("Launch of ContainerId: {} failed on host: {}. Falling back to ANY_HOST", containerId, resource.getHost());
+      clusterResourceManager.requestResources(new SamzaResourceRequest(resource.getNumCores(), resource.getMemoryMb(),
+          ResourceRequestState.ANY_HOST, containerId));
+    } else {
+      log.warn("SamzaResource {} was not in pending state. Got an invalid callback for a launch request that was not made", resource);
+    }
+  }
+
   /**
    * An error in the callback terminates the JobCoordinator
    * @param e the underlying exception/error
@@ -418,7 +462,4 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     }
     return factory;
   }
-
-
-
 }

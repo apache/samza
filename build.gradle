@@ -79,6 +79,7 @@ rat {
     'docs/_site/**',
     'docs/sitemap.xml',
     'docs/learn/documentation/*/api/javadocs/**',
+    'docs/learn/documentation/*/rest/javadocs/**',
     'docs/Gemfile.lock',
     'gradle/wrapper/**',
     'gradlew',

@@ -38,6 +38,16 @@ public class MockClusterResourceManagerCallback implements ClusterResourceManage
   }
 
   @Override
+  public void onStreamProcessorLaunchSuccess(SamzaResource resource) {
+
+  }
+
+  @Override
+  public void onStreamProcessorLaunchFailure(SamzaResource resource, Throwable t) {
+
+  }
+
+  @Override
   public void onError(Throwable e) {
     error = e;
   }

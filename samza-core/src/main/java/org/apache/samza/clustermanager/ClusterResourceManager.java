@@ -110,10 +110,9 @@ public abstract class ClusterResourceManager {
    * @param builder A builder implementation that encapsulates the context for the
    *                StreamProcessor. A builder encapsulates the ID for the processor, the
    *                build environment, the command to execute etc.
-   * @throws SamzaContainerLaunchException  when there's an error during the requesting launch.
    *
    */
-  public abstract void launchStreamProcessor(SamzaResource resource, CommandBuilder builder) throws SamzaContainerLaunchException;
+  public abstract void launchStreamProcessor(SamzaResource resource, CommandBuilder builder);
 
 
   public abstract void stop(SamzaApplicationState.SamzaAppStatus status);
@@ -142,6 +141,11 @@ public abstract class ClusterResourceManager {
      * @param resources statuses for the resources that were completed.
      */
     void onResourcesCompleted(List<SamzaResourceStatus> resources);
+
+
+    void onStreamProcessorLaunchSuccess(SamzaResource resource);
+
+    void onStreamProcessorLaunchFailure(SamzaResource resource, Throwable t);
 
     /***
      * This callback is invoked when there is an error in the ClusterResourceManager. This is

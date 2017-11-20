@@ -19,30 +19,46 @@
 
 package org.apache.samza.job.yarn;
 
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.DataOutputBuffer;
+import org.apache.hadoop.security.Credentials;
+import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.security.token.*;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
+import org.apache.hadoop.yarn.api.protocolrecords.StartContainerRequest;
 import org.apache.hadoop.yarn.api.records.*;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
+import org.apache.hadoop.yarn.client.api.NMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
+import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
+import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.hadoop.yarn.security.AMRMTokenIdentifier;
 import org.apache.hadoop.yarn.util.ConverterUtils;
+import org.apache.hadoop.yarn.util.Records;
 import org.apache.samza.SamzaException;
 import org.apache.samza.clustermanager.*;
 import org.apache.samza.clustermanager.SamzaApplicationState;
 import org.apache.samza.clustermanager.SamzaContainerLaunchException;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.YarnConfig;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.CommandBuilder;
 import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.util.Util;
 import org.apache.samza.util.hadoop.HttpFileSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -61,7 +77,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  */
 
-public class YarnClusterResourceManager extends ClusterResourceManager implements AMRMClientAsync.CallbackHandler {
+public class YarnClusterResourceManager extends ClusterResourceManager implements AMRMClientAsync.CallbackHandler, NMClientAsync.CallbackHandler {
 
   private final String INVALID_YARN_CONTAINER_ID = "-1";
 
@@ -71,14 +87,9 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   private final AMRMClientAsync<AMRMClient.ContainerRequest> amClient;
 
   /**
-   * A helper class to launch Yarn containers.
-   */
-  private final YarnContainerRunner yarnContainerRunner;
-
-  /**
    * Configuration and state specific to Yarn.
    */
-  private final YarnConfiguration hConfig;
+  private final YarnConfiguration yarnConfiguration;
   private final YarnAppState state;
 
   /**
@@ -100,12 +111,20 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   private final ConcurrentHashMap<SamzaResource, Container> allocatedResources = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<SamzaResourceRequest, AMRMClient.ContainerRequest> requestsMap = new ConcurrentHashMap<>();
 
+  private final ConcurrentHashMap<ContainerId, Container> containersPendingStartup = new ConcurrentHashMap<>();
+  /**
+   * Maps the containerIds to the corresponding SamzaResource.
+   */
+  private final ConcurrentHashMap<ContainerId, SamzaResource> pendingNmRequests = new ConcurrentHashMap<>();
+
   private final SamzaAppMasterMetrics metrics;
 
   final AtomicBoolean started = new AtomicBoolean(false);
   private final Object lock = new Object();
+  private final NMClientAsync nmClientAsync;
 
   private static final Logger log = LoggerFactory.getLogger(YarnClusterResourceManager.class);
+  private final Config config;
 
   /**
    * Creates an YarnClusterResourceManager from config, a jobModelReader and a callback.
@@ -116,15 +135,15 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    */
   public YarnClusterResourceManager(Config config, JobModelManager jobModelManager, ClusterResourceManager.Callback callback, SamzaApplicationState samzaAppState ) {
     super(callback);
-    hConfig = new YarnConfiguration();
-    hConfig.set("fs.http.impl", HttpFileSystem.class.getName());
+    yarnConfiguration = new YarnConfiguration();
+    yarnConfiguration.set("fs.http.impl", HttpFileSystem.class.getName());
 
     // Use the Samza job config "fs.<scheme>.impl" and "fs.<scheme>.impl.*" for YarnConfiguration
     FileSystemImplConfig fsImplConfig = new FileSystemImplConfig(config);
     fsImplConfig.getSchemes().forEach(
         scheme -> {
           fsImplConfig.getSchemeConfig(scheme).forEach(
-              (confKey, confValue) -> hConfig.set(confKey, confValue)
+              (confKey, confValue) -> yarnConfiguration.set(confKey, confValue)
           );
         }
     );
@@ -143,6 +162,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     int nodeHttpPort = Integer.parseInt(nodeHttpPortString);
     YarnConfig yarnConfig = new YarnConfig(config);
     this.yarnConfig = yarnConfig;
+    this.config = config;
     int interval = yarnConfig.getAMPollIntervalMs();
 
     //Instantiate the AM Client.
@@ -151,7 +171,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     this.state = new YarnAppState(-1, containerId, nodeHostString, nodePort, nodeHttpPort);
 
     log.info("Initialized YarnAppState: {}", state.toString());
-    this.service = new SamzaYarnAppMasterService(config, samzaAppState, this.state, registry, hConfig);
+    this.service = new SamzaYarnAppMasterService(config, samzaAppState, this.state, registry, yarnConfiguration);
 
     log.info("ContainerID str {}, Nodehost  {} , Nodeport  {} , NodeHttpport {}", new Object [] {containerIdStr, nodeHostString, nodePort, nodeHttpPort});
     ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
@@ -162,8 +182,8 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
         state,
         amClient
     );
+    this.nmClientAsync = NMClientAsync.createNMClientAsync(this);
 
-    yarnContainerRunner = new YarnContainerRunner(config, hConfig);
   }
 
   /**
@@ -179,7 +199,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     metrics.start();
     service.onInit();
     log.info("Starting YarnContainerManager.");
-    amClient.init(hConfig);
+    amClient.init(yarnConfiguration);
     amClient.start();
     lifecycle.onInit();
 
@@ -273,8 +293,8 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
         return;
       }
 
-      state.runningYarnContainers.put(containerIDStr, new YarnContainer(container));
-      yarnContainerRunner.runContainer(containerIDStr, container, builder);
+      containersPendingStartup.put(container.getId(), container);
+      runContainer(containerIDStr, container, builder);
     }
   }
 
@@ -358,7 +378,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
 
       FileSystem fs = null;
       try {
-        fs = FileSystem.get(hConfig);
+        fs = FileSystem.get(yarnConfiguration);
       } catch (IOException e) {
         log.error("Unable to clean up file system: {}", e);
         return;
@@ -454,4 +474,225 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     clusterManagerCallback.onError(e);
   }
 
+
+  /**
+   * Runs a process as specified by the command builder on the container.
+   * @param samzaContainerId id of the samza Container to run (passed as a command line parameter to the process)
+   * @param container the samza container to run.
+   * @param cmdBuilder the command builder that encapsulates the command, and the context
+   *
+   * @throws SamzaContainerLaunchException  when there's an exception in submitting the request to the RM.
+   *
+   */
+  public void runContainer(String samzaContainerId, Container container, CommandBuilder cmdBuilder) throws SamzaContainerLaunchException {
+    String containerIdStr = ConverterUtils.toString(container.getId());
+    log.info("Got available container ID ({}) for container: {}", samzaContainerId, container);
+
+    // check if we have framework path specified. If yes - use it, if not use default ./__package/
+    String jobLib = ""; // in case of separate framework, this directory will point at the job's libraries
+    String cmdPath = "./__package/";
+
+    String fwkPath = JobConfig.getFwkPath(this.config);
+    if(fwkPath != null && (! fwkPath.isEmpty())) {
+      cmdPath = fwkPath;
+      jobLib = "export JOB_LIB_DIR=./__package/lib";
+    }
+    log.info("In runContainer in util: fwkPath= " + fwkPath + ";cmdPath=" + cmdPath + ";jobLib=" + jobLib);
+    cmdBuilder.setCommandPath(cmdPath);
+
+
+    String command = cmdBuilder.buildCommand();
+    log.info("Container ID {} using command {}", samzaContainerId, command);
+
+    Map<String, String> env = getEscapedEnvironmentVariablesMap(cmdBuilder);
+    env.put(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID(), Util.envVarEscape(container.getId().toString()));
+    printContainerEnvironmentVariables(samzaContainerId, env);
+
+    log.info("Samza FWK path: " + command + "; env=" + env);
+
+    Path packagePath = new Path(yarnConfig.getPackagePath());
+    log.info("Starting container ID {} using package path {}", samzaContainerId, packagePath);
+
+    startContainer(
+        packagePath,
+        container,
+        env,
+        getFormattedCommand(
+            ApplicationConstants.LOG_DIR_EXPANSION_VAR,
+            jobLib,
+            command,
+            ApplicationConstants.STDOUT,
+            ApplicationConstants.STDERR)
+    );
+
+
+    log.info("Claimed container ID {} for container {} on node {} (http://{}/node/containerlogs/{}).",
+        new Object[]{
+            samzaContainerId,
+            containerIdStr,
+            container.getNodeId().getHost(),
+            container.getNodeHttpAddress(),
+            containerIdStr}
+    );
+
+    log.info("Started container ID {}", samzaContainerId);
+  }
+
+  /**
+   *    Runs a command as a process on the container. All binaries needed by the physical process are packaged in the URL
+   *    specified by packagePath.
+   */
+  private void startContainer(Path packagePath,
+                              Container container,
+                              Map<String, String> env,
+                              final String cmd) throws SamzaContainerLaunchException {
+    log.info("starting container {} {} {} {}",
+        new Object[]{packagePath, container, env, cmd});
+
+    // TODO: SAMZA-1144 remove the customized approach for package resource and use the common one.
+    // But keep it now for backward compatibility.
+    // set the local package so that the containers and app master are provisioned with it
+    LocalResource packageResource = Records.newRecord(LocalResource.class);
+    URL packageUrl = ConverterUtils.getYarnUrlFromPath(packagePath);
+    FileStatus fileStatus;
+    try {
+      fileStatus = packagePath.getFileSystem(yarnConfiguration).getFileStatus(packagePath);
+    } catch (IOException ioe) {
+      log.error("IO Exception when accessing the package status from the filesystem", ioe);
+      throw new SamzaContainerLaunchException("IO Exception when accessing the package status from the filesystem");
+    }
+
+    packageResource.setResource(packageUrl);
+    log.info("set package Resource in YarnContainerRunner for {}", packageUrl);
+    packageResource.setSize(fileStatus.getLen());
+    packageResource.setTimestamp(fileStatus.getModificationTime());
+    packageResource.setType(LocalResourceType.ARCHIVE);
+    packageResource.setVisibility(LocalResourceVisibility.APPLICATION);
+
+    ByteBuffer allTokens;
+    // copy tokens (copied from dist shell example)
+    try {
+      Credentials credentials = UserGroupInformation.getCurrentUser().getCredentials();
+      DataOutputBuffer dob = new DataOutputBuffer();
+      credentials.writeTokenStorageToStream(dob);
+
+      // now remove the AM->RM token so that containers cannot access it
+      Iterator iter = credentials.getAllTokens().iterator();
+      while (iter.hasNext()) {
+        TokenIdentifier token = ((org.apache.hadoop.security.token.Token) iter.next()).decodeIdentifier();
+        if (token != null && token.getKind().equals(AMRMTokenIdentifier.KIND_NAME)) {
+          iter.remove();
+        }
+      }
+      allTokens = ByteBuffer.wrap(dob.getData(), 0, dob.getLength());
+
+    } catch (IOException ioe) {
+      log.error("IOException when writing credentials.", ioe);
+      throw new SamzaContainerLaunchException("IO Exception when writing credentials to output buffer");
+    }
+
+    Map<String, LocalResource> localResourceMap = new HashMap<>();
+    localResourceMap.put("__package", packageResource);
+
+    // include the resources from the universal resource configurations
+    LocalizerResourceMapper resourceMapper = new LocalizerResourceMapper(new LocalizerResourceConfig(config), yarnConfiguration);
+    localResourceMap.putAll(resourceMapper.getResourceMap());
+
+    ContainerLaunchContext context = Records.newRecord(ContainerLaunchContext.class);
+    context.setEnvironment(env);
+    context.setTokens(allTokens.duplicate());
+    context.setCommands(new ArrayList<String>() {{add(cmd);}});
+    context.setLocalResources(localResourceMap);
+
+    log.debug("setting localResourceMap to {}", localResourceMap);
+    log.debug("setting context to {}", context);
+
+    StartContainerRequest startContainerRequest = Records.newRecord(StartContainerRequest.class);
+    startContainerRequest.setContainerLaunchContext(context);
+
+    nmClientAsync.startContainerAsync(container, context);
+  }
+
+
+  /**
+   * @param samzaContainerId  the Samza container Id for logging purposes.
+   * @param env               the Map of environment variables to their respective values.
+   */
+  private void printContainerEnvironmentVariables(String samzaContainerId, Map<String, String> env) {
+    StringBuilder sb = new StringBuilder();
+    for (Map.Entry<String, String> entry : env.entrySet()) {
+      sb.append(String.format("\n%s=%s", entry.getKey(), entry.getValue()));
+    }
+    log.info("Container ID {} using environment variables: {}", samzaContainerId, sb.toString());
+  }
+
+
+  /**
+   * Gets the environment variables from the specified {@link CommandBuilder} and escapes certain characters.
+   *
+   * @param cmdBuilder        the command builder containing the environment variables.
+   * @return                  the map containing the escaped environment variables.
+   */
+  private Map<String, String> getEscapedEnvironmentVariablesMap(CommandBuilder cmdBuilder) {
+    Map<String, String> env = new HashMap<String, String>();
+    for (Map.Entry<String, String> entry : cmdBuilder.buildEnvironment().entrySet()) {
+      String escapedValue = Util.envVarEscape(entry.getValue());
+      env.put(entry.getKey(), escapedValue);
+    }
+    return env;
+  }
+
+
+  private String getFormattedCommand(String logDirExpansionVar,
+                                     String jobLib,
+                                     String command,
+                                     String stdOut,
+                                     String stdErr) {
+    if (!jobLib.isEmpty()) {
+      jobLib = "&& " + jobLib; // add job's libraries exported to an env variable
+    }
+
+    return String
+        .format("export SAMZA_LOG_DIR=%s %s && ln -sfn %s logs && exec %s 1>logs/%s 2>logs/%s", logDirExpansionVar,
+            jobLib, logDirExpansionVar, command, stdOut, stdErr);
+  }
+
+
+  @Override
+  public void onContainerStarted(ContainerId containerId, Map<String, ByteBuffer> allServiceResponse) {
+    Container container = containersPendingStartup.remove(containerId);
+    state.runningYarnContainers.put(containerId.toString(), new YarnContainer(container));
+    SamzaResource resource = new SamzaResource(container.getResource().getVirtualCores(),
+        container.getResource().getMemory(), container.getNodeId().getHost(), containerId.toString());
+    clusterManagerCallback.onStreamProcessorLaunchSuccess(resource);
+  }
+
+  @Override
+  public void onContainerStatusReceived(ContainerId containerId, ContainerStatus containerStatus) {
+    // not implemented
+  }
+
+  @Override
+  public void onContainerStopped(ContainerId containerId) {
+    // not implemented
+  }
+
+  @Override
+  public void onStartContainerError(ContainerId containerId, Throwable t) {
+    Container container = containersPendingStartup.remove(containerId);
+    SamzaResource resource = new SamzaResource(container.getResource().getVirtualCores(),
+        container.getResource().getMemory(), container.getNodeId().getHost(), containerId.toString());
+
+    clusterManagerCallback.onStreamProcessorLaunchFailure(resource, new SamzaContainerLaunchException(t));
+  }
+
+  @Override
+  public void onGetContainerStatusError(ContainerId containerId, Throwable t) {
+    // not implemented
+  }
+
+  @Override
+  public void onStopContainerError(ContainerId containerId, Throwable t) {
+    // not implemented
+  }
 }

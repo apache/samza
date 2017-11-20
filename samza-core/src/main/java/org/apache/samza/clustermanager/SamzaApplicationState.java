@@ -105,6 +105,12 @@ public class SamzaApplicationState {
   public final ConcurrentMap<String, SamzaResource> runningContainers = new ConcurrentHashMap<String, SamzaResource>(0);
 
   /**
+   *  Map of the samzaContainerId to the {@link SamzaResource} on which it is running
+   *  Modified by both the AMRMCallbackThread and the ContainerAllocator thread
+   */
+  public final ConcurrentMap<String, SamzaResource> pendingContainers = new ConcurrentHashMap<String, SamzaResource>(0);
+
+  /**
    * Final status of the application. Made to be volatile s.t. changes will be visible in multiple threads.
    */
   public volatile SamzaAppStatus status = SamzaAppStatus.UNDEFINED;

@@ -63,11 +63,12 @@ public class MockClusterResourceManager extends ClusterResourceManager {
   }
 
   @Override
-  public void launchStreamProcessor(SamzaResource resource, CommandBuilder builder) throws SamzaContainerLaunchException {
+  public void launchStreamProcessor(SamzaResource resource, CommandBuilder builder)  {
     if (nextException != null) {
-      throw new SamzaContainerLaunchException(nextException);
+      clusterManagerCallback.onStreamProcessorLaunchFailure(resource, new SamzaContainerLaunchException(nextException));
     }
     launchedResources.add(resource);
+    clusterManagerCallback.onStreamProcessorLaunchSuccess(resource);
     for (MockContainerListener listener : mockContainerListeners) {
       listener.postRunContainer(launchedResources.size());
     }
