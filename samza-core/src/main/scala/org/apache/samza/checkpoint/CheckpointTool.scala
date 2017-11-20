@@ -34,6 +34,8 @@ import org.apache.samza.{Partition, SamzaException}
 import scala.collection.JavaConverters._
 import org.apache.samza.coordinator.JobModelManager
 
+import scala.collection.mutable.ListBuffer
+
 
 /**
  * Command-line tool for inspecting and manipulating the checkpoints for a job.
@@ -80,19 +82,20 @@ object CheckpointTool {
     var newOffsets: TaskNameToCheckpointMap = null
 
     def parseOffsets(propertiesFile: Config): TaskNameToCheckpointMap = {
-      val taskNameSSPPairs = propertiesFile.asScala.flatMap { case (key, value) => {
+      var checkpoints : ListBuffer[(TaskName, Map[SystemStreamPartition, String])] = ListBuffer()
+      propertiesFile.asScala.foreach { case (key, value) => {
         val matcher = SSP_REGEX.matcher(key)
         if (matcher.matches) {
           val taskname = new TaskName(matcher.group(1))
           val partition = new Partition(Integer.parseInt(matcher.group(4)))
           val ssp = new SystemStreamPartition(matcher.group(2), matcher.group(3), partition)
-          Some(taskname -> Map(ssp -> value))
+          val tuple = (taskname -> Map(ssp -> value))
+          checkpoints += tuple
         } else {
           warn("Warning: ignoring unrecognised property: %s = %s" format (key, value))
-          None
         }
-      }}.toList
-
+      }}
+      val taskNameSSPPairs = checkpoints.toList
       if(taskNameSSPPairs.isEmpty) {
         return null
       }

@@ -19,7 +19,11 @@
 
 package org.apache.samza.checkpoint
 
+import java.util
+
+import com.sun.scenario.effect.Offset
 import org.apache.samza.Partition
+import org.apache.samza.checkpoint.CheckpointTool.CheckpointToolCommandLine
 import org.apache.samza.container.TaskName
 import org.apache.samza.checkpoint.TestCheckpointTool.{MockCheckpointManagerFactory, MockSystemFactory}
 import org.apache.samza.config.{Config, MapConfig, SystemConfig, TaskConfig}
@@ -34,6 +38,8 @@ import org.scalatest.mockito.MockitoSugar
 import scala.collection.JavaConverters._
 import org.apache.samza.config.JobConfig
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory
+
+import scala.collection.immutable.HashMap
 
 object TestCheckpointTool {
   var checkpointManager: CheckpointManager = null
@@ -105,5 +111,21 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
       .writeCheckpoint(tn0, new Checkpoint(Map(new SystemStreamPartition("test", "foo", p0) -> "42").asJava))
     verify(TestCheckpointTool.checkpointManager)
       .writeCheckpoint(tn1, new Checkpoint(Map(new SystemStreamPartition("test", "foo", p1) -> "43").asJava))
+  }
+
+  @Test
+  def testGrouping(): Unit = {
+    val config : java.util.Map[String, String] = new util.HashMap()
+    config.put("tasknames.Partition 0.systems.kafka-atc-repartitioned-requests.streams.ArticleRead.partitions.0", "0000")
+    config.put("tasknames.Partition 0.systems.kafka-atc-repartitioned-requests.streams.CommunicationRequest.partitions.0", "1111")
+    config.put("tasknames.Partition 1.systems.kafka-atc-repartitioned-requests.streams.ArticleRead.partitions.1", "2222")
+    config.put("tasknames.Partition 1.systems.kafka-atc-repartitioned-requests.streams.CommunicationRequest.partitions.1", "44444")
+    config.put("tasknames.Partition 1.systems.kafka-atc-repartitioned-requests.streams.StateChange.partitions.1", "5555")
+
+    val ccl = new CheckpointToolCommandLine
+    val result = ccl.parseOffsets(new MapConfig(config))
+
+    assert(result(new TaskName("Partition 0")).size == 2)
+    assert(result(new TaskName("Partition 1")).size == 3)
   }
 }
