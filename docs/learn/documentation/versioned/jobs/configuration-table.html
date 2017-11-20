@@ -241,8 +241,9 @@
                     <td class="description">
                         The frequency at which the input streams' partition count change should be detected. When the input
                         partition count change is detected, Samza will automatically restart a stateless job or fail a
-                        stateful job. This check can be tuned to be pretty low as partition increase is not a common event.
-                        You can completely disable partition count monitoring by setting this value to 0 or a negative integer,
+                        stateful job. A longer time interval is recommended for jobs w/ large number of input system stream
+                        partitions, since gathering partition count may incur measurable overhead to the job. You can
+                        completely disable partition count monitoring by setting this value to 0 or a negative integer,
                         which will also disable auto-restart/failing behavior of a Samza job on partition count changes.
                     </td>
                 </tr>
