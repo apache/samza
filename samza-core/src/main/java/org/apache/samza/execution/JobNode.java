@@ -238,8 +238,8 @@ public class JobNode {
     Map<String, Serde> tableKeySerdes = new HashMap<>();
     Map<String, Serde> tableValueSerdes = new HashMap<>();
     tables.forEach(tableSpec -> {
-        tableKeySerdes.put(tableSpec.getId(), tableSpec.getKeySerde());
-        tableValueSerdes.put(tableSpec.getId(), tableSpec.getValueSerde());
+        tableKeySerdes.put(tableSpec.getId(), tableSpec.getSerde().getKeySerde());
+        tableValueSerdes.put(tableSpec.getId(), tableSpec.getSerde().getValueSerde());
       });
 
     // for each unique stream or store serde instance, generate a unique name and serialize to config

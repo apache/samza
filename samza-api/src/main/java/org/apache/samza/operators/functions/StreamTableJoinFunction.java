@@ -19,18 +19,19 @@
 package org.apache.samza.operators.functions;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.operators.KV;
 
 
 /**
  * Joins incoming messages with records from a table by key.
  *
  * @param <K>  type of the join key
- * @param <M>  type of the input message
+ * @param <V>  type of value in the input message
  * @param <R>  type of records in the table
  * @param <OM> type of join results
  */
 @InterfaceStability.Unstable
-public interface StreamTableJoinFunction<K, M, R, OM> extends InitableFunction, ClosableFunction {
+public interface StreamTableJoinFunction<K, V, R, OM> extends InitableFunction, ClosableFunction {
 
   /**
    * Joins the provided messages and table record, returns the joined message.
@@ -39,14 +40,6 @@ public interface StreamTableJoinFunction<K, M, R, OM> extends InitableFunction, 
    * @param record  the table record
    * @return  the join result
    */
-  OM apply(M message, R record);
-
-  /**
-   * Get the join key from messages in the input stream.
-   *
-   * @param message  the message in the input stream
-   * @return  the join key
-   */
-  K getFirstKey(M message);
+  OM apply(KV<K, V> message, R record);
 
 }

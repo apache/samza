@@ -37,16 +37,18 @@ import org.apache.samza.operators.spec.OperatorSpecs;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.spec.PartitionByOperatorSpec;
+import org.apache.samza.operators.spec.SendToTableOperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
-import org.apache.samza.operators.spec.WriteToOperatorSpec;
 import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
 import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
+import org.apache.samza.table.Table;
+import org.apache.samza.table.TableSpec;
 
 
 /**
@@ -141,10 +143,11 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <K, M, R, JM> MessageStream<JM> join(RecordTable<K, R> table,
+  public <K, M, R, JM> MessageStream<JM> join(Table<K, R> table,
       StreamTableJoinFunction<? extends K, ? super M, ? super R, ? extends JM> joinFn) {
+    TableSpec tableSpec = ((TableImpl) table).getTableSpec();
     StreamTableJoinOperatorSpec<K, M, R, JM> joinOpSpec =
-        OperatorSpecs.createStreamTableJoinOperatorSpec(this.operatorSpec, table.getTableSpec(),
+        OperatorSpecs.createStreamTableJoinOperatorSpec(this.operatorSpec, tableSpec,
             joinFn, this.graph.getNextOpId(OpCode.JOIN));
     this.operatorSpec.registerNextOperatorSpec(joinOpSpec);
     return new MessageStreamImpl<>(this.graph, joinOpSpec);
@@ -187,10 +190,9 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <K, V> void writeTo(RecordTable<K, V> table, Function<? super M, ? extends K> keyExtractor,
-      Function<? super M, ? extends V> valueExtractor) {
-    WriteToOperatorSpec<K, V, M> op = OperatorSpecs.createWriteToOperatorSpec(this.operatorSpec,
-        table.getTableSpec(), keyExtractor, valueExtractor, this.graph.getNextOpId(OpCode.WRITE_TO));
+  public <K, V> void sendTo(Table<K, V> table) {
+    SendToTableOperatorSpec<K, V> op = OperatorSpecs.createSendToTableOperatorSpec(
+        this.operatorSpec, ((TableImpl) table).getTableSpec(), this.graph.getNextOpId(OpCode.SEND_TO));
     this.operatorSpec.registerNextOperatorSpec(op);
   }
 

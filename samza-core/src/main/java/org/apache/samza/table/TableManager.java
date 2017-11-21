@@ -26,7 +26,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.SerializerConfig;
-import org.apache.samza.operators.TableDescriptor;
+import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.storage.StorageEngine;
@@ -41,7 +41,14 @@ import org.slf4j.LoggerFactory;
  * read/write operations.
  *
  * A {@link TableManager} is constructed from job configuration, the {@link TableSpec}
- * {@link TableProvider} are constructed by processing the job configuration.
+ * and {@link TableProvider} are constructed by processing the job configuration.
+ *
+ * After a {@link TableManager} is constructed, local tables are associated with
+ * local store instances created during {@link org.apache.samza.container.SamzaContainer}
+ * initialization.
+ *
+ * Method {@link TableManager#getTable(String)} will throw {@link IllegalStateException},
+ * if it's called before initialization.
  *
  * For store backed tables, the list of stores must be injected into the constructor.
  */
@@ -55,7 +62,9 @@ public class TableManager {
   private final Logger logger = LoggerFactory.getLogger(TableManager.class.getName());
 
   // tableId -> TableCtx
-  private Map<String, TableCtx> tables = new HashMap<>();
+  private final Map<String, TableCtx> tables = new HashMap<>();
+
+  private boolean localTablesInitialized;
 
   /**
    * Construct a table manager instance
@@ -81,7 +90,9 @@ public class TableManager {
         String valueSerdeValue = config.get(valueSerdeKey);
         Serde valueSerde = serializableSerde.fromBytes(Base64.getDecoder().decode(valueSerdeValue));
 
-        TableSpec tableSpec = new TableSpec(tableId, keySerde, valueSerde, tableProviderFactory,
+        KVSerde serde = KVSerde.of(keySerde, valueSerde);
+
+        TableSpec tableSpec = new TableSpec(tableId, serde, tableProviderFactory,
             config.subset(String.format(JavaTableConfig.TABLE_ID_PREFIX, tableId) + "."));
 
         addTable(tableSpec);
@@ -91,14 +102,10 @@ public class TableManager {
   }
 
   /**
-   * Construct a table manager instance
-   * @param config the job configuration
-   * @param stores the stores of the job
+   * Initialize all local table
+   * @param stores stores created locally
    */
-  public TableManager(Config config, Map<String, StorageEngine> stores) {
-
-    this(config);
-
+  public void initLocalTables(Map<String, StorageEngine> stores) {
     tables.values().forEach(ctx -> {
         if (ctx.tableProvider instanceof StoreBackedTableProvider) {
           StorageEngine store = stores.get(ctx.tableSpec.getId());
@@ -110,21 +117,15 @@ public class TableManager {
           ((StoreBackedTableProvider) ctx.tableProvider).init(store);
         }
       });
-  }
 
-  /**
-   * Add a table to the table manager
-   * @param tableDescriptor the table descriptor
-   */
-  public void addTable(TableDescriptor tableDescriptor) {
-    addTable(tableDescriptor.getTableSpec());
+    localTablesInitialized = true;
   }
 
   /**
    * Add a table to the table manager
    * @param tableSpec the table spec
    */
-  public void addTable(TableSpec tableSpec) {
+  private void addTable(TableSpec tableSpec) {
     if (tables.containsKey(tableSpec.getId())) {
       throw new SamzaException("Table " + tableSpec.getId() + " already exists");
     }
@@ -155,15 +156,9 @@ public class TableManager {
    * @return table instance
    */
   public Table getTable(String tableId) {
+    if (!localTablesInitialized) {
+      throw new IllegalStateException("Local tables in TableManager not initialized.");
+    }
     return tables.get(tableId).tableProvider.getTable();
-  }
-
-  /**
-   * Get a table instance
-   * @param tableSpec the table spec
-   * @return table instance
-   */
-  public Table getTable(TableSpec tableSpec) {
-    return getTable(tableSpec.getId());
   }
 }

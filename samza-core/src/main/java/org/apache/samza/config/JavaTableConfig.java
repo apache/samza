@@ -67,14 +67,4 @@ public class JavaTableConfig extends MapConfig {
   public String getTableProviderFactory(String tableId) {
     return get(String.format(TABLE_PROVIDER_FACTORY, tableId), null);
   }
-
-  /**
-   * Get the {@link org.apache.samza.table.TableSpec} Json
-   * @param tableId Id of the table
-   * @return {@link org.apache.samza.table.TableSpec} as Json
-   */
-  public String getTableSpecJson(String tableId) {
-    return get(String.format(TABLE_SPEC, tableId), null);
-  }
-
 }

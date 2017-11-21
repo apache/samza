@@ -23,6 +23,7 @@ import java.util.Map;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.table.TableSpec;
@@ -57,8 +58,7 @@ abstract public class TableDescriptor<K, V, D extends TableDescriptor<K, V, D>> 
 
   protected final String tableId;
 
-  protected Serde<K> keySerde = new NoOpSerde();
-  protected Serde<V> valueSerde = new NoOpSerde();
+  protected KVSerde<K, V> serde = KVSerde.of(new NoOpSerde(), new NoOpSerde());
 
   protected final Map<String, String> config = new HashMap<>();
 
@@ -82,12 +82,33 @@ abstract public class TableDescriptor<K, V, D extends TableDescriptor<K, V, D>> 
   }
 
   /**
+   * Set the Serde for this table
+   * @param serde the serde
+   * @return this table descriptor instance
+   */
+  public D withSerde(KVSerde<K, V> serde) {
+    this.serde = serde;
+    return (D) this;
+  }
+
+  /**
+   * Set the Serde for this table
+   * @param keySerde the key serde
+   * @param valueSerde the value serde
+   * @return this table descriptor instance
+   */
+  public D withSerde(Serde<K> keySerde, Serde<V> valueSerde) {
+    this.serde = KVSerde.of(keySerde, valueSerde);
+    return (D) this;
+  }
+
+  /**
    * Set the Serde for keys of this table
    * @param keySerde the key serde
    * @return this table descriptor instance
    */
   public D withKeySerde(Serde<K> keySerde) {
-    this.keySerde = keySerde;
+    this.serde = KVSerde.of(keySerde, this.serde.getValueSerde());
     return (D) this;
   }
 
@@ -97,7 +118,7 @@ abstract public class TableDescriptor<K, V, D extends TableDescriptor<K, V, D>> 
    * @return this table descriptor instance
    */
   public D withValueSerde(Serde<V> valueSerde) {
-    this.valueSerde = valueSerde;
+    this.serde = KVSerde.of(this.serde.getKeySerde(), valueSerde);
     return (D) this;
   }
 
@@ -128,31 +149,8 @@ abstract public class TableDescriptor<K, V, D extends TableDescriptor<K, V, D>> 
    * Validate that this table descriptor is constructed properly
    */
   protected void validate() {
-    if (keySerde == null) {
-      throw new SamzaException("Key serde not provided");
-    }
-
-    if (valueSerde == null) {
-      throw new SamzaException("Value serde not provided");
+    if (serde == null) {
+      throw new SamzaException("Serde not provided");
     }
   }
-
-  /**
-   * Factory of a table descriptor object
-   *
-   * @param <D> the concrete type of the table descriptor. This is needed
-   *            to be able to return the concrete type from the superclass,
-   *            so that the API can be made fluent.
-   */
-
-  public interface Factory<D extends TableDescriptor> {
-    /**
-     * Create an instance of the underlying table descriptor
-     * @param tableId the Id of the table instance, it is used to refer to
-     *                the table throughout the job
-     * @return the table descriptor instance
-     */
-    D getTableDescriptor(String tableId);
-  }
-
 }

@@ -19,6 +19,8 @@
 package org.apache.samza.storage.kv;
 
 import org.apache.samza.serializers.IntegerSerde;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.table.TableSpec;
 import org.junit.Test;
@@ -30,16 +32,42 @@ public class TestRocksDbTableDescriptor {
 
   @Test
   public void testMinimal() {
-    new RocksDbTableFactory<Integer, String>().getTableDescriptor("1")
-        .withKeySerde(new IntegerSerde())
-        .withValueSerde(new StringSerde())
+    new RocksDbTableDescriptor<Integer, String>("1")
         .validate();
+  }
+
+  @Test
+  public void testSerde() {
+    TableSpec tableSpec = new RocksDbTableDescriptor<Integer, String>("1")
+        .withSerde(KVSerde.of(new IntegerSerde(), new StringSerde()))
+        .getTableSpec();
+    Assert.assertNotNull(tableSpec.getSerde());
+    Assert.assertEquals(tableSpec.getSerde().getKeySerde().getClass(), IntegerSerde.class);
+    Assert.assertEquals(tableSpec.getSerde().getValueSerde().getClass(), StringSerde.class);
+  }
+
+  @Test
+  public void testKeySerde() {
+    TableSpec tableSpec = new RocksDbTableDescriptor<Integer, String>("1")
+        .withKeySerde(new IntegerSerde())
+        .getTableSpec();
+    Assert.assertEquals(tableSpec.getSerde().getKeySerde().getClass(), IntegerSerde.class);
+    Assert.assertTrue(tableSpec.getSerde().getValueSerde() instanceof NoOpSerde);
+  }
+
+  @Test
+  public void testValueSerde() {
+    TableSpec tableSpec = new RocksDbTableDescriptor<Integer, String>("1")
+        .withValueSerde(new StringSerde())
+        .getTableSpec();
+    Assert.assertTrue(tableSpec.getSerde().getKeySerde() instanceof NoOpSerde);
+    Assert.assertEquals(tableSpec.getSerde().getValueSerde().getClass(), StringSerde.class);
   }
 
   @Test
   public void testTableSpec() {
 
-    TableSpec tableSpec = new RocksDbTableFactory<Integer, String>().getTableDescriptor("1")
+    TableSpec tableSpec = new RocksDbTableDescriptor<Integer, String>("1")
         .withKeySerde(new IntegerSerde())
         .withValueSerde(new StringSerde())
         .withBlockSize(1)
@@ -56,8 +84,9 @@ public class TestRocksDbTableDescriptor {
         .withConfig("rocksdb.abc", "xyz")
         .getTableSpec();
 
-    Assert.assertNotNull(tableSpec.getKeySerde());
-    Assert.assertNotNull(tableSpec.getValueSerde());
+    Assert.assertNotNull(tableSpec.getSerde());
+    Assert.assertNotNull(tableSpec.getSerde().getKeySerde());
+    Assert.assertNotNull(tableSpec.getSerde().getValueSerde());
     Assert.assertEquals("1", getConfig(tableSpec, RocksDbTableDescriptor.ROCKSDB_BLOCK_SIZE_BYTES));
     Assert.assertEquals("2", getConfig(tableSpec, RocksDbTableDescriptor.CONTAINER_CACHE_SIZE_BYTES));
     Assert.assertEquals("3", getConfig(tableSpec, RocksDbTableDescriptor.ROCKSDB_MAX_LOG_FILE_SIZE_BYTES));

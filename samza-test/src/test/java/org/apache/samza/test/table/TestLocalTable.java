@@ -32,15 +32,20 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.RecordTable;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
+import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.standalone.PassthroughCoordinationUtilsFactory;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.storage.kv.inmemory.InMemoryTableDescriptor;
+import org.apache.samza.table.Table;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
+import org.apache.samza.test.table.TestTableData.EnrichedPageView;
+import org.apache.samza.test.table.TestTableData.PageView;
+import org.apache.samza.test.table.TestTableData.Profile;
+import org.apache.samza.test.table.TestTableData.ProfileJsonSerde;
 import org.apache.samza.test.util.ArraySystemFactory;
 import org.apache.samza.test.util.Base64Serializer;
 import org.junit.Test;
@@ -48,14 +53,13 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-
 /**
- * This test class tests writeTo() and join() for local tables
+ * This test class tests sendTo() and join() for local tables
  */
 public class TestLocalTable extends AbstractIntegrationTestHarness {
 
   @Test
-  public void testWriteTo() throws  Exception {
+  public void testSendTo() throws  Exception {
 
     List<TestTableData.Profile> received = new ArrayList<>();
 
@@ -72,16 +76,15 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
     final StreamApplication app = (streamGraph, cfg) -> {
 
-      RecordTable<Integer, TestTableData.Profile> table = streamGraph.getRecordTable(
-          new InMemoryTableDescriptor.Factory<Integer, TestTableData.Profile>().getTableDescriptor("t1")
-              .withKeySerde(new IntegerSerde())
-              .withValueSerde(new TestTableData.ProfileJsonSerde()));
+      Table<Integer, TestTableData.Profile> table = streamGraph.getTable(new InMemoryTableDescriptor("t1")
+          .withKeySerde(KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde())));
 
-      streamGraph.getInputStream("Profile", new NoOpSerde<TestTableData.Profile>())
-          .writeTo(table, m -> m.getMemberId(), m -> {
+      streamGraph.getInputStream("Profile", new NoOpSerde<Profile>())
+          .map(m -> {
               received.add(m);
-              return m;
-            });
+              return new KV(m.getMemberId(), m);
+            })
+          .sendTo(table);
     };
 
     runner.run(app);
@@ -94,11 +97,11 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
   @Test
   public void testStreamTableJoin() throws  Exception {
 
-    List<TestTableData.PageView> received = new ArrayList<>();
+    List<PageView> received = new ArrayList<>();
 
     int count = 10;
-    TestTableData.PageView[] pageViews = TestTableData.generatePageViews(count);
-    TestTableData.Profile[] profiles = TestTableData.generateProfiles(count);
+    PageView[] pageViews = TestTableData.generatePageViews(count);
+    Profile[] profiles = TestTableData.generateProfiles(count);
 
     int partitionCount = 4;
     Map<String, String> configs = getBaseJobConfig();
@@ -115,16 +118,16 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
     final StreamApplication app = (streamGraph, cfg) -> {
 
-      RecordTable<Integer, TestTableData.Profile> table = streamGraph.getRecordTable(
-          new InMemoryTableDescriptor.Factory<Integer, TestTableData.Profile>().getTableDescriptor("t1")
-              .withKeySerde(new IntegerSerde())
-              .withValueSerde(new TestTableData.ProfileJsonSerde()));
+      Table<Integer, Profile> table = streamGraph.getTable(new InMemoryTableDescriptor("t1")
+          .withKeySerde(new IntegerSerde())
+          .withValueSerde(new ProfileJsonSerde()));
 
       streamGraph.getInputStream("Profile", new NoOpSerde<TestTableData.Profile>())
-          .writeTo(table, m -> m.getMemberId(), m -> m);
+          .map(m -> new KV(m.getMemberId(), m))
+          .sendTo(table);
 
-      streamGraph.getInputStream("PageView", new NoOpSerde<TestTableData.PageView>())
-          .partitionBy(TestTableData.PageView::getMemberId, v -> v, "p1")
+      streamGraph.getInputStream("PageView", new NoOpSerde<PageView>())
+          .partitionBy(PageView::getMemberId, v -> v, "p1")
           .join(table, new MyJoinFn())
           .sink((m, collector, coordinator) -> received.add(m));
     };
@@ -133,7 +136,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     runner.waitForFinish();
 
     assertEquals(count * partitionCount, received.size());
-    assertTrue(received.get(0) instanceof TestTableData.EnrichedPageView);
+    assertTrue(received.get(0) instanceof EnrichedPageView);
 
   }
 
@@ -163,17 +166,11 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
   }
 
   static public class MyJoinFn implements StreamTableJoinFunction
-      <Integer, KV<Integer, TestTableData.PageView>, TestTableData.Profile, TestTableData.EnrichedPageView> {
+      <Integer, PageView, TestTableData.Profile, TestTableData.EnrichedPageView> {
     @Override
-    public TestTableData.EnrichedPageView apply(KV<Integer, TestTableData.PageView> kv, TestTableData.Profile p) {
-      TestTableData.PageView pv = kv.getValue();
-      return new TestTableData.EnrichedPageView(pv.getPageKey(), pv.getMemberId(), p.getCompany());
-    }
-
-    @Override
-    public Integer getFirstKey(KV<Integer, TestTableData.PageView> kv) {
-      return kv.getValue().getMemberId();
+    public EnrichedPageView apply(KV<Integer, PageView> kv, TestTableData.Profile p) {
+      PageView pv = kv.getValue();
+      return new EnrichedPageView(pv.getPageKey(), pv.getMemberId(), p.getCompany());
     }
   }
-
 }

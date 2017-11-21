@@ -41,8 +41,8 @@ import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStati
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
-import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.serializers._
+import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.storage.{StorageEngineFactory, TaskStorageManager}
 import org.apache.samza.system._
 import org.apache.samza.system.chooser.{DefaultChooser, MessageChooserFactory, RoundRobinChooserFactory}
@@ -540,7 +540,8 @@ object SamzaContainer extends Logging {
         new StorageConfig(config).getChangeLogDeleteRetentionsInMs,
         new SystemClock)
 
-      val tableManager = new TableManager(config, taskStores.asJava)
+      val tableManager = new TableManager(config)
+      tableManager.initLocalTables(taskStores.asJava)
 
       info("Got table manager");
 

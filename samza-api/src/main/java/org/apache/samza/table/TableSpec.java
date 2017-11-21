@@ -23,7 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.serializers.Serde;
+import org.apache.samza.serializers.KVSerde;
 
 
 /**
@@ -44,8 +44,7 @@ import org.apache.samza.serializers.Serde;
 public class TableSpec {
 
   private final String id;
-  private final Serde keySerde;
-  private final Serde valueSerde;
+  private final KVSerde serde;
   private final String tableProviderFactory;
   private final Map<String, String> config = new HashMap<>();
 
@@ -54,8 +53,7 @@ public class TableSpec {
    */
   public TableSpec() {
     this.id = null;
-    this.keySerde = null;
-    this.valueSerde = null;
+    this.serde = null;
     this.tableProviderFactory = null;
   }
 
@@ -64,15 +62,13 @@ public class TableSpec {
    *
    * @param tableId Id of the table
    * @param tableProviderFactory table provider factory
-   * @param keySerde the key Serde
-   * @param valueSerde the value Serde
+   * @param serde the serde
    * @param config implementation specific configuration
    */
-  public TableSpec(String tableId, Serde<?> keySerde, Serde<?> valueSerde, String tableProviderFactory,
+  public TableSpec(String tableId, KVSerde serde, String tableProviderFactory,
       Map<String, String> config) {
     this.id = tableId;
-    this.keySerde = keySerde;
-    this.valueSerde = valueSerde;
+    this.serde = serde;
     this.tableProviderFactory = tableProviderFactory;
     this.config.putAll(config);
   }
@@ -86,21 +82,13 @@ public class TableSpec {
   }
 
   /**
-   * Get the key serde
-   * @param <K> the type of the serde
+   * Get the serde
+   * @param <K> the type of the key
+   * @param <V> the type of the value
    * @return the key serde
    */
-  public <K> Serde<K> getKeySerde() {
-    return keySerde;
-  }
-
-  /**
-   * Get the value serde
-   * @param <V> the type of the serde
-   * @return the value serde
-   */
-  public <V> Serde<V> getValueSerde() {
-    return valueSerde;
+  public <K, V> KVSerde<K, V> getSerde() {
+    return serde;
   }
 
   /**

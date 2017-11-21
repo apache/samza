@@ -72,7 +72,7 @@ public class TestTableManager {
   }
 
   @Test(expected = Exception.class)
-  public void testInitFailWithoutProviderFactory() {
+  public void testInitFailsWithoutProviderFactory() {
     Map<String, String> map = new HashMap<>();
     addKeySerde(map);
     addValueSerde(map);
@@ -80,7 +80,7 @@ public class TestTableManager {
   }
 
   @Test(expected = Exception.class)
-  public void testInitFailWithoutKeySerde() {
+  public void testInitFailsWithoutKeySerde() {
     Map<String, String> map = new HashMap<>();
     map.put(String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, TABLE_ID), DummyTableProviderFactory.class.getName());
     addValueSerde(map);
@@ -88,18 +88,25 @@ public class TestTableManager {
   }
 
   @Test(expected = Exception.class)
-  public void testInitFailWithoutValueSerde() {
+  public void testInitFailsWithoutValueSerde() {
     Map<String, String> map = new HashMap<>();
     map.put(String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, TABLE_ID), DummyTableProviderFactory.class.getName());
     addValueSerde(map);
     doTestInit(map);
   }
 
+  @Test(expected = IllegalStateException.class)
+  public void testInitFailsWithoutInitializingLocalTables() {
+    TableManager tableManager = new TableManager(new MapConfig(new HashMap<>()));
+    tableManager.getTable("dummy");
+  }
+
   private void doTestInit(Map<String, String> map) {
     Map<String, StorageEngine> storageEngines = new HashMap<>();
     storageEngines.put(TABLE_ID, mock(StorageEngine.class));
 
-    TableManager tableManager = new TableManager(new MapConfig(map), storageEngines);
+    TableManager tableManager = new TableManager(new MapConfig(map));
+    tableManager.initLocalTables(storageEngines);
 
     Table table = tableManager.getTable(TABLE_ID);
     verify(DummyTableProviderFactory.tableProvider, times(1)).init(anyObject());
@@ -111,8 +118,8 @@ public class TestTableManager {
     TableSpec tableSpec = getFieldValue(ctx, "tableSpec");
     Assert.assertEquals(TABLE_ID, tableSpec.getId());
     Assert.assertEquals(DummyTableProviderFactory.class.getName(), tableSpec.getTableProviderFactory());
-    Assert.assertEquals(IntegerSerde.class, tableSpec.getKeySerde().getClass());
-    Assert.assertEquals(StringSerde.class, tableSpec.getValueSerde().getClass());
+    Assert.assertEquals(IntegerSerde.class, tableSpec.getSerde().getKeySerde().getClass());
+    Assert.assertEquals(StringSerde.class, tableSpec.getSerde().getValueSerde().getClass());
     Assert.assertEquals("xyz", tableSpec.getConfig().get("some.config"));
 
     TableProvider tableProvider = getFieldValue(ctx, "tableProvider");

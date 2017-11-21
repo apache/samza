@@ -18,9 +18,8 @@
  */
 package org.apache.samza.operators.spec;
 
-import java.util.function.Function;
-
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.table.TableSpec;
 
@@ -31,48 +30,32 @@ import org.apache.samza.table.TableSpec;
  *
  * @param <K> the type of the table record key
  * @param <V> the type of the table record value
- * @param <M> the type of the incoming message
  */
 @InterfaceStability.Unstable
-public class WriteToOperatorSpec<K, V, M> extends OperatorSpec<M, Void> {
+public class SendToTableOperatorSpec<K, V> extends OperatorSpec<KV<K, V>, Void> {
 
-  private final OperatorSpec<?, M> inputOpSpec;
+  private final OperatorSpec<?, KV<K, V>> inputOpSpec;
   private final TableSpec tableSpec;
-  private final Function<? super M, ? extends K> keyExtractor;
-  private final Function<? super M, ? extends V> valueExtractor;
 
   /**
-   * Constructor for a {@link WriteToOperatorSpec}.
+   * Constructor for a {@link SendToTableOperatorSpec}.
    *
    * @param inputOpSpec  the operator spec of the input stream
    * @param tableSpec  the table spec of the table written to
-   * @param keyExtractor  the user-defined function to extract table record key
-   * @param valueExtractor  the user-defined function to extract table record value
    * @param opId  the unique ID for this operator
    */
-  WriteToOperatorSpec(OperatorSpec<?, M> inputOpSpec, TableSpec tableSpec,
-      Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> valueExtractor, String opId) {
-    super(OpCode.WRITE_TO, opId);
+  SendToTableOperatorSpec(OperatorSpec<?, KV<K, V>> inputOpSpec, TableSpec tableSpec, String opId) {
+    super(OpCode.SEND_TO, opId);
     this.inputOpSpec = inputOpSpec;
     this.tableSpec = tableSpec;
-    this.keyExtractor = keyExtractor;
-    this.valueExtractor = valueExtractor;
   }
 
-  public OperatorSpec<?, M> getInputOpSpec() {
+  public OperatorSpec<?, KV<K, V>> getInputOpSpec() {
     return inputOpSpec;
   }
 
   public TableSpec getTableSpec() {
     return tableSpec;
-  }
-
-  public Function<? super M, ? extends K> getKeyExtractor() {
-    return keyExtractor;
-  }
-
-  public Function<? super M, ? extends V> getValueExtractor() {
-    return valueExtractor;
   }
 
   @Override

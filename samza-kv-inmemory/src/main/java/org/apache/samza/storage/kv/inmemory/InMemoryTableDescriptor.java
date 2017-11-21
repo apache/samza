@@ -21,7 +21,6 @@ package org.apache.samza.storage.kv.inmemory;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.storage.kv.BaseStoreBackedTableDescriptor;
 import org.apache.samza.table.TableSpec;
 
@@ -39,6 +38,19 @@ public class InMemoryTableDescriptor<K, V> extends BaseStoreBackedTableDescripto
   }
 
   @Override
+  protected void generateTableSpecConfig(Map<String, String> tableSpecConfig) {
+
+    super.generateTableSpecConfig(tableSpecConfig);
+
+    if (writeBatchSize != null) {
+      addInMemoryConfig(tableSpecConfig, WRITE_BATCH_SIZE, writeBatchSize.toString());
+    }
+    if (objectCacheSize != null) {
+      addInMemoryConfig(tableSpecConfig, OBJECT_CACHE_SIZE, objectCacheSize.toString());
+    }
+  }
+
+  @Override
   public TableSpec getTableSpec() {
 
     validate();
@@ -46,13 +58,10 @@ public class InMemoryTableDescriptor<K, V> extends BaseStoreBackedTableDescripto
     Map<String, String> tableSpecConfig = new HashMap<>();
     generateTableSpecConfig(tableSpecConfig);
 
-    return new TableSpec(tableId, keySerde, valueSerde, InMemoryTableProviderFactory.class.getName(), tableSpecConfig);
+    return new TableSpec(tableId, serde, InMemoryTableProviderFactory.class.getName(), tableSpecConfig);
   }
 
-  static public class Factory<K, V> implements TableDescriptor.Factory<InMemoryTableDescriptor> {
-    @Override
-    public InMemoryTableDescriptor<K, V> getTableDescriptor(String tableId) {
-      return new InMemoryTableDescriptor(tableId);
-    }
+  private void addInMemoryConfig(Map<String, String> map, String key, String value) {
+    map.put("inmemory." + key, value);
   }
 }

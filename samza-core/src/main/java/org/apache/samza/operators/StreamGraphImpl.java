@@ -42,6 +42,7 @@ import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
+import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,7 +60,7 @@ public class StreamGraphImpl implements StreamGraph {
   // We use a LHM for deterministic order in initializing and closing operators.
   private final Map<StreamSpec, InputOperatorSpec> inputOperators = new LinkedHashMap<>();
   private final Map<StreamSpec, OutputStreamImpl> outputStreams = new LinkedHashMap<>();
-  private final Map<TableSpec, RecordTableImpl> tables = new LinkedHashMap<>();
+  private final Map<TableSpec, TableImpl> tables = new LinkedHashMap<>();
   private final ApplicationRunner runner;
   private final Config config;
 
@@ -151,14 +152,14 @@ public class StreamGraphImpl implements StreamGraph {
   }
 
   @Override
-  public <K, V> RecordTable<K, V> getRecordTable(TableDescriptor<K, V, ?> tableDesc) {
+  public <K, V> Table<K, V> getTable(TableDescriptor<K, V, ?> tableDesc) {
     TableSpec tableSpec = tableDesc.getTableSpec();
     if (tables.containsKey(tableSpec)) {
       throw new IllegalStateException(String.format(
-          "getRecordTable() invoked multiple times with the same tableId: %s",
+          "getTable() invoked multiple times with the same tableId: %s",
           tableDesc.getTableId()));
     }
-    tables.put(tableSpec, new RecordTableImpl(tableSpec));
+    tables.put(tableSpec, new TableImpl(tableSpec));
     return tables.get(tableSpec);
   }
 
@@ -207,7 +208,7 @@ public class StreamGraphImpl implements StreamGraph {
     return Collections.unmodifiableMap(outputStreams);
   }
 
-  public Map<TableSpec, RecordTableImpl> getRecordTables() {
+  public Map<TableSpec, TableImpl> getTables() {
     return Collections.unmodifiableMap(tables);
   }
 

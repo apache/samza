@@ -246,41 +246,39 @@ public class OperatorSpecs {
   }
 
   /**
-   * Creates a {@link StreamTableJoinOperatorSpec} with a join function.
+   * Creates a {@link StreamTableJoinOperatorSpec} with a join function, the type of
+   * incoming message is expected to be KV&#60;K, V&#62;.
    *
    * @param leftInputOpSpec the operator spec for the stream on the left side of the join
    * @param tableSpec the table spec for the table on the right side of the join
    * @param joinFn the user-defined join function to get join keys and results
    * @param opId the unique ID of the operator
-   * @param <M> the type of the incoming message
-   * @param <K> the type of the table record key
+   * @param <K> the type of the join key
+   * @param <V> the type of the value in incoming message
    * @param <R> the type of the table record value
    * @param <OM> the type of the join result
    * @return the {@link StreamTableJoinOperatorSpec}
    */
-  public static <K, M, R, OM> StreamTableJoinOperatorSpec<K, M, R, OM> createStreamTableJoinOperatorSpec(
-      OperatorSpec<?, M> leftInputOpSpec, TableSpec tableSpec,
-      StreamTableJoinFunction<K, M, R, OM> joinFn, String opId) {
-    return new StreamTableJoinOperatorSpec<>(leftInputOpSpec, tableSpec, joinFn, opId);
+  public static <K, V, R, OM> StreamTableJoinOperatorSpec<K, V, R, OM> createStreamTableJoinOperatorSpec(
+      OperatorSpec<?, KV<K, V>> leftInputOpSpec, TableSpec tableSpec,
+      StreamTableJoinFunction<K, V, R, OM> joinFn, String opId) {
+    return new StreamTableJoinOperatorSpec(leftInputOpSpec, tableSpec, joinFn, opId);
   }
 
   /**
-   * Creates a {@link WriteToOperatorSpec} with a key extractor and a value extractor function.
+   * Creates a {@link SendToTableOperatorSpec} with a key extractor and a value extractor function,
+   * the type of incoming message is expected to be KV&#60;K, V&#62;.
    *
    * @param inputOpSpec the operator spec for the input stream
    * @param tableSpec the table spec for the underlying table
-   * @param keyExtractor user-defined function to extract the record key from the incoming message
-   * @param valueExtractor user-defined function to extract the record value from the incoming message
    * @param opId the unique ID of the operator
-   * @param <M> the type of the incoming message
    * @param <K> the type of the table record key
    * @param <V> the type of the table record value
-   * @return the {@link WriteToOperatorSpec}
+   * @return the {@link SendToTableOperatorSpec}
    */
-  public static <K, V, M> WriteToOperatorSpec<K, V, M> createWriteToOperatorSpec(
-      OperatorSpec<?, M> inputOpSpec, TableSpec tableSpec,
-      Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> valueExtractor, String opId) {
-    return new WriteToOperatorSpec(inputOpSpec, tableSpec, keyExtractor, valueExtractor, opId);
+  public static <K, V> SendToTableOperatorSpec<K, V> createSendToTableOperatorSpec(
+      OperatorSpec<?, KV<K, V>> inputOpSpec, TableSpec tableSpec, String opId) {
+    return new SendToTableOperatorSpec(inputOpSpec, tableSpec, opId);
   }
 
 }

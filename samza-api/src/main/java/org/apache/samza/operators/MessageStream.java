@@ -34,6 +34,7 @@ import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
+import org.apache.samza.table.Table;
 
 
 /**
@@ -152,11 +153,17 @@ public interface MessageStream<M> {
       Duration ttl, String id);
 
   /**
-   * Joins this {@link MessageStream} with another {@link RecordTable} using the provided
+   * Joins this {@link MessageStream} with another {@link Table} using the provided
    * pairwise {@link StreamTableJoinFunction}.
    * <p>
    * Messages are looked up from the joined table, join function is applied and join results are
    * emitted as matches are found.
+   * <p>
+   * The join function allows implementation of both inner and left outer join. A null will be
+   * passed to the join function, if no record is found in the table matching the join key.
+   * The join function can choose to return an instance of OM (outer join) or null;
+   * if null is returned, the underlying implementation of the stream-table join operator
+   * passes an empty collection to downstream (inner join).
    * <p>
    * Both the input stream and table being joined must have the same number of partitions,
    * and should be partitioned by the join key.
@@ -170,7 +177,7 @@ public interface MessageStream<M> {
    * @param <JM> the type of messages resulting from the {@code joinFn}
    * @return the joined {@link MessageStream}
    */
-  <K, M, R, JM> MessageStream<JM> join(RecordTable<K, R> table,
+  <K, M, R, JM> MessageStream<JM> join(Table<K, R> table,
       StreamTableJoinFunction<? extends K, ? super M, ? super R, ? extends JM> joinFn);
 
   /**
@@ -250,17 +257,12 @@ public interface MessageStream<M> {
       Function<? super M, ? extends V> valueExtractor, String id);
 
   /**
-   * Allows writing messages in this {@link MessageStream} to an {@link RecordTable}.
+   * Allows sending messages in this {@link MessageStream} to an {@link Table}.
    *
    * @param table the table to write messages to
-   * @param keyExtractor the {@link Function} to extract the key from the input message
-   * @param valueExtractor the {@link Function} to extract the value from the input message
    * @param <K> the type of key in the table
    * @param <V> the type of record in the table
    */
-  <K, V> void writeTo(
-      RecordTable<K, V> table,
-      Function<? super M, ? extends K> keyExtractor,
-      Function<? super M, ? extends V> valueExtractor);
+  <K, V> void sendTo(Table<K, V> table);
 
 }

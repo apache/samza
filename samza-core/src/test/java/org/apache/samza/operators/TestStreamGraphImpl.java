@@ -588,14 +588,14 @@ public class TestStreamGraphImpl {
   }
 
   @Test
-  public void testGetRecordTable() {
+  public void testGetTable() {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     Config mockConfig = mock(Config.class);
     StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mockConfig);
 
     TableDescriptor mockTableDescriptor = mock(TableDescriptor.class);
     when(mockTableDescriptor.getTableSpec()).thenReturn(
-        new TableSpec("t1", new NoOpSerde(), new NoOpSerde(), "", new HashMap<>()));
-    Assert.assertNotNull(graph.getRecordTable(mockTableDescriptor));
+        new TableSpec("t1", KVSerde.of(new NoOpSerde(), new NoOpSerde()), "", new HashMap<>()));
+    Assert.assertNotNull(graph.getTable(mockTableDescriptor));
   }
 }

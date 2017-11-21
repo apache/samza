@@ -19,6 +19,7 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.table.TableSpec;
@@ -29,16 +30,16 @@ import org.apache.samza.table.TableSpec;
  * derived from the incoming message and joins with the incoming message.
  *
  * @param <K>  the type of join key
- * @param <M>  the type of the incoming message
+ * @param <V>  the type of the value in incoming message
  * @param <R>  the type of the table record value
  * @param <OM>  the type of the join result
  */
 @InterfaceStability.Unstable
-public class StreamTableJoinOperatorSpec<K, M, R, OM> extends OperatorSpec<Object, OM> { // Object == M | R
+public class StreamTableJoinOperatorSpec<K, V, R, OM> extends OperatorSpec<KV<K, V>, OM> {
 
-  private final OperatorSpec<?, M> leftInputOpSpec;
+  private final OperatorSpec<?, KV<K, V>> leftInputOpSpec;
   private final TableSpec tableSpec;
-  private final StreamTableJoinFunction<K, M, R, OM> joinFn;
+  private final StreamTableJoinFunction<K, V, R, OM> joinFn;
 
   /**
    * Constructor for a {@link StreamTableJoinOperatorSpec}.
@@ -48,8 +49,8 @@ public class StreamTableJoinOperatorSpec<K, M, R, OM> extends OperatorSpec<Objec
    * @param joinFn  the user-defined join function to get join keys and results
    * @param opId  the unique ID for this operator
    */
-  StreamTableJoinOperatorSpec(OperatorSpec<?, M> leftInputOpSpec, TableSpec tableSpec,
-      StreamTableJoinFunction<K, M, R, OM> joinFn, String opId) {
+  StreamTableJoinOperatorSpec(OperatorSpec<?, KV<K, V>> leftInputOpSpec, TableSpec tableSpec,
+      StreamTableJoinFunction<K, V, R, OM> joinFn, String opId) {
     super(OpCode.JOIN, opId);
     this.leftInputOpSpec = leftInputOpSpec;
     this.tableSpec = tableSpec;
@@ -64,7 +65,7 @@ public class StreamTableJoinOperatorSpec<K, M, R, OM> extends OperatorSpec<Objec
     return tableSpec;
   }
 
-  public StreamTableJoinFunction<K, M, R, OM> getJoinFn() {
+  public StreamTableJoinFunction<K, V, R, OM> getJoinFn() {
     return this.joinFn;
   }
 

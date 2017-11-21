@@ -39,11 +39,11 @@ import org.apache.samza.operators.spec.OperatorSpec.OpCode;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.spec.PartitionByOperatorSpec;
+import org.apache.samza.operators.spec.SendToTableOperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
-import org.apache.samza.operators.spec.WriteToOperatorSpec;
 import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
 import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowPane;
@@ -316,30 +316,26 @@ public class TestMessageStreamImpl {
   }
 
   @Test
-  public void testWriteToTable() {
+  public void testSendToTable() {
     StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
     OperatorSpec inputOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<TestMessageEnvelope> source = new MessageStreamImpl<>(mockGraph, inputOpSpec);
 
     TableSpec tableSpec = new TableSpec();
-    RecordTableImpl table = new RecordTableImpl(tableSpec);
+    TableImpl table = new TableImpl(tableSpec);
 
-    Function<TestMessageEnvelope, String> mockKeyExtractorFn = mock(Function.class);
-    Function<TestMessageEnvelope, TestMessageEnvelope> mockValueExtractorFn = mock(Function.class);
-    source.writeTo(table, mockKeyExtractorFn, mockValueExtractorFn);
+    source.sendTo(table);
 
     ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
     verify(inputOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());
     OperatorSpec<?, TestMessageEnvelope> registeredOpSpec = registeredOpCaptor.getValue();
 
-    assertTrue(registeredOpSpec instanceof WriteToOperatorSpec);
-    WriteToOperatorSpec writeToOperatorSpec = (WriteToOperatorSpec) registeredOpSpec;
+    assertTrue(registeredOpSpec instanceof SendToTableOperatorSpec);
+    SendToTableOperatorSpec sendToTableOperatorSpec = (SendToTableOperatorSpec) registeredOpSpec;
 
-    assertEquals(OpCode.WRITE_TO, writeToOperatorSpec.getOpCode());
-    assertEquals(mockKeyExtractorFn, writeToOperatorSpec.getKeyExtractor());
-    assertEquals(mockValueExtractorFn, writeToOperatorSpec.getValueExtractor());
-    assertEquals(inputOpSpec, writeToOperatorSpec.getInputOpSpec());
-    assertEquals(tableSpec, writeToOperatorSpec.getTableSpec());
+    assertEquals(OpCode.SEND_TO, sendToTableOperatorSpec.getOpCode());
+    assertEquals(inputOpSpec, sendToTableOperatorSpec.getInputOpSpec());
+    assertEquals(tableSpec, sendToTableOperatorSpec.getTableSpec());
   }
 
   @Test
@@ -351,11 +347,9 @@ public class TestMessageStreamImpl {
     MessageStreamImpl<TestMessageEnvelope> source2 = new MessageStreamImpl<>(mockGraph, rightInputOpSpec);
 
     TableSpec tableSpec = new TableSpec();
-    RecordTableImpl table = new RecordTableImpl(tableSpec);
+    TableImpl table = new TableImpl(tableSpec);
 
-    Function<TestMessageEnvelope, String> mockKeyExtractorFn = mock(Function.class);
-    Function<TestMessageEnvelope, TestMessageEnvelope> mockValueExtractorFn = mock(Function.class);
-    source2.writeTo(table, mockKeyExtractorFn, mockValueExtractorFn);
+    source2.sendTo(table);
 
     StreamTableJoinFunction<String, TestMessageEnvelope, TestMessageEnvelope, TestOutputMessageEnvelope> mockJoinFn =
         mock(StreamTableJoinFunction.class);

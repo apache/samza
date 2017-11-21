@@ -22,8 +22,9 @@ import java.util.Collection;
 import java.util.Collections;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.spec.WriteToOperatorSpec;
+import org.apache.samza.operators.spec.SendToTableOperatorSpec;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
@@ -31,22 +32,21 @@ import org.apache.samza.task.TaskCoordinator;
 
 
 /**
- * Implementation of a write-stream-to-table operator that first retrieve the key and
+ * Implementation of a send-stream-to-table operator that first retrieve the key and
  * value for the record by applying key and value extractor, and then store the record
  * in the table.
  *
  * @param <K> the type of the record key
  * @param <V> the type of the record value
- * @param <M> the type of the incoming message
  */
-public class WriteToOperatorImpl<K, V, M> extends OperatorImpl<M, Void> {
+public class SendToTableOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, Void> {
 
-  private final WriteToOperatorSpec<K, V, M> writeToOpSpec;
+  private final SendToTableOperatorSpec<K, V> sendToTableOpSpec;
   private final ReadWriteTable<K, V> table;
 
-  WriteToOperatorImpl(WriteToOperatorSpec<K, V, M> writeToOpSpec, Config config, TaskContext context) {
-    this.writeToOpSpec = writeToOpSpec;
-    this.table = (ReadWriteTable) context.getTable(writeToOpSpec.getTableSpec().getId());
+  SendToTableOperatorImpl(SendToTableOperatorSpec<K, V> sendToTableOpSpec, Config config, TaskContext context) {
+    this.sendToTableOpSpec = sendToTableOpSpec;
+    this.table = (ReadWriteTable) context.getTable(sendToTableOpSpec.getTableSpec().getId());
   }
 
   @Override
@@ -54,10 +54,8 @@ public class WriteToOperatorImpl<K, V, M> extends OperatorImpl<M, Void> {
   }
 
   @Override
-  protected Collection<Void> handleMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
-    K key = writeToOpSpec.getKeyExtractor().apply(message);
-    V value = writeToOpSpec.getValueExtractor().apply(message);
-    table.put(key, value);
+  protected Collection<Void> handleMessage(KV<K, V> message, MessageCollector collector, TaskCoordinator coordinator) {
+    table.put(message.getKey(), message.getValue());
     // there should be no further chained operators since this is a terminal operator.
     return Collections.emptyList();
   }
@@ -68,7 +66,7 @@ public class WriteToOperatorImpl<K, V, M> extends OperatorImpl<M, Void> {
   }
 
   @Override
-  protected OperatorSpec<M, Void> getOperatorSpec() {
-    return writeToOpSpec;
+  protected OperatorSpec<KV<K, V>, Void> getOperatorSpec() {
+    return sendToTableOpSpec;
   }
 }

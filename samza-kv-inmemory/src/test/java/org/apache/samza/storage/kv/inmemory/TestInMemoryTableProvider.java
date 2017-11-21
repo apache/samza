@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.storage.kv;
+package org.apache.samza.storage.kv.inmemory;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -33,13 +33,12 @@ import org.junit.Test;
 import junit.framework.Assert;
 
 
-public class TestRocksDbTableProvider {
+public class TestInMemoryTableProvider {
   @Test
   public void testGenerateConfig() {
-
     Map<String, String> tableSpecConfig = new HashMap<>();
-    tableSpecConfig.put("rocksdb.c1", "c1-value");
-    tableSpecConfig.put("rocksdb.c2", "c2-value");
+    tableSpecConfig.put("inmemory.c1", "c1-value");
+    tableSpecConfig.put("inmemory.c2", "c2-value");
     tableSpecConfig.put("c3", "c3-value");
     tableSpecConfig.put("c4", "c4-value");
 
@@ -50,13 +49,13 @@ public class TestRocksDbTableProvider {
     config.put(String.format(JavaTableConfig.TABLE_KEY_SERDE, "t1"), "ks1");
     config.put(String.format(JavaTableConfig.TABLE_VALUE_SERDE, "t1"), "vs1");
 
-    TableProvider tableProvider = new RocksDbTableProvider(tableSpec);
+    TableProvider tableProvider = new InMemoryTableProvider(tableSpec);
     Map<String, String> tableConfig = tableProvider.generateConfig(config);
 
     Assert.assertEquals("ks1", tableConfig.get(String.format(StorageConfig.KEY_SERDE(), "t1")));
     Assert.assertEquals("vs1", tableConfig.get(String.format(StorageConfig.MSG_SERDE(), "t1")));
     Assert.assertEquals(
-        RocksDbKeyValueStorageEngineFactory.class.getName(),
+        InMemoryKeyValueStorageEngineFactory.class.getName(),
         tableConfig.get(String.format(StorageConfig.FACTORY(), "t1")));
     Assert.assertEquals("c1-value", tableConfig.get("stores.t1.c1"));
     Assert.assertEquals("c2-value", tableConfig.get("stores.t1.c2"));

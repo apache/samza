@@ -75,7 +75,7 @@ abstract public class BaseStoreBackedTableProvider implements StoreBackedTablePr
 
     Map<String, String> storeConfig = new HashMap<>();
 
-    // We assume the configuration for key/value Serde's are already generated for this table,
+    // We assume the configuration for serde are already generated for this table,
     // so we simply carry them over to store configuration.
     //
     String keySerde = config.get(String.format(JavaTableConfig.TABLE_KEY_SERDE, tableSpec.getId()));

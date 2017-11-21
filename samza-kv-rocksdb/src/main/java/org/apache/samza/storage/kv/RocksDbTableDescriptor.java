@@ -33,8 +33,6 @@ import org.apache.samza.table.TableSpec;
  */
 public class RocksDbTableDescriptor<K, V> extends BaseStoreBackedTableDescriptor<K, V, RocksDbTableDescriptor<K, V>> {
 
-  static final public String WRITE_BATCH_SIZE = "write.batch.size";
-  static final public String OBJECT_CACHE_SIZE = "object.cache.size";
   static final public String CONTAINER_CACHE_SIZE_BYTES = "container.cache.size.bytes";
   static final public String CONTAINER_WRITE_BUFFER_SIZE_BYTES = "container.write.buffer.size.bytes";
   static final public String ROCKSDB_COMPRESSION = "rocksdb.compression";
@@ -45,8 +43,6 @@ public class RocksDbTableDescriptor<K, V> extends BaseStoreBackedTableDescriptor
   static final public String ROCKSDB_MAX_LOG_FILE_SIZE_BYTES = "rocksdb.max.log.file.size.bytes";
   static final public String ROCKSDB_KEEP_LOG_FILE_NUM = "rocksdb.keep.log.file.num";
 
-  private Integer writeBatchSize;
-  private Integer objectCacheSize;
   private Integer cacheSize;
   private Integer writeBufferSize;
   private Integer blockSize;
@@ -59,26 +55,6 @@ public class RocksDbTableDescriptor<K, V> extends BaseStoreBackedTableDescriptor
 
   public RocksDbTableDescriptor(String tableId) {
     super(tableId);
-  }
-
-  /**
-   * Refer to <code>stores.store-name.write.batch.size</code> in Samza configuration guide
-   * @param writeBatchSize write batch size
-   * @return this table descriptor instance
-   */
-  public RocksDbTableDescriptor<K, V> withWriteBatchSize(int writeBatchSize) {
-    this.writeBatchSize = writeBatchSize;
-    return this;
-  }
-
-  /**
-   * Refer to <code>stores.store-name.object.cache.size</code> in Samza configuration guide
-   * @param objectCacheSize the object cache size
-   * @return this table descriptor instance
-   */
-  public RocksDbTableDescriptor<K, V> withObjectCacheSize(int objectCacheSize) {
-    this.objectCacheSize = objectCacheSize;
-    return this;
   }
 
   /**
@@ -183,7 +159,7 @@ public class RocksDbTableDescriptor<K, V> extends BaseStoreBackedTableDescriptor
     Map<String, String> tableSpecConfig = new HashMap<>();
     generateTableSpecConfig(tableSpecConfig);
 
-    return new TableSpec(tableId, keySerde, valueSerde, RocksDbTableProviderFactory.class.getName(), tableSpecConfig);
+    return new TableSpec(tableId, serde, RocksDbTableProviderFactory.class.getName(), tableSpecConfig);
   }
 
   @Override
@@ -230,10 +206,4 @@ public class RocksDbTableDescriptor<K, V> extends BaseStoreBackedTableDescriptor
     map.put("rocksdb." + key, value);
   }
 
-  static public class Factory<K, V> implements TableDescriptor.Factory<RocksDbTableDescriptor> {
-    @Override
-    public RocksDbTableDescriptor<K, V> getTableDescriptor(String tableId) {
-      return new RocksDbTableDescriptor(tableId);
-    }
-  }
 }

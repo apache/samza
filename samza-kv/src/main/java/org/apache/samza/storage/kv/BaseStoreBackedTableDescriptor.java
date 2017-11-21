@@ -33,12 +33,38 @@ import org.apache.samza.operators.TableDescriptor;
 abstract public class BaseStoreBackedTableDescriptor<K, V, D extends TableDescriptor<K, V, D>>
     extends TableDescriptor<K, V, D> {
 
+  static final public String WRITE_BATCH_SIZE = "write.batch.size";
+  static final public String OBJECT_CACHE_SIZE = "object.cache.size";
+
+  protected Integer writeBatchSize;
+  protected Integer objectCacheSize;
+
   /**
    * Constructs a table descriptor instance
    * @param tableId Id of the table
    */
   public BaseStoreBackedTableDescriptor(String tableId) {
     super(tableId);
+  }
+
+  /**
+   * Refer to <code>stores.store-name.write.batch.size</code> in Samza configuration guide
+   * @param writeBatchSize write batch size
+   * @return this table descriptor instance
+   */
+  public D withWriteBatchSize(int writeBatchSize) {
+    this.writeBatchSize = writeBatchSize;
+    return (D) this;
+  }
+
+  /**
+   * Refer to <code>stores.store-name.object.cache.size</code> in Samza configuration guide
+   * @param objectCacheSize the object cache size
+   * @return this table descriptor instance
+   */
+  public D withObjectCacheSize(int objectCacheSize) {
+    this.objectCacheSize = objectCacheSize;
+    return (D) this;
   }
 
   @Override

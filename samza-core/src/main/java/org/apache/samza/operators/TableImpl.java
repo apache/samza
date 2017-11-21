@@ -18,23 +18,21 @@
  */
 package org.apache.samza.operators;
 
+import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
 
 
 /**
- * Implementation of a record table
- * @param <K> the type of the record key
- * @param <V> the type of the record value
+ * This class is the holder of a {@link TableSpec}
  */
-public class RecordTableImpl<K, V> implements RecordTable<K, V> {
+public class TableImpl implements Table {
 
   private final TableSpec tableSpec;
 
-  public RecordTableImpl(TableSpec tableSpec) {
+  public TableImpl(TableSpec tableSpec) {
     this.tableSpec = tableSpec;
   }
 
-  @Override
   public TableSpec getTableSpec() {
     return tableSpec;
   }

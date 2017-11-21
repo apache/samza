@@ -53,7 +53,6 @@ public class TestJavaTableConfig {
     map.put("tables.t1.provider.factory", "t1-provider-factory");
     JavaTableConfig tableConfig = new JavaTableConfig(new MapConfig(map));
     assertEquals("t1-provider-factory", tableConfig.getTableProviderFactory("t1"));
-    assertEquals("t1-spec", tableConfig.getTableSpecJson("t1"));
   }
 
 }

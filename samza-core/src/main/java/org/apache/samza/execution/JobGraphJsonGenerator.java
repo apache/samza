@@ -284,7 +284,7 @@ import org.codehaus.jackson.map.ObjectMapper;
    * @param tableSpec the tableSpec
    * @return JSON representation of the {@link TableSpec}
    */
-  public TableSpecJson buildTableJson(TableSpec tableSpec) {
+  private TableSpecJson buildTableJson(TableSpec tableSpec) {
     TableSpecJson tableSpecJson = new TableSpecJson();
     tableSpecJson.id = tableSpec.getId();
     tableSpecJson.tableProviderFactory = tableSpec.getTableProviderFactory();

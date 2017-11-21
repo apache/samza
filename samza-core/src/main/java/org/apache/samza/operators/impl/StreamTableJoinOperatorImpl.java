@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.Collections;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
 import org.apache.samza.table.ReadableTable;
@@ -35,16 +36,16 @@ import org.apache.samza.task.TaskCoordinator;
  * the message key from incoming message, and then apply the join function.
  *
  * @param <K> the type of the join key
- * @param <M> the type of the incoming message
+ * @param <V> the type of the value in incoming message
  * @param <R> the type of the record in the table
  * @param <OM> the type of the join result
  */
-class StreamTableJoinOperatorImpl<K, M, R, OM> extends OperatorImpl<M, OM> {
+class StreamTableJoinOperatorImpl<K, V, R, OM> extends OperatorImpl<KV<K, V>, OM> {
 
-  private final StreamTableJoinOperatorSpec<K, M, R, OM> joinOpSpec;
+  private final StreamTableJoinOperatorSpec<K, V, R, OM> joinOpSpec;
   private final ReadableTable<K, R> table;
 
-  StreamTableJoinOperatorImpl(StreamTableJoinOperatorSpec<K, M, R, OM> joinOpSpec,
+  StreamTableJoinOperatorImpl(StreamTableJoinOperatorSpec<K, V, R, OM> joinOpSpec,
       Config config, TaskContext context) {
     this.joinOpSpec = joinOpSpec;
     this.table = (ReadableTable) context.getTable(joinOpSpec.getTableSpec().getId());
@@ -56,10 +57,13 @@ class StreamTableJoinOperatorImpl<K, M, R, OM> extends OperatorImpl<M, OM> {
   }
 
   @Override
-  public Collection<OM> handleMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
-    R record = table.get(joinOpSpec.getJoinFn().getFirstKey(message));
-    return record != null ?
-        Collections.singletonList(joinOpSpec.getJoinFn().apply(message, record))
+  public Collection<OM> handleMessage(KV<K, V> message, MessageCollector collector, TaskCoordinator coordinator) {
+    R record = table.get(message.getKey());
+    OM output = joinOpSpec.getJoinFn().apply(message, record);
+    // The support for inner and outer join will be provided in the jonFn. For inner join, the joinFn might
+    // return null, when the corresponding record is absent in the table.
+    return output != null ?
+        Collections.singletonList(output)
       : Collections.emptyList();
   }
 
@@ -68,8 +72,8 @@ class StreamTableJoinOperatorImpl<K, M, R, OM> extends OperatorImpl<M, OM> {
     this.joinOpSpec.getJoinFn().close();
   }
 
-  protected OperatorSpec<M, OM> getOperatorSpec() {
-    return (OperatorSpec<M, OM>) joinOpSpec;
+  protected OperatorSpec<KV<K, V>, OM> getOperatorSpec() {
+    return joinOpSpec;
   }
 
 }
