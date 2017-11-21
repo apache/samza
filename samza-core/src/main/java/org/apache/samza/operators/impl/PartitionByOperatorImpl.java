@@ -91,8 +91,9 @@ class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
   }
 
   @Override
-  protected void handleEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
+  protected Collection<Void> handleEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
     sendControlMessage(new EndOfStreamMessage(taskName), collector);
+    return Collections.emptyList();
   }
 
   @Override
