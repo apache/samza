@@ -397,8 +397,8 @@ public class AsyncRunLoop implements Runnable, Throttleable {
         coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
         coordinatorRequests.update(coordinator);
 
-        // invoke commit on the task - if the endOfStream callback had requested a final commit or if auto commit enabled.
-        boolean needFinalCommit = coordinatorRequests.commitRequests().remove(task.taskName()) || commitMs > 0L;
+        // invoke commit on the task - if the endOfStream callback had requested a final commit
+        boolean needFinalCommit = coordinatorRequests.commitRequests().remove(task.taskName());
         if (needFinalCommit) {
           task.commit();
         }
