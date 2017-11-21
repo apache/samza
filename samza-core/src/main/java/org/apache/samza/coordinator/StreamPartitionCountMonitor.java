@@ -18,8 +18,10 @@
  */
 package org.apache.samza.coordinator;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executors;
@@ -28,7 +30,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.samza.metrics.Gauge;
-import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
@@ -48,10 +50,10 @@ public class StreamPartitionCountMonitor {
 
   private final Set<SystemStream> streamsToMonitor;
   private final StreamMetadataCache metadataCache;
-  private final MetricsRegistryMap metrics;
   private final int monitorPeriodMs;
   private final Map<SystemStream, Gauge<Integer>> gauges;
   private final Map<SystemStream, SystemStreamMetadata> initialMetadata;
+  private final Callback callbackMethod;
 
   // Used to guard write access to state.
   private final Object lock = new Object();
@@ -60,6 +62,19 @@ public class StreamPartitionCountMonitor {
       Executors.newSingleThreadScheduledExecutor(THREAD_FACTORY);
 
   private volatile State state = State.INIT;
+
+  /**
+   * A callback that is invoked when the {@link StreamPartitionCountMonitor} detects a change in the partition count of
+   * any of its {@link SystemStream}s.
+   */
+  public interface Callback {
+    /**
+     * Method to be called when SSP changes detected in the input
+     *
+     * @param streamsChanged the set of {@link SystemStream}s that have partition count changes
+     */
+    void onSystemStreamPartitionChange(Set<SystemStream> streamsChanged);
+  }
 
 
   /**
@@ -88,14 +103,15 @@ public class StreamPartitionCountMonitor {
    * @param metadataCache     the metadata cache which will be used to fetch metadata for partition counts.
    * @param metrics           the metrics registry to which the metrics should be added.
    * @param monitorPeriodMs   the period at which the monitor will run in milliseconds.
+   * @param monitorCallback   the callback method to be invoked when partition count changes are detected
    */
   public StreamPartitionCountMonitor(Set<SystemStream> streamsToMonitor, StreamMetadataCache metadataCache,
-      MetricsRegistryMap metrics, int monitorPeriodMs) {
+      MetricsRegistry metrics, int monitorPeriodMs, Callback monitorCallback) {
     this.streamsToMonitor = streamsToMonitor;
     this.metadataCache = metadataCache;
-    this.metrics = metrics;
     this.monitorPeriodMs = monitorPeriodMs;
     this.initialMetadata = getMetadata(streamsToMonitor, metadataCache);
+    this.callbackMethod = monitorCallback;
 
     // Pre-populate the gauges
     Map<SystemStream, Gauge<Integer>> mutableGauges = new HashMap<>();
@@ -109,48 +125,20 @@ public class StreamPartitionCountMonitor {
   }
 
   /**
-   * Fetches the current partition count for each system stream from the cache, compares the current count to the
-   * original count and updates the metric for that system stream with the delta.
-   */
-  void updatePartitionCountMetric() {
-    try {
-      Map<SystemStream, SystemStreamMetadata> currentMetadata = getMetadata(streamsToMonitor, metadataCache);
-
-      for (Map.Entry<SystemStream, SystemStreamMetadata> metadataEntry : initialMetadata.entrySet()) {
-        SystemStream systemStream = metadataEntry.getKey();
-        SystemStreamMetadata metadata = metadataEntry.getValue();
-
-        int currentPartitionCount = currentMetadata.get(systemStream).getSystemStreamPartitionMetadata().keySet().size();
-        int prevPartitionCount = metadata.getSystemStreamPartitionMetadata().keySet().size();
-
-        Gauge gauge = gauges.get(systemStream);
-        gauge.set(currentPartitionCount - prevPartitionCount);
-      }
-    } catch (Exception e) {
-      log.error("Exception while updating partition count metric.", e);
-    }
-  }
-
-  /**
-   * For testing. Returns the metrics.
-   */
-  Map<SystemStream, Gauge<Integer>> getGauges() {
-    return gauges;
-  }
-
-  /**
    * Starts the monitor.
    */
   public void start() {
     synchronized (lock) {
       switch (state) {
         case INIT:
-          schedulerService.scheduleAtFixedRate(new Runnable() {
-            @Override
-            public void run() {
-              updatePartitionCountMetric();
-            }
-          }, monitorPeriodMs, monitorPeriodMs, TimeUnit.MILLISECONDS);
+          if (monitorPeriodMs > 0) {
+            schedulerService.scheduleAtFixedRate(new Runnable() {
+              @Override
+              public void run() {
+                updatePartitionCountMetric();
+              }
+            }, monitorPeriodMs, monitorPeriodMs, TimeUnit.MILLISECONDS);
+          }
 
           state = State.RUNNING;
           break;
@@ -179,8 +167,53 @@ public class StreamPartitionCountMonitor {
   }
 
   /**
-   * For testing.
+   * Fetches the current partition count for each system stream from the cache, compares the current count to the
+   * original count and updates the metric for that system stream with the delta.
    */
+  @VisibleForTesting
+  public void updatePartitionCountMetric() {
+    try {
+      Map<SystemStream, SystemStreamMetadata> currentMetadata = getMetadata(streamsToMonitor, metadataCache);
+      Set<SystemStream> streamsChanged = new HashSet<>();
+
+      for (Map.Entry<SystemStream, SystemStreamMetadata> metadataEntry : initialMetadata.entrySet()) {
+        try {
+          SystemStream systemStream = metadataEntry.getKey();
+          SystemStreamMetadata metadata = metadataEntry.getValue();
+
+          int currentPartitionCount = currentMetadata.get(systemStream).getSystemStreamPartitionMetadata().size();
+          int prevPartitionCount = metadata.getSystemStreamPartitionMetadata().size();
+
+          Gauge gauge = gauges.get(systemStream);
+          gauge.set(currentPartitionCount - prevPartitionCount);
+          if (currentPartitionCount != prevPartitionCount) {
+            log.warn(String.format("Change of partition count detected in stream %s. old partition count: %d, current partition count: %d",
+                systemStream.toString(), prevPartitionCount, currentPartitionCount));
+            streamsChanged.add(systemStream);
+          }
+        } catch (Exception e) {
+          log.error(String.format("Error comparing partition count differences for stream: %s", metadataEntry.getKey().toString()));
+        }
+      }
+
+      if (!streamsChanged.isEmpty() && this.callbackMethod != null) {
+        this.callbackMethod.onSystemStreamPartitionChange(streamsChanged);
+      }
+
+    } catch (Exception e) {
+      log.error("Exception while updating partition count metric.", e);
+    }
+  }
+
+  /**
+   * For testing. Returns the metrics.
+   */
+  @VisibleForTesting
+  Map<SystemStream, Gauge<Integer>> getGauges() {
+    return gauges;
+  }
+
+  @VisibleForTesting
   boolean isRunning() {
     return state == State.RUNNING;
   }
@@ -191,6 +224,7 @@ public class StreamPartitionCountMonitor {
    * <p>
    * This is currently exposed at the package private level for tests only.
    */
+  @VisibleForTesting
   boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
     return schedulerService.awaitTermination(timeout, unit);
   }

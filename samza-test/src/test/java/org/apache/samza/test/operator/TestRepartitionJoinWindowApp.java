@@ -44,19 +44,16 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
 
     // create events for the following user activity.
     // userId: (viewId, pageId, (adIds))
-    // u1: (v1, p1, (a1, a2)), (v2, p2, (a3))
-    // u2: (v3, p1, (a1, a2, a4)), (v4, p3, (a5))
+    // u1: (v1, p1, (a1)), (v2, p2, (a3))
+    // u2: (v3, p1, (a1)), (v4, p3, (a5))
     produceMessage(PAGE_VIEWS, 0, "p1", "{\"viewId\":\"v1\",\"pageId\":\"p1\",\"userId\":\"u1\"}");
     produceMessage(PAGE_VIEWS, 1, "p2", "{\"viewId\":\"v2\",\"pageId\":\"p2\",\"userId\":\"u1\"}");
     produceMessage(PAGE_VIEWS, 0, "p1", "{\"viewId\":\"v3\",\"pageId\":\"p1\",\"userId\":\"u2\"}");
     produceMessage(PAGE_VIEWS, 1, "p3", "{\"viewId\":\"v4\",\"pageId\":\"p3\",\"userId\":\"u2\"}");
 
     produceMessage(AD_CLICKS, 0, "a1", "{\"viewId\":\"v1\",\"adId\":\"a1\"}");
-    produceMessage(AD_CLICKS, 1, "a2", "{\"viewId\":\"v1\",\"adId\":\"a2\"}");
     produceMessage(AD_CLICKS, 0, "a3", "{\"viewId\":\"v2\",\"adId\":\"a3\"}");
     produceMessage(AD_CLICKS, 0, "a1", "{\"viewId\":\"v3\",\"adId\":\"a1\"}");
-    produceMessage(AD_CLICKS, 1, "a2", "{\"viewId\":\"v3\",\"adId\":\"a2\"}");
-    produceMessage(AD_CLICKS, 1, "a4", "{\"viewId\":\"v3\",\"adId\":\"a4\"}");
     produceMessage(AD_CLICKS, 0, "a5", "{\"viewId\":\"v4\",\"adId\":\"a5\"}");
 
     // run the application
@@ -71,11 +68,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
       String key = message.key();
       String value = message.value();
       Assert.assertTrue(key.equals("u1") || key.equals("u2"));
-      if ("u1".equals(key)) {
-        Assert.assertEquals("3", value);
-      } else {
-        Assert.assertEquals("4", value);
-      }
+      Assert.assertEquals("2", value);
     }
   }
 }

@@ -18,6 +18,8 @@
  */
  ext {
   apacheCommonsCollections4Version = "4.0"
+  avroVersion = "1.7.0"
+  calciteVersion = "1.14.0"
   commonsCodecVersion = "1.9"
   commonsCollectionVersion = "3.2.1"
   commonsHttpClientVersion = "3.1"
@@ -35,7 +37,7 @@
   metricsVersion = "2.2.0"
   mockitoVersion = "1.10.19"
   powerMockVersion = "1.6.6"
-  rocksdbVersion = "5.0.1"
+  rocksdbVersion = "5.7.3"
   scalaTestVersion = "3.0.1"
   slf4jVersion = "1.6.2"
   yarnVersion = "2.6.1"

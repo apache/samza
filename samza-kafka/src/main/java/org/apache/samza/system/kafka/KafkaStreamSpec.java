@@ -167,6 +167,10 @@ public class KafkaStreamSpec extends StreamSpec {
     return new KafkaStreamSpec(getId(), getPhysicalName(), getSystemName(), partitionCount, getReplicationFactor(), getProperties());
   }
 
+  public KafkaStreamSpec copyWithReplicationFactor(int replicationFactor) {
+    return new KafkaStreamSpec(getId(), getPhysicalName(), getSystemName(), getPartitionCount(), replicationFactor, getProperties());
+  }
+
   /**
    * Make a copy of the spec with new properties
    * @param properties properties of the Kafka stream

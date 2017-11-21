@@ -60,8 +60,6 @@ class KafkaSystemConsumerMetrics(val systemName: String = "unknown", val registr
     brokerReads.put((host, port), newCounter("%s-%s-messages-read" format (host, port)))
     brokerSkippedFetchRequests.put((host, port), newCounter("%s-%s-skipped-fetch-requests" format (host, port)))
     topicPartitions.put((host, port), newGauge("%s-%s-topic-partitions" format (host, port), 0))
-
-
   }
 
   // java friendlier interfaces

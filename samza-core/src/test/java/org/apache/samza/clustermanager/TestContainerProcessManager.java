@@ -54,17 +54,17 @@ public class TestContainerProcessManager {
 
   private Map<String, String> configVals = new HashMap<String, String>()  {
     {
-      put("yarn.container.count", "1");
-      put("systems.test-system.samza.factory", "org.apache.samza.job.yarn.MockSystemFactory");
-      put("yarn.container.memory.mb", "512");
+      put("cluster-manager.container.count", "1");
+      put("cluster-manager.container.retry.count", "1");
+      put("cluster-manager.container.retry.window.ms", "1999999999");
+      put("cluster-manager.allocator.sleep.ms", "1");
+      put("cluster-manager.container.request.timeout.ms", "2");
+      put("cluster-manager.container.memory.mb", "512");
       put("yarn.package.path", "/foo");
       put("task.inputs", "test-system.test-stream");
+      put("systems.test-system.samza.factory", "org.apache.samza.system.MockSystemFactory");
       put("systems.test-system.samza.key.serde", "org.apache.samza.serializers.JsonSerde");
       put("systems.test-system.samza.msg.serde", "org.apache.samza.serializers.JsonSerde");
-      put("yarn.container.retry.count", "1");
-      put("yarn.container.retry.window.ms", "1999999999");
-      put("yarn.allocator.sleep.ms", "1");
-      put("yarn.container.request.timeout.ms", "2");
     }
   };
   private Config config = new MapConfig(configVals);
@@ -117,8 +117,8 @@ public class TestContainerProcessManager {
   public void testContainerProcessManager() throws Exception {
     Map<String, String> conf = new HashMap<>();
     conf.putAll(getConfig());
-    conf.put("yarn.container.memory.mb", "500");
-    conf.put("yarn.container.cpu.cores", "5");
+    conf.put("cluster-manager.container.memory.mb", "500");
+    conf.put("cluster-manager.container.cpu.cores", "5");
 
     state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
     ContainerProcessManager taskManager = new ContainerProcessManager(
@@ -137,8 +137,8 @@ public class TestContainerProcessManager {
 
     conf.clear();
     conf.putAll(getConfigWithHostAffinity());
-    conf.put("yarn.container.memory.mb", "500");
-    conf.put("yarn.container.cpu.cores", "5");
+    conf.put("cluster-manager.container.memory.mb", "500");
+    conf.put("cluster-manager.container.cpu.cores", "5");
 
     state = new SamzaApplicationState(getJobModelManagerWithHostAffinity(1));
     taskManager = new ContainerProcessManager(

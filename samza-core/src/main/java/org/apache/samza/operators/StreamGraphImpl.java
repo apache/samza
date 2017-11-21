@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
@@ -47,13 +48,13 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 
-
 /**
  * A {@link StreamGraph} that provides APIs for accessing {@link MessageStream}s to be used to
  * create the DAG of transforms.
  */
 public class StreamGraphImpl implements StreamGraph {
   private static final Logger LOGGER = LoggerFactory.getLogger(StreamGraphImpl.class);
+  private static final Pattern USER_DEFINED_ID_PATTERN = Pattern.compile("[\\d\\w-_.]+");
 
   // We use a LHM for deterministic order in initializing and closing operators.
   private final Map<StreamSpec, InputOperatorSpec> inputOperators = new LinkedHashMap<>();
@@ -61,6 +62,7 @@ public class StreamGraphImpl implements StreamGraph {
   private final Map<TableSpec, RecordTableImpl> tables = new LinkedHashMap<>();
   private final ApplicationRunner runner;
   private final Config config;
+
 
   /**
    * The 0-based position of the next operator in the graph.
@@ -222,6 +224,10 @@ public class StreamGraphImpl implements StreamGraph {
    * @return the unique ID for the next operator in the graph
    */
   /* package private */ String getNextOpId(OpCode opCode, String userDefinedId) {
+    if (StringUtils.isNotBlank(userDefinedId) && !USER_DEFINED_ID_PATTERN.matcher(userDefinedId).matches()) {
+      throw new SamzaException("Operator ID must not contain spaces and special characters: " + userDefinedId);
+    }
+
     String nextOpId = String.format("%s-%s-%s-%s",
         config.get(JobConfig.JOB_NAME()),
         config.get(JobConfig.JOB_ID(), "1"),

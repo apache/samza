@@ -98,4 +98,12 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
       .map(systemStreamName => Util.getSystemStreamFromNames(systemStreamName.get).getSystem)
       .contains(systemName)
   }
+
+  /**
+    * Helper method to check if there is any stores configured w/ a changelog
+    */
+  def hasDurableStores : Boolean = {
+    val conf = config.subset("stores.", true)
+    conf.asScala.keys.exists(k => k.endsWith(".changelog"))
+  }
 }

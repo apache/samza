@@ -102,6 +102,63 @@ public class TestEventHubSystemProducer {
   }
 
   @Test
+  public void testSendingToSpecificPartitionsWithInterceptor() throws Exception {
+    String systemName = "eventhubs";
+    String streamName = "testStream";
+    int numEvents = 10;
+    int partitionId0 = 0;
+    int partitionId1 = 1;
+    Interceptor interceptor = new SwapFirstLastByteInterceptor();
+
+    TestMetricsRegistry testMetrics = new TestMetricsRegistry();
+    Map<String, Interceptor> interceptors = new HashMap<>();
+    interceptors.put(streamName, interceptor);
+
+    List<String> outgoingMessagesP0 = generateMessages(numEvents);
+    List<String> outgoingMessagesP1 = generateMessages(numEvents);
+
+    // Set configs
+    Map<String, String> configMap = new HashMap<>();
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_LIST, systemName), streamName);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, systemName, streamName), EVENTHUB_NAMESPACE);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName), EVENTHUB_KEY_NAME);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, systemName, streamName), EVENTHUB_KEY);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, systemName, streamName), EVENTHUB_ENTITY1);
+    configMap.put(String.format(EventHubConfig.CONFIG_PRODUCER_PARTITION_METHOD, systemName),
+            PartitioningMethod.PARTITION_KEY_AS_PARTITION.toString());
+
+    MockEventHubClientManagerFactory factory = new MockEventHubClientManagerFactory();
+
+    EventHubSystemProducer producer =
+            new EventHubSystemProducer(new EventHubConfig(configMap), systemName, factory, interceptors, testMetrics);
+
+    SystemStream systemStream = new SystemStream(systemName, streamName);
+    producer.register(streamName);
+    producer.start();
+
+    outgoingMessagesP0.forEach(message ->
+            producer.send(streamName, new OutgoingMessageEnvelope(systemStream, partitionId0, null, message.getBytes())));
+    outgoingMessagesP1.forEach(message ->
+            producer.send(streamName, new OutgoingMessageEnvelope(systemStream, partitionId1, null, message.getBytes())));
+
+    // Retrieve sent data
+    List<String> receivedData0 = factory.getSentData(systemName, streamName, partitionId0)
+            .stream().map(eventData -> new String(eventData.getBytes())).collect(Collectors.toList());
+    List<String> receivedData1 = factory.getSentData(systemName, streamName, partitionId1)
+            .stream().map(eventData -> new String(eventData.getBytes())).collect(Collectors.toList());
+
+    List<String> expectedP0 = outgoingMessagesP0.stream()
+            .map(message -> new String(interceptor.intercept(message.getBytes())))
+            .collect(Collectors.toList());
+    List<String> expectedP1 = outgoingMessagesP1.stream()
+            .map(message -> new String(interceptor.intercept(message.getBytes())))
+            .collect(Collectors.toList());
+
+    Assert.assertTrue(expectedP0.equals(receivedData0));
+    Assert.assertTrue(expectedP1.equals(receivedData1));
+  }
+
+  @Test
   public void testSendingToEventHubHashing() throws Exception {
     String systemName = "eventhubs";
     String streamName = "testStream";

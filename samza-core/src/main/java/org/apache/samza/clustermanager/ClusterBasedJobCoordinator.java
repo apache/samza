@@ -18,20 +18,35 @@
  */
 package org.apache.samza.clustermanager;
 
+import com.google.common.annotations.VisibleForTesting;
+import java.util.Map;
+import java.util.Set;
 import org.apache.samza.SamzaException;
+import org.apache.samza.PartitionChangeException;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaSystemConfig;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ShellCommandConfig;
+import org.apache.samza.config.StorageConfig;
+import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.coordinator.JobModelManager;
+import org.apache.samza.coordinator.StreamPartitionCountMonitor;
 import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
+import org.apache.samza.system.StreamMetadataCache;
+import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemStream;
+import org.apache.samza.util.SystemClock;
+import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
+
 
 /**
  * Implements a JobCoordinator that is completely independent of the underlying cluster
@@ -69,10 +84,6 @@ public class ClusterBasedJobCoordinator {
    */
   private final SamzaApplicationState state;
 
-  /**
-   * Metrics to track stats around container failures, needed containers etc.
-   */
-
   //even though some of these can be converted to local variables, it will not be the case
   //as we add more methods to the JobCoordinator and completely implement SAMZA-881.
 
@@ -101,8 +112,30 @@ public class ClusterBasedJobCoordinator {
    */
   private final AtomicBoolean isStarted = new AtomicBoolean(false);
 
+  /**
+   * A boolean variable indicating whether the job has durable state stores in the configuration
+   */
+  private final boolean hasDurableStores;
+
+  /**
+   * The input topic partition count monitor
+   */
+  private final StreamPartitionCountMonitor partitionMonitor;
+
+  /**
+   * Metrics to track stats around container failures, needed containers etc.
+   */
+  private final MetricsRegistryMap metrics;
+
+  /**
+   * Internal variable for the instance of {@link JmxServer}
+   */
   private JmxServer jmxServer;
 
+  /**
+   * Variable to keep the callback exception
+   */
+  volatile private Exception coordinatorException = null;
 
   /**
    * Creates a new ClusterBasedJobCoordinator instance from a config. Invoke run() to actually
@@ -113,21 +146,22 @@ public class ClusterBasedJobCoordinator {
    */
   public ClusterBasedJobCoordinator(Config coordinatorSystemConfig) {
 
-    MetricsRegistryMap registry = new MetricsRegistryMap();
+    metrics = new MetricsRegistryMap();
 
     //build a JobModelReader and perform partition assignments.
-    jobModelManager = buildJobModelManager(coordinatorSystemConfig, registry);
+    jobModelManager = buildJobModelManager(coordinatorSystemConfig, metrics);
     config = jobModelManager.jobModel().getConfig();
+    hasDurableStores = new StorageConfig(config).hasDurableStores();
     state = new SamzaApplicationState(jobModelManager);
+    partitionMonitor = getPartitionCountMonitor(config);
     clusterManagerConfig = new ClusterManagerConfig(config);
     isJmxEnabled = clusterManagerConfig.getJmxEnabled();
 
     jobCoordinatorSleepInterval = clusterManagerConfig.getJobCoordinatorSleepInterval();
 
     // build a container process Manager
-    containerProcessManager = new ContainerProcessManager(config, state, registry);
+    containerProcessManager = new ContainerProcessManager(config, state, metrics);
   }
-
 
   /**
    * Starts the JobCoordinator.
@@ -152,10 +186,11 @@ public class ClusterBasedJobCoordinator {
       log.info("Starting Cluster Based Job Coordinator");
 
       containerProcessManager.start();
+      partitionMonitor.start();
 
       boolean isInterrupted = false;
 
-      while (!containerProcessManager.shouldShutdown() && !isInterrupted) {
+      while (!containerProcessManager.shouldShutdown() && !checkAndThrowException() && !isInterrupted) {
         try {
           Thread.sleep(jobCoordinatorSleepInterval);
         } catch (InterruptedException e) {
@@ -172,19 +207,25 @@ public class ClusterBasedJobCoordinator {
     }
   }
 
+  private boolean checkAndThrowException() throws Exception {
+    if (coordinatorException != null) {
+      throw coordinatorException;
+    }
+    return false;
+  }
+
   /**
    * Stops all components of the JobCoordinator.
    */
   private void onShutDown() {
 
-    if (containerProcessManager != null) {
-      try {
-        containerProcessManager.stop();
-      } catch (Throwable e) {
-        log.error("Exception while stopping task manager {}", e);
-      }
-      log.info("Stopped task manager");
+    try {
+      partitionMonitor.stop();
+      containerProcessManager.stop();
+    } catch (Throwable e) {
+      log.error("Exception while stopping task manager {}", e);
     }
+    log.info("Stopped task manager");
 
     if (jmxServer != null) {
       try {
@@ -201,6 +242,41 @@ public class ClusterBasedJobCoordinator {
     return jobModelManager;
   }
 
+  private StreamPartitionCountMonitor getPartitionCountMonitor(Config config) {
+    Map<String, SystemAdmin> systemAdmins = new JavaSystemConfig(config).getSystemAdmins();
+    StreamMetadataCache streamMetadata = new StreamMetadataCache(Util.javaMapAsScalaMap(systemAdmins), 0, SystemClock.instance());
+    Set<SystemStream> inputStreamsToMonitor = new TaskConfigJava(config).getAllInputStreams();
+    if (inputStreamsToMonitor.isEmpty()) {
+      throw new SamzaException("Input streams to a job can not be empty.");
+    }
+
+    return new StreamPartitionCountMonitor(
+        inputStreamsToMonitor,
+        streamMetadata,
+        metrics,
+        new JobConfig(config).getMonitorPartitionChangeFrequency(),
+        streamsChanged -> {
+        // Fail the jobs with durable state store. Otherwise, application state.status remains UNDEFINED s.t. YARN job will be restarted
+        if (hasDurableStores) {
+          log.error("Input topic partition count changed in a job with durable state. Failing the job.");
+          state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
+        }
+        coordinatorException = new PartitionChangeException("Input topic partition count changes detected.");
+      });
+  }
+
+  // The following two methods are package-private and for testing only
+  @VisibleForTesting
+  SamzaApplicationState.SamzaAppStatus getAppStatus() {
+    // make sure to only return a unmodifiable copy of the status variable
+    final SamzaApplicationState.SamzaAppStatus copy = state.status;
+    return copy;
+  }
+
+  @VisibleForTesting
+  StreamPartitionCountMonitor getPartitionMonitor() {
+    return partitionMonitor;
+  }
 
 
   /**
