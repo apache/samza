@@ -199,12 +199,11 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
   @Override
   protected Collection<WindowPane<K, Object>> handleEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
     List<WindowPane<K, Object>> results = new ArrayList<>();
-    Set<TriggerKey<K>> triggersToFire = new HashSet<>(triggers.keySet());
-    for(TriggerKey<K> triggerKey : triggersToFire) {
+    Set<TriggerKey<K>> triggerKeys = new HashSet<>(triggers.keySet());
+    for(TriggerKey<K> triggerKey : triggerKeys) {
       Optional<WindowPane<K, Object>> triggerResult = onTriggerFired(triggerKey, collector, coordinator);
       triggerResult.ifPresent(results::add);
     }
-
     return results;
   }
 
