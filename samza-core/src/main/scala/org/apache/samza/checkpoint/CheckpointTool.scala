@@ -24,7 +24,7 @@ import java.util.regex.Pattern
 import joptsimple.OptionSet
 import org.apache.samza.checkpoint.CheckpointTool.TaskNameToCheckpointMap
 import org.apache.samza.config.TaskConfig.Config2Task
-import org.apache.samza.config.{JobConfig, ConfigRewriter, Config, StreamConfig}
+import org.apache.samza.config.{JobConfig, ConfigRewriter, Config}
 import org.apache.samza.container.TaskName
 import org.apache.samza.job.JobRunner._
 import org.apache.samza.metrics.MetricsRegistryMap

@@ -21,7 +21,6 @@ package org.apache.samza.checkpoint
 
 import java.util
 
-import com.sun.scenario.effect.Offset
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.CheckpointTool.CheckpointToolCommandLine
 import org.apache.samza.container.TaskName
@@ -29,7 +28,7 @@ import org.apache.samza.checkpoint.TestCheckpointTool.{MockCheckpointManagerFact
 import org.apache.samza.config.{Config, MapConfig, SystemConfig, TaskConfig}
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
-import org.apache.samza.system.{SystemAdmin, SystemConsumer, SystemFactory, SystemProducer, SystemStream, SystemStreamMetadata, SystemStreamPartition}
+import org.apache.samza.system.{SystemAdmin, SystemConsumer, SystemFactory, SystemProducer, SystemStreamMetadata, SystemStreamPartition}
 import org.junit.{Before, Test}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
