@@ -297,6 +297,7 @@ public abstract class OperatorImpl<M, RM> {
    * override this to actually propagate EOS over the wire.
    * @param collector message collector
    * @param coordinator task coordinator
+   * @return results to be emitted when this operator reaches end-of-stream
    */
   protected Collection<RM> handleEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
     return Collections.emptyList();
