@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.operators;
+package org.apache.samza.operators.impl;
 
 
 import com.google.common.collect.ImmutableList;
@@ -28,7 +28,13 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.container.TaskContextImpl;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.operators.KV;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.impl.EndOfStreamStates;
+import org.apache.samza.operators.impl.WatermarkStates;
 import org.apache.samza.operators.impl.store.TestInMemoryStore;
 import org.apache.samza.operators.impl.store.TimeSeriesKeySerde;
 import org.apache.samza.operators.triggers.FiringType;
@@ -41,6 +47,7 @@ import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
+import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
@@ -56,13 +63,13 @@ import org.junit.Test;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 public class TestWindowOperator {
   private final TaskCoordinator taskCoordinator = mock(TaskCoordinator.class);
@@ -247,7 +254,6 @@ public class TestWindowOperator {
     Assert.assertEquals(windowPanes.get(3).getKey().getKey(), new Integer(2));
     Assert.assertEquals(windowPanes.get(3).getKey().getPaneId(), "2001");
     Assert.assertEquals((windowPanes.get(3).getMessage()).size(), 2);
-
   }
 
   @Test
@@ -420,6 +426,115 @@ public class TestWindowOperator {
     task.window(messageCollector, taskCoordinator);
     //assert that the default trigger fired
     Assert.assertEquals(windowPanes.size(), 4);
+  }
+
+  @Test
+  public void testEndOfStreamFlushesWithEarlyTriggerFirings() throws Exception {
+    EndOfStreamStates endOfStreamStates = new EndOfStreamStates(ImmutableSet.of(new SystemStreamPartition("kafka",
+        "integers", new Partition(0))), Collections.emptyMap());
+
+    when(taskContext.getTaskName()).thenReturn(new TaskName("task 1"));
+    when(taskContext.fetchObject(EndOfStreamStates.class.getName())).thenReturn(endOfStreamStates);
+    when(taskContext.fetchObject(WatermarkStates.class.getName())).thenReturn(mock(WatermarkStates.class));
+
+    StreamApplication sgb = new TumblingWindowStreamApplication(AccumulationMode.DISCARDING,
+        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2)));
+    List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
+
+    TestClock testClock = new TestClock();
+    StreamOperatorTask task = new StreamOperatorTask(sgb, runner, testClock);
+    task.init(config, taskContext);
+
+    MessageCollector messageCollector =
+        envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
+    Assert.assertEquals(windowPanes.size(), 0);
+
+    List<Integer> integerList = ImmutableList.of(1, 2, 1, 2, 1);
+    integerList.forEach(n -> task.process(new IntegerEnvelope(n), messageCollector, taskCoordinator));
+
+    // early triggers should emit (1,2) and (1,2) in the same window.
+    Assert.assertEquals(windowPanes.size(), 2);
+
+    testClock.advanceTime(Duration.ofSeconds(1));
+    Assert.assertEquals(windowPanes.size(), 2);
+
+    final IncomingMessageEnvelope endOfStream = IncomingMessageEnvelope.buildEndOfStreamEnvelope(
+        new SystemStreamPartition("kafka", "integers", new Partition(0)));
+    task.process(endOfStream, messageCollector, taskCoordinator);
+
+    // end of stream flushes the last entry (1)
+    Assert.assertEquals(windowPanes.size(), 3);
+    Assert.assertEquals((windowPanes.get(0).getMessage()).size(), 2);
+    verify(taskCoordinator, times(1)).commit(TaskCoordinator.RequestScope.CURRENT_TASK);
+    verify(taskCoordinator, times(1)).shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
+  }
+
+  @Test
+  public void testEndOfStreamFlushesWithDefaultTriggerFirings() throws Exception {
+    EndOfStreamStates endOfStreamStates = new EndOfStreamStates(ImmutableSet.of(new SystemStreamPartition("kafka",
+        "integers", new Partition(0))), Collections.emptyMap());
+
+    when(taskContext.getTaskName()).thenReturn(new TaskName("task 1"));
+    when(taskContext.fetchObject(EndOfStreamStates.class.getName())).thenReturn(endOfStreamStates);
+    when(taskContext.fetchObject(WatermarkStates.class.getName())).thenReturn(mock(WatermarkStates.class));
+
+    StreamApplication sgb = new KeyedSessionWindowStreamApplication(AccumulationMode.DISCARDING, Duration.ofMillis(500));
+    TestClock testClock = new TestClock();
+    List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
+    StreamOperatorTask task = new StreamOperatorTask(sgb, runner, testClock);
+    task.init(config, taskContext);
+
+    MessageCollector messageCollector =
+        envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
+
+    task.process(new IntegerEnvelope(1), messageCollector, taskCoordinator);
+    task.process(new IntegerEnvelope(1), messageCollector, taskCoordinator);
+    testClock.advanceTime(1000);
+    task.window(messageCollector, taskCoordinator);
+    Assert.assertEquals(windowPanes.size(), 1);
+
+    task.process(new IntegerEnvelope(1), messageCollector, taskCoordinator);
+    task.process(new IntegerEnvelope(1), messageCollector, taskCoordinator);
+
+    final IncomingMessageEnvelope endOfStream = IncomingMessageEnvelope.buildEndOfStreamEnvelope(
+        new SystemStreamPartition("kafka", "integers", new Partition(0)));
+    task.process(endOfStream, messageCollector, taskCoordinator);
+    Assert.assertEquals(windowPanes.size(), 2);
+    Assert.assertEquals(windowPanes.get(0).getMessage().size(), 2);
+    verify(taskCoordinator, times(1)).commit(TaskCoordinator.RequestScope.CURRENT_TASK);
+    verify(taskCoordinator, times(1)).shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
+  }
+
+  @Test
+  public void testEndOfStreamFlushesWithNoTriggerFirings() throws Exception {
+    EndOfStreamStates endOfStreamStates = new EndOfStreamStates(ImmutableSet.of(new SystemStreamPartition("kafka",
+        "integers", new Partition(0))), Collections.emptyMap());
+
+    when(taskContext.getTaskName()).thenReturn(new TaskName("task 1"));
+    when(taskContext.fetchObject(EndOfStreamStates.class.getName())).thenReturn(endOfStreamStates);
+    when(taskContext.fetchObject(WatermarkStates.class.getName())).thenReturn(mock(WatermarkStates.class));
+
+    StreamApplication sgb = new KeyedSessionWindowStreamApplication(AccumulationMode.DISCARDING, Duration.ofMillis(500));
+    TestClock testClock = new TestClock();
+    List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
+    StreamOperatorTask task = new StreamOperatorTask(sgb, runner, testClock);
+    task.init(config, taskContext);
+
+    MessageCollector messageCollector =
+        envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
+
+    task.process(new IntegerEnvelope(1), messageCollector, taskCoordinator);
+    task.process(new IntegerEnvelope(1), messageCollector, taskCoordinator);
+    task.process(new IntegerEnvelope(1), messageCollector, taskCoordinator);
+    task.process(new IntegerEnvelope(1), messageCollector, taskCoordinator);
+
+    final IncomingMessageEnvelope endOfStream = IncomingMessageEnvelope.buildEndOfStreamEnvelope(
+        new SystemStreamPartition("kafka", "integers", new Partition(0)));
+    task.process(endOfStream, messageCollector, taskCoordinator);
+    Assert.assertEquals(windowPanes.size(), 1);
+    Assert.assertEquals(windowPanes.get(0).getMessage().size(), 4);
+    verify(taskCoordinator, times(1)).commit(TaskCoordinator.RequestScope.CURRENT_TASK);
+    verify(taskCoordinator, times(1)).shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
   }
 
   private class KeyedTumblingWindowStreamApplication implements StreamApplication {

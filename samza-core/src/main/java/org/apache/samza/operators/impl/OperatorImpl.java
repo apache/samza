@@ -266,6 +266,7 @@ public abstract class OperatorImpl<M, RM> {
       if (eosStates.allEndOfStream()) {
         // all inputs have been end-of-stream, shut down the task
         LOG.info("All input streams have reached the end for task {}", taskName.getTaskName());
+        coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
         coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
       }
     }
@@ -279,7 +280,12 @@ public abstract class OperatorImpl<M, RM> {
    */
   private final void onEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
     if (inputStreams.stream().allMatch(input -> eosStates.isEndOfStream(input))) {
-      handleEndOfStream(collector, coordinator);
+      Collection<RM> results = handleEndOfStream(collector, coordinator);
+
+      results.forEach(rm ->
+          this.registeredOperators.forEach(op ->
+              op.onMessage(rm, collector, coordinator)));
+
       this.registeredOperators.forEach(op -> op.onEndOfStream(collector, coordinator));
     }
   }
@@ -292,8 +298,8 @@ public abstract class OperatorImpl<M, RM> {
    * @param collector message collector
    * @param coordinator task coordinator
    */
-  protected void handleEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
-    //Do nothing by default
+  protected Collection<RM> handleEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
+    return Collections.emptyList();
   }
 
   /**

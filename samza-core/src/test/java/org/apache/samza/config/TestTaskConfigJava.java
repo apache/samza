@@ -23,8 +23,10 @@ import static org.junit.Assert.*;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.samza.Partition;
 import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Test;
@@ -69,5 +71,24 @@ public class TestTaskConfigJava {
       invalidFormatException = true;
     }
     assertTrue(invalidFormatException);
+  }
+
+  @Test
+  public void testAutoCommitConfig() {
+    // positive values of commit.ms => autoCommit = true
+    Config config1 = new MapConfig(ImmutableMap.of("task.commit.ms", "1"));
+    assertTrue(new TaskConfig(config1).isAutoCommitEnabled());
+
+    // no value for commit.ms => autoCommit = true
+    Config config2 = new MapConfig(ImmutableMap.of());
+    assertTrue(new TaskConfig(config2).isAutoCommitEnabled());
+
+    // A zero value for commit.ms => autoCommit = false
+    Config config3 = new MapConfig(ImmutableMap.of("task.commit.ms", "0"));
+    assertFalse(new TaskConfig(config3).isAutoCommitEnabled());
+
+    // negative value for commit.ms => autoCommit = false
+    Config config4 = new MapConfig(ImmutableMap.of("task.commit.ms", "-1"));
+    assertFalse(new TaskConfig(config4).isAutoCommitEnabled());
   }
 }
