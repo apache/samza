@@ -53,9 +53,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -192,6 +194,17 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
   @Override
   protected OperatorSpec<M, WindowPane<K, Object>> getOperatorSpec() {
     return windowOpSpec;
+  }
+
+  @Override
+  protected Collection<WindowPane<K, Object>> handleEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
+    List<WindowPane<K, Object>> results = new ArrayList<>();
+    Set<TriggerKey<K>> triggerKeys = new HashSet<>(triggers.keySet());
+    for(TriggerKey<K> triggerKey : triggerKeys) {
+      Optional<WindowPane<K, Object>> triggerResult = onTriggerFired(triggerKey, collector, coordinator);
+      triggerResult.ifPresent(results::add);
+    }
+    return results;
   }
 
   @Override
