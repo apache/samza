@@ -1,0 +1,143 @@
+/*
+* Licensed to the Apache Software Foundation (ASF) under one
+* or more contributor license agreements.  See the NOTICE file
+* distributed with this work for additional information
+* regarding copyright ownership.  The ASF licenses this file
+* to you under the Apache License, Version 2.0 (the
+* "License"); you may not use this file except in compliance
+* with the License.  You may obtain a copy of the License at
+*
+*   http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing,
+* software distributed under the License is distributed on an
+* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+* KIND, either express or implied.  See the License for the
+* specific language governing permissions and limitations
+* under the License.
+*/
+
+{
+    "name": "ComplexRecord",
+    "version" : 1,
+    "namespace": "org.apache.samza.sql.system.avro",
+    "type": "record",
+    "fields": [
+        {
+            "name": "id",
+            "doc": "Record id.",
+            "type": ["null", "int"],
+            "default":null
+        },
+        {
+            "name": "bool_value",
+            "doc": "Boolean Value.",
+            "type": ["null", "boolean"],
+            "default":null
+        },
+        {
+            "name": "double_value",
+            "doc": "double Value.",
+            "type": ["null", "double"],
+            "default":null
+        },
+        {
+            "name": "float_value",
+            "doc": "float Value.",
+            "type": ["null", "float"],
+            "default":null
+        },
+        {
+            "name": "string_value",
+            "doc": "string Value.",
+            "type": ["null", "string"],
+            "default":null
+        },
+        {
+            "name": "bytes_value",
+            "doc": "bytes Value.",
+            "type": ["null", "bytes"],
+            "default":null
+        },
+        {
+            "name": "long_value",
+            "doc": "long Value.",
+            "type": ["null", "long"],
+            "default":null
+        },
+        {
+            "name": "fixed_value",
+            "doc": "fixed Value.",
+            "type": ["null", {
+               "name": "MyFixed",
+               "type":"fixed",
+               "size":16
+            }
+          ]
+        },
+        {
+            "name": "array_values",
+            "doc" : "array values in the record.",
+            "default": [],
+            "type": [ "null",
+              {
+                "type": "array",
+                "items": "string"
+              }
+            ]
+        },
+        {
+            "name": "map_values",
+            "doc" : "map values in the record.",
+            "default": [],
+            "type": [ "null",
+              {
+                "type": "map",
+                "values": "string"
+              }
+            ]
+        },
+        {
+            "name": "enum_value",
+            "doc" : "enum value.",
+            "default": [],
+            "type": [ "null",
+            {
+               "name": "TestEnumType",
+               "namespace": "org.apache.samza.sql.system.avro",
+               "type": "enum",
+               "doc": "My sample enum type",
+               "symbols": ["foo", "bar"]
+            }
+          ]
+        },
+        {
+            "name": "array_records",
+            "doc" : "array of records.",
+            "default": [],
+            "type": [ "null",
+              {
+                "type": "record",
+                "name": "SubRecord",
+                "namespace": "org.apache.samza.sql.system.avro",
+                "doc": "Sub record",
+                "fields": [
+                  {
+                    "name": "id",
+                    "doc": "sub record id",
+                    "type": ["null", "int"]
+                  },
+                  {
+                    "name": "sub_values",
+                    "doc": "Sub record ",
+                    "type": {
+                      "type": "array",
+                      "items": "string"
+                    }
+                  }
+                ]
+              }
+            ]
+        }
+    ]
+}

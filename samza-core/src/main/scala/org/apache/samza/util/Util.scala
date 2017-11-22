@@ -218,7 +218,6 @@ object Util extends Logging {
         JobConfig.JOB_NAME -> jobName,
         JobConfig.JOB_ID -> jobId,
         JobConfig.JOB_COORDINATOR_SYSTEM -> config.getCoordinatorSystemName,
-        JobConfig.MONITOR_PARTITION_CHANGE -> String.valueOf(config.getMonitorPartitionChange),
         JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS -> String.valueOf(config.getMonitorPartitionChangeFrequency))
     new MapConfig(map.asJava)
   }

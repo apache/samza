@@ -104,6 +104,7 @@ public class LocalStoreMonitor implements Monitor {
           }
         }
       } catch (Exception ex) {
+        localStoreMonitorMetrics.failedStoreDeletionAttempts.inc();
         if (!config.getIgnoreFailures()) {
           throw ex;
         }

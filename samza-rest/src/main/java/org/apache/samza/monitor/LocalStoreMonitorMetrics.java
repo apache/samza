@@ -33,9 +33,13 @@ public class LocalStoreMonitorMetrics extends MetricsBase {
   /** Total disk space cleared by the LocalStoreMonitor. */
   public final Counter diskSpaceFreedInBytes;
 
+  /** Total number of times task store deletions have been attempted and failed. */
+  public final Counter failedStoreDeletionAttempts;
+
   public LocalStoreMonitorMetrics(String prefix, MetricsRegistry registry) {
     super(prefix, registry);
     diskSpaceFreedInBytes = newCounter("diskSpaceFreedInBytes");
     noOfDeletedTaskPartitionStores = newCounter("noOfDeletedTaskPartitionStores");
+    failedStoreDeletionAttempts = newCounter("failedStoreDeletionAttempts");
   }
 }

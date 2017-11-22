@@ -27,6 +27,7 @@ import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.eventhub.*;
 import org.apache.samza.system.eventhub.admin.PassThroughInterceptor;
+import org.apache.samza.system.eventhub.producer.SwapFirstLastByteInterceptor;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,12 +47,16 @@ public class TestEventHubSystemConsumer {
   private static final String MOCK_ENTITY_2 = "mocktopic2";
 
   private void verifyEvents(List<IncomingMessageEnvelope> messages, List<EventData> eventDataList) {
+    verifyEvents(messages, eventDataList, new PassThroughInterceptor());
+  }
+
+  private void verifyEvents(List<IncomingMessageEnvelope> messages, List<EventData> eventDataList, Interceptor interceptor) {
     Assert.assertEquals(messages.size(), eventDataList.size());
     for (int i = 0; i < messages.size(); i++) {
       IncomingMessageEnvelope message = messages.get(i);
       EventData eventData = eventDataList.get(i);
       Assert.assertEquals(message.getKey(), eventData.getSystemProperties().getPartitionKey());
-      Assert.assertEquals(message.getMessage(), eventData.getBytes());
+      Assert.assertEquals(message.getMessage(), interceptor.intercept(eventData.getBytes()));
       Assert.assertEquals(message.getOffset(), eventData.getSystemProperties().getOffset());
     }
   }
@@ -134,6 +139,55 @@ public class TestEventHubSystemConsumer {
     List<IncomingMessageEnvelope> result = consumer.poll(Collections.singleton(ssp), 1000).get(ssp);
 
     verifyEvents(result, singlePartitionEventData);
+    Assert.assertEquals(testMetrics.getCounters(streamName).size(), 3);
+    Assert.assertEquals(testMetrics.getGauges(streamName).size(), 2);
+    Map<String, Counter> counters =
+            testMetrics.getCounters(streamName).stream().collect(Collectors.toMap(Counter::getName, Function.identity()));
+
+    Assert.assertEquals(counters.get(EventHubSystemConsumer.EVENT_READ_RATE).getCount(), numEvents);
+    Assert.assertEquals(counters.get(EventHubSystemConsumer.READ_ERRORS).getCount(), 0);
+  }
+
+  @Test
+  public void testSinglePartitionConsumptionInterceptor() throws Exception {
+    String systemName = "eventhubs";
+    String streamName = "testStream";
+    int numEvents = 10; // needs to be less than BLOCKING_QUEUE_SIZE
+    int partitionId = 0;
+    Interceptor interceptor = new SwapFirstLastByteInterceptor();
+
+    TestMetricsRegistry testMetrics = new TestMetricsRegistry();
+    Map<SystemStreamPartition, List<EventData>> eventData = new HashMap<>();
+    SystemStreamPartition ssp = new SystemStreamPartition(systemName, streamName, new Partition(partitionId));
+    Map<String, Interceptor> interceptors = new HashMap<>();
+    interceptors.put(streamName, interceptor);
+
+    // create EventData
+    List<EventData> singlePartitionEventData = MockEventData.generateEventData(numEvents);
+    eventData.put(ssp, singlePartitionEventData);
+
+    // Set configs
+    Map<String, String> configMap = new HashMap<>();
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_LIST, systemName), streamName);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, systemName, streamName), EVENTHUB_NAMESPACE);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName), EVENTHUB_KEY_NAME);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, systemName, streamName), EVENTHUB_KEY);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, systemName, streamName), MOCK_ENTITY_1);
+
+    MockEventHubClientManagerFactory eventHubClientWrapperFactory = new MockEventHubClientManagerFactory(eventData);
+
+    EventHubSystemConsumer consumer =
+            new EventHubSystemConsumer(new EventHubConfig(configMap), systemName, eventHubClientWrapperFactory, interceptors,
+                    testMetrics);
+    consumer.register(ssp, EventHubSystemConsumer.END_OF_STREAM);
+    consumer.start();
+
+    // Mock received data from EventHub
+    eventHubClientWrapperFactory.sendToHandlers(consumer.streamPartitionHandlers);
+
+    List<IncomingMessageEnvelope> result = consumer.poll(Collections.singleton(ssp), 1000).get(ssp);
+
+    verifyEvents(result, singlePartitionEventData, interceptor);
     Assert.assertEquals(testMetrics.getCounters(streamName).size(), 3);
     Assert.assertEquals(testMetrics.getGauges(streamName).size(), 2);
     Map<String, Counter> counters =

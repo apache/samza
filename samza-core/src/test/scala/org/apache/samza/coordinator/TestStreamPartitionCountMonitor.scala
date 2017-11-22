@@ -39,7 +39,7 @@ import scala.collection.JavaConverters._
 class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSugar {
 
   @Test
-  def testStreamPartitionCountMonitor(): Unit = {
+  def testStreamPartitionCountChange(): Unit = {
     val mockMetadataCache = mock[StreamMetadataCache]
     val inputSystemStream = new SystemStream("test-system", "test-stream")
     val inputSystemStreamSet = Set[SystemStream](inputSystemStream)
@@ -70,11 +70,14 @@ class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSug
 
     val metrics = new MetricsRegistryMap()
 
+    val mockCallback = mock[StreamPartitionCountMonitor.Callback]
+
     val partitionCountMonitor = new StreamPartitionCountMonitor(
       inputSystemStreamSet.asJava,
       mockMetadataCache,
       metrics,
-      5
+      5,
+      mockCallback
     )
 
     partitionCountMonitor.updatePartitionCountMetric()
@@ -87,6 +90,75 @@ class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSug
     val metricGroup = metrics.getGroup("job-coordinator")
     assertTrue(metricGroup.get("test-system-test-stream-partitionCount").isInstanceOf[Gauge[Int]])
     assertEquals(1, metricGroup.get("test-system-test-stream-partitionCount").asInstanceOf[Gauge[Int]].getValue)
+
+    verify(mockCallback, times(1)).onSystemStreamPartitionChange(any())
+
+  }
+
+  @Test
+  def testStreamPartitionCountException(): Unit = {
+    val mockMetadataCache = mock[StreamMetadataCache]
+    val inputSystemStream = new SystemStream("test-system", "test-stream")
+    val inputExceptionStream = new SystemStream("test-system", "test-exception-stream")
+    val inputSystemStreamSet = Set[SystemStream](inputSystemStream, inputExceptionStream)
+
+    val initialPartitionMetadata = new java.util.HashMap[Partition, SystemStreamPartitionMetadata]() {
+      {
+        put(new Partition(0), new SystemStreamPartitionMetadata("", "", ""))
+        put(new Partition(1), new SystemStreamPartitionMetadata("", "", ""))
+      }
+    }
+
+    val finalPartitionMetadata = new java.util.HashMap[Partition, SystemStreamPartitionMetadata]() {
+      {
+        putAll(initialPartitionMetadata)
+        put(new Partition(2), new SystemStreamPartitionMetadata("", "", ""))
+      }
+    }
+    val streamMockMetadata = mock[java.util.HashMap[Partition, SystemStreamPartitionMetadata]]
+
+    val initialMetadata = Map(
+      inputExceptionStream -> new SystemStreamMetadata(inputExceptionStream.getStream, initialPartitionMetadata),
+      inputSystemStream -> new SystemStreamMetadata(inputSystemStream.getStream, initialPartitionMetadata)
+    )
+    val finalMetadata = Map(
+      inputExceptionStream -> new SystemStreamMetadata(inputExceptionStream.getStream, streamMockMetadata),
+      inputSystemStream -> new SystemStreamMetadata(inputSystemStream.getStream, finalPartitionMetadata)
+    )
+
+    when(mockMetadataCache.getStreamMetadata(any(classOf[Set[SystemStream]]), Matchers.eq(true)))
+      .thenReturn(initialMetadata)  // Called during StreamPartitionCountMonitor instantiation
+      .thenReturn(finalMetadata)  // Called from monitor thread the second time
+
+    // make the call to get stream metadata for {@code inputExceptionStream} fail w/ a runtime exception
+    when(streamMockMetadata.keySet()).thenThrow(new RuntimeException)
+
+    val metrics = new MetricsRegistryMap()
+
+    val mockCallback = mock[StreamPartitionCountMonitor.Callback]
+
+    val partitionCountMonitor = new StreamPartitionCountMonitor(
+      inputSystemStreamSet.asJava,
+      mockMetadataCache,
+      metrics,
+      5,
+      mockCallback
+    )
+
+    partitionCountMonitor.updatePartitionCountMetric()
+
+    assertNotNull(partitionCountMonitor.getGauges().get(inputSystemStream))
+    assertEquals(1, partitionCountMonitor.getGauges().get(inputSystemStream).getValue)
+
+    assertNotNull(metrics.getGroup("job-coordinator"))
+
+    val metricGroup = metrics.getGroup("job-coordinator")
+    assertTrue(metricGroup.get("test-system-test-stream-partitionCount").isInstanceOf[Gauge[Int]])
+    assertEquals(1, metricGroup.get("test-system-test-stream-partitionCount").asInstanceOf[Gauge[Int]].getValue)
+
+    // Make sure as long as one of the input stream topic partition change is detected, the callback is invoked
+    verify(mockCallback, times(1)).onSystemStreamPartitionChange(any())
+
   }
 
   @Test
@@ -98,7 +170,8 @@ class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSug
       inputSystemStreamSet.asJava,
       mockMetadataCache,
       new MetricsRegistryMap(),
-      50
+      50,
+      null
     )
 
     assertFalse(monitor.isRunning())
@@ -143,7 +216,8 @@ class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSug
       inputSystemStreamSet.asJava,
       mockMetadataCache,
       new MetricsRegistryMap(),
-      50
+      50,
+      null
     ) {
       override def updatePartitionCountMetric(): Unit = {
         sampleCount.countDown()

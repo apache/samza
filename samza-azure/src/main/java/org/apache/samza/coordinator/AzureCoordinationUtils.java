@@ -32,7 +32,7 @@ public class AzureCoordinationUtils implements CoordinationUtils {
 
   public AzureCoordinationUtils(Config config) {
     azureConfig = new AzureConfig(config);
-    this.client = new AzureClient(azureConfig.getAzureConnect());
+    this.client = new AzureClient(azureConfig.getAzureConnectionString());
   }
 
   @Override

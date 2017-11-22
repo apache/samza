@@ -91,14 +91,15 @@ class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
   }
 
   @Override
-  protected void handleEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
+  protected Collection<Void> handleEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
     sendControlMessage(new EndOfStreamMessage(taskName), collector);
+    return Collections.emptyList();
   }
 
   @Override
-  protected Long handleWatermark(long watermark, MessageCollector collector, TaskCoordinator coordinator) {
+  protected Collection<Void> handleWatermark(long watermark, MessageCollector collector, TaskCoordinator coordinator) {
     sendControlMessage(new WatermarkMessage(watermark, taskName), collector);
-    return watermark;
+    return Collections.emptyList();
   }
 
   private void sendControlMessage(ControlMessage message, MessageCollector collector) {
