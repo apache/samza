@@ -21,7 +21,6 @@ package org.apache.samza.storage.kv;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.table.TableSpec;
 
 
@@ -33,6 +32,8 @@ import org.apache.samza.table.TableSpec;
  */
 public class RocksDbTableDescriptor<K, V> extends BaseStoreBackedTableDescriptor<K, V, RocksDbTableDescriptor<K, V>> {
 
+  static final public String WRITE_BATCH_SIZE = "write.batch.size";
+  static final public String OBJECT_CACHE_SIZE = "object.cache.size";
   static final public String CONTAINER_CACHE_SIZE_BYTES = "container.cache.size.bytes";
   static final public String CONTAINER_WRITE_BUFFER_SIZE_BYTES = "container.write.buffer.size.bytes";
   static final public String ROCKSDB_COMPRESSION = "rocksdb.compression";
@@ -43,18 +44,40 @@ public class RocksDbTableDescriptor<K, V> extends BaseStoreBackedTableDescriptor
   static final public String ROCKSDB_MAX_LOG_FILE_SIZE_BYTES = "rocksdb.max.log.file.size.bytes";
   static final public String ROCKSDB_KEEP_LOG_FILE_NUM = "rocksdb.keep.log.file.num";
 
+  protected Integer writeBatchSize;
+  protected Integer objectCacheSize;
   private Integer cacheSize;
   private Integer writeBufferSize;
   private Integer blockSize;
   private Integer ttl;
-  private Integer numOfWriteBuffers;
+  private Integer numWriteBuffers;
   private Integer maxLogFileSize;
-  private Integer numOfLogFilesToKeep;
+  private Integer numLogFilesToKeep;
   private String compressionType;
   private String compactionStyle;
 
   public RocksDbTableDescriptor(String tableId) {
     super(tableId);
+  }
+
+  /**
+   * Refer to <code>stores.store-name.write.batch.size</code> in Samza configuration guide
+   * @param writeBatchSize write batch size
+   * @return this table descriptor instance
+   */
+  public RocksDbTableDescriptor withWriteBatchSize(int writeBatchSize) {
+    this.writeBatchSize = writeBatchSize;
+    return this;
+  }
+
+  /**
+   * Refer to <code>stores.store-name.object.cache.size</code> in Samza configuration guide
+   * @param objectCacheSize the object cache size
+   * @return this table descriptor instance
+   */
+  public RocksDbTableDescriptor withObjectCacheSize(int objectCacheSize) {
+    this.objectCacheSize = objectCacheSize;
+    return this;
   }
 
   /**
@@ -119,11 +142,11 @@ public class RocksDbTableDescriptor<K, V> extends BaseStoreBackedTableDescriptor
 
   /**
    * Refer to <code>stores.store-name.rocksdb.num.write.buffers</code> in Samza configuration guide
-   * @param numOfWriteBuffers the number of write buffers
+   * @param numWriteBuffers the number of write buffers
    * @return this table descriptor instance
    */
-  public RocksDbTableDescriptor<K, V> withNumOfWriteBuffers(int numOfWriteBuffers) {
-    this.numOfWriteBuffers = numOfWriteBuffers;
+  public RocksDbTableDescriptor<K, V> withNumWriteBuffers(int numWriteBuffers) {
+    this.numWriteBuffers = numWriteBuffers;
     return this;
   }
 
@@ -139,11 +162,11 @@ public class RocksDbTableDescriptor<K, V> extends BaseStoreBackedTableDescriptor
 
   /**
    * Refer to <code>stores.store-name.rocksdb.num.write.buffers</code> in Samza configuration guide
-   * @param numOfLogFilesToKeep the number of log files to keep
+   * @param numLogFilesToKeep the number of log files to keep
    * @return this table descriptor instance
    */
-  public RocksDbTableDescriptor<K, V> withNumOfLogFilesToKeep(int numOfLogFilesToKeep) {
-    this.numOfLogFilesToKeep = numOfLogFilesToKeep;
+  public RocksDbTableDescriptor<K, V> withNumLogFilesToKeep(int numLogFilesToKeep) {
+    this.numLogFilesToKeep = numLogFilesToKeep;
     return this;
   }
 
@@ -191,14 +214,14 @@ public class RocksDbTableDescriptor<K, V> extends BaseStoreBackedTableDescriptor
     if (compactionStyle != null) {
       addRocksDbConfig(tableSpecConfig, ROCKSDB_COMPACTION_STYLE, compactionStyle);
     }
-    if (numOfWriteBuffers != null) {
-      addRocksDbConfig(tableSpecConfig, ROCKSDB_NUM_WRITE_BUFFERS, numOfWriteBuffers.toString());
+    if (numWriteBuffers != null) {
+      addRocksDbConfig(tableSpecConfig, ROCKSDB_NUM_WRITE_BUFFERS, numWriteBuffers.toString());
     }
     if (maxLogFileSize != null) {
       addRocksDbConfig(tableSpecConfig, ROCKSDB_MAX_LOG_FILE_SIZE_BYTES, maxLogFileSize.toString());
     }
-    if (numOfLogFilesToKeep != null) {
-      addRocksDbConfig(tableSpecConfig, ROCKSDB_KEEP_LOG_FILE_NUM, numOfLogFilesToKeep.toString());
+    if (numLogFilesToKeep != null) {
+      addRocksDbConfig(tableSpecConfig, ROCKSDB_KEEP_LOG_FILE_NUM, numLogFilesToKeep.toString());
     }
   }
 

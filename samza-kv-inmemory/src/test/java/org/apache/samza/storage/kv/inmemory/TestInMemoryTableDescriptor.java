@@ -20,8 +20,8 @@
 package org.apache.samza.storage.kv.inmemory;
 
 import org.apache.samza.serializers.IntegerSerde;
+import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.storage.kv.BaseStoreBackedTableDescriptor;
 import org.apache.samza.table.TableSpec;
 import org.junit.Assert;
 import org.junit.Test;
@@ -32,18 +32,13 @@ public class TestInMemoryTableDescriptor {
   public void testTableSpec() {
 
     TableSpec tableSpec = new InMemoryTableDescriptor<Integer, String>("1")
-        .withKeySerde(new IntegerSerde())
-        .withValueSerde(new StringSerde())
-        .withObjectCacheSize(6)
-        .withWriteBatchSize(8)
+        .withSerde(KVSerde.of(new IntegerSerde(), new StringSerde()))
         .withConfig("inmemory.abc", "xyz")
         .getTableSpec();
 
     Assert.assertNotNull(tableSpec.getSerde());
     Assert.assertNotNull(tableSpec.getSerde().getKeySerde());
     Assert.assertNotNull(tableSpec.getSerde().getValueSerde());
-    Assert.assertEquals("6", getConfig(tableSpec, BaseStoreBackedTableDescriptor.OBJECT_CACHE_SIZE));
-    Assert.assertEquals("8", getConfig(tableSpec, BaseStoreBackedTableDescriptor.WRITE_BATCH_SIZE));
     Assert.assertEquals("xyz", getConfig(tableSpec, "abc"));
   }
 

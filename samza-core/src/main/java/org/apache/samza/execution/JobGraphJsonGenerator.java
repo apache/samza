@@ -269,6 +269,12 @@ import org.codehaus.jackson.map.ObjectMapper;
     return edgeJson;
   }
 
+  /**
+   * Get or create the JSON POJO for a {@link TableSpec}
+   * @param tableSpec the {@link TableSpec}
+   * @param tableSpecs a map of tableId to {@link TableSpecJson}
+   * @return JSON representation of the {@link TableSpec}
+   */
   private TableSpecJson buildTableJson(TableSpec tableSpec, Map<String, TableSpecJson> tableSpecs) {
     String tableId = tableSpec.getId();
     TableSpecJson tableSpecJson = tableSpecs.get(tableId);
@@ -280,8 +286,8 @@ import org.codehaus.jackson.map.ObjectMapper;
   }
 
   /**
-   * Get or create the JSON POJO for a {@link TableSpec}
-   * @param tableSpec the tableSpec
+   * Create the JSON POJO for a {@link TableSpec}
+   * @param tableSpec the {@link TableSpec}
    * @return JSON representation of the {@link TableSpec}
    */
   private TableSpecJson buildTableJson(TableSpec tableSpec) {

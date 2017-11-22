@@ -38,14 +38,14 @@ import org.apache.samza.task.TaskCoordinator;
  * @param <K> the type of the join key
  * @param <V> the type of the value in incoming message
  * @param <R> the type of the record in the table
- * @param <OM> the type of the join result
+ * @param <JM> the type of the join result
  */
-class StreamTableJoinOperatorImpl<K, V, R, OM> extends OperatorImpl<KV<K, V>, OM> {
+class StreamTableJoinOperatorImpl<K, V, R, JM> extends OperatorImpl<KV<K, V>, JM> {
 
-  private final StreamTableJoinOperatorSpec<K, V, R, OM> joinOpSpec;
+  private final StreamTableJoinOperatorSpec<K, V, R, JM> joinOpSpec;
   private final ReadableTable<K, R> table;
 
-  StreamTableJoinOperatorImpl(StreamTableJoinOperatorSpec<K, V, R, OM> joinOpSpec,
+  StreamTableJoinOperatorImpl(StreamTableJoinOperatorSpec<K, V, R, JM> joinOpSpec,
       Config config, TaskContext context) {
     this.joinOpSpec = joinOpSpec;
     this.table = (ReadableTable) context.getTable(joinOpSpec.getTableSpec().getId());
@@ -57,9 +57,9 @@ class StreamTableJoinOperatorImpl<K, V, R, OM> extends OperatorImpl<KV<K, V>, OM
   }
 
   @Override
-  public Collection<OM> handleMessage(KV<K, V> message, MessageCollector collector, TaskCoordinator coordinator) {
+  public Collection<JM> handleMessage(KV<K, V> message, MessageCollector collector, TaskCoordinator coordinator) {
     R record = table.get(message.getKey());
-    OM output = joinOpSpec.getJoinFn().apply(message, record);
+    JM output = joinOpSpec.getJoinFn().apply(message, record);
     // The support for inner and outer join will be provided in the jonFn. For inner join, the joinFn might
     // return null, when the corresponding record is absent in the table.
     return output != null ?
@@ -72,7 +72,7 @@ class StreamTableJoinOperatorImpl<K, V, R, OM> extends OperatorImpl<KV<K, V>, OM
     this.joinOpSpec.getJoinFn().close();
   }
 
-  protected OperatorSpec<KV<K, V>, OM> getOperatorSpec() {
+  protected OperatorSpec<KV<K, V>, JM> getOperatorSpec() {
     return joinOpSpec;
   }
 

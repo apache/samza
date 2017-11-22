@@ -540,7 +540,7 @@ object SamzaContainer extends Logging {
         new StorageConfig(config).getChangeLogDeleteRetentionsInMs,
         new SystemClock)
 
-      val tableManager = new TableManager(config)
+      val tableManager = new TableManager(config, serdes.asJava)
       tableManager.initLocalTables(taskStores.asJava)
 
       info("Got table manager");

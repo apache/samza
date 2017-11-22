@@ -97,7 +97,7 @@ public class TestTableManager {
 
   @Test(expected = IllegalStateException.class)
   public void testInitFailsWithoutInitializingLocalTables() {
-    TableManager tableManager = new TableManager(new MapConfig(new HashMap<>()));
+    TableManager tableManager = new TableManager(new MapConfig(new HashMap<>()), new HashMap<>());
     tableManager.getTable("dummy");
   }
 
@@ -105,7 +105,21 @@ public class TestTableManager {
     Map<String, StorageEngine> storageEngines = new HashMap<>();
     storageEngines.put(TABLE_ID, mock(StorageEngine.class));
 
-    TableManager tableManager = new TableManager(new MapConfig(map));
+    Map<String, Serde<Object>> serdeMap = new HashMap<>();
+    SerializableSerde<Serde> serializableSerde = new SerializableSerde();
+    map.keySet().stream()
+        .filter(k -> k.endsWith(SerializerConfig.SERIALIZED_INSTANCE_SUFFIX()))
+        .forEach(k -> {
+            String serdeName = k
+                .replace(String.format(SerializerConfig.SERIALIZER_PREFIX(), ""), "")
+                .replace(SerializerConfig.SERIALIZED_INSTANCE_SUFFIX(), "");
+            String serializedSerde = map.get(k);
+            byte[] bytes = Base64.getDecoder().decode(serializedSerde);
+            Serde serde = serializableSerde.fromBytes(bytes);
+            serdeMap.put(serdeName, serde);
+          });
+
+    TableManager tableManager = new TableManager(new MapConfig(map), serdeMap);
     tableManager.initLocalTables(storageEngines);
 
     Table table = tableManager.getTable(TABLE_ID);

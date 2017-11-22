@@ -99,7 +99,7 @@ public class TaskContextImpl implements TaskContext {
     if (tableManager != null) {
       return tableManager.getTable(tableId);
     } else {
-      LOG.warn("No table found for Id: {}", tableId);
+      LOG.warn("No table manager found");
       return null;
     }
   }

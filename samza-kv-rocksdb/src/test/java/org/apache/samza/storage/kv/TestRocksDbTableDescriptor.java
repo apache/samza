@@ -20,7 +20,6 @@ package org.apache.samza.storage.kv;
 
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.table.TableSpec;
 import org.junit.Test;
@@ -47,36 +46,17 @@ public class TestRocksDbTableDescriptor {
   }
 
   @Test
-  public void testKeySerde() {
-    TableSpec tableSpec = new RocksDbTableDescriptor<Integer, String>("1")
-        .withKeySerde(new IntegerSerde())
-        .getTableSpec();
-    Assert.assertEquals(tableSpec.getSerde().getKeySerde().getClass(), IntegerSerde.class);
-    Assert.assertTrue(tableSpec.getSerde().getValueSerde() instanceof NoOpSerde);
-  }
-
-  @Test
-  public void testValueSerde() {
-    TableSpec tableSpec = new RocksDbTableDescriptor<Integer, String>("1")
-        .withValueSerde(new StringSerde())
-        .getTableSpec();
-    Assert.assertTrue(tableSpec.getSerde().getKeySerde() instanceof NoOpSerde);
-    Assert.assertEquals(tableSpec.getSerde().getValueSerde().getClass(), StringSerde.class);
-  }
-
-  @Test
   public void testTableSpec() {
 
     TableSpec tableSpec = new RocksDbTableDescriptor<Integer, String>("1")
-        .withKeySerde(new IntegerSerde())
-        .withValueSerde(new StringSerde())
+        .withSerde(KVSerde.of(new IntegerSerde(), new StringSerde()))
         .withBlockSize(1)
         .withCacheSize(2)
         .withCompactionStyle("fifo")
         .withCompressionType("snappy")
         .withMaxLogFileSize(3)
-        .withNumOfLogFilesToKeep(4)
-        .withNumOfWriteBuffers(5)
+        .withNumLogFilesToKeep(4)
+        .withNumWriteBuffers(5)
         .withObjectCacheSize(6)
         .withTtl(7)
         .withWriteBatchSize(8)

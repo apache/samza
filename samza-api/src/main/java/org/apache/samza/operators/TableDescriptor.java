@@ -21,11 +21,9 @@ package org.apache.samza.operators;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.samza.SamzaException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
-import org.apache.samza.serializers.Serde;
 import org.apache.samza.table.TableSpec;
 
 /**
@@ -34,7 +32,7 @@ import org.apache.samza.table.TableSpec;
  * Samza table. This class should be subclassed by the implementer of a
  * concrete table implementation.
  *
- * Once constructed, a table descriptor can be register to the system. Internally,
+ * Once constructed, a table descriptor can be registered with the system. Internally,
  * the table descriptor is then converted to a {@link TableSpec}, which is used to track
  * tables internally.
  *
@@ -42,11 +40,11 @@ import org.apache.samza.table.TableSpec;
  * is defined in this class and the rest in subclasses.
  *
  * <pre>
- *   TableDescriptor tableDesc = new RocksDbTableFactory().getTableDescriptor("t1")
- *     .withConfig("some-key", "some-value")
+ *   TableDescriptor&lt;Integer, String, ?&gt; tableDesc = new RocksDbTableDescriptor("t1")
  *     .withKeySerde(new IntegerSerde())
  *     .withValueSerde(new StringSerde("UTF-8"))
- *     .withBlockSize(1);
+ *     .withBlockSize(1)
+ *     .withConfig("some-key", "some-value");
  * </pre>
  *
  * @param <K> the type of the key in this table
@@ -66,7 +64,7 @@ abstract public class TableDescriptor<K, V, D extends TableDescriptor<K, V, D>> 
    * Constructs a table descriptor instance
    * @param tableId Id of the table
    */
-  public TableDescriptor(String tableId) {
+  protected TableDescriptor(String tableId) {
     this.tableId = tableId;
   }
 
@@ -85,40 +83,13 @@ abstract public class TableDescriptor<K, V, D extends TableDescriptor<K, V, D>> 
    * Set the Serde for this table
    * @param serde the serde
    * @return this table descriptor instance
+   * @throws IllegalArgumentException if null is provided
    */
   public D withSerde(KVSerde<K, V> serde) {
+    if (serde == null) {
+      throw new IllegalArgumentException("Serde cannot be null");
+    }
     this.serde = serde;
-    return (D) this;
-  }
-
-  /**
-   * Set the Serde for this table
-   * @param keySerde the key serde
-   * @param valueSerde the value serde
-   * @return this table descriptor instance
-   */
-  public D withSerde(Serde<K> keySerde, Serde<V> valueSerde) {
-    this.serde = KVSerde.of(keySerde, valueSerde);
-    return (D) this;
-  }
-
-  /**
-   * Set the Serde for keys of this table
-   * @param keySerde the key serde
-   * @return this table descriptor instance
-   */
-  public D withKeySerde(Serde<K> keySerde) {
-    this.serde = KVSerde.of(keySerde, this.serde.getValueSerde());
-    return (D) this;
-  }
-
-  /**
-   * Set the Serde for values of this table
-   * @param valueSerde the value serde
-   * @return this table descriptor instance
-   */
-  public D withValueSerde(Serde<V> valueSerde) {
-    this.serde = KVSerde.of(this.serde.getKeySerde(), valueSerde);
     return (D) this;
   }
 
@@ -131,14 +102,7 @@ abstract public class TableDescriptor<K, V, D extends TableDescriptor<K, V, D>> 
   }
 
   /**
-   * Create a table spec from this table descriptor
-   *
-   * @return the table spec
-   */
-  abstract public TableSpec getTableSpec();
-
-  /**
-   * Generate config for {@link TableSpec}
+   * Generate config for {@link TableSpec}; this method is used internally.
    * @param tableSpecConfig configuration for the {@link TableSpec}
    */
   protected void generateTableSpecConfig(Map<String, String> tableSpecConfig) {
@@ -146,11 +110,16 @@ abstract public class TableDescriptor<K, V, D extends TableDescriptor<K, V, D>> 
   }
 
   /**
-   * Validate that this table descriptor is constructed properly
+   * Validate that this table descriptor is constructed properly; this method is used internally.
    */
   protected void validate() {
-    if (serde == null) {
-      throw new SamzaException("Serde not provided");
-    }
   }
+
+  /**
+   * Create a {@link TableSpec} from this table descriptor; this method is used internally.
+   *
+   * @return the {@link TableSpec}
+   */
+  abstract public TableSpec getTableSpec();
+
 }

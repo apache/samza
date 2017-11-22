@@ -156,14 +156,14 @@ public interface MessageStream<M> {
    * Joins this {@link MessageStream} with another {@link Table} using the provided
    * pairwise {@link StreamTableJoinFunction}.
    * <p>
-   * Messages are looked up from the joined table, join function is applied and join results are
+   * Records are looked up from the joined table, join function is applied and join results are
    * emitted as matches are found.
    * <p>
    * The join function allows implementation of both inner and left outer join. A null will be
    * passed to the join function, if no record is found in the table matching the join key.
-   * The join function can choose to return an instance of OM (outer join) or null;
-   * if null is returned, the underlying implementation of the stream-table join operator
-   * passes an empty collection to downstream (inner join).
+   * The join function can choose to return an instance of JM (outer left join) or null
+   * (inner join); if null is returned, the underlying implementation of the stream-table join operator
+   * passes an empty collection to downstream.
    * <p>
    * Both the input stream and table being joined must have the same number of partitions,
    * and should be partitioned by the join key.
@@ -172,13 +172,13 @@ public interface MessageStream<M> {
    * @param table the table being joined
    * @param joinFn the join function
    * @param <K> the type of the join key
-   * @param <M> the type of messages from the stream
+   * @param <V> the type of value in the input message, here we expect to be of type (KV&lt;K, V&gt;)
    * @param <R> the type of record in the table
    * @param <JM> the type of messages resulting from the {@code joinFn}
    * @return the joined {@link MessageStream}
    */
-  <K, M, R, JM> MessageStream<JM> join(Table<K, R> table,
-      StreamTableJoinFunction<? extends K, ? super M, ? super R, ? extends JM> joinFn);
+  <K, V, R, JM> MessageStream<JM> join(Table<K, R> table,
+      StreamTableJoinFunction<? extends K, ? super V, ? super R, ? extends JM> joinFn);
 
   /**
    * Merges all {@code otherStreams} with this {@link MessageStream}.

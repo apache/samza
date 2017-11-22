@@ -18,17 +18,14 @@
  */
 package org.apache.samza.table;
 
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
-import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.storage.StorageEngine;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
@@ -69,28 +66,20 @@ public class TableManager {
   /**
    * Construct a table manager instance
    * @param config the job configuration
+   * @param serdes Serde instances for tables
    */
-  public TableManager(Config config) {
-
-    SerializableSerde<Serde> serializableSerde = new SerializableSerde();
+  public TableManager(Config config, Map<String, Serde<Object>> serdes) {
 
     new JavaTableConfig(config).getTableIds().forEach(tableId -> {
 
+        // Construct the table provider
         String tableProviderFactory = config.get(String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, tableId));
 
-        // Reconstruct the key Serde
-        String keySerdeKey = String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE(),
-            config.get(String.format(JavaTableConfig.TABLE_KEY_SERDE, tableId)));
-        String keySerdeValue = config.get(keySerdeKey);
-        Serde keySerde = serializableSerde.fromBytes(Base64.getDecoder().decode(keySerdeValue));
-
-        // Reconstruct the value Serde
-        String valueSerdeKey = String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE(),
-            config.get(String.format(JavaTableConfig.TABLE_VALUE_SERDE, tableId)));
-        String valueSerdeValue = config.get(valueSerdeKey);
-        Serde valueSerde = serializableSerde.fromBytes(Base64.getDecoder().decode(valueSerdeValue));
-
-        KVSerde serde = KVSerde.of(keySerde, valueSerde);
+        // Construct the KVSerde
+        JavaTableConfig tableConfig = new JavaTableConfig(config);
+        KVSerde serde = KVSerde.of(
+            serdes.get(tableConfig.getKeySerde(tableId)),
+            serdes.get(tableConfig.getValueSerde(tableId)));
 
         TableSpec tableSpec = new TableSpec(tableId, serde, tableProviderFactory,
             config.subset(String.format(JavaTableConfig.TABLE_ID_PREFIX, tableId) + "."));
@@ -147,7 +136,7 @@ public class TableManager {
    * Shutdown the table manager, internally it shuts down all tables
    */
   public void shutdown() {
-    tables.values().forEach(ctx -> ctx.tableProvider.shutdown());
+    tables.values().forEach(ctx -> ctx.tableProvider.stop());
   }
 
   /**

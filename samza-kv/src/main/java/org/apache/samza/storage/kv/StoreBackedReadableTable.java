@@ -55,6 +55,7 @@ public class StoreBackedReadableTable<K, V> implements ReadableTable<K, V> {
 
   @Override
   public void close() {
-    kvStore.close();
+    // The KV store is not closed here as it may still be needed by downstream operators,
+    // it will be closed by the SamzaContainer
   }
 }

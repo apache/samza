@@ -283,6 +283,7 @@ public class JobNode {
         configs.put(msgSerdeConfigKey, serdeUUIDs.get(serde));
       });
 
+    // set key and msg serdes for tables to the serde names generated above
     tableKeySerdes.forEach((tableId, serde) -> {
         String keySerdeConfigKey = String.format(JavaTableConfig.TABLE_KEY_SERDE, tableId);
         configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));

@@ -44,6 +44,7 @@ import org.apache.samza.table.Table;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.apache.samza.test.table.TestTableData.EnrichedPageView;
 import org.apache.samza.test.table.TestTableData.PageView;
+import org.apache.samza.test.table.TestTableData.PageViewJsonSerdeFactory;
 import org.apache.samza.test.table.TestTableData.Profile;
 import org.apache.samza.test.table.TestTableData.ProfileJsonSerde;
 import org.apache.samza.test.util.ArraySystemFactory;
@@ -61,10 +62,10 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
   @Test
   public void testSendTo() throws  Exception {
 
-    List<TestTableData.Profile> received = new ArrayList<>();
+    List<Profile> received = new ArrayList<>();
 
     int count = 10;
-    TestTableData.Profile[] profiles = TestTableData.generateProfiles(count);
+    Profile[] profiles = TestTableData.generateProfiles(count);
 
     int partitionCount = 4;
     Map<String, String> configs = getBaseJobConfig();
@@ -76,8 +77,8 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
     final StreamApplication app = (streamGraph, cfg) -> {
 
-      Table<Integer, TestTableData.Profile> table = streamGraph.getTable(new InMemoryTableDescriptor("t1")
-          .withKeySerde(KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde())));
+      Table<Integer, Profile> table = streamGraph.getTable(new InMemoryTableDescriptor("t1")
+          .withSerde(KVSerde.of(new IntegerSerde(), new ProfileJsonSerde())));
 
       streamGraph.getInputStream("Profile", new NoOpSerde<Profile>())
           .map(m -> {
@@ -119,10 +120,9 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     final StreamApplication app = (streamGraph, cfg) -> {
 
       Table<Integer, Profile> table = streamGraph.getTable(new InMemoryTableDescriptor("t1")
-          .withKeySerde(new IntegerSerde())
-          .withValueSerde(new ProfileJsonSerde()));
+          .withSerde(KVSerde.of(new IntegerSerde(), new ProfileJsonSerde())));
 
-      streamGraph.getInputStream("Profile", new NoOpSerde<TestTableData.Profile>())
+      streamGraph.getInputStream("Profile", new NoOpSerde<Profile>())
           .map(m -> new KV(m.getMemberId(), m))
           .sendTo(table);
 
@@ -160,15 +160,15 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     configs.put("job.default.system", "kafka");
 
     configs.put("serializers.registry.int.class", "org.apache.samza.serializers.IntegerSerdeFactory");
-    configs.put("serializers.registry.json.class", TestTableData.PageViewJsonSerdeFactory.class.getName());
+    configs.put("serializers.registry.json.class", PageViewJsonSerdeFactory.class.getName());
 
     return configs;
   }
 
   static public class MyJoinFn implements StreamTableJoinFunction
-      <Integer, PageView, TestTableData.Profile, TestTableData.EnrichedPageView> {
+      <Integer, PageView, Profile, EnrichedPageView> {
     @Override
-    public EnrichedPageView apply(KV<Integer, PageView> kv, TestTableData.Profile p) {
+    public EnrichedPageView apply(KV<Integer, PageView> kv, Profile p) {
       PageView pv = kv.getValue();
       return new EnrichedPageView(pv.getPageKey(), pv.getMemberId(), p.getCompany());
     }

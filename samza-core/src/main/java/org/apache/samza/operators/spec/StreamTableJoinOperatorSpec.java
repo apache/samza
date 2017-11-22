@@ -32,14 +32,13 @@ import org.apache.samza.table.TableSpec;
  * @param <K>  the type of join key
  * @param <V>  the type of the value in incoming message
  * @param <R>  the type of the table record value
- * @param <OM>  the type of the join result
+ * @param <JM>  the type of the join result
  */
 @InterfaceStability.Unstable
-public class StreamTableJoinOperatorSpec<K, V, R, OM> extends OperatorSpec<KV<K, V>, OM> {
+public class StreamTableJoinOperatorSpec<K, V, R, JM> extends OperatorSpec<KV<K, V>, JM> {
 
-  private final OperatorSpec<?, KV<K, V>> leftInputOpSpec;
   private final TableSpec tableSpec;
-  private final StreamTableJoinFunction<K, V, R, OM> joinFn;
+  private final StreamTableJoinFunction<K, V, R, JM> joinFn;
 
   /**
    * Constructor for a {@link StreamTableJoinOperatorSpec}.
@@ -50,22 +49,17 @@ public class StreamTableJoinOperatorSpec<K, V, R, OM> extends OperatorSpec<KV<K,
    * @param opId  the unique ID for this operator
    */
   StreamTableJoinOperatorSpec(OperatorSpec<?, KV<K, V>> leftInputOpSpec, TableSpec tableSpec,
-      StreamTableJoinFunction<K, V, R, OM> joinFn, String opId) {
+      StreamTableJoinFunction<K, V, R, JM> joinFn, String opId) {
     super(OpCode.JOIN, opId);
-    this.leftInputOpSpec = leftInputOpSpec;
     this.tableSpec = tableSpec;
     this.joinFn = joinFn;
-  }
-
-  public OperatorSpec getLeftInputOpSpec() {
-    return leftInputOpSpec;
   }
 
   public TableSpec getTableSpec() {
     return tableSpec;
   }
 
-  public StreamTableJoinFunction<K, V, R, OM> getJoinFn() {
+  public StreamTableJoinFunction<K, V, R, JM> getJoinFn() {
     return this.joinFn;
   }
 

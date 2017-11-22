@@ -36,7 +36,10 @@ public interface TableProvider {
   Table getTable();
 
   /**
-   * Generate any configuration for this table
+   * Generate any configuration for this table, the generated configuration
+   * is used by Samza container to construct this table and any components
+   * necessary
+   * .
    * @param config the current configuration
    * @return configuration for this table
    */
@@ -48,7 +51,7 @@ public interface TableProvider {
   void start();
 
   /**
-   * Shutdown the underlying table
+   * Stop the underlying table
    */
-  void shutdown();
+  void stop();
 }

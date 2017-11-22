@@ -363,7 +363,6 @@ public class TestMessageStreamImpl {
     StreamTableJoinOperatorSpec joinOpSpec = (StreamTableJoinOperatorSpec) leftRegisteredOpSpec;
     assertEquals(OpCode.JOIN, joinOpSpec.getOpCode());
     assertEquals(mockJoinFn, joinOpSpec.getJoinFn());
-    assertEquals(leftInputOpSpec, joinOpSpec.getLeftInputOpSpec());
     assertEquals(tableSpec, joinOpSpec.getTableSpec());
   }
 

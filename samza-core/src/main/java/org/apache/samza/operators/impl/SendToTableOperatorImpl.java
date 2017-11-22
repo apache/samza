@@ -32,8 +32,7 @@ import org.apache.samza.task.TaskCoordinator;
 
 
 /**
- * Implementation of a send-stream-to-table operator that first retrieve the key and
- * value for the record by applying key and value extractor, and then store the record
+ * Implementation of a send-stream-to-table operator that stores the record
  * in the table.
  *
  * @param <K> the type of the record key

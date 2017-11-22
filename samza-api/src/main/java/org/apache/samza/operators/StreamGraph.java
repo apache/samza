@@ -103,12 +103,13 @@ public interface StreamGraph {
   /**
    * Gets the {@link Table} corresponding to the {@link TableDescriptor}.
    * <p>
-   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
+   * Multiple invocations of this method with the same {@link TableDescriptor} will throw an
+   * {@link IllegalStateException}.
    *
    * @param tableDesc the {@link TableDescriptor}
    * @param <K> the type of the key
    * @param <V> the type of the value
-   * @return the {@link org.apache.samza.table.Table}
+   * @return the {@link org.apache.samza.table.Table} corresponding to the {@code tableDesc}
    * @throws IllegalStateException when invoked multiple times with the same {@link TableDescriptor}
    */
   <K, V> Table<K, V> getTable(TableDescriptor<K, V, ?> tableDesc);

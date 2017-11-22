@@ -37,7 +37,6 @@ public class JavaTableConfig extends MapConfig {
 
   // Config keys
   public static final String TABLE_PROVIDER_FACTORY = String.format("%s.provider.factory", TABLE_ID_PREFIX);
-  public static final String TABLE_SPEC = String.format("%s.spec", TABLE_ID_PREFIX);
   public static final String TABLE_KEY_SERDE = String.format("%s.key.serde", TABLE_ID_PREFIX);
   public static final String TABLE_VALUE_SERDE = String.format("%s.value.serde", TABLE_ID_PREFIX);
 
@@ -62,9 +61,27 @@ public class JavaTableConfig extends MapConfig {
   /**
    * Get the {@link org.apache.samza.table.TableProviderFactory} class for a table
    * @param tableId Id of the table
-   * @return the {@link org.apache.samza.table.TableProviderFactory} class
+   * @return the {@link org.apache.samza.table.TableProviderFactory} class name
    */
   public String getTableProviderFactory(String tableId) {
     return get(String.format(TABLE_PROVIDER_FACTORY, tableId), null);
+  }
+
+  /**
+   * Get registry keys of key serde for this table
+   * @param tableId Id of the table
+   * @return serde retistry key
+   */
+  public String getKeySerde(String tableId) {
+    return get(String.format(TABLE_KEY_SERDE, tableId), null);
+  }
+
+  /**
+   * Get registry keys of value serde for this table
+   * @param tableId Id of the table
+   * @return serde retistry key
+   */
+  public String getValueSerde(String tableId) {
+    return get(String.format(TABLE_VALUE_SERDE, tableId), null);
   }
 }

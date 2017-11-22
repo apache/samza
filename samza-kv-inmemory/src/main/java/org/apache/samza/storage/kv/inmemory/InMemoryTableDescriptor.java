@@ -39,15 +39,7 @@ public class InMemoryTableDescriptor<K, V> extends BaseStoreBackedTableDescripto
 
   @Override
   protected void generateTableSpecConfig(Map<String, String> tableSpecConfig) {
-
     super.generateTableSpecConfig(tableSpecConfig);
-
-    if (writeBatchSize != null) {
-      addInMemoryConfig(tableSpecConfig, WRITE_BATCH_SIZE, writeBatchSize.toString());
-    }
-    if (objectCacheSize != null) {
-      addInMemoryConfig(tableSpecConfig, OBJECT_CACHE_SIZE, objectCacheSize.toString());
-    }
   }
 
   @Override

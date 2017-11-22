@@ -23,6 +23,7 @@ import java.util.Map;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.JavaTableConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.storage.StorageEngine;
 import org.apache.samza.table.StoreBackedTableProvider;
@@ -67,8 +68,8 @@ abstract public class BaseStoreBackedTableProvider implements StoreBackedTablePr
   }
 
   @Override
-  public void shutdown() {
-    logger.info("Shutting down table provider for table " + tableSpec.getId());
+  public void stop() {
+    logger.info("Stopping table provider for table " + tableSpec.getId());
   }
 
   protected Map<String, String> generateCommonStoreConfig(Map<String, String> config) {
@@ -78,10 +79,12 @@ abstract public class BaseStoreBackedTableProvider implements StoreBackedTablePr
     // We assume the configuration for serde are already generated for this table,
     // so we simply carry them over to store configuration.
     //
-    String keySerde = config.get(String.format(JavaTableConfig.TABLE_KEY_SERDE, tableSpec.getId()));
+    JavaTableConfig tableConfig = new JavaTableConfig(new MapConfig(config));
+
+    String keySerde = tableConfig.getKeySerde(tableSpec.getId());
     storeConfig.put(String.format(StorageConfig.KEY_SERDE(), tableSpec.getId()), keySerde);
 
-    String valueSerde = config.get(String.format(JavaTableConfig.TABLE_VALUE_SERDE, tableSpec.getId()));
+    String valueSerde = tableConfig.getValueSerde(tableSpec.getId());
     storeConfig.put(String.format(StorageConfig.MSG_SERDE(), tableSpec.getId()), valueSerde);
 
     return storeConfig;
