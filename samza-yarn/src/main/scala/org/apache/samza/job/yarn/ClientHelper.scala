@@ -19,7 +19,6 @@
 
 package org.apache.samza.job.yarn
 
-
 import org.apache.commons.lang.StringUtils
 import org.apache.hadoop.fs.permission.FsPermission
 import org.apache.samza.config.{Config, JobConfig, YarnConfig}
@@ -57,6 +56,9 @@ import org.apache.samza.util.Logging
 import java.io.IOException
 import java.nio.ByteBuffer
 
+import org.apache.http.impl.client.HttpClientBuilder
+import org.apache.samza.webapp.ApplicationMasterRestClient
+
 object ClientHelper {
   val applicationType = "Samza"
 
@@ -79,6 +81,13 @@ class ClientHelper(conf: Configuration) extends Logging {
     yarnClient.init(conf)
     yarnClient.start
     yarnClient
+  }
+
+  private[yarn] def createAmClient(applicationReport: ApplicationReport) = {
+    val trackingUrl = applicationReport.getTrackingUrl
+    val rpcPort = applicationReport.getRpcPort
+
+    new ApplicationMasterRestClient(HttpClientBuilder.create.build, trackingUrl, rpcPort)
   }
 
   var jobContext: JobContext = null
@@ -306,7 +315,27 @@ class ClientHelper(conf: Configuration) extends Logging {
           Some(ApplicationStatus.unsuccessfulFinish(new SamzaException(diagnostics)))
         }
       case (YarnApplicationState.NEW, _) | (YarnApplicationState.SUBMITTED, _) => Some(New)
-      case _ => Some(Running)
+      case _ =>
+        if (allContainersRunning(applicationReport)) {
+          Some(Running)
+        } else {
+          Some(New)
+        }
+    }
+  }
+
+  def allContainersRunning(applicationReport: ApplicationReport): Boolean = {
+    val amClient: ApplicationMasterRestClient = createAmClient(applicationReport)
+    try {
+      val metrics = amClient.getMetrics
+      val neededContainers = Integer.parseInt(metrics.get("needed-containers").toString)
+      if (neededContainers == 0) {
+        true
+      } else {
+        false
+      }
+    } finally {
+      amClient.close()
     }
   }
 

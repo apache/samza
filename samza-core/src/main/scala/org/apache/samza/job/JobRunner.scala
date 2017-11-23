@@ -20,6 +20,8 @@
 package org.apache.samza.job
 
 
+import java.util.concurrent.TimeUnit
+
 import org.apache.samza.SamzaException
 import org.apache.samza.config.Config
 import org.apache.samza.config.JobConfig.Config2Job
@@ -120,7 +122,7 @@ class JobRunner(config: Config) extends Logging {
     info("waiting for job to start")
 
     // Wait until the job has started, then exit.
-    Option(job.waitForStatus(Running, 500)) match {
+    Option(job.waitForStatus(Running, TimeUnit.MINUTES.toMillis(2))) match {
       case Some(appStatus) => {
         if (Running.equals(appStatus)) {
           info("job started successfully - " + appStatus)
