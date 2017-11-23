@@ -84,7 +84,7 @@ class ClientHelper(conf: Configuration) extends Logging {
   }
 
   private[yarn] def createAmClient(applicationReport: ApplicationReport) = {
-    val trackingUrl = applicationReport.getTrackingUrl
+    val trackingUrl = applicationReport.getTrackingUrl.split(":").head
     val rpcPort = applicationReport.getRpcPort
 
     new ApplicationMasterRestClient(HttpClientBuilder.create.build, trackingUrl, rpcPort)
