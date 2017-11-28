@@ -254,6 +254,9 @@ MessageStream<KV<String, PageView>> partitionedPageViews =
                                         pageView -> pageView, // value extractor
                                         KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageView.class)), // serdes
                                         "partitioned-page-views") // operator ID
+
+The operator ID should be unique for an operator within the application and is used to identify the streams and stores created by the operator.
+
 {% endhighlight %}
 
 ### Merge
