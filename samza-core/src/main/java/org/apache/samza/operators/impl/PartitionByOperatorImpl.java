@@ -77,7 +77,8 @@ class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
       TaskCoordinator coordinator) {
     K key = keyFunction.apply(message);
     V value = valueFunction.apply(message);
-    collector.send(new OutgoingMessageEnvelope(systemStream, null, key, value));
+    Long partitionKey = key == null ? 0L : null;
+    collector.send(new OutgoingMessageEnvelope(systemStream, partitionKey, key, value));
     return Collections.emptyList();
   }
 
