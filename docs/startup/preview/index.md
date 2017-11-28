@@ -127,10 +127,10 @@ Since the 0.13.0 release, Samza provides a new high level API that simplifies yo
 
 Check out some examples to see the high-level API in action.
 
-1.  [Pageview AdClick Joiner](https://github.com/apache/samza-hello-samza/blob/c87ed565fbaebf2ac88376143c65e9f52f7a8801/src/main/java/samza/examples/cookbook/PageViewAdClickJoiner.java) demonstrates joining a stream of PageViews with a stream of AdClicks, e.g. to analyze which pages get the most ad clicks.
-2.  [Pageview Repartitioner](https://github.com/apache/samza-hello-samza/blob/c87ed565fbaebf2ac88376143c65e9f52f7a8801/src/main/java/samza/examples/cookbook/PageViewFilterApp.java) illustrates re-partitioning the incoming stream of PageViews.
-3.  [Pageview Sessionizer](https://github.com/apache/samza-hello-samza/blob/c87ed565fbaebf2ac88376143c65e9f52f7a8801/src/main/java/samza/examples/cookbook/PageViewSessionizerApp.java) groups the incoming stream of events into sessions based on user activity.
-4.  [Pageview by Region](https://github.com/apache/samza-hello-samza/blob/c87ed565fbaebf2ac88376143c65e9f52f7a8801/src/main/java/samza/examples/cookbook/TumblingPageViewCounterApp.java) counts the number of views per-region over tumbling time intervals.
+1.  [Pageview AdClick Joiner](https://github.com/apache/samza-hello-samza/blob/e5943a000eef87e077c422e09dc20f09d4e876ca/src/main/java/samza/examples/cookbook/PageViewAdClickJoiner.java) demonstrates joining a stream of PageViews with a stream of AdClicks, e.g. to analyze which pages get the most ad clicks.
+2.  [Pageview Repartitioner](https://github.com/apache/samza-hello-samza/blob/e5943a000eef87e077c422e09dc20f09d4e876ca/src/main/java/samza/examples/cookbook/PageViewFilterApp.java) illustrates re-partitioning the incoming stream of PageViews.
+3.  [Pageview Sessionizer](https://github.com/apache/samza-hello-samza/blob/e5943a000eef87e077c422e09dc20f09d4e876ca/src/main/java/samza/examples/cookbook/PageViewSessionizerApp.java) groups the incoming stream of events into sessions based on user activity.
+4.  [Pageview by Region](https://github.com/apache/samza-hello-samza/blob/e5943a000eef87e077c422e09dc20f09d4e876ca/src/main/java/samza/examples/cookbook/TumblingPageViewCounterApp.java) counts the number of views per-region over tumbling time intervals.
 
 
 ## Key Concepts
@@ -147,11 +147,11 @@ For example, here is a StreamApplication that validates and decorates page views
 public class BadPageViewFilter implements StreamApplication {
   @Override
 public void init(StreamGraph graph, Config config) {
-    MessageStream<PageView> pageViews = graph.getInputStream(“page-views”..);
+    MessageStream<PageView> pageViews = graph.getInputStream(“page-views”, new JsonSerdeV2<>(PageView.class));
 
     pageViews.filter(this::isValidPageView)
                       .map(this::addProfileInformation)
-                      .sendTo(graph.getOutputStream(“decorated-page-views”..))
+                      .sendTo(graph.getOutputStream(“decorated-page-views”, new JsonSerdeV2<>(DecoratedPageView.class)))
  }
 }
 {% endhighlight %}
@@ -169,7 +169,7 @@ There are 3 simple steps to write your stream processing applications using the 
 ### Step 1: Obtain the input streams:
 You can obtain the MessageStream for your input stream ID (“page-views”) using StreamGraph.getInputStream.
     {% highlight java %}
-    MessageStream<PageView> pageViewInput = graph.getInputStream(“page-views”, (k,v) -> v);
+    MessageStream<PageView> pageViewInput = graph.getInputStream(“page-views”, new JsonSerdeV2<>(PageView.class));
     {% endhighlight %}
 
 The first parameter `page-views` is the logical stream ID. Each stream ID is associated with a *physical name* and a *system*. By default, Samza uses the stream ID as the physical stream name and accesses the stream on the default system which is specified with the property “job.default.system”. However, the *physical name* and *system* properties can be overridden in configuration. For example, the following configuration defines the stream ID "page-views" as an alias for the PageViewEvent topic in a local Kafka cluster.
@@ -182,7 +182,7 @@ systems.kafka.producer.bootstrap.servers=localhost:9092
 streams.page-views.samza.physical.name=PageViewEvent
 {% endhighlight %}
 
-The second parameter `(k,v) -> v` is the MessageBuilder function that is used to construct a message from the incoming key and value.
+The second parameter is a serde to de-serialize the incoming message.
 
 ### Step 2: Define your transformation logic:
 You are now ready to define your StreamApplication logic as a series of transformations on MessageStreams.
@@ -200,8 +200,7 @@ Finally, you can create an OutputStream using StreamGraph.getOutputStream and se
 // Send messages with userId as the key to “decorated-page-views”.
 decoratedPageViews.sendTo(
                           graph.getOutputStream(“decorated-page-views”,
-                                                dpv -> dpv.getUserId(),
-                                                dpv -> dpv));
+                                                new JsonSerdeV2<>(DecoratedPageView.class)));
 {% endhighlight %}
 
 The first parameter `decorated-page-views` is a logical stream ID. The properties for this stream ID can be overridden just like the stream IDs for input streams. For example:
@@ -210,7 +209,7 @@ streams.decorated-page-views.samza.system=kafka
 streams.decorated-page-views.samza.physical.name=DecoratedPageViewEvent
 {% endhighlight %}
 
-The second and third parameters define extractors to split the upstream data type into a separate key and value, respectively.
+The second parameter is a serde to de-serialize the outgoing message.
 
 ## Operators
 The high level API supports common operators like map, flatmap, filter, merge, joins, and windowing on streams. Most of these operators accept corresponding Functions and these functions are [Initable](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/functions/InitableFunction.html).
@@ -247,12 +246,17 @@ MessageStream<String> shortWords = words.filter(word -> word.size() < 3);
 
 ### PartitionBy
 Re-partitions this MessageStream using the key returned by the provided keyExtractor and returns the transformed MessageStream. Messages are sent through an intermediate stream during repartitioning.
-
 {% highlight java %}
-// Repartition pageView by userId
 MessageStream<PageView> pageViews = ...
-MessageStream<PageView> partitionedPageViews =
-                                        pageViews.partitionBy(pageView -> pageView.getUserId())
+// Repartition pageView by userId.
+MessageStream<KV<String, PageView>> partitionedPageViews =
+                                        pageViews.partitionBy(pageView -> pageView.getUserId(), // key extractor
+                                        pageView -> pageView, // value extractor
+                                        KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageView.class)), // serdes
+                                        "partitioned-page-views") // operator ID
+
+The operator ID should be unique for an operator within the application and is used to identify the streams and stores created by the operator.
+
 {% endhighlight %}
 
 ### Merge
@@ -275,11 +279,11 @@ Sends all messages from this MessageStream to the provided OutputStream. You can
 {% highlight java %}
 // Output a new message with userId as the key and region as the value to the “user-region” stream.
 MessageStream<PageView> pageViews = ...
-OutputStream<String, String, PageView> userRegions
+MessageStream<KV<String, PageView>> keyedPageViews = pageViews.map(KV.of(pageView.getUserId(), pageView.getRegion()));
+OutputStream<KV<String, String>> userRegions
                            = graph.getOutputStream(“user-region”,
-                                                   pageView -> pageView.getUserId(),
-                                                   pageView -> pageView.getRegion())
-pageView.sendTo(userRegions);
+                                                   KVSerde.of(new StringSerde(), new StringSerde()));
+keyedPageViews.sendTo(userRegions);
 {% endhighlight %}
 
 
@@ -308,7 +312,11 @@ The Join operator joins messages from two MessageStreams using the provided pair
 MessageStream<OrderRecord> orders = …
 MessageStream<ShipmentRecord> shipments = …
 
-MessageStream<FulfilledOrderRecord> shippedOrders = orders.join(shipments, new OrderShipmentJoiner(), Duration.ofMinutes(20) )
+MessageStream<FulfilledOrderRecord> shippedOrders = orders.join(shipments, new OrderShipmentJoiner(),
+    new StringSerde(), // serde for the join key
+    new JsonSerdeV2<>(OrderRecord.class), new JsonSerdeV2<>(ShipmentRecord.class), // serde for both streams
+    Duration.ofMinutes(20), // join TTL
+    "shipped-order-stream") // operator ID
 
 // Constructs a new FulfilledOrderRecord by extracting the order timestamp from the OrderRecord and the shipment timestamp from the ShipmentRecord.
  class OrderShipmentJoiner implements JoinFunction<String, OrderRecord, ShipmentRecord, FulfilledOrderRecord> {
@@ -358,16 +366,17 @@ Examples:
 MessageStream<PageView> pageViews = ...
 MessageStream<WindowPane<String, Collection<PageView>>> =
                      pageViews.window(
-                         Windows.keyedTumblingWindow(pageView -> pageView.getUserId(),
-                           Duration.ofSeconds(30)))
+                         Windows.keyedTumblingWindow(pageView -> pageView.getUserId(), // key extractor
+                           Duration.ofSeconds(30), // window duration
+                           new StringSerde(), new JsonSerdeV2<>(PageView.class)));
 
 
 // Compute the maximum value over tumbling windows of 3 seconds.
 MessageStream<Integer> integers = …
-Supplier<Integer> initialValue = () -> Integer.MIN_VALUE
-FoldLeftFunction<Integer, Integer> aggregateFunction = (msg, oldValue) -> Math.max(msg, oldValue)
+Supplier<Integer> initialValue = () -> Integer.MIN_VALUE;
+FoldLeftFunction<Integer, Integer> aggregateFunction = (msg, oldValue) -> Math.max(msg, oldValue);
 MessageStream<WindowPane<Void, Integer>> windowedStream =
-         integers.window(Windows.tumblingWindow(Duration.ofSeconds(30), initialValue, aggregateFunction))
+         integers.window(Windows.tumblingWindow(Duration.ofSeconds(30), initialValue, aggregateFunction, new IntegerSerde()));
 
 {% endhighlight %}
 
@@ -383,7 +392,8 @@ Supplier<Integer> initialValue = () -> 0
 FoldLeftFunction<PageView, Integer> countAggregator = (pageView, oldCount) -> oldCount + 1;
 Duration sessionGap = Duration.ofMinutes(3);
 MessageStream<WindowPane<String, Integer> sessionCounts = pageViews.window(Windows.keyedSessionWindow(
-    pageView -> pageView.getUserId(), sessionGap, initialValue, countAggregator));
+    pageView -> pageView.getUserId(), sessionGap, initialValue, countAggregator,
+        new StringSerde(), new IntegerSerde()));
 
 // Compute the maximum value over tumbling windows of 3 seconds.
 MessageStream<Integer> integers = …
@@ -391,12 +401,11 @@ Supplier<Integer> initialValue = () -> Integer.MAX_INT
 
 FoldLeftFunction<Integer, Integer> aggregateFunction = (msg, oldValue) -> Math.max(msg, oldValue)
 MessageStream<WindowPane<Void, Integer>> windowedStream =
-     integers.window(Windows.tumblingWindow(Duration.ofSeconds(3), initialValue, aggregateFunction))
+     integers.window(Windows.tumblingWindow(Duration.ofSeconds(3), initialValue, aggregateFunction,
+         new IntegerSerde()))
 
 {% endhighlight %}
 
-### Known Issues
-Currently, both window and join operators buffer messages in-memory. So, messages could be lost on failures and re-starts.
 
 ---
 
