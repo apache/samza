@@ -21,6 +21,7 @@ package org.apache.samza.config;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.execution.StreamManager;
 
@@ -58,11 +59,11 @@ public class JavaStorageConfig extends MapConfig {
     // If the config specifies 'stores.<storename>.changelog' as '<system>.<stream>' combination - it will take precedence.
     // If this config only specifies <astream> and there is a value in job.changelog.system=<asystem> -
     // these values will be combined into <asystem>.<astream>
-    String systemStream = get(String.format(CHANGELOG_STREAM, storeName), null);
-    String changelogSystem = getChangelogSystem();
+    String systemStream = StringUtils.trimToNull(get(String.format(CHANGELOG_STREAM, storeName), null));
 
     String systemStreamRes;
     if (systemStream != null  && !systemStream.contains(".")) {
+      String changelogSystem = getChangelogSystem();
       // contains only stream name
       if (changelogSystem != null) {
         systemStreamRes = changelogSystem + "." + systemStream;
