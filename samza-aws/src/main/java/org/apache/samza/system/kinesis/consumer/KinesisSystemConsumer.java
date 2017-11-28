@@ -111,7 +111,7 @@ public class KinesisSystemConsumer extends BlockingEnvelopeMap implements Checkp
     this.system = systemName;
     this.kConfig = kConfig;
     this.metrics = new KinesisSystemConsumerMetrics(registry);
-    this.sspAllocator = new SSPAllocator(systemName);
+    this.sspAllocator = new SSPAllocator();
   }
 
   @Override

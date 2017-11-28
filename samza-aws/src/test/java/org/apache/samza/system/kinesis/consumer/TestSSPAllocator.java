@@ -41,7 +41,7 @@ public class TestSSPAllocator {
     IntStream.range(0, numPartitions)
         .forEach(i -> ssps.add(new SystemStreamPartition(system, stream, new Partition(i))));
 
-    SSPAllocator allocator = new SSPAllocator(system);
+    SSPAllocator allocator = new SSPAllocator();
     ssps.forEach(allocator::free);
 
     Assert.assertTrue(isSspAvailable(allocator, ssps.get(0)));
@@ -75,7 +75,7 @@ public class TestSSPAllocator {
     IntStream.range(0, numPartitions)
         .forEach(i -> ssps.add(new SystemStreamPartition(system, stream, new Partition(i))));
 
-    SSPAllocator allocator = new SSPAllocator(system);
+    SSPAllocator allocator = new SSPAllocator();
     ssps.forEach(allocator::free);
 
     allocator.allocate(stream);
@@ -92,7 +92,7 @@ public class TestSSPAllocator {
     IntStream.range(0, numPartitions)
         .forEach(i -> ssps.add(new SystemStreamPartition(system, stream, new Partition(i))));
 
-    SSPAllocator allocator = new SSPAllocator(system);
+    SSPAllocator allocator = new SSPAllocator();
     ssps.forEach(allocator::free);
 
     SystemStreamPartition ssp = allocator.allocate(stream);
@@ -109,7 +109,7 @@ public class TestSSPAllocator {
     IntStream.range(0, numPartitions)
         .forEach(i -> ssps.add(new SystemStreamPartition(system, stream, new Partition(i))));
 
-    SSPAllocator allocator = new SSPAllocator(system);
+    SSPAllocator allocator = new SSPAllocator();
     ssps.forEach(allocator::free);
 
     allocator.allocate(stream);

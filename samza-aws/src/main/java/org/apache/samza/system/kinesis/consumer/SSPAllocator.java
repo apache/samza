@@ -43,12 +43,7 @@ import org.slf4j.LoggerFactory;
 class SSPAllocator {
   private static final Logger LOG = LoggerFactory.getLogger(SSPAllocator.class.getName());
 
-  private final String system;
   private final Map<String, Set<SystemStreamPartition>> availableSsps = new HashMap<>();
-
-  SSPAllocator(String system) {
-    this.system = system;
-  }
 
   synchronized SystemStreamPartition allocate(String stream) throws NoAvailablePartitionException {
     Validate.isTrue(availableSsps.get(stream) != null,
@@ -69,9 +64,6 @@ class SSPAllocator {
   }
 
   synchronized void free(SystemStreamPartition ssp) {
-    Validate.isTrue(system.equals(ssp.getSystem()), String.format("Assigning ssp %s from different system."
-        + " Expected system is %s.", ssp, system));
-
     boolean success = availableSsps.computeIfAbsent(ssp.getStream(), p -> new HashSet<>()).add(ssp);
     Validate.isTrue(success, String.format("Ssp %s is already in free pool.", ssp));
 
