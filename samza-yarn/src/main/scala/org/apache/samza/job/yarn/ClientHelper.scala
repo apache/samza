@@ -314,13 +314,14 @@ class ClientHelper(conf: Configuration) extends Logging {
         } else {
           Some(ApplicationStatus.unsuccessfulFinish(new SamzaException(diagnostics)))
         }
-      case (YarnApplicationState.NEW, _) | (YarnApplicationState.SUBMITTED, _) => Some(New)
-      case _ =>
+      case (YarnApplicationState.RUNNING, _) =>
         if (allContainersRunning(applicationReport)) {
           Some(Running)
         } else {
           Some(New)
         }
+      case _ =>
+        Some(New)
     }
   }
 
@@ -329,6 +330,7 @@ class ClientHelper(conf: Configuration) extends Logging {
     try {
       val metrics = amClient.getMetrics
       val neededContainers = Integer.parseInt(metrics.get("needed-containers").toString)
+      info("Needed containers: " + neededContainers)
       if (neededContainers == 0) {
         true
       } else {
