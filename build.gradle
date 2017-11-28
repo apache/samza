@@ -341,7 +341,7 @@ project(':samza-sql') {
 
     testCompile project(":samza-test_$scalaVersion")
     testCompile "junit:junit:$junitVersion"
-    testCompile "org.mockito:mockito-all:$mockitoVersion"
+    testCompile "org.mockito:mockito-core:$mockitoVersion"
 
     testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
   }
