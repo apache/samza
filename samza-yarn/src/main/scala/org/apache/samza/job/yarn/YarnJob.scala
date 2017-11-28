@@ -115,7 +115,7 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
       Thread.sleep(1000)
     }
 
-    Running
+    getStatus
   }
 
   def waitForStatus(status: ApplicationStatus, timeoutMs: Long): ApplicationStatus = {
@@ -130,7 +130,7 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
       Thread.sleep(1000)
     }
 
-    Running
+    getStatus
   }
 
   def getStatus: ApplicationStatus = {
