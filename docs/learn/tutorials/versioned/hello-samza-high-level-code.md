@@ -108,26 +108,13 @@ systems.kafka.samza.factory=org.apache.samza.system.kafka.KafkaSystemFactory
 systems.kafka.consumer.zookeeper.connect=localhost:2181/
 systems.kafka.producer.bootstrap.servers=localhost:9092
 systems.kafka.default.stream.replication.factor=1
-systems.kafka.default.stream.samza.msg.serde=json
 {% endhighlight %}
 
 The above configuration defines 2 systems; one called _wikipedia_ and one called _kafka_.
 
 A factory is required for each system, so the _systems.system-name.samza.system.factory_ property is required for both systems. The other properties are system and use-case specific.
 
-For the _kafka_ system, we set the default replication factor to 1 for all streams because this application is intended for a demo deployment which utilizes a Kafka cluster with only 1 broker, so a replication factor larger than 1 is invalid. The default serde is JSON, which means by default any streams consumed or produced to the _kafka_ system will use a _json_ serde, which we will define in the next section.
-
-The _wikipedia_ system does not need a serde because the `WikipediaConsumer` already produces a usable type.
-
-#### Serdes
-Next, we need to configure the [serdes](/learn/documentation/{{site.version}}/container/serialization.html) we will use for streams and stores in the application.
-{% highlight bash %}
-serializers.registry.json.class=org.apache.samza.serializers.JsonSerdeFactory
-serializers.registry.string.class=org.apache.samza.serializers.StringSerdeFactory
-serializers.registry.integer.class=org.apache.samza.serializers.IntegerSerdeFactory
-{% endhighlight %}
-
-The _json_ serde was used for the _kafka_ system above. The _string_ and _integer_ serdes will be used later.
+For the _kafka_ system, we set the default replication factor to 1 for all streams because this application is intended for a demo deployment which utilizes a Kafka cluster with only 1 broker, so a replication factor larger than 1 is invalid.
 
 #### Configure Streams
 Samza identifies streams using a unique stream ID. In most cases, the stream ID is the same as the actual stream name. However, if a stream has a name that doesn't match the pattern `[A-Za-z0-9_-]+`, we need to configure a separate _physical.name_ to associate the actual stream name with a legal stream ID. The Wikipedia channels we will consume have a '#' character in the names. So for each of them we must pick a legal stream ID and then configure the physical name to match the channel.
@@ -208,16 +195,15 @@ Next, we will declare the input streams for the Wikipedia application.
 #### Inputs
 The Wikipedia application consumes events from three channels. Let's declare each of those channels as an input streams via the [StreamGraph](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/StreamGraph.html) in the [init](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html#init-org.apache.samza.operators.StreamGraph-org.apache.samza.config.Config-) method.
 {% highlight java %}
-MessageStream<WikipediaFeedEvent> wikipediaEvents = streamGraph.getInputStream("en-wikipedia", (k, v) -> (WikipediaFeedEvent) v);
-MessageStream<WikipediaFeedEvent> wiktionaryEvents = streamGraph.getInputStream("en-wiktionary", (k, v) -> (WikipediaFeedEvent) v);
-MessageStream<WikipediaFeedEvent> wikiNewsEvents = streamGraph.getInputStream("en-wikinews", (k, v) -> (WikipediaFeedEvent) v);
+MessageStream<WikipediaFeedEvent> wikipediaEvents = streamGraph.getInputStream("en-wikipedia", new NoOpSerde<>());
+MessageStream<WikipediaFeedEvent> wiktionaryEvents = streamGraph.getInputStream("en-wiktionary", new NoOpSerde<>());
+MessageStream<WikipediaFeedEvent> wikiNewsEvents = streamGraph.getInputStream("en-wikinews", new NoOpSerde<>());
 {% endhighlight %}
 
-The first argument to the [getInputStream](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/StreamGraph.html#getInputStream-java.lang.String-java.util.function.BiFunction-) method is the stream ID. Each ID must match the corresponding stream IDs we configured earlier.
+The first argument to the [getInputStream](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/StreamGraph.html#getInputStream-java.lang.String-org.apache.samza.serializers.Serde-) method is the stream ID. Each ID must match the corresponding stream IDs we configured earlier.
+The second argument is the `Serde` used to deserialize the message. We've set this to a `NoOpSerde` since our `wikipedia` system already returns `WikipediaFeedEvent`s and there is no need for further deserialization.
 
-The second argument is the *message builder*. It converts the input key and message to the appropriate type. In this case, we don't have a key and want to sent the events as-is, so we have a very simple builder that just forwards the input value.
-
-Note the streams are all MessageStreams of type WikipediaFeedEvent. [MessageStream](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html) is the in-memory representation of a stream in Samza. It uses generics to ensure type safety across the streams and operations. We knew the WikipediaFeedEvent type by inspecting the WikipediaConsumer above and we made it explicit with the cast on the output of the MessageBuilder. If our inputs used a serde, we would know the type based on which serde is configured for the input streams.
+Note the streams are all MessageStreams of type WikipediaFeedEvent. [MessageStream](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html) is the in-memory representation of a stream in Samza. It uses generics to ensure type safety across the streams and operations.
 
 #### Merge
 We'd like to use the same processing logic for all three input streams, so we will use the [mergeAll](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html#mergeAll-java.util.Collection-) operator to merge them together. Note: this is not the same as a [join](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html#join-org.apache.samza.operators.MessageStream-org.apache.samza.operators.functions.JoinFunction-java.time.Duration-) because we are not associating events by key. We are simply combining three streams into one, like a union.
@@ -279,7 +265,7 @@ Note: the type parameters for [FoldLeftFunction](/learn/documentation/{{site.ver
 Finally, we can define our [window](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/windows/Window.html) back in the [init](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html#init-org.apache.samza.operators.StreamGraph-org.apache.samza.config.Config-) method by chaining the result of the parser:
 {% highlight java %}
 allWikipediaEvents.map(WikipediaParser::parseEvent)
-        .window(Windows.tumblingWindow(Duration.ofSeconds(10), WikipediaStats::new, new WikipediaStatsAggregator()));
+        .window(Windows.tumblingWindow(Duration.ofSeconds(10), WikipediaStats::new, new WikipediaStatsAggregator(), new JsonSerdeV2<>(WikipediaStats.class)));
 {% endhighlight %}
 
 This defines an unkeyed [tumbling window](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/windows/Windows.html) that spans 10s, which instantiates a new `WikipediaStats` object at the beginning of each window and aggregates the stats using `WikipediaStatsAggregator`.
@@ -287,20 +273,32 @@ This defines an unkeyed [tumbling window](/learn/documentation/{{site.version}}/
 The output of the window is a [WindowPane](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/windows/WindowPane.html) with a key and value. Since we used an unkeyed tumbling window, the key is `Void`. The value is our `WikipediaStats` object.
 
 #### Output
-We want to use a JSON serializer to output the window values to Kafka, so we will do one more [map](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html#map-org.apache.samza.operators.functions.MapFunction-) to format the output.
+We will do a [map](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html#map-org.apache.samza.operators.functions.MapFunction-) at the end to format our window output. Let's begin by defining a simple container class for our formatted output.
 
-First, let's define the method to format the stats as a `Map<String, String>` so the _json_ serde can handle it. Paste the following after the aggregator class:
 {% highlight java %}
-private Map<String, Integer> formatOutput(WindowPane<Void, WikipediaStats> statsWindowPane) {
-  WikipediaStats stats = statsWindowPane.getMessage();
+  static class WikipediaStatsOutput {
+    public int edits;
+    public int bytesAdded;
+    public int uniqueTitles;
+    public Map<String, Integer> counts;
 
-  Map<String, Integer> counts = new HashMap<String, Integer>(stats.counts);
-  counts.put("edits", stats.edits);
-  counts.put("bytes-added", stats.byteDiff);
-  counts.put("unique-titles", stats.titles.size());
+    public WikipediaStatsOutput(int edits, int bytesAdded, int uniqueTitles,
+        Map<String, Integer> counts) {
+      this.edits = edits;
+      this.bytesAdded = bytesAdded;
+      this.uniqueTitles = uniqueTitles;
+      this.counts = counts;
+    }
+  }
+{% endhighlight %}
 
-  return counts;
-}
+Paste the following after the aggregator class:
+{% highlight java %}
+  private WikipediaStatsOutput formatOutput(WindowPane<Void, WikipediaStats> statsWindowPane) {
+    WikipediaStats stats = statsWindowPane.getMessage();
+    return new WikipediaStatsOutput(
+        stats.edits, stats.byteDiff, stats.titles.size(), stats.counts);
+  }
 {% endhighlight %}
 
 Now, we can invoke the method by adding another [map](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html#map-org.apache.samza.operators.functions.MapFunction-) operation to the chain in [init](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html#init-org.apache.samza.operators.StreamGraph-org.apache.samza.config.Config-). The operator chain should now look like this:
@@ -312,15 +310,14 @@ allWikipediaEvents.map(WikipediaParser::parseEvent)
 
 Next we need to get the output stream to which we will send the stats. Insert the following line below the creation of the 3 input streams:
 {% highlight java %}
-OutputStream<Void, Map<String, Integer>, Map<String, Integer>>
-        wikipediaStats = streamGraph.getOutputStream("wikipedia-stats", m -> null, m -> m);
+  OutputStream<WikipediaStatsOutput> wikipediaStats =
+     graph.getOutputStream("wikipedia-stats", new JsonSerdeV2<>(WikipediaStatsOutput.class));
 {% endhighlight %}
 
-The [OutputStream](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/OutputStream.html) is parameterized by 3 types; the key type for the output, the value type for the output, and upstream type.
+The [OutputStream](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/OutputStream.html) is parameterized by the type of the output.
 
-The first parameter of [getOutputStream](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/StreamGraph.html#getOutputStream-java.lang.String-java.util.function.Function-java.util.function.Function-) is the output stream ID. We will use _wikipedia-stats_ and since it contains no special characters, we won't bother configuring a physical name so Samza will use the stream ID as the topic name.
-
-The second and third parameters are the *key extractor* and the *message extractor*, respectively. We have no key, so the *key extractor* simply produces null. The *message extractor* simply passes the message because it's already the correct type for the _json_ serde. Note: we could have skipped the previous [map](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html#map-org.apache.samza.operators.functions.MapFunction-) operator and invoked our formatter here, but we kept them separate for pedagogical purposes.
+The first parameter of [getOutputStream](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/StreamGraph.html#getOutputStream-java.lang.String-org.apache.samza.serializers.Serde-) is the output stream ID. We will use _wikipedia-stats_ and since it contains no special characters, we won't bother configuring a physical name so Samza will use the stream ID as the topic name.
+The second parameter is the [Serde](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/serializers/Serde.html) to serialize the outgoing message. We will set it to [JsonSerdeV2](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/serializers/JsonSerdeV2.html) to serialize our `WikipediaStatsOutput` as a JSON string.
 
 Finally, we can send our output to the output stream using the [sendTo](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html#sendTo-org.apache.samza.operators.OutputStream-) operator:
 {% highlight java %}
@@ -339,15 +336,18 @@ We will do this by keeping a separate count outside the window and persisting it
 
 We start by defining the store in the config file:
 {% highlight bash %}
+serializers.registry.string.class=org.apache.samza.serializers.StringSerdeFactory
+serializers.registry.integer.class=org.apache.samza.serializers.IntegerSerdeFactory
+
 stores.wikipedia-stats.factory=org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory
 stores.wikipedia-stats.changelog=kafka.wikipedia-stats-changelog
 stores.wikipedia-stats.key.serde=string
 stores.wikipedia-stats.msg.serde=integer
 {% endhighlight %}
 
-These properties declare a [RocksDB](http://rocksdb.org/) key-value store named "wikipedia-stats". The store is replicated to a changelog stream called "wikipedia-stats-changelog" on the _kafka_ system for durability. It uses the _string_ and _integer_ serdes you defined earlier for keys and values respectively.
+These properties declare a [RocksDB](http://rocksdb.org/) key-value store named "wikipedia-stats". The store is replicated to a changelog stream called "wikipedia-stats-changelog" on the _kafka_ system for durability. It uses the _string_ and _integer_ serdes for keys and values respectively.
 
-Next, we add a total count member variable to the `WikipediaStats` class:
+Next, we add a total count member variable to the `WikipediaStats` class, and to the `WikipediaStatsOutput` class:
 {% highlight java %}
 int totalEdits = 0;
 {% endhighlight %}
@@ -374,10 +374,7 @@ store.put("count-edits-all-time", editsAllTime);
 stats.totalEdits = editsAllTime;
 {% endhighlight %}
 
-Finally, update the `MyWikipediaApplication#formatOutput` method to include the total counter.
-{% highlight java %}
-counts.put("edits-all-time", stats.totalEdits);
-{% endhighlight %}
+Finally, update the `MyWikipediaApplication#formatOutput` method to include the total counter in its `WikipediaStatsOutput`.
 
 #### Metrics
 Lastly, let's add a metric to the application which counts the number of repeat edits each topic within the window interval.
