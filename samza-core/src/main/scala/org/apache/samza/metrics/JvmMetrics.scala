@@ -43,6 +43,7 @@ object JvmMetrics {
  */
 class JvmMetrics(val registry: MetricsRegistry) extends MetricsHelper with Runnable with Logging {
   final val M = 1024 * 1024.0F
+  final val PCT = 100.0
 
   val memoryMXBean = ManagementFactory.getMemoryMXBean()
   val gcBeans = ManagementFactory.getGarbageCollectorMXBeans()
@@ -166,8 +167,8 @@ class JvmMetrics(val registry: MetricsRegistry) extends MetricsHelper with Runna
   private def updateOperatingSystemMetrics {
     if (osMXBean.isInstanceOf[OperatingSystemMXBean]) {
       val operatingSystemMXBean = osMXBean.asInstanceOf[OperatingSystemMXBean]
-      gProcessCpuUsage.set(operatingSystemMXBean.getProcessCpuLoad)
-      gSystemCpuUsage.set(operatingSystemMXBean.getSystemCpuLoad)
+      gProcessCpuUsage.set(operatingSystemMXBean.getProcessCpuLoad * PCT)
+      gSystemCpuUsage.set(operatingSystemMXBean.getSystemCpuLoad * PCT)
 
       if (osMXBean.isInstanceOf[UnixOperatingSystemMXBean]) {
         gOpenFileDescriptorCount.set(osMXBean.asInstanceOf[UnixOperatingSystemMXBean].getOpenFileDescriptorCount)
