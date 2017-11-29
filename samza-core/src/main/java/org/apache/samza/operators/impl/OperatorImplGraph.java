@@ -155,6 +155,7 @@ public class OperatorImplGraph {
    */
   OperatorImpl createAndRegisterOperatorImpl(OperatorSpec prevOperatorSpec, OperatorSpec operatorSpec,
       SystemStream inputStream, Config config, TaskContext context) {
+
     if (!operatorImpls.containsKey(operatorSpec.getOpId()) || operatorSpec instanceof JoinOperatorSpec) {
       // Either this is the first time we've seen this operatorSpec, or this is a join operator spec
       // and we need to create 2 partial join operator impls for it. Initialize and register the sub-DAG.
@@ -174,9 +175,16 @@ public class OperatorImplGraph {
         });
       return operatorImpl;
     } else {
-      // the implementation corresponding to operatorSpec has already been instantiated
-      // and registered, so we do not need to traverse the DAG further.
-      return operatorImpls.get(operatorSpec.getOpId());
+      // the implementation corresponding to operatorSpec has already been instantiated and registered.
+      OperatorImpl operatorImpl = operatorImpls.get(operatorSpec.getOpId());
+      operatorImpl.registerInputStream(inputStream);
+
+      // We still need to traverse the DAG further to register the input streams.
+      Collection<OperatorSpec> registeredSpecs = operatorSpec.getRegisteredOperatorSpecs();
+      registeredSpecs.forEach(registeredSpec -> {
+          createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, config, context);
+        });
+      return operatorImpl;
     }
   }
 
