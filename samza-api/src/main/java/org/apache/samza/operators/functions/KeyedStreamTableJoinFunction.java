@@ -16,19 +16,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.table;
 
-import org.apache.samza.annotation.InterfaceStability;
+package org.apache.samza.operators.functions;
+
 import org.apache.samza.operators.KV;
 
 
 /**
+ * Keyed stream-table join function, see {@link StreamTableJoinFunction} for more details.
  *
- * Marker interface for a table instance, an instance is used at execution
- * time to access the table by tasks.
- *
- * @param <R> the type of records in the table
+ * @param <K> type of the join key
+ * @param <MV> type of the input message value
+ * @param <RV> type of the table record value
+ * @param <JM> type of join results
  */
-@InterfaceStability.Unstable
-public interface Table<R extends KV> {
+public interface KeyedStreamTableJoinFunction<K, MV, RV, JM>
+    extends StreamTableJoinFunction<K, KV<K, MV>, KV<K, RV>, JM> {
+
+  default K getMessageKey(KV<K, MV> message) {
+    return message.getKey();
+  }
+
 }

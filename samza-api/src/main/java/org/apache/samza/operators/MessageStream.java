@@ -159,6 +159,16 @@ public interface MessageStream<M> {
    * Records are looked up from the joined table, join function is applied and join results are
    * emitted as matches are found.
    * <p>
+   * The type of input message is expected to be {@link KV}, and a cast is required for
+   * lambda to work properly. For example
+   * <p>
+   *   <code>
+   * inputStream
+   *     .partitionBy(PageView::getMemberId, v -&gt; v, "p1")
+   *     .join(table, (KeyedStreamTableJoinFunction&lt;Integer, PageView, Profile, EnrichedPageView&gt;) (m, r) -&gt;
+   *         new EnrichedPageView(m.getValue().getPageKey(), m.getKey(), r.getValue().getCompany()))
+   *   </code>
+   * <p>
    * The join function allows implementation of both inner and left outer join. A null will be
    * passed to the join function, if no record is found in the table matching the join key.
    * The join function can choose to return an instance of JM (outer left join) or null
@@ -172,13 +182,12 @@ public interface MessageStream<M> {
    * @param table the table being joined
    * @param joinFn the join function
    * @param <K> the type of the join key
-   * @param <V> the type of value in the input message, here we expect to be of type (KV&lt;K, V&gt;)
-   * @param <R> the type of record in the table
+   * @param <RV> the type of record value in the table
    * @param <JM> the type of messages resulting from the {@code joinFn}
    * @return the joined {@link MessageStream}
    */
-  <K, V, R, JM> MessageStream<JM> join(Table<K, R> table,
-      StreamTableJoinFunction<? extends K, ? super V, ? super R, ? extends JM> joinFn);
+  <K, RV, JM> MessageStream<JM> join(Table<KV<K, RV>> table,
+      StreamTableJoinFunction<? extends K, ? super M, KV<K, RV>, ? extends JM> joinFn);
 
   /**
    * Merges all {@code otherStreams} with this {@link MessageStream}.
@@ -257,12 +266,12 @@ public interface MessageStream<M> {
       Function<? super M, ? extends V> valueExtractor, String id);
 
   /**
-   * Allows sending messages in this {@link MessageStream} to an {@link Table}.
+   * Sends messages in this {@link MessageStream} to a {@link Table}.
    *
    * @param table the table to write messages to
    * @param <K> the type of key in the table
-   * @param <V> the type of record in the table
+   * @param <V> the type of record value in the table
    */
-  <K, V> void sendTo(Table<K, V> table);
+  <K, V> void sendTo(Table<KV<K, V>> table);
 
 }

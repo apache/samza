@@ -112,7 +112,7 @@ public interface StreamGraph {
    * @return the {@link org.apache.samza.table.Table} corresponding to the {@code tableDesc}
    * @throws IllegalStateException when invoked multiple times with the same {@link TableDescriptor}
    */
-  <K, V> Table<K, V> getTable(TableDescriptor<K, V, ?> tableDesc);
+  <K, V> Table<KV<K, V>> getTable(TableDescriptor<K, V, ?> tableDesc);
 
   /**
    * Sets the {@link ContextManager} for this {@link StreamGraph}.

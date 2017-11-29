@@ -143,12 +143,11 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <K, V, R, JM> MessageStream<JM> join(Table<K, R> table,
-      StreamTableJoinFunction<? extends K, ? super V, ? super R, ? extends JM> joinFn) {
+  public <K, RV, JM> MessageStream<JM> join(Table<KV<K, RV>> table,
+      StreamTableJoinFunction<? extends K, ? super M, KV<K, RV>, ? extends JM> joinFn) {
     TableSpec tableSpec = ((TableImpl) table).getTableSpec();
-    StreamTableJoinOperatorSpec<K, M, R, JM> joinOpSpec =
-        OperatorSpecs.createStreamTableJoinOperatorSpec(this.operatorSpec, tableSpec,
-            joinFn, this.graph.getNextOpId(OpCode.JOIN));
+    StreamTableJoinOperatorSpec<K, M, KV<K, RV>, JM> joinOpSpec = OperatorSpecs.createStreamTableJoinOperatorSpec(
+        tableSpec, (StreamTableJoinFunction<K, M, KV<K, RV>, JM>) joinFn, this.graph.getNextOpId(OpCode.JOIN));
     this.operatorSpec.registerNextOperatorSpec(joinOpSpec);
     return new MessageStreamImpl<>(this.graph, joinOpSpec);
   }
@@ -190,7 +189,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <K, V> void sendTo(Table<K, V> table) {
+  public <K, V> void sendTo(Table<KV<K, V>> table) {
     SendToTableOperatorSpec<K, V> op = OperatorSpecs.createSendToTableOperatorSpec(
         this.operatorSpec, ((TableImpl) table).getTableSpec(), this.graph.getNextOpId(OpCode.SEND_TO));
     this.operatorSpec.registerNextOperatorSpec(op);

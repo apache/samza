@@ -152,7 +152,7 @@ public class StreamGraphImpl implements StreamGraph {
   }
 
   @Override
-  public <K, V> Table<K, V> getTable(TableDescriptor<K, V, ?> tableDesc) {
+  public <K, V> Table<KV<K, V>> getTable(TableDescriptor<K, V, ?> tableDesc) {
     TableSpec tableSpec = tableDesc.getTableSpec();
     if (tables.containsKey(tableSpec)) {
       throw new IllegalStateException(String.format(

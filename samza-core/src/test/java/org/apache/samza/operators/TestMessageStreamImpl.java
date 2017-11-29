@@ -342,7 +342,7 @@ public class TestMessageStreamImpl {
   public void testStreamTableJoin() {
     StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
     OperatorSpec leftInputOpSpec = mock(OperatorSpec.class);
-    MessageStreamImpl<TestMessageEnvelope> source1 = new MessageStreamImpl<>(mockGraph, leftInputOpSpec);
+    MessageStreamImpl<KV<String, TestMessageEnvelope>> source1 = new MessageStreamImpl<>(mockGraph, leftInputOpSpec);
     OperatorSpec rightInputOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<TestMessageEnvelope> source2 = new MessageStreamImpl<>(mockGraph, rightInputOpSpec);
 
@@ -351,8 +351,8 @@ public class TestMessageStreamImpl {
 
     source2.sendTo(table);
 
-    StreamTableJoinFunction<String, TestMessageEnvelope, TestMessageEnvelope, TestOutputMessageEnvelope> mockJoinFn =
-        mock(StreamTableJoinFunction.class);
+    StreamTableJoinFunction<String, KV<String, TestMessageEnvelope>, KV<String, TestMessageEnvelope>, TestOutputMessageEnvelope>
+        mockJoinFn = mock(StreamTableJoinFunction.class);
     source1.join(table, mockJoinFn);
 
     ArgumentCaptor<OperatorSpec> leftRegisteredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);

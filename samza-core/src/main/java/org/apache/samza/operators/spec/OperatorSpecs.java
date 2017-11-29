@@ -246,23 +246,20 @@ public class OperatorSpecs {
   }
 
   /**
-   * Creates a {@link StreamTableJoinOperatorSpec} with a join function, the type of
-   * incoming message is expected to be KV&#60;K, V&#62;.
+   * Creates a {@link StreamTableJoinOperatorSpec} with a join function.
    *
-   * @param leftInputOpSpec the operator spec for the stream on the left side of the join
    * @param tableSpec the table spec for the table on the right side of the join
    * @param joinFn the user-defined join function to get join keys and results
    * @param opId the unique ID of the operator
-   * @param <K> the type of the join key
-   * @param <V> the type of the value in incoming message
-   * @param <R> the type of the table record value
-   * @param <OM> the type of the join result
+   * @param <K> the type of join key
+   * @param <M> the type of input messages
+   * @param <R> the type of table record
+   * @param <JM> the type of the join result
    * @return the {@link StreamTableJoinOperatorSpec}
    */
-  public static <K, V, R, OM> StreamTableJoinOperatorSpec<K, V, R, OM> createStreamTableJoinOperatorSpec(
-      OperatorSpec<?, KV<K, V>> leftInputOpSpec, TableSpec tableSpec,
-      StreamTableJoinFunction<K, V, R, OM> joinFn, String opId) {
-    return new StreamTableJoinOperatorSpec(leftInputOpSpec, tableSpec, joinFn, opId);
+  public static <K, M, R, JM> StreamTableJoinOperatorSpec<K, M, R, JM> createStreamTableJoinOperatorSpec(
+      TableSpec tableSpec, StreamTableJoinFunction<K, M, R, JM> joinFn, String opId) {
+    return new StreamTableJoinOperatorSpec(tableSpec, joinFn, opId);
   }
 
   /**

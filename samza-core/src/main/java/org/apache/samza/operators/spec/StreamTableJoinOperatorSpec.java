@@ -19,7 +19,6 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.table.TableSpec;
@@ -30,26 +29,24 @@ import org.apache.samza.table.TableSpec;
  * derived from the incoming message and joins with the incoming message.
  *
  * @param <K>  the type of join key
- * @param <V>  the type of the value in incoming message
- * @param <R>  the type of the table record value
- * @param <JM>  the type of the join result
+ * @param <M>  the type of input messages
+ * @param <R>  the type of table record
+ * @param <JM>  the type of join result
  */
 @InterfaceStability.Unstable
-public class StreamTableJoinOperatorSpec<K, V, R, JM> extends OperatorSpec<KV<K, V>, JM> {
+public class StreamTableJoinOperatorSpec<K, M, R, JM> extends OperatorSpec<M, JM> {
 
   private final TableSpec tableSpec;
-  private final StreamTableJoinFunction<K, V, R, JM> joinFn;
+  private final StreamTableJoinFunction<K, M, R, JM> joinFn;
 
   /**
-   * Constructor for a {@link StreamTableJoinOperatorSpec}.
+   * Constructor for {@link StreamTableJoinOperatorSpec}.
    *
-   * @param leftInputOpSpec  the operator spec for the stream on the left side of the join
    * @param tableSpec  the table spec for the table on the right side of the join
    * @param joinFn  the user-defined join function to get join keys and results
    * @param opId  the unique ID for this operator
    */
-  StreamTableJoinOperatorSpec(OperatorSpec<?, KV<K, V>> leftInputOpSpec, TableSpec tableSpec,
-      StreamTableJoinFunction<K, V, R, JM> joinFn, String opId) {
+  StreamTableJoinOperatorSpec(TableSpec tableSpec, StreamTableJoinFunction<K, M, R, JM> joinFn, String opId) {
     super(OpCode.JOIN, opId);
     this.tableSpec = tableSpec;
     this.joinFn = joinFn;
@@ -59,7 +56,7 @@ public class StreamTableJoinOperatorSpec<K, V, R, JM> extends OperatorSpec<KV<K,
     return tableSpec;
   }
 
-  public StreamTableJoinFunction<K, V, R, JM> getJoinFn() {
+  public StreamTableJoinFunction<K, M, R, JM> getJoinFn() {
     return this.joinFn;
   }
 

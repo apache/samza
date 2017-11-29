@@ -19,27 +19,39 @@
 package org.apache.samza.operators.functions;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.KV;
 
 
 /**
- * Joins incoming messages with records from a table by key.
+ * Joins incoming messages with records from a table by key; this interface should not
+ * be used directly, instead its subclass {@link KeyedStreamTableJoinFunction} should
+ * be used for stream-table join operations. The purpose of this implementation is to
+ * preserve type safety of input message {@link org.apache.samza.operators.KV} at
+ * compile time.
  *
- * @param <K>  type of the join key
- * @param <V>  type of value in the input message
- * @param <R>  type of records in the table
+ * @param <K>  type of join key
+ * @param <M>  type of input message
+ * @param <R>  type of the table record
  * @param <JM> type of join results
  */
+
 @InterfaceStability.Unstable
-public interface StreamTableJoinFunction<K, V, R, JM> extends InitableFunction, ClosableFunction {
+public interface StreamTableJoinFunction<K, M, R, JM> extends InitableFunction, ClosableFunction {
 
   /**
    * Joins the provided messages and table record, returns the joined message.
    *
    * @param message  the input message
-   * @param record  the table record
+   * @param record  the table record value
    * @return  the join result
    */
-  JM apply(KV<K, V> message, R record);
+  JM apply(M message, R record);
 
+  /**
+   * Retrieve the join key from incoming messages; this method is put in place
+   * to avoid usage of this function directly.
+   *
+   * @param message incoming message
+   * @return the join key
+   */
+  K getMessageKey(M message);
 }

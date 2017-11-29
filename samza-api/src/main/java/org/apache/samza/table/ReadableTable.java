@@ -22,17 +22,18 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.operators.KV;
 
 
 /**
  *
  * A table that supports get by one or more keys
  *
- * @param <K> the type of the key in this table
- * @param <V> the type of the value in this table
+ * @param <K> the type of the record key in this table
+ * @param <V> the type of the record value in this table
  */
 @InterfaceStability.Unstable
-public interface ReadableTable<K, V> extends Table<K, V> {
+public interface ReadableTable<K, V> extends Table<KV<K, V>> {
 
   /**
    * Gets the value associated with the specified {@code key}.
