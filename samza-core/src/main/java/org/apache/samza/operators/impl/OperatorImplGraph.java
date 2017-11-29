@@ -156,12 +156,12 @@ public class OperatorImplGraph {
   OperatorImpl createAndRegisterOperatorImpl(OperatorSpec prevOperatorSpec, OperatorSpec operatorSpec,
       SystemStream inputStream, Config config, TaskContext context) {
 
+    final OperatorImpl operatorImpl;
     if (!operatorImpls.containsKey(operatorSpec.getOpId()) || operatorSpec instanceof JoinOperatorSpec) {
       // Either this is the first time we've seen this operatorSpec, or this is a join operator spec
       // and we need to create 2 partial join operator impls for it. Initialize and register the sub-DAG.
-      OperatorImpl operatorImpl = createOperatorImpl(prevOperatorSpec, operatorSpec, config, context);
+      operatorImpl = createOperatorImpl(prevOperatorSpec, operatorSpec, config, context);
       operatorImpl.init(config, context);
-      operatorImpl.registerInputStream(inputStream);
 
       // Note: The key here is opImplId, which may not equal opId for some impls (e.g. PartialJoinOperatorImpl).
       // This is currently OK since we don't need to look up a partial join operator impl again during traversal
@@ -173,19 +173,19 @@ public class OperatorImplGraph {
           OperatorImpl nextImpl = createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, config, context);
           operatorImpl.registerNextOperator(nextImpl);
         });
-      return operatorImpl;
     } else {
-      // the implementation corresponding to operatorSpec has already been instantiated
-      // and registered. We still need to traverse the DAG further to register the input streams.
-      OperatorImpl operatorImpl = operatorImpls.get(operatorSpec.getOpId());
-      operatorImpl.registerInputStream(inputStream);
+      // The implementation corresponding to operatorSpec has already been instantiated and registered.
+      operatorImpl = operatorImpls.get(operatorSpec.getOpId());
 
+      // We still need to traverse the DAG further to register the input streams.
       Collection<OperatorSpec> registeredSpecs = operatorSpec.getRegisteredOperatorSpecs();
       registeredSpecs.forEach(registeredSpec -> {
           createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, config, context);
         });
-      return operatorImpl;
     }
+
+    operatorImpl.registerInputStream(inputStream);
+    return operatorImpl;
   }
 
   /**
