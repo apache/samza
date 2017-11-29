@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.AzureClient;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.AzureConfig;
 import org.apache.samza.coordinator.data.BarrierState;
 import org.apache.samza.config.ApplicationConfig;
@@ -179,6 +180,11 @@ public class AzureJobCoordinator implements JobCoordinator {
   @Override
   public JobModel getJobModel() {
     return jobModel;
+  }
+
+  @Override
+  public Set<String> getProcessorNames() {
+    throw new SamzaException("getProcessorNames API is not supported.");
   }
 
   private void shutdownSchedulers() {

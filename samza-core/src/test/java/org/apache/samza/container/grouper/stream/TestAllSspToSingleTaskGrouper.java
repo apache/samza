@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.MapConfig;
@@ -94,12 +95,47 @@ public class TestAllSspToSingleTaskGrouper {
     assertEquals(expectedResult, result);
   }
 
-  @Test(expected = ConfigException.class)
-  public void testLocalStreamGroupedCorrectlyForUnknownJobCoordinator() {
+  @Test
+  public void testLocalStreamWithoutProcessorIdConfigForPassthru() {
     HashSet<SystemStreamPartition> allSSPs = new HashSet<>();
     HashMap<String, String> configMap = new HashMap<>();
 
-    configMap.put("job.coordinator.factory", "org.apache.samza.standalone.UnknownJCFactory");
+    configMap.put("job.coordinator.factory", "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
+    Config config = new MapConfig(configMap);
+
+    SystemStreamPartitionGrouper grouper = grouperFactory.getSystemStreamPartitionGrouper(config);
+
+    Collections.addAll(allSSPs, aa0, aa1);
+    Map<TaskName, Set<SystemStreamPartition>> result = grouper.group(allSSPs);
+    Map<TaskName, Set<SystemStreamPartition>> expectedResult = new HashMap<>();
+
+    HashSet<SystemStreamPartition> partitions = new HashSet<>();
+    partitions.add(aa0);
+    partitions.add(aa1);
+    expectedResult.put(new TaskName("Task-1"), partitions);
+
+    assertEquals(result.size(), 1);
+    assertArrayEquals(result.values().toArray(), expectedResult.values().toArray());
+  }
+
+  @Test(expected = SamzaException.class)
+  public void testLocalStreamWithEmptySsps() {
+    HashSet<SystemStreamPartition> allSSPs = new HashSet<>();
+    HashMap<String, String> configMap = new HashMap<>();
+
+    configMap.put("job.coordinator.factory", "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
+    Config config = new MapConfig(configMap);
+
+    SystemStreamPartitionGrouper grouper = grouperFactory.getSystemStreamPartitionGrouper(config);
+
+    grouper.group(allSSPs);
+  }
+
+  @Test(expected = ConfigException.class)
+  public void testLocalStreamWithBroadcastStream() {
+    HashMap<String, String> configMap = new HashMap<>();
+
+    configMap.put("task.broadcast.inputs", "test.stream#0");
     Config config = new MapConfig(configMap);
 
     grouperFactory.getSystemStreamPartitionGrouper(config);

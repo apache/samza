@@ -24,8 +24,10 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 import org.I0Itec.zkclient.IZkStateListener;
 import java.util.Set;
+import org.I0Itec.zkclient.ZkClient;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
@@ -49,6 +51,9 @@ import org.apache.samza.util.MetricsReporterLoader;
 import org.apache.zookeeper.Watcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.apache.samza.zk.ZkCoordinationUtilsFactory.createZkClient;
+import static org.apache.samza.zk.ZkJobCoordinatorFactory.getJobCoordinationZkPath;
 
 
 /**
@@ -165,6 +170,19 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   @Override
   public String getProcessorId() {
     return processorId;
+  }
+
+  @Override
+  public Set<String> getProcessorNames() {
+    final Set<String> processorNames = new HashSet<>();
+    // Leader election could have happened by this time.
+    ZkConfig zkConfig = new ZkConfig(config);
+    ZkClient zkClient =
+        createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
+    ZkKeyBuilder keyBuilder = new ZkKeyBuilder(getJobCoordinationZkPath(config));
+    int numProcessors = zkClient.countChildren(keyBuilder.getProcessorsPath());
+    IntStream.range(0, numProcessors).forEach(i -> processorNames.add(String.valueOf(i)));
+    return processorNames;
   }
 
   //////////////////////////////////////////////// LEADER stuff ///////////////////////////

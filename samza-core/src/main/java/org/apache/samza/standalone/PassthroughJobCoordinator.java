@@ -18,6 +18,7 @@
  */
 package org.apache.samza.standalone;
 
+import java.util.Set;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
@@ -153,5 +154,10 @@ public class PassthroughJobCoordinator implements JobCoordinator {
           .format("Expected either %s or %s to be configured", ApplicationConfig.PROCESSOR_ID,
               ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS));
     }
+  }
+
+  @Override
+  public Set<String> getProcessorNames() {
+    return Collections.singleton(getProcessorId());
   }
 }

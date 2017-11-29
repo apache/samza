@@ -18,6 +18,7 @@
  */
 package org.apache.samza.coordinator;
 
+import java.util.Set;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.job.model.JobModel;
 
@@ -86,4 +87,10 @@ public interface JobCoordinator {
    * @return instance of JobModel that describes the partition distribution among the processors (and hence, tasks)
    */
   JobModel getJobModel();
+
+  /**
+   * Returns a set of processor names that are part of the coordinator group.
+   * @return set of process names
+   */
+  Set<String> getProcessorNames();
 }

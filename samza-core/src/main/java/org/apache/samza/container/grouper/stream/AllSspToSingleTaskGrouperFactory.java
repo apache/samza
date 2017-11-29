@@ -20,25 +20,22 @@
 package org.apache.samza.container.grouper.stream;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.IntStream;
-import org.I0Itec.zkclient.ZkClient;
-import org.apache.commons.lang3.Validate;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
-import org.apache.samza.config.ZkConfig;
+import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
+import org.apache.samza.coordinator.JobCoordinator;
+import org.apache.samza.coordinator.JobCoordinatorFactory;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.zk.ZkJobCoordinatorFactory;
-import org.apache.samza.zk.ZkKeyBuilder;
-
-import static org.apache.samza.zk.ZkCoordinationUtilsFactory.*;
-import static org.apache.samza.zk.ZkJobCoordinatorFactory.*;
+import org.apache.samza.util.Util;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -52,14 +49,10 @@ import static org.apache.samza.zk.ZkJobCoordinatorFactory.*;
  */
 
 class AllSspToSingleTaskGrouper implements SystemStreamPartitionGrouper {
-  private final boolean isPassthroughJobCoordinator;
-  private final int taskCount;
-  private final int containerId;
+  private final Set<String> processorNames;
 
-  AllSspToSingleTaskGrouper(boolean isPassthroughJobCoordinator, int containerId, int taskCount) {
-    this.isPassthroughJobCoordinator = isPassthroughJobCoordinator;
-    this.containerId = containerId;
-    this.taskCount = taskCount;
+  AllSspToSingleTaskGrouper(Set<String> processorNames) {
+    this.processorNames = processorNames;
   }
 
   @Override
@@ -73,62 +66,40 @@ class AllSspToSingleTaskGrouper implements SystemStreamPartitionGrouper {
       throw new SamzaException("Cannot process stream task with no input system stream partitions");
     }
 
-    if (isPassthroughJobCoordinator) {
-      final TaskName taskName = new TaskName(String.format("Task-%d", containerId));
+    processorNames.forEach(processorName -> {
+      // Create a task name for each processor and assign all partitions to each task name.
+      final TaskName taskName = new TaskName(String.format("Task-%s", processorName));
       groupedMap.put(taskName, ssps);
-    } else {
-      // Assign all partitions to each task
-      IntStream.range(0, taskCount).forEach(i -> {
-          final TaskName taskName = new TaskName(String.format("Task-%s", String.valueOf(i)));
-          groupedMap.put(taskName, ssps);
-        });
-    }
+    });
 
     return groupedMap;
   }
 }
 
 public class AllSspToSingleTaskGrouperFactory implements SystemStreamPartitionGrouperFactory {
+  private static final Logger LOG = LoggerFactory.getLogger(AllSspToSingleTaskGrouperFactory.class);
   private static final String YARN_CONTAINER_COUNT = "yarn.container.count";
-  private static final String PASSTHROUGH_JOB_COORDINATOR_FACTORY = PassthroughJobCoordinatorFactory.class.getName();
-  private static final String ZK_JOB_COORDINATOR_FACTORY = ZkJobCoordinatorFactory.class.getName();
 
   @Override
   public SystemStreamPartitionGrouper getSystemStreamPartitionGrouper(Config config) {
-    int taskCount;
-    int containerId = 0;
-    boolean isPassthroughJobCoordinator = false;
+    if (config.containsKey(TaskConfigJava.BROADCAST_INPUT_STREAMS)) {
+      throw new ConfigException("The job configured with AllSspToSingleTaskGrouper cannot have broadcast streams.");
+    }
+
     String jobCoordinatorFactoryClassName = config.get(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY);
 
     if (jobCoordinatorFactoryClassName != null && !jobCoordinatorFactoryClassName.isEmpty()) {
-      if (jobCoordinatorFactoryClassName.equals(ZK_JOB_COORDINATOR_FACTORY)) {
-        taskCount = getNumProcessors(config);
-      } else if (jobCoordinatorFactoryClassName.equals(PASSTHROUGH_JOB_COORDINATOR_FACTORY)) {
-        if (config.get(JobConfig.PROCESSOR_ID()) == null) {
-          throw new ConfigException("Could not find " + JobConfig.PROCESSOR_ID() + " in Config!");
-        }
-        isPassthroughJobCoordinator = true;
-        containerId = config.getInt(JobConfig.PROCESSOR_ID());
-        taskCount = 1;
-      } else {
-        throw new ConfigException("AllSspToSingleTaskGrouperFactory is not yet supported with "
-            + jobCoordinatorFactoryClassName);
-      }
-    } else {
-      // must be cluster-based jobCoordinator (Yarn)
-      taskCount = config.getInt(YARN_CONTAINER_COUNT);
+      JobCoordinator jc = Util.
+          <JobCoordinatorFactory>getObj(
+              new JobCoordinatorConfig(config)
+                  .getJobCoordinatorFactoryClassName())
+          .getJobCoordinator(config);
+      return new AllSspToSingleTaskGrouper(jc.getProcessorNames());
     }
 
-    Validate.isTrue(taskCount > 0, "Task count cannot be <= 0");
-
-    return new AllSspToSingleTaskGrouper(isPassthroughJobCoordinator, containerId, taskCount);
-  }
-
-  private int getNumProcessors(Config config) {
-    ZkConfig zkConfig = new ZkConfig(config);
-    ZkClient zkClient =
-        createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
-    ZkKeyBuilder keyBuilder = new ZkKeyBuilder(getJobCoordinationZkPath(config));
-    return zkClient.countChildren(keyBuilder.getProcessorsPath());
+    LOG.info("Guessing cluster-based jobCoordinator(Yarn).");
+    final Set<String> processorNames = new HashSet<>();
+    IntStream.range(0, config.getInt(YARN_CONTAINER_COUNT)).forEach(i -> processorNames.add(String.valueOf(i)));
+    return new AllSspToSingleTaskGrouper(processorNames);
   }
 }
