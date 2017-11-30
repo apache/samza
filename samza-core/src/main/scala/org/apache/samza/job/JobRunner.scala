@@ -117,12 +117,14 @@ class JobRunner(config: Config) extends Logging {
     coordinatorSystemProducer.stop()
 
     // Create the actual job, and submit it.
-    val job = jobFactory.getJob(config).submit
+    val job = jobFactory.getJob(config)
+
+    job.submit()
 
     info("waiting for job to start")
 
     // Wait until the job has started, then exit.
-    Option(job.waitForStatus(Running, TimeUnit.MINUTES.toMillis(2))) match {
+    Option(job.waitForStatus(Running, TimeUnit.MINUTES.toMillis(5))) match {
       case Some(appStatus) => {
         if (Running.equals(appStatus)) {
           info("job started successfully - " + appStatus)
@@ -146,7 +148,7 @@ class JobRunner(config: Config) extends Logging {
     info("waiting for job to terminate")
 
     // Wait until the job has terminated, then exit.
-    Option(job.waitForFinish(5000)) match {
+    Option(job.waitForFinish(TimeUnit.SECONDS.toMillis(5))) match {
       case Some(appStatus) => {
         if (SuccessfulFinish.equals(appStatus)) {
           info("job terminated successfully - " + appStatus)

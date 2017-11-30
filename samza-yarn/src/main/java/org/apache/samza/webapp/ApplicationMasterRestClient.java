@@ -103,4 +103,9 @@ public class ApplicationMasterRestClient implements Closeable {
 
     return EntityUtils.toString(httpResponse.getEntity());
   }
+
+  @Override
+  public String toString() {
+    return "AppMasterClient for uri: " + appMasterHost.toURI().toString();
+  }
 }

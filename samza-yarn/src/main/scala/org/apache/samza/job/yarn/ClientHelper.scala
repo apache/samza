@@ -84,10 +84,10 @@ class ClientHelper(conf: Configuration) extends Logging {
   }
 
   private[yarn] def createAmClient(applicationReport: ApplicationReport) = {
-    val trackingUrl = applicationReport.getTrackingUrl.split(":").head
+    val amHostName = applicationReport.getHost
     val rpcPort = applicationReport.getRpcPort
 
-    new ApplicationMasterRestClient(HttpClientBuilder.create.build, trackingUrl, rpcPort)
+    new ApplicationMasterRestClient(HttpClientBuilder.create.build, amHostName, rpcPort)
   }
 
   var jobContext: JobContext = null
@@ -327,9 +327,16 @@ class ClientHelper(conf: Configuration) extends Logging {
 
   def allContainersRunning(applicationReport: ApplicationReport): Boolean = {
     val amClient: ApplicationMasterRestClient = createAmClient(applicationReport)
+
+    debug("Created client: " + amClient.toString)
+
     try {
       val metrics = amClient.getMetrics
-      val neededContainers = Integer.parseInt(metrics.get("needed-containers").toString)
+      debug("Got metrics: " + metrics.toString)
+      val neededContainers = Integer.parseInt(
+        metrics.get(classOf[SamzaAppMasterMetrics].getCanonicalName)
+          .get("needed-containers")
+          .toString)
       info("Needed containers: " + neededContainers)
       if (neededContainers == 0) {
         true
