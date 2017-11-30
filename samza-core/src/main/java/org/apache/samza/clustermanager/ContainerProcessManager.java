@@ -105,6 +105,19 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    */
   private final ContainerProcessManagerMetrics metrics;
 
+  public ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry, AbstractContainerAllocator allocator, ClusterResourceManager manager) {
+    this.state = state;
+    this.clusterManagerConfig = new ClusterManagerConfig(config);
+    this.jobConfig = new JobConfig(config);
+    this.hostAffinityEnabled = clusterManagerConfig.getHostAffinityEnabled();
+    this.clusterResourceManager = manager;
+    this.metrics = new ContainerProcessManagerMetrics(config, state, registry);
+    this.containerAllocator = allocator;
+    this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
+
+    log.info("Finished initialization of Samza task manager");
+  }
+
   public ContainerProcessManager(Config config,
                                  SamzaApplicationState state,
                                  MetricsRegistryMap registry) {
@@ -153,7 +166,6 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
     log.info("finished initialization of samza task manager");
-
   }
 
   public boolean shouldShutdown() {
@@ -420,8 +432,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
     if (containerId != null) {
       log.info("Launch of ContainerId: {} failed on host: {}. Falling back to ANY_HOST", containerId, resource.getHost());
-      clusterResourceManager.requestResources(new SamzaResourceRequest(resource.getNumCores(), resource.getMemoryMb(),
-          ResourceRequestState.ANY_HOST, containerId));
+      containerAllocator.requestResource(containerId, ResourceRequestState.ANY_HOST);
     } else {
       log.warn("SamzaResource {} was not in pending state. Got an invalid callback for a launch request that was not made", resource);
     }

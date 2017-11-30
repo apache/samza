@@ -1,4 +1,4 @@
-samza-core/src/main/java/org/apache/samza/clustermanager/ContainerProcessManager.javaproject/boot/
+project/boot/
 target/
 .classpath
 .project
@@ -28,6 +28,6 @@ docs/learn/documentation/*/rest/javadocs
 .DS_Store
 out/
 *.patch
-**.pyx
+**.pyc
 samza-shell/src/main/visualizer/plan.json
 **/hs_err_pid*.log

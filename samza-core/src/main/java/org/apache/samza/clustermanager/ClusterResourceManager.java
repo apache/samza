@@ -143,8 +143,17 @@ public abstract class ClusterResourceManager {
     void onResourcesCompleted(List<SamzaResourceStatus> resources);
 
 
+    /**
+     * This callback is invoked when the launch request on the SamzaResource is complete.
+     * @param resource
+     */
     void onStreamProcessorLaunchSuccess(SamzaResource resource);
 
+    /**
+     * This callback is invoked when there is a failure in launching a StreamProcessor on the provided resource
+     * @param resource the resource on which the request is launched
+     * @param t the failure
+     */
     void onStreamProcessorLaunchFailure(SamzaResource resource, Throwable t);
 
     /***

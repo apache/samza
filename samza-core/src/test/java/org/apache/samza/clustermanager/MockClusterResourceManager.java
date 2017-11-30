@@ -19,6 +19,7 @@
 
 package org.apache.samza.clustermanager;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.samza.job.CommandBuilder;
 
 import java.util.ArrayList;
@@ -50,6 +51,9 @@ public class MockClusterResourceManager extends ClusterResourceManager {
     SamzaResource resource = new SamzaResource(resourceRequest.getNumCores(), resourceRequest.getMemoryMB(), resourceRequest.getPreferredHost(), UUID.randomUUID().toString());
     List<SamzaResource> resources = Collections.singletonList(resource);
     resourceRequests.addAll(resources);
+
+    clusterManagerCallback.onResourcesAvailable(
+        ImmutableList.of(new SamzaResource(resourceRequest.getNumCores(), resourceRequest.getMemoryMB(), resourceRequest.getPreferredHost(), "resource-1")));
   }
 
   @Override
@@ -72,7 +76,6 @@ public class MockClusterResourceManager extends ClusterResourceManager {
     for (MockContainerListener listener : mockContainerListeners) {
       listener.postRunContainer(launchedResources.size());
     }
-
   }
 
   @Override
