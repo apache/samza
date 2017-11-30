@@ -19,10 +19,9 @@
 
 package org.apache.samza.metrics
 
-import java.lang.management.ManagementFactory
-
 import scala.collection._
 import scala.collection.JavaConverters._
+import java.lang.management.ManagementFactory
 import java.lang.Thread.State._
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -68,6 +67,7 @@ class JvmMetrics(val registry: MetricsRegistry) extends MetricsHelper with Runna
   val cGcCount = newCounter("gc-count")
   val cGcTimeMillis = newCounter("gc-time-millis")
 
+  // Conditional metrics. Only emitted if the Operating System supports it.
   val gProcessCpuUsage = if (osMXBean.isInstanceOf[OperatingSystemMXBean]) newGauge("process-cpu-usage", 0.0) else null
   val gSystemCpuUsage = if (osMXBean.isInstanceOf[OperatingSystemMXBean]) newGauge("system-cpu-usage", 0.0) else null
   val gOpenFileDescriptorCount = if (osMXBean.isInstanceOf[UnixOperatingSystemMXBean]) newGauge("open-file-descriptor-count", 0.0) else null
