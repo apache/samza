@@ -293,7 +293,7 @@ import org.codehaus.jackson.map.ObjectMapper;
   private TableSpecJson buildTableJson(TableSpec tableSpec) {
     TableSpecJson tableSpecJson = new TableSpecJson();
     tableSpecJson.id = tableSpec.getId();
-    tableSpecJson.tableProviderFactory = tableSpec.getTableProviderFactory();
+    tableSpecJson.tableProviderFactory = tableSpec.getTableProviderFactoryClassName();
     tableSpecJson.config = tableSpec.getConfig();
     return tableSpecJson;
   }

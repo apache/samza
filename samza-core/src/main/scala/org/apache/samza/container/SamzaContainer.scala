@@ -865,9 +865,9 @@ class SamzaContainer(
   }
 
   def startStores {
-    info("Starting task instance stores.")
     taskInstances.values.foreach(taskInstance => {
       val startTime = System.currentTimeMillis()
+      info("Starting stores in task instance %s" format taskInstance.taskName)
       taskInstance.startStores
       // Measuring the time to restore the stores
       val timeToRestore = System.currentTimeMillis() - startTime
@@ -879,9 +879,10 @@ class SamzaContainer(
   }
 
   def startTableManager: Unit = {
-    info("Starting task instance table manager.")
-
-    taskInstances.values.foreach(_.startTableManager)
+    taskInstances.values.foreach(taskInstance => {
+      info("Starting table manager in task instance %s" format taskInstance.taskName)
+      taskInstance.startTableManager
+    })
   }
 
   def startTask {

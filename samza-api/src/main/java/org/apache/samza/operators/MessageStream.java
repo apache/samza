@@ -159,8 +159,9 @@ public interface MessageStream<M> {
    * Records are looked up from the joined table, join function is applied and join results are
    * emitted as matches are found.
    * <p>
-   * The type of input message is expected to be {@link KV}, and a cast is required for
-   * lambda to work properly. For example
+   * The type of input message is expected to be {@link KV}, we can use lambda with a cast
+   * to {@link org.apache.samza.operators.functions.KeyedStreamTableJoinFunction} as
+   * {@link StreamTableJoinFunction} here. For example
    * <p>
    *   <code>
    * inputStream
@@ -182,12 +183,12 @@ public interface MessageStream<M> {
    * @param table the table being joined
    * @param joinFn the join function
    * @param <K> the type of the join key
-   * @param <RV> the type of record value in the table
+   * @param <R> the type of table record
    * @param <JM> the type of messages resulting from the {@code joinFn}
    * @return the joined {@link MessageStream}
    */
-  <K, RV, JM> MessageStream<JM> join(Table<KV<K, RV>> table,
-      StreamTableJoinFunction<? extends K, ? super M, KV<K, RV>, ? extends JM> joinFn);
+  <K, R extends KV, JM> MessageStream<JM> join(Table<R> table,
+      StreamTableJoinFunction<? extends K, ? super M, ? super R, ? extends JM> joinFn);
 
   /**
    * Merges all {@code otherStreams} with this {@link MessageStream}.

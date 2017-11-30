@@ -22,11 +22,7 @@ import org.apache.samza.annotation.InterfaceStability;
 
 
 /**
- * Joins incoming messages with records from a table by key; this interface should not
- * be used directly, instead its subclass {@link KeyedStreamTableJoinFunction} should
- * be used for stream-table join operations. The purpose of this implementation is to
- * preserve type safety of input message {@link org.apache.samza.operators.KV} at
- * compile time.
+ * Joins incoming messages with records from a table by the join key.
  *
  * @param <K>  type of join key
  * @param <M>  type of input message
@@ -47,11 +43,18 @@ public interface StreamTableJoinFunction<K, M, R, JM> extends InitableFunction, 
   JM apply(M message, R record);
 
   /**
-   * Retrieve the join key from incoming messages; this method is put in place
-   * to avoid usage of this function directly.
+   * Retrieve the join key from incoming messages
    *
    * @param message incoming message
    * @return the join key
    */
   K getMessageKey(M message);
+
+  /**
+   * Retrieve the join key from table record
+   *
+   * @param record table record
+   * @return the join key
+   */
+  K getTableKey(R record);
 }

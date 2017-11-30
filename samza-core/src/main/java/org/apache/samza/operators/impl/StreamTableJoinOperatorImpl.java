@@ -36,16 +36,16 @@ import org.apache.samza.task.TaskCoordinator;
  * the message key from incoming message, and then apply the join function.
  *
  * @param <K> type of the join key
- * @param <MV> type of input messages
- * @param <RV> type of the table record value
+ * @param <M> type of input messages
+ * @param <R> type of the table record
  * @param <JM> type of the join result
  */
-class StreamTableJoinOperatorImpl<K, MV, RV, JM> extends OperatorImpl<KV<K, MV>, JM> {
+class StreamTableJoinOperatorImpl<K, M, R, JM> extends OperatorImpl<M, JM> {
 
-  private final StreamTableJoinOperatorSpec<K, KV<K, MV>, KV<K, RV>, JM> joinOpSpec;
-  private final ReadableTable<K, RV> table;
+  private final StreamTableJoinOperatorSpec<K, M, R, JM> joinOpSpec;
+  private final ReadableTable<K, ?> table;
 
-  StreamTableJoinOperatorImpl(StreamTableJoinOperatorSpec<K, KV<K, MV>, KV<K, RV>, JM> joinOpSpec,
+  StreamTableJoinOperatorImpl(StreamTableJoinOperatorSpec<K, M, R, JM> joinOpSpec,
       Config config, TaskContext context) {
     this.joinOpSpec = joinOpSpec;
     this.table = (ReadableTable) context.getTable(joinOpSpec.getTableSpec().getId());
@@ -57,10 +57,10 @@ class StreamTableJoinOperatorImpl<K, MV, RV, JM> extends OperatorImpl<KV<K, MV>,
   }
 
   @Override
-  public Collection<JM> handleMessage(KV<K, MV> message, MessageCollector collector, TaskCoordinator coordinator) {
-    K key = message.getKey();
-    RV recordValue = table.get(key);
-    KV<K, RV> record = recordValue != null ? KV.of(key, recordValue) : null;
+  public Collection<JM> handleMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
+    K key = ((KV<K, ?>) message).getKey();
+    Object recordValue = table.get(key);
+    R record = recordValue != null ? (R) KV.of(key, recordValue) : null;
     JM output = joinOpSpec.getJoinFn().apply(message, record);
     // The support for inner and outer join will be provided in the jonFn. For inner join, the joinFn might
     // return null, when the corresponding record is absent in the table.
@@ -74,7 +74,7 @@ class StreamTableJoinOperatorImpl<K, MV, RV, JM> extends OperatorImpl<KV<K, MV>,
     this.joinOpSpec.getJoinFn().close();
   }
 
-  protected OperatorSpec<KV<K, MV>, JM> getOperatorSpec() {
+  protected OperatorSpec<M, JM> getOperatorSpec() {
     return joinOpSpec;
   }
 

@@ -162,12 +162,12 @@ public class JobNode {
     tables.forEach(tableSpec -> {
         // Table provider factory
         configs.put(String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, tableSpec.getId()),
-            tableSpec.getTableProviderFactory());
+            tableSpec.getTableProviderFactoryClassName());
 
         // Note: no need to generate config for Serde's, as they are already produced by addSerdeConfigs()
 
         // Generate additional configuration
-        TableProviderFactory tableProviderFactory = Util.getObj(tableSpec.getTableProviderFactory());
+        TableProviderFactory tableProviderFactory = Util.getObj(tableSpec.getTableProviderFactoryClassName());
         TableProvider tableProvider = tableProviderFactory.getTableProvider(tableSpec);
         configs.putAll(tableProvider.generateConfig(configs));
       });

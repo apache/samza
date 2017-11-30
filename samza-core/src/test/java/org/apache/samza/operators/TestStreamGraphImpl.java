@@ -593,7 +593,7 @@ public class TestStreamGraphImpl {
     Config mockConfig = mock(Config.class);
     StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mockConfig);
 
-    TableDescriptor mockTableDescriptor = mock(TableDescriptor.class);
+    BaseTableDescriptor mockTableDescriptor = mock(BaseTableDescriptor.class);
     when(mockTableDescriptor.getTableSpec()).thenReturn(
         new TableSpec("t1", KVSerde.of(new NoOpSerde(), new NoOpSerde()), "", new HashMap<>()));
     Assert.assertNotNull(graph.getTable(mockTableDescriptor));

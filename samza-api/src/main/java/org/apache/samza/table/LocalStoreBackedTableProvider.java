@@ -22,13 +22,13 @@ import org.apache.samza.storage.StorageEngine;
 
 
 /**
- * Interface for tables backed by Samza stores. The backing stores are
+ * Interface for tables backed by Samza local stores. The backing stores are
  * injected during initialization of the table. Since the lifecycle
  * of the underlying stores are already managed by Samza container,
  * the table provider will not manage the lifecycle of the backing
  * stores.
  */
-public interface StoreBackedTableProvider extends TableProvider {
+public interface LocalStoreBackedTableProvider extends TableProvider {
   /**
    * Initializes the table provider with the backing store
    * @param store the backing store

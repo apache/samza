@@ -45,7 +45,7 @@ public class TableSpec {
 
   private final String id;
   private final KVSerde serde;
-  private final String tableProviderFactory;
+  private final String tableProviderFactoryClassName;
   private final Map<String, String> config = new HashMap<>();
 
   /**
@@ -54,22 +54,22 @@ public class TableSpec {
   public TableSpec() {
     this.id = null;
     this.serde = null;
-    this.tableProviderFactory = null;
+    this.tableProviderFactoryClassName = null;
   }
 
   /**
    * Constructs a {@link TableSpec}
    *
    * @param tableId Id of the table
-   * @param tableProviderFactory table provider factory
+   * @param tableProviderFactoryClassName table provider factory
    * @param serde the serde
    * @param config implementation specific configuration
    */
-  public TableSpec(String tableId, KVSerde serde, String tableProviderFactory,
+  public TableSpec(String tableId, KVSerde serde, String tableProviderFactoryClassName,
       Map<String, String> config) {
     this.id = tableId;
     this.serde = serde;
-    this.tableProviderFactory = tableProviderFactory;
+    this.tableProviderFactoryClassName = tableProviderFactoryClassName;
     this.config.putAll(config);
   }
 
@@ -95,8 +95,8 @@ public class TableSpec {
    * Get the class name of the table provider factory
    * @return class name of the table provider factory
    */
-  public String getTableProviderFactory() {
-    return tableProviderFactory;
+  public String getTableProviderFactoryClassName() {
+    return tableProviderFactoryClassName;
   }
 
   /**

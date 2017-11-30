@@ -18,66 +18,40 @@
  */
 package org.apache.samza.operators;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.serializers.NoOpSerde;
-import org.apache.samza.table.TableSpec;
 
 /**
- *
- * User facing class that collects metadata that fully describes a
- * Samza table. This class should be subclassed by the implementer of a
- * concrete table implementation.
- *
- * Once constructed, a table descriptor can be registered with the system. Internally,
- * the table descriptor is then converted to a {@link TableSpec}, which is used to track
- * tables internally.
- *
+ * User facing class to collect metadata that fully describes a
+ * Samza table. This interface should be implemented by concrete table implementations.
+ * <p>
  * Typical user code should look like the following, notice <code>withConfig()</code>
  * is defined in this class and the rest in subclasses.
  *
  * <pre>
- *   TableDescriptor&lt;Integer, String, ?&gt; tableDesc = new RocksDbTableDescriptor("t1")
+ *   TableDescriptor&lt;Integer, String, ?&gt; tableDesc = new RocksDbTableDescriptor("tbl")
  *     .withKeySerde(new IntegerSerde())
  *     .withValueSerde(new StringSerde("UTF-8"))
  *     .withBlockSize(1)
  *     .withConfig("some-key", "some-value");
  * </pre>
+
+ * Once constructed, a table descriptor can be registered with the system. Internally,
+ * the table descriptor is then converted to a {@link org.apache.samza.table.TableSpec},
+ * which is used to track tables internally.
  *
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
  * @param <D> the type of the concrete table descriptor
  */
 @InterfaceStability.Unstable
-abstract public class TableDescriptor<K, V, D extends TableDescriptor<K, V, D>> {
-
-  protected final String tableId;
-
-  protected KVSerde<K, V> serde = KVSerde.of(new NoOpSerde(), new NoOpSerde());
-
-  protected final Map<String, String> config = new HashMap<>();
+public interface TableDescriptor<K, V, D extends TableDescriptor<K, V, D>> {
 
   /**
-   * Constructs a table descriptor instance
-   * @param tableId Id of the table
+   * Get the Id of the table
+   * @return Id of the table
    */
-  protected TableDescriptor(String tableId) {
-    this.tableId = tableId;
-  }
-
-  /**
-   * Add a configuration entry for the table
-   * @param key the key
-   * @param value the value
-   * @return this table descriptor instance
-   */
-  public D withConfig(String key, String value) {
-    config.put(key, value);
-    return (D) this;
-  }
+  String getTableId();
 
   /**
    * Set the Serde for this table
@@ -85,41 +59,14 @@ abstract public class TableDescriptor<K, V, D extends TableDescriptor<K, V, D>> 
    * @return this table descriptor instance
    * @throws IllegalArgumentException if null is provided
    */
-  public D withSerde(KVSerde<K, V> serde) {
-    if (serde == null) {
-      throw new IllegalArgumentException("Serde cannot be null");
-    }
-    this.serde = serde;
-    return (D) this;
-  }
+  D withSerde(KVSerde<K, V> serde);
 
   /**
-   * Get the Id of the table
-   * @return Id of the table
+   * Add a configuration entry for the table
+   * @param key the key
+   * @param value the value
+   * @return this table descriptor instance
    */
-  public String getTableId() {
-    return tableId;
-  }
-
-  /**
-   * Generate config for {@link TableSpec}; this method is used internally.
-   * @param tableSpecConfig configuration for the {@link TableSpec}
-   */
-  protected void generateTableSpecConfig(Map<String, String> tableSpecConfig) {
-    tableSpecConfig.putAll(config);
-  }
-
-  /**
-   * Validate that this table descriptor is constructed properly; this method is used internally.
-   */
-  protected void validate() {
-  }
-
-  /**
-   * Create a {@link TableSpec} from this table descriptor; this method is used internally.
-   *
-   * @return the {@link TableSpec}
-   */
-  abstract public TableSpec getTableSpec();
+  D withConfig(String key, String value);
 
 }

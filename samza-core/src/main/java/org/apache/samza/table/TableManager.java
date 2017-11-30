@@ -32,7 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A {@link TableManager} manages all tables of a Samza job. For each table, it maintains
+ * A {@link TableManager} manages tables within a Samza task. For each table, it maintains
  * the {@link TableSpec} and the {@link TableProvider}. It is used at execution for
  * {@link org.apache.samza.container.TaskInstance} to retrieve table instances for
  * read/write operations.
@@ -96,14 +96,14 @@ public class TableManager {
    */
   public void initLocalTables(Map<String, StorageEngine> stores) {
     tables.values().forEach(ctx -> {
-        if (ctx.tableProvider instanceof StoreBackedTableProvider) {
+        if (ctx.tableProvider instanceof LocalStoreBackedTableProvider) {
           StorageEngine store = stores.get(ctx.tableSpec.getId());
           if (store == null) {
             throw new SamzaException(String.format(
                 "Backing store for table %s was not injected by SamzaContainer",
                 ctx.tableSpec.getId()));
           }
-          ((StoreBackedTableProvider) ctx.tableProvider).init(store);
+          ((LocalStoreBackedTableProvider) ctx.tableProvider).init(store);
         }
       });
 
@@ -119,7 +119,7 @@ public class TableManager {
       throw new SamzaException("Table " + tableSpec.getId() + " already exists");
     }
     TableCtx ctx = new TableCtx();
-    TableProviderFactory tableProviderFactory = Util.getObj(tableSpec.getTableProviderFactory());
+    TableProviderFactory tableProviderFactory = Util.getObj(tableSpec.getTableProviderFactoryClassName());
     ctx.tableProvider = tableProviderFactory.getTableProvider(tableSpec);
     ctx.tableSpec = tableSpec;
     tables.put(tableSpec.getId(), ctx);

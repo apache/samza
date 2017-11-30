@@ -20,7 +20,7 @@ package org.apache.samza.storage.kv;
 
 import java.util.Map;
 
-import org.apache.samza.operators.TableDescriptor;
+import org.apache.samza.operators.BaseTableDescriptor;
 
 
 /**
@@ -30,8 +30,8 @@ import org.apache.samza.operators.TableDescriptor;
  * @param <V> the type of the value in this table
  * @param <D> the type of the concrete table descriptor
  */
-abstract public class BaseStoreBackedTableDescriptor<K, V, D extends TableDescriptor<K, V, D>>
-    extends TableDescriptor<K, V, D> {
+abstract public class BaseStoreBackedTableDescriptor<K, V, D extends BaseStoreBackedTableDescriptor<K, V, D>>
+    extends BaseTableDescriptor<K, V, D> {
 
   /**
    * Constructs a table descriptor instance

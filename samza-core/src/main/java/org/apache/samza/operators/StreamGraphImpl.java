@@ -153,7 +153,7 @@ public class StreamGraphImpl implements StreamGraph {
 
   @Override
   public <K, V> Table<KV<K, V>> getTable(TableDescriptor<K, V, ?> tableDesc) {
-    TableSpec tableSpec = tableDesc.getTableSpec();
+    TableSpec tableSpec = ((BaseTableDescriptor) tableDesc).getTableSpec();
     if (tables.containsKey(tableSpec)) {
       throw new IllegalStateException(String.format(
           "getTable() invoked multiple times with the same tableId: %s",

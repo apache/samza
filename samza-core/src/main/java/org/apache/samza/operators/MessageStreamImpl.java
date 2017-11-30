@@ -143,11 +143,11 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <K, RV, JM> MessageStream<JM> join(Table<KV<K, RV>> table,
-      StreamTableJoinFunction<? extends K, ? super M, KV<K, RV>, ? extends JM> joinFn) {
+  public <K, R extends KV, JM> MessageStream<JM> join(Table<R> table,
+      StreamTableJoinFunction<? extends K, ? super M, ? super R, ? extends JM> joinFn) {
     TableSpec tableSpec = ((TableImpl) table).getTableSpec();
-    StreamTableJoinOperatorSpec<K, M, KV<K, RV>, JM> joinOpSpec = OperatorSpecs.createStreamTableJoinOperatorSpec(
-        tableSpec, (StreamTableJoinFunction<K, M, KV<K, RV>, JM>) joinFn, this.graph.getNextOpId(OpCode.JOIN));
+    StreamTableJoinOperatorSpec<K, M, R, JM> joinOpSpec = OperatorSpecs.createStreamTableJoinOperatorSpec(
+        tableSpec, (StreamTableJoinFunction<K, M, R, JM>) joinFn, this.graph.getNextOpId(OpCode.JOIN));
     this.operatorSpec.registerNextOperatorSpec(joinOpSpec);
     return new MessageStreamImpl<>(this.graph, joinOpSpec);
   }

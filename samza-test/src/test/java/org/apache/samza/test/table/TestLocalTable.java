@@ -34,6 +34,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.functions.KeyedStreamTableJoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.runtime.LocalApplicationRunner;
@@ -49,6 +50,7 @@ import org.apache.samza.task.TaskContext;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.apache.samza.test.table.TestTableData.EnrichedPageView;
 import org.apache.samza.test.table.TestTableData.PageView;
+import org.apache.samza.test.table.TestTableData.PageViewJsonSerde;
 import org.apache.samza.test.table.TestTableData.PageViewJsonSerdeFactory;
 import org.apache.samza.test.table.TestTableData.Profile;
 import org.apache.samza.test.table.TestTableData.ProfileJsonSerde;
@@ -122,7 +124,6 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     configs.put("streams.Profile.partitionCount", String.valueOf(partitionCount));
 
     final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
-
     final StreamApplication app = (streamGraph, cfg) -> {
 
       Table<KV<Integer, Profile>> table = streamGraph.getTable(new InMemoryTableDescriptor("t1")
@@ -146,8 +147,88 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     runner.run(app);
     runner.waitForFinish();
 
+    assertEquals(count * partitionCount, received.size());
     assertEquals(count * partitionCount, joined.size());
     assertTrue(joined.get(0) instanceof EnrichedPageView);
+  }
+
+  @Test
+  public void testDualStreamTableJoin() throws Exception {
+
+    List<Profile> sentToProfileTable = new LinkedList<>();
+    List<PageView> sentToPageViewTable = new LinkedList<>();
+    List<EnrichedPageView> joinedProfiles = new LinkedList<>();
+    List<EnrichedPageView> joinedPageViews = new LinkedList<>();
+
+    KVSerde<Integer, Profile> profileKVSerde = KVSerde.of(new IntegerSerde(), new ProfileJsonSerde());
+    KVSerde<Integer, PageView> pageViewKVSerde = KVSerde.of(new IntegerSerde(), new PageViewJsonSerde());
+
+    MyJoinFunction1 joinFn1 = new MyJoinFunction1();
+    MyJoinFunction2 joinFn2 = new MyJoinFunction2();
+
+    int count = 10;
+    PageView[] pageViews = TestTableData.generatePageViews(count);
+    Profile[] profiles = TestTableData.generateProfiles(count);
+
+    int partitionCount = 4;
+    Map<String, String> configs = getBaseJobConfig();
+
+    configs.put("streams.PageView.samza.system", "test");
+    configs.put("streams.PageView.source", Base64Serializer.serialize(pageViews));
+    configs.put("streams.PageView.partitionCount", String.valueOf(partitionCount));
+
+    configs.put("streams.Profile.samza.system", "test");
+    configs.put("streams.Profile.source", Base64Serializer.serialize(profiles));
+    configs.put("streams.Profile.partitionCount", String.valueOf(partitionCount));
+
+    final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
+    final StreamApplication app = (streamGraph, cfg) -> {
+
+      Table<KV<Integer, Profile>> profileTable = streamGraph.getTable(new InMemoryTableDescriptor("t1")
+          .withSerde(KVSerde.of(new IntegerSerde(), new ProfileJsonSerde())));
+
+      Table<KV<Integer, PageView>> pageViewTable = streamGraph.getTable(new InMemoryTableDescriptor("t2")
+          .withSerde(KVSerde.of(new IntegerSerde(), new PageViewJsonSerde())));
+
+      MessageStream<Profile> profileStream = streamGraph.getInputStream("Profile", new NoOpSerde<Profile>());
+      MessageStream<PageView> pageViewStream = streamGraph.getInputStream("PageView", new NoOpSerde<PageView>());
+
+      profileStream
+          .map(m -> {
+              sentToProfileTable.add(m);
+              return new KV(m.getMemberId(), m);
+            })
+          .sendTo(profileTable);
+
+      pageViewStream
+          .map(m -> {
+              sentToPageViewTable.add(m);
+              return new KV(m.getMemberId(), m);
+            })
+          .sendTo(pageViewTable);
+
+      pageViewStream
+          .partitionBy(PageView::getMemberId, v -> v, pageViewKVSerde, "p")
+          .join(profileTable, joinFn2)
+          .sink((m, collector, coordinator) -> joinedPageViews.add(m));
+
+      profileStream
+          .partitionBy(Profile::getMemberId, v -> v, profileKVSerde, "pv")
+          .join(pageViewTable, joinFn1)
+          .sink((m, collector, coordinator) -> joinedProfiles.add(m));
+    };
+
+    runner.run(app);
+    runner.waitForFinish();
+
+    assertEquals(count * partitionCount, sentToProfileTable.size());
+    assertEquals(count * partitionCount, sentToPageViewTable.size());
+    assertEquals(count * partitionCount, joinFn1.count);
+    assertEquals(count * partitionCount, joinFn2.count);
+    assertTrue(joinedProfiles.size() > 0);
+    assertTrue(joinedPageViews.size() > 0);
+    assertTrue(joinedProfiles.get(0) instanceof EnrichedPageView);
+    assertTrue(joinedPageViews.get(0) instanceof EnrichedPageView);
   }
 
   private Map<String, String> getBaseJobConfig() {
@@ -189,6 +270,26 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     public KV<Integer, Profile> apply(Profile profile) {
       received.add(profile);
       return new KV(profile.getMemberId(), profile);
+    }
+  }
+
+  private class MyJoinFunction1 implements KeyedStreamTableJoinFunction<Integer, Profile, PageView, EnrichedPageView> {
+    private int count;
+    @Override
+    public EnrichedPageView apply(KV<Integer, Profile> m, KV<Integer, PageView> r) {
+      ++count;
+      return r == null ? null :
+          new EnrichedPageView(r.getValue().getPageKey(), m.getKey(), m.getValue().getCompany());
+    }
+  }
+
+  private class MyJoinFunction2 implements KeyedStreamTableJoinFunction<Integer, PageView, Profile, EnrichedPageView> {
+    private int count;
+    @Override
+    public EnrichedPageView apply(KV<Integer, PageView> m, KV<Integer, Profile> r) {
+      ++count;
+      return r == null ? null :
+          new EnrichedPageView(m.getValue().getPageKey(), m.getKey(), r.getValue().getCompany());
     }
   }
 }

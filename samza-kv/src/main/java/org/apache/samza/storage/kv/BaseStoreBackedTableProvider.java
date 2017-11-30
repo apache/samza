@@ -26,7 +26,7 @@ import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.storage.StorageEngine;
-import org.apache.samza.table.StoreBackedTableProvider;
+import org.apache.samza.table.LocalStoreBackedTableProvider;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
@@ -34,9 +34,9 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * Base class for tables backed by Samza stores, see {@link StoreBackedTableProvider}.
+ * Base class for tables backed by Samza stores, see {@link LocalStoreBackedTableProvider}.
  */
-abstract public class BaseStoreBackedTableProvider implements StoreBackedTableProvider {
+abstract public class BaseStoreBackedTableProvider implements LocalStoreBackedTableProvider {
 
   protected final Logger logger = LoggerFactory.getLogger(getClass());
 

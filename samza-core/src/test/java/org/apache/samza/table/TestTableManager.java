@@ -50,12 +50,12 @@ public class TestTableManager {
   public static class DummyTableProviderFactory implements TableProviderFactory {
 
     static Table table;
-    static StoreBackedTableProvider tableProvider;
+    static LocalStoreBackedTableProvider tableProvider;
 
     @Override
     public TableProvider getTableProvider(TableSpec tableSpec) {
       table = mock(Table.class);
-      tableProvider = mock(StoreBackedTableProvider.class);
+      tableProvider = mock(LocalStoreBackedTableProvider.class);
       when(tableProvider.getTable()).thenReturn(table);
       return tableProvider;
     }
@@ -131,7 +131,7 @@ public class TestTableManager {
 
     TableSpec tableSpec = getFieldValue(ctx, "tableSpec");
     Assert.assertEquals(TABLE_ID, tableSpec.getId());
-    Assert.assertEquals(DummyTableProviderFactory.class.getName(), tableSpec.getTableProviderFactory());
+    Assert.assertEquals(DummyTableProviderFactory.class.getName(), tableSpec.getTableProviderFactoryClassName());
     Assert.assertEquals(IntegerSerde.class, tableSpec.getSerde().getKeySerde().getClass());
     Assert.assertEquals(StringSerde.class, tableSpec.getSerde().getValueSerde().getClass());
     Assert.assertEquals("xyz", tableSpec.getConfig().get("some.config"));

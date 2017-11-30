@@ -23,7 +23,7 @@ import org.apache.samza.operators.KV;
 
 
 /**
- * Keyed stream-table join function, see {@link StreamTableJoinFunction} for more details.
+ * Keyed stream-table join function.
  *
  * @param <K> type of the join key
  * @param <MV> type of the input message value
@@ -33,8 +33,14 @@ import org.apache.samza.operators.KV;
 public interface KeyedStreamTableJoinFunction<K, MV, RV, JM>
     extends StreamTableJoinFunction<K, KV<K, MV>, KV<K, RV>, JM> {
 
+  @Override
   default K getMessageKey(KV<K, MV> message) {
     return message.getKey();
+  }
+
+  @Override
+  default K getTableKey(KV<K, RV> record) {
+    return record.getKey();
   }
 
 }
