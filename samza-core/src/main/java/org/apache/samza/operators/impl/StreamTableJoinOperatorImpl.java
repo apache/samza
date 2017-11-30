@@ -40,7 +40,7 @@ import org.apache.samza.task.TaskCoordinator;
  * @param <R> type of the table record
  * @param <JM> type of the join result
  */
-class StreamTableJoinOperatorImpl<K, M, R, JM> extends OperatorImpl<M, JM> {
+class StreamTableJoinOperatorImpl<K, M, R extends KV, JM> extends OperatorImpl<M, JM> {
 
   private final StreamTableJoinOperatorSpec<K, M, R, JM> joinOpSpec;
   private final ReadableTable<K, ?> table;
@@ -58,10 +58,11 @@ class StreamTableJoinOperatorImpl<K, M, R, JM> extends OperatorImpl<M, JM> {
 
   @Override
   public Collection<JM> handleMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
-    K key = ((KV<K, ?>) message).getKey();
+    K key = joinOpSpec.getJoinFn().getMessageKey(message);
     Object recordValue = table.get(key);
     R record = recordValue != null ? (R) KV.of(key, recordValue) : null;
     JM output = joinOpSpec.getJoinFn().apply(message, record);
+
     // The support for inner and outer join will be provided in the jonFn. For inner join, the joinFn might
     // return null, when the corresponding record is absent in the table.
     return output != null ?

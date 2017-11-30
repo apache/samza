@@ -155,16 +155,16 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
   @Test
   public void testDualStreamTableJoin() throws Exception {
 
-    List<Profile> sentToProfileTable = new LinkedList<>();
-    List<PageView> sentToPageViewTable = new LinkedList<>();
-    List<EnrichedPageView> joinedProfiles = new LinkedList<>();
-    List<EnrichedPageView> joinedPageViews = new LinkedList<>();
+    List<Profile> sentToProfileTable1 = new LinkedList<>();
+    List<Profile> sentToProfileTable2 = new LinkedList<>();
+    List<EnrichedPageView> joinedPageViews1 = new LinkedList<>();
+    List<EnrichedPageView> joinedPageViews2 = new LinkedList<>();
 
     KVSerde<Integer, Profile> profileKVSerde = KVSerde.of(new IntegerSerde(), new ProfileJsonSerde());
     KVSerde<Integer, PageView> pageViewKVSerde = KVSerde.of(new IntegerSerde(), new PageViewJsonSerde());
 
-    MyJoinFunction1 joinFn1 = new MyJoinFunction1();
-    MyJoinFunction2 joinFn2 = new MyJoinFunction2();
+    MyJoinFunction joinFn1 = new MyJoinFunction();
+    MyJoinFunction joinFn2 = new MyJoinFunction();
 
     int count = 10;
     PageView[] pageViews = TestTableData.generatePageViews(count);
@@ -173,13 +173,21 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     int partitionCount = 4;
     Map<String, String> configs = getBaseJobConfig();
 
-    configs.put("streams.PageView.samza.system", "test");
-    configs.put("streams.PageView.source", Base64Serializer.serialize(pageViews));
-    configs.put("streams.PageView.partitionCount", String.valueOf(partitionCount));
+    configs.put("streams.Profile1.samza.system", "test");
+    configs.put("streams.Profile1.source", Base64Serializer.serialize(profiles));
+    configs.put("streams.Profile1.partitionCount", String.valueOf(partitionCount));
 
-    configs.put("streams.Profile.samza.system", "test");
-    configs.put("streams.Profile.source", Base64Serializer.serialize(profiles));
-    configs.put("streams.Profile.partitionCount", String.valueOf(partitionCount));
+    configs.put("streams.Profile2.samza.system", "test");
+    configs.put("streams.Profile2.source", Base64Serializer.serialize(profiles));
+    configs.put("streams.Profile2.partitionCount", String.valueOf(partitionCount));
+
+    configs.put("streams.PageView1.samza.system", "test");
+    configs.put("streams.PageView1.source", Base64Serializer.serialize(pageViews));
+    configs.put("streams.PageView1.partitionCount", String.valueOf(partitionCount));
+
+    configs.put("streams.PageView2.samza.system", "test");
+    configs.put("streams.PageView2.source", Base64Serializer.serialize(pageViews));
+    configs.put("streams.PageView2.partitionCount", String.valueOf(partitionCount));
 
     final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
     final StreamApplication app = (streamGraph, cfg) -> {
@@ -187,48 +195,47 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
       Table<KV<Integer, Profile>> profileTable = streamGraph.getTable(new InMemoryTableDescriptor("t1")
           .withSerde(KVSerde.of(new IntegerSerde(), new ProfileJsonSerde())));
 
-      Table<KV<Integer, PageView>> pageViewTable = streamGraph.getTable(new InMemoryTableDescriptor("t2")
-          .withSerde(KVSerde.of(new IntegerSerde(), new PageViewJsonSerde())));
+      MessageStream<Profile> profileStream1 = streamGraph.getInputStream("Profile1", new NoOpSerde<Profile>());
+      MessageStream<Profile> profileStream2 = streamGraph.getInputStream("Profile2", new NoOpSerde<Profile>());
 
-      MessageStream<Profile> profileStream = streamGraph.getInputStream("Profile", new NoOpSerde<Profile>());
-      MessageStream<PageView> pageViewStream = streamGraph.getInputStream("PageView", new NoOpSerde<PageView>());
-
-      profileStream
+      profileStream1
           .map(m -> {
-              sentToProfileTable.add(m);
+              sentToProfileTable1.add(m);
+              return new KV(m.getMemberId(), m);
+            })
+          .sendTo(profileTable);
+      profileStream2
+          .map(m -> {
+              sentToProfileTable2.add(m);
               return new KV(m.getMemberId(), m);
             })
           .sendTo(profileTable);
 
-      pageViewStream
-          .map(m -> {
-              sentToPageViewTable.add(m);
-              return new KV(m.getMemberId(), m);
-            })
-          .sendTo(pageViewTable);
+      MessageStream<PageView> pageViewStream1 = streamGraph.getInputStream("PageView1", new NoOpSerde<PageView>());
+      MessageStream<PageView> pageViewStream2 = streamGraph.getInputStream("PageView2", new NoOpSerde<PageView>());
 
-      pageViewStream
-          .partitionBy(PageView::getMemberId, v -> v, pageViewKVSerde, "p")
+      pageViewStream1
+          .partitionBy(PageView::getMemberId, v -> v, pageViewKVSerde, "p1")
+          .join(profileTable, joinFn1)
+          .sink((m, collector, coordinator) -> joinedPageViews1.add(m));
+
+      pageViewStream2
+          .partitionBy(PageView::getMemberId, v -> v, pageViewKVSerde, "p2")
           .join(profileTable, joinFn2)
-          .sink((m, collector, coordinator) -> joinedPageViews.add(m));
-
-      profileStream
-          .partitionBy(Profile::getMemberId, v -> v, profileKVSerde, "pv")
-          .join(pageViewTable, joinFn1)
-          .sink((m, collector, coordinator) -> joinedProfiles.add(m));
+          .sink((m, collector, coordinator) -> joinedPageViews2.add(m));
     };
 
     runner.run(app);
     runner.waitForFinish();
 
-    assertEquals(count * partitionCount, sentToProfileTable.size());
-    assertEquals(count * partitionCount, sentToPageViewTable.size());
+    assertEquals(count * partitionCount, sentToProfileTable1.size());
+    assertEquals(count * partitionCount, sentToProfileTable2.size());
     assertEquals(count * partitionCount, joinFn1.count);
     assertEquals(count * partitionCount, joinFn2.count);
-    assertTrue(joinedProfiles.size() > 0);
-    assertTrue(joinedPageViews.size() > 0);
-    assertTrue(joinedProfiles.get(0) instanceof EnrichedPageView);
-    assertTrue(joinedPageViews.get(0) instanceof EnrichedPageView);
+    assertTrue(joinedPageViews1.size() > 0);
+    assertTrue(joinedPageViews2.size() > 0);
+    assertTrue(joinedPageViews1.get(0) instanceof EnrichedPageView);
+    assertTrue(joinedPageViews2.get(0) instanceof EnrichedPageView);
   }
 
   private Map<String, String> getBaseJobConfig() {
@@ -273,17 +280,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     }
   }
 
-  private class MyJoinFunction1 implements KeyedStreamTableJoinFunction<Integer, Profile, PageView, EnrichedPageView> {
-    private int count;
-    @Override
-    public EnrichedPageView apply(KV<Integer, Profile> m, KV<Integer, PageView> r) {
-      ++count;
-      return r == null ? null :
-          new EnrichedPageView(r.getValue().getPageKey(), m.getKey(), m.getValue().getCompany());
-    }
-  }
-
-  private class MyJoinFunction2 implements KeyedStreamTableJoinFunction<Integer, PageView, Profile, EnrichedPageView> {
+  private class MyJoinFunction implements KeyedStreamTableJoinFunction<Integer, PageView, Profile, EnrichedPageView> {
     private int count;
     @Override
     public EnrichedPageView apply(KV<Integer, PageView> m, KV<Integer, Profile> r) {
