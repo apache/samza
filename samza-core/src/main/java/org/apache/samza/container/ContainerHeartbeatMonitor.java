@@ -27,10 +27,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+
 public class ContainerHeartbeatMonitor {
   private static final Logger LOG = LoggerFactory.getLogger(ContainerHeartbeatMonitor.class);
   private static final ThreadFactory THREAD_FACTORY = new HeartbeatThreadFactory();
   private static final int SCHEDULE_MS = 60000;
+  private static final int SHUTDOWN_TIMOUT_MS = 120000;
   private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(THREAD_FACTORY);
   private final Runnable onContainerExpired;
   private final ContainerHeartbeatClient containerHeartbeatClient;
@@ -50,6 +52,11 @@ public class ContainerHeartbeatMonitor {
     scheduler.scheduleAtFixedRate(() -> {
         ContainerHeartbeatResponse response = containerHeartbeatClient.requestHeartbeat();
         if (!response.isAlive()) {
+          scheduler.schedule(() -> {
+              // On timeout of container shutting down, force exit.
+              LOG.error("Gracefully shutdown timeout expired. Force exiting.");
+              System.exit(1);
+            }, SHUTDOWN_TIMOUT_MS, TimeUnit.MILLISECONDS);
           onContainerExpired.run();
         }
       }, 0, SCHEDULE_MS, TimeUnit.MILLISECONDS);
@@ -69,7 +76,9 @@ public class ContainerHeartbeatMonitor {
 
     @Override
     public Thread newThread(Runnable runnable) {
-      return new Thread(runnable, PREFIX + INSTANCE_NUM.getAndIncrement());
+      Thread t = new Thread(runnable, PREFIX + INSTANCE_NUM.getAndIncrement());
+      t.setDaemon(true);
+      return t;
     }
   }
 }
