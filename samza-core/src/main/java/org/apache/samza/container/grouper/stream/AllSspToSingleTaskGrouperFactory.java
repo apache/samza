@@ -27,6 +27,7 @@ import java.util.stream.IntStream;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.container.TaskName;
@@ -67,10 +68,10 @@ class AllSspToSingleTaskGrouper implements SystemStreamPartitionGrouper {
     }
 
     processorNames.forEach(processorName -> {
-      // Create a task name for each processor and assign all partitions to each task name.
-      final TaskName taskName = new TaskName(String.format("Task-%s", processorName));
-      groupedMap.put(taskName, ssps);
-    });
+        // Create a task name for each processor and assign all partitions to each task name.
+        final TaskName taskName = new TaskName(String.format("Task-%s", processorName));
+        groupedMap.put(taskName, ssps);
+      });
 
     return groupedMap;
   }
@@ -78,28 +79,23 @@ class AllSspToSingleTaskGrouper implements SystemStreamPartitionGrouper {
 
 public class AllSspToSingleTaskGrouperFactory implements SystemStreamPartitionGrouperFactory {
   private static final Logger LOG = LoggerFactory.getLogger(AllSspToSingleTaskGrouperFactory.class);
-  private static final String YARN_CONTAINER_COUNT = "yarn.container.count";
 
   @Override
   public SystemStreamPartitionGrouper getSystemStreamPartitionGrouper(Config config) {
-    if (config.containsKey(TaskConfigJava.BROADCAST_INPUT_STREAMS)) {
+    if (!(new TaskConfigJava(config).getBroadcastSystemStreams().isEmpty())) {
       throw new ConfigException("The job configured with AllSspToSingleTaskGrouper cannot have broadcast streams.");
     }
 
-    String jobCoordinatorFactoryClassName = config.get(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY);
-
-    if (jobCoordinatorFactoryClassName != null && !jobCoordinatorFactoryClassName.isEmpty()) {
-      JobCoordinator jc = Util.
-          <JobCoordinatorFactory>getObj(
-              new JobCoordinatorConfig(config)
-                  .getJobCoordinatorFactoryClassName())
-          .getJobCoordinator(config);
+    try {
+      String jobCoordinatorFactoryClassName = new JobCoordinatorConfig(config).getJobCoordinatorFactoryClassName();
+      JobCoordinator jc = Util.<JobCoordinatorFactory>getObj(jobCoordinatorFactoryClassName).getJobCoordinator(config);
       return new AllSspToSingleTaskGrouper(jc.getProcessorNames());
+    } catch (ConfigException ex) {
+      LOG.info("Guessing cluster-based jobCoordinator(Yarn).");
+      final Set<String> processorNames = new HashSet<>();
+      IntStream.range(0,
+          config.getInt(JobConfig.JOB_CONTAINER_COUNT())).forEach(i -> processorNames.add(String.valueOf(i)));
+      return new AllSspToSingleTaskGrouper(processorNames);
     }
-
-    LOG.info("Guessing cluster-based jobCoordinator(Yarn).");
-    final Set<String> processorNames = new HashSet<>();
-    IntStream.range(0, config.getInt(YARN_CONTAINER_COUNT)).forEach(i -> processorNames.add(String.valueOf(i)));
-    return new AllSspToSingleTaskGrouper(processorNames);
   }
 }

@@ -22,7 +22,6 @@ import java.util.Set;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
@@ -145,15 +144,11 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     ApplicationConfig appConfig = new ApplicationConfig(config);
     if (appConfig.getProcessorId() != null) {
       return appConfig.getProcessorId();
-    } else if (appConfig.getAppProcessorIdGeneratorClass() != null) {
-      ProcessorIdGenerator idGenerator =
-          ClassLoaderHelper.fromClassName(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
-      return idGenerator.generateProcessorId(config);
-    } else {
-      throw new ConfigException(String
-          .format("Expected either %s or %s to be configured", ApplicationConfig.PROCESSOR_ID,
-              ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS));
     }
+
+    ProcessorIdGenerator idGenerator =
+        ClassLoaderHelper.fromClassName(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
+    return idGenerator.generateProcessorId(config);
   }
 
   @Override

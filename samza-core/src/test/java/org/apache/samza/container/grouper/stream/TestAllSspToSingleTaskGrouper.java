@@ -48,7 +48,7 @@ public class TestAllSspToSingleTaskGrouper {
     HashSet<SystemStreamPartition> allSSPs = new HashSet<>();
     HashMap<String, String> configMap = new HashMap<>();
 
-    configMap.put("yarn.container.count", "2");
+    configMap.put("job.container.count", "2");
 
     Config config = new MapConfig(configMap);
 
