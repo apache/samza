@@ -32,7 +32,7 @@
   jerseyVersion = "2.22.1"
   jodaTimeVersion = "2.2"
   joptSimpleVersion = "3.2"
-  junitVersion = "4.8.1"
+  junitVersion = "4.12"
   kafkaVersion = "0.11.0.2"
   log4jVersion = "1.2.17"
   metricsVersion = "2.2.0"
