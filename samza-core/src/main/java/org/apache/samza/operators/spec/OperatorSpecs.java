@@ -251,13 +251,14 @@ public class OperatorSpecs {
    * @param tableSpec the table spec for the table on the right side of the join
    * @param joinFn the user-defined join function to get join keys and results
    * @param opId the unique ID of the operator
+   * @param <K> the type of join key
    * @param <M> the type of input messages
    * @param <R> the type of table record
    * @param <JM> the type of the join result
    * @return the {@link StreamTableJoinOperatorSpec}
    */
-  public static <M, R, JM> StreamTableJoinOperatorSpec<M, R, JM> createStreamTableJoinOperatorSpec(
-      TableSpec tableSpec, StreamTableJoinFunction<M, R, JM> joinFn, String opId) {
+  public static <K, M, R, JM> StreamTableJoinOperatorSpec<K, M, R, JM> createStreamTableJoinOperatorSpec(
+      TableSpec tableSpec, StreamTableJoinFunction<K, M, R, JM> joinFn, String opId) {
     return new StreamTableJoinOperatorSpec(tableSpec, joinFn, opId);
   }
 

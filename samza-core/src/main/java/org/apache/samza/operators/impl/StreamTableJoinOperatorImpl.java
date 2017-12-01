@@ -42,10 +42,10 @@ import org.apache.samza.task.TaskCoordinator;
  */
 class StreamTableJoinOperatorImpl<K, M, R extends KV, JM> extends OperatorImpl<M, JM> {
 
-  private final StreamTableJoinOperatorSpec<M, R, JM> joinOpSpec;
+  private final StreamTableJoinOperatorSpec<K, M, R, JM> joinOpSpec;
   private final ReadableTable<K, ?> table;
 
-  StreamTableJoinOperatorImpl(StreamTableJoinOperatorSpec<M, R, JM> joinOpSpec,
+  StreamTableJoinOperatorImpl(StreamTableJoinOperatorSpec<K, M, R, JM> joinOpSpec,
       Config config, TaskContext context) {
     this.joinOpSpec = joinOpSpec;
     this.table = (ReadableTable) context.getTable(joinOpSpec.getTableSpec().getId());
@@ -58,12 +58,7 @@ class StreamTableJoinOperatorImpl<K, M, R extends KV, JM> extends OperatorImpl<M
 
   @Override
   public Collection<JM> handleMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
-    if (!(message instanceof KV)) {
-      throw new IllegalArgumentException(
-          String.format("Invalid input message type %s, expected type is KV",
-          message.getClass().getName()));
-    }
-    K key = ((KV<K, ?>) message).getKey();
+    K key = joinOpSpec.getJoinFn().getMessageKey(message);
     Object recordValue = table.get(key);
     R record = recordValue != null ? (R) KV.of(key, recordValue) : null;
     JM output = joinOpSpec.getJoinFn().apply(message, record);

@@ -50,21 +50,31 @@ public class TestStreamTableJoinOperatorImpl {
     StreamTableJoinOperatorSpec mockJoinOpSpec = mock(StreamTableJoinOperatorSpec.class);
     when(mockJoinOpSpec.getTableSpec()).thenReturn(tableSpec);
     when(mockJoinOpSpec.getJoinFn()).thenReturn(
-        new StreamTableJoinFunction<KV<String, String>, KV<String, String>, String>() {
-        @Override
-        public String apply(KV<String, String> message, KV<String, String> record) {
-          if ("1".equals(message.getKey())) {
-            Assert.assertEquals("m1", message.getValue());
-            Assert.assertEquals("r1", record.getValue());
-            return "m1r1";
-          } else if ("2".equals(message.getKey())) {
-            Assert.assertEquals("m2", message.getValue());
-            Assert.assertNull(record);
-            return null;
+        new StreamTableJoinFunction<String, KV<String, String>, KV<String, String>, String>() {
+          @Override
+          public String apply(KV<String, String> message, KV<String, String> record) {
+            if ("1".equals(message.getKey())) {
+              Assert.assertEquals("m1", message.getValue());
+              Assert.assertEquals("r1", record.getValue());
+              return "m1r1";
+            } else if ("2".equals(message.getKey())) {
+              Assert.assertEquals("m2", message.getValue());
+              Assert.assertNull(record);
+              return null;
+            }
+            throw new SamzaException("Should never reach here!");
           }
-          throw new SamzaException("Should never reach here!");
-        }
-      });
+
+          @Override
+          public String getMessageKey(KV<String, String> message) {
+            return message.getKey();
+          }
+
+          @Override
+          public String getRecordKey(KV<String, String> record) {
+            return record.getKey();
+          }
+        });
     Config config = mock(Config.class);
     ReadableTable table = mock(ReadableTable.class);
     when(table.get("1")).thenReturn("r1");

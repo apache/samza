@@ -172,12 +172,13 @@ public interface MessageStream<M> {
    *
    * @param table the table being joined
    * @param joinFn the join function
+   * @param <K> the type of join key
    * @param <R> the type of table record
    * @param <JM> the type of messages resulting from the {@code joinFn}
    * @return the joined {@link MessageStream}
    */
-  <R extends KV, JM> MessageStream<JM> join(Table<R> table,
-      StreamTableJoinFunction<? super M, ? super R, ? extends JM> joinFn);
+  <K, R extends KV, JM> MessageStream<JM> join(Table<R> table,
+      StreamTableJoinFunction<? extends K, ? super M, ? super R, ? extends JM> joinFn);
 
   /**
    * Merges all {@code otherStreams} with this {@link MessageStream}.

@@ -139,7 +139,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
               return pv;
             })
           .partitionBy(PageView::getMemberId, v -> v, "p1")
-          .join(table, (m, r) -> new EnrichedPageView(m.getValue().getPageKey(), m.getKey(), r.getValue().getCompany()))
+          .join(table, new PageViewToProfileJoinFunction())
           .sink((m, collector, coordinator) -> joined.add(m));
     };
 
@@ -162,8 +162,8 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     KVSerde<Integer, Profile> profileKVSerde = KVSerde.of(new IntegerSerde(), new ProfileJsonSerde());
     KVSerde<Integer, PageView> pageViewKVSerde = KVSerde.of(new IntegerSerde(), new PageViewJsonSerde());
 
-    MyJoinFunction joinFn1 = new MyJoinFunction();
-    MyJoinFunction joinFn2 = new MyJoinFunction();
+    PageViewToProfileJoinFunction joinFn1 = new PageViewToProfileJoinFunction();
+    PageViewToProfileJoinFunction joinFn2 = new PageViewToProfileJoinFunction();
 
     int count = 10;
     PageView[] pageViews = TestTableData.generatePageViews(count);
@@ -281,14 +281,24 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     }
   }
 
-  private class MyJoinFunction implements StreamTableJoinFunction
-      <KV<Integer, PageView>, KV<Integer, Profile>, EnrichedPageView> {
+  private class PageViewToProfileJoinFunction implements StreamTableJoinFunction
+      <Integer, KV<Integer, PageView>, KV<Integer, Profile>, EnrichedPageView> {
     private int count;
     @Override
     public EnrichedPageView apply(KV<Integer, PageView> m, KV<Integer, Profile> r) {
       ++count;
       return r == null ? null :
           new EnrichedPageView(m.getValue().getPageKey(), m.getKey(), r.getValue().getCompany());
+    }
+
+    @Override
+    public Integer getMessageKey(KV<Integer, PageView> message) {
+      return message.getKey();
+    }
+
+    @Override
+    public Integer getRecordKey(KV<Integer, Profile> record) {
+      return record.getKey();
     }
   }
 }
