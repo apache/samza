@@ -35,15 +35,15 @@ public class InputOperatorSpec<K, V> extends OperatorSpec<KV<K, V>, Object> { //
   private final StreamSpec streamSpec;
   private final Serde<K> keySerde;
   private final Serde<V> valueSerde;
-  private final boolean isKeyedInput;
+  private final boolean isKeyed;
 
   public InputOperatorSpec(StreamSpec streamSpec,
-      Serde<K> keySerde, Serde<V> valueSerde, boolean isKeyedInput, String opId) {
+      Serde<K> keySerde, Serde<V> valueSerde, boolean isKeyed, String opId) {
     super(OpCode.INPUT, opId);
     this.streamSpec = streamSpec;
     this.keySerde = keySerde;
     this.valueSerde = valueSerde;
-    this.isKeyedInput = isKeyedInput;
+    this.isKeyed = isKeyed;
   }
 
   public StreamSpec getStreamSpec() {
@@ -58,8 +58,8 @@ public class InputOperatorSpec<K, V> extends OperatorSpec<KV<K, V>, Object> { //
     return valueSerde;
   }
 
-  public boolean isKeyedInput() {
-    return isKeyedInput;
+  public boolean isKeyed() {
+    return isKeyed;
   }
 
   @Override

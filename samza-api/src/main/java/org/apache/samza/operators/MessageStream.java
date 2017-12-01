@@ -93,6 +93,9 @@ public interface MessageStream<M> {
 
   /**
    * Allows sending messages in this {@link MessageStream} to an {@link OutputStream}.
+   * <p>
+   * When sending messages to an {@code OutputStream<KV<K, V>>}, messages are partitioned using their serialized key.
+   * When sending messages to any other {@code OutputStream<M>}, messages are partitioned using a null partition key.
    *
    * @param outputStream the output stream to send messages to
    */
@@ -200,8 +203,11 @@ public interface MessageStream<M> {
    * for any state stores and streams created by this operator (the full ID also contains the job name, job id and
    * operator type). If the application logic is changed, this ID must be reused in the new operator to retain
    * state from the previous version, and changed for the new operator to discard the state from the previous version.
+   * <p>
+   * Unlike {@link #sendTo}, messages with a null key are all sent to partition 0.
    *
-   * @param keyExtractor the {@link Function} to extract the message and partition key from the input message
+   * @param keyExtractor the {@link Function} to extract the message and partition key from the input message.
+   *                     Messages with a null key are all sent to partition 0.
    * @param valueExtractor the {@link Function} to extract the value from the input message
    * @param serde the {@link KVSerde} to use for (de)serializing the key and value.
    * @param id the unique id of this operator in this application

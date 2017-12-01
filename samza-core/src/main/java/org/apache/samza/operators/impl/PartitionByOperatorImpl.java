@@ -18,7 +18,6 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.operators.KV;
@@ -55,9 +54,6 @@ class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
   PartitionByOperatorImpl(PartitionByOperatorSpec<M, K, V> partitionByOpSpec, Config config, TaskContext context) {
     this.partitionByOpSpec = partitionByOpSpec;
     OutputStreamImpl<KV<K, V>> outputStream = partitionByOpSpec.getOutputStream();
-    if (!outputStream.isKeyedOutput()) {
-      throw new SamzaException("Output stream for repartitioning must be a keyed stream.");
-    }
     this.systemStream = new SystemStream(
         outputStream.getStreamSpec().getSystemName(),
         outputStream.getStreamSpec().getPhysicalName());
