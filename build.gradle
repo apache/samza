@@ -328,6 +328,34 @@ project(':samza-sql') {
   }
 }
 
+project(':samza-tools') {
+  apply plugin: 'java'
+
+  dependencies {
+    compile project(':samza-sql')
+    compile project(':samza-api')
+    compile project(':samza-azure')
+    compile "log4j:log4j:$log4jVersion"
+    compile "org.slf4j:slf4j-api:$slf4jVersion"
+    compile "org.slf4j:slf4j-log4j12:$slf4jVersion"
+    compile "commons-cli:commons-cli:$commonsCliVersion"
+    compile "org.apache.avro:avro:$avroVersion"
+    compile "org.apache.commons:commons-lang3:$commonsLang3Version"
+    compile "org.apache.kafka:kafka-clients:$kafkaVersion"
+  }
+
+  tasks.create(name: "releaseToolsTarGz", dependsOn: configurations.archives.artifacts, type: Tar) {
+    into "samza-tools-${version}"
+    compression = Compression.GZIP
+    from(project.file("./scripts")) { into "scripts/" }
+    from(project.file("./config")) { into "config/" }
+    from(project(':samza-shell').file("src/main/bash/run-class.sh")) { into "scripts/" }
+    from(configurations.runtime) { into("lib/") }
+    from(configurations.archives.artifacts.files) { into("lib/") }
+    duplicatesStrategy 'exclude'
+  }
+}
+
 project(":samza-kafka_$scalaVersion") {
   apply plugin: 'scala'
 
