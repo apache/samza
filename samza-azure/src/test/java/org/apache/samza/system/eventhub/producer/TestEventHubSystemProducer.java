@@ -43,6 +43,8 @@ import static org.apache.samza.system.eventhub.MockEventHubConfigFactory.*;
 @PrepareForTest({EventHubRuntimeInformation.class, EventHubClient.class, PartitionReceiver.class, PartitionSender.class})
 public class TestEventHubSystemProducer {
 
+  private static final String SOURCE = "TestEventHubSystemProducer";
+
   private static List<String> generateMessages(int numMsg) {
     Random rand = new Random(System.currentTimeMillis());
     List<String> messages = new ArrayList<>();
@@ -83,13 +85,13 @@ public class TestEventHubSystemProducer {
             new EventHubSystemProducer(new EventHubConfig(configMap), systemName, factory, interceptor, testMetrics);
 
     SystemStream systemStream = new SystemStream(systemName, streamName);
-    producer.register(streamName);
+    producer.register(SOURCE);
     producer.start();
 
     outgoingMessagesP0.forEach(message ->
-            producer.send(streamName, new OutgoingMessageEnvelope(systemStream, partitionId0, null, message.getBytes())));
+            producer.send(SOURCE, new OutgoingMessageEnvelope(systemStream, partitionId0, null, message.getBytes())));
     outgoingMessagesP1.forEach(message ->
-            producer.send(streamName, new OutgoingMessageEnvelope(systemStream, partitionId1, null, message.getBytes())));
+            producer.send(SOURCE, new OutgoingMessageEnvelope(systemStream, partitionId1, null, message.getBytes())));
 
     // Retrieve sent data
     List<String> receivedData0 = factory.getSentData(systemName, streamName, partitionId0)
@@ -133,13 +135,13 @@ public class TestEventHubSystemProducer {
             new EventHubSystemProducer(new EventHubConfig(configMap), systemName, factory, interceptors, testMetrics);
 
     SystemStream systemStream = new SystemStream(systemName, streamName);
-    producer.register(streamName);
+    producer.register(SOURCE);
     producer.start();
 
     outgoingMessagesP0.forEach(message ->
-            producer.send(streamName, new OutgoingMessageEnvelope(systemStream, partitionId0, null, message.getBytes())));
+            producer.send(SOURCE, new OutgoingMessageEnvelope(systemStream, partitionId0, null, message.getBytes())));
     outgoingMessagesP1.forEach(message ->
-            producer.send(streamName, new OutgoingMessageEnvelope(systemStream, partitionId1, null, message.getBytes())));
+            producer.send(SOURCE, new OutgoingMessageEnvelope(systemStream, partitionId1, null, message.getBytes())));
 
     // Retrieve sent data
     List<String> receivedData0 = factory.getSentData(systemName, streamName, partitionId0)
@@ -180,6 +182,7 @@ public class TestEventHubSystemProducer {
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName), EVENTHUB_KEY_NAME);
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, systemName, streamName), EVENTHUB_KEY);
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, systemName, streamName), EVENTHUB_ENTITY1);
+
     // mod 2 on the partitionid to simulate consistent hashing
     configMap.put(String.format(EventHubConfig.CONFIG_PRODUCER_PARTITION_METHOD, systemName),
             PartitioningMethod.EVENT_HUB_HASHING.toString());
@@ -190,13 +193,13 @@ public class TestEventHubSystemProducer {
             new EventHubSystemProducer(new EventHubConfig(configMap), systemName, factory, interceptor, testMetrics);
 
     SystemStream systemStream = new SystemStream(systemName, streamName);
-    producer.register(streamName);
+    producer.register(SOURCE);
     producer.start();
 
     outgoingMessagesP0.forEach(message ->
-            producer.send(streamName, new OutgoingMessageEnvelope(systemStream, partitionId0, null, message.getBytes())));
+            producer.send(SOURCE, new OutgoingMessageEnvelope(systemStream, partitionId0, null, message.getBytes())));
     outgoingMessagesP1.forEach(message ->
-            producer.send(streamName, new OutgoingMessageEnvelope(systemStream, partitionId1, null, message.getBytes())));
+            producer.send(SOURCE, new OutgoingMessageEnvelope(systemStream, partitionId1, null, message.getBytes())));
 
     // Retrieve sent data
     List<String> receivedData0 = factory.getSentData(systemName, streamName, 0)

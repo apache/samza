@@ -160,7 +160,7 @@ public class EventHubSystemAdmin implements SystemAdmin {
 
           String startingOffset = EventHubSystemConsumer.START_OF_STREAM;
           String newestOffset = ehPartitionInfo.getLastEnqueuedOffset();
-          String upcomingOffset = getNextOffset(newestOffset);
+          String upcomingOffset = EventHubSystemConsumer.END_OF_STREAM;
           SystemStreamPartitionMetadata sspMetadata = new SystemStreamPartitionMetadata(startingOffset, newestOffset,
                   upcomingOffset);
 
