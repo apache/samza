@@ -174,6 +174,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   public void register(SystemStreamPartition systemStreamPartition, String offset) {
     super.register(systemStreamPartition, offset);
 
+    LOG.debug(String.format("Eventhub consumer trying to register ssp %s, offset %s", systemStreamPartition, offset));
     if (isStarted) {
       throw new SamzaException("Trying to add partition when the connection has already started.");
     }

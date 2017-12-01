@@ -29,6 +29,7 @@ import org.apache.samza.system.eventhub.MockEventHubConfigFactory;
 import org.apache.samza.system.eventhub.TestMetricsRegistry;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.Collections;
@@ -37,6 +38,7 @@ import java.util.List;
 import static org.apache.samza.system.eventhub.MockEventHubConfigFactory.STREAM_NAME1;
 import static org.apache.samza.system.eventhub.MockEventHubConfigFactory.SYSTEM_NAME;
 
+@Ignore("Requires Azure account credentials")
 public class ITestEventHubSystemConsumer {
 
   private Config createEventHubConfig() {

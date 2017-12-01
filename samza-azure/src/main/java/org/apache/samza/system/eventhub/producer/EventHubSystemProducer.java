@@ -85,7 +85,6 @@ public class EventHubSystemProducer implements SystemProducer {
   private final HashMap<String, SamzaHistogram> sendCallbackLatency = new HashMap<>();
   private final HashMap<String, Counter> sendErrors = new HashMap<>();
 
-  private final EventHubClientManagerFactory eventHubClientManagerFactory;
   private final EventHubConfig config;
   private final MetricsRegistry registry;
   private final PartitioningMethod partitioningMethod;
@@ -109,7 +108,6 @@ public class EventHubSystemProducer implements SystemProducer {
     this.registry = registry;
     this.systemName = systemName;
     this.partitioningMethod = config.getPartitioningMethod(systemName);
-    this.eventHubClientManagerFactory = eventHubClientManagerFactory;
     this.interceptors = interceptors;
 
     List<String> streamNames = config.getStreams(systemName);
@@ -161,15 +159,16 @@ public class EventHubSystemProducer implements SystemProducer {
         });
     }
 
-    for (String eventHub : eventHubClients.keySet()) {
-      eventWriteRate.put(eventHub, registry.newCounter(eventHub, EVENT_WRITE_RATE));
-      eventByteWriteRate.put(eventHub, registry.newCounter(eventHub, EVENT_BYTE_WRITE_RATE));
-      sendLatency.put(eventHub, new SamzaHistogram(registry, eventHub, SEND_LATENCY));
-      sendCallbackLatency.put(eventHub, new SamzaHistogram(registry, eventHub, SEND_CALLBACK_LATENCY));
-      sendErrors.put(eventHub, registry.newCounter(eventHub, SEND_ERRORS));
-    }
+    // Initiate metrics
+    eventHubClients.keySet().forEach((eventHub) -> {
+        eventWriteRate.put(eventHub, registry.newCounter(eventHub, EVENT_WRITE_RATE));
+        eventByteWriteRate.put(eventHub, registry.newCounter(eventHub, EVENT_BYTE_WRITE_RATE));
+        sendLatency.put(eventHub, new SamzaHistogram(registry, eventHub, SEND_LATENCY));
+        sendCallbackLatency.put(eventHub, new SamzaHistogram(registry, eventHub, SEND_CALLBACK_LATENCY));
+        sendErrors.put(eventHub, registry.newCounter(eventHub, SEND_ERRORS));
+      });
 
-    // Locking to ensure that these aggregated metrics will be created only once across multiple system consumers.
+    // Locking to ensure that these aggregated metrics will be created only once across multiple system producers.
     synchronized (AGGREGATE_METRICS_LOCK) {
       if (aggEventWriteRate == null) {
         aggEventWriteRate = registry.newCounter(AGGREGATE, EVENT_WRITE_RATE);
@@ -185,6 +184,7 @@ public class EventHubSystemProducer implements SystemProducer {
 
   @Override
   public synchronized void send(String source, OutgoingMessageEnvelope envelope) {
+    LOG.info(String.format("Trying to send %s", envelope));
     if (!isStarted) {
       throw new SamzaException("Trying to call send before the producer is started.");
     }
@@ -258,7 +258,7 @@ public class EventHubSystemProducer implements SystemProducer {
   }
 
   protected Object getEnvelopePartitionId(OutgoingMessageEnvelope envelope) {
-    return envelope.getPartitionKey();
+    return envelope.getPartitionKey() == null ? envelope.getKey() : envelope.getPartitionKey();
   }
 
   private String convertPartitionKeyToString(Object partitionKey) {
