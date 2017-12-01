@@ -54,7 +54,7 @@ public class ContainerHeartbeatMonitor {
         if (!response.isAlive()) {
           scheduler.schedule(() -> {
               // On timeout of container shutting down, force exit.
-              LOG.error("Gracefully shutdown timeout expired. Force exiting.");
+              LOG.error("Graceful shutdown timeout expired. Force exiting.");
               System.exit(1);
             }, SHUTDOWN_TIMOUT_MS, TimeUnit.MILLISECONDS);
           onContainerExpired.run();
