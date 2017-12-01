@@ -19,16 +19,13 @@
 package org.apache.samza.table;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.KV;
-
 
 /**
  *
- * Marker interface for a table instance, an instance is used at execution
- * time to access the table by tasks.
+ * Marker interface for a table.
  *
  * @param <R> the type of records in the table
  */
 @InterfaceStability.Unstable
-public interface Table<R extends KV> {
+public interface Table<R> {
 }

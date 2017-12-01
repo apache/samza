@@ -35,8 +35,8 @@ import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.functions.KeyedStreamTableJoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
@@ -139,8 +139,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
               return pv;
             })
           .partitionBy(PageView::getMemberId, v -> v, "p1")
-          .join(table, (KeyedStreamTableJoinFunction<Integer, PageView, Profile, EnrichedPageView>) (m, r) ->
-              new EnrichedPageView(m.getValue().getPageKey(), m.getKey(), r.getValue().getCompany()))
+          .join(table, (m, r) -> new EnrichedPageView(m.getValue().getPageKey(), m.getKey(), r.getValue().getCompany()))
           .sink((m, collector, coordinator) -> joined.add(m));
     };
 
@@ -175,10 +174,12 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
 
     configs.put("streams.Profile1.samza.system", "test");
     configs.put("streams.Profile1.source", Base64Serializer.serialize(profiles));
+    configs.put("streams.Profile1.samza.bootstrap", "true");
     configs.put("streams.Profile1.partitionCount", String.valueOf(partitionCount));
 
     configs.put("streams.Profile2.samza.system", "test");
     configs.put("streams.Profile2.source", Base64Serializer.serialize(profiles));
+    configs.put("streams.Profile2.samza.bootstrap", "true");
     configs.put("streams.Profile2.partitionCount", String.valueOf(partitionCount));
 
     configs.put("streams.PageView1.samza.system", "test");
@@ -232,8 +233,8 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     assertEquals(count * partitionCount, sentToProfileTable2.size());
     assertEquals(count * partitionCount, joinFn1.count);
     assertEquals(count * partitionCount, joinFn2.count);
-    assertTrue(joinedPageViews1.size() > 0);
-    assertTrue(joinedPageViews2.size() > 0);
+    assertEquals(count * partitionCount, joinedPageViews1.size());
+    assertEquals(count * partitionCount, joinedPageViews2.size());
     assertTrue(joinedPageViews1.get(0) instanceof EnrichedPageView);
     assertTrue(joinedPageViews2.get(0) instanceof EnrichedPageView);
   }
@@ -280,7 +281,8 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     }
   }
 
-  private class MyJoinFunction implements KeyedStreamTableJoinFunction<Integer, PageView, Profile, EnrichedPageView> {
+  private class MyJoinFunction implements StreamTableJoinFunction
+      <KV<Integer, PageView>, KV<Integer, Profile>, EnrichedPageView> {
     private int count;
     @Override
     public EnrichedPageView apply(KV<Integer, PageView> m, KV<Integer, Profile> r) {

@@ -351,7 +351,7 @@ public class TestMessageStreamImpl {
 
     source2.sendTo(table);
 
-    StreamTableJoinFunction<String, KV<String, TestMessageEnvelope>, KV<String, TestMessageEnvelope>, TestOutputMessageEnvelope>
+    StreamTableJoinFunction<KV<String, TestMessageEnvelope>, KV<String, TestMessageEnvelope>, TestOutputMessageEnvelope>
         mockJoinFn = mock(StreamTableJoinFunction.class);
     source1.join(table, mockJoinFn);
 

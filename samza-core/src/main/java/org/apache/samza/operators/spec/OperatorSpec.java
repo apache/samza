@@ -45,7 +45,6 @@ public abstract class OperatorSpec<M, OM> {
     FILTER,
     SINK,
     SEND_TO,
-    WRITE_TO,
     JOIN,
     WINDOW,
     MERGE,

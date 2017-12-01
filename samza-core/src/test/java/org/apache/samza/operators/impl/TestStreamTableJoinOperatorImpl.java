@@ -24,7 +24,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.data.TestMessageEnvelope;
-import org.apache.samza.operators.functions.KeyedStreamTableJoinFunction;
+import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
 import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.TableSpec;
@@ -49,21 +49,22 @@ public class TestStreamTableJoinOperatorImpl {
 
     StreamTableJoinOperatorSpec mockJoinOpSpec = mock(StreamTableJoinOperatorSpec.class);
     when(mockJoinOpSpec.getTableSpec()).thenReturn(tableSpec);
-    when(mockJoinOpSpec.getJoinFn()).thenReturn(new KeyedStreamTableJoinFunction<String, String, String, String>() {
-      @Override
-      public String apply(KV<String, String> message, KV<String, String> record) {
-        if ("1".equals(message.getKey())) {
-          Assert.assertEquals("m1", message.getValue());
-          Assert.assertEquals("r1", record.getValue());
-          return "m1r1";
-        } else if ("2".equals(message.getKey())) {
-          Assert.assertEquals("m2", message.getValue());
-          Assert.assertNull(record);
-          return null;
+    when(mockJoinOpSpec.getJoinFn()).thenReturn(
+        new StreamTableJoinFunction<KV<String, String>, KV<String, String>, String>() {
+        @Override
+        public String apply(KV<String, String> message, KV<String, String> record) {
+          if ("1".equals(message.getKey())) {
+            Assert.assertEquals("m1", message.getValue());
+            Assert.assertEquals("r1", record.getValue());
+            return "m1r1";
+          } else if ("2".equals(message.getKey())) {
+            Assert.assertEquals("m2", message.getValue());
+            Assert.assertNull(record);
+            return null;
+          }
+          throw new SamzaException("Should never reach here!");
         }
-        throw new SamzaException("Should never reach here!");
-      }
-    });
+      });
     Config config = mock(Config.class);
     ReadableTable table = mock(ReadableTable.class);
     when(table.get("1")).thenReturn("r1");

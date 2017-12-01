@@ -24,14 +24,13 @@ import org.apache.samza.annotation.InterfaceStability;
 /**
  * Joins incoming messages with records from a table by the join key.
  *
- * @param <K>  type of join key
  * @param <M>  type of input message
  * @param <R>  type of the table record
  * @param <JM> type of join results
  */
 
 @InterfaceStability.Unstable
-public interface StreamTableJoinFunction<K, M, R, JM> extends InitableFunction, ClosableFunction {
+public interface StreamTableJoinFunction<M, R, JM> extends InitableFunction, ClosableFunction {
 
   /**
    * Joins the provided messages and table record, returns the joined message.
@@ -41,20 +40,4 @@ public interface StreamTableJoinFunction<K, M, R, JM> extends InitableFunction, 
    * @return  the join result
    */
   JM apply(M message, R record);
-
-  /**
-   * Retrieve the join key from incoming messages
-   *
-   * @param message incoming message
-   * @return the join key
-   */
-  K getMessageKey(M message);
-
-  /**
-   * Retrieve the join key from table record
-   *
-   * @param record table record
-   * @return the join key
-   */
-  K getTableKey(R record);
 }

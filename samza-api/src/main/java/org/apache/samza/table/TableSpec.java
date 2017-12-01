@@ -30,7 +30,7 @@ import org.apache.samza.serializers.KVSerde;
  * TableSpec is a blueprint for creating, validating, or simply describing a table in the runtime environment.
  *
  * It is typically created indirectly by constructing an instance of {@link org.apache.samza.operators.TableDescriptor},
- * and then invoke <code>TableDescriptor.getTableSpec()</code>.
+ * and then invoke <code>BaseTableDescriptor.getTableSpec()</code>.
  *
  * It has specific attributes for common behaviors that Samza uses.
  *

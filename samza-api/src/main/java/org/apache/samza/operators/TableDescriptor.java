@@ -29,11 +29,12 @@ import org.apache.samza.serializers.KVSerde;
  * is defined in this class and the rest in subclasses.
  *
  * <pre>
- *   TableDescriptor&lt;Integer, String, ?&gt; tableDesc = new RocksDbTableDescriptor("tbl")
- *     .withKeySerde(new IntegerSerde())
- *     .withValueSerde(new StringSerde("UTF-8"))
- *     .withBlockSize(1)
+ * {@code
+ * TableDescriptor<Integer, String, ?> tableDesc = new RocksDbTableDescriptor("tbl")
+ *     .withSerde(KVSerde.of(new IntegerSerde(), new StringSerde("UTF-8")))
+ *     .withBlockSize(1024)
  *     .withConfig("some-key", "some-value");
+ * }
  * </pre>
 
  * Once constructed, a table descriptor can be registered with the system. Internally,

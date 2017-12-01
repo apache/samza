@@ -156,39 +156,28 @@ public interface MessageStream<M> {
    * Joins this {@link MessageStream} with another {@link Table} using the provided
    * pairwise {@link StreamTableJoinFunction}.
    * <p>
-   * Records are looked up from the joined table, join function is applied and join results are
-   * emitted as matches are found.
+   * The type of input message is expected to be {@link KV}.
    * <p>
-   * The type of input message is expected to be {@link KV}, we can use lambda with a cast
-   * to {@link org.apache.samza.operators.functions.KeyedStreamTableJoinFunction} as
-   * {@link StreamTableJoinFunction} here. For example
-   * <p>
-   *   <code>
-   * inputStream
-   *     .partitionBy(PageView::getMemberId, v -&gt; v, "p1")
-   *     .join(table, (KeyedStreamTableJoinFunction&lt;Integer, PageView, Profile, EnrichedPageView&gt;) (m, r) -&gt;
-   *         new EnrichedPageView(m.getValue().getPageKey(), m.getKey(), r.getValue().getCompany()))
-   *   </code>
+   * Records are looked up from the joined table using the join key, join function
+   * is applied and join results are emitted as matches are found.
    * <p>
    * The join function allows implementation of both inner and left outer join. A null will be
-   * passed to the join function, if no record is found in the table matching the join key.
+   * passed to the join function, if no record matching the join key is found in the table.
    * The join function can choose to return an instance of JM (outer left join) or null
-   * (inner join); if null is returned, the underlying implementation of the stream-table join operator
-   * passes an empty collection to downstream.
+   * (inner join); if null is returned, it won't be processed further.
    * <p>
    * Both the input stream and table being joined must have the same number of partitions,
-   * and should be partitioned by the join key.
+   * and should be partitioned by the same join key.
    * <p>
    *
    * @param table the table being joined
    * @param joinFn the join function
-   * @param <K> the type of the join key
    * @param <R> the type of table record
    * @param <JM> the type of messages resulting from the {@code joinFn}
    * @return the joined {@link MessageStream}
    */
-  <K, R extends KV, JM> MessageStream<JM> join(Table<R> table,
-      StreamTableJoinFunction<? extends K, ? super M, ? super R, ? extends JM> joinFn);
+  <R extends KV, JM> MessageStream<JM> join(Table<R> table,
+      StreamTableJoinFunction<? super M, ? super R, ? extends JM> joinFn);
 
   /**
    * Merges all {@code otherStreams} with this {@link MessageStream}.
@@ -267,7 +256,8 @@ public interface MessageStream<M> {
       Function<? super M, ? extends V> valueExtractor, String id);
 
   /**
-   * Sends messages in this {@link MessageStream} to a {@link Table}.
+   * Sends messages in this {@link MessageStream} to a {@link Table}. The type of input message is expected
+   * to be {@link KV}, otherwise a {@link ClassCastException} will be thrown.
    *
    * @param table the table to write messages to
    * @param <K> the type of key in the table
