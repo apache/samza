@@ -49,7 +49,7 @@ import org.slf4j.LoggerFactory;
  */
 public class ContainerHeartbeatClient {
   private static final Logger LOG = LoggerFactory.getLogger(ContainerHeartbeatClient.class);
-  private static final int NUM_RETRIES = 3;
+  private static final int NUM_RETRIES = 6;
   private static final int TIMEOUT_MS = 5000;
   private static final int BACKOFF_MULTIPLIER = 2;
   private final String heartbeatEndpoint;
@@ -72,9 +72,10 @@ public class ContainerHeartbeatClient {
       LOG.debug("Container Heartbeat got response {}", reply);
       response = mapper.readValue(reply, ContainerHeartbeatResponse.class);
       return response;
-    } catch (IOException e) {
-      LOG.error("Error in container heart beat protocol. Query url: {} response: {}", heartbeatEndpoint, reply);
+    } catch (Exception e) {
+      LOG.error("Error in container heartbeat to JobCoordinator.", e);
     }
+    LOG.error("Container heartbeat expired");
     response = new ContainerHeartbeatResponse(false);
     return response;
   }
@@ -82,10 +83,11 @@ public class ContainerHeartbeatClient {
   String httpGet(URL url) throws IOException {
     HttpURLConnection conn;
     int delayMillis = 1000;
-
+    BufferedReader br = null;
     for (int currentTry = 0; currentTry < NUM_RETRIES; currentTry++) {
-      conn = Util.getHttpConnection(url, TIMEOUT_MS);
-      try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
+      try {
+        conn = Util.getHttpConnection(url, TIMEOUT_MS);
+        br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
         if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
           throw new IOException(String.format("HTTP error fetching url %s. Returned status code %d", url.toString(),
               conn.getResponseCode()));
@@ -93,9 +95,13 @@ public class ContainerHeartbeatClient {
           return br.lines().collect(Collectors.joining());
         }
       } catch (Exception e) {
-        LOG.error("Error in heartbeat request", e);
+        LOG.error(String.format("Error in heartbeat request. Retrying [%d/%d].", currentTry + 1, NUM_RETRIES), e);
         sleepUninterruptibly(delayMillis);
         delayMillis = delayMillis * BACKOFF_MULTIPLIER;
+      } finally {
+        if (br != null) {
+          br.close();
+        }
       }
     }
     throw new IOException(String.format("Error fetching url: %s. Tried %d time(s).", url.toString(), NUM_RETRIES));
