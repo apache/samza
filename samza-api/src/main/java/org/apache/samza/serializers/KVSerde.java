@@ -25,8 +25,12 @@ import java.nio.ByteBuffer;
 
 
 /**
- * A marker serde class to indicate that messages are keyed and should be deserialized as K-V pairs. This class is
- * intended for use cases where a single Serde parameter or configuration is required.
+ * A serializer that serves one of the following two purposes:
+ * <ol>
+ *   <li>When used for input/output streams, serves as an indication to the framework that messages are keyed and
+ *   should be deserialized as K-V pairs.</li>
+ *   <li>When used for a key or value of type KV, serializes the key and value pair using the provided serdes.</li>
+ * </ol>
  *
  * @param <K> type of the key in the message
  * @param <V> type of the value in the message
