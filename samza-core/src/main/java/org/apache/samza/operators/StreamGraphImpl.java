@@ -108,8 +108,7 @@ public class StreamGraphImpl implements StreamGraph {
     InputOperatorSpec inputOperatorSpec =
         OperatorSpecs.createInputOperatorSpec(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(),
             isKeyed, this.getNextOpId(OpCode.INPUT, null));
-    inputOperators.put(streamSpec,
-        inputOperatorSpec);
+    inputOperators.put(streamSpec, inputOperatorSpec);
     return new MessageStreamImpl<>(this, inputOperators.get(streamSpec));
   }
 
@@ -137,8 +136,7 @@ public class StreamGraphImpl implements StreamGraph {
     }
 
     boolean isKeyed = serde instanceof KVSerde;
-    outputStreams.put(streamSpec,
-        new OutputStreamImpl<>(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed));
+    outputStreams.put(streamSpec, new OutputStreamImpl<>(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed));
     return outputStreams.get(streamSpec);
   }
 

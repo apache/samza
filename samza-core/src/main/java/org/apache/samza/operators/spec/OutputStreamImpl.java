@@ -28,14 +28,14 @@ public class OutputStreamImpl<M> implements OutputStream<M> {
   private final StreamSpec streamSpec;
   private final Serde keySerde;
   private final Serde valueSerde;
-  private final boolean isKeyedOutput;
+  private final boolean isKeyed;
 
   public OutputStreamImpl(StreamSpec streamSpec,
-      Serde keySerde, Serde valueSerde, boolean isKeyedOutput) {
+      Serde keySerde, Serde valueSerde, boolean isKeyed) {
     this.streamSpec = streamSpec;
     this.keySerde = keySerde;
     this.valueSerde = valueSerde;
-    this.isKeyedOutput = isKeyedOutput;
+    this.isKeyed = isKeyed;
   }
 
   public StreamSpec getStreamSpec() {
@@ -50,7 +50,7 @@ public class OutputStreamImpl<M> implements OutputStream<M> {
     return valueSerde;
   }
 
-  public boolean isKeyedOutput() {
-    return isKeyedOutput;
+  public boolean isKeyed() {
+    return isKeyed;
   }
 }

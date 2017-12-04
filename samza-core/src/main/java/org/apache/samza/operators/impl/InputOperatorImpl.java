@@ -50,7 +50,7 @@ public final class InputOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, Object
 
   @Override
   public Collection<Object> handleMessage(KV<K, V> pair, MessageCollector collector, TaskCoordinator coordinator) {
-    Object message = this.inputOpSpec.isKeyedInput() ? pair : pair.getValue();
+    Object message = this.inputOpSpec.isKeyed() ? pair : pair.getValue();
     return Collections.singletonList(message);
   }
 
