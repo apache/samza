@@ -18,39 +18,44 @@
  */
 package org.apache.samza.storage.kv;
 
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
-import org.apache.samza.operators.BaseTableDescriptor;
+import org.apache.samza.table.ReadableTable;
 
 
 /**
- * Table descriptor for store backed tables.
+ * A store backed readable table
  *
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
- * @param <D> the type of the concrete table descriptor
  */
-abstract public class BaseStoreBackedTableDescriptor<K, V, D extends BaseStoreBackedTableDescriptor<K, V, D>>
-    extends BaseTableDescriptor<K, V, D> {
+public class LocalStoreBackedReadableTable<K, V> implements ReadableTable<K, V> {
+
+  protected KeyValueStore<K, V> kvStore;
 
   /**
-   * Constructs a table descriptor instance
-   * @param tableId Id of the table
+   * Constructs an instance of {@link LocalStoreBackedReadableTable}
+   * @param kvStore the backing store
    */
-  public BaseStoreBackedTableDescriptor(String tableId) {
-    super(tableId);
+  public LocalStoreBackedReadableTable(KeyValueStore<K, V> kvStore) {
+    this.kvStore = kvStore;
   }
 
   @Override
-  protected void generateTableSpecConfig(Map<String, String> tableSpecConfig) {
-    super.generateTableSpecConfig(tableSpecConfig);
+  public V get(K key) {
+    return kvStore.get(key);
   }
 
-  /**
-   * Validate that this table descriptor is constructed properly
-   */
-  protected void validate() {
-    super.validate();
+  @Override
+  public Map<K, V> getAll(List<K> keys) {
+    return keys.stream().collect(Collectors.toMap(k -> k, k -> kvStore.get(k)));
   }
 
+  @Override
+  public void close() {
+    // The KV store is not closed here as it may still be needed by downstream operators,
+    // it will be closed by the SamzaContainer
+  }
 }

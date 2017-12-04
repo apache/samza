@@ -36,7 +36,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Base class for tables backed by Samza stores, see {@link LocalStoreBackedTableProvider}.
  */
-abstract public class BaseStoreBackedTableProvider implements LocalStoreBackedTableProvider {
+abstract public class BaseLocalStoreBackedTableProvider implements LocalStoreBackedTableProvider {
 
   protected final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -44,7 +44,7 @@ abstract public class BaseStoreBackedTableProvider implements LocalStoreBackedTa
 
   protected KeyValueStore kvStore;
 
-  public BaseStoreBackedTableProvider(TableSpec tableSpec) {
+  public BaseLocalStoreBackedTableProvider(TableSpec tableSpec) {
     this.tableSpec = tableSpec;
   }
 
@@ -59,7 +59,7 @@ abstract public class BaseStoreBackedTableProvider implements LocalStoreBackedTa
     if (kvStore == null) {
       throw new SamzaException("Store not initialized for table " + tableSpec.getId());
     }
-    return new StoreBackedReadWriteTable(kvStore);
+    return new LocalStoreBackedReadWriteTable(kvStore);
   }
 
   @Override

@@ -19,43 +19,50 @@
 package org.apache.samza.storage.kv;
 
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
-import org.apache.samza.table.ReadableTable;
+import org.apache.samza.table.ReadWriteTable;
 
 
 /**
- * A store backed readable table
+ * A store backed readable and writable table
  *
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
  */
-public class StoreBackedReadableTable<K, V> implements ReadableTable<K, V> {
-
-  protected KeyValueStore<K, V> kvStore;
+public class LocalStoreBackedReadWriteTable<K, V> extends LocalStoreBackedReadableTable<K, V>
+    implements ReadWriteTable<K, V> {
 
   /**
-   * Constructs an instance of {@link StoreBackedReadableTable}
+   * Constructs an instance of {@link LocalStoreBackedReadWriteTable}
    * @param kvStore the backing store
    */
-  public StoreBackedReadableTable(KeyValueStore<K, V> kvStore) {
-    this.kvStore = kvStore;
+  public LocalStoreBackedReadWriteTable(KeyValueStore kvStore) {
+    super(kvStore);
   }
 
   @Override
-  public V get(K key) {
-    return kvStore.get(key);
+  public void put(K key, V value) {
+    kvStore.put(key, value);
   }
 
   @Override
-  public Map<K, V> getAll(List<K> keys) {
-    return keys.stream().collect(Collectors.toMap(k -> k, k -> kvStore.get(k)));
+  public void putAll(List<Entry<K, V>> entries) {
+    entries.forEach(e -> kvStore.put(e.getKey(), e.getValue()));
   }
 
   @Override
-  public void close() {
-    // The KV store is not closed here as it may still be needed by downstream operators,
-    // it will be closed by the SamzaContainer
+  public void delete(K key) {
+    kvStore.delete(key);
   }
+
+  @Override
+  public void deleteAll(List<K> keys) {
+    keys.forEach(k -> kvStore.delete(k));
+  }
+
+  @Override
+  public void flush() {
+    kvStore.flush();
+  }
+
 }

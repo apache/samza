@@ -36,15 +36,15 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 
-public class TestBaseStoreBackedTableProvider {
+public class TestLocalBaseStoreBackedTableProvider {
 
-  private BaseStoreBackedTableProvider tableProvider;
+  private BaseLocalStoreBackedTableProvider tableProvider;
 
   @Before
   public void prepare() {
     TableSpec tableSpec = mock(TableSpec.class);
     when(tableSpec.getId()).thenReturn("t1");
-    tableProvider = new BaseStoreBackedTableProvider(tableSpec) {
+    tableProvider = new BaseLocalStoreBackedTableProvider(tableSpec) {
       @Override
       public Map<String, String> generateConfig(Map<String, String> config) {
         return generateCommonStoreConfig(config);

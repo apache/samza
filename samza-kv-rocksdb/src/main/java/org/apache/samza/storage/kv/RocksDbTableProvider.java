@@ -29,7 +29,7 @@ import org.apache.samza.table.TableSpec;
 /**
  * Table provider for tables backed by RocksDb.
  */
-public class RocksDbTableProvider extends BaseStoreBackedTableProvider {
+public class RocksDbTableProvider extends BaseLocalStoreBackedTableProvider {
 
   public RocksDbTableProvider(TableSpec tableSpec) {
     super(tableSpec);

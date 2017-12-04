@@ -21,7 +21,7 @@ package org.apache.samza.storage.kv.inmemory;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.samza.storage.kv.BaseStoreBackedTableDescriptor;
+import org.apache.samza.storage.kv.BaseLocalStoreBackedTableDescriptor;
 import org.apache.samza.table.TableSpec;
 
 
@@ -31,7 +31,7 @@ import org.apache.samza.table.TableSpec;
  * @param <K> the type of the key
  * @param <V> the type of the value
  */
-public class InMemoryTableDescriptor<K, V> extends BaseStoreBackedTableDescriptor<K, V, InMemoryTableDescriptor<K, V>> {
+public class InMemoryTableDescriptor<K, V> extends BaseLocalStoreBackedTableDescriptor<K, V, InMemoryTableDescriptor<K, V>> {
 
   public InMemoryTableDescriptor(String tableId) {
     super(tableId);

@@ -18,51 +18,39 @@
  */
 package org.apache.samza.storage.kv;
 
-import java.util.List;
+import java.util.Map;
 
-import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.operators.BaseTableDescriptor;
 
 
 /**
- * A store backed readable and writable table
+ * Table descriptor for store backed tables.
  *
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
+ * @param <D> the type of the concrete table descriptor
  */
-public class StoreBackedReadWriteTable<K, V> extends StoreBackedReadableTable<K, V>
-    implements ReadWriteTable<K, V> {
+abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLocalStoreBackedTableDescriptor<K, V, D>>
+    extends BaseTableDescriptor<K, V, D> {
 
   /**
-   * Constructs an instance of {@link StoreBackedReadWriteTable}
-   * @param kvStore the backing store
+   * Constructs a table descriptor instance
+   * @param tableId Id of the table
    */
-  public StoreBackedReadWriteTable(KeyValueStore kvStore) {
-    super(kvStore);
+  public BaseLocalStoreBackedTableDescriptor(String tableId) {
+    super(tableId);
   }
 
   @Override
-  public void put(K key, V value) {
-    kvStore.put(key, value);
+  protected void generateTableSpecConfig(Map<String, String> tableSpecConfig) {
+    super.generateTableSpecConfig(tableSpecConfig);
   }
 
-  @Override
-  public void putAll(List<Entry<K, V>> entries) {
-    entries.forEach(e -> kvStore.put(e.getKey(), e.getValue()));
-  }
-
-  @Override
-  public void delete(K key) {
-    kvStore.delete(key);
-  }
-
-  @Override
-  public void deleteAll(List<K> keys) {
-    keys.forEach(k -> kvStore.delete(k));
-  }
-
-  @Override
-  public void flush() {
-    kvStore.flush();
+  /**
+   * Validate that this table descriptor is constructed properly
+   */
+  protected void validate() {
+    super.validate();
   }
 
 }

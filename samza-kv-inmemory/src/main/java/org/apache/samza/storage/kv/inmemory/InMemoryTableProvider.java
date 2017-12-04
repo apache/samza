@@ -23,14 +23,14 @@ import java.util.Map;
 
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.StorageConfig;
-import org.apache.samza.storage.kv.BaseStoreBackedTableProvider;
+import org.apache.samza.storage.kv.BaseLocalStoreBackedTableProvider;
 import org.apache.samza.table.TableSpec;
 
 
 /**
  * Table provider of an in-memory table
  */
-public class InMemoryTableProvider extends BaseStoreBackedTableProvider {
+public class InMemoryTableProvider extends BaseLocalStoreBackedTableProvider {
 
   public InMemoryTableProvider(TableSpec tableSpec) {
     super(tableSpec);
