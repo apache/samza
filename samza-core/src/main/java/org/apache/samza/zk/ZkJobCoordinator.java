@@ -176,6 +176,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   public Set<String> getProcessorNames() {
     final Set<String> processorNames = new HashSet<>();
     // Leader election should have happened by this time.
+    // SAMZA-1522 Add an API to check if leader election is done.
     ZkConfig zkConfig = new ZkConfig(config);
     ZkClient zkClient =
         createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
