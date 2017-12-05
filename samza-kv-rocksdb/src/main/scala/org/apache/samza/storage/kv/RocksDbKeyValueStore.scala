@@ -122,7 +122,7 @@ class RocksDbKeyValueStore(
     found
   }
 
-  def getAll(keys: java.util.List[Array[Byte]]): java.util.Map[Array[Byte], Array[Byte]] = ifOpen {
+  override def getAll(keys: java.util.List[Array[Byte]]): java.util.Map[Array[Byte], Array[Byte]] = ifOpen {
     metrics.getAlls.inc
     require(keys != null, "Null keys not allowed.")
     val map = db.multiGet(keys)
@@ -251,10 +251,10 @@ class RocksDbKeyValueStore(
       new Entry(key, value)
     }
 
-    // By virtue of how RocksdbIterator is implemented, the implementation of 
-    // our iterator is slightly different from standard java iterator next will 
-    // always point to the current element, when next is called, we return the 
-    // current element we are pointing to and advance the iterator to the next 
+    // By virtue of how RocksdbIterator is implemented, the implementation of
+    // our iterator is slightly different from standard java iterator next will
+    // always point to the current element, when next is called, we return the
+    // current element we are pointing to and advance the iterator to the next
     // location (The new location may or may not be valid - this will surface
     // when the next next() call is made, the isValid will fail)
     override def next(): Entry[Array[Byte], Array[Byte]] = ifOpen {
@@ -280,7 +280,7 @@ class RocksDbKeyValueStore(
   }
 
   class RocksDbRangeIterator(iter: RocksIterator, from: Array[Byte], to: Array[Byte]) extends RocksDbIterator(iter) {
-    // RocksDB's JNI interface does not expose getters/setters that allow the 
+    // RocksDB's JNI interface does not expose getters/setters that allow the
     // comparator to be pluggable, and the default is lexicographic, so it's
     // safe to just force lexicographic comparator here for now.
     val comparator: LexicographicComparator = lexicographic

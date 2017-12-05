@@ -38,7 +38,7 @@ class SerializedKeyValueStore[K, V](
     fromBytesOrNull(found, msgSerde)
   }
 
-  def getAll(keys: java.util.List[K]): java.util.Map[K, V] = {
+  override def getAll(keys: java.util.List[K]): java.util.Map[K, V] = {
     metrics.gets.inc(keys.size)
     val mapBytes = store.getAll(serializeKeys(keys))
     if (mapBytes != null) {
@@ -80,7 +80,7 @@ class SerializedKeyValueStore[K, V](
     store.delete(keyBytes)
   }
 
-  def deleteAll(keys: java.util.List[K]) = {
+  override def deleteAll(keys: java.util.List[K]) = {
     metrics.deletes.inc(keys.size)
     store.deleteAll(serializeKeys(keys))
   }

@@ -30,9 +30,9 @@ And before you proceed, do the following steps:
    * change the samza-test versions in samza-test/src/main/config/join/README to $VERSION w/o the suffix '-SNAPSHOT'.
    * push the changes to the $VERSION branch
 
-Validate that all Samza source files have proper license information in their header.
+Validate Samza using all our supported build matrix.
 
-    ./gradlew check
+    ./bin/check-all.sh
 
 To release to a local Maven repository:
 
