@@ -27,20 +27,9 @@ import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.storage.TaskStorageManager
-import org.apache.samza.system.IncomingMessageEnvelope
-import org.apache.samza.system.StreamMetadataCache
-import org.apache.samza.system.SystemAdmin
-import org.apache.samza.system.SystemConsumers
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.task.AsyncStreamTask
-import org.apache.samza.task.ClosableTask
-import org.apache.samza.task.EndOfStreamListenerTask
-import org.apache.samza.task.InitableTask
-import org.apache.samza.task.ReadableCoordinator
-import org.apache.samza.task.StreamTask
-import org.apache.samza.task.TaskCallbackFactory
-import org.apache.samza.task.TaskInstanceCollector
-import org.apache.samza.task.WindowableTask
+import org.apache.samza.system._
+import org.apache.samza.table.TableManager
+import org.apache.samza.task._
 import org.apache.samza.util.Logging
 
 import scala.collection.JavaConverters._
@@ -56,6 +45,7 @@ class TaskInstance(
   containerContext: SamzaContainerContext,
   val offsetManager: OffsetManager = new OffsetManager,
   storageManager: TaskStorageManager = null,
+  tableManager: TableManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
   val systemStreamPartitions: Set[SystemStreamPartition] = Set(),
   val exceptionHandler: TaskInstanceExceptionHandler = new TaskInstanceExceptionHandler,
@@ -68,7 +58,7 @@ class TaskInstance(
   val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
 
   val context = new TaskContextImpl(taskName,metrics, containerContext, systemStreamPartitions.asJava, offsetManager,
-                                    storageManager, jobModel, streamMetadataCache)
+                                    storageManager, tableManager, jobModel, streamMetadataCache)
 
   // store the (ssp -> if this ssp is catched up) mapping. "catched up"
   // means the same ssp in other taskInstances have the same offset as
@@ -98,6 +88,16 @@ class TaskInstance(
       storageManager.init
     } else {
       debug("Skipping storage manager initialization for taskName: %s" format taskName)
+    }
+  }
+
+  def startTableManager {
+    if (tableManager != null) {
+      debug("Starting table manager for taskName: %s" format taskName)
+
+      tableManager.start
+    } else {
+      debug("Skipping table manager initialization for taskName: %s" format taskName)
     }
   }
 
@@ -222,6 +222,16 @@ class TaskInstance(
       storageManager.stop
     } else {
       debug("Skipping storage manager shutdown for taskName: %s" format taskName)
+    }
+  }
+
+  def shutdownTableManager {
+    if (tableManager != null) {
+      debug("Shutting down table manager for taskName: %s" format taskName)
+
+      tableManager.shutdown
+    } else {
+      debug("Skipping table manager shutdown for taskName: %s" format taskName)
     }
   }
 

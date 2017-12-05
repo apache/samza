@@ -19,7 +19,6 @@
 
 package org.apache.samza.execution;
 
-import com.google.common.base.Joiner;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
@@ -29,7 +28,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
@@ -47,9 +48,15 @@ import org.apache.samza.operators.util.MathUtils;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.system.StreamSpec;
+import org.apache.samza.table.TableProvider;
+import org.apache.samza.table.TableProviderFactory;
+import org.apache.samza.table.TableSpec;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Joiner;
+
 
 /**
  * A JobNode is a physical execution unit. In RemoteExecutionEnvironment, it's a job that will be submitted
@@ -67,6 +74,7 @@ public class JobNode {
   private final StreamGraphImpl streamGraph;
   private final List<StreamEdge> inEdges = new ArrayList<>();
   private final List<StreamEdge> outEdges = new ArrayList<>();
+  private final List<TableSpec> tables = new ArrayList<>();
   private final Config config;
 
   JobNode(String jobName, String jobId, StreamGraphImpl streamGraph, Config config) {
@@ -109,6 +117,10 @@ public class JobNode {
     return outEdges;
   }
 
+  void addTable(TableSpec tableSpec) {
+    tables.add(tableSpec);
+  }
+
   /**
    * Generate the configs for a job
    * @param executionPlanJson JSON representation of the execution plan
@@ -146,6 +158,19 @@ public class JobNode {
 
     // write serialized serde instances and stream serde configs to configs
     addSerdeConfigs(configs);
+
+    tables.forEach(tableSpec -> {
+        // Table provider factory
+        configs.put(String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, tableSpec.getId()),
+            tableSpec.getTableProviderFactoryClassName());
+
+        // Note: no need to generate config for Serde's, as they are already produced by addSerdeConfigs()
+
+        // Generate additional configuration
+        TableProviderFactory tableProviderFactory = Util.getObj(tableSpec.getTableProviderFactoryClassName());
+        TableProvider tableProvider = tableProviderFactory.getTableProvider(tableSpec);
+        configs.putAll(tableProvider.generateConfig(configs));
+      });
 
     log.info("Job {} has generated configs {}", jobName, configs);
 
@@ -209,11 +234,21 @@ public class JobNode {
         }
       });
 
+    // collect all key and msg serde instances for tables
+    Map<String, Serde> tableKeySerdes = new HashMap<>();
+    Map<String, Serde> tableValueSerdes = new HashMap<>();
+    tables.forEach(tableSpec -> {
+        tableKeySerdes.put(tableSpec.getId(), tableSpec.getSerde().getKeySerde());
+        tableValueSerdes.put(tableSpec.getId(), tableSpec.getSerde().getValueSerde());
+      });
+
     // for each unique stream or store serde instance, generate a unique name and serialize to config
     HashSet<Serde> serdes = new HashSet<>(streamKeySerdes.values());
     serdes.addAll(streamMsgSerdes.values());
     serdes.addAll(storeKeySerdes.values());
     serdes.addAll(storeMsgSerdes.values());
+    serdes.addAll(tableKeySerdes.values());
+    serdes.addAll(tableValueSerdes.values());
     SerializableSerde<Serde> serializableSerde = new SerializableSerde<>();
     Base64.Encoder base64Encoder = Base64.getEncoder();
     Map<Serde, String> serdeUUIDs = new HashMap<>();
@@ -247,6 +282,17 @@ public class JobNode {
         String msgSerdeConfigKey = String.format(StorageConfig.MSG_SERDE(), storeName);
         configs.put(msgSerdeConfigKey, serdeUUIDs.get(serde));
       });
+
+    // set key and msg serdes for tables to the serde names generated above
+    tableKeySerdes.forEach((tableId, serde) -> {
+        String keySerdeConfigKey = String.format(JavaTableConfig.TABLE_KEY_SERDE, tableId);
+        configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
+      });
+
+    tableValueSerdes.forEach((tableId, serde) -> {
+        String valueSerdeConfigKey = String.format(JavaTableConfig.TABLE_VALUE_SERDE, tableId);
+        configs.put(valueSerdeConfigKey, serdeUUIDs.get(serde));
+      });
   }
 
   /**
@@ -264,9 +310,13 @@ public class JobNode {
 
     // Filter out the join operators, and obtain a list of their ttl values
     List<Long> joinTtlIntervals = operatorSpecs.stream()
-        .filter(spec -> spec.getOpCode() == OperatorSpec.OpCode.JOIN)
+        .filter(spec -> spec instanceof JoinOperatorSpec)
         .map(spec -> ((JoinOperatorSpec) spec).getTtlMs())
         .collect(Collectors.toList());
+
+    if (joinTtlIntervals.isEmpty()) {
+      return -1;
+    }
 
     // Combine both the above lists
     List<Long> candidateTimerIntervals = new ArrayList<>(joinTtlIntervals);

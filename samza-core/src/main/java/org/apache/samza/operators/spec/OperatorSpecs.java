@@ -19,6 +19,10 @@
 
 package org.apache.samza.operators.spec;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.function.Function;
+
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.FilterFunction;
@@ -26,14 +30,12 @@ import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
+import org.apache.samza.table.TableSpec;
 import org.apache.samza.task.TaskContext;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.function.Function;
 
 
 /**
@@ -242,4 +244,38 @@ public class OperatorSpecs {
         },
         OperatorSpec.OpCode.MERGE, opId);
   }
+
+  /**
+   * Creates a {@link StreamTableJoinOperatorSpec} with a join function.
+   *
+   * @param tableSpec the table spec for the table on the right side of the join
+   * @param joinFn the user-defined join function to get join keys and results
+   * @param opId the unique ID of the operator
+   * @param <K> the type of join key
+   * @param <M> the type of input messages
+   * @param <R> the type of table record
+   * @param <JM> the type of the join result
+   * @return the {@link StreamTableJoinOperatorSpec}
+   */
+  public static <K, M, R, JM> StreamTableJoinOperatorSpec<K, M, R, JM> createStreamTableJoinOperatorSpec(
+      TableSpec tableSpec, StreamTableJoinFunction<K, M, R, JM> joinFn, String opId) {
+    return new StreamTableJoinOperatorSpec(tableSpec, joinFn, opId);
+  }
+
+  /**
+   * Creates a {@link SendToTableOperatorSpec} with a key extractor and a value extractor function,
+   * the type of incoming message is expected to be KV&#60;K, V&#62;.
+   *
+   * @param inputOpSpec the operator spec for the input stream
+   * @param tableSpec the table spec for the underlying table
+   * @param opId the unique ID of the operator
+   * @param <K> the type of the table record key
+   * @param <V> the type of the table record value
+   * @return the {@link SendToTableOperatorSpec}
+   */
+  public static <K, V> SendToTableOperatorSpec<K, V> createSendToTableOperatorSpec(
+      OperatorSpec<?, KV<K, V>> inputOpSpec, TableSpec tableSpec, String opId) {
+    return new SendToTableOperatorSpec(inputOpSpec, tableSpec, opId);
+  }
+
 }
