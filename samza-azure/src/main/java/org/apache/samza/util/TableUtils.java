@@ -48,12 +48,11 @@ public class TableUtils {
   private static final String PARTITION_KEY = "PartitionKey";
   private static final long LIVENESS_DEBOUNCE_TIME_SEC = 30;
   private final String initialState;
-  private final CloudTableClient tableClient;
   private final CloudTable table;
 
   public TableUtils(AzureClient client, String tableName, String initialState) {
     this.initialState = initialState;
-    tableClient = client.getTableClient();
+    CloudTableClient tableClient = client.getTableClient();
     try {
       table = tableClient.getTableReference(tableName);
       table.createIfNotExists();
@@ -196,21 +195,6 @@ public class TableUtils {
     String partitionFilter = TableQuery.generateFilterCondition(PARTITION_KEY, TableQuery.QueryComparisons.EQUAL, partitionKey);
     TableQuery<ProcessorEntity> partitionQuery = TableQuery.from(ProcessorEntity.class).where(partitionFilter);
     return table.execute(partitionQuery);
-  }
-
-
-  private void clean(String processorId, String latestJMVersion) {
-    // This is an expensive query since partitions are typically used for load-balancing. Hence, inter-partition queries
-    // or range queries over partitions will cause a performance degrade. Since this operation is not very frequent, it
-    // is tolerable for the time-being.
-    // We may have to re-model our entities in the table for query efficiency.
-    // https://docs.microsoft.com/en-us/azure/cosmos-db/table-storage-design-guide
-    String rowFilter = TableQuery.generateFilterCondition("RowKey", TableQuery.QueryComparisons.EQUAL, processorId);
-    for (int i = Integer.valueOf(latestJMVersion) - 1; i > 0; i++) {
-      String partitionFilter = TableQuery.generateFilterCondition(
-          "PartitionKey", TableQuery.QueryComparisons.EQUAL, i);
-      TableQuery<ProcessorEntity> fetchEntities = TableQuery.from(ProcessorEntity.class).where(partitionFilter).where(rowFilter);
-    }
   }
 
   /**
