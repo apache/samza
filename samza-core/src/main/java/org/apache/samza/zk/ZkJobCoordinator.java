@@ -175,7 +175,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   @Override
   public Set<String> getProcessorNames() {
     final Set<String> processorNames = new HashSet<>();
-    // Leader election could have happened by this time.
+    // Leader election should have happened by this time.
     ZkConfig zkConfig = new ZkConfig(config);
     ZkClient zkClient =
         createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());

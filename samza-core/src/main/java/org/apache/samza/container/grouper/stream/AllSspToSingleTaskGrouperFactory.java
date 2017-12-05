@@ -88,13 +88,15 @@ public class AllSspToSingleTaskGrouperFactory implements SystemStreamPartitionGr
 
     try {
       String jobCoordinatorFactoryClassName = new JobCoordinatorConfig(config).getJobCoordinatorFactoryClassName();
+      // TODO: SAMZA-1521 We need to implement a JobCoordinator Observer which would just read the state of the
+      // JobCoordinator instead of acting as a participant. Please do not call any other APIs on the JobCoordinator
+      // below.
       JobCoordinator jc = Util.<JobCoordinatorFactory>getObj(jobCoordinatorFactoryClassName).getJobCoordinator(config);
       return new AllSspToSingleTaskGrouper(jc.getProcessorNames());
     } catch (ConfigException ex) {
       LOG.info("Guessing cluster-based jobCoordinator(Yarn).");
       final Set<String> processorNames = new HashSet<>();
-      IntStream.range(0,
-          config.getInt(JobConfig.JOB_CONTAINER_COUNT())).forEach(i -> processorNames.add(String.valueOf(i)));
+      IntStream.range(0, new JobConfig(config).getContainerCount()).forEach(i -> processorNames.add(String.valueOf(i)));
       return new AllSspToSingleTaskGrouper(processorNames);
     }
   }
