@@ -105,7 +105,14 @@ public abstract class ClusterResourceManager {
   public abstract void releaseResources(SamzaResource resource);
 
   /***
-   * Requests the launch of a StreamProcessor with the specified context on the resource.
+   * Requests the launch of a StreamProcessor with the specified context on the resource asynchronously.
+   *
+   * <p>
+   *   Either {@link Callback#onStreamProcessorLaunchSuccess(SamzaResource)} or
+   *   {@link Callback#onStreamProcessorLaunchFailure(SamzaResource, Throwable)} will be invoked
+   *   to indicate the result of this operation.
+   * </p>
+   *
    * @param resource the specified resource
    * @param builder A builder implementation that encapsulates the context for the
    *                StreamProcessor. A builder encapsulates the ID for the processor, the
@@ -144,15 +151,15 @@ public abstract class ClusterResourceManager {
 
 
     /**
-     * This callback is invoked when the launch request on the SamzaResource is complete.
-     * @param resource
+     * Callback invoked when the launch request for a StreamProcessor on the {@link SamzaResource} is successful.
+     * @param resource the resource on which the StreamProcessor is launched
      */
     void onStreamProcessorLaunchSuccess(SamzaResource resource);
 
     /**
-     * This callback is invoked when there is a failure in launching a StreamProcessor on the provided resource
-     * @param resource the resource on which the request is launched
-     * @param t the failure
+     * Callback invoked when there is a failure in launching a StreamProcessor on the provided {@link SamzaResource}.
+     * @param resource the resource on which the StreamProcessor was submitted for launching
+     * @param t the error in launching the StreamProcessor
      */
     void onStreamProcessorLaunchFailure(SamzaResource resource, Throwable t);
 

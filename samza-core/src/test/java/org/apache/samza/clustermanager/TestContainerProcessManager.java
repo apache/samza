@@ -436,7 +436,7 @@ public class TestContainerProcessManager {
     Thread thread = new Thread(allocator);
     getPrivateFieldFromTaskManager("allocatorThread", taskManager).set(taskManager, thread);
 
-    // Start the task clusterResourceManager
+    // Start the task manager
     taskManager.start();
     assertFalse(taskManager.shouldShutdown());
     assertEquals(1, allocator.getContainerRequestState().numPendingRequests());

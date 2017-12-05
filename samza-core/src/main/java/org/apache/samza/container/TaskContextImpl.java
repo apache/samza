@@ -19,7 +19,10 @@
 
 package org.apache.samza.container;
 
-import com.google.common.collect.ImmutableSet;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
 import org.apache.samza.checkpoint.OffsetManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
@@ -27,13 +30,13 @@ import org.apache.samza.storage.TaskStorageManager;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.table.Table;
+import org.apache.samza.table.TableManager;
 import org.apache.samza.task.TaskContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import com.google.common.collect.ImmutableSet;
 
 public class TaskContextImpl implements TaskContext {
   private static final Logger LOG = LoggerFactory.getLogger(TaskContextImpl.class);
@@ -44,6 +47,7 @@ public class TaskContextImpl implements TaskContext {
   private final Set<SystemStreamPartition> systemStreamPartitions;
   private final OffsetManager offsetManager;
   private final TaskStorageManager storageManager;
+  private final TableManager tableManager;
   private final JobModel jobModel;
   private final StreamMetadataCache streamMetadataCache;
   private final Map<String, Object> objectRegistry = new HashMap<>();
@@ -56,6 +60,7 @@ public class TaskContextImpl implements TaskContext {
                          Set<SystemStreamPartition> systemStreamPartitions,
                          OffsetManager offsetManager,
                          TaskStorageManager storageManager,
+                         TableManager tableManager,
                          JobModel jobModel,
                          StreamMetadataCache streamMetadataCache) {
     this.taskName = taskName;
@@ -64,6 +69,7 @@ public class TaskContextImpl implements TaskContext {
     this.systemStreamPartitions = ImmutableSet.copyOf(systemStreamPartitions);
     this.offsetManager = offsetManager;
     this.storageManager = storageManager;
+    this.tableManager = tableManager;
     this.jobModel = jobModel;
     this.streamMetadataCache = streamMetadataCache;
   }
@@ -84,6 +90,16 @@ public class TaskContextImpl implements TaskContext {
       return (KeyValueStore) storageManager.apply(storeName);
     } else {
       LOG.warn("No store found for name: {}", storeName);
+      return null;
+    }
+  }
+
+  @Override
+  public Table getTable(String tableId) {
+    if (tableManager != null) {
+      return tableManager.getTable(tableId);
+    } else {
+      LOG.warn("No table manager found");
       return null;
     }
   }

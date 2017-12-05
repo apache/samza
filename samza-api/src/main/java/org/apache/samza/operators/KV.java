@@ -25,7 +25,7 @@ package org.apache.samza.operators;
  * @param <K> type of the key
  * @param <V> type of the value
  */
-public class KV<K, V> {
+public final class KV<K, V> {
   public final K key;
   public final V value;
 

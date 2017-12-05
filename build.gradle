@@ -79,7 +79,6 @@ rat {
     'docs/_site/**',
     'docs/sitemap.xml',
     'docs/learn/documentation/*/api/javadocs/**',
-    'docs/learn/documentation/*/rest/javadocs/**',
     'docs/Gemfile.lock',
     'gradle/wrapper/**',
     'gradlew',
@@ -304,24 +303,6 @@ project(':samza-elasticsearch') {
     compile "org.elasticsearch:elasticsearch:$elasticsearchVersion"
     compile "com.google.guava:guava:$guavaVersion"
     compile "org.slf4j:slf4j-api:$slf4jVersion"
-    testCompile "junit:junit:$junitVersion"
-    testCompile "org.mockito:mockito-core:$mockitoVersion"
-
-    testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
-  }
-}
-
-project(':samza-sql') {
-  apply plugin: 'java'
-
-  dependencies {
-    compile project(':samza-api')
-    compile project(":samza-kafka_$scalaVersion")
-    compile "org.apache.avro:avro:$avroVersion"
-    compile "org.apache.calcite:calcite-core:$calciteVersion"
-    compile "org.slf4j:slf4j-api:$slf4jVersion"
-
-    testCompile project(":samza-test_$scalaVersion")
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
 
@@ -583,6 +564,15 @@ project(":samza-kv_$scalaVersion") {
 
 project(":samza-kv-inmemory_$scalaVersion") {
   apply plugin: 'scala'
+
+  // Force scala joint compilation
+  sourceSets.main.scala.srcDir "src/main/java"
+  sourceSets.test.scala.srcDir "src/test/java"
+
+  // Disable the Javac compiler by forcing joint compilation by scalac. This is equivalent to setting
+  // tasks.compileTestJava.enabled = false
+  sourceSets.main.java.srcDirs = []
+  sourceSets.test.java.srcDirs = []
 
   dependencies {
     compile project(':samza-api')

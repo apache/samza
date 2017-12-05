@@ -151,8 +151,9 @@ public abstract class AbstractContainerAllocator implements Runnable {
     log.info("Found available resources on {}. Assigning request for container_id {} with "
             + "timestamp {} to resource {}",
         new Object[]{preferredHost, String.valueOf(containerID), request.getRequestTimestampMs(), resource.getResourceID()});
-      //launches a StreamProcessor on the resource
 
+    //Submit a request to launch a StreamProcessor on the provided resource. To match with the response returned later
+    //in the callback, we should also store state about the container whose launch is pending.
     clusterResourceManager.launchStreamProcessor(resource, builder);
     state.pendingContainers.put(containerID, resource);
   }

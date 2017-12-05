@@ -94,7 +94,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   private volatile Throwable exceptionOccurred = null;
 
   /**
-   * A map that keeps track of how many times each container failed after it has started. The key is the container ID, and the
+   * A map that keeps track of how many times each container failed. The key is the container ID, and the
    * value is the {@link ResourceFailure} object that has a count of failures.
    *
    */
@@ -105,7 +105,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    */
   private final ContainerProcessManagerMetrics metrics;
 
-  public ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry, AbstractContainerAllocator allocator, ClusterResourceManager manager) {
+  //for testing
+  ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry, AbstractContainerAllocator allocator, ClusterResourceManager manager) {
     this.state = state;
     this.clusterManagerConfig = new ClusterManagerConfig(config);
     this.jobConfig = new JobConfig(config);
@@ -114,8 +115,6 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.metrics = new ContainerProcessManagerMetrics(config, state, registry);
     this.containerAllocator = allocator;
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
-
-    log.info("Finished initialization of Samza task manager");
   }
 
   public ContainerProcessManager(Config config,
@@ -397,44 +396,45 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
   @Override
   public void onStreamProcessorLaunchSuccess(SamzaResource resource) {
-    if (state.neededContainers.decrementAndGet() == 0) {
-      state.jobHealthy.set(true);
-    }
 
-    String containerId = null;
+    // 1. Obtain the Samza container Id for the pending container on this resource.
+    String containerId = getPendingContainerId(resource.getResourceID());
+    log.info("Successfully started container ID: {} on resource: {}", containerId, resource);
 
-    for (Map.Entry<String, SamzaResource> entry: state.pendingContainers.entrySet()) {
-      if (entry.getValue().getResourceID().equals(resource.getResourceID())) {
-        log.info("Matching container ID found " + entry.getKey() + " " + entry.getValue());
-        containerId = entry.getKey();
-        break;
+    // 2. Remove the container from the pending buffer and add it to the running buffer. Additionally, update the
+    // job-health metric.
+    if (containerId != null) {
+      log.info("Moving containerID: {} on resource: {} from pending to running state", containerId, resource);
+      state.pendingContainers.remove(containerId);
+      state.runningContainers.put(containerId, resource);
+
+      if (state.neededContainers.decrementAndGet() == 0) {
+        state.jobHealthy.set(true);
       }
+    } else {
+      log.warn("SamzaResource {} was not in pending state. Got an invalid callback for a launch request that " +
+          "was not issued", resource);
     }
-
-    state.runningContainers.put(containerId, resource);
   }
 
   @Override
   public void onStreamProcessorLaunchFailure(SamzaResource resource, Throwable t) {
-    log.info("Got a launch failure for SamzaResource {} with exception {}", resource, t);
-
+    log.error("Got a launch failure for SamzaResource {} with exception {}", resource, t);
+    // 1. Release resources for containers that failed back to YARN
     log.info("Releasing unstartable container {}", resource.getResourceID());
     clusterResourceManager.releaseResources(resource);
 
-    String containerId = null;
-    for (Map.Entry<String, SamzaResource> entry: state.pendingContainers.entrySet()) {
-      if (entry.getValue().getResourceID().equals(resource.getResourceID())) {
-        log.info("Matching container ID found " + entry.getKey() + " " + entry.getValue());
-        containerId = entry.getKey();
-        break;
-      }
-    }
+    // 2. Obtain the Samza container Id for the pending container on this resource.
+    String containerId = getPendingContainerId(resource.getResourceID());
+    log.info("Failed container ID: {} for resourceId: {}", containerId, resource.getResourceID());
 
+    // 3. Re-request resources on ANY_HOST in case of launch failures on the preferred host.
     if (containerId != null) {
-      log.info("Launch of ContainerId: {} failed on host: {}. Falling back to ANY_HOST", containerId, resource.getHost());
+      log.info("Launch of container ID: {} failed on host: {}. Falling back to ANY_HOST", containerId, resource.getHost());
       containerAllocator.requestResource(containerId, ResourceRequestState.ANY_HOST);
     } else {
-      log.warn("SamzaResource {} was not in pending state. Got an invalid callback for a launch request that was not made", resource);
+      log.warn("SamzaResource {} was not in pending state. Got an invalid callback for a launch request that was " +
+          "not issued", resource);
     }
   }
 
@@ -473,4 +473,22 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     }
     return factory;
   }
+
+  /**
+   * Obtains the ID of the Samza container pending launch on the provided resource.
+   *
+   * @param resourceId the Id of the resource
+   * @return the Id of the Samza container on this resource
+   */
+  private String getPendingContainerId(String resourceId) {
+    for (Map.Entry<String, SamzaResource> entry: state.pendingContainers.entrySet()) {
+      if (entry.getValue().getResourceID().equals(resourceId)) {
+        log.info("Matching container ID found " + entry.getKey() + " " + entry.getValue());
+        return entry.getKey();
+      }
+    }
+    return null;
+  }
+
+
 }

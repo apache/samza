@@ -24,7 +24,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
 import org.apache.samza.Partition;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
@@ -50,13 +52,17 @@ public class SimpleSystemAdmin implements SystemAdmin {
   @Override
   public Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames) {
     return streamNames.stream()
-        .collect(Collectors.toMap(
-            Function.<String>identity(),
-            streamName -> {
+        .collect(Collectors.toMap(Function.identity(), streamName -> {
+            int messageCount = isBootstrapStream(streamName) ? getMessageCount(streamName) : -1;
+            String oldestOffset = messageCount < 0 ? null : "0";
+            String newestOffset = messageCount < 0 ? null : String.valueOf(messageCount - 1);
+            String upcomingOffset = messageCount < 0 ? null : String.valueOf(messageCount);
             Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> metadataMap = new HashMap<>();
             int partitionCount = config.getInt("streams." + streamName + ".partitionCount", 1);
             for (int i = 0; i < partitionCount; i++) {
-              metadataMap.put(new Partition(i), new SystemStreamMetadata.SystemStreamPartitionMetadata(null, null, null));
+              metadataMap.put(new Partition(i), new SystemStreamMetadata.SystemStreamPartitionMetadata(
+                  oldestOffset, newestOffset, upcomingOffset
+              ));
             }
             return new SystemStreamMetadata(streamName, metadataMap);
           }));
@@ -70,6 +76,18 @@ public class SimpleSystemAdmin implements SystemAdmin {
       return 1;
     }
     return offset1.compareTo(offset2);
+  }
+
+  private int getMessageCount(String streamName) {
+    try {
+      return Base64Serializer.deserialize(config.get("streams." + streamName + ".source"), Object[].class).length;
+    } catch (Exception e) {
+      throw new SamzaException(e);
+    }
+  }
+
+  private boolean isBootstrapStream(String streamName) {
+    return "true".equalsIgnoreCase(config.get("streams." + streamName + ".samza.bootstrap", "false"));
   }
 }
 

@@ -18,13 +18,10 @@
  */
 package org.apache.samza.operators.impl;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.OperatingSystemMXBean;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
 
-import com.sun.management.UnixOperatingSystemMXBean;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.metrics.Counter;
@@ -56,11 +53,6 @@ public class TestOperatorImpl {
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     opImpl.init(mock(Config.class), mockTaskContext);
     opImpl.init(mock(Config.class), mockTaskContext);
-  }
-  @Test
-  public void testJmx() {
-    final OperatingSystemMXBean mBean = ManagementFactory.getOperatingSystemMXBean();
-    System.out.println(mBean instanceof UnixOperatingSystemMXBean);
   }
 
   @Test(expected = IllegalStateException.class)
