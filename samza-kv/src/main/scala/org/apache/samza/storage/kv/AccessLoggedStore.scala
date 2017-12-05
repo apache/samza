@@ -56,7 +56,7 @@ class AccessLoggedStore[K, V](
     logAccess(DBOperation.READ, list, store.get(key))
   }
 
-  def getAll(keys: util.List[K]): util.Map[K, V] = {
+  override def getAll(keys: util.List[K]): util.Map[K, V] = {
     logAccess(DBOperation.READ, serializeKeys(keys), store.getAll(keys))
   }
 
@@ -76,7 +76,7 @@ class AccessLoggedStore[K, V](
     logAccess(DBOperation.DELETE, list, store.delete(key))
   }
 
-  def deleteAll(keys: util.List[K]): Unit = {
+  override def deleteAll(keys: util.List[K]): Unit = {
     logAccess(DBOperation.DELETE, serializeKeys(keys), store.deleteAll(keys))
   }
 
