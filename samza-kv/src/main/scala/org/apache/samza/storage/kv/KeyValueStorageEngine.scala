@@ -51,7 +51,7 @@ class KeyValueStorageEngine[K, V](
     }
   }
 
-  def getAll(keys: java.util.List[K]): java.util.Map[K, V] = {
+  override def getAll(keys: java.util.List[K]): java.util.Map[K, V] = {
     metrics.gets.inc(keys.size)
     wrapperStore.getAll(keys)
   }
@@ -75,7 +75,7 @@ class KeyValueStorageEngine[K, V](
     }
   }
 
-  def deleteAll(keys: java.util.List[K]) = {
+  override def deleteAll(keys: java.util.List[K]) = {
     metrics.deletes.inc(keys.size)
     wrapperStore.deleteAll(keys)
   }
