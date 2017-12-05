@@ -24,16 +24,16 @@ import com.microsoft.azure.storage.table.CloudTable;
 import com.microsoft.azure.storage.table.CloudTableClient;
 import com.microsoft.azure.storage.table.TableOperation;
 import com.microsoft.azure.storage.table.TableQuery;
-import java.net.URISyntaxException;
-import java.util.HashSet;
-import java.util.Random;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.AzureClient;
 import org.apache.samza.AzureException;
 import org.apache.samza.coordinator.data.ProcessorEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.net.URISyntaxException;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 
 /**
@@ -44,7 +44,6 @@ import org.slf4j.LoggerFactory;
  *  ROW KEY = Unique entity ID for a group = Processor ID (for this case).
  */
 public class TableUtils {
-
   private static final Logger LOG = LoggerFactory.getLogger(TableUtils.class);
   private static final String PARTITION_KEY = "PartitionKey";
   private static final long LIVENESS_DEBOUNCE_TIME_SEC = 30;
@@ -97,8 +96,7 @@ public class TableUtils {
   public ProcessorEntity getEntity(String jmVersion, String pid) {
     try {
       TableOperation retrieveEntity = TableOperation.retrieve(jmVersion, pid, ProcessorEntity.class);
-      ProcessorEntity entity = table.execute(retrieveEntity).getResultAsType();
-      return entity;
+      return table.execute(retrieveEntity).getResultAsType();
     } catch (StorageException e) {
       LOG.error("Azure storage exception while retrieving processor entity with job model version: " + jmVersion + "and pid: " + pid, e);
       throw new AzureException(e);
@@ -112,7 +110,6 @@ public class TableUtils {
    */
   public void updateHeartbeat(String jmVersion, String pid) {
     try {
-      Random rand = new Random();
       TableOperation retrieveEntity = TableOperation.retrieve(jmVersion, pid, ProcessorEntity.class);
       ProcessorEntity entity = table.execute(retrieveEntity).getResultAsType();
       entity.updateLiveness();
@@ -145,14 +142,24 @@ public class TableUtils {
 
   /**
    * Deletes a specified row in the processor table.
+   *
+   * Note: Table service uses optimistic locking by default. Hence, if there is an update after retrieving the entity,
+   * then the delete operation will fail.
+   *
    * @param jmVersion Job model version of the processor row to be deleted.
    * @param pid Unique processor ID of the processor row to be deleted.
+   * @param force True, to disable optimistic locking on the table. False, otherwise. Setting to false may result in
+   *              AzureException when there is concurrent access to the table.
+   *
    * @throws AzureException If an Azure storage service error occurred.
    */
-  public void deleteProcessorEntity(String jmVersion, String pid) {
+  public void deleteProcessorEntity(String jmVersion, String pid, boolean force) {
     try {
       TableOperation retrieveEntity = TableOperation.retrieve(jmVersion, pid, ProcessorEntity.class);
       ProcessorEntity entity = table.execute(retrieveEntity).getResultAsType();
+      if (force) {
+        entity.setEtag("*");
+      }
       TableOperation remove = TableOperation.delete(entity);
       table.execute(remove);
     } catch (StorageException e) {
@@ -162,6 +169,25 @@ public class TableUtils {
   }
 
   /**
+   * Deletes a specified row in the processor table.
+   *
+   * Note: Table service uses optimistic locking by default. In order to disable it, set the ETag on the ProcessorEntity
+   * to "*" before invoking this method.
+   *
+   * @param entity ProcessorEntity that has to be deleted
+   * @throws AzureException If an Azure storage service error occurred.
+   */
+  public void deleteProcessorEntity(ProcessorEntity entity) {
+    try {
+      TableOperation remove = TableOperation.delete(entity);
+      table.execute(remove);
+    } catch (StorageException e) {
+      LOG.error("Azure storage exception while deleting processor entity with job model version: " +
+          entity.getJobModelVersion() + "and pid: " + entity.getProcessorId(), e);
+      throw new AzureException(e);
+    }
+  }
+  /**
    * Retrieve all rows in a table with the given partition key.
    * @param partitionKey Job model version of the processors to be retrieved.
    * @return Iterable list of processor entities.
@@ -170,6 +196,21 @@ public class TableUtils {
     String partitionFilter = TableQuery.generateFilterCondition(PARTITION_KEY, TableQuery.QueryComparisons.EQUAL, partitionKey);
     TableQuery<ProcessorEntity> partitionQuery = TableQuery.from(ProcessorEntity.class).where(partitionFilter);
     return table.execute(partitionQuery);
+  }
+
+
+  private void clean(String processorId, String latestJMVersion) {
+    // This is an expensive query since partitions are typically used for load-balancing. Hence, inter-partition queries
+    // or range queries over partitions will cause a performance degrade. Since this operation is not very frequent, it
+    // is tolerable for the time-being.
+    // We may have to re-model our entities in the table for query efficiency.
+    // https://docs.microsoft.com/en-us/azure/cosmos-db/table-storage-design-guide
+    String rowFilter = TableQuery.generateFilterCondition("RowKey", TableQuery.QueryComparisons.EQUAL, processorId);
+    for (int i = Integer.valueOf(latestJMVersion) - 1; i > 0; i++) {
+      String partitionFilter = TableQuery.generateFilterCondition(
+          "PartitionKey", TableQuery.QueryComparisons.EQUAL, i);
+      TableQuery<ProcessorEntity> fetchEntities = TableQuery.from(ProcessorEntity.class).where(partitionFilter).where(rowFilter);
+    }
   }
 
   /**
