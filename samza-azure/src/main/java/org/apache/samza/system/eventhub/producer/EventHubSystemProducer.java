@@ -58,6 +58,7 @@ public class EventHubSystemProducer implements SystemProducer {
   private static final long DEFAULT_FLUSH_TIMEOUT_MILLIS = Duration.ofMinutes(1L).toMillis();
 
   public static final String PRODUCE_TIMESTAMP = "produce-timestamp";
+  public static final String KEY = "key";
 
   // Metrics recording
   private static final String EVENT_WRITE_RATE = "eventWriteRate";
@@ -184,7 +185,7 @@ public class EventHubSystemProducer implements SystemProducer {
 
   @Override
   public synchronized void send(String source, OutgoingMessageEnvelope envelope) {
-    LOG.info(String.format("Trying to send %s", envelope));
+    LOG.debug(String.format("Trying to send %s", envelope));
     if (!isStarted) {
       throw new SamzaException("Trying to call send before the producer is started.");
     }
@@ -290,7 +291,7 @@ public class EventHubSystemProducer implements SystemProducer {
         keyValue = (envelope.getKey() instanceof byte[]) ? new String((byte[]) envelope.getKey())
                 : envelope.getKey().toString();
       }
-      eventData.getProperties().put("key", keyValue);
+      eventData.getProperties().put(KEY, keyValue);
     }
     return eventData;
   }

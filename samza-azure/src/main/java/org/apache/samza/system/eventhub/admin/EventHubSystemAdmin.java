@@ -63,8 +63,8 @@ public class EventHubSystemAdmin implements SystemAdmin {
   private String getNextOffset(String currentOffset) {
     // EventHub will return the first message AFTER the offset
     // that was specified in the fetch request.
-    return currentOffset.equals(EventHubSystemConsumer.END_OF_STREAM) ? currentOffset :
-            String.valueOf(Long.parseLong(currentOffset) + 1);
+    // If no such offset exists Eventhub will return an error.
+    return String.valueOf(Long.parseLong(currentOffset) + 1);
   }
 
   @Override
@@ -158,9 +158,10 @@ public class EventHubSystemAdmin implements SystemAdmin {
           long timeoutMs = eventHubConfig.getRuntimeInfoWaitTimeMS(systemName);
           EventHubPartitionRuntimeInformation ehPartitionInfo = ehPartitionRuntimeInfo.get(timeoutMs, TimeUnit.MILLISECONDS);
 
+          // Set offsets
           String startingOffset = EventHubSystemConsumer.START_OF_STREAM;
           String newestOffset = ehPartitionInfo.getLastEnqueuedOffset();
-          String upcomingOffset = EventHubSystemConsumer.END_OF_STREAM;
+          String upcomingOffset = getNextOffset(newestOffset);
           SystemStreamPartitionMetadata sspMetadata = new SystemStreamPartitionMetadata(startingOffset, newestOffset,
                   upcomingOffset);
 
@@ -181,12 +182,14 @@ public class EventHubSystemAdmin implements SystemAdmin {
     if (offset1 == null || offset2 == null) {
       return null;
     }
+    // Should NOT be able to compare with END_OF_STREAM to allow new offsets to be
+    // considered caught up if stream started at END_OF_STREAM offset
+    if (EventHubSystemConsumer.END_OF_STREAM.equals(offset1) ||
+            EventHubSystemConsumer.END_OF_STREAM.equals(offset2)) {
+      return null;
+    }
     try {
-      if (offset1.equals(EventHubSystemConsumer.END_OF_STREAM)) {
-        return offset2.equals(EventHubSystemConsumer.END_OF_STREAM) ? 0 : 1;
-      }
-      return offset2.equals(EventHubSystemConsumer.END_OF_STREAM) ? -1 :
-              Long.compare(Long.parseLong(offset1), Long.parseLong(offset2));
+      return Long.compare(Long.parseLong(offset1), Long.parseLong(offset2));
     } catch (NumberFormatException exception) {
       return null;
     }

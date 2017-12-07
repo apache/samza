@@ -20,6 +20,7 @@
 package org.apache.samza.system.eventhub.consumer;
 
 import com.microsoft.azure.eventhubs.EventData;
+import com.microsoft.azure.eventhubs.EventHubPartitionRuntimeInformation;
 import com.microsoft.azure.eventhubs.PartitionReceiveHandler;
 import com.microsoft.azure.eventhubs.PartitionReceiver;
 import com.microsoft.azure.servicebus.ServiceBusException;
@@ -174,19 +175,40 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   public void register(SystemStreamPartition systemStreamPartition, String offset) {
     super.register(systemStreamPartition, offset);
 
-    LOG.debug(String.format("Eventhub consumer trying to register ssp %s, offset %s", systemStreamPartition, offset));
+    LOG.info(String.format("Eventhub consumer trying to register ssp %s, offset %s", systemStreamPartition, offset));
+    System.out.println(String.format("Eventhub consumer trying to register ssp %s, offset %s", systemStreamPartition, offset));
     if (isStarted) {
       throw new SamzaException("Trying to add partition when the connection has already started.");
     }
 
     if (streamPartitionOffsets.containsKey(systemStreamPartition)) {
+      // Only update if new offset is lower than previous offset
+      if (END_OF_STREAM.equals(offset)) return;
       String prevOffset = streamPartitionOffsets.get(systemStreamPartition);
-      if (EventHubSystemAdmin.compareOffsets(offset, prevOffset) > -1) {
-        // Only update if new offset is lower than previous offset
+      if (!END_OF_STREAM.equals(prevOffset) && EventHubSystemAdmin.compareOffsets(offset, prevOffset) > -1) {
         return;
       }
     }
     streamPartitionOffsets.put(systemStreamPartition, offset);
+  }
+
+  private String getNewestEventHubOffset(EventHubClientManager eventHubClientManager, String streamName, Integer partitionId) {
+    CompletableFuture<EventHubPartitionRuntimeInformation> partitionRuntimeInfoFuture = eventHubClientManager
+            .getEventHubClient()
+            .getPartitionRuntimeInformation(partitionId.toString());
+    try {
+      long timeoutMs = config.getRuntimeInfoWaitTimeMS(systemName);
+
+      EventHubPartitionRuntimeInformation partitionRuntimeInformation = partitionRuntimeInfoFuture
+              .get(timeoutMs, TimeUnit.MILLISECONDS);
+
+      return partitionRuntimeInformation.getLastEnqueuedOffset();
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      String msg = String.format(
+              "Error while fetching EventHubPartitionRuntimeInfo for System:%s, Stream:%s, Partition:%s",
+              systemName, streamName, partitionId);
+      throw new SamzaException(msg);
+    }
   }
 
   @Override
@@ -205,11 +227,19 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
       EventHubClientManager eventHubClientManager = streamEventHubManagers.get(streamName);
 
       try {
+        // Fetch the newest offset
+        String newestEventHubOffset = getNewestEventHubOffset(eventHubClientManager, streamName, partitionId);
         PartitionReceiver receiver;
-        if (offset.equals(EventHubSystemConsumer.END_OF_STREAM)) {
+        if (END_OF_STREAM.equals(offset) || EventHubSystemAdmin.compareOffsets(newestEventHubOffset, offset) == -1) {
+          // If the offset is greater than the newest offset, use the use current Instant as
+          // offset to fetch in Eventhub.
           receiver = eventHubClientManager.getEventHubClient()
                   .createReceiverSync(consumerGroup, partitionId.toString(), Instant.now());
         } else {
+          // If the offset is less or equal to the newest offset in the system, it can be
+          // used as the starting offset to receive from. EventHub will return the first
+          // message AFTER the offset that was specified in the fetch request.
+          // If no such offset exists Eventhub will return an error.
           receiver = eventHubClientManager.getEventHubClient()
                   .createReceiverSync(consumerGroup, partitionId.toString(), offset,
                           !offset.equals(EventHubSystemConsumer.START_OF_STREAM));

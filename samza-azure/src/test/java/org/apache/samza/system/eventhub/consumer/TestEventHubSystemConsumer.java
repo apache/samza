@@ -41,7 +41,8 @@ import java.util.stream.Collectors;
 import static org.apache.samza.system.eventhub.MockEventHubConfigFactory.*;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({EventHubRuntimeInformation.class, EventHubClient.class, PartitionReceiver.class, PartitionSender.class})
+@PrepareForTest({EventHubRuntimeInformation.class, EventHubPartitionRuntimeInformation.class,
+        EventHubClient.class, PartitionReceiver.class, PartitionSender.class})
 public class TestEventHubSystemConsumer {
   private static final String MOCK_ENTITY_1 = "mocktopic1";
   private static final String MOCK_ENTITY_2 = "mocktopic2";
