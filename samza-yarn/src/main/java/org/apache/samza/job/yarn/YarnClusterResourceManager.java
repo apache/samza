@@ -280,18 +280,22 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    */
 
   @Override
-  public void launchStreamProcessor(SamzaResource resource, CommandBuilder builder)  {
+  public void launchStreamProcessor(SamzaResource resource, CommandBuilder builder) {
     String containerIDStr = builder.buildEnvironment().get(ShellCommandConfig.ENV_CONTAINER_ID());
-    log.info("Received launch request for {} on hostname {}", containerIDStr , resource.getHost());
-
+    log.info("Received launch request for {} on hostname {}", containerIDStr, resource.getHost());
     synchronized (lock) {
-      Container container = allocatedResources.get(resource);
-      if (container == null) {
-        log.info("Resource {} already released. ", resource);
-        return;
-      }
+      try {
+        Container container = allocatedResources.get(resource);
+        if (container == null) {
+          log.info("Resource {} already released. ", resource);
+          return;
+        }
 
-      runContainer(containerIDStr, container, builder);
+        runContainer(containerIDStr, container, builder);
+      } catch (Throwable t) {
+        log.error("Error in launching stream processor:", t);
+        clusterManagerCallback.onStreamProcessorLaunchFailure(resource, t);
+      }
     }
   }
 
@@ -537,7 +541,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    * @param cmdBuilder the command builder that encapsulates the command, and the context
    *
    */
-  public void runContainer(String samzaContainerId, Container container, CommandBuilder cmdBuilder)  {
+  public void runContainer(String samzaContainerId, Container container, CommandBuilder cmdBuilder) throws IOException {
     String containerIdStr = ConverterUtils.toString(container.getId());
     log.info("Got available container ID ({}) for container: {}", samzaContainerId, container);
 
@@ -599,24 +603,14 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   private void startContainer(Path packagePath,
                               Container container,
                               Map<String, String> env,
-                              final String cmd)  {
+                              final String cmd) throws IOException {
     log.info("Starting container {} {} {} {}",
         new Object[]{packagePath, container, env, cmd});
 
     LocalResource packageResource = Records.newRecord(LocalResource.class);
     URL packageUrl = ConverterUtils.getYarnUrlFromPath(packagePath);
     FileStatus fileStatus;
-    try {
-      fileStatus = packagePath.getFileSystem(yarnConfiguration).getFileStatus(packagePath);
-    } catch (IOException ioe) {
-      log.error("IO Exception when accessing the package status from the filesystem", ioe);
-      SamzaResource resource = new SamzaResource(container.getResource().getVirtualCores(),
-          container.getResource().getMemory(), container.getNodeId().getHost(), container.getId().toString());
-      clusterManagerCallback.onStreamProcessorLaunchFailure(resource, new SamzaContainerLaunchException("IO Exception " +
-          "when accessing the package status from the filesystem", ioe));
-      return;
-    }
-
+    fileStatus = packagePath.getFileSystem(yarnConfiguration).getFileStatus(packagePath);
     packageResource.setResource(packageUrl);
     log.info("Set package resource in YarnContainerRunner for {}", packageUrl);
     packageResource.setSize(fileStatus.getLen());
@@ -626,30 +620,19 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
 
     ByteBuffer allTokens;
     // copy tokens to start the container
-    try {
-      Credentials credentials = UserGroupInformation.getCurrentUser().getCredentials();
-      DataOutputBuffer dob = new DataOutputBuffer();
-      credentials.writeTokenStorageToStream(dob);
+    Credentials credentials = UserGroupInformation.getCurrentUser().getCredentials();
+    DataOutputBuffer dob = new DataOutputBuffer();
+    credentials.writeTokenStorageToStream(dob);
 
-      // now remove the AM->RM token so that containers cannot access it
-      Iterator iter = credentials.getAllTokens().iterator();
-      while (iter.hasNext()) {
-        TokenIdentifier token = ((org.apache.hadoop.security.token.Token) iter.next()).decodeIdentifier();
-        if (token != null && token.getKind().equals(AMRMTokenIdentifier.KIND_NAME)) {
-          iter.remove();
-        }
+    // now remove the AM->RM token so that containers cannot access it
+    Iterator iter = credentials.getAllTokens().iterator();
+    while (iter.hasNext()) {
+      TokenIdentifier token = ((org.apache.hadoop.security.token.Token) iter.next()).decodeIdentifier();
+      if (token != null && token.getKind().equals(AMRMTokenIdentifier.KIND_NAME)) {
+        iter.remove();
       }
-      allTokens = ByteBuffer.wrap(dob.getData(), 0, dob.getLength());
-
-    } catch (IOException ioe) {
-      log.error("IOException when writing credentials.", ioe);
-      log.error("IO Exception when accessing the package status from the filesystem", ioe);
-      SamzaResource resource = new SamzaResource(container.getResource().getVirtualCores(),
-          container.getResource().getMemory(), container.getNodeId().getHost(), container.getId().toString());
-      clusterManagerCallback.onStreamProcessorLaunchFailure(resource, new SamzaContainerLaunchException("IO Exception " +
-          "when writing credentials", ioe));
-      return;
     }
+    allTokens = ByteBuffer.wrap(dob.getData(), 0, dob.getLength());
 
     Map<String, LocalResource> localResourceMap = new HashMap<>();
     localResourceMap.put("__package", packageResource);
