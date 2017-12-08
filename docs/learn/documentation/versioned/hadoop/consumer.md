@@ -107,4 +107,4 @@ For the list of all configs, check out the configuration table page [here](../jo
 ### More Information
 [HdfsSystemConsumer design doc](https://issues.apache.org/jira/secure/attachment/12827670/HDFSSystemConsumer.pdf)
 
-## [Security &raquo;](../operations/security.html)
+## [Writing to HDFS &raquo;](./producer.html)
