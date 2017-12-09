@@ -20,6 +20,7 @@
 package org.apache.samza.system.eventhub.producer;
 
 import com.microsoft.azure.eventhubs.*;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.eventhub.EventHubConfig;
@@ -79,11 +80,12 @@ public class TestEventHubSystemProducer {
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, systemName, streamName), EVENTHUB_ENTITY1);
     configMap.put(String.format(EventHubConfig.CONFIG_PRODUCER_PARTITION_METHOD, systemName),
             PartitioningMethod.PARTITION_KEY_AS_PARTITION.toString());
+    MapConfig config = new MapConfig(configMap);
 
     MockEventHubClientManagerFactory factory = new MockEventHubClientManagerFactory();
 
     EventHubSystemProducer producer =
-            new EventHubSystemProducer(new EventHubConfig(configMap), systemName, factory, interceptor, testMetrics);
+            new EventHubSystemProducer(new EventHubConfig(config), systemName, factory, interceptor, testMetrics);
 
     SystemStream systemStream = new SystemStream(systemName, streamName);
     producer.register(SOURCE);
@@ -129,11 +131,12 @@ public class TestEventHubSystemProducer {
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, systemName, streamName), EVENTHUB_ENTITY1);
     configMap.put(String.format(EventHubConfig.CONFIG_PRODUCER_PARTITION_METHOD, systemName),
             PartitioningMethod.PARTITION_KEY_AS_PARTITION.toString());
+    MapConfig config = new MapConfig(configMap);
 
     MockEventHubClientManagerFactory factory = new MockEventHubClientManagerFactory();
 
     EventHubSystemProducer producer =
-            new EventHubSystemProducer(new EventHubConfig(configMap), systemName, factory, interceptors, testMetrics);
+            new EventHubSystemProducer(new EventHubConfig(config), systemName, factory, interceptors, testMetrics);
 
     SystemStream systemStream = new SystemStream(systemName, streamName);
     producer.register(SOURCE);
@@ -187,11 +190,12 @@ public class TestEventHubSystemProducer {
     // mod 2 on the partitionid to simulate consistent hashing
     configMap.put(String.format(EventHubConfig.CONFIG_PRODUCER_PARTITION_METHOD, systemName),
             PartitioningMethod.EVENT_HUB_HASHING.toString());
+    MapConfig config = new MapConfig(configMap);
 
     MockEventHubClientManagerFactory factory = new MockEventHubClientManagerFactory();
 
     EventHubSystemProducer producer =
-            new EventHubSystemProducer(new EventHubConfig(configMap), systemName, factory, interceptor, testMetrics);
+            new EventHubSystemProducer(new EventHubConfig(config), systemName, factory, interceptor, testMetrics);
 
     SystemStream systemStream = new SystemStream(systemName, streamName);
     producer.register(SOURCE);
