@@ -76,6 +76,7 @@ public class EventHubSystemProducer implements SystemProducer {
   private static final Object AGGREGATE_METRICS_LOCK = new Object();
 
   public enum PartitioningMethod {
+    ROUND_ROBIN,
     EVENT_HUB_HASHING,
     PARTITION_KEY_AS_PARTITION
   }
@@ -134,6 +135,7 @@ public class EventHubSystemProducer implements SystemProducer {
   public synchronized void start() {
     LOG.debug("Starting system producer.");
 
+    // Create partition senders if required
     if (PartitioningMethod.PARTITION_KEY_AS_PARTITION.equals(partitioningMethod)) {
       // Create all partition senders
       eventHubClients.forEach((streamId, samzaEventHubClient) -> {
@@ -239,7 +241,9 @@ public class EventHubSystemProducer implements SystemProducer {
 
   private CompletableFuture<Void> sendToEventHub(String streamId, EventData eventData, Object partitionKey,
                                                  EventHubClient eventHubClient) {
-    if (partitioningMethod == PartitioningMethod.EVENT_HUB_HASHING) {
+    if (PartitioningMethod.ROUND_ROBIN.equals(partitioningMethod)) {
+      return eventHubClient.send(eventData);
+    } else if (PartitioningMethod.EVENT_HUB_HASHING.equals(partitioningMethod)) {
       if (partitionKey == null) {
         throw new SamzaException("Partition key cannot be null for EventHub hashing");
       }
