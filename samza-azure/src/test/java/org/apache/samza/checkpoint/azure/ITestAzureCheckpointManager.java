@@ -34,7 +34,7 @@ import org.junit.*;
 import java.util.HashMap;
 import java.util.Map;
 
-@Ignore("Intergration Test")
+@Ignore("Requires Azure account credentials")
 public class ITestAzureCheckpointManager {
 
   private static String storageConnectionString = "";

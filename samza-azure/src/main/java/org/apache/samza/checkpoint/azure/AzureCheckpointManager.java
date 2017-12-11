@@ -34,6 +34,7 @@ import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.system.SystemStreamPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scala.Option;
 
 import java.net.URISyntaxException;
 import java.util.HashMap;
@@ -60,12 +61,16 @@ public class AzureCheckpointManager implements CheckpointManager {
   private static final Logger LOG = LoggerFactory.getLogger(AzureCheckpointManager.class.getName());
   private static final String PARTITION_KEY = "PartitionKey";
 
+  // Invalid characters in key field on Azure Table
+  public static final String REGEX_INVALID_KEY = ".*[#?/\\\\].*";
+  public static final String REGEX_TABLE_NAME = "[^A-Za-z0-9]";
+
   public static final int MAX_WRITE_BATCH_SIZE = 100;
-  public static final String CHECKPOINT_MANAGER_TABLE_NAME = "SamzaTaskCheckpoints";
   public static final String SYSTEM_PROP_NAME = "system";
   public static final String STREAM_PROP_NAME = "stream";
   public static final String PARTITION_PROP_NAME = "partition";
 
+  private final String jobTableName;
   private final String storageConnectionString;
   private final AzureClient azureClient;
   private CloudTable cloudTable;
@@ -73,7 +78,12 @@ public class AzureCheckpointManager implements CheckpointManager {
   private final Set<TaskName> taskNames = new HashSet<>();
   private final JsonSerdeV2<Map<String, String>> jsonSerde = new JsonSerdeV2<>();
 
-  AzureCheckpointManager(AzureConfig azureConfig) {
+  AzureCheckpointManager(AzureConfig azureConfig, Option<String> jobName) {
+    if (!jobName.isDefined()) {
+      throw new AzureException("Jobs must have a name to use Azure Checkpoint Manager");
+    }
+    // Remove invalid characters
+    jobTableName = jobName.get().replaceAll(REGEX_TABLE_NAME, "");
     storageConnectionString = azureConfig.getAzureConnectionString();
     azureClient = new AzureClient(storageConnectionString);
   }
@@ -82,7 +92,7 @@ public class AzureCheckpointManager implements CheckpointManager {
   public void start() {
     try {
       // Create the table if it doesn't exist.
-      cloudTable = azureClient.getTableClient().getTableReference(CHECKPOINT_MANAGER_TABLE_NAME);
+      cloudTable = azureClient.getTableClient().getTableReference(jobTableName);
       cloudTable.createIfNotExists();
 
     } catch (URISyntaxException e) {
@@ -115,9 +125,13 @@ public class AzureCheckpointManager implements CheckpointManager {
       SystemStreamPartition ssp = entry.getKey();
       String offset = entry.getValue();
 
+      String partitionKey = taskName.toString();
+      checkValidKey(partitionKey, "Taskname");
+      String rowKey = serializeSystemStreamPartition(ssp);
+      checkValidKey(rowKey, "SystemStreamPartition");
+
       // Create table entity
-      TaskCheckpointEntity taskCheckpoint = new TaskCheckpointEntity(taskName.toString(),
-              serializeSystemStreamPartition(ssp), offset);
+      TaskCheckpointEntity taskCheckpoint = new TaskCheckpointEntity(partitionKey, rowKey, offset);
 
       // Add to batch operation
       batchOperation.insertOrReplace(taskCheckpoint);
@@ -132,6 +146,13 @@ public class AzureCheckpointManager implements CheckpointManager {
         }
         batchOperation.clear();
       }
+    }
+  }
+
+  private void checkValidKey(String key, String fieldUsed) {
+    if (key == null || key.matches(REGEX_INVALID_KEY)) {
+      throw new AzureException(String.format("Cannot insert to Azure Checkpoint Manager; %s %s contains invalid characters [*, /, \\\\, ?]",
+      fieldUsed, key));
     }
   }
 
