@@ -33,7 +33,7 @@ If the `ROUND_ROBIN` method is used, the message key and partition key are ignor
 
 The `EVENT_HUB_HASHING` method employs the hashing mechanism in EventHubs to determine, based on the key of the message, which partition the message should go. Using this method still ensures that all the events with the same key are sent to the same partition in the event hub. If this option is chosen, the partition key used for the hash should be a string. If the partition key is not set, the message key is used instead.
 
-The `PARTITION_KEY_AS_PARTITION` method will use the integer key specified by the partition key or key of the message to a specific partition on Eventhub. If the integer key is greater than the number of partitions in the destination Eventhub, a modulo operation will be performed to determine the resulting paritition. ie. if there are 6 partitions and the key is 9, the message will end up in partition 3. Similarly to `EVENT_HUB_HASHING`, if the partition key is not set the message key is used instead.
+The `PARTITION_KEY_AS_PARTITION` method will use the integer key specified by the partition key or key of the message to a specific partition on Eventhub. If the integer key is greater than the number of partitions in the destination Eventhub, a modulo operation will be performed to determine the resulting partition. ie. if there are 6 partitions and the key is 9, the message will end up in partition 3. Similarly to `EVENT_HUB_HASHING`, if the partition key is not set the message key is used instead.
 
 ![diagram-medium](/img/{{site.version}}/learn/documentation/azure/eventhub_send_methods.png)
 
