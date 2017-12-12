@@ -48,6 +48,10 @@
       <source>${basedir}/bin/run-wikipedia-zk-application.sh</source>
       <outputDirectory>bin</outputDirectory>
     </file>
+    <file>
+      <source>${basedir}/bin/run-azure-application.sh</source>
+      <outputDirectory>bin</outputDirectory>
+    </file>
   </files>
   <dependencySets>
     <dependencySet>

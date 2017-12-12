@@ -43,6 +43,11 @@ under the License.
     </dependency>
     <dependency>
       <groupId>org.apache.samza</groupId>
+      <artifactId>samza-azure</artifactId>
+      <version>${samza.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.samza</groupId>
       <artifactId>samza-core_2.11</artifactId>
       <version>${samza.version}</version>
     </dependency>
