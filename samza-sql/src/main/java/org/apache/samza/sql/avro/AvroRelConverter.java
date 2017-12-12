@@ -167,7 +167,11 @@ public class AvroRelConverter implements SamzaRelConverter {
 
   @Override
   public KV<Object, Object> convertToSamzaMessage(SamzaSqlRelMessage relMessage) {
-    GenericRecord record = new GenericData.Record(this.avroSchema);
+    return convertToSamzaMessage(relMessage, this.avroSchema);
+  }
+
+  protected KV<Object, Object> convertToSamzaMessage(SamzaSqlRelMessage relMessage, Schema avroSchema) {
+    GenericRecord record = new GenericData.Record(avroSchema);
     List<String> fieldNames = relMessage.getFieldNames();
     List<Object> values = relMessage.getFieldValues();
     for (int index = 0; index < fieldNames.size(); index++) {
