@@ -113,7 +113,7 @@ public class WikipediaApplication implements StreamApplication {
     allWikipediaEvents
         .map(WikipediaParser::parseEvent)
         .window(Windows.tumblingWindow(Duration.ofSeconds(10), WikipediaStats::new,
-                new WikipediaStatsAggregator(), WikipediaStats.serde()), "Tumbling window of WikipediaStats")
+                new WikipediaStatsAggregator(), WikipediaStats.serde()), "statsWindow")
         .map(this::formatOutput)
         .sendTo(wikipediaStats);
   }
