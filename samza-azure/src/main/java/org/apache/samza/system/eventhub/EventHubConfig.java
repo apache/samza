@@ -20,10 +20,15 @@
 package org.apache.samza.system.eventhub;
 
 import com.microsoft.azure.eventhubs.EventHubClient;
+import org.apache.samza.SamzaException;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.StreamConfig;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer;
+import scala.collection.JavaConversions;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -47,7 +52,7 @@ public class EventHubConfig extends MapConfig {
           .PartitioningMethod.EVENT_HUB_HASHING.name();
 
   public static final String CONFIG_SEND_KEY_IN_EVENT_PROPERTIES = "systems.%s.eventhubs.send.key";
-  public static final Boolean DEFAULT_CONFIG_SEND_KEY_IN_EVENT_PROPERTIES = false;
+  public static final Boolean DEFAULT_CONFIG_SEND_KEY_IN_EVENT_PROPERTIES = true;
 
   public static final String CONFIG_FETCH_RUNTIME_INFO_TIMEOUT_MILLIS = "systems.%s.eventhubs.runtime.info.timeout";
   public static final long DEFAULT_CONFIG_FETCH_RUNTIME_INFO_TIMEOUT_MILLIS = Duration.ofMinutes(1L).toMillis();
@@ -55,9 +60,47 @@ public class EventHubConfig extends MapConfig {
   public static final String CONFIG_CONSUMER_BUFFER_CAPACITY = "systems.%s.eventhubs.receive.queue.size";
   public static final int DEFAULT_CONFIG_CONSUMER_BUFFER_CAPACITY = 100;
 
+  private final Map<String, String> physcialToId = new HashMap<>();
 
-  public EventHubConfig(Map<String, String> config) {
+  public EventHubConfig(Config config) {
     super(config);
+
+    // Build reverse index for streamName -> streamId
+    StreamConfig streamConfig = new StreamConfig(config);
+    JavaConversions.asJavaCollection(streamConfig.getStreamIds())
+            .forEach((streamId) -> physcialToId.put(streamConfig.getPhysicalName(streamId), streamId));
+  }
+
+  private String getFromStreamIdOrName(String configName, String systemName, String streamName, String defaultString) {
+    String result = getFromStreamIdOrName(configName, systemName, streamName);
+    if (result == null) {
+      return defaultString;
+    }
+    return result;
+  }
+
+  private String getFromStreamIdOrName(String configName, String systemName, String streamName) {
+    String streamId = getStreamId(streamName);
+    return get(String.format(configName, systemName, streamId),
+            streamId.equals(streamName) ? null : get(String.format(configName, systemName, streamName)));
+  }
+
+  private String validateRequiredConfig(String value, String fieldName, String systemName, String streamName) {
+    if (value == null) {
+      throw new SamzaException(String.format("Missing %s configuration for system: %s, stream: %s",
+              fieldName, systemName, streamName));
+    }
+    return value;
+  }
+
+  /**
+   * Get the streamId for the specified streamName
+   *
+   * @param streamName the physical identifier of a stream
+   * @return the streamId identifier for the stream or the queried streamName if it is not found.
+   */
+  public String getStreamId(String streamName) {
+    return physcialToId.getOrDefault(streamName, streamName);
   }
 
   /**
@@ -75,55 +118,59 @@ public class EventHubConfig extends MapConfig {
    * Get the EventHubs namespace for the stream
    *
    * @param systemName name of the system
-   * @param streamName name of stream
+   * @param streamName name of stream (physical or streamId)
    * @return EventHubs namespace
    */
   public String getStreamNamespace(String systemName, String streamName) {
-    return get(String.format(CONFIG_STREAM_NAMESPACE, systemName, streamName));
+    return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_NAMESPACE, systemName, streamName),
+            "Namespace", systemName, streamName);
   }
 
   /**
    * Get the EventHubs entity path (topic name) for the stream
    *
    * @param systemName name of the system
-   * @param streamName name of stream
+   * @param streamName name of stream (physical or streamId)
    * @return EventHubs entity path
    */
   public String getStreamEntityPath(String systemName, String streamName) {
-    return get(String.format(CONFIG_STREAM_ENTITYPATH, systemName, streamName));
+    return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_ENTITYPATH, systemName, streamName),
+            "EntityPath", systemName, streamName);
   }
 
   /**
    * Get the EventHubs SAS (Shared Access Signature) key name for the stream
    *
    * @param systemName name of the system
-   * @param streamName name of stream
+   * @param streamName name of stream (physical or streamId)
    * @return EventHubs SAS key name
    */
   public String getStreamSasKeyName(String systemName, String streamName) {
-    return get(String.format(CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName));
+    return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName),
+            "SASKeyName", systemName, streamName);
   }
 
   /**
    * Get the EventHubs SAS (Shared Access Signature) token for the stream
    *
    * @param systemName name of the system
-   * @param streamName name of stream
+   * @param streamName name of stream (physical or streamId)
    * @return EventHubs SAS token
    */
   public String getStreamSasToken(String systemName, String streamName) {
-    return get(String.format(CONFIG_STREAM_SAS_TOKEN, systemName, streamName));
+    return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_SAS_TOKEN, systemName, streamName),
+            "SASToken", systemName, streamName);
   }
 
   /**
    * Get the EventHubs consumer group used for consumption for the stream
    *
    * @param systemName name of the system
-   * @param streamName name of stream
+   * @param streamName name of stream (physical or streamId)
    * @return EventHubs consumer group
    */
   public String getStreamConsumerGroup(String systemName, String streamName) {
-    return get(String.format(CONFIG_STREAM_CONSUMER_GROUP, systemName, streamName), DEFAULT_CONFIG_STREAM_CONSUMER_GROUP);
+    return getFromStreamIdOrName(CONFIG_STREAM_CONSUMER_GROUP, systemName, streamName, DEFAULT_CONFIG_STREAM_CONSUMER_GROUP);
   }
 
   /**

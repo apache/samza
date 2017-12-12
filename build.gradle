@@ -213,11 +213,6 @@ project(':samza-azure') {
     configFile = new File(rootDir, "checkstyle/checkstyle.xml")
     toolVersion = "$checkstyleVersion"
   }
-  test {
-    // Exclude integration tests that require connection to EventHub
-    exclude 'org/apache/samza/system/eventhub/producer/*ITest*'
-    exclude 'org/apache/samza/system/eventhub/consumer/*ITest*'
-  }
 }
 
 project(':samza-aws') {
