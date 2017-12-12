@@ -27,10 +27,13 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.functions.JoinFunction;
+import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.LongSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
+import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -47,6 +50,12 @@ import static org.mockito.Mockito.when;
 
 
 public class TestJobGraphJsonGenerator {
+
+  public class PageViewEvent {
+    String getCountry() {
+      return "";
+    }
+  }
 
   @Test
   public void test() throws Exception {
@@ -146,5 +155,71 @@ public class TestJobGraphJsonGenerator {
     assertEquals(3, nodes.sourceStreams.size());
     assertEquals(2, nodes.sinkStreams.size());
     assertEquals(2, nodes.intermediateStreams.size());
+  }
+
+  @Test
+  public void test2() throws Exception {
+    Map<String, String> configMap = new HashMap<>();
+    configMap.put(JobConfig.JOB_NAME(), "test-app");
+    configMap.put(JobConfig.JOB_DEFAULT_SYSTEM(), "test-system");
+    Config config = new MapConfig(configMap);
+
+    StreamSpec input = new StreamSpec("PageView", "hdfs:/user/dummy/PageViewEvent", "hdfs");
+    StreamSpec output = new StreamSpec("PageViewCount", "PageViewCount", "kafka");
+
+    ApplicationRunner runner = mock(ApplicationRunner.class);
+    when(runner.getStreamSpec("PageView")).thenReturn(input);
+    when(runner.getStreamSpec("PageViewCount")).thenReturn(output);
+
+    // intermediate streams used in tests
+    when(runner.getStreamSpec("test-app-1-partition_by-keyed-by-country"))
+        .thenReturn(new StreamSpec("test-app-1-partition_by-keyed-by-country", "test-app-1-partition_by-keyed-by-country", "kafka"));
+
+    // set up external partition count
+    Map<String, Integer> system1Map = new HashMap<>();
+    system1Map.put("hdfs:/user/dummy/PageViewEvent", 512);
+    Map<String, Integer> system2Map = new HashMap<>();
+    system2Map.put("PageViewCount", 16);
+
+    Map<String, SystemAdmin> systemAdmins = new HashMap<>();
+    SystemAdmin systemAdmin1 = createSystemAdmin(system1Map);
+    SystemAdmin systemAdmin2 = createSystemAdmin(system2Map);
+    systemAdmins.put("hdfs", systemAdmin1);
+    systemAdmins.put("kafka", systemAdmin2);
+    StreamManager streamManager = new StreamManager(systemAdmins);
+
+    StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
+    MessageStream<KV<String, PageViewEvent>> inputStream = streamGraph.getInputStream("PageView");
+    inputStream
+        .partitionBy(kv -> kv.getValue().getCountry(), kv -> kv.getValue(), "keyed-by-country")
+        .window(Windows.keyedTumblingWindow(kv -> kv.getValue().getCountry(),
+            Duration.ofSeconds(10L),
+            () -> 0L,
+            (m, c) -> c + 1L,
+            new StringSerde(),
+            new LongSerde()), "count-by-country")
+        .map(pane -> new KV<>(pane.getKey().getKey(), pane.getMessage()))
+        .sendTo(streamGraph.getOutputStream("PageViewCount"));
+
+    ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
+    ExecutionPlan plan = planner.plan(streamGraph);
+    String json = plan.getPlanAsJson();
+    System.out.println(json);
+
+    // deserialize
+    ObjectMapper mapper = new ObjectMapper();
+    JobGraphJsonGenerator.JobGraphJson nodes = mapper.readValue(json, JobGraphJsonGenerator.JobGraphJson.class);
+    JobGraphJsonGenerator.OperatorGraphJson operatorGraphJson = nodes.jobs.get(0).operatorGraph;
+    assertEquals(2, operatorGraphJson.inputStreams.size());
+    assertEquals(4, operatorGraphJson.operators.size());
+    assertEquals(1, nodes.sourceStreams.size());
+    assertEquals(1, nodes.sinkStreams.size());
+    assertEquals(1, nodes.intermediateStreams.size());
+
+    // verify partitionBy op output to the intermdiate stream of the same id
+    assertEquals(operatorGraphJson.operators.get("test-app-1-partition_by-keyed-by-country").get("outputStreamId"),
+        "test-app-1-partition_by-keyed-by-country");
+    assertEquals(operatorGraphJson.operators.get("test-app-1-send_to-5").get("outputStreamId"),
+        "PageViewCount");
   }
 }

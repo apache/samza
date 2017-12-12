@@ -33,6 +33,8 @@ import org.apache.samza.metrics.MetricsRegistryMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.UUID;
+
 
 /**
  * This class implements the {@link ApplicationRunner} that runs the applications in a remote cluster
@@ -57,8 +59,9 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   @Override
   public void run(StreamApplication app) {
     try {
-      // TODO: this is a tmp solution and the run.id generation will be addressed in another JIRA
-      String runId = String.valueOf(System.currentTimeMillis());
+      // TODO: run.id needs to be set for standalone: SAMZA-1531
+      // run.id is based on current system time with the most significant bits in UUID (8 digits) to avoid collision
+      String runId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
       LOG.info("The run id for this run is {}", runId);
 
       // 1. initialize and plan
