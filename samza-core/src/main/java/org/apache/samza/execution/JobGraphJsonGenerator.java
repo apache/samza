@@ -34,9 +34,9 @@ import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec.OpCode;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
+import org.apache.samza.operators.spec.PartitionByOperatorSpec;
 import org.codehaus.jackson.annotate.JsonProperty;
 import org.codehaus.jackson.map.ObjectMapper;
-
 
 /**
  * This class generates the JSON representation of the {@link JobGraph}.
@@ -203,6 +203,9 @@ import org.codehaus.jackson.map.ObjectMapper;
 
     if (spec instanceof OutputOperatorSpec) {
       OutputStreamImpl outputStream = ((OutputOperatorSpec) spec).getOutputStream();
+      map.put("outputStreamId", outputStream.getStreamSpec().getId());
+    } else if (spec instanceof PartitionByOperatorSpec) {
+      OutputStreamImpl outputStream = ((PartitionByOperatorSpec) spec).getOutputStream();
       map.put("outputStreamId", outputStream.getStreamSpec().getId());
     }
 
