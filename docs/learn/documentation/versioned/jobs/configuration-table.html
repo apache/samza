@@ -2269,25 +2269,25 @@
                 <tr>
                     <td class="property" id="eventhub-stream-namespace">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-id</span>.<br>eventhubs.namespace</td>
                     <td class="default"></td>
-                    <td class="description">Namespace of the associated stream-id. Required to access the Eventhubs entity per stream.</td>
+                    <td class="description">Namespace of the associated <span class="stream">stream-ids</span>. Required to access the Eventhubs entity per stream.</td>
                 </tr>
 
                 <tr>
                     <td class="property" id="eventhub-stream-entity">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-id</span>.<br>eventhubs.entitypath</td>
                     <td class="default"></td>
-                    <td class="description">Entity of the associated stream-id. Required to access the Eventhubs entity per stream.</td>
+                    <td class="description">Entity of the associated <span class="stream">stream-ids</span>. Required to access the Eventhubs entity per stream.</td>
                 </tr>
 
                 <tr>
                     <td class="property" id="eventhub-stream-sas-keyname">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-id</span>.<br>eventhubs.sas.keyname</td>
                     <td class="default"></td>
-                    <td class="description">SAS Keyname of the associated stream-id. Required to access the Eventhubs entity per stream.</td>
+                    <td class="description">SAS Keyname of the associated <span class="stream">stream-ids</span>. Required to access the Eventhubs entity per stream.</td>
                 </tr>
 
                 <tr>
                     <td class="property" id="eventhub-stream-sas-token">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-id</span>.<br>eventhubs.sas.token</td>
                     <td class="default"></td>
-                    <td class="description">SAS Token the associated stream-id. Required to access the Eventhubs entity per stream.</td>
+                    <td class="description">SAS Token the associated <span class="stream">stream-ids</span>. Required to access the Eventhubs entity per stream.</td>
                 </tr>
 
                 <tr>
@@ -2332,7 +2332,7 @@
                     <td class="property" id="eventhub-consumer-buffer-capacity">systems.<span class="system">system-name</span>.<br>eventhubs.receive.queue.size</td>
                     <td class="default">100</td>
                     <td class="description">
-                        Consumer only config. Capacity of the eventhubs consumer buffer - the blocking queue used for storing messages. Larger buffer capacity typically leads to better throughput but consumes more memory.
+                        Consumer only config. Per partition capacity of the eventhubs consumer buffer - the blocking queue used for storing messages. Larger buffer capacity typically leads to better throughput but consumes more memory.
                     </td>
                 </tr>
             </tbody>
