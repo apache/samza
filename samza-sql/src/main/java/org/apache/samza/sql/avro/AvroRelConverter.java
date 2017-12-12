@@ -155,7 +155,7 @@ public class AvroRelConverter implements SamzaRelConverter {
           .collect(Collectors.toList()));
     } else if (value == null) {
       fieldNames.addAll(relationalSchema.getFieldNames());
-      IntStream.range(0, fieldNames.size() - 1).forEach(x -> values.add(null));
+      IntStream.range(0, fieldNames.size()).forEach(x -> values.add(null));
     } else {
       String msg = "Avro message converter doesn't support messages of type " + value.getClass();
       LOG.error(msg);

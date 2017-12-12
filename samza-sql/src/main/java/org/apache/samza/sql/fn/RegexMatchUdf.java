@@ -17,7 +17,7 @@
 * under the License.
 */
 
-package org.apache.samza.tools.udf;
+package org.apache.samza.sql.fn;
 
 import java.util.regex.Pattern;
 import org.apache.samza.config.Config;
@@ -27,14 +27,13 @@ import org.apache.samza.sql.udfs.ScalarUdf;
 /**
  * Simple RegexMatch Udf.
  */
-public class RegexMatchUdf implements ScalarUdf {
+public class RegexMatchUdf implements ScalarUdf<Boolean> {
   @Override
   public void init(Config config) {
 
   }
 
-  @Override
-  public Object execute(Object... args) {
+  public Boolean execute(Object... args) {
     return Pattern.matches((String) args[0], (String) args[1]);
   }
 }

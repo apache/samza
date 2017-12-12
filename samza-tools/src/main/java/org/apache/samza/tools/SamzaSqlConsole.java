@@ -20,12 +20,6 @@
 package org.apache.samza.tools;
 
 import com.google.common.base.Joiner;
-import org.apache.samza.tools.avro.AvroSchemaGenRelConverterFactory;
-import org.apache.samza.tools.avro.AvroSerDeFactory;
-import org.apache.samza.tools.json.JsonRelConverterFactory;
-import org.apache.samza.tools.schemas.PageViewEvent;
-import org.apache.samza.tools.schemas.ProfileChangeEvent;
-import org.apache.samza.tools.udf.RegexMatchUdf;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -43,6 +37,7 @@ import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.serializers.StringSerdeFactory;
 import org.apache.samza.sql.avro.ConfigBasedAvroRelSchemaProviderFactory;
 import org.apache.samza.sql.fn.FlattenUdf;
+import org.apache.samza.sql.fn.RegexMatchUdf;
 import org.apache.samza.sql.impl.ConfigBasedSourceResolverFactory;
 import org.apache.samza.sql.impl.ConfigBasedUdfResolver;
 import org.apache.samza.sql.interfaces.SqlSystemStreamConfig;
@@ -52,6 +47,11 @@ import org.apache.samza.sql.testutil.JsonUtil;
 import org.apache.samza.sql.testutil.SqlFileParser;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.system.kafka.KafkaSystemFactory;
+import org.apache.samza.tools.avro.AvroSchemaGenRelConverterFactory;
+import org.apache.samza.tools.avro.AvroSerDeFactory;
+import org.apache.samza.tools.json.JsonRelConverterFactory;
+import org.apache.samza.tools.schemas.PageViewEvent;
+import org.apache.samza.tools.schemas.ProfileChangeEvent;
 
 
 public class SamzaSqlConsole {
