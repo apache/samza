@@ -23,7 +23,7 @@ You can configure your Samza jobs to process data from [Azure Eventhubs](https:/
 
 ### Consuming from EventHubs:
 
-Samza's EventHubSystemConsumer wraps the EventData into an EventHubIncomingMessageEnvelope. The key of the message is set to the partition key of the EventData. If that is not present, then it will be set to the user defined `key` property map of the EventData. The message is obtained from the EventData body. 
+Samza's [EventHubSystemConsumer](https://github.com/apache/samza/blob/master/samza-azure/src/main/java/org/apache/samza/system/eventhub/consumer/EventHubSystemConsumer.java) wraps the EventData into an [EventHubIncomingMessageEnvelope](https://github.com/apache/samza/blob/master/samza-azure/src/main/java/org/apache/samza/system/eventhub/consumer/EventHubIncomingMessageEnvelope.java). The key of the message is set to the partition key of the EventData. The message is obtained from the EventData body. 
 
 To configure Samza to configure from EventHub streams: 
 
@@ -55,9 +55,8 @@ Similarly, you can also configure your Samza job to write to EventHubs.
 OutgoingMessageEnvelope envelope = new OutgoingMessageEnvelope(new SystemStream("eh-system", "output0"), key, message);
 collector.send(envelope);
 ```
-The first parameter in the `OutgoingMessageEnvelope` is the name of the system and the output stream whose properties are specified in config. The `key` field in the envelope is used as the key in the `EventData` while the`message` field is used as its body.
 
-The envelopes sent will be converted to an `EventData` that is accepted by EventHub. The envelope `message` will be the body of the `EventData` and the envelope "key" and "produce time stamp" will be included in the properties map as `key` and `produce-timestamp` respectively. Currently there are no ways to pass other metadata in the properties field of `EventData`.
+Each [OutgoingMessageEnvelope](https://samza.apache.org/learn/documentation/latest/api/javadocs/org/apache/samza/system/OutgoingMessageEnvelope.html) is converted into an [EventData](https://docs.microsoft.com/en-us/java/api/com.microsoft.azure.eventhubs._event_data) instance whose body is set to the `message` in the envelope. Additionally, the `key` and the `produce timestamp` are set as properties in the EventData before sending it to EventHubs.
 
 ### Advanced configuration:
 
@@ -65,11 +64,11 @@ The envelopes sent will be converted to an `EventData` that is accepted by Event
 
 The `partition.method` property determines how outgoing messages are partitioned. Valid values for this config are `EVENT_HUB_HASHING`, `PARTITION_KEY_AS_PARTITION` or `ROUND_ROBIN`. 
 
-The `EVENT_HUB_HASHING` is the default setting for the producer. This method employs the hashing mechanism in EventHubs to determine, based on the key of the message, which partition the message should go. Using this method still ensures that all the events with the same key are sent to the same partition in the event hub. If this option is chosen, the partition key used for the hash should be a string. If the partition key is not set, the message key is used instead.
+`EVENT_HUB_HASHING`: By default, Samza computes the partition for an outgoing message based on the hash of its partition-key. This ensures that events with the same key are sent to the same partition. If this option is chosen, the partition key should be a string. If the partition key is not set, the key in the message is used for partitioning.
 
-The `PARTITION_KEY_AS_PARTITION` method will use the integer key specified by the partition key or key of the message to a specific partition on Eventhub. If the integer key is greater than the number of partitions in the destination Eventhub, a modulo operation will be performed to determine the resulting partition. ie. if there are 6 partitions and the key is 9, the message will end up in partition 3. Similarly to `EVENT_HUB_HASHING`, if the partition key is not set the message key is used instead.
+`PARTITION_KEY_AS_PARTITION`: In this method, each message is sent to the partition specified by its partition key. This requires the partition key to be an integer. If the key is greater than the number of partitions, a modulo operation will be performed on the key. Similar to EVENT_HUB_HASHING, the key in the message is used if the partition key is not specified.
 
-If the `ROUND_ROBIN` method is used, the message key and partition key are ignored and the message will be distributed in a round-robin fashion amongst all the partitions in the downstream EventHub.
+`ROUND_ROBIN`: In this method, outgoing messages are distributed in a round-robin across all partitions. The key and the partition key in the message are ignored.
 
 ![diagram-medium](/img/{{site.version}}/learn/documentation/azure/eventhub_send_methods.png)
 
@@ -96,7 +95,7 @@ streams.output0.samza.msg.serde = json
 
 ##### Consumer buffer size: 
 
-When the consumer reads a message from event hubs, it appends them to a shared producer-consumer buffer corresponding to its partition. This config determines the per-partition queue size. Setting a higher value for this config achieves a higher throughput at the expense of increased on-heap memory.
+When the consumer reads a message from event hubs, it appends them to a shared producer-consumer buffer corresponding to its partition. This config determines the per-partition queue size. Setting a higher value for this config typically achieves a higher throughput at the expense of increased on-heap memory.
 
 ```
 systems.eh-system.eventhubs.receive.queue.size = 10
