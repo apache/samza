@@ -79,6 +79,9 @@ public class AllSspToSingleTaskGrouperFactory implements SystemStreamPartitionGr
 
     String processors = config.get(JobConfig.PROCESSOR_LIST());
     List<String> processorList = Arrays.asList(processors.split(","));
+    if (processorList.isEmpty()) {
+      throw new SamzaException("processor list cannot be empty!");
+    }
     return new AllSspToSingleTaskGrouper(processorList);
   }
 }
