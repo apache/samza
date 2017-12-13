@@ -102,3 +102,96 @@ systems.eh-system.eventhubs.receive.queue.size = 10
 ```
 
 For the list of all configs, check out the configuration table page [here](../jobs/configuration-table.html)
+
+### Azure Eventhubs Hello-Samza Example
+
+The [hello-samza](https://github.com/apache/samza-hello-samza) project contains an example of a high level job that consumes and produces to Eventhub using the Zookeeper deployment model.
+
+#### Get the Code
+
+Let's get started by cloning the hello-samza project
+
+```
+git clone https://git.apache.org/samza-hello-samza.git hello-samza
+cd hello-samza
+git checkout latest
+```
+
+The project comes up with numerous examples and for this tutorial, we will pick the Azure application.
+
+#### Setting up the Deployment Environment
+
+For our Azure application, we require [ZooKeeper](http://zookeeper.apache.org/). The hello-samza project comes with a script called "grid" to help with the environment setup
+
+```
+./bin/grid standalone
+```
+
+This command will download, install, and start ZooKeeper and Kafka. It will also check out the latest version of Samza and build it. All package files will be put in a sub-directory called "deploy" inside hello-samza's root folder.
+
+If you get a complaint that JAVA_HOME is not set, then you'll need to set it to the path where Java is installed on your system.
+
+
+#### Configuring the Azure application
+
+Here are the configs you must set before building the project. Configure these in the `src/main/config/azure-application-local-runner.properties` file.
+
+```
+# Add your EventHubs input stream credentials here
+systems.eventhubs.streams.input-stream.eventhubs.namespace=YOUR-STREAM-NAMESPACE
+systems.eventhubs.streams.input-stream.eventhubs.entitypath=YOUR-ENTITY-NAME
+systems.eventhubs.streams.input-stream.eventhubs.sas.keyname=YOUR-SAS-KEY-NAME
+systems.eventhubs.streams.input-stream.eventhubs.sas.token=YOUR-SAS-KEY-TOKEN
+
+# Add your EventHubs output stream credentials here
+systems.eventhubs.streams.output-stream.eventhubs.namespace=YOUR-STREAM-NAMESPACE
+systems.eventhubs.streams.output-stream.eventhubs.entitypath=YOUR-ENTITY-NAME
+systems.eventhubs.streams.output-stream.eventhubs.sas.keyname=YOUR-SAS-KEY-NAME
+systems.eventhubs.streams.output-stream.eventhubs.sas.token=YOUR-SAS-KEY-TOKEN
+```
+
+Optionally, you may also use the Azure Checkpoint Manager. Otherwise, comment out both these lines.
+
+```
+# Azure Table Checkpoint Manager
+task.checkpoint.factory=org.apache.samza.checkpoint.azure.AzureCheckpointManagerFactory
+azure.storage.connect=YOUR-STORAGE-ACCOUNT-CONNECTION-STRING
+```
+
+#### Building the Hello Samza Project
+
+With the environment setup complete, let us move on to building the hello-samza project. Execute the following commands:
+
+```
+mvn clean package
+mkdir -p deploy/samza
+tar -xvf ./target/hello-samza-0.14.0-SNAPSHOT-dist.tar.gz -C deploy/samza
+```
+
+We are now all set to deploy the application locally.
+
+#### Running the Azure application
+
+In order to run the application, we will use the *run-azure-application* script.
+
+```
+./deploy/samza/bin/run-azure-application.sh
+```
+
+The above command executes the helper script which invokes the *AzureZKLocalApplication* main class, which starts the *AzureApplication*. This application filters out the messages consumed without keys, prints them out and send them the configured output stream.
+
+The messages consumed should be printed in the following format:
+```
+Sending: 
+Received Key: <KEY>
+Received Message: <VALUE>
+```
+
+#### Shutdown
+
+This application can be shutdown by terminating the *run-azure-application* script.
+We can use the *grid* script to tear down the local environment ([Kafka](http://kafka.apache.org/) and [Zookeeper](http://zookeeper.apache.org/)).
+
+```
+bin/grid stop all
+```
