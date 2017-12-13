@@ -77,7 +77,9 @@ object JobModelManager extends Logging {
     val streamMetadataCache = new StreamMetadataCache(systemAdmins, 0)
 
     val containerCount = new JobConfig(config).getContainerCount
-    val processorList = List.range(0, containerCount).map(c => c.toString)
+    for (i <- 0 until containerCount) {
+      processorList += i.toString
+    }
 
     systemAdmins.start()
     val jobModelManager = getJobModelManager(config, changelogPartitionMapping, localityManager, streamMetadataCache, processorList.asJava)
