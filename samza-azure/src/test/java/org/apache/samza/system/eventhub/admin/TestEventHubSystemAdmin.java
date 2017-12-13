@@ -49,14 +49,8 @@ public class TestEventHubSystemAdmin {
     Assert.assertEquals(0, eventHubSystemAdmin.offsetComparator("150", "150").intValue());
     Assert.assertEquals(1, eventHubSystemAdmin.offsetComparator("200", "100").intValue());
     Assert.assertNull(eventHubSystemAdmin.offsetComparator("1", "a"));
-    Assert.assertEquals(-1, eventHubSystemAdmin
-            .offsetComparator("100", EventHubSystemConsumer.END_OF_STREAM).intValue());
-    Assert.assertEquals(0, eventHubSystemAdmin.offsetComparator(EventHubSystemConsumer.END_OF_STREAM,
-            EventHubSystemConsumer.END_OF_STREAM).intValue());
-    Assert.assertEquals(1, eventHubSystemAdmin
-            .offsetComparator(EventHubSystemConsumer.END_OF_STREAM, "100").intValue());
-    Assert.assertEquals(-1, eventHubSystemAdmin
-            .offsetComparator(EventHubSystemConsumer.START_OF_STREAM, "10").intValue());
+    Assert.assertNull(eventHubSystemAdmin.offsetComparator("100", EventHubSystemConsumer.END_OF_STREAM));
+    Assert.assertNull(eventHubSystemAdmin.offsetComparator(EventHubSystemConsumer.END_OF_STREAM, EventHubSystemConsumer.END_OF_STREAM));
   }
 
   @Test
@@ -66,16 +60,13 @@ public class TestEventHubSystemAdmin {
             MockEventHubConfigFactory.getEventHubConfig(EventHubSystemProducer.PartitioningMethod.EVENT_HUB_HASHING));
     Map<SystemStreamPartition, String> offsets = new HashMap<>();
     SystemStreamPartition ssp0 = new SystemStreamPartition(SYSTEM_NAME, STREAM_NAME1, new Partition(0));
-    SystemStreamPartition ssp1 = new SystemStreamPartition(SYSTEM_NAME, STREAM_NAME1, new Partition(1));
     SystemStreamPartition ssp2 = new SystemStreamPartition(SYSTEM_NAME, STREAM_NAME1, new Partition(2));
     offsets.put(ssp0, Integer.toString(0));
-    offsets.put(ssp1, EventHubSystemConsumer.END_OF_STREAM);
     offsets.put(ssp2, EventHubSystemConsumer.START_OF_STREAM);
 
     Map<SystemStreamPartition, String> updatedOffsets = eventHubSystemAdmin.getOffsetsAfter(offsets);
     Assert.assertEquals(offsets.size(), updatedOffsets.size());
     Assert.assertEquals("1", updatedOffsets.get(ssp0));
-    Assert.assertEquals("-2", updatedOffsets.get(ssp1));
     Assert.assertEquals("0", updatedOffsets.get(ssp2));
   }
 
@@ -102,8 +93,6 @@ public class TestEventHubSystemAdmin {
       partitionMetadataMap.forEach((partition, metadata) -> {
           Assert.assertEquals(EventHubSystemConsumer.START_OF_STREAM, metadata.getOldestOffset());
           Assert.assertNotSame(EventHubSystemConsumer.END_OF_STREAM, metadata.getNewestOffset());
-          Assert.assertTrue(Long.parseLong(EventHubSystemConsumer.END_OF_STREAM)
-                  <= Long.parseLong(metadata.getNewestOffset()));
           String expectedUpcomingOffset = String.valueOf(Long.parseLong(metadata.getNewestOffset()) + 1);
           Assert.assertEquals(expectedUpcomingOffset, metadata.getUpcomingOffset());
         });

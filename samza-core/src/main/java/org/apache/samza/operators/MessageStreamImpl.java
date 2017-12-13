@@ -167,6 +167,10 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
       Function<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde, String userDefinedId) {
     String opId = this.graph.getNextOpId(OpCode.PARTITION_BY, userDefinedId);
     IntermediateMessageStreamImpl<KV<K, V>> intermediateStream = this.graph.getIntermediateStream(opId, serde);
+    if (!intermediateStream.isKeyed()) {
+      // this can only happen when the default serde partitionBy variant is being used
+      throw new SamzaException("partitionBy can not be used with a default serde that is not a KVSerde.");
+    }
     PartitionByOperatorSpec<M, K, V> partitionByOperatorSpec =
         OperatorSpecs.createPartitionByOperatorSpec(
             intermediateStream.getOutputStream(), keyExtractor, valueExtractor, opId);

@@ -75,8 +75,8 @@ public class SamzaEventHubClientManager implements EventHubClientManager {
 
       eventHubClient = EventHubClient.createFromConnectionStringSync(connectionStringBuilder.toString(), retryPolicy);
     } catch (IOException | ServiceBusException e) {
-      String msg = String.format("Creation of EventHub client failed for eventHub %s %s %s %s on remote host %s:%d",
-              entityPath, eventHubNamespace, sasKeyName, sasKey, remoteHost, ClientConstants.AMQPS_PORT);
+      String msg = String.format("Creation of EventHub client failed for eventHub EntityPath: %s on remote host %s:%d",
+              entityPath, remoteHost, ClientConstants.AMQPS_PORT);
       LOG.error(msg, e);
       throw new SamzaException(msg, e);
     }

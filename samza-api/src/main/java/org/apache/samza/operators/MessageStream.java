@@ -95,6 +95,9 @@ public interface MessageStream<M> {
 
   /**
    * Allows sending messages in this {@link MessageStream} to an {@link OutputStream}.
+   * <p>
+   * When sending messages to an {@code OutputStream<KV<K, V>>}, messages are partitioned using their serialized key.
+   * When sending messages to any other {@code OutputStream<M>}, messages are partitioned using a null partition key.
    *
    * @param outputStream the output stream to send messages to
    */
@@ -215,8 +218,9 @@ public interface MessageStream<M> {
    * input to the job.
    * <p>
    * Uses the provided {@link KVSerde} for serialization of keys and values. If the provided {@code serde} is null,
-   * uses the default serde provided via {@link StreamGraph#setDefaultSerde}, which must be a KVSerde.
-   * If no default serde has been provided <b>before</b> calling this method, no-op serdes are used for keys and values.
+   * uses the default serde provided via {@link StreamGraph#setDefaultSerde}, which must be a KVSerde. If the default
+   * serde is not a {@link KVSerde}, a runtime exception will be thrown. If no default serde has been provided
+   * <b>before</b> calling this method, a {@code KVSerde<NoOpSerde, NoOpSerde>} is used.
    * <p>
    * The number of partitions for this intermediate stream is determined as follows:
    * If the stream is an eventual input to a {@link #join}, and the number of partitions for the other stream is known,
@@ -230,8 +234,11 @@ public interface MessageStream<M> {
    * for any state stores and streams created by this operator (the full ID also contains the job name, job id and
    * operator type). If the application logic is changed, this ID must be reused in the new operator to retain
    * state from the previous version, and changed for the new operator to discard the state from the previous version.
+   * <p>
+   * Unlike {@link #sendTo}, messages with a null key are all sent to partition 0.
    *
-   * @param keyExtractor the {@link Function} to extract the message and partition key from the input message
+   * @param keyExtractor the {@link Function} to extract the message and partition key from the input message.
+   *                     Messages with a null key are all sent to partition 0.
    * @param valueExtractor the {@link Function} to extract the value from the input message
    * @param serde the {@link KVSerde} to use for (de)serializing the key and value.
    * @param id the unique id of this operator in this application
@@ -242,9 +249,12 @@ public interface MessageStream<M> {
   <K, V> MessageStream<KV<K, V>> partitionBy(Function<? super M, ? extends K> keyExtractor,
       Function<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde, String id);
 
-
   /**
    * Same as calling {@link #partitionBy(Function, Function, KVSerde, String)} with a null KVSerde.
+   * <p>
+   * Uses the default serde provided via {@link StreamGraph#setDefaultSerde}, which must be a KVSerde. If the default
+   * serde is not a {@link KVSerde}, a runtime exception will be thrown. If no default serde has been provided
+   * <b>before</b> calling this method, a {@code KVSerde<NoOpSerde, NoOpSerde>} is used.
    *
    * @param keyExtractor the {@link Function} to extract the message and partition key from the input message
    * @param valueExtractor the {@link Function} to extract the value from the input message

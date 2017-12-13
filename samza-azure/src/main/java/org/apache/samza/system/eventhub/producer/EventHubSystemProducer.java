@@ -58,6 +58,7 @@ public class EventHubSystemProducer implements SystemProducer {
   private static final long DEFAULT_FLUSH_TIMEOUT_MILLIS = Duration.ofMinutes(1L).toMillis();
 
   public static final String PRODUCE_TIMESTAMP = "produce-timestamp";
+  public static final String KEY = "key";
 
   // Metrics recording
   private static final String EVENT_WRITE_RATE = "eventWriteRate";
@@ -75,8 +76,9 @@ public class EventHubSystemProducer implements SystemProducer {
   private static final Object AGGREGATE_METRICS_LOCK = new Object();
 
   public enum PartitioningMethod {
+    ROUND_ROBIN,
     EVENT_HUB_HASHING,
-    PARTITION_KEY_AS_PARTITION,
+    PARTITION_KEY_AS_PARTITION
   }
 
   private final HashMap<String, Counter> eventWriteRate = new HashMap<>();
@@ -85,7 +87,6 @@ public class EventHubSystemProducer implements SystemProducer {
   private final HashMap<String, SamzaHistogram> sendCallbackLatency = new HashMap<>();
   private final HashMap<String, Counter> sendErrors = new HashMap<>();
 
-  private final EventHubClientManagerFactory eventHubClientManagerFactory;
   private final EventHubConfig config;
   private final MetricsRegistry registry;
   private final PartitioningMethod partitioningMethod;
@@ -109,36 +110,35 @@ public class EventHubSystemProducer implements SystemProducer {
     this.registry = registry;
     this.systemName = systemName;
     this.partitioningMethod = config.getPartitioningMethod(systemName);
-    this.eventHubClientManagerFactory = eventHubClientManagerFactory;
     this.interceptors = interceptors;
+
+    // Fetches the stream ids
+    List<String> streamIds = config.getStreams(systemName);
+
+    // Create and initiate connections to Event Hubs
+    for (String streamId : streamIds) {
+      EventHubClientManager ehClient = eventHubClientManagerFactory.getEventHubClientManager(systemName, streamId, config);
+      eventHubClients.put(streamId, ehClient);
+      ehClient.init();
+    }
   }
 
   @Override
-  public synchronized void register(String streamName) {
-    LOG.debug("Trying to register {}.", streamName);
+  public synchronized void register(String source) {
     if (isStarted) {
       String msg = "Cannot register once the producer is started.";
       throw new SamzaException(msg);
     }
-
-    if (eventHubClients.containsKey(streamName)) {
-      LOG.warn("Already registered stream {}.", streamName);
-      return;
-    }
-
-    EventHubClientManager ehClient = eventHubClientManagerFactory.getEventHubClientManager(systemName, streamName, config);
-
-    ehClient.init();
-    eventHubClients.put(streamName, ehClient);
   }
 
   @Override
   public synchronized void start() {
     LOG.debug("Starting system producer.");
 
+    // Create partition senders if required
     if (PartitioningMethod.PARTITION_KEY_AS_PARTITION.equals(partitioningMethod)) {
       // Create all partition senders
-      eventHubClients.forEach((streamName, samzaEventHubClient) -> {
+      eventHubClients.forEach((streamId, samzaEventHubClient) -> {
           EventHubClient ehClient = samzaEventHubClient.getEventHubClient();
 
           try {
@@ -153,7 +153,7 @@ public class EventHubSystemProducer implements SystemProducer {
               partitionSenders.put(i, partitionSender);
             }
 
-            streamPartitionSenders.put(streamName, partitionSenders);
+            streamPartitionSenders.put(streamId, partitionSenders);
           } catch (InterruptedException | ExecutionException | TimeoutException e) {
             String msg = "Failed to fetch number of Event Hub partitions for partition sender creation";
             throw new SamzaException(msg, e);
@@ -164,15 +164,16 @@ public class EventHubSystemProducer implements SystemProducer {
         });
     }
 
-    for (String eventHub : eventHubClients.keySet()) {
-      eventWriteRate.put(eventHub, registry.newCounter(eventHub, EVENT_WRITE_RATE));
-      eventByteWriteRate.put(eventHub, registry.newCounter(eventHub, EVENT_BYTE_WRITE_RATE));
-      sendLatency.put(eventHub, new SamzaHistogram(registry, eventHub, SEND_LATENCY));
-      sendCallbackLatency.put(eventHub, new SamzaHistogram(registry, eventHub, SEND_CALLBACK_LATENCY));
-      sendErrors.put(eventHub, registry.newCounter(eventHub, SEND_ERRORS));
-    }
+    // Initiate metrics
+    eventHubClients.keySet().forEach((streamId) -> {
+        eventWriteRate.put(streamId, registry.newCounter(streamId, EVENT_WRITE_RATE));
+        eventByteWriteRate.put(streamId, registry.newCounter(streamId, EVENT_BYTE_WRITE_RATE));
+        sendLatency.put(streamId, new SamzaHistogram(registry, streamId, SEND_LATENCY));
+        sendCallbackLatency.put(streamId, new SamzaHistogram(registry, streamId, SEND_CALLBACK_LATENCY));
+        sendErrors.put(streamId, registry.newCounter(streamId, SEND_ERRORS));
+      });
 
-    // Locking to ensure that these aggregated metrics will be created only once across multiple system consumers.
+    // Locking to ensure that these aggregated metrics will be created only once across multiple system producers.
     synchronized (AGGREGATE_METRICS_LOCK) {
       if (aggEventWriteRate == null) {
         aggEventWriteRate = registry.newCounter(AGGREGATE, EVENT_WRITE_RATE);
@@ -187,35 +188,38 @@ public class EventHubSystemProducer implements SystemProducer {
   }
 
   @Override
-  public synchronized void send(String destination, OutgoingMessageEnvelope envelope) {
+  public synchronized void send(String source, OutgoingMessageEnvelope envelope) {
+    LOG.debug(String.format("Trying to send %s", envelope));
     if (!isStarted) {
       throw new SamzaException("Trying to call send before the producer is started.");
     }
 
-    if (!eventHubClients.containsKey(destination)) {
-      String msg = String.format("Trying to send event to a destination {%s} that is not registered.", destination);
+    String streamId = config.getStreamId(envelope.getSystemStream().getStream());
+
+    if (!eventHubClients.containsKey(streamId)) {
+      String msg = String.format("Trying to send event to a destination {%s} that is not registered.", streamId);
       throw new SamzaException(msg);
     }
 
     checkCallbackThrowable("Received exception on message send");
 
-    EventData eventData = createEventData(destination, envelope);
+    EventData eventData = createEventData(streamId, envelope);
     int eventDataLength =  eventData.getBytes() == null ? 0 : eventData.getBytes().length;
-    eventWriteRate.get(destination).inc();
+    eventWriteRate.get(streamId).inc();
     aggEventWriteRate.inc();
-    eventByteWriteRate.get(destination).inc(eventDataLength);
+    eventByteWriteRate.get(streamId).inc(eventDataLength);
     aggEventByteWriteRate.inc(eventDataLength);
-    EventHubClientManager ehClient = eventHubClients.get(destination);
+    EventHubClientManager ehClient = eventHubClients.get(streamId);
 
     long beforeSendTimeMs = System.currentTimeMillis();
 
     // Async send call
-    CompletableFuture<Void> sendResult = sendToEventHub(destination, eventData, getEnvelopePartitionId(envelope),
+    CompletableFuture<Void> sendResult = sendToEventHub(streamId, eventData, getEnvelopePartitionId(envelope),
             ehClient.getEventHubClient());
 
     long afterSendTimeMs = System.currentTimeMillis();
     long latencyMs = afterSendTimeMs - beforeSendTimeMs;
-    sendLatency.get(destination).update(latencyMs);
+    sendLatency.get(streamId).update(latencyMs);
     aggSendLatency.update(latencyMs);
 
     pendingFutures.add(sendResult);
@@ -223,32 +227,37 @@ public class EventHubSystemProducer implements SystemProducer {
     // Auto update the metrics and possible throwable when futures are complete.
     sendResult.handle((aVoid, throwable) -> {
         long callbackLatencyMs = System.currentTimeMillis() - afterSendTimeMs;
-        sendCallbackLatency.get(destination).update(callbackLatencyMs);
+        sendCallbackLatency.get(streamId).update(callbackLatencyMs);
         aggSendCallbackLatency.update(callbackLatencyMs);
         if (throwable != null) {
-          sendErrors.get(destination).inc();
+          sendErrors.get(streamId).inc();
           aggSendErrors.inc();
-          LOG.error("Send message to event hub: {} failed with exception: ", destination, throwable);
+          LOG.error("Send message to event hub: {} failed with exception: ", streamId, throwable);
           sendExceptionOnCallback.compareAndSet(null, throwable);
         }
         return aVoid;
       });
   }
 
-  private CompletableFuture<Void> sendToEventHub(String streamName, EventData eventData, Object partitionKey,
+  private CompletableFuture<Void> sendToEventHub(String streamId, EventData eventData, Object partitionKey,
                                                  EventHubClient eventHubClient) {
-    if (partitioningMethod == PartitioningMethod.EVENT_HUB_HASHING) {
+    if (PartitioningMethod.ROUND_ROBIN.equals(partitioningMethod)) {
+      return eventHubClient.send(eventData);
+    } else if (PartitioningMethod.EVENT_HUB_HASHING.equals(partitioningMethod)) {
+      if (partitionKey == null) {
+        throw new SamzaException("Partition key cannot be null for EventHub hashing");
+      }
       return eventHubClient.send(eventData, convertPartitionKeyToString(partitionKey));
-    } else if (partitioningMethod == PartitioningMethod.PARTITION_KEY_AS_PARTITION) {
+    } else if (PartitioningMethod.PARTITION_KEY_AS_PARTITION.equals(partitioningMethod)) {
       if (!(partitionKey instanceof Integer)) {
         String msg = "Partition key should be of type Integer";
         throw new SamzaException(msg);
       }
 
-      Integer numPartition = streamPartitionSenders.get(streamName).size();
+      Integer numPartition = streamPartitionSenders.get(streamId).size();
       Integer destinationPartition = (Integer) partitionKey % numPartition;
 
-      PartitionSender sender = streamPartitionSenders.get(streamName).get(destinationPartition);
+      PartitionSender sender = streamPartitionSenders.get(streamId).get(destinationPartition);
       return sender.send(eventData);
     } else {
       throw new SamzaException("Unknown partitioning method " + partitioningMethod);
@@ -256,7 +265,7 @@ public class EventHubSystemProducer implements SystemProducer {
   }
 
   protected Object getEnvelopePartitionId(OutgoingMessageEnvelope envelope) {
-    return envelope.getPartitionKey();
+    return envelope.getPartitionKey() == null ? envelope.getKey() : envelope.getPartitionKey();
   }
 
   private String convertPartitionKeyToString(Object partitionKey) {
@@ -267,12 +276,12 @@ public class EventHubSystemProducer implements SystemProducer {
     } else if (partitionKey instanceof byte[]) {
       return new String((byte[]) partitionKey, Charset.defaultCharset());
     } else {
-      throw new SamzaException("Unsupported key type: " + partitionKey.getClass().toString());
+      throw new SamzaException("Unsupported key type: " +  partitionKey.getClass().toString());
     }
   }
 
-  protected EventData createEventData(String streamName, OutgoingMessageEnvelope envelope) {
-    Optional<Interceptor> interceptor = Optional.ofNullable(interceptors.getOrDefault(streamName, null));
+  protected EventData createEventData(String streamId, OutgoingMessageEnvelope envelope) {
+    Optional<Interceptor> interceptor = Optional.ofNullable(interceptors.getOrDefault(streamId, null));
     byte[] eventValue = (byte[]) envelope.getMessage();
     if (interceptor.isPresent()) {
       eventValue = interceptor.get().intercept(eventValue);
@@ -288,7 +297,7 @@ public class EventHubSystemProducer implements SystemProducer {
         keyValue = (envelope.getKey() instanceof byte[]) ? new String((byte[]) envelope.getKey())
                 : envelope.getKey().toString();
       }
-      eventData.getProperties().put("key", keyValue);
+      eventData.getProperties().put(KEY, keyValue);
     }
     return eventData;
   }

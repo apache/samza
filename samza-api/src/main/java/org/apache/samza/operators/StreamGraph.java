@@ -33,8 +33,10 @@ public interface StreamGraph {
    * Sets the default {@link Serde} to use for (de)serializing messages.
    * <p>.
    * If the default serde is set, it must be set <b>before</b> creating any input or output streams.
-   * If no explicit or default serdes are provided, a NoOpSerde is used for keys and values. This means that any
-   * streams created without explicit or default serdes should be cast to MessageStream&lt;KV&lt;Object, Object&gt;&gt;.
+   * <p>
+   * If no explicit or default serdes are provided, a {@code KVSerde<NoOpSerde, NoOpSerde>} is used. This means that
+   * any streams created without explicit or default serdes should be cast to {@code MessageStream<KV<Object, Object>>}.
+   * <p>
    * Providing an incompatible message type for the input/output streams that use the default serde will result in
    * {@link ClassCastException}s at runtime.
    *
@@ -44,6 +46,13 @@ public interface StreamGraph {
 
   /**
    * Gets the input {@link MessageStream} corresponding to the {@code streamId}.
+   * <p>
+   * An input {@code MessageStream<KV<K, V>}, which can be obtained by calling this method with a {@code KVSerde<K, V>},
+   * can receive messages of type {@code KV<K, V>}. An input {@code MessageStream<M>} with any other {@code Serde<M>}
+   * can receive messages of type M - the key in the incoming message is ignored.
+   * <p>
+   * A {@code KVSerde<NoOpSerde, NoOpSerde>} or {@code NoOpSerde} may be used if the {@code SystemConsumer}
+   * deserializes the incoming messages itself, and no further deserialization is required from the framework.
    * <p>
    * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
@@ -59,9 +68,10 @@ public interface StreamGraph {
    * Same as {@link #getInputStream(String, Serde)}, but uses the default {@link Serde} provided via
    * {@link #setDefaultSerde(Serde)} for deserializing input messages.
    * <p>
-   * If no default serde has been provided <b>before</b> calling this method, a no-op serde is used.
-   * Providing a message type {@code M} that is incompatible with the default Serde will result in
+   * If no default serde has been provided <b>before</b> calling this method, a {@code KVSerde<NoOpSerde, NoOpSerde>}
+   * is used. Providing a message type {@code M} that is incompatible with the default Serde will result in
    * {@link ClassCastException}s at runtime.
+   * <p>
    * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
    * @param streamId the unique ID for the stream
@@ -73,6 +83,16 @@ public interface StreamGraph {
 
   /**
    * Gets the {@link OutputStream} corresponding to the {@code streamId}.
+   * <p>
+   * An {@code OutputStream<KV<K, V>>}, which can be obtained by calling this method with a {@code KVSerde<K, V>},
+   * can send messages of type {@code KV<K, V>}. An {@code OutputStream<M>} with any other {@code Serde<M>} can
+   * send messages of type M without a key.
+   * <p>
+   * A {@code KVSerde<NoOpSerde, NoOpSerde>} or {@code NoOpSerde} may be used if the {@code SystemProducer}
+   * serializes the outgoing messages itself, and no prior serialization is required from the framework.
+   * <p>
+   * When sending messages to an {@code OutputStream<KV<K, V>>}, messages are partitioned using their serialized key.
+   * When sending messages to any other {@code OutputStream<M>}, messages are partitioned using a null partition key.
    * <p>
    * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
@@ -88,9 +108,10 @@ public interface StreamGraph {
    * Same as {@link #getOutputStream(String, Serde)}, but uses the default {@link Serde} provided via
    * {@link #setDefaultSerde(Serde)} for serializing output messages.
    * <p>
-   * If no default serde has been provided <b>before</b> calling this method, a no-op serde is used.
-   * Providing a message type {@code M} that is incompatible with the default Serde will result in
+   * If no default serde has been provided <b>before</b> calling this method, a {@code KVSerde<NoOpSerde, NoOpSerde>}
+   * is used. Providing a message type {@code M} that is incompatible with the default Serde will result in
    * {@link ClassCastException}s at runtime.
+   * <p>
    * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
    * @param streamId the unique ID for the stream

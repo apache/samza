@@ -23,11 +23,13 @@ import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.checkpoint.CheckpointManagerFactory;
 import org.apache.samza.config.AzureConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.metrics.MetricsRegistry;
 
 public class AzureCheckpointManagerFactory implements CheckpointManagerFactory {
   @Override
   public CheckpointManager getCheckpointManager(Config config, MetricsRegistry registry) {
-    return new AzureCheckpointManager(new AzureConfig(config));
+    JobConfig jobConfig = new JobConfig(config);
+    return new AzureCheckpointManager(new AzureConfig(config), jobConfig.getName());
   }
 }
