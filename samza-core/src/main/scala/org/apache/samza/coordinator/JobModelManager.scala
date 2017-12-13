@@ -24,7 +24,9 @@ import java.util
 import java.util.concurrent.atomic.AtomicReference
 
 import org.apache.samza.config.ClusterManagerConfig
+import org.apache.samza.config.JobConfig
 import org.apache.samza.config.JobConfig.Config2Job
+import org.apache.samza.config.MapConfig
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config.Config
@@ -49,6 +51,7 @@ import org.apache.samza.util.Util
 import org.apache.samza.{Partition, PartitionChangeException, SamzaException}
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable.ListBuffer
 
 /**
  * Helper companion object that is responsible for wiring up a JobModelManager
@@ -104,7 +107,15 @@ object JobModelManager extends Logging {
 
     val streamMetadataCache = new StreamMetadataCache(systemAdmins = systemAdmins, cacheTTLms = 0)
     val previousChangelogPartitionMapping = changelogManager.readChangeLogPartitionMapping()
-    val jobModelManager = getJobModelManager(config, previousChangelogPartitionMapping, localityManager, streamMetadataCache, null)
+
+    val processorList = new ListBuffer[String]()
+    val containerCount = new JobConfig(config).getContainerCount
+    for (i <- 0 until containerCount) {
+      processorList += i.toString
+    }
+
+    val jobModelManager = getJobModelManager(config, previousChangelogPartitionMapping, localityManager,
+      streamMetadataCache, processorList.toList.asJava)
     val jobModel = jobModelManager.jobModel
     // Save the changelog mapping back to the ChangelogPartitionmanager
     // newChangelogPartitionMapping is the merging of all current task:changelog
@@ -211,7 +222,13 @@ object JobModelManager extends Logging {
                    containerIds: java.util.List[String]): JobModel = {
     // Do grouping to fetch TaskName to SSP mapping
     val allSystemStreamPartitions = getMatchedInputStreamPartitions(config, streamMetadataCache)
-    val grouper = getSystemStreamPartitionGrouper(config)
+
+    // processor list is required by some of the groupers. So, let's pass them as part of the config.
+    // Copy the config and add the processor list to the config copy.
+    val configMap = new util.HashMap[String, String](config)
+    configMap.put(JobConfig.PROCESSOR_LIST, String.join(",", containerIds))
+    val grouper = getSystemStreamPartitionGrouper(new MapConfig(configMap))
+
     val groups = grouper.group(allSystemStreamPartitions.asJava)
     info("SystemStreamPartitionGrouper %s has grouped the SystemStreamPartitions into %d tasks with the following taskNames: %s" format(grouper, groups.size(), groups.keySet()))
 

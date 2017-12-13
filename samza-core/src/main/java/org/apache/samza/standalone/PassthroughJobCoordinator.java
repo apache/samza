@@ -23,6 +23,7 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JavaSystemConfig;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
@@ -125,13 +126,16 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(
         Util.<String, SystemAdmin>javaMapAsScalaMap(systemAdmins), 5000, SystemClock.instance());
 
+    String containerId = Integer.toString(config.getInt(JobConfig.PROCESSOR_ID()));
+
     /** TODO:
      Locality Manager seems to be required in JC for reading locality info and grouping tasks intelligently and also,
      in SamzaContainer for writing locality info to the coordinator stream. This closely couples together
      TaskNameGrouper with the LocalityManager! Hence, groupers should be a property of the jobcoordinator
      (job.coordinator.task.grouper, instead of task.systemstreampartition.grouper)
      */
-    return JobModelManager.readJobModel(this.config, Collections.emptyMap(), null, streamMetadataCache, null);
+    return JobModelManager.readJobModel(this.config, Collections.emptyMap(), null, streamMetadataCache,
+        Collections.singletonList(containerId));
   }
 
   @Override
