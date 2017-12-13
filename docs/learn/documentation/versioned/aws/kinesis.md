@@ -45,38 +45,62 @@ sensitive.systems.kinesis-system.streams.input0.aws.secretKey=YOUR-SECRET-KEY
 The tuple required to access the Kinesis data stream must be provided, namely the fields `YOUR-STREAM-REGION`, `YOUR-ACCESS-KEY`, `YOUR-SECRET-KEY`.
 ```
 
-#### Advanced Configuration
+#### Advanced Configuration:
 
-Samza also provides the following Kinesis system specific passthrough configs:
-* [AWS client configs](http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/ClientConfiguration.html)
-* [AWS Kinesis Client Library configs](https://github.com/awslabs/amazon-kinesis-client/blob/master/src/main/java/com/amazonaws/services/kinesis/clientlibrary/lib/worker/KinesisClientLibConfiguration.java)
+##### AWS Client Configs:
 
+You can configure any [AWS client config](http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/ClientConfiguration.html) with the prefix system.system-name.aws.clientConfig.*
 ```
-# configure AWS client passthrough configs.
-systems.kinesis-system.aws.clientConfig.CLIENT-CONFIG=YOUR-CLIENT-CONFIG-VALUE
+system.system-name.aws.clientConfig.CONFIG-NAME=CONFIG-VALUE
+```
 
-# set a proxy
-systems.kinesis-system.aws.clientConfig.ProxyHost=YOUR-PROXY-HOST
-systems.kinesis-system.aws.clientConfig.ProxyPort=YOUR-PROXY-PORT
+As an example, to set a proxy host and proxy port for the AWS Client:
+```
+systems.system-name.aws.clientConfig.ProxyHost=my-proxy-host.com
+systems.system-name.aws.clientConfig.ProxyPort=my-proxy-port
+```
 
-# configure AWS Kinesis Client Library passthrough configs.
-systems.kinesis-system.streams.input0.aws.kcl.KCL-CONFIG=YOUR-KCL-CONFIG-VALUE
+##### KCL Configs:
 
-# to reset checkpoint and read from the oldest (TRIM_HORIZON) or the default upcoming offset (LATEST), change the table name and set the read position.
-systems.kinesis-system.streams.input0.aws.kcl.TableName=YOUR-APP-TABLE-NAME
-systems.kinesis-system.streams.input0.aws.kcl.InitialPositionInStream=YOUR-INIT-READ-POSITION
+Similarly, you can set any [Kinesis Client Library config](https://github.com/awslabs/amazon-kinesis-client/blob/master/src/main/java/com/amazonaws/services/kinesis/clientlibrary/lib/worker/KinesisClientLibConfiguration.java) for a stream by configuring it under systems.system-name.streams.stream-name.aws.kcl.*
+```
+systems.system-name.streams.stream-name.aws.kcl.CONFIG-NAME=CONFIG-VALUE
+```
+
+As an example, to reset the checkpoint and set the starting position for a stream:
+```
+systems.kinesis-system.streams.input0.aws.kcl.TableName=my-app-table-name
+# set the starting position to either TRIM_HORIZON (oldest) or LATEST (latest)
+systems.kinesis-system.streams.input0.aws.kcl.InitialPositionInStream=my-start-position
 ```
 
 #### Limitations
 
 The following limitations apply for Samza jobs consuming from Kinesis streams using the Samza consumer:
-* No support for stateful processing: It could be done as a second stage job after repartitioning to kafka in the first stage.
-* No support for broadcast streams.
-* Kinesis streams cannot be configured as bootstrap streams.
-* SystemStreamPartitionGroupers other than AllSspToSingleTaskGrouper are not supported.
-* A single Samza job cannot be configured to consume from a combination of Kinesis and other system inputs (like Kafka, HDFS, EventHubs, etc).
+* Stateful processing (eg: windows or joins) is not supported on Kinesis streams. However, you can accomplish this by chaining two Samza jobs where the first job reads from Kinesis and sends to Kafka (or EventHubs) while the second job processes the data from Kafka (or EventHubs).
+* Kinesis streams cannot be configured as [bootstrap](https://samza.apache.org/learn/documentation/latest/container/streams.html) or [broadcast](https://samza.apache.org/learn/documentation/latest/container/samza-container.html) streams.
+* Kinesis streams must be used with the [AllSspToSingleTaskGrouperFactory](https://github.com/apache/samza/blob/master/samza-core/src/main/java/org/apache/samza/container/grouper/stream/AllSspToSingleTaskGrouperFactory.java). No other grouper is supported.
+* A Samza job that consumes from Kinesis cannot consume from any other input source. However, you can send your results to any destination (eg: Kafka, EventHubs), and have another Samza job consume them.
 
 
 ### Producing to Kinesis:
 
 The KinesisSystemProducer for Samza is not yet implemented.
+
+
+### How to configure Samza job to consume from Kinesis data stream ?
+
+This tutorial uses [hello-samza](../../../startup/hello-samza/{{site.version}}/) to illustrate how to run a Samza job on Yarn consuming from Kinesis data stream.
+
+For this tutorial, we will pick KinesisHelloSamza from the hello-samza examples. Please create a Kinesis data stream if you have not already.
+
+#### Update properties file
+
+Update the following properties in the kinesis-hello-samza.properties file:
+
+* task.inputs=kinesis.<kinesis-stream>
+* systems.kinesis.streams.<kinesis-stream>.aws.region=<kinesis-stream-region>
+* systems.kinesis.streams.<kinesis-stream>.aws.accessKey=<your-access-key>
+* sensitive.systems.kinesis.streams.<kinesis-stream>.aws.region=<your-secret-key>
+
+Then you should be able to run the Samza job on Yarn as described in [hello-samza](../../../startup/hello-samza/{{site.version}}/). Check the log file for the Kinesis records that are being read from the Kinesis data stream.
