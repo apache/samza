@@ -273,7 +273,7 @@ The merge transform preserves the order of each MessageStream, so if message `m1
 
 As an alternative to the `merge` instance method, you also can use the [MessageStream#mergeAll](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html#mergeAll-java.util.Collection-) static method to merge MessageStreams without operating on an initial stream.
 
-### SendTo
+### SendTo (stream)
 Sends all messages from this MessageStream to the provided OutputStream. You can specify the key and the value to be used for the outgoing message.
 
 {% highlight java %}
@@ -286,6 +286,16 @@ OutputStream<KV<String, String>> userRegions
 keyedPageViews.sendTo(userRegions);
 {% endhighlight %}
 
+### SendTo (table)
+
+Sends all messages from this MessageStream to the provided table, the expected message type is KV.
+
+{% highlight java %}
+  // Write a new message with memberId as the key and profile as the value to a table.
+  streamGraph.getInputStream("Profile", new NoOpSerde<Profile>())
+      .map(m -> KV.of(m.getMemberId(), m))
+      .sendTo(table);
+{% endhighlight %}
 
 ### Sink
 Allows sending messages from this MessageStream to an output system using the provided [SinkFunction](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/functions/SinkFunction.html).
@@ -302,9 +312,9 @@ pageViews.sink( (msg, collector, coordinator) -> {
 } )
 {% endhighlight %}
 
-### Join
+### Join (stream-stream)
 
-The Join operator joins messages from two MessageStreams using the provided pairwise [JoinFunction](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/functions/JoinFunction.html). Messages are joined when the keys extracted from messages from the first stream match keys extracted from messages in the second stream. Messages in each stream are retained for the provided ttl duration and join results are emitted as matches are found.
+The stream-stream Join operator joins messages from two MessageStreams using the provided pairwise [JoinFunction](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/functions/JoinFunction.html). Messages are joined when the keys extracted from messages from the first stream match keys extracted from messages in the second stream. Messages in each stream are retained for the provided ttl duration and join results are emitted as matches are found.
 
 {% highlight java %}
 // Joins a stream of OrderRecord with a stream of ShipmentRecord by orderId with a TTL of 20 minutes.
@@ -338,6 +348,38 @@ MessageStream<FulfilledOrderRecord> shippedOrders = orders.join(shipments, new O
 
 {% endhighlight %}
 
+### Join (stream-table)
+
+The stream-table Join operator joins messages from a MessageStream using the provided [StreamTableJoinFunction](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/functions/StreamTableJoinFunction.html). Messages from the input stream are joined with record in table using key extracted from input messages. The join function is invoked with both the message and the record. If a record is not found in the table, a null value is provided; the join function can choose to return null (inner join) or an output message (left outer join). For join to function properly, it is important to ensure the input stream and table are partitioned using the same key as this impacts the physical placement of data. 
+
+{% highlight java %}
+  streamGraph.getInputStream("PageView", new NoOpSerde<PageView>())
+      .partitionBy(PageView::getMemberId, v -> v, "p1")
+      .join(table, new PageViewToProfileJoinFunction())
+      ...
+{% endhighlight %}
+
+{% highlight java linenos %}
+public class PageViewToProfileJoinFunction implements StreamTableJoinFunction
+    <Integer, KV<Integer, PageView>, KV<Integer, Profile>, EnrichedPageView> {
+  @Override
+  public EnrichedPageView apply(KV<Integer, PageView> m, KV<Integer, Profile> r) {
+    return r != null ? 
+        new EnrichedPageView(...)
+      : null;
+  }
+
+  @Override
+  public Integer getMessageKey(KV<Integer, PageView> message) {
+    return message.getKey();
+  }
+
+  @Override
+  public Integer getRecordKey(KV<Integer, Profile> record) {
+    return record.getKey();
+  }
+}
+{% endhighlight %}
 
 ### Window
 
@@ -406,6 +448,26 @@ MessageStream<WindowPane<Void, Integer>> windowedStream =
 
 {% endhighlight %}
 
+
+### Table
+
+A Table represents a dataset that can be accessed by keys, and is one of the building blocks of the Samza high level API; the main motivation behind it is to support stream-table joins. The current K/V store is leveraged to provide backing store for local tables. More variations such as direct access and composite tables will be supported in the future. The usage of a table typically follows three steps:
+
+1. Create a table
+2. Populate the table using the sendTo() operator
+3. Join a stream with the table using the join() operator
+
+{% highlight java linenos %}
+final StreamApplication app = (streamGraph, cfg) -> {
+  Table<KV<Integer, Profile>> table = streamGraph.getTable(new InMemoryTableDescriptor("t1")
+      .withSerde(KVSerde.of(new IntegerSerde(), new ProfileJsonSerde())));
+  ...
+};
+{% endhighlight %}
+
+Example above creates a TableDescriptor object, which contains all information about a table. The currently supported table types are [InMemoryTableDescriptor](https://github.com/apache/samza/blob/master/samza-kv-inmemory/src/main/java/org/apache/samza/storage/kv/inmemory/InMemoryTableDescriptor.java) and [RocksDbTableDescriptor](https://github.com/apache/samza/blob/master/samza-kv-rocksdb/src/main/java/org/apache/samza/storage/kv/rocksdb/RocksDbTableDescriptor.java). Notice the type of records in a table is KV, and [Serdes](https://samza.apache.org/learn/documentation/latest/container/serialization.html) for both key and value of records needs to be defined (line 4). Additional parameters can be added based on individual table types. 
+
+More details about step 2 and 3 can be found at operator section.
 
 ---
 
