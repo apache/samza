@@ -137,7 +137,7 @@ public class StreamAppender extends AppenderSkeleton {
             // T1: holds L1 and is waiting for L2
             // T2: holds L2 and is waiting to produce to BQ1 which is drained by T3 (SystemProducer) which is waiting for L1
 
-            // This has happened due to locks in Kafka and log4j (see TODO SAMZA-XXXX), which are both out of our control,
+            // This has happened due to locks in Kafka and log4j (see SAMZA-1537), which are both out of our control,
             // so dropping events in the StreamAppender is our best recourse.
 
             // Drain the queue instead of dropping one message just to reduce the frequency of warn logs above.
