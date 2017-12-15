@@ -55,7 +55,7 @@ public class TestStreamGraphImpl {
     MessageStream<TestMessageEnvelope> inputStream = graph.getInputStream("test-stream-1", mockValueSerde);
 
     InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec =
-        (InputOperatorSpec) ((MessageStreamImpl<TestMessageEnvelope>) inputStream).getOperatorSpec();
+        (InputOperatorSpec) ((MessageStreamImpl<TestMessageEnvelope>) inputStream).getSource();
     assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
     assertEquals(graph.getInputOperators().get(mockStreamSpec), inputOpSpec);
     assertEquals(mockStreamSpec, inputOpSpec.getStreamSpec());
@@ -78,7 +78,7 @@ public class TestStreamGraphImpl {
     MessageStream<TestMessageEnvelope> inputStream = graph.getInputStream("test-stream-1", mockKVSerde);
 
     InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec =
-        (InputOperatorSpec) ((MessageStreamImpl<TestMessageEnvelope>) inputStream).getOperatorSpec();
+        (InputOperatorSpec) ((MessageStreamImpl<TestMessageEnvelope>) inputStream).getSource();
     assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
     assertEquals(graph.getInputOperators().get(mockStreamSpec), inputOpSpec);
     assertEquals(mockStreamSpec, inputOpSpec.getStreamSpec());
@@ -108,7 +108,7 @@ public class TestStreamGraphImpl {
     MessageStream<TestMessageEnvelope> inputStream = graph.getInputStream("test-stream-1");
 
     InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec =
-        (InputOperatorSpec) ((MessageStreamImpl<TestMessageEnvelope>) inputStream).getOperatorSpec();
+        (InputOperatorSpec) ((MessageStreamImpl<TestMessageEnvelope>) inputStream).getSource();
     assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
     assertEquals(graph.getInputOperators().get(mockStreamSpec), inputOpSpec);
     assertEquals(mockStreamSpec, inputOpSpec.getStreamSpec());
@@ -132,7 +132,7 @@ public class TestStreamGraphImpl {
     MessageStream<TestMessageEnvelope> inputStream = graph.getInputStream("test-stream-1");
 
     InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec =
-        (InputOperatorSpec) ((MessageStreamImpl<TestMessageEnvelope>) inputStream).getOperatorSpec();
+        (InputOperatorSpec) ((MessageStreamImpl<TestMessageEnvelope>) inputStream).getSource();
     assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
     assertEquals(graph.getInputOperators().get(mockStreamSpec), inputOpSpec);
     assertEquals(mockStreamSpec, inputOpSpec.getStreamSpec());
@@ -151,7 +151,7 @@ public class TestStreamGraphImpl {
     MessageStream<TestMessageEnvelope> inputStream = graph.getInputStream("test-stream-1");
 
     InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec =
-        (InputOperatorSpec) ((MessageStreamImpl<TestMessageEnvelope>) inputStream).getOperatorSpec();
+        (InputOperatorSpec) ((MessageStreamImpl<TestMessageEnvelope>) inputStream).getSource();
     assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
     assertEquals(graph.getInputOperators().get(mockStreamSpec), inputOpSpec);
     assertEquals(mockStreamSpec, inputOpSpec.getStreamSpec());
@@ -169,7 +169,7 @@ public class TestStreamGraphImpl {
     MessageStream<TestMessageEnvelope> inputStream = graph.getInputStream("test-stream-1");
 
     InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec =
-        (InputOperatorSpec) ((MessageStreamImpl<TestMessageEnvelope>) inputStream).getOperatorSpec();
+        (InputOperatorSpec) ((MessageStreamImpl<TestMessageEnvelope>) inputStream).getSource();
     assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
     assertEquals(graph.getInputOperators().get(mockStreamSpec), inputOpSpec);
     assertEquals(mockStreamSpec, inputOpSpec.getStreamSpec());
@@ -188,9 +188,9 @@ public class TestStreamGraphImpl {
     MessageStream<Object> inputStream2 = graph.getInputStream("test-stream-2");
 
     InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec1 =
-        (InputOperatorSpec) ((MessageStreamImpl<Object>) inputStream1).getOperatorSpec();
+        (InputOperatorSpec) ((MessageStreamImpl<Object>) inputStream1).getSource();
     InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec2 =
-        (InputOperatorSpec) ((MessageStreamImpl<Object>) inputStream2).getOperatorSpec();
+        (InputOperatorSpec) ((MessageStreamImpl<Object>) inputStream2).getSource();
 
     assertEquals(graph.getInputOperators().size(), 2);
     assertEquals(graph.getInputOperators().get(mockStreamSpec1), inputOpSpec1);
@@ -373,13 +373,13 @@ public class TestStreamGraphImpl {
     IntermediateMessageStreamImpl<TestMessageEnvelope> intermediateStreamImpl =
         graph.getIntermediateStream("test-stream-1", mockValueSerde);
 
-    assertEquals(graph.getInputOperators().get(mockStreamSpec), intermediateStreamImpl.getOperatorSpec());
+    assertEquals(graph.getInputOperators().get(mockStreamSpec), intermediateStreamImpl.getSource());
     assertEquals(graph.getOutputStreams().get(mockStreamSpec), intermediateStreamImpl.getOutputStream());
     assertEquals(mockStreamSpec, intermediateStreamImpl.getStreamSpec());
     assertTrue(intermediateStreamImpl.getOutputStream().getKeySerde() instanceof NoOpSerde);
     assertEquals(mockValueSerde, intermediateStreamImpl.getOutputStream().getValueSerde());
-    assertTrue(((InputOperatorSpec) intermediateStreamImpl.getOperatorSpec()).getKeySerde() instanceof NoOpSerde);
-    assertEquals(mockValueSerde, ((InputOperatorSpec) intermediateStreamImpl.getOperatorSpec()).getValueSerde());
+    assertTrue(((InputOperatorSpec) intermediateStreamImpl.getSource()).getKeySerde() instanceof NoOpSerde);
+    assertEquals(mockValueSerde, ((InputOperatorSpec) intermediateStreamImpl.getSource()).getValueSerde());
   }
 
   @Test
@@ -401,13 +401,13 @@ public class TestStreamGraphImpl {
     IntermediateMessageStreamImpl<TestMessageEnvelope> intermediateStreamImpl =
         graph.getIntermediateStream("test-stream-1", mockKVSerde);
 
-    assertEquals(graph.getInputOperators().get(mockStreamSpec), intermediateStreamImpl.getOperatorSpec());
+    assertEquals(graph.getInputOperators().get(mockStreamSpec), intermediateStreamImpl.getSource());
     assertEquals(graph.getOutputStreams().get(mockStreamSpec), intermediateStreamImpl.getOutputStream());
     assertEquals(mockStreamSpec, intermediateStreamImpl.getStreamSpec());
     assertEquals(mockKeySerde, intermediateStreamImpl.getOutputStream().getKeySerde());
     assertEquals(mockValueSerde, intermediateStreamImpl.getOutputStream().getValueSerde());
-    assertEquals(mockKeySerde, ((InputOperatorSpec) intermediateStreamImpl.getOperatorSpec()).getKeySerde());
-    assertEquals(mockValueSerde, ((InputOperatorSpec) intermediateStreamImpl.getOperatorSpec()).getValueSerde());
+    assertEquals(mockKeySerde, ((InputOperatorSpec) intermediateStreamImpl.getSource()).getKeySerde());
+    assertEquals(mockValueSerde, ((InputOperatorSpec) intermediateStreamImpl.getSource()).getValueSerde());
   }
 
   @Test
@@ -426,13 +426,13 @@ public class TestStreamGraphImpl {
     IntermediateMessageStreamImpl<TestMessageEnvelope> intermediateStreamImpl =
         graph.getIntermediateStream("test-stream-1", null);
 
-    assertEquals(graph.getInputOperators().get(mockStreamSpec), intermediateStreamImpl.getOperatorSpec());
+    assertEquals(graph.getInputOperators().get(mockStreamSpec), intermediateStreamImpl.getSource());
     assertEquals(graph.getOutputStreams().get(mockStreamSpec), intermediateStreamImpl.getOutputStream());
     assertEquals(mockStreamSpec, intermediateStreamImpl.getStreamSpec());
     assertTrue(intermediateStreamImpl.getOutputStream().getKeySerde() instanceof NoOpSerde);
     assertEquals(mockValueSerde, intermediateStreamImpl.getOutputStream().getValueSerde());
-    assertTrue(((InputOperatorSpec) intermediateStreamImpl.getOperatorSpec()).getKeySerde() instanceof NoOpSerde);
-    assertEquals(mockValueSerde, ((InputOperatorSpec) intermediateStreamImpl.getOperatorSpec()).getValueSerde());
+    assertTrue(((InputOperatorSpec) intermediateStreamImpl.getSource()).getKeySerde() instanceof NoOpSerde);
+    assertEquals(mockValueSerde, ((InputOperatorSpec) intermediateStreamImpl.getSource()).getValueSerde());
   }
 
   @Test
@@ -455,13 +455,13 @@ public class TestStreamGraphImpl {
     IntermediateMessageStreamImpl<TestMessageEnvelope> intermediateStreamImpl =
         graph.getIntermediateStream("test-stream-1", null);
 
-    assertEquals(graph.getInputOperators().get(mockStreamSpec), intermediateStreamImpl.getOperatorSpec());
+    assertEquals(graph.getInputOperators().get(mockStreamSpec), intermediateStreamImpl.getSource());
     assertEquals(graph.getOutputStreams().get(mockStreamSpec), intermediateStreamImpl.getOutputStream());
     assertEquals(mockStreamSpec, intermediateStreamImpl.getStreamSpec());
     assertEquals(mockKeySerde, intermediateStreamImpl.getOutputStream().getKeySerde());
     assertEquals(mockValueSerde, intermediateStreamImpl.getOutputStream().getValueSerde());
-    assertEquals(mockKeySerde, ((InputOperatorSpec) intermediateStreamImpl.getOperatorSpec()).getKeySerde());
-    assertEquals(mockValueSerde, ((InputOperatorSpec) intermediateStreamImpl.getOperatorSpec()).getValueSerde());
+    assertEquals(mockKeySerde, ((InputOperatorSpec) intermediateStreamImpl.getSource()).getKeySerde());
+    assertEquals(mockValueSerde, ((InputOperatorSpec) intermediateStreamImpl.getSource()).getValueSerde());
   }
 
   @Test
@@ -477,13 +477,13 @@ public class TestStreamGraphImpl {
     IntermediateMessageStreamImpl<TestMessageEnvelope> intermediateStreamImpl =
         graph.getIntermediateStream("test-stream-1", null);
 
-    assertEquals(graph.getInputOperators().get(mockStreamSpec), intermediateStreamImpl.getOperatorSpec());
+    assertEquals(graph.getInputOperators().get(mockStreamSpec), intermediateStreamImpl.getSource());
     assertEquals(graph.getOutputStreams().get(mockStreamSpec), intermediateStreamImpl.getOutputStream());
     assertEquals(mockStreamSpec, intermediateStreamImpl.getStreamSpec());
     assertTrue(intermediateStreamImpl.getOutputStream().getKeySerde() instanceof NoOpSerde);
     assertTrue(intermediateStreamImpl.getOutputStream().getValueSerde() instanceof NoOpSerde);
-    assertTrue(((InputOperatorSpec) intermediateStreamImpl.getOperatorSpec()).getKeySerde() instanceof NoOpSerde);
-    assertTrue(((InputOperatorSpec) intermediateStreamImpl.getOperatorSpec()).getValueSerde() instanceof NoOpSerde);
+    assertTrue(((InputOperatorSpec) intermediateStreamImpl.getSource()).getKeySerde() instanceof NoOpSerde);
+    assertTrue(((InputOperatorSpec) intermediateStreamImpl.getSource()).getValueSerde() instanceof NoOpSerde);
   }
 
   @Test(expected = IllegalStateException.class)

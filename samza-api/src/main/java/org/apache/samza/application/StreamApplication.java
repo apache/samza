@@ -24,14 +24,11 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.metrics.MetricsReporter;
-import org.apache.samza.operators.IOSystem;
-import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamDescriptor;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.functions.InitableFunction;
-import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.task.StreamTask;
@@ -189,6 +186,11 @@ public class StreamApplication {
    */
   public final void waitForFinish() {
     this.runner.waitForFinish(this);
+  }
+
+  public StreamApplication withMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
+    this.runner.addMetricsReporters(metricsReporters);
+    return this;
   }
 
   public class AppConfig extends MapConfig {

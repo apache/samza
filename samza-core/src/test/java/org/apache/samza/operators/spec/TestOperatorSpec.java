@@ -54,6 +54,16 @@ public class TestOperatorSpec implements Serializable {
   }
 
   @Test
+  public void testMapWithLambda() throws IOException, ClassNotFoundException {
+    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec = (StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>)
+        OperatorSpecs.<TestMessageEnvelope, TestOutputMessageEnvelope>createMapOperatorSpec(m -> new TestOutputMessageEnvelope(m.getKey(), m.getMessage().hashCode()), 0);
+    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec = streamOperatorSpec.copy();
+    assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
+    assertTrue(streamOperatorSpec.isClone(cloneOperatorSpec));
+    assertNotEquals(streamOperatorSpec.getTransformFn(), cloneOperatorSpec.getTransformFn());
+  }
+
+  @Test
   public void testInputOperatorSpec() throws IOException, ClassNotFoundException {
     Serde<Object> objSerde = new Serde<Object>() {
 

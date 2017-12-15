@@ -85,9 +85,11 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
     // NOTE: if we don't clone for each task, global variables used across different tasks are possible. If we clone
     // the context manager for each task, the shared context is only across operators in the same task instance. I am ignoring
     // the global shared variable in this case and only focus on shared context within a single task instance for now.
-    this.contextManager = streamGraph.getContextManager().getContextManagerPerTask();
-    if (this.contextManager != null) {
-      this.contextManager.init(config, context);
+    if (streamGraph.getContextManager() != null) {
+      this.contextManager = streamGraph.getContextManager().getContextManagerPerTask();
+      if (this.contextManager != null) {
+        this.contextManager.init(config, context);
+      }
     }
 
     // create the operator impl DAG corresponding to the logical operator spec DAG

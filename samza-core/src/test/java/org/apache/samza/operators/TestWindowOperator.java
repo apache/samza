@@ -26,14 +26,16 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.samza.Partition;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplicationInternal;
 import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.metrics.MetricsRegistryMap;
-import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.impl.store.TestInMemoryStore;
 import org.apache.samza.operators.impl.store.TimeSeriesKeySerde;
 import org.apache.samza.operators.triggers.FiringType;
@@ -76,12 +78,12 @@ public class TestWindowOperator {
     taskContext = mock(TaskContextImpl.class);
     runner = mock(ApplicationRunner.class);
     Serde storeKeySerde = new TimeSeriesKeySerde(new IntegerSerde());
-    Serde storeValSerde = new IntegerEnvelopeSerde();
+    Serde storeValSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
 
     when(taskContext.getSystemStreamPartitions()).thenReturn(ImmutableSet
         .of(new SystemStreamPartition("kafka", "integers", new Partition(0))));
     when(taskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
-    when(taskContext.getStore("window-3")).thenReturn(new TestInMemoryStore<>(storeKeySerde, storeValSerde));
+    when(taskContext.getStore("window-1")).thenReturn(new TestInMemoryStore<>(storeKeySerde, storeValSerde));
     when(runner.getStreamSpec("integers")).thenReturn(new StreamSpec("integers", "integers", "kafka"));
   }
 
@@ -385,19 +387,17 @@ public class TestWindowOperator {
   }
 
   private StreamApplication getKeyedTumblingWindowStreamApplication(AccumulationMode mode,
-      Duration duration, Trigger<IntegerEnvelope> earlyTrigger) throws IOException {
+      Duration duration, Trigger<KV<Integer, Integer>> earlyTrigger) throws IOException {
     final SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
-    Config mockConfig = mock(Config.class);
-    doReturn("org.apache.samza.runtime.LocalApplicationRunner").when(mockConfig).get("app.runner.class");
-    StreamApplication testApp = StreamApplications.createStreamApp(mockConfig);
-    MessageStream<IntegerEnvelope> inStream =
-        testApp.openInput("integers", KVSerde.of(new IntegerSerde(), new IntegerSerde()))
-            .map(kv -> new IntegerEnvelope(kv.getKey()));
-    MapFunction<IntegerEnvelope, Integer> keyFn = m -> (Integer) m.getKey();
-    inStream
-        .map(m -> m)
-        .window(Windows.keyedTumblingWindow(keyFn, duration, new IntegerSerde(), new IntegerEnvelopeSerde()).setEarlyTrigger(earlyTrigger)
-            .setAccumulationMode(mode))
+    Map<String, String> mapConfig = new HashMap<>();
+    mapConfig.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
+    mapConfig.put("job.default.system", "kafka");
+    Config appConfig = new MapConfig(mapConfig);
+    StreamApplication testApp = StreamApplications.createStreamApp(appConfig);
+    KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
+    testApp.openInput("integers", kvSerde)
+        .window(Windows.keyedTumblingWindow(KV::getKey, duration, new IntegerSerde(), kvSerde)
+            .setEarlyTrigger(earlyTrigger).setAccumulationMode(mode))
         .sink((message, messageCollector, taskCoordinator) -> {
             messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
           });
@@ -405,17 +405,16 @@ public class TestWindowOperator {
   }
 
   private StreamApplication getTumblingWindowStreamApplication(AccumulationMode mode,
-      Duration duration, Trigger<IntegerEnvelope> earlyTrigger) throws IOException {
+      Duration duration, Trigger<KV<Integer, Integer>> earlyTrigger) throws IOException {
     final SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
-    Config mockConfig = mock(Config.class);
-    doReturn("org.apache.samza.runtime.LocalApplicationRunner").when(mockConfig).get("app.runner.class");
-    StreamApplication testApp = StreamApplications.createStreamApp(mockConfig);
-    MessageStream<IntegerEnvelope> inStream =
-        testApp.openInput("integers", KVSerde.of(new IntegerSerde(), new IntegerSerde()))
-            .map(kv -> new IntegerEnvelope(kv.getKey()));
-    inStream
-        .map(m -> m)
-        .window(Windows.tumblingWindow(duration, new IntegerEnvelopeSerde()).setEarlyTrigger(earlyTrigger)
+    Map<String, String> mapConfig = new HashMap<>();
+    mapConfig.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
+    mapConfig.put("job.default.system", "kafka");
+    Config appConfig = new MapConfig(mapConfig);
+    StreamApplication testApp = StreamApplications.createStreamApp(appConfig);
+    KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
+    testApp.openInput("integers", kvSerde)
+        .window(Windows.tumblingWindow(duration, kvSerde).setEarlyTrigger(earlyTrigger)
             .setAccumulationMode(mode))
         .sink((message, messageCollector, taskCoordinator) -> {
             messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
@@ -425,17 +424,14 @@ public class TestWindowOperator {
 
   private StreamApplication getKeyedSessionWindowStreamApplication(AccumulationMode mode, Duration duration) throws IOException {
     final SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
-    Config mockConfig = mock(Config.class);
-    doReturn("org.apache.samza.runtime.LocalApplicationRunner").when(mockConfig).get("app.runner.class");
-    StreamApplication testApp = StreamApplications.createStreamApp(mockConfig);
-    MessageStream<IntegerEnvelope> inStream =
-        testApp.openInput("integers", KVSerde.of(new IntegerSerde(), new IntegerSerde()))
-            .map(kv -> new IntegerEnvelope(kv.getKey()));
-    MapFunction<IntegerEnvelope, Integer> keyFn = m -> (Integer) m.getKey();
-
-    inStream
-        .map(m -> m)
-        .window(Windows.keyedSessionWindow(keyFn, duration, new IntegerSerde(), new IntegerEnvelopeSerde())
+    Map<String, String> mapConfig = new HashMap<>();
+    mapConfig.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
+    mapConfig.put("job.default.system", "kafka");
+    Config appConfig = new MapConfig(mapConfig);
+    StreamApplication testApp = StreamApplications.createStreamApp(appConfig);
+    KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
+    testApp.openInput("integers", kvSerde)
+        .window(Windows.keyedSessionWindow(KV::getKey, duration, new IntegerSerde(), kvSerde)
             .setAccumulationMode(mode))
         .sink((message, messageCollector, taskCoordinator) -> {
             messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
@@ -443,24 +439,10 @@ public class TestWindowOperator {
     return testApp;
   }
 
-  private class IntegerEnvelope extends IncomingMessageEnvelope  {
+  private class IntegerEnvelope extends IncomingMessageEnvelope {
 
     IntegerEnvelope(Integer key) {
-      super(new SystemStreamPartition("kafka", "integers", new Partition(0)), "1", key, key);
-    }
-  }
-
-  private class IntegerEnvelopeSerde implements Serde<IntegerEnvelope> {
-    private final IntegerSerde intSerde = new IntegerSerde();
-
-    @Override
-    public byte[] toBytes(IntegerEnvelope object) {
-      return intSerde.toBytes((Integer) object.getKey());
-    }
-
-    @Override
-    public IntegerEnvelope fromBytes(byte[] bytes) {
-      return new IntegerEnvelope(intSerde.fromBytes(bytes));
+      super(new SystemStreamPartition("kafka", "integers", new Partition(0)), null, key, key);
     }
   }
 

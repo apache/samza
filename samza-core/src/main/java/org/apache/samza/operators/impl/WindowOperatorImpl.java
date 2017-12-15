@@ -58,8 +58,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -141,10 +139,10 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
       timeSeriesStore.put(key, message, timestamp); // store is in append mode
     } else {
       List<Object> existingState = getValues(key, timestamp);
-      Preconditions.checkState(existingState.size() == 1, "WindowState for aggregating windows " +
+      Preconditions.checkState(existingState.size() <= 1, "WindowState for aggregating windows " +
           "must not contain more than one entry per window");
 
-      Object oldVal = existingState.get(0);
+      Object oldVal = existingState.size() == 0 ? null : existingState.get(0);
       if (oldVal == null) {
         LOG.trace("No existing state found for key. Invoking initializer.");
         oldVal = initializer.get();

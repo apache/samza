@@ -25,10 +25,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.system.kafka.KafkaSystem;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.StreamDescriptor;
-import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.util.CommandLine;
 

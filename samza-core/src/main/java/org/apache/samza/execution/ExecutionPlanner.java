@@ -222,30 +222,30 @@ public class ExecutionPlanner {
   /**
    * This function traverses the {@link OperatorSpec} graph to find and update mappings for all Joins reachable
    * from this input {@link StreamEdge}.
-   * @param operatorSpec the {@link OperatorSpec} to traverse
+   * @param opSpec the {@link OperatorSpec} to traverse
    * @param sourceStreamEdge source {@link StreamEdge}
    * @param joinSpecToStreamEdges mapping from join spec to its source {@link StreamEdge}s
    * @param streamEdgeToJoinSpecs mapping from source {@link StreamEdge} to the join specs that consumes it
    * @param joinQ queue that contains joinSpecs where at least one of the input stream edge partitions is known.
    */
-  private static void findReachableJoins(OperatorSpec operatorSpec, StreamEdge sourceStreamEdge,
+  private static void findReachableJoins(OperatorSpec opSpec, StreamEdge sourceStreamEdge,
       Multimap<OperatorSpec, StreamEdge> joinSpecToStreamEdges,
       Multimap<StreamEdge, OperatorSpec> streamEdgeToJoinSpecs,
       Queue<OperatorSpec> joinQ, Set<OperatorSpec> visited) {
-    if (operatorSpec instanceof JoinOperatorSpec) {
-      joinSpecToStreamEdges.put(operatorSpec, sourceStreamEdge);
-      streamEdgeToJoinSpecs.put(sourceStreamEdge, operatorSpec);
+    if (opSpec instanceof JoinOperatorSpec) {
+      joinSpecToStreamEdges.put(opSpec, sourceStreamEdge);
+      streamEdgeToJoinSpecs.put(sourceStreamEdge, opSpec);
 
-      if (!visited.contains(operatorSpec) && sourceStreamEdge.getPartitionCount() > 0) {
+      if (!visited.contains(opSpec) && sourceStreamEdge.getPartitionCount() > 0) {
         // put the joins with known input partitions into the queue and mark as visited
-        joinQ.add(operatorSpec);
-        visited.add(operatorSpec);
+        joinQ.add(opSpec);
+        visited.add(opSpec);
       }
     }
 
-    Collection<OperatorSpec> registeredOperatorSpecs = operatorSpec.getRegisteredOperatorSpecs();
-    for (OperatorSpec registeredOpSpec : registeredOperatorSpecs) {
-      findReachableJoins(registeredOpSpec, sourceStreamEdge, joinSpecToStreamEdges, streamEdgeToJoinSpecs, joinQ,
+    Collection<OperatorSpec> registeredOperatorSpecs = opSpec.getRegisteredOperatorSpecs();
+    for (OperatorSpec registeredOpNode : registeredOperatorSpecs) {
+      findReachableJoins(registeredOpNode, sourceStreamEdge, joinSpecToStreamEdges, streamEdgeToJoinSpecs, joinQ,
           visited);
     }
   }

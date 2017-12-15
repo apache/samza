@@ -21,6 +21,7 @@ package org.apache.samza.operators.impl;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import java.io.Serializable;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -29,6 +30,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -43,7 +46,9 @@ import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.functions.ClosableFunction;
 import org.apache.samza.operators.functions.FilterFunction;
+import org.apache.samza.operators.functions.InitableFunction;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.impl.store.TimestampedValue;
@@ -64,19 +69,149 @@ import java.util.List;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.SystemClock;
+import org.junit.After;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-public class TestOperatorImplGraph {
+public class TestOperatorImplGraph implements Serializable {
+
+  private void addOperatorRecursively(HashSet<OperatorImpl> s, OperatorImpl op) {
+    List<OperatorImpl> operators = new ArrayList<>();
+    operators.add(op);
+    while (!operators.isEmpty()) {
+      OperatorImpl opImpl = operators.remove(0);
+      s.add(opImpl);
+      if (!opImpl.registeredOperators.isEmpty()) {
+        operators.addAll(opImpl.registeredOperators);
+      }
+    }
+  }
+
+  static class TestMapFunction<M, OM> extends BaseTestFunction implements MapFunction<M, OM> {
+    final Function<M, OM> mapFn;
+
+    public TestMapFunction(String opId, Function<M, OM> mapFn) {
+      super(opId);
+      this.mapFn = mapFn;
+    }
+
+    @Override
+    public OM apply(M message) {
+      return this.mapFn.apply(message);
+    }
+  }
+
+  static class TestJoinFunction<K, M, JM, RM> extends BaseTestFunction implements JoinFunction<K, M, JM, RM> {
+    final BiFunction<M, JM, RM> joiner;
+    final Function<M, K> firstKeyFn;
+    final Function<JM, K> secondKeyFn;
+    final Collection<RM> joinResults = new HashSet<>();
+
+    public TestJoinFunction(String opId, BiFunction<M, JM, RM> joiner, Function<M, K> firstKeyFn, Function<JM, K> secondKeyFn) {
+      super(opId);
+      this.joiner = joiner;
+      this.firstKeyFn = firstKeyFn;
+      this.secondKeyFn = secondKeyFn;
+    }
+
+    @Override
+    public RM apply(M message, JM otherMessage) {
+      RM result = this.joiner.apply(message, otherMessage);
+      this.joinResults.add(result);
+      return result;
+    }
+
+    @Override
+    public K getFirstKey(M message) {
+      return this.firstKeyFn.apply(message);
+    }
+
+    @Override
+    public K getSecondKey(JM message) {
+      return this.secondKeyFn.apply(message);
+    }
+  }
+
+  static abstract class BaseTestFunction implements InitableFunction, ClosableFunction, Serializable {
+
+    static Map<TaskName, Map<String, BaseTestFunction>> perTaskFunctionMap = new HashMap<>();
+    static Map<TaskName, List<String>> perTaskInitList = new HashMap<>();
+    static Map<TaskName, List<String>> perTaskCloseList = new HashMap<>();
+    int numInitCalled = 0;
+    int numCloseCalled = 0;
+    TaskName taskName = null;
+    final String opId;
+
+    public BaseTestFunction(String opId) {
+      this.opId = opId;
+    }
+
+    static public void reset() {
+      perTaskFunctionMap.clear();
+      perTaskCloseList.clear();
+      perTaskInitList.clear();
+    }
+
+    static public BaseTestFunction getInstanceByTaskName(TaskName taskName, String opId) {
+      return perTaskFunctionMap.get(taskName).get(opId);
+    }
+
+    static public List<String> getInitListByTaskName(TaskName taskName) {
+      return perTaskInitList.get(taskName);
+    }
+
+    static public List<String> getCloseListByTaskName(TaskName taskName) {
+      return perTaskCloseList.get(taskName);
+    }
+
+    @Override
+    public void close() {
+      if (this.taskName == null) {
+        throw new IllegalStateException("Close called before init");
+      }
+      if (perTaskFunctionMap.get(this.taskName) == null || !perTaskFunctionMap.get(this.taskName).containsKey(opId)) {
+        throw new IllegalStateException("Close called before init");
+      }
+
+      if (perTaskCloseList.get(this.taskName) == null) {
+        perTaskCloseList.put(taskName, new ArrayList<String>() { { this.add(opId); } });
+      } else {
+        perTaskCloseList.get(taskName).add(opId);
+      }
+
+      this.numCloseCalled++;
+    }
+
+    @Override
+    public void init(Config config, TaskContext context) {
+      if (perTaskFunctionMap.get(context.getTaskName()) == null) {
+        perTaskFunctionMap.put(context.getTaskName(), new HashMap<String, BaseTestFunction>() { { this.put(opId, BaseTestFunction.this); } });
+      } else {
+        if (perTaskFunctionMap.get(context.getTaskName()).containsKey(opId)) {
+          throw new IllegalStateException(String.format("Multiple init called for op %s in the same task instance %s", opId, this.taskName.getTaskName()));
+        }
+        perTaskFunctionMap.get(context.getTaskName()).put(opId, this);
+      }
+      if (perTaskInitList.get(context.getTaskName()) == null) {
+        perTaskInitList.put(context.getTaskName(), new ArrayList<String>() { { this.add(opId); } });
+      } else {
+        perTaskInitList.get(context.getTaskName()).add(opId);
+      }
+      this.taskName = context.getTaskName();
+      this.numInitCalled++;
+    }
+  }
+
+  @After
+  public void tearDown() {
+    BaseTestFunction.reset();
+  }
 
   @Test
   public void testEmptyChain() {
@@ -197,16 +332,28 @@ public class TestOperatorImplGraph {
     MessageStream<Object> stream1 = inputStream.filter(mock(FilterFunction.class));
     MessageStream<Object> stream2 = inputStream.map(mock(MapFunction.class));
     MessageStream<Object> mergedStream = stream1.merge(Collections.singleton(stream2));
-    MapFunction mockMapFunction = mock(MapFunction.class);
-    mergedStream.map(mockMapFunction);
 
     TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
+    TaskName mockTaskName = mock(TaskName.class);
+    when(mockTaskContext.getTaskName()).thenReturn(mockTaskName);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
+
+    MapFunction testMapFunction = new TestMapFunction<Object, Object>("test-map-1", (Function & Serializable) m -> m);
+    mergedStream.map(testMapFunction);
+
     OperatorImplGraph opImplGraph =
         new OperatorImplGraph(streamGraph, mock(Config.class), mockTaskContext, mock(Clock.class));
 
+    Set<OperatorImpl> opSet = opImplGraph.getAllInputOperators().stream().collect(HashSet::new,
+        (s, op) -> addOperatorRecursively(s, op), HashSet::addAll);
+    Object[] mergeOps = opSet.stream().filter(op -> op.getOperatorSpec().getOpCode() == OpCode.MERGE).toArray();
+    assertEquals(mergeOps.length, 1);
+    assertEquals(((OperatorImpl) mergeOps[0]).registeredOperators.size(), 1);
+    OperatorImpl mapOp = (OperatorImpl) ((OperatorImpl) mergeOps[0]).registeredOperators.iterator().next();
+    assertEquals(mapOp.getOperatorSpec().getOpCode(), OpCode.MAP);
+
     // verify that the DAG after merge is only traversed & initialized once
-    verify(mockMapFunction, times(1)).init(any(Config.class), any(TaskContextImpl.class));
+    assertEquals(TestMapFunction.getInstanceByTaskName(mockTaskName, "test-map-1").numInitCalled, 1);
   }
 
   @Test
@@ -216,13 +363,17 @@ public class TestOperatorImplGraph {
     when(mockRunner.getStreamSpec(eq("input2"))).thenReturn(new StreamSpec("input2", "input-stream2", "input-system"));
     StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mock(Config.class));
 
-    JoinFunction mockJoinFunction = mock(JoinFunction.class);
+    Integer joinKey = new Integer(1);
+    Function<Object, Integer> keyFn = (Function & Serializable) m -> joinKey;
+    JoinFunction testJoinFunction = new TestJoinFunction("join-2", (BiFunction & Serializable) (m1, m2) -> KV.of(m1, m2), keyFn, keyFn);
     MessageStream<Object> inputStream1 = streamGraph.getInputStream("input1", new NoOpSerde<>());
     MessageStream<Object> inputStream2 = streamGraph.getInputStream("input2", new NoOpSerde<>());
-    inputStream1.join(inputStream2, mockJoinFunction,
+    inputStream1.join(inputStream2, testJoinFunction,
         mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1));
 
+    TaskName mockTaskName = mock(TaskName.class);
     TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
+    when(mockTaskContext.getTaskName()).thenReturn(mockTaskName);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     KeyValueStore mockLeftStore = mock(KeyValueStore.class);
     when(mockTaskContext.getStore(eq("join-2-L"))).thenReturn(mockLeftStore);
@@ -232,7 +383,7 @@ public class TestOperatorImplGraph {
         new OperatorImplGraph(streamGraph, mock(Config.class), mockTaskContext, mock(Clock.class));
 
     // verify that join function is initialized once.
-    verify(mockJoinFunction, times(1)).init(any(Config.class), any(TaskContextImpl.class));
+    assertEquals(TestJoinFunction.getInstanceByTaskName(mockTaskName, "join-2").numInitCalled, 1);
 
     InputOperatorImpl inputOpImpl1 = opImplGraph.getInputOperator(new SystemStream("input-system", "input-stream1"));
     InputOperatorImpl inputOpImpl2 = opImplGraph.getInputOperator(new SystemStream("input-system", "input-stream2"));
@@ -244,24 +395,23 @@ public class TestOperatorImplGraph {
     assertEquals(leftPartialJoinOpImpl.getOperatorSpec(), rightPartialJoinOpImpl.getOperatorSpec());
     assertNotSame(leftPartialJoinOpImpl, rightPartialJoinOpImpl);
 
-    Object joinKey = new Object();
     // verify that left partial join operator calls getFirstKey
     Object mockLeftMessage = mock(Object.class);
     long currentTimeMillis = System.currentTimeMillis();
     when(mockLeftStore.get(eq(joinKey))).thenReturn(new TimestampedValue<>(mockLeftMessage, currentTimeMillis));
-    when(mockJoinFunction.getFirstKey(eq(mockLeftMessage))).thenReturn(joinKey);
     inputOpImpl1.onMessage(KV.of("", mockLeftMessage), mock(MessageCollector.class), mock(TaskCoordinator.class));
-    verify(mockJoinFunction, times(1)).getFirstKey(mockLeftMessage);
 
     // verify that right partial join operator calls getSecondKey
     Object mockRightMessage = mock(Object.class);
     when(mockRightStore.get(eq(joinKey))).thenReturn(new TimestampedValue<>(mockRightMessage, currentTimeMillis));
-    when(mockJoinFunction.getSecondKey(eq(mockRightMessage))).thenReturn(joinKey);
     inputOpImpl2.onMessage(KV.of("", mockRightMessage), mock(MessageCollector.class), mock(TaskCoordinator.class));
-    verify(mockJoinFunction, times(1)).getSecondKey(mockRightMessage);
+
 
     // verify that the join function apply is called with the correct messages on match
-    verify(mockJoinFunction, times(1)).apply(mockLeftMessage, mockRightMessage);
+    assertEquals(((TestJoinFunction) TestJoinFunction.getInstanceByTaskName(mockTaskName, "join-2")).joinResults.size(), 1);
+    KV joinResult = (KV) ((TestJoinFunction) TestJoinFunction.getInstanceByTaskName(mockTaskName, "join-2")).joinResults.iterator().next();
+    assertEquals(joinResult.getKey(), mockLeftMessage);
+    assertEquals(joinResult.getValue(), mockRightMessage);
   }
 
   @Test
@@ -270,23 +420,25 @@ public class TestOperatorImplGraph {
     when(mockRunner.getStreamSpec("input1")).thenReturn(new StreamSpec("input1", "input-stream1", "input-system"));
     when(mockRunner.getStreamSpec("input2")).thenReturn(new StreamSpec("input2", "input-stream2", "input-system"));
     Config mockConfig = mock(Config.class);
+    TaskName mockTaskName = mock(TaskName.class);
     TaskContextImpl mockContext = mock(TaskContextImpl.class);
+    when(mockContext.getTaskName()).thenReturn(mockTaskName);
     when(mockContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mockConfig);
 
     MessageStream<Object> inputStream1 = streamGraph.getInputStream("input1");
     MessageStream<Object> inputStream2 = streamGraph.getInputStream("input2");
 
-    List<String> initializedOperators = new ArrayList<>();
-    List<String> closedOperators = new ArrayList<>();
+    Function mapFn = (Function & Serializable) m -> m;
+    inputStream1.map(new TestMapFunction<Object, Object>("1", mapFn))
+        .map(new TestMapFunction<Object, Object>("2", mapFn));
 
-    inputStream1.map(createMapFunction("1", initializedOperators, closedOperators))
-        .map(createMapFunction("2", initializedOperators, closedOperators));
-
-    inputStream2.map(createMapFunction("3", initializedOperators, closedOperators))
-        .map(createMapFunction("4", initializedOperators, closedOperators));
+    inputStream2.map(new TestMapFunction<Object, Object>("3", mapFn))
+        .map(new TestMapFunction<Object, Object>("4", mapFn));
 
     OperatorImplGraph opImplGraph = new OperatorImplGraph(streamGraph, mockConfig, mockContext, SystemClock.instance());
+
+    List<String> initializedOperators = BaseTestFunction.getInitListByTaskName(mockTaskName);
 
     // Assert that initialization occurs in topological order.
     assertEquals(initializedOperators.get(0), "1");
@@ -296,33 +448,11 @@ public class TestOperatorImplGraph {
 
     // Assert that finalization occurs in reverse topological order.
     opImplGraph.close();
+    List<String> closedOperators = BaseTestFunction.getCloseListByTaskName(mockTaskName);
     assertEquals(closedOperators.get(0), "4");
     assertEquals(closedOperators.get(1), "3");
     assertEquals(closedOperators.get(2), "2");
     assertEquals(closedOperators.get(3), "1");
-  }
-
-  /**
-   * Creates an identity map function that appends to the provided lists when init/close is invoked.
-   */
-  private MapFunction<Object, Object> createMapFunction(String id,
-      List<String> initializedOperators, List<String> finalizedOperators) {
-    return new MapFunction<Object, Object>() {
-      @Override
-      public void init(Config config, TaskContext context) {
-        initializedOperators.add(id);
-      }
-
-      @Override
-      public void close() {
-        finalizedOperators.add(id);
-      }
-
-      @Override
-      public Object apply(Object message) {
-        return message;
-      }
-    };
   }
 
   @Test

@@ -20,38 +20,21 @@
 package org.apache.samza.test.operator;
 
 import java.io.IOException;
-import java.util.stream.Stream;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.KafkaConfig;
-import org.apache.samza.example.BroadcastExample;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamDescriptor;
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.functions.MapFunction;
-import org.apache.samza.operators.windows.WindowKey;
-import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.serializers.IntegerSerde;
-import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.system.kafka.KafkaSystem;
 import org.apache.samza.test.operator.data.PageView;
 import org.apache.samza.util.CommandLine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
-import java.util.Collection;
-import java.util.function.Function;
-
-import static org.apache.samza.operators.StreamDescriptor.*;
-
 
 /**
  * A {@link org.apache.samza.application.StreamApplication} that demonstrates a repartition followed by a windowed count.
@@ -59,6 +42,9 @@ import static org.apache.samza.operators.StreamDescriptor.*;
 public class RepartitionWindowApp {
 
   private static final Logger LOG = LoggerFactory.getLogger(RepartitionWindowApp.class);
+
+  static final String INPUT_TOPIC = "page-views";
+  static final String OUTPUT_TOPIC = "Result";
 
   public static void main(String[] args) throws IOException {
     CommandLine cmdLine = new CommandLine();
@@ -68,13 +54,14 @@ public class RepartitionWindowApp {
     KVSerde<String, PageView>
         pgeMsgSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageView.class));
 
-    reparApp.openInput("pageViewEvent", pgeMsgSerde)
+    reparApp.openInput(INPUT_TOPIC, pgeMsgSerde)
         .map(KV::getValue)
         .partitionBy(PageView::getUserId, m -> m, pgeMsgSerde)
         .window(Windows.keyedSessionWindow(m -> m.getKey(), Duration.ofSeconds(3), () -> 0, (m, c) -> c + 1, new StringSerde("UTF-8"), new IntegerSerde()))
-        .sendTo(reparApp.openOutput("pageViewCount"));
+        .map(wp -> KV.of(wp.getKey().getKey().toString(), wp.getMessage()))
+        .sendTo(reparApp.openOutput(OUTPUT_TOPIC));
 
     reparApp.run();
-    reparApp.waitForFinish();
+//    reparApp.waitForFinish();
   }
 }

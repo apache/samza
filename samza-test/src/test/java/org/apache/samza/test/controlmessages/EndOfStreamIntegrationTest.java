@@ -53,6 +53,8 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
 
   private static final String[] PAGEKEYS = {"inbox", "home", "search", "pymk", "group", "job"};
 
+  private static List<PageView> received = new ArrayList<>();
+
   @Test
   public void testPipeline() throws  Exception {
     Random random = new Random();
@@ -89,7 +91,6 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
     configs.put("serializers.registry.int.class", "org.apache.samza.serializers.IntegerSerdeFactory");
     configs.put("serializers.registry.json.class", PageViewJsonSerdeFactory.class.getName());
 
-    List<PageView> received = new ArrayList<>();
     final StreamApplication app = StreamApplications.createStreamApp(new MapConfig(configs));
 
     app.<KV<String, PageView>>openInput("PageView")

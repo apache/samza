@@ -154,14 +154,14 @@ import org.codehaus.jackson.map.ObjectMapper;
   private OperatorGraphJson buildOperatorGraphJson(JobNode jobNode) {
     OperatorGraphJson opGraph = new OperatorGraphJson();
     opGraph.inputStreams = new ArrayList<>();
-    jobNode.getStreamGraph().getInputOperators().forEach((streamSpec, operatorSpec) -> {
+    jobNode.getStreamGraph().getInputOperators().forEach((streamSpec, operatorNode) -> {
         StreamJson inputJson = new StreamJson();
         opGraph.inputStreams.add(inputJson);
         inputJson.streamId = streamSpec.getId();
-        Collection<OperatorSpec> specs = operatorSpec.getRegisteredOperatorSpecs();
-        inputJson.nextOperatorIds = specs.stream().map(OperatorSpec::getOpId).collect(Collectors.toSet());
+        Collection<OperatorSpec> ops = operatorNode.getRegisteredOperatorSpecs();
+        inputJson.nextOperatorIds = ops.stream().map(op -> op.getOpId()).collect(Collectors.toSet());
 
-        updateOperatorGraphJson(operatorSpec, opGraph);
+        updateOperatorGraphJson(operatorNode, opGraph);
       });
 
     opGraph.outputStreams = new ArrayList<>();
@@ -175,39 +175,39 @@ import org.codehaus.jackson.map.ObjectMapper;
 
   /**
    * Traverse the {@link OperatorSpec} graph recursively and update the operator graph JSON POJO.
-   * @param operatorSpec input
+   * @param opSpec input
    * @param opGraph operator graph to build
    */
-  private void updateOperatorGraphJson(OperatorSpec operatorSpec, OperatorGraphJson opGraph) {
+  private void updateOperatorGraphJson(OperatorSpec opSpec, OperatorGraphJson opGraph) {
     // TODO xiliu: render input operators instead of input streams
-    if (operatorSpec.getOpCode() != OpCode.INPUT) {
-      opGraph.operators.put(operatorSpec.getOpId(), operatorToMap(operatorSpec));
+    if (opSpec.getOpCode() != OpCode.INPUT) {
+      opGraph.operators.put(opSpec.getOpId(), operatorToMap(opSpec));
     }
-    Collection<OperatorSpec> specs = operatorSpec.getRegisteredOperatorSpecs();
-    specs.forEach(opSpec -> updateOperatorGraphJson(opSpec, opGraph));
+    Collection<OperatorSpec> nodes = opSpec.getRegisteredOperatorSpecs();
+    nodes.forEach(op -> updateOperatorGraphJson(op, opGraph));
   }
 
   /**
    * Format the operator properties into a map
-   * @param spec a {@link OperatorSpec} instance
+   * @param node a {@link OperatorSpec} instance
    * @return map of the operator properties
    */
-  private Map<String, Object> operatorToMap(OperatorSpec spec) {
+  private Map<String, Object> operatorToMap(OperatorSpec node) {
     Map<String, Object> map = new HashMap<>();
-    map.put("opCode", spec.getOpCode().name());
-    map.put("opId", spec.getOpId());
-    map.put("sourceLocation", spec.getSourceLocation());
+    map.put("opCode", node.getOpCode().name());
+    map.put("opId", node.getOpId());
+    map.put("sourceLocation", node.getSourceLocation());
 
-    Collection<OperatorSpec> nextOperators = spec.getRegisteredOperatorSpecs();
-    map.put("nextOperatorIds", nextOperators.stream().map(OperatorSpec::getOpId).collect(Collectors.toSet()));
+    Collection<OperatorSpec> nextOperators = node.getRegisteredOperatorSpecs();
+    map.put("nextOperatorIds", nextOperators.stream().map(n -> n.getOpId()).collect(Collectors.toSet()));
 
-    if (spec instanceof OutputOperatorSpec) {
-      OutputStreamImpl outputStream = ((OutputOperatorSpec) spec).getOutputStream();
+    if (node instanceof OutputOperatorSpec) {
+      OutputStreamImpl outputStream = ((OutputOperatorSpec) node).getOutputStream();
       map.put("outputStreamId", outputStream.getStreamSpec().getId());
     }
 
-    if (spec instanceof JoinOperatorSpec) {
-      map.put("ttlMs", ((JoinOperatorSpec) spec).getTtlMs());
+    if (node instanceof JoinOperatorSpec) {
+      map.put("ttlMs", ((JoinOperatorSpec) node).getTtlMs());
     }
 
     return map;

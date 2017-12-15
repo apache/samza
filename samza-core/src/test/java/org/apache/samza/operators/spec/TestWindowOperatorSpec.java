@@ -93,7 +93,7 @@ public class TestWindowOperatorSpec {
         timeFn,
         WindowType.SESSION,
         null,
-        null,
+        mock(Serde.class),
         mock(Serde.class));
     window.setEarlyTrigger(earlyTrigger);
 

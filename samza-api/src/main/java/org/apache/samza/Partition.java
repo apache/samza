@@ -19,6 +19,7 @@
 
 package org.apache.samza;
 
+
 /**
  * A numbered, ordered partition of a stream.
  */

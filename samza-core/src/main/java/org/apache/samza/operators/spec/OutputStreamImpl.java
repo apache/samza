@@ -18,12 +18,13 @@
  */
 package org.apache.samza.operators.spec;
 
+import java.io.Serializable;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
 
 
-public class OutputStreamImpl<M> implements OutputStream<M> {
+public class OutputStreamImpl<M> implements OutputStream<M>, Serializable {
 
   private final StreamSpec streamSpec;
   private final Serde keySerde;

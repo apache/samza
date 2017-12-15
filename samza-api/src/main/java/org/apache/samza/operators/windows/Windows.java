@@ -19,7 +19,6 @@
 
 package org.apache.samza.operators.windows;
 
-import java.util.ArrayList;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.functions.MapFunction;

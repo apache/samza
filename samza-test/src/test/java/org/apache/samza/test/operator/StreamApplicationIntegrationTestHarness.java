@@ -28,9 +28,10 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.protocol.SecurityProtocol;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.KafkaConfig;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import scala.Option;
 import scala.Option$;
@@ -46,7 +47,7 @@ import java.util.Map;
 import java.util.Properties;
 
 /**
- * Harness for writing integration tests for {@link StreamApplication}s.
+ * Harness for writing integration tests for {@link org.apache.samza.application.StreamApplication}s.
  *
  * <p> This provides the following features for its sub-classes:
  * <ul>
@@ -72,7 +73,7 @@ import java.util.Properties;
  * State persistence: {@link #tearDown()} clears all associated state (including topics and metadata) in Kafka and
  * Zookeeper. Hence, the state is not durable across invocations of {@link #tearDown()} <br/>
  *
- * Execution model: {@link StreamApplication}s are run as their own {@link org.apache.samza.job.local.ThreadJob}s.
+ * Execution model: {@link org.apache.samza.application.StreamApplication}s are run as their own {@link org.apache.samza.job.local.ThreadJob}s.
  * Similarly, embedded Kafka servers and Zookeeper servers are run as their own threads.
  * {@link #produceMessage(String, int, String, String)} and {@link #consumeMessages(Collection, int)} are blocking calls.
  *
@@ -203,8 +204,8 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
   }
 
   /**
-   * Executes the provided {@link StreamApplication} as a {@link org.apache.samza.job.local.ThreadJob}. The
-   * {@link StreamApplication} runs in its own separate thread.
+   * Executes the provided {@link org.apache.samza.application.StreamApplication} as a {@link org.apache.samza.job.local.ThreadJob}. The
+   * {@link org.apache.samza.application.StreamApplication} runs in its own separate thread.
    *
    * @param appName the name of the application
    * @param overriddenConfigs configs to override
@@ -214,7 +215,7 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
 
     Map<String, String> configs = new HashMap<>();
     configs.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
-    configs.put("job.factory.class", "org.apache.samza.job.local.ThreadJobFactory");
+//    configs.put("job.factory.class", "org.apache.samza.job.local.ThreadJobFactory");
     configs.put("job.name", appName);
     configs.put("serializers.registry.json.class", "org.apache.samza.serializers.JsonSerdeFactory");
     configs.put("serializers.registry.string.class", "org.apache.samza.serializers.StringSerdeFactory");
@@ -224,9 +225,12 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     configs.put("systems.kafka.samza.key.serde", "string");
     configs.put("systems.kafka.samza.msg.serde", "json");
     configs.put("systems.kafka.samza.offset.default", "oldest");
+    configs.put("systems.kafka.default.stream.replication.factor", "1");
     configs.put("job.coordinator.system", "kafka");
     configs.put("job.default.system", "kafka");
     configs.put("job.coordinator.replication.factor", "1");
+//    configs.put("job.coordinator.factory", "org.apache.samza.zk.ZkJobCoordinatorFactory");
+//    configs.put("job.coordinator.zk.connect", zkConnect());
     configs.put("task.window.ms", "1000");
 
     // This is to prevent tests from taking a long time to stop after they're done. The issue is that
@@ -251,10 +255,10 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
   }
 
   private String[] getCommandLineConfigs(Map<String, String> configs) {
-    String[] cliParams = new String[configs.size()*2+1];
+    String[] cliParams = new String[configs.size() * 2 + 1];
     int i = 0;
-    cliParams[i++] = "--config-path=./resources/test-config.prop";
-    for(Map.Entry<String, String> entry : configs.entrySet()) {
+    cliParams[i++] = "--config-path=./src/test/resources/test-config.prop";
+    for (Map.Entry<String, String> entry : configs.entrySet()) {
       cliParams[i++] = "--config";
       cliParams[i++] = String.format("%s=%s", entry.getKey(), entry.getValue());
     }

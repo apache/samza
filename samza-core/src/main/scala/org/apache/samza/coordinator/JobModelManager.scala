@@ -54,6 +54,7 @@ import org.apache.samza.util.Logging
 import org.apache.samza.util.Util
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException
+import org.apache.samza.coordinator.JobModelManager.{createAccessLogStreams, createChangeLogStreams, info}
 
 import scala.collection.JavaConverters._
 
@@ -77,7 +78,8 @@ object JobModelManager extends Logging {
    * c) Recomputes changelog partition mapping based on jobModel and job's configuration
    * and writes it to the coordinator stream.
    * d) Builds JobModelManager using the jobModel read from coordinator stream.
-   * @param coordinatorSystemConfig A config object that contains job.name
+    *
+    * @param coordinatorSystemConfig A config object that contains job.name
    *                                job.id, and all system.&lt;job-coordinator-system-name&gt;.*Ch
    *                                configuration. The method will use this config to read all configuration
    *                                from the coordinator stream, and instantiate a JobModelManager.
@@ -126,22 +128,8 @@ object JobModelManager extends Logging {
     }
     val previousChangelogPartitionMapping = changelogManager.readChangeLogPartitionMapping()
     val jobModelManager = getJobModelManager(config, previousChangelogPartitionMapping, localityManager, streamMetadataCache, streamPartitionCountMonitor, null)
-    val jobModel = jobModelManager.jobModel
-    // Save the changelog mapping back to the ChangelogPartitionmanager
-    // newChangelogPartitionMapping is the merging of all current task:changelog
-    // assignments with whatever we had before (previousChangelogPartitionMapping).
-    // We must persist legacy changelog assignments so that
-    // maxChangelogPartitionId always has the absolute max, not the current
-    // max (in case the task with the highest changelog partition mapping
-    // disappears.
-    val newChangelogPartitionMapping = jobModel.getContainers.asScala.flatMap(_._2.getTasks.asScala).map{case (taskName,taskModel) => {
-      taskName -> Integer.valueOf(taskModel.getChangelogPartition.getPartitionId)
-    }}.toMap ++ previousChangelogPartitionMapping.asScala
-    info("Saving task-to-changelog partition mapping: %s" format newChangelogPartitionMapping)
-    changelogManager.writeChangeLogPartitionMapping(newChangelogPartitionMapping.asJava)
 
-    createChangeLogStreams(config, jobModel.maxChangeLogStreamPartitions)
-    createAccessLogStreams(config, jobModel.maxChangeLogStreamPartitions)
+    jobModelManager.updateLogStreams(config, jobModelManager.jobModel, changelogManager, previousChangelogPartitionMapping)
 
     jobModelManager
   }
@@ -363,6 +351,26 @@ class JobModelManager(
    */
   val server: HttpServer = null,
   val streamPartitionCountMonitor: StreamPartitionCountMonitor = null) extends Logging {
+  def updateLogStreams(config:Config, jobModel: JobModel, changelogManager:ChangelogPartitionManager, previousChangelogPartitionMapping:util.Map[TaskName, Integer]) = {
+    // Save the changelog mapping back to the ChangelogPartitionmanager
+    // newChangelogPartitionMapping is the merging of all current task:changelog
+    // assignments with whatever we had before (previousChangelogPartitionMapping).
+    // We must persist legacy changelog assignments so that
+    // maxChangelogPartitionId always has the absolute max, not the current
+    // max (in case the task with the highest changelog partition mapping
+    // disappears.
+    if (changelogManager != null) {
+      val newChangelogPartitionMapping = jobModel.getContainers.asScala.flatMap(_._2.getTasks.asScala).map{case (taskName,taskModel) => {
+        taskName -> Integer.valueOf(taskModel.getChangelogPartition.getPartitionId)
+      }}.toMap ++ previousChangelogPartitionMapping.asScala
+      info("Saving task-to-changelog partition mapping: %s" format newChangelogPartitionMapping)
+      changelogManager.writeChangeLogPartitionMapping(newChangelogPartitionMapping.asJava)
+    }
+
+    createChangeLogStreams(config, jobModel.maxChangeLogStreamPartitions)
+    createAccessLogStreams(config, jobModel.maxChangeLogStreamPartitions)
+  }
+
 
   debug("Got job model: %s." format jobModel)
 

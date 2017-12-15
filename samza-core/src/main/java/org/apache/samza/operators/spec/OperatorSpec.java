@@ -24,14 +24,14 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
 
-import java.util.Collection;
-import java.util.LinkedHashSet;
-import java.util.Set;
 
 /**
  * A stream operator specification that holds all the information required to transform
@@ -67,7 +67,25 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
    * <p>
    * We use a LinkedHashSet since we need deterministic ordering in initializing/closing operators.
    */
-  private final Set<OperatorSpec<OM, ?>> nextOperatorSpecs = new LinkedHashSet<>();
+  private transient final Set<OperatorSpec<OM, ?>> nextOperatorSpecs = new LinkedHashSet<>();
+
+  /**
+   * Register the next operator spec in the chain that this operator should propagate its output to.
+   * @param nextOperator  the next operator node in the chain.
+   */
+  public void registerNextOperatorSpec(OperatorSpec<OM, ?> nextOperator) {
+    nextOperatorSpecs.add(nextOperator);
+  }
+
+  /**
+   * Get the collection of chained {@link OperatorSpec}s that are consuming the output of this node
+   *
+   * @return the collection of chained {@link OperatorSpec}s
+   */
+  public Collection<OperatorSpec<OM, ?>> getRegisteredOperatorSpecs() {
+    return nextOperatorSpecs;
+  }
+
 
   public OperatorSpec(OpCode opCode, int opId) {
     this.opCode = opCode;
@@ -82,18 +100,6 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
     ByteArrayInputStream bStream = new ByteArrayInputStream(serializedBytes.toByteArray());
     ObjectInputStream inputStream = new ObjectInputStream(bStream);
     return inputStream.readObject();
-  }
-
-  /**
-   * Register the next operator spec in the chain that this operator should propagate its output to.
-   * @param nextOperatorSpec  the next operator in the chain.
-   */
-  public void registerNextOperatorSpec(OperatorSpec<OM, ?> nextOperatorSpec) {
-    nextOperatorSpecs.add(nextOperatorSpec);
-  }
-
-  public Collection<OperatorSpec<OM, ?>> getRegisteredOperatorSpecs() {
-    return nextOperatorSpecs;
   }
 
   /**

@@ -61,7 +61,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
 
     // run the application
     RepartitionJoinWindowApp app = new RepartitionJoinWindowApp();
-    runApplication(app, APP_NAME, null);
+    runApplication(app.getClass().getName(), APP_NAME, null);
 
     // consume and validate result
     List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(OUTPUT_TOPIC), 2);

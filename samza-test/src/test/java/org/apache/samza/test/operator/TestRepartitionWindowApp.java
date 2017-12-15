@@ -18,21 +18,29 @@
  */
 package org.apache.samza.test.operator;
 
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.samza.config.JobCoordinatorConfig;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.TaskConfig;
+import org.apache.samza.serializers.JsonSerdeV2;
+import org.apache.samza.test.operator.data.PageView;
+import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.Collections;
 import java.util.List;
 
+import static org.apache.samza.test.operator.RepartitionWindowApp.*;
+
 /**
  * Test driver for {@link RepartitionWindowApp}.
  */
 public class TestRepartitionWindowApp extends StreamApplicationIntegrationTestHarness {
 
-  static final String INPUT_TOPIC = "page-views";
-  static final String OUTPUT_TOPIC = "Result";
-  private static final String APP_NAME = "PageViewCounterApp";
+  static final String APP_NAME = "PageViewCounterApp";
 
   @Test
   public void testRepartitionedSessionWindowCounter() throws Exception {
@@ -41,14 +49,42 @@ public class TestRepartitionWindowApp extends StreamApplicationIntegrationTestHa
     createTopic(OUTPUT_TOPIC, 1);
 
     // produce messages to different partitions.
-    produceMessage(INPUT_TOPIC, 0, "userId1", "userId1,india,5.com");
-    produceMessage(INPUT_TOPIC, 1, "userId2", "userId2,china,4.com");
-    produceMessage(INPUT_TOPIC, 2, "userId1", "userId1,india,1.com");
-    produceMessage(INPUT_TOPIC, 0, "userId1", "userId1,india,2.com");
-    produceMessage(INPUT_TOPIC, 1, "userId1", "userId1,india,3.com");
+    ObjectMapper mapper = new ObjectMapper();
+    PageView pv = new PageView();
+    pv.setUserId("userId1");
+    pv.setViewId("india");
+    pv.setPageId("5.com");
+    produceMessage(INPUT_TOPIC, 0, "userId1", mapper.writeValueAsString(pv));
+    pv = new PageView();
+    pv.setUserId("userId2");
+    pv.setViewId("china");
+    pv.setPageId("4.com");
+    produceMessage(INPUT_TOPIC, 1, "userId2", mapper.writeValueAsString(pv));
+    pv = new PageView();
+    pv.setUserId("userId1");
+    pv.setViewId("india");
+    pv.setPageId("1.com");
+    produceMessage(INPUT_TOPIC, 2, "userId1", mapper.writeValueAsString(pv));
+    pv = new PageView();
+    pv.setUserId("userId1");
+    pv.setViewId("india");
+    pv.setPageId("2.com");
+    produceMessage(INPUT_TOPIC, 0, "userId1", mapper.writeValueAsString(pv));
+    pv = new PageView();
+    pv.setUserId("userId1");
+    pv.setViewId("india");
+    pv.setPageId("3.com");
+    produceMessage(INPUT_TOPIC, 1, "userId1", mapper.writeValueAsString(pv));
+
+    Map<String, String> configs = new HashMap<>();
+    configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
+    configs.put(JobCoordinatorConfig.JOB_COORDINATION_UTILS_FACTORY, "org.apache.samza.standalone.PassthroughCoordinationUtilsFactory");
+    configs.put(TaskConfig.GROUPER_FACTORY(), "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
+    configs.put(String.format("streams.%s.samza.msg.serde", INPUT_TOPIC), "string");
+    configs.put(String.format("streams.%s.samza.key.serde", INPUT_TOPIC), "string");
 
     // run the application
-    runApplication(RepartitionWindowApp.class.getName(), APP_NAME, null);
+    runApplication(RepartitionWindowApp.class.getName(), APP_NAME, new MapConfig(configs));
 
     // consume and validate result
     List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(OUTPUT_TOPIC), 2);

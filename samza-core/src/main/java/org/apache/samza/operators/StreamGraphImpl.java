@@ -168,7 +168,7 @@ public class StreamGraphImpl implements StreamGraph {
     inputOperators.put(streamSpec,
         new InputOperatorSpec<>(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed, this.getNextOpId()));
     outputStreams.put(streamSpec, new OutputStreamImpl(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed));
-    return new IntermediateMessageStreamImpl<>(this, inputOperators.get(streamSpec), outputStreams.get(streamSpec));
+    return new IntermediateMessageStreamImpl<M>(this, inputOperators.get(streamSpec), outputStreams.get(streamSpec));
   }
 
   public Map<StreamSpec, InputOperatorSpec> getInputOperators() {

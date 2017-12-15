@@ -19,6 +19,9 @@
 
 package org.apache.samza.system;
 
+import java.io.Serializable;
+
+
 /**
  * Streams in Samza consist of both the stream name and the system to which the stream belongs.
  * Systems are defined through the job config and have corresponding serdes, producers and
@@ -26,7 +29,7 @@ package org.apache.samza.system;
  * on its system, and may be the topic, queue name, file name, etc. as makes sense for a
  * particular system.
  */
-public class SystemStream {
+public class SystemStream implements Serializable {
   protected final String system;
   protected final String stream;
 

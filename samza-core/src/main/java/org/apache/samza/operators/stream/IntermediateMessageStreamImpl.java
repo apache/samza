@@ -21,7 +21,6 @@ package org.apache.samza.operators.stream;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraphImpl;
-import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.system.StreamSpec;
@@ -29,11 +28,11 @@ import org.apache.samza.system.StreamSpec;
 /**
  * An intermediate stream is both an input and an output stream (e.g. a repartitioned stream).
  * <p>
- * This implementation accepts a pair of {@link InputOperatorSpec} and {@link OutputStreamImpl} associated
+ * This implementation accepts a pair of {@link OperatorSpec} and {@link OutputStreamImpl} associated
  * with the same logical {@code streamId}. It provides access to its {@link OutputStreamImpl} for
  * the partitionBy operator to send messages out to. It's also a {@link MessageStreamImpl} with
- * {@link InputOperatorSpec} as its operator spec, so that further operations can be chained on the
- * {@link InputOperatorSpec}.
+ * {@link OperatorSpec} as its input operator node, so that further operations can be chained on the
+ * {@link OperatorSpec}.
  *
  * @param <M> the type of message in the output {@link MessageStreamImpl}
  */
@@ -41,9 +40,9 @@ public class IntermediateMessageStreamImpl<M> extends MessageStreamImpl<M> imple
 
   private final OutputStreamImpl<M> outputStream;
 
-  public IntermediateMessageStreamImpl(StreamGraphImpl graph, InputOperatorSpec<?, M> inputOperatorSpec,
+  public IntermediateMessageStreamImpl(StreamGraphImpl graph, OperatorSpec<?, M> inputOperatorNode,
       OutputStreamImpl<M> outputStream) {
-    super(graph, (OperatorSpec<?, M>) inputOperatorSpec);
+    super(graph, inputOperatorNode);
     this.outputStream = outputStream;
   }
 

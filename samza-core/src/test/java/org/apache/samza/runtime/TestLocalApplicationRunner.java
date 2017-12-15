@@ -149,7 +149,7 @@ public class TestLocalApplicationRunner {
       throws Exception {
     final Map<String, String> config = new HashMap<>();
     config.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
-    config.put(TaskConfig.TASK_CLASS(), "org.apache.samza.test.processor.IdentityStreamTask");
+    config.put(TaskConfig.TASK_CLASS(), "org.apache.samza.task.IdentityStreamTask");
 
     LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(config));
 

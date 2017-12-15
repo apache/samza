@@ -61,7 +61,7 @@ public class ApplicationRunnerMain {
     if (config.containsKey(STREAM_APPLICATION_CLASS_CONFIG)) {
       ApplicationRunner runner = ApplicationRunner.fromConfig(config);
       StreamApplication app =
-          (StreamApplication) Class.forName(config.get(STREAM_APPLICATION_CLASS_CONFIG)).newInstance();
+          (StreamApplication) Class.forName(config.get(STREAM_APPLICATION_CLASS_CONFIG)).getConstructor(Config.class).newInstance(config);
       switch (op) {
         case RUN:
           runner.run(app);

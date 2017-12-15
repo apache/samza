@@ -78,7 +78,7 @@ public class OperatorImplGraph {
    * the two {@link PartialJoinOperatorImpl}s for a {@link JoinOperatorSpec} with each other since they're
    * reached from different {@link OperatorSpec} during DAG traversals.
    */
-  private final Map<Integer, KV<PartialJoinFunction, PartialJoinFunction>> joinFunctions = new HashMap<>();
+  private final Map<Integer, KV<JoinOperatorSpec, KV<PartialJoinFunction, PartialJoinFunction>>> joinSpecs = new HashMap<>();
 
   private final Clock clock;
 
@@ -110,12 +110,12 @@ public class OperatorImplGraph {
     taskContext.registerObject(WatermarkStates.class.getName(),
         new WatermarkStates(context.getSystemStreamPartitions(), producerTaskCounts));
 
-    streamGraph.getInputOperators().forEach((streamSpec, inputOpSpec) -> {
+    streamGraph.getInputOperators().forEach((streamSpec, inputOp) -> {
         SystemStream systemStream = new SystemStream(streamSpec.getSystemName(), streamSpec.getPhysicalName());
         InputOperatorImpl inputOperatorImpl = null;
         try {
           inputOperatorImpl =
-              (InputOperatorImpl) createAndRegisterOperatorImpl(null, inputOpSpec, systemStream, config, context);
+              (InputOperatorImpl) createAndRegisterOperatorImpl(null, inputOp, systemStream, config, context);
         } catch (IOException | ClassNotFoundException e) {
           throw new RuntimeException("Exception in OperatorImplGraph constructor while creating operator impls.", e);
         }
@@ -153,7 +153,7 @@ public class OperatorImplGraph {
    * creates the corresponding DAG of {@link OperatorImpl}s, and returns the root {@link OperatorImpl} node.
    *
    * @param prevOperatorSpec  the parent of the current {@code operatorSpec} in the traversal
-   * @param operatorSpec  the operatorSpec to create the {@link OperatorImpl} for
+   * @param operatorSpec  the {@link OperatorSpec} instance to create the {@link OperatorImpl} for
    * @param config  the {@link Config} required to instantiate operators
    * @param context  the {@link TaskContext} required to instantiate operators
    * @return  the operator implementation for the operatorSpec
@@ -172,6 +172,7 @@ public class OperatorImplGraph {
       registeredSpecs.forEach(registeredSpec -> {
           OperatorImpl nextImpl = null;
           try {
+            LOG.debug("Creating operator {} with opCode: {}", registeredSpec.getOpName(), registeredSpec.getOpCode());
             nextImpl = createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, config, context);
           } catch (IOException | ClassNotFoundException e) {
             throw new RuntimeException("Exception in lambda while creating operator impls.", e);
@@ -209,27 +210,30 @@ public class OperatorImplGraph {
     } else if (operatorSpec instanceof WindowOperatorSpec) {
       return new WindowOperatorImpl(((WindowOperatorSpec) operatorSpec).copy(), clock);
     } else if (operatorSpec instanceof JoinOperatorSpec) {
-      return createPartialJoinOperatorImpl(prevOperatorSpec, ((JoinOperatorSpec) operatorSpec).copy(), config, context, clock);
+      return createPartialJoinOperatorImpl(prevOperatorSpec, (JoinOperatorSpec) operatorSpec, config, context, clock);
     }
     throw new IllegalArgumentException(
         String.format("Unsupported OperatorSpec: %s", operatorSpec.getClass().getName()));
   }
 
   private PartialJoinOperatorImpl createPartialJoinOperatorImpl(OperatorSpec prevOperatorSpec,
-      JoinOperatorSpec joinOpSpec, Config config, TaskContext context, Clock clock) {
-    KV<PartialJoinFunction, PartialJoinFunction> partialJoinFunctions = getOrCreatePartialJoinFunctions(joinOpSpec);
+      JoinOperatorSpec joinOpSpec, Config config, TaskContext context, Clock clock)
+      throws IOException, ClassNotFoundException {
+    KV<JoinOperatorSpec, KV<PartialJoinFunction, PartialJoinFunction>> partialJoinSpecs = getOrCreatePartialJoinSpecs(joinOpSpec);
     if (joinOpSpec.getLeftInputOpSpec().isClone(prevOperatorSpec)) { // we got here from the left side of the join
-      return new PartialJoinOperatorImpl(joinOpSpec, /* isLeftSide */ true,
-          partialJoinFunctions.getKey(), partialJoinFunctions.getValue(), config, context, clock);
+      return new PartialJoinOperatorImpl(partialJoinSpecs.getKey(), /* isLeftSide */ true,
+          partialJoinSpecs.getValue().getKey(), partialJoinSpecs.getValue().getValue(), config, context, clock);
     } else { // we got here from the right side of the join
-      return new PartialJoinOperatorImpl(joinOpSpec, /* isLeftSide */ false,
-          partialJoinFunctions.getValue(), partialJoinFunctions.getKey(), config, context, clock);
+      return new PartialJoinOperatorImpl(partialJoinSpecs.getKey(), /* isLeftSide */ false,
+          partialJoinSpecs.getValue().getValue(), partialJoinSpecs.getValue().getKey(), config, context, clock);
     }
   }
 
-  private KV<PartialJoinFunction, PartialJoinFunction> getOrCreatePartialJoinFunctions(JoinOperatorSpec joinOpSpec) {
-    return joinFunctions.computeIfAbsent(joinOpSpec.getOpId(),
-        joinOpId -> KV.of(createLeftJoinFn(joinOpSpec), createRightJoinFn(joinOpSpec)));
+  private KV<JoinOperatorSpec, KV<PartialJoinFunction, PartialJoinFunction>> getOrCreatePartialJoinSpecs(JoinOperatorSpec joinOpSpec)
+      throws IOException, ClassNotFoundException {
+    JoinOperatorSpec copyJoinSpec = joinOpSpec.copy();
+    return joinSpecs.computeIfAbsent(copyJoinSpec.getOpId(),
+        joinOpId -> KV.of(copyJoinSpec, KV.of(createLeftJoinFn(copyJoinSpec), createRightJoinFn(copyJoinSpec))));
   }
 
   private PartialJoinFunction<Object, Object, Object, Object> createLeftJoinFn(JoinOperatorSpec joinOpSpec) {

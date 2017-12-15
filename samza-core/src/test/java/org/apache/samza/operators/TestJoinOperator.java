@@ -21,12 +21,15 @@ package org.apache.samza.operators;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.apache.samza.Partition;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplicationInternal;
 import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.operators.functions.JoinFunction;
@@ -85,18 +88,18 @@ public class TestJoinOperator {
     TestJoinFunction joinFn = new TestJoinFunction();
     StreamApplication app = this.getTestJoinStreamApplication(joinFn);
     StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), app);
-    assertEquals(1, joinFn.getNumInitCalls());
+
     MessageCollector messageCollector = mock(MessageCollector.class);
 
     // push messages to first stream
     numbers.forEach(n -> sot.process(new FirstStreamIME(n, n), messageCollector, taskCoordinator));
 
-    // close should not be called till now
-    assertEquals(0, joinFn.getNumCloseCalls());
     sot.close();
 
-    // close should be called from sot.close()
-    assertEquals(1, joinFn.getNumCloseCalls());
+    verify(messageCollector, times(0)).send(any(OutgoingMessageEnvelope.class));
+    // Make sure the joinFn has been copied instead of directly referred by the task instance
+    assertEquals(0, joinFn.getNumInitCalls());
+    assertEquals(0, joinFn.getNumCloseCalls());
   }
 
   @Test
@@ -270,12 +273,12 @@ public class TestJoinOperator {
   private StreamOperatorTask createStreamOperatorTask(Clock clock, StreamApplication app) throws Exception {
     ApplicationRunner runner = mock(ApplicationRunner.class);
     when(runner.getStreamSpec("instream")).thenReturn(new StreamSpec("instream", "instream", "insystem"));
-    when(runner.getStreamSpec("instream2")).thenReturn(new StreamSpec("instream2", "instream2", "insystem2"));
+    when(runner.getStreamSpec("instream2")).thenReturn(new StreamSpec("instream2", "instream2", "insystem"));
 
     TaskContextImpl taskContext = mock(TaskContextImpl.class);
     when(taskContext.getSystemStreamPartitions()).thenReturn(ImmutableSet
         .of(new SystemStreamPartition("insystem", "instream", new Partition(0)),
-            new SystemStreamPartition("insystem2", "instream2", new Partition(0))));
+            new SystemStreamPartition("insystem", "instream2", new Partition(0))));
     when(taskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     // need to return different stores for left and right side
     IntegerSerde integerSerde = new IntegerSerde();
@@ -291,9 +294,12 @@ public class TestJoinOperator {
   }
 
   private StreamApplication getTestJoinStreamApplication(TestJoinFunction joinFn) throws IOException {
-    Config mockConfig = mock(Config.class);
-    doReturn("org.apache.samza.runtime.LocalApplicationRunner").when(mockConfig).get("app.runner.class");
-    StreamApplication testApp = StreamApplications.createStreamApp(mockConfig);
+    Map<String, String> mapConfig = new HashMap<>();
+    mapConfig.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
+    mapConfig.put("job.default.system", "insystem");
+    Config appConfig = new MapConfig(mapConfig);
+
+    StreamApplication testApp = StreamApplications.createStreamApp(appConfig);
     IntegerSerde integerSerde = new IntegerSerde();
     KVSerde<Integer, Integer> kvSerde = KVSerde.of(integerSerde, integerSerde);
     MessageStream<KV<Integer, Integer>> inStream = testApp.openInput("instream", kvSerde);
@@ -356,7 +362,7 @@ public class TestJoinOperator {
 
   private static class SecondStreamIME extends IncomingMessageEnvelope {
     SecondStreamIME(Integer key, Integer value) {
-      super(new SystemStreamPartition("insystem2", "instream2", new Partition(0)), "1", key, value);
+      super(new SystemStreamPartition("insystem", "instream2", new Partition(0)), "1", key, value);
     }
   }
 
