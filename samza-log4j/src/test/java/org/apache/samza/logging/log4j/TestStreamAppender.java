@@ -21,9 +21,14 @@ package org.apache.samza.logging.log4j;
 
 import static org.junit.Assert.*;
 
+import com.google.common.collect.Lists;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
 import org.apache.samza.config.Config;
@@ -31,11 +36,19 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.logging.log4j.serializers.LoggingEventJsonSerde;
 import org.apache.samza.logging.log4j.serializers.LoggingEventStringSerde;
 import org.apache.samza.logging.log4j.serializers.LoggingEventStringSerdeFactory;
+import org.junit.After;
 import org.junit.Test;
 
 public class TestStreamAppender {
 
   static Logger log = Logger.getLogger(TestStreamAppender.class);
+
+  @After
+  public void tearDown() {
+    log.removeAllAppenders();
+    MockSystemProducer.listeners.clear();
+    MockSystemProducer.messagesReceived.clear();
+  }
 
   @Test
   public void testDefaultSerde() {
@@ -70,7 +83,7 @@ public class TestStreamAppender {
   }
 
   @Test
-  public void testSystemProducerAppenderInContainer() {
+  public void testSystemProducerAppenderInContainer() throws InterruptedException {
     System.setProperty("samza.container.name", "samza-container-1");
 
     MockSystemProducerAppender systemProducerAppender = new MockSystemProducerAppender();
@@ -79,22 +92,13 @@ public class TestStreamAppender {
     systemProducerAppender.setLayout(layout);
     systemProducerAppender.activateOptions();
     log.addAppender(systemProducerAppender);
-    log.info("testing");
-    log.info("testing2");
 
-    systemProducerAppender.flushSystemProducer();
-
-    assertEquals(2, MockSystemProducer.messagesReceived.size());
-    assertTrue(new String((byte[]) MockSystemProducer.messagesReceived.get(0)).contains("\"message\":\"testing\""));
-    assertTrue(new String((byte[]) MockSystemProducer.messagesReceived.get(1)).contains("\"message\":\"testing2\""));
-
-    // reset
-    log.removeAllAppenders();
-    MockSystemProducer.messagesReceived.clear();
+    List<String> messages = Lists.newArrayList("testing1", "testing2");
+    logAndVerifyMessages(messages);
   }
 
   @Test
-  public void testSystemProducerAppenderInAM() {
+  public void testSystemProducerAppenderInAM() throws InterruptedException {
     System.setProperty("samza.container.name", "samza-job-coordinator");
 
     MockSystemProducerAppender systemProducerAppender = new MockSystemProducerAppender();
@@ -104,26 +108,115 @@ public class TestStreamAppender {
     systemProducerAppender.activateOptions();
     log.addAppender(systemProducerAppender);
 
-    log.info("no-received");
-    systemProducerAppender.flushSystemProducer();
-    // it should not receive anything because the system is not setup
-    assertEquals(0, MockSystemProducer.messagesReceived.size());
+    log.info("no-received"); // System isn't initialized yet, so this message should be dropped
 
     systemProducerAppender.setupSystem();
     MockSystemProducerAppender.systemInitialized = true;
 
-    log.info("testing3");
-    log.info("testing4");
-    systemProducerAppender.flushSystemProducer();
+    List<String> messages = Lists.newArrayList("testing3", "testing4");
+    logAndVerifyMessages(messages);
+  }
 
-    // be able to received msgs now
-    assertEquals(2, MockSystemProducer.messagesReceived.size());
-    assertTrue(new String((byte[]) MockSystemProducer.messagesReceived.get(0)).contains("\"message\":\"testing3\""));
-    assertTrue(new String((byte[]) MockSystemProducer.messagesReceived.get(1)).contains("\"message\":\"testing4\""));
+  @Test
+  public void testExceptionsDoNotKillTransferThread() throws InterruptedException {
+    System.setProperty("samza.container.name", "samza-container-1");
 
-    // reset
-    log.removeAllAppenders();
-    MockSystemProducer.messagesReceived.clear();
+    MockSystemProducerAppender systemProducerAppender = new MockSystemProducerAppender();
+    PatternLayout layout = new PatternLayout();
+    layout.setConversionPattern("%m");
+    systemProducerAppender.setLayout(layout);
+    systemProducerAppender.activateOptions();
+    log.addAppender(systemProducerAppender);
+
+    List<String> messages = Lists.newArrayList("testing5", "testing6", "testing7");
+
+    // Set up latch
+    final CountDownLatch allMessagesSent = new CountDownLatch(messages.size());
+    MockSystemProducer.listeners.add((source, envelope) -> {
+        allMessagesSent.countDown();
+        if (allMessagesSent.getCount() == messages.size() - 1) {
+          throw new RuntimeException(); // Throw on the first message
+        }
+      });
+
+    // Log the messages
+    messages.forEach((message) -> log.info(message));
+
+    // Wait for messages
+    assertTrue("Thread did not send all messages. Count: " + allMessagesSent.getCount(),
+        allMessagesSent.await(60, TimeUnit.SECONDS));
+  }
+
+  @Test
+  public void testQueueTimeout() throws InterruptedException {
+    System.setProperty("samza.container.name", "samza-container-1");
+
+    MockSystemProducerAppender systemProducerAppender = new MockSystemProducerAppender();
+    systemProducerAppender.queueTimeoutS = 1;
+    PatternLayout layout = new PatternLayout();
+    layout.setConversionPattern("%m");
+    systemProducerAppender.setLayout(layout);
+    systemProducerAppender.activateOptions();
+    log.addAppender(systemProducerAppender);
+
+    int extraMessageCount = 5;
+    int expectedMessagesSent = extraMessageCount - 1; // -1 because when the queue is drained there is one additional message that couldn't be added
+    List<String> messages = new ArrayList<>(StreamAppender.DEFAULT_QUEUE_SIZE + extraMessageCount);
+    for (int i = 0; i < StreamAppender.DEFAULT_QUEUE_SIZE + extraMessageCount; i++) {
+      messages.add(String.valueOf(i));
+    }
+
+    // Set up latch
+    final CountDownLatch allMessagesSent = new CountDownLatch(expectedMessagesSent); // We expect to drop all but the extra messages
+    final CountDownLatch waitForTimeout = new CountDownLatch(1);
+    MockSystemProducer.listeners.add((source, envelope) -> {
+        System.out.println("Got another message");
+        allMessagesSent.countDown();
+        try {
+          System.out.println("Waiting for timeout");
+          waitForTimeout.await();
+          System.out.println("Done waiting for timeout");
+        } catch (InterruptedException e) {
+          fail("Test could not run properly because of a thread interrupt.");
+        }
+      });
+
+    // Log the messages
+    messages.forEach((message) -> log.info(message));
+
+    assertEquals(messages.size() - expectedMessagesSent, systemProducerAppender.metrics.logMessagesDropped.getCount());
+
+    // We should have timed out by now, so we can allow all the rest of the messages to send.
+    waitForTimeout.countDown();
+
+    // Wait for messages
+    assertTrue("Thread did not send all messages. Count: " + allMessagesSent.getCount(),
+        allMessagesSent.await(60, TimeUnit.SECONDS));
+    assertEquals(expectedMessagesSent, MockSystemProducer.messagesReceived.size());
+  }
+
+  private void logAndVerifyMessages(List<String> messages) throws InterruptedException {
+    // Set up latch
+    final CountDownLatch allMessagesSent = new CountDownLatch(messages.size());
+    MockSystemProducer.listeners.add((source, envelope) -> allMessagesSent.countDown());
+
+    // Log the messages
+    messages.forEach((message) -> log.info(message));
+
+    // Wait for messages
+    assertTrue("Timeout while waiting for StreamAppender to send all messages. Count: " + allMessagesSent.getCount(),
+        allMessagesSent.await(60, TimeUnit.SECONDS));
+
+    // Verify
+    assertEquals(messages.size(), MockSystemProducer.messagesReceived.size());
+    for (int i = 0; i < messages.size(); i++) {
+      assertTrue("Message mismatch at index " + i,
+          new String((byte[]) MockSystemProducer.messagesReceived.get(i)).contains(asJsonMessageSegment(messages.get(i))));
+    }
+  }
+
+  private String asJsonMessageSegment(String message) {
+    return String.format("\"message\":\"%s\"", message);
   }
 
   /**
