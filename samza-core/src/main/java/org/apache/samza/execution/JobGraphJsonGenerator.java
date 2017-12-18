@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -222,6 +223,11 @@ import org.codehaus.jackson.map.ObjectMapper;
     } else if (spec instanceof PartitionByOperatorSpec) {
       OutputStreamImpl outputStream = ((PartitionByOperatorSpec) spec).getOutputStream();
       map.put("outputStreamId", outputStream.getStreamSpec().getId());
+    }
+
+    if (spec instanceof StreamTableJoinOperatorSpec) {
+      TableSpec tableSpec = ((StreamTableJoinOperatorSpec) spec).getTableSpec();
+      map.put("tableId", tableSpec.getId());
     }
 
     if (spec instanceof StreamTableJoinOperatorSpec) {
