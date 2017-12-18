@@ -19,6 +19,7 @@
 
 package org.apache.samza.processor;
 
+import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -26,8 +27,11 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import kafka.utils.TestUtils;
+import org.I0Itec.zkclient.ZkClient;
+import org.I0Itec.zkclient.ZkConnection;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -35,8 +39,10 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
@@ -53,13 +59,20 @@ import org.apache.samza.test.StandaloneIntegrationTestHarness;
 import org.apache.samza.test.StandaloneTestUtils;
 import org.apache.samza.util.Util;
 import org.apache.samza.zk.TestZkUtils;
+import org.apache.zookeeper.ZooKeeper;
+import org.apache.zookeeper.server.ZooKeeperServer;
 import org.junit.Assert;
-import org.junit.Before;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
 public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness {
+  private static final String TASK_SHUTDOWN_MS = "2000";
+  private static final String JOB_DEBOUNCE_TIME_MS = "2000";
+  private static final String BARRIER_TIMEOUT_MS = "2000";
+  private static final String ZK_SESSION_TIMEOUT_MS = "2000";
+  private static final String ZK_CONNECTION_TIMEOUT_MS = "2000";
+
   public final static Logger LOG = LoggerFactory.getLogger(TestZkStreamProcessorBase.class);
   public final static int BAD_MESSAGE_KEY = 1000;
   // to avoid long sleeps, we rather use multiple attempts with shorter sleeps
@@ -77,7 +90,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     return "";
   }
 
-  @Before
+//  @Before
   public void setUp() {
     super.setUp();
     // for each tests - make the common parts unique
@@ -93,8 +106,28 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     createTopics(inputTopic, outputTopic);
   }
 
-  protected StreamProcessor createStreamProcessor(final String pId, Map<String, String> map, final Object mutexStart,
-      final Object mutexStop) {
+  // session expiration simulation
+  // have to use the reflection to get the session id
+  protected void expireSession(ZkClient zkClient) {
+    ZkConnection zkConnection = null;
+    try {
+      Field privateField = ZkClient.class.getDeclaredField("_connection");
+      privateField.setAccessible(true);
+      zkConnection = (ZkConnection) privateField.get(zkClient);
+    } catch (NoSuchFieldException | IllegalAccessException e) {
+      Assert.fail(e.toString());
+    }
+
+    ZooKeeper zookeeper = zkConnection.getZookeeper();
+    long sessionId = zookeeper.getSessionId();
+
+    LOG.info("Closing/expiring session:" + sessionId);
+    ZooKeeperServer zkServer = zookeeper().zookeeper();
+    zkServer.closeSession(sessionId);
+  }
+
+  protected StreamProcessor createStreamProcessor(final String pId, Map<String, String> map, final CountDownLatch waitStart,
+      final CountDownLatch waitStop) {
     map.put(ApplicationConfig.PROCESSOR_ID, pId);
 
     Config config = new MapConfig(map);
@@ -105,20 +138,16 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     StreamProcessorLifecycleListener listener = new StreamProcessorLifecycleListener() {
       @Override
       public void onStart() {
-        if (mutexStart != null) {
-          synchronized (mutexStart) {
-            mutexStart.notifyAll();
-          }
+        if (waitStart != null) {
+            waitStart.countDown();
         }
         LOG.info("onStart is called for pid=" + pId);
       }
 
       @Override
       public void onShutdown() {
-        if (mutexStop != null) {
-          synchronized (mutexStart) {
-            mutexStart.notify();
-          }
+        if (waitStop != null) {
+          waitStop.countDown();
         }
         LOG.info("onShutdown is called for pid=" + pId);
       }
@@ -144,7 +173,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
       int messageCount) {
     Map<String, String> configs = new HashMap<>();
     configs.putAll(StandaloneTestUtils
-        .getStandaloneConfigs("test-job", "org.apache.samza.test.processor.TestZkStreamProcessor.TestStreamTask"));
+        .getStandaloneConfigs("test-job", "org.apache.samza.processor.TestZkStreamProcessor.TestStreamTask"));
     configs.putAll(StandaloneTestUtils
         .getKafkaSystemConfigs(testSystem, bootstrapServers(), zkConnect(), null, StandaloneTestUtils.SerdeAlias.STRING,
             true));
@@ -159,6 +188,11 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     configs.put("task.name.grouper.factory", "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
 
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.zk.ZkJobCoordinatorFactory");
+    configs.put(TaskConfigJava.TASK_SHUTDOWN_MS, TASK_SHUTDOWN_MS);
+    configs.put(JobConfig.JOB_DEBOUNCE_TIME_MS(), JOB_DEBOUNCE_TIME_MS);
+    configs.put(ZkConfig.ZK_CONSENSUS_TIMEOUT_MS, BARRIER_TIMEOUT_MS);
+    configs.put(ZkConfig.ZK_SESSION_TIMEOUT_MS, ZK_SESSION_TIMEOUT_MS);
+    configs.put(ZkConfig.ZK_CONNECTION_TIMEOUT_MS, ZK_CONNECTION_TIMEOUT_MS);
 
     return configs;
   }
@@ -182,23 +216,27 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
    * Runs the provided stream processor by starting it, waiting on the provided latch with a timeout,
    * and then stopping it.
    */
-  protected Thread runInThread(final StreamProcessor processor, CountDownLatch latch) {
+  protected Thread runInThread(final StreamProcessor processor, CountDownLatch stopStartLatch) {
     Thread t = new Thread() {
 
       @Override
       public void run() {
+        LOG.info("about to start processor " + processor);
         processor.start();
+        LOG.info("started processor " + processor);
         try {
           // just wait
-          synchronized (this) {
-            this.wait(100000);
+          if (!stopStartLatch.await(1000000, TimeUnit.MILLISECONDS)) {
+            LOG.warn("Wait timed out for processor " + processor);
+            Assert.fail("Wait timed out for processor " + processor);
           }
-          LOG.info("notified. Abandon the wait.");
+          LOG.info("notified. Abandon the wait for processor " + processor);
         } catch (InterruptedException e) {
           LOG.error("wait interrupted" + e);
         }
-        LOG.info("Stopping the processor");
+        LOG.info("Stopping the processor" + processor);
         processor.stop();
+        LOG.info("Stopped the processor" + processor);
       }
     };
     return t;
@@ -261,26 +299,25 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
         System.out.println("2read all. current count = " + leftEventsCount);
         break;
       }
-      TestZkUtils.sleepMs(1000);
+      TestZkUtils.sleepMs(5000);
       attempts--;
     }
     Assert.assertTrue("Didn't read all the leftover events in " + ATTEMPTS_NUMBER + " attempts", attempts > 0);
   }
 
-  protected void waitForProcessorToStartStop(Object waitObject) {
+  protected void waitForProcessorToStartStop(CountDownLatch waitObject) {
+    LOG.info("Waiting on " + waitObject);
     try {
-      synchronized (waitObject) {
-        waitObject.wait(1000);
+      if (!waitObject.await(30000, TimeUnit.MILLISECONDS)) {
+        Assert.fail("Timed out while waiting for the processor to start/stop.");
       }
     } catch (InterruptedException e) {
-      Assert.fail("got interrupted while waiting for the first processor to start.");
+      Assert.fail("Got interrupted while waiting for the processor to start/stop.");
     }
   }
 
-  protected void stopProcessor(Thread threadName) {
-    synchronized (threadName) {
-      threadName.notify();
-    }
+  protected void stopProcessor(CountDownLatch stopLatch) {
+    stopLatch.countDown();
   }
 
   // StreamTaskClass

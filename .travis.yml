@@ -18,11 +18,20 @@
 language: java
 
 dist: trusty
-
 sudo: false
 
+addons:
+  sonarcloud:
+    organization: samza
+    branches:
+      - master
+      - travis-sonarcloud
 jdk:
   - oraclejdk8
+
+script:
+  - ./gradlew clean build
+  - type sonar-scanner &>/dev/null; if [ $? -eq 0 ]; then sonar-scanner; else echo "Not running sonar"; fi
 
 before_cache:
   - rm -f  $HOME/.gradle/caches/modules-2/modules-2.lock
@@ -30,5 +39,10 @@ before_cache:
 
 cache:
   directories:
-    - $HOME/.gradle/caches/
-    - $HOME/.gradle/wrapper/
+    - "$HOME/.gradle/caches/"
+    - "$HOME/.gradle/wrapper/"
+    - "$HOME/.sonar/cache/"
+
+env:
+  global:
+    - secure: S8MhhgBq1SVgthw3jDBmsKtUu1so4t+uVMSEpGSVENpxJc55APQKMJNfZAtxLlObjJSClTvtZj0tjNTTrfyKebrunJ1xGriJRTCvhiKeywDE3iRHBIV4ZIUS8Yc4i8CqVTF8gqbshf2gvwc+kvOj2r2BvMPPM3MkjcTI3f9q56I=

@@ -19,6 +19,7 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.functions.FlatMapFunction;
+import org.apache.samza.operators.functions.WatermarkFunction;
 
 
 /**
@@ -38,12 +39,17 @@ public class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
    * @param opCode  the {@link OpCode} for this {@link StreamOperatorSpec}
    * @param opId  the unique ID for this {@link StreamOperatorSpec}
    */
-  StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, OperatorSpec.OpCode opCode, int opId) {
+  StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, OperatorSpec.OpCode opCode, String opId) {
     super(opCode, opId);
     this.transformFn = transformFn;
   }
 
   public FlatMapFunction<M, OM> getTransformFn() {
     return this.transformFn;
+  }
+
+  @Override
+  public WatermarkFunction getWatermarkFn() {
+    return transformFn instanceof WatermarkFunction ? (WatermarkFunction) transformFn : null;
   }
 }

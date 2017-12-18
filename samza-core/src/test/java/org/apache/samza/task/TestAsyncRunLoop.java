@@ -30,6 +30,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+
 import org.apache.samza.Partition;
 import org.apache.samza.checkpoint.OffsetManager;
 import org.apache.samza.config.Config;
@@ -46,17 +47,16 @@ import org.apache.samza.system.SystemConsumers;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.TestSystemConsumers;
 import org.junit.Before;
+import org.junit.Test;
+
 import scala.Option;
 import scala.collection.JavaConverters;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.anyObject;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 // TODO(spvenkat) SAMZA-1183: Fix all commented out tests.
 public class TestAsyncRunLoop {
@@ -86,7 +86,7 @@ public class TestAsyncRunLoop {
     scala.collection.immutable.Set<SystemStreamPartition> sspSet = JavaConverters.asScalaSetConverter(Collections.singleton(ssp)).asScala().toSet();
     return new TaskInstance(task, taskName, mock(Config.class), taskInstanceMetrics,
         null, consumers, mock(TaskInstanceCollector.class), mock(SamzaContainerContext.class),
-        manager, null, null, sspSet, new TaskInstanceExceptionHandler(taskInstanceMetrics, new scala.collection.immutable.HashSet<String>()));
+        manager, null, null, null, sspSet, new TaskInstanceExceptionHandler(taskInstanceMetrics, new scala.collection.immutable.HashSet<String>()), null, null);
   }
 
   TaskInstance createTaskInstance(AsyncStreamTask task, TaskName taskName, SystemStreamPartition ssp) {
@@ -199,6 +199,45 @@ public class TestAsyncRunLoop {
   @Before
   public void setup() {
     when(consumerMultiplexer.pollIntervalMs()).thenReturn(10);
+  }
+
+  @Test
+  public void testMetrics() throws Exception {
+    CountDownLatch task0ProcessedMessages = new CountDownLatch(2);
+    CountDownLatch task1ProcessedMessages = new CountDownLatch(1);
+
+    TestTask task0 = new TestTask(true, true, false, task0ProcessedMessages);
+    TestTask task1 = new TestTask(true, true, false, task1ProcessedMessages);
+    TaskInstance t0 = createTaskInstance(task0, taskName0, ssp0);
+    TaskInstance t1 = createTaskInstance(task1, taskName1, ssp1);
+
+    Map<TaskName, TaskInstance> tasks = new HashMap<>();
+    tasks.put(taskName0, t0);
+    tasks.put(taskName1, t1);
+    //task0.callbackHandler = buildOutofOrderCallback(task0);
+
+    int maxMessagesInFlight = 1;
+    AsyncRunLoop runLoop = new AsyncRunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
+        callbackTimeoutMs, maxThrottlingDelayMs, containerMetrics, () -> 0L, false);
+
+    when(consumerMultiplexer.choose(false))
+        .thenReturn(envelope0)
+        .thenReturn(envelope3)
+        .thenReturn(envelope1)
+        .thenReturn(null)
+        .thenReturn(ssp0EndOfStream)
+        .thenReturn(ssp1EndOfStream)
+        .thenReturn(null);
+
+    runLoop.run();
+
+    task0ProcessedMessages.await();
+    task1ProcessedMessages.await();
+
+    assertEquals(2L, t0.metrics().asyncCallbackCompleted().getCount());
+    assertEquals(1L, t1.metrics().asyncCallbackCompleted().getCount());
+    assertEquals(5L, containerMetrics.envelopes().getCount());
+    assertEquals(3L, containerMetrics.processes().getCount());
   }
 
   //@Test
@@ -368,8 +407,10 @@ public class TestAsyncRunLoop {
     task0ProcessedMessagesLatch.await();
     task1ProcessedMessagesLatch.await();
 
-    verify(offsetManager).checkpoint(taskName0);
-    verify(offsetManager, never()).checkpoint(taskName1);
+    verify(offsetManager).buildCheckpoint(taskName0);
+    verify(offsetManager).writeCheckpoint(taskName0, any());
+    verify(offsetManager, never()).buildCheckpoint(taskName1);
+    verify(offsetManager, never()).writeCheckpoint(taskName1, any());
   }
 
   //@Test
@@ -398,8 +439,10 @@ public class TestAsyncRunLoop {
     task0ProcessedMessagesLatch.await();
     task1ProcessedMessagesLatch.await();
 
-    verify(offsetManager).checkpoint(taskName0);
-    verify(offsetManager).checkpoint(taskName1);
+    verify(offsetManager).buildCheckpoint(taskName0);
+    verify(offsetManager).writeCheckpoint(taskName0, any());
+    verify(offsetManager).buildCheckpoint(taskName1);
+    verify(offsetManager).writeCheckpoint(taskName1, any());
   }
 
   //@Test
@@ -552,8 +595,10 @@ public class TestAsyncRunLoop {
     task0ProcessedMessagesLatch.await();
     task1ProcessedMessagesLatch.await();
 
-    verify(offsetManager).checkpoint(taskName0);
-    verify(offsetManager).checkpoint(taskName1);
+    verify(offsetManager).buildCheckpoint(taskName0);
+    verify(offsetManager).writeCheckpoint(taskName0, any());
+    verify(offsetManager).buildCheckpoint(taskName1);
+    verify(offsetManager).writeCheckpoint(taskName1, any());
   }
 
   // TODO: Add assertions.
@@ -641,7 +686,8 @@ public class TestAsyncRunLoop {
           secondMsgCompletionLatch.countDown();
           // OffsetManager.update with firstMsg offset, task.commit has happened when second message callback has not completed.
           verify(offsetManager).update(taskName0, firstMsg.getSystemStreamPartition(), firstMsg.getOffset());
-          verify(offsetManager, atLeastOnce()).checkpoint(taskName0);
+          verify(offsetManager, atLeastOnce()).buildCheckpoint(taskName0);
+          verify(offsetManager, atLeastOnce()).writeCheckpoint(taskName0, any());
         }
       } catch (Exception e) {
         e.printStackTrace();

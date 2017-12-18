@@ -116,6 +116,38 @@
         <table>
             <tbody>
                 <tr><th>Name</th><th>Default</th><th>Description</th></tr>
+
+                <tr>
+                    <th colspan="3" class="section" id="application">Samza application configuration</th>
+                </tr>
+                <tr>
+                    <td class="property" id="app-name">app.name</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        <strong>Required:</strong> The name of your application.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="app-id">app.id</td>
+                    <td class="default">1</td>
+                    <td class="description">
+                        If you run several instances of your application at the same time, you need to give each instance a
+                        different <code>app.id</code>. This is important, since otherwise the applications will overwrite each
+                        others' checkpoints, and perhaps interfere with each other in other ways.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="app-class">app.class</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        <strong>Required:</strong> The application to run. The value is a fully-qualified Java classname,
+                        which must implement <a href="../api/javadocs/org/apache/samza/application/StreamApplication.html">StreamApplication</a>.
+                        A StreamApplication describes as a series of transformations on the streams.
+                    </td>
+                </tr>
+
                 <tr>
                     <th colspan="3" class="section" id="job"><a href="configuration.html">Samza job configuration</a></th>
                 </tr>
@@ -199,11 +231,7 @@
                     <td class="property" id="job-coordinator-monitor-partition-change">job.coordinator.<br />monitor-partition-change</td>
                     <td class="default">false</td>
                     <td class="description">
-                        If you are using Kafka for coordinator stream, this configuration enables the Job Coordinator to
-                        detect partition count difference in Kafka input topics. On detection, it updates a Gauge
-                        metric of format <span class="system">system-name</span>.<span class="stream">stream-name</span>.partitionCount,
-                        which indicates the difference in the partition count from the initial state. Please note that currently this
-                        feature only works for Kafka-based systems.
+                        This is deprecated in favor of <a href="#job-coordinator-monitor-partition-change-frequency-ms">job.coordinator.monitor-partition-change.frequency.ms</a>.
                     </td>
                 </tr>
 
@@ -211,8 +239,12 @@
                     <td class="property" id="job-coordinator-monitor-partition-change-frequency-ms">job.coordinator.<br />monitor-partition-change.frequency.ms</td>
                     <td class="default">300000</td>
                     <td class="description">
-                        The frequency at which the input streams' partition count change should be detected. This check
-                        can be tuned to be pretty low as partition increase is not a common event.
+                        The frequency at which the input streams' partition count change should be detected. When the input
+                        partition count change is detected, Samza will automatically restart a stateless job or fail a
+                        stateful job. A longer time interval is recommended for jobs w/ large number of input system stream
+                        partitions, since gathering partition count may incur measurable overhead to the job. You can
+                        completely disable partition count monitoring by setting this value to 0 or a negative integer,
+                        which will also disable auto-restart/failing behavior of a Samza job on partition count changes.
                     </td>
                 </tr>
 
@@ -424,11 +456,24 @@
                             <dd>Fixed partition mapping. No Zoookeeper. </dd>
                             <dt><code>org.apache.samza.zk.ZkJobCoordinatorFactory</code></dt>
                             <dd>Zookeeper-based coordination. </dd>
-                        </dl>
+                           <dt><code>org.apache.samza.AzureJobCoordinatorFactory</code></dt>
+                           <dd>Azure-based coordination</dl>
                         Required only for non-cluster-managed applications. Please see the required value for <a href=#task-name-grouper-factory>task-name-grouper-factory </a>
                     </td>
                 </tr>
-
+                <tr>
+                    <td class="property" id="job.coordination.utils.factory">job.coordination.utils.factory</td>
+                    <td class="default">org.apache.samza.zk.ZkCoordinationUtilsFactory</td>
+                    <td class="description">
+                        Class to use to create CoordinationUtils. Currently available values are:
+                        <dl>
+                            <dt><code>org.apache.samza.zk.ZkCoordinationUtilsFactory</code></dt>
+                            <dd>ZooKeeper based coordination utils.</dd>
+                            <dt><code>org.apache.samza.coordinator.AzureCoordinationUtilsFactory</code></dt>
+                            <dd>Azure based coordination utils.</dd>
+                        These coordination utils are currently used for intermediate stream creation.
+                    </td>
+                </tr>
                 <tr>
                                               <!-- change link to StandAlone design/tutorial doc. SAMZA-1299 -->
                 <th colspan="3" class="section" id="ZkBasedJobCoordination"><a href="../index.html">Zookeeper-based job configuration</a></th>
@@ -468,6 +513,25 @@
                         How long the Leader processor will wait before recalculating the JobModel on change of registered processors.
                     </td>
                 </tr>
+
+                <th colspan="3" class="section" id="AzureBasedJobCoordination"><a href="../index.html">Azure-based job configuration</a></th>
+                </tr>
+                <tr>
+                    <td class="property" id="azure.storage.connect">azure.storage.connect</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        <strong>Required</strong> for applications with Azure-based coordination. This is the storage connection string related to every Azure account. It is of the format: "DefaultEndpointsProtocol=https;AccountName=&ltInsert your account name&gt;;AccountKey=&ltInsert your account key&gt;"
+
+                    </td>
+                </tr>
+                <tr>
+                    <td class="property" id="job.coordinator.azure.blob.length">job.coordinator.azure.blob.length</td>
+                    <td class="default"> 5120000 </td>
+                    <td class="description">
+                        Length in bytes, of the page blob on which the leader stores the shared data. Different types of data is stored on different pages with predefined lengths. The offsets of these pages are dependent on the total page blob length.
+                    </td>
+                </tr>
+
                 <tr>
                     <th colspan="3" class="section" id="task"><a href="../api/overview.html">Task configuration</a></th>
                 </tr>
@@ -643,6 +707,24 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="task-drop-producer-errors">task.drop.producer.errors</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        If true, producer errors will be logged and ignored. The only exceptions that will be thrown are
+                        those which are likely caused by the application itself (e.g. serializaiton errors). If false,
+                        the producer will be closed and producer errors will be propagated upward until the container
+                        ultimately fails. Failing the container is a safety precaution to ensure the latest checkpoints
+                        only reflect the events that  have been completely and successfully processed. However, some
+                        applications prefer to remain running at all costs, even if that means lost messages. Setting
+                        this property to true will enable applications to recover from producer errors at the expense of
+                        one or many (in the case of batching producers) dropped messages. If you enable this, it is highly
+                        recommended that you also configure alerting on the 'producer-send-failed' metric, since the
+                        producer might drop messages indefinitely. The logic for this property is specific to each
+                        SystemProducer implementation. It will have no effect for SystemProducers that ignore the property.
+                    </td>
+                </tr>
+
+                <tr>
                     <td class="property" id="task-log4j-system">task.log4j.system</td>
                     <td class="default"></td>
                     <td class="description">
@@ -695,7 +777,7 @@
 
                 <tr>
                     <td class="property" id="task-shutdown-ms">task.shutdown.ms</td>
-                    <td class="default">5000</td>
+                    <td class="default">30000</td>
                     <td class="description">
                         This property controls how long the Samza container will wait for an orderly shutdown of task instances.
                     </td>
@@ -1081,16 +1163,29 @@
                         <dl>
                             <dt><code>org.apache.samza.serializers.ByteSerdeFactory</code></dt>
                             <dd>A no-op serde which passes through the undecoded byte array.</dd>
+                            <dt><code>org.apache.samza.serializers.ByteBufferSerdeFactory</code></dt>
+                            <dd>Encodes <code>java.nio.ByteBuffer</code> objects.</dd>
                             <dt><code>org.apache.samza.serializers.IntegerSerdeFactory</code></dt>
                             <dd>Encodes <code>java.lang.Integer</code> objects as binary (4 bytes fixed-length big-endian encoding).</dd>
                             <dt><code>org.apache.samza.serializers.StringSerdeFactory</code></dt>
                             <dd>Encodes <code>java.lang.String</code> objects as UTF-8.</dd>
                             <dt><code>org.apache.samza.serializers.JsonSerdeFactory</code></dt>
-                            <dd>Encodes nested structures of <code>java.util.Map</code>, <code>java.util.List</code> etc. as JSON.</dd>
+                            <dd>Encodes nested structures of <code>java.util.Map</code>, <code>java.util.List</code> etc. as JSON.<br/>
+                                Note: This Serde enforces a dash-separated property naming convention, while JsonSerdeV2 doesn't.
+                                This serde is primarily meant for Samza's internal usage, and is publicly available for backwards compatibility.</dd>
+                            <dt><code>org.apache.samza.serializers.JsonSerdeV2Factory</code></dt>
+                            <dd>Encodes nested structures of <code>java.util.Map</code>, <code>java.util.List</code> etc. as JSON.<br/>
+                                Note: This Serde uses Jackson's default (camelCase) property naming convention. This serde should be <br/>
+                                preferred over JsonSerde, especially in High Level API, unless the dasherized naming convention is required <br/>
+                                (e.g., for backwards compatibility).</dd>
                             <dt><code>org.apache.samza.serializers.LongSerdeFactory</code></dt>
                             <dd>Encodes <code>java.lang.Long</code> as binary (8 bytes fixed-length big-endian encoding).</dd>
                             <dt><code>org.apache.samza.serializers.DoubleSerdeFactory</code></dt>
-                            <dd>Encodes <code>java.lang.Double</code> as binray (8 bytes double-precision float point).</dd>
+                            <dd>Encodes <code>java.lang.Double</code> as binary (8 bytes double-precision float point).</dd>
+                            <dt><code>org.apache.samza.serializers.UUIDSerdeFactory</code></dt>
+                            <dd>Encodes <code>java.util.UUID</code> objects.</dd>
+                            <dt><code>org.apache.samza.serializers.SerializableSerdeFactory</code></dt>
+                            <dd>Encodes <code>java.io.Serializable</code> objects.</dd>
                             <dt><code>org.apache.samza.serializers.MetricsSnapshotSerdeFactory</code></dt>
                             <dd>Encodes <code>org.apache.samza.metrics.reporter.MetricsSnapshot</code> objects (which are
                                 used for <a href="../container/metrics.html">reporting metrics</a>) as JSON.</dd>
@@ -1686,6 +1781,14 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="stores-rocksdb-metrics">stores.<span class="store">store-name</span>.<br>rocksdb.metrics.list</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        A list of RocksDB <a href="https://github.com/facebook/rocksdb/blob/master/include/rocksdb/db.h#L409">properties</a> to expose as metrics (gauges).
+                    </td>
+                </tr>
+
+                <tr>
                     <th colspan="3" class="section" id="cluster-manager">
                         Running Samza with a cluster manager<br>
                     </th>
@@ -2144,6 +2247,134 @@
                     <td class="property" id="hdfs-staging-directory">systems.<span class="system">system-name</span>.<br>.stagingDirectory</td>
                     <td class="default"></td>
                     <td class="description">Staging directory for storing partition description. By default (if not set by users) the value is inherited from "yarn.job.staging.directory" internally. The default value is typically good enough unless you want explicitly use a separate location.</td>
+                </tr>
+
+                <tr>
+                    <th colspan="3" class="section" id="eventhub">
+                        Using <a href="https://azure.microsoft.com/en-us/services/event-hubs/">EventHubs</a> for input and output streams<br>
+                        <span class="subtitle">
+                            (This section applies if you have set
+                            <a href="#systems-samza-factory" class="property">systems.*.samza.factory</a>
+                            <code>= org.apache.samza.system.eventhub.EventHubSystemFactory</code>)
+                        </span>
+                    </th>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-stream-list">systems.<span class="system">system-name</span>.<br>stream.list</td>
+                    <td class="default"></td>
+                    <td class="description">List of Samza <span class="stream">stream-ids</span> used for the Eventhub system</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-stream-namespace">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-id</span>.<br>eventhubs.namespace</td>
+                    <td class="default"></td>
+                    <td class="description">Namespace of the associated <span class="stream">stream-ids</span>. Required to access the Eventhubs entity per stream.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-stream-entity">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-id</span>.<br>eventhubs.entitypath</td>
+                    <td class="default"></td>
+                    <td class="description">Entity of the associated <span class="stream">stream-ids</span>. Required to access the Eventhubs entity per stream.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-stream-sas-keyname">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-id</span>.<br>eventhubs.sas.keyname</td>
+                    <td class="default"></td>
+                    <td class="description">SAS Keyname of the associated <span class="stream">stream-ids</span>. Required to access the Eventhubs entity per stream.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-stream-sas-token">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-id</span>.<br>eventhubs.sas.token</td>
+                    <td class="default"></td>
+                    <td class="description">SAS Token the associated <span class="stream">stream-ids</span>. Required to access the Eventhubs entity per stream.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-runtime-timeout">systems.<span class="system">system-name</span>.<br>eventhubs.runtime.info.timeout</td>
+                    <td class="default">60000</td>
+                    <td class="description">Timeout for fetching the runtime metadata from an Eventhub entity on startup in millis.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-send-partition-method">systems.<span class="system">system-name</span>.<br>eventhubs.partition.method</td>
+                    <td class="default"><code>EVENT_HUB_HASHING</code></td>
+                    <td class="description">
+                        Producer only config. Configure the method that the message is partitioned for the downstream Eventhub in one of the following ways:
+                        <dl>
+                            <dt><code>ROUND_ROBIN</code></dt>
+                            <dd>The message key and partition key are ignored and the message will be distributed in a round-robin fashion amongst all the partitions in the downstream EventHub.</dd>
+                            <dt><code>EVENT_HUB_HASHING</code></dt>
+                            <dd>Employs the hashing mechanism in EventHubs to determine, based on the key of the message, which partition the message should go. Using this method still ensures that all the events with the same key are sent to the same partition in the event hub. If this option is chosen, the partition key used for the hash should be a string. If the partition key is not set, the message key is used instead.</dd>
+                            <dt><code>PARTITION_KEY_AS_PARTITION</code></dt>
+                            <dd>Use the integer key specified by the partition key or key of the message to a specific partition on Eventhub. If the integer key is greater than the number of partitions in the destination Eventhub, a modulo operation will be performed to determine the resulting paritition. ie. if there are 6 partitions and the key is 9, the message will end up in partition 3. Similarly to EVENT_HUB_HASHING, if the partition key is not set the message key is used instead.</dd>
+                        </dl>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-send-key">systems.<span class="system">system-name</span>.<br>eventhubs.send.key</td>
+                    <td class="default">true</td>
+                    <td class="description">
+                        Producer only config. Sending each message key to the eventhub in the properties of the AMQP message. If the Samza Eventhub consumer is used, this field is used as the message key if the partition key is not present.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-consumer-group">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-id</span>.<br>eventhubs.consumer.group</td>
+                    <td class="default"><code>$Default</code></td>
+                    <td class="description">
+                        Consumer only config. Set the consumer group from the upstream Eventhub that the consumer is part of. Defaults to the <code>$Default</code> group that is initially present in all Eventhub entities (unless removed)
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-consumer-buffer-capacity">systems.<span class="system">system-name</span>.<br>eventhubs.receive.queue.size</td>
+                    <td class="default">100</td>
+                    <td class="description">
+                        Consumer only config. Per partition capacity of the eventhubs consumer buffer - the blocking queue used for storing messages. Larger buffer capacity typically leads to better throughput but consumes more memory.
+                    </td>
+                </tr>
+
+                <tr>
+                    <th colspan="3" class="section" id="kinesis">
+                        Using <a href="https://aws.amazon.com/kinesis/">Kinesis</a> for input streams<br>
+                        <span class="subtitle">
+                            (This section applies if you have set
+                            <a href="#systems-samza-factory" class="property">systems.*.samza.factory</a>
+                            <code>= org.apache.samza.system.kinesis.KinesisSystemFactory</code>)
+                        </span>
+                    </th>
+                </tr>
+
+                <tr>
+                    <td class="property" id="kinesis-stream-region">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>aws.region</td>
+                    <td class="default"></td>
+                    <td class="description">Region of the associated <span class="stream">stream-name</span>. Required to access the Kinesis data stream.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="kinesis-stream-access-key">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>aws.accessKey</td>
+                    <td class="default"></td>
+                    <td class="description">AccessKey of the associated <span class="stream">stream-name</span>. Required to access Kinesis data stream.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="kinesis-stream-secret-key">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>aws.secretKey</td>
+                    <td class="default"></td>
+                    <td class="description">SecretKey of the associated <span class="stream">stream-name</span>. Required to access the Kinesis data stream.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="kinesis-stream-aws-kcl-configs">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>aws.kcl.*</td>
+                    <td class="default"></td>
+                    <td class="description"><a href="https://github.com/awslabs/amazon-kinesis-client/blob/master/src/main/java/com/amazonaws/services/kinesis/clientlibrary/lib/worker/KinesisClientLibConfiguration.java">AWS Kinesis Client Library configuration</a> associated with the <span class="stream">stream-name</span>.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="kinesis-system-aws-client-configs">systems.<span class="system">system-name</span>.<br>aws.clientConfig.*</td>
+                    <td class="default"></td>
+                    <td class="description"><a href="http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/ClientConfiguration.html">AWS ClientConfiguration</a> associated with the <span class="system">system-name</span>.</td>
                 </tr>
             </tbody>
         </table>

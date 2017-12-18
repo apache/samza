@@ -68,26 +68,26 @@ Following can be done when updating the gradle.properties file
 
 1. in x.x.x branch,
 
-    * modify the docs/_config.yml to make both the "version" and "latest-release" properties to x.x.x
+    * if this is a major release, modify the docs/_config.yml to make both the "version" and "latest-release" properties to x.x.x
 
     * remove "git checkout latest" line and the "-SNAPSHOT" version suffix in each of the tutorials
       * docs/startup/hello-samza/versioned/index.md
       * docs/learn/tutorials/versioned/hello-samza-high-level-code.md
       * docs/learn/tutorials/versioned/hello-samza-high-level-yarn.md
       * docs/learn/tutorials/versioned/hello-samza-high-level-zk.md
+      * docs/learn/tutorials/versioned/samza-rest-getting-started.md
 
 2. in master branch,
 
-    * modify the docs/_config.yml to make the "latest-release" to x.x.x
+    * if this is a major release, modify the docs/_config.yml to make the "latest-release" to x.x.x
 
-    * add the x.x.x release to Archive category in docs/_layouts/default.html and x.x.x release part in docs/archive/index.html
+    * if this is a major release, add the x.x.x release to Archive category in docs/_layouts/default.html and x.x.x release part in docs/archive/index.html
 
-    * update the download page to use x.x.x release
-      * docs/startup/download/index.md
+    * update the download page (docs/startup/download/index.md) to use x.x.x release
+      * Add an entry to the Sources releases and Samza Tools section to use the new x.x.x release
 
     * update the version number in "tar -xvf ./target/hello-samza-y.y.y-dist.tar.gz -C deploy/samza" in each of the tutorials (and search for other uses of version x.x.x which may need to be replaced with y.y.y)
       * docs/startup/hello-samza/versioned/index.md
-      * docs/learn/tutorials/versioned/hello-samza-high-level-code.md
       * docs/learn/tutorials/versioned/hello-samza-high-level-yarn.md
       * docs/learn/tutorials/versioned/hello-samza-high-level-zk.md
       * docs/learn/tutorials/versioned/samza-rest-getting-started.md

@@ -20,12 +20,42 @@
 package org.apache.samza.config;
 
 import com.google.common.base.Strings;
+import org.apache.samza.SamzaException;
+import org.apache.samza.coordinator.CoordinationUtilsFactory;
+import org.apache.samza.util.ClassLoaderHelper;
+import org.apache.samza.zk.ZkCoordinationUtilsFactory;
 
 public class JobCoordinatorConfig extends MapConfig {
   public static final String JOB_COORDINATOR_FACTORY = "job.coordinator.factory";
+  public static final String JOB_COORDINATION_UTILS_FACTORY = "job.coordination.utils.factory";
+  public final static String DEFAULT_COORDINATION_UTILS_FACTORY = ZkCoordinationUtilsFactory.class.getName();
 
   public JobCoordinatorConfig(Config config) {
     super(config);
+  }
+
+  public String getJobCoordinationUtilsFactoryClassName() {
+    String className = get(JOB_COORDINATION_UTILS_FACTORY, DEFAULT_COORDINATION_UTILS_FACTORY);
+
+    if (Strings.isNullOrEmpty(className)) {
+      throw new SamzaException("Empty config for " + JOB_COORDINATION_UTILS_FACTORY + " = " + className);
+    }
+
+    try {
+      Class.forName(className);
+    } catch (ClassNotFoundException e) {
+      throw new SamzaException(
+          "Failed to validate config value for " + JOB_COORDINATION_UTILS_FACTORY + " = " + className, e);
+    }
+
+    return className;
+  }
+
+  public CoordinationUtilsFactory getCoordinationUtilsFactory() {
+    // load the class
+    String coordinationUtilsFactoryClass = getJobCoordinationUtilsFactoryClassName();
+
+    return ClassLoaderHelper.fromClassName(coordinationUtilsFactoryClass, CoordinationUtilsFactory.class);
   }
 
   public String getJobCoordinatorFactoryClassName() {

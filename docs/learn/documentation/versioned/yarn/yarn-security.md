@@ -91,4 +91,3 @@ yarn.token.renewal.interval.seconds=86400
         </property>
     {% endhighlight %}
 
-## [Writing to HDFS &raquo;](../hdfs/producer.html)

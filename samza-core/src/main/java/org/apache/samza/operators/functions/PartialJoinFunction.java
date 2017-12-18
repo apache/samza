@@ -18,21 +18,22 @@
  */
 package org.apache.samza.operators.functions;
 
+import org.apache.samza.operators.impl.store.TimestampedValue;
 import org.apache.samza.storage.kv.KeyValueStore;
 
 /**
  * An internal function that maintains state and join logic for one side of a two-way join.
  */
-public interface PartialJoinFunction<K, M, JM, RM> extends InitableFunction, ClosableFunction {
+public interface PartialJoinFunction<K, M, OM, JM> extends InitableFunction, ClosableFunction {
 
   /**
    * Joins a message in this stream with a message from another stream.
    *
    * @param m  message from this input stream
-   * @param jm  message from the other input stream
+   * @param om  message from the other input stream
    * @return  the joined message in the output stream
    */
-  RM apply(M m, JM jm);
+  JM apply(M m, OM om);
 
   /**
    * Gets the key for the input message.
@@ -47,23 +48,6 @@ public interface PartialJoinFunction<K, M, JM, RM> extends InitableFunction, Clo
    *
    * @return the key value store containing the state for this stream
    */
-  KeyValueStore<K, PartialJoinMessage<M>> getState();
+  KeyValueStore<K, TimestampedValue<M>> getState();
 
-  class PartialJoinMessage<M> {
-    private final M message;
-    private final long receivedTimeMs;
-
-    public PartialJoinMessage(M message, long receivedTimeMs) {
-      this.message = message;
-      this.receivedTimeMs = receivedTimeMs;
-    }
-
-    public M getMessage() {
-      return message;
-    }
-
-    public long getReceivedTimeMs() {
-      return receivedTimeMs;
-    }
-  }
 }

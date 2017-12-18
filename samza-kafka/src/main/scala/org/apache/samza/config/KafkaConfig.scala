@@ -20,24 +20,21 @@
 package org.apache.samza.config
 
 
+import java.util
+import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
-
-import org.apache.samza.util.Util
-import org.apache.samza.util.Logging
-
-import scala.collection.JavaConverters._
-import kafka.consumer.ConsumerConfig
 import java.util.{Properties, UUID}
 
+import com.google.common.collect.ImmutableMap
+import kafka.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerConfig
+import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.samza.SamzaException
-import java.util
+import org.apache.samza.config.ApplicationConfig.ApplicationMode
+import org.apache.samza.config.SystemConfig.Config2System
+import org.apache.samza.util.{Logging, Util}
 
 import scala.collection.JavaConverters._
-import org.apache.samza.system.kafka.KafkaSystemFactory
-import org.apache.samza.config.SystemConfig.Config2System
-import org.apache.samza.config.StreamConfig.Config2Stream
-import org.apache.kafka.common.serialization.ByteArraySerializer
 
 object KafkaConfig {
   val TOPIC_REPLICATION_FACTOR = "replication.factor"
@@ -81,6 +78,8 @@ object KafkaConfig {
     * If the value of this property is > 0 then this takes precedence over CONSUMER_FETCH_THRESHOLD config.
     */
   val CONSUMER_FETCH_THRESHOLD_BYTES = SystemConfig.SYSTEM_PREFIX + "samza.fetch.threshold.bytes"
+
+  val DEFAULT_RETENTION_MS_FOR_BATCH = TimeUnit.DAYS.toMillis(1)
 
   implicit def Config2Kafka(config: Config) = new KafkaConfig(config)
 }
@@ -240,9 +239,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
       val changelogName = storageConfig.getChangelogStream(storeName).getOrElse(throw new SamzaException("unable to get SystemStream for store:" + changelogConfig));
       val systemStream = Util.getSystemStreamFromNames(changelogName)
       val factoryName = config.getSystemFactory(systemStream.getSystem).getOrElse(new SamzaException("Unable to determine factory for system: " + systemStream.getSystem))
-      if (classOf[KafkaSystemFactory].getCanonicalName == factoryName) {
-        storeToChangelog += storeName -> systemStream.getStream
-      }
+      storeToChangelog += storeName -> systemStream.getStream
     }
     storeToChangelog
   }
@@ -251,11 +248,41 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   def getChangelogKafkaProperties(name: String) = {
     val filteredConfigs = config.subset(KafkaConfig.CHANGELOG_STREAM_KAFKA_SETTINGS format name, true)
     val kafkaChangeLogProperties = new Properties
-    kafkaChangeLogProperties.setProperty("cleanup.policy", "compact")
+
+    val appConfig = new ApplicationConfig(config)
+    if (appConfig.getAppMode == ApplicationMode.STREAM) {
+      kafkaChangeLogProperties.setProperty("cleanup.policy", "compact")
+    } else{
+      kafkaChangeLogProperties.setProperty("cleanup.policy", "compact,delete")
+      kafkaChangeLogProperties.setProperty("retention.ms", String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH))
+    }
     kafkaChangeLogProperties.setProperty("segment.bytes", KafkaConfig.CHANGELOG_DEFAULT_SEGMENT_SIZE)
     kafkaChangeLogProperties.setProperty("delete.retention.ms", String.valueOf(new StorageConfig(config).getChangeLogDeleteRetentionInMs(name)))
     filteredConfigs.asScala.foreach { kv => kafkaChangeLogProperties.setProperty(kv._1, kv._2) }
     kafkaChangeLogProperties
+  }
+
+  // Set the checkpoint topic configs to have a very small segment size and
+  // enable log compaction. This keeps job startup time small since there
+  // are fewer useless (overwritten) messages to read from the checkpoint
+  // topic.
+  def getCheckpointTopicProperties() = {
+    val segmentBytes: Int = getCheckpointSegmentBytes()
+    val appConfig = new ApplicationConfig(config)
+    val isStreamMode = appConfig.getAppMode == ApplicationMode.STREAM
+    val properties = new Properties()
+
+    if (isStreamMode) {
+      properties.putAll(ImmutableMap.of(
+        "cleanup.policy", "compact",
+        "segment.bytes", String.valueOf(segmentBytes)))
+    } else {
+      properties.putAll(ImmutableMap.of(
+        "cleanup.policy", "compact,delete",
+        "retention.ms", String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH),
+        "segment.bytes", String.valueOf(segmentBytes)))
+    }
+    properties
   }
 
   // kafka config
@@ -278,7 +305,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
                                     injectedProps: Map[String, String] = Map()) = {
 
     val subConf = config.subset("systems.%s.producer." format systemName, true)
-    val producerProps = new util.HashMap[String, Object]()
+    val producerProps = new util.HashMap[String, String]()
     producerProps.putAll(subConf)
     producerProps.put("client.id", clientId)
     producerProps.putAll(injectedProps.asJava)
@@ -288,7 +315,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
 
 class KafkaProducerConfig(val systemName: String,
                           val clientId: String = "",
-                          properties: java.util.Map[String, Object] = new util.HashMap[String, Object]()) extends Logging {
+                          properties: java.util.Map[String, String] = new util.HashMap[String, String]()) extends Logging {
 
   // Copied from new Kafka API - Workaround until KAFKA-1794 is resolved
   val RECONNECT_BACKOFF_MS_DEFAULT = 10L
@@ -296,8 +323,10 @@ class KafkaProducerConfig(val systemName: String,
   //Overrides specific to samza-kafka (these are considered as defaults in Samza & can be overridden by user
   val MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT: java.lang.Integer = 1.asInstanceOf[Integer]
   val RETRIES_DEFAULT: java.lang.Integer = Integer.MAX_VALUE
+  val LINGER_MS_DEFAULT: java.lang.Integer = 10
 
   def getProducerProperties = {
+
     val byteArraySerializerClassName = classOf[ByteArraySerializer].getCanonicalName
     val producerProperties: java.util.Map[String, Object] = new util.HashMap[String, Object]()
     producerProperties.putAll(properties)
@@ -320,14 +349,17 @@ class KafkaProducerConfig(val systemName: String,
       producerProperties.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT)
     }
 
-    if (producerProperties.containsKey(ProducerConfig.RETRIES_CONFIG)
-      && producerProperties.get(ProducerConfig.RETRIES_CONFIG).asInstanceOf[String].toInt < RETRIES_DEFAULT) {
-      warn("Samza does not provide producer failure handling. Consider setting '%s' to a large value, like Int.MAX." format ProducerConfig.RETRIES_CONFIG)
-    } else {
-      // Retries config is set to Max so that when all attempts fail, Samza also fails the send. We do not have any special handler
-      // for producer failure
+    if (!producerProperties.containsKey(ProducerConfig.RETRIES_CONFIG)) {
+      debug("%s undefined. Defaulting to %s." format(ProducerConfig.RETRIES_CONFIG, RETRIES_DEFAULT))
       producerProperties.put(ProducerConfig.RETRIES_CONFIG, RETRIES_DEFAULT)
     }
+    producerProperties.get(ProducerConfig.RETRIES_CONFIG).toString.toInt // Verify int
+
+    if (!producerProperties.containsKey(ProducerConfig.LINGER_MS_CONFIG)) {
+      debug("%s undefined. Defaulting to %s." format(ProducerConfig.LINGER_MS_CONFIG, LINGER_MS_DEFAULT))
+      producerProperties.put(ProducerConfig.LINGER_MS_CONFIG, LINGER_MS_DEFAULT)
+    }
+    producerProperties.get(ProducerConfig.LINGER_MS_CONFIG).toString.toInt // Verify int
 
     producerProperties
   }

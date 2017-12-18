@@ -42,6 +42,9 @@ public class SamzaApplicationState {
 
   public enum SamzaAppStatus { UNDEFINED, SUCCEEDED, FAILED }
 
+  /**
+   * {@link JobModelManager} object associated with this {@link SamzaApplicationState}
+   */
   public final JobModelManager jobModelManager;
 
   /**
@@ -102,9 +105,9 @@ public class SamzaApplicationState {
   public final ConcurrentMap<String, SamzaResource> runningContainers = new ConcurrentHashMap<String, SamzaResource>(0);
 
   /**
-   * Final status of the application
+   * Final status of the application. Made to be volatile s.t. changes will be visible in multiple threads.
    */
-  public SamzaAppStatus status = SamzaAppStatus.UNDEFINED;
+  public volatile SamzaAppStatus status = SamzaAppStatus.UNDEFINED;
 
   /**
    * State indicating whether the job is healthy or not
@@ -115,6 +118,14 @@ public class SamzaApplicationState {
   public final AtomicInteger containerRequests = new AtomicInteger(0);
 
   public final AtomicInteger matchedResourceRequests = new AtomicInteger(0);
+
+  /**
+   * Number of invalid container notifications.
+   *
+   * A notification is "invalid" if the corresponding container is not currently managed by the
+   * {@link ContainerProcessManager}
+   */
+  public final AtomicInteger redundantNotifications = new AtomicInteger(0);
 
   public SamzaApplicationState(JobModelManager jobModelManager) {
     this.jobModelManager = jobModelManager;

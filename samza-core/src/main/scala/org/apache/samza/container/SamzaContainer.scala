@@ -20,61 +20,37 @@
 package org.apache.samza.container
 
 import java.io.File
+import java.net.{URL, UnknownHostException}
 import java.nio.file.Path
 import java.util
+import java.util.Base64
 import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
-import java.net.{URL, UnknownHostException}
 
-import org.apache.samza.serializers.IntermediateMessageSerde
-import org.apache.samza.serializers.StringSerde
-import org.apache.samza.{SamzaContainerStatus, SamzaException}
 import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
 import org.apache.samza.config.SerializerConfig.Config2Serializer
-import org.apache.samza.config.{ClusterManagerConfig, Config, ShellCommandConfig, StorageConfig}
 import org.apache.samza.config.StorageConfig.Config2Storage
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
-import org.apache.samza.container.disk.DiskQuotaPolicyFactory
-import org.apache.samza.container.disk.DiskSpaceMonitor
+import org.apache.samza.config._
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
-import org.apache.samza.container.disk.NoThrottlingDiskQuotaPolicyFactory
-import org.apache.samza.container.disk.PollingScanDiskSpaceMonitor
+import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor, NoThrottlingDiskQuotaPolicyFactory, PollingScanDiskSpaceMonitor}
 import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStatistics, SystemStatisticsMonitor}
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
-import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.job.model.JobModel
-import org.apache.samza.metrics.JmxServer
-import org.apache.samza.metrics.JvmMetrics
-import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.metrics.MetricsReporter
-import org.apache.samza.serializers.SerdeFactory
-import org.apache.samza.serializers.SerdeManager
+import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
+import org.apache.samza.serializers._
 import org.apache.samza.serializers.model.SamzaObjectMapper
-import org.apache.samza.storage.StorageEngineFactory
-import org.apache.samza.storage.TaskStorageManager
-import org.apache.samza.system.StreamMetadataCache
-import org.apache.samza.system.SystemConsumers
-import org.apache.samza.system.SystemConsumersMetrics
-import org.apache.samza.system.SystemFactory
-import org.apache.samza.system.SystemProducers
-import org.apache.samza.system.SystemProducersMetrics
-import org.apache.samza.system.SystemStream
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.system.chooser.DefaultChooser
-import org.apache.samza.system.chooser.MessageChooserFactory
-import org.apache.samza.system.chooser.RoundRobinChooserFactory
+import org.apache.samza.storage.{StorageEngineFactory, TaskStorageManager}
+import org.apache.samza.system._
+import org.apache.samza.system.chooser.{DefaultChooser, MessageChooserFactory, RoundRobinChooserFactory}
+import org.apache.samza.table.TableManager
 import org.apache.samza.task._
-import org.apache.samza.util.HighResolutionClock
-import org.apache.samza.util.ExponentialSleepStrategy
-import org.apache.samza.util.Logging
-import org.apache.samza.util.Throttleable
-import org.apache.samza.util.MetricsReporterLoader
-import org.apache.samza.util.SystemClock
-import org.apache.samza.util.Util
 import org.apache.samza.util.Util.asScalaClock
+import org.apache.samza.util._
+import org.apache.samza.{SamzaContainerStatus, SamzaException}
 
 import scala.collection.JavaConverters._
 
@@ -109,13 +85,14 @@ object SamzaContainer extends Logging {
   }
 
   def apply(
-    containerModel: ContainerModel,
+    containerId: String,
+    jobModel: JobModel,
     config: Config,
-    maxChangeLogStreamPartitions: Int,
     customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter](),
     taskFactory: Object) = {
-    val containerId = containerModel.getProcessorId()
+    val containerModel = jobModel.getContainers.get(containerId)
     val containerName = "samza-container-%s" format containerId
+    val maxChangeLogStreamPartitions = jobModel.maxChangeLogStreamPartitions
 
     var localityManager: LocalityManager = null
     if (new ClusterManagerConfig(config).getHostAffinityEnabled()) {
@@ -168,10 +145,6 @@ object SamzaContainer extends Logging {
 
     info("Got serde streams: %s" format serdeStreams)
 
-    val serdeNames = config.getSerdeNames
-
-    info("Got serde names: %s" format serdeNames)
-
     val systemFactories = systemNames.map(systemName => {
       val systemFactoryClassName = config
         .getSystemFactory(systemName)
@@ -222,7 +195,7 @@ object SamzaContainer extends Logging {
 
     info("Got system producers: %s" format producers.keys)
 
-    val serdes = serdeNames.map(serdeName => {
+    val serdesFromFactories = config.getSerdeNames.map(serdeName => {
       val serdeClassName = config
         .getSerdeClass(serdeName)
         .getOrElse(Util.defaultSerdeFactoryFromSerdeName(serdeName))
@@ -232,8 +205,28 @@ object SamzaContainer extends Logging {
 
       (serdeName, serde)
     }).toMap
+    info("Got serdes from factories: %s" format serdesFromFactories.keys)
 
-    info("Got serdes: %s" format serdes.keys)
+    val serializableSerde = new SerializableSerde[Serde[Object]]()
+    val serdesFromSerializedInstances = config.subset(SerializerConfig.SERIALIZER_PREFIX format "").asScala
+        .filter { case (key, value) => key.endsWith(SerializerConfig.SERIALIZED_INSTANCE_SUFFIX) }
+        .flatMap { case (key, value) =>
+          val serdeName = key.replace(SerializerConfig.SERIALIZED_INSTANCE_SUFFIX, "")
+          debug(s"Trying to deserialize serde instance for $serdeName")
+          try {
+            val bytes = Base64.getDecoder.decode(value)
+            val serdeInstance = serializableSerde.fromBytes(bytes)
+            debug(s"Returning serialized instance for $serdeName")
+            Some((serdeName, serdeInstance))
+          } catch {
+            case e: Exception =>
+              warn(s"Ignoring invalid serialized instance for $serdeName: $value", e)
+              None
+          }
+        }
+    info("Got serdes from serialized instances: %s" format serdesFromSerializedInstances.keys)
+
+    val serdes = serdesFromFactories ++ serdesFromSerializedInstances
 
     /*
      * A Helper function to build a Map[String, Serde] (systemName -> Serde) for systems defined
@@ -242,11 +235,16 @@ object SamzaContainer extends Logging {
     val buildSystemSerdeMap = (getSerdeName: (String) => Option[String]) => {
       systemNames
         .filter(systemName => getSerdeName(systemName).isDefined)
-              .map(systemName => {
+        .flatMap(systemName => {
           val serdeName = getSerdeName(systemName).get
           val serde = serdes.getOrElse(serdeName,
             throw new SamzaException("buildSystemSerdeMap: No class defined for serde: %s." format serdeName))
-          (systemName, serde)
+
+          // this shouldn't happen since system level serdes can't be set programmatically using the high level
+          // API, but adding this for safety.
+          Option(serde)
+            .filter(!_.isInstanceOf[NoOpSerde[Any]])
+            .map(serde => (systemName, serde))
         }).toMap
     }
 
@@ -257,11 +255,15 @@ object SamzaContainer extends Logging {
     val buildSystemStreamSerdeMap = (getSerdeName: (SystemStream) => Option[String]) => {
       (serdeStreams ++ inputSystemStreamPartitions)
         .filter(systemStream => getSerdeName(systemStream).isDefined)
-        .map(systemStream => {
+        .flatMap(systemStream => {
           val serdeName = getSerdeName(systemStream).get
           val serde = serdes.getOrElse(serdeName,
-            throw new SamzaException("buildSystemStreamSerdeMap: No class defined for serde: %s." format serdeName))
-          (systemStream, serde)
+            throw new SamzaException("buildSystemStreamSerdeMap: No serde found for name: %s." format serdeName))
+
+          // respect explicitly set no-op serdes in high level API
+          Option(serde)
+            .filter(!_.isInstanceOf[NoOpSerde[Any]])
+            .map(serde => (systemStream, serde))
         }).toMap
     }
 
@@ -430,7 +432,7 @@ object SamzaContainer extends Logging {
       .asScala
       .map(_.getTaskName)
       .toSet
-    val containerContext = new SamzaContainerContext(containerId, config, taskNames.asJava)
+    val containerContext = new SamzaContainerContext(containerId, config, taskNames.asJava, samzaContainerMetrics.registry)
 
     // TODO not sure how we should make this config based, or not. Kind of
     // strange, since it has some dynamic directories when used with YARN.
@@ -538,6 +540,11 @@ object SamzaContainer extends Logging {
         new StorageConfig(config).getChangeLogDeleteRetentionsInMs,
         new SystemClock)
 
+      val tableManager = new TableManager(config, serdes.asJava)
+      tableManager.initLocalTables(taskStores.asJava)
+
+      info("Got table manager");
+
       val systemStreamPartitions = taskModel
         .getSystemStreamPartitions
         .asScala
@@ -556,9 +563,12 @@ object SamzaContainer extends Logging {
           containerContext = containerContext,
           offsetManager = offsetManager,
           storageManager = storageManager,
+          tableManager = tableManager,
           reporters = reporters,
           systemStreamPartitions = systemStreamPartitions,
-          exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics, config))
+          exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics, config),
+          jobModel = jobModel,
+          streamMetadataCache = streamMetadataCache)
 
       val taskInstance = createTaskInstance(task)
 
@@ -649,7 +659,7 @@ class SamzaContainer(
   jvm: JvmMetrics = null,
   taskThreadPool: ExecutorService = null) extends Runnable with Logging {
 
-  val shutdownMs = containerContext.config.getShutdownMs.getOrElse(5000L)
+  val shutdownMs = containerContext.config.getShutdownMs.getOrElse(TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS)
   var shutdownHookThread: Thread = null
   var jmxServer: JmxServer = null
 
@@ -659,6 +669,8 @@ class SamzaContainer(
   private var containerListener: SamzaContainerListener = null
 
   def getStatus(): SamzaContainerStatus = status
+
+  def getTaskInstances() = taskInstances
 
   def setContainerListener(listener: SamzaContainerListener): Unit = {
     containerListener = listener
@@ -677,6 +689,7 @@ class SamzaContainer(
       startOffsetManager
       startLocalityManager
       startStores
+      startTableManager
       startDiskSpaceMonitor
       startHostStatisticsMonitor
       startProducers
@@ -711,6 +724,7 @@ class SamzaContainer(
 
       shutdownConsumers
       shutdownTask
+      shutdownTableManager
       shutdownStores
       shutdownDiskSpaceMonitor
       shutdownHostStatisticsMonitor
@@ -771,7 +785,7 @@ class SamzaContainer(
    */
   def shutdown(): Unit = {
     if (status == SamzaContainerStatus.STOPPED || status == SamzaContainerStatus.FAILED) {
-      throw new IllegalContainerStateException("Cannot shutdown a container with status - " + status)
+      throw new IllegalContainerStateException("Cannot shutdown a container with status " + status)
     }
     shutdownRunLoop()
   }
@@ -841,19 +855,19 @@ class SamzaContainer(
         localityManager.writeContainerToHostMapping(containerContext.id, hostInet.getHostName, jmxUrl, jmxTunnelingUrl)
       } catch {
         case uhe: UnknownHostException =>
-          warn("Received UnknownHostException when persisting locality info for container %d: " +
+          warn("Received UnknownHostException when persisting locality info for container %s: " +
             "%s" format (containerContext.id, uhe.getMessage))  //No-op
         case unknownException: Throwable =>
-          warn("Received an exception when persisting locality info for container %d: " +
+          warn("Received an exception when persisting locality info for container %s: " +
             "%s" format (containerContext.id, unknownException.getMessage))
       }
     }
   }
 
   def startStores {
-    info("Starting task instance stores.")
     taskInstances.values.foreach(taskInstance => {
       val startTime = System.currentTimeMillis()
+      info("Starting stores in task instance %s" format taskInstance.taskName)
       taskInstance.startStores
       // Measuring the time to restore the stores
       val timeToRestore = System.currentTimeMillis() - startTime
@@ -861,6 +875,13 @@ class SamzaContainer(
       if (taskGauge != null) {
         taskGauge.set(timeToRestore)
       }
+    })
+  }
+
+  def startTableManager: Unit = {
+    taskInstances.values.foreach(taskInstance => {
+      info("Starting table manager in task instance %s" format taskInstance.taskName)
+      taskInstance.startTableManager
     })
   }
 
@@ -902,16 +923,18 @@ class SamzaContainer(
     val runLoopThread = Thread.currentThread()
     shutdownHookThread = new Thread("CONTAINER-SHUTDOWN-HOOK") {
       override def run() = {
-        info("Shutting down, will wait up to %s ms" format shutdownMs)
+        info("Shutting down, will wait up to %s ms." format shutdownMs)
         shutdownRunLoop()  //TODO: Pull out shutdown hook to LocalContainerRunner or SP
         try {
           runLoopThread.join(shutdownMs)
         } catch {
           case e: Throwable => // Ignore to avoid deadlock with uncaughtExceptionHandler. See SAMZA-1220
-            error("Did not shut down within %s ms, exiting" format shutdownMs, e)
+            error("Did not shut down within %s ms, exiting." format shutdownMs, e)
         }
         if (!runLoopThread.isAlive) {
           info("Shutdown complete")
+        } else {
+          error("Did not shut down within %s ms, exiting." format shutdownMs)
         }
       }
     }
@@ -965,6 +988,12 @@ class SamzaContainer(
     info("Shutting down task instance stores.")
 
     taskInstances.values.foreach(_.shutdownStores)
+  }
+
+  def shutdownTableManager: Unit = {
+    info("Shutting down task instance table manager.")
+
+    taskInstances.values.foreach(_.shutdownTableManager)
   }
 
   def shutdownLocalityManager {

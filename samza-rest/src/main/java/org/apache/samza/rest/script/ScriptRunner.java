@@ -18,11 +18,15 @@
  */
 package org.apache.samza.rest.script;
 
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.apache.samza.SamzaException;
 import org.slf4j.Logger;
@@ -38,6 +42,8 @@ public class ScriptRunner {
   private static final Logger log = LoggerFactory.getLogger(ScriptRunner.class);
   private static final int DEFAULT_SCRIPT_CMD_TIMEOUT_S = 30;
   private int scriptTimeout = DEFAULT_SCRIPT_CMD_TIMEOUT_S;
+
+  private final Map<String, String> environment = new HashMap<>();
 
   protected long getScriptTimeoutS() {
     return scriptTimeout;
@@ -84,13 +90,21 @@ public class ScriptRunner {
    * @param args        the command line args to pass to the script.
    * @return            a {@link java.lang.ProcessBuilder} for the script and args.
    */
-  private ProcessBuilder getProcessBuilder(String scriptPath, String[] args) {
+  private ProcessBuilder getProcessBuilder(String scriptPath, String[] args) throws FileNotFoundException {
+    if (!new File(scriptPath).exists()) {
+      throw new FileNotFoundException("Script file does not exist: " + scriptPath);
+    }
+
     List<String> command = new ArrayList<>(args.length + 1);
     command.add(scriptPath);
     command.addAll(Arrays.asList(args));
 
     log.debug("Building process with command {}", command);
-    return new ProcessBuilder(command);
+    ProcessBuilder pb =  new ProcessBuilder(command);
+
+    pb.environment().clear();
+    pb.environment().putAll(environment);
+    return pb;
   }
 
   /**
@@ -109,6 +123,7 @@ public class ScriptRunner {
         try {
           p.waitFor();
         } catch (InterruptedException ignore) {
+          Thread.currentThread().interrupt();
           return;
         }
       }
@@ -125,5 +140,16 @@ public class ScriptRunner {
     int exitVal = p.exitValue();
     log.debug("Exit value {}", exitVal);
     return exitVal;
+  }
+
+  /**
+   * Gets the mutable map of environment variables to add to the child process environment.
+   *
+   * The structure is the same as {@link ProcessBuilder#environment()}, but this map starts empty.
+   *
+   * @return the mutable map of environment variables.
+   */
+  public Map<String, String> environment() {
+    return environment;
   }
 }

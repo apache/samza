@@ -28,15 +28,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec.OpCode;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
+import org.apache.samza.operators.spec.PartitionByOperatorSpec;
+import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
+import org.apache.samza.table.TableSpec;
 import org.codehaus.jackson.annotate.JsonProperty;
 import org.codehaus.jackson.map.ObjectMapper;
-
 
 /**
  * This class generates the JSON representation of the {@link JobGraph}.
@@ -54,6 +57,15 @@ import org.codehaus.jackson.map.ObjectMapper;
     int partitionCount;
   }
 
+  static final class TableSpecJson {
+    @JsonProperty("id")
+    String id;
+    @JsonProperty("tableProviderFactory")
+    String tableProviderFactory;
+    @JsonProperty("config")
+    Map<String, String> config;
+  }
+
   static final class StreamEdgeJson {
     @JsonProperty("streamSpec")
     StreamSpecJson streamSpec;
@@ -69,14 +81,14 @@ import org.codehaus.jackson.map.ObjectMapper;
     @JsonProperty("outputStreams")
     List<StreamJson> outputStreams;
     @JsonProperty("operators")
-    Map<Integer, Map<String, Object>> operators = new HashMap<>();
+    Map<String, Map<String, Object>> operators = new HashMap<>();
   }
 
   static final class StreamJson {
     @JsonProperty("streamId")
     String streamId;
     @JsonProperty("nextOperatorIds")
-    Set<Integer>  nextOperatorIds = new HashSet<>();
+    Set<String>  nextOperatorIds = new HashSet<>();
   }
 
   static final class JobNodeJson {
@@ -97,6 +109,8 @@ import org.codehaus.jackson.map.ObjectMapper;
     Map<String, StreamEdgeJson> sinkStreams;
     @JsonProperty("intermediateStreams")
     Map<String, StreamEdgeJson> intermediateStreams;
+    @JsonProperty("tables")
+    Map<String, TableSpecJson> tables;
     @JsonProperty("applicationName")
     String applicationName;
     @JsonProperty("applicationId")
@@ -119,9 +133,11 @@ import org.codehaus.jackson.map.ObjectMapper;
     jobGraphJson.sourceStreams = new HashMap<>();
     jobGraphJson.sinkStreams = new HashMap<>();
     jobGraphJson.intermediateStreams = new HashMap<>();
+    jobGraphJson.tables = new HashMap<>();
     jobGraph.getSources().forEach(e -> buildStreamEdgeJson(e, jobGraphJson.sourceStreams));
     jobGraph.getSinks().forEach(e -> buildStreamEdgeJson(e, jobGraphJson.sinkStreams));
     jobGraph.getIntermediateStreamEdges().forEach(e -> buildStreamEdgeJson(e, jobGraphJson.intermediateStreams));
+    jobGraph.getTables().forEach(t -> buildTableJson(t, jobGraphJson.tables));
 
     jobGraphJson.jobs = jobGraph.getJobNodes().stream()
         .map(jobNode -> buildJobNodeJson(jobNode))
@@ -204,6 +220,19 @@ import org.codehaus.jackson.map.ObjectMapper;
     if (spec instanceof OutputOperatorSpec) {
       OutputStreamImpl outputStream = ((OutputOperatorSpec) spec).getOutputStream();
       map.put("outputStreamId", outputStream.getStreamSpec().getId());
+    } else if (spec instanceof PartitionByOperatorSpec) {
+      OutputStreamImpl outputStream = ((PartitionByOperatorSpec) spec).getOutputStream();
+      map.put("outputStreamId", outputStream.getStreamSpec().getId());
+    }
+
+    if (spec instanceof StreamTableJoinOperatorSpec) {
+      TableSpec tableSpec = ((StreamTableJoinOperatorSpec) spec).getTableSpec();
+      map.put("tableId", tableSpec.getId());
+    }
+
+    if (spec instanceof StreamTableJoinOperatorSpec) {
+      TableSpec tableSpec = ((StreamTableJoinOperatorSpec) spec).getTableSpec();
+      map.put("tableId", tableSpec.getId());
     }
 
     if (spec instanceof JoinOperatorSpec) {
@@ -246,5 +275,34 @@ import org.codehaus.jackson.map.ObjectMapper;
       streamEdges.put(streamId, edgeJson);
     }
     return edgeJson;
+  }
+
+  /**
+   * Get or create the JSON POJO for a {@link TableSpec}
+   * @param tableSpec the {@link TableSpec}
+   * @param tableSpecs a map of tableId to {@link TableSpecJson}
+   * @return JSON representation of the {@link TableSpec}
+   */
+  private TableSpecJson buildTableJson(TableSpec tableSpec, Map<String, TableSpecJson> tableSpecs) {
+    String tableId = tableSpec.getId();
+    TableSpecJson tableSpecJson = tableSpecs.get(tableId);
+    if (tableSpecJson == null) {
+      tableSpecJson = buildTableJson(tableSpec);
+      tableSpecs.put(tableId, tableSpecJson);
+    }
+    return tableSpecJson;
+  }
+
+  /**
+   * Create the JSON POJO for a {@link TableSpec}
+   * @param tableSpec the {@link TableSpec}
+   * @return JSON representation of the {@link TableSpec}
+   */
+  private TableSpecJson buildTableJson(TableSpec tableSpec) {
+    TableSpecJson tableSpecJson = new TableSpecJson();
+    tableSpecJson.id = tableSpec.getId();
+    tableSpecJson.tableProviderFactory = tableSpec.getTableProviderFactoryClassName();
+    tableSpecJson.config = tableSpec.getConfig();
+    return tableSpecJson;
   }
 }

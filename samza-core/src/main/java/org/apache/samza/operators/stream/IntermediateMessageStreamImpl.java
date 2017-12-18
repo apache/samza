@@ -22,37 +22,49 @@ import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.spec.InputOperatorSpec;
+import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.system.StreamSpec;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * An intermediate stream is both an input and an output stream (e.g. a repartitioned stream).
  * <p>
  * This implementation accepts a pair of {@link InputOperatorSpec} and {@link OutputStreamImpl} associated
  * with the same logical {@code streamId}. It provides access to its {@link OutputStreamImpl} for
- * {@link MessageStreamImpl#partitionBy} to send messages out to. It's also a {@link MessageStreamImpl} with
+ * the partitionBy operator to send messages out to. It's also a {@link MessageStreamImpl} with
  * {@link InputOperatorSpec} as its operator spec, so that further operations can be chained on the
  * {@link InputOperatorSpec}.
  *
- * @param <K> the type of key in the outgoing/incoming message
- * @param <V> the type of message in the outgoing/incoming message
  * @param <M> the type of message in the output {@link MessageStreamImpl}
  */
-public class IntermediateMessageStreamImpl<K, V, M> extends MessageStreamImpl<M> implements OutputStream<K, V, M> {
+public class IntermediateMessageStreamImpl<M> extends MessageStreamImpl<M> implements OutputStream<M> {
 
-  private final OutputStreamImpl<K, V, M> outputStream;
+  private static final Logger LOGGER = LoggerFactory.getLogger(IntermediateMessageStreamImpl.class);
+  private final OutputStreamImpl<M> outputStream;
+  private final boolean isKeyed;
 
-  public IntermediateMessageStreamImpl(StreamGraphImpl graph, InputOperatorSpec<K, V, M> inputOperatorSpec,
-      OutputStreamImpl<K, V, M> outputStream) {
-    super(graph, inputOperatorSpec);
+  public IntermediateMessageStreamImpl(StreamGraphImpl graph, InputOperatorSpec<?, M> inputOperatorSpec,
+      OutputStreamImpl<M> outputStream) {
+    super(graph, (OperatorSpec<?, M>) inputOperatorSpec);
     this.outputStream = outputStream;
+    if (inputOperatorSpec.isKeyed() != outputStream.isKeyed()) {
+      LOGGER.error("Input and output streams for intermediate stream {} aren't keyed consistently. Input: {}, Output: {}",
+          new Object[]{inputOperatorSpec.getStreamSpec().getId(), inputOperatorSpec.isKeyed(), outputStream.isKeyed()});
+    }
+    this.isKeyed = inputOperatorSpec.isKeyed() && outputStream.isKeyed();
   }
 
   public StreamSpec getStreamSpec() {
     return this.outputStream.getStreamSpec();
   }
 
-  public OutputStreamImpl<K, V, M> getOutputStream() {
+  public OutputStreamImpl<M> getOutputStream() {
     return this.outputStream;
+  }
+
+  public boolean isKeyed() {
+    return isKeyed;
   }
 }

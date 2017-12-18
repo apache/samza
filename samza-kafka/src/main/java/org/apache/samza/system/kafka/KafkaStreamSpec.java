@@ -149,7 +149,11 @@ public class KafkaStreamSpec extends StreamSpec {
    */
   public KafkaStreamSpec(String id, String topicName, String systemName, int partitionCount, int replicationFactor,
       Properties properties) {
-    super(id, topicName, systemName, partitionCount, propertiesToMap(properties));
+    super(id, topicName, systemName, partitionCount, false, propertiesToMap(properties));
+
+    if (partitionCount < 1) {
+      throw new IllegalArgumentException("Parameter 'partitionCount' must be > 0");
+    }
 
     if (replicationFactor <= 0) {
       throw new IllegalArgumentException(
@@ -161,6 +165,19 @@ public class KafkaStreamSpec extends StreamSpec {
   @Override
   public StreamSpec copyWithPartitionCount(int partitionCount) {
     return new KafkaStreamSpec(getId(), getPhysicalName(), getSystemName(), partitionCount, getReplicationFactor(), getProperties());
+  }
+
+  public KafkaStreamSpec copyWithReplicationFactor(int replicationFactor) {
+    return new KafkaStreamSpec(getId(), getPhysicalName(), getSystemName(), getPartitionCount(), replicationFactor, getProperties());
+  }
+
+  /**
+   * Make a copy of the spec with new properties
+   * @param properties properties of the Kafka stream
+   * @return new instance of {@link KafkaStreamSpec}
+   */
+  public KafkaStreamSpec copyWithProperties(Properties properties) {
+    return new KafkaStreamSpec(getId(), getPhysicalName(), getSystemName(), getPartitionCount(), getReplicationFactor(), properties);
   }
 
   public int getReplicationFactor() {

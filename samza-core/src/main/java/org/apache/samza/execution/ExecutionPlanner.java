@@ -28,7 +28,10 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.ApplicationConfig;
+import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.StreamGraphImpl;
@@ -36,6 +39,7 @@ import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,6 +51,8 @@ import org.slf4j.LoggerFactory;
 public class ExecutionPlanner {
   private static final Logger log = LoggerFactory.getLogger(ExecutionPlanner.class);
 
+  static final int MAX_INFERRED_PARTITIONS = 256;
+
   private final Config config;
   private final StreamManager streamManager;
 
@@ -56,6 +62,8 @@ public class ExecutionPlanner {
   }
 
   public ExecutionPlan plan(StreamGraphImpl streamGraph) throws Exception {
+    validateConfig();
+
     // create physical job graph based on stream graph
     JobGraph jobGraph = createJobGraph(streamGraph);
 
@@ -70,6 +78,16 @@ public class ExecutionPlanner {
     return jobGraph;
   }
 
+  private void validateConfig() {
+    ApplicationConfig appConfig = new ApplicationConfig(config);
+    ClusterManagerConfig clusterConfig = new ClusterManagerConfig(config);
+    // currently we don't support host-affinity in batch mode
+    if (appConfig.getAppMode() == ApplicationConfig.ApplicationMode.BATCH
+        && clusterConfig.getHostAffinityEnabled()) {
+      throw new SamzaException("Host affinity is not supported in batch mode. Please configure job.host-affinity.enabled=false.");
+    }
+  }
+
   /**
    * Create the physical graph from StreamGraph
    */
@@ -78,6 +96,7 @@ public class ExecutionPlanner {
     Set<StreamSpec> sourceStreams = new HashSet<>(streamGraph.getInputOperators().keySet());
     Set<StreamSpec> sinkStreams = new HashSet<>(streamGraph.getOutputStreams().keySet());
     Set<StreamSpec> intStreams = new HashSet<>(sourceStreams);
+    Set<TableSpec> tables = new HashSet<>(streamGraph.getTables().keySet());
     intStreams.retainAll(sinkStreams);
     sourceStreams.removeAll(intStreams);
     sinkStreams.removeAll(intStreams);
@@ -95,6 +114,9 @@ public class ExecutionPlanner {
 
     // add intermediate streams
     intStreams.forEach(spec -> jobGraph.addIntermediateStream(spec, node, node));
+
+    // add tables
+    tables.forEach(spec -> jobGraph.addTable(spec, node));
 
     jobGraph.validate();
 
@@ -238,9 +260,17 @@ public class ExecutionPlanner {
     if (partitions < 0) {
       // use the following simple algo to figure out the partitions
       // partition = MAX(MAX(Input topic partitions), MAX(Output topic partitions))
+      // partition will be further bounded by MAX_INFERRED_PARTITIONS.
+      // This is important when running in hadoop where an HDFS input can have lots of files (partitions).
       int maxInPartitions = maxPartition(jobGraph.getSources());
       int maxOutPartitions = maxPartition(jobGraph.getSinks());
       partitions = Math.max(maxInPartitions, maxOutPartitions);
+
+      if (partitions > MAX_INFERRED_PARTITIONS) {
+        partitions = MAX_INFERRED_PARTITIONS;
+        log.warn(String.format("Inferred intermediate stream partition count %d is greater than the max %d. Using the max.",
+            partitions, MAX_INFERRED_PARTITIONS));
+      }
     }
     for (StreamEdge edge : jobGraph.getIntermediateStreamEdges()) {
       if (edge.getPartitionCount() <= 0) {

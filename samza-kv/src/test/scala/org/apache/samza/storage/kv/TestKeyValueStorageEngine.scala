@@ -30,7 +30,8 @@ import org.mockito.Mockito._
 
 class TestKeyValueStorageEngine {
   var engine: KeyValueStorageEngine[String, String] = null
-  var metrics: KeyValueStorageEngineMetrics = null;
+  var metrics: KeyValueStorageEngineMetrics = null
+  var now: Long = 0L
 
   @Before
   def setup() {
@@ -38,7 +39,7 @@ class TestKeyValueStorageEngine {
     val rawKv = mock(classOf[KeyValueStore[Array[Byte], Array[Byte]]])
     val properties = mock(classOf[StoreProperties])
     metrics = new KeyValueStorageEngineMetrics
-    engine = new KeyValueStorageEngine[String, String](properties, wrapperKv, rawKv, metrics)
+    engine = new KeyValueStorageEngine[String, String](properties, wrapperKv, rawKv, metrics, clock = () => { getNextTimestamp() })
   }
 
   @After
@@ -50,8 +51,8 @@ class TestKeyValueStorageEngine {
   def testGetAndPut(): Unit = {
     var prevGets = metrics.gets.getCount
     var prevGetNsSnapshotSize = metrics.getNs.getSnapshot.getSize
-    var valueForK1 = engine.get("k1");
-    assertNull("k1 is not existing before put", valueForK1);
+    var valueForK1 = engine.get("k1")
+    assertNull("k1 is not existing before put", valueForK1)
     assertEquals("get counter increments by 1", 1, metrics.gets.getCount - prevGets)
     assertEquals("get timer has 1 additional data point" , 1,  metrics.getNs.getSnapshot.getSize - prevGetNsSnapshotSize)
 
@@ -142,5 +143,10 @@ class TestKeyValueStorageEngine {
 
     assertEquals(3, metrics.restoredMessages.getValue)
     assertEquals(15, metrics.restoredBytes.getValue) // 3 keys * 2 bytes/key +  3 msgs * 3 bytes/msg
+  }
+  
+  def getNextTimestamp(): Long = {
+    now += 1
+    now
   }
 }

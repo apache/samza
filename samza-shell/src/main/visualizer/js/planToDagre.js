@@ -36,7 +36,7 @@ function planToDagre(data) {
       labelVal += "<li>PhysicalName: " + stream.streamSpec.physicalName + "</li>"
       labelVal += "<li>PartitionCount: " + stream.streamSpec.partitionCount + "</li>"
       labelVal += "</ul></div>"
-      g.setNode(streamId,  { label: labelVal, labelType: "html", shape: "ellipse", class: streamClasses[i] });
+      g.setNode(streamId + "-stream",  { label: labelVal, labelType: "html", shape: "ellipse", class: streamClasses[i] });
     }
   }
 
@@ -67,7 +67,7 @@ function planToDagre(data) {
     for (var k = 0; k < inputs.length; k++) {
       var input = inputs[k];
       for (var m = 0; m < input.nextOperatorIds.length; m++) {
-        g.setEdge(input.streamId, input.nextOperatorIds[m]);
+        g.setEdge(input.streamId + "-stream", input.nextOperatorIds[m]);
       }
     }
 
@@ -78,7 +78,7 @@ function planToDagre(data) {
         g.setEdge(opId, operator.nextOperatorIds[j]);
       }
       if (typeof(operator.outputStreamId) !== 'undefined') {
-        g.setEdge(opId, operator.outputStreamId);
+        g.setEdge(opId, operator.outputStreamId + "-stream");
       }
     }
   }

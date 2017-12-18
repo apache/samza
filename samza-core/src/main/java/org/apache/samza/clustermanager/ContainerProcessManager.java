@@ -33,6 +33,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
+
 /**
  * ContainerProcessManager is responsible for requesting containers, handling failures, and notifying the application master that the
  * job is done.
@@ -85,8 +88,10 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    */
   private volatile boolean tooManyFailedContainers = false;
 
+  /**
+   * Exception thrown in callbacks, such as {@code containerAllocator}
+   */
   private volatile Throwable exceptionOccurred = null;
-
 
   /**
    * A map that keeps track of how many times each container failed. The key is the container ID, and the
@@ -95,8 +100,10 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    */
   private final Map<String, ResourceFailure> containerFailures = new HashMap<>();
 
+  /**
+   * Metrics for {@link ContainerProcessManager}
+   */
   private final ContainerProcessManagerMetrics metrics;
-
 
   public ContainerProcessManager(Config config,
                                  SamzaApplicationState state,
@@ -108,7 +115,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.hostAffinityEnabled = clusterManagerConfig.getHostAffinityEnabled();
 
     ResourceManagerFactory factory = getContainerProcessManagerFactory(clusterManagerConfig);
-    this.clusterResourceManager = factory.getClusterResourceManager(this, state);
+    this.clusterResourceManager = checkNotNull(factory.getClusterResourceManager(this, state));
     this.metrics = new ContainerProcessManagerMetrics(config, state, registry);
 
     if (this.hostAffinityEnabled) {
@@ -189,6 +196,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     containerAllocator.stop();
     try {
       allocatorThread.join();
+      log.info("Stopped container allocator");
     } catch (InterruptedException ie) {
       log.error("Allocator Thread join() threw an interrupted exception", ie);
       Thread.currentThread().interrupt();
@@ -197,19 +205,17 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     if (metrics != null) {
       try {
         metrics.stop();
+        log.info("Stopped metrics reporters");
       } catch (Throwable e) {
         log.error("Exception while stopping metrics {}", e);
       }
-      log.info("Stopped metrics reporters");
     }
 
-    if (clusterResourceManager != null) {
-      try {
-        clusterResourceManager.stop(state.status);
-      } catch (Throwable e) {
-        log.error("Exception while stopping cluster resource manager {}", e);
-      }
+    try {
+      clusterResourceManager.stop(state.status);
       log.info("Stopped cluster resource manager");
+    } catch (Throwable e) {
+      log.error("Exception while stopping cluster resource manager {}", e);
     }
 
     log.info("Finished stop of Container process manager");
@@ -239,9 +245,10 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     }
     if (containerId == null) {
       log.info("No matching container id found for " + containerStatus.toString());
-    } else {
-      state.runningContainers.remove(containerId);
+      state.redundantNotifications.incrementAndGet();
+      return;
     }
+    state.runningContainers.remove(containerId);
 
     int exitStatus = containerStatus.getExitCode();
     switch (exitStatus) {
@@ -250,10 +257,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
         state.completedContainers.incrementAndGet();
 
-        if (containerId != null) {
-          state.finishedContainers.incrementAndGet();
-          containerFailures.remove(containerId);
-        }
+        state.finishedContainers.incrementAndGet();
+        containerFailures.remove(containerId);
 
         if (state.completedContainers.get() == state.containerCount.get()) {
           log.info("Setting job status to SUCCEEDED, since all containers have been marked as completed.");
@@ -273,18 +278,16 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         state.releasedContainers.incrementAndGet();
 
         // If this container was assigned some partitions (a containerId), then
-        // clean up, and request a refactor container for the tasks. This only
+        // clean up, and request a new container for the tasks. This only
         // should happen if the container was 'lost' due to node failure, not
         // if the AM released the container.
-        if (containerId != null) {
-          log.info("Released container {} was assigned task group ID {}. Requesting a refactor container for the task group.", containerIdStr, containerId);
+        log.info("Released container {} was assigned task group ID {}. Requesting a new container for the task group.", containerIdStr, containerId);
 
-          state.neededContainers.incrementAndGet();
-          state.jobHealthy.set(false);
+        state.neededContainers.incrementAndGet();
+        state.jobHealthy.set(false);
 
-          // request a container on refactor host
-          containerAllocator.requestResource(containerId, ResourceRequestState.ANY_HOST);
-        }
+          // request a container on new host
+        containerAllocator.requestResource(containerId, ResourceRequestState.ANY_HOST);
         break;
 
       default:
@@ -296,72 +299,70 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         state.failedContainersStatus.put(containerIdStr, containerStatus);
         state.jobHealthy.set(false);
 
-        if (containerId != null) {
-          state.neededContainers.incrementAndGet();
-          // Find out previously running container location
-          String lastSeenOn = state.jobModelManager.jobModel().getContainerToHostValue(containerId, SetContainerHostMapping.HOST_KEY);
-          if (!hostAffinityEnabled || lastSeenOn == null) {
-            lastSeenOn = ResourceRequestState.ANY_HOST;
+        state.neededContainers.incrementAndGet();
+        // Find out previously running container location
+        String lastSeenOn = state.jobModelManager.jobModel().getContainerToHostValue(containerId, SetContainerHostMapping.HOST_KEY);
+        if (!hostAffinityEnabled || lastSeenOn == null) {
+          lastSeenOn = ResourceRequestState.ANY_HOST;
+        }
+        log.info("Container was last seen on " + lastSeenOn);
+        // A container failed for an unknown reason. Let's check to see if
+        // we need to shutdown the whole app master if too many container
+        // failures have happened. The rules for failing are that the
+        // failure count for a task group id must be > the configured retry
+        // count, and the last failure (the one prior to this one) must have
+        // happened less than retry window ms ago. If retry count is set to
+        // 0, the app master will fail on any container failure. If the
+        // retry count is set to a number < 0, a container failure will
+        // never trigger an app master failure.
+        int retryCount = clusterManagerConfig.getContainerRetryCount();
+        int retryWindowMs = clusterManagerConfig.getContainerRetryWindowMs();
+
+        if (retryCount == 0) {
+          log.error("Container ID {} ({}) failed, and retry count is set to 0, so shutting down the application master, and marking the job as failed.", containerId, containerIdStr);
+
+          tooManyFailedContainers = true;
+        } else if (retryCount > 0) {
+          int currentFailCount;
+          long lastFailureTime;
+          if (containerFailures.containsKey(containerId)) {
+            ResourceFailure failure = containerFailures.get(containerId);
+            currentFailCount = failure.getCount() + 1;
+            lastFailureTime = failure.getLastFailure();
+          } else {
+            currentFailCount = 1;
+            lastFailureTime = 0L;
           }
-          log.info("Container was last seen on " + lastSeenOn);
-          // A container failed for an unknown reason. Let's check to see if
-          // we need to shutdown the whole app master if too many container
-          // failures have happened. The rules for failing are that the
-          // failure count for a task group id must be > the configured retry
-          // count, and the last failure (the one prior to this one) must have
-          // happened less than retry window ms ago. If retry count is set to
-          // 0, the app master will fail on any container failure. If the
-          // retry count is set to a number < 0, a container failure will
-          // never trigger an app master failure.
-          int retryCount = clusterManagerConfig.getContainerRetryCount();
-          int retryWindowMs = clusterManagerConfig.getContainerRetryWindowMs();
+          if (currentFailCount >= retryCount) {
+            long lastFailureMsDiff = System.currentTimeMillis() - lastFailureTime;
 
-          if (retryCount == 0) {
-            log.error("Container ID {} ({}) failed, and retry count is set to 0, so shutting down the application master, and marking the job as failed.", containerId, containerIdStr);
+            if (lastFailureMsDiff < retryWindowMs) {
+              log.error("Container ID " + containerId + "(" + containerIdStr + ") has failed " + currentFailCount +
+                      " times, with last failure " + lastFailureMsDiff + "ms ago. This is greater than retry count of " +
+                      retryCount + " and window of " + retryWindowMs + "ms , so shutting down the application master, and marking the job as failed.");
 
-            tooManyFailedContainers = true;
-          } else if (retryCount > 0) {
-            int currentFailCount;
-            long lastFailureTime;
-            if (containerFailures.containsKey(containerId)) {
-              ResourceFailure failure = containerFailures.get(containerId);
-              currentFailCount = failure.getCount() + 1;
-              lastFailureTime = failure.getLastFailure();
+              // We have too many failures, and we're within the window
+              // boundary, so reset shut down the app master.
+              tooManyFailedContainers = true;
+              state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
             } else {
-              currentFailCount = 1;
-              lastFailureTime = 0L;
+              log.info("Resetting fail count for container ID {} back to 1, since last container failure ({}) for " +
+                      "this container ID was outside the bounds of the retry window.", containerId, containerIdStr);
+
+              // Reset counter back to 1, since the last failure for this
+              // container happened outside the window boundary.
+              containerFailures.put(containerId, new ResourceFailure(1, System.currentTimeMillis()));
             }
-            if (currentFailCount >= retryCount) {
-              long lastFailureMsDiff = System.currentTimeMillis() - lastFailureTime;
-
-              if (lastFailureMsDiff < retryWindowMs) {
-                log.error("Container ID " + containerId + "(" + containerIdStr + ") has failed " + currentFailCount +
-                        " times, with last failure " + lastFailureMsDiff + "ms ago. This is greater than retry count of " +
-                        retryCount + " and window of " + retryWindowMs + "ms , so shutting down the application master, and marking the job as failed.");
-
-                // We have too many failures, and we're within the window
-                // boundary, so reset shut down the app master.
-                tooManyFailedContainers = true;
-                state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
-              } else {
-                log.info("Resetting fail count for container ID {} back to 1, since last container failure ({}) for " +
-                        "this container ID was outside the bounds of the retry window.", containerId, containerIdStr);
-
-                // Reset counter back to 1, since the last failure for this
-                // container happened outside the window boundary.
-                containerFailures.put(containerId, new ResourceFailure(1, System.currentTimeMillis()));
-              }
-            } else {
-              log.info("Current fail count for container ID {} is {}.", containerId, currentFailCount);
-              containerFailures.put(containerId, new ResourceFailure(currentFailCount, System.currentTimeMillis()));
-            }
+          } else {
+            log.info("Current fail count for container ID {} is {}.", containerId, currentFailCount);
+            containerFailures.put(containerId, new ResourceFailure(currentFailCount, System.currentTimeMillis()));
           }
+        }
 
-          if (!tooManyFailedContainers) {
-            log.info("Requesting a refactor container ");
-            // Request a refactor container
-            containerAllocator.requestResource(containerId, lastSeenOn);
-          }
+        if (!tooManyFailedContainers) {
+          log.info("Requesting a new container ");
+          // Request a new container
+          containerAllocator.requestResource(containerId, lastSeenOn);
         }
 
     }

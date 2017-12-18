@@ -19,6 +19,8 @@
 package org.apache.samza.operators.spec;
 
 
+import org.apache.samza.operators.functions.WatermarkFunction;
+
 /**
  * The spec for an operator that outputs a {@link org.apache.samza.operators.MessageStream} to a
  * {@link org.apache.samza.system.SystemStream}.
@@ -29,19 +31,16 @@ package org.apache.samza.operators.spec;
  */
 public class OutputOperatorSpec<M> extends OperatorSpec<M, Void> {
 
-  private OutputStreamImpl<?, ?, M> outputStream;
-
+  private final OutputStreamImpl<M> outputStream;
 
   /**
    * Constructs an {@link OutputOperatorSpec} to send messages to the provided {@code outStream}
    *
    * @param outputStream  the {@link OutputStreamImpl} to send messages to
-   * @param opCode the specific {@link OpCode} for this {@link SinkOperatorSpec}.
-   *               It could be {@link OpCode#SEND_TO}, or {@link OpCode#PARTITION_BY}
    * @param opId  the unique ID of this {@link SinkOperatorSpec} in the graph
    */
-  OutputOperatorSpec(OutputStreamImpl<?, ?, M> outputStream, OperatorSpec.OpCode opCode, int opId) {
-    super(opCode, opId);
+  OutputOperatorSpec(OutputStreamImpl<M> outputStream, String opId) {
+    super(OpCode.SEND_TO, opId);
     this.outputStream = outputStream;
   }
 
@@ -49,7 +48,12 @@ public class OutputOperatorSpec<M> extends OperatorSpec<M, Void> {
    * The {@link OutputStreamImpl} that this operator is sending its output to.
    * @return the {@link OutputStreamImpl} for this operator if any, else null.
    */
-  public OutputStreamImpl<?, ?, M> getOutputStream() {
+  public OutputStreamImpl<M> getOutputStream() {
     return this.outputStream;
+  }
+
+  @Override
+  public WatermarkFunction getWatermarkFn() {
+    return null;
   }
 }

@@ -18,7 +18,16 @@
  */
 package org.apache.samza.operators.spec;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.samza.operators.functions.JoinFunction;
+import org.apache.samza.operators.functions.WatermarkFunction;
+import org.apache.samza.operators.impl.store.TimestampedValueSerde;
+import org.apache.samza.operators.impl.store.TimestampedValue;
+import org.apache.samza.serializers.Serde;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Map;
 
 
 /**
@@ -27,14 +36,17 @@ import org.apache.samza.operators.functions.JoinFunction;
  *
  * @param <K>  the type of join key
  * @param <M>  the type of message in this stream
- * @param <JM>  the type of message in the other stream
- * @param <RM>  the type of join result
+ * @param <OM>  the type of message in the other stream
+ * @param <JM>  the type of join result
  */
-public class JoinOperatorSpec<K, M, JM, RM> extends OperatorSpec<Object, RM> { // Object == M | JM
+public class JoinOperatorSpec<K, M, OM, JM> extends OperatorSpec<Object, JM> implements StatefulOperatorSpec { // Object == M | OM
 
   private final OperatorSpec<?, M> leftInputOpSpec;
-  private final OperatorSpec<?, JM> rightInputOpSpec;
-  private final JoinFunction<K, M, JM, RM> joinFn;
+  private final OperatorSpec<?, OM> rightInputOpSpec;
+  private final JoinFunction<K, M, OM, JM> joinFn;
+  private final Serde<K> keySerde;
+  private final Serde<TimestampedValue<M>> messageSerde;
+  private final Serde<TimestampedValue<OM>> otherMessageSerde;
   private final long ttlMs;
 
   /**
@@ -46,13 +58,43 @@ public class JoinOperatorSpec<K, M, JM, RM> extends OperatorSpec<Object, RM> { /
    * @param ttlMs  the ttl in ms for retaining messages in each stream
    * @param opId  the unique ID for this operator
    */
-  JoinOperatorSpec(OperatorSpec<?, M> leftInputOpSpec, OperatorSpec<?, JM> rightInputOpSpec,
-      JoinFunction<K, M, JM, RM> joinFn, long ttlMs, int opId) {
+  JoinOperatorSpec(OperatorSpec<?, M> leftInputOpSpec, OperatorSpec<?, OM> rightInputOpSpec,
+      JoinFunction<K, M, OM, JM> joinFn, Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde,
+      long ttlMs, String opId) {
     super(OpCode.JOIN, opId);
     this.leftInputOpSpec = leftInputOpSpec;
     this.rightInputOpSpec = rightInputOpSpec;
     this.joinFn = joinFn;
+    this.keySerde = keySerde;
+    this.messageSerde = new TimestampedValueSerde<>(messageSerde);
+    this.otherMessageSerde = new TimestampedValueSerde<>(otherMessageSerde);
     this.ttlMs = ttlMs;
+  }
+
+  @Override
+  public Collection<StoreDescriptor> getStoreDescriptors() {
+    String rocksDBStoreFactory = "org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory";
+    String leftStoreName = getLeftOpId();
+    String rightStoreName = getRightOpId();
+    Map<String, String> leftStoreCustomProps = ImmutableMap.of(
+        String.format("stores.%s.rocksdb.ttl.ms", leftStoreName), Long.toString(ttlMs),
+        String.format("stores.%s.changelog.kafka.cleanup.policy", leftStoreName), "delete",
+        String.format("stores.%s.changelog.kafka.retention.ms", leftStoreName), Long.toString(ttlMs));
+    Map<String, String> rightStoreCustomProps = ImmutableMap.of(
+        String.format("stores.%s.rocksdb.ttl.ms", rightStoreName), Long.toString(ttlMs),
+        String.format("stores.%s.changelog.kafka.cleanup.policy", rightStoreName), "delete",
+        String.format("stores.%s.changelog.kafka.retention.ms", rightStoreName), Long.toString(ttlMs));
+
+    return Arrays.asList(
+        new StoreDescriptor(leftStoreName, rocksDBStoreFactory, this.keySerde, this.messageSerde,
+            leftStoreName, leftStoreCustomProps),
+        new StoreDescriptor(rightStoreName, rocksDBStoreFactory, this.keySerde, this.otherMessageSerde,
+            rightStoreName, rightStoreCustomProps));
+  }
+
+  @Override
+  public WatermarkFunction getWatermarkFn() {
+    return joinFn instanceof WatermarkFunction ? (WatermarkFunction) joinFn : null;
   }
 
   public OperatorSpec getLeftInputOpSpec() {
@@ -63,7 +105,15 @@ public class JoinOperatorSpec<K, M, JM, RM> extends OperatorSpec<Object, RM> { /
     return rightInputOpSpec;
   }
 
-  public JoinFunction<K, M, JM, RM> getJoinFn() {
+  public String getLeftOpId() {
+    return this.getOpId() + "-L";
+  }
+
+  public String getRightOpId() {
+    return this.getOpId() + "-R";
+  }
+
+  public JoinFunction<K, M, OM, JM> getJoinFn() {
     return this.joinFn;
   }
 

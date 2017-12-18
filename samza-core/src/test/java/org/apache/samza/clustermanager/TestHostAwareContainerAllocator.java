@@ -328,18 +328,18 @@ public class TestHostAwareContainerAllocator {
   private static Config getConfig() {
     Config config = new MapConfig(new HashMap<String, String>() {
       {
-        put("yarn.container.count", "1");
-        put("systems.test-system.samza.factory", "org.apache.samza.job.yarn.MockSystemFactory");
-        put("yarn.container.memory.mb", "512");
+        put("cluster-manager.container.count", "1");
+        put("cluster-manager.container.retry.count", "1");
+        put("cluster-manager.container.retry.window.ms", "1999999999");
+        put("cluster-manager.container.request.timeout.ms", "3");
+        put("cluster-manager.allocator.sleep.ms", "1");
+        put("cluster-manager.container.memory.mb", "512");
         put("yarn.package.path", "/foo");
         put("task.inputs", "test-system.test-stream");
+        put("systems.test-system.samza.factory", "org.apache.samza.system.MockSystemFactory");
         put("systems.test-system.samza.key.serde", "org.apache.samza.serializers.JsonSerde");
         put("systems.test-system.samza.msg.serde", "org.apache.samza.serializers.JsonSerde");
-        put("yarn.container.retry.count", "1");
-        put("yarn.container.retry.window.ms", "1999999999");
-        put("yarn.samza.host-affinity.enabled", "true");
-        put("yarn.container.request.timeout.ms", "3");
-        put("yarn.allocator.sleep.ms", "1");
+        put("job.host-affinity.enabled", "true");
       }
     });
 

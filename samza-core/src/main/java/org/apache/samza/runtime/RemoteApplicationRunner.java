@@ -21,13 +21,19 @@ package org.apache.samza.runtime;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer;
+import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
+import org.apache.samza.metrics.MetricsRegistryMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.UUID;
 
 
 /**
@@ -53,11 +59,19 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   @Override
   public void run(StreamApplication app) {
     try {
+      // TODO: run.id needs to be set for standalone: SAMZA-1531
+      // run.id is based on current system time with the most significant bits in UUID (8 digits) to avoid collision
+      String runId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
+      LOG.info("The run id for this run is {}", runId);
+
       // 1. initialize and plan
-      ExecutionPlan plan = getExecutionPlan(app);
+      ExecutionPlan plan = getExecutionPlan(app, runId);
       writePlanJsonFile(plan.getPlanAsJson());
 
       // 2. create the necessary streams
+      if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
+        getStreamManager().clearStreamsFromPreviousRun(getConfigFromPrevRun());
+      }
       getStreamManager().createStreams(plan.getIntermediateStreams());
 
       // 3. submit jobs for remote execution
@@ -132,5 +146,19 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     } catch (Throwable t) {
       throw new SamzaException("Failed to get status for application", t);
     }
+  }
+
+  private Config getConfigFromPrevRun() {
+    CoordinatorStreamSystemFactory coordinatorStreamSystemFactory = new CoordinatorStreamSystemFactory();
+    CoordinatorStreamSystemConsumer consumer = coordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(
+        config, new MetricsRegistryMap());
+    consumer.register();
+    consumer.start();
+    consumer.bootstrap();
+    consumer.stop();
+
+    Config cfg = consumer.getConfig();
+    LOG.info("Previous config is: " + cfg.toString());
+    return cfg;
   }
 }

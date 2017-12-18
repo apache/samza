@@ -51,7 +51,7 @@ class KeyValueStorageEngine[K, V](
     }
   }
 
-  def getAll(keys: java.util.List[K]): java.util.Map[K, V] = {
+  override def getAll(keys: java.util.List[K]): java.util.Map[K, V] = {
     metrics.gets.inc(keys.size)
     wrapperStore.getAll(keys)
   }
@@ -75,7 +75,7 @@ class KeyValueStorageEngine[K, V](
     }
   }
 
-  def deleteAll(keys: java.util.List[K]) = {
+  override def deleteAll(keys: java.util.List[K]) = {
     metrics.deletes.inc(keys.size)
     wrapperStore.deleteAll(keys)
   }
@@ -96,7 +96,7 @@ class KeyValueStorageEngine[K, V](
 
   /**
    * Restore the contents of this key/value store from the change log,
-   * batching updates to underlying raw store to skip wrapping functions for efficiency.
+   * batching updates to underlying raw store to notAValidEvent wrapping functions for efficiency.
    */
   def restore(envelopes: java.util.Iterator[IncomingMessageEnvelope]) {
     info("Restoring entries for store " + metrics.storeName)

@@ -21,11 +21,15 @@ package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.serializers.JsonSerdeV2;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.CommandLine;
@@ -42,15 +46,19 @@ import java.util.concurrent.TimeUnit;
 public class KeyValueStoreExample implements StreamApplication {
 
   @Override public void init(StreamGraph graph, Config config) {
-    MessageStream<PageViewEvent> pageViewEvents = graph.getInputStream(
-        "pageViewEventStream", (k, v) -> (PageViewEvent) v);
-    OutputStream<String, StatsOutput, StatsOutput> pageViewEventPerMemberStream = graph.getOutputStream(
-        "pageViewEventPerMemberStream", statsOutput -> statsOutput.memberId, statsOutput -> statsOutput);
+    MessageStream<PageViewEvent> pageViewEvents =
+        graph.getInputStream("pageViewEventStream", new JsonSerdeV2<>(PageViewEvent.class));
+    OutputStream<KV<String, StatsOutput>> pageViewEventPerMember =
+        graph.getOutputStream("pageViewEventPerMember",
+            KVSerde.of(new StringSerde(), new JsonSerdeV2<>(StatsOutput.class)));
 
-    pageViewEvents.
-        partitionBy(m -> m.memberId).
-        flatMap(new MyStatsCounter()).
-        sendTo(pageViewEventPerMemberStream);
+    pageViewEvents
+        .partitionBy(pve -> pve.memberId, pve -> pve,
+            KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageViewEvent.class)), "partitionBy")
+        .map(KV::getValue)
+        .flatMap(new MyStatsCounter())
+        .map(stats -> KV.of(stats.memberId, stats))
+        .sendTo(pageViewEventPerMember);
   }
 
   // local execution mode

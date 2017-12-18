@@ -20,11 +20,15 @@ package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.serializers.JsonSerdeV2;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
@@ -36,14 +40,20 @@ public class OrderShipmentJoinExample implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    MessageStream<OrderRecord> orders = graph.getInputStream("orderStream", (k, m) -> (OrderRecord) m);
-    MessageStream<ShipmentRecord> shipments = graph.getInputStream("shipmentStream", (k, m) -> (ShipmentRecord) m);
-    OutputStream<String, FulFilledOrderRecord, FulFilledOrderRecord> joinedOrderShipmentStream =
-        graph.getOutputStream("joinedOrderShipmentStream", m -> m.orderId, m -> m);
+    MessageStream<OrderRecord> orders =
+        graph.getInputStream("orders", new JsonSerdeV2<>(OrderRecord.class));
+    MessageStream<ShipmentRecord> shipments =
+        graph.getInputStream("shipments", new JsonSerdeV2<>(ShipmentRecord.class));
+    OutputStream<KV<String, FulfilledOrderRecord>> fulfilledOrders =
+        graph.getOutputStream("fulfilledOrders",
+            KVSerde.of(new StringSerde(), new JsonSerdeV2<>(FulfilledOrderRecord.class)));
 
     orders
-        .join(shipments, new MyJoinFunction(), Duration.ofMinutes(1))
-        .sendTo(joinedOrderShipmentStream);
+        .join(shipments, new MyJoinFunction(),
+            new StringSerde(), new JsonSerdeV2<>(OrderRecord.class), new JsonSerdeV2<>(ShipmentRecord.class),
+            Duration.ofMinutes(1), "join")
+        .map(fulFilledOrder -> KV.of(fulFilledOrder.orderId, fulFilledOrder))
+        .sendTo(fulfilledOrders);
   }
 
   // local execution mode
@@ -54,10 +64,10 @@ public class OrderShipmentJoinExample implements StreamApplication {
     localRunner.run(new OrderShipmentJoinExample());
   }
 
-  class MyJoinFunction implements JoinFunction<String, OrderRecord, ShipmentRecord, FulFilledOrderRecord> {
+  class MyJoinFunction implements JoinFunction<String, OrderRecord, ShipmentRecord, FulfilledOrderRecord> {
     @Override
-    public FulFilledOrderRecord apply(OrderRecord message, ShipmentRecord otherMessage) {
-      return new FulFilledOrderRecord(message.orderId, message.orderTimeMs, otherMessage.shipTimeMs);
+    public FulfilledOrderRecord apply(OrderRecord message, ShipmentRecord otherMessage) {
+      return new FulfilledOrderRecord(message.orderId, message.orderTimeMs, otherMessage.shipTimeMs);
     }
 
     @Override
@@ -91,12 +101,12 @@ public class OrderShipmentJoinExample implements StreamApplication {
     }
   }
 
-  class FulFilledOrderRecord {
+  class FulfilledOrderRecord {
     String orderId;
     long orderTimeMs;
     long shipTimeMs;
 
-    FulFilledOrderRecord(String orderId, long orderTimeMs, long shipTimeMs) {
+    FulfilledOrderRecord(String orderId, long orderTimeMs, long shipTimeMs) {
       this.orderId = orderId;
       this.orderTimeMs = orderTimeMs;
       this.shipTimeMs = shipTimeMs;

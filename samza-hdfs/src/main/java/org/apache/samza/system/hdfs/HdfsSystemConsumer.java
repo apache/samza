@@ -224,6 +224,7 @@ public class HdfsSystemConsumer extends BlockingEnvelopeMap {
     try {
       super.put(systemStreamPartition, envelope);
     } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
       throw new SamzaException("ReaderRunnable interrupted for ssp: " + systemStreamPartition);
     }
   }

@@ -193,8 +193,8 @@ private[kafka] class KafkaSystemConsumer(
 
         // addTopicPartition one at a time, leaving the to-be-done list intact in case of exceptions.
         // This avoids trying to re-add the same topic partition repeatedly
-        def refresh(tp: List[TopicAndPartition]) = {
-          val head :: rest = tpToRefresh
+        def refresh() = {
+          val head = tpToRefresh.head
           // refreshBrokers can be called from abdicate and refreshDropped,
           // both of which are triggered from BrokerProxy threads. To prevent
           // accidentally creating multiple objects for the same broker, or
@@ -202,7 +202,7 @@ private[kafka] class KafkaSystemConsumer(
           // we need to lock.
           this.synchronized {
             // Check if we still need this TopicAndPartition inside the
-            // critical section. If we don't, then skip it.
+            // critical section. If we don't, then notAValidEvent it.
             topicPartitionsAndOffsets.get(head) match {
               case Some(nextOffset) =>
                 getHostPort(topicMetadata(head.topic), head.partition) match {
@@ -217,11 +217,11 @@ private[kafka] class KafkaSystemConsumer(
               case _ => debug("Ignoring refresh for %s because we already added it from another thread." format head)
             }
           }
-          rest
+          tpToRefresh.tail
         }
 
         while (!tpToRefresh.isEmpty) {
-          tpToRefresh = refresh(tpToRefresh)
+          tpToRefresh = refresh()
         }
 
         loop.done

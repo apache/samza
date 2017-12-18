@@ -44,10 +44,18 @@ public interface CheckpointManager {
   /**
    * Returns the last recorded checkpoint for a specified taskName.
    * @param taskName Specific Samza taskName for which to get the last checkpoint of.
-   * @return A Checkpoint object with the recorded offset data of the specified partition.
+   * @return A Checkpoint object with the recorded offset data of the specified partition
+   *         or null if there is no recorded checkpoints for the task.
    */
   Checkpoint readLastCheckpoint(TaskName taskName);
 
+  /**
+   * Perform teardown operations for the Manager. Checkpoints are still persisted.
+   */
   void stop();
 
+  /**
+   * Clear the checkpoints in the checkpoint stream.
+   */
+  default void clearCheckpoints() { };
 }

@@ -18,8 +18,8 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.task.MessageCollector;
@@ -35,13 +35,12 @@ import java.util.Collections;
  *
  * @param <K> the type of key in the incoming message
  * @param <V> the type of message in the incoming message
- * @param <M> the type of input message
  */
-public final class InputOperatorImpl<K, V, M> extends OperatorImpl<Pair<K, V>, M> {
+public final class InputOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, Object> { // Object == KV<K,V> | V
 
-  private final InputOperatorSpec<K, V, M> inputOpSpec;
+  private final InputOperatorSpec<K, V> inputOpSpec;
 
-  InputOperatorImpl(InputOperatorSpec<K, V, M> inputOpSpec) {
+  InputOperatorImpl(InputOperatorSpec<K, V> inputOpSpec) {
     this.inputOpSpec = inputOpSpec;
   }
 
@@ -50,9 +49,8 @@ public final class InputOperatorImpl<K, V, M> extends OperatorImpl<Pair<K, V>, M
   }
 
   @Override
-  public Collection<M> handleMessage(Pair<K, V> pair, MessageCollector collector, TaskCoordinator coordinator) {
-    // TODO: SAMZA-1148 - Cast to appropriate input (key, msg) types based on the serde before applying the msgBuilder.
-    M message = this.inputOpSpec.getMsgBuilder().apply(pair.getKey(), pair.getValue());
+  public Collection<Object> handleMessage(KV<K, V> pair, MessageCollector collector, TaskCoordinator coordinator) {
+    Object message = this.inputOpSpec.isKeyed() ? pair : pair.getValue();
     return Collections.singletonList(message);
   }
 
@@ -60,7 +58,7 @@ public final class InputOperatorImpl<K, V, M> extends OperatorImpl<Pair<K, V>, M
   protected void handleClose() {
   }
 
-  protected OperatorSpec<Pair<K, V>, M> getOperatorSpec() {
+  protected OperatorSpec<KV<K, V>, Object> getOperatorSpec() {
     return this.inputOpSpec;
   }
 }

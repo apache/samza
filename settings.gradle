@@ -22,7 +22,11 @@ include \
   'samza-elasticsearch',
   'samza-log4j',
   'samza-rest',
-  'samza-shell'
+  'samza-shell',
+  'samza-azure',
+  'samza-sql',
+  'samza-aws',
+  'samza-tools'
 
 def scalaModules = [
         'samza-core',
@@ -43,5 +47,21 @@ scalaModules.each {
 rootProject.children.each {
   if (scalaModules.contains(it.name)) {
     it.name = it.name + "_" + scalaVersion
+  }
+}
+
+/**
+ * To skip integration tests in samza-test: './gradlew clean build -PskipIntegrationTests'
+ */
+gradle.taskGraph.whenReady { taskGraph ->
+  taskGraph.getAllTasks().each { task ->
+    def project = task.getProject()
+    task.onlyIf {
+      /**
+       * Behaves as pass through filter for all tasks when `skipIntegrationTests` property is turned off.
+       * Filters 'test' task of 'samza-test' project otherwise.
+       */
+      !project.hasProperty("skipIntegrationTests") || !(project.getName().contains("samza-test") && task.getName() == "test")
+    }
   }
 }

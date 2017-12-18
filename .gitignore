@@ -22,6 +22,7 @@ docs/_site
 build
 **/bin
 samza-test/state
+state/
 docs/learn/documentation/*/api/javadocs
 docs/learn/documentation/*/rest/javadocs
 .DS_Store
@@ -29,3 +30,4 @@ out/
 *.patch
 **.pyc
 samza-shell/src/main/visualizer/plan.json
+**/hs_err_pid*.log

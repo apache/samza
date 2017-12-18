@@ -61,9 +61,9 @@ public class ZkLeaderElector implements LeaderElector {
     this.zkUtils = zkUtils;
     this.keyBuilder = zkUtils.getKeyBuilder();
     this.hostName = getHostName();
-    this.previousProcessorChangeListener = new PreviousProcessorChangeListener();
+    this.previousProcessorChangeListener = new PreviousProcessorChangeListener(zkUtils);
 
-    zkUtils.makeSurePersistentPathsExists(new String[]{keyBuilder.getProcessorsPath()});
+    zkUtils.validatePaths(new String[]{keyBuilder.getProcessorsPath()});
   }
 
   @VisibleForTesting
@@ -170,16 +170,25 @@ public class ZkLeaderElector implements LeaderElector {
   }
 
   // Only by non-leaders
-  class PreviousProcessorChangeListener implements IZkDataListener {
+  class PreviousProcessorChangeListener extends ZkUtils.GenIZkDataListener {
+
+    public PreviousProcessorChangeListener(ZkUtils zkUtils) {
+      super(zkUtils, "PreviousProcessorChangeListener");
+    }
     @Override
     public void handleDataChange(String dataPath, Object data) throws Exception {
       LOG.debug("Data change on path: " + dataPath + " Data: " + data);
+      if (notAValidEvent())
+        return;
     }
 
     @Override
-    public void handleDataDeleted(String dataPath) throws Exception {
-      LOG.info(
-          zLog("Data deleted on path " + dataPath + ". Predecessor went away. So, trying to become leader again..."));
+    public void handleDataDeleted(String dataPath)
+        throws Exception {
+      LOG.info(zLog("Data deleted on path " + dataPath + ". Predecessor went away. So, trying to become leader again..."));
+      if (notAValidEvent()) {
+        return;
+      }
       tryBecomeLeader();
     }
   }

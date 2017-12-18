@@ -320,7 +320,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
       this.task = task;
       this.callbackManager = new TaskCallbackManager(this, callbackTimer, callbackTimeoutMs, maxConcurrency, clock);
       Set<SystemStreamPartition> sspSet = getWorkingSSPSet(task);
-      this.state = new AsyncTaskState(task.taskName(), task.metrics(), sspSet);
+      this.state = new AsyncTaskState(task.taskName(), task.metrics(), sspSet, task.hasIntermediateStreams());
     }
 
     private void init() {
@@ -443,6 +443,20 @@ public class AsyncRunLoop implements Runnable, Throttleable {
             long startTime = clock.nanoTime();
             task.window(coordinator);
             containerMetrics.windowNs().update(clock.nanoTime() - startTime);
+
+            // A window() that executes for more than task.window.ms, will starve the next process() call
+            // when the application has job.thread.pool.size > 1. This is due to prioritizing window() ahead of process()
+            // to guarantee window() will fire close to its trigger interval time.
+            // We warn the users if the average window execution time is greater than equals to window trigger interval.
+            long lowerBoundForWindowTriggerTimeInMs = TimeUnit.NANOSECONDS
+                .toMillis((long) containerMetrics.windowNs().getSnapshot().getAverage());
+            if (windowMs <= lowerBoundForWindowTriggerTimeInMs) {
+              log.warn(
+                  "window() call might potentially starve process calls."
+                      + " Consider setting task.window.ms > {} ms",
+                  lowerBoundForWindowTriggerTimeInMs);
+            }
+
             coordinatorRequests.update(coordinator);
 
             state.doneWindow();
@@ -513,6 +527,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
         public void run() {
           try {
             state.doneProcess();
+            state.taskMetrics.asyncCallbackCompleted().inc();
             TaskCallbackImpl callbackImpl = (TaskCallbackImpl) callback;
             containerMetrics.processNs().update(clock.nanoTime() - callbackImpl.timeCreatedNs);
             log.trace("Got callback complete for task {}, ssp {}",
@@ -581,12 +596,14 @@ public class AsyncRunLoop implements Runnable, Throttleable {
     private final Set<SystemStreamPartition> processingSspSet;
     private final TaskName taskName;
     private final TaskInstanceMetrics taskMetrics;
+    private final boolean hasIntermediateStreams;
 
-    AsyncTaskState(TaskName taskName, TaskInstanceMetrics taskMetrics, Set<SystemStreamPartition> sspSet) {
+    AsyncTaskState(TaskName taskName, TaskInstanceMetrics taskMetrics, Set<SystemStreamPartition> sspSet, boolean hasIntermediateStreams) {
       this.taskName = taskName;
       this.taskMetrics = taskMetrics;
       this.pendingEnvelopeQueue = new ArrayDeque<>();
       this.processingSspSet = sspSet;
+      this.hasIntermediateStreams = hasIntermediateStreams;
     }
 
     private boolean checkEndOfStream() {
@@ -597,7 +614,9 @@ public class AsyncRunLoop implements Runnable, Throttleable {
         if (envelope.isEndOfStream()) {
           SystemStreamPartition ssp = envelope.getSystemStreamPartition();
           processingSspSet.remove(ssp);
-          pendingEnvelopeQueue.remove();
+          if (!hasIntermediateStreams) {
+            pendingEnvelopeQueue.remove();
+          }
         }
       }
       return processingSspSet.isEmpty();
@@ -651,7 +670,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
       if (isReady()) {
         if (needCommit) return WorkerOp.COMMIT;
         else if (needWindow) return WorkerOp.WINDOW;
-        else if (endOfStream) return WorkerOp.END_OF_STREAM;
+        else if (endOfStream && pendingEnvelopeQueue.isEmpty()) return WorkerOp.END_OF_STREAM;
         else if (!pendingEnvelopeQueue.isEmpty()) return WorkerOp.PROCESS;
       }
       return WorkerOp.NO_OP;

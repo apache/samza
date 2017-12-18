@@ -34,7 +34,6 @@ import org.apache.samza.container.SamzaContainer$;
 import org.apache.samza.container.SamzaContainerExceptionHandler;
 import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.job.ApplicationStatus;
-import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.task.TaskFactoryUtil;
@@ -73,13 +72,12 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
 
   @Override
   public void run(StreamApplication streamApp) {
-    ContainerModel containerModel = jobModel.getContainers().get(containerId);
     Object taskFactory = TaskFactoryUtil.createTaskFactory(config, streamApp, this);
 
     container = SamzaContainer$.MODULE$.apply(
-        containerModel,
+        containerId,
+        jobModel,
         config,
-        jobModel.maxChangeLogStreamPartitions,
         Util.<String, MetricsReporter>javaMapAsScalaMap(new HashMap<>()),
         taskFactory);
     container.setContainerListener(
@@ -155,8 +153,13 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     if (executionEnvContainerId != null) {
       log.info("Got execution environment container id: {}", executionEnvContainerId);
       containerHeartbeatMonitor = new ContainerHeartbeatMonitor(() -> {
-          container.shutdown();
-          containerRunnerException = new SamzaException("Container shutdown due to expired heartbeat");
+          try {
+            container.shutdown();
+            containerRunnerException = new SamzaException("Container shutdown due to expired heartbeat");
+          } catch (Exception e) {
+            log.error("Heartbeat monitor failed to shutdown the container gracefully. Exiting process.", e);
+            System.exit(1);
+          }
         }, new ContainerHeartbeatClient(coordinatorUrl, executionEnvContainerId));
       containerHeartbeatMonitor.start();
     } else {

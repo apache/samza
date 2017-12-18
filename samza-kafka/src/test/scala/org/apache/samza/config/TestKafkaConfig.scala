@@ -31,7 +31,7 @@ import org.junit.Before
 class TestKafkaConfig {
 
   var props : Properties = new Properties
-  val SYSTEM_NAME = "kafka";
+  val SYSTEM_NAME = "kafka"
   val KAFKA_PRODUCER_PROPERTY_PREFIX = "systems." + SYSTEM_NAME + ".producer."
   val TEST_CLIENT_ID = "TestClientId"
   val TEST_GROUP_ID = "TestGroupId"
@@ -130,6 +130,27 @@ class TestKafkaConfig {
     assertEquals("mychangelog1", storeToChangelog.get("test1").getOrElse(""))
     assertEquals("mychangelog2", storeToChangelog.get("test2").getOrElse(""))
     assertEquals("otherstream", storeToChangelog.get("test3").getOrElse(""))
+
+    props.setProperty("systems." + SYSTEM_NAME + ".samza.factory", "org.apache.samza.system.kafka.SomeOtherFactory")
+    val mapConfig1 = new MapConfig(props.asScala.asJava)
+    val kafkaConfig1 = new KafkaConfig(mapConfig)
+    val storeToChangelog1 = kafkaConfig.getKafkaChangelogEnabledStores()
+    assertEquals("mychangelog1", storeToChangelog1.get("test1").getOrElse(""))
+    assertEquals("mychangelog2", storeToChangelog1.get("test2").getOrElse(""))
+    assertEquals("otherstream", storeToChangelog1.get("test3").getOrElse(""))
+
+    props.setProperty(ApplicationConfig.APP_MODE, ApplicationConfig.ApplicationMode.BATCH.name())
+    val batchMapConfig = new MapConfig(props.asScala.asJava)
+    val batchKafkaConfig = new KafkaConfig(batchMapConfig)
+    assertEquals(batchKafkaConfig.getChangelogKafkaProperties("test1").getProperty("cleanup.policy"), "delete")
+    assertEquals(batchKafkaConfig.getChangelogKafkaProperties("test1").getProperty("retention.ms"),
+      String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH))
+    assertEquals(batchKafkaConfig.getChangelogKafkaProperties("test2").getProperty("cleanup.policy"), "compact,delete")
+    assertEquals(batchKafkaConfig.getChangelogKafkaProperties("test2").getProperty("retention.ms"),
+      String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH))
+    assertEquals(batchKafkaConfig.getChangelogKafkaProperties("test3").getProperty("cleanup.policy"), "compact,delete")
+    assertEquals(batchKafkaConfig.getChangelogKafkaProperties("test3").getProperty("retention.ms"),
+      String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH))
   }
 
   @Test
@@ -147,9 +168,9 @@ class TestKafkaConfig {
 
   @Test
   def testMaxInFlightRequestsPerConnectionOverride() {
-    val expectedValue = "200";
+    val expectedValue = "200"
 
-    props.setProperty(KAFKA_PRODUCER_PROPERTY_PREFIX + ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, expectedValue);
+    props.setProperty(KAFKA_PRODUCER_PROPERTY_PREFIX + ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, expectedValue)
 
     val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
@@ -161,9 +182,9 @@ class TestKafkaConfig {
 
   @Test
   def testRetriesOverride() {
-    val expectedValue = "200";
+    val expectedValue = "200"
 
-    props.setProperty(KAFKA_PRODUCER_PROPERTY_PREFIX + ProducerConfig.RETRIES_CONFIG, expectedValue);
+    props.setProperty(KAFKA_PRODUCER_PROPERTY_PREFIX + ProducerConfig.RETRIES_CONFIG, expectedValue)
 
     val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
@@ -175,7 +196,7 @@ class TestKafkaConfig {
 
   @Test(expected = classOf[NumberFormatException])
   def testMaxInFlightRequestsPerConnectionWrongNumberFormat() {
-    props.setProperty(KAFKA_PRODUCER_PROPERTY_PREFIX + ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "Samza");
+    props.setProperty(KAFKA_PRODUCER_PROPERTY_PREFIX + ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "Samza")
 
     val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
@@ -185,7 +206,17 @@ class TestKafkaConfig {
 
   @Test(expected = classOf[NumberFormatException])
   def testRetriesWrongNumberFormat() {
-    props.setProperty(KAFKA_PRODUCER_PROPERTY_PREFIX + ProducerConfig.RETRIES_CONFIG, "Samza");
+    props.setProperty(KAFKA_PRODUCER_PROPERTY_PREFIX + ProducerConfig.RETRIES_CONFIG, "Samza")
+
+    val mapConfig = new MapConfig(props.asScala.asJava)
+    val kafkaConfig = new KafkaConfig(mapConfig)
+    val kafkaProducerConfig = kafkaConfig.getKafkaSystemProducerConfig(SYSTEM_NAME, TEST_CLIENT_ID)
+    kafkaProducerConfig.getProducerProperties
+  }
+
+  @Test(expected = classOf[NumberFormatException])
+  def testLingerWrongNumberFormat() {
+    props.setProperty(KAFKA_PRODUCER_PROPERTY_PREFIX + ProducerConfig.LINGER_MS_CONFIG, "Samza")
 
     val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)

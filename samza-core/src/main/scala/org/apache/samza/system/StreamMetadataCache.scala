@@ -100,6 +100,17 @@ class StreamMetadataCache (
     allResults
   }
 
+  /**
+   * Returns metadata about the given streams. If the metadata isn't in the cache, it is retrieved from the systems
+   * using the given SystemAdmins.
+   *
+   * @param stream SystemStreams for which the metadata is requested
+   * @param partitionsMetadataOnly Flag to indicate that only partition count metadata should be fetched/refreshed
+   */
+  def getSystemStreamMetadata(stream: SystemStream, partitionsMetadataOnly: Boolean): SystemStreamMetadata = {
+    getStreamMetadata(Set(stream), partitionsMetadataOnly).get(stream).orNull
+  }
+
   private def getFromCache(stream: SystemStream, now: Long) = {
     cache.get(stream) match {
       case Some(CacheEntry(metadata, lastRefresh)) =>

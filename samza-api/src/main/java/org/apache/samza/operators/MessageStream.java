@@ -18,19 +18,23 @@
  */
 package org.apache.samza.operators;
 
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.function.Function;
+
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowPane;
-
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.function.Function;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.Serde;
+import org.apache.samza.table.Table;
 
 
 /**
@@ -67,11 +71,11 @@ public interface MessageStream<M> {
    * Applies the provided function to messages in this {@link MessageStream} and returns the
    * filtered {@link MessageStream}.
    * <p>
-   * The {@link Function} is a predicate which determines whether a message in this {@link MessageStream}
+   * The {@link FilterFunction} is a predicate which determines whether a message in this {@link MessageStream}
    * should be retained in the filtered {@link MessageStream}.
    *
    * @param filterFn the predicate to filter messages from this {@link MessageStream}.
-   * @return the transformed {@link MessageStream}
+   * @return the filtered {@link MessageStream}
    */
   MessageStream<M> filter(FilterFunction<? super M> filterFn);
 
@@ -91,12 +95,13 @@ public interface MessageStream<M> {
 
   /**
    * Allows sending messages in this {@link MessageStream} to an {@link OutputStream}.
+   * <p>
+   * When sending messages to an {@code OutputStream<KV<K, V>>}, messages are partitioned using their serialized key.
+   * When sending messages to any other {@code OutputStream<M>}, messages are partitioned using a null partition key.
    *
    * @param outputStream the output stream to send messages to
-   * @param <K> the type of key in the outgoing message
-   * @param <V> the type of message in the outgoing message
    */
-  <K, V> void sendTo(OutputStream<K, V, M> outputStream);
+  void sendTo(OutputStream<M> outputStream);
 
   /**
    * Groups the messages in this {@link MessageStream} according to the provided {@link Window} semantics
@@ -105,15 +110,19 @@ public interface MessageStream<M> {
    * <p>
    * Use the {@link org.apache.samza.operators.windows.Windows} helper methods to create the appropriate windows.
    * <p>
-   * <b>Warning:</b> As of version 0.13.0, messages in windows are kept in memory and will be lost during restarts.
+   * The {@code id} must be unique for each operator in this application. It is used as part of the unique ID
+   * for any state stores and streams created by this operator (the full ID also contains the job name, job id and
+   * operator type). If the application logic is changed, this ID must be reused in the new operator to retain
+   * state from the previous version, and changed for the new operator to discard the state from the previous version.
    *
    * @param window the window to group and process messages from this {@link MessageStream}
+   * @param id the unique id of this operator in this application
    * @param <K> the type of key in the message in this {@link MessageStream}. If a key is specified,
    *            panes are emitted per-key.
    * @param <WV> the type of value in the {@link WindowPane} in the transformed {@link MessageStream}
-   * @return the transformed {@link MessageStream}
+   * @return the windowed {@link MessageStream}
    */
-  <K, WV> MessageStream<WindowPane<K, WV>> window(Window<M, K, WV> window);
+  <K, WV> MessageStream<WindowPane<K, WV>> window(Window<M, K, WV> window, String id);
 
   /**
    * Joins this {@link MessageStream} with another {@link MessageStream} using the provided
@@ -124,18 +133,55 @@ public interface MessageStream<M> {
    * <p>
    * Both inputs being joined must have the same number of partitions, and should be partitioned by the join key.
    * <p>
-   * <b>Warning:</b> As of version 0.13.0, messages in joins are kept in memory and will be lost during restarts.
+   * The {@code id} must be unique for each operator in this application. It is used as part of the unique ID
+   * for any state stores and streams created by this operator (the full ID also contains the job name, job id and
+   * operator type). If the application logic is changed, this ID must be reused in the new operator to retain
+   * state from the previous version, and changed for the new operator to discard the state from the previous version.
    *
    * @param otherStream the other {@link MessageStream} to be joined with
    * @param joinFn the function to join messages from this and the other {@link MessageStream}
+   * @param keySerde the serde for the join key
+   * @param messageSerde the serde for messages in this stream
+   * @param otherMessageSerde the serde for messages in the other stream
    * @param ttl the ttl for messages in each stream
+   * @param id the unique id of this operator in this application
    * @param <K> the type of join key
-   * @param <JM> the type of messages in the other stream
-   * @param <OM> the type of messages resulting from the {@code joinFn}
+   * @param <OM> the type of messages in the other stream
+   * @param <JM> the type of messages resulting from the {@code joinFn}
    * @return the joined {@link MessageStream}
    */
-  <K, JM, OM> MessageStream<OM> join(MessageStream<JM> otherStream,
-      JoinFunction<? extends K, ? super M, ? super JM, ? extends OM> joinFn, Duration ttl);
+  <K, OM, JM> MessageStream<JM> join(MessageStream<OM> otherStream,
+      JoinFunction<? extends K, ? super M, ? super OM, ? extends JM> joinFn,
+      Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde,
+      Duration ttl, String id);
+
+  /**
+   * Joins this {@link MessageStream} with another {@link Table} using the provided
+   * pairwise {@link StreamTableJoinFunction}.
+   * <p>
+   * The type of input message is expected to be {@link KV}.
+   * <p>
+   * Records are looked up from the joined table using the join key, join function
+   * is applied and join results are emitted as matches are found.
+   * <p>
+   * The join function allows implementation of both inner and left outer join. A null will be
+   * passed to the join function, if no record matching the join key is found in the table.
+   * The join function can choose to return an instance of JM (outer left join) or null
+   * (inner join); if null is returned, it won't be processed further.
+   * <p>
+   * Both the input stream and table being joined must have the same number of partitions,
+   * and should be partitioned by the same join key.
+   * <p>
+   *
+   * @param table the table being joined
+   * @param joinFn the join function
+   * @param <K> the type of join key
+   * @param <R> the type of table record
+   * @param <JM> the type of messages resulting from the {@code joinFn}
+   * @return the joined {@link MessageStream}
+   */
+  <K, R extends KV, JM> MessageStream<JM> join(Table<R> table,
+      StreamTableJoinFunction<? extends K, ? super M, ? super R, ? extends JM> joinFn);
 
   /**
    * Merges all {@code otherStreams} with this {@link MessageStream}.
@@ -171,8 +217,10 @@ public interface MessageStream<M> {
    * intermediate stream on the {@code job.default.system}. This intermediate stream is both an output and
    * input to the job.
    * <p>
-   * The key and message Serdes configured for the default system must be able to serialize and deserialize
-   * types K and M respectively.
+   * Uses the provided {@link KVSerde} for serialization of keys and values. If the provided {@code serde} is null,
+   * uses the default serde provided via {@link StreamGraph#setDefaultSerde}, which must be a KVSerde. If the default
+   * serde is not a {@link KVSerde}, a runtime exception will be thrown. If no default serde has been provided
+   * <b>before</b> calling this method, a {@code KVSerde<NoOpSerde, NoOpSerde>} is used.
    * <p>
    * The number of partitions for this intermediate stream is determined as follows:
    * If the stream is an eventual input to a {@link #join}, and the number of partitions for the other stream is known,
@@ -181,12 +229,51 @@ public interface MessageStream<M> {
    * configuration, if present.
    * Else, the number of partitions is set to to the max of number of partitions for all input and output streams
    * (excluding intermediate streams).
+   * <p>
+   * The {@code id} must be unique for each operator in this application. It is used as part of the unique ID
+   * for any state stores and streams created by this operator (the full ID also contains the job name, job id and
+   * operator type). If the application logic is changed, this ID must be reused in the new operator to retain
+   * state from the previous version, and changed for the new operator to discard the state from the previous version.
+   * <p>
+   * Unlike {@link #sendTo}, messages with a null key are all sent to partition 0.
    *
-   * @param keyExtractor the {@link Function} to extract the output message key and partition key from
-   *                     the input message
-   * @param <K> the type of output message key and partition key
+   * @param keyExtractor the {@link Function} to extract the message and partition key from the input message.
+   *                     Messages with a null key are all sent to partition 0.
+   * @param valueExtractor the {@link Function} to extract the value from the input message
+   * @param serde the {@link KVSerde} to use for (de)serializing the key and value.
+   * @param id the unique id of this operator in this application
+   * @param <K> the type of output key
+   * @param <V> the type of output value
    * @return the repartitioned {@link MessageStream}
    */
-  <K> MessageStream<M> partitionBy(Function<? super M, ? extends K> keyExtractor);
+  <K, V> MessageStream<KV<K, V>> partitionBy(Function<? super M, ? extends K> keyExtractor,
+      Function<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde, String id);
+
+  /**
+   * Same as calling {@link #partitionBy(Function, Function, KVSerde, String)} with a null KVSerde.
+   * <p>
+   * Uses the default serde provided via {@link StreamGraph#setDefaultSerde}, which must be a KVSerde. If the default
+   * serde is not a {@link KVSerde}, a runtime exception will be thrown. If no default serde has been provided
+   * <b>before</b> calling this method, a {@code KVSerde<NoOpSerde, NoOpSerde>} is used.
+   *
+   * @param keyExtractor the {@link Function} to extract the message and partition key from the input message
+   * @param valueExtractor the {@link Function} to extract the value from the input message
+   * @param id the unique id of this operator in this application
+   * @param <K> the type of output key
+   * @param <V> the type of output value
+   * @return the repartitioned {@link MessageStream}
+   */
+  <K, V> MessageStream<KV<K, V>> partitionBy(Function<? super M, ? extends K> keyExtractor,
+      Function<? super M, ? extends V> valueExtractor, String id);
+
+  /**
+   * Sends messages in this {@link MessageStream} to a {@link Table}. The type of input message is expected
+   * to be {@link KV}, otherwise a {@link ClassCastException} will be thrown.
+   *
+   * @param table the table to write messages to
+   * @param <K> the type of key in the table
+   * @param <V> the type of record value in the table
+   */
+  <K, V> void sendTo(Table<KV<K, V>> table);
 
 }

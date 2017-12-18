@@ -24,7 +24,9 @@ import java.util
 import java.util.concurrent.atomic.AtomicReference
 
 import org.apache.samza.config.ClusterManagerConfig
+import org.apache.samza.config.JobConfig
 import org.apache.samza.config.JobConfig.Config2Job
+import org.apache.samza.config.MapConfig
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config.Config
@@ -43,19 +45,13 @@ import org.apache.samza.job.model.JobModel
 import org.apache.samza.job.model.TaskModel
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.storage.ChangelogPartitionManager
-import org.apache.samza.system.ExtendedSystemAdmin
-import org.apache.samza.system.StreamMetadataCache
-import org.apache.samza.system.SystemFactory
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.system.SystemStreamPartitionMatcher
-import org.apache.samza.system.SystemAdmin
-import org.apache.samza.system.StreamSpec
+import org.apache.samza.system._
 import org.apache.samza.util.Logging
 import org.apache.samza.util.Util
-import org.apache.samza.Partition
-import org.apache.samza.SamzaException
+import org.apache.samza.{Partition, PartitionChangeException, SamzaException}
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable.ListBuffer
 
 /**
  * Helper companion object that is responsible for wiring up a JobModelManager
@@ -78,7 +74,7 @@ object JobModelManager extends Logging {
    * and writes it to the coordinator stream.
    * d) Builds JobModelManager using the jobModel read from coordinator stream.
    * @param coordinatorSystemConfig A config object that contains job.name
-   *                                job.id, and all system.&lt;job-coordinator-system-name&gt;.*
+   *                                job.id, and all system.&lt;job-coordinator-system-name&gt;.*Ch
    *                                configuration. The method will use this config to read all configuration
    *                                from the coordinator stream, and instantiate a JobModelManager.
    */
@@ -110,22 +106,16 @@ object JobModelManager extends Logging {
     val systemAdmins = getSystemAdmins(config)
 
     val streamMetadataCache = new StreamMetadataCache(systemAdmins = systemAdmins, cacheTTLms = 0)
-    var streamPartitionCountMonitor: StreamPartitionCountMonitor = null
-    if (config.getMonitorPartitionChange) {
-      val extendedSystemAdmins = systemAdmins.filter{
-        case (systemName, systemAdmin) => systemAdmin.isInstanceOf[ExtendedSystemAdmin]
-      }
-      val inputStreamsToMonitor = config.getInputStreams.filter(systemStream => extendedSystemAdmins.contains(systemStream.getSystem))
-      if (inputStreamsToMonitor.nonEmpty) {
-        streamPartitionCountMonitor = new StreamPartitionCountMonitor(
-          inputStreamsToMonitor.asJava,
-          streamMetadataCache,
-          metricsRegistryMap,
-          config.getMonitorPartitionChangeFrequency)
-      }
-    }
     val previousChangelogPartitionMapping = changelogManager.readChangeLogPartitionMapping()
-    val jobModelManager = getJobModelManager(config, previousChangelogPartitionMapping, localityManager, streamMetadataCache, streamPartitionCountMonitor, null)
+
+    val processorList = new ListBuffer[String]()
+    val containerCount = new JobConfig(config).getContainerCount
+    for (i <- 0 until containerCount) {
+      processorList += i.toString
+    }
+
+    val jobModelManager = getJobModelManager(config, previousChangelogPartitionMapping, localityManager,
+      streamMetadataCache, processorList.toList.asJava)
     val jobModel = jobModelManager.jobModel
     // Save the changelog mapping back to the ChangelogPartitionmanager
     // newChangelogPartitionMapping is the merging of all current task:changelog
@@ -145,6 +135,13 @@ object JobModelManager extends Logging {
 
     jobModelManager
   }
+
+  /**
+    * This method creates a {@link JobModelManager} object w/o {@link StreamPartitionCountMonitor}
+    *
+    * @param coordinatorSystemConfig configuration for coordinator system
+    * @return a JobModelManager object
+    */
   def apply(coordinatorSystemConfig: Config): JobModelManager = apply(coordinatorSystemConfig, new MetricsRegistryMap())
 
   /**
@@ -154,14 +151,13 @@ object JobModelManager extends Logging {
                                 changeLogMapping: util.Map[TaskName, Integer],
                                 localityManager: LocalityManager,
                                 streamMetadataCache: StreamMetadataCache,
-                                streamPartitionCountMonitor: StreamPartitionCountMonitor,
                                 containerIds: java.util.List[String]) = {
     val jobModel: JobModel = readJobModel(config, changeLogMapping, localityManager, streamMetadataCache, containerIds)
     jobModelRef.set(jobModel)
 
     val server = new HttpServer
     server.addServlet("/", new JobServlet(jobModelRef))
-    currentJobModelManager = new JobModelManager(jobModel, server, streamPartitionCountMonitor)
+    currentJobModelManager = new JobModelManager(jobModel, server)
     currentJobModelManager
   }
 
@@ -226,7 +222,13 @@ object JobModelManager extends Logging {
                    containerIds: java.util.List[String]): JobModel = {
     // Do grouping to fetch TaskName to SSP mapping
     val allSystemStreamPartitions = getMatchedInputStreamPartitions(config, streamMetadataCache)
-    val grouper = getSystemStreamPartitionGrouper(config)
+
+    // processor list is required by some of the groupers. So, let's pass them as part of the config.
+    // Copy the config and add the processor list to the config copy.
+    val configMap = new util.HashMap[String, String](config)
+    configMap.put(JobConfig.PROCESSOR_LIST, String.join(",", containerIds))
+    val grouper = getSystemStreamPartitionGrouper(new MapConfig(configMap))
+
     val groups = grouper.group(allSystemStreamPartitions.asJava)
     info("SystemStreamPartitionGrouper %s has grouped the SystemStreamPartitions into %d tasks with the following taskNames: %s" format(grouper, groups.size(), groups.keySet()))
 
@@ -291,7 +293,7 @@ object JobModelManager extends Logging {
     systemAdmins
   }
 
-  private def createChangeLogStreams(config: StorageConfig, changeLogPartitions: Int) {
+  def createChangeLogStreams(config: StorageConfig, changeLogPartitions: Int) {
     val changeLogSystemStreams = config
       .getStoreNames
       .filter(config.getChangelogStream(_).isDefined)
@@ -304,7 +306,13 @@ object JobModelManager extends Logging {
         .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemStream.getSystem))
         ).getAdmin(systemStream.getSystem, config)
 
-      systemAdmin.createChangelogStream(systemStream.getStream, changeLogPartitions)
+      val changelogSpec = StreamSpec.createChangeLogStreamSpec(systemStream.getStream, systemStream.getSystem, changeLogPartitions)
+      if (systemAdmin.createStream(changelogSpec)) {
+        info("Created changelog stream %s." format systemStream.getStream)
+      } else {
+        info("Changelog stream %s already exists." format systemStream.getStream)
+      }
+      systemAdmin.validateStream(changelogSpec)
     }
   }
 
@@ -331,7 +339,6 @@ object JobModelManager extends Logging {
   }
 
   private def getSystemNames(config: Config) = config.getSystemNames.toSet
-
 }
 
 /**
@@ -355,8 +362,7 @@ class JobModelManager(
   /**
    * HTTP server used to serve a Samza job's container model to SamzaContainers when they start up.
    */
-  val server: HttpServer = null,
-  val streamPartitionCountMonitor: StreamPartitionCountMonitor = null) extends Logging {
+  val server: HttpServer = null) extends Logging {
 
   debug("Got job model: %s." format jobModel)
 
@@ -364,10 +370,6 @@ class JobModelManager(
     if (server != null) {
       debug("Starting HTTP server.")
       server.start
-      if (streamPartitionCountMonitor != null) {
-        debug("Starting Stream Partition Count Monitor..")
-        streamPartitionCountMonitor.start()
-      }
       info("Started HTTP server: %s" format server.getUrl)
     }
   }
@@ -375,10 +377,6 @@ class JobModelManager(
   def stop {
     if (server != null) {
       debug("Stopping HTTP server.")
-      if (streamPartitionCountMonitor != null) {
-        debug("Stopping Stream Partition Count Monitor..")
-        streamPartitionCountMonitor.stop()
-      }
       server.stop
       info("Stopped HTTP server.")
     }

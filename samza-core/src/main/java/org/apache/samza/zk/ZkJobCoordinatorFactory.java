@@ -19,13 +19,26 @@
 
 package org.apache.samza.zk;
 
+import org.I0Itec.zkclient.ZkClient;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.MetricsRegistryMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
+
+  private static final Logger LOG = LoggerFactory.getLogger(ZkJobCoordinatorFactory.class);
+  private static final String JOB_COORDINATOR_ZK_PATH_FORMAT = "%s/%s-%s-coordinationData";
+  private static final String DEFAULT_JOB_ID = "1";
+  private static final String DEFAULT_JOB_NAME = "defaultJob";
+
   /**
    * Method to instantiate an implementation of JobCoordinator
    *
@@ -34,6 +47,30 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
    */
   @Override
   public JobCoordinator getJobCoordinator(Config config) {
-    return new ZkJobCoordinator(config, new MetricsRegistryMap());
+    MetricsRegistry metricsRegistry = new MetricsRegistryMap();
+    ZkUtils zkUtils = getZkUtils(config, metricsRegistry);
+    LOG.debug("Creating ZkJobCoordinator instance with config: {}.", config);
+    return new ZkJobCoordinator(config, metricsRegistry, zkUtils);
+  }
+
+  private ZkUtils getZkUtils(Config config, MetricsRegistry metricsRegistry) {
+    ZkConfig zkConfig = new ZkConfig(config);
+    ZkKeyBuilder keyBuilder = new ZkKeyBuilder(getJobCoordinationZkPath(config));
+    ZkClient zkClient = ZkCoordinationUtilsFactory
+        .createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
+    return new ZkUtils(keyBuilder, zkClient, zkConfig.getZkConnectionTimeoutMs(), metricsRegistry);
+  }
+
+  public static String getJobCoordinationZkPath(Config config) {
+    JobConfig jobConfig = new JobConfig(config);
+    String appId = new ApplicationConfig(config).getGlobalAppId();
+    String jobName = jobConfig.getName().isDefined()
+        ? jobConfig.getName().get()
+        : DEFAULT_JOB_NAME;
+    String jobId = jobConfig.getJobId().isDefined()
+        ? jobConfig.getJobId().get()
+        : DEFAULT_JOB_ID;
+
+    return String.format(JOB_COORDINATOR_ZK_PATH_FORMAT, appId, jobName, jobId);
   }
 }

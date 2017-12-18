@@ -18,14 +18,17 @@
  */
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.annotation.InterfaceStability;
-
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
+import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.operators.functions.WatermarkFunction;
+
 /**
- * A stream operator specification that holds all the information required to transform 
+ * A stream operator specification that holds all the information required to transform
  * the input {@link org.apache.samza.operators.MessageStreamImpl} and produce the output
  * {@link org.apache.samza.operators.MessageStreamImpl}.
  *
@@ -49,7 +52,7 @@ public abstract class OperatorSpec<M, OM> {
     OUTPUT
   }
 
-  private final int opId;
+  private final String opId;
   private final OpCode opCode;
   private StackTraceElement[] creationStackTrace;
 
@@ -60,7 +63,7 @@ public abstract class OperatorSpec<M, OM> {
    */
   private final Set<OperatorSpec<OM, ?>> nextOperatorSpecs = new LinkedHashSet<>();
 
-  public OperatorSpec(OpCode opCode, int opId) {
+  public OperatorSpec(OpCode opCode, String opId) {
     this.opCode = opCode;
     this.opId = opId;
     this.creationStackTrace = Thread.currentThread().getStackTrace();
@@ -90,7 +93,7 @@ public abstract class OperatorSpec<M, OM> {
    * Get the unique ID of this operator in the {@link org.apache.samza.operators.StreamGraph}.
    * @return  the unique operator ID
    */
-  public final int getOpId() {
+  public final String getOpId() {
     return this.opId;
   }
 
@@ -105,17 +108,25 @@ public abstract class OperatorSpec<M, OM> {
     // [2] SomeOperatorSpec.<init>()
     // [3] OperatorSpecs.createSomeOperatorSpec()
     // [4] MessageStreamImpl.someOperator()
-    // [5] User code that calls [4]
-    // we are interested in [5] here
+    // [5] User/MessageStreamImpl code that calls [4]
+    // We are interested in the first call below this that originates from user code
     StackTraceElement element = this.creationStackTrace[5];
+
+    /**
+     * Sometimes [5] above is a call from MessageStream/MessageStreamImpl itself (e.g. for
+     * {@link org.apache.samza.operators.MessageStream#mergeAll(Collection)} or
+     * {@link MessageStreamImpl#partitionBy(Function, Function)}).
+     * If that's the case, find the first call from a class other than these.
+     */
+    for (int i = 5; i < creationStackTrace.length; i++) {
+      if (!creationStackTrace[i].getClassName().equals(MessageStreamImpl.class.getName())
+          && !creationStackTrace[i].getClassName().equals(MessageStream.class.getName())) {
+        element = creationStackTrace[i];
+        break;
+      }
+    }
     return String.format("%s:%s", element.getFileName(), element.getLineNumber());
   }
 
-  /**
-   * Get the name for this operator based on its opCode and opId.
-   * @return  the name for this operator
-   */
-  public final String getOpName() {
-    return String.format("%s-%s", getOpCode().name().toLowerCase(), getOpId());
-  }
+  abstract public WatermarkFunction getWatermarkFn();
 }
