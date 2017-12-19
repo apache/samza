@@ -21,7 +21,9 @@ package org.apache.samza.storage.kv
 
 import java.util.Arrays
 
+import org.apache.samza.Partition
 import org.apache.samza.storage.StoreProperties
+import org.apache.samza.system.{IncomingMessageEnvelope, SystemStreamPartition}
 import org.junit.Assert._
 import org.junit.{After, Before, Test}
 import org.mockito.Mockito._
@@ -129,6 +131,20 @@ class TestKeyValueStorageEngine {
     assertFalse("no next after iterating 2 keys in the range", iter.hasNext)
   }
 
+  @Test
+  def testRestoreMetrics(): Unit = {
+    val changelogSSP = new SystemStreamPartition("TestSystem", "TestStream", new Partition(0))
+    val changelogEntries = java.util.Arrays asList(
+      new IncomingMessageEnvelope(changelogSSP, "0", Array[Byte](1, 2), Array[Byte](3, 4, 5)),
+      new IncomingMessageEnvelope(changelogSSP, "1", Array[Byte](2, 3), Array[Byte](4, 5, 6)),
+      new IncomingMessageEnvelope(changelogSSP, "2", Array[Byte](3, 4), Array[Byte](5, 6, 7)))
+
+    engine.restore(changelogEntries.iterator())
+
+    assertEquals(3, metrics.restoredMessages.getValue)
+    assertEquals(15, metrics.restoredBytes.getValue) // 3 keys * 2 bytes/key +  3 msgs * 3 bytes/msg
+  }
+  
   def getNextTimestamp(): Long = {
     now += 1
     now
