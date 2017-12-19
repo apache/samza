@@ -59,6 +59,12 @@ public class StreamAppender extends AppenderSkeleton {
   private static final String JAVA_OPTS_CONTAINER_NAME = "samza.container.name";
   private static final String JOB_COORDINATOR_TAG = "samza-job-coordinator";
   private static final String SOURCE = "log4j-log";
+
+  protected static final int DEFAULT_QUEUE_SIZE = 100;
+  private static final long DEFAULT_QUEUE_TIMEOUT_S = 2; // Abitrary choice
+
+  protected static volatile boolean systemInitialized = false;
+
   private Config config = null;
   private SystemStream systemStream = null;
   private SystemProducer systemProducer = null;
@@ -69,14 +75,10 @@ public class StreamAppender extends AppenderSkeleton {
   private Logger log = Logger.getLogger(StreamAppender.class);
   protected StreamAppenderMetrics metrics;
 
-  protected static volatile boolean systemInitialized = false;
-
-  protected static final int DEFAULT_QUEUE_SIZE = 100;
-  private static final long DEFAULT_QUEUE_TIMEOUT_S = 2; // Abitrary choice
   private final BlockingQueue<byte[]> logQueue = new LinkedBlockingQueue<>(DEFAULT_QUEUE_SIZE);
   protected long queueTimeoutS = DEFAULT_QUEUE_TIMEOUT_S;
 
-  private Thread queueToProducerTransferThread;
+  private Thread transferThread;
 
   /**
    * used to detect if this thread is called recursively
@@ -126,7 +128,7 @@ public class StreamAppender extends AppenderSkeleton {
           }
         } else {
           // Serialize the event before adding to the queue to leverage the caller thread
-          // and ensure that the queueToProducerTransferThread can keep up.
+          // and ensure that the transferThread can keep up.
           if (!logQueue.offer(serde.toBytes(subLog(event)), queueTimeoutS, TimeUnit.SECONDS)) {
             // Do NOT retry adding to the queue. Dropping the event allows us to alleviate the unlikely
             // possibility of a deadlock, which can arise due to a circular dependency between the SystemProducer
@@ -158,7 +160,7 @@ public class StreamAppender extends AppenderSkeleton {
       } finally {
         recursiveCall.set(false);
       }
-    } else if (metrics != null) {
+    } else if (metrics != null) { // setupSystem() may not have been invoked yet so metrics can be null here.
       metrics.recursiveCalls.inc();
     }
   }
@@ -182,9 +184,9 @@ public class StreamAppender extends AppenderSkeleton {
     log.info("Shutting down the StreamAppender...");
     if (!this.closed) {
       this.closed = true;
-      queueToProducerTransferThread.interrupt();
+      transferThread.interrupt();
       try {
-        queueToProducerTransferThread.join();
+        transferThread.join();
       } catch (InterruptedException e) {
         log.error("Interrupted while waiting for sink thread to finish.", e);
       }
@@ -274,8 +276,8 @@ public class StreamAppender extends AppenderSkeleton {
       // Serialize the key once, since we will use it for every event.
       final byte[] keyBytes = key.getBytes("UTF-8");
 
-      Runnable logQueueConsumer = () -> {
-        while (true) {
+      Runnable queueToSystemTransfer = () -> {
+        while (!Thread.currentThread().isInterrupted()) {
           try {
             byte[] serializedLogEvent = logQueue.take();
 
@@ -283,21 +285,19 @@ public class StreamAppender extends AppenderSkeleton {
                 new OutgoingMessageEnvelope(systemStream, keyBytes, serializedLogEvent);
             systemProducer.send(SOURCE, outgoingMessageEnvelope);
 
-            if (Thread.interrupted()) {
-              break;
-            }
           } catch (InterruptedException e) {
-            break; // Someone wants us to stop, so stop.
+            // Preserve the interrupted status for the loop condition.
+            Thread.currentThread().interrupt();
           } catch (Throwable t) {
             log.error("Error sending StreamAppender event to SystemProducer", t);
           }
         }
       };
 
-      queueToProducerTransferThread = new Thread(logQueueConsumer);
-      queueToProducerTransferThread.setDaemon(true);
-      queueToProducerTransferThread.setName("Samza StreamAppender Producer " + queueToProducerTransferThread.getName());
-      queueToProducerTransferThread.start();
+      transferThread = new Thread(queueToSystemTransfer);
+      transferThread.setDaemon(true);
+      transferThread.setName("Samza StreamAppender Producer " + transferThread.getName());
+      transferThread.start();
 
     } catch (UnsupportedEncodingException e) {
       throw new SamzaException(String.format(

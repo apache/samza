@@ -170,23 +170,20 @@ public class TestStreamAppender {
     final CountDownLatch allMessagesSent = new CountDownLatch(expectedMessagesSent); // We expect to drop all but the extra messages
     final CountDownLatch waitForTimeout = new CountDownLatch(1);
     MockSystemProducer.listeners.add((source, envelope) -> {
-        System.out.println("Got another message");
         allMessagesSent.countDown();
         try {
-          System.out.println("Waiting for timeout");
           waitForTimeout.await();
-          System.out.println("Done waiting for timeout");
         } catch (InterruptedException e) {
           fail("Test could not run properly because of a thread interrupt.");
         }
       });
 
-    // Log the messages
+    // Log the messages. This is where the timeout will happen!
     messages.forEach((message) -> log.info(message));
 
     assertEquals(messages.size() - expectedMessagesSent, systemProducerAppender.metrics.logMessagesDropped.getCount());
 
-    // We should have timed out by now, so we can allow all the rest of the messages to send.
+    // Allow all the rest of the messages to send.
     waitForTimeout.countDown();
 
     // Wait for messages
