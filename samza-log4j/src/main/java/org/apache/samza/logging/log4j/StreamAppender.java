@@ -267,16 +267,16 @@ public class StreamAppender extends AppenderSkeleton {
     log.info(SOURCE + " has been registered in " + systemName + ". So all the logs will be sent to " + streamName
         + " in " + systemName + ". Logs are partitioned by " + key);
 
-    startQueueToProducerTransferThread();
+    startTransferThread();
   }
 
-  private void startQueueToProducerTransferThread() {
+  private void startTransferThread() {
 
     try {
       // Serialize the key once, since we will use it for every event.
       final byte[] keyBytes = key.getBytes("UTF-8");
 
-      Runnable queueToSystemTransfer = () -> {
+      Runnable transferFromQueueToSystem = () -> {
         while (!Thread.currentThread().isInterrupted()) {
           try {
             byte[] serializedLogEvent = logQueue.take();
@@ -294,7 +294,7 @@ public class StreamAppender extends AppenderSkeleton {
         }
       };
 
-      transferThread = new Thread(queueToSystemTransfer);
+      transferThread = new Thread(transferFromQueueToSystem);
       transferThread.setDaemon(true);
       transferThread.setName("Samza StreamAppender Producer " + transferThread.getName());
       transferThread.start();
