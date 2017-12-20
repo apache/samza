@@ -162,6 +162,13 @@ class KafkaSystemProducer(systemName: String,
   }
 
 
+  /**
+    * Handles a fatal exception by closing the producer and either recreating it or storing the exception
+    * to rethrow later, depending on the value of dropProducerExceptions.
+    *
+    * @param currentProducer   the current producer for which the exception occurred. Must not be null.
+    * @param producerException the exception to handle.
+    */
   private def handleFatalSendException(currentProducer: Producer[Array[Byte], Array[Byte]], producerException: SystemProducerException): Unit = {
     metrics.sendFailed.inc
     error(producerException)
@@ -172,7 +179,7 @@ class KafkaSystemProducer(systemName: String,
     if (dropProducerExceptions) {
       warn("Ignoring producer exception. All messages in the failed producer request will be dropped!")
 
-      // Prevent each callback from recreating producer for the same failure.
+      // Prevent each callback from closing and nulling producer for the same failure.
       if (currentProducer == producerRef.get()) {
         info("Closing producer for system %s." format systemName)
         try {
