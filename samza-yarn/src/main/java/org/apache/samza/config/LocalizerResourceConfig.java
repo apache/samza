@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.job.yarn;
+package org.apache.samza.config;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +25,8 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.samza.config.Config;
+import org.apache.samza.job.yarn.LocalizerResourceException;
+
 
 /**
  * LocalizerResourceConfig is intended to manage/fetch the config values

@@ -21,7 +21,7 @@ package org.apache.samza.config;
 
 import org.apache.samza.SamzaException;
 
-public class YarnConfig extends MapConfig {
+public class YarnConfig {
   /**
    * (Required) URL from which the job package can be downloaded
    */
@@ -121,24 +121,29 @@ public class YarnConfig extends MapConfig {
    */
   public static final String YARN_JOB_STAGING_DIRECTORY = "yarn.job.staging.directory";
 
+  private final Config config;
+
   public YarnConfig(Config config) {
-    super(config);
+    if (null == config) {
+      throw new IllegalArgumentException("config cannot be null");
+    }
+    this.config = config;
   }
 
   public int getAMPollIntervalMs() {
-    return getInt(AM_POLL_INTERVAL_MS, DEFAULT_POLL_INTERVAL_MS);
+    return config.getInt(AM_POLL_INTERVAL_MS, DEFAULT_POLL_INTERVAL_MS);
   }
 
   public String getContainerLabel() {
-    return get(CONTAINER_LABEL, null);
+    return config.get(CONTAINER_LABEL, null);
   }
 
   public boolean getJmxServerEnabled() {
-    return getBoolean(AM_JMX_ENABLED, true);
+    return config.getBoolean(AM_JMX_ENABLED, true);
   }
 
   public String getPackagePath() {
-    String packagePath = get(PACKAGE_PATH);
+    String packagePath = config.get(PACKAGE_PATH);
     if (packagePath == null) {
       throw new SamzaException("No YARN package path defined in config.");
     }
@@ -146,58 +151,58 @@ public class YarnConfig extends MapConfig {
   }
 
   public int getAMContainerMaxMemoryMb() {
-    return getInt(AM_CONTAINER_MAX_MEMORY_MB, DEFAULT_AM_CONTAINER_MAX_MEMORY_MB);
+    return config.getInt(AM_CONTAINER_MAX_MEMORY_MB, DEFAULT_AM_CONTAINER_MAX_MEMORY_MB);
   }
 
   public String getAMContainerLabel() {
-    return get(AM_CONTAINER_LABEL, null);
+    return config.get(AM_CONTAINER_LABEL, null);
   }
 
   public int getAMContainerMaxCpuCores() {
-    return getInt(AM_CONTAINER_MAX_CPU_CORES, DEFAULT_AM_CPU_CORES);
+    return config.getInt(AM_CONTAINER_MAX_CPU_CORES, DEFAULT_AM_CPU_CORES);
   }
 
   public String getAmOpts() {
-    return get(AM_JVM_OPTIONS, "");
+    return config.get(AM_JVM_OPTIONS, "");
   }
 
   public String getQueueName() {
-    return get(QUEUE_NAME, null);
+    return config.get(QUEUE_NAME, null);
   }
 
   public String getAMJavaHome() {
-    return get(AM_JAVA_HOME, null);
+    return config.get(AM_JAVA_HOME, null);
   }
 
   public int getAllocatorSleepTime() {
-    return getInt(ALLOCATOR_SLEEP_MS, DEFAULT_ALLOCATOR_SLEEP_MS);
+    return config.getInt(ALLOCATOR_SLEEP_MS, DEFAULT_ALLOCATOR_SLEEP_MS);
   }
 
   public int getContainerRequestTimeout() {
-    return getInt(CONTAINER_REQUEST_TIMEOUT_MS, DEFAULT_CONTAINER_REQUEST_TIMEOUT_MS);
+    return config.getInt(CONTAINER_REQUEST_TIMEOUT_MS, DEFAULT_CONTAINER_REQUEST_TIMEOUT_MS);
   }
 
   public boolean getHostAffinityEnabled() {
-    return getBoolean(HOST_AFFINITY_ENABLED, DEFAULT_HOST_AFFINITY_ENABLED);
+    return config.getBoolean(HOST_AFFINITY_ENABLED, DEFAULT_HOST_AFFINITY_ENABLED);
   }
 
   public String getYarnKerberosPrincipal() {
-    return get(YARN_KERBEROS_PRINCIPAL, null);
+    return config.get(YARN_KERBEROS_PRINCIPAL, null);
   }
 
   public String getYarnKerberosKeytab() {
-    return get(YARN_KERBEROS_KEYTAB, null);
+    return config.get(YARN_KERBEROS_KEYTAB, null);
   }
 
   public long getYarnTokenRenewalIntervalSeconds() {
-    return getLong(YARN_TOKEN_RENEWAL_INTERVAL_SECONDS, DEFAULT_YARN_TOKEN_RENEWAL_INTERVAL_SECONDS);
+    return config.getLong(YARN_TOKEN_RENEWAL_INTERVAL_SECONDS, DEFAULT_YARN_TOKEN_RENEWAL_INTERVAL_SECONDS);
   }
 
   public String getYarnCredentialsFile() {
-    return get(YARN_CREDENTIALS_FILE, null);
+    return config.get(YARN_CREDENTIALS_FILE, null);
   }
 
   public String getYarnJobStagingDirectory() {
-    return get(YARN_JOB_STAGING_DIRECTORY, null);
+    return config.get(YARN_JOB_STAGING_DIRECTORY, null);
   }
 }

@@ -25,6 +25,7 @@ import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.LocalizerResourceConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.util.hadoop.HttpFileSystem;
 import org.junit.Rule;
