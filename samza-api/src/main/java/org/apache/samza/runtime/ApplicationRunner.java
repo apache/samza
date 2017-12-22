@@ -20,6 +20,7 @@ package org.apache.samza.runtime;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplication.AppConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.job.ApplicationStatus;
@@ -32,25 +33,10 @@ import org.apache.samza.system.StreamSpec;
 
 
 /**
- * The primary means of managing execution of the {@link org.apache.samza.application.StreamApplication} at runtime.
+ * The primary means of managing execution of the {@link StreamApplication} at runtime.
  */
 @InterfaceStability.Unstable
 public interface ApplicationRunner {
-
-  class AppRunnerConfig {
-    private static final String RUNNER_CONFIG = "app.runner.class";
-    private static final String DEFAULT_RUNNER_CLASS = "org.apache.samza.runtime.RemoteApplicationRunner";
-
-    private final Config config;
-
-    AppRunnerConfig(Config config) {
-      this.config = config;
-    }
-
-    String getApplicationRunnerClass() {
-      return config.get(RUNNER_CONFIG, DEFAULT_RUNNER_CLASS);
-    }
-  }
 
   /**
    * Static method to load the {@link ApplicationRunner}
@@ -59,7 +45,7 @@ public interface ApplicationRunner {
    * @return  the configure-driven {@link ApplicationRunner} to run the user-defined stream applications
    */
   static ApplicationRunner fromConfig(Config config) {
-    AppRunnerConfig appCfg = new AppRunnerConfig(config);
+    AppConfig appCfg = new AppConfig(config);
     try {
       Class<?> runnerClass = Class.forName(appCfg.getApplicationRunnerClass());
       if (ApplicationRunner.class.isAssignableFrom(runnerClass)) {

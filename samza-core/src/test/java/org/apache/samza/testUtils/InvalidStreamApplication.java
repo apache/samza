@@ -18,8 +18,11 @@
  */
 package org.apache.samza.testUtils;
 
+import org.apache.samza.application.StreamApplication;
+
+
 /**
- * Test class. Invalid class to implement {@link org.apache.samza.application.StreamApplication}
+ * Test class. Invalid class to implement {@link StreamApplication}
  */
 public class InvalidStreamApplication {
 }

@@ -20,8 +20,8 @@
 package org.apache.samza.test.operator;
 
 import java.io.IOException;
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplications;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
@@ -39,7 +39,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A {@link org.apache.samza.application.StreamApplication} that demonstrates a filter followed by a session window.
+ * A {@link StreamApplication} that demonstrates a filter followed by a session window.
  */
 public class SessionWindowApp {
   private static final String INPUT_TOPIC = "page-views";

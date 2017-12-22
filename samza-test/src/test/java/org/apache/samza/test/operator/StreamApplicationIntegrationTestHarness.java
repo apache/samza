@@ -18,6 +18,7 @@
  */
 package org.apache.samza.test.operator;
 
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import kafka.utils.TestUtils;
@@ -29,9 +30,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.protocol.SecurityProtocol;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.KafkaConfig;
-import org.apache.samza.serializers.Serde;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import scala.Option;
 import scala.Option$;
@@ -211,7 +210,8 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
    * @param overriddenConfigs configs to override
    */
   public void runApplication(String userAppClass, String appName, Config overriddenConfigs)
-      throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+      throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException,
+             IOException {
 
     Map<String, String> configs = new HashMap<>();
     configs.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");

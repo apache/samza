@@ -20,8 +20,8 @@
 package org.apache.samza.example;
 
 import com.google.common.collect.ImmutableList;
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplications;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
@@ -40,7 +40,8 @@ public class MergeExample {
     KVSerde<String, PageViewEvent>
         pgeMsgSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class));
 
-    MessageStream.mergeAll(ImmutableList.of(app.openInput("viewStream1", pgeMsgSerde), app.openInput("viewStream2", pgeMsgSerde), app.openInput("viewStream3", pgeMsgSerde)))
+    MessageStream.mergeAll(ImmutableList.of(app.openInput("viewStream1", pgeMsgSerde),
+        app.openInput("viewStream2", pgeMsgSerde), app.openInput("viewStream3", pgeMsgSerde)))
         .sendTo(app.openOutput("mergedStream", pgeMsgSerde));
 
     app.run();

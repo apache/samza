@@ -37,7 +37,7 @@ import java.util.Collection;
 
 
 /**
- * Factory methods for creating {@link OperatorNode} instances.
+ * Factory methods for creating {@link OperatorSpec} instances.
  */
 public class OperatorSpecs {
 

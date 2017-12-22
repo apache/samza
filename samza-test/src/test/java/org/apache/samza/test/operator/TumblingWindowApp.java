@@ -40,7 +40,7 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * A {@link org.apache.samza.application.StreamApplication} that demonstrates a filter followed by a tumbling window.
+ * A {@link StreamApplication} that demonstrates a filter followed by a tumbling window.
  */
 public class TumblingWindowApp {
   private static final String INPUT_TOPIC = "page-views";

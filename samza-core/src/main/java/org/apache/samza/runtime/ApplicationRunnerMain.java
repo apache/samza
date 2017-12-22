@@ -22,6 +22,8 @@ package org.apache.samza.runtime;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationInitializer;
+import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
 import org.apache.samza.job.JobRunner$;
 import org.apache.samza.util.CommandLine;
@@ -34,8 +36,6 @@ import org.apache.samza.util.Util;
  * For a Samza job using low level task API, it will create the JobRunner to run it.
  */
 public class ApplicationRunnerMain {
-  // TODO: have the app configs consolidated in one place
-  public static final String STREAM_APPLICATION_CLASS_CONFIG = "app.class";
 
   public static class ApplicationRunnerCommandLine extends CommandLine {
     public OptionSpec operationOpt =
@@ -57,20 +57,21 @@ public class ApplicationRunnerMain {
     Config orgConfig = cmdLine.loadConfig(options);
     Config config = Util.rewriteConfig(orgConfig);
     ApplicationRunnerOperation op = cmdLine.getOperation(options);
+    StreamApplication.AppConfig appConfig = new StreamApplication.AppConfig(config);
 
-    if (config.containsKey(STREAM_APPLICATION_CLASS_CONFIG)) {
-      ApplicationRunner runner = ApplicationRunner.fromConfig(config);
-      StreamApplication app =
-          (StreamApplication) Class.forName(config.get(STREAM_APPLICATION_CLASS_CONFIG)).getConstructor(Config.class).newInstance(config);
+    if (appConfig.getAppClass() != null && !appConfig.getAppClass().isEmpty()) {
+      StreamApplication app = StreamApplications.createStreamApp(config);
+      StreamApplicationInitializer userApp = Util.getObj(appConfig.getAppClass());
+      userApp.init(app);
       switch (op) {
         case RUN:
-          runner.run(app);
+          app.run();
           break;
         case KILL:
-          runner.kill(app);
+          app.kill();
           break;
         case STATUS:
-          System.out.println(runner.status(app));
+          System.out.println(app.status());
           break;
         default:
           throw new IllegalArgumentException("Unrecognized operation: " + op);

@@ -19,8 +19,8 @@
 package org.apache.samza.example;
 
 
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplications;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;

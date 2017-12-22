@@ -21,16 +21,10 @@ package org.apache.samza.test.processor;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.Serializable;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.samza.SamzaException;
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplications;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.MessageStream;
@@ -38,24 +32,15 @@ import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.task.TaskContext;
-
-import static com.google.common.base.Preconditions.*;
 
 
 /**
- * Created by yipan on 12/11/17.
+ * Test class to create an {@link StreamApplication} instance
  */
 public class TestStreamApplication implements Serializable {
 
-  static AtomicBoolean hasSecondProcessorJoined = new AtomicBoolean(false);
-
-  static CountDownLatch secondProcessorRegistered = new CountDownLatch(1);
-
-  static CountDownLatch processedLatch = new CountDownLatch(1);
-
   public interface StreamApplicationCallback {
-    void onMessage();
+    void onMessage(TestKafkaEvent m);
   }
 
   public static class TestKafkaEvent implements Serializable {
@@ -101,7 +86,8 @@ public class TestStreamApplication implements Serializable {
     String appName = app.getGlobalAppId();
     String processorName = config.get(JobConfig.PROCESSOR_ID());
     registerLatches(processedMessageLatch, kafkaEventsConsumedLatch, callback, appName, processorName);
-    MessageStream<String> inputStream = app.openInput(inputTopic, new NoOpSerde<String>());
+    MessageStream<String> inputStream = null;
+    inputStream = app.openInput(inputTopic, new NoOpSerde<String>());
     OutputStream<String> outputStream = app.openOutput(outputTopic, new StringSerde());
     inputStream
         .map(new MapFunction<String, String>() {
@@ -113,7 +99,7 @@ public class TestStreamApplication implements Serializable {
           public String apply(String message) {
             TestKafkaEvent incomingMessage = TestKafkaEvent.fromString(message);
             if (callback != null) {
-              callback.onMessage();
+              callback.onMessage(incomingMessage);
             }
             if (latch1 != null) {
               latch1.countDown();

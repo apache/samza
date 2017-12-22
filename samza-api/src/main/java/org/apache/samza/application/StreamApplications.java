@@ -18,6 +18,7 @@
  */
 package org.apache.samza.application;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.config.Config;
@@ -28,18 +29,19 @@ import org.apache.samza.runtime.ApplicationRunner;
  * {@link StreamApplication}; 2) task-level StreamTaskApplication; 3) task-level AsyncStreamTaskApplication
  */
 public class StreamApplications {
-  //TODO: add the static map of all created application instances from the user program
+  // The static map of all created application instances from the user program
   private static final Map<String, StreamApplication> USER_APPS = new HashMap<>();
 
   private StreamApplications() {
 
   }
 
-  public static StreamApplication createStreamApp(Config config) {
+  public static StreamApplication createStreamApp(Config config)
+      throws IOException {
     ApplicationRunner runner = ApplicationRunner.fromConfig(config);
-    StreamApplication app = new StreamApplication(runner, config);
-    USER_APPS.put(app.getGlobalAppId(), app);
-    return app;
+    StreamApplication appRuntime = new StreamApplication(runner, config);
+    USER_APPS.put(appRuntime.getGlobalAppId(), appRuntime);
+    return appRuntime;
   }
 
 }

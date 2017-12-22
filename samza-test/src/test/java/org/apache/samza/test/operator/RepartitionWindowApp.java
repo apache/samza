@@ -20,8 +20,8 @@
 package org.apache.samza.test.operator;
 
 import java.io.IOException;
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplications;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.windows.Windows;
@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 
 /**
- * A {@link org.apache.samza.application.StreamApplication} that demonstrates a repartition followed by a windowed count.
+ * A {@link StreamApplication} that demonstrates a repartition followed by a windowed count.
  */
 public class RepartitionWindowApp {
 

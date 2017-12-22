@@ -19,6 +19,7 @@
 package org.apache.samza.runtime;
 
 import java.io.File;
+import java.io.IOException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
@@ -38,7 +39,7 @@ public class TestApplicationRunnerMain {
         "org.apache.samza.config.factories.PropertiesConfigFactory",
         "--config-path",
         String.format("file://%s/src/test/resources/test.properties", new File(".").getCanonicalPath()),
-        "-config", ApplicationRunnerMain.STREAM_APPLICATION_CLASS_CONFIG + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
+        "-config", StreamApplication.AppConfig.APP_CLASS + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
         "-config", "app.runner.class=org.apache.samza.runtime.TestApplicationRunnerMain$TestApplicationRunnerInvocationCounts"
     });
 
@@ -53,7 +54,7 @@ public class TestApplicationRunnerMain {
         "org.apache.samza.config.factories.PropertiesConfigFactory",
         "--config-path",
         String.format("file://%s/src/test/resources/test.properties", new File(".").getCanonicalPath()),
-        "-config", ApplicationRunnerMain.STREAM_APPLICATION_CLASS_CONFIG + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
+        "-config", StreamApplication.AppConfig.APP_CLASS + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
         "-config", "app.runner.class=org.apache.samza.runtime.TestApplicationRunnerMain$TestApplicationRunnerInvocationCounts",
         "--operation=kill"
     });
@@ -69,7 +70,7 @@ public class TestApplicationRunnerMain {
         "org.apache.samza.config.factories.PropertiesConfigFactory",
         "--config-path",
         String.format("file://%s/src/test/resources/test.properties", new File(".").getCanonicalPath()),
-        "-config", ApplicationRunnerMain.STREAM_APPLICATION_CLASS_CONFIG + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
+        "-config", StreamApplication.AppConfig.APP_CLASS + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
         "-config", "app.runner.class=org.apache.samza.runtime.TestApplicationRunnerMain$TestApplicationRunnerInvocationCounts",
         "--operation=status"
     });
@@ -123,7 +124,7 @@ public class TestApplicationRunnerMain {
 
     private final StreamApplication app;
 
-    public TestStreamApplicationDummy(Config config) {
+    public TestStreamApplicationDummy(Config config) throws IOException {
       this.app = StreamApplications.createStreamApp(config);
     }
 

@@ -80,7 +80,7 @@ import java.util.Map;
  * See {@link InitableFunction} and {@link org.apache.samza.operators.functions.ClosableFunction}.
  */
 @InterfaceStability.Unstable
-public class StreamApplication {
+public class StreamApplication implements ApplicationRunnable {
 
   /*package private*/
   final ApplicationRunner runner;
@@ -93,111 +93,33 @@ public class StreamApplication {
     this.graph = runner.createGraph();
   }
 
-  /**
-   * Gets the input {@link MessageStream} corresponding to the {@code streamId}.
-   * <p>
-   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
-   *
-   * @param <M> the type of input messages
-   * @param streamId the input {@link StreamDescriptor.Input}
-   * @param serde the {@link Serde} object used to deserialize input messages
-   * @return the input {@link MessageStream}
-   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
-   * @throws IOException when fail to create a serializable input operator to read the input messages
-   */
-  public <M> MessageStream<M> openInput(String streamId, Serde<M> serde) throws IOException {
-    return this.graph.getInputStream(streamId, serde);
-  }
-
-  /**
-   * Gets the input {@link MessageStream} corresponding to the {@code streamId}.
-   * <p>
-   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
-   *
-   * @param <M> the type of message in the input {@link MessageStream}
-   * @param streamId the input {@link StreamDescriptor.Input}
-   * @return the input {@link MessageStream}
-   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
-   * @throws IOException when fail to create a serializable input operator to read the input messages
-   */
-  public <M> MessageStream<M> openInput(String streamId) throws IOException {
-    return this.graph.getInputStream(streamId);
-  }
-
-  /**
-   * Gets the {@link OutputStream} corresponding to the {@code streamId}.
-   * <p>
-   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
-   *
-   * @param <M> the type of message in the {@link OutputStream}
-   * @param output the {@link StreamDescriptor.Output} to describe the {@code output} object
-   * @param serde the {@link Serde} object used to serialize output messages
-   * @return the output {@link OutputStream}
-   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
-   */
-  public <M> OutputStream<M> openOutput(String output, Serde<M> serde) {
-    return this.graph.getOutputStream(output, serde);
-  }
-
-  /**
-   * Gets the {@link OutputStream} corresponding to the {@code streamId}.
-   * <p>
-   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
-   *
-   * @param <M> the type of message in the {@link OutputStream}
-   * @param output the {@link StreamDescriptor.Output} to describe the {@code output} object
-   * @return the output {@link OutputStream}
-   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
-   */
-  public <M> OutputStream<M> openOutput(String output) {
-    return this.graph.getOutputStream(output);
-  }
-
-  /**
-   * Deploy and run the Samza jobs to execute this application.
-   * It is non-blocking so it doesn't wait for the application running.
-   *
-   */
+  @Override
   public final void run() {
     this.runner.run(this);
   }
 
-  /**
-   * Kill the Samza jobs represented by this application
-   * It is non-blocking so it doesn't wait for the application stopping.
-   *
-   */
+  @Override
   public final void kill() {
     this.runner.kill(this);
   }
 
-  /**
-   * Get the collective status of the Samza jobs represented by this application.
-   * Returns {@link ApplicationStatus} running if all jobs are running.
-   *
-   * @return the status of the application
-   */
+  @Override
   public final ApplicationStatus status() {
     return this.runner.status(this);
   }
 
-  /**
-   * Method to wait for the runner in the current JVM process to finish.
-   */
+  @Override
   public final void waitForFinish() {
     this.runner.waitForFinish(this);
   }
 
-  public StreamApplication withMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
-    this.runner.addMetricsReporters(metricsReporters);
-    return this;
-  }
-
-  public class AppConfig extends MapConfig {
+  public static class AppConfig extends MapConfig {
 
     public static final String APP_NAME = "app.name";
     public static final String APP_ID = "app.id";
     public static final String APP_CLASS = "app.class";
+    public static final String RUNNER_CONFIG = "app.runner.class";
+    private static final String DEFAULT_RUNNER_CLASS = "org.apache.samza.runtime.RemoteApplicationRunner";
 
     public static final String JOB_NAME = "job.name";
     public static final String JOB_ID = "job.id";
@@ -218,6 +140,10 @@ public class StreamApplication {
       return get(APP_CLASS, null);
     }
 
+    public String getApplicationRunnerClass() {
+      return get(RUNNER_CONFIG, DEFAULT_RUNNER_CLASS);
+    }
+
     /**
      * returns full application id
      * @return full app id
@@ -228,9 +154,84 @@ public class StreamApplication {
 
   }
 
+  /**
+   * Set {@link MetricsReporter}s for this {@link StreamApplication}
+   *
+   * @param metricsReporters the map of {@link MetricsReporter}s to be added
+   * @return this {@link StreamApplication} instance
+   */
+  public StreamApplication withMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
+    this.runner.addMetricsReporters(metricsReporters);
+    return this;
+  }
 
+  /**
+   * Return the globally unique application ID for this {@link StreamApplication}
+   *
+   * @return the globally unique appplication ID
+   */
   public String getGlobalAppId() {
     return new AppConfig(config).getGlobalAppId();
+  }
+
+  /**
+   * Gets the input {@link MessageStream} corresponding to the {@code streamId}.
+   * <p>
+   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
+   *
+   * @param <M> the type of input messages
+   * @param streamId the input {@link StreamDescriptor.Input}
+   * @param serde the {@link Serde} object used to deserialize input messages
+   * @return the input {@link MessageStream}
+   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
+   * @throws IOException when fail to create a serializable input operator to read the input messages
+   */
+  public final <M> MessageStream<M> openInput(String streamId, Serde<M> serde) throws IOException {
+    return this.graph.getInputStream(streamId, serde);
+  }
+
+  /**
+   * Gets the input {@link MessageStream} corresponding to the {@code streamId}.
+   * <p>
+   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
+   *
+   * @param <M> the type of message in the input {@link MessageStream}
+   * @param streamId the input {@link StreamDescriptor.Input}
+   * @return the input {@link MessageStream}
+   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
+   * @throws IOException when fail to create a serializable input operator to read the input messages
+   */
+  public final <M> MessageStream<M> openInput(String streamId) throws IOException {
+    return this.graph.getInputStream(streamId);
+  }
+
+  /**
+   * Gets the {@link OutputStream} corresponding to the {@code streamId}.
+   * <p>
+   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
+   *
+   * @param <M> the type of message in the {@link OutputStream}
+   * @param output the {@link StreamDescriptor.Output} to describe the {@code output} object
+   * @param serde the {@link Serde} object used to serialize output messages
+   * @return the output {@link OutputStream}
+   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
+   */
+  public final <M> OutputStream<M> openOutput(String output, Serde<M> serde) {
+    return this.graph.getOutputStream(output, serde);
+  }
+
+  /**
+   * Gets the {@link OutputStream} corresponding to the {@code streamId}.
+   * <p>
+   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
+   *
+   * @param <M> the type of message in the {@link OutputStream}
+   * @param output the {@link StreamDescriptor.Output} to describe the {@code output} object
+   * @return the output {@link OutputStream}
+   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
+   */
+  public final <M> OutputStream<M> openOutput(String output) {
+    return this.graph.getOutputStream(output);
   }
 
 }

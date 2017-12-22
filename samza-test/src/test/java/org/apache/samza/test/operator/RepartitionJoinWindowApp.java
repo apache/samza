@@ -19,8 +19,8 @@
 
 package org.apache.samza.test.operator;
 
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplications;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
@@ -77,7 +77,7 @@ public class RepartitionJoinWindowApp {
         .sendTo(outputStream);
 
     app.run();
-    app.waitForFinish();
+//    app.waitForFinish();
   }
 
   private static class UserPageViewAdClicksJoiner implements JoinFunction<String, PageView, AdClick, UserPageAdClick> {

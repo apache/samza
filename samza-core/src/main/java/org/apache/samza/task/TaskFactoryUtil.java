@@ -19,11 +19,11 @@
 package org.apache.samza.task;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplicationInternal;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.slf4j.Logger;

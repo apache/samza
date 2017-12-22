@@ -18,7 +18,12 @@
  */
 package org.apache.samza.test.operator;
 
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.samza.config.JobCoordinatorConfig;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.TaskConfig;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -28,6 +33,8 @@ import java.util.List;
 import static org.apache.samza.test.operator.RepartitionJoinWindowApp.AD_CLICKS;
 import static org.apache.samza.test.operator.RepartitionJoinWindowApp.PAGE_VIEWS;
 import static org.apache.samza.test.operator.RepartitionJoinWindowApp.OUTPUT_TOPIC;
+import static org.apache.samza.test.operator.RepartitionWindowApp.*;
+
 
 /**
  * Test driver for {@link RepartitionJoinWindowApp}.
@@ -59,9 +66,16 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     produceMessage(AD_CLICKS, 1, "a4", "{\"viewId\":\"v3\",\"adId\":\"a4\"}");
     produceMessage(AD_CLICKS, 0, "a5", "{\"viewId\":\"v4\",\"adId\":\"a5\"}");
 
+    Map<String, String> configs = new HashMap<>();
+    configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
+    configs.put(JobCoordinatorConfig.JOB_COORDINATION_UTILS_FACTORY, "org.apache.samza.standalone.PassthroughCoordinationUtilsFactory");
+    configs.put(TaskConfig.GROUPER_FACTORY(), "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
+    configs.put(String.format("streams.%s.samza.msg.serde", INPUT_TOPIC), "string");
+    configs.put(String.format("streams.%s.samza.key.serde", INPUT_TOPIC), "string");
+
     // run the application
     RepartitionJoinWindowApp app = new RepartitionJoinWindowApp();
-    runApplication(app.getClass().getName(), APP_NAME, null);
+    runApplication(app.getClass().getName(), APP_NAME, new MapConfig(configs));
 
     // consume and validate result
     List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(OUTPUT_TOPIC), 2);

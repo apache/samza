@@ -18,19 +18,37 @@
  */
 package org.apache.samza.application;
 
-import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.job.ApplicationStatus;
 
 
-public class StreamApplicationInternal {
+/**
+ * Interface method for all runtime instance of applications
+ */
+public interface ApplicationRunnable {
+  /**
+   * Deploy and run the Samza jobs to execute this application.
+   * It is non-blocking so it doesn't wait for the application running.
+   *
+   */
+  void run();
 
-  private final StreamApplication app;
+  /**
+   * Kill the Samza jobs represented by this application
+   * It is non-blocking so it doesn't wait for the application stopping.
+   *
+   */
+  void kill();
 
-  public StreamApplicationInternal(StreamApplication app) {
-    this.app = app;
-  }
+  /**
+   * Get the collective status of the Samza jobs represented by this application.
+   * Returns {@link ApplicationStatus} running if all jobs are running.
+   *
+   * @return the status of the application
+   */
+  ApplicationStatus status();
 
-  public StreamGraphImpl getStreamGraphImpl() {
-    return (StreamGraphImpl) this.app.graph;
-  }
-
+  /**
+   * Method to wait for the runner in the current JVM process to finish.
+   */
+  void waitForFinish();
 }

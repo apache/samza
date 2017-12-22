@@ -56,7 +56,7 @@ import org.slf4j.LoggerFactory;
 import static org.apache.samza.util.ScalaToJavaUtils.defaultValue;
 
 /**
- * This class implements the {@link ApplicationRunner} that runs the applications in standalone environment
+ * This class implements the {@link StreamApplication} that runs the applications in standalone environment
  */
 public class LocalApplicationRunner extends ApplicationRunnerBase {
 
@@ -204,9 +204,7 @@ public class LocalApplicationRunner extends ApplicationRunnerBase {
     return appStatus;
   }
 
-  /**
-   * Block until the application finishes
-   */
+  @Override
   public void waitForFinish(StreamApplication userApp) {
     try {
       shutdownLatch.await();
