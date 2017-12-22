@@ -59,7 +59,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   val checkpointTopic: String = checkpointSpec.getPhysicalName
   val checkpointSsp = new SystemStreamPartition(checkpointSystem, checkpointTopic, new Partition(0))
   val checkpointKeySerde = new KafkaCheckpointLogKeySerde
-  val expectedGrouperFactory = config.get(JobConfig.SSP_GROUPER_FACTORY)
+  val expectedGrouperFactory = new JobConfig(config).getSystemStreamPartitionGrouperFactory
 
   val systemProducer = systemFactory.getProducer(checkpointSystem, config, metricsRegistry)
   val systemConsumer = systemFactory.getConsumer(checkpointSystem, config, metricsRegistry)
