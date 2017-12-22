@@ -134,6 +134,7 @@ class KafkaSystemProducer(systemName: String,
       if (currentProducer == null) {
         if (dropProducerExceptions) {
           // No producer to flush, but we're ignoring exceptions so just return.
+          warn("Skipping flush because the Kafka producer is null.")
           metrics.flushFailed.inc
           return
         }
