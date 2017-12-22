@@ -152,7 +152,7 @@ public class StreamAppender extends AppenderSkeleton {
             // Emit a metric which can be monitored to ensure it doesn't happen often.
             metrics.logMessagesDropped.inc(messagesDropped);
           }
-          metrics.bufferFillPct.set(Math.round(100 * logQueue.size() / DEFAULT_QUEUE_SIZE));
+          metrics.bufferFillPct.set(Math.round(100f * logQueue.size() / DEFAULT_QUEUE_SIZE));
         }
       } catch (Exception e) {
         System.err.println("[StreamAppender] Error sending log message:");
@@ -188,7 +188,8 @@ public class StreamAppender extends AppenderSkeleton {
       try {
         transferThread.join();
       } catch (InterruptedException e) {
-        log.error("Interrupted while waiting for sink thread to finish.", e);
+        log.error("Interrupted while waiting for transfer thread to finish.", e);
+        Thread.currentThread().interrupt();
       }
 
       flushSystemProducer();
