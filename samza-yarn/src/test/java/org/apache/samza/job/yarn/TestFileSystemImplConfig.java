@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.FileSystemImplConfig;
 import org.apache.samza.config.MapConfig;
 import org.junit.Rule;
 import org.junit.Test;

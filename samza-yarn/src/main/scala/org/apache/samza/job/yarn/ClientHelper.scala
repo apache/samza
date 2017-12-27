@@ -22,7 +22,7 @@ package org.apache.samza.job.yarn
 
 import org.apache.commons.lang.StringUtils
 import org.apache.hadoop.fs.permission.FsPermission
-import org.apache.samza.config.{Config, JobConfig, YarnConfig}
+import org.apache.samza.config.{Config, JobConfig, LocalizerResourceConfig, YarnConfig}
 import org.apache.samza.coordinator.stream.CoordinatorStreamWriter
 import org.apache.samza.coordinator.stream.messages.SetConfig
 

@@ -23,6 +23,7 @@ import java.util.Map;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.LocalizerResourceConfig;
 import org.apache.samza.config.MapConfig;
 import org.junit.Rule;
 import org.junit.rules.ExpectedException;
