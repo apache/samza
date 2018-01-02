@@ -17,21 +17,21 @@
  * under the License.
  */
 
-package org.apache.samza.runtime;
+package org.apache.samza.application;
 
 /**
- * Operation to perform in the {@link ApplicationRunnerMain}
+ * Operation to perform in the {@link ManagedApplicationMain}
  */
-public enum ApplicationRunnerOperation {
+public enum ApplicationMainOperation {
   RUN("run"), KILL("kill"), STATUS("status");
 
   private final String str;
 
-  public static ApplicationRunnerOperation fromString(String string) {
-    return ApplicationRunnerOperation.valueOf(string.toUpperCase());
+  public static ApplicationMainOperation fromString(String string) {
+    return ApplicationMainOperation.valueOf(string.toUpperCase());
   }
 
-  ApplicationRunnerOperation(String str) {
+  ApplicationMainOperation(String str) {
     this.str = str;
   }
 

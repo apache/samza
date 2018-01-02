@@ -20,6 +20,7 @@ package org.apache.samza.runtime;
 
 import java.io.File;
 import java.io.IOException;
+import org.apache.samza.application.ManagedApplicationMain;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
@@ -34,7 +35,7 @@ public class TestApplicationRunnerMain {
 //  @Test
   public void TestRunOperation() throws Exception {
     assertEquals(0, TestApplicationRunnerInvocationCounts.runCount);
-    ApplicationRunnerMain.main(new String[]{
+    ManagedApplicationMain.main(new String[]{
         "--config-factory",
         "org.apache.samza.config.factories.PropertiesConfigFactory",
         "--config-path",
@@ -49,7 +50,7 @@ public class TestApplicationRunnerMain {
 //  @Test
   public void TestKillOperation() throws Exception {
     assertEquals(0, TestApplicationRunnerInvocationCounts.killCount);
-    ApplicationRunnerMain.main(new String[]{
+    ManagedApplicationMain.main(new String[]{
         "--config-factory",
         "org.apache.samza.config.factories.PropertiesConfigFactory",
         "--config-path",
@@ -65,7 +66,7 @@ public class TestApplicationRunnerMain {
 //  @Test
   public void TestStatusOperation() throws Exception {
     assertEquals(0, TestApplicationRunnerInvocationCounts.statusCount);
-    ApplicationRunnerMain.main(new String[]{
+    ManagedApplicationMain.main(new String[]{
         "--config-factory",
         "org.apache.samza.config.factories.PropertiesConfigFactory",
         "--config-path",

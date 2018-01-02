@@ -21,14 +21,14 @@ package org.apache.samza.job
 
 
 import org.apache.samza.SamzaException
+import org.apache.samza.application.ApplicationMainOperation
+import org.apache.samza.application.ManagedApplicationMain.ApplicationMainCommandLine
 import org.apache.samza.config.Config
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
 import org.apache.samza.coordinator.stream.messages.{Delete, SetConfig}
 import org.apache.samza.job.ApplicationStatus.{Running, SuccessfulFinish}
 import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.runtime.ApplicationRunnerMain.ApplicationRunnerCommandLine
-import org.apache.samza.runtime.ApplicationRunnerOperation
 import org.apache.samza.system.StreamSpec
 import org.apache.samza.util.{Logging, Util}
 
@@ -39,7 +39,7 @@ object JobRunner extends Logging {
   val SOURCE = "job-runner"
 
   def main(args: Array[String]) {
-    val cmdline = new ApplicationRunnerCommandLine
+    val cmdline = new ApplicationMainCommandLine
     val options = cmdline.parser.parse(args: _*)
     val config = cmdline.loadConfig(options)
     val operation = cmdline.getOperation(options)
@@ -48,11 +48,11 @@ object JobRunner extends Logging {
     doOperation(runner, operation)
   }
 
-  def doOperation(runner: JobRunner, operation: ApplicationRunnerOperation): Unit = {
+  def doOperation(runner: JobRunner, operation: ApplicationMainOperation): Unit = {
     operation match {
-      case ApplicationRunnerOperation.RUN => runner.run()
-      case ApplicationRunnerOperation.KILL => runner.kill()
-      case ApplicationRunnerOperation.STATUS => println(runner.status())
+      case ApplicationMainOperation.RUN => runner.run()
+      case ApplicationMainOperation.KILL => runner.kill()
+      case ApplicationMainOperation.STATUS => println(runner.status())
       case _ =>
         throw new SamzaException("Invalid job runner operation: %s" format operation)
     }

@@ -62,6 +62,6 @@ public class RepartitionWindowApp {
         .sendTo(reparApp.openOutput(OUTPUT_TOPIC));
 
     reparApp.run();
-//    reparApp.waitForFinish();
+    reparApp.waitForFinish();
   }
 }

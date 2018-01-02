@@ -255,9 +255,10 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
   }
 
   private String[] getCommandLineConfigs(Map<String, String> configs) {
-    String[] cliParams = new String[configs.size() * 2 + 1];
+    String[] cliParams = new String[configs.size() * 2 + 2];
     int i = 0;
     cliParams[i++] = "--config-path=./src/test/resources/test-config.prop";
+    cliParams[i++] = "--operation=run";
     for (Map.Entry<String, String> entry : configs.entrySet()) {
       cliParams[i++] = "--config";
       cliParams[i++] = String.format("%s=%s", entry.getKey(), entry.getValue());

@@ -17,15 +17,14 @@
  * under the License.
  */
 
-package org.apache.samza.runtime;
+package org.apache.samza.application;
 
+import java.lang.reflect.Method;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
-import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationInitializer;
-import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
 import org.apache.samza.job.JobRunner$;
+import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.Util;
 
@@ -35,9 +34,9 @@ import org.apache.samza.util.Util;
  * For a StreamApplication, it creates the {@link ApplicationRunner} based on the config, and then run the application.
  * For a Samza job using low level task API, it will create the JobRunner to run it.
  */
-public class ApplicationRunnerMain {
+public class ManagedApplicationMain {
 
-  public static class ApplicationRunnerCommandLine extends CommandLine {
+  public static class ApplicationMainCommandLine extends CommandLine {
     public OptionSpec operationOpt =
         parser().accepts("operation", "The operation to perform; run, status, kill.")
             .withRequiredArg()
@@ -45,39 +44,49 @@ public class ApplicationRunnerMain {
             .describedAs("operation=run")
             .defaultsTo("run");
 
-    public ApplicationRunnerOperation getOperation(OptionSet options) {
+    public ApplicationMainOperation getOperation(OptionSet options) {
       String rawOp = options.valueOf(operationOpt).toString();
-      return ApplicationRunnerOperation.fromString(rawOp);
+      return ApplicationMainOperation.fromString(rawOp);
     }
   }
 
   public static void main(String[] args) throws Exception {
-    ApplicationRunnerCommandLine cmdLine = new ApplicationRunnerCommandLine();
+    ApplicationMainCommandLine cmdLine = new ApplicationMainCommandLine();
     OptionSet options = cmdLine.parser().parse(args);
     Config orgConfig = cmdLine.loadConfig(options);
     Config config = Util.rewriteConfig(orgConfig);
-    ApplicationRunnerOperation op = cmdLine.getOperation(options);
+    ApplicationMainOperation op = cmdLine.getOperation(options);
     StreamApplication.AppConfig appConfig = new StreamApplication.AppConfig(config);
 
     if (appConfig.getAppClass() != null && !appConfig.getAppClass().isEmpty()) {
       StreamApplication app = StreamApplications.createStreamApp(config);
-      StreamApplicationInitializer userApp = Util.getObj(appConfig.getAppClass());
-      userApp.init(app);
-      switch (op) {
-        case RUN:
-          app.run();
-          break;
-        case KILL:
-          app.kill();
-          break;
-        case STATUS:
-          System.out.println(app.status());
-          break;
-        default:
-          throw new IllegalArgumentException("Unrecognized operation: " + op);
+      if (Class.forName(appConfig.getAppClass()).isAssignableFrom(UserDefinedStreamApplication.class)) {
+        UserDefinedStreamApplication userApp = Util.getObj(appConfig.getAppClass());
+        userApp.init(config, app);
+        runCmd(app, op);
+      } else {
+        Class<?> cls = Class.forName(appConfig.getAppClass());
+        Method mainMethod = cls.getMethod("main", String[].class);
+        mainMethod.invoke(null, (Object) args);
       }
     } else {
       JobRunner$.MODULE$.main(args);
+    }
+  }
+
+  public static void runCmd(StreamApplication app, ApplicationMainOperation op) {
+    switch (op) {
+      case RUN:
+        app.run();
+        break;
+      case KILL:
+        app.kill();
+        break;
+      case STATUS:
+        System.out.println(app.status());
+        break;
+      default:
+        throw new IllegalArgumentException("Unrecognized operation: " + op);
     }
   }
 }
