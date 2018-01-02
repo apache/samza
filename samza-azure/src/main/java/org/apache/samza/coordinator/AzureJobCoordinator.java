@@ -42,12 +42,15 @@ import org.apache.samza.coordinator.scheduler.SchedulerStateChangeListener;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
+import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.BlobUtils;
 import org.apache.samza.util.ClassLoaderHelper;
 import org.apache.samza.util.LeaseBlobManager;
+import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.TableUtils;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
@@ -91,6 +94,7 @@ public class AzureJobCoordinator implements JobCoordinator {
   private RenewLeaseScheduler renewLease;
   private LeaderBarrierCompleteScheduler leaderBarrierScheduler;
   private StreamMetadataCache streamMetadataCache = null;
+  private SystemAdmins systemAdmins = null;
   private JobCoordinatorListener coordinatorListener = null;
   private JobModel jobModel = null;
 
@@ -126,7 +130,11 @@ public class AzureJobCoordinator implements JobCoordinator {
   public void start() {
 
     LOG.info("Starting Azure job coordinator.");
-    streamMetadataCache = StreamMetadataCache.apply(METADATA_CACHE_TTL_MS, config);
+
+    scala.collection.immutable.Map<String, SystemAdmin> systemAdminMap = Util.javaMapAsScalaMap(new JavaSystemConfig(config).getSystemAdmins());
+    systemAdmins = new SystemAdmins(systemAdminMap);
+    streamMetadataCache = new StreamMetadataCache(systemAdminMap, METADATA_CACHE_TTL_MS, SystemClock.instance());
+    systemAdmins.start();
     table.addProcessorEntity(INITIAL_STATE, processorId, false);
 
     // Start scheduler for heartbeating
@@ -164,6 +172,8 @@ public class AzureJobCoordinator implements JobCoordinator {
     if (coordinatorListener != null) {
       coordinatorListener.onCoordinatorStop();
     }
+
+    systemAdmins.stop();
   }
 
   @Override

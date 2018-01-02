@@ -64,7 +64,7 @@ public class CoordinatorStreamSystemProducer {
 
   /**
    * Registers a source with the underlying SystemProducer.
-   * 
+   *
    * @param source
    *          The source to register.
    */
@@ -82,6 +82,7 @@ public class CoordinatorStreamSystemProducer {
     }
     log.info("Starting coordinator stream producer.");
     systemProducer.start();
+    systemAdmin.start();
     isStarted = true;
   }
 
@@ -91,12 +92,13 @@ public class CoordinatorStreamSystemProducer {
   public void stop() {
     log.info("Stopping coordinator stream producer.");
     systemProducer.stop();
+    systemAdmin.stop();
     isStarted = false;
   }
 
   /**
    * Serialize and send a coordinator stream message.
-   * 
+   *
    * @param message
    *          The message to send.
    */
@@ -119,7 +121,7 @@ public class CoordinatorStreamSystemProducer {
   /**
    * Helper method that sends a series of SetConfig messages to the coordinator
    * stream.
-   * 
+   *
    * @param source
    *          An identifier to denote which source is sending a message. This
    *          can be any arbitrary string.

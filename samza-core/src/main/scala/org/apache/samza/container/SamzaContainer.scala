@@ -151,14 +151,15 @@ object SamzaContainer extends Logging {
         .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemName))
       (systemName, Util.getObj[SystemFactory](systemFactoryClassName))
     }).toMap
-
-    val systemAdmins = systemNames
-      .map(systemName => (systemName, systemFactories(systemName).getAdmin(systemName, config)))
-      .toMap
-
     info("Got system factories: %s" format systemFactories.keys)
 
-    val streamMetadataCache = new StreamMetadataCache(systemAdmins)
+    val systemAdminMap = systemNames
+      .map(systemName => (systemName, systemFactories(systemName).getAdmin(systemName, config)))
+      .toMap
+    info("Got system admins: %s" format systemAdminMap.keys)
+
+    val systemAdmins = new SystemAdmins(systemAdminMap)
+    val streamMetadataCache = new StreamMetadataCache(systemAdminMap)
     val inputStreamMetadata = streamMetadataCache.getStreamMetadata(inputSystemStreams)
 
     info("Got input stream metadata: %s" format inputStreamMetadata)
@@ -334,7 +335,7 @@ object SamzaContainer extends Logging {
 
     val chooserFactory = Util.getObj[MessageChooserFactory](chooserFactoryClassName)
 
-    val chooser = DefaultChooser(inputStreamMetadata, chooserFactory, config, samzaContainerMetrics.registry, systemAdmins)
+    val chooser = DefaultChooser(inputStreamMetadata, chooserFactory, config, samzaContainerMetrics.registry, systemAdminMap)
 
     info("Setting up metrics reporters.")
 
@@ -364,7 +365,7 @@ object SamzaContainer extends Logging {
     info("Got checkpointListeners : %s" format checkpointListeners)
 
     val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager,
-      systemAdmins, checkpointListeners, offsetManagerMetrics)
+      systemAdminMap, checkpointListeners, offsetManagerMetrics)
 
     info("Got offset manager: %s" format offsetManager)
 
@@ -536,7 +537,7 @@ object SamzaContainer extends Logging {
         storeBaseDir = defaultStoreBaseDir,
         loggedStoreBaseDir = loggedStorageBaseDir,
         partition = taskModel.getChangelogPartition,
-        systemAdmins = systemAdmins,
+        systemAdmins = systemAdminMap,
         new StorageConfig(config).getChangeLogDeleteRetentionsInMs,
         new SystemClock)
 
@@ -557,7 +558,7 @@ object SamzaContainer extends Logging {
           taskName = taskName,
           config = config,
           metrics = taskInstanceMetrics,
-          systemAdmins = systemAdmins,
+          systemAdmins = systemAdminMap,
           consumerMultiplexer = consumerMultiplexer,
           collector = collector,
           containerContext = containerContext,
@@ -629,6 +630,7 @@ object SamzaContainer extends Logging {
       containerContext = containerContext,
       taskInstances = taskInstances,
       runLoop = runLoop,
+      systemAdmins = systemAdmins,
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
       offsetManager = offsetManager,
@@ -647,6 +649,7 @@ class SamzaContainer(
   containerContext: SamzaContainerContext,
   taskInstances: Map[TaskName, TaskInstance],
   runLoop: Runnable,
+  systemAdmins: SystemAdmins,
   consumerMultiplexer: SystemConsumers,
   producerMultiplexer: SystemProducers,
   metrics: SamzaContainerMetrics,
@@ -686,6 +689,7 @@ class SamzaContainer(
       jmxServer = new JmxServer()
 
       startMetrics
+      startAdmins
       startOffsetManager
       startLocalityManager
       startStores
@@ -733,6 +737,7 @@ class SamzaContainer(
       shutdownOffsetManager
       shutdownMetrics
       shutdownSecurityManger
+      shutdownAdmins
 
       if (!status.equals(SamzaContainerStatus.FAILED)) {
         status = SamzaContainerStatus.STOPPED
@@ -891,6 +896,13 @@ class SamzaContainer(
     taskInstances.values.foreach(_.initTask)
   }
 
+  def startAdmins {
+    info("Starting admin multiplexer.")
+
+    systemAdmins.start
+  }
+
+
   def startProducers {
     info("Registering task instances with producers.")
 
@@ -958,6 +970,13 @@ class SamzaContainer(
 
     consumerMultiplexer.stop
   }
+
+  def shutdownAdmins {
+    info("Shutting down admin multiplexer.")
+
+    systemAdmins.stop
+  }
+
 
   def shutdownProducers {
     info("Shutting down producer multiplexer.")

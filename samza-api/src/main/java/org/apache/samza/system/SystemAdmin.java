@@ -28,6 +28,17 @@ import java.util.Set;
  * utility methods that Samza needs in order to interact with a system.
  */
 public interface SystemAdmin {
+
+  /*
+   * Connect to the underlying system and prepare to begin serving requests
+   */
+  default void start() {};
+
+  /*
+   * Close all connections and release all resource.
+   */
+  default void stop() {};
+
   /**
    * Fetches the offsets for the messages immediately after the supplied offsets
    * for a group of SystemStreamPartitions.

@@ -124,6 +124,7 @@ public class CoordinatorStreamSystemConsumer {
     }
     log.info("Starting coordinator stream system consumer.");
     systemConsumer.start();
+    systemAdmin.start();
     isStarted = true;
   }
 
@@ -133,6 +134,7 @@ public class CoordinatorStreamSystemConsumer {
   public void stop() {
     log.info("Stopping coordinator stream system consumer.");
     systemConsumer.stop();
+    systemAdmin.stop();
     isStarted = false;
   }
 

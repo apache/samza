@@ -88,11 +88,13 @@ class JobRunner(config: Config) extends Logging {
     val systemAdmin = systemFactory.getAdmin(coordinatorSystemStream.getSystem, config)
     val streamName = coordinatorSystemStream.getStream
     val coordinatorSpec = StreamSpec.createCoordinatorStreamSpec(streamName, coordinatorSystemStream.getSystem)
+    systemAdmin.start()
     if (systemAdmin.createStream(coordinatorSpec)) {
       info("Created coordinator stream %s." format streamName)
     } else {
       info("Coordinator stream %s already exists." format streamName)
     }
+    systemAdmin.stop()
 
     if (resetJobConfig) {
       info("Storing config in coordinator stream.")

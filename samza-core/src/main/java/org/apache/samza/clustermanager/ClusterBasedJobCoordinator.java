@@ -38,6 +38,7 @@ import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.Util;
@@ -137,6 +138,8 @@ public class ClusterBasedJobCoordinator {
    */
   volatile private Exception coordinatorException = null;
 
+  private SystemAdmins systemAdmins = null;
+
   /**
    * Creates a new ClusterBasedJobCoordinator instance from a config. Invoke run() to actually
    * run the jobcoordinator.
@@ -153,7 +156,9 @@ public class ClusterBasedJobCoordinator {
     config = jobModelManager.jobModel().getConfig();
     hasDurableStores = new StorageConfig(config).hasDurableStores();
     state = new SamzaApplicationState(jobModelManager);
-    partitionMonitor = getPartitionCountMonitor(config);
+    Map<String, SystemAdmin> systemAdminMap = new JavaSystemConfig(config).getSystemAdmins();
+    systemAdmins = new SystemAdmins(Util.javaMapAsScalaMap(systemAdminMap));
+    partitionMonitor = getPartitionCountMonitor(config, systemAdminMap);
     clusterManagerConfig = new ClusterManagerConfig(config);
     isJmxEnabled = clusterManagerConfig.getJmxEnabled();
 
@@ -186,6 +191,7 @@ public class ClusterBasedJobCoordinator {
       log.info("Starting Cluster Based Job Coordinator");
 
       containerProcessManager.start();
+      systemAdmins.start();
       partitionMonitor.start();
 
       boolean isInterrupted = false;
@@ -221,6 +227,7 @@ public class ClusterBasedJobCoordinator {
 
     try {
       partitionMonitor.stop();
+      systemAdmins.stop();
       containerProcessManager.stop();
     } catch (Throwable e) {
       log.error("Exception while stopping task manager {}", e);
@@ -242,9 +249,8 @@ public class ClusterBasedJobCoordinator {
     return jobModelManager;
   }
 
-  private StreamPartitionCountMonitor getPartitionCountMonitor(Config config) {
-    Map<String, SystemAdmin> systemAdmins = new JavaSystemConfig(config).getSystemAdmins();
-    StreamMetadataCache streamMetadata = new StreamMetadataCache(Util.javaMapAsScalaMap(systemAdmins), 0, SystemClock.instance());
+  private StreamPartitionCountMonitor getPartitionCountMonitor(Config config, Map<String, SystemAdmin> systemAdminMap) {
+    StreamMetadataCache streamMetadata = new StreamMetadataCache(Util.javaMapAsScalaMap(systemAdminMap), 0, SystemClock.instance());
     Set<SystemStream> inputStreamsToMonitor = new TaskConfigJava(config).getAllInputStreams();
     if (inputStreamsToMonitor.isEmpty()) {
       throw new SamzaException("Input streams to a job can not be empty.");
