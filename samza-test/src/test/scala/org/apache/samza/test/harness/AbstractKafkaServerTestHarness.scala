@@ -86,6 +86,7 @@ abstract class AbstractKafkaServerTestHarness extends AbstractZookeeperTestHarne
     // if the test case requires setting up a cluster ACL,
     // then it needs to be implemented.
     setClusterAcl.foreach(_.apply())
+    servers.foreach(_.startup())
   }
 
   @After

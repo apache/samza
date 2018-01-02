@@ -29,7 +29,8 @@ import org.apache.samza.config.{ApplicationConfig, Config, ConfigException}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.execution.StreamManager
 import org.apache.samza.system.OutgoingMessageEnvelope
-import kafka.common.{ErrorMapping, ReplicaNotAvailableException}
+import org.apache.kafka.common.errors.ReplicaNotAvailableException
+import kafka.common.ErrorMapping
 import org.apache.kafka.common.errors.TopicExistsException
 import org.apache.samza.system.kafka.TopicMetadataCache
 
@@ -71,9 +72,10 @@ object KafkaUtil extends Logging {
    * <a href="https://cwiki.apache.org/confluence/display/KAFKA/A+Guide+To+The+Kafka+Protocol">protocol
    * docs</a>, ReplicaNotAvailableException can be safely ignored.
    */
-  def maybeThrowException(code: Short) {
+  def maybeThrowException(e: Exception) {
     try {
-      ErrorMapping.maybeThrowException(code)
+      if (e != null)
+        throw e
     } catch {
       case e: ReplicaNotAvailableException =>
         debug("Got ReplicaNotAvailableException, but ignoring since it's safe to do so.")
