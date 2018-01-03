@@ -114,7 +114,6 @@ Let's get started by cloning the hello-samza project
 ```
 git clone https://git.apache.org/samza-hello-samza.git hello-samza
 cd hello-samza
-git checkout latest
 ```
 
 The project comes up with numerous examples and for this tutorial, we will pick the Azure application.
@@ -165,7 +164,7 @@ With the environment setup complete, let us move on to building the hello-samza 
 ```
 mvn clean package
 mkdir -p deploy/samza
-tar -xvf ./target/hello-samza-0.14.0-SNAPSHOT-dist.tar.gz -C deploy/samza
+tar -xvf ./target/hello-samza-0.14.0-dist.tar.gz -C deploy/samza
 ```
 
 We are now all set to deploy the application locally.
