@@ -44,11 +44,13 @@ All Samza JARs are published through [Apache's Maven repository](https://reposit
 ## Release Notes
 <!-- Add notes on new features, modified behavior of existing features, operational/performance improvements, new tools etc -->
 * [SAMZA-1510](https://issues.apache.org/jira/browse/SAMZA-1510) - Samza SQL
-* [SAMZA-1438](https://issues.apache.org/jira/browse/SAMZA-1438) - Event-hub connectors for Samza
-* [SAMZA-1421](https://issues.apache.org/jira/browse/SAMZA-1421) - Add support for durable state for high level API
+* [SAMZA-1438](https://issues.apache.org/jira/browse/SAMZA-1438) - Producer and consumer for Azure EventHubs
+* [SAMZA-1515](https://issues.apache.org/jira/browse/SAMZA-1515) - Kinesis consumer
+* [SAMZA-1486](https://issues.apache.org/jira/browse/SAMZA-1486) - Checkpoint provider for Azure tables
+* [SAMZA-1421](https://issues.apache.org/jira/browse/SAMZA-1421) - Support for durable state in high-level API
 * [SAMZA-1392](https://issues.apache.org/jira/browse/SAMZA-1392) - KafkaSystemProducer performance and correctness with concurrent sends and flushes
-* [SAMZA-1406](https://issues.apache.org/jira/browse/SAMZA-1406) - Enhancements to the ZooKeeper based deployment model
-* [SAMZA-1321](https://issues.apache.org/jira/browse/SAMZA-1321) - Add support for multi-stage batch processing
+* [SAMZA-1406](https://issues.apache.org/jira/browse/SAMZA-1406) - Enhancements to the ZooKeeper-based deployment model
+* [SAMZA-1321](https://issues.apache.org/jira/browse/SAMZA-1321) - Support for multi-stage batch processing
 
 ## Upgrade Notes
 <!-- Add detailed notes on how someone using an older version of samza (typically, currentVersion - 1) can upgrade to the latest -->
