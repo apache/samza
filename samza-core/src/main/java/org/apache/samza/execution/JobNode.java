@@ -146,7 +146,7 @@ public class JobNode {
     streamGraph.getAllOperatorSpecs().forEach(opSpec -> {
         if (opSpec instanceof StatefulOperatorSpec) {
           ((StatefulOperatorSpec) opSpec).getStoreDescriptors()
-              .forEach(sd -> configs.putAll(sd.getStorageConfigs()));
+              .forEach(sd -> configs.putAll(sd.getStorageConfigs().getFilteredConfig()));
           // store key and message serdes are configured separately in #addSerdeConfigs
         }
       });

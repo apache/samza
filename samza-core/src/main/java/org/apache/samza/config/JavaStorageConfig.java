@@ -29,7 +29,7 @@ import org.apache.samza.execution.StreamManager;
 /**
  * a java version of the storage config
  */
-public class JavaStorageConfig extends MapConfig {
+public class JavaStorageConfig {
 
   private static final String FACTORY_SUFFIX = ".factory";
   private static final String STORE_PREFIX = "stores.";
@@ -39,12 +39,17 @@ public class JavaStorageConfig extends MapConfig {
   private static final String CHANGELOG_STREAM = "stores.%s.changelog";
   private static final String CHANGELOG_SYSTEM = "job.changelog.system";
 
-  public JavaStorageConfig(Config config) {
-    super(config);
+  private final Config config;
+
+  public JavaStorageConfig(final Config config) {
+    if (null == config) {
+      throw new IllegalArgumentException("config cannot be null");
+    }
+    this.config = config;
   }
 
   public List<String> getStoreNames() {
-    Config subConfig = subset(STORE_PREFIX, true);
+    Config subConfig = config.subset(STORE_PREFIX, true);
     List<String> storeNames = new ArrayList<String>();
     for (String key : subConfig.keySet()) {
       if (key.endsWith(FACTORY_SUFFIX)) {
@@ -59,7 +64,7 @@ public class JavaStorageConfig extends MapConfig {
     // If the config specifies 'stores.<storename>.changelog' as '<system>.<stream>' combination - it will take precedence.
     // If this config only specifies <astream> and there is a value in job.changelog.system=<asystem> -
     // these values will be combined into <asystem>.<astream>
-    String systemStream = StringUtils.trimToNull(get(String.format(CHANGELOG_STREAM, storeName), null));
+    String systemStream = StringUtils.trimToNull(config.get(String.format(CHANGELOG_STREAM, storeName), null));
 
     String systemStreamRes;
     if (systemStream != null  && !systemStream.contains(".")) {
@@ -75,21 +80,21 @@ public class JavaStorageConfig extends MapConfig {
     }
 
     if (systemStreamRes != null) {
-      systemStreamRes = StreamManager.createUniqueNameForBatch(systemStreamRes, this);
+      systemStreamRes = StreamManager.createUniqueNameForBatch(systemStreamRes, config);
     }
     return systemStreamRes;
   }
 
   public String getStorageFactoryClassName(String storeName) {
-    return get(String.format(FACTORY, storeName), null);
+    return config.get(String.format(FACTORY, storeName), null);
   }
 
   public String getStorageKeySerde(String storeName) {
-    return get(String.format(KEY_SERDE, storeName), null);
+    return config.get(String.format(KEY_SERDE, storeName), null);
   }
 
   public String getStorageMsgSerde(String storeName) {
-    return get(String.format(MSG_SERDE, storeName), null);
+    return config.get(String.format(MSG_SERDE, storeName), null);
   }
 
   /**
@@ -105,9 +110,13 @@ public class JavaStorageConfig extends MapConfig {
    *
    * If the former syntax is used, that system name will still be honored. For the latter syntax, this method is used.
    *
-   * @return the name of the system to use by default for all changelogs, if defined. 
+   * @return the name of the system to use by default for all changelogs, if defined.
    */
   public String getChangelogSystem() {
-    return get(CHANGELOG_SYSTEM,  get(JobConfig.JOB_DEFAULT_SYSTEM(), null));
+    return config.get(CHANGELOG_SYSTEM,  config.get(JobConfig.JOB_DEFAULT_SYSTEM(), null));
+  }
+
+  public Config getFilteredConfig() {
+    return config.subset(String.format(STORE_PREFIX, ""), false);
   }
 }

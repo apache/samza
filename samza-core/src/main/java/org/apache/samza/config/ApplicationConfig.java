@@ -24,7 +24,7 @@ import org.apache.samza.runtime.UUIDGenerator;
 /**
  * Accessors for configs associated with Application scope
  */
-public class ApplicationConfig extends MapConfig {
+public class ApplicationConfig {
   /**
    * <p>processor.id is similar to the logical containerId generated in Samza. However, in addition to identifying the JVM
    * of the processor, it also contains a segment to identify the instance of the
@@ -57,24 +57,29 @@ public class ApplicationConfig extends MapConfig {
   public static final String APP_MODE = "app.mode";
   public static final String APP_RUN_ID = "app.run.id";
 
-  public ApplicationConfig(Config config) {
-    super(config);
+  private final Config config;
+
+  public ApplicationConfig(final Config config) {
+    if (null == config) {
+      throw new IllegalArgumentException("config cannot be null");
+    }
+    this.config = config;
   }
 
   public String getAppProcessorIdGeneratorClass() {
-    return get(APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
+    return config.get(APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
   }
 
   public String getAppName() {
-    return get(APP_NAME, get(JobConfig.JOB_NAME()));
+    return config.get(APP_NAME, config.get(JobConfig.JOB_NAME()));
   }
 
   public String getAppId() {
-    return get(APP_ID, get(JobConfig.JOB_ID(), "1"));
+    return config.get(APP_ID, config.get(JobConfig.JOB_ID(), "1"));
   }
 
   public String getAppClass() {
-    return get(APP_CLASS, null);
+    return config.get(APP_CLASS, null);
   }
 
   /**
@@ -87,15 +92,15 @@ public class ApplicationConfig extends MapConfig {
 
   @Deprecated
   public String getProcessorId() {
-    return get(PROCESSOR_ID, null);
+    return config.get(PROCESSOR_ID, null);
   }
 
   public String getRunId() {
-    return get(APP_RUN_ID, null);
+    return config.get(APP_RUN_ID, null);
   }
 
   public ApplicationMode getAppMode() {
-    return ApplicationMode.valueOf(get(APP_MODE, ApplicationMode.STREAM.name()).toUpperCase());
+    return ApplicationMode.valueOf(config.get(APP_MODE, ApplicationMode.STREAM.name()).toUpperCase());
   }
 
 }
