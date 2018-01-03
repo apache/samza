@@ -165,7 +165,7 @@ With the environment setup complete, let us move on to building the hello-samza 
 ```
 mvn clean package
 mkdir -p deploy/samza
-tar -xvf ./target/hello-samza-0.14.0-SNAPSHOT-dist.tar.gz -C deploy/samza
+tar -xvf ./target/hello-samza-0.14.1-SNAPSHOT-dist.tar.gz -C deploy/samza
 ```
 
 We are now all set to deploy the application locally.
