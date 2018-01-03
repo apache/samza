@@ -31,6 +31,7 @@ title: Release Notes
 
 {% if site.version != "latest" %}
 ## Download
+All Samza JARs are published through [Apache's Maven repository](https://repository.apache.org/content/groups/public/org/apache/samza/). See [here](../download/index.html) for more details.
 
 ## Source Release
 [samza-sources-{{site.version}}.tgz](http://www.apache.org/dyn/closer.lua/samza/{{site.version}}.*)
@@ -42,8 +43,14 @@ title: Release Notes
 
 ## Release Notes
 <!-- Add notes on new features, modified behavior of existing features, operational/performance improvements, new tools etc -->
-
-<TBD>
+* [SAMZA-1510](https://issues.apache.org/jira/browse/SAMZA-1510) - Samza SQL
+* [SAMZA-1438](https://issues.apache.org/jira/browse/SAMZA-1438) - Producer and consumer for Azure EventHubs
+* [SAMZA-1515](https://issues.apache.org/jira/browse/SAMZA-1515) - Kinesis consumer
+* [SAMZA-1486](https://issues.apache.org/jira/browse/SAMZA-1486) - Checkpoint provider for Azure tables
+* [SAMZA-1421](https://issues.apache.org/jira/browse/SAMZA-1421) - Support for durable state in high-level API
+* [SAMZA-1392](https://issues.apache.org/jira/browse/SAMZA-1392) - KafkaSystemProducer performance and correctness with concurrent sends and flushes
+* [SAMZA-1406](https://issues.apache.org/jira/browse/SAMZA-1406) - Enhancements to the ZooKeeper-based deployment model
+* [SAMZA-1321](https://issues.apache.org/jira/browse/SAMZA-1321) - Support for multi-stage batch processing
 
 ## Upgrade Notes
 <!-- Add detailed notes on how someone using an older version of samza (typically, currentVersion - 1) can upgrade to the latest -->
@@ -71,5 +78,5 @@ If you have a custom **System** implementation, then you have to update to the n
 boolean clearStream(StreamSpec streamSpec);
 ```
 <br />
-Read more about it in the [API docs]().
+Read more about it in the [API docs](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/system/SystemAdmin.html).
 

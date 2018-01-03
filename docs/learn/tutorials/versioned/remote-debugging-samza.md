@@ -83,7 +83,7 @@ Once the grid starts, you can start the wikipedia-feed Samza job.
 {% highlight bash %}
 mvn clean package
 mkdir -p deploy/samza
-tar -xvf ./target/hello-samza-0.13.1-dist.tar.gz -C deploy/samza
+tar -xvf ./target/hello-samza-0.14.0-dist.tar.gz -C deploy/samza
 deploy/samza/bin/run-job.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-feed.properties
 {% endhighlight %}
 
