@@ -43,6 +43,7 @@ import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.record.Record;
+import org.apache.kafka.common.record.RecordBatch;
 import org.apache.kafka.test.TestUtils;
 
 public class MockKafkaProducer implements Producer<byte[], byte[]> {
@@ -191,15 +192,25 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
     new FlushRunnable(0).run();
   }
 
-  public void initTransactions() {}
+  public void initTransactions() {
 
-  public void abortTransaction() {}
+  }
 
-  public void beginTransaction() {}
+  public void abortTransaction() {
 
-  public void commitTransaction() {}
+  }
 
-  public void sendOffsetsToTransaction(Map<TopicPartition, OffsetAndMetadata> offsets, String consumerGroupId) {}
+  public void beginTransaction() {
+
+  }
+
+  public void commitTransaction() {
+
+  }
+
+  public void sendOffsetsToTransaction(Map<TopicPartition, OffsetAndMetadata> offsets, String consumerGroupId) {
+    
+  }
 
   private static class FutureFailure implements Future<RecordMetadata> {
 
@@ -242,7 +253,7 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
 
     public FutureSuccess(ProducerRecord record, int offset) {
       this.record = record;
-      this._metadata = new RecordMetadata(new TopicPartition(record.topic(), record.partition() == null ? 0 : record.partition()), 0, offset, -1L, -1, -1, -1);
+      this._metadata = new RecordMetadata(new TopicPartition(record.topic(), record.partition() == null ? 0 : record.partition()), 0, offset, RecordBatch.NO_TIMESTAMP, -1, -1, -1);
     }
 
     @Override
