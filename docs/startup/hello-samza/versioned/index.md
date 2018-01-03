@@ -61,7 +61,7 @@ Then, you can continue w/ the following command in hello-samza project:
 {% highlight bash %}
 mvn clean package
 mkdir -p deploy/samza
-tar -xvf ./target/hello-samza-0.14.0-SNAPSHOT-dist.tar.gz -C deploy/samza
+tar -xvf ./target/hello-samza-0.14.1-SNAPSHOT-dist.tar.gz -C deploy/samza
 {% endhighlight %}
 
 ### Run a Samza Job
