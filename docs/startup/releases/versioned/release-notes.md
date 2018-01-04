@@ -60,7 +60,7 @@ All Samza JARs are published through [Apache's Maven repository](https://reposit
 
 <!-- PR 290 -->
 * Introduced a new **mandatory** configuration - `job.coordination.utils.factory`. Read more about it
-[here](../../learn/{{site.version}}/configuration.html). <br />This config is applicable to all Samza
+[here](/learn/documentation/{{site.version}}/jobs/configuration-table.html). <br />This config is applicable to all Samza
 applications deployed using the `LocalApplicationRunner` (that is, non-yarn deployments).
 
 ### API Changes
