@@ -1,3 +1,4 @@
+#!/bin/bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,22 +16,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Job
-job.factory.class=org.apache.samza.job.yarn.YarnJobFactory
-job.name=pageview-filter
-job.container.count=2
-job.default.system=kafka
-job.coordinator.system=kafka
+home_dir=`pwd`
+base_dir=$(dirname $0)/..
+cd $base_dir
+base_dir=`pwd`
+cd $home_dir
 
-# YARN
-yarn.package.path=file://${basedir}/target/${project.artifactId}-${pom.version}-dist.tar.gz
+export EXECUTION_PLAN_DIR="$base_dir/plan"
+mkdir -p $EXECUTION_PLAN_DIR
 
-# Task
-app.class=samza.examples.cookbook.PageViewFilterApp
-task.window.ms=2000
+[[ $JAVA_OPTS != *-Dlog4j.configuration* ]] && export JAVA_OPTS="$JAVA_OPTS -Dlog4j.configuration=file:$(dirname $0)/log4j-console.xml"
 
-# Kafka System
-systems.kafka.samza.factory=org.apache.samza.system.kafka.KafkaSystemFactory
-systems.kafka.consumer.zookeeper.connect=localhost:2181
-systems.kafka.producer.bootstrap.servers=localhost:9092
-systems.kafka.default.stream.replication.factor=1
+exec $(dirname $0)/run-class.sh samza.examples.azure.AzureZKLocalApplication --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/azure-application-local-runner.properties

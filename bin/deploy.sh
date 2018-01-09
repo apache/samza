@@ -23,4 +23,4 @@ base_dir=`pwd`
 
 mvn clean package
 mkdir -p $base_dir/deploy/samza
-tar -xvf $base_dir/target/hello-samza-0.13.1-dist.tar.gz -C $base_dir/deploy/samza
+tar -xvf $base_dir/target/hello-samza-0.14.0-dist.tar.gz -C $base_dir/deploy/samza

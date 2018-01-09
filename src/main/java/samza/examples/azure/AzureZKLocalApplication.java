@@ -17,9 +17,26 @@
  * under the License.
  */
 
-SAMZA_VERSION=0.14.0
-KAFKA_VERSION=0.10.1.1
-HADOOP_VERSION=2.6.1
+package samza.examples.azure;
 
-SLF4J_VERSION = 1.7.7
+import joptsimple.OptionSet;
+import org.apache.samza.config.Config;
+import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.util.CommandLine;
+import samza.examples.azure.AzureApplication;
 
+public class AzureZKLocalApplication {
+
+  public static void main(String[] args) {
+    CommandLine cmdLine = new CommandLine();
+    OptionSet options = cmdLine.parser().parse(args);
+    Config config = cmdLine.loadConfig(options);
+
+    LocalApplicationRunner runner = new LocalApplicationRunner(config);
+    AzureApplication app = new AzureApplication();
+
+    runner.run(app);
+    runner.waitForFinish();
+  }
+
+}

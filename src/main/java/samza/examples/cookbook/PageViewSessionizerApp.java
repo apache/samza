@@ -20,21 +20,24 @@ package samza.examples.cookbook;
 
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.samza.serializers.JsonSerdeV2;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.Serde;
+import org.apache.samza.serializers.StringSerde;
+import samza.examples.cookbook.data.PageView;
+import samza.examples.cookbook.data.UserPageViews;
 
 import java.time.Duration;
-import java.util.Collection;
 import java.util.function.Function;
 
 /**
  * In this example, we group page views by userId into sessions, and compute the number of page views for each user
- * session. A session is considered closed when there is no user activity for a 3 second duration.
+ * session. A session is considered closed when there is no user activity for a 10 second duration.
  *
  * <p>Concepts covered: Using session windows to group data in a stream, Re-partitioning a stream.
  *
@@ -43,45 +46,55 @@ import java.util.function.Function;
  * <ol>
  *   <li>
  *     Ensure that the topic "pageview-session-input" is created  <br/>
- *     ./kafka-topics.sh  --zookeeper localhost:2181 --create --topic pageview-session-input --partitions 2 --replication-factor 1
+ *     ./deploy/kafka/bin/kafka-topics.sh --zookeeper localhost:2181 --create --topic pageview-session-input --partitions 2 --replication-factor 1
  *   </li>
  *   <li>
- *     Run the application using the ./bin/run-app.sh script <br/>
- *     ./deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory <br/>
- *     --config-path=file://$PWD/deploy/samza/config/pageview-sessionizer.properties)
+ *     Run the application using the run-app.sh script <br/>
+ *     ./deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/pageview-sessionizer.properties
  *   </li>
  *   <li>
  *     Produce some messages to the "pageview-session-input" topic <br/>
- *     user1,india,google.com <br/>
- *     user2,china,yahoo.com
+ *     ./deploy/kafka/bin/kafka-console-producer.sh --topic pageview-session-input --broker-list localhost:9092 <br/>
+ *     {"userId": "user1", "country": "india", "pageId":"google.com/home"} <br/>
+ *     {"userId": "user1", "country": "india", "pageId":"google.com/search"} <br/>
+ *     {"userId": "user2", "country": "china", "pageId":"yahoo.com/home"} <br/>
+ *     {"userId": "user2", "country": "china", "pageId":"yahoo.com/sports"} <br/>
+ *     {"userId": "user1", "country": "india", "pageId":"google.com/news"} <br/>
+ *     {"userId": "user2", "country": "china", "pageId":"yahoo.com/fashion"}
  *   </li>
  *   <li>
  *     Consume messages from the "pageview-session-output" topic (e.g. bin/kafka-console-consumer.sh)
- *     ./bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic pageview-sessions-output <br/>
- *     --property print.key=true
+ *     ./deploy/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic pageview-session-output --property print.key=true
  *   </li>
  * </ol>
  *
  */
 public class PageViewSessionizerApp implements StreamApplication {
 
-  private static final Logger LOG = LoggerFactory.getLogger(PageViewSessionizerApp.class);
   private static final String INPUT_TOPIC = "pageview-session-input";
   private static final String OUTPUT_TOPIC = "pageview-session-output";
 
   @Override
   public void init(StreamGraph graph, Config config) {
+    Serde<String> stringSerde = new StringSerde();
+    Serde<PageView> pageviewSerde = new JsonSerdeV2<>(PageView.class);
+    KVSerde<String, PageView> pageViewKVSerde = KVSerde.of(stringSerde, pageviewSerde);
+    Serde<UserPageViews> userPageviewSerde = new JsonSerdeV2<>(UserPageViews.class);
+    graph.setDefaultSerde(pageViewKVSerde);
 
-    MessageStream<String> pageViews = graph.<String, String, String>getInputStream(INPUT_TOPIC, (k, v) -> v);
-
-    OutputStream<String, String, WindowPane<String, Collection<String>>> outputStream = graph
-        .getOutputStream(OUTPUT_TOPIC, m -> m.getKey().getKey(), m -> new Integer(m.getMessage().size()).toString());
-
-    Function<String, String> keyFn = pageView -> new PageView(pageView).getUserId();
+    MessageStream<KV<String, PageView>> pageViews = graph.getInputStream(INPUT_TOPIC);
+    OutputStream<KV<String, UserPageViews>> userPageViews =
+        graph.getOutputStream(OUTPUT_TOPIC, KVSerde.of(stringSerde, userPageviewSerde));
 
     pageViews
-        .partitionBy(keyFn)
-        .window(Windows.keyedSessionWindow(keyFn, Duration.ofSeconds(3)))
-        .sendTo(outputStream);
+        .partitionBy(kv -> kv.value.userId, kv -> kv.value, "pageview")
+        .window(Windows.keyedSessionWindow(kv -> kv.value.userId,
+            Duration.ofSeconds(10), stringSerde, pageViewKVSerde), "usersession")
+        .map(windowPane -> {
+          String userId = windowPane.getKey().getKey();
+          int views = windowPane.getMessage().size();
+          return KV.of(userId, new UserPageViews(userId, views));
+        })
+        .sendTo(userPageViews);
   }
 }

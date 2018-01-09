@@ -16,10 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package samza.examples.cookbook.data;
 
-SAMZA_VERSION=0.14.0
-KAFKA_VERSION=0.10.1.1
-HADOOP_VERSION=2.6.1
+import org.codehaus.jackson.annotate.JsonProperty;
 
-SLF4J_VERSION = 1.7.7
 
+public class Profile {
+
+  public final String userId;
+  public final String company;
+
+  /**
+   * Constructs a user profile.
+   *
+   * @param userId the user Id
+   * @param company company to which the user belong to
+   */
+  public Profile(
+      @JsonProperty("userId") String userId,
+      @JsonProperty("company") String company) {
+    this.userId = userId;
+    this.company = company;
+  }
+
+}

@@ -16,10 +16,36 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package samza.examples.cookbook.data;
 
-SAMZA_VERSION=0.14.0
-KAFKA_VERSION=0.10.1.1
-HADOOP_VERSION=2.6.1
 
-SLF4J_VERSION = 1.7.7
+import org.codehaus.jackson.annotate.JsonProperty;
 
+/**
+ * User page view count.
+ */
+public class UserPageViews {
+  private final String userId;
+  private final int count;
+
+  /**
+   * Constructs a user page view count.
+   *
+   * @param userId the id of the user viewing the pages
+   * @param count number of page views by the user
+   */
+  public UserPageViews(
+      @JsonProperty("userId") String userId,
+      @JsonProperty("count") int count) {
+    this.userId = userId;
+    this.count = count;
+  }
+
+  public String getUserId() {
+    return userId;
+  }
+
+  public int getCount() {
+    return count;
+  }
+}

@@ -17,9 +17,38 @@
  * under the License.
  */
 
-SAMZA_VERSION=0.14.0
-KAFKA_VERSION=0.10.1.1
-HADOOP_VERSION=2.6.1
+package samza.examples.cookbook.data;
 
-SLF4J_VERSION = 1.7.7
+/**
+ * An ad click event.
+ */
+public class AdClick {
 
+  private String pageId; // the unique id of the page that the ad was clicked on
+  private String adId; // an unique id for the ad
+  private String userId; // the user that clicked the ad
+
+  public String getPageId() {
+    return pageId;
+  }
+
+  public void setPageId(String pageId) {
+    this.pageId = pageId;
+  }
+
+  public String getAdId() {
+    return adId;
+  }
+
+  public void setAdId(String adId) {
+    this.adId = adId;
+  }
+
+  public String getUserId() {
+    return userId;
+  }
+
+  public void setUserId(String userId) {
+    this.userId = userId;
+  }
+}
