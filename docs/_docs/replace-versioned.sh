@@ -37,5 +37,8 @@ mv -f $DIR/_site/learn/documentation/versioned $DIR/_site/learn/documentation/$v
 echo "replaced learn/tutorials/versioned to learn/tutorials/"$version
 mv -f $DIR/_site/learn/tutorials/versioned $DIR/_site/learn/tutorials/$version
 
+echo "replaced learn/releases/versioned to learn/releases/"$version
+mv -f $DIR/_site/startup/releases/versioned $DIR/_site/startup/releases/$version
+
 echo "replaced startup/hello-samza/versioned to startup/hello-samza/"$version
 mv -f $DIR/_site/startup/hello-samza/versioned $DIR/_site/startup/hello-samza/$version

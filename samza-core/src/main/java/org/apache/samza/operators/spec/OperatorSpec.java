@@ -18,17 +18,17 @@
  */
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.functions.WatermarkFunction;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.MessageStreamImpl;
-
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
+import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.operators.functions.WatermarkFunction;
+
 /**
- * A stream operator specification that holds all the information required to transform 
+ * A stream operator specification that holds all the information required to transform
  * the input {@link org.apache.samza.operators.MessageStreamImpl} and produce the output
  * {@link org.apache.samza.operators.MessageStreamImpl}.
  *

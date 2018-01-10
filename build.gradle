@@ -136,7 +136,7 @@ project(':samza-api') {
     compile "org.slf4j:slf4j-api:$slf4jVersion"
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     testCompile "junit:junit:$junitVersion"
-    testCompile "org.mockito:mockito-all:$mockitoVersion"
+    testCompile "org.mockito:mockito-core:$mockitoVersion"
   }
   checkstyle {
     configFile = new File(rootDir, "checkstyle/checkstyle.xml")
@@ -178,7 +178,7 @@ project(":samza-core_$scalaVersion") {
     compile "org.slf4j:slf4j-api:$slf4jVersion"
     testCompile project(":samza-api").sourceSets.test.output
     testCompile "junit:junit:$junitVersion"
-    testCompile "org.mockito:mockito-all:$mockitoVersion"
+    testCompile "org.mockito:mockito-core:$mockitoVersion"
     testCompile "org.powermock:powermock-api-mockito:$powerMockVersion"
     testCompile "org.powermock:powermock-core:$powerMockVersion"
     testCompile "org.powermock:powermock-module-junit4:$powerMockVersion"
@@ -204,7 +204,7 @@ project(':samza-azure') {
     compile project(":samza-core_$scalaVersion")
     compile "org.slf4j:slf4j-api:$slf4jVersion"
     testCompile "junit:junit:$junitVersion"
-    testCompile "org.mockito:mockito-all:$mockitoVersion"
+    testCompile "org.mockito:mockito-core:$mockitoVersion"
     testCompile "org.powermock:powermock-api-mockito:$powerMockVersion"
     testCompile "org.powermock:powermock-core:$powerMockVersion"
     testCompile "org.powermock:powermock-module-junit4:$powerMockVersion"
@@ -213,12 +213,40 @@ project(':samza-azure') {
     configFile = new File(rootDir, "checkstyle/checkstyle.xml")
     toolVersion = "$checkstyleVersion"
   }
-  test {
-    // Exclude integration tests that require connection to EventHub
-    exclude 'org/apache/samza/system/eventhub/producer/*ITest*'
-    exclude 'org/apache/samza/system/eventhub/consumer/*ITest*'
+}
+
+project(':samza-aws') {
+  apply plugin: 'java'
+  apply plugin: 'checkstyle'
+
+  dependencies {
+    compile "com.amazonaws:aws-java-sdk-kinesis:1.11.152"
+    compile "com.amazonaws:amazon-kinesis-client:1.7.5"
+    compile "com.amazonaws:amazon-kinesis-producer:0.10.0"
+    compile "io.dropwizard.metrics:metrics-core:3.1.2"
+    compile "org.codehaus.jackson:jackson-core-asl:1.9.7"
+    compile "org.codehaus.jackson:jackson-mapper-asl:1.9.7"
+    compile project(':samza-api')
+    compile project(":samza-core_$scalaVersion")
+    compile "org.slf4j:slf4j-api:$slf4jVersion"
+    runtime "org.apache.httpcomponents:httpclient:4.5.2"
+    runtime "org.apache.httpcomponents:httpcore:4.4.5"
+    testCompile "junit:junit:$junitVersion"
+    testCompile "org.mockito:mockito-all:$mockitoVersion"
+  }
+
+  repositories {
+    maven {
+      url "https://repo1.maven.org/maven2/"
+    }
+  }
+
+  checkstyle {
+    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+    toolVersion = "$checkstyleVersion"
   }
 }
+
 
 project(":samza-autoscaling_$scalaVersion") {
   apply plugin: 'scala'
@@ -251,7 +279,7 @@ project(":samza-autoscaling_$scalaVersion") {
     }
     compile "org.apache.httpcomponents:httpclient:$httpClientVersion"
     testCompile "junit:junit:$junitVersion"
-    testCompile "org.mockito:mockito-all:$mockitoVersion"
+    testCompile "org.mockito:mockito-core:$mockitoVersion"
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
   }
 
@@ -271,7 +299,7 @@ project(':samza-elasticsearch') {
     compile "com.google.guava:guava:$guavaVersion"
     compile "org.slf4j:slf4j-api:$slf4jVersion"
     testCompile "junit:junit:$junitVersion"
-    testCompile "org.mockito:mockito-all:$mockitoVersion"
+    testCompile "org.mockito:mockito-core:$mockitoVersion"
 
     testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
   }
@@ -289,9 +317,37 @@ project(':samza-sql') {
 
     testCompile project(":samza-test_$scalaVersion")
     testCompile "junit:junit:$junitVersion"
-    testCompile "org.mockito:mockito-all:$mockitoVersion"
+    testCompile "org.mockito:mockito-core:$mockitoVersion"
 
     testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
+  }
+}
+
+project(':samza-tools') {
+  apply plugin: 'java'
+
+  dependencies {
+    compile project(':samza-sql')
+    compile project(':samza-api')
+    compile project(':samza-azure')
+    compile "log4j:log4j:$log4jVersion"
+    compile "org.slf4j:slf4j-api:$slf4jVersion"
+    compile "org.slf4j:slf4j-log4j12:$slf4jVersion"
+    compile "commons-cli:commons-cli:$commonsCliVersion"
+    compile "org.apache.avro:avro:$avroVersion"
+    compile "org.apache.commons:commons-lang3:$commonsLang3Version"
+    compile "org.apache.kafka:kafka-clients:$kafkaVersion"
+  }
+
+  tasks.create(name: "releaseToolsTarGz", dependsOn: configurations.archives.artifacts, type: Tar) {
+    into "samza-tools-${version}"
+    compression = Compression.GZIP
+    from(project.file("./scripts")) { into "scripts/" }
+    from(project.file("./config")) { into "config/" }
+    from(project(':samza-shell').file("src/main/bash/run-class.sh")) { into "scripts/" }
+    from(configurations.runtime) { into("lib/") }
+    from(configurations.archives.artifacts.files) { into("lib/") }
+    duplicatesStrategy 'exclude'
   }
 }
 
@@ -317,6 +373,7 @@ project(":samza-kafka_$scalaVersion") {
   dependencies {
     compile project(':samza-api')
     compile project(":samza-core_$scalaVersion")
+    compile "log4j:log4j:$log4jVersion"
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     compile "com.101tec:zkclient:$zkClientVersion"
     compile "org.apache.zookeeper:zookeeper:$zookeeperVersion"
@@ -326,7 +383,7 @@ project(":samza-kafka_$scalaVersion") {
     testCompile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion:test"
     testCompile "org.apache.kafka:kafka-clients:$kafkaVersion:test"
     testCompile "junit:junit:$junitVersion"
-    testCompile "org.mockito:mockito-all:$mockitoVersion"
+    testCompile "org.mockito:mockito-core:$mockitoVersion"
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
     testCompile project(":samza-core_$scalaVersion").sourceSets.test.output
 
@@ -417,7 +474,7 @@ project(":samza-yarn_$scalaVersion") {
     compile "joda-time:joda-time:$jodaTimeVersion"
     compile "org.apache.zookeeper:zookeeper:$zookeeperVersion"
     testCompile "junit:junit:$junitVersion"
-    testCompile "org.mockito:mockito-all:$mockitoVersion"
+    testCompile "org.mockito:mockito-core:$mockitoVersion"
     testCompile project(":samza-core_$scalaVersion").sourceSets.test.output
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
   }
@@ -520,7 +577,7 @@ project(":samza-kv_$scalaVersion") {
     compile project(":samza-core_$scalaVersion")
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     testCompile "junit:junit:$junitVersion"
-    testCompile "org.mockito:mockito-all:$mockitoVersion"
+    testCompile "org.mockito:mockito-core:$mockitoVersion"
   }
 
   checkstyle {
@@ -531,6 +588,15 @@ project(":samza-kv_$scalaVersion") {
 
 project(":samza-kv-inmemory_$scalaVersion") {
   apply plugin: 'scala'
+
+  // Force scala joint compilation
+  sourceSets.main.scala.srcDir "src/main/java"
+  sourceSets.test.scala.srcDir "src/test/java"
+
+  // Disable the Javac compiler by forcing joint compilation by scalac. This is equivalent to setting
+  // tasks.compileTestJava.enabled = false
+  sourceSets.main.java.srcDirs = []
+  sourceSets.test.java.srcDirs = []
 
   dependencies {
     compile project(':samza-api')
@@ -625,7 +691,7 @@ project(":samza-rest") {
 
     testCompile "junit:junit:$junitVersion"
     testCompile "org.glassfish.jersey.test-framework.providers:jersey-test-framework-provider-grizzly2:$jerseyVersion"
-    testCompile "org.mockito:mockito-all:$mockitoVersion"
+    testCompile "org.mockito:mockito-core:$mockitoVersion"
   }
 
   tasks.create(name: "releaseRestServiceTar", type: Tar) {
@@ -698,7 +764,7 @@ project(":samza-test_$scalaVersion") {
     testCompile "org.apache.kafka:kafka-clients:$kafkaVersion:test"
     testCompile project(":samza-core_$scalaVersion").sourceSets.test.output
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
-    testCompile "org.mockito:mockito-all:$mockitoVersion"
+    testCompile "org.mockito:mockito-core:$mockitoVersion"
     testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
   }
 

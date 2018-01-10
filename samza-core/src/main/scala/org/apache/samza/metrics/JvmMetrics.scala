@@ -19,12 +19,14 @@
 
 package org.apache.samza.metrics
 
-import java.lang.management.ManagementFactory
 import scala.collection._
 import scala.collection.JavaConverters._
+import java.lang.management.ManagementFactory
 import java.lang.Thread.State._
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+
+import com.sun.management.{OperatingSystemMXBean, UnixOperatingSystemMXBean}
 import org.apache.samza.util.Logging
 import org.apache.samza.util.DaemonThreadFactory
 
@@ -40,10 +42,12 @@ object JvmMetrics {
  */
 class JvmMetrics(val registry: MetricsRegistry) extends MetricsHelper with Runnable with Logging {
   final val M = 1024 * 1024.0F
+  final val PCT = 100.0
 
   val memoryMXBean = ManagementFactory.getMemoryMXBean()
   val gcBeans = ManagementFactory.getGarbageCollectorMXBeans()
   val threadMXBean = ManagementFactory.getThreadMXBean()
+  val osMXBean = ManagementFactory.getOperatingSystemMXBean()
   var gcBeanCounters = Map[String, (Counter, Counter)]()
   val executor = Executors.newScheduledThreadPool(1, new DaemonThreadFactory(JvmMetrics.JVM_METRICS_THREAD_NAME_PREFIX))
 
@@ -63,6 +67,11 @@ class JvmMetrics(val registry: MetricsRegistry) extends MetricsHelper with Runna
   val cGcCount = newCounter("gc-count")
   val cGcTimeMillis = newCounter("gc-time-millis")
 
+  // Conditional metrics. Only emitted if the Operating System supports it.
+  val gProcessCpuUsage = if (osMXBean.isInstanceOf[OperatingSystemMXBean]) newGauge("process-cpu-usage", 0.0) else null
+  val gSystemCpuUsage = if (osMXBean.isInstanceOf[OperatingSystemMXBean]) newGauge("system-cpu-usage", 0.0) else null
+  val gOpenFileDescriptorCount = if (osMXBean.isInstanceOf[UnixOperatingSystemMXBean]) newGauge("open-file-descriptor-count", 0.0) else null
+
   def start {
     executor.scheduleWithFixedDelay(this, 0, 5, TimeUnit.SECONDS)
   }
@@ -73,11 +82,12 @@ class JvmMetrics(val registry: MetricsRegistry) extends MetricsHelper with Runna
     updateMemoryUsage
     updateGcUsage
     updateThreadUsage
+    updateOperatingSystemMetrics
 
-    debug("updated metrics to: [%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s]" format
+    debug("updated metrics to: [%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s]" format
       (gMemNonHeapUsedM, gMemNonHeapCommittedM, gMemNonHeapMaxM, gMemHeapUsedM, gMemHeapCommittedM,gMemHeapMaxM, gThreadsNew,
         gThreadsRunnable, gThreadsBlocked, gThreadsWaiting, gThreadsTimedWaiting,
-        gThreadsTerminated, cGcCount, cGcTimeMillis))
+        gThreadsTerminated, cGcCount, cGcTimeMillis, gProcessCpuUsage, gSystemCpuUsage, gOpenFileDescriptorCount))
   }
 
   def stop = executor.shutdown
@@ -152,5 +162,17 @@ class JvmMetrics(val registry: MetricsRegistry) extends MetricsHelper with Runna
     gThreadsWaiting.set(threadsWaiting)
     gThreadsTimedWaiting.set(threadsTimedWaiting)
     gThreadsTerminated.set(threadsTerminated)
+  }
+
+  private def updateOperatingSystemMetrics {
+    if (osMXBean.isInstanceOf[OperatingSystemMXBean]) {
+      val operatingSystemMXBean = osMXBean.asInstanceOf[OperatingSystemMXBean]
+      gProcessCpuUsage.set(operatingSystemMXBean.getProcessCpuLoad * PCT)
+      gSystemCpuUsage.set(operatingSystemMXBean.getSystemCpuLoad * PCT)
+
+      if (osMXBean.isInstanceOf[UnixOperatingSystemMXBean]) {
+        gOpenFileDescriptorCount.set(osMXBean.asInstanceOf[UnixOperatingSystemMXBean].getOpenFileDescriptorCount)
+      }
+    }
   }
 }

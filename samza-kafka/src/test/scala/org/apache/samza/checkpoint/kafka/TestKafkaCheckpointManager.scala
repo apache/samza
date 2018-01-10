@@ -150,7 +150,6 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     new MapConfig(new ImmutableMap.Builder[String, String]()
       .put(JobConfig.JOB_NAME, "some-job-name")
       .put(JobConfig.JOB_ID, "i001")
-      .put(JobConfig.SSP_GROUPER_FACTORY, sspGrouperFactoryName)
       .put(s"systems.$checkpointSystemName.samza.factory", classOf[KafkaSystemFactory].getCanonicalName)
       .put(s"systems.$checkpointSystemName.producer.bootstrap.servers", brokers)
       .put(s"systems.$checkpointSystemName.consumer.zookeeper.connect", zkConnect)

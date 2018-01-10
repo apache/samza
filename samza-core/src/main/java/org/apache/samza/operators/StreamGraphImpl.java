@@ -18,7 +18,15 @@
  */
 package org.apache.samza.operators;
 
-import com.google.common.base.Preconditions;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -34,17 +42,12 @@ import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
+import org.apache.samza.table.Table;
+import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
+import com.google.common.base.Preconditions;
 
 /**
  * A {@link StreamGraph} that provides APIs for accessing {@link MessageStream}s to be used to
@@ -57,6 +60,7 @@ public class StreamGraphImpl implements StreamGraph {
   // We use a LHM for deterministic order in initializing and closing operators.
   private final Map<StreamSpec, InputOperatorSpec> inputOperators = new LinkedHashMap<>();
   private final Map<StreamSpec, OutputStreamImpl> outputStreams = new LinkedHashMap<>();
+  private final Map<TableSpec, TableImpl> tables = new LinkedHashMap<>();
   private final ApplicationRunner runner;
   private final Config config;
 
@@ -108,8 +112,7 @@ public class StreamGraphImpl implements StreamGraph {
     InputOperatorSpec inputOperatorSpec =
         OperatorSpecs.createInputOperatorSpec(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(),
             isKeyed, this.getNextOpId(OpCode.INPUT, null));
-    inputOperators.put(streamSpec,
-        inputOperatorSpec);
+    inputOperators.put(streamSpec, inputOperatorSpec);
     return new MessageStreamImpl<>(this, inputOperators.get(streamSpec));
   }
 
@@ -137,14 +140,25 @@ public class StreamGraphImpl implements StreamGraph {
     }
 
     boolean isKeyed = serde instanceof KVSerde;
-    outputStreams.put(streamSpec,
-        new OutputStreamImpl<>(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed));
+    outputStreams.put(streamSpec, new OutputStreamImpl<>(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed));
     return outputStreams.get(streamSpec);
   }
 
   @Override
   public <M> OutputStream<M> getOutputStream(String streamId) {
     return (OutputStream<M>) getOutputStream(streamId, defaultSerde);
+  }
+
+  @Override
+  public <K, V> Table<KV<K, V>> getTable(TableDescriptor<K, V, ?> tableDesc) {
+    TableSpec tableSpec = ((BaseTableDescriptor) tableDesc).getTableSpec();
+    if (tables.containsKey(tableSpec)) {
+      throw new IllegalStateException(String.format(
+          "getTable() invoked multiple times with the same tableId: %s",
+          tableDesc.getTableId()));
+    }
+    tables.put(tableSpec, new TableImpl(tableSpec));
+    return tables.get(tableSpec);
   }
 
   @Override
@@ -165,7 +179,7 @@ public class StreamGraphImpl implements StreamGraph {
    */
   <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde) {
     StreamSpec streamSpec = runner.getStreamSpec(streamId);
-    
+
     Preconditions.checkState(!inputOperators.containsKey(streamSpec) && !outputStreams.containsKey(streamSpec),
         "getIntermediateStream must not be called multiple times with the same streamId: " + streamId);
 
@@ -190,6 +204,10 @@ public class StreamGraphImpl implements StreamGraph {
 
   public Map<StreamSpec, OutputStreamImpl> getOutputStreams() {
     return Collections.unmodifiableMap(outputStreams);
+  }
+
+  public Map<TableSpec, TableImpl> getTables() {
+    return Collections.unmodifiableMap(tables);
   }
 
   public ContextManager getContextManager() {

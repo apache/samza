@@ -19,10 +19,10 @@
 
 package org.apache.samza.clustermanager;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.samza.job.CommandBuilder;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -47,9 +47,11 @@ public class MockClusterResourceManager extends ClusterResourceManager {
 
   @Override
   public void requestResources(SamzaResourceRequest resourceRequest) {
-    SamzaResource resource = new SamzaResource(resourceRequest.getNumCores(), resourceRequest.getMemoryMB(), resourceRequest.getPreferredHost(), UUID.randomUUID().toString());
-    List<SamzaResource> resources = Collections.singletonList(resource);
-    resourceRequests.addAll(resources);
+    SamzaResource resource = new SamzaResource(resourceRequest.getNumCores(), resourceRequest.getMemoryMB(),
+        resourceRequest.getPreferredHost(), UUID.randomUUID().toString());
+    resourceRequests.add(resource);
+
+    clusterManagerCallback.onResourcesAvailable(ImmutableList.of(resource));
   }
 
   @Override
@@ -63,15 +65,16 @@ public class MockClusterResourceManager extends ClusterResourceManager {
   }
 
   @Override
-  public void launchStreamProcessor(SamzaResource resource, CommandBuilder builder) throws SamzaContainerLaunchException {
+  public void launchStreamProcessor(SamzaResource resource, CommandBuilder builder)  {
     if (nextException != null) {
-      throw new SamzaContainerLaunchException(nextException);
+      clusterManagerCallback.onStreamProcessorLaunchFailure(resource, new SamzaContainerLaunchException(nextException));
+    } else {
+      launchedResources.add(resource);
+      clusterManagerCallback.onStreamProcessorLaunchSuccess(resource);
     }
-    launchedResources.add(resource);
     for (MockContainerListener listener : mockContainerListeners) {
       listener.postRunContainer(launchedResources.size());
     }
-
   }
 
   @Override

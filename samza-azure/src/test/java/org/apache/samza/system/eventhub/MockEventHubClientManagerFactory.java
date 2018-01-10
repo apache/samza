@@ -101,6 +101,10 @@ public class MockEventHubClientManagerFactory extends EventHubClientManagerFacto
           }
           return null;
         });
+      EventHubPartitionRuntimeInformation mockPartitionRuntimeInfo = PowerMockito.mock(EventHubPartitionRuntimeInformation.class);
+      PowerMockito.when(mockPartitionRuntimeInfo.getLastEnqueuedOffset())
+              .thenReturn(EventHubSystemConsumer.START_OF_STREAM);
+      CompletableFuture<EventHubPartitionRuntimeInformation> partitionFuture =  new MockPartitionFuture(mockPartitionRuntimeInfo);
 
       // Producer mocks
       PartitionSender mockPartitionSender0 = PowerMockito.mock(PartitionSender.class);
@@ -137,6 +141,7 @@ public class MockEventHubClientManagerFactory extends EventHubClientManagerFacto
                     startingOffsets.put(partitionId, offset);
                     return mockPartitionReceiver;
                   });
+        PowerMockito.when(mockEventHubClient.getPartitionRuntimeInformation(anyString())).thenReturn(partitionFuture);
 
         // Producer calls
         PowerMockito.when(mockEventHubClient.createPartitionSenderSync("0")).thenReturn(mockPartitionSender0);
@@ -187,6 +192,19 @@ public class MockEventHubClientManagerFactory extends EventHubClientManagerFacto
 
       @Override
       public EventHubRuntimeInformation get(long timeout, TimeUnit unit) {
+        return runtimeInformation;
+      }
+    }
+
+    private class MockPartitionFuture extends CompletableFuture<EventHubPartitionRuntimeInformation> {
+      EventHubPartitionRuntimeInformation runtimeInformation;
+
+      MockPartitionFuture(EventHubPartitionRuntimeInformation runtimeInformation) {
+        this.runtimeInformation = runtimeInformation;
+      }
+
+      @Override
+      public EventHubPartitionRuntimeInformation get(long timeout, TimeUnit unit) {
         return runtimeInformation;
       }
     }

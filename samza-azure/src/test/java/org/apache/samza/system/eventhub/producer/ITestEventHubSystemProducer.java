@@ -30,12 +30,14 @@ import org.apache.samza.system.eventhub.*;
 import org.apache.samza.system.eventhub.consumer.EventHubSystemConsumer;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.apache.samza.system.eventhub.MockEventHubConfigFactory.*;
 
+@Ignore("Requires Azure account credentials")
 public class ITestEventHubSystemProducer {
   private static final Logger LOG = LoggerFactory.getLogger(ITestEventHubSystemProducer.class.getName());
 

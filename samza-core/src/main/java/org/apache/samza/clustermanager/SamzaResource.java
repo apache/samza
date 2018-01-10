@@ -60,6 +60,14 @@ public class SamzaResource {
     return result;
   }
 
+  @Override
+  public String toString() {
+    return "SamzaResource{" +
+        "host='" + host + '\'' +
+        ", resourceID='" + resourceID + '\'' +
+        '}';
+  }
+
   public int getNumCores() {
     return numCores;
   }

@@ -18,7 +18,12 @@
  */
 package org.apache.samza.operators;
 
-import com.google.common.collect.ImmutableList;
+import java.time.Duration;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.function.Function;
+import java.util.function.Supplier;
+
 import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.data.TestOutputMessageEnvelope;
 import org.apache.samza.operators.functions.FilterFunction;
@@ -27,14 +32,17 @@ import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec.OpCode;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.spec.PartitionByOperatorSpec;
+import org.apache.samza.operators.spec.SendToTableOperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
+import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
 import org.apache.samza.operators.windows.Window;
@@ -42,14 +50,11 @@ import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
+import org.apache.samza.table.TableSpec;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
-import java.time.Duration;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.function.Function;
-import java.util.function.Supplier;
+import com.google.common.collect.ImmutableList;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -207,6 +212,7 @@ public class TestMessageStreamImpl {
         .thenReturn(mockIntermediateStream);
     when(mockIntermediateStream.getOutputStream())
         .thenReturn(mockOutputStreamImpl);
+    when(mockIntermediateStream.isKeyed()).thenReturn(true);
 
     MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
     Function mockKeyFunction = mock(Function.class);
@@ -236,6 +242,7 @@ public class TestMessageStreamImpl {
         .thenReturn(mockIntermediateStream);
     when(mockIntermediateStream.getOutputStream())
         .thenReturn(mockOutputStreamImpl);
+    when(mockIntermediateStream.isKeyed()).thenReturn(true);
 
     MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
     Function mockKeyFunction = mock(Function.class);
@@ -308,6 +315,57 @@ public class TestMessageStreamImpl {
     assertEquals(joinTtl.toMillis(), ((JoinOperatorSpec) leftRegisteredOpSpec).getTtlMs());
     assertEquals(leftInputOpSpec, ((JoinOperatorSpec) leftRegisteredOpSpec).getLeftInputOpSpec());
     assertEquals(rightInputOpSpec, ((JoinOperatorSpec) leftRegisteredOpSpec).getRightInputOpSpec());
+  }
+
+  @Test
+  public void testSendToTable() {
+    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    OperatorSpec inputOpSpec = mock(OperatorSpec.class);
+    MessageStreamImpl<TestMessageEnvelope> source = new MessageStreamImpl<>(mockGraph, inputOpSpec);
+
+    TableSpec tableSpec = new TableSpec();
+    TableImpl table = new TableImpl(tableSpec);
+
+    source.sendTo(table);
+
+    ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
+    verify(inputOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());
+    OperatorSpec<?, TestMessageEnvelope> registeredOpSpec = registeredOpCaptor.getValue();
+
+    assertTrue(registeredOpSpec instanceof SendToTableOperatorSpec);
+    SendToTableOperatorSpec sendToTableOperatorSpec = (SendToTableOperatorSpec) registeredOpSpec;
+
+    assertEquals(OpCode.SEND_TO, sendToTableOperatorSpec.getOpCode());
+    assertEquals(inputOpSpec, sendToTableOperatorSpec.getInputOpSpec());
+    assertEquals(tableSpec, sendToTableOperatorSpec.getTableSpec());
+  }
+
+  @Test
+  public void testStreamTableJoin() {
+    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    OperatorSpec leftInputOpSpec = mock(OperatorSpec.class);
+    MessageStreamImpl<KV<String, TestMessageEnvelope>> source1 = new MessageStreamImpl<>(mockGraph, leftInputOpSpec);
+    OperatorSpec rightInputOpSpec = mock(OperatorSpec.class);
+    MessageStreamImpl<TestMessageEnvelope> source2 = new MessageStreamImpl<>(mockGraph, rightInputOpSpec);
+
+    TableSpec tableSpec = new TableSpec();
+    TableImpl table = new TableImpl(tableSpec);
+
+    source2.sendTo(table);
+
+    StreamTableJoinFunction<String, KV<String, TestMessageEnvelope>, KV<String, TestMessageEnvelope>, TestOutputMessageEnvelope>
+        mockJoinFn = mock(StreamTableJoinFunction.class);
+    source1.join(table, mockJoinFn);
+
+    ArgumentCaptor<OperatorSpec> leftRegisteredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
+    verify(leftInputOpSpec).registerNextOperatorSpec(leftRegisteredOpCaptor.capture());
+    OperatorSpec<?, TestMessageEnvelope> leftRegisteredOpSpec = leftRegisteredOpCaptor.getValue();
+
+    assertTrue(leftRegisteredOpSpec instanceof StreamTableJoinOperatorSpec);
+    StreamTableJoinOperatorSpec joinOpSpec = (StreamTableJoinOperatorSpec) leftRegisteredOpSpec;
+    assertEquals(OpCode.JOIN, joinOpSpec.getOpCode());
+    assertEquals(mockJoinFn, joinOpSpec.getJoinFn());
+    assertEquals(tableSpec, joinOpSpec.getTableSpec());
   }
 
   @Test

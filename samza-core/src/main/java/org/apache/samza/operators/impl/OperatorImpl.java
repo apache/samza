@@ -63,7 +63,7 @@ public abstract class OperatorImpl<M, RM> {
   private Counter numMessage;
   private Timer handleMessageNs;
   private Timer handleTimerNs;
-  private long inputWatermark = WatermarkStates.WATERMARK_NOT_EXIST;
+  private long currentWatermark = WatermarkStates.WATERMARK_NOT_EXIST;
   private long outputWatermark = WatermarkStates.WATERMARK_NOT_EXIST;
   private TaskName taskName;
   // Although the operator node is in the operator graph, the current task may not consume any message in it.
@@ -340,22 +340,22 @@ public abstract class OperatorImpl<M, RM> {
       inputWatermarkMin = prevOperators.stream().map(op -> op.getOutputWatermark()).min(Long::compare).get();
     }
 
-    if (inputWatermark < inputWatermarkMin) {
+    if (currentWatermark < inputWatermarkMin) {
       // advance the watermark time of this operator
-      inputWatermark = inputWatermarkMin;
-      LOG.trace("Advance input watermark to {} in operator {}", inputWatermark, getOpImplId());
+      currentWatermark = inputWatermarkMin;
+      LOG.trace("Advance input watermark to {} in operator {}", currentWatermark, getOpImplId());
 
       final Long outputWm;
       final Collection<RM> output;
       final WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
       if (watermarkFn != null) {
         // user-overrided watermark handling here
-        output = (Collection<RM>) watermarkFn.processWatermark(inputWatermark);
+        output = (Collection<RM>) watermarkFn.processWatermark(currentWatermark);
         outputWm = watermarkFn.getOutputWatermark();
       } else {
         // use samza-provided watermark handling
         // default is to propagate the input watermark
-        output = handleWatermark(inputWatermark, collector, coordinator);
+        output = handleWatermark(currentWatermark, collector, coordinator);
         outputWm = getOutputWatermark();
       }
 
@@ -398,7 +398,7 @@ public abstract class OperatorImpl<M, RM> {
 
   /* package private for testing */
   final long getInputWatermark() {
-    return this.inputWatermark;
+    return this.currentWatermark;
   }
 
   /**
@@ -409,7 +409,7 @@ public abstract class OperatorImpl<M, RM> {
   protected long getOutputWatermark() {
     if (usedInCurrentTask) {
       // default as input
-      return getInputWatermark();
+      return this.currentWatermark;
     } else {
       // always emit the max to indicate no input will be emitted afterwards
       return Long.MAX_VALUE;
