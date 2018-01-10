@@ -373,7 +373,6 @@ project(":samza-kafka_$scalaVersion") {
   dependencies {
     compile project(':samza-api')
     compile project(":samza-core_$scalaVersion")
-    compile "log4j:log4j:$log4jVersion"
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     compile "com.101tec:zkclient:$zkClientVersion"
     compile "org.apache.zookeeper:zookeeper:$zookeeperVersion"
