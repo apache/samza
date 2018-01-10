@@ -25,7 +25,7 @@ import kafka.cluster.Broker
 import kafka.common.TopicAndPartition
 import kafka.message.Message
 import kafka.message.MessageAndOffset
-
+import org.apache.kafka.common.protocol.Errors
 import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.Partition
@@ -68,7 +68,7 @@ class TestKafkaSystemConsumer {
     // Lie and tell the store that the partition metadata is empty. We can't
     // use partition metadata because it has Broker in its constructor, which
     // is package private to Kafka.
-    val metadataStore = new MockMetadataStore(Map(streamName -> TopicMetadata(streamName, Seq.empty, 0)))
+    val metadataStore = new MockMetadataStore(Map(streamName -> TopicMetadata(streamName, Seq.empty, Errors.NONE)))
     var hosts = List[String]()
     var getHostPortCount = 0
     val consumer = new KafkaSystemConsumer(systemName, systemAdmin, metrics, metadataStore, clientId) {
