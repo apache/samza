@@ -60,7 +60,7 @@ class GetOffset(
       val messages = consumer.defaultFetch((topicAndPartition, offset.toLong))
 
       if (messages.hasError) {
-        KafkaUtil.maybeThrowException(messages.errorCode(topicAndPartition.topic, topicAndPartition.partition))
+        KafkaUtil.maybeThrowException(messages.error(topicAndPartition.topic, topicAndPartition.partition).exception())
       }
 
       info("Able to successfully read from offset %s for topic and partition %s. Using it to instantiate consumer." format (offset, topicAndPartition))
@@ -86,7 +86,7 @@ class GetOffset(
       .get(topicAndPartition)
       .getOrElse(toss("Unable to find offset information for %s" format topicAndPartition))
 
-    KafkaUtil.maybeThrowException(partitionOffsetResponse.error)
+    KafkaUtil.maybeThrowException(partitionOffsetResponse.error.exception())
 
     partitionOffsetResponse
       .offsets

@@ -182,7 +182,7 @@ class BrokerProxy(
       firstCallBarrier.countDown()
 
       // Split response into errors and non errors, processing the errors first
-      val (nonErrorResponses, errorResponses) = response.data.toSet.partition(_._2.error == ErrorMapping.NoError)
+      val (nonErrorResponses, errorResponses) = response.data.toSet.partition(_._2.error.code() == ErrorMapping.NoError)
 
       handleErrors(errorResponses, response)
 
@@ -219,18 +219,17 @@ class BrokerProxy(
     immutableNextOffsetsCopy.keySet.foreach(abdicate(_))
   }
 
-  def handleErrors(errorResponses: Set[(TopicAndPartition, FetchResponsePartitionData)], response:FetchResponse) = {
+  def handleErrors(errorResponses: Set[(TopicAndPartition, FetchResponsePartitionData)], response: FetchResponse) = {
     // FetchResponse should really return Option and a list of the errors so we don't have to find them ourselves
-    case class Error(tp: TopicAndPartition, code: Short, exception: Throwable)
+    case class Error(tp: TopicAndPartition, code: Short, exception: Exception)
 
     // Now subdivide the errors into three types: non-recoverable, not leader (== abdicate) and offset out of range (== get new offset)
 
     // Convert FetchResponse into easier-to-work-with Errors
     val errors = for (
       (topicAndPartition, responseData) <- errorResponses;
-      errorCode <- Option(response.errorCode(topicAndPartition.topic, topicAndPartition.partition)); // Scala's being cranky about referring to error.getKey values...
-      exception <- Option(ErrorMapping.exceptionFor(errorCode))
-    ) yield new Error(topicAndPartition, errorCode, exception)
+      error <- Option(response.error(topicAndPartition.topic, topicAndPartition.partition)) // Scala's being cranky about referring to error.getKey values...
+    ) yield new Error(topicAndPartition, error.code(), error.exception())
 
     val (notLeaderOrUnknownTopic, otherErrors) = errors.partition { case (e) => e.code == ErrorMapping.NotLeaderForPartitionCode || e.code == ErrorMapping.UnknownTopicOrPartitionCode }
     val (offsetOutOfRangeErrors, remainingErrors) = otherErrors.partition(_.code == ErrorMapping.OffsetOutOfRangeCode)
@@ -241,7 +240,7 @@ class BrokerProxy(
     // handle the recoverable errors.
     remainingErrors.foreach(e => {
       warn("Got non-recoverable error codes during multifetch. Throwing an exception to trigger reconnect. Errors: %s" format remainingErrors.mkString(","))
-      KafkaUtil.maybeThrowException(e.code) })
+      KafkaUtil.maybeThrowException(e.exception) })
 
     notLeaderOrUnknownTopic.foreach(e => abdicate(e.tp))
 

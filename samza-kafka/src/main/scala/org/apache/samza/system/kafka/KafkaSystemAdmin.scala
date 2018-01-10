@@ -164,7 +164,7 @@ class KafkaSystemAdmin(
           metadataTTL)
         val result = metadata.map {
           case (topic, topicMetadata) => {
-            KafkaUtil.maybeThrowException(topicMetadata.errorCode)
+            KafkaUtil.maybeThrowException(topicMetadata.error.exception())
             val partitionsMap = topicMetadata.partitionsMetadata.map {
               pm =>
                 new Partition(pm.partitionId) -> new SystemStreamPartitionMetadata("", "", "")
@@ -350,7 +350,7 @@ class KafkaSystemAdmin(
       .values
       // Convert the topic metadata to a Seq[(Broker, TopicAndPartition)]
       .flatMap(topicMetadata => {
-        KafkaUtil.maybeThrowException(topicMetadata.errorCode)
+        KafkaUtil.maybeThrowException(topicMetadata.error.exception())
         topicMetadata
           .partitionsMetadata
           // Convert Seq[PartitionMetadata] to Seq[(Broker, TopicAndPartition)]
@@ -390,7 +390,7 @@ class KafkaSystemAdmin(
       .getOffsetsBefore(new OffsetRequest(partitionOffsetInfo))
       .partitionErrorAndOffsets
       .mapValues(partitionErrorAndOffset => {
-        KafkaUtil.maybeThrowException(partitionErrorAndOffset.error)
+        KafkaUtil.maybeThrowException(partitionErrorAndOffset.error.exception())
         partitionErrorAndOffset.offsets.head
       })
 
@@ -480,7 +480,7 @@ class KafkaSystemAdmin(
         val metadataStore = new ClientUtilTopicMetadataStore(brokerListString, clientId, timeout)
         val topicMetadataMap = TopicMetadataCache.getTopicMetadata(Set(topicName), systemName, metadataStore.getTopicInfo, metadataTTL)
         val topicMetadata = topicMetadataMap(topicName)
-        KafkaUtil.maybeThrowException(topicMetadata.errorCode)
+        KafkaUtil.maybeThrowException(topicMetadata.error.exception())
 
         val partitionCount = topicMetadata.partitionsMetadata.length
         if (partitionCount != spec.getPartitionCount) {
