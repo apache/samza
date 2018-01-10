@@ -74,8 +74,14 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     configs.put(String.format("streams.%s.samza.key.serde", INPUT_TOPIC), "string");
 
     // run the application
-    RepartitionJoinWindowApp app = new RepartitionJoinWindowApp();
-    runApplication(app.getClass().getName(), APP_NAME, new MapConfig(configs));
+    Thread runThread = new Thread(() -> {
+        try {
+          runApplication(RepartitionJoinWindowApp.class.getName(), APP_NAME, new MapConfig(configs));
+        } catch (Exception e) {
+          System.out.print(e.getStackTrace());
+        }
+      });
+    runThread.start();
 
     // consume and validate result
     List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(OUTPUT_TOPIC), 2);
@@ -91,5 +97,8 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
         Assert.assertEquals("4", value);
       }
     }
+
+    runThread.interrupt();
+    runThread.join();
   }
 }

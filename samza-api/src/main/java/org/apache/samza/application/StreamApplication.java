@@ -28,8 +28,8 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamDescriptor;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.functions.InitableFunction;
 import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRuntimeResult;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.task.StreamTask;
 
@@ -41,35 +41,28 @@ import java.util.Map;
  * <p>
  * The following example removes page views older than 1 hour from the input stream:
  * <pre>{@code
- * public class PageViewCounter implements StreamApplication {
- *   public void init(StreamGraph graph, Config config) {
+ * public class PageViewCounter {
+ *   public static void main(String[] args) {
+ *     CommandLine cmdLine = new CommandLine();
+ *     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
+ *     StreamApplication app = StreamApplications.createStreamApp(config);
  *     MessageStream<PageViewEvent> pageViewEvents =
- *       graph.getInputStream("pageViewEvents", (k, m) -> (PageViewEvent) m);
+ *       app.openInput("pageViewEvents", (k, m) -> (PageViewEvent) m);
  *     OutputStream<String, PageViewEvent, PageViewEvent> recentPageViewEvents =
- *       graph.getOutputStream("recentPageViewEvents", m -> m.memberId, m -> m);
+ *       app.openOutput("recentPageViewEvents", m -> m.memberId, m -> m);
  *
  *     pageViewEvents
  *       .filter(m -> m.getCreationTime() > System.currentTimeMillis() - Duration.ofHours(1).toMillis())
  *       .sendTo(filteredPageViewEvents);
+ *     app.run();
+ *     app.waitForFinish();
  *   }
  * }
- * }</pre>
- *<p>
- * The example above can be run using an ApplicationRunner:
- * <pre>{@code
- *   public static void main(String[] args) {
- *     CommandLine cmdLine = new CommandLine();
- *     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
- *     PageViewCounter app = new PageViewCounter();
- *     LocalApplicationRunner runner = new LocalApplicationRunner(config);
- *     runner.run(app);
- *     runner.waitForFinish();
- *   }
  * }</pre>
  *
  * <p>
  * Implementation Notes: Currently StreamApplications are wrapped in a {@link StreamTask} during execution.
- * A new StreamApplication instance will be created and initialized when planning the execution, as well as for each
+ * A new instance of the user operator DAG will be created and initialized when creating each
  * {@link StreamTask} instance used for processing incoming messages. Execution is synchronous and thread-safe within
  * each {@link StreamTask}.
  *
@@ -77,7 +70,7 @@ import java.util.Map;
  * Functions implemented for transforms in StreamApplications ({@link org.apache.samza.operators.functions.MapFunction},
  * {@link org.apache.samza.operators.functions.FilterFunction} for e.g.) are initable and closable. They are initialized
  * before messages are delivered to them and closed after their execution when the {@link StreamTask} instance is closed.
- * See {@link InitableFunction} and {@link org.apache.samza.operators.functions.ClosableFunction}.
+ * See {@link org.apache.samza.operators.functions.InitableFunction} and {@link org.apache.samza.operators.functions.ClosableFunction}.
  */
 @InterfaceStability.Unstable
 public class StreamApplication implements ApplicationRunnable {
@@ -94,23 +87,18 @@ public class StreamApplication implements ApplicationRunnable {
   }
 
   @Override
-  public final void run() {
-    this.runner.run(this);
+  public ApplicationRuntimeResult run() {
+    return this.runner.run(this);
   }
 
   @Override
-  public final void kill() {
-    this.runner.kill(this);
+  public ApplicationRuntimeResult kill() {
+    return this.runner.kill(this);
   }
 
   @Override
-  public final ApplicationStatus status() {
+  public ApplicationStatus status() {
     return this.runner.status(this);
-  }
-
-  @Override
-  public final void waitForFinish() {
-    this.runner.waitForFinish(this);
   }
 
   public static class AppConfig extends MapConfig {

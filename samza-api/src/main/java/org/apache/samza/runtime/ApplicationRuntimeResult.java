@@ -16,20 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.testUtils;
-
-//import org.apache.samza.config.Config;
-//import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.application.StreamApplication;
+package org.apache.samza.runtime;
 
 
 /**
- * Test implementation class for {@link StreamApplication}
+ * Defines the interface methods of returned object from {@link ApplicationRunner#run(org.apache.samza.application.StreamApplication)}
+ * and {@link ApplicationRunner#kill(org.apache.samza.application.StreamApplication)}
  */
-public class TestStreamApplication {
-//public class TestStreamApplication implements StreamApplication {
-//  @Override
-//  public void init(StreamGraph graph, Config config) {
-//
-//  }
+public interface ApplicationRuntimeResult {
+
+  /**
+   * Method to be used as blocking call wait for the {@link ApplicationRunner} to finish. Behavior of this method
+   * is determined by the actual implementation class of {@link ApplicationRunner}.
+   */
+  void waitForFinish();
 }

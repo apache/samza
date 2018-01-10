@@ -58,8 +58,7 @@ public class RepartitionExample {
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), new MyStreamOutput(windowPane)))
         .sendTo(pageViewEventPerMember);
 
-    app.run();
-    app.waitForFinish();
+    app.run().waitForFinish();
   }
 
   class PageViewEvent {

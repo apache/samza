@@ -20,17 +20,16 @@
 package org.apache.samza.test.operator;
 
 import joptsimple.OptionSet;
+import org.apache.samza.application.ManagedApplicationMain;
 import org.apache.samza.application.StreamApplications;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.UserDefinedStreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.application.ManagedApplicationMain;
-import org.apache.samza.application.ApplicationMainOperation;
+import org.apache.samza.application.ManagedApplicationMain.*;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
@@ -44,50 +43,42 @@ import java.time.Duration;
 /**
  * A {@link StreamApplication} that demonstrates a partitionBy, stream-stream join and a windowed count.
  */
-public class RepartitionJoinWindowApp implements UserDefinedStreamApplication {
+public class RepartitionJoinWindowApp {
   static final String PAGE_VIEWS = "page-views";
   static final String AD_CLICKS = "ad-clicks";
   static final String OUTPUT_TOPIC = "user-ad-click-counts";
 
-//  public static void main(String[] args) throws Exception {
-//    ManagedApplicationMain.ApplicationMainCommandLine cmdLine = new ManagedApplicationMain.ApplicationMainCommandLine();
-//    OptionSet options = cmdLine.parser().parse(args);
-//    Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-//    StreamApplication app = StreamApplications.createStreamApp(config);
-//    ApplicationMainOperation op = cmdLine.getOperation(options);
-//
-//    RepartitionJoinWindowApp appMain = new RepartitionJoinWindowApp();
-//    appMain.init(config, app);
-//    ManagedApplicationMain.runCmd(app, op);
-//  }
+  public static void main(String[] args) throws Exception {
+    ApplicationMainCommandLine cmdLine = new ApplicationMainCommandLine();
+    OptionSet options = cmdLine.parser().parse(args);
+    Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
+    StreamApplication application = StreamApplications.createStreamApp(config);
 
-  @Override
-  public void init(Config config, StreamApplication application) throws Exception {
     MessageStream<PageView> pageViews = application.openInput(PAGE_VIEWS, new JsonSerdeV2<>(PageView.class));
     MessageStream<AdClick> adClicks = application.openInput(AD_CLICKS, new JsonSerdeV2<>(AdClick.class));
     OutputStream<KV<String, String>> outputStream =
         application.openOutput(OUTPUT_TOPIC, new KVSerde<>(new StringSerde(), new StringSerde()));
 
-    MessageStream<PageView> pageViewsRepartitionedByViewId = pageViews
+    pageViews
         .partitionBy(PageView::getViewId, pv -> pv, new KVSerde<>(new StringSerde(), new JsonSerdeV2<>(PageView.class)))
-        .map(KV::getValue);
-
-    MessageStream<AdClick> adClicksRepartitionedByViewId = adClicks
-        .partitionBy(AdClick::getViewId, ac -> ac, new KVSerde<>(new StringSerde(), new JsonSerdeV2<>(AdClick.class)))
-        .map(KV::getValue);
-
-    MessageStream<UserPageAdClick> userPageAdClicks = pageViewsRepartitionedByViewId
-        .join(adClicksRepartitionedByViewId, new UserPageViewAdClicksJoiner(),
-            new StringSerde(), new JsonSerdeV2<>(PageView.class), new JsonSerdeV2<>(AdClick.class),
-            Duration.ofMinutes(1));
-
-    userPageAdClicks
+        .map(KV::getValue)
+        .join(adClicks
+                .partitionBy(AdClick::getViewId, ac -> ac, new KVSerde<>(new StringSerde(), new JsonSerdeV2<>(AdClick.class)))
+                .map(KV::getValue),
+            new UserPageViewAdClicksJoiner(),
+            new StringSerde(),
+            new JsonSerdeV2<>(PageView.class),
+            new JsonSerdeV2<>(AdClick.class),
+            Duration.ofMinutes(1))
         .partitionBy(UserPageAdClick::getUserId, upac -> upac,
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(UserPageAdClick.class)))
         .map(KV::getValue)
         .window(Windows.keyedSessionWindow(UserPageAdClick::getUserId, Duration.ofSeconds(3), new StringSerde(), new JsonSerdeV2<>(UserPageAdClick.class)))
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), String.valueOf(windowPane.getMessage().size())))
         .sendTo(outputStream);
+
+    ApplicationMainOperation op = cmdLine.getOperation(options);
+    ManagedApplicationMain.runCmd(application, op);
   }
 
   private static class UserPageViewAdClicksJoiner implements JoinFunction<String, PageView, AdClick, UserPageAdClick> {

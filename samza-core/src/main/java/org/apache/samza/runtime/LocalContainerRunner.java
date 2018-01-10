@@ -19,6 +19,7 @@
 
 package org.apache.samza.runtime;
 
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Random;
 import org.apache.log4j.MDC;
@@ -28,6 +29,7 @@ import org.apache.samza.application.StreamApplicationInternal;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.ContainerHeartbeatClient;
 import org.apache.samza.container.ContainerHeartbeatMonitor;
 import org.apache.samza.container.SamzaContainer;
@@ -36,7 +38,6 @@ import org.apache.samza.container.SamzaContainerExceptionHandler;
 import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.task.TaskFactoryUtil;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
@@ -53,34 +54,118 @@ import static org.apache.samza.util.ScalaToJavaUtils.defaultValue;
  * Since we don't have the {@link org.apache.samza.coordinator.JobCoordinator} implementation in Yarn, the components (jobModel and containerId)
  * are directly inside the runner.
  */
-public class LocalContainerRunner extends ApplicationRunnerBase {
+public class LocalContainerRunner extends AbstractApplicationRunner {
   private static final Logger log = LoggerFactory.getLogger(LocalContainerRunner.class);
-  private final JobModel jobModel;
+  private static JobModel jobModel = null;
   private final String containerId;
   private volatile Throwable containerRunnerException = null;
   private ContainerHeartbeatMonitor containerHeartbeatMonitor;
   private SamzaContainer container;
 
+  // Default constructor invoked through user-defined main method
+  public LocalContainerRunner(Config config) {
+    super(config);
+    this.containerId = config.getOrDefault(ShellCommandConfig.ENV_CONTAINER_ID(), System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL()));
+    log.info(String.format("Got container ID: %s", containerId));
+  }
+
+  // constructor that is invoked via LocalContainerRunner#main() or ThreadJobFactory
   public LocalContainerRunner(JobModel jobModel, String containerId) {
     super(jobModel.getConfig());
-    this.jobModel = jobModel;
+    setJobModel(jobModel);
     this.containerId = containerId;
+    log.info(String.format("Got container ID: %s", containerId));
+  }
+
+  private static void setJobModel(JobModel jobModel) {
+    LocalContainerRunner.jobModel = jobModel;
+  }
+
+  private static JobModel getJobModel() {
+    if (jobModel == null) {
+      String coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL());
+      log.info(String.format("Got coordinator URL: %s", coordinatorUrl));
+      int delay = new Random().nextInt(SamzaContainer.DEFAULT_READ_JOBMODEL_DELAY_MS()) + 1;
+      jobModel = SamzaContainer.readJobModel(coordinatorUrl, delay);
+    }
+    return jobModel;
   }
 
   @Override
   public void runTask() {
-    throw new UnsupportedOperationException("Running StreamTask is not implemented for LocalContainerRunner");
+    // validation
+    String taskName = new TaskConfig(config).getTaskClass().getOrElse(defaultValue(null));
+    if (taskName == null) {
+      throw new SamzaException("Neither APP nor task.class are defined defined");
+    }
+    log.info("LocalContainerRunner will run " + taskName);
+
+    this.runContainerOnly(TaskFactoryUtil.createTaskFactory(config, null, this), getJobModel());
   }
 
   @Override
-  public void run(StreamApplication app) {
-    Object taskFactory = TaskFactoryUtil.createTaskFactory(config, new StreamApplicationInternal(app), LocalContainerRunner.this);
+  public ApplicationRuntimeResult run(StreamApplication app) {
+    Thread.setDefaultUncaughtExceptionHandler(
+        new SamzaContainerExceptionHandler(() -> {
+          log.info("Exiting process now.");
+          System.exit(1);
+        }));
+
+    this.runContainerOnly(TaskFactoryUtil.createTaskFactory(config, new StreamApplicationInternal(app), this), getJobModel());
+
+    return new NoOpRuntimeResult();
+  }
+
+  @Override
+  public ApplicationRuntimeResult kill(StreamApplication userApp) {
+    // Ultimately this class probably won't end up extending ApplicationRunner, so this will be deleted
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ApplicationStatus status(StreamApplication userApp) {
+    // Ultimately this class probably won't end up extending ApplicationRunner, so this will be deleted
+    throw new UnsupportedOperationException();
+  }
+
+  private void startContainerHeartbeatMonitor() {
+    String coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL());
+    String executionEnvContainerId = System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID());
+    if (executionEnvContainerId != null) {
+      log.info("Got execution environment container id: {}", executionEnvContainerId);
+      containerHeartbeatMonitor = new ContainerHeartbeatMonitor(() -> {
+          container.shutdown();
+          containerRunnerException = new SamzaException("Container shutdown due to expired heartbeat");
+        }, new ContainerHeartbeatClient(coordinatorUrl, executionEnvContainerId));
+      containerHeartbeatMonitor.start();
+    } else {
+      containerHeartbeatMonitor = null;
+      log.warn("executionEnvContainerId not set. Container heartbeat monitor will not be started");
+    }
+  }
+
+  private void stopContainerHeartbeatMonitor() {
+    if (containerHeartbeatMonitor != null) {
+      containerHeartbeatMonitor.stop();
+    }
+  }
+
+  private void runContainerOnly(Object taskFactory, JobModel jobModel) {
+    JobConfig jobConfig = new JobConfig(jobModel.getConfig());
+    if (jobConfig.getName().isEmpty()) {
+      throw new SamzaException("can not find the job name");
+    }
+    String jobName = jobConfig.getName().get();
+    String jobId = jobConfig.getJobId().getOrElse(defaultValue("1"));
+    MDC.put("containerName", "samza-container-" + containerId);
+    MDC.put("jobName", jobName);
+    MDC.put("jobId", jobId);
 
     container = SamzaContainer$.MODULE$.apply(
         containerId,
         jobModel,
-        config,
-        Util.<String, MetricsReporter>javaMapAsScalaMap(new HashMap<>()),
+        jobModel.getConfig(),
+        Util.javaMapAsScalaMap(new HashMap<>()),
         taskFactory);
     container.setContainerListener(
         new SamzaContainerListener() {
@@ -109,70 +194,24 @@ public class LocalContainerRunner extends ApplicationRunnerBase {
     }
   }
 
-  @Override
-  public void kill(StreamApplication userApp) {
-    // Ultimately this class probably won't end up extending ApplicationRunner, so this will be deleted
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public ApplicationStatus status(StreamApplication userApp) {
-    // Ultimately this class probably won't end up extending ApplicationRunner, so this will be deleted
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public void waitForFinish(StreamApplication userApp) {
-
-  }
-
   public static void main(String[] args) throws Exception {
+    Config config = getJobModel().getConfig();
     Thread.setDefaultUncaughtExceptionHandler(
         new SamzaContainerExceptionHandler(() -> {
           log.info("Exiting process now.");
           System.exit(1);
         }));
-    String containerId = System.getenv(ShellCommandConfig.ENV_CONTAINER_ID());
-    log.info(String.format("Got container ID: %s", containerId));
-    String coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL());
-    log.info(String.format("Got coordinator URL: %s", coordinatorUrl));
-    int delay = new Random().nextInt(SamzaContainer.DEFAULT_READ_JOBMODEL_DELAY_MS()) + 1;
-    JobModel jobModel = SamzaContainer.readJobModel(coordinatorUrl, delay);
-    Config config = jobModel.getConfig();
-    JobConfig jobConfig = new JobConfig(config);
-    if (jobConfig.getName().isEmpty()) {
-      throw new SamzaException("can not find the job name");
-    }
-    String jobName = jobConfig.getName().get();
-    String jobId = jobConfig.getJobId().getOrElse(defaultValue("1"));
-    MDC.put("containerName", "samza-container-" + containerId);
-    MDC.put("jobName", jobName);
-    MDC.put("jobId", jobId);
 
-    StreamApplication streamApp = TaskFactoryUtil.createStreamApplication(config);
-    LocalContainerRunner localContainerRunner = new LocalContainerRunner(jobModel, containerId);
-    localContainerRunner.run(streamApp);
-  }
-
-  private void startContainerHeartbeatMonitor() {
-    String coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL());
-    String executionEnvContainerId = System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID());
-    if (executionEnvContainerId != null) {
-      log.info("Got execution environment container id: {}", executionEnvContainerId);
-      containerHeartbeatMonitor = new ContainerHeartbeatMonitor(() -> {
-          container.shutdown();
-          containerRunnerException = new SamzaException("Container shutdown due to expired heartbeat");
-        }, new ContainerHeartbeatClient(coordinatorUrl, executionEnvContainerId));
-      containerHeartbeatMonitor.start();
+    StreamApplication.AppConfig appConfig = new StreamApplication.AppConfig(config);
+    if (appConfig.getAppClass() != null && !appConfig.getAppClass().isEmpty()) {
+      Class<?> cls = Class.forName(appConfig.getAppClass());
+      Method mainMethod = cls.getMethod("main", String[].class);
+      // enforce that the application runner for the user application is LocalContainerRunner
+      mainMethod.invoke(null, (Object) new String[] {"--config", String.format("%s=%s", StreamApplication.AppConfig.RUNNER_CONFIG, LocalContainerRunner.class.getName())});
     } else {
-      containerHeartbeatMonitor = null;
-      log.warn("executionEnvContainerId not set. Container heartbeat monitor will not be started");
-    }
-  }
-
-  private void stopContainerHeartbeatMonitor() {
-    if (containerHeartbeatMonitor != null) {
-      containerHeartbeatMonitor.stop();
+      // low-level task containers
+      LocalContainerRunner runner = new LocalContainerRunner(getJobModel(), System.getenv(ShellCommandConfig.ENV_CONTAINER_ID()));
+      runner.runTask();
     }
   }
 

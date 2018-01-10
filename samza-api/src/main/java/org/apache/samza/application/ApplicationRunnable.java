@@ -19,6 +19,7 @@
 package org.apache.samza.application;
 
 import org.apache.samza.job.ApplicationStatus;
+import org.apache.samza.runtime.ApplicationRuntimeResult;
 
 
 /**
@@ -27,28 +28,23 @@ import org.apache.samza.job.ApplicationStatus;
 public interface ApplicationRunnable {
   /**
    * Deploy and run the Samza jobs to execute this application.
-   * It is non-blocking so it doesn't wait for the application running.
-   *
+   * The behavior of the method is dependant on the {@link org.apache.samza.runtime.ApplicationRunner} configured for this application
    */
-  void run();
+  ApplicationRuntimeResult run();
 
   /**
    * Kill the Samza jobs represented by this application
-   * It is non-blocking so it doesn't wait for the application stopping.
-   *
+   * The behavior of the method is dependant on the {@link org.apache.samza.runtime.ApplicationRunner} configured for this application
    */
-  void kill();
+  ApplicationRuntimeResult kill();
 
   /**
    * Get the collective status of the Samza jobs represented by this application.
    * Returns {@link ApplicationStatus} running if all jobs are running.
+   * The behavior of the method is dependant on the {@link org.apache.samza.runtime.ApplicationRunner} configured for this application
    *
    * @return the status of the application
    */
   ApplicationStatus status();
 
-  /**
-   * Method to wait for the runner in the current JVM process to finish.
-   */
-  void waitForFinish();
 }

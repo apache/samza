@@ -264,11 +264,9 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     // ProcessedMessagesLatch shouldn't have changed. Should retain it's initial value.
     assertEquals(NUM_KAFKA_EVENTS, processedMessageLatch.getCount());
 
-    streamApp1.kill();
-    streamApp2.kill();
+    streamApp1.kill().waitForFinish();
+    streamApp2.kill().waitForFinish();
 
-    streamApp1.waitForFinish();
-    streamApp2.waitForFinish();
   }
 
   @Test
@@ -311,8 +309,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     assertEquals(PROCESSOR_IDS[0], processorIdsFromZK.get(0));
 
     // Kill the leader. Since streamApp1 is the first to join the cluster, it's the leader.
-    streamApp1.kill();
-    streamApp1.waitForFinish();
+    streamApp1.kill().waitForFinish();
     kafkaEventsConsumedLatch.await();
 
     // Verifications after killing the leader.
@@ -326,11 +323,9 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     assertEquals(Sets.newHashSet("0000000001", "0000000002"), jobModel.getContainers().keySet());
     assertEquals(2, jobModel.getContainers().size());
 
-    streamApp2.kill();
-    streamApp3.kill();
+    streamApp2.kill().waitForFinish();
+    streamApp3.kill().waitForFinish();
 
-    streamApp2.waitForFinish();
-    streamApp3.waitForFinish();
   }
 
   @Test
@@ -365,13 +360,10 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     expectedException.expect(SamzaException.class);
     streamApp3.run();
 
-    streamApp1.kill();
-    streamApp2.kill();
-    streamApp3.kill();
+    streamApp1.kill().waitForFinish();
+    streamApp2.kill().waitForFinish();
+    streamApp3.kill().waitForFinish();
 
-    streamApp1.waitForFinish();
-    streamApp2.waitForFinish();
-    streamApp3.waitForFinish();
   }
 
   @Test
@@ -415,8 +407,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     String jobModelVersion = zkUtils.getJobModelVersion();
     JobModel jobModel = zkUtils.getJobModel(jobModelVersion);
 
-    streamApp1.kill();
-    streamApp1.waitForFinish();
+    streamApp1.kill().waitForFinish();
 
     int lastProcessedMessageId = -1;
     for (TestStreamApplication.TestKafkaEvent message : messagesProcessed) {
@@ -441,11 +432,9 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     assertEquals(Integer.parseInt(jobModelVersion) + 1, Integer.parseInt(newJobModelVersion));
     assertEquals(jobModel.getContainers(), newJobModel.getContainers());
 
-    streamApp1.kill();
-    streamApp2.kill();
+    streamApp1.kill().waitForFinish();
+    streamApp2.kill().waitForFinish();
 
-    streamApp1.waitForFinish();
-    streamApp2.waitForFinish();
   }
 
   @Test
@@ -476,9 +465,6 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     kafkaServers.forEach(KafkaServer::shutdown);
 
     zookeeper().shutdown();
-
-    streamApp1.waitForFinish();
-    streamApp2.waitForFinish();
 
     assertEquals(ApplicationStatus.UnsuccessfulFinish, streamApp1.status());
     assertEquals(ApplicationStatus.UnsuccessfulFinish, streamApp2.status());

@@ -21,6 +21,11 @@ package org.apache.samza.application;
 import org.apache.samza.operators.StreamGraphImpl;
 
 
+/**
+ * This is a wrapper class s.t. we can access the {@link StreamGraphImpl} object in the {@link StreamApplication} inside
+ * Samza core code and not leaking it out to the end user.
+ *
+ */
 public class StreamApplicationInternal {
 
   private final StreamApplication app;

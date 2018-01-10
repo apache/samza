@@ -62,8 +62,7 @@ public class WindowExample {
         .map(WindowPane::getMessage)
         .sendTo(outputStream);
 
-    app.run();
-    app.waitForFinish();
+    app.run().waitForFinish();
   }
 
   class PageViewEvent {

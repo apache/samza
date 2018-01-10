@@ -63,5 +63,7 @@ public class SessionWindowApp {
             new JsonSerdeV2<>(PageView.class)))
         .map(m -> KV.of(m.getKey().getKey(), m.getMessage().size()))
         .sendTo(outputStream);
+
+    app.run().waitForFinish();
   }
 }

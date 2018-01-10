@@ -48,8 +48,7 @@ public class BroadcastExample {
     inputStream.filter(m -> m.key.equals("key2")).sendTo(app.openOutput("outStream2", pgeMsgSerde));
     inputStream.filter(m -> m.key.equals("key3")).sendTo(app.openOutput("outStream3", pgeMsgSerde));
 
-    app.run();
-    app.waitForFinish();
+    app.run().waitForFinish();
   }
 
   class PageViewEvent {

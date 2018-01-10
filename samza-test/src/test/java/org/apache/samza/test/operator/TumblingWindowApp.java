@@ -64,6 +64,7 @@ public class TumblingWindowApp {
         .window(Windows.keyedTumblingWindow(PageView::getUserId, Duration.ofSeconds(3), null, null))
         .map(m -> KV.of(m.getKey().getKey(), m.getMessage().size()))
         .sendTo(outputStream);
+    app.run().waitForFinish();
   }
 
 }

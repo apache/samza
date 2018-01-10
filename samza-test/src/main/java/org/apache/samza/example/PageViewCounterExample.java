@@ -48,12 +48,12 @@ public class PageViewCounterExample {
   public static void main(String[] args) throws IOException {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    StreamApplication appRuntime = StreamApplications.createStreamApp(config);
+    StreamApplication app = StreamApplications.createStreamApp(config);
 
     MessageStream<PageViewEvent> pageViewEvents = null;
-    pageViewEvents = appRuntime.openInput("pageViewEventStream", new JsonSerdeV2<>(PageViewEvent.class));
+    pageViewEvents = app.openInput("pageViewEventStream", new JsonSerdeV2<>(PageViewEvent.class));
     OutputStream<KV<String, PageViewCount>> pageViewEventPerMemberStream =
-        appRuntime.openOutput("pageViewEventPerMemberStream",
+        app.openOutput("pageViewEventPerMemberStream",
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageViewCount.class)));
 
     SupplierFunction<Integer> initialValue = () -> 0;
@@ -65,8 +65,7 @@ public class PageViewCounterExample {
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), new PageViewCount(windowPane)))
         .sendTo(pageViewEventPerMemberStream);
 
-    appRuntime.run();
-    appRuntime.waitForFinish();
+    app.run().waitForFinish();
   }
 
   class PageViewEvent {

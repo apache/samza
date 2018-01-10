@@ -21,8 +21,7 @@ package org.apache.samza.job
 
 
 import org.apache.samza.SamzaException
-import org.apache.samza.application.ApplicationMainOperation
-import org.apache.samza.application.ManagedApplicationMain.ApplicationMainCommandLine
+import org.apache.samza.application.ManagedApplicationMain.{ApplicationMainCommandLine, ApplicationMainOperation}
 import org.apache.samza.config.Config
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory

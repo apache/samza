@@ -215,7 +215,6 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
 
     Map<String, String> configs = new HashMap<>();
     configs.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
-//    configs.put("job.factory.class", "org.apache.samza.job.local.ThreadJobFactory");
     configs.put("job.name", appName);
     configs.put("serializers.registry.json.class", "org.apache.samza.serializers.JsonSerdeFactory");
     configs.put("serializers.registry.string.class", "org.apache.samza.serializers.StringSerdeFactory");
@@ -229,8 +228,6 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     configs.put("job.coordinator.system", "kafka");
     configs.put("job.default.system", "kafka");
     configs.put("job.coordinator.replication.factor", "1");
-//    configs.put("job.coordinator.factory", "org.apache.samza.zk.ZkJobCoordinatorFactory");
-//    configs.put("job.coordinator.zk.connect", zkConnect());
     configs.put("task.window.ms", "1000");
 
     // This is to prevent tests from taking a long time to stop after they're done. The issue is that
@@ -255,10 +252,9 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
   }
 
   private String[] getCommandLineConfigs(Map<String, String> configs) {
-    String[] cliParams = new String[configs.size() * 2 + 2];
+    String[] cliParams = new String[configs.size() * 2 + 1];
     int i = 0;
     cliParams[i++] = "--config-path=./src/test/resources/test-config.prop";
-    cliParams[i++] = "--operation=run";
     for (Map.Entry<String, String> entry : configs.entrySet()) {
       cliParams[i++] = "--config";
       cliParams[i++] = String.format("%s=%s", entry.getKey(), entry.getValue());

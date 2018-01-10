@@ -19,8 +19,10 @@
 
 package org.apache.samza.job.local
 
-import org.apache.samza.application.StreamApplicationInternal
-import org.apache.samza.config.Config
+import java.lang.reflect.Method
+
+import org.apache.samza.application.{StreamApplication, StreamApplicationInternal}
+import org.apache.samza.config.{Config, ShellCommandConfig}
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
 import org.apache.samza.container.{SamzaContainer, SamzaContainerListener}
@@ -41,47 +43,39 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     val jobModel = coordinator.jobModel
     val containerId = "0"
     val jmxServer = new JmxServer
-    val streamApp = {
-      val app = TaskFactoryUtil.createStreamApplication(config)
-      if (app == null) {
-        null
-      } else {
-        new StreamApplicationInternal(app)
-      }
-    }
-    val appRunner = new LocalContainerRunner(jobModel, "0")
-    val taskFactory = TaskFactoryUtil.createTaskFactory(config, streamApp, appRunner)
-
     // Give developers a nice friendly warning if they've specified task.opts and are using a threaded job.
     config.getTaskOpts match {
       case Some(taskOpts) => warn("%s was specified in config, but is not being used because job is being executed with ThreadJob. You probably want to run %s=%s." format (TASK_JVM_OPTS, STREAM_JOB_FACTORY_CLASS, classOf[ProcessJobFactory].getName))
       case _ => None
     }
 
-    val containerListener = new SamzaContainerListener {
-      override def onContainerFailed(t: Throwable): Unit = {
-        error("Container failed.", t)
-        throw t
-      }
+    val runApp = new Runnable {
+      override def run(): Unit = {
+        coordinator.start
 
-      override def onContainerStop(pausedOrNot: Boolean): Unit = {
-      }
-
-      override def onContainerStart(): Unit = {
-
+        val appConfig = new StreamApplication.AppConfig(config)
+        if (appConfig.getAppClass != null && !appConfig.getAppClass.isEmpty) {
+          val cls = Class.forName(appConfig.getAppClass)
+          val mainMethod = cls.getMethod("main", classOf[Array[String]])
+          // enforce that the application runner for the user application is LocalContainerRunner
+          mainMethod.invoke(
+              null,
+              Array[String](
+                "--config", String.format("%s=%s", StreamApplication.AppConfig.RUNNER_CONFIG, classOf[LocalContainerRunner].getName),
+                "--config", String.format("%s=%s", ShellCommandConfig.ENV_CONTAINER_ID, containerId)
+              )
+              .asInstanceOf[Object]
+          )
+        }
+        else { // low-level task containers
+          val runner = new LocalContainerRunner(jobModel, containerId)
+          runner.runTask()
+        }
       }
     }
-    try {
-      coordinator.start
-      val container = SamzaContainer(
-        containerId,
-        jobModel,
-        config,
-        Map[String, MetricsReporter](),
-        taskFactory)
-      container.setContainerListener(containerListener)
 
-      val threadJob = new ThreadJob(container)
+    try {
+      val threadJob = new ThreadJob(runApp)
       threadJob
     } finally {
       coordinator.stop

@@ -40,7 +40,7 @@ import org.slf4j.LoggerFactory;
 /**
  * This class implements the {@link ApplicationRunner} that runs the applications in a remote cluster
  */
-public class RemoteApplicationRunner extends ApplicationRunnerBase {
+public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
   private static final Logger LOG = LoggerFactory.getLogger(RemoteApplicationRunner.class);
 
@@ -59,12 +59,7 @@ public class RemoteApplicationRunner extends ApplicationRunnerBase {
   }
 
   @Override
-  public void waitForFinish(StreamApplication app) {
-    throw new UnsupportedOperationException("waitForFinish is not supported in RemoteApplicationRunner");
-  }
-
-  @Override
-  public void run(StreamApplication userApp) {
+  public ApplicationRuntimeResult run(StreamApplication userApp) {
     StreamApplicationInternal app = new StreamApplicationInternal(userApp);
     try {
       // 1. initialize and plan
@@ -83,6 +78,8 @@ public class RemoteApplicationRunner extends ApplicationRunnerBase {
     } catch (Throwable t) {
       throw new SamzaException("Failed to run application", t);
     }
+
+    return new NoOpRuntimeResult();
   }
 
   private ExecutionPlan getExecutionPlan(StreamApplicationInternal app) throws Exception {
@@ -90,7 +87,7 @@ public class RemoteApplicationRunner extends ApplicationRunnerBase {
   }
 
   @Override
-  public void kill(StreamApplication userApp) {
+  public ApplicationRuntimeResult kill(StreamApplication userApp) {
     StreamApplicationInternal app = new StreamApplicationInternal(userApp);
     try {
       ExecutionPlan plan = getExecutionPlan(app);
@@ -103,6 +100,8 @@ public class RemoteApplicationRunner extends ApplicationRunnerBase {
     } catch (Throwable t) {
       throw new SamzaException("Failed to kill application", t);
     }
+
+    return new NoOpRuntimeResult();
   }
 
   @Override
@@ -167,4 +166,5 @@ public class RemoteApplicationRunner extends ApplicationRunnerBase {
     LOG.info("Previous config is: " + cfg.toString());
     return cfg;
   }
+
 }

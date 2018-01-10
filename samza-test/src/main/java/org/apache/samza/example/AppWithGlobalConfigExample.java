@@ -54,8 +54,7 @@ public class AppWithGlobalConfigExample {
         .map(m -> KV.of(m.getKey().getKey(), new PageViewCount(m)))
         .sendTo(app.openOutput("pageViewEventPerMemberStream", KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewCount.class))));
 
-    app.run();
-    app.waitForFinish();
+    app.run().waitForFinish();
   }
 
   class PageViewEvent {

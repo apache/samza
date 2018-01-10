@@ -58,8 +58,7 @@ public class OrderShipmentJoinExample {
         .map(fulFilledOrder -> KV.of(fulFilledOrder.orderId, fulFilledOrder))
         .sendTo(fulfilledOrders);
 
-    app.run();
-    app.waitForFinish();
+    app.run().waitForFinish();
   }
 
   static class MyJoinFunction implements JoinFunction<String, OrderRecord, ShipmentRecord, FulfilledOrderRecord> {

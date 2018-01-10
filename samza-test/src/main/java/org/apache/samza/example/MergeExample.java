@@ -44,8 +44,7 @@ public class MergeExample {
         app.openInput("viewStream2", pgeMsgSerde), app.openInput("viewStream3", pgeMsgSerde)))
         .sendTo(app.openOutput("mergedStream", pgeMsgSerde));
 
-    app.run();
-    app.waitForFinish();
+    app.run().waitForFinish();
   }
 
   class PageViewEvent {

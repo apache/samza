@@ -61,7 +61,6 @@ public class RepartitionWindowApp {
         .map(wp -> KV.of(wp.getKey().getKey().toString(), wp.getMessage()))
         .sendTo(reparApp.openOutput(OUTPUT_TOPIC));
 
-    reparApp.run();
-    reparApp.waitForFinish();
+    reparApp.run().waitForFinish();
   }
 }

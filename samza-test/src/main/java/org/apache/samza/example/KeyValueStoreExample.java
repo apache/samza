@@ -64,8 +64,7 @@ public class KeyValueStoreExample {
         .map(stats -> KV.of(stats.memberId, stats))
         .sendTo(pageViewEventPerMember);
 
-    app.run();
-    app.waitForFinish();
+    app.run().waitForFinish();
   }
 
   static class MyStatsCounter implements FlatMapFunction<PageViewEvent, StatsOutput> {

@@ -24,20 +24,54 @@ import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 import org.apache.samza.config.Config;
 import org.apache.samza.job.JobRunner$;
-import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.Util;
 
 
 /**
  * This class contains the main() method used by run-app.sh.
- * For a StreamApplication, it creates the {@link ApplicationRunner} based on the config, and then run the application.
+ * For a StreamApplication, it pass along the config and runs the application's main.
  * For a Samza job using low level task API, it will create the JobRunner to run it.
  */
 public class ManagedApplicationMain {
 
+  public static void main(String[] args) throws Exception {
+    ApplicationMainCommandLine cmdLine = new ApplicationMainCommandLine();
+    OptionSet options = cmdLine.parser().parse(args);
+    Config orgConfig = cmdLine.loadConfig(options);
+    Config config = Util.rewriteConfig(orgConfig);
+
+    StreamApplication.AppConfig appConfig = new StreamApplication.AppConfig(config);
+    if (appConfig.getAppClass() != null && !appConfig.getAppClass().isEmpty()) {
+      Class<?> cls = Class.forName(appConfig.getAppClass());
+      Method mainMethod = cls.getMethod("main", String[].class);
+      mainMethod.invoke(null, (Object) args);
+    } else {
+      JobRunner$.MODULE$.main(args);
+    }
+  }
+
+  public static void runCmd(StreamApplication app, ApplicationMainOperation op) {
+    switch (op) {
+      case RUN:
+        app.run().waitForFinish();
+        break;
+      case KILL:
+        app.kill().waitForFinish();
+        break;
+      case STATUS:
+        System.out.println(app.status());
+        break;
+      default:
+        throw new IllegalArgumentException("Unrecognized operation: " + op);
+    }
+  }
+
+  /**
+   * Managed application main's command line parser class
+   */
   public static class ApplicationMainCommandLine extends CommandLine {
-    public OptionSpec operationOpt =
+    private final OptionSpec operationOpt =
         parser().accepts("operation", "The operation to perform; run, status, kill.")
             .withRequiredArg()
             .ofType(String.class)
@@ -50,43 +84,25 @@ public class ManagedApplicationMain {
     }
   }
 
-  public static void main(String[] args) throws Exception {
-    ApplicationMainCommandLine cmdLine = new ApplicationMainCommandLine();
-    OptionSet options = cmdLine.parser().parse(args);
-    Config orgConfig = cmdLine.loadConfig(options);
-    Config config = Util.rewriteConfig(orgConfig);
-    ApplicationMainOperation op = cmdLine.getOperation(options);
-    StreamApplication.AppConfig appConfig = new StreamApplication.AppConfig(config);
+  /**
+   * Operation to perform in the {@link ManagedApplicationMain}
+   */
+  public enum ApplicationMainOperation {
+    RUN("run"), KILL("kill"), STATUS("status");
 
-    if (appConfig.getAppClass() != null && !appConfig.getAppClass().isEmpty()) {
-      StreamApplication app = StreamApplications.createStreamApp(config);
-      if (Class.forName(appConfig.getAppClass()).isAssignableFrom(UserDefinedStreamApplication.class)) {
-        UserDefinedStreamApplication userApp = Util.getObj(appConfig.getAppClass());
-        userApp.init(config, app);
-        runCmd(app, op);
-      } else {
-        Class<?> cls = Class.forName(appConfig.getAppClass());
-        Method mainMethod = cls.getMethod("main", String[].class);
-        mainMethod.invoke(null, (Object) args);
-      }
-    } else {
-      JobRunner$.MODULE$.main(args);
+    private final String str;
+
+    public static ApplicationMainOperation fromString(String string) {
+      return ApplicationMainOperation.valueOf(string.toUpperCase());
     }
-  }
 
-  public static void runCmd(StreamApplication app, ApplicationMainOperation op) {
-    switch (op) {
-      case RUN:
-        app.run();
-        break;
-      case KILL:
-        app.kill();
-        break;
-      case STATUS:
-        System.out.println(app.status());
-        break;
-      default:
-        throw new IllegalArgumentException("Unrecognized operation: " + op);
+    ApplicationMainOperation(String str) {
+      this.str = str;
+    }
+
+    @Override
+    public String toString() {
+      return str;
     }
   }
 }

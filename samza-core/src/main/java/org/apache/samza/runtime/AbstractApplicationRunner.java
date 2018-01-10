@@ -34,17 +34,20 @@ import org.apache.samza.system.SystemStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.google.common.base.Preconditions.*;
+
 
 /**
  * Defines common, core behavior for implementations of the {@link ApplicationRunner} API
  */
-public abstract class ApplicationRunnerBase implements ApplicationRunner {
-  private static final Logger log = LoggerFactory.getLogger(ApplicationRunnerBase.class);
+public abstract class AbstractApplicationRunner implements ApplicationRunner {
+  private static final Logger log = LoggerFactory.getLogger(AbstractApplicationRunner.class);
 
   protected final Config config;
   protected final Map<String, MetricsReporter> metricsReporters = new HashMap<>();
 
-  public ApplicationRunnerBase(Config config) {
+  public AbstractApplicationRunner(Config config) {
+    checkNotNull(config, "Configuration for an ApplicationRunner cannot be null");
     this.config = config;
   }
 
@@ -80,7 +83,7 @@ public abstract class ApplicationRunnerBase implements ApplicationRunner {
   }
 
   @Override
-  public StreamSpec getStreamSpec(String streamId) {
+  public final StreamSpec getStreamSpec(String streamId) {
     StreamConfig streamConfig = new StreamConfig(config);
     SystemStream stream = streamConfig.streamIdToSystemStream(streamId);
     MapConfig streamProps = streamConfig.getStreamProperties(streamId);

@@ -46,6 +46,7 @@ import org.apache.samza.operators.impl.TestOperatorImpl;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.TestStreamProcessorUtil;
+import org.apache.samza.runtime.ApplicationRuntimeResult;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.runtime.TestLocalApplicationRunner;
 import org.apache.samza.serializers.IntegerSerdeFactory;
@@ -150,11 +151,12 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
           .sink((m, collector, coordinator) -> {
               received.add(m.getValue());
             });
-    app.run();
+    ApplicationRuntimeResult result = app.run();
+    // processors are only available when the app is running
     Map<String, StreamOperatorTask> tasks = getTaskOperationGraphs(app);
 
-    app.waitForFinish();
-
+    result.waitForFinish();
+    // wait for the completion to ensure that all tasks are actually initialized and the OperatorImplGraph is initialized
     StreamOperatorTask task0 = tasks.get("Partition 0");
     OperatorImplGraph graph = TestStreamOperatorTask.getOperatorImplGraph(task0);
     OperatorImpl pb = getOperator(graph, OperatorSpec.OpCode.PARTITION_BY);

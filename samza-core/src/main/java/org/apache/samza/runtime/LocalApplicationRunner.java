@@ -58,7 +58,7 @@ import static org.apache.samza.util.ScalaToJavaUtils.defaultValue;
 /**
  * This class implements the {@link StreamApplication} that runs the applications in standalone environment
  */
-public class LocalApplicationRunner extends ApplicationRunnerBase {
+public class LocalApplicationRunner extends AbstractApplicationRunner {
 
   private static final Logger LOG = LoggerFactory.getLogger(LocalApplicationRunner.class);
   private static final String APPLICATION_RUNNER_PATH_SUFFIX = "/ApplicationRunnerData";
@@ -154,7 +154,7 @@ public class LocalApplicationRunner extends ApplicationRunnerBase {
   }
 
   @Override
-  public void run(StreamApplication userApp) {
+  public ApplicationRuntimeResult run(StreamApplication userApp) {
     StreamApplicationInternal app = new StreamApplicationInternal(userApp);
     this.streamManager = new StreamManager(new JavaSystemConfig(config).getSystemAdmins());
     this.planner = new ExecutionPlanner(config, streamManager);
@@ -176,7 +176,7 @@ public class LocalApplicationRunner extends ApplicationRunnerBase {
       plan.getJobConfigs().forEach(jobConfig -> {
           LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
           LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
-          StreamProcessor processor = createStreamProcessor(jobConfig, TaskFactoryUtil.createTaskFactory(config, app, LocalApplicationRunner.this), listener);
+          StreamProcessor processor = createStreamProcessor(jobConfig, TaskFactoryUtil.createTaskFactory(config, app, this), listener);
           listener.setProcessor(processor);
           processors.add(processor);
         });
@@ -187,6 +187,8 @@ public class LocalApplicationRunner extends ApplicationRunnerBase {
     } catch (Exception e) {
       throw new SamzaException("Failed to start application", e);
     }
+
+    return new SyncRuntimeResult(this);
   }
 
   @VisibleForTesting
@@ -195,23 +197,15 @@ public class LocalApplicationRunner extends ApplicationRunnerBase {
   }
 
   @Override
-  public void kill(StreamApplication app) {
+  public ApplicationRuntimeResult kill(StreamApplication app) {
     processors.forEach(StreamProcessor::stop);
+
+    return new SyncRuntimeResult(this);
   }
 
   @Override
   public ApplicationStatus status(StreamApplication app) {
     return appStatus;
-  }
-
-  @Override
-  public void waitForFinish(StreamApplication userApp) {
-    try {
-      shutdownLatch.await();
-    } catch (Exception e) {
-      LOG.error("Wait is interrupted by exception", e);
-      throw new SamzaException(e);
-    }
   }
 
   /**
@@ -292,5 +286,27 @@ public class LocalApplicationRunner extends ApplicationRunnerBase {
   /* package private for testing */
   Set<StreamProcessor> getProcessors() {
     return processors;
+  }
+
+  /**
+   * The synchronous version of {@link ApplicationRuntimeResult} that allows users to block on waitForFinish()
+   */
+  class SyncRuntimeResult implements ApplicationRuntimeResult {
+    private final LocalApplicationRunner runner;
+
+    SyncRuntimeResult(LocalApplicationRunner runner) {
+      this.runner = runner;
+    }
+
+    @Override
+    public void waitForFinish() {
+      try {
+        this.runner.shutdownLatch.await();
+      } catch (Exception e) {
+        LOG.error("Wait is interrupted by exception", e);
+        throw new SamzaException(e);
+      }
+
+    }
   }
 }

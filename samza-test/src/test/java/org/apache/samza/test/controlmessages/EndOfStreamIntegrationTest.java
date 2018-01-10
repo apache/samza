@@ -99,8 +99,7 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
         .sink((m, collector, coordinator) -> {
             received.add(m.getValue());
           });
-    app.run();
-    app.waitForFinish();
+    app.run().waitForFinish();
 
     assertEquals(received.size(), count * partitionCount);
   }

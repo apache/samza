@@ -71,13 +71,29 @@ public interface ApplicationRunner {
   @Deprecated
   void runTask();
 
-  void run(StreamApplication app);
+  /**
+   * The method to run the application. The implementation of this method has to be a non-blocking function.
+   *
+   * @param app the user application to run
+   * @return {@link ApplicationRuntimeResult} object that user can choose to wait for finish
+   */
+  ApplicationRuntimeResult run(StreamApplication app);
 
-  void kill(StreamApplication app);
+  /**
+   * The method to kill the application. The implementation of this method has to be a non-blocking function.
+   *
+   * @param app the user application to kill
+   * @return {@link ApplicationRuntimeResult} object that user can choose to wait for finish
+   */
+  ApplicationRuntimeResult kill(StreamApplication app);
 
+  /**
+   * The method to query the status of the application. The implementation of this method has to be non-blocking function.
+   *
+   * @param app the user application to query for status
+   * @return the {@link ApplicationStatus} of the user application
+   */
   ApplicationStatus status(StreamApplication app);
-
-  void waitForFinish(StreamApplication app);
 
   /**
    * Create an empty {@link StreamGraph} object to instantiate the user defined operator DAG.
@@ -93,5 +109,12 @@ public interface ApplicationRunner {
    */
   void addMetricsReporters(Map<String, MetricsReporter> metricsReporters);
 
+  /**
+   * Method to get {@link StreamSpec} from the system configuration
+   *
+   * @param streamId unique ID to identify a stream
+   * @return the {@link StreamSpec} object that describes the physical details of the stream
+   */
   StreamSpec getStreamSpec(String streamId);
+
 }
