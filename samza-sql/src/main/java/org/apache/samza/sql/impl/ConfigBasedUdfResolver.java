@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Collectors;
-
 import org.apache.commons.lang.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -74,19 +73,20 @@ public class ConfigBasedUdfResolver implements UdfResolver {
         throw new SamzaException(msg);
       }
 
-      Optional<Method> udfMethod =
-          Arrays.stream(udfClass.getMethods()).filter(x -> x.getName().equals(UDF_METHOD_NAME)).findFirst();
+      Method udfMethod;
 
-      if (!udfMethod.isPresent()) {
+      try {
+        udfMethod = udfClass.getMethod(UDF_METHOD_NAME, Object[].class);
+      } catch (NoSuchMethodException e) {
         String msg = String.format("Udf Class %s doesn't implement method named %s", udfClassName, UDF_METHOD_NAME);
         LOG.error(msg);
-        throw new SamzaException(msg);
+        throw new SamzaException(msg, e);
       }
 
       int udfIndex = udfClass.getSimpleName().toLowerCase().lastIndexOf("udf");
       String udfName = udfClass.getSimpleName().substring(0, udfIndex);
 
-      udfs.add(new UdfMetadata(udfName, udfMethod.get(), udfConfig.subset(udfName + ".")));
+      udfs.add(new UdfMetadata(udfName, udfMethod, udfConfig.subset(udfName + ".")));
     }
   }
 
