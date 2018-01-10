@@ -134,4 +134,20 @@ public class TestSamzaSqlEndToEnd {
     Assert.assertTrue(
         IntStream.range(0, numMessages).map(udf::execute).boxed().collect(Collectors.toList()).equals(outMessages));
   }
+
+  @Test
+  public void testRegexMatchUdfInWhereClause() throws Exception {
+    int numMessages = 20;
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
+    String sql1 = "Insert into testavro.outputTopic select id from testavro.SIMPLE1 where RegexMatch('.*4', Name)";
+    List<String> sqlStmts = Collections.singletonList(sql1);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
+    runner.runAndWaitForFinish();
+
+    LOG.info("output Messages " + TestAvroSystemFactory.messages);
+    // There should be two messages that contain "4"
+    Assert.assertEquals(TestAvroSystemFactory.messages.size(), 2);
+  }
 }

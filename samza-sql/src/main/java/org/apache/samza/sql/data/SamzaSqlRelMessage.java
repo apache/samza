@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.apache.commons.lang.Validate;
 
 
 /**
@@ -51,6 +52,7 @@ public class SamzaSqlRelMessage {
    *               all the fields in the row can be null.
    */
   public SamzaSqlRelMessage(Object key, List<String> names, List<Object> values) {
+    Validate.isTrue(names.size() == values.size(), "Field Names and values are not of same length.");
     this.key = key;
     this.value.addAll(values);
     this.names.addAll(names);

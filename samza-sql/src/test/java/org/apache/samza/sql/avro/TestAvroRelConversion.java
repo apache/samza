@@ -137,6 +137,20 @@ public class TestAvroRelConversion {
     LOG.info(Joiner.on(",").join(message.getFieldNames()));
   }
 
+  @Test
+  public void testEmptyRecordConversion() {
+    GenericData.Record record = new GenericData.Record(SimpleRecord.SCHEMA$);
+    SamzaSqlRelMessage message = simpleRecordAvroRelConverter.convertToRelMessage(new KV<>("key", record));
+    Assert.assertEquals(message.getFieldNames().size(), message.getFieldValues().size());
+  }
+
+
+  @Test
+  public void testNullRecordConversion() {
+    SamzaSqlRelMessage message = simpleRecordAvroRelConverter.convertToRelMessage(new KV<>("key", null));
+    Assert.assertEquals(message.getFieldNames().size(), message.getFieldValues().size());
+  }
+
   public static <T> byte[] encodeAvroSpecificRecord(Class<T> clazz, T record) throws IOException {
     DatumWriter<T> msgDatumWriter = new SpecificDatumWriter<>(clazz);
     ByteArrayOutputStream os = new ByteArrayOutputStream();
