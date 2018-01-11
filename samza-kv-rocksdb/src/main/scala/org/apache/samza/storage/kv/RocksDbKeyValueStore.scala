@@ -72,13 +72,24 @@ object RocksDbKeyValueStore extends Logging {
           RocksDB.open(options, dir.toString)
         }
 
-      if (storeConfig.containsKey("rocksdb.metrics.list")) {
-        storeConfig
-          .get("rocksdb.metrics.list")
-          .split(",")
-          .map(property => property.trim)
-          .foreach(property => metrics.newGauge(property, () => rocksDb.getProperty(property)))
-      }
+      // See https://github.com/facebook/rocksdb/blob/master/include/rocksdb/db.h for available properties
+      val rocksDbMetrics = Set (
+        "rocksdb.estimate-table-readers-mem", // indexes and bloom filters
+        "rocksdb.cur-size-active-mem-table", // approximate active memtable size in bytes
+        "rocksdb.cur-size-all-mem-tables", // approximate active and unflushed memtable size in bytes
+        "rocksdb.size-all-mem-tables", // approximate active, unflushed and pinned memtable size in bytes
+        "rocksdb.estimate-num-keys" // approximate number keys in the active and unflushed memtable and storage
+      )
+
+      val configuredMetrics = storeConfig
+        .get("rocksdb.metrics.list", "")
+        .split(",")
+        .map(property => property.trim)
+        .filter(!_.isEmpty)
+        .toSet
+
+      (configuredMetrics ++ rocksDbMetrics)
+        .foreach(property => metrics.newGauge(property, () => rocksDb.getProperty(property)))
 
       rocksDb
     } catch {
