@@ -121,21 +121,7 @@ class JobRunner(config: Config) extends Logging {
 
     job.submit()
 
-    info("waiting for job to start")
-
-    // Wait until the job has started, then exit.
-    Option(job.waitForStatus(Running, TimeUnit.MINUTES.toMillis(5))) match {
-      case Some(appStatus) => {
-        if (Running.equals(appStatus)) {
-          info("job started successfully - " + appStatus)
-        } else {
-          warn("unable to start job successfully. job has status %s" format (appStatus))
-        }
-      }
-      case _ => warn("unable to start job successfully.")
-    }
-
-    info("exiting")
+    info("Job submitted. Check status to determine when it is running.")
     job
   }
 
@@ -145,21 +131,7 @@ class JobRunner(config: Config) extends Logging {
     // Create the actual job, and kill it.
     val job = jobFactory.getJob(config).kill()
 
-    info("waiting for job to terminate")
-
-    // Wait until the job has terminated, then exit.
-    Option(job.waitForFinish(TimeUnit.SECONDS.toMillis(5))) match {
-      case Some(appStatus) => {
-        if (SuccessfulFinish.equals(appStatus)) {
-          info("job terminated successfully - " + appStatus)
-        } else {
-          warn("unable to terminate job successfully. job has status %s" format (appStatus))
-        }
-      }
-      case _ => warn("unable to terminate job successfully.")
-    }
-
-    info("exiting")
+    info("Kill command executed. Check status to determine when it is terminated.")
   }
 
   def status(): ApplicationStatus = {

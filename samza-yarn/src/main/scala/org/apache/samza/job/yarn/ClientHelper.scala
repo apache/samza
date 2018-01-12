@@ -333,10 +333,12 @@ class ClientHelper(conf: Configuration) extends Logging {
     try {
       val metrics = amClient.getMetrics
       debug("Got metrics: " + metrics.toString)
+
       val neededContainers = Integer.parseInt(
         metrics.get(classOf[SamzaAppMasterMetrics].getCanonicalName)
           .get("needed-containers")
           .toString)
+
       info("Needed containers: " + neededContainers)
       if (neededContainers == 0) {
         true
