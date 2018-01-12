@@ -19,18 +19,19 @@
 
 package org.apache.samza.sql.testutil;
 
+import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.udfs.ScalarUdf;
 
 
-public class MyTestArrayUdf implements ScalarUdf {
+public class MyTestArrayUdf implements ScalarUdf<List<String>> {
   @Override
   public void init(Config udfConfig) {
   }
 
-  public Object execute(Object... args) {
+  public List<String> execute(Object... args) {
     Integer value = (Integer) args[0];
     return IntStream.range(0, value).mapToObj(String::valueOf).collect(Collectors.toList());
   }

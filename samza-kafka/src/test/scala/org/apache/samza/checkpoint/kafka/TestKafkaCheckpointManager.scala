@@ -52,15 +52,12 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
   val checkpoint1 = new Checkpoint(ImmutableMap.of(ssp, "offset-1"))
   val checkpoint2 = new Checkpoint(ImmutableMap.of(ssp, "offset-2"))
   val taskName = new TaskName("Partition 0")
-
-  var brokers: String = null
   var config: Config = null
 
   @Before
   override def setUp {
     super.setUp
     TestUtils.waitUntilTrue(() => servers.head.metadataCache.getAliveBrokers.size == numBrokers, "Wait for cache to update")
-    brokers = brokerList.split(",").map(p => "localhost" + p).mkString(",")
     config = getConfig()
   }
 
@@ -140,7 +137,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val defaultSerializer = classOf[ByteArraySerializer].getCanonicalName
     val props = new Properties()
     props.putAll(ImmutableMap.of(
-      ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers,
+      ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList,
       ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, defaultSerializer,
       ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, defaultSerializer))
     props
@@ -150,9 +147,8 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     new MapConfig(new ImmutableMap.Builder[String, String]()
       .put(JobConfig.JOB_NAME, "some-job-name")
       .put(JobConfig.JOB_ID, "i001")
-      .put(JobConfig.SSP_GROUPER_FACTORY, sspGrouperFactoryName)
       .put(s"systems.$checkpointSystemName.samza.factory", classOf[KafkaSystemFactory].getCanonicalName)
-      .put(s"systems.$checkpointSystemName.producer.bootstrap.servers", brokers)
+      .put(s"systems.$checkpointSystemName.producer.bootstrap.servers", brokerList)
       .put(s"systems.$checkpointSystemName.consumer.zookeeper.connect", zkConnect)
       .put("task.checkpoint.system", checkpointSystemName)
       .build())

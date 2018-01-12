@@ -24,9 +24,10 @@ import java.nio.ByteBuffer
 import java.util.concurrent.CountDownLatch
 
 import kafka.api.{PartitionOffsetsResponse, _}
-import kafka.common.{ErrorMapping, TopicAndPartition}
+import kafka.common.TopicAndPartition
 import kafka.consumer.SimpleConsumer
 import kafka.message.{ByteBufferMessageSet, Message, MessageAndOffset, MessageSet}
+import org.apache.kafka.common.protocol.Errors
 import org.apache.samza.SamzaException
 import org.apache.samza.util.Logging
 import org.junit.Assert._
@@ -165,7 +166,7 @@ class TestBrokerProxy extends Logging {
               messageSet
             }
 
-            val fetchResponsePartitionData = FetchResponsePartitionData(0, 500, messageSet)
+            val fetchResponsePartitionData = FetchResponsePartitionData(Errors.NONE, 500, messageSet)
             val map = scala.Predef.Map[TopicAndPartition, FetchResponsePartitionData](tp -> fetchResponsePartitionData)
 
             when(fetchResponse.data).thenReturn(map.toSeq)
@@ -257,12 +258,12 @@ class TestBrokerProxy extends Logging {
           }
           val mfr = mock(classOf[FetchResponse])
           when(mfr.hasError).thenReturn(true)
-          when(mfr.errorCode("topic", 42)).thenReturn(ErrorMapping.OffsetOutOfRangeCode)
+          when(mfr.error("topic", 42)).thenReturn(Errors.OFFSET_OUT_OF_RANGE)
 
           val messageSet = mock(classOf[MessageSet])
           when(messageSet.iterator).thenReturn(Iterator.empty)
           val response = mock(classOf[FetchResponsePartitionData])
-          when(response.error).thenReturn(ErrorMapping.OffsetOutOfRangeCode)
+          when(response.error).thenReturn(Errors.OFFSET_OUT_OF_RANGE)
           val responseMap = Map(tp -> response)
           when(mfr.data).thenReturn(responseMap.toSeq)
           invocationCount += 1

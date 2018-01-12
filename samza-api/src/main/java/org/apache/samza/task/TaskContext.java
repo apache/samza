@@ -19,12 +19,14 @@
 
 package org.apache.samza.task;
 
+import java.util.Set;
+
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.table.Table;
 
-import java.util.Set;
 
 /**
  * A TaskContext provides resources about the {@link org.apache.samza.task.StreamTask}, particularly during
@@ -36,6 +38,8 @@ public interface TaskContext {
   Set<SystemStreamPartition> getSystemStreamPartitions();
 
   Object getStore(String name);
+
+  Table getTable(String tableId);
 
   TaskName getTaskName();
 

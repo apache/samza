@@ -231,11 +231,7 @@
                     <td class="property" id="job-coordinator-monitor-partition-change">job.coordinator.<br />monitor-partition-change</td>
                     <td class="default">false</td>
                     <td class="description">
-                        If you are using Kafka for coordinator stream, this configuration enables the Job Coordinator to
-                        detect partition count difference in Kafka input topics. On detection, it updates a Gauge
-                        metric of format <span class="system">system-name</span>.<span class="stream">stream-name</span>.partitionCount,
-                        which indicates the difference in the partition count from the initial state. Please note that currently this
-                        feature only works for Kafka-based systems.
+                        This is deprecated in favor of <a href="#job-coordinator-monitor-partition-change-frequency-ms">job.coordinator.monitor-partition-change.frequency.ms</a>.
                     </td>
                 </tr>
 
@@ -243,8 +239,12 @@
                     <td class="property" id="job-coordinator-monitor-partition-change-frequency-ms">job.coordinator.<br />monitor-partition-change.frequency.ms</td>
                     <td class="default">300000</td>
                     <td class="description">
-                        The frequency at which the input streams' partition count change should be detected. This check
-                        can be tuned to be pretty low as partition increase is not a common event.
+                        The frequency at which the input streams' partition count change should be detected. When the input
+                        partition count change is detected, Samza will automatically restart a stateless job or fail a
+                        stateful job. A longer time interval is recommended for jobs w/ large number of input system stream
+                        partitions, since gathering partition count may incur measurable overhead to the job. You can
+                        completely disable partition count monitoring by setting this value to 0 or a negative integer,
+                        which will also disable auto-restart/failing behavior of a Samza job on partition count changes.
                     </td>
                 </tr>
 
@@ -2247,6 +2247,134 @@
                     <td class="property" id="hdfs-staging-directory">systems.<span class="system">system-name</span>.<br>.stagingDirectory</td>
                     <td class="default"></td>
                     <td class="description">Staging directory for storing partition description. By default (if not set by users) the value is inherited from "yarn.job.staging.directory" internally. The default value is typically good enough unless you want explicitly use a separate location.</td>
+                </tr>
+
+                <tr>
+                    <th colspan="3" class="section" id="eventhub">
+                        Using <a href="https://azure.microsoft.com/en-us/services/event-hubs/">EventHubs</a> for input and output streams<br>
+                        <span class="subtitle">
+                            (This section applies if you have set
+                            <a href="#systems-samza-factory" class="property">systems.*.samza.factory</a>
+                            <code>= org.apache.samza.system.eventhub.EventHubSystemFactory</code>)
+                        </span>
+                    </th>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-stream-list">systems.<span class="system">system-name</span>.<br>stream.list</td>
+                    <td class="default"></td>
+                    <td class="description">List of Samza <span class="stream">stream-ids</span> used for the Eventhub system</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-stream-namespace">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-id</span>.<br>eventhubs.namespace</td>
+                    <td class="default"></td>
+                    <td class="description">Namespace of the associated <span class="stream">stream-ids</span>. Required to access the Eventhubs entity per stream.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-stream-entity">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-id</span>.<br>eventhubs.entitypath</td>
+                    <td class="default"></td>
+                    <td class="description">Entity of the associated <span class="stream">stream-ids</span>. Required to access the Eventhubs entity per stream.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-stream-sas-keyname">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-id</span>.<br>eventhubs.sas.keyname</td>
+                    <td class="default"></td>
+                    <td class="description">SAS Keyname of the associated <span class="stream">stream-ids</span>. Required to access the Eventhubs entity per stream.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-stream-sas-token">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-id</span>.<br>eventhubs.sas.token</td>
+                    <td class="default"></td>
+                    <td class="description">SAS Token the associated <span class="stream">stream-ids</span>. Required to access the Eventhubs entity per stream.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-runtime-timeout">systems.<span class="system">system-name</span>.<br>eventhubs.runtime.info.timeout</td>
+                    <td class="default">60000</td>
+                    <td class="description">Timeout for fetching the runtime metadata from an Eventhub entity on startup in millis.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-send-partition-method">systems.<span class="system">system-name</span>.<br>eventhubs.partition.method</td>
+                    <td class="default"><code>EVENT_HUB_HASHING</code></td>
+                    <td class="description">
+                        Producer only config. Configure the method that the message is partitioned for the downstream Eventhub in one of the following ways:
+                        <dl>
+                            <dt><code>ROUND_ROBIN</code></dt>
+                            <dd>The message key and partition key are ignored and the message will be distributed in a round-robin fashion amongst all the partitions in the downstream EventHub.</dd>
+                            <dt><code>EVENT_HUB_HASHING</code></dt>
+                            <dd>Employs the hashing mechanism in EventHubs to determine, based on the key of the message, which partition the message should go. Using this method still ensures that all the events with the same key are sent to the same partition in the event hub. If this option is chosen, the partition key used for the hash should be a string. If the partition key is not set, the message key is used instead.</dd>
+                            <dt><code>PARTITION_KEY_AS_PARTITION</code></dt>
+                            <dd>Use the integer key specified by the partition key or key of the message to a specific partition on Eventhub. If the integer key is greater than the number of partitions in the destination Eventhub, a modulo operation will be performed to determine the resulting paritition. ie. if there are 6 partitions and the key is 9, the message will end up in partition 3. Similarly to EVENT_HUB_HASHING, if the partition key is not set the message key is used instead.</dd>
+                        </dl>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-send-key">systems.<span class="system">system-name</span>.<br>eventhubs.send.key</td>
+                    <td class="default">true</td>
+                    <td class="description">
+                        Producer only config. Sending each message key to the eventhub in the properties of the AMQP message. If the Samza Eventhub consumer is used, this field is used as the message key if the partition key is not present.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-consumer-group">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-id</span>.<br>eventhubs.consumer.group</td>
+                    <td class="default"><code>$Default</code></td>
+                    <td class="description">
+                        Consumer only config. Set the consumer group from the upstream Eventhub that the consumer is part of. Defaults to the <code>$Default</code> group that is initially present in all Eventhub entities (unless removed)
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-consumer-buffer-capacity">systems.<span class="system">system-name</span>.<br>eventhubs.receive.queue.size</td>
+                    <td class="default">100</td>
+                    <td class="description">
+                        Consumer only config. Per partition capacity of the eventhubs consumer buffer - the blocking queue used for storing messages. Larger buffer capacity typically leads to better throughput but consumes more memory.
+                    </td>
+                </tr>
+
+                <tr>
+                    <th colspan="3" class="section" id="kinesis">
+                        Using <a href="https://aws.amazon.com/kinesis/">Kinesis</a> for input streams<br>
+                        <span class="subtitle">
+                            (This section applies if you have set
+                            <a href="#systems-samza-factory" class="property">systems.*.samza.factory</a>
+                            <code>= org.apache.samza.system.kinesis.KinesisSystemFactory</code>)
+                        </span>
+                    </th>
+                </tr>
+
+                <tr>
+                    <td class="property" id="kinesis-stream-region">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>aws.region</td>
+                    <td class="default"></td>
+                    <td class="description">Region of the associated <span class="stream">stream-name</span>. Required to access the Kinesis data stream.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="kinesis-stream-access-key">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>aws.accessKey</td>
+                    <td class="default"></td>
+                    <td class="description">AccessKey of the associated <span class="stream">stream-name</span>. Required to access Kinesis data stream.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="kinesis-stream-secret-key">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>aws.secretKey</td>
+                    <td class="default"></td>
+                    <td class="description">SecretKey of the associated <span class="stream">stream-name</span>. Required to access the Kinesis data stream.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="kinesis-stream-aws-kcl-configs">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>aws.kcl.*</td>
+                    <td class="default"></td>
+                    <td class="description"><a href="https://github.com/awslabs/amazon-kinesis-client/blob/master/src/main/java/com/amazonaws/services/kinesis/clientlibrary/lib/worker/KinesisClientLibConfiguration.java">AWS Kinesis Client Library configuration</a> associated with the <span class="stream">stream-name</span>.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="kinesis-system-aws-client-configs">systems.<span class="system">system-name</span>.<br>aws.clientConfig.*</td>
+                    <td class="default"></td>
+                    <td class="description"><a href="http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/ClientConfiguration.html">AWS ClientConfiguration</a> associated with the <span class="system">system-name</span>.</td>
                 </tr>
             </tbody>
         </table>

@@ -155,7 +155,7 @@ public class AvroRelConverter implements SamzaRelConverter {
           .collect(Collectors.toList()));
     } else if (value == null) {
       fieldNames.addAll(relationalSchema.getFieldNames());
-      IntStream.range(0, fieldNames.size() - 1).forEach(x -> values.add(null));
+      IntStream.range(0, fieldNames.size()).forEach(x -> values.add(null));
     } else {
       String msg = "Avro message converter doesn't support messages of type " + value.getClass();
       LOG.error(msg);
@@ -167,7 +167,11 @@ public class AvroRelConverter implements SamzaRelConverter {
 
   @Override
   public KV<Object, Object> convertToSamzaMessage(SamzaSqlRelMessage relMessage) {
-    GenericRecord record = new GenericData.Record(this.avroSchema);
+    return convertToSamzaMessage(relMessage, this.avroSchema);
+  }
+
+  protected KV<Object, Object> convertToSamzaMessage(SamzaSqlRelMessage relMessage, Schema avroSchema) {
+    GenericRecord record = new GenericData.Record(avroSchema);
     List<String> fieldNames = relMessage.getFieldNames();
     List<Object> values = relMessage.getFieldValues();
     for (int index = 0; index < fieldNames.size(); index++) {

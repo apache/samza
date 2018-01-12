@@ -79,6 +79,7 @@ object JobConfig {
 
   // Processor Config Constants
   val PROCESSOR_ID = "processor.id"
+  val PROCESSOR_LIST = "processor.list"
 
   implicit def Config2Job(config: Config) = new JobConfig(config)
 
