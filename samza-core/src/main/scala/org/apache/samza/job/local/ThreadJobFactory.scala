@@ -19,14 +19,17 @@
 
 package org.apache.samza.job.local
 
+import org.apache.samza.checkpoint.CheckpointManagerUtil
+import org.apache.samza.clustermanager.ClusterBasedJobCoordinator
 import org.apache.samza.config.Config
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
-import org.apache.samza.container.{SamzaContainerListener, SamzaContainer}
+import org.apache.samza.container.{SamzaContainer, SamzaContainerListener}
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
-import org.apache.samza.metrics.{JmxServer, MetricsReporter}
+import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.runtime.LocalContainerRunner
+import org.apache.samza.storage.ChangelogPartitionManager
 import org.apache.samza.task.TaskFactoryUtil
 import org.apache.samza.util.Logging
 
@@ -38,6 +41,14 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     info("Creating a ThreadJob, which is only meant for debugging.")
     val coordinator = JobModelManager(config)
     val jobModel = coordinator.jobModel
+    val metricsRegistry = new MetricsRegistryMap()
+
+    //create necessary checkpoint and changelog streams, if not created
+    CheckpointManagerUtil.createAndInit(coordinator.jobModel, metricsRegistry)
+    val changelogPartitionManager = ChangelogPartitionManager.fromConfig(config, getClass.getSimpleName, metricsRegistry)
+    changelogPartitionManager.writeChangeLogPartitionMapping(coordinator.jobModel.getChangelogTaskPartitionMappings)
+    changelogPartitionManager.createChangeLogStreams(coordinator.jobModel)
+
     val containerId = "0"
     val jmxServer = new JmxServer
     val streamApp = TaskFactoryUtil.createStreamApplication(config)
@@ -63,6 +74,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
 
       }
     }
+
     try {
       coordinator.start
       val container = SamzaContainer(

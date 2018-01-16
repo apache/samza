@@ -19,28 +19,38 @@
 
 package org.apache.samza.job.local
 
-
-import java.io.File
-
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{JobConfig, Config}
+import org.apache.samza.checkpoint.CheckpointManagerUtil
+import org.apache.samza.clustermanager.ClusterBasedJobCoordinator
+import org.apache.samza.config.{Config, JobConfig}
 import org.apache.samza.config.TaskConfig._
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.job.{CommandBuilder, ShellCommandBuilder, StreamJob, StreamJobFactory}
+import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.storage.ChangelogPartitionManager
 import org.apache.samza.util.{Logging, Util}
 
 /**
  * Creates a stand alone ProcessJob with the specified config.
  */
 class ProcessJobFactory extends StreamJobFactory with Logging {
-  def  getJob(config: Config): StreamJob = {
+  def getJob(config: Config): StreamJob = {
     val containerCount = JobConfig.Config2Job(config).getContainerCount
 
     if (containerCount > 1) {
       throw new SamzaException("Container count larger than 1 is not supported for ProcessJobFactory")
     }
-    
+
     val coordinator = JobModelManager(config)
+    val jobModel = coordinator.jobModel
+    val metricsRegistry = new MetricsRegistryMap()
+
+    //create necessary checkpoint and changelog streams, if not created
+    CheckpointManagerUtil.createAndInit(coordinator.jobModel, metricsRegistry)
+    val changelogPartitionManager = ChangelogPartitionManager.fromConfig(config, getClass.getSimpleName, metricsRegistry)
+    changelogPartitionManager.writeChangeLogPartitionMapping(coordinator.jobModel.getChangelogTaskPartitionMappings)
+    changelogPartitionManager.createChangeLogStreams(coordinator.jobModel)
+
     val containerModel = coordinator.jobModel.getContainers.get(0)
 
     val fwkPath = JobConfig.getFwkPath(config) // see if split deployment is configured

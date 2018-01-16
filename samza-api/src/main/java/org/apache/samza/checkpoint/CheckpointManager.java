@@ -26,6 +26,14 @@ import org.apache.samza.container.TaskName;
  * implementation-specific location.
  */
 public interface CheckpointManager {
+  /**
+   * Bootstrap any required resources needed prior to start.
+   */
+  default void init() { }
+
+  /**
+   * Perform startup operations.
+   */
   void start();
 
   /**
