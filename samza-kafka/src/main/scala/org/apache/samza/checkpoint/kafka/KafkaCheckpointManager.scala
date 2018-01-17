@@ -215,31 +215,38 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
       val checkpointKey = try {
         checkpointKeySerde.fromBytes(keyBytes)
       } catch {
-        case e: Exception => throw new SamzaException(s"Exception while serializing checkpoint-key. " +
-          s"Topic: $checkpointTopic Offset: $offset", e)
-      }
-
-      // If the grouper in the key is not equal to the configured grouper, error out.
-      val actualGrouperFactory = checkpointKey.getGrouperFactoryClassName
-      if (!expectedGrouperFactory.equals(actualGrouperFactory)) {
-        warn(s"Grouper mismatch. Configured: $expectedGrouperFactory Actual: $actualGrouperFactory ")
-        if (validateCheckpoint) {
-          throw new SamzaException("SSPGrouperFactory in the checkpoint topic does not match the configured value" +
-            s"Configured value: $expectedGrouperFactory; Actual value: $actualGrouperFactory Offset: $offset")
-        }
-      }
-
-      // If the type of the key is not KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE, it can safely be ignored.
-      if (KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE.equals(checkpointKey.getType)) {
-        val checkpointBytes = checkpointEnvelope.getMessage.asInstanceOf[Array[Byte]]
-        val checkpoint = try {
-          checkpointMsgSerde.fromBytes(checkpointBytes)
-        } catch {
-          case e: Exception => throw new SamzaException(s"Exception while serializing checkpoint-message. " +
+        case e: Exception => if (validateCheckpoint) {
+          throw new SamzaException(s"Exception while serializing checkpoint-key. " +
             s"Topic: $checkpointTopic Offset: $offset", e)
+        } else {
+          warn(s"Ignoring exception while serializing checkpoint-key. Topic: $checkpointTopic Offset: $offset", e)
+          null
+        }
+      }
+
+      if (checkpointKey != null) {
+        // If the grouper in the key is not equal to the configured grouper, error out.
+        val actualGrouperFactory = checkpointKey.getGrouperFactoryClassName
+        if (!expectedGrouperFactory.equals(actualGrouperFactory)) {
+          warn(s"Grouper mismatch. Configured: $expectedGrouperFactory Actual: $actualGrouperFactory ")
+          if (validateCheckpoint) {
+            throw new SamzaException("SSPGrouperFactory in the checkpoint topic does not match the configured value" +
+              s"Configured value: $expectedGrouperFactory; Actual value: $actualGrouperFactory Offset: $offset")
+          }
         }
 
-        checkpoints.put(checkpointKey.getTaskName, checkpoint)
+        // If the type of the key is not KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE, it can safely be ignored.
+        if (KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE.equals(checkpointKey.getType)) {
+          val checkpointBytes = checkpointEnvelope.getMessage.asInstanceOf[Array[Byte]]
+          val checkpoint = try {
+            checkpointMsgSerde.fromBytes(checkpointBytes)
+          } catch {
+            case e: Exception => throw new SamzaException(s"Exception while serializing checkpoint-message. " +
+              s"Topic: $checkpointTopic Offset: $offset", e)
+          }
+
+          checkpoints.put(checkpointKey.getTaskName, checkpoint)
+        }
       }
     }
     info(s"Read $numMessagesRead messages from system:$checkpointSystem topic:$checkpointTopic")
