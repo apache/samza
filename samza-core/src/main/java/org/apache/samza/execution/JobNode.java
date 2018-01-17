@@ -37,6 +37,7 @@ import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
+import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
@@ -130,8 +131,20 @@ public class JobNode {
     Map<String, String> configs = new HashMap<>();
     configs.put(JobConfig.JOB_NAME(), jobName);
 
-    List<String> inputs = inEdges.stream().map(edge -> edge.getFormattedSystemStream()).collect(Collectors.toList());
+    final List<String> inputs = new ArrayList<>();
+    final List<String> broadcasts = new ArrayList<>();
+    for (StreamEdge inEdge : inEdges) {
+      String formattedSystemStream = inEdge.getFormattedSystemStream();
+      if (inEdge.getStreamSpec().isBroadcast()) {
+        broadcasts.add(formattedSystemStream);
+      } else {
+        inputs.add(formattedSystemStream);
+      }
+    }
     configs.put(TaskConfig.INPUT_STREAMS(), Joiner.on(',').join(inputs));
+    if (!broadcasts.isEmpty()) {
+      configs.put(TaskConfigJava.BROADCAST_INPUT_STREAMS, Joiner.on(',').join(broadcasts));
+    }
 
     // set triggering interval if a window or join is defined
     if (streamGraph.hasWindowOrJoins()) {

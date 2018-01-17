@@ -278,4 +278,16 @@ public class OperatorSpecs {
     return new SendToTableOperatorSpec(inputOpSpec, tableSpec, opId);
   }
 
+  /**
+   * TODO: doc.
+   * @param outputStream
+   * @param opId
+   * @param <M>
+   * @return
+   */
+  public static <M> BroadcastOperatorSpec<M> createBroadCastOperatorSpec(
+      OutputStreamImpl<M> outputStream, String opId) {
+    return new BroadcastOperatorSpec<>(outputStream, opId);
+  }
+
 }

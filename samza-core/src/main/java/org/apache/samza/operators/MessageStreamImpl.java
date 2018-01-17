@@ -30,6 +30,7 @@ import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
+import org.apache.samza.operators.spec.BroadcastOperatorSpec;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec.OpCode;
@@ -47,6 +48,7 @@ import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
+import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
 
@@ -197,6 +199,21 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     SendToTableOperatorSpec<K, V> op = OperatorSpecs.createSendToTableOperatorSpec(
         this.operatorSpec, ((TableImpl) table).getTableSpec(), this.graph.getNextOpId(OpCode.SEND_TO));
     this.operatorSpec.registerNextOperatorSpec(op);
+  }
+
+  @Override
+  public MessageStream<M> broadcast(Serde<M> serde, String userDefinedId) {
+    String opId = this.graph.getNextOpId(OpCode.BROADCAST, userDefinedId);
+    IntermediateMessageStreamImpl<M> intermediateStream = this.graph.getIntermediateStream(opId, serde, true);
+    BroadcastOperatorSpec<M> broadcastOperatorSpec =
+        OperatorSpecs.createBroadCastOperatorSpec(intermediateStream.getOutputStream(), opId);
+    this.operatorSpec.registerNextOperatorSpec(broadcastOperatorSpec);
+    return intermediateStream;
+  }
+
+  @Override
+  public MessageStream<M> broadcast(String userDefinedId) {
+    return broadcast(null, userDefinedId);
   }
 
 }

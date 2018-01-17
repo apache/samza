@@ -276,4 +276,14 @@ public interface MessageStream<M> {
    */
   <K, V> void sendTo(Table<KV<K, V>> table);
 
+  /**
+   * TODO: doc.
+   */
+  MessageStream<M> broadcast(Serde<M> serde, String userDefinedId);
+
+  /**
+   * TODO: doc.
+   */
+  MessageStream<M> broadcast(String userDefinedId);
+
 }
