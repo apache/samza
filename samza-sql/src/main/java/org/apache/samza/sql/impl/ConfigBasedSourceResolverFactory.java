@@ -29,8 +29,8 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * Schema Resolver that uses static config to return a config corresponding to a system stream.
- * Schemas are configured using the config of format {systemName}.{streamName}.schema.
+ * Source Resolver implementation that uses static config to return a config corresponding to a system stream.
+ * This Source resolver implementation supports sources of type {systemName}.{streamName}
  */
 public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
 
@@ -53,8 +53,10 @@ public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
     @Override
     public SqlSystemStreamConfig fetchSourceInfo(String source) {
       String[] sourceComponents = source.split("\\.");
+
+      // This source resolver expects sources of format {systemName}.{streamName}
       if (sourceComponents.length != 2) {
-        String msg = String.format("Source %s is not of the format <system>.<stream>", source);
+        String msg = String.format("Source %s is not of the format {systemName}.{streamName{", source);
         LOG.error(msg);
         throw new SamzaException(msg);
       }

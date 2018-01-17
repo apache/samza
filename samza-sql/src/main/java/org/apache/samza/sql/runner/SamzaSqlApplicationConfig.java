@@ -78,8 +78,8 @@ public class SamzaSqlApplicationConfig {
 
   public static final String CFG_UDF_RESOLVER = "samza.sql.udfResolver";
   public static final String CFG_FMT_UDF_RESOLVER_DOMAIN = "samza.sql.udfResolver.%s.";
-  private final Map<SystemStream, RelSchemaProvider> relSchemaProvidersBySystemStream;
-  private final Map<SystemStream, SamzaRelConverter> samzaRelConvertersBySystemStream;
+  private final Map<String, RelSchemaProvider> relSchemaProvidersBySource;
+  private final Map<String, SamzaRelConverter> samzaRelConvertersBySource;
 
   private SourceResolver sourceResolver;
   private UdfResolver udfResolver;
@@ -87,7 +87,6 @@ public class SamzaSqlApplicationConfig {
   private final Collection<UdfMetadata> udfMetadata;
 
   private final Map<String, SqlSystemStreamConfig> inputSystemStreamConfigBySource;
-
   private final Map<String, SqlSystemStreamConfig> outputSystemStreamConfigsBySource;
 
   private final List<String> sql;
@@ -117,17 +116,17 @@ public class SamzaSqlApplicationConfig {
         .collect(Collectors.toMap(Function.identity(), x -> sourceResolver.fetchSourceInfo(x)));
     systemStreamConfigs.addAll(outputSystemStreamConfigsBySource.values());
 
-    relSchemaProvidersBySystemStream = systemStreamConfigs.stream()
-        .collect(Collectors.toMap(SqlSystemStreamConfig::getSystemStream,
+    relSchemaProvidersBySource = systemStreamConfigs.stream()
+        .collect(Collectors.toMap(SqlSystemStreamConfig::getSource,
             x -> initializePlugin("RelSchemaProvider", x.getRelSchemaProviderName(), staticConfig,
                 CFG_FMT_REL_SCHEMA_PROVIDER_DOMAIN,
                 (o, c) -> ((RelSchemaProviderFactory) o).create(x.getSystemStream(), c))));
 
-    samzaRelConvertersBySystemStream = systemStreamConfigs.stream()
-        .collect(Collectors.toMap(SqlSystemStreamConfig::getSystemStream,
+    samzaRelConvertersBySource = systemStreamConfigs.stream()
+        .collect(Collectors.toMap(SqlSystemStreamConfig::getSource,
             x -> initializePlugin("SamzaRelConverter", x.getSamzaRelConverterName(), staticConfig,
                 CFG_FMT_SAMZA_REL_CONVERTER_DOMAIN, (o, c) -> ((SamzaRelConverterFactory) o).create(x.getSystemStream(),
-                    relSchemaProvidersBySystemStream.get(x.getSystemStream()), c))));
+                    relSchemaProvidersBySource.get(x.getSource()), c))));
   }
 
   private static <T> T initializePlugin(String pluginName, String plugin, Config staticConfig,
@@ -235,11 +234,11 @@ public class SamzaSqlApplicationConfig {
     return outputSystemStreamConfigsBySource;
   }
 
-  public Map<SystemStream, SamzaRelConverter> getSamzaRelConverters() {
-    return samzaRelConvertersBySystemStream;
+  public Map<String, SamzaRelConverter> getSamzaRelConverters() {
+    return samzaRelConvertersBySource;
   }
 
-  public Map<SystemStream, RelSchemaProvider> getRelSchemaProviders() {
-    return relSchemaProvidersBySystemStream;
+  public Map<String, RelSchemaProvider> getRelSchemaProviders() {
+    return relSchemaProvidersBySource;
   }
 }
