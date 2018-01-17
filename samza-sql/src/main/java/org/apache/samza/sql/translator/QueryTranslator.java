@@ -50,7 +50,8 @@ public class QueryTranslator {
 
   public QueryTranslator(SamzaSqlApplicationConfig sqlConfig) {
     this.sqlConfig = sqlConfig;
-    scanTranslator = new ScanTranslator(sqlConfig.getSamzaRelConverters());
+    scanTranslator =
+        new ScanTranslator(sqlConfig.getSamzaRelConverters(), sqlConfig.getInputSystemStreamConfigBySource());
   }
 
   public void translate(SamzaSqlQueryParser.QueryInfo queryInfo, StreamGraph streamGraph) {
@@ -87,7 +88,7 @@ public class QueryTranslator {
 
     SqlSystemStreamConfig outputSystemConfig =
         sqlConfig.getOutputSystemStreamConfigsBySource().get(queryInfo.getOutputSource());
-    SamzaRelConverter samzaMsgConverter = sqlConfig.getSamzaRelConverters().get(outputSystemConfig.getSystemStream());
+    SamzaRelConverter samzaMsgConverter = sqlConfig.getSamzaRelConverters().get(queryInfo.getOutputSource());
     MessageStreamImpl<SamzaSqlRelMessage> stream =
         (MessageStreamImpl<SamzaSqlRelMessage>) context.getMessageStream(node.getId());
     MessageStream<KV<Object, Object>> outputStream = stream.map(samzaMsgConverter::convertToSamzaMessage);
