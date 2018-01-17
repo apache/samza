@@ -34,8 +34,12 @@ class KeyValueStorageEngineMetrics(
   val deletes = newCounter("deletes")
   val flushes = newCounter("flushes")
 
-  val restoredMessages = newGauge("messages-restored", 0)
-  val restoredBytes = newGauge("messages-bytes", 0)
+  val restoredMessages = newCounter("messages-restored") //Deprecated
+  val restoredMessagesGauge = newGauge("restored-messages", 0)
+
+  val restoredBytes = newCounter("messages-bytes") //Deprecated
+  val restoredBytesGauge = newGauge("restored-bytes", 0)
+
 
   val getNs = newTimer("get-ns")
   val putNs = newTimer("put-ns")
