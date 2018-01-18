@@ -59,7 +59,7 @@ public class KafkaCheckpointLogKeySerde implements Serde<KafkaCheckpointLogKey> 
     try {
       LinkedHashMap<String, String> deserializedKey = mapper.readValue(bytes, LinkedHashMap.class);
 
-      if (KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE.equals(deserializedKey.get(TYPE_FIELD))) {
+      if (!KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE.equals(deserializedKey.get(TYPE_FIELD))) {
         throw new IllegalArgumentException(String.format("Invalid key detected. Type of the key is %s", deserializedKey.get(TYPE_FIELD)));
       }
 

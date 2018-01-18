@@ -50,7 +50,8 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
                              validateCheckpoint: Boolean,
                              config: Config,
                              metricsRegistry: MetricsRegistry,
-                             checkpointMsgSerde: Serde[Checkpoint] = new CheckpointSerde) extends CheckpointManager with Logging {
+                             checkpointMsgSerde: Serde[Checkpoint] = new CheckpointSerde,
+                             checkpointKeySerde: Serde[KafkaCheckpointLogKey] = new KafkaCheckpointLogKeySerde) extends CheckpointManager with Logging {
 
   info(s"Creating KafkaCheckpointManager for checkpointTopic:$checkpointTopic, systemName:$checkpointSystem " +
     s"validateCheckpoints:$validateCheckpoint")
@@ -58,7 +59,6 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   val checkpointSystem: String = checkpointSpec.getSystemName
   val checkpointTopic: String = checkpointSpec.getPhysicalName
   val checkpointSsp = new SystemStreamPartition(checkpointSystem, checkpointTopic, new Partition(0))
-  val checkpointKeySerde = new KafkaCheckpointLogKeySerde
   val expectedGrouperFactory = new JobConfig(config).getSystemStreamPartitionGrouperFactory
 
   val systemProducer = systemFactory.getProducer(checkpointSystem, config, metricsRegistry)
