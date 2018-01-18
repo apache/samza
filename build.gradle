@@ -764,6 +764,7 @@ project(":samza-test_$scalaVersion") {
     testCompile project(":samza-core_$scalaVersion").sourceSets.test.output
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
+    testCompile "org.hamcrest:hamcrest-all:$hamcrestVersion"
     testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
   }
 

@@ -48,7 +48,6 @@ import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
 

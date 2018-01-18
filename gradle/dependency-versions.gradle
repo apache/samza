@@ -27,6 +27,7 @@
   commonsLang3Version = "3.4"
   elasticsearchVersion = "2.2.0"
   guavaVersion = "17.0"
+  hamcrestVersion = "1.3"
   httpClientVersion = "4.4.1"
   jacksonVersion = "1.9.13"
   jerseyVersion = "2.22.1"

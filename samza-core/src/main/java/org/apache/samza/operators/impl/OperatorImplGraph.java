@@ -220,7 +220,7 @@ public class OperatorImplGraph {
     } else if (operatorSpec instanceof SendToTableOperatorSpec) {
       return new SendToTableOperatorImpl((SendToTableOperatorSpec) operatorSpec, config, context);
     } else if (operatorSpec instanceof BroadcastOperatorSpec) {
-      return new BroadcastOperatorImpl((BroadcastOperatorSpec)operatorSpec, context);
+      return new BroadcastOperatorImpl((BroadcastOperatorSpec) operatorSpec, context);
     }
     throw new IllegalArgumentException(
         String.format("Unsupported OperatorSpec: %s", operatorSpec.getClass().getName()));

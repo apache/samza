@@ -107,14 +107,14 @@ public class StreamSpec {
   }
 
   /**
-   * @see {@link StreamSpec#StreamSpec(String, String, String, int, boolean, boolean, Map)}
+   * @see StreamSpec#StreamSpec(String, String, String, int, boolean, boolean, Map)
    */
   public StreamSpec(String id, String physicalName, String systemName, int partitionCount) {
     this(id, physicalName, systemName, partitionCount, false, false, Collections.emptyMap());
   }
 
   /**
-   * @see {@link StreamSpec#StreamSpec(String, String, String, int, boolean, boolean, Map)}
+   * @see StreamSpec#StreamSpec(String, String, String, int, boolean, boolean, Map)
    */
   public StreamSpec(String id, String physicalName, String systemName, boolean isBounded, Map<String, String> config) {
     this(id, physicalName, systemName, DEFAULT_PARTITION_COUNT, isBounded, false, config);

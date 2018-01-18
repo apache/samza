@@ -136,7 +136,7 @@ public class JobNode {
     for (StreamEdge inEdge : inEdges) {
       String formattedSystemStream = inEdge.getFormattedSystemStream();
       if (inEdge.getStreamSpec().isBroadcast()) {
-        broadcasts.add(formattedSystemStream);
+        broadcasts.add(formattedSystemStream + "#0");
       } else {
         inputs.add(formattedSystemStream);
       }
