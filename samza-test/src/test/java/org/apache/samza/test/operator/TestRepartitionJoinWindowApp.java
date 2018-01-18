@@ -19,9 +19,6 @@
 package org.apache.samza.test.operator;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.samza.application.StreamApplication;
-import org.apache.samza.config.Config;
-import org.apache.samza.operators.StreamGraph;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -83,6 +80,6 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
 
   @Test
   public void testBroadcastApp() {
-    runApplication(new BroadcastApp(), "BroadcastTest", null);
+    runApplication(new BroadcastAssertApp(), "BroadcastTest", null);
   }
 }

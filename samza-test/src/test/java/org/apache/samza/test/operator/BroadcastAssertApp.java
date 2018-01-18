@@ -31,7 +31,7 @@ import java.util.Arrays;
 
 import static org.apache.samza.test.operator.RepartitionJoinWindowApp.PAGE_VIEWS;
 
-public class BroadcastApp implements StreamApplication {
+public class BroadcastAssertApp implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
@@ -53,23 +53,5 @@ public class BroadcastApp implements StreamApplication {
                 new PageView("v4", "p3", "u2")
             )
         );
-
-    /**
-     * We will see pageview events twice adding 2 partitions together
-    */
-    StreamAssert.that(broadcastPageViews, serde)
-        .containsInAnyOrder(
-            Arrays.asList(
-                new PageView("v1", "p1", "u1"),
-                new PageView("v2", "p2", "u1"),
-                new PageView("v3", "p1", "u2"),
-                new PageView("v4", "p3", "u2"),
-                new PageView("v1", "p1", "u1"),
-                new PageView("v2", "p2", "u1"),
-                new PageView("v3", "p1", "u2"),
-                new PageView("v4", "p3", "u2")
-            )
-        );
-
   }
 }
