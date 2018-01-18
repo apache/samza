@@ -414,4 +414,26 @@ public class TestZkUtils {
       Assert.fail("Sleep was interrupted");
     }
   }
+  @Test
+  public void testgetNextJobModelVersion() {
+    // Set up the Zk base paths for testing.
+    ZkKeyBuilder keyBuilder = new ZkKeyBuilder("test");
+    String root = keyBuilder.getRootPath();
+    zkClient.deleteRecursive(root);
+    zkUtils.validatePaths(new String[]{root, keyBuilder.getJobModelPathPrefix(), keyBuilder.getJobModelVersionPath()});
+
+    String version = "1";
+    String oldVersion = "0";
+
+    // Set zkNode JobModelVersion to 1.
+    zkUtils.publishJobModelVersion(oldVersion, version);
+
+    Assert.assertEquals(version, zkUtils.getJobModelVersion());
+
+    // Publish JobModel with a higher version (2).
+    zkUtils.publishJobModel("2", new JobModel(new MapConfig(), new HashMap<>()));
+
+    // Get on the JobModel version should return 2, taking into account the published version 2.
+    Assert.assertEquals("3", zkUtils.getNextJobModelVersion(zkUtils.getJobModelVersion()));
+  }
 }
