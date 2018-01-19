@@ -21,19 +21,25 @@ package org.apache.samza.system
 
 import org.apache.samza.SamzaException
 import org.apache.samza.util.Logging
+import scala.collection.JavaConverters._
 
-class SystemAdmins(systemAdmins: Map[String, SystemAdmin]) extends Logging {
+class SystemAdmins(val systemAdminMap: Map[String, SystemAdmin]) extends Logging {
+
+  def this(systemAdminMapJava: java.util.Map[String, SystemAdmin]) {
+    this(systemAdminMapJava.asScala.toMap)
+  }
 
   def start() {
-    systemAdmins.values.foreach(_.start())
+    systemAdminMap.values.foreach(_.start())
   }
 
   def stop() {
-    systemAdmins.values.foreach(_.stop())
+    systemAdminMap.values.foreach(_.stop())
   }
 
   def getSystemAdmin(systemName: String): SystemAdmin = {
-    systemAdmins.getOrElse(systemName, throw new SamzaException(s"Cannot get systemAdmin for system $systemName"))
+    systemAdminMap.getOrElse(systemName, throw new SamzaException(s"Cannot get systemAdmin for system $systemName"))
   }
+
 
 }

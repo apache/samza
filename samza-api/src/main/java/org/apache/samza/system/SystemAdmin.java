@@ -30,12 +30,12 @@ import java.util.Set;
 public interface SystemAdmin {
 
   /*
-   * Connect to the underlying system and prepare to begin serving requests
+   * Start up API for bringing up a single instance of SystemAdmin.
    */
   default void start() {};
 
   /*
-   * Close all connections and release all resource.
+   * Shutdown API for shutting down a single instance of the SystemAdmin.
    */
   default void stop() {};
 

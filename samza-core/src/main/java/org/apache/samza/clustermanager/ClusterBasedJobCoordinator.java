@@ -157,7 +157,7 @@ public class ClusterBasedJobCoordinator {
     hasDurableStores = new StorageConfig(config).hasDurableStores();
     state = new SamzaApplicationState(jobModelManager);
     Map<String, SystemAdmin> systemAdminMap = new JavaSystemConfig(config).getSystemAdmins();
-    systemAdmins = new SystemAdmins(Util.javaMapAsScalaMap(systemAdminMap));
+    systemAdmins = new SystemAdmins(systemAdminMap);
     partitionMonitor = getPartitionCountMonitor(config, systemAdminMap);
     clusterManagerConfig = new ClusterManagerConfig(config);
     isJmxEnabled = clusterManagerConfig.getJmxEnabled();

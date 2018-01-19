@@ -111,8 +111,8 @@ public class PassthroughJobCoordinator implements JobCoordinator {
   public JobModel getJobModel() {
     JavaSystemConfig systemConfig = new JavaSystemConfig(this.config);
     Map<String, SystemAdmin> systemAdminMap = systemConfig.getSystemAdmins();
-    SystemAdmins systemAdmins = new SystemAdmins(Util.javaMapAsScalaMap(systemAdminMap));
-    StreamMetadataCache streamMetadataCache = new StreamMetadataCache(Util.javaMapAsScalaMap(systemAdminMap), 5000, SystemClock.instance());
+    SystemAdmins systemAdmins = new SystemAdmins(systemAdminMap);
+    StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins.systemAdminMap(), 5000, SystemClock.instance());
     systemAdmins.start();
     String containerId = Integer.toString(config.getInt(JobConfig.PROCESSOR_ID()));
 

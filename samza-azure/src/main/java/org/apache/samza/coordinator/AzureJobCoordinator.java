@@ -131,9 +131,9 @@ public class AzureJobCoordinator implements JobCoordinator {
 
     LOG.info("Starting Azure job coordinator.");
 
-    scala.collection.immutable.Map<String, SystemAdmin> systemAdminMap = Util.javaMapAsScalaMap(new JavaSystemConfig(config).getSystemAdmins());
+    Map<String, SystemAdmin> systemAdminMap = new JavaSystemConfig(config).getSystemAdmins();
     systemAdmins = new SystemAdmins(systemAdminMap);
-    streamMetadataCache = new StreamMetadataCache(systemAdminMap, METADATA_CACHE_TTL_MS, SystemClock.instance());
+    streamMetadataCache = new StreamMetadataCache(systemAdmins.systemAdminMap(), METADATA_CACHE_TTL_MS, SystemClock.instance());
     systemAdmins.start();
     table.addProcessorEntity(INITIAL_STATE, processorId, false);
 
