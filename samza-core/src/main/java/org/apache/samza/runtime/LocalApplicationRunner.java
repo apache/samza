@@ -147,6 +147,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   @Override
   public void run(StreamApplication app) {
     try {
+      super.run(app);
       // 1. initialize and plan
       ExecutionPlan plan = getExecutionPlan(app);
 
@@ -181,6 +182,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   @Override
   public void kill(StreamApplication streamApp) {
     processors.forEach(StreamProcessor::stop);
+    super.kill(streamApp);
   }
 
   @Override

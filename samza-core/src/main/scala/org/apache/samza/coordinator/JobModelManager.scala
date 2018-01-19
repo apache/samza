@@ -35,7 +35,6 @@ import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.server.HttpServer
 import org.apache.samza.coordinator.server.JobServlet
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer
-import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.job.model.TaskModel
@@ -75,9 +74,8 @@ object JobModelManager extends Logging {
    *                                from the coordinator stream, and instantiate a JobModelManager.
    */
   def apply(coordinatorSystemConfig: Config, metricsRegistryMap: MetricsRegistryMap): JobModelManager = {
-    val coordinatorStreamSystemFactory: CoordinatorStreamSystemFactory = new CoordinatorStreamSystemFactory()
-    val coordinatorSystemConsumer: CoordinatorStreamSystemConsumer = coordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(coordinatorSystemConfig, metricsRegistryMap)
-    val coordinatorSystemProducer: CoordinatorStreamSystemProducer = coordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(coordinatorSystemConfig, metricsRegistryMap)
+    val coordinatorSystemConsumer: CoordinatorStreamSystemConsumer = new CoordinatorStreamSystemConsumer(coordinatorSystemConfig, metricsRegistryMap)
+    val coordinatorSystemProducer: CoordinatorStreamSystemProducer = new CoordinatorStreamSystemProducer(coordinatorSystemConfig, metricsRegistryMap)
     info("Registering coordinator system stream consumer.")
     coordinatorSystemConsumer.register
     debug("Starting coordinator system stream consumer.")
@@ -99,9 +97,8 @@ object JobModelManager extends Logging {
     localityManager.start()
 
     // Map the name of each system to the corresponding SystemAdmin
-    val systemAdminMap = new JavaSystemConfig(config).getSystemAdmins()
-    val systemAdmins = new SystemAdmins(systemAdminMap.asScala.toMap)
-    val streamMetadataCache = new StreamMetadataCache(systemAdminMap.asScala.toMap, 0)
+    val systemAdmins = new SystemAdmins(config)
+    val streamMetadataCache = new StreamMetadataCache(systemAdmins, 0)
     val previousChangelogPartitionMapping = changelogManager.readChangeLogPartitionMapping()
 
     val processorList = new ListBuffer[String]()

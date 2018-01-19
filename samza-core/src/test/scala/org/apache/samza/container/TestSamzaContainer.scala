@@ -129,8 +129,8 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       new SystemStreamPartition("test", "stream1", new Partition(1)),
       new SystemStreamPartition("test", "stream2", new Partition(0)),
       new SystemStreamPartition("test", "stream2", new Partition(1)))
-    val systemAdmins = Map("test" -> new SinglePartitionWithoutOffsetsSystemAdmin)
-    val metadata = new StreamMetadataCache(systemAdmins).getStreamMetadata(inputStreams.map(_.getSystemStream).toSet)
+    val systemAdminMap = Map("test" -> new SinglePartitionWithoutOffsetsSystemAdmin)
+    val metadata = new StreamMetadataCache(new SystemAdmins(systemAdminMap)).getStreamMetadata(inputStreams.map(_.getSystemStream))
     assertNotNull(metadata)
     assertEquals(2, metadata.size)
     val stream1Metadata = metadata(new SystemStream("test", "stream1"))
@@ -159,7 +159,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     }
     val config = new MapConfig
     val taskName = new TaskName("taskName")
-    val systemAdmins = new SystemAdmins(Map[String, SystemAdmin]())
+    val systemAdmins = new SystemAdmins(config)
     val consumerMultiplexer = new SystemConsumers(
       new RoundRobinChooser,
       Map[String, SystemConsumer]())
@@ -242,7 +242,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     }
     val config = new MapConfig
     val taskName = new TaskName("taskName")
-    val systemAdmins = new SystemAdmins(Map[String, SystemAdmin]())
+    val systemAdmins = new SystemAdmins(config)
     val consumerMultiplexer = new SystemConsumers(
       new RoundRobinChooser,
       Map[String, SystemConsumer]())
@@ -324,7 +324,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     }
     val config = new MapConfig
     val taskName = new TaskName("taskName")
-    val systemAdmins = new SystemAdmins(Map[String, SystemAdmin]())
+    val systemAdmins = new SystemAdmins(config)
     val consumerMultiplexer = new SystemConsumers(
       new RoundRobinChooser,
       Map[String, SystemConsumer]())
@@ -405,7 +405,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     }
     val config = new MapConfig
     val taskName = new TaskName("taskName")
-    val systemAdmins = new SystemAdmins(Map[String, SystemAdmin]())
+    val systemAdmins = new SystemAdmins(config)
     val consumerMultiplexer = new SystemConsumers(
       new RoundRobinChooser,
       Map[String, SystemConsumer]())
@@ -483,7 +483,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     }
     val config = new MapConfig
     val taskName = new TaskName("taskName")
-    val systemAdmins = new SystemAdmins(Map[String, SystemAdmin]())
+    val systemAdmins = new SystemAdmins(config)
     val consumerMultiplexer = new SystemConsumers(
       new RoundRobinChooser,
       Map[String, SystemConsumer]())
@@ -553,7 +553,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     }
     val config = new MapConfig
     val taskName = new TaskName("taskName")
-    val systemAdmins = new SystemAdmins(Map[String, SystemAdmin]())
+    val systemAdmins = new SystemAdmins(config)
     val consumerMultiplexer = new SystemConsumers(
       new RoundRobinChooser,
       Map[String, SystemConsumer]())

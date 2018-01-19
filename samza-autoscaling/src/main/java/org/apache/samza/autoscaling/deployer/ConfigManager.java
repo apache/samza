@@ -29,7 +29,6 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer;
-import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory;
 import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.job.JobRunner;
 import org.apache.samza.job.model.ContainerModel;
@@ -111,8 +110,7 @@ public class ConfigManager {
     }
 
     this.config = config;
-    CoordinatorStreamSystemFactory coordinatorStreamSystemFactory = new CoordinatorStreamSystemFactory();
-    this.coordinatorStreamConsumer = coordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(config, new MetricsRegistryMap());
+    this.coordinatorStreamConsumer = new CoordinatorStreamSystemConsumer(config, new MetricsRegistryMap());
     this.yarnUtil = new YarnUtil(rmAddress, rmPort);
   }
 

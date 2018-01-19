@@ -39,7 +39,7 @@ class TaskInstance(
   val taskName: TaskName,
   config: Config,
   val metrics: TaskInstanceMetrics,
-  systemAdmins: Map[String, SystemAdmin],
+  systemAdmins: SystemAdmins,
   consumerMultiplexer: SystemConsumers,
   collector: TaskInstanceCollector,
   containerContext: SamzaContainerContext,
@@ -258,7 +258,7 @@ class TaskInstance(
           val startingOffset = offsetManager.getStartingOffset(taskName, envelope.getSystemStreamPartition)
               .getOrElse(throw new SamzaException("No offset defined for SystemStreamPartition: %s" format envelope.getSystemStreamPartition))
           val system = envelope.getSystemStreamPartition.getSystem
-          others(system).offsetComparator(envelope.getOffset, startingOffset) match {
+          others.getSystemAdmin(system).offsetComparator(envelope.getOffset, startingOffset) match {
             case null => {
               info("offsets in " + system + " is not comparable. Set all SystemStreamPartitions to catched-up")
               ssp2CaughtupMapping(envelope.getSystemStreamPartition) = true // not comparable

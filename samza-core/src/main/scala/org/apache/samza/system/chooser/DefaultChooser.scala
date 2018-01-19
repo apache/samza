@@ -22,14 +22,18 @@ package org.apache.samza.system.chooser
 import org.apache.samza.SamzaException
 import org.apache.samza.config.{Config, DefaultChooserConfig, TaskConfigJava}
 import org.apache.samza.metrics.{MetricsRegistry, MetricsRegistryMap}
-import org.apache.samza.system.{IncomingMessageEnvelope, SystemAdmin, SystemStream, SystemStreamMetadata, SystemStreamPartition}
+import org.apache.samza.system._
 import org.apache.samza.util.Logging
 
 import scala.collection.JavaConverters._
 
 
 object DefaultChooser extends Logging {
-  def apply(inputStreamMetadata: Map[SystemStream, SystemStreamMetadata], chooserFactory: MessageChooserFactory, config: Config, registry: MetricsRegistry, systemAdmins: Map[String, SystemAdmin]) = {
+  def apply(inputStreamMetadata: Map[SystemStream, SystemStreamMetadata],
+            chooserFactory: MessageChooserFactory,
+            config: Config,
+            registry: MetricsRegistry,
+            systemAdmins: SystemAdmins) = {
     val chooserConfig = new DefaultChooserConfig(config)
     val batchSize = if (chooserConfig.getChooserBatchSize > 0) Some(chooserConfig.getChooserBatchSize) else None
 
@@ -251,7 +255,7 @@ class DefaultChooser(
    * Defines a mapping from SystemStream name to SystemAdmin.
    * This is useful for determining if a bootstrap SystemStream is caught up.
    */
-  systemAdmins: Map[String, SystemAdmin] = Map()) extends MessageChooser with Logging {
+  systemAdmins: SystemAdmins = new SystemAdmins()) extends MessageChooser with Logging {
 
   val chooser = {
     val useBatching = batchSize.isDefined

@@ -42,7 +42,6 @@ import org.apache.samza.coordinator.scheduler.SchedulerStateChangeListener;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
-import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
@@ -128,12 +127,10 @@ public class AzureJobCoordinator implements JobCoordinator {
 
   @Override
   public void start() {
-
     LOG.info("Starting Azure job coordinator.");
 
-    Map<String, SystemAdmin> systemAdminMap = new JavaSystemConfig(config).getSystemAdmins();
-    systemAdmins = new SystemAdmins(systemAdminMap);
-    streamMetadataCache = new StreamMetadataCache(systemAdmins.systemAdminMap(), METADATA_CACHE_TTL_MS, SystemClock.instance());
+    systemAdmins = new SystemAdmins(config);
+    streamMetadataCache = new StreamMetadataCache(systemAdmins, METADATA_CACHE_TTL_MS, SystemClock.instance());
     systemAdmins.start();
     table.addProcessorEntity(INITIAL_STATE, processorId, false);
 

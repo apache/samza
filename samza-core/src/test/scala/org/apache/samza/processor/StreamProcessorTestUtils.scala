@@ -33,7 +33,7 @@ object StreamProcessorTestUtils {
   def getDummyContainer(mockRunloop: RunLoop, streamTask: StreamTask) = {
     val config = new MapConfig
     val taskName = new TaskName("taskName")
-    val adminMultiplexer = new SystemAdmins(Map[String, SystemAdmin]())
+    val adminMultiplexer = new SystemAdmins(config)
     val consumerMultiplexer = new SystemConsumers(
       new RoundRobinChooser,
       Map[String, SystemConsumer]())

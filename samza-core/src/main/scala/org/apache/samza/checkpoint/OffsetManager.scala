@@ -25,6 +25,7 @@ import java.util.HashMap
 import java.util.concurrent.ConcurrentHashMap
 
 import org.apache.samza.system.IncomingMessageEnvelope
+import org.apache.samza.system.SystemAdmins
 import org.apache.samza.SamzaException
 import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
@@ -75,7 +76,7 @@ object OffsetManager extends Logging {
     systemStreamMetadata: Map[SystemStream, SystemStreamMetadata],
     config: Config,
     checkpointManager: CheckpointManager = null,
-    systemAdmins: Map[String, SystemAdmin] = Map(),
+    systemAdmins: SystemAdmins = null,
     checkpointListeners: Map[String, CheckpointListener] = Map(),
     offsetManagerMetrics: OffsetManagerMetrics = new OffsetManagerMetrics) = {
     debug("Building offset manager for %s." format systemStreamMetadata)
@@ -141,7 +142,7 @@ class OffsetManager(
    * SystemAdmins that are used to get next offsets from last checkpointed
    * offsets. Map is from system name to SystemAdmin class for the system.
    */
-  val systemAdmins: Map[String, SystemAdmin] = Map(),
+  val systemAdmins: SystemAdmins = new SystemAdmins(),
 
   /**
    * Map of checkpointListeners for the systems that chose to provide one.
@@ -396,10 +397,7 @@ class OffsetManager(
         taskName -> {
           sspToOffsets.asScala.groupBy(_._1.getSystem).flatMap {
             case (systemName, systemStreamPartitionOffsets) =>
-              systemAdmins
-                .getOrElse(systemName, throw new SamzaException("Missing system admin for %s. Need system admin to load starting offsets." format systemName))
-                .getOffsetsAfter(systemStreamPartitionOffsets.asJava)
-                .asScala
+              systemAdmins.getSystemAdmin(systemName).getOffsetsAfter(systemStreamPartitionOffsets.asJava).asScala
           }
         }
       }

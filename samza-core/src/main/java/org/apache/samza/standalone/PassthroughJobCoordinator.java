@@ -21,7 +21,6 @@ package org.apache.samza.standalone;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
-import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
@@ -29,14 +28,12 @@ import org.apache.samza.job.model.JobModel;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
-import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
-import java.util.Map;
 
 /**
  * Standalone Job Coordinator does not implement any leader elector module or cluster manager
@@ -109,10 +106,8 @@ public class PassthroughJobCoordinator implements JobCoordinator {
 
   @Override
   public JobModel getJobModel() {
-    JavaSystemConfig systemConfig = new JavaSystemConfig(this.config);
-    Map<String, SystemAdmin> systemAdminMap = systemConfig.getSystemAdmins();
-    SystemAdmins systemAdmins = new SystemAdmins(systemAdminMap);
-    StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins.systemAdminMap(), 5000, SystemClock.instance());
+    SystemAdmins systemAdmins = new SystemAdmins(config);
+    StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, SystemClock.instance());
     systemAdmins.start();
     String containerId = Integer.toString(config.getInt(JobConfig.PROCESSOR_ID()));
 

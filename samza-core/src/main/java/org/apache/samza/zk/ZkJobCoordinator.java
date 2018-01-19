@@ -31,7 +31,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
-import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.ZkConfig;
@@ -49,12 +48,10 @@ import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
 import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
-import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.util.ClassLoaderHelper;
 import org.apache.samza.util.MetricsReporterLoader;
 import org.apache.samza.util.SystemClock;
-import org.apache.samza.util.Util;
 import org.apache.zookeeper.Watcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -126,9 +123,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         LOG.error("Received exception from in JobCoordinator Processing!", throwable);
         stop();
       });
-    Map<String, SystemAdmin> systemAdminMap = new JavaSystemConfig(config).getSystemAdmins();
-    systemAdmins = new SystemAdmins(systemAdminMap);
-    streamMetadataCache = new StreamMetadataCache(systemAdmins.systemAdminMap(), METADATA_CACHE_TTL_MS, SystemClock.instance());
+    systemAdmins = new SystemAdmins(config);
+    streamMetadataCache = new StreamMetadataCache(systemAdmins, METADATA_CACHE_TTL_MS, SystemClock.instance());
   }
 
   @Override

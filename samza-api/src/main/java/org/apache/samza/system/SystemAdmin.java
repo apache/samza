@@ -30,12 +30,12 @@ import java.util.Set;
 public interface SystemAdmin {
 
   /*
-   * Start up API for bringing up a single instance of SystemAdmin.
+   * Start SystemAdmin
    */
   default void start() {};
 
   /*
-   * Shutdown API for shutting down a single instance of the SystemAdmin.
+   * Stop SystemAdmin
    */
   default void stop() {};
 

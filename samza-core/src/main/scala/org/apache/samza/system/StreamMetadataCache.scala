@@ -31,7 +31,7 @@ import scala.collection.JavaConverters._
  */
 class StreamMetadataCache (
     /** System implementations from which the actual metadata is loaded on cache miss */
-    systemAdmins: Map[String, SystemAdmin],
+    systemAdmins: SystemAdmins,
 
     /** Maximum age (in milliseconds) of a cache entry */
     val cacheTTLms: Int = 5000,
@@ -61,8 +61,7 @@ class StreamMetadataCache (
       .groupBy[String](_.getSystem)
       .flatMap {
         case (systemName, systemStreams) =>
-          val systemAdmin = systemAdmins
-            .getOrElse(systemName, throw new SamzaException("Cannot get metadata for unknown system: %s" format systemName))
+          val systemAdmin = systemAdmins.getSystemAdmin(systemName)
           val streamToMetadata = if (partitionsMetadataOnly && systemAdmin.isInstanceOf[ExtendedSystemAdmin]) {
             systemAdmin.asInstanceOf[ExtendedSystemAdmin].getSystemStreamPartitionCounts(systemStreams.map(_.getStream).asJava, cacheTTLms)
           } else {

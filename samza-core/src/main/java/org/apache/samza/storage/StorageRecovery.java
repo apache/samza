@@ -40,7 +40,6 @@ import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.ByteSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamMetadataCache;
-import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
@@ -80,8 +79,7 @@ public class StorageRecovery extends CommandLine {
   StorageRecovery(Config config, String path) {
     jobConfig = config;
     storeBaseDir = new File(path, "state");
-    Map<String, SystemAdmin> systemAdminMap = new JavaSystemConfig(jobConfig).getSystemAdmins();
-    systemAdmins = new SystemAdmins(systemAdminMap);
+    systemAdmins = new SystemAdmins(config);
   }
 
   /**
@@ -190,7 +188,7 @@ public class StorageRecovery extends CommandLine {
    */
   @SuppressWarnings({ "unchecked", "rawtypes" })
   private void getTaskStorageManagers() {
-    StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins.systemAdminMap(), 5000, SystemClock.instance());
+    StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, SystemClock.instance());
 
     for (ContainerModel containerModel : containers.values()) {
       HashMap<String, StorageEngine> taskStores = new HashMap<String, StorageEngine>();
@@ -232,7 +230,7 @@ public class StorageRecovery extends CommandLine {
             storeBaseDir,
             storeBaseDir,
             taskModel.getChangelogPartition(),
-            systemAdmins.systemAdminMap(),
+            systemAdmins,
             new StorageConfig(jobConfig).getChangeLogDeleteRetentionsInMs(),
             new SystemClock());
 

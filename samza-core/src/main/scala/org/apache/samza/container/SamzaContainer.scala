@@ -38,7 +38,7 @@ import org.apache.samza.config._
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
 import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor, NoThrottlingDiskQuotaPolicyFactory, PollingScanDiskSpaceMonitor}
 import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStatistics, SystemStatisticsMonitor}
-import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
+import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.serializers._
@@ -60,11 +60,7 @@ object SamzaContainer extends Logging {
 
   def getLocalityManager(containerName: String, config: Config): LocalityManager = {
     val registryMap = new MetricsRegistryMap(containerName)
-    val coordinatorSystemProducer =
-      new CoordinatorStreamSystemFactory()
-        .getCoordinatorStreamSystemProducer(
-          config,
-          new SamzaContainerMetrics(containerName, registryMap).registry)
+    val coordinatorSystemProducer = new CoordinatorStreamSystemProducer(config, new SamzaContainerMetrics(containerName, registryMap).registry)
     new LocalityManager(coordinatorSystemProducer)
   }
 
@@ -153,13 +149,10 @@ object SamzaContainer extends Logging {
     }).toMap
     info("Got system factories: %s" format systemFactories.keys)
 
-    val systemAdminMap = systemNames
-      .map(systemName => (systemName, systemFactories(systemName).getAdmin(systemName, config)))
-      .toMap
-    info("Got system admins: %s" format systemAdminMap.keys)
+    val systemAdmins = new SystemAdmins(config)
+    info("Got system admins: %s" format systemAdmins.systemAdminMap().keySet())
 
-    val systemAdmins = new SystemAdmins(systemAdminMap)
-    val streamMetadataCache = new StreamMetadataCache(systemAdminMap)
+    val streamMetadataCache = new StreamMetadataCache(systemAdmins)
     val inputStreamMetadata = streamMetadataCache.getStreamMetadata(inputSystemStreams)
 
     info("Got input stream metadata: %s" format inputStreamMetadata)
@@ -335,7 +328,7 @@ object SamzaContainer extends Logging {
 
     val chooserFactory = Util.getObj[MessageChooserFactory](chooserFactoryClassName)
 
-    val chooser = DefaultChooser(inputStreamMetadata, chooserFactory, config, samzaContainerMetrics.registry, systemAdminMap)
+    val chooser = DefaultChooser(inputStreamMetadata, chooserFactory, config, samzaContainerMetrics.registry, systemAdmins)
 
     info("Setting up metrics reporters.")
 
@@ -361,12 +354,9 @@ object SamzaContainer extends Logging {
     // create a map of consumers with callbacks to pass to the OffsetManager
     val checkpointListeners = consumers.filter(_._2.isInstanceOf[CheckpointListener])
       .map { case (system, consumer) => (system, consumer.asInstanceOf[CheckpointListener])}
-
     info("Got checkpointListeners : %s" format checkpointListeners)
 
-    val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager,
-      systemAdminMap, checkpointListeners, offsetManagerMetrics)
-
+    val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager, systemAdmins, checkpointListeners, offsetManagerMetrics)
     info("Got offset manager: %s" format offsetManager)
 
     val dropDeserializationError = config.getDropDeserialization match {
@@ -537,7 +527,7 @@ object SamzaContainer extends Logging {
         storeBaseDir = defaultStoreBaseDir,
         loggedStoreBaseDir = loggedStorageBaseDir,
         partition = taskModel.getChangelogPartition,
-        systemAdmins = systemAdminMap,
+        systemAdmins = systemAdmins,
         new StorageConfig(config).getChangeLogDeleteRetentionsInMs,
         new SystemClock)
 
@@ -558,7 +548,7 @@ object SamzaContainer extends Logging {
           taskName = taskName,
           config = config,
           metrics = taskInstanceMetrics,
-          systemAdmins = systemAdminMap,
+          systemAdmins = systemAdmins,
           consumerMultiplexer = consumerMultiplexer,
           collector = collector,
           containerContext = containerContext,

@@ -32,16 +32,19 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.coordinator.stream.messages.SetConfig;
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemConsumer;
+import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.SystemStreamPartitionIterator;
+import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,18 +66,30 @@ public class CoordinatorStreamSystemConsumer {
   private final Object bootstrapLock = new Object();
   private volatile Set<CoordinatorStreamMessage> bootstrappedStreamSet = Collections.emptySet();
 
-  public CoordinatorStreamSystemConsumer(SystemStream coordinatorSystemStream, SystemConsumer systemConsumer, SystemAdmin systemAdmin, Serde<List<?>> keySerde, Serde<Map<String, Object>> messageSerde) {
+  public CoordinatorStreamSystemConsumer(Config config, MetricsRegistry registry) {
+    SystemStream coordinatorSystemStream = Util.getCoordinatorSystemStream(config);
+    SystemFactory systemFactory = Util.getCoordinatorSystemFactory(config);
+    SystemAdmin systemAdmin = systemFactory.getAdmin(coordinatorSystemStream.getSystem(), config);
+    SystemConsumer systemConsumer = systemFactory.getConsumer(coordinatorSystemStream.getSystem(), config, registry);
+
     this.coordinatorSystemStreamPartition = new SystemStreamPartition(coordinatorSystemStream, new Partition(0));
     this.systemConsumer = systemConsumer;
     this.systemAdmin = systemAdmin;
-    this.configMap = new HashMap();
+    this.configMap = new HashMap<>();
     this.isBootstrapped = false;
-    this.keySerde = keySerde;
-    this.messageSerde = messageSerde;
+    this.keySerde = new JsonSerde<>();
+    this.messageSerde = new JsonSerde<>();
   }
 
+  // Used only for test
   public CoordinatorStreamSystemConsumer(SystemStream coordinatorSystemStream, SystemConsumer systemConsumer, SystemAdmin systemAdmin) {
-    this(coordinatorSystemStream, systemConsumer, systemAdmin, new JsonSerde<List<?>>(), new JsonSerde<Map<String, Object>>());
+    this.coordinatorSystemStreamPartition = new SystemStreamPartition(coordinatorSystemStream, new Partition(0));
+    this.systemConsumer = systemConsumer;
+    this.systemAdmin = systemAdmin;
+    this.configMap = new HashMap<>();
+    this.isBootstrapped = false;
+    this.keySerde = new JsonSerde<>();
+    this.messageSerde = new JsonSerde<>();
   }
 
   /**
