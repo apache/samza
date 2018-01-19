@@ -20,7 +20,6 @@
 package org.apache.samza.test.operator;
 
 import joptsimple.OptionSet;
-import org.apache.samza.application.ManagedApplicationMain;
 import org.apache.samza.application.StreamApplications;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
@@ -29,7 +28,6 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.application.ManagedApplicationMain.*;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;

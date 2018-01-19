@@ -18,7 +18,6 @@
  */
 package org.apache.samza.task;
 
-import org.apache.samza.application.StreamApplicationInternal;
 import org.apache.samza.config.Config;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.MessageType;

@@ -31,7 +31,6 @@ import java.util.Map;
 import org.apache.samza.Partition;
 import org.apache.samza.application.StreamApplications;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationInternal;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskContextImpl;

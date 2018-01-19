@@ -26,7 +26,6 @@ import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.StreamJob;
 import org.apache.samza.job.StreamJobFactory;
 import org.apache.samza.runtime.AbstractApplicationRunner;
-import org.apache.samza.runtime.ApplicationRuntimeResult;
 import org.apache.samza.runtime.NoOpRuntimeResult;
 import org.junit.Before;
 import org.junit.Test;

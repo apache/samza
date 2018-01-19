@@ -46,7 +46,6 @@ import org.apache.samza.operators.impl.TestOperatorImpl;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.TestStreamProcessorUtil;
-import org.apache.samza.runtime.ApplicationRuntimeResult;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.runtime.TestLocalApplicationRunner;
 import org.apache.samza.serializers.IntegerSerdeFactory;
