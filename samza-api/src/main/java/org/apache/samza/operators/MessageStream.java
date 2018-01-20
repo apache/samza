@@ -277,13 +277,18 @@ public interface MessageStream<M> {
   <K, V> void sendTo(Table<KV<K, V>> table);
 
   /**
-   * TODO: doc.
+   * Broadcasts messages in this {@link MessageStream} to all the downstream tasks.
+   * @param serde the {@link Serde} to use for (de)serializing the message.
+   * @param id id the unique id of this operator in this application
+   * @return the broadcast {@link MessageStream}
    */
-  MessageStream<M> broadcast(Serde<M> serde, String userDefinedId);
+  MessageStream<M> broadcast(Serde<M> serde, String id);
 
   /**
-   * TODO: doc.
+   * Same as calling {@link MessageStream#broadcast(Serde, String)} with a null Serde.
+   * @param id id the unique id of this operator in this application
+   * @return the broadcast {@link MessageStream}
    */
-  MessageStream<M> broadcast(String userDefinedId);
+  MessageStream<M> broadcast(String id);
 
 }

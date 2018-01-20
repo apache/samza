@@ -369,6 +369,9 @@ public class OperatorImplGraph {
     if (opSpec instanceof PartitionByOperatorSpec) {
       PartitionByOperatorSpec spec = (PartitionByOperatorSpec) opSpec;
       outputToInputStreams.put(spec.getOutputStream().getStreamSpec().toSystemStream(), input);
+    } else if (opSpec instanceof BroadcastOperatorSpec) {
+      BroadcastOperatorSpec spec = (BroadcastOperatorSpec) opSpec;
+      outputToInputStreams.put(spec.getOutputStream().getStreamSpec().toSystemStream(), input);
     } else {
       Collection<OperatorSpec> nextOperators = opSpec.getRegisteredOperatorSpecs();
       nextOperators.forEach(spec -> computeOutputToInput(input, spec, outputToInputStreams));

@@ -279,11 +279,11 @@ public class OperatorSpecs {
   }
 
   /**
-   * TODO: doc.
-   * @param outputStream
-   * @param opId
-   * @param <M>
-   * @return
+   * Creates a {@link BroadcastOperatorSpec} for the Broadcast operator.
+   * @param outputStream the {@link OutputStreamImpl} to send messages to
+   * @param opId the unique ID of the operator
+   * @param <M> the type of input message
+   * @return the {@link BroadcastOperatorSpec}
    */
   public static <M> BroadcastOperatorSpec<M> createBroadCastOperatorSpec(
       OutputStreamImpl<M> outputStream, String opId) {
