@@ -43,7 +43,7 @@ public class BroadcastAssertApp implements StreamApplication {
     /**
      * Each task will see all the pageview events
      */
-    StreamAssert.that(broadcastPageViews, serde)
+    StreamAssert.that("Each task contains all broadcast PageView events", broadcastPageViews, serde)
         .forEachTask()
         .containsInAnyOrder(
             Arrays.asList(

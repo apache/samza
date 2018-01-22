@@ -35,15 +35,14 @@ import org.hamcrest.Matchers;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.assertThat;
 
@@ -53,22 +52,25 @@ import static org.junit.Assert.assertThat;
  * <p>Example: </pre>{@code
  * MessageStream<String> stream = streamGraph.getInputStream("input", serde).map(some_function)...;
  * ...
- * StreamAssert.that(stream, stringSerde).containsInAnyOrder(Arrays.asList("a", "b", "c"));
+ * StreamAssert.that(id, stream, stringSerde).containsInAnyOrder(Arrays.asList("a", "b", "c"));
  * }</pre>
  *
  */
 public class StreamAssert<M> {
-  private final static Map<Integer, CountDownLatch> LATCHES = new ConcurrentHashMap<>();
+  private final static Map<String, CountDownLatch> LATCHES = new ConcurrentHashMap<>();
+  private final static CountDownLatch PLACE_HOLDER = new CountDownLatch(0);
 
+  private final String id;
   private final MessageStream<M> messageStream;
   private final Serde<M> serde;
   private boolean checkEachTask = false;
 
-  public static <M> StreamAssert<M> that(MessageStream<M> messageStream, Serde<M> serde) {
-    return new StreamAssert<>(messageStream, serde);
+  public static <M> StreamAssert<M> that(String id, MessageStream<M> messageStream, Serde<M> serde) {
+    return new StreamAssert<>(id, messageStream, serde);
   }
 
-  private StreamAssert(MessageStream<M> messageStream, Serde<M> serde) {
+  private StreamAssert(String id, MessageStream<M> messageStream, Serde<M> serde) {
+    this.id = id;
     this.messageStream = messageStream;
     this.serde = serde;
   }
@@ -79,25 +81,30 @@ public class StreamAssert<M> {
   }
 
   public void containsInAnyOrder(final Collection<M> expected) {
+    LATCHES.putIfAbsent(id, PLACE_HOLDER);
     final MessageStream<M> streamToCheck = checkEachTask
         ? messageStream
         : messageStream
           .partitionBy(m -> null, m -> m, KVSerde.of(new StringSerde(), serde), null)
           .map(kv -> kv.value);
 
-    streamToCheck.sink(new CheckAgainstExpected<M>(expected, checkEachTask));
+    streamToCheck.sink(new CheckAgainstExpected<M>(id, expected, checkEachTask));
   }
 
   public static void waitForComplete() {
     try {
-      while (LATCHES.isEmpty()) {
-        Thread.sleep(100);
-      }
-
       while (!LATCHES.isEmpty()) {
-        for (Iterator<CountDownLatch> iter = LATCHES.values().iterator(); iter.hasNext(); ) {
-          iter.next().await();
-          iter.remove();
+        final Set<String> ids  = new HashSet<>(LATCHES.keySet());
+        for (String id : ids) {
+          while (LATCHES.get(id) == PLACE_HOLDER) {
+            Thread.sleep(100);
+          }
+
+          final CountDownLatch latch = LATCHES.get(id);
+          if (latch != null) {
+            latch.await();
+            LATCHES.remove(id);
+          }
         }
       }
     } catch (Exception e) {
@@ -106,16 +113,15 @@ public class StreamAssert<M> {
   }
 
   private static final class CheckAgainstExpected<M> implements SinkFunction<M> {
-    private static final AtomicInteger NEXT_ID = new AtomicInteger();
     private static final long TIMEOUT = 5000L;
 
+    private final String id;
     private final boolean checkEachTask;
     private final Collection<M> expected;
 
-    private transient int id;
+
     private transient Timer timer = new Timer();
     private transient List<M> actual = Collections.synchronizedList(new ArrayList<>());
-    private transient AtomicBoolean done = new AtomicBoolean(false);
     private transient TimerTask timerTask = new TimerTask() {
       @Override
       public void run() {
@@ -123,19 +129,18 @@ public class StreamAssert<M> {
       }
     };
 
-    CheckAgainstExpected(Collection<M> expected, boolean checkEachTask) {
+    CheckAgainstExpected(String id, Collection<M> expected, boolean checkEachTask) {
+      this.id = id;
       this.expected = expected;
       this.checkEachTask = checkEachTask;
-      this.id = NEXT_ID.getAndIncrement();
     }
 
     @Override
     public void init(Config config, TaskContext context) {
       final SystemStreamPartition ssp = Iterables.getFirst(context.getSystemStreamPartitions(), null);
-      final boolean check = checkEachTask
-          || (ssp == null ? false : ssp.getPartition().getPartitionId() == 0);
-      if (check) {
-        LATCHES.put(id, new CountDownLatch(1));
+      if (ssp == null ? false : ssp.getPartition().getPartitionId() == 0) {
+        final int count = checkEachTask ? context.getSamzaContainerContext().taskNames.size() : 1;
+        LATCHES.put(id, new CountDownLatch(count));
         timer.schedule(timerTask, TIMEOUT);
       }
     }
@@ -155,9 +160,7 @@ public class StreamAssert<M> {
       try {
         assertThat(actual, Matchers.containsInAnyOrder((M[]) expected.toArray()));
       } finally {
-        if (done.compareAndSet(false, true)) {
-          latch.countDown();
-        }
+        latch.countDown();
       }
     }
   }
