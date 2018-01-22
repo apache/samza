@@ -107,14 +107,39 @@ public class StreamSpec {
   }
 
   /**
-   * @see StreamSpec#StreamSpec(String, String, String, int, boolean, boolean, Map)
+   *
+   *  @param id           The application-unique logical identifier for the stream. It is used to distinguish between
+   *                      streams in a Samza application so it must be unique in the context of one deployable unit.
+   *                      It does not need to be globally unique or unique with respect to a host.
+   *
+   * @param physicalName  The physical identifier for the stream. This is the identifier that will be used in remote
+   *                      systems to identify the stream. In Kafka this would be the topic name whereas in HDFS it
+   *                      might be a file URN.
+   *
+   * @param systemName    The System name on which this stream will exist. Corresponds to a named implementation of the
+   *                      Samza System abstraction. See {@link SystemFactory}
+   *
+   * @param partitionCount  The number of partitionts for the stream. A value of {@code 1} indicates unpartitioned.
    */
   public StreamSpec(String id, String physicalName, String systemName, int partitionCount) {
     this(id, physicalName, systemName, partitionCount, false, false, Collections.emptyMap());
   }
 
   /**
-   * @see StreamSpec#StreamSpec(String, String, String, int, boolean, boolean, Map)
+   *  @param id           The application-unique logical identifier for the stream. It is used to distinguish between
+   *                      streams in a Samza application so it must be unique in the context of one deployable unit.
+   *                      It does not need to be globally unique or unique with respect to a host.
+   *
+   * @param physicalName  The physical identifier for the stream. This is the identifier that will be used in remote
+   *                      systems to identify the stream. In Kafka this would be the topic name whereas in HDFS it
+   *                      might be a file URN.
+   *
+   * @param systemName    The System name on which this stream will exist. Corresponds to a named implementation of the
+   *                      Samza System abstraction. See {@link SystemFactory}
+   *
+   * @param isBounded     The stream is bounded or not.
+   *
+   * @param config        A map of properties for the stream. These may be System-specfic.
    */
   public StreamSpec(String id, String physicalName, String systemName, boolean isBounded, Map<String, String> config) {
     this(id, physicalName, systemName, DEFAULT_PARTITION_COUNT, isBounded, false, config);

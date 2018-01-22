@@ -43,6 +43,7 @@ import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.assertThat;
 
@@ -57,7 +58,7 @@ import static org.junit.Assert.assertThat;
  *
  */
 public class StreamAssert<M> {
-  private final static Map<Integer, CountDownLatch> latches = new ConcurrentHashMap<>();
+  private final static Map<Integer, CountDownLatch> LATCHES = new ConcurrentHashMap<>();
 
   private final MessageStream<M> messageStream;
   private final Serde<M> serde;
@@ -89,12 +90,12 @@ public class StreamAssert<M> {
 
   public static void waitForComplete() {
     try {
-      while (latches.isEmpty()) {
+      while (LATCHES.isEmpty()) {
         Thread.sleep(100);
       }
 
-      while(!latches.isEmpty()) {
-        for (Iterator<CountDownLatch> iter = latches.values().iterator(); iter.hasNext(); ) {
+      while (!LATCHES.isEmpty()) {
+        for (Iterator<CountDownLatch> iter = LATCHES.values().iterator(); iter.hasNext(); ) {
           iter.next().await();
           iter.remove();
         }
@@ -105,8 +106,8 @@ public class StreamAssert<M> {
   }
 
   private static final class CheckAgainstExpected<M> implements SinkFunction<M> {
-    private static int ID = 0;
-    private static final long timeout = 5000L;
+    private static final AtomicInteger NEXT_ID = new AtomicInteger();
+    private static final long TIMEOUT = 5000L;
 
     private final boolean checkEachTask;
     private final Collection<M> expected;
@@ -125,7 +126,7 @@ public class StreamAssert<M> {
     CheckAgainstExpected(Collection<M> expected, boolean checkEachTask) {
       this.expected = expected;
       this.checkEachTask = checkEachTask;
-      this.id = ID++;
+      this.id = NEXT_ID.getAndIncrement();
     }
 
     @Override
@@ -134,8 +135,8 @@ public class StreamAssert<M> {
       final boolean check = checkEachTask
           || (ssp == null ? false : ssp.getPartition().getPartitionId() == 0);
       if (check) {
-        latches.put(id, new CountDownLatch(1));
-        timer.schedule(timerTask, timeout);
+        LATCHES.put(id, new CountDownLatch(1));
+        timer.schedule(timerTask, TIMEOUT);
       }
     }
 
@@ -150,7 +151,7 @@ public class StreamAssert<M> {
     }
 
     private void check() {
-      final CountDownLatch latch = latches.get(id);
+      final CountDownLatch latch = LATCHES.get(id);
       try {
         assertThat(actual, Matchers.containsInAnyOrder((M[]) expected.toArray()));
       } finally {

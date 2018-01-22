@@ -51,7 +51,6 @@ public class BroadcastAssertApp implements StreamApplication {
                 new PageView("v2", "p2", "u1"),
                 new PageView("v3", "p1", "u2"),
                 new PageView("v4", "p3", "u2")
-            )
-        );
+            ));
   }
 }
