@@ -413,6 +413,29 @@ public class ZkUtils {
   }
 
   /**
+   * Generates the next JobModel version that should be used by a processor group in a rebalancing phase
+   * for coordination.
+   * @param currentJobModelVersion the current version of JobModel.
+   * @return the next JobModel version.
+   */
+  public String getNextJobModelVersion(String currentJobModelVersion) {
+    if (currentJobModelVersion == null) {
+      return  "1";
+    } else {
+      /**
+       * There's inconsistency between the maximum published jobModel version and value stored in jobModelVersion
+       * zookeeper node. Short term fix is to read all published jobModel versions and choose the maximum version. If there's a
+       * inconsistency, update the jobModelVersionPath with maximum published jobModelVersion.
+       */
+      List<String> publishedJobModelVersions = zkClient.getChildren(keyBuilder.getJobModelPathPrefix());
+      metrics.reads.inc(publishedJobModelVersions.size());
+      String maxPublishedJMVersion = publishedJobModelVersions.stream()
+                                                              .max(Comparator.comparingInt(Integer::valueOf)).orElse("0");
+      return Integer.toString(Math.max(Integer.valueOf(currentJobModelVersion), Integer.valueOf(maxPublishedJMVersion)) + 1);
+    }
+  }
+
+  /**
    * publish the version number of the next JobModel
    * @param oldVersion - used to validate, that no one has changed the version in the meanwhile.
    * @param newVersion - new version.

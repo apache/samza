@@ -201,12 +201,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     }
     // Assign the next version of JobModel
     String currentJMVersion = zkUtils.getJobModelVersion();
-    String nextJMVersion;
-    if (currentJMVersion == null) {
-      nextJMVersion = "1";
-    } else {
-      nextJMVersion = Integer.toString(Integer.valueOf(currentJMVersion) + 1);
-    }
+    String nextJMVersion = zkUtils.getNextJobModelVersion(currentJMVersion);
     LOG.info("pid=" + processorId + "Generated new Job Model. Version = " + nextJMVersion);
 
     // Publish the new job model
