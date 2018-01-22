@@ -19,6 +19,7 @@
 package org.apache.samza.standalone;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.checkpoint.CheckpointManagerUtil;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
@@ -80,6 +81,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     JobModel jobModel = null;
     try {
       jobModel = getJobModel();
+      CheckpointManagerUtil.createAndInit(jobModel, null);
     } catch (Exception e) {
       LOGGER.error("Exception while trying to getJobModel.", e);
       if (coordinatorListener != null) {

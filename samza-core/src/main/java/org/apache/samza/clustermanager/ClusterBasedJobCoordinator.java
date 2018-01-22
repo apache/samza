@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.samza.SamzaException;
 import org.apache.samza.PartitionChangeException;
+import org.apache.samza.checkpoint.CheckpointManagerUtil;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
@@ -33,9 +34,13 @@ import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
+import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer;
+import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory;
+import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer;
 import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
+import org.apache.samza.storage.ChangelogPartitionManager;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStream;
@@ -75,6 +80,8 @@ public class ClusterBasedJobCoordinator {
 
   private static final Logger log = LoggerFactory.getLogger(ClusterBasedJobCoordinator.class);
 
+  private static final String COORDINATOR_STREAM_SOURCE = "ClusterBasedJobCoordinator";
+
   private final Config config;
 
   private final ClusterManagerConfig clusterManagerConfig;
@@ -96,6 +103,11 @@ public class ClusterBasedJobCoordinator {
    * A JobModelManager to return and refresh the {@link org.apache.samza.job.model.JobModel} when required.
    */
   private final JobModelManager jobModelManager;
+
+  /**
+   * A ChangelogPartitionManager to handle creation of changelog stream and map changelog stream partitions
+   */
+  private final ChangelogPartitionManager changelogPartitionManager;
 
   /*
    * The interval for polling the Task Manager for shutdown.
@@ -148,8 +160,16 @@ public class ClusterBasedJobCoordinator {
 
     metrics = new MetricsRegistryMap();
 
-    //build a JobModelReader and perform partition assignments.
-    jobModelManager = buildJobModelManager(coordinatorSystemConfig, metrics);
+    // Initialize CoordinatorStreamSystem to share between JobModelManager and ChangelogPartitionManager
+    CoordinatorStreamSystemFactory coordinatorStreamSystemFactory = new CoordinatorStreamSystemFactory();
+    CoordinatorStreamSystemConsumer coordinatorSystemConsumer = coordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(coordinatorSystemConfig, metrics);
+    CoordinatorStreamSystemProducer coordinatorSystemProducer = coordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(coordinatorSystemConfig, metrics);
+    initCoordinatorSystem(coordinatorSystemConsumer, coordinatorSystemProducer);
+
+    //build a JobModelManager and ChangelogPartitionManager and perform partition assignments.
+    jobModelManager = JobModelManager.apply(coordinatorSystemConsumer, coordinatorSystemProducer);
+    changelogPartitionManager = new ChangelogPartitionManager(coordinatorSystemProducer, coordinatorSystemConsumer, COORDINATOR_STREAM_SOURCE);
+
     config = jobModelManager.jobModel().getConfig();
     hasDurableStores = new StorageConfig(config).hasDurableStores();
     state = new SamzaApplicationState(jobModelManager);
@@ -184,6 +204,11 @@ public class ClusterBasedJobCoordinator {
     try {
       //initialize JobCoordinator state
       log.info("Starting Cluster Based Job Coordinator");
+
+      //create necessary checkpoint and changelog streams, if not created
+      CheckpointManagerUtil.createAndInit(jobModelManager.jobModel(), metrics);
+      changelogPartitionManager.writeChangeLogPartitionMapping(jobModelManager.jobModel().getChangelogTaskPartitionMappings());
+      changelogPartitionManager.createChangeLogStreams(jobModelManager.jobModel());
 
       containerProcessManager.start();
       partitionMonitor.start();
@@ -237,9 +262,15 @@ public class ClusterBasedJobCoordinator {
     }
   }
 
-  private JobModelManager buildJobModelManager(Config coordinatorSystemConfig, MetricsRegistryMap registry)  {
-    JobModelManager jobModelManager = JobModelManager.apply(coordinatorSystemConfig, registry);
-    return jobModelManager;
+  private void initCoordinatorSystem(CoordinatorStreamSystemConsumer coordinatorSystemConsumer, CoordinatorStreamSystemProducer coordinatorSystemProducer) {
+    log.info("Registering coordinator system stream consumer.");
+    coordinatorSystemConsumer.register();
+    log.debug("Starting coordinator system stream consumer.");
+    coordinatorSystemConsumer.start();
+    log.debug("Bootstrapping coordinator system stream consumer.");
+    coordinatorSystemConsumer.bootstrap();
+    log.info("Registering coordinator system stream producer.");
+    coordinatorSystemProducer.register(COORDINATOR_STREAM_SOURCE);
   }
 
   private StreamPartitionCountMonitor getPartitionCountMonitor(Config config) {

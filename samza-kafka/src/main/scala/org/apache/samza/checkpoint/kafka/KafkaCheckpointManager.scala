@@ -68,6 +68,21 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   var taskNames = Set[TaskName]()
   var taskNamesToCheckpoints: Map[TaskName, Checkpoint] = null
 
+  /**
+    * Create checkpoint stream prior to start.
+    */
+  override def init = {
+    Preconditions.checkNotNull(systemAdmin)
+
+    info(s"Creating checkpoint stream: ${checkpointSpec.getPhysicalName} with " +
+      s"partition count: ${checkpointSpec.getPartitionCount}")
+    systemAdmin.createStream(checkpointSpec)
+
+    if (validateCheckpoint) {
+      info(s"Validating checkpoint stream")
+      systemAdmin.validateStream(checkpointSpec)
+    }
+  }
 
   /**
     * @inheritdoc
@@ -75,11 +90,6 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   override def start {
     Preconditions.checkNotNull(systemProducer)
     Preconditions.checkNotNull(systemConsumer)
-    Preconditions.checkNotNull(systemAdmin)
-
-    info(s"Creating checkpoint stream: ${checkpointSpec.getPhysicalName} with " +
-      s"partition count: ${checkpointSpec.getPartitionCount}")
-    systemAdmin.createStream(checkpointSpec)
 
     // register and start a producer for the checkpoint topic
     systemProducer.start
@@ -89,11 +99,6 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     info(s"Starting checkpoint SystemConsumer from oldest offset $oldestOffset")
     systemConsumer.register(checkpointSsp, oldestOffset)
     systemConsumer.start
-
-    if (validateCheckpoint) {
-      info(s"Validating checkpoint stream")
-      systemAdmin.validateStream(checkpointSpec)
-    }
   }
 
   /**

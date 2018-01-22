@@ -30,7 +30,6 @@ import org.apache.samza.config.MapConfig
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config.Config
-import org.apache.samza.config.StorageConfig
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
 import org.apache.samza.container.grouper.task.BalancingTaskNameGrouper
 import org.apache.samza.container.grouper.task.TaskNameGrouperFactory
@@ -48,7 +47,7 @@ import org.apache.samza.storage.ChangelogPartitionManager
 import org.apache.samza.system._
 import org.apache.samza.util.Logging
 import org.apache.samza.util.Util
-import org.apache.samza.{Partition, PartitionChangeException, SamzaException}
+import org.apache.samza.{Partition, SamzaException}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
@@ -91,16 +90,21 @@ object JobModelManager extends Logging {
     info("Registering coordinator system stream producer.")
     coordinatorSystemProducer.register(SOURCE)
 
-    val config = coordinatorSystemConsumer.getConfig
-    info("Got config: %s" format config)
-    val changelogManager = new ChangelogPartitionManager(coordinatorSystemProducer, coordinatorSystemConsumer, SOURCE)
-    changelogManager.start()
+    apply(coordinatorSystemConsumer, coordinatorSystemProducer)
+  }
+
+  def apply(coordinatorSystemConsumer: CoordinatorStreamSystemConsumer, coordinatorSystemProducer: CoordinatorStreamSystemProducer) = {
 
     val localityManager = new LocalityManager(coordinatorSystemProducer, coordinatorSystemConsumer)
     // We don't need to start() localityManager as they share the same instances with checkpoint and changelog managers.
     // TODO: This code will go away with refactoring - SAMZA-678
 
     localityManager.start()
+
+    val config = coordinatorSystemConsumer.getConfig
+    info("Got config: %s" format config)
+    val changelogManager = new ChangelogPartitionManager(coordinatorSystemProducer, coordinatorSystemConsumer, SOURCE)
+    changelogManager.start()
 
     // Map the name of each system to the corresponding SystemAdmin
     val systemAdmins = getSystemAdmins(config)
@@ -128,10 +132,7 @@ object JobModelManager extends Logging {
       taskName -> Integer.valueOf(taskModel.getChangelogPartition.getPartitionId)
     }}.toMap ++ previousChangelogPartitionMapping.asScala
     info("Saving task-to-changelog partition mapping: %s" format newChangelogPartitionMapping)
-    changelogManager.writeChangeLogPartitionMapping(newChangelogPartitionMapping.asJava)
-
-    createChangeLogStreams(config, jobModel.maxChangeLogStreamPartitions)
-    createAccessLogStreams(config, jobModel.maxChangeLogStreamPartitions)
+    jobModel.setChangelogTaskPartitionMappings(newChangelogPartitionMapping.asJava);
 
     jobModelManager
   }
@@ -291,51 +292,6 @@ object JobModelManager extends Logging {
       systemName -> systemFactory.getAdmin(systemName, config)
     }).toMap
     systemAdmins
-  }
-
-  def createChangeLogStreams(config: StorageConfig, changeLogPartitions: Int) {
-    val changeLogSystemStreams = config
-      .getStoreNames
-      .filter(config.getChangelogStream(_).isDefined)
-      .map(name => (name, config.getChangelogStream(name).get)).toMap
-      .mapValues(Util.getSystemStreamFromNames(_))
-
-    for ((storeName, systemStream) <- changeLogSystemStreams) {
-      val systemAdmin = Util.getObj[SystemFactory](config
-        .getSystemFactory(systemStream.getSystem)
-        .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemStream.getSystem))
-        ).getAdmin(systemStream.getSystem, config)
-
-      val changelogSpec = StreamSpec.createChangeLogStreamSpec(systemStream.getStream, systemStream.getSystem, changeLogPartitions)
-      if (systemAdmin.createStream(changelogSpec)) {
-        info("Created changelog stream %s." format systemStream.getStream)
-      } else {
-        info("Changelog stream %s already exists." format systemStream.getStream)
-      }
-      systemAdmin.validateStream(changelogSpec)
-    }
-  }
-
-  private def createAccessLogStreams(config: StorageConfig, changeLogPartitions: Int): Unit = {
-    val changeLogSystemStreams = config
-      .getStoreNames
-      .filter(config.getChangelogStream(_).isDefined)
-      .map(name => (name, config.getChangelogStream(name).get)).toMap
-      .mapValues(Util.getSystemStreamFromNames(_))
-
-    for ((storeName, systemStream) <- changeLogSystemStreams) {
-      val accessLog = config.getAccessLogEnabled(storeName)
-      if (accessLog) {
-        val systemAdmin = Util.getObj[SystemFactory](config
-          .getSystemFactory(systemStream.getSystem)
-          .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemStream.getSystem))
-        ).getAdmin(systemStream.getSystem, config)
-
-        val accessLogSpec = new StreamSpec(config.getAccessLogStream(systemStream.getStream),
-          config.getAccessLogStream(systemStream.getStream), systemStream.getSystem, changeLogPartitions)
-        systemAdmin.createStream(accessLogSpec)
-      }
-    }
   }
 
   private def getSystemNames(config: Config) = config.getSystemNames.toSet
