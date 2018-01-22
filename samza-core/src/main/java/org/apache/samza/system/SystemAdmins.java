@@ -29,7 +29,7 @@ import org.apache.samza.config.JavaSystemConfig;
 public class SystemAdmins {
   private final Map<String, SystemAdmin> systemAdminMap;
 
-  public Map<String, SystemAdmin> systemAdminMap() {
+  public Map<String, SystemAdmin> getSystemAdminsMap() {
     return systemAdminMap;
   }
 
@@ -48,18 +48,21 @@ public class SystemAdmins {
   }
 
   public void start() {
-    for (SystemAdmin systemAdmin: systemAdminMap.values())
+    for (SystemAdmin systemAdmin: systemAdminMap.values()) {
       systemAdmin.start();
+    }
   }
 
   public void stop() {
-    for (SystemAdmin systemAdmin: systemAdminMap.values())
+    for (SystemAdmin systemAdmin: systemAdminMap.values()) {
       systemAdmin.stop();
+    }
   }
 
   public SystemAdmin getSystemAdmin(String systemName) {
-    if (!systemAdminMap.containsKey(systemName))
+    if (!systemAdminMap.containsKey(systemName)) {
       throw new SamzaException("Cannot get systemAdmin for system " + systemName);
+    }
     return systemAdminMap.get(systemName);
   }
 

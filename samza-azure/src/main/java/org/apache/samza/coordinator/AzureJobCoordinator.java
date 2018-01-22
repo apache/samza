@@ -129,9 +129,10 @@ public class AzureJobCoordinator implements JobCoordinator {
   public void start() {
     LOG.info("Starting Azure job coordinator.");
 
+    // The systemAdmins should be started before streamMetadataCache can be used. And it should be stopped when this coordinator is stopped.
     systemAdmins = new SystemAdmins(config);
-    streamMetadataCache = new StreamMetadataCache(systemAdmins, METADATA_CACHE_TTL_MS, SystemClock.instance());
     systemAdmins.start();
+    streamMetadataCache = new StreamMetadataCache(systemAdmins, METADATA_CACHE_TTL_MS, SystemClock.instance());
     table.addProcessorEntity(INITIAL_STATE, processorId, false);
 
     // Start scheduler for heartbeating

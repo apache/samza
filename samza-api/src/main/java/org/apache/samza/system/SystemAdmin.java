@@ -30,12 +30,12 @@ import java.util.Set;
 public interface SystemAdmin {
 
   /*
-   * Start SystemAdmin
+   * Start this SystemAdmin
    */
   default void start() {};
 
   /*
-   * Stop SystemAdmin
+   * Stop this SystemAdmin
    */
   default void stop() {};
 

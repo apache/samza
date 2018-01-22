@@ -54,7 +54,7 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
 
   public AbstractApplicationRunner(Config config) {
     super(config);
-    systemAdmins = new SystemAdmins(config);
+    this.systemAdmins = new SystemAdmins(config);
     this.streamManager = new StreamManager(systemAdmins);
   }
 
