@@ -121,10 +121,17 @@ class TaskStorageManager(
     * @return true if the logged store is valid, false otherwise.
     */
   private def isLoggedStoreValid(storeName: String, loggedStoreDir: File): Boolean = {
-    val changeLogDeleteRetentionInMs = changeLogDeleteRetentionsInMs.getOrElse(storeName,
-                                                                               StorageConfig.DEFAULT_CHANGELOG_DELETE_RETENTION_MS)
-    persistedStores.contains(storeName) && isOffsetFileValid(loggedStoreDir) &&
-      !isStaleLoggedStore(loggedStoreDir, changeLogDeleteRetentionInMs)
+    try {
+      val changeLogDeleteRetentionInMs = changeLogDeleteRetentionsInMs.getOrElse(storeName,
+        StorageConfig.DEFAULT_CHANGELOG_DELETE_RETENTION_MS)
+      persistedStores.contains(storeName) && isOffsetFileValid(loggedStoreDir) &&
+        !isStaleLoggedStore(loggedStoreDir, changeLogDeleteRetentionInMs)
+    } catch {
+      case e: Exception => {
+        error("Exception validating logged store %s." format(storeName), e)
+        false
+      }
+    }
   }
 
   /**
@@ -289,11 +296,21 @@ class TaskStorageManager(
 
     for ((storeName, store) <- taskStoresToRestore) {
       if (changeLogSystemStreams.contains(storeName)) {
-        val systemStream = changeLogSystemStreams(storeName)
-        val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
-        val systemConsumer = storeConsumers(storeName)
-        val systemConsumerIterator = new SystemStreamPartitionIterator(systemConsumer, systemStreamPartition)
-        store.restore(systemConsumerIterator)
+        try {
+          val systemStream = changeLogSystemStreams(storeName)
+          val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
+          val systemConsumer = storeConsumers(storeName)
+          val systemConsumerIterator = new SystemStreamPartitionIterator(systemConsumer, systemStreamPartition)
+          store.restore(systemConsumerIterator)
+        } catch {
+          case e: Exception => {
+            val storePartitionDir = TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, storeName, taskName)
+            error("Exception restoring logged store %s. Deleting potentially-malformed files from path %s" format(storeName, storePartitionDir), e)
+            System.out.println("TSM removing file " + storePartitionDir.toString)
+            Util.rm(storePartitionDir)
+            throw e
+          }
+        }
       }
     }
   }
