@@ -306,7 +306,6 @@ class TaskStorageManager(
           case e: Exception => {
             val storePartitionDir = TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, storeName, taskName)
             error("Exception restoring logged store %s. Deleting potentially-malformed files from path %s" format(storeName, storePartitionDir), e)
-            System.out.println("TSM removing file " + storePartitionDir.toString)
             Util.rm(storePartitionDir)
             throw e
           }
