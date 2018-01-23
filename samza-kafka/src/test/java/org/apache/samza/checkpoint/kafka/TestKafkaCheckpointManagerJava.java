@@ -72,7 +72,7 @@ public class TestKafkaCheckpointManagerJava {
 
     SystemFactory factory = newFactory(mock(SystemProducer.class), mock(SystemConsumer.class), mockAdmin);
     KafkaCheckpointManager checkpointManager = new KafkaCheckpointManager(checkpointSpec, factory,
-        true, mock(Config.class), mock(MetricsRegistry.class), null);
+        true, mock(Config.class), mock(MetricsRegistry.class), null, new KafkaCheckpointLogKeySerde());
 
     // expect an exception during startup
     checkpointManager.start();
@@ -90,7 +90,7 @@ public class TestKafkaCheckpointManagerJava {
 
     SystemFactory factory = newFactory(mock(SystemProducer.class), mock(SystemConsumer.class), mockAdmin);
     KafkaCheckpointManager checkpointManager = new KafkaCheckpointManager(checkpointSpec, factory,
-        true, mock(Config.class), mock(MetricsRegistry.class), null);
+        true, mock(Config.class), mock(MetricsRegistry.class), null, new KafkaCheckpointLogKeySerde());
 
     // expect an exception during startup
     checkpointManager.start();
@@ -114,11 +114,38 @@ public class TestKafkaCheckpointManagerJava {
 
     // wire up an exception throwing serde with the checkpointmanager
     KafkaCheckpointManager checkpointManager = new KafkaCheckpointManager(checkpointSpec, factory,
-        true, mockConfig, mock(MetricsRegistry.class), new ExceptionThrowingCheckpointSerde());
+        true, mockConfig, mock(MetricsRegistry.class), new ExceptionThrowingCheckpointSerde(), new KafkaCheckpointLogKeySerde());
     checkpointManager.register(TASK1);
     checkpointManager.start();
 
     // expect an exception from ExceptionThrowingSerde
+    checkpointManager.readLastCheckpoint(TASK1);
+  }
+
+  @Test
+  public void testReadSucceedsOnKeySerdeExceptionsWhenValidationIsDisabled() throws Exception {
+    KafkaStreamSpec checkpointSpec = new KafkaStreamSpec(CHECKPOINT_TOPIC, CHECKPOINT_TOPIC,
+        CHECKPOINT_SYSTEM, 1);
+    Config mockConfig = mock(Config.class);
+    when(mockConfig.get(JobConfig.SSP_GROUPER_FACTORY())).thenReturn(GROUPER_FACTORY_CLASS);
+
+    // mock out a consumer that returns a single checkpoint IME
+    SystemStreamPartition ssp = new SystemStreamPartition("system-1", "input-topic", new Partition(0));
+    List<List<IncomingMessageEnvelope>> checkpointEnvelopes = ImmutableList.of(
+        ImmutableList.of(newCheckpointEnvelope(TASK1, ssp, "0")));
+    SystemConsumer mockConsumer = newConsumer(checkpointEnvelopes);
+
+    SystemAdmin mockAdmin = newAdmin("0", "1");
+    SystemFactory factory = newFactory(mock(SystemProducer.class), mockConsumer, mockAdmin);
+
+    // wire up an exception throwing serde with the checkpointmanager
+    KafkaCheckpointManager checkpointManager = new KafkaCheckpointManager(checkpointSpec, factory,
+        false, mockConfig, mock(MetricsRegistry.class), new ExceptionThrowingCheckpointSerde(),
+        new ExceptionThrowingCheckpointKeySerde());
+    checkpointManager.register(TASK1);
+    checkpointManager.start();
+
+    // expect the read to succeed inspite of the exception from ExceptionThrowingSerde
     checkpointManager.readLastCheckpoint(TASK1);
   }
 
@@ -138,7 +165,7 @@ public class TestKafkaCheckpointManagerJava {
     SystemAdmin mockAdmin = newAdmin(oldestOffset, "1");
     SystemFactory factory = newFactory(mock(SystemProducer.class), mockConsumer, mockAdmin);
     KafkaCheckpointManager checkpointManager = new KafkaCheckpointManager(checkpointSpec, factory,
-        true, mockConfig, mock(MetricsRegistry.class), new CheckpointSerde());
+        true, mockConfig, mock(MetricsRegistry.class), new CheckpointSerde(), new KafkaCheckpointLogKeySerde());
     checkpointManager.register(TASK1);
 
     // 1. verify that consumer.register is called only during checkpointManager.start.
@@ -177,7 +204,7 @@ public class TestKafkaCheckpointManagerJava {
     SystemFactory factory = newFactory(mock(SystemProducer.class), mockConsumer, mockAdmin);
 
     KafkaCheckpointManager checkpointManager = new KafkaCheckpointManager(checkpointSpec, factory,
-        true, mockConfig, mock(MetricsRegistry.class), new CheckpointSerde());
+        true, mockConfig, mock(MetricsRegistry.class), new CheckpointSerde(), new KafkaCheckpointLogKeySerde());
     checkpointManager.register(TASK1);
     checkpointManager.start();
 
@@ -241,6 +268,12 @@ public class TestKafkaCheckpointManagerJava {
 
   private static class ExceptionThrowingCheckpointSerde extends CheckpointSerde {
     public Checkpoint fromBytes(byte[] bytes) {
+      throw new KafkaException("exception");
+    }
+  }
+
+  private static class ExceptionThrowingCheckpointKeySerde extends KafkaCheckpointLogKeySerde {
+    public KafkaCheckpointLogKey fromBytes(byte[] bytes) {
       throw new KafkaException("exception");
     }
   }

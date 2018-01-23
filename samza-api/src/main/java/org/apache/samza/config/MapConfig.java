@@ -80,7 +80,7 @@ public class MapConfig extends Config {
   }
 
   public boolean containsValue(Object v) {
-    return map.containsKey(v);
+    return map.containsValue(v);
   }
 
   @Override

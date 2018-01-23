@@ -85,10 +85,13 @@ public class SamzaSqlApplicationRunner extends AbstractApplicationRunner {
         SqlSystemStreamConfig inputSystemStreamConfig = sourceResolver.fetchSourceInfo(inputSource);
         newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, inputSystemStreamConfig.getStreamName()),
             inputSystemStreamConfig.getSystemName());
+        newConfig.putAll(inputSystemStreamConfig.getConfig());
       }
+
       SqlSystemStreamConfig outputSystemStreamConfig = sourceResolver.fetchSourceInfo(query.getOutputSource());
       newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, outputSystemStreamConfig.getStreamName()),
           outputSystemStreamConfig.getSystemName());
+      newConfig.putAll(outputSystemStreamConfig.getConfig());
     }
 
     if (localRunner) {

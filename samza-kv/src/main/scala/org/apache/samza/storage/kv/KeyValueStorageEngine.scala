@@ -115,11 +115,15 @@ class KeyValueStorageEngine[K, V](
       }
 
       if (valBytes != null) {
-        metrics.restoredBytes.set(metrics.restoredBytes.getValue + valBytes.size)
+        metrics.restoredBytes.inc(valBytes.size)
+        metrics.restoredBytesGauge.set(metrics.restoredBytesGauge.getValue + valBytes.size)
       }
 
-      metrics.restoredBytes.set(metrics.restoredBytes.getValue + keyBytes.size)
-      metrics.restoredMessages.set(metrics.restoredMessages.getValue + 1)
+      metrics.restoredBytes.inc(keyBytes.size)
+      metrics.restoredBytesGauge.set(metrics.restoredBytesGauge.getValue + keyBytes.size)
+
+      metrics.restoredMessages.inc()
+      metrics.restoredMessagesGauge.set(metrics.restoredMessagesGauge.getValue + 1)
       count += 1
 
       if (count % 1000000 == 0) {

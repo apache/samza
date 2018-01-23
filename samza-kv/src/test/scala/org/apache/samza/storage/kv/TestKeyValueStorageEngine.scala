@@ -141,10 +141,10 @@ class TestKeyValueStorageEngine {
 
     engine.restore(changelogEntries.iterator())
 
-    assertEquals(3, metrics.restoredMessages.getValue)
-    assertEquals(15, metrics.restoredBytes.getValue) // 3 keys * 2 bytes/key +  3 msgs * 3 bytes/msg
+    assertEquals(3, metrics.restoredMessagesGauge.getValue)
+    assertEquals(15, metrics.restoredBytesGauge.getValue) // 3 keys * 2 bytes/key +  3 msgs * 3 bytes/msg
   }
-  
+
   def getNextTimestamp(): Long = {
     now += 1
     now
