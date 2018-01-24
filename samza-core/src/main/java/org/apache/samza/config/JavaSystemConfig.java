@@ -33,15 +33,20 @@ import org.apache.samza.util.Util;
 /**
  * a java version of the system config
  */
-public class JavaSystemConfig extends MapConfig {
+public class JavaSystemConfig {
   public static final String SYSTEM_PREFIX = "systems.";
   public static final String SYSTEM_FACTORY_SUFFIX = ".samza.factory";
   public static final String SYSTEM_FACTORY_FORMAT = SYSTEM_PREFIX + "%s" + SYSTEM_FACTORY_SUFFIX;
   private static final String SYSTEM_DEFAULT_STREAMS_PREFIX_FORMAT = SYSTEM_PREFIX + "%s" + ".default.stream.";
   private static final String EMPTY = "";
 
-  public JavaSystemConfig(Config config) {
-    super(config);
+  protected final Config config;
+
+  public JavaSystemConfig(final Config config) {
+    if (null == config) {
+      throw new IllegalArgumentException("config cannot be null");
+    }
+    this.config = config;
   }
 
   public String getSystemFactory(String name) {
@@ -49,7 +54,7 @@ public class JavaSystemConfig extends MapConfig {
       return null;
     }
     String systemFactory = String.format(SYSTEM_FACTORY_FORMAT, name);
-    String value = get(systemFactory, null);
+    String value = config.get(systemFactory, null);
     return (StringUtils.isBlank(value)) ? null : value;
   }
 
@@ -59,7 +64,7 @@ public class JavaSystemConfig extends MapConfig {
    * @return A list system names
    */
   public List<String> getSystemNames() {
-    Config subConf = subset(SYSTEM_PREFIX, true);
+    Config subConf = config.subset(SYSTEM_PREFIX, true);
     ArrayList<String> systemNames = new ArrayList<String>();
     for (Map.Entry<String, String> entry : subConf.entrySet()) {
       String key = entry.getKey();
@@ -80,7 +85,7 @@ public class JavaSystemConfig extends MapConfig {
         .stream()
         .collect(Collectors.toMap(systemNameToFactoryEntry -> systemNameToFactoryEntry.getKey(),
             systemNameToFactoryEntry -> systemNameToFactoryEntry.getValue()
-                .getAdmin(systemNameToFactoryEntry.getKey(), this)));
+                .getAdmin(systemNameToFactoryEntry.getKey(), config)));
   }
 
   /**
@@ -110,6 +115,6 @@ public class JavaSystemConfig extends MapConfig {
    * @return a subset of the config with the system prefix removed.
    */
   public Config getDefaultStreamProperties(String systemName) {
-    return subset(String.format(SYSTEM_DEFAULT_STREAMS_PREFIX_FORMAT, systemName), true);
+    return config.subset(String.format(SYSTEM_DEFAULT_STREAMS_PREFIX_FORMAT, systemName), true);
   }
 }

@@ -44,7 +44,7 @@ public class Log4jSystemConfig extends JavaSystemConfig {
    *         information in Log4J appender messages.
    */
   public boolean getLocationEnabled() {
-    return "true".equals(get(Log4jSystemConfig.LOCATION_ENABLED, "false"));
+    return "true".equals(config.get(Log4jSystemConfig.LOCATION_ENABLED, "false"));
   }
 
   /**
@@ -54,7 +54,7 @@ public class Log4jSystemConfig extends JavaSystemConfig {
    * @return log4j system name
    */
   public String getSystemName() {
-    String log4jSystem = get(TASK_LOG4J_SYSTEM, null);
+    String log4jSystem = config.get(TASK_LOG4J_SYSTEM, null);
     if (log4jSystem == null) {
       throw new ConfigException("Missing " + TASK_LOG4J_SYSTEM + " configuration. Can't figure out the system name to use.");
     }
@@ -62,11 +62,11 @@ public class Log4jSystemConfig extends JavaSystemConfig {
   }
 
   public String getJobName() {
-    return get(JobConfig.JOB_NAME(), null);
+    return config.get(JobConfig.JOB_NAME(), null);
   }
 
   public String getJobId() {
-    return get(JobConfig.JOB_ID(), null);
+    return config.get(JobConfig.JOB_ID(), null);
   }
 
   /**
@@ -77,11 +77,11 @@ public class Log4jSystemConfig extends JavaSystemConfig {
    *         supplied serde name.
    */
   public String getSerdeClass(String name) {
-    return get(String.format(SerializerConfig.SERDE_FACTORY_CLASS(), name), null);
+    return config.get(String.format(SerializerConfig.SERDE_FACTORY_CLASS(), name), null);
   }
 
   public String getStreamSerdeName(String systemName, String streamName) {
-    StreamConfig streamConfig =  new StreamConfig(this);
+    StreamConfig streamConfig =  new StreamConfig(config);
     scala.Option<String> option = streamConfig.getStreamMsgSerde(new SystemStream(systemName, streamName));
     return option.isEmpty() ? null : option.get();
   }

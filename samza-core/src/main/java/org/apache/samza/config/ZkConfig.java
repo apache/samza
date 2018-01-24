@@ -19,7 +19,7 @@
 
 package org.apache.samza.config;
 
-public class ZkConfig extends MapConfig {
+public class ZkConfig {
   // Connection string for ZK, format: :<hostname>:<port>,..."
   public static final String ZK_CONNECT = "job.coordinator.zk.connect";
   public static final String ZK_SESSION_TIMEOUT_MS = "job.coordinator.zk.session.timeout.ms";
@@ -30,26 +30,31 @@ public class ZkConfig extends MapConfig {
   public static final int DEFAULT_SESSION_TIMEOUT_MS = 30000;
   public static final int DEFAULT_CONSENSUS_TIMEOUT_MS = 40000;
 
-  public ZkConfig(Config config) {
-    super(config);
+  private final Config config;
+
+  public ZkConfig(final Config config) {
+    if (null == config) {
+      throw new IllegalArgumentException("config cannot be null");
+    }
+    this.config = config;
   }
 
   public String getZkConnect() {
-    if (!containsKey(ZK_CONNECT)) {
+    if (!config.containsKey(ZK_CONNECT)) {
       throw new ConfigException("Missing " + ZK_CONNECT + " config!");
     }
-    return get(ZK_CONNECT);
+    return config.get(ZK_CONNECT);
   }
 
   public int getZkSessionTimeoutMs() {
-    return getInt(ZK_SESSION_TIMEOUT_MS, DEFAULT_SESSION_TIMEOUT_MS);
+    return config.getInt(ZK_SESSION_TIMEOUT_MS, DEFAULT_SESSION_TIMEOUT_MS);
   }
 
   public int getZkConnectionTimeoutMs() {
-    return getInt(ZK_CONNECTION_TIMEOUT_MS, DEFAULT_CONNECTION_TIMEOUT_MS);
+    return config.getInt(ZK_CONNECTION_TIMEOUT_MS, DEFAULT_CONNECTION_TIMEOUT_MS);
   }
 
   public int getZkBarrierTimeoutMs() {
-    return getInt(ZK_CONSENSUS_TIMEOUT_MS, DEFAULT_CONSENSUS_TIMEOUT_MS);
+    return config.getInt(ZK_CONSENSUS_TIMEOUT_MS, DEFAULT_CONSENSUS_TIMEOUT_MS);
   }
 }

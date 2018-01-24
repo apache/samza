@@ -25,17 +25,22 @@ import org.apache.samza.coordinator.CoordinationUtilsFactory;
 import org.apache.samza.util.ClassLoaderHelper;
 import org.apache.samza.zk.ZkCoordinationUtilsFactory;
 
-public class JobCoordinatorConfig extends MapConfig {
+public class JobCoordinatorConfig {
   public static final String JOB_COORDINATOR_FACTORY = "job.coordinator.factory";
   public static final String JOB_COORDINATION_UTILS_FACTORY = "job.coordination.utils.factory";
   public final static String DEFAULT_COORDINATION_UTILS_FACTORY = ZkCoordinationUtilsFactory.class.getName();
 
-  public JobCoordinatorConfig(Config config) {
-    super(config);
+  private final Config config;
+
+  public JobCoordinatorConfig(final Config config) {
+    if (null == config) {
+      throw new IllegalArgumentException("config cannot be null");
+    }
+    this.config = config;
   }
 
   public String getJobCoordinationUtilsFactoryClassName() {
-    String className = get(JOB_COORDINATION_UTILS_FACTORY, DEFAULT_COORDINATION_UTILS_FACTORY);
+    String className = config.get(JOB_COORDINATION_UTILS_FACTORY, DEFAULT_COORDINATION_UTILS_FACTORY);
 
     if (Strings.isNullOrEmpty(className)) {
       throw new SamzaException("Empty config for " + JOB_COORDINATION_UTILS_FACTORY + " = " + className);
@@ -59,7 +64,7 @@ public class JobCoordinatorConfig extends MapConfig {
   }
 
   public String getJobCoordinatorFactoryClassName() {
-    String jobCoordinatorFactoryClassName = get(JOB_COORDINATOR_FACTORY);
+    String jobCoordinatorFactoryClassName = config.get(JOB_COORDINATOR_FACTORY);
     if (Strings.isNullOrEmpty(jobCoordinatorFactoryClassName)) {
       throw new ConfigException(
           String.format("Missing config - %s. Cannot start StreamProcessor!", JOB_COORDINATOR_FACTORY));

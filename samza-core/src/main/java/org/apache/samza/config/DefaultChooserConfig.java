@@ -29,14 +29,19 @@ import org.apache.samza.system.SystemStream;
 /**
  * A convenience class for fetching configs related to the {@link org.apache.samza.system.chooser.DefaultChooser}
  */
-public class DefaultChooserConfig extends MapConfig {
+public class DefaultChooserConfig {
   private static final String BATCH_SIZE = "task.consumer.batch.size";
 
   private final TaskConfigJava taskConfigJava;
   private final StreamConfig streamConfig;
 
-  public DefaultChooserConfig(Config config) {
-    super(config);
+  private final Config config;
+
+  public DefaultChooserConfig(final Config config) {
+    if (null == config) {
+      throw new IllegalArgumentException("config cannot be null");
+    }
+    this.config = config;
     taskConfigJava = new TaskConfigJava(config);
     streamConfig = new StreamConfig(config);
   }
@@ -45,7 +50,7 @@ public class DefaultChooserConfig extends MapConfig {
    * @return  the configured batch size, or 0 if it was not configured.
    */
   public int getChooserBatchSize() {
-    return getInt(BATCH_SIZE, 0);
+    return config.getInt(BATCH_SIZE, 0);
   }
 
   /**

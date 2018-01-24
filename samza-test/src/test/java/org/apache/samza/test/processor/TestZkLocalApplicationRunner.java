@@ -102,9 +102,9 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
   private String inputSinglePartitionKafkaTopic;
   private String outputSinglePartitionKafkaTopic;
   private ZkUtils zkUtils;
-  private ApplicationConfig applicationConfig1;
-  private ApplicationConfig applicationConfig2;
-  private ApplicationConfig applicationConfig3;
+  private Config applicationConfig1;
+  private Config applicationConfig2;
+  private Config applicationConfig3;
   private LocalApplicationRunner applicationRunner1;
   private LocalApplicationRunner applicationRunner2;
   private LocalApplicationRunner applicationRunner3;
@@ -133,11 +133,11 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     Map<String, String> configMap =
         buildStreamApplicationConfigMap(TEST_SYSTEM, inputKafkaTopic, testStreamAppName, testStreamAppId);
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[0]);
-    applicationConfig1 = new ApplicationConfig(new MapConfig(configMap));
+    applicationConfig1 = new MapConfig(configMap);
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[1]);
-    applicationConfig2 = new ApplicationConfig(new MapConfig(configMap));
+    applicationConfig2 = new MapConfig(configMap);
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[2]);
-    applicationConfig3 = new ApplicationConfig(new MapConfig(configMap));
+    applicationConfig3 = new MapConfig(configMap);
 
     ZkClient zkClient = new ZkClient(zkConnect());
     ZkKeyBuilder zkKeyBuilder = new ZkKeyBuilder(ZkJobCoordinatorFactory.getJobCoordinationZkPath(applicationConfig1));

@@ -25,16 +25,21 @@ import java.util.List;
 /**
  * java version of the SerializerConfig
  */
-public class JavaSerializerConfig extends MapConfig {
+public class JavaSerializerConfig {
   private final static String SERIALIZER_PREFIX = "serializers.registry.%s";
   private final static String SERDE = "serializers.registry.%s.class";
 
-  public JavaSerializerConfig(Config config) {
-    super(config);
+  private final Config config;
+
+  public JavaSerializerConfig(final Config config) {
+    if (null == config) {
+      throw new IllegalArgumentException("config cannot be null");
+    }
+    this.config = config;
   }
 
   public String getSerdeClass(String name) {
-    return get(String.format(SERDE, name), null);
+    return config.get(String.format(SERDE, name), null);
   }
 
   /**
@@ -43,12 +48,16 @@ public class JavaSerializerConfig extends MapConfig {
    */
   public List<String> getSerdeNames() {
     List<String> results = new ArrayList<String>();
-    Config subConfig = subset(String.format(SERIALIZER_PREFIX, ""), true);
+    Config subConfig = config.subset(String.format(SERIALIZER_PREFIX, ""), true);
     for (String key : subConfig.keySet()) {
       if (key.endsWith(".class")) {
         results.add(key.replace(".class", ""));
       }
     }
     return results;
+  }
+
+  public Config getFilteredConfig() {
+    return config.subset(String.format(SERIALIZER_PREFIX, ""), false);
   }
 }

@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 import scala.collection.JavaConverters;
 
 
-public class TaskConfigJava extends MapConfig {
+public class TaskConfigJava {
   // Task Configs
   public static final String TASK_SHUTDOWN_MS = "task.shutdown.ms";
   public static final long DEFAULT_TASK_SHUTDOWN_MS = 30000L;
@@ -45,9 +45,13 @@ public class TaskConfigJava extends MapConfig {
   private static final String BROADCAST_STREAM_RANGE_PATTERN = "^\\[[\\d]+\\-[\\d]+\\]$";
   public static final Logger LOGGER = LoggerFactory.getLogger(TaskConfigJava.class);
 
+  private final Config config;
 
-  public TaskConfigJava(Config config) {
-    super(config);
+  public TaskConfigJava(final Config config) {
+    if (null == config) {
+      throw new IllegalArgumentException("config cannot be null");
+    }
+    this.config = config;
   }
 
   /**
@@ -59,7 +63,7 @@ public class TaskConfigJava extends MapConfig {
    */
   public Set<SystemStreamPartition> getBroadcastSystemStreamPartitions() {
     HashSet<SystemStreamPartition> systemStreamPartitionSet = new HashSet<SystemStreamPartition>();
-    List<String> systemStreamPartitions = getList(BROADCAST_INPUT_STREAMS, Collections.<String>emptyList());
+    List<String> systemStreamPartitions = config.getList(BROADCAST_INPUT_STREAMS, Collections.<String>emptyList());
 
     for (String systemStreamPartition : systemStreamPartitions) {
       int hashPosition = systemStreamPartition.indexOf("#");
@@ -115,7 +119,7 @@ public class TaskConfigJava extends MapConfig {
   public Set<SystemStream> getAllInputStreams() {
     Set<SystemStream> allInputSS = new HashSet<>();
 
-    TaskConfig taskConfig = TaskConfig.Config2Task(this);
+    TaskConfig taskConfig = TaskConfig.Config2Task(config);
     allInputSS.addAll((Set<? extends SystemStream>) JavaConverters.setAsJavaSetConverter(taskConfig.getInputStreams()).asJava());
     allInputSS.addAll(getBroadcastSystemStreams());
 
@@ -130,7 +134,7 @@ public class TaskConfigJava extends MapConfig {
    * @return Long value indicating how long to wait for all the tasks to shutdown
    */
   public long getShutdownMs() {
-    String shutdownMs = get(TASK_SHUTDOWN_MS);
+    String shutdownMs = config.get(TASK_SHUTDOWN_MS);
     try {
       return Long.parseLong(shutdownMs);
     } catch (NumberFormatException nfe) {

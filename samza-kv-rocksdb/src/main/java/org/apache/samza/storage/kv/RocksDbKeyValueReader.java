@@ -127,6 +127,6 @@ public class RocksDbKeyValueReader {
     if (serdeClassName == null) {
       serdeClassName = Util.defaultSerdeFactoryFromSerdeName(name);
     }
-    return Util.<SerdeFactory<Object>> getObj(serdeClassName).getSerde(name, serializerConfig);
+    return Util.<SerdeFactory<Object>> getObj(serdeClassName).getSerde(name, serializerConfig.getFilteredConfig());
   }
 }

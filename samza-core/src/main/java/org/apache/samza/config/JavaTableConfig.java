@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 /**
  * A helper class for handling table configuration
  */
-public class JavaTableConfig extends MapConfig {
+public class JavaTableConfig {
 
   // Prefix
   public static final String TABLES_PREFIX = "tables.";
@@ -40,9 +40,13 @@ public class JavaTableConfig extends MapConfig {
   public static final String TABLE_KEY_SERDE = String.format("%s.key.serde", TABLE_ID_PREFIX);
   public static final String TABLE_VALUE_SERDE = String.format("%s.value.serde", TABLE_ID_PREFIX);
 
+  private final Config config;
 
-  public JavaTableConfig(Config config) {
-    super(config);
+  public JavaTableConfig(final Config config) {
+    if (null == config) {
+      throw new IllegalArgumentException("config cannot be null");
+    }
+    this.config = config;
   }
 
   /**
@@ -50,7 +54,7 @@ public class JavaTableConfig extends MapConfig {
    * @return list of table Id's
    */
   public List<String> getTableIds() {
-    Config subConfig = subset(TABLES_PREFIX, true);
+    Config subConfig = config.subset(TABLES_PREFIX, true);
     Set<String> tableNames = subConfig.keySet().stream()
         .filter(k -> k.endsWith(TABLE_PROVIDER_FACTORY_SUFFIX))
         .map(k -> k.substring(0, k.indexOf(".")))
@@ -64,7 +68,7 @@ public class JavaTableConfig extends MapConfig {
    * @return the {@link org.apache.samza.table.TableProviderFactory} class name
    */
   public String getTableProviderFactory(String tableId) {
-    return get(String.format(TABLE_PROVIDER_FACTORY, tableId), null);
+    return config.get(String.format(TABLE_PROVIDER_FACTORY, tableId), null);
   }
 
   /**
@@ -73,7 +77,7 @@ public class JavaTableConfig extends MapConfig {
    * @return serde retistry key
    */
   public String getKeySerde(String tableId) {
-    return get(String.format(TABLE_KEY_SERDE, tableId), null);
+    return config.get(String.format(TABLE_KEY_SERDE, tableId), null);
   }
 
   /**
@@ -82,6 +86,6 @@ public class JavaTableConfig extends MapConfig {
    * @return serde retistry key
    */
   public String getValueSerde(String tableId) {
-    return get(String.format(TABLE_VALUE_SERDE, tableId), null);
+    return config.get(String.format(TABLE_VALUE_SERDE, tableId), null);
   }
 }
