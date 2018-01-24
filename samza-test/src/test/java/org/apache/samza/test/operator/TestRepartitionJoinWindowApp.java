@@ -20,23 +20,24 @@ package org.apache.samza.test.operator;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Collections;
 import java.util.List;
 
 import static org.apache.samza.test.operator.RepartitionJoinWindowApp.AD_CLICKS;
-import static org.apache.samza.test.operator.RepartitionJoinWindowApp.PAGE_VIEWS;
 import static org.apache.samza.test.operator.RepartitionJoinWindowApp.OUTPUT_TOPIC;
+import static org.apache.samza.test.operator.RepartitionJoinWindowApp.PAGE_VIEWS;
+
 
 /**
  * Test driver for {@link RepartitionJoinWindowApp}.
  */
 public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTestHarness {
-  private static final String APP_NAME = "UserPageAdClickCounter";
 
-  @Test
-  public void testRepartitionJoinWindowApp() throws Exception {
+  @Before
+  public void setup() {
     // create topics
     createTopic(PAGE_VIEWS, 2);
     createTopic(AD_CLICKS, 2);
@@ -56,9 +57,14 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     produceMessage(AD_CLICKS, 0, "a1", "{\"viewId\":\"v3\",\"adId\":\"a1\"}");
     produceMessage(AD_CLICKS, 0, "a5", "{\"viewId\":\"v4\",\"adId\":\"a5\"}");
 
+  }
+
+  @Test
+  public void testRepartitionJoinWindowApp() throws Exception {
     // run the application
     RepartitionJoinWindowApp app = new RepartitionJoinWindowApp();
-    runApplication(app, APP_NAME, null);
+    final String appName = "UserPageAdClickCounter";
+    runApplication(app, appName, null);
 
     // consume and validate result
     List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(OUTPUT_TOPIC), 2);
@@ -70,5 +76,10 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
       Assert.assertTrue(key.equals("u1") || key.equals("u2"));
       Assert.assertEquals("2", value);
     }
+  }
+
+  @Test
+  public void testBroadcastApp() {
+    runApplication(new BroadcastAssertApp(), "BroadcastTest", null);
   }
 }

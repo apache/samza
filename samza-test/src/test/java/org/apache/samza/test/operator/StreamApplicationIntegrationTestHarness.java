@@ -32,6 +32,7 @@ import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
+import org.apache.samza.test.util.StreamAssert;
 import scala.Option;
 import scala.Option$;
 
@@ -248,6 +249,8 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     app = streamApplication;
     runner = ApplicationRunner.fromConfig(new MapConfig(configs));
     runner.run(streamApplication);
+
+    StreamAssert.waitForComplete();
   }
 
   public void setNumEmptyPolls(int numEmptyPolls) {

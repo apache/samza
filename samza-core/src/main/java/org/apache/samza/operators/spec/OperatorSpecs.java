@@ -278,4 +278,16 @@ public class OperatorSpecs {
     return new SendToTableOperatorSpec(inputOpSpec, tableSpec, opId);
   }
 
+  /**
+   * Creates a {@link BroadcastOperatorSpec} for the Broadcast operator.
+   * @param outputStream the {@link OutputStreamImpl} to send messages to
+   * @param opId the unique ID of the operator
+   * @param <M> the type of input message
+   * @return the {@link BroadcastOperatorSpec}
+   */
+  public static <M> BroadcastOperatorSpec<M> createBroadCastOperatorSpec(
+      OutputStreamImpl<M> outputStream, String opId) {
+    return new BroadcastOperatorSpec<>(outputStream, opId);
+  }
+
 }

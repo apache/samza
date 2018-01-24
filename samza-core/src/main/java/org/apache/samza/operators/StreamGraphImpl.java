@@ -168,17 +168,30 @@ public class StreamGraphImpl implements StreamGraph {
   }
 
   /**
+   * See {@link StreamGraphImpl#getIntermediateStream(String, Serde, boolean)}.
+   */
+  <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde) {
+    return getIntermediateStream(streamId, serde, false);
+  }
+
+  /**
    * Internal helper for {@link MessageStreamImpl} to add an intermediate {@link MessageStream} to the graph.
    * An intermediate {@link MessageStream} is both an output and an input stream.
    *
    * @param streamId the id of the stream to be created.
    * @param serde the {@link Serde} to use for the message in the intermediate stream. If null, the default serde
    *              is used.
+   * @param isBroadcast whether the stream is a broadcast stream.
    * @param <M> the type of messages in the intermediate {@link MessageStream}
    * @return  the intermediate {@link MessageStreamImpl}
+   *
+   * TODO: once SAMZA-1566 is resolved, we should be able to pass in the StreamSpec directly.
    */
-  <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde) {
+  <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde, boolean isBroadcast) {
     StreamSpec streamSpec = runner.getStreamSpec(streamId);
+    if (isBroadcast) {
+      streamSpec = streamSpec.copyWithBroadCast();
+    }
 
     Preconditions.checkState(!inputOperators.containsKey(streamSpec) && !outputStreams.containsKey(streamSpec),
         "getIntermediateStream must not be called multiple times with the same streamId: " + streamId);

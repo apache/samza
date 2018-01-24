@@ -16,33 +16,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
- ext {
-  apacheCommonsCollections4Version = "4.0"
-  avroVersion = "1.7.0"
-  calciteVersion = "1.14.0"
-  commonsCliVersion = "1.2"
-  commonsCodecVersion = "1.9"
-  commonsCollectionVersion = "3.2.1"
-  commonsHttpClientVersion = "3.1"
-  commonsLang3Version = "3.4"
-  elasticsearchVersion = "2.2.0"
-  guavaVersion = "17.0"
-  hamcrestVersion = "1.3"
-  httpClientVersion = "4.4.1"
-  jacksonVersion = "1.9.13"
-  jerseyVersion = "2.22.1"
-  jodaTimeVersion = "2.2"
-  joptSimpleVersion = "3.2"
-  junitVersion = "4.12"
-  kafkaVersion = "0.11.0.2"
-  log4jVersion = "1.2.17"
-  metricsVersion = "2.2.0"
-  mockitoVersion = "1.10.19"
-  powerMockVersion = "1.6.6"
-  rocksdbVersion = "5.7.3"
-  scalaTestVersion = "3.0.1"
-  slf4jVersion = "1.6.2"
-  yarnVersion = "2.6.1"
-  zkClientVersion = "0.8"
-  zookeeperVersion = "3.4.6"
+
+
+package org.apache.samza.operators.spec;
+
+import org.apache.samza.operators.functions.WatermarkFunction;
+
+public class BroadcastOperatorSpec<M> extends OperatorSpec<M, Void> {
+  private final OutputStreamImpl<M> outputStream;
+
+
+  public BroadcastOperatorSpec(OutputStreamImpl<M> outputStream, String opId) {
+    super(OpCode.BROADCAST, opId);
+
+    this.outputStream = outputStream;
+  }
+
+  public OutputStreamImpl<M> getOutputStream() {
+    return this.outputStream;
+  }
+
+  @Override
+  public WatermarkFunction getWatermarkFn() {
+    return null;
+  }
 }
