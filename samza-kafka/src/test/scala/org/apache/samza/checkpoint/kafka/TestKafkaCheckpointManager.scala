@@ -166,7 +166,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
 
     val systemFactory = Util.getObj[SystemFactory](systemFactoryClassName)
 
-    val spec = new KafkaStreamSpec("id", cpTopic, checkpointSystemName, 1, 1, props)
+    val spec = new KafkaStreamSpec("id", cpTopic, checkpointSystemName, 1, 1, false, props)
     new KafkaCheckpointManager(spec, systemFactory, failOnTopicValidation, config, new NoOpMetricsRegistry, serde)
   }
 

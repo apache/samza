@@ -19,32 +19,72 @@
 package org.apache.samza.test.operator.data;
 
 
+import org.codehaus.jackson.annotate.JsonProperty;
+
 public class PageView {
   private String viewId;
   private String pageId;
   private String userId;
 
-  public String getViewId() {
-    return viewId;
+  public PageView(@JsonProperty("view-id") String viewId,
+                  @JsonProperty("page-id") String pageId,
+                  @JsonProperty("user-id") String userId) {
+    this.viewId = viewId;
+    this.pageId = pageId;
+    this.userId = userId;
   }
 
-  public void setViewId(String viewId) {
-    this.viewId = viewId;
+  public String getViewId() {
+    return viewId;
   }
 
   public String getPageId() {
     return pageId;
   }
 
-  public void setPageId(String pageId) {
-    this.pageId = pageId;
-  }
-
   public String getUserId() {
     return userId;
   }
 
-  public void setUserId(String userId) {
-    this.userId = userId;
+  @Override
+  public int hashCode() {
+    final int prime = 31;
+    int result = viewId != null ? viewId.hashCode() : 0;
+    result = prime * result + (pageId != null ? pageId.hashCode() : 0);
+    result = prime * result + (userId != null ? userId.hashCode() : 0);
+    return result;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj)
+      return true;
+    if (obj == null)
+      return false;
+    if (getClass() != obj.getClass())
+      return false;
+
+    final PageView other = (PageView) obj;
+
+    if (viewId != null
+        ? !viewId.equals(other.viewId)
+        : other.viewId != null) {
+      return false;
+    }
+
+    if (pageId != null
+        ? !pageId.equals(other.pageId)
+        : other.pageId != null) {
+      return false;
+    }
+
+    return userId != null
+        ? userId.equals(other.userId)
+        : other.userId == null;
+  }
+
+  @Override
+  public String toString() {
+    return "viewId:" + viewId + "|pageId:" + pageId + "|userId:" + userId;
   }
 }

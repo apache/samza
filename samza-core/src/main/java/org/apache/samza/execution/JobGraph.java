@@ -184,6 +184,9 @@ import org.slf4j.LoggerFactory;
       edge = new StreamEdge(streamSpec, isIntermediate, config);
       edges.put(streamId, edge);
     }
+    if (streamSpec.isBroadcast()) {
+      edge.setPartitionCount(1);
+    }
     return edge;
   }
 
