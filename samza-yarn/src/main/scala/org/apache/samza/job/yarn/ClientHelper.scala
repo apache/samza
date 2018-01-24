@@ -251,8 +251,8 @@ class ClientHelper(conf: Configuration) extends Logging {
 
     applicationReports
       .asScala
-        .filter(applicationReport => isActiveApplication(applicationReport)
-          && appName.equals(applicationReport.getName))
+        .filter(applicationReport => appName.equals(applicationReport.getName)
+          && isActiveApplication(applicationReport))
         .map(applicationReport => applicationReport.getApplicationId)
         .toList
   }
@@ -262,8 +262,8 @@ class ClientHelper(conf: Configuration) extends Logging {
 
     applicationReports
       .asScala
-      .filter(applicationReport => (!(isActiveApplication(applicationReport))
-        && appName.equals(applicationReport.getName)))
+      .filter(applicationReport => appName.equals(applicationReport.getName)
+        && (!isActiveApplication(applicationReport)))
       .map(applicationReport => applicationReport.getApplicationId)
       .toList
   }
