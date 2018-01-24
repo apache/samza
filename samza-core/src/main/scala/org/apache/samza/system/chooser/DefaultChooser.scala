@@ -24,7 +24,7 @@ import org.apache.samza.config.{Config, DefaultChooserConfig, TaskConfigJava}
 import org.apache.samza.metrics.{MetricsRegistry, MetricsRegistryMap}
 import org.apache.samza.system._
 import org.apache.samza.util.Logging
-
+import java.util.HashMap
 import scala.collection.JavaConverters._
 
 
@@ -255,7 +255,7 @@ class DefaultChooser(
    * Defines a mapping from SystemStream name to SystemAdmin.
    * This is useful for determining if a bootstrap SystemStream is caught up.
    */
-  systemAdmins: SystemAdmins = new SystemAdmins()) extends MessageChooser with Logging {
+  systemAdmins: SystemAdmins = new SystemAdmins(new HashMap[String, SystemAdmin])) extends MessageChooser with Logging {
 
   val chooser = {
     val useBatching = batchSize.isDefined

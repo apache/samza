@@ -19,7 +19,6 @@
 
 package org.apache.samza.system;
 
-import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -36,10 +35,6 @@ public class SystemAdmins {
   public SystemAdmins(Config config) {
     JavaSystemConfig systemConfig = new JavaSystemConfig(config);
     this.systemAdminMap = systemConfig.getSystemAdmins();
-  }
-
-  public SystemAdmins() {
-    this(new HashMap<>());
   }
 
   // Used only for test

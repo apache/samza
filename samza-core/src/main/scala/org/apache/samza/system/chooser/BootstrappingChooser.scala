@@ -19,7 +19,7 @@
 
 package org.apache.samza.system.chooser
 
-import org.apache.samza.SamzaException
+import java.util.HashMap
 import org.apache.samza.metrics.MetricsHelper
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.metrics.MetricsRegistry
@@ -72,7 +72,7 @@ class BootstrappingChooser(
    * A map from system stream name to SystemAdmin that is used for
    * offset comparisons.
    */
-  systemAdmins: SystemAdmins = new SystemAdmins()) extends MessageChooser with Logging {
+  systemAdmins: SystemAdmins = new SystemAdmins(new HashMap[String, SystemAdmin])) extends MessageChooser with Logging {
 
   /**
    * The number of lagging partitions for each SystemStream that's behind.

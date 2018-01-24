@@ -72,7 +72,7 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
 
   @Override
   public void kill(StreamApplication streamApp) {
-    systemAdmins.start();
+    systemAdmins.stop();
   }
 
   /**
