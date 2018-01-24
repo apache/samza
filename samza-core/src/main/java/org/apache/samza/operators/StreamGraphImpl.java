@@ -168,7 +168,7 @@ public class StreamGraphImpl implements StreamGraph {
   }
 
   /**
-   * @see {@link StreamGraphImpl#getIntermediateStream(String, Serde, boolean)}
+   * See {@link StreamGraphImpl#getIntermediateStream(String, Serde, boolean)}.
    */
   <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde) {
     return getIntermediateStream(streamId, serde, false);
@@ -184,6 +184,8 @@ public class StreamGraphImpl implements StreamGraph {
    * @param isBroadcast whether the stream is a broadcast stream.
    * @param <M> the type of messages in the intermediate {@link MessageStream}
    * @return  the intermediate {@link MessageStreamImpl}
+   *
+   * TODO: once SAMZA-1566 is resolved, we should be able to pass in the StreamSpec directly.
    */
   <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde, boolean isBroadcast) {
     StreamSpec streamSpec = runner.getStreamSpec(streamId);
