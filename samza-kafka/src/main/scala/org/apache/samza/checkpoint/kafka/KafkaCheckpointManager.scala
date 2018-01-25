@@ -53,6 +53,9 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
                              checkpointMsgSerde: Serde[Checkpoint] = new CheckpointSerde,
                              checkpointKeySerde: Serde[KafkaCheckpointLogKey] = new KafkaCheckpointLogKeySerde) extends CheckpointManager with Logging {
 
+  // Retry duration is approximately 83 minutes.
+  var MaxRetriesOnFailure = 50
+
   info(s"Creating KafkaCheckpointManager for checkpointTopic:$checkpointTopic, systemName:$checkpointSystem " +
     s"validateCheckpoints:$validateCheckpoint")
 
@@ -157,7 +160,12 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
       },
 
       (exception, loop) => {
-        warn(s"Retrying failed checkpoint write to key: $key, checkpoint: $checkpoint for task: $taskName", exception)
+        if (loop.sleepCount >= MaxRetriesOnFailure) {
+          error(s"Exhausted $MaxRetriesOnFailure retries when writing checkpoint: $checkpoint for task: $taskName.")
+          throw new SamzaException(s"Exception when writing checkpoint: $checkpoint for task: $taskName.", exception)
+        } else {
+          warn(s"Retrying failed checkpoint write to key: $key, checkpoint: $checkpoint for task: $taskName", exception)
+        }
       }
     )
   }
