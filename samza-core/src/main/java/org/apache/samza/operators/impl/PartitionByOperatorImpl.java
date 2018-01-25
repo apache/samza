@@ -58,9 +58,7 @@ class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
     if (!outputStream.isKeyedOutput()) {
       throw new SamzaException("Output stream for repartitioning must be a keyed stream.");
     }
-    this.systemStream = new SystemStream(
-        outputStream.getStreamSpec().getSystemName(),
-        outputStream.getStreamSpec().getPhysicalName());
+    this.systemStream = outputStream.getSystemStream();
     this.keyFunction = partitionByOpSpec.getKeyFunction();
     this.valueFunction = partitionByOpSpec.getValueFunction();
     this.taskName = context.getTaskName().getTaskName();
@@ -106,7 +104,7 @@ class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
   }
 
   private void sendControlMessage(ControlMessage message, MessageCollector collector) {
-    SystemStream outputStream = partitionByOpSpec.getOutputStream().getStreamSpec().toSystemStream();
+    SystemStream outputStream = partitionByOpSpec.getOutputStream().getSystemStream();
     controlMessageSender.send(message, outputStream, collector);
   }
 }

@@ -37,35 +37,35 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A {@link StreamTask} implementation that brings all the operator API implementation components together and
- * feeds the input messages into the user-defined transformation chains in {@link StreamApplicationInternal}.
+ * feeds the input messages into the user-defined transformation chains in {@link StreamGraphImpl}.
  */
 public final class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask {
   private static final Logger LOG = LoggerFactory.getLogger(StreamOperatorTask.class);
 
-  private final StreamApplicationInternal streamApplication;
+  private final StreamGraphImpl streamGraph;
   private final Clock clock;
 
   private OperatorImplGraph operatorImplGraph;
   private ContextManager contextManager;
 
   /**
-   * Constructs an adaptor task to run the user-implemented {@link StreamApplicationInternal}.
-   * @param streamApplication the user-implemented {@link StreamApplicationInternal} that creates the logical DAG
+   * Constructs an adaptor task to run the user-implemented {@link StreamGraphImpl}.
+   * @param streamGraph the user-implemented {@link StreamGraphImpl} that creates the logical DAG
    * @param clock the {@link Clock} to use for time-keeping
    */
-  public StreamOperatorTask(StreamApplicationInternal streamApplication, Clock clock) {
-    this.streamApplication = streamApplication;
+  public StreamOperatorTask(StreamGraphImpl streamGraph, Clock clock) {
+    this.streamGraph = streamGraph;
     this.clock = clock;
   }
 
-  public StreamOperatorTask(StreamApplicationInternal application) {
+  public StreamOperatorTask(StreamGraphImpl application) {
     this(application, SystemClock.instance());
   }
 
   /**
    * Initializes this task during startup.
    * <p>
-   * Implementation: Initializes the user-implemented {@link StreamApplicationInternal}. The {@link StreamApplicationInternal} sets
+   * Implementation: Initializes the user-implemented {@link StreamGraphImpl}. The {@link StreamGraphImpl} sets
    * the input and output streams and the task-wide context manager using the {@link StreamGraphImpl} APIs,
    * and the logical transforms using the {@link org.apache.samza.operators.MessageStream} APIs. It then uses
    * the {@link StreamGraphImpl} to create the {@link OperatorImplGraph} corresponding to the logical DAG.
@@ -76,9 +76,6 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
    */
   @Override
   public final void init(Config config, TaskContext context) throws Exception {
-    StreamGraphImpl streamGraph = this.streamApplication.getStreamGraphImpl();
-    // initialize the user-implemented stream application.
-    // this.streamApplication.init(streamGraph, config);
 
     // get the user-implemented context manager and initialize it
     // NOTE: if we don't clone for each task, global variables used across different tasks are possible. If we clone

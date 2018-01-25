@@ -89,7 +89,8 @@ public class TestLocalApplicationRunner {
     PowerMockito.whenNew(JobCoordinatorConfig.class).withAnyArguments().thenReturn(mockJcConfig);
 
     try {
-      runner.run(app).waitForFinish();
+      runner.run(app);
+      runner.waitForFinish();
     } catch (Throwable t) {
       assertNotNull(t); //no jobs exception
     }
@@ -131,7 +132,8 @@ public class TestLocalApplicationRunner {
         .thenReturn(coordinationUtils);
 
     try {
-      runner.run(app).waitForFinish();
+      runner.run(app);
+      runner.waitForFinish();
     } catch (Throwable t) {
       assertNotNull(t); //no jobs exception
     }
@@ -201,7 +203,8 @@ public class TestLocalApplicationRunner {
 
     doReturn(sp).when(runner).createStreamProcessor(anyObject(), anyObject(), captor.capture());
 
-    runner.run(app).waitForFinish();
+    runner.run(app);
+    runner.waitForFinish();
 
     assertEquals(runner.status(app), ApplicationStatus.SuccessfulFinish);
   }
@@ -235,7 +238,8 @@ public class TestLocalApplicationRunner {
     doReturn(sp).when(runner).createStreamProcessor(anyObject(), anyObject(), captor.capture());
 
     try {
-      runner.run(app).waitForFinish();
+      runner.run(app);
+      runner.waitForFinish();
     } catch (Throwable th) {
       assertNotNull(th);
     }

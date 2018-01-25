@@ -171,7 +171,7 @@ public abstract class OperatorImpl<M, RM> {
 
     results.forEach(rm ->
         this.registeredOperators.forEach(op ->
-            op.onMessage(rm, collector, coordinator)));    
+            op.onMessage(rm, collector, coordinator)));
 
     WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
     if (watermarkFn != null) {
@@ -375,7 +375,7 @@ public abstract class OperatorImpl<M, RM> {
   public void close() {
     if (closed) {
       throw new IllegalStateException(
-          String.format("Attempted to close Operator %s more than once.", getOperatorSpec().getOpName()));
+          String.format("Attempted to close Operator %s more than once.", getOperatorSpec().getOpId()));
     }
     handleClose();
     closed = true;
@@ -400,7 +400,7 @@ public abstract class OperatorImpl<M, RM> {
    * @return the unique name for this {@link OperatorImpl} in the DAG
    */
   protected String getOperatorName() {
-    return getOperatorSpec().getOpName();
+    return getOperatorSpec().getOpId();
   }
 
   private HighResolutionClock createHighResClock(Config config) {

@@ -21,12 +21,13 @@ package org.apache.samza.test.operator;
 
 import java.io.IOException;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
+import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.windows.Windows;
+import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
@@ -42,7 +43,7 @@ import org.slf4j.LoggerFactory;
 /**
  * A {@link StreamApplication} that demonstrates a filter followed by a tumbling window.
  */
-public class TumblingWindowApp {
+public class TumblingWindowApp implements StreamApplication {
   private static final String INPUT_TOPIC = "page-views";
   private static final String OUTPUT_TOPIC = "page-view-counts";
 
@@ -52,19 +53,26 @@ public class TumblingWindowApp {
   public static void main(String[] args) throws IOException {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    StreamApplication app = StreamApplications.createStreamApp(config);
+    TumblingWindowApp app = new TumblingWindowApp();
+    LocalApplicationRunner runner = new LocalApplicationRunner(config);
+
+    runner.run(app);
+    runner.waitForFinish();
+  }
+
+  @Override
+  public void init(StreamGraph graph, Config config) {
 
     MessageStream<PageView> pageViews =
-        app.openInput(INPUT_TOPIC, new JsonSerdeV2<>(PageView.class));
+        graph.getInputStream(INPUT_TOPIC, new JsonSerdeV2<>(PageView.class));
     OutputStream<KV<String, Integer>> outputStream =
-        app.openOutput(OUTPUT_TOPIC, new KVSerde<>(new StringSerde(), new IntegerSerde()));
+        graph.getOutputStream(OUTPUT_TOPIC, new KVSerde<>(new StringSerde(), new IntegerSerde()));
 
     pageViews
         .filter(m -> !FILTER_KEY.equals(m.getUserId()))
-        .window(Windows.keyedTumblingWindow(PageView::getUserId, Duration.ofSeconds(3), null, null))
+        .window(Windows.keyedTumblingWindow(PageView::getUserId, Duration.ofSeconds(3), null, null), "w1")
         .map(m -> KV.of(m.getKey().getKey(), m.getMessage().size()))
         .sendTo(outputStream);
-    app.run().waitForFinish();
-  }
 
+  }
 }

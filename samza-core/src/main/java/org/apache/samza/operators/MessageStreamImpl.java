@@ -26,8 +26,9 @@ import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
-import org.apache.samza.operators.spec.OperatorSpecs;
 import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.operators.spec.OperatorSpec.OpCode;
+import org.apache.samza.operators.spec.OperatorSpecs;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
 import org.apache.samza.operators.windows.Window;
@@ -68,101 +69,95 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
 
   @Override
   public <TM> MessageStream<TM> map(MapFunction<? super M, ? extends TM> mapFn) {
-    OperatorSpec<M, TM> op = null;
     try {
-      op = OperatorSpecs.createMapOperatorSpec(mapFn, this.graph.getNextOpId());
+      OperatorSpec<M, TM> op = OperatorSpecs.createMapOperatorSpec(mapFn, this.graph.getNextOpId(OpCode.MAP));
+      this.source.registerNextOperatorSpec(op);
+      return new MessageStreamImpl<>(this.graph, op);
     } catch (IOException e) {
       throw new SamzaException("Failed to serialize map operator spec.", e);
     }
-    this.source.registerNextOperatorSpec(op);
-    return new MessageStreamImpl<>(this.graph, op);
   }
 
   @Override
   public MessageStream<M> filter(FilterFunction<? super M> filterFn) {
-    OperatorSpec<M, M> op = null;
     try {
-      op = OperatorSpecs.createFilterOperatorSpec(filterFn, this.graph.getNextOpId());
+      OperatorSpec<M, M> op = OperatorSpecs.createFilterOperatorSpec(filterFn, this.graph.getNextOpId(OpCode.FILTER));
+      this.source.registerNextOperatorSpec(op);
+      return new MessageStreamImpl<>(this.graph, op);
     } catch (IOException e) {
       throw new SamzaException("Failed to serialize filter operator spec.", e);
     }
-    this.source.registerNextOperatorSpec(op);
-    return new MessageStreamImpl<>(this.graph, op);
   }
 
   @Override
   public <TM> MessageStream<TM> flatMap(FlatMapFunction<? super M, ? extends TM> flatMapFn) {
-    OperatorSpec<M, TM> op = null;
     try {
-      op = OperatorSpecs.createFlatMapOperatorSpec(flatMapFn, this.graph.getNextOpId());
+      OperatorSpec<M, TM> op = OperatorSpecs.createFlatMapOperatorSpec(flatMapFn, this.graph.getNextOpId(OpCode.FLAT_MAP));
+      this.source.registerNextOperatorSpec(op);
+      return new MessageStreamImpl<>(this.graph, op);
     } catch (IOException e) {
       throw new SamzaException("Failed to serialize flatMap operator spec.", e);
     }
-    this.source.registerNextOperatorSpec(op);
-    return new MessageStreamImpl<>(this.graph, op);
   }
 
   @Override
   public void sink(SinkFunction<? super M> sinkFn) {
-    OperatorSpec<M, Void> op = null;
     try {
-      op = OperatorSpecs.createSinkOperatorSpec(sinkFn, this.graph.getNextOpId());
+      OperatorSpec<M, Void> op = OperatorSpecs.createSinkOperatorSpec(sinkFn, this.graph.getNextOpId(OpCode.SINK));
+      this.source.registerNextOperatorSpec(op);
     } catch (IOException e) {
       throw new SamzaException("Failed to serialize sink operator spec.", e);
     }
-    this.source.registerNextOperatorSpec(op);
   }
 
   @Override
   public void sendTo(OutputStream<M> outputStream) {
-    OperatorSpec<M, Void> op = null;
     try {
-      op = OperatorSpecs.createSendToOperatorSpec(
-          (OutputStreamImpl<M>) outputStream, this.graph.getNextOpId());
+      OperatorSpec<M, Void> op = OperatorSpecs.createSendToOperatorSpec(
+          (OutputStreamImpl<M>) outputStream, this.graph.getNextOpId(OpCode.SEND_TO));
+      this.source.registerNextOperatorSpec(op);
     } catch (IOException e) {
       throw new SamzaException("Failed to serialize sendTo operator spec.", e);
     }
-    this.source.registerNextOperatorSpec(op);
   }
 
   @Override
-  public <K, WV> MessageStream<WindowPane<K, WV>> window(Window<M, K, WV> window) {
-    OperatorSpec<M, WindowPane<K, WV>> op = null;
+  public <K, WV> MessageStream<WindowPane<K, WV>> window(Window<M, K, WV> window, String userDefinedId) {
     try {
-      op = OperatorSpecs.createWindowOperatorSpec(
-          (WindowInternal<M, K, WV>) window, this.graph.getNextOpId());
+      OperatorSpec<M, WindowPane<K, WV>> op = OperatorSpecs.createWindowOperatorSpec((WindowInternal<M, K, WV>) window,
+          this.graph.getNextOpId(OpCode.WINDOW, userDefinedId));
+      this.source.registerNextOperatorSpec(op);
+      return new MessageStreamImpl<>(this.graph, op);
     } catch (IOException e) {
       throw new SamzaException("Failed to serialize window operator spec.", e);
     }
-    this.source.registerNextOperatorSpec(op);
-    return new MessageStreamImpl<>(this.graph, op);
   }
 
   @Override
   public <K, OM, JM> MessageStream<JM> join(MessageStream<OM> otherStream,
       JoinFunction<? extends K, ? super M, ? super OM, ? extends JM> joinFn,
-      Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde, Duration ttl) {
+      Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde,
+      Duration ttl, String userDefinedId) {
+    if (otherStream.equals(this)) throw new SamzaException("Cannot join a MessageStream with itself.");
     OperatorSpec<?, OM> otherOpSpec = ((MessageStreamImpl<OM>) otherStream).getSource();
-    OperatorSpec<?, JM> joinOpSpec = null;
     try {
-      joinOpSpec = OperatorSpecs.createJoinOperatorSpec(this.source, otherOpSpec, (JoinFunction<K, M, OM, JM>) joinFn,
-          keySerde, messageSerde, otherMessageSerde, ttl.toMillis(), this.graph.getNextOpId());
+      OperatorSpec<?, JM> op =
+          OperatorSpecs.createJoinOperatorSpec(this.source, otherOpSpec, (JoinFunction<K, M, OM, JM>) joinFn, keySerde,
+              messageSerde, otherMessageSerde, ttl.toMillis(), this.graph.getNextOpId(OpCode.JOIN, userDefinedId));
+      this.source.registerNextOperatorSpec(op);
+      otherOpSpec.registerNextOperatorSpec((OperatorSpec<OM, ?>) op);
 
+      return new MessageStreamImpl<>(this.graph, op);
     } catch (IOException e) {
       throw new SamzaException("Failed to serialize join operator spec.", e);
     }
-
-    this.source.registerNextOperatorSpec(joinOpSpec);
-    otherOpSpec.registerNextOperatorSpec((OperatorSpec<OM, ?>) joinOpSpec);
-
-    return new MessageStreamImpl<>(this.graph, joinOpSpec);
   }
 
   @Override
   public MessageStream<M> merge(Collection<? extends MessageStream<? extends M>> otherStreams) {
     if (otherStreams.isEmpty()) return this;
     try {
-      OperatorSpec<M, M> op = OperatorSpecs.createMergeOperatorSpec(this.graph.getNextOpId());
+      OperatorSpec<M, M> op = OperatorSpecs.createMergeOperatorSpec(this.graph.getNextOpId(OpCode.MERGE));
       this.source.registerNextOperatorSpec(op);
       otherStreams.forEach(other -> ((MessageStreamImpl<M>) other).getSource().registerNextOperatorSpec(op));
       return new MessageStreamImpl<>(this.graph, op);
@@ -173,25 +168,28 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
 
   @Override
   public <K, V> MessageStream<KV<K, V>> partitionBy(MapFunction<? super M, ? extends K> keyExtractor,
-      MapFunction<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde) {
-    int opId = this.graph.getNextOpId();
-    String opName = String.format("%s-%s", OperatorSpec.OpCode.PARTITION_BY.name().toLowerCase(), opId);
-    IntermediateMessageStreamImpl<KV<K, V>> intermediateStream = this.graph.getIntermediateStream(opName, serde);
-    OperatorSpec<M, Void> partitionByOperatorSpec = null;
-    try {
-      partitionByOperatorSpec = OperatorSpecs.createPartitionByOperatorSpec(
-          intermediateStream.getOutputStream(), keyExtractor, valueExtractor, opId);
-    } catch (IOException e) {
-      throw new SamzaException("Failed in serializing OutputStreamImpl for intermediate stream " + opName, e);
+      MapFunction<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde, String userDefinedId) {
+    String opId = this.graph.getNextOpId(OpCode.PARTITION_BY, userDefinedId);
+    IntermediateMessageStreamImpl<KV<K, V>> intermediateStream = this.graph.getIntermediateStream(opId, serde);
+    if (!intermediateStream.isKeyed()) {
+      // this can only happen when the default serde partitionBy variant is being used
+      throw new SamzaException("partitionBy can not be used with a default serde that is not a KVSerde.");
     }
-    this.source.registerNextOperatorSpec(partitionByOperatorSpec);
-    return intermediateStream;
+
+    try {
+      OperatorSpec<M, Void> partitionByOperatorSpec = OperatorSpecs.createPartitionByOperatorSpec(
+          intermediateStream.getOutputStream(), keyExtractor, valueExtractor, opId);
+      this.source.registerNextOperatorSpec(partitionByOperatorSpec);
+      return intermediateStream;
+    } catch (IOException e) {
+      throw new SamzaException("Failed in serializing OutputStreamImpl for intermediate stream " + opId, e);
+    }
   }
 
   @Override
   public <K, V> MessageStream<KV<K, V>> partitionBy(MapFunction<? super M, ? extends K> keyExtractor,
-      MapFunction<? super M, ? extends V> valueExtractor) {
-    return partitionBy(keyExtractor, valueExtractor, null);
+      MapFunction<? super M, ? extends V> valueExtractor, String userDefinedId) {
+    return partitionBy(keyExtractor, valueExtractor, null, userDefinedId);
   }
 
   /**
@@ -203,5 +201,3 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
 }
-
-

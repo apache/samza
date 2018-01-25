@@ -25,14 +25,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplications;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.standalone.PassthroughCoordinationUtilsFactory;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.test.controlmessages.TestData.PageView;
@@ -91,15 +93,21 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
     configs.put("serializers.registry.int.class", "org.apache.samza.serializers.IntegerSerdeFactory");
     configs.put("serializers.registry.json.class", PageViewJsonSerdeFactory.class.getName());
 
-    final StreamApplication app = StreamApplications.createStreamApp(new MapConfig(configs));
+    final StreamApplication app = new StreamApplication() {
+      @Override
+      public void init(StreamGraph graph, Config config) {
+        graph.<KV<String, PageView>>getInputStream("PageView")
+            .map(Values.create())
+            .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
+            .sink((m, collector, coordinator) -> {
+                received.add(m.getValue());
+              });
+      }
+    };
 
-    app.<KV<String, PageView>>openInput("PageView")
-        .map(Values.create())
-        .partitionBy(pv -> pv.getMemberId(), pv -> pv)
-        .sink((m, collector, coordinator) -> {
-            received.add(m.getValue());
-          });
-    app.run().waitForFinish();
+    LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
+    runner.run(app);
+    runner.waitForFinish();
 
     assertEquals(received.size(), count * partitionCount);
   }

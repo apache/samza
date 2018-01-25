@@ -210,7 +210,7 @@ public class TestOperatorImpl {
 
   private static class TestOpSpec extends OperatorSpec<Object, Object> {
     TestOpSpec() throws IOException {
-     super(OpCode.INPUT, 1);
+     super(OpCode.INPUT, "op-1");
     }
 
     @Override

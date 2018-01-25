@@ -28,10 +28,9 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
-
+import org.apache.samza.operators.functions.WatermarkFunction;
 
 /**
  * A stream operator specification that holds all the information required to transform
@@ -58,7 +57,7 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
     OUTPUT
   }
 
-  private final int opId;
+  private final String opId;
   private final OpCode opCode;
   private StackTraceElement[] creationStackTrace;
 
@@ -69,12 +68,18 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
    */
   private transient final Set<OperatorSpec<OM, ?>> nextOperatorSpecs = new LinkedHashSet<>();
 
+  public OperatorSpec(OpCode opCode, String opId) {
+    this.opCode = opCode;
+    this.opId = opId;
+    this.creationStackTrace = Thread.currentThread().getStackTrace();
+  }
+
   /**
    * Register the next operator spec in the chain that this operator should propagate its output to.
-   * @param nextOperator  the next operator node in the chain.
+   * @param nextOperatorSpec  the next operator in the chain.
    */
-  public void registerNextOperatorSpec(OperatorSpec<OM, ?> nextOperator) {
-    nextOperatorSpecs.add(nextOperator);
+  public void registerNextOperatorSpec(OperatorSpec<OM, ?> nextOperatorSpec) {
+    nextOperatorSpecs.add(nextOperatorSpec);
   }
 
   /**
@@ -86,12 +91,6 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
     return nextOperatorSpecs;
   }
 
-
-  public OperatorSpec(OpCode opCode, int opId) {
-    this.opCode = opCode;
-    this.opId = opId;
-    this.creationStackTrace = Thread.currentThread().getStackTrace();
-  }
 
   protected Object copy() throws IOException, ClassNotFoundException {
     ByteArrayOutputStream serializedBytes = new ByteArrayOutputStream();
@@ -114,7 +113,7 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
    * Get the unique ID of this operator in the {@link org.apache.samza.operators.StreamGraph}.
    * @return  the unique operator ID
    */
-  public final int getOpId() {
+  public final String getOpId() {
     return this.opId;
   }
 
@@ -149,17 +148,10 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
     return String.format("%s:%s", element.getFileName(), element.getLineNumber());
   }
 
-  /**
-   * Get the name for this operator based on its opCode and opId.
-   * @return  the name for this operator
-   */
-  public final String getOpName() {
-    return String.format("%s-%s", getOpCode().name().toLowerCase(), getOpId());
-  }
-
   abstract public WatermarkFunction getWatermarkFn();
 
+  // TODO: do we need this or an overridden equals()? Basically, if there is a use case to differentiate this == other vs this is a deserialized copy of other?
   public final boolean isClone(OperatorSpec other) {
-    return this.getClass().isAssignableFrom(other.getClass()) && this.opCode.equals(other.opCode) && this.opId == other.opId;
+    return this.getClass().isAssignableFrom(other.getClass()) && this.opCode.equals(other.opCode) && this.opId.equals(other.opId);
   }
 }

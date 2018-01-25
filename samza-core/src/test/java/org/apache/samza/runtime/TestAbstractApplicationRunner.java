@@ -373,15 +373,13 @@ public class TestAbstractApplicationRunner {
     }
 
     @Override
-    public ApplicationRuntimeResult run(StreamApplication streamApp) {
+    public void run(StreamApplication streamApp) {
       // do nothing. We're only testing the stream creation methods at this point.
-      return new NoOpRuntimeResult();
     }
 
     @Override
-    public ApplicationRuntimeResult kill(StreamApplication streamApp) {
+    public void kill(StreamApplication streamApp) {
       // do nothing. We're only testing the stream creation methods at this point.
-      return new NoOpRuntimeResult();
     }
 
     @Override

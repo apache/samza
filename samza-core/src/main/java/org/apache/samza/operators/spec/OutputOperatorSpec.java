@@ -33,6 +33,7 @@ import org.apache.samza.operators.functions.WatermarkFunction;
  */
 public class OutputOperatorSpec<M> extends OperatorSpec<M, Void> {
 
+  // TODO: NOT optimal: we need multiple copies of {@link OperatorSpec} instances per task, but don't need multiple copies of {@link OutputStreamImpl} for the same output stream
   private final OutputStreamImpl<M> outputStream;
 
   /**
@@ -41,7 +42,7 @@ public class OutputOperatorSpec<M> extends OperatorSpec<M, Void> {
    * @param outputStream  the {@link OutputStreamImpl} to send messages to
    * @param opId  the unique ID of this {@link SinkOperatorSpec} in the graph
    */
-  OutputOperatorSpec(OutputStreamImpl<M> outputStream, int opId) {
+  OutputOperatorSpec(OutputStreamImpl<M> outputStream, String opId) {
     super(OpCode.SEND_TO, opId);
     this.outputStream = outputStream;
   }

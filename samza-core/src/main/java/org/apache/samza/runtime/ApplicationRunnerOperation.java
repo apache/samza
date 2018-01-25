@@ -16,17 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.samza.runtime;
 
-
 /**
- * The version of {@link ApplicationRuntimeResult} that returns immediately on waitForFinish().
- * Usually used by implementation of {@link ApplicationRunner} classes that does not need to block after calling
- * {@link ApplicationRunner#run(org.apache.samza.application.StreamApplication)} and
- * {@link ApplicationRunner#kill(org.apache.samza.application.StreamApplication)}.
+ * Operation to perform in the {@link ApplicationRunnerMain}
  */
-public class NoOpRuntimeResult implements ApplicationRuntimeResult {
+public enum ApplicationRunnerOperation {
+  RUN("run"), KILL("kill"), STATUS("status");
+
+  private final String str;
+
+  public static ApplicationRunnerOperation fromString(String string) {
+    return ApplicationRunnerOperation.valueOf(string.toUpperCase());
+  }
+
+  ApplicationRunnerOperation(String str) {
+    this.str = str;
+  }
+
   @Override
-  public void waitForFinish() {
+  public String toString() {
+    return str;
   }
 }

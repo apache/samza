@@ -18,9 +18,6 @@
  */
 package org.apache.samza.test.operator;
 
-import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import kafka.utils.TestUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -29,8 +26,11 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.protocol.SecurityProtocol;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import scala.Option;
 import scala.Option$;
@@ -46,7 +46,7 @@ import java.util.Map;
 import java.util.Properties;
 
 /**
- * Harness for writing integration tests for {@link org.apache.samza.application.StreamApplication}s.
+ * Harness for writing integration tests for {@link StreamApplication}s.
  *
  * <p> This provides the following features for its sub-classes:
  * <ul>
@@ -72,7 +72,7 @@ import java.util.Properties;
  * State persistence: {@link #tearDown()} clears all associated state (including topics and metadata) in Kafka and
  * Zookeeper. Hence, the state is not durable across invocations of {@link #tearDown()} <br/>
  *
- * Execution model: {@link org.apache.samza.application.StreamApplication}s are run as their own {@link org.apache.samza.job.local.ThreadJob}s.
+ * Execution model: {@link StreamApplication}s are run as their own {@link org.apache.samza.job.local.ThreadJob}s.
  * Similarly, embedded Kafka servers and Zookeeper servers are run as their own threads.
  * {@link #produceMessage(String, int, String, String)} and {@link #consumeMessages(Collection, int)} are blocking calls.
  *
@@ -97,6 +97,8 @@ import java.util.Properties;
 public class StreamApplicationIntegrationTestHarness extends AbstractIntegrationTestHarness {
   private KafkaProducer producer;
   private KafkaConsumer consumer;
+  private StreamApplication app;
+  private ApplicationRunner runner;
 
   private int numEmptyPolls = 3;
   private static final Duration POLL_TIMEOUT_MS = Duration.ofSeconds(20);
@@ -203,28 +205,26 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
   }
 
   /**
-   * Executes the provided {@link org.apache.samza.application.StreamApplication} as a {@link org.apache.samza.job.local.ThreadJob}. The
-   * {@link org.apache.samza.application.StreamApplication} runs in its own separate thread.
+   * Executes the provided {@link StreamApplication} as a {@link org.apache.samza.job.local.ThreadJob}. The
+   * {@link StreamApplication} runs in its own separate thread.
    *
+   * @param streamApplication the application to run
    * @param appName the name of the application
    * @param overriddenConfigs configs to override
    */
-  public void runApplication(String userAppClass, String appName, Config overriddenConfigs)
-      throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException,
-             IOException {
-
+  public void runApplication(StreamApplication streamApplication, String appName, Config overriddenConfigs) {
     Map<String, String> configs = new HashMap<>();
-    configs.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
+    configs.put("job.factory.class", "org.apache.samza.job.local.ThreadJobFactory");
     configs.put("job.name", appName);
+    configs.put("app.class", streamApplication.getClass().getCanonicalName());
     configs.put("serializers.registry.json.class", "org.apache.samza.serializers.JsonSerdeFactory");
     configs.put("serializers.registry.string.class", "org.apache.samza.serializers.StringSerdeFactory");
     configs.put("systems.kafka.samza.factory", "org.apache.samza.system.kafka.KafkaSystemFactory");
     configs.put("systems.kafka.consumer.zookeeper.connect", zkConnect());
     configs.put("systems.kafka.producer.bootstrap.servers", bootstrapUrl());
     configs.put("systems.kafka.samza.key.serde", "string");
-    configs.put("systems.kafka.samza.msg.serde", "json");
+    configs.put("systems.kafka.samza.msg.serde", "string");
     configs.put("systems.kafka.samza.offset.default", "oldest");
-    configs.put("systems.kafka.default.stream.replication.factor", "1");
     configs.put("job.coordinator.system", "kafka");
     configs.put("job.default.system", "kafka");
     configs.put("job.coordinator.replication.factor", "1");
@@ -245,21 +245,9 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
       configs.putAll(overriddenConfigs);
     }
 
-    Class<?> cls = Class.forName(userAppClass);
-    Method mainMethod = cls.getMethod("main", String[].class);
-    String[] params = getCommandLineConfigs(configs);
-    mainMethod.invoke(null, (Object) params);
-  }
-
-  private String[] getCommandLineConfigs(Map<String, String> configs) {
-    String[] cliParams = new String[configs.size() * 2 + 1];
-    int i = 0;
-    cliParams[i++] = "--config-path=./src/test/resources/test-config.prop";
-    for (Map.Entry<String, String> entry : configs.entrySet()) {
-      cliParams[i++] = "--config";
-      cliParams[i++] = String.format("%s=%s", entry.getKey(), entry.getValue());
-    }
-    return cliParams;
+    app = streamApplication;
+    runner = ApplicationRunner.fromConfig(new MapConfig(configs));
+    runner.run(streamApplication);
   }
 
   public void setNumEmptyPolls(int numEmptyPolls) {

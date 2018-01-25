@@ -20,15 +20,16 @@
 package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
+import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.functions.SupplierFunction;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.Windows;
+import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.util.CommandLine;
@@ -40,29 +41,36 @@ import java.time.Duration;
  * Example implementation of a simple user-defined task w/ a window operator.
  *
  */
-public class WindowExample {
+public class WindowExample implements StreamApplication {
 
   // local execution mode
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    StreamApplication app = StreamApplications.createStreamApp(config);
+    WindowExample app = new WindowExample();
+    LocalApplicationRunner runner = new LocalApplicationRunner(config);
+
+    runner.run(app);
+    runner.waitForFinish();
+  }
+
+  @Override
+  public void init(StreamGraph graph, Config config) {
 
     SupplierFunction<Integer> initialValue = () -> 0;
     FoldLeftFunction<PageViewEvent, Integer> counter = (m, c) -> c == null ? 1 : c + 1;
-    MessageStream<PageViewEvent> inputStream = app.openInput("inputStream", new JsonSerdeV2<PageViewEvent>());
-    OutputStream<Integer> outputStream = app.openOutput("outputStream", new IntegerSerde());
+    MessageStream<PageViewEvent> inputStream = graph.getInputStream("inputStream", new JsonSerdeV2<PageViewEvent>());
+    OutputStream<Integer> outputStream = graph.getOutputStream("outputStream", new IntegerSerde());
 
     // create a tumbling window that outputs the number of message collected every 10 minutes.
     // also emit early results if either the number of messages collected reaches 30000, or if no new messages arrive
     // for 1 minute.
     inputStream
         .window(Windows.tumblingWindow(Duration.ofMinutes(10), initialValue, counter, null)
-            .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceLastMessage(Duration.ofMinutes(1)))))
+            .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceLastMessage(Duration.ofMinutes(1)))), "w1")
         .map(WindowPane::getMessage)
         .sendTo(outputStream);
 
-    app.run().waitForFinish();
   }
 
   class PageViewEvent {

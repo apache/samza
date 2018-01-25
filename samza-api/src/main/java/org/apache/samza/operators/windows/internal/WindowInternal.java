@@ -67,9 +67,9 @@ public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
    */
   private final WindowType windowType;
 
-  private final Serde<WK> keySerde;
-  private final Serde<WV> windowValSerde;
-  private final Serde<M> msgSerde;
+  private transient final Serde<WK> keySerde;
+  private transient final Serde<WV> windowValSerde;
+  private transient final Serde<M> msgSerde;
 
   private Trigger<M> earlyTrigger;
   private Trigger<M> lateTrigger;

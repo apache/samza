@@ -36,6 +36,7 @@ import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
@@ -75,6 +76,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -263,25 +265,36 @@ public class TestOperatorImplGraph implements Serializable {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     when(mockRunner.getStreamSpec(eq("input"))).thenReturn(new StreamSpec("input", "input-stream", "input-system"));
     when(mockRunner.getStreamSpec(eq("output"))).thenReturn(new StreamSpec("output", "output-stream", "output-system"));
-    when(mockRunner.getStreamSpec(eq("null-null-partition_by-1")))
+    when(mockRunner.getStreamSpec(eq("jobName-jobId-partition_by-p1")))
         .thenReturn(new StreamSpec("intermediate", "intermediate-stream", "intermediate-system"));
-    StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mock(Config.class));
+    Config mockConfig = mock(Config.class);
+    when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("jobName");
+    when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("jobId");
+    StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mockConfig);
     MessageStream<Object> inputStream = streamGraph.getInputStream("input");
     OutputStream<KV<Integer, String>> outputStream = streamGraph
         .getOutputStream("output", KVSerde.of(mock(IntegerSerde.class), mock(StringSerde.class)));
 
     inputStream
-        .partitionBy(Object::hashCode, Object::toString, KVSerde.of(mock(IntegerSerde.class), mock(StringSerde.class)))
+        .partitionBy(Object::hashCode, Object::toString,
+            KVSerde.of(mock(IntegerSerde.class), mock(StringSerde.class)), "p1")
         .sendTo(outputStream);
 
     TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     when(mockTaskContext.getTaskName()).thenReturn(new TaskName("task 0"));
     JobModel jobModel = mock(JobModel.class);
-    when(jobModel.getContainers()).thenReturn(Collections.EMPTY_MAP);
+    ContainerModel containerModel = mock(ContainerModel.class);
+    TaskModel taskModel = mock(TaskModel.class);
+    when(jobModel.getContainers()).thenReturn(Collections.singletonMap("0", containerModel));
+    when(containerModel.getTasks()).thenReturn(Collections.singletonMap(new TaskName("task 0"), taskModel));
+    when(taskModel.getSystemStreamPartitions()).thenReturn(Collections.emptySet());
     when(mockTaskContext.getJobModel()).thenReturn(jobModel);
+    SamzaContainerContext containerContext =
+        new SamzaContainerContext("0", mockConfig, Collections.singleton(new TaskName("task 0")));
+    when(mockTaskContext.getSamzaContainerContext()).thenReturn(containerContext);
     OperatorImplGraph opImplGraph =
-        new OperatorImplGraph(streamGraph, mock(Config.class), mockTaskContext, mock(Clock.class));
+        new OperatorImplGraph(streamGraph, mockConfig, mockTaskContext, mock(Clock.class));
 
     InputOperatorImpl inputOpImpl = opImplGraph.getInputOperator(new SystemStream("input-system", "input-stream"));
     assertEquals(1, inputOpImpl.registeredOperators.size());
@@ -361,29 +374,32 @@ public class TestOperatorImplGraph implements Serializable {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     when(mockRunner.getStreamSpec(eq("input1"))).thenReturn(new StreamSpec("input1", "input-stream1", "input-system"));
     when(mockRunner.getStreamSpec(eq("input2"))).thenReturn(new StreamSpec("input2", "input-stream2", "input-system"));
-    StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mock(Config.class));
+    Config mockConfig = mock(Config.class);
+    when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("jobName");
+    when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("jobId");
+    StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mockConfig);
 
     Integer joinKey = new Integer(1);
     Function<Object, Integer> keyFn = (Function & Serializable) m -> joinKey;
-    JoinFunction testJoinFunction = new TestJoinFunction("join-2", (BiFunction & Serializable) (m1, m2) -> KV.of(m1, m2), keyFn, keyFn);
+    JoinFunction testJoinFunction = new TestJoinFunction("jobName-jobId-join-j1", (BiFunction & Serializable) (m1, m2) -> KV.of(m1, m2), keyFn, keyFn);
     MessageStream<Object> inputStream1 = streamGraph.getInputStream("input1", new NoOpSerde<>());
     MessageStream<Object> inputStream2 = streamGraph.getInputStream("input2", new NoOpSerde<>());
     inputStream1.join(inputStream2, testJoinFunction,
-        mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1));
+        mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j1");
 
     TaskName mockTaskName = mock(TaskName.class);
     TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
     when(mockTaskContext.getTaskName()).thenReturn(mockTaskName);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     KeyValueStore mockLeftStore = mock(KeyValueStore.class);
-    when(mockTaskContext.getStore(eq("join-2-L"))).thenReturn(mockLeftStore);
+    when(mockTaskContext.getStore(eq("jobName-jobId-join-j1-L"))).thenReturn(mockLeftStore);
     KeyValueStore mockRightStore = mock(KeyValueStore.class);
-    when(mockTaskContext.getStore(eq("join-2-R"))).thenReturn(mockRightStore);
+    when(mockTaskContext.getStore(eq("jobName-jobId-join-j1-R"))).thenReturn(mockRightStore);
     OperatorImplGraph opImplGraph =
-        new OperatorImplGraph(streamGraph, mock(Config.class), mockTaskContext, mock(Clock.class));
+        new OperatorImplGraph(streamGraph, mockConfig, mockTaskContext, mock(Clock.class));
 
     // verify that join function is initialized once.
-    assertEquals(TestJoinFunction.getInstanceByTaskName(mockTaskName, "join-2").numInitCalled, 1);
+    assertEquals(TestJoinFunction.getInstanceByTaskName(mockTaskName, "jobName-jobId-join-j1").numInitCalled, 1);
 
     InputOperatorImpl inputOpImpl1 = opImplGraph.getInputOperator(new SystemStream("input-system", "input-stream1"));
     InputOperatorImpl inputOpImpl2 = opImplGraph.getInputOperator(new SystemStream("input-system", "input-stream2"));
@@ -408,8 +424,8 @@ public class TestOperatorImplGraph implements Serializable {
 
 
     // verify that the join function apply is called with the correct messages on match
-    assertEquals(((TestJoinFunction) TestJoinFunction.getInstanceByTaskName(mockTaskName, "join-2")).joinResults.size(), 1);
-    KV joinResult = (KV) ((TestJoinFunction) TestJoinFunction.getInstanceByTaskName(mockTaskName, "join-2")).joinResults.iterator().next();
+    assertEquals(((TestJoinFunction) TestJoinFunction.getInstanceByTaskName(mockTaskName, "jobName-jobId-join-j1")).joinResults.size(), 1);
+    KV joinResult = (KV) ((TestJoinFunction) TestJoinFunction.getInstanceByTaskName(mockTaskName, "jobName-jobId-join-j1")).joinResults.iterator().next();
     assertEquals(joinResult.getKey(), mockLeftMessage);
     assertEquals(joinResult.getValue(), mockRightMessage);
   }
@@ -517,29 +533,30 @@ public class TestOperatorImplGraph implements Serializable {
     when(runner.getStreamSpec("output2")).thenReturn(output2);
 
     // intermediate streams used in tests
-    StreamSpec int1 = new StreamSpec("test-app-1-partition_by-10", "test-app-1-partition_by-10", "default-system");
-    StreamSpec int2 = new StreamSpec("test-app-1-partition_by-6", "test-app-1-partition_by-6", "default-system");
-    when(runner.getStreamSpec("test-app-1-partition_by-10"))
-        .thenReturn(int1);
-    when(runner.getStreamSpec("test-app-1-partition_by-6"))
-        .thenReturn(int2);
+    StreamSpec int1 = new StreamSpec("test-app-1-partition_by-p2", "test-app-1-partition_by-p2", "default-system");
+    StreamSpec int2 = new StreamSpec("test-app-1-partition_by-p1", "test-app-1-partition_by-p1", "default-system");
+    when(runner.getStreamSpec("test-app-1-partition_by-p2")).thenReturn(int1);
+    when(runner.getStreamSpec("test-app-1-partition_by-p1")).thenReturn(int2);
 
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
     MessageStream messageStream1 = streamGraph.getInputStream("input1").map(m -> m);
     MessageStream messageStream2 = streamGraph.getInputStream("input2").filter(m -> true);
     MessageStream messageStream3 =
-        streamGraph.getInputStream("input3").filter(m -> true).partitionBy(m -> "hehe", m -> m).map(m -> m);
+        streamGraph.getInputStream("input3")
+            .filter(m -> true)
+            .partitionBy(m -> "hehe", m -> m, "p1")
+            .map(m -> m);
     OutputStream<Object> outputStream1 = streamGraph.getOutputStream("output1");
     OutputStream<Object> outputStream2 = streamGraph.getOutputStream("output2");
 
     messageStream1
         .join(messageStream2, mock(JoinFunction.class),
-            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2))
-        .partitionBy(m -> "haha", m -> m)
+            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
+        .partitionBy(m -> "haha", m -> m, "p2")
         .sendTo(outputStream1);
     messageStream3
         .join(messageStream2, mock(JoinFunction.class),
-            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1))
+            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
         .sendTo(outputStream2);
 
     Multimap<SystemStream, SystemStream> outputToInput = OperatorImplGraph.getIntermediateToInputStreamsMap(streamGraph);

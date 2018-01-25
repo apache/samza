@@ -96,6 +96,6 @@ class PartialJoinOperatorImpl<K, M, OM, JM> extends OperatorImpl<M, JM> {
    */
   @Override
   protected String getOperatorName() {
-    return isLeftSide ? joinOpSpec.getLeftOpName() : joinOpSpec.getRightOpName();
+    return isLeftSide ? joinOpSpec.getLeftOpId() : joinOpSpec.getRightOpId();
   }
 }

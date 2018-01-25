@@ -18,7 +18,6 @@
  */
 package org.apache.samza.operators.impl;
 
-import java.io.IOException;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.InputOperatorSpec;
@@ -41,7 +40,7 @@ public final class InputOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, Object
 
   private final InputOperatorSpec<K, V> inputOpSpec;
 
-  InputOperatorImpl(InputOperatorSpec<K, V> inputOpSpec) throws IOException, ClassNotFoundException {
+  InputOperatorImpl(InputOperatorSpec<K, V> inputOpSpec) {
     this.inputOpSpec = inputOpSpec;
   }
 

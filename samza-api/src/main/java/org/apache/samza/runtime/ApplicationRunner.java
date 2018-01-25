@@ -20,23 +20,24 @@ package org.apache.samza.runtime;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplication.AppConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.job.ApplicationStatus;
-import org.apache.samza.metrics.MetricsReporter;
-import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.system.StreamSpec;
 
 import java.lang.reflect.Constructor;
-import java.util.Map;
-import org.apache.samza.system.StreamSpec;
 
 
 /**
- * The primary means of managing execution of the {@link StreamApplication} at runtime.
+ * The primary means of managing execution of the {@link org.apache.samza.application.StreamApplication} at runtime.
  */
 @InterfaceStability.Unstable
-public interface ApplicationRunner {
+public abstract class ApplicationRunner {
+
+  private static final String RUNNER_CONFIG = "app.runner.class";
+  private static final String DEFAULT_RUNNER_CLASS = "org.apache.samza.runtime.RemoteApplicationRunner";
+
+  protected final Config config;
 
   /**
    * Static method to load the {@link ApplicationRunner}
@@ -44,21 +45,29 @@ public interface ApplicationRunner {
    * @param config  configuration passed in to initialize the Samza processes
    * @return  the configure-driven {@link ApplicationRunner} to run the user-defined stream applications
    */
-  static ApplicationRunner fromConfig(Config config) {
-    AppConfig appCfg = new AppConfig(config);
+  public static ApplicationRunner fromConfig(Config config) {
     try {
-      Class<?> runnerClass = Class.forName(appCfg.getApplicationRunnerClass());
+      Class<?> runnerClass = Class.forName(config.get(RUNNER_CONFIG, DEFAULT_RUNNER_CLASS));
       if (ApplicationRunner.class.isAssignableFrom(runnerClass)) {
         Constructor<?> constructor = runnerClass.getConstructor(Config.class); // *sigh*
         return (ApplicationRunner) constructor.newInstance(config);
       }
     } catch (Exception e) {
-      throw new ConfigException(String.format("Problem in loading ApplicationRunner class %s",
-          appCfg.getApplicationRunnerClass()), e);
+      throw new ConfigException(String.format("Problem in loading ApplicationRunner class %s", config.get(
+          RUNNER_CONFIG)), e);
     }
     throw new ConfigException(String.format(
         "Class %s does not extend ApplicationRunner properly",
-        appCfg.getApplicationRunnerClass()));
+        config.get(RUNNER_CONFIG)));
+  }
+
+
+  public ApplicationRunner(Config config) {
+    if (config == null) {
+      throw new NullPointerException("Parameter 'config' cannot be null.");
+    }
+
+    this.config = config;
   }
 
   /**
@@ -68,53 +77,53 @@ public interface ApplicationRunner {
    *
    * NOTE. this interface will most likely change in the future.
    */
-  @Deprecated
-  void runTask();
+  @InterfaceStability.Evolving
+  public abstract void runTask();
+
 
   /**
-   * The method to run the application. The implementation of this method has to be a non-blocking function.
+   * Deploy and run the Samza jobs to execute {@link StreamApplication}.
+   * It is non-blocking so it doesn't wait for the application running.
    *
-   * @param app the user application to run
-   * @return {@link ApplicationRuntimeResult} object that user can choose to wait for finish
+   * @param streamApp  the user-defined {@link StreamApplication} object
    */
-  ApplicationRuntimeResult run(StreamApplication app);
+  public abstract void run(StreamApplication streamApp);
 
   /**
-   * The method to kill the application. The implementation of this method has to be a non-blocking function.
+   * Kill the Samza jobs represented by {@link StreamApplication}
+   * It is non-blocking so it doesn't wait for the application stopping.
    *
-   * @param app the user application to kill
-   * @return {@link ApplicationRuntimeResult} object that user can choose to wait for finish
+   * @param streamApp  the user-defined {@link StreamApplication} object
    */
-  ApplicationRuntimeResult kill(StreamApplication app);
+  public abstract void kill(StreamApplication streamApp);
 
   /**
-   * The method to query the status of the application. The implementation of this method has to be non-blocking function.
+   * Get the collective status of the Samza jobs represented by {@link StreamApplication}.
+   * Returns {@link ApplicationRunner} running if all jobs are running.
    *
-   * @param app the user application to query for status
-   * @return the {@link ApplicationStatus} of the user application
+   * @param streamApp  the user-defined {@link StreamApplication} object
+   * @return the status of the application
    */
-  ApplicationStatus status(StreamApplication app);
+  public abstract ApplicationStatus status(StreamApplication streamApp);
 
   /**
-   * Create an empty {@link StreamGraph} object to instantiate the user defined operator DAG.
+   * Constructs a {@link StreamSpec} from the configuration for the specified streamId.
    *
-   * @return the empty {@link StreamGraph} object to be instantiated
-   */
-  StreamGraph createGraph();
-
-  /**
-   * Method to add a set of customized {@link MetricsReporter}s in the application
+   * The stream configurations are read from the following properties in the config:
+   * {@code streams.{$streamId}.*}
+   * <br>
+   * All properties matching this pattern are assumed to be system-specific with two exceptions. The following two
+   * properties are Samza properties which are used to bind the stream to a system and a physical resource on that system.
    *
-   * @param metricsReporters the map of customized {@link MetricsReporter}s objects to be used
-   */
-  void addMetricsReporters(Map<String, MetricsReporter> metricsReporters);
-
-  /**
-   * Method to get {@link StreamSpec} from the system configuration
+   * <ul>
+   *   <li>samza.system -         The name of the System on which this stream will be used. If this property isn't defined
+   *                              the stream will be associated with the System defined in {@code job.default.system}</li>
+   *   <li>samza.physical.name -  The system-specific name for this stream. It could be a file URN, topic name, or other identifer.
+   *                              If this property isn't defined the physical.name will be set to the streamId</li>
+   * </ul>
    *
-   * @param streamId unique ID to identify a stream
-   * @return the {@link StreamSpec} object that describes the physical details of the stream
+   * @param streamId  The logical identifier for the stream in Samza.
+   * @return          The {@link StreamSpec} instance.
    */
-  StreamSpec getStreamSpec(String streamId);
-
+  public abstract StreamSpec getStreamSpec(String streamId);
 }

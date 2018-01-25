@@ -42,12 +42,12 @@ import java.util.Map;
  */
 public class JoinOperatorSpec<K, M, OM, JM> extends OperatorSpec<Object, JM> implements StatefulOperatorSpec { // Object == M | OM
 
-  private final OperatorSpec<?, M> leftInputOpSpec;
-  private final OperatorSpec<?, OM> rightInputOpSpec;
+  private transient final OperatorSpec<?, M> leftInputOpSpec;
+  private transient final OperatorSpec<?, OM> rightInputOpSpec;
   private final JoinFunction<K, M, OM, JM> joinFn;
-  private final Serde<K> keySerde;
-  private final Serde<TimestampedValue<M>> messageSerde;
-  private final Serde<TimestampedValue<OM>> otherMessageSerde;
+  private transient final Serde<K> keySerde;
+  private transient final Serde<TimestampedValue<M>> messageSerde;
+  private transient final Serde<TimestampedValue<OM>> otherMessageSerde;
   private final long ttlMs;
 
   /**
@@ -61,7 +61,7 @@ public class JoinOperatorSpec<K, M, OM, JM> extends OperatorSpec<Object, JM> imp
    */
   JoinOperatorSpec(OperatorSpec<?, M> leftInputOpSpec, OperatorSpec<?, OM> rightInputOpSpec,
       JoinFunction<K, M, OM, JM> joinFn, Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde,
-      long ttlMs, int opId) {
+      long ttlMs, String opId) {
     super(OpCode.JOIN, opId);
     this.leftInputOpSpec = leftInputOpSpec;
     this.rightInputOpSpec = rightInputOpSpec;
@@ -75,8 +75,8 @@ public class JoinOperatorSpec<K, M, OM, JM> extends OperatorSpec<Object, JM> imp
   @Override
   public Collection<StoreDescriptor> getStoreDescriptors() {
     String rocksDBStoreFactory = "org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory";
-    String leftStoreName = getLeftOpName();
-    String rightStoreName = getRightOpName();
+    String leftStoreName = getLeftOpId();
+    String rightStoreName = getRightOpId();
     Map<String, String> leftStoreCustomProps = ImmutableMap.of(
         String.format("stores.%s.rocksdb.ttl.ms", leftStoreName), Long.toString(ttlMs),
         String.format("stores.%s.changelog.kafka.cleanup.policy", leftStoreName), "delete",
@@ -106,12 +106,12 @@ public class JoinOperatorSpec<K, M, OM, JM> extends OperatorSpec<Object, JM> imp
     return rightInputOpSpec;
   }
 
-  public String getLeftOpName() {
-    return this.getOpName() + "-L";
+  public String getLeftOpId() {
+    return this.getOpId() + "-L";
   }
 
-  public String getRightOpName() {
-    return this.getOpName() + "-R";
+  public String getRightOpId() {
+    return this.getOpId() + "-R";
   }
 
   public JoinFunction<K, M, OM, JM> getJoinFn() {

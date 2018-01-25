@@ -16,19 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.windows;
+package org.apache.samza.testUtils;
 
-import org.apache.samza.operators.triggers.FiringType;
-import org.junit.Test;
+import org.apache.samza.config.Config;
+import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.application.StreamApplication;
 
-import static org.junit.Assert.assertEquals;
+/**
+ * Test implementation class for {@link StreamApplication}
+ */
+public class TestStreamApplication implements StreamApplication {
+  @Override
+  public void init(StreamGraph graph, Config config) {
 
-
-public class TestWindowPane {
-  @Test
-  public void testConstructor() {
-    WindowPane<String, Integer> wndOutput = new WindowPane<>(new WindowKey<>("testMsg", null), 10, AccumulationMode.DISCARDING, FiringType.EARLY);
-    assertEquals(wndOutput.getKey().getKey(), "testMsg");
-    assertEquals(wndOutput.getMessage(), Integer.valueOf(10));
   }
 }

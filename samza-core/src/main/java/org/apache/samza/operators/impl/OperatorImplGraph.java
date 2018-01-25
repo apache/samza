@@ -78,7 +78,7 @@ public class OperatorImplGraph {
    * the two {@link PartialJoinOperatorImpl}s for a {@link JoinOperatorSpec} with each other since they're
    * reached from different {@link OperatorSpec} during DAG traversals.
    */
-  private final Map<Integer, KV<JoinOperatorSpec, KV<PartialJoinFunction, PartialJoinFunction>>> joinSpecs = new HashMap<>();
+  private final Map<String, KV<JoinOperatorSpec, KV<PartialJoinFunction, PartialJoinFunction>>> joinSpecs = new HashMap<>();
 
   private final Clock clock;
 
@@ -160,7 +160,7 @@ public class OperatorImplGraph {
    */
   OperatorImpl createAndRegisterOperatorImpl(OperatorSpec prevOperatorSpec, OperatorSpec operatorSpec,
       SystemStream inputStream, Config config, TaskContext context) throws IOException, ClassNotFoundException {
-    if (!operatorImpls.containsKey(operatorSpec.getOpName()) || operatorSpec instanceof JoinOperatorSpec) {
+    if (!operatorImpls.containsKey(operatorSpec.getOpId()) || operatorSpec instanceof JoinOperatorSpec) {
       // Either this is the first time we've seen this operatorSpec, or this is a join operator spec
       // and we need to create 2 partial join operator impls for it. Initialize and register the sub-DAG.
       OperatorImpl operatorImpl = createOperatorImpl(prevOperatorSpec, operatorSpec, config, context);
@@ -172,7 +172,7 @@ public class OperatorImplGraph {
       registeredSpecs.forEach(registeredSpec -> {
           OperatorImpl nextImpl = null;
           try {
-            LOG.debug("Creating operator {} with opCode: {}", registeredSpec.getOpName(), registeredSpec.getOpCode());
+            LOG.debug("Creating operator {} with opCode: {}", registeredSpec.getOpId(), registeredSpec.getOpCode());
             nextImpl = createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, config, context);
           } catch (IOException | ClassNotFoundException e) {
             throw new RuntimeException("Exception in lambda while creating operator impls.", e);
@@ -183,7 +183,7 @@ public class OperatorImplGraph {
     } else {
       // the implementation corresponding to operatorSpec has already been instantiated
       // and registered, so we do not need to traverse the DAG further.
-      return operatorImpls.get(operatorSpec.getOpName());
+      return operatorImpls.get(operatorSpec.getOpId());
     }
   }
 
@@ -231,6 +231,7 @@ public class OperatorImplGraph {
 
   private KV<JoinOperatorSpec, KV<PartialJoinFunction, PartialJoinFunction>> getOrCreatePartialJoinSpecs(JoinOperatorSpec joinOpSpec)
       throws IOException, ClassNotFoundException {
+    // get the per task copy of JoinOperatorSpec
     JoinOperatorSpec copyJoinSpec = joinOpSpec.copy();
     return joinSpecs.computeIfAbsent(copyJoinSpec.getOpId(),
         joinOpId -> KV.of(copyJoinSpec, KV.of(createLeftJoinFn(copyJoinSpec), createRightJoinFn(copyJoinSpec))));
@@ -258,7 +259,7 @@ public class OperatorImplGraph {
 
       @Override
       public void init(Config config, TaskContext context) {
-        String leftStoreName = joinOpSpec.getLeftOpName();
+        String leftStoreName = joinOpSpec.getLeftOpId();
         leftStreamState = (KeyValueStore<Object, TimestampedValue<Object>>) context.getStore(leftStoreName);
 
         // user-defined joinFn should only be initialized once, so we do it only in left partial join function.
@@ -290,7 +291,7 @@ public class OperatorImplGraph {
 
       @Override
       public void init(Config config, TaskContext context) {
-        String rightStoreName = joinOpSpec.getRightOpName();
+        String rightStoreName = joinOpSpec.getRightOpId();
         rightStreamState = (KeyValueStore<Object, TimestampedValue<Object>>) context.getStore(rightStoreName);
 
         // user-defined joinFn should only be initialized once,
@@ -361,7 +362,7 @@ public class OperatorImplGraph {
       Multimap<SystemStream, SystemStream> outputToInputStreams) {
     if (opSpec instanceof PartitionByOperatorSpec) {
       PartitionByOperatorSpec spec = (PartitionByOperatorSpec) opSpec;
-      outputToInputStreams.put(spec.getOutputStream().getStreamSpec().toSystemStream(), input);
+      outputToInputStreams.put(spec.getOutputStream().getSystemStream(), input);
     } else {
       Collection<OperatorSpec> nextOperators = opSpec.getRegisteredOperatorSpecs();
       nextOperators.forEach(spec -> computeOutputToInput(input, spec, outputToInputStreams));

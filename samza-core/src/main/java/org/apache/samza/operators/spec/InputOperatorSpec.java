@@ -33,13 +33,14 @@ import org.apache.samza.system.StreamSpec;
  */
 public class InputOperatorSpec<K, V> extends OperatorSpec<KV<K, V>, Object> { // Object == KV<K, V> | V
 
-  private final StreamSpec streamSpec;
-  private final Serde<K> keySerde;
-  private final Serde<V> valueSerde;
+  // TODO: not optimal to make multiple copies of StreamSpec/Serde per task, as deserialize per task will do
+  private transient final StreamSpec streamSpec;
+  private transient final Serde<K> keySerde;
+  private transient final Serde<V> valueSerde;
   private final boolean isKeyedInput;
 
   public InputOperatorSpec(StreamSpec streamSpec,
-      Serde<K> keySerde, Serde<V> valueSerde, boolean isKeyedInput, int opId) {
+      Serde<K> keySerde, Serde<V> valueSerde, boolean isKeyedInput, String opId) {
     super(OpCode.INPUT, opId);
     this.streamSpec = streamSpec;
     this.keySerde = keySerde;

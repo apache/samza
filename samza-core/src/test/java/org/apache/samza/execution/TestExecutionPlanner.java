@@ -110,7 +110,7 @@ public class TestExecutionPlanner {
     MessageStream<KV<Object, Object>> input1 = streamGraph.getInputStream("input1");
     OutputStream<KV<Object, Object>> output1 = streamGraph.getOutputStream("output1");
     input1
-        .partitionBy(m -> m.key, m -> m.value)
+        .partitionBy(m -> m.key, m -> m.value, "p1")
         .map(kv -> kv)
         .sendTo(output1);
     return streamGraph;
@@ -135,12 +135,12 @@ public class TestExecutionPlanner {
             .map(m -> m);
     MessageStream<KV<Object, Object>> messageStream2 =
         streamGraph.<KV<Object, Object>>getInputStream("input2")
-            .partitionBy(m -> m.key, m -> m.value)
+            .partitionBy(m -> m.key, m -> m.value, "p1")
             .filter(m -> true);
     MessageStream<KV<Object, Object>> messageStream3 =
         streamGraph.<KV<Object, Object>>getInputStream("input3")
             .filter(m -> true)
-            .partitionBy(m -> m.key, m -> m.value)
+            .partitionBy(m -> m.key, m -> m.value, "p2")
             .map(m -> m);
     OutputStream<KV<Object, Object>> output1 = streamGraph.getOutputStream("output1");
     OutputStream<KV<Object, Object>> output2 = streamGraph.getOutputStream("output2");
@@ -148,12 +148,12 @@ public class TestExecutionPlanner {
     messageStream1
         .join(messageStream2,
             (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
-            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2))
+            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
         .sendTo(output1);
     messageStream3
         .join(messageStream2,
             (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
-            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1))
+            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
         .sendTo(output2);
 
     return streamGraph;
@@ -167,38 +167,38 @@ public class TestExecutionPlanner {
             .map(m -> m);
     MessageStream<KV<Object, Object>> messageStream2 =
         streamGraph.<KV<Object, Object>>getInputStream("input2")
-            .partitionBy(m -> m.key, m -> m.value)
+            .partitionBy(m -> m.key, m -> m.value, "p1")
             .filter(m -> true);
     MessageStream<KV<Object, Object>> messageStream3 =
         streamGraph.<KV<Object, Object>>getInputStream("input3")
             .filter(m -> true)
-            .partitionBy(m -> m.key, m -> m.value)
+            .partitionBy(m -> m.key, m -> m.value, "p2")
             .map(m -> m);
     OutputStream<KV<Object, Object>> output1 = streamGraph.getOutputStream("output1");
     OutputStream<KV<Object, Object>> output2 = streamGraph.getOutputStream("output2");
 
     messageStream1.map(m -> m)
         .filter(m->true)
-        .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(8), mock(Serde.class), mock(Serde.class)));
+        .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(8), mock(Serde.class), mock(Serde.class)), "w1");
 
     messageStream2.map(m -> m)
         .filter(m->true)
-        .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(16), mock(Serde.class), mock(Serde.class)));
+        .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(16), mock(Serde.class), mock(Serde.class)), "w2");
 
     messageStream1
         .join(messageStream2,
             (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
-            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(1600))
+            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(1600), "j1")
         .sendTo(output1);
     messageStream3
         .join(messageStream2,
             (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
-            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(100))
+            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(100), "j2")
         .sendTo(output2);
     messageStream3
         .join(messageStream2,
             (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
-            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(252))
+            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(252), "j3")
         .sendTo(output2);
 
     return streamGraph;
@@ -246,12 +246,12 @@ public class TestExecutionPlanner {
     when(runner.getStreamSpec("output2")).thenReturn(output2);
 
     // intermediate streams used in tests
-    when(runner.getStreamSpec("test-app-1-partition_by-1"))
-        .thenReturn(new StreamSpec("test-app-1-partition_by-1", "test-app-1-partition_by-1", "default-system"));
-    when(runner.getStreamSpec("test-app-1-partition_by-3"))
-        .thenReturn(new StreamSpec("test-app-1-partition_by-3", "test-app-1-partition_by-3", "default-system"));
-    when(runner.getStreamSpec("test-app-1-partition_by-8"))
-        .thenReturn(new StreamSpec("test-app-1-partition_by-8", "test-app-1-partition_by-8", "default-system"));
+    when(runner.getStreamSpec("test-app-1-partition_by-p1"))
+        .thenReturn(new StreamSpec("test-app-1-partition_by-p1", "test-app-1-partition_by-p1", "default-system"));
+    when(runner.getStreamSpec("test-app-1-partition_by-p2"))
+        .thenReturn(new StreamSpec("test-app-1-partition_by-p2", "test-app-1-partition_by-p2", "default-system"));
+    when(runner.getStreamSpec("test-app-1-partition_by-p3"))
+        .thenReturn(new StreamSpec("test-app-1-partition_by-p3", "test-app-1-partition_by-p3", "default-system"));
   }
 
   @Test
@@ -433,7 +433,7 @@ public class TestExecutionPlanner {
 
     MessageStream<KV<Object, Object>> input1 = streamGraph.getInputStream("input4");
     OutputStream<KV<Object, Object>> output1 = streamGraph.getOutputStream("output1");
-    input1.partitionBy(m -> m.key, m -> m.value).map(kv -> kv).sendTo(output1);
+    input1.partitionBy(m -> m.key, m -> m.value, "p1").map(kv -> kv).sendTo(output1);
     JobGraph jobGraph = (JobGraph) planner.plan(streamGraph);
 
     // the partitions should be the same as input1
@@ -441,5 +441,4 @@ public class TestExecutionPlanner {
         assertEquals(partitionLimit, edge.getPartitionCount()); // max of input1 and output1
       });
   }
-
 }

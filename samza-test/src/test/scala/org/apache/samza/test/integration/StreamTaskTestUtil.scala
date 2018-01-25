@@ -291,8 +291,7 @@ object TestTask {
   }
 
   def awaitTaskRegistered {
-//    allTasksRegistered.await(60, TimeUnit.SECONDS)
-    allTasksRegistered.await()
+    allTasksRegistered.await(60, TimeUnit.SECONDS)
     assertEquals(0, allTasksRegistered.getCount)
     assertEquals(totalTasks, tasks.size)
     // Reset the registered latch, so we can use it again every time we start a new job.

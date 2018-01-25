@@ -21,14 +21,12 @@ package org.apache.samza.runtime;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory;
 import org.apache.samza.execution.ExecutionPlan;
-import org.apache.samza.execution.ExecutionPlanner;
-import org.apache.samza.execution.StreamManager;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
 import org.apache.samza.metrics.MetricsRegistryMap;
@@ -43,30 +41,35 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
   private static final Logger LOG = LoggerFactory.getLogger(RemoteApplicationRunner.class);
 
-  private final StreamManager streamManager;
-  private final ExecutionPlanner planner;
-
   public RemoteApplicationRunner(Config config) {
     super(config);
-    this.streamManager = new StreamManager(new JavaSystemConfig(config).getSystemAdmins());
-    this.planner = new ExecutionPlanner(config, this.streamManager);
   }
 
-  @Deprecated
+  @Override
   public void runTask() {
     throw new UnsupportedOperationException("Running StreamTask is not implemented for RemoteReplicationRunner");
   }
 
+  /**
+   * Run the {@link StreamApplication} on the remote cluster
+   * @param app a StreamApplication
+   */
   @Override
-  public ApplicationRuntimeResult run(StreamApplication userApp) {
-    StreamApplicationInternal app = new StreamApplicationInternal(userApp);
+  public void run(StreamApplication app) {
     try {
+      // TODO: this is a tmp solution and the run.id generation will be addressed in another JIRA
+      String runId = String.valueOf(System.currentTimeMillis());
+      LOG.info("The run id for this run is {}", runId);
+
       // 1. initialize and plan
-      ExecutionPlan plan = getExecutionPlan(app);
+      ExecutionPlan plan = getExecutionPlan(app, runId);
       writePlanJsonFile(plan.getPlanAsJson());
 
       // 2. create the necessary streams
-      this.streamManager.createStreams(plan.getIntermediateStreams());
+      if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
+        getStreamManager().clearStreamsFromPreviousRun(getConfigFromPrevRun());
+      }
+      getStreamManager().createStreams(plan.getIntermediateStreams());
 
       // 3. submit jobs for remote execution
       plan.getJobConfigs().forEach(jobConfig -> {
@@ -77,17 +80,10 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     } catch (Throwable t) {
       throw new SamzaException("Failed to run application", t);
     }
-
-    return new NoOpRuntimeResult();
-  }
-
-  private ExecutionPlan getExecutionPlan(StreamApplicationInternal app) throws Exception {
-    return this.planner.plan(app.getStreamGraphImpl());
   }
 
   @Override
-  public ApplicationRuntimeResult kill(StreamApplication userApp) {
-    StreamApplicationInternal app = new StreamApplicationInternal(userApp);
+  public void kill(StreamApplication app) {
     try {
       ExecutionPlan plan = getExecutionPlan(app);
 
@@ -99,13 +95,10 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     } catch (Throwable t) {
       throw new SamzaException("Failed to kill application", t);
     }
-
-    return new NoOpRuntimeResult();
   }
 
   @Override
-  public ApplicationStatus status(StreamApplication userApp) {
-    StreamApplicationInternal app = new StreamApplicationInternal(userApp);
+  public ApplicationStatus status(StreamApplication app) {
     try {
       boolean hasNewJobs = false;
       boolean hasRunningJobs = false;
@@ -165,5 +158,4 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     LOG.info("Previous config is: " + cfg.toString());
     return cfg;
   }
-
 }

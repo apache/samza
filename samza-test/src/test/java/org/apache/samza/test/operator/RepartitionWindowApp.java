@@ -20,11 +20,12 @@
 package org.apache.samza.test.operator;
 
 import java.io.IOException;
-import org.apache.samza.application.StreamApplications;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.windows.Windows;
+import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
@@ -39,7 +40,7 @@ import java.time.Duration;
 /**
  * A {@link StreamApplication} that demonstrates a repartition followed by a windowed count.
  */
-public class RepartitionWindowApp {
+public class RepartitionWindowApp implements StreamApplication {
 
   private static final Logger LOG = LoggerFactory.getLogger(RepartitionWindowApp.class);
 
@@ -49,18 +50,25 @@ public class RepartitionWindowApp {
   public static void main(String[] args) throws IOException {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    StreamApplication reparApp = StreamApplications.createStreamApp(config);
+    RepartitionWindowApp reparApp = new RepartitionWindowApp();
+    LocalApplicationRunner runner = new LocalApplicationRunner(config);
+
+    runner.run(reparApp);
+    runner.waitForFinish();
+  }
+
+  @Override
+  public void init(StreamGraph graph, Config config) {
 
     KVSerde<String, PageView>
         pgeMsgSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageView.class));
 
-    reparApp.openInput(INPUT_TOPIC, pgeMsgSerde)
+    graph.getInputStream(INPUT_TOPIC, pgeMsgSerde)
         .map(KV::getValue)
-        .partitionBy(PageView::getUserId, m -> m, pgeMsgSerde)
-        .window(Windows.keyedSessionWindow(m -> m.getKey(), Duration.ofSeconds(3), () -> 0, (m, c) -> c + 1, new StringSerde("UTF-8"), new IntegerSerde()))
-        .map(wp -> KV.of(wp.getKey().getKey().toString(), wp.getMessage()))
-        .sendTo(reparApp.openOutput(OUTPUT_TOPIC));
+        .partitionBy(PageView::getUserId, m -> m, pgeMsgSerde, "p1")
+        .window(Windows.keyedSessionWindow(m -> m.getKey(), Duration.ofSeconds(3), () -> 0, (m, c) -> c + 1, new StringSerde("UTF-8"), new IntegerSerde()), "w1")
+        .map(wp -> KV.of(wp.getKey().getKey().toString(), String.valueOf(wp.getMessage())))
+        .sendTo(graph.getOutputStream(OUTPUT_TOPIC));
 
-    reparApp.run().waitForFinish();
   }
 }

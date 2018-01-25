@@ -19,7 +19,7 @@
 
 package org.apache.samza.runtime;
 
-import com.google.common.annotations.VisibleForTesting;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -33,16 +33,14 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.DistributedLockWithState;
 import org.apache.samza.execution.ExecutionPlan;
-import org.apache.samza.execution.ExecutionPlanner;
-import org.apache.samza.execution.StreamManager;
 import org.apache.samza.job.ApplicationStatus;
+import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.StreamProcessorLifecycleListener;
 import org.apache.samza.system.StreamSpec;
@@ -52,10 +50,8 @@ import org.apache.samza.task.TaskFactoryUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.samza.util.ScalaToJavaUtils.defaultValue;
-
 /**
- * This class implements the {@link StreamApplication} that runs the applications in standalone environment
+ * This class implements the {@link ApplicationRunner} that runs the applications in standalone environment
  */
 public class LocalApplicationRunner extends AbstractApplicationRunner {
 
@@ -68,8 +64,6 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   private final AtomicInteger numProcessorsToStart = new AtomicInteger();
   private final AtomicReference<Throwable> failure = new AtomicReference<>();
 
-  private StreamManager streamManager;
-  private ExecutionPlanner planner;
   private ApplicationStatus appStatus = ApplicationStatus.New;
 
   final class LocalStreamProcessorLifeCycleListener implements StreamProcessorLifecycleListener {
@@ -133,19 +127,18 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   }
 
   @Override
-  @Deprecated
   public void runTask() {
-    JobConfig jobConfig = new JobConfig(config);
+    JobConfig jobConfig = new JobConfig(this.config);
 
     // validation
-    String taskName = new TaskConfig(config).getTaskClass().getOrElse(defaultValue(null));
+    String taskName = new TaskConfig(config).getTaskClass().getOrElse(null);
     if (taskName == null) {
       throw new SamzaException("Neither APP nor task.class are defined defined");
     }
     LOG.info("LocalApplicationRunner will run " + taskName);
     LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
 
-    StreamProcessor processor = createStreamProcessor(jobConfig, TaskFactoryUtil.createTaskFactory(config, null, this), listener);
+    StreamProcessor processor = createStreamProcessor(jobConfig, null, listener);
 
     numProcessorsToStart.set(1);
     listener.setProcessor(processor);
@@ -153,13 +146,11 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   }
 
   @Override
-  public ApplicationRuntimeResult run(StreamApplication userApp) {
-    StreamApplicationInternal app = new StreamApplicationInternal(userApp);
-    this.streamManager = new StreamManager(new JavaSystemConfig(config).getSystemAdmins());
-    this.planner = new ExecutionPlanner(config, streamManager);
+  public void run(StreamApplication app) {
     try {
       // 1. initialize and plan
       ExecutionPlan plan = getExecutionPlan(app);
+
       String executionPlanJson = plan.getPlanAsJson();
       writePlanJsonFile(executionPlanJson);
 
@@ -175,7 +166,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       plan.getJobConfigs().forEach(jobConfig -> {
           LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
           LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
-          StreamProcessor processor = createStreamProcessor(jobConfig, TaskFactoryUtil.createTaskFactory(config, app, this), listener);
+          StreamProcessor processor = createStreamProcessor(jobConfig, streamGraph, listener);
           listener.setProcessor(processor);
           processors.add(processor);
         });
@@ -186,25 +177,28 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     } catch (Exception e) {
       throw new SamzaException("Failed to start application", e);
     }
-
-    return new SyncRuntimeResult(this);
-  }
-
-  @VisibleForTesting
-  ExecutionPlan getExecutionPlan(StreamApplicationInternal app) throws Exception {
-    return this.planner.plan(app.getStreamGraphImpl());
   }
 
   @Override
-  public ApplicationRuntimeResult kill(StreamApplication app) {
+  public void kill(StreamApplication streamApp) {
     processors.forEach(StreamProcessor::stop);
-
-    return new SyncRuntimeResult(this);
   }
 
   @Override
-  public ApplicationStatus status(StreamApplication app) {
+  public ApplicationStatus status(StreamApplication streamApp) {
     return appStatus;
+  }
+
+  /**
+   * Block until the application finishes
+   */
+  public void waitForFinish() {
+    try {
+      shutdownLatch.await();
+    } catch (Exception e) {
+      LOG.error("Wait is interrupted by exception", e);
+      throw new SamzaException(e);
+    }
   }
 
   /**
@@ -216,7 +210,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
    * @param intStreams list of intermediate {@link StreamSpec}s
    * @throws TimeoutException exception for latch timeout
    */
-    /* package private */ void createStreams(String planId, List<StreamSpec> intStreams) throws TimeoutException {
+  /* package private */ void createStreams(String planId, List<StreamSpec> intStreams) throws TimeoutException {
     if (intStreams.isEmpty()) {
       LOG.info("Set of intermediate streams is empty. Nothing to create.");
       return;
@@ -254,28 +248,24 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     }
   }
 
-  @VisibleForTesting
-  StreamManager getStreamManager() {
-    return streamManager;
-  }
-
   /**
    * Create {@link StreamProcessor} based on {@link StreamApplication} and the config
    * @param config config
-   * @param taskFactory the corresponding task factory object (either {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory})
+   * @param streamGraph {@link StreamGraphImpl}
    * @return {@link StreamProcessor]}
    */
-  @VisibleForTesting
+  /* package private */
   StreamProcessor createStreamProcessor(
       Config config,
-      Object taskFactory,
+      StreamGraphImpl streamGraph,
       StreamProcessorLifecycleListener listener) {
+    Object taskFactory = TaskFactoryUtil.createTaskFactory(config, streamGraph);
     if (taskFactory instanceof StreamTaskFactory) {
       return new StreamProcessor(
-          config, this.metricsReporters, (StreamTaskFactory) taskFactory, listener);
+          config, new HashMap<>(), (StreamTaskFactory) taskFactory, listener);
     } else if (taskFactory instanceof AsyncStreamTaskFactory) {
       return new StreamProcessor(
-          config, this.metricsReporters, (AsyncStreamTaskFactory) taskFactory, listener);
+          config, new HashMap<>(), (AsyncStreamTaskFactory) taskFactory, listener);
     } else {
       throw new SamzaException(String.format("%s is not a valid task factory",
           taskFactory.getClass().getCanonicalName()));
@@ -285,27 +275,5 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   /* package private for testing */
   Set<StreamProcessor> getProcessors() {
     return processors;
-  }
-
-  /**
-   * The synchronous version of {@link ApplicationRuntimeResult} that allows users to block on waitForFinish()
-   */
-  class SyncRuntimeResult implements ApplicationRuntimeResult {
-    private final LocalApplicationRunner runner;
-
-    SyncRuntimeResult(LocalApplicationRunner runner) {
-      this.runner = runner;
-    }
-
-    @Override
-    public void waitForFinish() {
-      try {
-        this.runner.shutdownLatch.await();
-      } catch (Exception e) {
-        LOG.error("Wait is interrupted by exception", e);
-        throw new SamzaException(e);
-      }
-
-    }
   }
 }

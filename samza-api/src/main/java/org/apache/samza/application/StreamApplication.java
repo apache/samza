@@ -86,7 +86,7 @@ public interface StreamApplication {
    * context can be used, for example, to create custom metrics or access durable state stores.
    * <p>
    * A shared context between {@link InitableFunction}s for different operators within a task instance can be set
-   * up by providing a {@link ContextManager} using {@link StreamGraph#withContextManager}.
+   * up by providing a {@link ContextManager} using {@link StreamGraph#setContextManager}.
    *
    * @param graph the {@link StreamGraph} to get input/output streams from
    * @param config the configuration for the application

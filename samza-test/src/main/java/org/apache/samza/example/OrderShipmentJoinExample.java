@@ -19,12 +19,13 @@
 package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
+import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.JoinFunction;
+import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
@@ -32,33 +33,41 @@ import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
 
+
 /**
  * Simple 2-way stream-to-stream join example
  */
-public class OrderShipmentJoinExample {
+public class OrderShipmentJoinExample implements StreamApplication {
 
   // local execution mode
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    StreamApplication app = StreamApplications.createStreamApp(config);
+    OrderShipmentJoinExample app = new OrderShipmentJoinExample();
+    LocalApplicationRunner runner = new LocalApplicationRunner(config);
+
+    runner.run(app);
+    runner.waitForFinish();
+  }
+
+  @Override
+  public void init(StreamGraph graph, Config config) {
 
     MessageStream<OrderRecord> orders =
-        app.openInput("orders", new JsonSerdeV2<>(OrderRecord.class));
+        graph.getInputStream("orders", new JsonSerdeV2<>(OrderRecord.class));
     MessageStream<ShipmentRecord> shipments =
-        app.openInput("shipments", new JsonSerdeV2<>(ShipmentRecord.class));
+        graph.getInputStream("shipments", new JsonSerdeV2<>(ShipmentRecord.class));
     OutputStream<KV<String, FulfilledOrderRecord>> fulfilledOrders =
-        app.openOutput("fulfilledOrders",
+        graph.getOutputStream("fulfilledOrders",
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(FulfilledOrderRecord.class)));
 
     orders
         .join(shipments, new MyJoinFunction(),
             new StringSerde(), new JsonSerdeV2<>(OrderRecord.class), new JsonSerdeV2<>(ShipmentRecord.class),
-            Duration.ofMinutes(1))
+            Duration.ofMinutes(1), "j1")
         .map(fulFilledOrder -> KV.of(fulFilledOrder.orderId, fulFilledOrder))
         .sendTo(fulfilledOrders);
 
-    app.run().waitForFinish();
   }
 
   static class MyJoinFunction implements JoinFunction<String, OrderRecord, ShipmentRecord, FulfilledOrderRecord> {
