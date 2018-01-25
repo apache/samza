@@ -48,8 +48,10 @@ import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
 import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
+import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.util.ClassLoaderHelper;
 import org.apache.samza.util.MetricsReporterLoader;
+import org.apache.samza.util.SystemClock;
 import org.apache.zookeeper.Watcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -88,6 +90,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private final Map<String, MetricsReporter> reporters;
 
   private StreamMetadataCache streamMetadataCache = null;
+  private SystemAdmins systemAdmins = null;
   private ScheduleAfterDebounceTime debounceTimer = null;
   private JobCoordinatorListener coordinatorListener = null;
   private JobModel newJobModel;
@@ -120,13 +123,14 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         LOG.error("Received exception from in JobCoordinator Processing!", throwable);
         stop();
       });
+    systemAdmins = new SystemAdmins(config);
+    streamMetadataCache = new StreamMetadataCache(systemAdmins, METADATA_CACHE_TTL_MS, SystemClock.instance());
   }
 
   @Override
   public void start() {
     startMetrics();
-    streamMetadataCache = StreamMetadataCache.apply(METADATA_CACHE_TTL_MS, config);
-
+    systemAdmins.start();
     zkController.register();
   }
 
@@ -144,6 +148,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     if (coordinatorListener != null) {
       coordinatorListener.onCoordinatorStop();
     }
+    systemAdmins.stop();
   }
 
   private void startMetrics() {
@@ -196,7 +201,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     // Generate the JobModel
     JobModel jobModel = generateNewJobModel(currentProcessorIds);
     if (!hasCreatedChangeLogStreams) {
-      JobModelManager.createChangeLogStreams(new StorageConfig(config), jobModel.maxChangeLogStreamPartitions);
+      JobModelManager.createChangeLogStreams(new StorageConfig(config), jobModel.maxChangeLogStreamPartitions, systemAdmins);
       hasCreatedChangeLogStreams = true;
     }
     // Assign the next version of JobModel

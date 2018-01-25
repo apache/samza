@@ -34,6 +34,7 @@ import org.apache.samza.config.*;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.util.Util;
@@ -46,10 +47,10 @@ import static org.apache.samza.util.ScalaToJavaUtils.defaultValue;
 public class StreamManager {
   private static final Logger LOGGER = LoggerFactory.getLogger(StreamManager.class);
 
-  private final Map<String, SystemAdmin> sysAdmins;
+  private final SystemAdmins systemAdmins;
 
-  public StreamManager(Map<String, SystemAdmin> sysAdmins) {
-    this.sysAdmins = sysAdmins;
+  public StreamManager(SystemAdmins systemAdmins) {
+    this.systemAdmins = systemAdmins;
   }
 
   public void createStreams(List<StreamSpec> streams) {
@@ -59,7 +60,7 @@ public class StreamManager {
 
     for (Map.Entry<String, Collection<StreamSpec>> entry : streamsGroupedBySystem.asMap().entrySet()) {
       String systemName = entry.getKey();
-      SystemAdmin systemAdmin = sysAdmins.get(systemName);
+      SystemAdmin systemAdmin = systemAdmins.getSystemAdmin(systemName);
 
       for (StreamSpec stream : entry.getValue()) {
         LOGGER.info("Creating stream {} with partitions {} on system {}",
@@ -72,7 +73,7 @@ public class StreamManager {
   Map<String, Integer> getStreamPartitionCounts(String systemName, Set<String> streamNames) {
     Map<String, Integer> streamToPartitionCount = new HashMap<>();
 
-    SystemAdmin systemAdmin = sysAdmins.get(systemName);
+    SystemAdmin systemAdmin = systemAdmins.getSystemAdmin(systemName);
     if (systemAdmin == null) {
       throw new SamzaException(String.format("System %s does not exist.", systemName));
     }
@@ -106,7 +107,7 @@ public class StreamManager {
           .collect(Collectors.toSet());
       intStreams.forEach(stream -> {
           LOGGER.info("Clear intermediate stream {} in system {}", stream.getPhysicalName(), stream.getSystemName());
-          sysAdmins.get(stream.getSystemName()).clearStream(stream);
+          systemAdmins.getSystemAdmin(stream.getSystemName()).clearStream(stream);
         });
 
       //Find checkpoint stream and clean up
@@ -126,7 +127,7 @@ public class StreamManager {
           LOGGER.info("Clear store {} changelog {}", store, changelog);
           SystemStream systemStream = Util.getSystemStreamFromNames(changelog);
           StreamSpec spec = StreamSpec.createChangeLogStreamSpec(systemStream.getStream(), systemStream.getSystem(), 1);
-          sysAdmins.get(spec.getSystemName()).clearStream(spec);
+          systemAdmins.getSystemAdmin(spec.getSystemName()).clearStream(spec);
         }
       }
     } catch (Exception e) {

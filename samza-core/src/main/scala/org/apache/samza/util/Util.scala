@@ -223,20 +223,28 @@ object Util extends Logging {
   }
 
   /**
-   * Get the coordinator system and system factory from the configuration
+   * Get the coordinator system stream from the configuration
    * @param config
    * @return
    */
-  def getCoordinatorSystemStreamAndFactory(config: Config) = {
+  def getCoordinatorSystemStream(config: Config) = {
     val systemName = config.getCoordinatorSystemName
     val (jobName, jobId) = Util.getJobNameAndId(config)
     val streamName = Util.getCoordinatorStreamName(jobName, jobId)
-    val coordinatorSystemStream = new SystemStream(systemName, streamName)
+    new SystemStream(systemName, streamName)
+  }
+
+  /**
+    * Get the coordinator system factory from the configuration
+    * @param config
+    * @return
+    */
+  def getCoordinatorSystemFactory(config: Config) = {
+    val systemName = config.getCoordinatorSystemName
     val systemFactoryClassName = config
       .getSystemFactory(systemName)
       .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY format systemName))
-    val systemFactory = Util.getObj[SystemFactory](systemFactoryClassName)
-    (coordinatorSystemStream, systemFactory)
+    Util.getObj[SystemFactory](systemFactoryClassName)
   }
 
   /**

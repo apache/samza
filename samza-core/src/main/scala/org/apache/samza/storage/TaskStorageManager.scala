@@ -56,7 +56,7 @@ class TaskStorageManager(
   storeBaseDir: File = new File(System.getProperty("user.dir"), "state"),
   loggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
   partition: Partition,
-  systemAdmins: Map[String, SystemAdmin],
+  systemAdmins: SystemAdmins,
   changeLogDeleteRetentionsInMs: Map[String, Long],
   clock: Clock) extends Logging {
 
@@ -210,9 +210,7 @@ class TaskStorageManager(
     info("Validating change log streams: " + changeLogSystemStreams)
 
     for ((storeName, systemStream) <- changeLogSystemStreams) {
-      val systemAdmin = systemAdmins
-        .getOrElse(systemStream.getSystem,
-                   throw new SamzaException("Unable to get system admin for store " + storeName + " and system stream " + systemStream))
+      val systemAdmin = systemAdmins.getSystemAdmin(systemStream.getSystem)
       val changelogSpec = StreamSpec.createChangeLogStreamSpec(systemStream.getStream, systemStream.getSystem, changeLogStreamPartitions)
 
       systemAdmin.validateStream(changelogSpec)
@@ -230,8 +228,7 @@ class TaskStorageManager(
 
     for ((storeName, systemStream) <- changeLogSystemStreams) {
       val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
-      val admin = systemAdmins.getOrElse(systemStream.getSystem,
-        throw new SamzaException("Unable to get system admin for store " + storeName + " and system stream " + systemStream))
+      val admin = systemAdmins.getSystemAdmin(systemStream.getSystem)
       val consumer = storeConsumers(storeName)
 
       val offset = getStartingOffset(systemStreamPartition, admin)
@@ -334,9 +331,7 @@ class TaskStorageManager(
     debug("Persisting logged key value stores")
 
     for ((storeName, systemStream) <- changeLogSystemStreams.filterKeys(storeName => persistedStores.contains(storeName))) {
-      val systemAdmin = systemAdmins
-              .getOrElse(systemStream.getSystem,
-                         throw new SamzaException("Unable to get system admin for store " + storeName + " and system stream " + systemStream))
+      val systemAdmin = systemAdmins.getSystemAdmin(systemStream.getSystem)
 
       debug("Fetching newest offset for store %s" format(storeName))
       try {
@@ -345,7 +340,7 @@ class TaskStorageManager(
           // rather than newest and oldest offsets for all SSPs. Use it if we can.
           systemAdmin.asInstanceOf[ExtendedSystemAdmin].getNewestOffset(new SystemStreamPartition(systemStream.getSystem, systemStream.getStream, partition), 3)
         } else {
-          val streamToMetadata = systemAdmins(systemStream.getSystem)
+          val streamToMetadata = systemAdmins.getSystemAdmin(systemStream.getSystem)
                   .getSystemStreamMetadata(Set(systemStream.getStream).asJava)
           val sspMetadata = streamToMetadata
                   .get(systemStream.getStream)
