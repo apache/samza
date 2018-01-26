@@ -23,14 +23,10 @@ package org.apache.samza.coordinator
 import java.util
 import java.util.concurrent.atomic.AtomicReference
 
-import org.apache.samza.config.ClusterManagerConfig
-import org.apache.samza.config.JobConfig
+import org.apache.samza.config._
 import org.apache.samza.config.JobConfig.Config2Job
-import org.apache.samza.config.MapConfig
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
-import org.apache.samza.config.Config
-import org.apache.samza.config.StorageConfig
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
 import org.apache.samza.container.grouper.task.BalancingTaskNameGrouper
 import org.apache.samza.container.grouper.task.TaskNameGrouperFactory
@@ -39,7 +35,6 @@ import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.server.HttpServer
 import org.apache.samza.coordinator.server.JobServlet
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer
-import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.job.model.TaskModel
@@ -79,9 +74,8 @@ object JobModelManager extends Logging {
    *                                from the coordinator stream, and instantiate a JobModelManager.
    */
   def apply(coordinatorSystemConfig: Config, metricsRegistryMap: MetricsRegistryMap): JobModelManager = {
-    val coordinatorStreamSystemFactory: CoordinatorStreamSystemFactory = new CoordinatorStreamSystemFactory()
-    val coordinatorSystemConsumer: CoordinatorStreamSystemConsumer = coordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(coordinatorSystemConfig, metricsRegistryMap)
-    val coordinatorSystemProducer: CoordinatorStreamSystemProducer = coordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(coordinatorSystemConfig, metricsRegistryMap)
+    val coordinatorSystemConsumer: CoordinatorStreamSystemConsumer = new CoordinatorStreamSystemConsumer(coordinatorSystemConfig, metricsRegistryMap)
+    val coordinatorSystemProducer: CoordinatorStreamSystemProducer = new CoordinatorStreamSystemProducer(coordinatorSystemConfig, metricsRegistryMap)
     info("Registering coordinator system stream consumer.")
     coordinatorSystemConsumer.register
     debug("Starting coordinator system stream consumer.")
@@ -103,9 +97,8 @@ object JobModelManager extends Logging {
     localityManager.start()
 
     // Map the name of each system to the corresponding SystemAdmin
-    val systemAdmins = getSystemAdmins(config)
-
-    val streamMetadataCache = new StreamMetadataCache(systemAdmins = systemAdmins, cacheTTLms = 0)
+    val systemAdmins = new SystemAdmins(config)
+    val streamMetadataCache = new StreamMetadataCache(systemAdmins, 0)
     val previousChangelogPartitionMapping = changelogManager.readChangeLogPartitionMapping()
 
     val processorList = new ListBuffer[String]()
@@ -113,9 +106,8 @@ object JobModelManager extends Logging {
     for (i <- 0 until containerCount) {
       processorList += i.toString
     }
-
-    val jobModelManager = getJobModelManager(config, previousChangelogPartitionMapping, localityManager,
-      streamMetadataCache, processorList.toList.asJava)
+    systemAdmins.start()
+    val jobModelManager = getJobModelManager(config, previousChangelogPartitionMapping, localityManager, streamMetadataCache, processorList.toList.asJava)
     val jobModel = jobModelManager.jobModel
     // Save the changelog mapping back to the ChangelogPartitionmanager
     // newChangelogPartitionMapping is the merging of all current task:changelog
@@ -130,9 +122,10 @@ object JobModelManager extends Logging {
     info("Saving task-to-changelog partition mapping: %s" format newChangelogPartitionMapping)
     changelogManager.writeChangeLogPartitionMapping(newChangelogPartitionMapping.asJava)
 
-    createChangeLogStreams(config, jobModel.maxChangeLogStreamPartitions)
-    createAccessLogStreams(config, jobModel.maxChangeLogStreamPartitions)
+    createChangeLogStreams(config, jobModel.maxChangeLogStreamPartitions, systemAdmins)
+    createAccessLogStreams(config, jobModel.maxChangeLogStreamPartitions, systemAdmins)
 
+    systemAdmins.stop()
     jobModelManager
   }
 
@@ -275,25 +268,7 @@ object JobModelManager extends Logging {
     }
   }
 
-  /**
-   * Instantiates the system admins based upon the system factory class available in {@param config}.
-   * @param config contains adequate information to instantiate the SystemAdmin.
-   * @return a map of SystemName(String) to the instantiated SystemAdmin.
-   */
-  def getSystemAdmins(config: Config) : Map[String, SystemAdmin] = {
-    val systemNames = getSystemNames(config)
-    // Map the name of each system to the corresponding SystemAdmin
-    val systemAdmins = systemNames.map(systemName => {
-      val systemFactoryClassName = config
-        .getSystemFactory(systemName)
-        .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemName))
-      val systemFactory = Util.getObj[SystemFactory](systemFactoryClassName)
-      systemName -> systemFactory.getAdmin(systemName, config)
-    }).toMap
-    systemAdmins
-  }
-
-  def createChangeLogStreams(config: StorageConfig, changeLogPartitions: Int) {
+  def createChangeLogStreams(config: StorageConfig, changeLogPartitions: Int, systemAdmins: SystemAdmins) {
     val changeLogSystemStreams = config
       .getStoreNames
       .filter(config.getChangelogStream(_).isDefined)
@@ -301,10 +276,7 @@ object JobModelManager extends Logging {
       .mapValues(Util.getSystemStreamFromNames(_))
 
     for ((storeName, systemStream) <- changeLogSystemStreams) {
-      val systemAdmin = Util.getObj[SystemFactory](config
-        .getSystemFactory(systemStream.getSystem)
-        .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemStream.getSystem))
-        ).getAdmin(systemStream.getSystem, config)
+      val systemAdmin = systemAdmins.getSystemAdmin(systemStream.getSystem)
 
       val changelogSpec = StreamSpec.createChangeLogStreamSpec(systemStream.getStream, systemStream.getSystem, changeLogPartitions)
       if (systemAdmin.createStream(changelogSpec)) {
@@ -316,7 +288,7 @@ object JobModelManager extends Logging {
     }
   }
 
-  private def createAccessLogStreams(config: StorageConfig, changeLogPartitions: Int): Unit = {
+  private def createAccessLogStreams(config: StorageConfig, changeLogPartitions: Int, systemAdmins: SystemAdmins): Unit = {
     val changeLogSystemStreams = config
       .getStoreNames
       .filter(config.getChangelogStream(_).isDefined)
@@ -326,11 +298,7 @@ object JobModelManager extends Logging {
     for ((storeName, systemStream) <- changeLogSystemStreams) {
       val accessLog = config.getAccessLogEnabled(storeName)
       if (accessLog) {
-        val systemAdmin = Util.getObj[SystemFactory](config
-          .getSystemFactory(systemStream.getSystem)
-          .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemStream.getSystem))
-        ).getAdmin(systemStream.getSystem, config)
-
+        val systemAdmin = systemAdmins.getSystemAdmin(systemStream.getSystem)
         val accessLogSpec = new StreamSpec(config.getAccessLogStream(systemStream.getStream),
           config.getAccessLogStream(systemStream.getStream), systemStream.getSystem, changeLogPartitions)
         systemAdmin.createStream(accessLogSpec)

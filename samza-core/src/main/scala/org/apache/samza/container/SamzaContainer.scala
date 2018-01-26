@@ -38,7 +38,7 @@ import org.apache.samza.config._
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
 import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor, NoThrottlingDiskQuotaPolicyFactory, PollingScanDiskSpaceMonitor}
 import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStatistics, SystemStatisticsMonitor}
-import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
+import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.serializers._
@@ -60,11 +60,7 @@ object SamzaContainer extends Logging {
 
   def getLocalityManager(containerName: String, config: Config): LocalityManager = {
     val registryMap = new MetricsRegistryMap(containerName)
-    val coordinatorSystemProducer =
-      new CoordinatorStreamSystemFactory()
-        .getCoordinatorStreamSystemProducer(
-          config,
-          new SamzaContainerMetrics(containerName, registryMap).registry)
+    val coordinatorSystemProducer = new CoordinatorStreamSystemProducer(config, new SamzaContainerMetrics(containerName, registryMap).registry)
     new LocalityManager(coordinatorSystemProducer)
   }
 
@@ -151,12 +147,10 @@ object SamzaContainer extends Logging {
         .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemName))
       (systemName, Util.getObj[SystemFactory](systemFactoryClassName))
     }).toMap
-
-    val systemAdmins = systemNames
-      .map(systemName => (systemName, systemFactories(systemName).getAdmin(systemName, config)))
-      .toMap
-
     info("Got system factories: %s" format systemFactories.keys)
+
+    val systemAdmins = new SystemAdmins(config)
+    info("Got system admins: %s" format systemAdmins.getSystemAdminsMap().keySet())
 
     val streamMetadataCache = new StreamMetadataCache(systemAdmins)
     val inputStreamMetadata = streamMetadataCache.getStreamMetadata(inputSystemStreams)
@@ -360,12 +354,9 @@ object SamzaContainer extends Logging {
     // create a map of consumers with callbacks to pass to the OffsetManager
     val checkpointListeners = consumers.filter(_._2.isInstanceOf[CheckpointListener])
       .map { case (system, consumer) => (system, consumer.asInstanceOf[CheckpointListener])}
-
     info("Got checkpointListeners : %s" format checkpointListeners)
 
-    val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager,
-      systemAdmins, checkpointListeners, offsetManagerMetrics)
-
+    val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager, systemAdmins, checkpointListeners, offsetManagerMetrics)
     info("Got offset manager: %s" format offsetManager)
 
     val dropDeserializationError = config.getDropDeserialization match {
@@ -629,6 +620,7 @@ object SamzaContainer extends Logging {
       containerContext = containerContext,
       taskInstances = taskInstances,
       runLoop = runLoop,
+      systemAdmins = systemAdmins,
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
       offsetManager = offsetManager,
@@ -647,6 +639,7 @@ class SamzaContainer(
   containerContext: SamzaContainerContext,
   taskInstances: Map[TaskName, TaskInstance],
   runLoop: Runnable,
+  systemAdmins: SystemAdmins,
   consumerMultiplexer: SystemConsumers,
   producerMultiplexer: SystemProducers,
   metrics: SamzaContainerMetrics,
@@ -686,6 +679,7 @@ class SamzaContainer(
       jmxServer = new JmxServer()
 
       startMetrics
+      startAdmins
       startOffsetManager
       startLocalityManager
       startStores
@@ -733,6 +727,7 @@ class SamzaContainer(
       shutdownOffsetManager
       shutdownMetrics
       shutdownSecurityManger
+      shutdownAdmins
 
       if (!status.equals(SamzaContainerStatus.FAILED)) {
         status = SamzaContainerStatus.STOPPED
@@ -891,6 +886,13 @@ class SamzaContainer(
     taskInstances.values.foreach(_.initTask)
   }
 
+  def startAdmins {
+    info("Starting admin multiplexer.")
+
+    systemAdmins.start
+  }
+
+
   def startProducers {
     info("Registering task instances with producers.")
 
@@ -958,6 +960,13 @@ class SamzaContainer(
 
     consumerMultiplexer.stop
   }
+
+  def shutdownAdmins {
+    info("Shutting down admin multiplexer.")
+
+    systemAdmins.stop
+  }
+
 
   def shutdownProducers {
     info("Shutting down producer multiplexer.")

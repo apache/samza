@@ -139,7 +139,6 @@ public class StreamPartitionCountMonitor {
               }
             }, monitorPeriodMs, monitorPeriodMs, TimeUnit.MILLISECONDS);
           }
-
           state = State.RUNNING;
           break;
 

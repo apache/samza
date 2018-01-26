@@ -34,6 +34,7 @@ import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Before;
@@ -233,7 +234,7 @@ public class TestExecutionPlanner {
     systemAdmins = new HashMap<>();
     systemAdmins.put("system1", systemAdmin1);
     systemAdmins.put("system2", systemAdmin2);
-    streamManager = new StreamManager(systemAdmins);
+    streamManager = new StreamManager(new SystemAdmins(systemAdmins));
 
     runner = mock(ApplicationRunner.class);
     when(runner.getStreamSpec("input1")).thenReturn(input1);
