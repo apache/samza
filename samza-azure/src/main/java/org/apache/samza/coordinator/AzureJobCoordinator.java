@@ -42,12 +42,14 @@ import org.apache.samza.coordinator.scheduler.SchedulerStateChangeListener;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
+import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.BlobUtils;
 import org.apache.samza.util.ClassLoaderHelper;
 import org.apache.samza.util.LeaseBlobManager;
+import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.TableUtils;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
@@ -91,6 +93,7 @@ public class AzureJobCoordinator implements JobCoordinator {
   private RenewLeaseScheduler renewLease;
   private LeaderBarrierCompleteScheduler leaderBarrierScheduler;
   private StreamMetadataCache streamMetadataCache = null;
+  private SystemAdmins systemAdmins = null;
   private JobCoordinatorListener coordinatorListener = null;
   private JobModel jobModel = null;
 
@@ -124,9 +127,12 @@ public class AzureJobCoordinator implements JobCoordinator {
 
   @Override
   public void start() {
-
     LOG.info("Starting Azure job coordinator.");
-    streamMetadataCache = StreamMetadataCache.apply(METADATA_CACHE_TTL_MS, config);
+
+    // The systemAdmins should be started before streamMetadataCache can be used. And it should be stopped when this coordinator is stopped.
+    systemAdmins = new SystemAdmins(config);
+    systemAdmins.start();
+    streamMetadataCache = new StreamMetadataCache(systemAdmins, METADATA_CACHE_TTL_MS, SystemClock.instance());
     table.addProcessorEntity(INITIAL_STATE, processorId, false);
 
     // Start scheduler for heartbeating
@@ -164,6 +170,8 @@ public class AzureJobCoordinator implements JobCoordinator {
     if (coordinatorListener != null) {
       coordinatorListener.onCoordinatorStop();
     }
+
+    systemAdmins.stop();
   }
 
   @Override

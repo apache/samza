@@ -74,6 +74,8 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   override def init = {
     Preconditions.checkNotNull(systemAdmin)
 
+    systemAdmin.start()
+
     info(s"Creating checkpoint stream: ${checkpointSpec.getPhysicalName} with " +
       s"partition count: ${checkpointSpec.getPartitionCount}")
     systemAdmin.createStream(checkpointSpec)
@@ -176,6 +178,8 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   }
 
   override def stop = {
+    systemAdmin.stop()
+
     if (systemProducer != null) {
       systemProducer.stop
     } else {

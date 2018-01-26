@@ -28,7 +28,6 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer;
@@ -151,9 +150,8 @@ public class ChangelogPartitionManager extends AbstractCoordinatorStreamManager 
   }
 
   public static ChangelogPartitionManager fromConfig(Config config, String source, MetricsRegistryMap registryMap) {
-    CoordinatorStreamSystemFactory factory = new CoordinatorStreamSystemFactory();
-    CoordinatorStreamSystemConsumer consumer = factory.getCoordinatorStreamSystemConsumer(config, registryMap);
-    CoordinatorStreamSystemProducer producer = factory.getCoordinatorStreamSystemProducer(config, registryMap);
+    CoordinatorStreamSystemConsumer consumer = new CoordinatorStreamSystemConsumer(config, registryMap);
+    CoordinatorStreamSystemProducer producer = new CoordinatorStreamSystemProducer(config, registryMap);
     log.info("Registering coordinator system stream consumer.");
     consumer.register();
     log.debug("Starting coordinator system stream consumer.");

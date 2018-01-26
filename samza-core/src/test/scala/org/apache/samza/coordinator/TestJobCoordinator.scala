@@ -240,7 +240,7 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
     val systemNames = Set("test")
 
     // Map the name of each system to the corresponding SystemAdmin
-    val systemAdmins = systemNames.map(systemName => {
+    val systemAdminMap = systemNames.map(systemName => {
       val systemFactoryClassName = config
         .getSystemFactory(systemName)
         .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemName))
@@ -248,7 +248,7 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
       systemName -> systemFactory.getAdmin(systemName, config)
     }).toMap
 
-    val streamMetadataCache = new StreamMetadataCache(systemAdmins)
+    val streamMetadataCache = new StreamMetadataCache(new SystemAdmins(systemAdminMap.asJava))
     val getInputStreamPartitions = PrivateMethod[immutable.Set[Any]]('getInputStreamPartitions)
     val getMatchedInputStreamPartitions = PrivateMethod[immutable.Set[Any]]('getMatchedInputStreamPartitions)
 

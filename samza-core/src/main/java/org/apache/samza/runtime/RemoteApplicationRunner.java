@@ -25,7 +25,6 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer;
-import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
@@ -59,6 +58,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   @Override
   public void run(StreamApplication app) {
     try {
+      super.run(app);
       // TODO: run.id needs to be set for standalone: SAMZA-1531
       // run.id is based on current system time with the most significant bits in UUID (8 digits) to avoid collision
       String runId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
@@ -95,6 +95,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
           JobRunner runner = new JobRunner(jobConfig);
           runner.kill();
         });
+      super.kill(app);
     } catch (Throwable t) {
       throw new SamzaException("Failed to kill application", t);
     }
@@ -149,9 +150,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   }
 
   private Config getConfigFromPrevRun() {
-    CoordinatorStreamSystemFactory coordinatorStreamSystemFactory = new CoordinatorStreamSystemFactory();
-    CoordinatorStreamSystemConsumer consumer = coordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(
-        config, new MetricsRegistryMap());
+    CoordinatorStreamSystemConsumer consumer = new CoordinatorStreamSystemConsumer(config, new MetricsRegistryMap());
     consumer.register();
     consumer.start();
     consumer.bootstrap();

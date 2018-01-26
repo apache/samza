@@ -28,6 +28,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -58,7 +59,7 @@ public class TestStreamManager {
     sysAdmins.put(SYSTEM1, admin1);
     sysAdmins.put(SYSTEM2, admin2);
 
-    StreamManager manager = new StreamManager(sysAdmins);
+    StreamManager manager = new StreamManager(new SystemAdmins(sysAdmins));
     manager.createStreams(specList);
 
     ArgumentCaptor<StreamSpec> captor = ArgumentCaptor.forClass(StreamSpec.class);
@@ -95,7 +96,7 @@ public class TestStreamManager {
     Set<String> streams = new HashSet<>();
     streams.add(STREAM1);
     streams.add(STREAM2);
-    StreamManager manager = new StreamManager(sysAdmins);
+    StreamManager manager = new StreamManager(new SystemAdmins(sysAdmins));
     Map<String, Integer> counts = manager.getStreamPartitionCounts(SYSTEM1, streams);
 
     assertTrue(counts.get(STREAM1).equals(1));
@@ -131,7 +132,7 @@ public class TestStreamManager {
     config.put("stores.test-store.factory", "dummyfactory");
     config.put("stores.test-store.changelog", SYSTEM2 + "." + STREAM2);
 
-    StreamManager manager = new StreamManager(sysAdmins);
+    StreamManager manager = new StreamManager(new SystemAdmins(sysAdmins));
     manager.clearStreamsFromPreviousRun(new MapConfig(config));
 
     ArgumentCaptor<StreamSpec> captor = ArgumentCaptor.forClass(StreamSpec.class);

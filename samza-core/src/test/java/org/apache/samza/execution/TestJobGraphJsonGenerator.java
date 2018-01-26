@@ -36,6 +36,7 @@ import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemAdmins;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Test;
 
@@ -113,7 +114,7 @@ public class TestJobGraphJsonGenerator {
     SystemAdmin systemAdmin2 = createSystemAdmin(system2Map);
     systemAdmins.put("system1", systemAdmin1);
     systemAdmins.put("system2", systemAdmin2);
-    StreamManager streamManager = new StreamManager(systemAdmins);
+    StreamManager streamManager = new StreamManager(new SystemAdmins(systemAdmins));
 
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
     streamGraph.setDefaultSerde(KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
@@ -186,7 +187,7 @@ public class TestJobGraphJsonGenerator {
     SystemAdmin systemAdmin2 = createSystemAdmin(system2Map);
     systemAdmins.put("hdfs", systemAdmin1);
     systemAdmins.put("kafka", systemAdmin2);
-    StreamManager streamManager = new StreamManager(systemAdmins);
+    StreamManager streamManager = new StreamManager(new SystemAdmins(systemAdmins));
 
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
     MessageStream<KV<String, PageViewEvent>> inputStream = streamGraph.getInputStream("PageView");
