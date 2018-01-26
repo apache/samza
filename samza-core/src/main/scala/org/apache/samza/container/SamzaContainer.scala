@@ -100,6 +100,7 @@ object SamzaContainer extends Logging {
     info("Setting up Samza container: %s" format containerName)
 
     startupLog("Samza container PID: %s" format containerPID)
+    println("Container PID: %s" format containerPID)
     startupLog("Using configuration: %s" format config)
     startupLog("Using container model: %s" format containerModel)
 
