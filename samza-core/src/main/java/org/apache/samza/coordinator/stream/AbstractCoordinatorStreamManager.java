@@ -28,8 +28,8 @@ import java.util.Set;
  * Abstract class which handles the common functionality for coordinator stream consumer and producer
  */
 public abstract class AbstractCoordinatorStreamManager {
-  private final CoordinatorStreamSystemProducer coordinatorStreamProducer;
-  private final CoordinatorStreamSystemConsumer coordinatorStreamConsumer;
+  protected final CoordinatorStreamSystemProducer coordinatorStreamProducer;
+  protected final CoordinatorStreamSystemConsumer coordinatorStreamConsumer;
   private final String source;
 
   /**

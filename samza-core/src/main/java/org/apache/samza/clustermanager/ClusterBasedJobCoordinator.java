@@ -19,6 +19,7 @@
 package org.apache.samza.clustermanager;
 
 import com.google.common.annotations.VisibleForTesting;
+import java.util.Map;
 import java.util.Set;
 import org.apache.samza.SamzaException;
 import org.apache.samza.PartitionChangeException;
@@ -32,8 +33,10 @@ import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
+import org.apache.samza.coordinator.stream.CoordinatorStream;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer;
+import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
@@ -161,11 +164,13 @@ public class ClusterBasedJobCoordinator {
     // Initialize CoordinatorStreamSystem to share between JobModelManager and ChangelogPartitionManager
     CoordinatorStreamSystemConsumer coordinatorSystemConsumer = new CoordinatorStreamSystemConsumer(coordinatorSystemConfig, metrics);
     CoordinatorStreamSystemProducer coordinatorSystemProducer = new CoordinatorStreamSystemProducer(coordinatorSystemConfig, metrics);
-    initCoordinatorSystem(coordinatorSystemConsumer, coordinatorSystemProducer);
 
     //build a JobModelManager and ChangelogPartitionManager and perform partition assignments.
-    jobModelManager = JobModelManager.apply(coordinatorSystemConsumer, coordinatorSystemProducer);
-    changelogPartitionManager = new ChangelogPartitionManager(coordinatorSystemProducer, coordinatorSystemConsumer, COORDINATOR_STREAM_SOURCE);
+    CoordinatorStream coordinatorStream = new CoordinatorStream(coordinatorSystemConfig, metrics, COORDINATOR_STREAM_SOURCE);
+    coordinatorStream.startConsumer();
+    coordinatorStream.startProducer();
+    changelogPartitionManager = new ChangelogPartitionManager(coordinatorStream);
+    jobModelManager = JobModelManager.apply(coordinatorStream, changelogPartitionManager.readPartitionMapping());
 
     config = jobModelManager.jobModel().getConfig();
     hasDurableStores = new StorageConfig(config).hasDurableStores();
@@ -205,9 +210,13 @@ public class ClusterBasedJobCoordinator {
       log.info("Starting Cluster Based Job Coordinator");
 
       //create necessary checkpoint and changelog streams, if not created
-      CheckpointManagerUtil.createAndInit(jobModelManager.jobModel(), metrics);
-      changelogPartitionManager.writeChangeLogPartitionMapping(jobModelManager.jobModel().getChangelogTaskPartitionMappings());
-      changelogPartitionManager.createChangeLogStreams(jobModelManager.jobModel());
+      JobModel jobModel = jobModelManager.jobModel();
+      CheckpointManagerUtil.createAndInit(jobModel.getConfig(), metrics);
+      changelogPartitionManager.createChangeLogStreams(jobModel.getConfig(), jobModel.maxChangeLogStreamPartitions);
+
+      // Remap change
+      Map prevPartitionMappings = changelogPartitionManager.readPartitionMapping();
+      changelogPartitionManager.updatePartitionMapping(prevPartitionMappings, jobModel.getTaskPartitionMappings());
 
       containerProcessManager.start();
       systemAdmins.start();
@@ -261,17 +270,6 @@ public class ClusterBasedJobCoordinator {
         log.error("Exception while stopping jmx server {}", e);
       }
     }
-  }
-
-  private void initCoordinatorSystem(CoordinatorStreamSystemConsumer coordinatorSystemConsumer, CoordinatorStreamSystemProducer coordinatorSystemProducer) {
-    log.info("Registering coordinator system stream consumer.");
-    coordinatorSystemConsumer.register();
-    log.debug("Starting coordinator system stream consumer.");
-    coordinatorSystemConsumer.start();
-    log.debug("Bootstrapping coordinator system stream consumer.");
-    coordinatorSystemConsumer.bootstrap();
-    log.info("Registering coordinator system stream producer.");
-    coordinatorSystemProducer.register(COORDINATOR_STREAM_SOURCE);
   }
 
   private StreamPartitionCountMonitor getPartitionCountMonitor(Config config, SystemAdmins systemAdmins) {

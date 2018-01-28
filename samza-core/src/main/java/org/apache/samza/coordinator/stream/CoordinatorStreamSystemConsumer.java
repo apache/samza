@@ -290,4 +290,21 @@ public class CoordinatorStreamSystemConsumer {
     return iterator.hasNext();
   }
 
+  /**
+   * Has the SystemConsumer started.
+   *
+   * @return True if started, otherwise false.
+   */
+  public boolean isStarted() {
+    return isStarted;
+  }
+
+  /**
+   * Is the SystemConsumer bootstrapped.
+   *
+   * @return True if bootstrapped, otherwise false.
+   */
+  public boolean isBootstrapped() {
+    return isBootstrapped;
+  }
 }

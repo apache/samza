@@ -148,4 +148,13 @@ public class CoordinatorStreamSystemProducer {
     }
     systemProducer.flush(source);
   }
+
+  /**
+   * Has the SystemProducer started.
+   *
+   * @return True if started, otherwise false
+   */
+  public boolean isStarted() {
+    return isStarted;
+  }
 }

@@ -25,6 +25,7 @@ import org.apache.samza.clustermanager.ClusterBasedJobCoordinator
 import org.apache.samza.config.{Config, JobConfig}
 import org.apache.samza.config.TaskConfig._
 import org.apache.samza.coordinator.JobModelManager
+import org.apache.samza.coordinator.stream.{CoordinatorStream, CoordinatorStreamSystemConsumer, CoordinatorStreamSystemProducer}
 import org.apache.samza.job.{CommandBuilder, ShellCommandBuilder, StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.storage.ChangelogPartitionManager
@@ -41,15 +42,19 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
       throw new SamzaException("Container count larger than 1 is not supported for ProcessJobFactory")
     }
 
-    val coordinator = JobModelManager(config)
-    val jobModel = coordinator.jobModel
     val metricsRegistry = new MetricsRegistryMap()
+    val coordinatorStream = new CoordinatorStream(config, metricsRegistry, getClass.getSimpleName)
+    coordinatorStream.startConsumer()
+    coordinatorStream.startProducer()
+    val changelogPartitionManager = new ChangelogPartitionManager(coordinatorStream)
+
+    val coordinator = JobModelManager(coordinatorStream, changelogPartitionManager.readPartitionMapping())
+    val jobModel = coordinator.jobModel
+    changelogPartitionManager.writePartitionMapping(jobModel.getTaskPartitionMappings)
 
     //create necessary checkpoint and changelog streams, if not created
-    CheckpointManagerUtil.createAndInit(coordinator.jobModel, metricsRegistry)
-    val changelogPartitionManager = ChangelogPartitionManager.fromConfig(config, getClass.getSimpleName, metricsRegistry)
-    changelogPartitionManager.writeChangeLogPartitionMapping(coordinator.jobModel.getChangelogTaskPartitionMappings)
-    changelogPartitionManager.createChangeLogStreams(coordinator.jobModel)
+    CheckpointManagerUtil.createAndInit(jobModel.getConfig, metricsRegistry)
+    changelogPartitionManager.createChangeLogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
 
     val containerModel = coordinator.jobModel.getContainers.get(0)
 

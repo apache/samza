@@ -65,5 +65,5 @@ public interface CheckpointManager {
   /**
    * Clear the checkpoints in the checkpoint stream.
    */
-  default void clearCheckpoints() { };
+  default void clearCheckpoints() { }
 }

@@ -36,10 +36,13 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.coordinator.JobModelManager;
+import org.apache.samza.coordinator.stream.CoordinatorStream;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.job.yarn.ClientHelper;
 import org.apache.samza.metrics.JmxMetricsAccessor;
+import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.MetricsValidator;
+import org.apache.samza.storage.ChangelogPartitionManager;
 import org.apache.samza.util.ClassLoaderHelper;
 import org.apache.samza.util.hadoop.HttpFileSystem;
 import org.apache.samza.util.CommandLine;
@@ -149,7 +152,11 @@ public class YarnJobValidationTool {
   }
 
   public void validateJmxMetrics() throws Exception {
-    JobModelManager jobModelManager = JobModelManager.apply(config);
+    CoordinatorStream coordinatorStream = new CoordinatorStream(config, new MetricsRegistryMap(), getClass().getSimpleName());
+    coordinatorStream.startConsumer();
+    coordinatorStream.startProducer();
+    ChangelogPartitionManager changelogPartitionManager = new ChangelogPartitionManager(coordinatorStream);
+    JobModelManager jobModelManager = JobModelManager.apply(coordinatorStream, changelogPartitionManager.readPartitionMapping());
     validator.init(config);
     Map<String, String> jmxUrls = jobModelManager.jobModel().getAllContainerToHostValues(SetContainerHostMapping.JMX_TUNNELING_URL_KEY);
     for (Map.Entry<String, String> entry : jmxUrls.entrySet()) {

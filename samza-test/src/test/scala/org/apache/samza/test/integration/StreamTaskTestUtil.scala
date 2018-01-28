@@ -276,9 +276,11 @@ class StreamTaskTestUtil {
     val jobModel = new JobModel(mapConfig, containers)
     jobModel.maxChangeLogStreamPartitions = 1
 
-    val checkpointManager = CheckpointManagerUtil.createAndInit(jobModel, new MetricsRegistryMap())
+    val config = jobModel.getConfig()
+    val checkpointManager = CheckpointManagerUtil.createAndInit(jobModel.getConfig(), new MetricsRegistryMap())
     assert(checkpointManager != null, "No checkpoint manager factory configured")
-    ChangelogPartitionManager.createChangeLogStreams(this.getClass.toString, jobModel)
+    val changelogManager = new ChangelogPartitionManager(this.getClass.getSimpleName)
+    changelogManager.createChangeLogStreams(config, jobModel.maxChangeLogStreamPartitions)
   }
 }
 

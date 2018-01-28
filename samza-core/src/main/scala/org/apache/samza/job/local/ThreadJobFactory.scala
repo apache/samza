@@ -26,6 +26,7 @@ import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
 import org.apache.samza.container.{SamzaContainer, SamzaContainerListener}
 import org.apache.samza.coordinator.JobModelManager
+import org.apache.samza.coordinator.stream.{CoordinatorStream, CoordinatorStreamSystemConsumer, CoordinatorStreamSystemProducer}
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.runtime.LocalContainerRunner
@@ -39,15 +40,20 @@ import org.apache.samza.util.Logging
 class ThreadJobFactory extends StreamJobFactory with Logging {
   def getJob(config: Config): StreamJob = {
     info("Creating a ThreadJob, which is only meant for debugging.")
-    val coordinator = JobModelManager(config)
-    val jobModel = coordinator.jobModel
+
     val metricsRegistry = new MetricsRegistryMap()
+    val coordinatorStream = new CoordinatorStream(config, metricsRegistry, getClass.getSimpleName)
+    coordinatorStream.startConsumer()
+    coordinatorStream.startProducer()
+    val changelogPartitionManager = new ChangelogPartitionManager(coordinatorStream)
+
+    val coordinator = JobModelManager(coordinatorStream, changelogPartitionManager.readPartitionMapping())
+    val jobModel = coordinator.jobModel
+    changelogPartitionManager.writePartitionMapping(jobModel.getTaskPartitionMappings)
 
     //create necessary checkpoint and changelog streams, if not created
-    CheckpointManagerUtil.createAndInit(coordinator.jobModel, metricsRegistry)
-    val changelogPartitionManager = ChangelogPartitionManager.fromConfig(config, getClass.getSimpleName, metricsRegistry)
-    changelogPartitionManager.writeChangeLogPartitionMapping(coordinator.jobModel.getChangelogTaskPartitionMappings)
-    changelogPartitionManager.createChangeLogStreams(coordinator.jobModel)
+    CheckpointManagerUtil.createAndInit(jobModel.getConfig, metricsRegistry)
+    changelogPartitionManager.createChangeLogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
 
     val containerId = "0"
     val jmxServer = new JmxServer

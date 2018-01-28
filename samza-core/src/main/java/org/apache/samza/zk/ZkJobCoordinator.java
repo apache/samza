@@ -203,8 +203,11 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
     // Create checkpoint and changelog streams if they don't exist
     if (!hasCreatedStreams) {
-      CheckpointManagerUtil.createAndInit(jobModel, metrics.getMetricsRegistry());
-      ChangelogPartitionManager.createChangeLogStreams(this.getClass().getSimpleName(), jobModel);
+      CheckpointManagerUtil.createAndInit(jobModel.getConfig(), metrics.getMetricsRegistry());
+
+      // Pass in null Coordinator consumer and producer because ZK doesn't have coordinator streams.
+      ChangelogPartitionManager changelogManager = new ChangelogPartitionManager(this.getClass().getSimpleName());
+      changelogManager.createChangeLogStreams(jobModel.getConfig(), jobModel.maxChangeLogStreamPartitions);
       hasCreatedStreams = true;
     }
 

@@ -18,19 +18,30 @@
  */
 package org.apache.samza.checkpoint;
 
+import org.apache.samza.config.Config;
 import org.apache.samza.config.TaskConfig;
-import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.util.Util;
 import scala.Option;
 
+/**
+ * Checkpoint manager utility class.
+ */
 public class CheckpointManagerUtil {
-  public static CheckpointManager createAndInit(JobModel jobModel, MetricsRegistry metricsRegistry) {
+
+  /**
+   * Creates and initlizes the checkpoint manager from config.
+   *
+   * @param config Configuration with checkpoint manager properties
+   * @param metricsRegistry Metrics registry for the checkpoint manager to use.
+   * @return CheckpointManager.
+   */
+  public static CheckpointManager createAndInit(Config config, MetricsRegistry metricsRegistry) {
     // Initialize checkpoint streams during job coordination
-    Option<String> checkpointManagerFactoryName = new TaskConfig(jobModel.getConfig()).getCheckpointManagerFactory();
+    Option<String> checkpointManagerFactoryName = new TaskConfig(config).getCheckpointManagerFactory();
     if (checkpointManagerFactoryName.isDefined()) {
       CheckpointManager checkpointManager =
-          Util.<CheckpointManagerFactory>getObj(checkpointManagerFactoryName.get()).getCheckpointManager(jobModel.getConfig(), metricsRegistry);
+          Util.<CheckpointManagerFactory>getObj(checkpointManagerFactoryName.get()).getCheckpointManager(config, metricsRegistry);
       checkpointManager.init();
       return checkpointManager;
     }

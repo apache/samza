@@ -76,7 +76,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     JobModel jobModel = null;
     try {
       jobModel = getJobModel();
-      CheckpointManagerUtil.createAndInit(jobModel, null);
+      CheckpointManagerUtil.createAndInit(jobModel.getConfig(), null);
     } catch (Exception e) {
       LOGGER.error("Exception while trying to getJobModel.", e);
       if (coordinatorListener != null) {
