@@ -372,7 +372,8 @@ class TestTaskStorageManager extends MockitoSugar {
     } catch {
       case e: Exception => {
         assertFalse("Offset file was found in store partition directory. Clean up failed!", offsetFile.exists())
-        assertFalse("Store directory exists. Clean up failed!", storeDirectory.exists())
+        assertTrue("Store directory doesn't exist. Deleting the store could cause corrupted results in an orphaned container.",
+          storeDirectory.exists())
       }
     }
   }

@@ -304,9 +304,12 @@ class TaskStorageManager(
           store.restore(systemConsumerIterator)
         } catch {
           case e: Exception => {
-            val storePartitionDir = TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, storeName, taskName)
-            error("Exception restoring logged store %s. Deleting potentially-malformed files from path %s" format(storeName, storePartitionDir), e)
-            Util.rm(storePartitionDir)
+            val loggedStorePartitionDir = TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, storeName, taskName)
+            val offsetFile = new File(loggedStorePartitionDir, offsetFileName)
+            error("Exception restoring logged store %s." format(storeName), e)
+            if (offsetFile.exists()) {
+              Util.rm(offsetFile)
+            }
             throw e
           }
         }
