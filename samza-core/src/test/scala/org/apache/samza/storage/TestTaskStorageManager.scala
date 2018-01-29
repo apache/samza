@@ -339,8 +339,16 @@ class TestTaskStorageManager extends MockitoSugar {
     assertFalse("Store directory exists. Clean up failed!", storeDirectory.exists())
   }
 
+  /**
+    * It's not safe to delete the store in the case of a restore failure because we can't be sure whether
+    * the failure was due to corrupt files or some transient failure that could be fixed with a simple restart.
+    *
+    * We don't want to delete stores and cause performance issues or, worse, invalid store data for an orphaned
+    * container when a simple container restart would fix the issue. Also, this scenario has been rare thus far,
+    * so it's reasonable to fix it manually.
+    */
   @Test
-  def testStoreDeletedWhenRestoreFailsWithAnException(): Unit = {
+  def testStoreNotDeletedWhenRestoreFailsWithAnException(): Unit = {
     val storeDirectory = TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName)
 
     // Write garbage to produce a null result when it's read
@@ -371,7 +379,7 @@ class TestTaskStorageManager extends MockitoSugar {
       fail("restoreStores() should have rethrown the SamzaException")
     } catch {
       case e: Exception => {
-        assertFalse("Offset file was found in store partition directory. Clean up failed!", offsetFile.exists())
+        assertTrue("Offset file was deleted from store partition directory. This should not happen.", offsetFile.exists())
         assertTrue("Store directory doesn't exist. Deleting the store could cause corrupted results in an orphaned container.",
           storeDirectory.exists())
       }

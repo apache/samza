@@ -305,11 +305,7 @@ class TaskStorageManager(
         } catch {
           case e: Exception => {
             val loggedStorePartitionDir = TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, storeName, taskName)
-            val offsetFile = new File(loggedStorePartitionDir, offsetFileName)
-            error("Exception restoring logged store %s." format(storeName), e)
-            if (offsetFile.exists()) {
-              Util.rm(offsetFile)
-            }
+            error("Exception restoring logged store %s at path %s." format(storeName, loggedStorePartitionDir), e)
             throw e
           }
         }
