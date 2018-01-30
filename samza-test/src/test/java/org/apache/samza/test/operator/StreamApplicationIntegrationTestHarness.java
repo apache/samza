@@ -205,6 +205,10 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     return recordList;
   }
 
+  public void stopApplication(StreamApplication streamApplication) {
+    runner.kill(streamApplication);
+  }
+
   /**
    * Executes the provided {@link StreamApplication} as a {@link org.apache.samza.job.local.ThreadJob}. The
    * {@link StreamApplication} runs in its own separate thread.

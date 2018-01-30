@@ -64,7 +64,9 @@ object JobRunner extends Logging {
  * on a config URI. The configFactory is instantiated, fed the configPath,
  * and returns a Config, which is used to execute the job.
  */
-class JobRunner(config: Config) extends Logging {
+class JobRunner(val config: Config) extends Logging {
+
+  var streamJob: StreamJob = null
 
   /**
    * This function submits the samza job.
@@ -77,6 +79,10 @@ class JobRunner(config: Config) extends Logging {
    */
   def run(resetJobConfig: Boolean = true) = {
     debug("config: %s" format (config))
+    if (streamJob != null) {
+      throw new SamzaException("The job is already running")
+    }
+
     val jobFactory: StreamJobFactory = getJobFactory
     val coordinatorSystemConsumer = new CoordinatorStreamSystemConsumer(config, new MetricsRegistryMap)
     val coordinatorSystemProducer = new CoordinatorStreamSystemProducer(config, new MetricsRegistryMap)
@@ -117,12 +123,12 @@ class JobRunner(config: Config) extends Logging {
     coordinatorSystemProducer.stop()
 
     // Create the actual job, and submit it.
-    val job = jobFactory.getJob(config).submit
+    streamJob = jobFactory.getJob(config).submit
 
     info("waiting for job to start")
 
     // Wait until the job has started, then exit.
-    Option(job.waitForStatus(Running, 500)) match {
+    Option(streamJob.waitForStatus(Running, 500)) match {
       case Some(appStatus) => {
         if (Running.equals(appStatus)) {
           info("job started successfully - " + appStatus)
@@ -134,19 +140,19 @@ class JobRunner(config: Config) extends Logging {
     }
 
     info("exiting")
-    job
+    streamJob
   }
 
   def kill(): Unit = {
     val jobFactory: StreamJobFactory = getJobFactory
 
     // Create the actual job, and kill it.
-    val job = jobFactory.getJob(config).kill()
+    streamJob.kill()
 
     info("waiting for job to terminate")
 
     // Wait until the job has terminated, then exit.
-    Option(job.waitForFinish(5000)) match {
+    Option(streamJob.waitForFinish(5000)) match {
       case Some(appStatus) => {
         if (SuccessfulFinish.equals(appStatus)) {
           info("job terminated successfully - " + appStatus)
@@ -161,10 +167,8 @@ class JobRunner(config: Config) extends Logging {
   }
 
   def status(): ApplicationStatus = {
-    val jobFactory: StreamJobFactory = getJobFactory
-
     // Create the actual job, and get its status.
-    jobFactory.getJob(config).getStatus
+    streamJob.getStatus
   }
 
   private def getJobFactory: StreamJobFactory = {

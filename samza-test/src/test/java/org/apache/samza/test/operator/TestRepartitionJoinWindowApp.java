@@ -76,6 +76,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
       Assert.assertTrue(key.equals("u1") || key.equals("u2"));
       Assert.assertEquals("2", value);
     }
+    stopApplication(app);
   }
 
   @Test

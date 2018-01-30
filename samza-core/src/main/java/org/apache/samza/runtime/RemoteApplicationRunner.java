@@ -19,6 +19,10 @@
 
 package org.apache.samza.runtime;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
@@ -41,6 +45,7 @@ import java.util.UUID;
 public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
   private static final Logger LOG = LoggerFactory.getLogger(RemoteApplicationRunner.class);
+  private Map<StreamApplication, List<JobRunner>> jobRunnersByApp = new HashMap<>();
 
   public RemoteApplicationRunner(Config config) {
     super(config);
@@ -59,6 +64,12 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   public void run(StreamApplication app) {
     try {
       super.run(app);
+
+      if (jobRunnersByApp.containsKey(app)) {
+        throw new SamzaException("Stream application is already running");
+      }
+      List<JobRunner> jobRunners = new ArrayList<>();
+
       // TODO: run.id needs to be set for standalone: SAMZA-1531
       // run.id is based on current system time with the most significant bits in UUID (8 digits) to avoid collision
       String runId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
@@ -78,8 +89,10 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
       plan.getJobConfigs().forEach(jobConfig -> {
           LOG.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
           JobRunner runner = new JobRunner(jobConfig);
+          jobRunners.add(runner);
           runner.run(true);
         });
+      jobRunnersByApp.put(app, jobRunners);
     } catch (Throwable t) {
       throw new SamzaException("Failed to run application", t);
     }
@@ -87,15 +100,17 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
   @Override
   public void kill(StreamApplication app) {
-    try {
-      ExecutionPlan plan = getExecutionPlan(app);
+    if (!jobRunnersByApp.containsKey(app)) {
+      throw new SamzaException("Stream application is not running or has already been killed");
+    }
 
-      plan.getJobConfigs().forEach(jobConfig -> {
-          LOG.info("Killing job {}", jobConfig.getName());
-          JobRunner runner = new JobRunner(jobConfig);
+    try {
+      jobRunnersByApp.get(app).forEach(runner -> {
+          LOG.info("Killing job {}", new JobConfig(runner.config()).getName());
           runner.kill();
         });
       super.kill(app);
+      jobRunnersByApp.remove(app);
     } catch (Throwable t) {
       throw new SamzaException("Failed to kill application", t);
     }
@@ -103,16 +118,18 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
   @Override
   public ApplicationStatus status(StreamApplication app) {
+    if (!jobRunnersByApp.containsKey(app)) {
+      throw new SamzaException("Stream application is not running or has already been killed");
+    }
+
     try {
       boolean hasNewJobs = false;
       boolean hasRunningJobs = false;
       ApplicationStatus unsuccessfulFinishStatus = null;
 
-      ExecutionPlan plan = getExecutionPlan(app);
-      for (JobConfig jobConfig : plan.getJobConfigs()) {
-        JobRunner runner = new JobRunner(jobConfig);
+      for (JobRunner runner : jobRunnersByApp.get(app)) {
         ApplicationStatus status = runner.status();
-        LOG.debug("Status is {} for job {}", new Object[]{status, jobConfig.getName()});
+        LOG.debug("Status is {} for job {}", new Object[]{status, new JobConfig(runner.config()).getName()});
 
         switch (status.getStatusCode()) {
           case New:
