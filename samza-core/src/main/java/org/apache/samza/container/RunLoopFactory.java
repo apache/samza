@@ -28,11 +28,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.JavaConverters;
 import scala.runtime.AbstractFunction1;
-
 import java.util.concurrent.ExecutorService;
 
 import static org.apache.samza.util.Util.asScalaClock;
-import static org.apache.samza.util.ScalaToJavaUtils.defaultValue;
+
 
 /**
  * Factory class to create runloop for a Samza task, based on the type
@@ -40,10 +39,6 @@ import static org.apache.samza.util.ScalaToJavaUtils.defaultValue;
  */
 public class RunLoopFactory {
   private static final Logger log = LoggerFactory.getLogger(RunLoopFactory.class);
-
-  private static final long DEFAULT_WINDOW_MS = -1L;
-  private static final long DEFAULT_COMMIT_MS = 60000L;
-  private static final long DEFAULT_CALLBACK_TIMEOUT_MS = -1L;
 
   public static Runnable createRunLoop(scala.collection.immutable.Map<TaskName, TaskInstance> taskInstances,
       SystemConsumers consumerMultiplexer,
@@ -53,11 +48,11 @@ public class RunLoopFactory {
       TaskConfig config,
       HighResolutionClock clock) {
 
-    long taskWindowMs = config.getWindowMs().getOrElse(defaultValue(DEFAULT_WINDOW_MS));
+    long taskWindowMs = config.getWindowMs();
 
     log.info("Got window milliseconds: {}.", taskWindowMs);
 
-    long taskCommitMs = config.getCommitMs().getOrElse(defaultValue(DEFAULT_COMMIT_MS));
+    long taskCommitMs = config.getCommitMs();
 
     log.info("Got commit milliseconds: {}.", taskCommitMs);
 
@@ -85,15 +80,15 @@ public class RunLoopFactory {
         taskCommitMs,
         asScalaClock(() -> System.nanoTime()));
     } else {
-      Integer taskMaxConcurrency = config.getMaxConcurrency().getOrElse(defaultValue(1));
+      Integer taskMaxConcurrency = config.getMaxConcurrency();
 
       log.info("Got taskMaxConcurrency: {}.", taskMaxConcurrency);
 
-      boolean isAsyncCommitEnabled = config.getAsyncCommit().getOrElse(defaultValue(false));
+      boolean isAsyncCommitEnabled = config.getAsyncCommit();
 
       log.info("Got asyncCommitEnabled: {}.", isAsyncCommitEnabled);
 
-      Long callbackTimeout = config.getCallbackTimeoutMs().getOrElse(defaultValue(DEFAULT_CALLBACK_TIMEOUT_MS));
+      Long callbackTimeout = config.getCallbackTimeoutMs();
 
       log.info("Got callbackTimeout: {}.", callbackTimeout);
 
