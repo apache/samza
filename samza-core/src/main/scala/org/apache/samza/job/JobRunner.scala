@@ -144,15 +144,18 @@ class JobRunner(val config: Config) extends Logging {
   }
 
   def kill(): Unit = {
-    val jobFactory: StreamJobFactory = getJobFactory
-
     // Create the actual job, and kill it.
-    streamJob.kill()
+    val job = {
+      if (streamJob == null)
+        getJobFactory.getJob(config)
+      else
+        streamJob
+    }
+    job.kill()
 
     info("waiting for job to terminate")
-
     // Wait until the job has terminated, then exit.
-    Option(streamJob.waitForFinish(5000)) match {
+    Option(job.waitForFinish(5000)) match {
       case Some(appStatus) => {
         if (SuccessfulFinish.equals(appStatus)) {
           info("job terminated successfully - " + appStatus)
@@ -168,7 +171,14 @@ class JobRunner(val config: Config) extends Logging {
 
   def status(): ApplicationStatus = {
     // Create the actual job, and get its status.
-    streamJob.getStatus
+    val job = {
+      if (streamJob == null)
+        getJobFactory.getJob(config)
+      else
+        streamJob
+    }
+
+    job.getStatus
   }
 
   private def getJobFactory: StreamJobFactory = {
