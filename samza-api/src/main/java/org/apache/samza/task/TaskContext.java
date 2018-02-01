@@ -24,6 +24,7 @@ import java.util.Set;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.table.Table;
 
@@ -74,4 +75,8 @@ public interface TaskContext {
   default Object getUserContext() {
     return null;
   }
+
+  <K> void registerTimer(K key, long delay, TimerCallback<K> callback);
+
+  <K> void deleteTimer(K key);
 }

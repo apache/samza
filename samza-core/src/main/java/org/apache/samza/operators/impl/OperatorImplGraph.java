@@ -34,6 +34,7 @@ import org.apache.samza.operators.KV;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.PartialJoinFunction;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.impl.store.TimestampedValue;
 import org.apache.samza.operators.spec.BroadcastOperatorSpec;
 import org.apache.samza.operators.spec.InputOperatorSpec;
@@ -49,6 +50,7 @@ import org.apache.samza.operators.spec.SendToTableOperatorSpec;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.TaskContext;
+import org.apache.samza.task.TimerCallback;
 import org.apache.samza.util.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -165,6 +167,23 @@ public class OperatorImplGraph {
       OperatorImpl operatorImpl = createOperatorImpl(prevOperatorSpec, operatorSpec, config, context);
       operatorImpl.init(config, context);
       operatorImpl.registerInputStream(inputStream);
+
+      TimerFunction timerFn = operatorImpl.getOperatorSpec().getTimerFn();
+      if (timerFn != null) {
+        timerFn.initTimers(new TimerFunction.TimerRegistry() {
+          @Override
+          public void register(Object key, long delay) {
+            context.registerTimer(key, delay, (k, collector, coordinator) -> {
+              operatorImpl.fireTimer(k, collector, coordinator);
+            });
+          }
+
+          @Override
+          public void delete(Object key) {
+            context.deleteTimer(key);
+          }
+        });
+      }
 
       // Note: The key here is opImplId, which may not equal opId for some impls (e.g. PartialJoinOperatorImpl).
       // This is currently OK since we don't need to look up a partial join operator impl again during traversal

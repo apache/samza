@@ -25,6 +25,7 @@ import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.metrics.Counter;
@@ -412,6 +413,17 @@ public abstract class OperatorImpl<M, RM> {
     } else {
       // always emit the max to indicate no input will be emitted afterwards
       return Long.MAX_VALUE;
+    }
+  }
+
+  public void fireTimer(Object key, MessageCollector collector, TaskCoordinator coordinator) {
+    TimerFunction<Object, RM> timerFn = getOperatorSpec().getTimerFn();
+    Collection<RM> output = timerFn.onTimer(key);
+
+    if (!output.isEmpty()) {
+      output.forEach(rm ->
+          this.registeredOperators.forEach(op ->
+              op.onMessage(rm, collector, coordinator)));
     }
   }
 

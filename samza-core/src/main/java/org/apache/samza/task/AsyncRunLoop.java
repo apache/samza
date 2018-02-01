@@ -304,6 +304,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
     COMMIT,
     PROCESS,
     END_OF_STREAM,
+    TIMER,
     NO_OP
   }
 
@@ -346,6 +347,13 @@ public class AsyncRunLoop implements Runnable, Throttleable {
           }
         }, commitMs, commitMs, TimeUnit.MILLISECONDS);
       }
+
+      final SystemTimerSchedulerFactory timerFactory = task.context().getTimerFactory();
+      if (timerFactory != null) {
+        timerFactory.registerListener(() -> {
+          state.needTimer();
+        });
+      }
     }
 
     /**
@@ -374,6 +382,9 @@ public class AsyncRunLoop implements Runnable, Throttleable {
           break;
         case WINDOW:
           window();
+          break;
+        case TIMER:
+          timer();
           break;
         case COMMIT:
           commit();
@@ -514,6 +525,39 @@ public class AsyncRunLoop implements Runnable, Throttleable {
       }
     }
 
+    private void timer() {
+      state.startTimer();
+      Runnable timerWorker = new Runnable() {
+        @Override
+        public void run() {
+          try {
+            ReadableCoordinator coordinator = new ReadableCoordinator(task.taskName());
+
+            long startTime = clock.nanoTime();
+            task.timer(coordinator);
+            containerMetrics.timerNs().update(clock.nanoTime() - startTime);
+
+            coordinatorRequests.update(coordinator);
+            state.doneTimer();
+          } catch (Throwable t) {
+            log.error("Task {} commit failed", task.taskName(), t);
+            abort(t);
+          } finally {
+            log.trace("Task {} commit completed", task.taskName());
+            resume();
+          }
+        }
+      };
+
+      if (threadPool != null) {
+        log.trace("Task {} commits on the thread pool", task.taskName());
+        threadPool.submit(timerWorker);
+      } else {
+        log.trace("Task {} commits on the run loop thread", task.taskName());
+        timerWorker.run();
+      }
+    }
+
     /**
      * Task process completes successfully, update the offsets based on the high-water mark.
      * Then it will trigger the listener for task state change.
@@ -585,10 +629,12 @@ public class AsyncRunLoop implements Runnable, Throttleable {
   private final class AsyncTaskState {
     private volatile boolean needWindow = false;
     private volatile boolean needCommit = false;
+    private volatile boolean needTimer = false;
     private volatile boolean complete = false;
     private volatile boolean endOfStream = false;
     private volatile boolean windowInFlight = false;
     private volatile boolean commitInFlight = false;
+    private volatile boolean timerInFlight = false;
     private final AtomicInteger messagesInFlight = new AtomicInteger(0);
     private final ArrayDeque<PendingEnvelope> pendingEnvelopeQueue;
 
@@ -634,29 +680,29 @@ public class AsyncRunLoop implements Runnable, Throttleable {
         needCommit = true;
       }
 
-      boolean windowOrCommitInFlight = windowInFlight || commitInFlight;
+      boolean opInFlight = windowInFlight || commitInFlight || timerInFlight;
       /*
        * A task is ready to commit, when task.commit(needCommit) is requested either by user or commit thread
        * and either of the following conditions are true.
-       * a) When process, window, commit are not in progress.
+       * a) When process, window, commit and timer are not in progress.
        * b) When task.async.commit is true and window, commit are not in progress.
        */
       if (needCommit) {
-        return (messagesInFlight.get() == 0 || isAsyncCommitEnabled) && !windowOrCommitInFlight;
-      } else if (needWindow || endOfStream) {
+        return (messagesInFlight.get() == 0 || isAsyncCommitEnabled) && !opInFlight;
+      } else if (needWindow || needTimer || endOfStream) {
         /*
-         * A task is ready for window operation, when task.window(needWindow) is requested by either user or window thread
-         * and window, commit are not in progress.
+         * A task is ready for window/timer operation, when task.window(needWindow) is requested by either user
+         * or window/timer thread. No window, timer, and commit are in progress.
          */
-        return messagesInFlight.get() == 0 && !windowOrCommitInFlight;
+        return messagesInFlight.get() == 0 && !opInFlight;
       } else {
         /*
          * A task is ready to process new message, when number of task.process calls in progress < task.max.concurrency
          * and either of the following conditions are true.
-         * a) When window, commit are not in progress.
-         * b) When task.async.commit is true and window is not in progress.
+         * a) When window, commit and timer are not in progress.
+         * b) When task.async.commit is true and window/timer is not in progress.
          */
-        return messagesInFlight.get() < maxConcurrency && !windowInFlight && (isAsyncCommitEnabled || !commitInFlight);
+        return messagesInFlight.get() < maxConcurrency && !windowInFlight && !timerInFlight && (isAsyncCommitEnabled || !commitInFlight);
       }
     }
 
@@ -670,6 +716,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
       if (isReady()) {
         if (needCommit) return WorkerOp.COMMIT;
         else if (needWindow) return WorkerOp.WINDOW;
+        else if (needTimer) return WorkerOp.TIMER;
         else if (endOfStream && pendingEnvelopeQueue.isEmpty()) return WorkerOp.END_OF_STREAM;
         else if (!pendingEnvelopeQueue.isEmpty()) return WorkerOp.PROCESS;
       }
@@ -682,6 +729,10 @@ public class AsyncRunLoop implements Runnable, Throttleable {
 
     private void needCommit() {
       needCommit = true;
+    }
+
+    private void needTimer() {
+      needTimer = true;
     }
 
     private void startWindow() {
@@ -699,6 +750,11 @@ public class AsyncRunLoop implements Runnable, Throttleable {
       taskMetrics.messagesInFlight().set(count);
     }
 
+    private void startTimer() {
+      needTimer = false;
+      timerInFlight = true;
+    }
+
     private void doneCommit() {
       commitInFlight = false;
     }
@@ -710,6 +766,10 @@ public class AsyncRunLoop implements Runnable, Throttleable {
     private void doneProcess() {
       int count = messagesInFlight.decrementAndGet();
       taskMetrics.messagesInFlight().set(count);
+    }
+
+    private void doneTimer() {
+      timerInFlight = false;
     }
 
     /**

@@ -20,6 +20,7 @@
 
 package org.apache.samza.operators.spec;
 
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
 public class BroadcastOperatorSpec<M> extends OperatorSpec<M, Void> {
@@ -38,6 +39,11 @@ public class BroadcastOperatorSpec<M> extends OperatorSpec<M, Void> {
 
   @Override
   public WatermarkFunction getWatermarkFn() {
+    return null;
+  }
+
+  @Override
+  public TimerFunction getTimerFn() {
     return null;
   }
 }

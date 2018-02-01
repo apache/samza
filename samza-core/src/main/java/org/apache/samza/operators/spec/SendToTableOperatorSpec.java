@@ -20,6 +20,7 @@ package org.apache.samza.operators.spec;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.table.TableSpec;
 
@@ -60,6 +61,11 @@ public class SendToTableOperatorSpec<K, V> extends OperatorSpec<KV<K, V>, Void> 
 
   @Override
   public WatermarkFunction getWatermarkFn() {
+    return null;
+  }
+
+  @Override
+  public TimerFunction getTimerFn() {
     return null;
   }
 }

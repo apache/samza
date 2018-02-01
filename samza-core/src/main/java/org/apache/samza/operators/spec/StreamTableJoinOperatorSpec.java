@@ -20,6 +20,7 @@ package org.apache.samza.operators.spec;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.table.TableSpec;
 
@@ -62,6 +63,11 @@ public class StreamTableJoinOperatorSpec<K, M, R, JM> extends OperatorSpec<M, JM
   @Override
   public WatermarkFunction getWatermarkFn() {
     return joinFn instanceof WatermarkFunction ? (WatermarkFunction) joinFn : null;
+  }
+
+  @Override
+  public TimerFunction getTimerFn() {
+    return joinFn instanceof TimerFunction ? (TimerFunction) joinFn : null;
   }
 
 }
