@@ -25,6 +25,7 @@ import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.system.EndOfStreamMessage;
@@ -122,18 +123,32 @@ public abstract class OperatorImpl<M, RM> {
       this.usedInCurrentTask = true;
     }
 
-    handleInit(config, context);
+    final TimerRegistry timerRegistry = new TimerRegistry() {
+      @Override
+      public void register(Object key, long delay) {
+        context.registerTimer(key, delay, (k, collector, coordinator) -> {
+            fireTimer(k, collector, coordinator);
+          });
+      }
+
+      @Override
+      public void delete(Object key) {
+        context.deleteTimer(key);
+      }
+    };
+
+    handleInit(config, context, timerRegistry);
 
     initialized = true;
   }
 
   /**
    * Initialize this {@link OperatorImpl} and its user-defined functions.
-   *
    * @param config  the {@link Config} for the task
    * @param context  the {@link TaskContext} for the task
+   * @param timerRegistry registry for system clock timers
    */
-  protected abstract void handleInit(Config config, TaskContext context);
+  protected abstract void handleInit(Config config, TaskContext context, TimerRegistry timerRegistry);
 
   /**
    * Register an operator that this operator should propagate its results to.

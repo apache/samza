@@ -20,6 +20,7 @@ package org.apache.samza.operators.functions;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.task.TaskContext;
 
 
@@ -41,5 +42,16 @@ public interface InitableFunction {
    * @param context the {@link TaskContext} for this task
    */
   default void init(Config config, TaskContext context) { }
+
+  /**
+   * Initializes the function before any messages are processed.
+   *
+   * @param config the {@link Config} for the application
+   * @param context the {@link TaskContext} for this task
+   * @param timerRegistry the registry for system clock timers
+   */
+  default void init(Config config, TaskContext context, TimerRegistry timerRegistry) {
+    init(config, context);
+  }
 
 }

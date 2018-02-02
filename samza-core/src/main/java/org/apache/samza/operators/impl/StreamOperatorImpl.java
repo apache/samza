@@ -19,6 +19,7 @@
 package org.apache.samza.operators.impl;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
@@ -47,8 +48,8 @@ class StreamOperatorImpl<M, RM> extends OperatorImpl<M, RM> {
   }
 
   @Override
-  protected void handleInit(Config config, TaskContext context) {
-    transformFn.init(config, context);
+  protected void handleInit(Config config, TaskContext context, TimerRegistry timerRegistry) {
+    transformFn.init(config, context, timerRegistry);
   }
 
   @Override

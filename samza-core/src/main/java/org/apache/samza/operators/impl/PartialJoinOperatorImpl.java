@@ -20,6 +20,7 @@ package org.apache.samza.operators.impl;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.PartialJoinFunction;
 import org.apache.samza.operators.impl.store.TimestampedValue;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
@@ -64,8 +65,8 @@ class PartialJoinOperatorImpl<K, M, OM, JM> extends OperatorImpl<M, JM> {
   }
 
   @Override
-  protected void handleInit(Config config, TaskContext context) {
-    this.thisPartialJoinFn.init(config, context);
+  protected void handleInit(Config config, TaskContext context, TimerRegistry timerRegistry) {
+    this.thisPartialJoinFn.init(config, context, timerRegistry);
   }
 
   @Override

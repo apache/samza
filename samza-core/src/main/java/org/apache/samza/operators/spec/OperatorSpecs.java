@@ -25,6 +25,7 @@ import java.util.function.Function;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
@@ -87,8 +88,8 @@ public class OperatorSpecs {
       }
 
       @Override
-      public void init(Config config, TaskContext context) {
-        mapFn.init(config, context);
+      public void init(Config config, TaskContext context, TimerRegistry timerRegistry) {
+        mapFn.init(config, context, timerRegistry);
       }
 
       @Override
@@ -121,8 +122,8 @@ public class OperatorSpecs {
       }
 
       @Override
-      public void init(Config config, TaskContext context) {
-        filterFn.init(config, context);
+      public void init(Config config, TaskContext context, TimerRegistry timerRegistry) {
+        filterFn.init(config, context, timerRegistry);
       }
 
       @Override

@@ -26,9 +26,9 @@ import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.PartialJoinFunction;
-import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.impl.store.TimestampedValue;
 import org.apache.samza.operators.spec.BroadcastOperatorSpec;
 import org.apache.samza.operators.spec.InputOperatorSpec;
@@ -166,23 +166,6 @@ public class OperatorImplGraph {
       operatorImpl.init(config, context);
       operatorImpl.registerInputStream(inputStream);
 
-      TimerFunction timerFn = operatorImpl.getOperatorSpec().getTimerFn();
-      if (timerFn != null) {
-        timerFn.initTimers(new TimerFunction.TimerRegistry() {
-          @Override
-          public void register(Object key, long delay) {
-            context.registerTimer(key, delay, (k, collector, coordinator) -> {
-                operatorImpl.fireTimer(k, collector, coordinator);
-              });
-          }
-
-          @Override
-          public void delete(Object key) {
-            context.deleteTimer(key);
-          }
-        });
-      }
-
       // Note: The key here is opImplId, which may not equal opId for some impls (e.g. PartialJoinOperatorImpl).
       // This is currently OK since we don't need to look up a partial join operator impl again during traversal
       // (a join cannot have a cycle).
@@ -281,12 +264,12 @@ public class OperatorImplGraph {
       }
 
       @Override
-      public void init(Config config, TaskContext context) {
+      public void init(Config config, TaskContext context, TimerRegistry timerRegistry) {
         String leftStoreName = joinOpSpec.getLeftOpId();
         leftStreamState = (KeyValueStore<Object, TimestampedValue<Object>>) context.getStore(leftStoreName);
 
         // user-defined joinFn should only be initialized once, so we do it only in left partial join function.
-        joinFn.init(config, context);
+        joinFn.init(config, context, timerRegistry);
       }
 
       @Override

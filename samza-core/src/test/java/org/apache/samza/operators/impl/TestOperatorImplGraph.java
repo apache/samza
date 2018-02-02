@@ -41,6 +41,7 @@ import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
@@ -220,7 +221,7 @@ public class TestOperatorImplGraph {
         new OperatorImplGraph(streamGraph, mock(Config.class), mockTaskContext, mock(Clock.class));
 
     // verify that the DAG after merge is only traversed & initialized once
-    verify(mockMapFunction, times(1)).init(any(Config.class), any(TaskContextImpl.class));
+    verify(mockMapFunction, times(1)).init(any(Config.class), any(TaskContextImpl.class), any(TimerRegistry.class));
   }
 
   @Test
@@ -249,7 +250,7 @@ public class TestOperatorImplGraph {
         new OperatorImplGraph(streamGraph, mockConfig, mockTaskContext, mock(Clock.class));
 
     // verify that join function is initialized once.
-    verify(mockJoinFunction, times(1)).init(any(Config.class), any(TaskContextImpl.class));
+    verify(mockJoinFunction, times(1)).init(any(Config.class), any(TaskContextImpl.class), any(TimerRegistry.class));
 
     InputOperatorImpl inputOpImpl1 = opImplGraph.getInputOperator(new SystemStream("input-system", "input-stream1"));
     InputOperatorImpl inputOpImpl2 = opImplGraph.getInputOperator(new SystemStream("input-system", "input-stream2"));

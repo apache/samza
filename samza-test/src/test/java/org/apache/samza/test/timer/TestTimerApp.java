@@ -23,9 +23,11 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.serializers.JsonSerdeV2;
+import org.apache.samza.task.TaskContext;
 import org.apache.samza.test.operator.data.PageView;
 import org.apache.samza.test.util.StreamAssert;
 
@@ -60,6 +62,11 @@ public class TestTimerApp implements StreamApplication {
     private TimerRegistry<String> timerRegistry;
 
     @Override
+    public void init(Config config, TaskContext context, TimerRegistry timerRegistry) {
+      this.timerRegistry = timerRegistry;
+    }
+
+    @Override
     public Collection<PageView> apply(PageView message) {
       final PageView pv = new PageView(message.getViewId() + "-complete", message.getPageId(), message.getUserId());
       pageViews.add(pv);
@@ -69,11 +76,6 @@ public class TestTimerApp implements StreamApplication {
         timerRegistry.register("CompleteTimer", 100);
       }
       return Collections.emptyList();
-    }
-
-    @Override
-    public void initTimers(TimerRegistry<String> timerRegistry) {
-      this.timerRegistry = timerRegistry;
     }
 
     @Override
