@@ -51,7 +51,7 @@ public class SystemTimerSchedulerFactory {
     this.executor = executor;
   }
 
-  public<K> SystemTimerScheduler<K> getScheduler(K key) {
+  public <K> SystemTimerScheduler<K> getScheduler(K key) {
     SystemTimerScheduler<K> scheduler = schedulers.get(key);
     if (scheduler == null) {
       scheduler = new SystemTimerScheduler<>(key);
@@ -60,7 +60,7 @@ public class SystemTimerSchedulerFactory {
     return scheduler;
   }
 
-  public<K> void removeScheduler(K key) {
+  public <K> void removeScheduler(K key) {
     final SystemTimerScheduler<K> scheduler = schedulers.get(key);
     if (scheduler != null) {
       scheduler.cancel();
@@ -88,12 +88,12 @@ public class SystemTimerSchedulerFactory {
 
     public void schedule(long delay, TimerCallback<K> callback) {
       scheduledFuture = executor.schedule(() -> {
-        readyTimers.put(key, callback);
+          readyTimers.put(key, callback);
 
-        if (timerListener != null) {
-          timerListener.onTimer();
-        }
-      }, delay, TimeUnit.MILLISECONDS);
+          if (timerListener != null) {
+            timerListener.onTimer();
+          }
+        }, delay, TimeUnit.MILLISECONDS);
     }
 
     public void cancel() {
