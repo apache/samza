@@ -19,7 +19,7 @@
 package org.apache.samza.operators.impl;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.TimerRegistry;
+import org.apache.samza.operators.OpContext;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
@@ -45,8 +45,8 @@ class SinkOperatorImpl<M> extends OperatorImpl<M, Void> {
   }
 
   @Override
-  protected void handleInit(Config config, TaskContext context, TimerRegistry timerRegistry) {
-    this.sinkFn.init(config, context, timerRegistry);
+  protected void handleInit(Config config, OpContext opContext) {
+    this.sinkFn.init(config, opContext);
   }
 
   @Override

@@ -22,12 +22,12 @@ package org.apache.samza.test.timer;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.OpContext;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.serializers.JsonSerdeV2;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.test.operator.data.PageView;
 import org.apache.samza.test.util.StreamAssert;
 
@@ -62,8 +62,8 @@ public class TestTimerApp implements StreamApplication {
     private TimerRegistry<String> timerRegistry;
 
     @Override
-    public void init(Config config, TaskContext context, TimerRegistry timerRegistry) {
-      this.timerRegistry = timerRegistry;
+    public void init(Config config, OpContext opContext) {
+      this.timerRegistry = opContext.getTimerRegistry();
     }
 
     @Override
@@ -73,7 +73,8 @@ public class TestTimerApp implements StreamApplication {
 
       if (pageViews.size() == 2) {
         //got all messages for this task
-        timerRegistry.register("CompleteTimer", 100);
+        final long time = System.currentTimeMillis() + 100;
+        timerRegistry.register("CompleteTimer", time);
       }
       return Collections.emptyList();
     }

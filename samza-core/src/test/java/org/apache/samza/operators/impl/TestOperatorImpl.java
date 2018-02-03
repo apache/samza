@@ -28,12 +28,11 @@ import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
 import org.apache.samza.metrics.Timer;
-import org.apache.samza.operators.TimerRegistry;
+import org.apache.samza.operators.OpContext;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.junit.Test;
 
@@ -189,7 +188,7 @@ public class TestOperatorImpl {
     }
 
     @Override
-    protected void handleInit(Config config, TaskContext context, TimerRegistry timerRegistry) {}
+    protected void handleInit(Config config, OpContext opContext) {}
 
     @Override
     public Collection<Object> handleMessage(Object message,

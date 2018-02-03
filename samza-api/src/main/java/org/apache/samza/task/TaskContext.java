@@ -75,7 +75,7 @@ public interface TaskContext {
     return null;
   }
 
-  <K> void registerTimer(K key, long delay, TimerCallback<K> callback);
+  <K> void registerTimer(K key, long time, TimerCallback<K> callback);
 
   <K> void deleteTimer(K key);
 }

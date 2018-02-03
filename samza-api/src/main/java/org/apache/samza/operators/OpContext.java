@@ -19,7 +19,11 @@
 
 package org.apache.samza.operators;
 
-public interface TimerRegistry<T> {
-  void register(T key, long time);
-  void delete(T key);
+import org.apache.samza.task.TaskContext;
+
+public interface OpContext {
+
+  TaskContext getTaskContext();
+
+  <T> TimerRegistry<T> getTimerRegistry();
 }

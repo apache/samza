@@ -20,7 +20,7 @@
 package org.apache.samza.operators.impl;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.TimerRegistry;
+import org.apache.samza.operators.OpContext;
 import org.apache.samza.operators.spec.BroadcastOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.system.ControlMessage;
@@ -48,7 +48,7 @@ class BroadcastOperatorImpl<M> extends OperatorImpl<M, Void> {
   }
 
   @Override
-  protected void handleInit(Config config, TaskContext context, TimerRegistry timerRegistry) {
+  protected void handleInit(Config config, OpContext opContext) {
   }
 
   @Override

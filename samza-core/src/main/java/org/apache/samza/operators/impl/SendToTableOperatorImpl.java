@@ -23,7 +23,7 @@ import java.util.Collections;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.TimerRegistry;
+import org.apache.samza.operators.OpContext;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.SendToTableOperatorSpec;
 import org.apache.samza.table.ReadWriteTable;
@@ -50,7 +50,7 @@ public class SendToTableOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, Void> 
   }
 
   @Override
-  protected void handleInit(Config config, TaskContext context, TimerRegistry timerRegistry) {
+  protected void handleInit(Config config, OpContext opContext) {
   }
 
   @Override

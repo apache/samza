@@ -17,9 +17,28 @@
  * under the License.
  */
 
-package org.apache.samza.operators;
+package org.apache.samza.operators.impl;
 
-public interface TimerRegistry<T> {
-  void register(T key, long time);
-  void delete(T key);
+import org.apache.samza.operators.OpContext;
+import org.apache.samza.operators.TimerRegistry;
+import org.apache.samza.task.TaskContext;
+
+class OpContextImpl implements OpContext {
+  private final TaskContext taskContext;
+  private final TimerRegistryFactory timerRegistryFactory;
+
+  public OpContextImpl(TaskContext taskContext, TimerRegistryFactory timerRegistryFactory) {
+    this.taskContext = taskContext;
+    this.timerRegistryFactory = timerRegistryFactory;
+  }
+
+  @Override
+  public TaskContext getTaskContext() {
+    return taskContext;
+  }
+
+  @Override
+  public <T> TimerRegistry<T> getTimerRegistry() {
+    return timerRegistryFactory.getTimerRegistry();
+  }
 }

@@ -86,14 +86,15 @@ public class SystemTimerSchedulerFactory {
       this.key = key;
     }
 
-    public void schedule(long delay, TimerCallback<K> callback) {
+    public void schedule(long time, TimerCallback<K> callback) {
+      final long delay = time - System.currentTimeMillis();
       scheduledFuture = executor.schedule(() -> {
           readyTimers.put(key, callback);
 
           if (timerListener != null) {
             timerListener.onTimer();
           }
-        }, delay, TimeUnit.MILLISECONDS);
+        }, delay > 0 ? delay : 0, TimeUnit.MILLISECONDS);
     }
 
     public void cancel() {

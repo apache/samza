@@ -17,9 +17,10 @@
  * under the License.
  */
 
-package org.apache.samza.operators;
+package org.apache.samza.operators.impl;
 
-public interface TimerRegistry<T> {
-  void register(T key, long time);
-  void delete(T key);
+import org.apache.samza.operators.TimerRegistry;
+
+public interface TimerRegistryFactory {
+  <K> TimerRegistry<K> getTimerRegistry();
 }

@@ -25,6 +25,7 @@ import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.operators.OpContext;
 import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
@@ -55,7 +56,7 @@ import java.util.Set;
  * @param <M> type of the input to this operator
  * @param <RM> type of the results of applying this operator
  */
-public abstract class OperatorImpl<M, RM> {
+public abstract class OperatorImpl<M, RM> implements TimerRegistryFactory {
   private static final Logger LOG = LoggerFactory.getLogger(OperatorImpl.class);
   private static final String METRICS_GROUP = OperatorImpl.class.getName();
 
@@ -82,6 +83,7 @@ public abstract class OperatorImpl<M, RM> {
   private EndOfStreamStates eosStates;
   // watermark states
   private WatermarkStates watermarkStates;
+  private TaskContext taskContext;
 
   /**
    * Initialize this {@link OperatorImpl} and its user-defined functions.
@@ -123,21 +125,9 @@ public abstract class OperatorImpl<M, RM> {
       this.usedInCurrentTask = true;
     }
 
-    final TimerRegistry timerRegistry = new TimerRegistry() {
-      @Override
-      public void register(Object key, long delay) {
-        context.registerTimer(key, delay, (k, collector, coordinator) -> {
-            fireTimer(k, collector, coordinator);
-          });
-      }
-
-      @Override
-      public void delete(Object key) {
-        context.deleteTimer(key);
-      }
-    };
-
-    handleInit(config, context, timerRegistry);
+    this.taskContext = taskContext;
+    final OpContext opContext = new OpContextImpl(taskContext, this);
+    handleInit(config, opContext);
 
     initialized = true;
   }
@@ -145,10 +135,9 @@ public abstract class OperatorImpl<M, RM> {
   /**
    * Initialize this {@link OperatorImpl} and its user-defined functions.
    * @param config  the {@link Config} for the task
-   * @param context  the {@link TaskContext} for the task
-   * @param timerRegistry registry for system clock timers
+   * @param opContext context for this operator
    */
-  protected abstract void handleInit(Config config, TaskContext context, TimerRegistry timerRegistry);
+  protected abstract void handleInit(Config config, OpContext opContext);
 
   /**
    * Register an operator that this operator should propagate its results to.
@@ -431,9 +420,26 @@ public abstract class OperatorImpl<M, RM> {
     }
   }
 
-  public void fireTimer(Object key, MessageCollector collector, TaskCoordinator coordinator) {
-    TimerFunction<Object, RM> timerFn = getOperatorSpec().getTimerFn();
-    Collection<RM> output = timerFn.onTimer(key);
+  @Override
+  public <K> TimerRegistry<K> getTimerRegistry() {
+    return new TimerRegistry<K>() {
+      @Override
+      public void register(K key, long time) {
+        taskContext.registerTimer(key, time, (k, collector, coordinator) -> {
+            fireTimer(k, collector, coordinator);
+          });
+      }
+
+      @Override
+      public void delete(K key) {
+        taskContext.deleteTimer(key);
+      }
+    };
+  }
+
+  private void fireTimer(Object key, MessageCollector collector, TaskCoordinator coordinator) {
+    final TimerFunction<Object, RM> timerFn = getOperatorSpec().getTimerFn();
+    final Collection<RM> output = timerFn.onTimer(key);
 
     if (!output.isEmpty()) {
       output.forEach(rm ->

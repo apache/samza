@@ -23,7 +23,7 @@ import java.util.Collections;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.TimerRegistry;
+import org.apache.samza.operators.OpContext;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
 import org.apache.samza.table.ReadableTable;
@@ -53,8 +53,8 @@ class StreamTableJoinOperatorImpl<K, M, R extends KV, JM> extends OperatorImpl<M
   }
 
   @Override
-  protected void handleInit(Config config, TaskContext context, TimerRegistry timerRegistry) {
-    this.joinOpSpec.getJoinFn().init(config, context, timerRegistry);
+  protected void handleInit(Config config, OpContext opContext) {
+    this.joinOpSpec.getJoinFn().init(config, opContext);
   }
 
   @Override
