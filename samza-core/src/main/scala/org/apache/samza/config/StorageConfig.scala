@@ -50,7 +50,7 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
   def getStorageMsgSerde(name: String) = getOption(StorageConfig.MSG_SERDE format name)
 
   def getAccessLogEnabled(storeName: String) = {
-    new JavaStorageConfig(config).getAccessLogEnabled(storeName);
+    new JavaStorageConfig(config).getAccessLogEnabled(storeName)
   }
 
   def getChangelogStream(name: String) = {
@@ -60,11 +60,11 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
 
   //Returns the accesslog stream name given a changelog stream name
   def getAccessLogStream(changeLogStream: String) = {
-    new JavaStorageConfig(config).getAccessLogStream(changeLogStream);
+    new JavaStorageConfig(config).getAccessLogStream(changeLogStream)
   }
 
   def getAccessLogSamplingRatio(storeName: String) = {
-    new JavaStorageConfig(config).getAccessLogSamplingRatio(storeName);
+    new JavaStorageConfig(config).getAccessLogSamplingRatio(storeName)
   }
 
   def getChangeLogDeleteRetentionInMs(storeName: String) = {

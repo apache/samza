@@ -29,7 +29,7 @@ public interface CheckpointManager {
   /**
    * Bootstrap any required resources needed prior to start.
    */
-  default void init() { }
+  default void createStream() { }
 
   /**
    * Perform startup operations.

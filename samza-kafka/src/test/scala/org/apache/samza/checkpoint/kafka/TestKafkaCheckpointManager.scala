@@ -72,7 +72,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val checkpointTopic = "checkpoint-topic-1"
     val kcm1 = createKafkaCheckpointManager(checkpointTopic)
     kcm1.register(taskName)
-    kcm1.init
+    kcm1.createStream
     kcm1.start
     kcm1.stop
     // check that start actually creates the topic with log compaction enabled
@@ -106,7 +106,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     // create topic with the wrong number of partitions
     createTopic(checkpointTopic, 8, new KafkaConfig(config).getCheckpointTopicProperties())
     try {
-      kcm1.init
+      kcm1.createStream
       kcm1.start
       fail("Expected an exception for invalid number of partitions in the checkpoint topic.")
     } catch {

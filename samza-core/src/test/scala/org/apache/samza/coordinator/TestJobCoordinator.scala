@@ -45,7 +45,7 @@ import org.apache.samza.config.JobConfig
 import org.apache.samza.coordinator.stream.{CoordinatorStream, MockCoordinatorStreamSystemFactory, MockCoordinatorStreamWrappedConsumer}
 import org.apache.samza.job.MockJobFactory
 import org.apache.samza.metrics.{MetricsRegistry, MetricsRegistryMap}
-import org.apache.samza.storage.ChangelogPartitionManager
+import org.apache.samza.storage.ChangelogStreamManager
 import org.scalatest.{FlatSpec, PrivateMethodTester}
 
 import scala.collection.immutable
@@ -282,9 +282,8 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
 
   def getTestJobModelManager(config: MapConfig) = {
     val coordinatorStream = new CoordinatorStream(config, new MetricsRegistryMap, "TestJobCoordinator")
-    coordinatorStream.startConsumer()
-    coordinatorStream.startProducer()
-    val changelogPartitionManager = new ChangelogPartitionManager(coordinatorStream)
+    coordinatorStream.start()
+    val changelogPartitionManager = new ChangelogStreamManager(coordinatorStream)
     JobModelManager(coordinatorStream, changelogPartitionManager.readPartitionMapping())
   }
 

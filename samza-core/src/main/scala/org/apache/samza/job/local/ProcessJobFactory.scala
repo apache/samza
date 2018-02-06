@@ -20,15 +20,13 @@
 package org.apache.samza.job.local
 
 import org.apache.samza.SamzaException
-import org.apache.samza.checkpoint.CheckpointManagerUtil
-import org.apache.samza.clustermanager.ClusterBasedJobCoordinator
-import org.apache.samza.config.{Config, JobConfig}
+import org.apache.samza.config.{Config, JobConfig, TaskConfigJava}
 import org.apache.samza.config.TaskConfig._
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.stream.{CoordinatorStream, CoordinatorStreamSystemConsumer, CoordinatorStreamSystemProducer}
 import org.apache.samza.job.{CommandBuilder, ShellCommandBuilder, StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.storage.ChangelogPartitionManager
+import org.apache.samza.storage.ChangelogStreamManager
 import org.apache.samza.util.{Logging, Util}
 
 /**
@@ -44,16 +42,18 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
 
     val metricsRegistry = new MetricsRegistryMap()
     val coordinatorStream = new CoordinatorStream(config, metricsRegistry, getClass.getSimpleName)
-    coordinatorStream.startConsumer()
-    coordinatorStream.startProducer()
-    val changelogPartitionManager = new ChangelogPartitionManager(coordinatorStream)
+    coordinatorStream.start()
+    val changelogPartitionManager = new ChangelogStreamManager(coordinatorStream)
 
     val coordinator = JobModelManager(coordinatorStream, changelogPartitionManager.readPartitionMapping())
     val jobModel = coordinator.jobModel
     changelogPartitionManager.writePartitionMapping(jobModel.getTaskPartitionMappings)
 
     //create necessary checkpoint and changelog streams, if not created
-    CheckpointManagerUtil.createAndInit(jobModel.getConfig, metricsRegistry)
+    val checkpointManager = new TaskConfigJava(jobModel.getConfig).getCheckpointManager(metricsRegistry)
+    if (checkpointManager != null) {
+      checkpointManager.createStream()
+    }
     changelogPartitionManager.createChangeLogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
 
     val containerModel = coordinator.jobModel.getContainers.get(0)

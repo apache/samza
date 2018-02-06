@@ -75,7 +75,7 @@ public class TestKafkaCheckpointManagerJava {
         true, mock(Config.class), mock(MetricsRegistry.class), null, new KafkaCheckpointLogKeySerde());
 
     // expect an exception during startup
-    checkpointManager.init();
+    checkpointManager.createStream();
     checkpointManager.start();
   }
 
@@ -94,7 +94,7 @@ public class TestKafkaCheckpointManagerJava {
         true, mock(Config.class), mock(MetricsRegistry.class), null, new KafkaCheckpointLogKeySerde());
 
     // expect an exception during startup
-    checkpointManager.init();
+    checkpointManager.createStream();
     checkpointManager.start();
   }
 

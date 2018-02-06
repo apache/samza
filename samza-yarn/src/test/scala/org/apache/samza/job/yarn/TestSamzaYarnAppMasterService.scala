@@ -29,7 +29,7 @@ import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.stream.{CoordinatorStream, MockCoordinatorStreamSystemFactory}
 import org.apache.samza.metrics._
-import org.apache.samza.storage.ChangelogPartitionManager
+import org.apache.samza.storage.ChangelogStreamManager
 import org.junit.Assert._
 import org.junit.Test
 
@@ -102,9 +102,8 @@ class TestSamzaYarnAppMasterService {
 
   private def getTestJobModelManager(config: Config) = {
     val coordinatorStream = new CoordinatorStream(config, new MetricsRegistryMap, "TestJobCoordinator")
-    coordinatorStream.startConsumer()
-    coordinatorStream.startProducer()
-    val changelogPartitionManager = new ChangelogPartitionManager(coordinatorStream)
+    coordinatorStream.start()
+    val changelogPartitionManager = new ChangelogStreamManager(coordinatorStream)
     JobModelManager(coordinatorStream, changelogPartitionManager.readPartitionMapping())
   }
 

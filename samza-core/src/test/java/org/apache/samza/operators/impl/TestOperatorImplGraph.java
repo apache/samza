@@ -320,7 +320,7 @@ public class TestOperatorImplGraph {
   }
 
   /**
-   * Creates an identity map function that appends to the provided lists when init/close is invoked.
+   * Creates an identity map function that appends to the provided lists when createStream/close is invoked.
    */
   private MapFunction<Object, Object> createMapFunction(String id,
       List<String> initializedOperators, List<String> finalizedOperators) {

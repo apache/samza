@@ -26,6 +26,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaStorageConfig;
+import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.stream.CoordinatorStream;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
@@ -33,7 +34,6 @@ import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
 import org.apache.samza.coordinator.stream.AbstractCoordinatorStreamManager;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
-import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
@@ -43,18 +43,20 @@ import org.slf4j.LoggerFactory;
 /**
  * The Changelog manager is used to persist and read the changelog information from the coordinator stream.
  */
-public class ChangelogPartitionManager extends AbstractCoordinatorStreamManager {
+public class ChangelogStreamManager extends AbstractCoordinatorStreamManager {
 
-  private static final Logger log = LoggerFactory.getLogger(ChangelogPartitionManager.class);
+  private static final Logger log = LoggerFactory.getLogger(ChangelogStreamManager.class);
   private boolean isCoordinatorConsumerRegistered = false;
+  private final CoordinatorStream coordinatorStream;
 
   /**
    * Construct Changelog manager without a coordinator stream.
    *
    *  @param source Name of caller.
    */
-  public ChangelogPartitionManager(String source) {
+  public ChangelogStreamManager(String source) {
     super(null, null, source);
+    coordinatorStream = null;
   }
 
   /**
@@ -62,11 +64,12 @@ public class ChangelogPartitionManager extends AbstractCoordinatorStreamManager 
    *
    * @param coordinatorStream Coordinator stream.
    */
-  public ChangelogPartitionManager(CoordinatorStream coordinatorStream) {
+  public ChangelogStreamManager(CoordinatorStream coordinatorStream) {
     super(coordinatorStream.getProducer(), coordinatorStream.getConsumer(), coordinatorStream.getSource());
     if (coordinatorStream.getConsumer() != null) {
       isCoordinatorConsumerRegistered = true;
     }
+    this.coordinatorStream = coordinatorStream;
   }
 
   /**
@@ -137,9 +140,11 @@ public class ChangelogPartitionManager extends AbstractCoordinatorStreamManager 
             name -> Util.getSystemStreamFromNames(storageConfig.getChangelogStream(name))));
 
     // Get SystemAdmin for changelog store's system and attempt to create the stream
-    SystemAdmins systemAdmins = new SystemAdmins(config);
+    JavaSystemConfig systemConfig = new JavaSystemConfig(config);
     storeNameSystemStreamMapping.forEach((storeName, systemStream) -> {
-        SystemAdmin systemAdmin = systemAdmins.getSystemAdmin(systemStream.getSystem());
+        // Load system admin for this system.
+        SystemAdmin systemAdmin = systemConfig.getSystemAdmin(systemStream.getSystem());
+
         if (systemAdmin == null) {
           throw new SamzaException(String.format(
               "Error creating changelog from %s. Changelog on store %s uses system %s, which is missing from the configuration.",

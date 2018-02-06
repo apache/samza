@@ -36,7 +36,7 @@ import org.apache.samza.{Partition, SamzaException}
 import scala.collection.JavaConverters._
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.stream.CoordinatorStream
-import org.apache.samza.storage.ChangelogPartitionManager
+import org.apache.samza.storage.ChangelogStreamManager
 
 import scala.collection.mutable.ListBuffer
 
@@ -165,9 +165,8 @@ class CheckpointTool(config: Config, newOffsets: TaskNameToCheckpointMap, manage
 
     // Find all the TaskNames that would be generated for this job config
     val coordinatorStream = new CoordinatorStream(config, new MetricsRegistryMap(), getClass.getSimpleName)
-    coordinatorStream.startConsumer()
-    coordinatorStream.startProducer()
-    val changelogPartitionManager = new ChangelogPartitionManager(coordinatorStream)
+    coordinatorStream.start()
+    val changelogPartitionManager = new ChangelogStreamManager(coordinatorStream)
     val jobModelManager = JobModelManager(coordinatorStream, changelogPartitionManager.readPartitionMapping())
     val taskNames = jobModelManager
       .jobModel
@@ -193,6 +192,7 @@ class CheckpointTool(config: Config, newOffsets: TaskNameToCheckpointMap, manage
     }
 
     manager.stop
+    coordinatorStream.stop();
   }
 
   /** Load the most recent checkpoint state for all a specified TaskName. */

@@ -32,7 +32,7 @@ import kafka.utils.{CoreUtils, TestUtils, ZkUtils}
 import kafka.zk.EmbeddedZookeeper
 import org.apache.kafka.clients.producer.{KafkaProducer, Producer, ProducerConfig, ProducerRecord}
 import org.apache.samza.Partition
-import org.apache.samza.checkpoint.{Checkpoint, CheckpointManagerFactory, CheckpointManagerUtil}
+import org.apache.samza.checkpoint.Checkpoint
 import org.apache.kafka.common.protocol.SecurityProtocol
 import org.apache.kafka.common.security.JaasUtils
 import org.apache.samza.config._
@@ -41,7 +41,7 @@ import org.apache.samza.job.local.ThreadJobFactory
 import org.apache.samza.job.model.{ContainerModel, JobModel}
 import org.apache.samza.job.{ApplicationStatus, JobRunner, StreamJob}
 import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.storage.ChangelogPartitionManager
+import org.apache.samza.storage.ChangelogStreamManager
 import org.apache.samza.system.kafka.TopicMetadataCache
 import org.apache.samza.system.{IncomingMessageEnvelope, SystemStreamPartition}
 import org.apache.samza.task._
@@ -276,11 +276,15 @@ class StreamTaskTestUtil {
     val jobModel = new JobModel(mapConfig, containers)
     jobModel.maxChangeLogStreamPartitions = 1
 
-    val config = jobModel.getConfig()
-    val checkpointManager = CheckpointManagerUtil.createAndInit(jobModel.getConfig(), new MetricsRegistryMap())
-    assert(checkpointManager != null, "No checkpoint manager factory configured")
-    val changelogManager = new ChangelogPartitionManager(this.getClass.getSimpleName)
-    changelogManager.createChangeLogStreams(config, jobModel.maxChangeLogStreamPartitions)
+    val taskConfig = new TaskConfig(jobModel.getConfig)
+    val checkpointManager = taskConfig.getCheckpointManager(new MetricsRegistryMap())
+    checkpointManager match {
+      case Some(checkpointManager) => checkpointManager.createStream
+      case _ => assert(checkpointManager != null, "No checkpoint manager factory configured")
+    }
+
+    val changelogManager = new ChangelogStreamManager(this.getClass.getSimpleName)
+    changelogManager.createChangeLogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
   }
 }
 

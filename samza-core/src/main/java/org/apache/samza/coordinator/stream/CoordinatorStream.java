@@ -50,11 +50,17 @@ public class CoordinatorStream {
   }
 
   /**
-   * Construct and bootstrap the coordinator stream consumer.
-   *
-   * @return True if consumer is constructed and bootstrap. False if this was already done.
+   * Construct and bootstrap the coordinator stream consumer and producer.
    */
-  public boolean startConsumer() {
+  public void start() {
+    startConsumer();
+    startProducer();
+  }
+
+  /**
+   * Construct and bootstrap the coordinator stream consumer, if have not already.
+   */
+  private void startConsumer() {
     if (this.consumer == null) {
       consumer = new CoordinatorStreamSystemConsumer(config, metricsRegistry);
       log.info("Registering coordinator system stream consumer from {}.", source);
@@ -63,18 +69,13 @@ public class CoordinatorStream {
       consumer.start();
       log.debug("Bootstrapping coordinator system stream consumer.");
       consumer.bootstrap();
-
-      return true;
     }
-    return false;
   }
 
   /**
-   * Construct and bootstrap the coordinator stream producer.
-   *
-   * @return True if producer is constructed and bootstrap. False if this was already done.
+   * Construct and bootstrap the coordinator stream producer, if have not already.
    */
-  public boolean startProducer() {
+  private void startProducer() {
     if (producer == null) {
       producer = new CoordinatorStreamSystemProducer(config, metricsRegistry);
       log.info("Registering coordinator system stream consumer from {}.", source);
@@ -82,12 +83,36 @@ public class CoordinatorStream {
       log.debug("Starting coordinator system stream consumer.");
       producer.start();
       log.debug("Bootstrapping coordinator system stream consumer.");
-
-      return true;
     }
-    return false;
   }
 
+  /**
+   * Stop both the consumer and producer, if they have started.
+   */
+  public void stop() {
+    stopProducer();
+    stopConsumer();
+  }
+
+  /**
+   * Stop only the consumer.
+   */
+  private void stopConsumer() {
+    if (consumer != null && consumer.isStarted()) {
+      consumer.stop();
+      consumer = null;
+    }
+  }
+
+  /**
+   * Stop only the producer.
+   */
+  private void stopProducer() {
+    if (producer != null && producer.isStarted()) {
+      producer.stop();
+      producer = null;
+    }
+  }
   /**
    * Get coordinator stream producer.
    *

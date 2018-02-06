@@ -121,11 +121,11 @@ public class StorageRecovery extends CommandLine {
    */
   private void getContainerModels() {
     CoordinatorStream coordinatorStream = new CoordinatorStream(jobConfig, new MetricsRegistryMap(), getClass().getSimpleName());
-    coordinatorStream.startConsumer();
-    coordinatorStream.startProducer();
-    ChangelogPartitionManager changelogPartitionManager = new ChangelogPartitionManager(coordinatorStream);
-    JobModel jobModel = JobModelManager.apply(coordinatorStream, changelogPartitionManager.readPartitionMapping()).jobModel();
+    coordinatorStream.start();
+    ChangelogStreamManager changelogStreamManager = new ChangelogStreamManager(coordinatorStream);
+    JobModel jobModel = JobModelManager.apply(coordinatorStream, changelogStreamManager.readPartitionMapping()).jobModel();
     containers = jobModel.getContainers();
+    coordinatorStream.stop();
   }
 
   /**
