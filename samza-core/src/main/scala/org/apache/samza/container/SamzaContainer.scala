@@ -100,6 +100,7 @@ object SamzaContainer extends Logging {
     info("Setting up Samza container: %s" format containerName)
 
     startupLog("Samza container PID: %s" format containerPID)
+    println("Container PID: %s" format containerPID)
     startupLog("Using configuration: %s" format config)
     startupLog("Using container model: %s" format containerModel)
 
@@ -655,6 +656,7 @@ class SamzaContainer(
   val shutdownMs = containerContext.config.getShutdownMs.getOrElse(TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS)
   var shutdownHookThread: Thread = null
   var jmxServer: JmxServer = null
+  val isAutoCommitEnabled = containerContext.config.isAutoCommitEnabled
 
   @volatile private var status = SamzaContainerStatus.NOT_STARTED
   private var exceptionSeen: Throwable = null
@@ -988,6 +990,11 @@ class SamzaContainer(
       } catch {
         case e: Exception => error(e.getMessage, e)
       }
+    }
+
+    if (isAutoCommitEnabled) {
+      info("Committing offsets for all task instances")
+      taskInstances.values.foreach(_.commit)
     }
 
     taskInstances.values.foreach(_.shutdownTask)
