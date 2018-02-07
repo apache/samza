@@ -420,13 +420,32 @@ public abstract class OperatorImpl<M, RM> implements TimerRegistryFactory {
     }
   }
 
+  /**
+   * Returns a registry which allows registering arbitrary system-clock timer with K-typed key.
+   * The user-defined function in the operator spec needs to implement {@link TimerFunction#onTimer(Object, long)}
+   * for timer notifications.
+   * @param <K> key type for the timer.
+   * @return an instance of {@link TimerRegistry}
+   */
   @Override
   public <K> TimerRegistry<K> getTimerRegistry() {
     return new TimerRegistry<K>() {
       @Override
       public void register(K key, long time) {
         taskContext.registerTimer(key, time, (k, collector, coordinator) -> {
-            fireTimer(k, collector, coordinator);
+            final TimerFunction<K, RM> timerFn = getOperatorSpec().getTimerFn();
+            if (timerFn != null) {
+              final Collection<RM> output = timerFn.onTimer(key, time);
+
+              if (!output.isEmpty()) {
+                output.forEach(rm ->
+                    registeredOperators.forEach(op ->
+                        op.onMessage(rm, collector, coordinator)));
+              }
+            } else {
+              throw new SamzaException("Operator " + getOperatorSpec().getOpCode().name() + " must implement" +
+                  "TimerFunction to use system timer.");
+            }
           });
       }
 
@@ -435,17 +454,6 @@ public abstract class OperatorImpl<M, RM> implements TimerRegistryFactory {
         taskContext.deleteTimer(key);
       }
     };
-  }
-
-  private void fireTimer(Object key, MessageCollector collector, TaskCoordinator coordinator) {
-    final TimerFunction<Object, RM> timerFn = getOperatorSpec().getTimerFn();
-    final Collection<RM> output = timerFn.onTimer(key);
-
-    if (!output.isEmpty()) {
-      output.forEach(rm ->
-          this.registeredOperators.forEach(op ->
-              op.onMessage(rm, collector, coordinator)));
-    }
   }
 
   public void close() {

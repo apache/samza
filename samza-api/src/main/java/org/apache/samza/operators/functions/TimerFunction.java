@@ -21,6 +21,36 @@ package org.apache.samza.operators.functions;
 
 import java.util.Collection;
 
+/**
+ * Invoked when a keyed timer fires.
+ * <p>
+ * Example of a {@link FlatMapFunction} with timer:
+ * <pre>{@code
+ *    public class ExampleTimerFn implements FlatMapFunction<String, String>, TimerFunction<String, String> {
+ *      public void init(Config config, OpContext opContext) {
+ *        TimerRegistry<String> timerRegistry = opContext.getTimerRegistry();
+ *        long time = System.currentTimeMillis() + 5000; // fire after 5 sec
+ *        timerRegistry.register("example-timer", time);
+ *      }
+ *      public Collection<String> apply(String s) {
+ *        ...
+ *      }
+ *      public Collection<String> onTimer(String key, long time) {
+ *        // example-timer fired
+ *        ...
+ *      }
+ *    }
+ * }</pre>
+ * @param <K> type of the key
+ * @param <OM> type of the output
+ */
 public interface TimerFunction<K, OM> {
-  Collection<OM> onTimer(K key);
+
+  /**
+   * Returns the output after the timer with key fires.
+   * @param key time key
+   * @param time time of the timer, in milliseconds
+   * @return {@link Collection} of output elements
+   */
+  Collection<OM> onTimer(K key, long time);
 }

@@ -75,7 +75,22 @@ public interface TaskContext {
     return null;
   }
 
+  /**
+   * Register a keyed timer with a callback of {@link TimerCallback} in this task.
+   * The callback will be run iff no operations are in-progress for this task, i.e. message processing,
+   * windowing and commit.
+   * @param key timer key
+   * @param time system-clock time when the timer will fire
+   * @param callback callback to invoke when the timer fires
+   * @param <K> type of the key
+   */
   <K> void registerTimer(K key, long time, TimerCallback<K> callback);
 
+  /**
+   * Delete the keyed timer in this task.
+   * Deletion only happens if the timer hasn't been fired, which removes it will be removed from the scheduler. Otherwise it will not interrupt.
+   * @param key timer key
+   * @param <K> type of the key
+   */
   <K> void deleteTimer(K key);
 }

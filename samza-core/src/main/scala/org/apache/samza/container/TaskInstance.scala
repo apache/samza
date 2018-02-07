@@ -194,8 +194,8 @@ class TaskInstance(
     trace("Timer for taskName: %s" format taskName)
 
     exceptionHandler.maybeHandle {
-      context.getTimerFactory.removeReadyTimers().entrySet().foreach { kv =>
-        kv.getValue.asInstanceOf[TimerCallback[Any]].onTimer(kv.getKey, collector, coordinator)
+      context.getTimerFactory.removeReadyTimers().entrySet().foreach { entry =>
+        entry.getValue.asInstanceOf[TimerCallback[Any]].onTimer(entry.getKey.getKey, collector, coordinator)
       }
     }
   }

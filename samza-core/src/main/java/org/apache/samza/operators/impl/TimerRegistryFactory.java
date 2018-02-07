@@ -21,6 +21,9 @@ package org.apache.samza.operators.impl;
 
 import org.apache.samza.operators.TimerRegistry;
 
+/**
+ * Factory to create instance of {@link TimerRegistry}.
+ */
 public interface TimerRegistryFactory {
   <K> TimerRegistry<K> getTimerRegistry();
 }

@@ -80,7 +80,7 @@ public class TestTimerApp implements StreamApplication {
     }
 
     @Override
-    public Collection<PageView> onTimer(String key) {
+    public Collection<PageView> onTimer(String key, long time) {
       return pageViews;
     }
   }

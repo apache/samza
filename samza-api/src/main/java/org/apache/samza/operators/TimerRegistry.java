@@ -19,7 +19,25 @@
 
 package org.apache.samza.operators;
 
-public interface TimerRegistry<T> {
-  void register(T key, long time);
-  void delete(T key);
+/**
+ * A registry that allows user to register arbitrary system-clock timers in the operators. It's accessible
+ * from the {@link OpContext} in {@link org.apache.samza.operators.functions.InitableFunction#init(org.apache.samza.config.Config, OpContext)}.
+ * User needs to implement {@link org.apache.samza.operators.functions.TimerFunction} to receive timer firings.
+ * See {@link org.apache.samza.operators.functions.TimerFunction} for details.
+ * @param <K> type of the timer key
+ */
+public interface TimerRegistry<K> {
+
+  /**
+   * Register a processing-time timer with key.
+   * @param key key of the timer
+   * @param time time when the timer will fire, in milliseconds
+   */
+  void register(K key, long time);
+
+  /**
+   * Delete the timer of key from the registry.
+   * @param key key of the timer.
+   */
+  void delete(K key);
 }
