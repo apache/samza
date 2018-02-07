@@ -19,6 +19,7 @@
 
 package org.apache.samza.config
 
+import org.apache.samza.container.RunLoopFactory
 import org.apache.samza.system.SystemStream
 import org.apache.samza.util.{Logging, Util}
 
@@ -42,6 +43,11 @@ object TaskConfig {
   val MAX_CONCURRENCY = "task.max.concurrency" // max number of concurrent process for a AsyncStreamTask
   val CALLBACK_TIMEOUT_MS = "task.callback.timeout.ms"  // timeout period for triggering a callback
   val ASYNC_COMMIT = "task.async.commit" // to enable async commit in a AsyncStreamTask
+
+  val DEFAULT_WINDOW_MS: Long = -1L
+  val DEFAULT_COMMIT_MS = 60000L
+  val DEFAULT_CALLBACK_TIMEOUT_MS: Long = -1L
+  val DEFAULT_MAX_CONCURRENCY: Int = 1
 
   /**
    * Samza's container polls for more messages under two conditions. The first
@@ -75,14 +81,14 @@ class TaskConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     case _ => Set[SystemStream]()
   }
 
-  def getWindowMs: Option[Long] = getOption(TaskConfig.WINDOW_MS) match {
-    case Some(ms) => Some(ms.toLong)
-    case _ => None
+  def getWindowMs: Long = getOption(TaskConfig.WINDOW_MS) match {
+    case Some(ms) => ms.toLong
+    case _ => TaskConfig.DEFAULT_WINDOW_MS
   }
 
-  def getCommitMs: Option[Long] = getOption(TaskConfig.COMMIT_MS) match {
-    case Some(ms) => Some(ms.toLong)
-    case _ => None
+  def getCommitMs: Long = getOption(TaskConfig.COMMIT_MS) match {
+    case Some(ms) => ms.toLong
+    case _ => TaskConfig.DEFAULT_COMMIT_MS
   }
 
   def getShutdownMs: Option[Long] = getOption(TaskConfig.SHUTDOWN_MS) match {
@@ -123,23 +129,23 @@ class TaskConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     }
   }
 
-  def getMaxConcurrency: Option[Int] = getOption(TaskConfig.MAX_CONCURRENCY) match {
-    case Some(count) => Some(count.toInt)
-    case _ => None
+  def getMaxConcurrency: Int = getOption(TaskConfig.MAX_CONCURRENCY) match {
+    case Some(count) => count.toInt
+    case _ => TaskConfig.DEFAULT_MAX_CONCURRENCY
   }
 
-  def getCallbackTimeoutMs: Option[Long] = getOption(TaskConfig.CALLBACK_TIMEOUT_MS) match {
-    case Some(ms) => Some(ms.toLong)
-    case _ => None
+  def getCallbackTimeoutMs: Long = getOption(TaskConfig.CALLBACK_TIMEOUT_MS) match {
+    case Some(ms) => ms.toLong
+    case _ => TaskConfig.DEFAULT_CALLBACK_TIMEOUT_MS
   }
 
-  def getAsyncCommit: Option[Boolean] = getOption(TaskConfig.ASYNC_COMMIT) match {
-    case Some(asyncCommit) => Some(asyncCommit.toBoolean)
-    case _ => None
+  def getAsyncCommit: Boolean = getOption(TaskConfig.ASYNC_COMMIT) match {
+    case Some(asyncCommit) => asyncCommit.toBoolean
+    case _ => false
   }
 
-  def isAutoCommitEnabled() = getOption(TaskConfig.COMMIT_MS) match {
+  def isAutoCommitEnabled: Boolean = getOption(TaskConfig.COMMIT_MS) match {
     case Some(commitMs) => commitMs.toInt > 0
-    case _ => true
+    case _ => TaskConfig.DEFAULT_COMMIT_MS > 0
   }
 }

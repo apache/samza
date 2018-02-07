@@ -171,7 +171,9 @@ public class ResourceRequestState {
   public void updateStateAfterAssignment(SamzaResourceRequest request, String assignedHost, SamzaResource samzaResource) {
     synchronized (lock) {
       requestsQueue.remove(request);
+      // A reference for the resource could either be held in the preferred host buffer or in the ANY_HOST buffer.
       allocatedResources.get(assignedHost).remove(samzaResource);
+      allocatedResources.get(ANY_HOST).remove(samzaResource);
       if (hostAffinityEnabled) {
         // assignedHost may not always be the preferred host.
         // Hence, we should safely decrement the counter for the preferredHost
@@ -266,18 +268,33 @@ public class ResourceRequestState {
   /**
    * Retrieves, but does not remove, the first allocated resource on the specified host.
    *
-   * @param host  the host for which a resource is needed.
-   * @return      the first {@link SamzaResource} allocated for the specified host or {@code null} if there isn't one.
+   * @param host the host for which a resource is needed.
+   * @return a {@link SamzaResource} allocated for the specified host or {@code null} if there isn't one.
    */
-
   public SamzaResource peekResource(String host) {
     synchronized (lock) {
-      List<SamzaResource> resourcesOnTheHost = this.allocatedResources.get(host);
+      List<SamzaResource> resourcesOnPreferredHostBuffer = this.allocatedResources.get(host);
+      List<SamzaResource> resourcesOnAnyHostBuffer = this.allocatedResources.get(ANY_HOST);
 
-      if (resourcesOnTheHost == null || resourcesOnTheHost.isEmpty()) {
+      // First search for the preferred host buffers
+      if (resourcesOnPreferredHostBuffer != null && !resourcesOnPreferredHostBuffer.isEmpty()) {
+        SamzaResource resource = resourcesOnPreferredHostBuffer.get(0);
+        log.info("Returning a buffered resource: {} for {} from preferred-host buffer.", resource.getResourceID(), host);
+        return resource;
+      } else if (resourcesOnAnyHostBuffer != null && !resourcesOnAnyHostBuffer.isEmpty()) {
+        // If preferred host buffers are empty, scan the ANY_HOST buffer
+        log.debug("No resources on preferred-host buffer. Scanning ANY_HOST buffer");
+        SamzaResource resource = resourcesOnAnyHostBuffer.stream()
+            .filter(resrc -> resrc.getHost().equals(host))
+            .findAny().orElse(null);
+        if (resource != null) {
+          log.info("Returning a buffered resource: {} for {} from ANY_HOST buffer.", resource.getResourceID(), host);
+        }
+        return resource;
+      } else {
+        log.debug("Cannot find any resource in the ANY_HOST buffer for {} because both buffers are empty", host);
         return null;
       }
-      return resourcesOnTheHost.get(0);
     }
   }
 
