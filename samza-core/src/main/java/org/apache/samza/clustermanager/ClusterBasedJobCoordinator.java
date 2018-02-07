@@ -33,7 +33,7 @@ import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
-import org.apache.samza.coordinator.stream.CoordinatorStream;
+import org.apache.samza.coordinator.stream.CoordinatorStreamManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsRegistryMap;
@@ -109,7 +109,7 @@ public class ClusterBasedJobCoordinator {
   /**
    * Single instance of the coordinator stream to use.
    */
-  private final CoordinatorStream coordinatorStream;
+  private final CoordinatorStreamManager coordinatorStreamManager;
 
   /*
    * The interval for polling the Task Manager for shutdown.
@@ -165,10 +165,10 @@ public class ClusterBasedJobCoordinator {
     metrics = new MetricsRegistryMap();
 
     //build a JobModelManager and ChangelogStreamManager and perform partition assignments.
-    coordinatorStream = new CoordinatorStream(coordinatorSystemConfig, metrics, COORDINATOR_STREAM_SOURCE);
-    coordinatorStream.start();
-    changelogStreamManager = new ChangelogStreamManager(coordinatorStream);
-    jobModelManager = JobModelManager.apply(coordinatorStream, changelogStreamManager.readPartitionMapping());
+    coordinatorStreamManager = new CoordinatorStreamManager(coordinatorSystemConfig, metrics, COORDINATOR_STREAM_SOURCE);
+    coordinatorStreamManager.registerStartBootstrapAll();
+    changelogStreamManager = new ChangelogStreamManager(coordinatorStreamManager);
+    jobModelManager = JobModelManager.apply(coordinatorStreamManager, changelogStreamManager.readPartitionMapping());
 
     config = jobModelManager.jobModel().getConfig();
     hasDurableStores = new StorageConfig(config).hasDurableStores();
@@ -258,7 +258,7 @@ public class ClusterBasedJobCoordinator {
       partitionMonitor.stop();
       systemAdmins.stop();
       containerProcessManager.stop();
-      coordinatorStream.stop();
+      coordinatorStreamManager.stop();
     } catch (Throwable e) {
       log.error("Exception while stopping task manager {}", e);
     }

@@ -33,7 +33,7 @@ import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.coordinator.JobModelManager;
-import org.apache.samza.coordinator.stream.CoordinatorStream;
+import org.apache.samza.coordinator.stream.CoordinatorStreamManager;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
@@ -120,12 +120,12 @@ public class StorageRecovery extends CommandLine {
    * map
    */
   private void getContainerModels() {
-    CoordinatorStream coordinatorStream = new CoordinatorStream(jobConfig, new MetricsRegistryMap(), getClass().getSimpleName());
-    coordinatorStream.start();
-    ChangelogStreamManager changelogStreamManager = new ChangelogStreamManager(coordinatorStream);
-    JobModel jobModel = JobModelManager.apply(coordinatorStream, changelogStreamManager.readPartitionMapping()).jobModel();
+    CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(jobConfig, new MetricsRegistryMap(), getClass().getSimpleName());
+    coordinatorStreamManager.registerStartBootstrapAll();
+    ChangelogStreamManager changelogStreamManager = new ChangelogStreamManager(coordinatorStreamManager);
+    JobModel jobModel = JobModelManager.apply(coordinatorStreamManager, changelogStreamManager.readPartitionMapping()).jobModel();
     containers = jobModel.getContainers();
-    coordinatorStream.stop();
+    coordinatorStreamManager.stop();
   }
 
   /**

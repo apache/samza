@@ -36,7 +36,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.coordinator.JobModelManager;
-import org.apache.samza.coordinator.stream.CoordinatorStream;
+import org.apache.samza.coordinator.stream.CoordinatorStreamManager;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.job.yarn.ClientHelper;
 import org.apache.samza.metrics.JmxMetricsAccessor;
@@ -152,10 +152,10 @@ public class YarnJobValidationTool {
   }
 
   public void validateJmxMetrics() throws Exception {
-    CoordinatorStream coordinatorStream = new CoordinatorStream(config, new MetricsRegistryMap(), getClass().getSimpleName());
-    coordinatorStream.start();
-    ChangelogStreamManager changelogStreamManager = new ChangelogStreamManager(coordinatorStream);
-    JobModelManager jobModelManager = JobModelManager.apply(coordinatorStream, changelogStreamManager.readPartitionMapping());
+    CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(config, new MetricsRegistryMap(), getClass().getSimpleName());
+    coordinatorStreamManager.registerStartBootstrapAll();
+    ChangelogStreamManager changelogStreamManager = new ChangelogStreamManager(coordinatorStreamManager);
+    JobModelManager jobModelManager = JobModelManager.apply(coordinatorStreamManager, changelogStreamManager.readPartitionMapping());
     validator.init(config);
     Map<String, String> jmxUrls = jobModelManager.jobModel().getAllContainerToHostValues(SetContainerHostMapping.JMX_TUNNELING_URL_KEY);
     for (Map.Entry<String, String> entry : jmxUrls.entrySet()) {
@@ -169,7 +169,7 @@ public class YarnJobValidationTool {
       log.info("validate container " + containerId + " successfully");
     }
     validator.complete();
-    coordinatorStream.stop();
+    coordinatorStreamManager.stop();
   }
 
   public static void main(String [] args) throws Exception {

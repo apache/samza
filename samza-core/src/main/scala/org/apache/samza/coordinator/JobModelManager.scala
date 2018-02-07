@@ -35,17 +35,15 @@ import org.apache.samza.container.LocalityManager
 import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.server.HttpServer
 import org.apache.samza.coordinator.server.JobServlet
-import org.apache.samza.coordinator.stream.CoordinatorStream
+import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.job.model.TaskModel
-import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system._
 import org.apache.samza.util.Logging
 import org.apache.samza.util.Util
 import org.apache.samza.Partition
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ListBuffer
 
 /**
  * Helper companion object that is responsible for wiring up a JobModelManager
@@ -65,18 +63,16 @@ object JobModelManager extends Logging {
    * a) Reads the jobModel from coordinator stream using the job's configuration.
    * b) Recomputes changelog partition mapping based on jobModel and job's configuration.
    * c) Builds JobModelManager using the jobModel read from coordinator stream.
-   * @param coordinatorStream
+   * @param coordinatorStreamManager
    * @param changelogPartitionMapping
    * @return JobModelManager
    */
-  def apply(coordinatorStream: CoordinatorStream, changelogPartitionMapping: util.Map[TaskName, Integer]) = {
-    val coordinatorSystemConsumer = coordinatorStream.getConsumer
-    val coordinatorSystemProducer = coordinatorStream.getProducer
-    val localityManager = new LocalityManager(coordinatorSystemProducer, coordinatorSystemConsumer)
+  def apply(coordinatorStreamManager: CoordinatorStreamManager, changelogPartitionMapping: util.Map[TaskName, Integer]) = {
+    val localityManager = new LocalityManager(coordinatorStreamManager, false)
 
-    val config = coordinatorSystemConsumer.getConfig
+    val config = coordinatorStreamManager.getCoordinatorStreamConsumerConfig
 
-    // Map the name of each system to the corresponding SystemAdmin
+      // Map the name of each system to the corresponding SystemAdmin
     val systemAdmins = new SystemAdmins(config)
     val streamMetadataCache = new StreamMetadataCache(systemAdmins, 0)
 

@@ -21,6 +21,7 @@ package org.apache.samza.container;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.coordinator.stream.CoordinatorStreamManager;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory.MockCoordinatorStreamSystemConsumer;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory.MockCoordinatorStreamSystemProducer;
@@ -66,14 +67,8 @@ public class TestLocalityManager {
         mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);
     MockCoordinatorStreamSystemConsumer consumer =
         mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(config, null);
-    LocalityManager localityManager = new LocalityManager(producer, consumer);
-
-    try {
-      localityManager.register(new TaskName("task-0"));
-      fail("Should have thrown UnsupportedOperationException");
-    } catch (UnsupportedOperationException uoe) {
-      // expected
-    }
+    CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(producer, consumer, "TestLocalityManager");
+    LocalityManager localityManager = new LocalityManager(coordinatorStreamManager, false);
 
     localityManager.register("containerId-0");
     assertTrue(producer.isRegistered());
@@ -109,7 +104,8 @@ public class TestLocalityManager {
   @Test public void testWriteOnlyLocalityManager() {
     MockCoordinatorStreamSystemProducer producer =
         mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);
-    LocalityManager localityManager = new LocalityManager(producer);
+    CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(producer, null, "TestLocalityManager");
+    LocalityManager localityManager = new LocalityManager(coordinatorStreamManager, true);
 
     localityManager.register("containerId-1");
     assertTrue(producer.isRegistered());

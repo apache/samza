@@ -24,7 +24,7 @@ import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
 import org.apache.samza.container.{SamzaContainer, SamzaContainerListener}
 import org.apache.samza.coordinator.JobModelManager
-import org.apache.samza.coordinator.stream.{CoordinatorStream, CoordinatorStreamSystemConsumer, CoordinatorStreamSystemProducer}
+import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.runtime.LocalContainerRunner
@@ -40,11 +40,11 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     info("Creating a ThreadJob, which is only meant for debugging.")
 
     val metricsRegistry = new MetricsRegistryMap()
-    val coordinatorStream = new CoordinatorStream(config, metricsRegistry, getClass.getSimpleName)
-    coordinatorStream.start()
-    val changelogPartitionManager = new ChangelogStreamManager(coordinatorStream)
+    val coordinatorStreamManager = new CoordinatorStreamManager(config, metricsRegistry, getClass.getSimpleName)
+    coordinatorStreamManager.registerStartBootstrapAll()
+    val changelogPartitionManager = new ChangelogStreamManager(coordinatorStreamManager)
 
-    val coordinator = JobModelManager(coordinatorStream, changelogPartitionManager.readPartitionMapping())
+    val coordinator = JobModelManager(coordinatorStreamManager, changelogPartitionManager.readPartitionMapping())
     val jobModel = coordinator.jobModel
     changelogPartitionManager.writePartitionMapping(jobModel.getTaskPartitionMappings)
 

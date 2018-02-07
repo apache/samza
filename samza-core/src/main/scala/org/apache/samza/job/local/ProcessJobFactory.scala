@@ -23,7 +23,7 @@ import org.apache.samza.SamzaException
 import org.apache.samza.config.{Config, JobConfig, TaskConfigJava}
 import org.apache.samza.config.TaskConfig._
 import org.apache.samza.coordinator.JobModelManager
-import org.apache.samza.coordinator.stream.{CoordinatorStream, CoordinatorStreamSystemConsumer, CoordinatorStreamSystemProducer}
+import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.job.{CommandBuilder, ShellCommandBuilder, StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.storage.ChangelogStreamManager
@@ -41,20 +41,20 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     }
 
     val metricsRegistry = new MetricsRegistryMap()
-    val coordinatorStream = new CoordinatorStream(config, metricsRegistry, getClass.getSimpleName)
-    coordinatorStream.start()
-    val changelogPartitionManager = new ChangelogStreamManager(coordinatorStream)
+    val coordinatorStreamManager = new CoordinatorStreamManager(config, metricsRegistry, getClass.getSimpleName)
+    coordinatorStreamManager.registerStartBootstrapAll()
+    val changelogManager = new ChangelogStreamManager(coordinatorStreamManager)
 
-    val coordinator = JobModelManager(coordinatorStream, changelogPartitionManager.readPartitionMapping())
+    val coordinator = JobModelManager(coordinatorStreamManager, changelogManager.readPartitionMapping())
     val jobModel = coordinator.jobModel
-    changelogPartitionManager.writePartitionMapping(jobModel.getTaskPartitionMappings)
+    changelogManager.writePartitionMapping(jobModel.getTaskPartitionMappings)
 
     //create necessary checkpoint and changelog streams, if not created
     val checkpointManager = new TaskConfigJava(jobModel.getConfig).getCheckpointManager(metricsRegistry)
     if (checkpointManager != null) {
       checkpointManager.createStream()
     }
-    changelogPartitionManager.createChangeLogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
+    changelogManager.createChangeLogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
 
     val containerModel = coordinator.jobModel.getContainers.get(0)
 

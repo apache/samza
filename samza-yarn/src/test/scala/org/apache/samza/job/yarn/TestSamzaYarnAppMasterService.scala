@@ -27,7 +27,7 @@ import org.apache.samza.clustermanager.SamzaApplicationState
 import org.apache.samza.config.{Config, MapConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.JobModelManager
-import org.apache.samza.coordinator.stream.{CoordinatorStream, MockCoordinatorStreamSystemFactory}
+import org.apache.samza.coordinator.stream.{CoordinatorStreamManager, MockCoordinatorStreamSystemFactory}
 import org.apache.samza.metrics._
 import org.apache.samza.storage.ChangelogStreamManager
 import org.junit.Assert._
@@ -101,10 +101,10 @@ class TestSamzaYarnAppMasterService {
   }
 
   private def getTestJobModelManager(config: Config) = {
-    val coordinatorStream = new CoordinatorStream(config, new MetricsRegistryMap, "TestJobCoordinator")
-    coordinatorStream.start()
-    val changelogPartitionManager = new ChangelogStreamManager(coordinatorStream)
-    JobModelManager(coordinatorStream, changelogPartitionManager.readPartitionMapping())
+    val coordinatorStreamManager = new CoordinatorStreamManager(config, new MetricsRegistryMap, "TestJobCoordinator")
+    coordinatorStreamManager.registerStartBootstrapAll()
+    val changelogPartitionManager = new ChangelogStreamManager(coordinatorStreamManager)
+    JobModelManager(coordinatorStreamManager, changelogPartitionManager.readPartitionMapping())
   }
 
   private def getDummyConfig: Config = new MapConfig(Map[String, String](

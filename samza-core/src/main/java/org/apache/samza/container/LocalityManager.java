@@ -20,10 +20,8 @@
 package org.apache.samza.container;
 
 import org.apache.samza.container.grouper.task.TaskAssignmentManager;
+import org.apache.samza.coordinator.stream.CoordinatorStreamManager;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
-import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer;
-import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer;
-import org.apache.samza.coordinator.stream.AbstractCoordinatorStreamManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.Collections;
@@ -35,44 +33,25 @@ import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
  * Locality Manager is used to persist and read the container-to-host
  * assignment information from the coordinator stream
  * */
-public class LocalityManager extends AbstractCoordinatorStreamManager {
+public class LocalityManager {
   private static final Logger log = LoggerFactory.getLogger(LocalityManager.class);
   private Map<String, Map<String, String>> containerToHostMapping = new HashMap<>();
   private final TaskAssignmentManager taskAssignmentManager;
   private final boolean writeOnly;
-
-  /**
-   * Default constructor that creates a read-write manager
-   *
-   * @param coordinatorStreamProducer producer to the coordinator stream
-   * @param coordinatorStreamConsumer consumer for the coordinator stream
-   */
-  public LocalityManager(CoordinatorStreamSystemProducer coordinatorStreamProducer,
-                         CoordinatorStreamSystemConsumer coordinatorStreamConsumer) {
-    super(coordinatorStreamProducer, coordinatorStreamConsumer, "SamzaContainer-");
-    this.writeOnly = coordinatorStreamConsumer == null;
-    this.taskAssignmentManager = new TaskAssignmentManager(coordinatorStreamProducer, coordinatorStreamConsumer);
-  }
+  private CoordinatorStreamManager coordinatorStreamManager;
+  private static final String CONTAINER_PREFIX = "SamzaContainer-";
 
 
   /**
-   * Special constructor that creates a write-only {@link LocalityManager} that only writes
-   * to coordinator stream in {@link SamzaContainer}
-   *
-   * @param coordinatorStreamSystemProducer producer to the coordinator stream
+   * Constructor that creates a read-write or write-only locality manager.
+   * 
+   * @param coordinatorStreamManager Coordinator stream manager.
+   * @param writeOnly True if write-only, otherwise false.
    */
-  public LocalityManager(CoordinatorStreamSystemProducer coordinatorStreamSystemProducer) {
-    this(coordinatorStreamSystemProducer, null);
-  }
-
-  /**
-   * This method is not supported in {@link LocalityManager}. Use {@link LocalityManager#register(String)} instead.
-   *
-   * @throws UnsupportedOperationException in the case if a {@link TaskName} is passed
-   */
-  @Override
-  public void register(TaskName taskName) {
-    throw new UnsupportedOperationException("TaskName cannot be registered with LocalityManager");
+  public LocalityManager(CoordinatorStreamManager coordinatorStreamManager, boolean writeOnly) {
+    this.coordinatorStreamManager = coordinatorStreamManager;
+    this.writeOnly = writeOnly;
+    this.taskAssignmentManager = new TaskAssignmentManager(coordinatorStreamManager);
   }
 
   /**
@@ -81,10 +60,27 @@ public class LocalityManager extends AbstractCoordinatorStreamManager {
    * @param sourceSuffix the source suffix which is a container id
    */
   public void register(String sourceSuffix) {
-    if (!this.writeOnly) {
-      registerCoordinatorStreamConsumer();
+    if (!writeOnly) {
+      coordinatorStreamManager.registerCoordinatorStreamConsumer();
     }
-    registerCoordinatorStreamProducer(getSource() + sourceSuffix);
+    coordinatorStreamManager.registerCoordinatorStreamProducer(CONTAINER_PREFIX + sourceSuffix);
+  }
+
+  /**
+   * Ensures the coordinator stream is started.
+   */
+  public void start() {
+    if (!writeOnly) {
+      this.coordinatorStreamManager.startCoordinatorStreamConsumer();
+    }
+    this.coordinatorStreamManager.startCoordinatorStreamProducer();
+  }
+
+  /**
+   * Stops the coordinator stream.
+   */
+  public void stop() {
+    this.coordinatorStreamManager.stop();
   }
 
   /**
@@ -99,7 +95,7 @@ public class LocalityManager extends AbstractCoordinatorStreamManager {
     }
 
     Map<String, Map<String, String>> allMappings = new HashMap<>();
-    for (CoordinatorStreamMessage message: getBootstrappedStream(SetContainerHostMapping.TYPE)) {
+    for (CoordinatorStreamMessage message: coordinatorStreamManager.getBootstrappedStream(SetContainerHostMapping.TYPE)) {
       SetContainerHostMapping mapping = new SetContainerHostMapping(message);
       Map<String, String> localityMappings = new HashMap<>();
       localityMappings.put(SetContainerHostMapping.HOST_KEY, mapping.getHostLocality());
@@ -134,7 +130,7 @@ public class LocalityManager extends AbstractCoordinatorStreamManager {
     } else {
       log.info("Container {} started at {}", containerId, hostName);
     }
-    send(new SetContainerHostMapping(getSource() + containerId, String.valueOf(containerId), hostName, jmxAddress,
+    coordinatorStreamManager.send(new SetContainerHostMapping(CONTAINER_PREFIX + containerId, String.valueOf(containerId), hostName, jmxAddress,
         jmxTunnelingAddress));
     Map<String, String> mappings = new HashMap<>();
     mappings.put(SetContainerHostMapping.HOST_KEY, hostName);
