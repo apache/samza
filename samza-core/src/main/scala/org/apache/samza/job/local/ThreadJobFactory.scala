@@ -40,8 +40,10 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     info("Creating a ThreadJob, which is only meant for debugging.")
 
     val metricsRegistry = new MetricsRegistryMap()
-    val coordinatorStreamManager = new CoordinatorStreamManager(config, metricsRegistry, getClass.getSimpleName)
-    coordinatorStreamManager.registerStartBootstrapAll()
+    val coordinatorStreamManager = new CoordinatorStreamManager(config, metricsRegistry)
+    coordinatorStreamManager.register(getClass.getSimpleName)
+    coordinatorStreamManager.start
+    coordinatorStreamManager.bootstrap
     val changelogPartitionManager = new ChangelogStreamManager(coordinatorStreamManager)
 
     val coordinator = JobModelManager(coordinatorStreamManager, changelogPartitionManager.readPartitionMapping())

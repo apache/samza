@@ -281,8 +281,10 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
   }
 
   def getTestJobModelManager(config: MapConfig) = {
-    val coordinatorStreamManager = new CoordinatorStreamManager(config, new MetricsRegistryMap, "TestJobCoordinator")
-    coordinatorStreamManager.registerStartBootstrapAll()
+    val coordinatorStreamManager = new CoordinatorStreamManager(config, new MetricsRegistryMap)
+    coordinatorStreamManager.register("TestJobCoordinator")
+    coordinatorStreamManager.start
+    coordinatorStreamManager.bootstrap
     val changelogPartitionManager = new ChangelogStreamManager(coordinatorStreamManager)
     JobModelManager(coordinatorStreamManager, changelogPartitionManager.readPartitionMapping())
   }

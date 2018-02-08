@@ -46,7 +46,7 @@ public class TaskAssignmentManager {
    */
   public TaskAssignmentManager(CoordinatorStreamManager coordinatorStreamManager) {
     this.coordinatorStreamManager = coordinatorStreamManager;
-    coordinatorStreamManager.registerCoordinatorStreamProducer(SOURCE);
+    coordinatorStreamManager.register(SOURCE);
   }
 
   /**

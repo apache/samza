@@ -62,14 +62,13 @@ public class TestTaskAssignmentManager {
         mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(config, null);
     consumer.register();
     CoordinatorStreamManager
-        coordinatorStreamManager = new CoordinatorStreamManager(producer, consumer, "TestLocalityManager");
+        coordinatorStreamManager = new CoordinatorStreamManager(producer, consumer);
     TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(coordinatorStreamManager);
 
     assertTrue(producer.isRegistered());
     assertEquals(producer.getRegisteredSource(), "SamzaTaskAssignmentManager");
 
-    coordinatorStreamManager.startCoordinatorStreamProducer();
-    coordinatorStreamManager.startCoordinatorStreamConsumer();
+    coordinatorStreamManager.start();
     assertTrue(producer.isStarted());
     assertTrue(consumer.isStarted());
 
@@ -92,8 +91,7 @@ public class TestTaskAssignmentManager {
 
     assertEquals(expectedMap, localMap);
 
-    coordinatorStreamManager.stopCoordinatorStreamConsumer();
-    coordinatorStreamManager.stopCoordinatorStreamProducer();
+    coordinatorStreamManager.stop();
     assertTrue(producer.isStopped());
     assertTrue(consumer.isStopped());
   }
@@ -107,14 +105,13 @@ public class TestTaskAssignmentManager {
         mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(config, null);
     consumer.register();
     CoordinatorStreamManager
-        coordinatorStreamManager = new CoordinatorStreamManager(producer, consumer, "TestLocalityManager");
+        coordinatorStreamManager = new CoordinatorStreamManager(producer, consumer);
     TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(coordinatorStreamManager);
 
     assertTrue(producer.isRegistered());
     assertEquals(producer.getRegisteredSource(), "SamzaTaskAssignmentManager");
 
-    coordinatorStreamManager.startCoordinatorStreamProducer();
-    coordinatorStreamManager.startCoordinatorStreamConsumer();
+    coordinatorStreamManager.start();
     assertTrue(producer.isStarted());
     assertTrue(consumer.isStarted());
 
@@ -137,8 +134,7 @@ public class TestTaskAssignmentManager {
     Map<String, String> deletedMap = taskAssignmentManager.readTaskAssignment();
     assertTrue(deletedMap.isEmpty());
 
-    coordinatorStreamManager.stopCoordinatorStreamProducer();
-    coordinatorStreamManager.stopCoordinatorStreamConsumer();
+    coordinatorStreamManager.stop();
     assertTrue(producer.isStopped());
     assertTrue(consumer.isStopped());
   }
@@ -152,14 +148,13 @@ public class TestTaskAssignmentManager {
         mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(config, null);
     consumer.register();
     CoordinatorStreamManager
-        coordinatorStreamManager = new CoordinatorStreamManager(producer, consumer, "TestLocalityManager");
+        coordinatorStreamManager = new CoordinatorStreamManager(producer, consumer);
     TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(coordinatorStreamManager);
 
     assertTrue(producer.isRegistered());
     assertEquals(producer.getRegisteredSource(), "SamzaTaskAssignmentManager");
 
-    coordinatorStreamManager.startCoordinatorStreamProducer();
-    coordinatorStreamManager.startCoordinatorStreamConsumer();
+    coordinatorStreamManager.start();
     assertTrue(producer.isStarted());
     assertTrue(consumer.isStarted());
 
@@ -168,8 +163,7 @@ public class TestTaskAssignmentManager {
 
     assertEquals(expectedMap, localMap);
 
-    coordinatorStreamManager.stopCoordinatorStreamProducer();
-    coordinatorStreamManager.stopCoordinatorStreamConsumer();
+    coordinatorStreamManager.stop();
     assertTrue(producer.isStopped());
     assertTrue(consumer.isStopped());
   }

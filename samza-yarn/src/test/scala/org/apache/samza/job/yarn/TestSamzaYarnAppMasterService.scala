@@ -101,8 +101,10 @@ class TestSamzaYarnAppMasterService {
   }
 
   private def getTestJobModelManager(config: Config) = {
-    val coordinatorStreamManager = new CoordinatorStreamManager(config, new MetricsRegistryMap, "TestJobCoordinator")
-    coordinatorStreamManager.registerStartBootstrapAll()
+    val coordinatorStreamManager = new CoordinatorStreamManager(config, new MetricsRegistryMap)
+    coordinatorStreamManager.register("TestJobCoordinator")
+    coordinatorStreamManager.start
+    coordinatorStreamManager.bootstrap
     val changelogPartitionManager = new ChangelogStreamManager(coordinatorStreamManager)
     JobModelManager(coordinatorStreamManager, changelogPartitionManager.readPartitionMapping())
   }

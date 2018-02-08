@@ -70,7 +70,7 @@ object JobModelManager extends Logging {
   def apply(coordinatorStreamManager: CoordinatorStreamManager, changelogPartitionMapping: util.Map[TaskName, Integer]) = {
     val localityManager = new LocalityManager(coordinatorStreamManager, false)
 
-    val config = coordinatorStreamManager.getCoordinatorStreamConsumerConfig
+    val config = coordinatorStreamManager.getConfig
 
       // Map the name of each system to the corresponding SystemAdmin
     val systemAdmins = new SystemAdmins(config)

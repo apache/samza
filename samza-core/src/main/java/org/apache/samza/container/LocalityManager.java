@@ -44,7 +44,7 @@ public class LocalityManager {
 
   /**
    * Constructor that creates a read-write or write-only locality manager.
-   * 
+   *
    * @param coordinatorStreamManager Coordinator stream manager.
    * @param writeOnly True if write-only, otherwise false.
    */
@@ -52,35 +52,6 @@ public class LocalityManager {
     this.coordinatorStreamManager = coordinatorStreamManager;
     this.writeOnly = writeOnly;
     this.taskAssignmentManager = new TaskAssignmentManager(coordinatorStreamManager);
-  }
-
-  /**
-   * Registers the locality manager with a source suffix that is container id
-   *
-   * @param sourceSuffix the source suffix which is a container id
-   */
-  public void register(String sourceSuffix) {
-    if (!writeOnly) {
-      coordinatorStreamManager.registerCoordinatorStreamConsumer();
-    }
-    coordinatorStreamManager.registerCoordinatorStreamProducer(CONTAINER_PREFIX + sourceSuffix);
-  }
-
-  /**
-   * Ensures the coordinator stream is started.
-   */
-  public void start() {
-    if (!writeOnly) {
-      this.coordinatorStreamManager.startCoordinatorStreamConsumer();
-    }
-    this.coordinatorStreamManager.startCoordinatorStreamProducer();
-  }
-
-  /**
-   * Stops the coordinator stream.
-   */
-  public void stop() {
-    this.coordinatorStreamManager.stop();
   }
 
   /**
@@ -141,5 +112,9 @@ public class LocalityManager {
 
   public TaskAssignmentManager getTaskAssignmentManager() {
     return taskAssignmentManager;
+  }
+
+  public CoordinatorStreamManager getCoordinatorStreamManager() {
+    return coordinatorStreamManager;
   }
 }

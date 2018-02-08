@@ -46,7 +46,9 @@ public class ChangelogStreamManager {
 
   private static final Logger log = LoggerFactory.getLogger(ChangelogStreamManager.class);
   private final CoordinatorStreamManager coordinatorStreamManager;
-  private final String source;
+
+  // This is legacy for changelog. Need to investigate what happens if you use a different source name
+  private static final String SOURCE = "JobModelManager";
 
   /**
    * Construct Changelog manager without a coordinator stream.
@@ -55,7 +57,6 @@ public class ChangelogStreamManager {
    */
   public ChangelogStreamManager(String source) {
     coordinatorStreamManager = null;
-    this.source = source;
   }
 
   /**
@@ -65,7 +66,6 @@ public class ChangelogStreamManager {
    */
   public ChangelogStreamManager(CoordinatorStreamManager coordinatorStreamManager) {
     this.coordinatorStreamManager = coordinatorStreamManager;
-    this.source = coordinatorStreamManager.getSource();
   }
 
   /**
@@ -92,7 +92,7 @@ public class ChangelogStreamManager {
     log.debug("Updating changelog information with: ");
     for (Map.Entry<TaskName, Integer> entry : changelogEntries.entrySet()) {
       log.debug("TaskName: {} to Partition: {}", entry.getKey().getTaskName(), entry.getValue());
-      coordinatorStreamManager.send(new SetChangelogMapping(source, entry.getKey().getTaskName(), entry.getValue()));
+      coordinatorStreamManager.send(new SetChangelogMapping(SOURCE, entry.getKey().getTaskName(), entry.getValue()));
     }
   }
 
@@ -130,8 +130,8 @@ public class ChangelogStreamManager {
 
         if (systemAdmin == null) {
           throw new SamzaException(String.format(
-              "Error creating changelog from %s. Changelog on store %s uses system %s, which is missing from the configuration.",
-              source, storeName, systemStream.getSystem()));
+              "Error creating changelog. Changelog on store %s uses system %s, which is missing from the configuration.",
+              storeName, systemStream.getSystem()));
         }
 
         StreamSpec changelogSpec =
@@ -141,7 +141,7 @@ public class ChangelogStreamManager {
         systemAdmin.start();
 
         if (systemAdmin.createStream(changelogSpec)) {
-          log.info(String.format("%s created changelog stream %s.", source, systemStream.getStream()));
+          log.info(String.format("created changelog stream %s.", systemStream.getStream()));
         } else {
           log.info(String.format("changelog stream %s already exists.", systemStream.getStream()));
         }

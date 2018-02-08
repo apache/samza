@@ -60,7 +60,8 @@ object SamzaContainer extends Logging {
 
   def getLocalityManager(containerName: String, config: Config): LocalityManager = {
     val registryMap = new MetricsRegistryMap(containerName)
-    val coordinatorStreamManager = new CoordinatorStreamManager(config, new SamzaContainerMetrics(containerName, registryMap).registry, this.getClass.getSimpleName)
+    val coordinatorStreamSystemProducer = new CoordinatorStreamSystemProducer(config, new SamzaContainerMetrics(containerName, registryMap).registry)
+    val coordinatorStreamManager = new CoordinatorStreamManager(coordinatorStreamSystemProducer, null)
     new LocalityManager(coordinatorStreamManager, true)
   }
 
@@ -841,8 +842,11 @@ class SamzaContainer(
   def startLocalityManager {
     if(localityManager != null) {
       info("Registering localityManager for the container")
-      localityManager.start
-      localityManager.register(String.valueOf(containerContext.id))
+      // Ideally coordinator stream manager should be directly, but the SamzaContainer constructor parameter list is
+      // already too long.
+      val coordinatorStreamManager = localityManager.getCoordinatorStreamManager
+      coordinatorStreamManager.start
+      coordinatorStreamManager.register("SamzaContainer-" + String.valueOf(containerContext.id))
 
       info("Writing container locality and JMX address to Coordinator Stream")
       try {
@@ -1015,7 +1019,7 @@ class SamzaContainer(
   def shutdownLocalityManager {
     if(localityManager != null) {
       info("Shutting down locality manager.")
-      localityManager.stop
+      localityManager.getCoordinatorStreamManager.stop
     }
   }
 

@@ -165,8 +165,10 @@ public class ClusterBasedJobCoordinator {
     metrics = new MetricsRegistryMap();
 
     //build a JobModelManager and ChangelogStreamManager and perform partition assignments.
-    coordinatorStreamManager = new CoordinatorStreamManager(coordinatorSystemConfig, metrics, COORDINATOR_STREAM_SOURCE);
-    coordinatorStreamManager.registerStartBootstrapAll();
+    coordinatorStreamManager = new CoordinatorStreamManager(coordinatorSystemConfig, metrics);
+    coordinatorStreamManager.register(COORDINATOR_STREAM_SOURCE);
+    coordinatorStreamManager.start();
+    coordinatorStreamManager.bootstrap();
     changelogStreamManager = new ChangelogStreamManager(coordinatorStreamManager);
     jobModelManager = JobModelManager.apply(coordinatorStreamManager, changelogStreamManager.readPartitionMapping());
 

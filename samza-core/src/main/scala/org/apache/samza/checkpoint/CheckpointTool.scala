@@ -164,8 +164,10 @@ class CheckpointTool(config: Config, newOffsets: TaskNameToCheckpointMap, manage
     info("Using %s" format manager)
 
     // Find all the TaskNames that would be generated for this job config
-    val coordinatorStreamManager = new CoordinatorStreamManager(config, new MetricsRegistryMap(), getClass.getSimpleName)
-    coordinatorStreamManager.registerStartBootstrapAll()
+    val coordinatorStreamManager = new CoordinatorStreamManager(config, new MetricsRegistryMap())
+    coordinatorStreamManager.register(getClass.getSimpleName)
+    coordinatorStreamManager.start
+    coordinatorStreamManager.bootstrap
     val changelogManager = new ChangelogStreamManager(coordinatorStreamManager)
     val jobModelManager = JobModelManager(coordinatorStreamManager, changelogManager.readPartitionMapping())
     val taskNames = jobModelManager

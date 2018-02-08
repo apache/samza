@@ -33,7 +33,6 @@ import org.slf4j.LoggerFactory;
  */
 public class CoordinatorStreamManager {
   private Logger log = LoggerFactory.getLogger(CoordinatorStreamManager.class);
-  private final String source;
   private CoordinatorStreamSystemProducer coordinatorStreamProducer;
   private CoordinatorStreamSystemConsumer coordinatorStreamConsumer;
 
@@ -42,62 +41,53 @@ public class CoordinatorStreamManager {
    *
    * @param coordinatorStreamProducer The {@link CoordinatorStreamSystemProducer} which should be used with the {@link CoordinatorStreamManager}
    * @param coordinatorStreamConsumer The {@link CoordinatorStreamSystemConsumer} which should be used with the {@link CoordinatorStreamManager}
-   * @param source The source of the coordinator stream.
    */
-  public CoordinatorStreamManager(CoordinatorStreamSystemProducer coordinatorStreamProducer, CoordinatorStreamSystemConsumer coordinatorStreamConsumer, String source) {
+  public CoordinatorStreamManager(CoordinatorStreamSystemProducer coordinatorStreamProducer, CoordinatorStreamSystemConsumer coordinatorStreamConsumer) {
     this.coordinatorStreamProducer = coordinatorStreamProducer;
     this.coordinatorStreamConsumer = coordinatorStreamConsumer;
-    this.source = source;
   }
 
   /**
    * Creates a new {@link CoordinatorStreamManager} and instantiates the underlying coordinator stream producer and consumer.
    * @param coordinatorSystemConfig Configuration used to instantiate the coordinator stream producer and consumer.
    * @param metricsRegistry Metrics registry
-   * @param source The source of the coordinator stream.
    */
-  public CoordinatorStreamManager(Config coordinatorSystemConfig, MetricsRegistry metricsRegistry, String source) {
+  public CoordinatorStreamManager(Config coordinatorSystemConfig, MetricsRegistry metricsRegistry) {
     coordinatorStreamConsumer = new CoordinatorStreamSystemConsumer(coordinatorSystemConfig, metricsRegistry);
     coordinatorStreamProducer = new CoordinatorStreamSystemProducer(coordinatorSystemConfig, metricsRegistry);
-    this.source = source;
   }
 
-  /**
-   * Fully starts, registers and bootstraps the underlying coordinator stream producer and consumer.
-   */
-  public void registerStartBootstrapAll() {
-    registerCoordinatorStreamConsumer();
-    startCoordinatorStreamConsumer();
-    bootstrapCoordinatorStreamConsumer();
-    registerCoordinatorStreamProducer(source);
-    startCoordinatorStreamProducer();
+  public void register(String source) {
+    if (coordinatorStreamConsumer != null) {
+      log.info("Registering coordinator system stream consumer from {}.", source);
+      coordinatorStreamConsumer.register();
+    }
+    if (coordinatorStreamProducer != null) {
+      log.info("Registering coordinator system stream producer from {}.", source);
+      coordinatorStreamProducer.register(source);
+    }
+  }
+
+  public void start() {
+    if (coordinatorStreamConsumer != null && !coordinatorStreamConsumer.isStarted()) {
+      log.debug("Starting coordinator system stream consumer.");
+      coordinatorStreamConsumer.start();
+    }
+    if (coordinatorStreamProducer != null && !coordinatorStreamProducer.isStarted()) {
+      log.debug("Starting coordinator system stream producer.");
+      coordinatorStreamProducer.start();
+    }
   }
 
   /**
    * Stops the underlying coordinator stream producer and consumer.
    */
   public void stop() {
-    stopCoordinatorStreamConsumer();
-    stopCoordinatorStreamProducer();
-  }
-
-  /**
-   * Start the coordinator stream consumer.
-   */
-  public void startCoordinatorStreamConsumer() {
-    if (coordinatorStreamConsumer != null && !coordinatorStreamConsumer.isStarted()) {
-      log.debug("Starting coordinator system stream consumer.");
-      coordinatorStreamConsumer.start();
+    if (coordinatorStreamConsumer != null && coordinatorStreamConsumer.isStarted()) {
+      coordinatorStreamConsumer.stop();
     }
-  }
-
-  /**
-   * Start the coordinator stream producer.
-   */
-  public void startCoordinatorStreamProducer() {
-    if (coordinatorStreamProducer != null && !coordinatorStreamProducer.isStarted()) {
-      log.debug("Starting coordinator system stream producer.");
-      coordinatorStreamProducer.start();
+    if (coordinatorStreamProducer != null && coordinatorStreamProducer.isStarted()) {
+      coordinatorStreamProducer.stop();
     }
   }
 
@@ -115,7 +105,7 @@ public class CoordinatorStreamManager {
   /**
    * Bootstrap the coordinator stream consumer.
    */
-  public void bootstrapCoordinatorStreamConsumer() {
+  public void bootstrap() {
     if (coordinatorStreamConsumer != null && !coordinatorStreamConsumer.isBootstrapped()) {
       log.debug("Bootstrapping coordinator system stream consumer.");
       coordinatorStreamConsumer.bootstrap();
@@ -129,69 +119,19 @@ public class CoordinatorStreamManager {
    */
   public Set<CoordinatorStreamMessage> getBootstrappedStream(String source) {
     if (coordinatorStreamConsumer == null) {
-      throw new UnsupportedOperationException(String.format("CoordinatorStreamConsumer is not initialized in the CoordinatorStreamManager. "
-          + "input source: %s", source));
+      throw new UnsupportedOperationException(String.format("CoordinatorStreamConsumer is not initialized in the CoordinatorStreamManager. "));
     }
     return coordinatorStreamConsumer.getBootstrappedStream(source);
-  }
-
-  /**
-   * Register the coordinator stream consumer.
-   */
-  public void registerCoordinatorStreamConsumer() {
-    if (coordinatorStreamConsumer != null) {
-      log.info("Registering coordinator system stream consumer from {}.", source);
-      coordinatorStreamConsumer.register();
-    }
-  }
-
-  /**
-   * Registers the coordinator stream producer for a given source.
-   * @param source the source to register
-   */
-  public void registerCoordinatorStreamProducer(String source) {
-    if (coordinatorStreamProducer != null) {
-      log.info("Registering coordinator system stream producer from {}.", source);
-      coordinatorStreamProducer.register(source);
-    }
   }
 
   /**
    * Returns the config for the coordinator stream consumer.
    * @return Config of the coordinator stream consumer.
    */
-  public Config getCoordinatorStreamConsumerConfig() {
+  public Config getConfig() {
     if (coordinatorStreamConsumer == null) {
-      throw new UnsupportedOperationException(String.format("CoordinatorStreamConsumer is not initialized in the CoordinatorStreamManager. "
-          + "input source: %s", source));
+      throw new UnsupportedOperationException(String.format("CoordinatorStreamConsumer is not initialized in the CoordinatorStreamManager. "));
     }
     return coordinatorStreamConsumer.getConfig();
-  }
-
-  /**
-   * Stop only the consumer.
-   */
-  public void stopCoordinatorStreamConsumer() {
-    if (coordinatorStreamConsumer != null && coordinatorStreamConsumer.isStarted()) {
-      coordinatorStreamConsumer.stop();
-    }
-  }
-
-  /**
-   * Stop only the producer.
-   */
-  public void stopCoordinatorStreamProducer() {
-    if (coordinatorStreamProducer != null && coordinatorStreamProducer.isStarted()) {
-      coordinatorStreamProducer.stop();
-    }
-  }
-
-  /**
-   * Source name of the coordinator stream.
-   *
-   * @return Source name.
-   */
-  public String getSource() {
-    return source;
   }
 }
