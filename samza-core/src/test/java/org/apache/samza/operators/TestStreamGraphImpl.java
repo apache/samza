@@ -12,14 +12,17 @@
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
+ * KIND, either express or implied.  See the License for THE
  * specific language governing permissions and limitations
  * under the License.
  */
 package org.apache.samza.operators;
 
 import com.google.common.collect.ImmutableList;
-import junit.framework.Assert;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -33,13 +36,13 @@ import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
+import org.apache.samza.table.TableSpec;
 import org.junit.Test;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doReturn;
@@ -536,7 +539,7 @@ public class TestStreamGraphImpl {
       graph.getNextOpId(OpCode.FILTER, " ");
       graph.getNextOpId(OpCode.FILTER, "\t");
     } catch (SamzaException e) {
-      Assert.fail("Received an error with a null or empty operator ID instead of defaulting to auto-generated ID.");
+      fail("Received an error with a null or empty operator ID instead of defaulting to auto-generated ID.");
     }
 
     List<String> validOpIds = ImmutableList.of("op.id", "op_id", "op-id", "1000", "op_1", "OP_ID");
@@ -544,7 +547,7 @@ public class TestStreamGraphImpl {
       try {
         graph.getNextOpId(OpCode.FILTER, validOpId);
       } catch (Exception e) {
-        Assert.fail("Received an exception with a valid operator ID: " + validOpId);
+        fail("Received an exception with a valid operator ID: " + validOpId);
       }
     }
 
@@ -552,7 +555,7 @@ public class TestStreamGraphImpl {
     for (String invalidOpId: invalidOpIds) {
       try {
         graph.getNextOpId(OpCode.FILTER, invalidOpId);
-        Assert.fail("Did not receive an exception with an invalid operator ID: " + invalidOpId);
+        fail("Did not receive an exception with an invalid operator ID: " + invalidOpId);
       } catch (SamzaException e) { }
     }
   }
@@ -578,10 +581,21 @@ public class TestStreamGraphImpl {
     graph.getInputStream("test-stream-3");
 
     List<InputOperatorSpec> inputSpecs = new ArrayList<>(graph.getInputOperators().values());
-    Assert.assertEquals(inputSpecs.size(), 3);
-    Assert.assertEquals(inputSpecs.get(0).getStreamSpec(), testStreamSpec1);
-    Assert.assertEquals(inputSpecs.get(1).getStreamSpec(), testStreamSpec2);
-    Assert.assertEquals(inputSpecs.get(2).getStreamSpec(), testStreamSpec3);
+    assertEquals(inputSpecs.size(), 3);
+    assertEquals(inputSpecs.get(0).getStreamSpec(), testStreamSpec1);
+    assertEquals(inputSpecs.get(1).getStreamSpec(), testStreamSpec2);
+    assertEquals(inputSpecs.get(2).getStreamSpec(), testStreamSpec3);
   }
 
+  @Test
+  public void testGetTable() {
+    ApplicationRunner mockRunner = mock(ApplicationRunner.class);
+    Config mockConfig = mock(Config.class);
+    StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mockConfig);
+
+    BaseTableDescriptor mockTableDescriptor = mock(BaseTableDescriptor.class);
+    when(mockTableDescriptor.getTableSpec()).thenReturn(
+        new TableSpec("t1", KVSerde.of(new NoOpSerde(), new NoOpSerde()), "", new HashMap<>()));
+    assertNotNull(graph.getTable(mockTableDescriptor));
+  }
 }

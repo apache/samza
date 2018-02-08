@@ -31,15 +31,15 @@ public class OutputStreamImpl<M> implements OutputStream<M>, Serializable {
   private transient final Serde keySerde;
   private transient final Serde valueSerde;
   private final SystemStream systemStream;
-  private final boolean isKeyedOutput;
+  private final boolean isKeyed;
 
   public OutputStreamImpl(StreamSpec streamSpec,
-      Serde keySerde, Serde valueSerde, boolean isKeyedOutput) {
+      Serde keySerde, Serde valueSerde, boolean isKeyed) {
     this.streamSpec = streamSpec;
     this.keySerde = keySerde;
     this.valueSerde = valueSerde;
-    this.isKeyedOutput = isKeyedOutput;
     this.systemStream = new SystemStream(streamSpec.getSystemName(), streamSpec.getPhysicalName());
+    this.isKeyed = isKeyed;
   }
 
   public StreamSpec getStreamSpec() {
@@ -58,8 +58,8 @@ public class OutputStreamImpl<M> implements OutputStream<M>, Serializable {
     return this.systemStream;
   }
 
-  public boolean isKeyedOutput() {
-    return isKeyedOutput;
+  public boolean isKeyed() {
+    return isKeyed;
   }
 
 }

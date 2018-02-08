@@ -49,11 +49,11 @@ public class IntermediateMessageStreamImpl<M> extends MessageStreamImpl<M> imple
       OutputStreamImpl<M> outputStream) {
     super(graph, (OperatorSpec<?, M>) inputOperatorSpec);
     this.outputStream = outputStream;
-    if (inputOperatorSpec.isKeyedInput() != outputStream.isKeyedOutput()) {
+    if (inputOperatorSpec.isKeyed() != outputStream.isKeyed()) {
       LOGGER.error("Input and output streams for intermediate stream {} aren't keyed consistently. Input: {}, Output: {}",
-          new Object[]{inputOperatorSpec.getStreamSpec().getId(), inputOperatorSpec.isKeyedInput(), outputStream.isKeyedOutput()});
+          new Object[]{inputOperatorSpec.getStreamSpec().getId(), inputOperatorSpec.isKeyed(), outputStream.isKeyed()});
     }
-    this.isKeyed = inputOperatorSpec.isKeyedInput() && outputStream.isKeyedOutput();
+    this.isKeyed = inputOperatorSpec.isKeyed() && outputStream.isKeyed();
   }
 
   public StreamSpec getStreamSpec() {

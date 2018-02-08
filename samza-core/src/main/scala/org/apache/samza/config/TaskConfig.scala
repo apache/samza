@@ -137,4 +137,9 @@ class TaskConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     case Some(asyncCommit) => Some(asyncCommit.toBoolean)
     case _ => None
   }
+
+  def isAutoCommitEnabled() = getOption(TaskConfig.COMMIT_MS) match {
+    case Some(commitMs) => commitMs.toInt > 0
+    case _ => true
+  }
 }

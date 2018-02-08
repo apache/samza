@@ -23,7 +23,10 @@ include \
   'samza-log4j',
   'samza-rest',
   'samza-shell',
-  'samza-azure'
+  'samza-azure',
+  'samza-sql',
+  'samza-aws',
+  'samza-tools'
 
 def scalaModules = [
         'samza-core',

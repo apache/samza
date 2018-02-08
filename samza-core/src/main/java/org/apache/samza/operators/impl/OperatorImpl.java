@@ -23,6 +23,8 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.metrics.Counter;
@@ -61,14 +63,19 @@ public abstract class OperatorImpl<M, RM> {
   private Counter numMessage;
   private Timer handleMessageNs;
   private Timer handleTimerNs;
-  private long inputWatermark = WatermarkStates.WATERMARK_NOT_EXIST;
+  private long currentWatermark = WatermarkStates.WATERMARK_NOT_EXIST;
   private long outputWatermark = WatermarkStates.WATERMARK_NOT_EXIST;
   private TaskName taskName;
+  // Although the operator node is in the operator graph, the current task may not consume any message in it.
+  // This can be caused by none of the input stream partitions of this op is assigned to the current task.
+  // It's important to know so we can populate the watermarks correctly.
+  private boolean usedInCurrentTask = false;
 
   Set<OperatorImpl<RM, ?>> registeredOperators;
   Set<OperatorImpl<?, M>> prevOperators;
   Set<SystemStream> inputStreams;
 
+  private TaskModel taskModel;
   // end-of-stream states
   private EndOfStreamStates eosStates;
   // watermark states
@@ -81,14 +88,14 @@ public abstract class OperatorImpl<M, RM> {
    * @param context  the {@link TaskContext} for the task
    */
   public final void init(Config config, TaskContext context) {
-    String opName = getOperatorName();
+    String opId = getOpImplId();
 
     if (initialized) {
-      throw new IllegalStateException(String.format("Attempted to initialize Operator %s more than once.", opName));
+      throw new IllegalStateException(String.format("Attempted to initialize Operator %s more than once.", opId));
     }
 
     if (closed) {
-      throw new IllegalStateException(String.format("Attempted to initialize Operator %s after it was closed.", opName));
+      throw new IllegalStateException(String.format("Attempted to initialize Operator %s after it was closed.", opId));
     }
 
     this.highResClock = createHighResClock(config);
@@ -96,14 +103,23 @@ public abstract class OperatorImpl<M, RM> {
     prevOperators = new HashSet<>();
     inputStreams = new HashSet<>();
     MetricsRegistry metricsRegistry = context.getMetricsRegistry();
-    this.numMessage = metricsRegistry.newCounter(METRICS_GROUP, opName + "-messages");
-    this.handleMessageNs = metricsRegistry.newTimer(METRICS_GROUP, opName + "-handle-message-ns");
-    this.handleTimerNs = metricsRegistry.newTimer(METRICS_GROUP, opName + "-handle-timer-ns");
+    this.numMessage = metricsRegistry.newCounter(METRICS_GROUP, opId + "-messages");
+    this.handleMessageNs = metricsRegistry.newTimer(METRICS_GROUP, opId + "-handle-message-ns");
+    this.handleTimerNs = metricsRegistry.newTimer(METRICS_GROUP, opId + "-handle-timer-ns");
     this.taskName = context.getTaskName();
 
     TaskContextImpl taskContext = (TaskContextImpl) context;
     this.eosStates = (EndOfStreamStates) taskContext.fetchObject(EndOfStreamStates.class.getName());
     this.watermarkStates = (WatermarkStates) taskContext.fetchObject(WatermarkStates.class.getName());
+
+    if (taskContext.getJobModel() != null) {
+      ContainerModel containerModel = taskContext.getJobModel().getContainers()
+          .get(context.getSamzaContainerContext().id);
+      this.taskModel = containerModel.getTasks().get(taskName);
+    } else {
+      this.taskModel = null;
+      this.usedInCurrentTask = true;
+    }
 
     handleInit(config, context);
 
@@ -127,7 +143,7 @@ public abstract class OperatorImpl<M, RM> {
     if (!initialized) {
       throw new IllegalStateException(
           String.format("Attempted to register next operator before initializing operator %s.",
-              getOperatorName()));
+              getOpImplId()));
     }
     this.registeredOperators.add(nextOperator);
     nextOperator.registerPrevOperator(this);
@@ -139,6 +155,9 @@ public abstract class OperatorImpl<M, RM> {
 
   void registerInputStream(SystemStream input) {
     this.inputStreams.add(input);
+
+    usedInCurrentTask = usedInCurrentTask
+        || taskModel.getSystemStreamPartitions().stream().anyMatch(ssp -> ssp.getSystemStream().equals(input));
   }
 
   /**
@@ -163,7 +182,7 @@ public abstract class OperatorImpl<M, RM> {
           String.format("Error applying operator %s (created at %s) to its input message. "
                   + "Expected input message to be of type %s, but found it to be of type %s. "
                   + "Are Serdes for the inputs to this operator configured correctly?",
-              getOperatorName(), getOperatorSpec().getSourceLocation(), expectedType, actualType), e);
+              getOpImplId(), getOperatorSpec().getSourceLocation(), expectedType, actualType), e);
     }
 
     long endNs = this.highResClock.nanoTime();
@@ -247,6 +266,7 @@ public abstract class OperatorImpl<M, RM> {
       if (eosStates.allEndOfStream()) {
         // all inputs have been end-of-stream, shut down the task
         LOG.info("All input streams have reached the end for task {}", taskName.getTaskName());
+        coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
         coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
       }
     }
@@ -260,7 +280,12 @@ public abstract class OperatorImpl<M, RM> {
    */
   private final void onEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
     if (inputStreams.stream().allMatch(input -> eosStates.isEndOfStream(input))) {
-      handleEndOfStream(collector, coordinator);
+      Collection<RM> results = handleEndOfStream(collector, coordinator);
+
+      results.forEach(rm ->
+          this.registeredOperators.forEach(op ->
+              op.onMessage(rm, collector, coordinator)));
+
       this.registeredOperators.forEach(op -> op.onEndOfStream(collector, coordinator));
     }
   }
@@ -272,9 +297,10 @@ public abstract class OperatorImpl<M, RM> {
    * override this to actually propagate EOS over the wire.
    * @param collector message collector
    * @param coordinator task coordinator
+   * @return results to be emitted when this operator reaches end-of-stream
    */
-  protected void handleEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
-    //Do nothing by default
+  protected Collection<RM> handleEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
+    return Collections.emptyList();
   }
 
   /**
@@ -314,21 +340,29 @@ public abstract class OperatorImpl<M, RM> {
       inputWatermarkMin = prevOperators.stream().map(op -> op.getOutputWatermark()).min(Long::compare).get();
     }
 
-    if (inputWatermark < inputWatermarkMin) {
+    if (currentWatermark < inputWatermarkMin) {
       // advance the watermark time of this operator
-      inputWatermark = inputWatermarkMin;
-      LOG.trace("Advance input watermark to {} in operator {}", inputWatermark, getOperatorName());
+      currentWatermark = inputWatermarkMin;
+      LOG.trace("Advance input watermark to {} in operator {}", currentWatermark, getOpImplId());
 
       final Long outputWm;
-      WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
+      final Collection<RM> output;
+      final WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
       if (watermarkFn != null) {
         // user-overrided watermark handling here
-        watermarkFn.processWatermark(inputWatermark);
+        output = (Collection<RM>) watermarkFn.processWatermark(currentWatermark);
         outputWm = watermarkFn.getOutputWatermark();
       } else {
         // use samza-provided watermark handling
         // default is to propagate the input watermark
-        outputWm = handleWatermark(inputWatermark, collector, coordinator);
+        output = handleWatermark(currentWatermark, collector, coordinator);
+        outputWm = getOutputWatermark();
+      }
+
+      if (!output.isEmpty()) {
+        output.forEach(rm ->
+            this.registeredOperators.forEach(op ->
+                op.onMessage(rm, collector, coordinator)));
       }
 
       propagateWatermark(outputWm, collector, coordinator);
@@ -340,7 +374,7 @@ public abstract class OperatorImpl<M, RM> {
       if (outputWatermark < outputWm) {
         // advance the watermark
         outputWatermark = outputWm;
-        LOG.debug("Advance output watermark to {} in operator {}", outputWatermark, getOperatorName());
+        LOG.debug("Advance output watermark to {} in operator {}", outputWatermark, getOpImplId());
         this.registeredOperators.forEach(op -> op.onWatermark(outputWatermark, collector, coordinator));
       } else if (outputWatermark > outputWm) {
         LOG.warn("Ignore watermark {} that is smaller than the previous watermark {}.", outputWm, outputWatermark);
@@ -357,25 +391,35 @@ public abstract class OperatorImpl<M, RM> {
    * @param coordinator task coordinator
    * @return output watermark, or null if the output watermark should not be updated.
    */
-  protected Long handleWatermark(long inputWatermark, MessageCollector collector, TaskCoordinator coordinator) {
-    // Default is no handling. Simply pass on the input watermark as output.
-    return inputWatermark;
+  protected Collection<RM> handleWatermark(long inputWatermark, MessageCollector collector, TaskCoordinator coordinator) {
+    // Default is no handling. Output is empty.
+    return Collections.emptyList();
   }
 
   /* package private for testing */
   final long getInputWatermark() {
-    return this.inputWatermark;
+    return this.currentWatermark;
   }
 
-  /* package private for testing */
-  final long getOutputWatermark() {
-    return this.outputWatermark;
+  /**
+   * Returns the output watermark, default is the same as input.
+   * Operators which keep track of watermark should override this to return the current watermark.
+   * @return output watermark
+   */
+  protected long getOutputWatermark() {
+    if (usedInCurrentTask) {
+      // default as input
+      return this.currentWatermark;
+    } else {
+      // always emit the max to indicate no input will be emitted afterwards
+      return Long.MAX_VALUE;
+    }
   }
 
   public void close() {
     if (closed) {
       throw new IllegalStateException(
-          String.format("Attempted to close Operator %s more than once.", getOperatorSpec().getOpId()));
+          String.format("Attempted to close Operator %s more than once.", getOpImplId()));
     }
     handleClose();
     closed = true;
@@ -391,15 +435,15 @@ public abstract class OperatorImpl<M, RM> {
   protected abstract OperatorSpec<M, RM> getOperatorSpec();
 
   /**
-   * Get the unique name for this {@link OperatorImpl} in the DAG.
+   * Get the unique ID for this {@link OperatorImpl} in the DAG.
    *
    * Some {@link OperatorImpl}s don't have a 1:1 mapping with their {@link OperatorSpec}. E.g., there are
    * 2 PartialJoinOperatorImpls for a JoinOperatorSpec. Overriding this method allows them to provide an
-   * implementation specific name, e.g., for use in metrics.
+   * implementation specific id, e.g., for use in metrics.
    *
-   * @return the unique name for this {@link OperatorImpl} in the DAG
+   * @return the unique ID for this {@link OperatorImpl} in the DAG
    */
-  protected String getOperatorName() {
+  protected String getOpImplId() {
     return getOperatorSpec().getOpId();
   }
 

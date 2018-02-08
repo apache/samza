@@ -19,99 +19,109 @@
 
 package org.apache.samza.checkpoint.kafka
 
-
 import java.util.Properties
 
-import _root_.kafka.admin.AdminUtils
-import _root_.kafka.common.{InvalidMessageSizeException, UnknownTopicOrPartitionException}
-import _root_.kafka.integration.KafkaServerTestHarness
-import _root_.kafka.message.InvalidMessageException
-import _root_.kafka.server.{ConfigType, KafkaConfig}
-import _root_.kafka.utils.{CoreUtils, TestUtils, ZkUtils}
-import org.apache.kafka.clients.producer.{KafkaProducer, Producer, ProducerConfig, ProducerRecord}
+import kafka.admin.AdminUtils
+import kafka.integration.KafkaServerTestHarness
+import kafka.server.ConfigType
+import kafka.utils.{CoreUtils, TestUtils, ZkUtils}
+import com.google.common.collect.ImmutableMap
+import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.security.JaasUtils
+import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.samza.checkpoint.Checkpoint
 import org.apache.samza.config._
 import org.apache.samza.container.TaskName
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
 import org.apache.samza.serializers.CheckpointSerde
 import org.apache.samza.system._
-import org.apache.samza.system.kafka.{KafkaSystemAdmin, KafkaStreamSpec}
-import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtilException, NoOpMetricsRegistry, TopicMetadataStore}
+import org.apache.samza.system.kafka.{KafkaStreamSpec, KafkaSystemFactory}
+import org.apache.samza.util.{KafkaUtilException, NoOpMetricsRegistry, Util}
 import org.apache.samza.{Partition, SamzaException}
 import org.junit.Assert._
 import org.junit._
-
-import scala.collection.JavaConverters._
-import scala.collection._
 
 class TestKafkaCheckpointManager extends KafkaServerTestHarness {
 
   protected def numBrokers: Int = 3
 
-  def generateConfigs() = {
-    val props = TestUtils.createBrokerConfigs(numBrokers, zkConnect, true)
-    props.map(KafkaConfig.fromProps)
-  }
+  val checkpointSystemName = "kafka"
+  val sspGrouperFactoryName = classOf[GroupByPartitionFactory].getCanonicalName
 
-  val checkpointTopic = "checkpoint-topic"
-  val serdeCheckpointTopic = "checkpoint-topic-invalid-serde"
-  val checkpointTopicConfig = KafkaCheckpointManagerFactory.getCheckpointTopicProperties(null)
-
-  val zkSecure = JaasUtils.isZkSecurityEnabled()
-
-  val partition = new Partition(0)
-  val partition2 = new Partition(1)
-  val cp1 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", partition) -> "123").asJava)
-  val cp2 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", partition) -> "12345").asJava)
-
-  var producerConfig: KafkaProducerConfig = null
-
-  var metadataStore: TopicMetadataStore = null
-  var failOnTopicValidation = true
-
-  val systemStreamPartitionGrouperFactoryString = classOf[GroupByPartitionFactory].getCanonicalName
-
-  var systemConsumerFn: ()=>SystemConsumer = ()=>{null}
-  var systemProducerFn: ()=>SystemProducer = ()=>{null}
-  var systemAdminFn: ()=>SystemAdmin = ()=>{null}
-  
-  val systemName = "kafka"
-  val CHECKPOINT_STREAMID = "unused-temp-checkpoint-stream-id"
-  val kafkaStreamSpec = new KafkaStreamSpec(CHECKPOINT_STREAMID,
-                                 checkpointTopic, systemName, 1,
-                                 1, new Properties())
+  val ssp = new SystemStreamPartition("kafka", "topic", new Partition(0))
+  val checkpoint1 = new Checkpoint(ImmutableMap.of(ssp, "offset-1"))
+  val checkpoint2 = new Checkpoint(ImmutableMap.of(ssp, "offset-2"))
+  val taskName = new TaskName("Partition 0")
+  var config: Config = null
 
   @Before
   override def setUp {
     super.setUp
-
     TestUtils.waitUntilTrue(() => servers.head.metadataCache.getAliveBrokers.size == numBrokers, "Wait for cache to update")
+    config = getConfig()
+  }
 
-    val brokers = brokerList.split(",").map(p => "localhost" + p).mkString(",")
-    val config = new java.util.HashMap[String, String]()
-    config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers)
-    config.put("acks", "all")
-    config.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "1")
-    config.put(ProducerConfig.RETRIES_CONFIG, (new Integer(java.lang.Integer.MAX_VALUE-1)).toString)
-    config.putAll(KafkaCheckpointManagerFactory.INJECTED_PRODUCER_PROPERTIES.asJava)
-    producerConfig = new KafkaProducerConfig(systemName, "i001", config)
+  override def generateConfigs() = {
+    val props = TestUtils.createBrokerConfigs(numBrokers, zkConnect, true)
+    // do not use relative imports
+    props.map(_root_.kafka.server.KafkaConfig.fromProps)
+  }
 
-    metadataStore = new ClientUtilTopicMetadataStore(brokers, "some-job-name")
+  @Test
+  def testCheckpointShouldBeNullIfCheckpointTopicDoesNotExistShouldBeCreatedOnWriteAndShouldBeReadableAfterWrite {
+    val checkpointTopic = "checkpoint-topic-1"
+    val kcm1 = createKafkaCheckpointManager(checkpointTopic)
+    kcm1.register(taskName)
+    kcm1.start
+    kcm1.stop
+    // check that start actually creates the topic with log compaction enabled
+    val zkClient = ZkUtils(zkConnect, 6000, 6000, JaasUtils.isZkSecurityEnabled())
+    val topicConfig = AdminUtils.fetchEntityConfig(zkClient, ConfigType.Topic, checkpointTopic)
 
-    config.put(SystemConfig.SYSTEM_FACTORY format systemName, "org.apache.samza.system.kafka.KafkaSystemFactory")
-    config.put(org.apache.samza.config.KafkaConfig.CHECKPOINT_SYSTEM, systemName);
-    config.put(JobConfig.JOB_NAME, "some-job-name");
-    config.put(JobConfig.JOB_ID, "i001");
-    config.put("systems.%s.producer.%s" format (systemName, ProducerConfig.BOOTSTRAP_SERVERS_CONFIG), brokers)
-    config.put("systems.%s.consumer.zookeeper.connect" format systemName, zkConnect)
-    val cfg: SystemConfig = new SystemConfig(new MapConfig(config))
-    val (systemStreamName: String, systemConsumerFactory : SystemFactory) =
-      KafkaCheckpointManagerFactory.getCheckpointSystemStreamAndFactory(cfg)
-    systemConsumerFn = () => {systemConsumerFactory.getConsumer(systemStreamName, cfg, new NoOpMetricsRegistry())}
-    systemProducerFn = () => {systemConsumerFactory.getProducer(systemStreamName, cfg, new NoOpMetricsRegistry())}
-    systemAdminFn = () => {systemConsumerFactory.getAdmin(systemStreamName, cfg)}
-    
+    assertEquals(topicConfig, new KafkaConfig(config).getCheckpointTopicProperties())
+    assertEquals("compact", topicConfig.get("cleanup.policy"))
+    assertEquals("26214400", topicConfig.get("segment.bytes"))
+
+    zkClient.close
+
+    // read before topic exists should result in a null checkpoint
+    val readCp = readCheckpoint(checkpointTopic, taskName)
+    assertNull(readCp)
+
+    writeCheckpoint(checkpointTopic, taskName, checkpoint1)
+    assertEquals(checkpoint1, readCheckpoint(checkpointTopic, taskName))
+
+    // writing a second message and reading it returns a more recent checkpoint
+    writeCheckpoint(checkpointTopic, taskName, checkpoint2)
+    assertEquals(checkpoint2, readCheckpoint(checkpointTopic, taskName))
+  }
+
+  @Test
+  def testFailOnTopicValidation {
+    // By default, should fail if there is a topic validation error
+    val checkpointTopic = "eight-partition-topic";
+    val kcm1 = createKafkaCheckpointManager(checkpointTopic)
+    kcm1.register(taskName)
+    // create topic with the wrong number of partitions
+    createTopic(checkpointTopic, 8, new KafkaConfig(config).getCheckpointTopicProperties())
+    try {
+      kcm1.start
+      fail("Expected an exception for invalid number of partitions in the checkpoint topic.")
+    } catch {
+      case e: StreamValidationException => None
+    }
+    kcm1.stop
+
+    // Should not fail if failOnTopicValidation = false
+    val failOnTopicValidation = false
+    val kcm2 = createKafkaCheckpointManager(checkpointTopic, new CheckpointSerde, failOnTopicValidation)
+    kcm2.register(taskName)
+    try {
+      kcm2.start
+    } catch {
+      case e: KafkaUtilException => fail("Unexpected exception for invalid number of partitions in the checkpoint topic")
+    }
+    kcm2.stop
   }
 
   @After
@@ -123,33 +133,68 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     super.tearDown
   }
 
-  private def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint, cpTopic: String = checkpointTopic) = {
-    val producer: Producer[Array[Byte], Array[Byte]] = new KafkaProducer(producerConfig.getProducerProperties)
-    val record = new ProducerRecord(
-      cpTopic,
-      0,
-      KafkaCheckpointLogKey.getCheckpointKey(taskName).toBytes(),
-      new CheckpointSerde().toBytes(checkpoint)
-    )
-    try {
-      producer.send(record).get()
-    } catch {
-      case e: Exception => println(e.getMessage)
-    } finally {
-      producer.close()
-    }
+  private def getCheckpointProducerProperties() : Properties = {
+    val defaultSerializer = classOf[ByteArraySerializer].getCanonicalName
+    val props = new Properties()
+    props.putAll(ImmutableMap.of(
+      ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList,
+      ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, defaultSerializer,
+      ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, defaultSerializer))
+    props
   }
 
+  private def getConfig() : Config = {
+    new MapConfig(new ImmutableMap.Builder[String, String]()
+      .put(JobConfig.JOB_NAME, "some-job-name")
+      .put(JobConfig.JOB_ID, "i001")
+      .put(s"systems.$checkpointSystemName.samza.factory", classOf[KafkaSystemFactory].getCanonicalName)
+      .put(s"systems.$checkpointSystemName.producer.bootstrap.servers", brokerList)
+      .put(s"systems.$checkpointSystemName.consumer.zookeeper.connect", zkConnect)
+      .put("task.checkpoint.system", checkpointSystemName)
+      .build())
+  }
 
-  private def createCheckpointTopic(cpTopic: String = checkpointTopic, partNum: Int = 1) = {
-    val zkClient = ZkUtils(zkConnect, 6000, 6000, zkSecure)
+  private def createKafkaCheckpointManager(cpTopic: String, serde: CheckpointSerde = new CheckpointSerde, failOnTopicValidation: Boolean = true) = {
+    val kafkaConfig = new org.apache.samza.config.KafkaConfig(config)
+    val props = kafkaConfig.getCheckpointTopicProperties()
+    val systemName = kafkaConfig.getCheckpointSystem.getOrElse(
+      throw new SamzaException("No system defined for Kafka's checkpoint manager."))
+
+    val systemFactoryClassName = new SystemConfig(config)
+      .getSystemFactory(systemName)
+      .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY format systemName))
+
+    val systemFactory = Util.getObj[SystemFactory](systemFactoryClassName)
+
+    val spec = new KafkaStreamSpec("id", cpTopic, checkpointSystemName, 1, 1, false, props)
+    new KafkaCheckpointManager(spec, systemFactory, failOnTopicValidation, config, new NoOpMetricsRegistry, serde)
+  }
+
+  private def readCheckpoint(checkpointTopic: String, taskName: TaskName) : Checkpoint = {
+    val kcm = createKafkaCheckpointManager(checkpointTopic)
+    kcm.register(taskName)
+    kcm.start
+    val checkpoint = kcm.readLastCheckpoint(taskName)
+    kcm.stop
+    checkpoint
+  }
+
+  private def writeCheckpoint(checkpointTopic: String, taskName: TaskName, checkpoint: Checkpoint) = {
+    val kcm = createKafkaCheckpointManager(checkpointTopic)
+    kcm.register(taskName)
+    kcm.start
+    kcm.writeCheckpoint(taskName, checkpoint)
+  }
+
+  private def createTopic(cpTopic: String, partNum: Int, props: Properties) = {
+    val zkClient = ZkUtils(zkConnect, 6000, 6000, JaasUtils.isZkSecurityEnabled())
     try {
       AdminUtils.createTopic(
         zkClient,
         cpTopic,
         partNum,
         1,
-        checkpointTopicConfig)
+        props)
     } catch {
       case e: Exception => println(e.getMessage)
     } finally {
@@ -157,187 +202,4 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     }
   }
 
-  @Test
-  def testCheckpointShouldBeNullIfCheckpointTopicDoesNotExistShouldBeCreatedOnWriteAndShouldBeReadableAfterWrite {
-    val kcm = getKafkaCheckpointManager
-    val taskName = new TaskName(partition.toString)
-    kcm.register(taskName)
-    createCheckpointTopic()
-    val systemAdmin = systemAdminFn()
-    systemAdmin.validateStream(kafkaStreamSpec)
-
-    // check that log compaction is enabled.
-    val zkClient = ZkUtils(zkConnect, 6000, 6000, zkSecure)
-    val topicConfig = AdminUtils.fetchEntityConfig(zkClient, ConfigType.Topic, checkpointTopic)
-    zkClient.close
-    assertEquals("compact", topicConfig.get("cleanup.policy"))
-    assertEquals("26214400", topicConfig.get("segment.bytes"))
-
-    // read before topic exists should result in a null checkpoint
-    var readCp = kcm.readLastCheckpoint(taskName)
-    assertNull(readCp)
-
-    // create topic the first time around
-    writeCheckpoint(taskName, cp1)
-    readCp = kcm.readLastCheckpoint(taskName)
-    assertEquals(cp1, readCp)
-
-    // should get an exception if partition doesn't exist
-    try {
-      readCp = kcm.readLastCheckpoint(new TaskName(new Partition(1).toString))
-      fail("Expected a SamzaException, since only one partition (partition 0) should exist.")
-    } catch {
-      case e: SamzaException => None // expected
-      case _: Exception => fail("Expected a SamzaException, since only one partition (partition 0) should exist.")
-    }
-
-    // writing a second message should work, too
-    writeCheckpoint(taskName, cp2)
-    readCp = kcm.readLastCheckpoint(taskName)
-    assertEquals(cp2, readCp)
-    kcm.stop
-  }
-
-
-  @Test
-  def testCheckpointReadTwice {
-    val kcm = getKafkaCheckpointManager
-    val taskName = new TaskName(partition.toString)
-    kcm.register(taskName)
-    createCheckpointTopic()
-    val systemAdmin = systemAdminFn()
-    systemAdmin.validateStream(kafkaStreamSpec)
-
-
-    // check that log compaction is enabled.
-    val zkClient = ZkUtils(zkConnect, 6000, 6000, zkSecure)
-    val topicConfig = AdminUtils.fetchEntityConfig(zkClient, ConfigType.Topic, checkpointTopic)
-    zkClient.close
-    assertEquals("compact", topicConfig.get("cleanup.policy"))
-    assertEquals("26214400", topicConfig.get("segment.bytes"))
-
-    // read before topic exists should result in a null checkpoint
-    var readCp = kcm.readLastCheckpoint(taskName)
-    assertNull(readCp)
-
-    // create topic the first time around
-    writeCheckpoint(taskName, cp1)
-    readCp = kcm.readLastCheckpoint(taskName)
-    assertEquals(cp1, readCp)
-
-    // writing a second message should work, too
-    writeCheckpoint(taskName, cp2)
-    readCp = kcm.readLastCheckpoint(taskName)
-    assertEquals(cp2, readCp)
-    kcm.stop
-
-    // get new KCM for the same stream
-    val kcm1 = getKafkaCheckpointManager
-    kcm1.register(taskName)
-    readCp = kcm1.readLastCheckpoint(taskName)
-    assertEquals(cp2, readCp)
-    kcm1.stop
-  }
-
-  @Test
-  def testUnrecoverableKafkaErrorShouldThrowKafkaCheckpointManagerException {
-    val exceptions = List("InvalidMessageException", "InvalidMessageSizeException", "UnknownTopicOrPartitionException")
-    exceptions.foreach { exceptionName =>
-      val kcm = getKafkaCheckpointManagerWithInvalidSerde(exceptionName)
-      val taskName = new TaskName(partition.toString)
-      kcm.register(taskName)
-      createCheckpointTopic(serdeCheckpointTopic)
-      val systemAdmin = systemAdminFn()
-      systemAdmin.validateStream(kafkaStreamSpec)
-
-      writeCheckpoint(taskName, cp1, serdeCheckpointTopic)
-      // because serde will throw unrecoverable errors, it should result a KafkaCheckpointException
-      try {
-        kcm.readLastCheckpoint(taskName)
-        fail("Expected an Exception.")
-      } catch {
-        case e: KafkaUtilException => None
-        case e: Exception => None
-      }
-      kcm.stop
-    }
-  }
-
-  @Test
-  def testFailOnTopicValidation {
-    // first case - default case, we should fail on validation
-    failOnTopicValidation = true
-    val checkpointTopic8 = checkpointTopic + "8";
-    val kcm = getKafkaCheckpointManagerWithParam(checkpointTopic8)
-    val taskName = new TaskName(partition.toString)
-    kcm.register(taskName)
-    createCheckpointTopic(checkpointTopic8, 8) // create topic with the wrong number of partitions
-    try {
-      kcm.start
-      fail("Expected a KafkaUtilException for invalid number of partitions in the topic.")
-    }catch {
-      case e: StreamValidationException => None
-    }
-    kcm.stop
-
-    // same validation but ignore the validation error (pass 'false' to validate..)
-    failOnTopicValidation = false
-    val kcm1 = getKafkaCheckpointManagerWithParam((checkpointTopic8))
-    kcm1.register(taskName)
-    try {
-      kcm1.start
-    }catch {
-      case e: KafkaUtilException => fail("Did not expect a KafkaUtilException for invalid number of partitions in the topic.")
-    }
-    kcm1.stop
-  }
-
-  private def getKafkaCheckpointManagerWithParam(cpTopic: String) = new KafkaCheckpointManager(
-    clientId = "some-client-id",
-    checkpointTopic = cpTopic,
-    systemName = "kafka",
-    replicationFactor = 3,
-    socketTimeout = 30000,
-    bufferSize = 64 * 1024,
-    fetchSize = 300 * 1024,
-    getSystemConsumer = systemConsumerFn,
-    getSystemAdmin = systemAdminFn,
-    metadataStore = metadataStore,
-    getSystemProducer = systemProducerFn,
-    connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure),
-    systemStreamPartitionGrouperFactoryString = systemStreamPartitionGrouperFactoryString,
-    failOnCheckpointValidation = failOnTopicValidation,
-    checkpointTopicProperties = KafkaCheckpointManagerFactory.getCheckpointTopicProperties(new MapConfig(Map[String, String]().asJava)))
-
-  // CheckpointManager with a specific checkpoint topic
-  private def getKafkaCheckpointManager = getKafkaCheckpointManagerWithParam(checkpointTopic)
-
-  // inject serde. Kafka exceptions will be thrown when serde.fromBytes is called
-  private def getKafkaCheckpointManagerWithInvalidSerde(exception: String) = new KafkaCheckpointManager(
-    clientId = "some-client-id-invalid-serde",
-    checkpointTopic = serdeCheckpointTopic,
-    systemName = "kafka",
-    replicationFactor = 3,
-    socketTimeout = 30000,
-    bufferSize = 64 * 1024,
-    fetchSize = 300 * 1024,
-    getSystemConsumer = systemConsumerFn,
-    getSystemAdmin = systemAdminFn,
-    metadataStore = metadataStore,
-    getSystemProducer = systemProducerFn,
-    connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure),
-    systemStreamPartitionGrouperFactoryString = systemStreamPartitionGrouperFactoryString,
-    failOnCheckpointValidation = failOnTopicValidation,
-    serde = new InvalideSerde(exception),
-    checkpointTopicProperties = KafkaCheckpointManagerFactory.getCheckpointTopicProperties(new MapConfig(Map[String, String]().asJava)))
-
-  class InvalideSerde(exception: String) extends CheckpointSerde {
-    override def fromBytes(bytes: Array[Byte]): Checkpoint = {
-      exception match {
-        case "InvalidMessageException" => throw new InvalidMessageException
-        case "InvalidMessageSizeException" => throw new InvalidMessageSizeException
-        case "UnknownTopicOrPartitionException" => throw new UnknownTopicOrPartitionException
-      }
-    }
-  }
 }

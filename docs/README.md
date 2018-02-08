@@ -83,8 +83,8 @@ Following can be done when updating the gradle.properties file
 
     * if this is a major release, add the x.x.x release to Archive category in docs/_layouts/default.html and x.x.x release part in docs/archive/index.html
 
-    * update the download page to use x.x.x release
-      * docs/startup/download/index.md
+    * update the download page (docs/startup/download/index.md) to use x.x.x release
+      * Add an entry to the Sources releases and Samza Tools section to use the new x.x.x release
 
     * update the version number in "tar -xvf ./target/hello-samza-y.y.y-dist.tar.gz -C deploy/samza" in each of the tutorials (and search for other uses of version x.x.x which may need to be replaced with y.y.y)
       * docs/startup/hello-samza/versioned/index.md

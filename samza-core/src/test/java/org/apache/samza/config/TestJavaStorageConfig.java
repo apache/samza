@@ -68,4 +68,17 @@ public class TestJavaStorageConfig {
        // do nothing, it is expected
     }
   }
+
+  @Test
+  public void testEmptyStringOrNullChangelogStream() {
+    Map<String, String> configMap = new HashMap<>();
+    configMap.put("stores.store1.changelog", "");
+    configMap.put("stores.store2.changelog", " ");
+
+    JavaStorageConfig config = new JavaStorageConfig(new MapConfig(configMap));
+
+    assertNull(config.getChangelogStream("store1"));
+    assertNull(config.getChangelogStream("store2"));
+    assertNull(config.getChangelogStream("store-changelog-none"));
+  }
 }

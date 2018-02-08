@@ -49,30 +49,15 @@ public class TestRepartitionWindowApp extends StreamApplicationIntegrationTestHa
 
     // produce messages to different partitions.
     ObjectMapper mapper = new ObjectMapper();
-    PageView pv = new PageView();
-    pv.setUserId("userId1");
-    pv.setViewId("india");
-    pv.setPageId("5.com");
+    PageView pv = new PageView("india", "5.com", "userId1");
     produceMessage(INPUT_TOPIC, 0, "userId1", mapper.writeValueAsString(pv));
-    pv = new PageView();
-    pv.setUserId("userId2");
-    pv.setViewId("china");
-    pv.setPageId("4.com");
+    pv = new PageView("china", "4.com", "userId2");
     produceMessage(INPUT_TOPIC, 1, "userId2", mapper.writeValueAsString(pv));
-    pv = new PageView();
-    pv.setUserId("userId1");
-    pv.setViewId("india");
-    pv.setPageId("1.com");
+    pv = new PageView("india", "1.com", "userId1");
     produceMessage(INPUT_TOPIC, 2, "userId1", mapper.writeValueAsString(pv));
-    pv = new PageView();
-    pv.setUserId("userId1");
-    pv.setViewId("india");
-    pv.setPageId("2.com");
+    pv = new PageView("india", "2.com", "userId1");
     produceMessage(INPUT_TOPIC, 0, "userId1", mapper.writeValueAsString(pv));
-    pv = new PageView();
-    pv.setUserId("userId1");
-    pv.setViewId("india");
-    pv.setPageId("3.com");
+    pv = new PageView("india", "3.com", "userId1");
     produceMessage(INPUT_TOPIC, 1, "userId1", mapper.writeValueAsString(pv));
 
     Map<String, String> configs = new HashMap<>();

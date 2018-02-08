@@ -42,6 +42,9 @@ public class SamzaApplicationState {
 
   public enum SamzaAppStatus { UNDEFINED, SUCCEEDED, FAILED }
 
+  /**
+   * {@link JobModelManager} object associated with this {@link SamzaApplicationState}
+   */
   public final JobModelManager jobModelManager;
 
   /**
@@ -96,15 +99,21 @@ public class SamzaApplicationState {
   public final AtomicInteger neededContainers = new AtomicInteger(0);
 
   /**
-   *  Map of the samzaContainerId to the {@link SamzaResource} on which it is running
+   *  Map of the samzaContainerId to the {@link SamzaResource} on which it is submitted for launch.
+   *  Modified by both the NMCallback and the ContainerAllocator thread.
+   */
+  public final ConcurrentMap<String, SamzaResource> pendingContainers = new ConcurrentHashMap<String, SamzaResource>(0);
+
+  /**
+   *  Map of the samzaContainerId to the {@link SamzaResource} on which it is running.
    *  Modified by both the AMRMCallbackThread and the ContainerAllocator thread
    */
   public final ConcurrentMap<String, SamzaResource> runningContainers = new ConcurrentHashMap<String, SamzaResource>(0);
 
   /**
-   * Final status of the application
+   * Final status of the application. Made to be volatile s.t. changes will be visible in multiple threads.
    */
-  public SamzaAppStatus status = SamzaAppStatus.UNDEFINED;
+  public volatile SamzaAppStatus status = SamzaAppStatus.UNDEFINED;
 
   /**
    * State indicating whether the job is healthy or not

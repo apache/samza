@@ -23,6 +23,8 @@ import org.apache.samza.storage.kv.ClosableIterator;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueIterator;
 import org.apache.samza.storage.kv.KeyValueStore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -75,6 +77,8 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
 
+  private static final Logger LOG = LoggerFactory.getLogger(TimeSeriesStoreImpl.class);
+
   private final KeyValueStore<TimeSeriesKey<K>, V> kvStore;
 
   /**
@@ -112,6 +116,8 @@ public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
       seqNum.getAndIncrement();
     }
     TimeSeriesKey<K> timeSeriesKey = new TimeSeriesKey<>(key, timestamp, seqNum.get());
+
+    LOG.trace("Inserting {} -> {} into the store", timeSeriesKey, val);
     kvStore.put(timeSeriesKey, val);
   }
 
@@ -122,6 +128,8 @@ public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
     TimeSeriesKey<K> toKey = new TimeSeriesKey(key, endTimestamp, 0);
 
     KeyValueIterator<TimeSeriesKey<K>, V> range = kvStore.range(fromKey, toKey);
+
+    LOG.trace("Getting entries in the store for {} from {} to {}", new Object[] {key, startTimestamp, endTimestamp});
     return new TimeSeriesStoreIterator<>(range);
   }
 
@@ -164,7 +172,6 @@ public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
 
   @Override
   public void close() {
-    kvStore.close();
   }
 
   private void validateRange(long startTimestamp, long endTimestamp) throws IllegalArgumentException {

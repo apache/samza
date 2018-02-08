@@ -30,11 +30,13 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Collectors;
+
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.system.StreamSpec;
+import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,6 +57,7 @@ import org.slf4j.LoggerFactory;
   private final Set<StreamEdge> sources = new HashSet<>();
   private final Set<StreamEdge> sinks = new HashSet<>();
   private final Set<StreamEdge> intermediateStreams = new HashSet<>();
+  private final Set<TableSpec> tables = new HashSet<>();
   private final Config config;
   private final JobGraphJsonGenerator jsonGenerator = new JobGraphJsonGenerator();
 
@@ -84,6 +87,11 @@ import org.slf4j.LoggerFactory;
     return getIntermediateStreamEdges().stream()
         .map(streamEdge -> streamEdge.getStreamSpec())
         .collect(Collectors.toList());
+  }
+
+  void addTable(TableSpec tableSpec, JobNode node) {
+    tables.add(tableSpec);
+    node.addTable(tableSpec);
   }
 
   @Override
@@ -176,6 +184,9 @@ import org.slf4j.LoggerFactory;
       edge = new StreamEdge(streamSpec, isIntermediate, config);
       edges.put(streamId, edge);
     }
+    if (streamSpec.isBroadcast()) {
+      edge.setPartitionCount(1);
+    }
     return edge;
   }
 
@@ -208,6 +219,14 @@ import org.slf4j.LoggerFactory;
    */
   Set<StreamEdge> getSinks() {
     return Collections.unmodifiableSet(sinks);
+  }
+
+  /**
+   * Return the tables in the graph
+   * @return unmodifiable set of {@link TableSpec}
+   */
+  Set<TableSpec> getTables() {
+    return Collections.unmodifiableSet(tables);
   }
 
   /**

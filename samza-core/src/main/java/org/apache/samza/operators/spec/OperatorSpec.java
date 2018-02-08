@@ -54,7 +54,8 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
     WINDOW,
     MERGE,
     PARTITION_BY,
-    OUTPUT
+    OUTPUT,
+    BROADCAST
   }
 
   private final String opId;

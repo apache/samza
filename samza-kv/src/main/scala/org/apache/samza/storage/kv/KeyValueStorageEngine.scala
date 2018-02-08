@@ -51,7 +51,7 @@ class KeyValueStorageEngine[K, V](
     }
   }
 
-  def getAll(keys: java.util.List[K]): java.util.Map[K, V] = {
+  override def getAll(keys: java.util.List[K]): java.util.Map[K, V] = {
     metrics.gets.inc(keys.size)
     wrapperStore.getAll(keys)
   }
@@ -75,7 +75,7 @@ class KeyValueStorageEngine[K, V](
     }
   }
 
-  def deleteAll(keys: java.util.List[K]) = {
+  override def deleteAll(keys: java.util.List[K]) = {
     metrics.deletes.inc(keys.size)
     wrapperStore.deleteAll(keys)
   }
@@ -99,6 +99,8 @@ class KeyValueStorageEngine[K, V](
    * batching updates to underlying raw store to notAValidEvent wrapping functions for efficiency.
    */
   def restore(envelopes: java.util.Iterator[IncomingMessageEnvelope]) {
+    info("Restoring entries for store " + metrics.storeName)
+
     val batch = new java.util.ArrayList[Entry[Array[Byte], Array[Byte]]](batchSize)
 
     for (envelope <- envelopes.asScala) {
@@ -114,16 +116,22 @@ class KeyValueStorageEngine[K, V](
 
       if (valBytes != null) {
         metrics.restoredBytes.inc(valBytes.size)
+        metrics.restoredBytesGauge.set(metrics.restoredBytesGauge.getValue + valBytes.size)
       }
 
       metrics.restoredBytes.inc(keyBytes.size)
-      metrics.restoredMessages.inc
+      metrics.restoredBytesGauge.set(metrics.restoredBytesGauge.getValue + keyBytes.size)
+
+      metrics.restoredMessages.inc()
+      metrics.restoredMessagesGauge.set(metrics.restoredMessagesGauge.getValue + 1)
       count += 1
 
       if (count % 1000000 == 0) {
         info(count + " entries restored...")
       }
     }
+
+    info(count + " total entries restored.")
 
     if (batch.size > 0) {
       rawStore.putAll(batch)

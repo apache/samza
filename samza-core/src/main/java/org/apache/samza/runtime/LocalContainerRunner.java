@@ -161,8 +161,13 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     if (executionEnvContainerId != null) {
       log.info("Got execution environment container id: {}", executionEnvContainerId);
       containerHeartbeatMonitor = new ContainerHeartbeatMonitor(() -> {
-          container.shutdown();
-          containerRunnerException = new SamzaException("Container shutdown due to expired heartbeat");
+          try {
+            container.shutdown();
+            containerRunnerException = new SamzaException("Container shutdown due to expired heartbeat");
+          } catch (Exception e) {
+            log.error("Heartbeat monitor failed to shutdown the container gracefully. Exiting process.", e);
+            System.exit(1);
+          }
         }, new ContainerHeartbeatClient(coordinatorUrl, executionEnvContainerId));
       containerHeartbeatMonitor.start();
     } else {

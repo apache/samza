@@ -38,7 +38,6 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.impl.InputOperatorImpl;
 import org.apache.samza.operators.impl.OperatorImpl;
 import org.apache.samza.operators.impl.OperatorImplGraph;
@@ -143,16 +142,13 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
     configs.put("serializers.registry.json.class", PageViewJsonSerdeFactory.class.getName());
 
     List<PageView> received = new ArrayList<>();
-    final StreamApplication app = new StreamApplication() {
-      @Override
-      public void init(StreamGraph graph, Config config) {
-        graph.<KV<String, PageView>>getInputStream("PageView")
-            .map(EndOfStreamIntegrationTest.Values.create())
-            .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
-            .sink((m, collector, coordinator) -> {
-                received.add(m.getValue());
-              });
-      }
+    final StreamApplication app = (streamGraph, cfg) -> {
+      streamGraph.<KV<String, PageView>>getInputStream("PageView")
+          .map(EndOfStreamIntegrationTest.Values.create())
+          .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
+          .sink((m, collector, coordinator) -> {
+              received.add(m.getValue());
+            });
     };
 
     LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));

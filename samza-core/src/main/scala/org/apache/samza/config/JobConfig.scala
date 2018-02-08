@@ -79,6 +79,7 @@ object JobConfig {
 
   // Processor Config Constants
   val PROCESSOR_ID = "processor.id"
+  val PROCESSOR_LIST = "processor.list"
 
   implicit def Config2Job(config: Config) = new JobConfig(config)
 
@@ -136,8 +137,6 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
         }
     }
   }
-
-  def getMonitorPartitionChange = getBoolean(JobConfig.MONITOR_PARTITION_CHANGE, false)
 
   def getMonitorPartitionChangeFrequency = getInt(
     JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS,

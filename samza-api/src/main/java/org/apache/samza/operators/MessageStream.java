@@ -18,20 +18,22 @@
  */
 package org.apache.samza.operators;
 
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
+
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
-
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collection;
+import org.apache.samza.table.Table;
 
 
 /**
@@ -149,7 +151,36 @@ public interface MessageStream<M> {
    */
   <K, OM, JM> MessageStream<JM> join(MessageStream<OM> otherStream,
       JoinFunction<? extends K, ? super M, ? super OM, ? extends JM> joinFn,
-      Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde, Duration ttl, String id);
+      Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde,
+      Duration ttl, String id);
+
+  /**
+   * Joins this {@link MessageStream} with another {@link Table} using the provided
+   * pairwise {@link StreamTableJoinFunction}.
+   * <p>
+   * The type of input message is expected to be {@link KV}.
+   * <p>
+   * Records are looked up from the joined table using the join key, join function
+   * is applied and join results are emitted as matches are found.
+   * <p>
+   * The join function allows implementation of both inner and left outer join. A null will be
+   * passed to the join function, if no record matching the join key is found in the table.
+   * The join function can choose to return an instance of JM (outer left join) or null
+   * (inner join); if null is returned, it won't be processed further.
+   * <p>
+   * Both the input stream and table being joined must have the same number of partitions,
+   * and should be partitioned by the same join key.
+   * <p>
+   *
+   * @param table the table being joined
+   * @param joinFn the join function
+   * @param <K> the type of join key
+   * @param <R> the type of table record
+   * @param <JM> the type of messages resulting from the {@code joinFn}
+   * @return the joined {@link MessageStream}
+   */
+  <K, R extends KV, JM> MessageStream<JM> join(Table<R> table,
+      StreamTableJoinFunction<? extends K, ? super M, ? super R, ? extends JM> joinFn);
 
   /**
    * Merges all {@code otherStreams} with this {@link MessageStream}.
@@ -233,4 +264,30 @@ public interface MessageStream<M> {
    */
   <K, V> MessageStream<KV<K, V>> partitionBy(MapFunction<? super M, ? extends K> keyExtractor,
       MapFunction<? super M, ? extends V> valueExtractor, String id);
+
+  /**
+   * Sends messages in this {@link MessageStream} to a {@link Table}. The type of input message is expected
+   * to be {@link KV}, otherwise a {@link ClassCastException} will be thrown.
+   *
+   * @param table the table to write messages to
+   * @param <K> the type of key in the table
+   * @param <V> the type of record value in the table
+   */
+  <K, V> void sendTo(Table<KV<K, V>> table);
+
+  /**
+   * Broadcasts messages in this {@link MessageStream} to all instances of its downstream operators..
+   * @param serde the {@link Serde} to use for (de)serializing the message.
+   * @param id id the unique id of this operator in this application
+   * @return the broadcast {@link MessageStream}
+   */
+  MessageStream<M> broadcast(Serde<M> serde, String id);
+
+  /**
+   * Same as calling {@link MessageStream#broadcast(Serde, String)} with a null Serde.
+   * @param id id the unique id of this operator in this application
+   * @return the broadcast {@link MessageStream}
+   */
+  MessageStream<M> broadcast(String id);
+
 }

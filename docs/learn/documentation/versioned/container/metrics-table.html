@@ -345,6 +345,18 @@
         <td>threads-terminated</td>
         <td>Current number of terminated threads</td>
     </tr>
+    <tr>
+        <td>process-cpu-usage</td>
+        <td>Current CPU usage of the JVM process as a percentage from 0 to 100. The percentage represents the proportion of executed ticks by the JVM process to the total ticks across all CPUs. A negative number indicates the value was not available from the operating system. For more detail, see the JavaDoc for com.sun.management.OperatingSystemMXBean.</td>
+    </tr>
+    <tr>
+        <td>system-cpu-usage</td>
+        <td>Current CPU usage of the all processes in the whole system as a percentage from 0 to 100. The percentage represents the proportion of executed ticks by all processes to the total ticks across all CPUs. A negative number indicates the value was not available from the operating system. For more detail, see the JavaDoc for com.sun.management.OperatingSystemMXBean.</td>
+    </tr>
+    <tr>
+        <td>open-file-descriptor-count</td>
+        <td>Current number of open file descriptors</td>
+    </tr>
 
     <tr>
         <th colspan="2" class="section" id="system-consumers-metrics">org.apache.samza.system.SystemConsumersMetrics</th>
@@ -647,10 +659,18 @@
     </tr>
     <tr>
         <td><span class="store">store-name</span>-messages-restored</td>
+        <td>DEPRECATED: use <code>restored-messages</code> instead. Number of restored messages (key-value pairs) from the change log.</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-restored-messages</td>
         <td>Number of restored messages (key-value pairs) from the change log</td>
     </tr>
     <tr>
         <td><span class="store">store-name</span>-message-bytes</td>
+        <td>DEPRECATED: use <code>restored-bytes</code> instead. Total amount of bytes (key and value size) restored from the change log</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-restored-bytes</td>
         <td>Total amount of bytes (key and value size) restored from the change log</td>
     </tr>
 

@@ -44,17 +44,17 @@ Deploy Zookeeper, YARN and Kafka:
 > cd $HELLO_SAMZA_SRC
 > for i in zookeeper kafka yarn; do ./bin/grid install $i; ./bin/grid start $i; done
 
-Update the "yarn.package.path" to $DEPLOY_DIR/samza-test_2.11-0.13.1-SNAPSHOT.tgz
+Update the "yarn.package.path" to $DEPLOY_DIR/samza-test_2.11-0.14.1-SNAPSHOT.tgz
 > cd $SAMZA_SRC
 > vi samza-test/src/main/config/join/common.properties
-yarn.package.path=file:///path/to/samza-hello-samza/deploy/samza-test_2.11-0.13.1-SNAPSHOT.tgz
+yarn.package.path=file:///path/to/samza-hello-samza/deploy/samza-test_2.11-0.14.1-SNAPSHOT.tgz
 
 Then release and extract the test tarball:
 > cd $SAMZA_SRC
 > ./gradlew releaseTestJobs
-> cp samza-test/build/distributions/samza-test_2.11-0.13.1-SNAPSHOT.tgz $DEPLOY_DIR
+> cp samza-test/build/distributions/samza-test_2.11-0.14.1-SNAPSHOT.tgz $DEPLOY_DIR
 > mkdir $DEPLOY_DIR/samza
-> tar -xvf $DEPLOY_DIR/samza-test_2.11-0.13.1-SNAPSHOT.tgz -C $DEPLOY_DIR/samza
+> tar -xvf $DEPLOY_DIR/samza-test_2.11-0.14.1-SNAPSHOT.tgz -C $DEPLOY_DIR/samza
 
 Finally, create the kafka topics and start the samza jobs:
 > ./bin/setup-int-test.sh $DEPLOY_DIR

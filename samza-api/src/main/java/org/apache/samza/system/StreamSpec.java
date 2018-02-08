@@ -78,6 +78,11 @@ public class StreamSpec implements Serializable {
   private final boolean isBounded;
 
   /**
+   * broadcast stream to all tasks
+   */
+  private final boolean isBroadcast;
+
+  /**
    * A set of all system-specific configurations for the stream.
    */
   private Map<String, String> config;
@@ -99,7 +104,7 @@ public class StreamSpec implements Serializable {
    *                      Samza System abstraction. See {@link SystemFactory}
    */
   public StreamSpec(String id, String physicalName, String systemName) {
-    this(id, physicalName, systemName, DEFAULT_PARTITION_COUNT, false, Collections.emptyMap());
+    this(id, physicalName, systemName, DEFAULT_PARTITION_COUNT, false, false, Collections.emptyMap());
   }
 
   /**
@@ -118,7 +123,7 @@ public class StreamSpec implements Serializable {
    * @param partitionCount  The number of partitionts for the stream. A value of {@code 1} indicates unpartitioned.
    */
   public StreamSpec(String id, String physicalName, String systemName, int partitionCount) {
-    this(id, physicalName, systemName, partitionCount, false, Collections.emptyMap());
+    this(id, physicalName, systemName, partitionCount, false, false, Collections.emptyMap());
   }
 
   /**
@@ -138,7 +143,7 @@ public class StreamSpec implements Serializable {
    * @param config        A map of properties for the stream. These may be System-specfic.
    */
   public StreamSpec(String id, String physicalName, String systemName, boolean isBounded, Map<String, String> config) {
-    this(id, physicalName, systemName, DEFAULT_PARTITION_COUNT, isBounded, config);
+    this(id, physicalName, systemName, DEFAULT_PARTITION_COUNT, isBounded, false, config);
   }
 
   /**
@@ -157,9 +162,12 @@ public class StreamSpec implements Serializable {
    *
    * @param isBounded       The stream is bounded or not.
    *
+   * @param isBroadcast     This stream is broadcast or not.
+   *
    * @param config          A map of properties for the stream. These may be System-specfic.
    */
-  public StreamSpec(String id, String physicalName, String systemName, int partitionCount, boolean isBounded, Map<String, String> config) {
+  public StreamSpec(String id, String physicalName, String systemName, int partitionCount,
+                    boolean isBounded, boolean isBroadcast, Map<String, String> config) {
     validateLogicalIdentifier("streamId", id);
     validateLogicalIdentifier("systemName", systemName);
 
@@ -173,6 +181,7 @@ public class StreamSpec implements Serializable {
     this.physicalName = physicalName;
     this.partitionCount = partitionCount;
     this.isBounded = isBounded;
+    this.isBroadcast = isBroadcast;
 
     if (config != null) {
       this.config = Collections.unmodifiableMap(new HashMap<>(config));
@@ -190,11 +199,15 @@ public class StreamSpec implements Serializable {
    * @return                A copy of this StreamSpec with the specified partitionCount.
    */
   public StreamSpec copyWithPartitionCount(int partitionCount) {
-    return new StreamSpec(id, physicalName, systemName, partitionCount, this.isBounded, config);
+    return new StreamSpec(id, physicalName, systemName, partitionCount, this.isBounded, this.isBroadcast, config);
   }
 
   public StreamSpec copyWithPhysicalName(String physicalName) {
-    return new StreamSpec(id, physicalName, systemName, partitionCount, this.isBounded, config);
+    return new StreamSpec(id, physicalName, systemName, partitionCount, this.isBounded, this.isBroadcast, config);
+  }
+
+  public StreamSpec copyWithBroadCast() {
+    return new StreamSpec(id, physicalName, systemName, partitionCount, this.isBounded, true, config);
   }
 
   public String getId() {
@@ -239,6 +252,10 @@ public class StreamSpec implements Serializable {
 
   public boolean isBounded() {
     return isBounded;
+  }
+
+  public boolean isBroadcast() {
+    return isBroadcast;
   }
 
   private void validateLogicalIdentifier(String identifierName, String identifierValue) {

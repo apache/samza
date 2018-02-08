@@ -70,7 +70,8 @@ public class TumblingWindowApp implements StreamApplication {
 
     pageViews
         .filter(m -> !FILTER_KEY.equals(m.getUserId()))
-        .window(Windows.keyedTumblingWindow(PageView::getUserId, Duration.ofSeconds(3), null, null), "w1")
+        .window(Windows.keyedTumblingWindow(PageView::getUserId, Duration.ofSeconds(3),
+            new StringSerde(), new JsonSerdeV2<>(PageView.class)), "tumblingWindow")
         .map(m -> KV.of(m.getKey().getKey(), m.getMessage().size()))
         .sendTo(outputStream);
 

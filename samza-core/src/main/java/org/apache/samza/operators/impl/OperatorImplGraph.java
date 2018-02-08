@@ -21,30 +21,6 @@ package org.apache.samza.operators.impl;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-import org.apache.samza.config.Config;
-import org.apache.samza.container.TaskContextImpl;
-import org.apache.samza.job.model.JobModel;
-import org.apache.samza.operators.KV;
-import org.apache.samza.operators.StreamGraphImpl;
-import org.apache.samza.operators.functions.JoinFunction;
-import org.apache.samza.operators.functions.PartialJoinFunction;
-import org.apache.samza.operators.spec.InputOperatorSpec;
-import org.apache.samza.operators.spec.JoinOperatorSpec;
-import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.spec.OutputOperatorSpec;
-import org.apache.samza.operators.spec.PartitionByOperatorSpec;
-import org.apache.samza.operators.spec.SinkOperatorSpec;
-import org.apache.samza.operators.spec.StreamOperatorSpec;
-import org.apache.samza.operators.spec.WindowOperatorSpec;
-import org.apache.samza.operators.impl.store.TimestampedValue;
-import org.apache.samza.storage.kv.KeyValueStore;
-import org.apache.samza.system.SystemStream;
-import org.apache.samza.task.TaskContext;
-import org.apache.samza.util.Clock;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -54,6 +30,34 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.apache.samza.config.Config;
+import org.apache.samza.container.TaskContextImpl;
+import org.apache.samza.job.model.JobModel;
+import org.apache.samza.operators.KV;
+import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.functions.JoinFunction;
+import org.apache.samza.operators.functions.PartialJoinFunction;
+import org.apache.samza.operators.impl.store.TimestampedValue;
+import org.apache.samza.operators.spec.BroadcastOperatorSpec;
+import org.apache.samza.operators.spec.InputOperatorSpec;
+import org.apache.samza.operators.spec.JoinOperatorSpec;
+import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.operators.spec.OutputOperatorSpec;
+import org.apache.samza.operators.spec.PartitionByOperatorSpec;
+import org.apache.samza.operators.spec.SinkOperatorSpec;
+import org.apache.samza.operators.spec.StreamOperatorSpec;
+import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
+import org.apache.samza.operators.spec.WindowOperatorSpec;
+import org.apache.samza.operators.spec.SendToTableOperatorSpec;
+import org.apache.samza.storage.kv.KeyValueStore;
+import org.apache.samza.system.SystemStream;
+import org.apache.samza.task.TaskContext;
+import org.apache.samza.util.Clock;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+
 /**
  * The DAG of {@link OperatorImpl}s corresponding to the DAG of {@link OperatorSpec}s.
  */
@@ -61,7 +65,7 @@ public class OperatorImplGraph {
   private static final Logger LOG = LoggerFactory.getLogger(OperatorImplGraph.class);
 
   /**
-   * A mapping from operator names to their {@link OperatorImpl}s in this graph. Used to avoid creating
+   * A mapping from operator IDs to their {@link OperatorImpl}s in this graph. Used to avoid creating
    * multiple {@link OperatorImpl}s for an {@link OperatorSpec} when it's reached from different
    * {@link OperatorSpec}s during DAG traversals (e.g., for the merge operator).
    * We use a LHM for deterministic ordering in initializing and closing operators.
@@ -74,7 +78,7 @@ public class OperatorImplGraph {
   private final Map<SystemStream, InputOperatorImpl> inputOperators = new HashMap<>();
 
   /**
-   * A mapping from {@link JoinOperatorSpec}s to their two {@link PartialJoinFunction}s. Used to associate
+   * A mapping from {@link JoinOperatorSpec} IDs to their two {@link PartialJoinFunction}s. Used to associate
    * the two {@link PartialJoinOperatorImpl}s for a {@link JoinOperatorSpec} with each other since they're
    * reached from different {@link OperatorSpec} during DAG traversals.
    */
@@ -160,13 +164,18 @@ public class OperatorImplGraph {
    */
   OperatorImpl createAndRegisterOperatorImpl(OperatorSpec prevOperatorSpec, OperatorSpec operatorSpec,
       SystemStream inputStream, Config config, TaskContext context) throws IOException, ClassNotFoundException {
+
     if (!operatorImpls.containsKey(operatorSpec.getOpId()) || operatorSpec instanceof JoinOperatorSpec) {
       // Either this is the first time we've seen this operatorSpec, or this is a join operator spec
       // and we need to create 2 partial join operator impls for it. Initialize and register the sub-DAG.
       OperatorImpl operatorImpl = createOperatorImpl(prevOperatorSpec, operatorSpec, config, context);
       operatorImpl.init(config, context);
       operatorImpl.registerInputStream(inputStream);
-      operatorImpls.put(operatorImpl.getOperatorName(), operatorImpl);
+
+      // Note: The key here is opImplId, which may not equal opId for some impls (e.g. PartialJoinOperatorImpl).
+      // This is currently OK since we don't need to look up a partial join operator impl again during traversal
+      // (a join cannot have a cycle).
+      operatorImpls.put(operatorImpl.getOpImplId(), operatorImpl);
 
       Collection<OperatorSpec> registeredSpecs = operatorSpec.getRegisteredOperatorSpecs();
       registeredSpecs.forEach(registeredSpec -> {
@@ -181,9 +190,16 @@ public class OperatorImplGraph {
         });
       return operatorImpl;
     } else {
-      // the implementation corresponding to operatorSpec has already been instantiated
-      // and registered, so we do not need to traverse the DAG further.
-      return operatorImpls.get(operatorSpec.getOpId());
+      // the implementation corresponding to operatorSpec has already been instantiated and registered.
+      OperatorImpl operatorImpl = operatorImpls.get(operatorSpec.getOpId());
+      operatorImpl.registerInputStream(inputStream);
+
+      // We still need to traverse the DAG further to register the input streams.
+      Collection<OperatorSpec> registeredSpecs = operatorSpec.getRegisteredOperatorSpecs();
+      for (OperatorSpec registeredSpec : registeredSpecs) {
+        createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, config, context);
+      }
+      return operatorImpl;
     }
   }
 
@@ -211,6 +227,12 @@ public class OperatorImplGraph {
       return new WindowOperatorImpl(((WindowOperatorSpec) operatorSpec).copy(), clock);
     } else if (operatorSpec instanceof JoinOperatorSpec) {
       return createPartialJoinOperatorImpl(prevOperatorSpec, (JoinOperatorSpec) operatorSpec, config, context, clock);
+    } else if (operatorSpec instanceof StreamTableJoinOperatorSpec) {
+      return new StreamTableJoinOperatorImpl((StreamTableJoinOperatorSpec) operatorSpec, config, context);
+    } else if (operatorSpec instanceof SendToTableOperatorSpec) {
+      return new SendToTableOperatorImpl((SendToTableOperatorSpec) operatorSpec, config, context);
+    } else if (operatorSpec instanceof BroadcastOperatorSpec) {
+      return new BroadcastOperatorImpl((BroadcastOperatorSpec) operatorSpec, context);
     }
     throw new IllegalArgumentException(
         String.format("Unsupported OperatorSpec: %s", operatorSpec.getClass().getName()));
@@ -362,7 +384,10 @@ public class OperatorImplGraph {
       Multimap<SystemStream, SystemStream> outputToInputStreams) {
     if (opSpec instanceof PartitionByOperatorSpec) {
       PartitionByOperatorSpec spec = (PartitionByOperatorSpec) opSpec;
-      outputToInputStreams.put(spec.getOutputStream().getSystemStream(), input);
+      outputToInputStreams.put(spec.getOutputStream().getStreamSpec().toSystemStream(), input);
+    } else if (opSpec instanceof BroadcastOperatorSpec) {
+      BroadcastOperatorSpec spec = (BroadcastOperatorSpec) opSpec;
+      outputToInputStreams.put(spec.getOutputStream().getStreamSpec().toSystemStream(), input);
     } else {
       Collection<OperatorSpec> nextOperators = opSpec.getRegisteredOperatorSpecs();
       nextOperators.forEach(spec -> computeOutputToInput(input, spec, outputToInputStreams));

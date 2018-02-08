@@ -20,12 +20,13 @@ package org.apache.samza.zk;
 
 import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.I0Itec.zkclient.IZkStateListener;
+import java.util.Objects;
 import java.util.Set;
+import org.I0Itec.zkclient.IZkStateListener;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
@@ -33,11 +34,14 @@ import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.ZkConfig;
+import org.apache.samza.config.StorageConfig;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.LeaderElector;
 import org.apache.samza.coordinator.LeaderElectorListener;
+import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.MetricsReporter;
@@ -88,6 +92,9 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private JobCoordinatorListener coordinatorListener = null;
   private JobModel newJobModel;
   private int debounceTimeMs;
+  private boolean hasCreatedChangeLogStreams = false;
+  private String cachedJobModelVersion = null;
+  private Map<TaskName, Integer> changeLogPartitionMap = new HashMap<>();
 
   ZkJobCoordinator(Config config, MetricsRegistry metricsRegistry, ZkUtils zkUtils) {
     this.config = config;
@@ -188,14 +195,13 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
     // Generate the JobModel
     JobModel jobModel = generateNewJobModel(currentProcessorIds);
+    if (!hasCreatedChangeLogStreams) {
+      JobModelManager.createChangeLogStreams(new StorageConfig(config), jobModel.maxChangeLogStreamPartitions);
+      hasCreatedChangeLogStreams = true;
+    }
     // Assign the next version of JobModel
     String currentJMVersion = zkUtils.getJobModelVersion();
-    String nextJMVersion;
-    if (currentJMVersion == null) {
-      nextJMVersion = "1";
-    } else {
-      nextJMVersion = Integer.toString(Integer.valueOf(currentJMVersion) + 1);
-    }
+    String nextJMVersion = zkUtils.getNextJobModelVersion(currentJMVersion);
     LOG.info("pid=" + processorId + "Generated new Job Model. Version = " + nextJMVersion);
 
     // Publish the new job model
@@ -279,7 +285,20 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
    * Generate new JobModel when becoming a leader or the list of processor changed.
    */
   private JobModel generateNewJobModel(List<String> processors) {
-    return JobModelManager.readJobModel(this.config, Collections.emptyMap(), null, streamMetadataCache, processors);
+    String zkJobModelVersion = zkUtils.getJobModelVersion();
+    // If JobModel exists in zookeeper && cached JobModel version is unequal to JobModel version stored in zookeeper.
+    if (zkJobModelVersion != null && !Objects.equals(cachedJobModelVersion, zkJobModelVersion)) {
+      JobModel jobModel = zkUtils.getJobModel(zkJobModelVersion);
+      for (ContainerModel containerModel : jobModel.getContainers().values()) {
+        containerModel.getTasks().forEach((taskName, taskModel) -> changeLogPartitionMap.put(taskName, taskModel.getChangelogPartition().getPartitionId()));
+      }
+      cachedJobModelVersion = zkJobModelVersion;
+    }
+    /**
+     * Host affinity is not supported in standalone. Hence, LocalityManager(which is responsible for container
+     * to host mapping) is passed in as null when building the jobModel.
+     */
+    return JobModelManager.readJobModel(this.config, changeLogPartitionMap, null, streamMetadataCache, processors);
   }
 
   class LeaderElectorListenerImpl implements LeaderElectorListener {

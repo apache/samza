@@ -18,6 +18,7 @@
  */
 
 package org.apache.samza.clustermanager;
+
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 

@@ -43,7 +43,7 @@ public class AzureConfig extends MapConfig {
     tableName = "samzatable" + id;
   }
 
-  public String getAzureConnect() {
+  public String getAzureConnectionString() {
     if (!containsKey(AZURE_STORAGE_CONNECT)) {
       throw new ConfigException("Missing " + AZURE_STORAGE_CONNECT + " config!");
     }

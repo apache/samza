@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.samza.Partition;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskContextImpl;
@@ -44,12 +45,12 @@ import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamOperatorTask;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
-
-import java.time.Duration;
-import java.util.Set;
 import org.apache.samza.testUtils.TestClock;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.SystemClock;
+
+import java.time.Duration;
+import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -94,6 +95,20 @@ public class TestJoinOperator {
 
     int outputSum = output.stream().reduce(0, (s, m) -> s + m);
     assertEquals(110, outputSum);
+  }
+
+  @Test(expected = SamzaException.class)
+  public void joinWithSelfThrowsException() throws Exception {
+    config.put("streams.instream.system", "insystem");
+
+    StreamGraphImpl graph = new StreamGraphImpl(mock(ApplicationRunner.class), config);
+    IntegerSerde integerSerde = new IntegerSerde();
+    KVSerde<Integer, Integer> kvSerde = KVSerde.of(integerSerde, integerSerde);
+    MessageStream<KV<Integer, Integer>> inStream = graph.getInputStream("instream", kvSerde);
+
+    inStream.join(inStream, new TestJoinFunction(), integerSerde, kvSerde, kvSerde, JOIN_TTL, "join");
+
+    createStreamOperatorTask(new SystemClock(), graph); // should throw an exception
   }
 
   @Test

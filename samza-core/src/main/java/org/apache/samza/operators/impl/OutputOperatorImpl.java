@@ -50,7 +50,7 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
   public Collection<Void> handleMessage(M message, MessageCollector collector,
       TaskCoordinator coordinator) {
     Object key, value;
-    if (this.outputOpSpec.getOutputStream().isKeyedOutput()) {
+    if (this.outputOpSpec.getOutputStream().isKeyed()) {
       key = ((KV) message).getKey();
       value = ((KV) message).getValue();
     } else {

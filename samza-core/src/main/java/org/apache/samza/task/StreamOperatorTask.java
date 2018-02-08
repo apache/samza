@@ -39,7 +39,7 @@ import org.slf4j.LoggerFactory;
  * A {@link StreamTask} implementation that brings all the operator API implementation components together and
  * feeds the input messages into the user-defined transformation chains in {@link StreamGraphImpl}.
  */
-public final class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask {
+public class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask {
   private static final Logger LOG = LoggerFactory.getLogger(StreamOperatorTask.class);
 
   private final StreamGraphImpl streamGraph;
@@ -82,7 +82,7 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
     // the context manager for each task, the shared context is only across operators in the same task instance. I am ignoring
     // the global shared variable in this case and only focus on shared context within a single task instance for now.
     if (streamGraph.getContextManager() != null) {
-      this.contextManager = streamGraph.getContextManager().getContextManagerPerTask();
+      this.contextManager = streamGraph.getContextManager();
       if (this.contextManager != null) {
         this.contextManager.init(config, context);
       }

@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.io.IOException;
 import java.util.Set;
+
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.metrics.Counter;
@@ -209,8 +210,8 @@ public class TestOperatorImpl {
   }
 
   private static class TestOpSpec extends OperatorSpec<Object, Object> {
-    TestOpSpec() throws IOException {
-     super(OpCode.INPUT, "op-1");
+    TestOpSpec() {
+     super(OpCode.INPUT, "1");
     }
 
     @Override

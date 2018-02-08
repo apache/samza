@@ -47,25 +47,4 @@ public interface ContextManager extends Serializable {
    */
   void close();
 
-  /**
-   * Placeholder, user-inject context could be implemented in three levels:
-   * <ul>
-   *   <li>in a single operator instance</li>
-   *   <li>in a single task instance, among different operators</li>
-   *   <li>in a single physical process, among different task instances</li>
-   * </ul>
-   *
-   * Case 1 in the above list is handled by {@link org.apache.samza.operators.functions.InitableFunction} interface, while
-   * case 2 and 3 needs to be handled at task/process level here.
-   *
-   * @return an implementation of {@link ContextManager} interface that deals w/ per task context manager
-   */
-  ContextManager getContextManagerPerTask();
-
-  /**
-   * Placeholder, method to get the {@link ContextManager} that deals w/ per processor context manager
-   *
-   * @return an implementation of {@link ContextManager} interface that deals w/ per processor context manager
-   */
-  ContextManager getContextManagerPerProcessor();
 }

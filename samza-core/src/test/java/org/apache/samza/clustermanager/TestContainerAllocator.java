@@ -30,7 +30,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
@@ -73,16 +72,16 @@ public class TestContainerAllocator {
   private static Config getConfig() {
     Config config = new MapConfig(new HashMap<String, String>() {
       {
-        put("yarn.container.count", "1");
-        put("systems.test-system.samza.factory", "org.apache.samza.job.yarn.MockSystemFactory");
-        put("yarn.container.memory.mb", "512");
+        put("cluster-manager.container.count", "1");
+        put("cluster-manager.container.retry.count", "1");
+        put("cluster-manager.container.retry.window.ms", "1999999999");
+        put("cluster-manager.allocator.sleep.ms", "10");
+        put("cluster-manager.container.memory.mb", "512");
         put("yarn.package.path", "/foo");
         put("task.inputs", "test-system.test-stream");
+        put("systems.test-system.samza.factory", "org.apache.samza.system.MockSystemFactory");
         put("systems.test-system.samza.key.serde", "org.apache.samza.serializers.JsonSerde");
         put("systems.test-system.samza.msg.serde", "org.apache.samza.serializers.JsonSerde");
-        put("yarn.container.retry.count", "1");
-        put("yarn.container.retry.window.ms", "1999999999");
-        put("yarn.allocator.sleep.ms", "10");
       }
     });
 
@@ -201,59 +200,5 @@ public class TestContainerAllocator {
 
     listener.verify();
   }
-
-
-  /**
-   * If the container fails to start e.g because it fails to connect to a NM on a host that
-   * is down, the allocator should request a new container on a different host.
-   */
-  @Test
-  public void testRerequestOnAnyHostIfContainerStartFails() throws Exception {
-    final SamzaResource container = new SamzaResource(1, 1024, "2", "id0");
-    final SamzaResource container1 = new SamzaResource(1, 1024, "2", "id0");
-    manager.nextException = new IOException("Cant connect to RM");
-
-    // Set up our final asserts before starting the allocator thread
-    MockContainerListener listener = new MockContainerListener(2, 1, 2, 0, null, new Runnable() {
-      @Override
-      public void run() {
-        // The failed container should be released. The successful one should not.
-        assertNotNull(manager.releasedResources);
-        assertEquals(1, manager.releasedResources.size());
-        assertTrue(manager.releasedResources.contains(container));
-      }
-    },
-        new Runnable() {
-          @Override
-          public void run() {
-            // Test that the first request assignment had a preferred host and the retry didn't
-            assertEquals(2, requestState.assignedRequests.size());
-
-            SamzaResourceRequest request = requestState.assignedRequests.remove();
-            assertEquals("0", request.getContainerID());
-            assertEquals("2", request.getPreferredHost());
-
-            request = requestState.assignedRequests.remove();
-            assertEquals("0", request.getContainerID());
-            assertEquals("ANY_HOST", request.getPreferredHost());
-
-            // This routine should be called after the retry is assigned, but before it's started.
-            // So there should still be 1 container needed.
-            assertEquals(1, state.neededContainers.get());
-          }
-        }, null
-    );
-    state.neededContainers.set(1);
-    requestState.registerContainerListener(listener);
-
-    containerAllocator.requestResource("0", "2");
-    containerAllocator.addResource(container);
-    containerAllocator.addResource(container1);
-    allocatorThread.start();
-
-    listener.verify();
-
-  }
-
 
 }

@@ -1,5 +1,5 @@
 {
-  "samza_executable": "samza-test_2.11-0.13.1-SNAPSHOT.tgz",
+  "samza_executable": "samza-test_2.11-0.14.1-SNAPSHOT.tgz",
   "samza_install_path": "deploy/smoke_tests",
   "samza_config_factory": "org.apache.samza.config.factories.PropertiesConfigFactory"
 }
