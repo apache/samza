@@ -212,7 +212,7 @@ public class ClusterBasedJobCoordinator {
       if (checkpointManager != null) {
         checkpointManager.createStream();
       }
-      changelogStreamManager.createChangeLogStreams(jobModel.getConfig(), jobModel.maxChangeLogStreamPartitions);
+      ChangelogStreamManager.createChangeLogStreams(jobModel.getConfig(), jobModel.maxChangeLogStreamPartitions);
 
       // Remap changelog partitions to tasks
       Map prevPartitionMappings = changelogStreamManager.readPartitionMapping();

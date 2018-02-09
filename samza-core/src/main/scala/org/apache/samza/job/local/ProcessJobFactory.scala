@@ -45,18 +45,18 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     coordinatorStreamManager.register(getClass.getSimpleName)
     coordinatorStreamManager.start
     coordinatorStreamManager.bootstrap
-    val changelogManager = new ChangelogStreamManager(coordinatorStreamManager)
+    val changelogStreamManager = new ChangelogStreamManager(coordinatorStreamManager)
 
-    val coordinator = JobModelManager(coordinatorStreamManager, changelogManager.readPartitionMapping())
+    val coordinator = JobModelManager(coordinatorStreamManager, changelogStreamManager.readPartitionMapping())
     val jobModel = coordinator.jobModel
-    changelogManager.writePartitionMapping(jobModel.getTaskPartitionMappings)
+    changelogStreamManager.writePartitionMapping(jobModel.getTaskPartitionMappings)
 
     //create necessary checkpoint and changelog streams
     val checkpointManager = new TaskConfigJava(jobModel.getConfig).getCheckpointManager(metricsRegistry)
     if (checkpointManager != null) {
       checkpointManager.createStream()
     }
-    changelogManager.createChangeLogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
+    ChangelogStreamManager.createChangeLogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
 
     val containerModel = coordinator.jobModel.getContainers.get(0)
 

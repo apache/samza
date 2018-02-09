@@ -52,14 +52,6 @@ public class ChangelogStreamManager {
   private final CoordinatorStreamManager coordinatorStreamManager;
 
   /**
-   * Construct Changelog manager without a coordinator stream.
-   *
-   */
-  public ChangelogStreamManager() {
-    this(null);
-  }
-
-  /**
    * Construct changelog manager with a bootstrapped coordinator stream.
    *
    * @param coordinatorStreamManager Coordinator stream manager.
@@ -113,7 +105,7 @@ public class ChangelogStreamManager {
    * @param config Config with changelog info
    * @param maxChangeLogStreamPartitions Maximum changelog stream partitions to create
    */
-  public void createChangeLogStreams(Config config, int maxChangeLogStreamPartitions) {
+  public static void createChangeLogStreams(Config config, int maxChangeLogStreamPartitions) {
     // Get changelog store config
     JavaStorageConfig storageConfig = new JavaStorageConfig(config);
     Map<String, SystemStream> storeNameSystemStreamMapping = storageConfig.getStoreNames()

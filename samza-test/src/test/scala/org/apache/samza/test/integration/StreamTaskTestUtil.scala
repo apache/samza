@@ -283,8 +283,7 @@ class StreamTaskTestUtil {
       case _ => assert(checkpointManager != null, "No checkpoint manager factory configured")
     }
 
-    val changelogManager = new ChangelogStreamManager()
-    changelogManager.createChangeLogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
+    ChangelogStreamManager.createChangeLogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
   }
 }
 
