@@ -19,6 +19,7 @@
 
 package org.apache.samza.coordinator.stream;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -62,7 +63,6 @@ public class CoordinatorStreamSystemConsumer {
   private final SystemAdmin systemAdmin;
   private final Map<String, String> configMap;
   private volatile boolean isStarted;
-  private volatile boolean isBootstrapped;
   private final Object bootstrapLock = new Object();
   private volatile Set<CoordinatorStreamMessage> bootstrappedStreamSet = Collections.emptySet();
 
@@ -76,7 +76,6 @@ public class CoordinatorStreamSystemConsumer {
     this.systemConsumer = systemConsumer;
     this.systemAdmin = systemAdmin;
     this.configMap = new HashMap<>();
-    this.isBootstrapped = false;
     this.keySerde = new JsonSerde<>();
     this.messageSerde = new JsonSerde<>();
   }
@@ -87,7 +86,6 @@ public class CoordinatorStreamSystemConsumer {
     this.systemConsumer = systemConsumer;
     this.systemAdmin = systemAdmin;
     this.configMap = new HashMap<>();
-    this.isBootstrapped = false;
     this.keySerde = new JsonSerde<>();
     this.messageSerde = new JsonSerde<>();
   }
@@ -194,7 +192,6 @@ public class CoordinatorStreamSystemConsumer {
 
         bootstrappedStreamSet = Collections.unmodifiableSet(bootstrappedMessages);
         log.debug("Bootstrapped configuration: {}", configMap);
-        isBootstrapped = true;
       } catch (Exception e) {
         throw new SamzaException(e);
       }
@@ -203,8 +200,7 @@ public class CoordinatorStreamSystemConsumer {
 
   public Set<CoordinatorStreamMessage> getBoostrappedStream() {
     log.info("Returning the bootstrapped data from the stream");
-    if (!isBootstrapped)
-      bootstrap();
+    bootstrap();
     return bootstrappedStreamSet;
   }
 
@@ -227,7 +223,7 @@ public class CoordinatorStreamSystemConsumer {
    * been invoked.
    */
   public Config getConfig() {
-    if (isBootstrapped) {
+    if (!configMap.isEmpty()) {
       return new MapConfig(configMap);
     } else {
       throw new SamzaException("Must call bootstrap before retrieving config.");
@@ -290,21 +286,8 @@ public class CoordinatorStreamSystemConsumer {
     return iterator.hasNext();
   }
 
-  /**
-   * Has the SystemConsumer started.
-   *
-   * @return True if started, otherwise false.
-   */
-  public boolean isStarted() {
+  @VisibleForTesting
+  boolean isStarted() {
     return isStarted;
-  }
-
-  /**
-   * Is the SystemConsumer bootstrapped.
-   *
-   * @return True if bootstrapped, otherwise false.
-   */
-  public boolean isBootstrapped() {
-    return isBootstrapped;
   }
 }

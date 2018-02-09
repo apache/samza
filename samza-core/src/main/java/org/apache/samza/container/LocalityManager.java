@@ -29,28 +29,27 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 
+
 /**
  * Locality Manager is used to persist and read the container-to-host
  * assignment information from the coordinator stream
  * */
 public class LocalityManager {
-  private static final Logger log = LoggerFactory.getLogger(LocalityManager.class);
-  private Map<String, Map<String, String>> containerToHostMapping = new HashMap<>();
-  private final TaskAssignmentManager taskAssignmentManager;
-  private final boolean writeOnly;
-  private CoordinatorStreamManager coordinatorStreamManager;
   private static final String CONTAINER_PREFIX = "SamzaContainer-";
+  private static final Logger LOG = LoggerFactory.getLogger(LocalityManager.class);
 
+  private final CoordinatorStreamManager coordinatorStreamManager;
+  private final TaskAssignmentManager taskAssignmentManager;
+
+  private Map<String, Map<String, String>> containerToHostMapping = new HashMap<>();
 
   /**
    * Constructor that creates a read-write or write-only locality manager.
    *
    * @param coordinatorStreamManager Coordinator stream manager.
-   * @param writeOnly True if write-only, otherwise false.
    */
-  public LocalityManager(CoordinatorStreamManager coordinatorStreamManager, boolean writeOnly) {
+  public LocalityManager(CoordinatorStreamManager coordinatorStreamManager) {
     this.coordinatorStreamManager = coordinatorStreamManager;
-    this.writeOnly = writeOnly;
     this.taskAssignmentManager = new TaskAssignmentManager(coordinatorStreamManager);
   }
 
@@ -61,12 +60,13 @@ public class LocalityManager {
    * @return the map of containerId: (hostname, jmxAddress, jmxTunnelAddress)
    */
   public Map<String, Map<String, String>> readContainerLocality() {
-    if (this.writeOnly) {
-      throw new UnsupportedOperationException("Read container locality function is not supported in write-only LocalityManager");
+    if (coordinatorStreamManager == null) {
+      throw new IllegalStateException("No coordinator stream manager to read container locality from.");
     }
 
     Map<String, Map<String, String>> allMappings = new HashMap<>();
-    for (CoordinatorStreamMessage message: coordinatorStreamManager.getBootstrappedStream(SetContainerHostMapping.TYPE)) {
+    for (CoordinatorStreamMessage message : coordinatorStreamManager.getBootstrappedStream(
+        SetContainerHostMapping.TYPE)) {
       SetContainerHostMapping mapping = new SetContainerHostMapping(message);
       Map<String, String> localityMappings = new HashMap<>();
       localityMappings.put(SetContainerHostMapping.HOST_KEY, mapping.getHostLocality());
@@ -76,9 +76,9 @@ public class LocalityManager {
     }
     containerToHostMapping = Collections.unmodifiableMap(allMappings);
 
-    if (log.isDebugEnabled()) {
+    if (LOG.isDebugEnabled()) {
       for (Map.Entry<String, Map<String, String>> entry : containerToHostMapping.entrySet()) {
-        log.debug(String.format("Locality for container %s: %s", entry.getKey(), entry.getValue()));
+        LOG.debug(String.format("Locality for container %s: %s", entry.getKey(), entry.getValue()));
       }
     }
 
@@ -93,16 +93,23 @@ public class LocalityManager {
    * @param jmxAddress  the JMX URL address
    * @param jmxTunnelingAddress  the JMX Tunnel URL address
    */
-  public void writeContainerToHostMapping(String containerId, String hostName, String jmxAddress, String jmxTunnelingAddress) {
-    Map<String, String> existingMappings = containerToHostMapping.get(containerId);
-    String existingHostMapping = existingMappings != null ? existingMappings.get(SetContainerHostMapping.HOST_KEY) : null;
-    if (existingHostMapping != null && !existingHostMapping.equals(hostName)) {
-      log.info("Container {} moved from {} to {}", new Object[]{containerId, existingHostMapping, hostName});
-    } else {
-      log.info("Container {} started at {}", containerId, hostName);
+  public void writeContainerToHostMapping(String containerId, String hostName, String jmxAddress,
+      String jmxTunnelingAddress) {
+    if (coordinatorStreamManager == null) {
+      throw new IllegalStateException("No coordinator stream manager to write locality info to.");
     }
-    coordinatorStreamManager.send(new SetContainerHostMapping(CONTAINER_PREFIX + containerId, String.valueOf(containerId), hostName, jmxAddress,
-        jmxTunnelingAddress));
+
+    Map<String, String> existingMappings = containerToHostMapping.get(containerId);
+    String existingHostMapping =
+        existingMappings != null ? existingMappings.get(SetContainerHostMapping.HOST_KEY) : null;
+    if (existingHostMapping != null && !existingHostMapping.equals(hostName)) {
+      LOG.info("Container {} moved from {} to {}", new Object[]{containerId, existingHostMapping, hostName});
+    } else {
+      LOG.info("Container {} started at {}", containerId, hostName);
+    }
+    coordinatorStreamManager.send(
+        new SetContainerHostMapping(CONTAINER_PREFIX + containerId, String.valueOf(containerId), hostName, jmxAddress,
+            jmxTunnelingAddress));
     Map<String, String> mappings = new HashMap<>();
     mappings.put(SetContainerHostMapping.HOST_KEY, hostName);
     mappings.put(SetContainerHostMapping.JMX_URL_KEY, jmxAddress);

@@ -40,23 +40,23 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * The Changelog manager is used to persist and read the changelog information from the coordinator stream.
+ * The Changelog manager creates the changelog stream. If a coordinator stream manager is provided,
+ * it can be used to read, write and update the changelog stream partition-to-task mapping.
  */
 public class ChangelogStreamManager {
 
-  private static final Logger log = LoggerFactory.getLogger(ChangelogStreamManager.class);
-  private final CoordinatorStreamManager coordinatorStreamManager;
-
+  private static final Logger LOG = LoggerFactory.getLogger(ChangelogStreamManager.class);
   // This is legacy for changelog. Need to investigate what happens if you use a different source name
   private static final String SOURCE = "JobModelManager";
+
+  private final CoordinatorStreamManager coordinatorStreamManager;
 
   /**
    * Construct Changelog manager without a coordinator stream.
    *
-   *  @param source Name of caller.
    */
-  public ChangelogStreamManager(String source) {
-    coordinatorStreamManager = null;
+  public ChangelogStreamManager() {
+    this(null);
   }
 
   /**
@@ -70,15 +70,15 @@ public class ChangelogStreamManager {
 
   /**
    * Read the taskName to partition mapping that is being maintained by this ChangelogManager
-   * @return TaskName to change log partition mapping, or an empty map if there were no messages.
+   * @return TaskName to change LOG partition mapping, or an empty map if there were no messages.
    */
   public Map<TaskName, Integer> readPartitionMapping() {
-    log.debug("Reading changelog partition information");
+    LOG.debug("Reading changelog partition information");
     final HashMap<TaskName, Integer> changelogMapping = new HashMap<>();
     for (CoordinatorStreamMessage coordinatorStreamMessage : coordinatorStreamManager.getBootstrappedStream(SetChangelogMapping.TYPE)) {
       SetChangelogMapping changelogMapEntry = new SetChangelogMapping(coordinatorStreamMessage);
       changelogMapping.put(new TaskName(changelogMapEntry.getTaskName()), changelogMapEntry.getPartition());
-      log.debug("TaskName: {} is mapped to {}", changelogMapEntry.getTaskName(), changelogMapEntry.getPartition());
+      LOG.debug("TaskName: {} is mapped to {}", changelogMapEntry.getTaskName(), changelogMapEntry.getPartition());
     }
     return changelogMapping;
   }
@@ -86,12 +86,12 @@ public class ChangelogStreamManager {
   /**
    * Write the taskName to partition mapping.
    * @param changelogEntries The entries that needs to be written to the coordinator stream, the map takes the taskName
-   *                       and it's corresponding changelog partition.
+   *                         and it's corresponding changelog partition.
    */
   public void writePartitionMapping(Map<TaskName, Integer> changelogEntries) {
-    log.debug("Updating changelog information with: ");
+    LOG.debug("Updating changelog information with: ");
     for (Map.Entry<TaskName, Integer> entry : changelogEntries.entrySet()) {
-      log.debug("TaskName: {} to Partition: {}", entry.getKey().getTaskName(), entry.getValue());
+      LOG.debug("TaskName: {} to Partition: {}", entry.getKey().getTaskName(), entry.getValue());
       coordinatorStreamManager.send(new SetChangelogMapping(SOURCE, entry.getKey().getTaskName(), entry.getValue()));
     }
   }
@@ -141,9 +141,9 @@ public class ChangelogStreamManager {
         systemAdmin.start();
 
         if (systemAdmin.createStream(changelogSpec)) {
-          log.info(String.format("created changelog stream %s.", systemStream.getStream()));
+          LOG.info(String.format("created changelog stream %s.", systemStream.getStream()));
         } else {
-          log.info(String.format("changelog stream %s already exists.", systemStream.getStream()));
+          LOG.info(String.format("changelog stream %s already exists.", systemStream.getStream()));
         }
         systemAdmin.validateStream(changelogSpec);
 

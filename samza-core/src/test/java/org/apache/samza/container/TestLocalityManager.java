@@ -68,7 +68,7 @@ public class TestLocalityManager {
     MockCoordinatorStreamSystemConsumer consumer =
         mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(config, null);
     CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(producer, consumer);
-    LocalityManager localityManager = new LocalityManager(coordinatorStreamManager, false);
+    LocalityManager localityManager = new LocalityManager(coordinatorStreamManager);
 
     coordinatorStreamManager.register("SamzaContainer-containerId-0");
     assertTrue(producer.isRegistered());
@@ -105,7 +105,7 @@ public class TestLocalityManager {
     MockCoordinatorStreamSystemProducer producer =
         mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);
     CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(producer, null);
-    LocalityManager localityManager = new LocalityManager(coordinatorStreamManager, true);
+    LocalityManager localityManager = new LocalityManager(coordinatorStreamManager);
 
     coordinatorStreamManager.register("SamzaContainer-containerId-1");
     assertTrue(producer.isRegistered());

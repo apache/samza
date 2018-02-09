@@ -58,13 +58,6 @@ object SamzaContainer extends Logging {
   val DEFAULT_READ_JOBMODEL_DELAY_MS = 100
   val DISK_POLL_INTERVAL_KEY = "container.disk.poll.interval.ms"
 
-  def getLocalityManager(containerName: String, config: Config): LocalityManager = {
-    val registryMap = new MetricsRegistryMap(containerName)
-    val coordinatorStreamSystemProducer = new CoordinatorStreamSystemProducer(config, new SamzaContainerMetrics(containerName, registryMap).registry)
-    val coordinatorStreamManager = new CoordinatorStreamManager(coordinatorStreamSystemProducer, null)
-    new LocalityManager(coordinatorStreamManager, true)
-  }
-
   /**
    * Fetches config, task:SSP assignments, and task:changelog partition
    * assignments, and returns objects to be used for SamzaContainer's
@@ -91,9 +84,13 @@ object SamzaContainer extends Logging {
     val containerName = "samza-container-%s" format containerId
     val maxChangeLogStreamPartitions = jobModel.maxChangeLogStreamPartitions
 
+    var coordinatorStreamManager: CoordinatorStreamManager = null
     var localityManager: LocalityManager = null
     if (new ClusterManagerConfig(config).getHostAffinityEnabled()) {
-      localityManager = getLocalityManager(containerName, config)
+      val registryMap = new MetricsRegistryMap(containerName)
+      val coordinatorStreamSystemProducer = new CoordinatorStreamSystemProducer(config, new SamzaContainerMetrics(containerName, registryMap).registry)
+      coordinatorStreamManager = new CoordinatorStreamManager(coordinatorStreamSystemProducer, null)
+      localityManager = new LocalityManager(coordinatorStreamManager)
     }
 
     val containerPID = Util.getContainerPID
@@ -626,6 +623,7 @@ object SamzaContainer extends Logging {
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
       offsetManager = offsetManager,
+      coordinatorStreamManager = coordinatorStreamManager,
       localityManager = localityManager,
       securityManager = securityManager,
       metrics = samzaContainerMetrics,
@@ -648,6 +646,7 @@ class SamzaContainer(
   diskSpaceMonitor: DiskSpaceMonitor = null,
   hostStatisticsMonitor: SystemStatisticsMonitor = null,
   offsetManager: OffsetManager = new OffsetManager,
+  coordinatorStreamManager: CoordinatorStreamManager = null,
   localityManager: LocalityManager = null,
   securityManager: SecurityManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
@@ -684,6 +683,7 @@ class SamzaContainer(
       startMetrics
       startAdmins
       startOffsetManager
+      startCoordinatorStreamManager
       startLocalityManager
       startStores
       startTableManager
@@ -726,7 +726,7 @@ class SamzaContainer(
       shutdownDiskSpaceMonitor
       shutdownHostStatisticsMonitor
       shutdownProducers
-      shutdownLocalityManager
+      shutdownCoordinatorStreamManager
       shutdownOffsetManager
       shutdownMetrics
       shutdownSecurityManger
@@ -839,15 +839,17 @@ class SamzaContainer(
     offsetManager.start
   }
 
+  def startCoordinatorStreamManager {
+    if(coordinatorStreamManager != null) {
+      val containerName = "SamzaContainer-" + String.valueOf(containerContext.id)
+      info("Registering %s with the coordinator stream manager." format containerName)
+      coordinatorStreamManager.start
+      coordinatorStreamManager.register(containerName)
+    }
+  }
+
   def startLocalityManager {
     if(localityManager != null) {
-      info("Registering localityManager for the container")
-      // Ideally coordinator stream manager should be directly, but the SamzaContainer constructor parameter list is
-      // already too long.
-      val coordinatorStreamManager = localityManager.getCoordinatorStreamManager
-      coordinatorStreamManager.start
-      coordinatorStreamManager.register("SamzaContainer-" + String.valueOf(containerContext.id))
-
       info("Writing container locality and JMX address to Coordinator Stream")
       try {
         val hostInet = Util.getLocalHost
@@ -1016,10 +1018,10 @@ class SamzaContainer(
     taskInstances.values.foreach(_.shutdownTableManager)
   }
 
-  def shutdownLocalityManager {
-    if(localityManager != null) {
+  def shutdownCoordinatorStreamManager {
+    if(coordinatorStreamManager != null) {
       info("Shutting down locality manager.")
-      localityManager.getCoordinatorStreamManager.stop
+      coordinatorStreamManager.stop
     }
   }
 

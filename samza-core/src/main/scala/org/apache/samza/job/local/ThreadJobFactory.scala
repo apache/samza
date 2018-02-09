@@ -50,7 +50,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     val jobModel = coordinator.jobModel
     changelogPartitionManager.writePartitionMapping(jobModel.getTaskPartitionMappings)
 
-    //create necessary checkpoint and changelog streams, if not created
+    //create necessary checkpoint and changelog streams
     val checkpointManager = new TaskConfigJava(jobModel.getConfig).getCheckpointManager(metricsRegistry)
     if (checkpointManager != null) {
       checkpointManager.createStream()

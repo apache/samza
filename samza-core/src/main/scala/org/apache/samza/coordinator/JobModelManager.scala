@@ -63,12 +63,12 @@ object JobModelManager extends Logging {
    * a) Reads the jobModel from coordinator stream using the job's configuration.
    * b) Recomputes changelog partition mapping based on jobModel and job's configuration.
    * c) Builds JobModelManager using the jobModel read from coordinator stream.
-   * @param coordinatorStreamManager
-   * @param changelogPartitionMapping
+   * @param coordinatorStreamManager Coordinator stream manager.
+   * @param changelogPartitionMapping The changelog partition-to-task mapping.
    * @return JobModelManager
    */
   def apply(coordinatorStreamManager: CoordinatorStreamManager, changelogPartitionMapping: util.Map[TaskName, Integer]) = {
-    val localityManager = new LocalityManager(coordinatorStreamManager, false)
+    val localityManager = new LocalityManager(coordinatorStreamManager)
 
     val config = coordinatorStreamManager.getConfig
 

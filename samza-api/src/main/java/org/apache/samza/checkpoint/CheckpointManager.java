@@ -27,7 +27,7 @@ import org.apache.samza.container.TaskName;
  */
 public interface CheckpointManager {
   /**
-   * Bootstrap any required resources needed prior to start.
+   * Creates checkpoint stream.
    */
   default void createStream() { }
 

@@ -19,36 +19,37 @@
 
 package org.apache.samza.coordinator.stream;
 
+import java.util.Set;
 import org.apache.samza.config.Config;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
-
-import java.util.Set;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 
 /**
  * Class which handles the common functionality for coordinator stream consumer and producer
  */
 public class CoordinatorStreamManager {
-  private Logger log = LoggerFactory.getLogger(CoordinatorStreamManager.class);
-  private CoordinatorStreamSystemProducer coordinatorStreamProducer;
-  private CoordinatorStreamSystemConsumer coordinatorStreamConsumer;
+  private static final Logger LOG = LoggerFactory.getLogger(CoordinatorStreamManager.class);
+
+  private final CoordinatorStreamSystemProducer coordinatorStreamProducer;
+  private final CoordinatorStreamSystemConsumer coordinatorStreamConsumer;
 
   /**
-   * Creates a new {@link CoordinatorStreamManager} with a given coordinator stream producer, consumer and with a given source.
+   * Creates a new {@link CoordinatorStreamManager} with a given coordinator stream producer and consumer.
    *
    * @param coordinatorStreamProducer The {@link CoordinatorStreamSystemProducer} which should be used with the {@link CoordinatorStreamManager}
    * @param coordinatorStreamConsumer The {@link CoordinatorStreamSystemConsumer} which should be used with the {@link CoordinatorStreamManager}
    */
-  public CoordinatorStreamManager(CoordinatorStreamSystemProducer coordinatorStreamProducer, CoordinatorStreamSystemConsumer coordinatorStreamConsumer) {
+  public CoordinatorStreamManager(CoordinatorStreamSystemProducer coordinatorStreamProducer,
+      CoordinatorStreamSystemConsumer coordinatorStreamConsumer) {
     this.coordinatorStreamProducer = coordinatorStreamProducer;
     this.coordinatorStreamConsumer = coordinatorStreamConsumer;
   }
 
   /**
    * Creates a new {@link CoordinatorStreamManager} and instantiates the underlying coordinator stream producer and consumer.
+   *
    * @param coordinatorSystemConfig Configuration used to instantiate the coordinator stream producer and consumer.
    * @param metricsRegistry Metrics registry
    */
@@ -57,24 +58,32 @@ public class CoordinatorStreamManager {
     coordinatorStreamProducer = new CoordinatorStreamSystemProducer(coordinatorSystemConfig, metricsRegistry);
   }
 
+  /**
+   * Register source with the coordinator stream.
+   *
+   * @param source
+   */
   public void register(String source) {
     if (coordinatorStreamConsumer != null) {
-      log.info("Registering coordinator system stream consumer from {}.", source);
+      LOG.info("Registering coordinator system stream consumer from {}.", source);
       coordinatorStreamConsumer.register();
     }
     if (coordinatorStreamProducer != null) {
-      log.info("Registering coordinator system stream producer from {}.", source);
+      LOG.info("Registering coordinator system stream producer from {}.", source);
       coordinatorStreamProducer.register(source);
     }
   }
 
+  /**
+   * Starts the underlying coordinator stream producer and consumer.
+   */
   public void start() {
-    if (coordinatorStreamConsumer != null && !coordinatorStreamConsumer.isStarted()) {
-      log.debug("Starting coordinator system stream consumer.");
+    if (coordinatorStreamConsumer != null) {
+      LOG.debug("Starting coordinator system stream consumer.");
       coordinatorStreamConsumer.start();
     }
-    if (coordinatorStreamProducer != null && !coordinatorStreamProducer.isStarted()) {
-      log.debug("Starting coordinator system stream producer.");
+    if (coordinatorStreamProducer != null) {
+      LOG.debug("Starting coordinator system stream producer.");
       coordinatorStreamProducer.start();
     }
   }
@@ -83,21 +92,23 @@ public class CoordinatorStreamManager {
    * Stops the underlying coordinator stream producer and consumer.
    */
   public void stop() {
-    if (coordinatorStreamConsumer != null && coordinatorStreamConsumer.isStarted()) {
+    if (coordinatorStreamConsumer != null) {
       coordinatorStreamConsumer.stop();
     }
-    if (coordinatorStreamProducer != null && coordinatorStreamProducer.isStarted()) {
+    if (coordinatorStreamProducer != null) {
       coordinatorStreamProducer.stop();
     }
   }
 
   /**
    * Sends a {@link CoordinatorStreamMessage} using the underlying system producer.
+   *
    * @param message message which should be sent to producer
    */
   public void send(CoordinatorStreamMessage message) {
     if (coordinatorStreamProducer == null) {
-      throw new UnsupportedOperationException(String.format("CoordinatorStreamProducer is not initialized in the CoordinatorStreamManager. "));
+      throw new UnsupportedOperationException(
+          String.format("CoordinatorStreamProducer is not initialized in the CoordinatorStreamManager. "));
     }
     coordinatorStreamProducer.send(message);
   }
@@ -106,31 +117,35 @@ public class CoordinatorStreamManager {
    * Bootstrap the coordinator stream consumer.
    */
   public void bootstrap() {
-    if (coordinatorStreamConsumer != null && !coordinatorStreamConsumer.isBootstrapped()) {
-      log.debug("Bootstrapping coordinator system stream consumer.");
+    if (coordinatorStreamConsumer != null) {
+      LOG.debug("Bootstrapping coordinator system stream consumer.");
       coordinatorStreamConsumer.bootstrap();
     }
   }
 
   /**
    * Returns a set of messages from the bootstrapped stream for a given source.
+   *
    * @param source the source of the given messages
    * @return a set of {@link CoordinatorStreamMessage} if messages exists for the given source, else an empty set
    */
   public Set<CoordinatorStreamMessage> getBootstrappedStream(String source) {
     if (coordinatorStreamConsumer == null) {
-      throw new UnsupportedOperationException(String.format("CoordinatorStreamConsumer is not initialized in the CoordinatorStreamManager. "));
+      throw new UnsupportedOperationException(
+          String.format("CoordinatorStreamConsumer is not initialized in the CoordinatorStreamManager. "));
     }
     return coordinatorStreamConsumer.getBootstrappedStream(source);
   }
 
   /**
-   * Returns the config for the coordinator stream consumer.
+   * Returns the config from the coordinator stream consumer.
+   *
    * @return Config of the coordinator stream consumer.
    */
   public Config getConfig() {
     if (coordinatorStreamConsumer == null) {
-      throw new UnsupportedOperationException(String.format("CoordinatorStreamConsumer is not initialized in the CoordinatorStreamManager. "));
+      throw new IllegalStateException(
+          String.format("CoordinatorStreamConsumer is not initialized in the CoordinatorStreamManager. "));
     }
     return coordinatorStreamConsumer.getConfig();
   }

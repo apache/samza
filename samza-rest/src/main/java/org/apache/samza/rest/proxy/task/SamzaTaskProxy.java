@@ -131,7 +131,7 @@ public class SamzaTaskProxy implements TaskProxy {
    */
   protected List<Task> readTasksFromCoordinatorStream(CoordinatorStreamSystemConsumer consumer) {
     CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(null, consumer);
-    LocalityManager localityManager = new LocalityManager(coordinatorStreamManager, false);
+    LocalityManager localityManager = new LocalityManager(coordinatorStreamManager);
     Map<String, Map<String, String>> containerIdToHostMapping = localityManager.readContainerLocality();
     Map<String, String> taskNameToContainerIdMapping = localityManager.getTaskAssignmentManager().readTaskAssignment();
     StorageConfig storageConfig = new StorageConfig(consumer.getConfig());

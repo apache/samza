@@ -77,10 +77,7 @@ public class ClusterBasedJobCoordinator {
 
   private static final Logger log = LoggerFactory.getLogger(ClusterBasedJobCoordinator.class);
 
-  private static final String COORDINATOR_STREAM_SOURCE = "ClusterBasedJobCoordinator";
-
   private final Config config;
-
   private final ClusterManagerConfig clusterManagerConfig;
 
   /**
@@ -166,7 +163,7 @@ public class ClusterBasedJobCoordinator {
 
     //build a JobModelManager and ChangelogStreamManager and perform partition assignments.
     coordinatorStreamManager = new CoordinatorStreamManager(coordinatorSystemConfig, metrics);
-    coordinatorStreamManager.register(COORDINATOR_STREAM_SOURCE);
+    coordinatorStreamManager.register(getClass().getSimpleName());
     coordinatorStreamManager.start();
     coordinatorStreamManager.bootstrap();
     changelogStreamManager = new ChangelogStreamManager(coordinatorStreamManager);
@@ -217,7 +214,7 @@ public class ClusterBasedJobCoordinator {
       }
       changelogStreamManager.createChangeLogStreams(jobModel.getConfig(), jobModel.maxChangeLogStreamPartitions);
 
-      // Remap change
+      // Remap changelog partitions to tasks
       Map prevPartitionMappings = changelogStreamManager.readPartitionMapping();
       changelogStreamManager.updatePartitionMapping(prevPartitionMappings, jobModel.getTaskPartitionMappings());
 
