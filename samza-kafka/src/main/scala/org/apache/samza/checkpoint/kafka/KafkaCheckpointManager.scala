@@ -71,7 +71,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   /**
     * Create checkpoint stream prior to start.
     */
-  override def createStream = {
+  override def createResources = {
     Preconditions.checkNotNull(systemAdmin)
 
     systemAdmin.start()

@@ -53,9 +53,9 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     //create necessary checkpoint and changelog streams
     val checkpointManager = new TaskConfigJava(jobModel.getConfig).getCheckpointManager(metricsRegistry)
     if (checkpointManager != null) {
-      checkpointManager.createStream()
+      checkpointManager.createResources()
     }
-    ChangelogStreamManager.createChangeLogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
+    ChangelogStreamManager.createChangelogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
 
     val containerId = "0"
     val jmxServer = new JmxServer

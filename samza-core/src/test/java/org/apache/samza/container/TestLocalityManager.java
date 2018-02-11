@@ -104,7 +104,7 @@ public class TestLocalityManager {
   @Test public void testWriteOnlyLocalityManager() {
     MockCoordinatorStreamSystemProducer producer =
         mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);
-    CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(producer, null);
+    CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(producer);
     LocalityManager localityManager = new LocalityManager(coordinatorStreamManager);
 
     coordinatorStreamManager.register("SamzaContainer-containerId-1");

@@ -130,7 +130,7 @@ public class SamzaTaskProxy implements TaskProxy {
    * @return list of {@link Task} constructed from job model in coordinator stream.
    */
   protected List<Task> readTasksFromCoordinatorStream(CoordinatorStreamSystemConsumer consumer) {
-    CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(null, consumer);
+    CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(consumer);
     LocalityManager localityManager = new LocalityManager(coordinatorStreamManager);
     Map<String, Map<String, String>> containerIdToHostMapping = localityManager.readContainerLocality();
     Map<String, String> taskNameToContainerIdMapping = localityManager.getTaskAssignmentManager().readTaskAssignment();

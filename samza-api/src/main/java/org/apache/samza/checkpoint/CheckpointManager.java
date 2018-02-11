@@ -29,7 +29,7 @@ public interface CheckpointManager {
   /**
    * Creates checkpoint stream.
    */
-  default void createStream() { }
+  default void createResources() { }
 
   /**
    * Perform startup operations.

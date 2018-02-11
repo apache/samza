@@ -79,7 +79,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
       jobModel = getJobModel();
       CheckpointManager checkpointManager = new TaskConfigJava(jobModel.getConfig()).getCheckpointManager(null);
       if (checkpointManager != null) {
-        checkpointManager.createStream();
+        checkpointManager.createResources();
       }
     } catch (Exception e) {
       LOGGER.error("Exception while trying to getJobModel.", e);

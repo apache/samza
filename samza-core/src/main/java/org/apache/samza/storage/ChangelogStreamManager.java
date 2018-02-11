@@ -101,11 +101,12 @@ public class ChangelogStreamManager {
   }
 
   /**
-   * Create and validate changelog streams
+   * Utility method to create and validate changelog streams. The method is static because it does not require an
+   * instance of the {@link CoordinatorStreamManager}
    * @param config Config with changelog info
    * @param maxChangeLogStreamPartitions Maximum changelog stream partitions to create
    */
-  public static void createChangeLogStreams(Config config, int maxChangeLogStreamPartitions) {
+  public static void createChangelogStreams(Config config, int maxChangeLogStreamPartitions) {
     // Get changelog store config
     JavaStorageConfig storageConfig = new JavaStorageConfig(config);
     Map<String, SystemStream> storeNameSystemStreamMapping = storageConfig.getStoreNames()

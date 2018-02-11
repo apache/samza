@@ -36,6 +36,24 @@ public class CoordinatorStreamManager {
   private final CoordinatorStreamSystemConsumer coordinatorStreamConsumer;
 
   /**
+   * Creates a new read-only {@link CoordinatorStreamManager} with a given coordinator stream consumer.
+   *
+   * @param coordinatorStreamConsumer The {@link CoordinatorStreamSystemConsumer} which should be used with the {@link CoordinatorStreamManager}
+   */
+  public CoordinatorStreamManager(CoordinatorStreamSystemConsumer coordinatorStreamConsumer) {
+    this(null, coordinatorStreamConsumer);
+  }
+
+  /**
+   * Creates a new write-only {@link CoordinatorStreamManager} with a given coordinator stream producer.
+   *
+   * @param coordinatorStreamProducer The {@link CoordinatorStreamSystemProducer} which should be used with the {@link CoordinatorStreamManager}
+   */
+  public CoordinatorStreamManager(CoordinatorStreamSystemProducer coordinatorStreamProducer) {
+    this(coordinatorStreamProducer, null);
+  }
+
+  /**
    * Creates a new {@link CoordinatorStreamManager} with a given coordinator stream producer and consumer.
    *
    * @param coordinatorStreamProducer The {@link CoordinatorStreamSystemProducer} which should be used with the {@link CoordinatorStreamManager}

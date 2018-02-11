@@ -206,11 +206,11 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     if (!hasCreatedStreams) {
       CheckpointManager checkpointManager = new TaskConfigJava(jobModel.getConfig()).getCheckpointManager(metrics.getMetricsRegistry());
       if (checkpointManager != null) {
-        checkpointManager.createStream();
+        checkpointManager.createResources();
       }
 
       // Pass in null Coordinator consumer and producer because ZK doesn't have coordinator streams.
-      ChangelogStreamManager.createChangeLogStreams(jobModel.getConfig(), jobModel.maxChangeLogStreamPartitions);
+      ChangelogStreamManager.createChangelogStreams(jobModel.getConfig(), jobModel.maxChangeLogStreamPartitions);
       hasCreatedStreams = true;
     }
 

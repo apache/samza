@@ -161,11 +161,15 @@ public class ClusterBasedJobCoordinator {
 
     metrics = new MetricsRegistryMap();
 
-    //build a JobModelManager and ChangelogStreamManager and perform partition assignments.
     coordinatorStreamManager = new CoordinatorStreamManager(coordinatorSystemConfig, metrics);
+    // register ClusterBasedJobCoordinator with the CoordinatorStreamManager.
     coordinatorStreamManager.register(getClass().getSimpleName());
+    // start the coordinator stream's underlying consumer and producer.
     coordinatorStreamManager.start();
+    // bootstrap current configuration.
     coordinatorStreamManager.bootstrap();
+
+    // build a JobModelManager and ChangelogStreamManager and perform partition assignments.
     changelogStreamManager = new ChangelogStreamManager(coordinatorStreamManager);
     jobModelManager = JobModelManager.apply(coordinatorStreamManager, changelogStreamManager.readPartitionMapping());
 
@@ -210,9 +214,9 @@ public class ClusterBasedJobCoordinator {
       JobModel jobModel = jobModelManager.jobModel();
       CheckpointManager checkpointManager = new TaskConfigJava(config).getCheckpointManager(metrics);
       if (checkpointManager != null) {
-        checkpointManager.createStream();
+        checkpointManager.createResources();
       }
-      ChangelogStreamManager.createChangeLogStreams(jobModel.getConfig(), jobModel.maxChangeLogStreamPartitions);
+      ChangelogStreamManager.createChangelogStreams(jobModel.getConfig(), jobModel.maxChangeLogStreamPartitions);
 
       // Remap changelog partitions to tasks
       Map prevPartitionMappings = changelogStreamManager.readPartitionMapping();

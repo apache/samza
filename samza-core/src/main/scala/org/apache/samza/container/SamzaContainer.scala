@@ -89,7 +89,7 @@ object SamzaContainer extends Logging {
     if (new ClusterManagerConfig(config).getHostAffinityEnabled()) {
       val registryMap = new MetricsRegistryMap(containerName)
       val coordinatorStreamSystemProducer = new CoordinatorStreamSystemProducer(config, new SamzaContainerMetrics(containerName, registryMap).registry)
-      coordinatorStreamManager = new CoordinatorStreamManager(coordinatorStreamSystemProducer, null)
+      coordinatorStreamManager = new CoordinatorStreamManager(coordinatorStreamSystemProducer)
       localityManager = new LocalityManager(coordinatorStreamManager)
     }
 
@@ -683,7 +683,6 @@ class SamzaContainer(
       startMetrics
       startAdmins
       startOffsetManager
-      startCoordinatorStreamManager
       startLocalityManager
       startStores
       startTableManager
@@ -726,7 +725,7 @@ class SamzaContainer(
       shutdownDiskSpaceMonitor
       shutdownHostStatisticsMonitor
       shutdownProducers
-      shutdownCoordinatorStreamManager
+      shutdownLocalityManager
       shutdownOffsetManager
       shutdownMetrics
       shutdownSecurityManger
@@ -839,17 +838,18 @@ class SamzaContainer(
     offsetManager.start
   }
 
-  def startCoordinatorStreamManager {
-    if(coordinatorStreamManager != null) {
+  def startLocalityManager {
+    if(localityManager != null) {
+      if(coordinatorStreamManager == null) {
+        // This should never happen.
+        throw new IllegalStateException("Cannot start LocalityManager without a CoordinatorStreamManager")
+      }
+
       val containerName = "SamzaContainer-" + String.valueOf(containerContext.id)
       info("Registering %s with the coordinator stream manager." format containerName)
       coordinatorStreamManager.start
       coordinatorStreamManager.register(containerName)
-    }
-  }
 
-  def startLocalityManager {
-    if(localityManager != null) {
       info("Writing container locality and JMX address to Coordinator Stream")
       try {
         val hostInet = Util.getLocalHost
@@ -1018,9 +1018,9 @@ class SamzaContainer(
     taskInstances.values.foreach(_.shutdownTableManager)
   }
 
-  def shutdownCoordinatorStreamManager {
+  def shutdownLocalityManager {
     if(coordinatorStreamManager != null) {
-      info("Shutting down locality manager.")
+      info("Shutting down coordinator stream manager used by locality manager.")
       coordinatorStreamManager.stop
     }
   }
