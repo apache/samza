@@ -48,10 +48,8 @@ import org.apache.samza.storage.ChangelogPartitionManager
 import org.apache.samza.system._
 import org.apache.samza.util.Logging
 import org.apache.samza.util.Util
-import org.apache.samza.Partition
-import org.apache.samza.SamzaException
-import org.apache.samza.coordinator.JobModelManager.{createAccessLogStreams, createChangeLogStreams, info}
-import org.apache.samza.{Partition, PartitionChangeException, SamzaException}
+import org.apache.samza.coordinator.JobModelManager.{createAccessLogStreams, createChangeLogStreams}
+import org.apache.samza.{Partition, SamzaException}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer

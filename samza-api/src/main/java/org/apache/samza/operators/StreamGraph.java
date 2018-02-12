@@ -22,6 +22,7 @@ import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.table.Table;
 
+
 /**
  * Provides access to {@link MessageStream}s and {@link OutputStream}s used to describe application logic.
  */
@@ -55,7 +56,7 @@ public interface StreamGraph {
    * <p>
    * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
-   * @param streamId the input stream id
+   * @param streamId the unique ID for the stream
    * @param serde the {@link Serde} to use for deserializing incoming messages
    * @param <M> the type of messages in the input {@link MessageStream}
    * @return the input {@link MessageStream}
@@ -73,8 +74,8 @@ public interface StreamGraph {
    * <p>
    * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
+   * @param streamId the unique ID for the stream
    * @param <M> the type of message in the input {@link MessageStream}
-   * @param streamId the input stream id
    * @return the input {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
@@ -95,7 +96,7 @@ public interface StreamGraph {
    * <p>
    * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
-   * @param streamId the output stream id
+   * @param streamId the unique ID for the stream
    * @param serde the {@link Serde} to use for serializing outgoing messages
    * @param <M> the type of messages in the {@link OutputStream}
    * @return the output {@link MessageStream}
@@ -113,7 +114,7 @@ public interface StreamGraph {
    * <p>
    * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
-   * @param streamId the output stream id
+   * @param streamId the unique ID for the stream
    * @param <M> the type of messages in the {@link OutputStream}
    * @return the output {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
@@ -141,7 +142,8 @@ public interface StreamGraph {
    * within a task instance
    *
    * @param contextManager the {@link ContextManager} to use for the {@link StreamGraph}
+   * @return the {@link StreamGraph} with {@code contextManager} set as its {@link ContextManager}
    */
-  void setContextManager(ContextManager contextManager);
+  StreamGraph withContextManager(ContextManager contextManager);
 
 }

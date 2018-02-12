@@ -27,6 +27,7 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Set;
+
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
@@ -91,7 +92,6 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
   public Collection<OperatorSpec<OM, ?>> getRegisteredOperatorSpecs() {
     return nextOperatorSpecs;
   }
-
 
   protected Object copy() throws IOException, ClassNotFoundException {
     ByteArrayOutputStream serializedBytes = new ByteArrayOutputStream();

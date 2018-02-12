@@ -85,10 +85,10 @@ public class QueryTranslator {
     QueryPlanner planner =
         new QueryPlanner(sqlConfig.getRelSchemaProviders(), sqlConfig.getInputSystemStreamConfigBySource(),
             sqlConfig.getUdfMetadata());
-    final SamzaSqlExecutionContext executionContext = new SamzaSqlExecutionContext(QueryTranslator.this.sqlConfig);
+    final SamzaSqlExecutionContext executionContext = new SamzaSqlExecutionContext(this.sqlConfig);
     final RelRoot relRoot = planner.plan(queryInfo.getSelectQuery());
-    final RelNode node = relRoot.project();
     final TranslatorContext context = new TranslatorContext(streamGraph, relRoot, executionContext, this.converters);
+    final RelNode node = relRoot.project();
 
     node.accept(new RelShuttleImpl() {
       @Override
@@ -118,14 +118,13 @@ public class QueryTranslator {
     final String outputTopic = queryInfo.getOutputSource();
     MessageStreamImpl<SamzaSqlRelMessage> stream =
         (MessageStreamImpl<SamzaSqlRelMessage>) context.getMessageStream(node.getId());
-
     MessageStream<KV<Object, Object>> outputStream = stream.map(new MapToOutput(outputTopic));
 
     outputStream.sendTo(streamGraph.getOutputStream(outputSystemConfig.getStreamName()));
 
     // NOTE: context used to initialize the streamGraph is shared among all tasks, if the context does not contain objects
     // with per task state, we should be able to use the same shared object for all tasks
-    streamGraph.setContextManager(new ContextManager() {
+    streamGraph.withContextManager(new ContextManager() {
       @Override
       public void init(Config config, TaskContext taskContext) {
         taskContext.setUserContext(context);

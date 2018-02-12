@@ -19,7 +19,6 @@
 
 package org.apache.samza.sql.interfaces;
 
-import java.io.Serializable;
 import org.apache.samza.operators.KV;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 

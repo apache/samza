@@ -20,7 +20,6 @@ package org.apache.samza.operators.spec;
 
 import java.io.IOException;
 
-
 import org.apache.samza.operators.functions.WatermarkFunction;
 
 /**

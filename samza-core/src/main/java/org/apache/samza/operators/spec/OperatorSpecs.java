@@ -34,9 +34,9 @@ import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
+import org.apache.samza.table.TableSpec;
 import org.apache.samza.task.TaskContext;
 
-import org.apache.samza.table.TableSpec;
 
 /**
  * Factory methods for creating {@link OperatorSpec} instances.
@@ -192,7 +192,7 @@ public class OperatorSpecs {
   public static <M, K, V> PartitionByOperatorSpec<M, K, V> createPartitionByOperatorSpec(
       OutputStreamImpl<KV<K, V>> outputStream, MapFunction<? super M, ? extends K> keyFunction,
       MapFunction<? super M, ? extends V> valueFunction, String opId) throws IOException {
-    return new PartitionByOperatorSpec<M, K, V>(outputStream, keyFunction, valueFunction, opId);
+    return new PartitionByOperatorSpec<>(outputStream, keyFunction, valueFunction, opId);
   }
 
   /**
@@ -245,7 +245,7 @@ public class OperatorSpecs {
    * @throws IOException when fail to create a serializable {@link OperatorSpec}
    */
   public static <M> StreamOperatorSpec<M, M> createMergeOperatorSpec(String opId) throws IOException {
-    return new StreamOperatorSpec<M, M>(message ->
+    return new StreamOperatorSpec<>(message ->
         new ArrayList<M>() {
           {
             this.add(message);

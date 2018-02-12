@@ -19,13 +19,13 @@
 package org.apache.samza.operators.spec;
 
 import com.google.common.collect.ImmutableMap;
-import java.io.IOException;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.impl.store.TimestampedValueSerde;
 import org.apache.samza.operators.impl.store.TimestampedValue;
 import org.apache.samza.serializers.Serde;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
@@ -44,10 +44,11 @@ public class JoinOperatorSpec<K, M, OM, JM> extends OperatorSpec<Object, JM> imp
 
   private transient final OperatorSpec<?, M> leftInputOpSpec;
   private transient final OperatorSpec<?, OM> rightInputOpSpec;
-  private final JoinFunction<K, M, OM, JM> joinFn;
   private transient final Serde<K> keySerde;
   private transient final Serde<TimestampedValue<M>> messageSerde;
   private transient final Serde<TimestampedValue<OM>> otherMessageSerde;
+
+  private final JoinFunction<K, M, OM, JM> joinFn;
   private final long ttlMs;
 
   /**

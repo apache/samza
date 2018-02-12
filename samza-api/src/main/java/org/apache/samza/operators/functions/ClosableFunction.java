@@ -33,5 +33,8 @@ import org.apache.samza.annotation.InterfaceStability;
  */
 @InterfaceStability.Unstable
 public interface ClosableFunction {
+  /**
+   * Method to free any resource initialized/acquired by the operators in {@link InitableFunction}
+   */
   default void close() {}
 }

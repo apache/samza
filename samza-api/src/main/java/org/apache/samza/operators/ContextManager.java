@@ -18,7 +18,6 @@
  */
 package org.apache.samza.operators;
 
-import java.io.Serializable;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.task.TaskContext;
@@ -28,7 +27,7 @@ import org.apache.samza.task.TaskContext;
  * Manages custom context that is shared across multiple operator functions in a task.
  */
 @InterfaceStability.Unstable
-public interface ContextManager extends Serializable {
+public interface ContextManager {
 
   /**
    * Allows initializing and setting a custom context that is shared across multiple operator functions in a task.

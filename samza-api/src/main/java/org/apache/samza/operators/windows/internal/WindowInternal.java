@@ -67,6 +67,9 @@ public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
    */
   private final WindowType windowType;
 
+  /**
+   * The following serdes should only be used in generating configs for store config.
+   */
   private transient final Serde<WK> keySerde;
   private transient final Serde<WV> windowValSerde;
   private transient final Serde<M> msgSerde;

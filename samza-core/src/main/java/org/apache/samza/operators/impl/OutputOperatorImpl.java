@@ -22,7 +22,9 @@ import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
+import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
@@ -32,14 +34,18 @@ import java.util.Collections;
 
 
 /**
- * An operator that sends incoming messages to an output {@link org.apache.samza.system.SystemStream}.
+ * An operator that sends incoming messages to an output {@link SystemStream}.
  */
 class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
 
   private final OutputOperatorSpec<M> outputOpSpec;
+  private final OutputStreamImpl<M> outputStream;
+  private final SystemStream systemStream;
 
   OutputOperatorImpl(OutputOperatorSpec<M> outputOpSpec) {
     this.outputOpSpec = outputOpSpec;
+    this.outputStream = outputOpSpec.getOutputStream();
+    this.systemStream = outputStream.getSystemStream();
   }
 
   @Override
@@ -50,7 +56,7 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
   public Collection<Void> handleMessage(M message, MessageCollector collector,
       TaskCoordinator coordinator) {
     Object key, value;
-    if (this.outputOpSpec.getOutputStream().isKeyed()) {
+    if (outputStream.isKeyed()) {
       key = ((KV) message).getKey();
       value = ((KV) message).getValue();
     } else {
@@ -58,7 +64,7 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
       value = message;
     }
 
-    collector.send(new OutgoingMessageEnvelope(this.outputOpSpec.getOutputStream().getSystemStream(), null, key, value));
+    collector.send(new OutgoingMessageEnvelope(systemStream, null, key, value));
     return Collections.emptyList();
   }
 

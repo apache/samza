@@ -78,9 +78,7 @@ public class StreamOperatorTask implements StreamTask, InitableTask, WindowableT
   public final void init(Config config, TaskContext context) throws Exception {
 
     // get the user-implemented context manager and initialize it
-    // NOTE: if we don't clone for each task, global variables used across different tasks are possible. If we clone
-    // the context manager for each task, the shared context is only across operators in the same task instance. I am ignoring
-    // the global shared variable in this case and only focus on shared context within a single task instance for now.
+    // NOTE: if we don't clone the ContextManager for each task, global variables used across different tasks are possible.
     if (streamGraph.getContextManager() != null) {
       this.contextManager = streamGraph.getContextManager();
       if (this.contextManager != null) {

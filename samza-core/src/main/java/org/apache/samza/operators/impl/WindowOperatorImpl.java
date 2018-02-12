@@ -23,12 +23,12 @@ package org.apache.samza.operators.impl;
 import com.google.common.base.Preconditions;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.functions.FoldLeftFunction;
+import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SupplierFunction;
 import org.apache.samza.operators.impl.store.TimeSeriesKey;
 import org.apache.samza.operators.impl.store.TimeSeriesStore;
 import org.apache.samza.operators.impl.store.TimeSeriesStoreImpl;
 import org.apache.samza.operators.impl.store.TimestampedValue;
-import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.triggers.FiringType;
@@ -112,10 +112,17 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
 
   @Override
   protected void handleInit(Config config, TaskContext context) {
-    WindowInternal<M, K, Object> window = windowOpSpec.getWindow();
 
     KeyValueStore<TimeSeriesKey<K>, Object> store =
         (KeyValueStore<TimeSeriesKey<K>, Object>) context.getStore(windowOpSpec.getOpId());
+
+    if (initializer != null) {
+      initializer.init(config, context);
+    }
+
+    if (keyFn != null) {
+      keyFn.init(config, context);
+    }
 
     // For aggregating windows, we use the store in over-write mode since we only retain the aggregated
     // value. Else, we use the store in append-mode.
@@ -142,6 +149,7 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
       timeSeriesStore.put(key, message, timestamp); // store is in append mode
     } else {
       List<Object> existingState = getValues(key, timestamp);
+
       Preconditions.checkState(existingState.size() <= 1, String.format("WindowState for aggregating windows " +
           "must not contain more than one entry per window. Current size: %s", existingState.size()));
 
@@ -213,6 +221,12 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
     }
     if (timeSeriesStore != null) {
       timeSeriesStore.close();
+    }
+    if (initializer != null) {
+      initializer.close();
+    }
+    if (keyFn != null) {
+      keyFn.close();
     }
   }
 

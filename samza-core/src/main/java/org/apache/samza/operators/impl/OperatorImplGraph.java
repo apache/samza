@@ -18,9 +18,7 @@
  */
 package org.apache.samza.operators.impl;
 
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Multimap;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -30,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.job.model.JobModel;
@@ -56,7 +55,9 @@ import org.apache.samza.util.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Multimap;
 
 /**
  * The DAG of {@link OperatorImpl}s corresponding to the DAG of {@link OperatorSpec}s.
@@ -114,16 +115,15 @@ public class OperatorImplGraph {
     taskContext.registerObject(WatermarkStates.class.getName(),
         new WatermarkStates(context.getSystemStreamPartitions(), producerTaskCounts));
 
-    streamGraph.getInputOperators().forEach((streamSpec, inputOp) -> {
+    streamGraph.getInputOperators().forEach((streamSpec, inputOpSpec) -> {
         SystemStream systemStream = new SystemStream(streamSpec.getSystemName(), streamSpec.getPhysicalName());
-        InputOperatorImpl inputOperatorImpl = null;
         try {
-          inputOperatorImpl =
-              (InputOperatorImpl) createAndRegisterOperatorImpl(null, inputOp, systemStream, config, context);
+          InputOperatorImpl inputOperatorImpl =
+                (InputOperatorImpl) createAndRegisterOperatorImpl(null, inputOpSpec, systemStream, config, context);
+          this.inputOperators.put(systemStream, inputOperatorImpl);
         } catch (IOException | ClassNotFoundException e) {
-          throw new RuntimeException("Exception in OperatorImplGraph constructor while creating operator impls.", e);
+          throw new SamzaException(String.format("Exception in OperatorImplGraph constructor while creating operator %s.", inputOpSpec.getOpId()), e);
         }
-        this.inputOperators.put(systemStream, inputOperatorImpl);
       });
   }
 
@@ -179,14 +179,13 @@ public class OperatorImplGraph {
 
       Collection<OperatorSpec> registeredSpecs = operatorSpec.getRegisteredOperatorSpecs();
       registeredSpecs.forEach(registeredSpec -> {
-          OperatorImpl nextImpl = null;
           try {
             LOG.debug("Creating operator {} with opCode: {}", registeredSpec.getOpId(), registeredSpec.getOpCode());
-            nextImpl = createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, config, context);
+            OperatorImpl nextImpl = createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, config, context);
+            operatorImpl.registerNextOperator(nextImpl);
           } catch (IOException | ClassNotFoundException e) {
-            throw new RuntimeException("Exception in lambda while creating operator impls.", e);
+            throw new SamzaException(String.format("Exception while creating operator %s.", registeredSpec.getOpId()), e);
           }
-          operatorImpl.registerNextOperator(nextImpl);
         });
       return operatorImpl;
     } else {
@@ -196,9 +195,13 @@ public class OperatorImplGraph {
 
       // We still need to traverse the DAG further to register the input streams.
       Collection<OperatorSpec> registeredSpecs = operatorSpec.getRegisteredOperatorSpecs();
-      for (OperatorSpec registeredSpec : registeredSpecs) {
-        createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, config, context);
-      }
+      registeredSpecs.forEach(registeredSpec -> {
+          try {
+            createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, config, context);
+          } catch (IOException | ClassNotFoundException e) {
+            throw new SamzaException(String.format("Exception while creating operator %s.", registeredSpec.getOpId()), e);
+          }
+        });
       return operatorImpl;
     }
   }

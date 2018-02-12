@@ -19,7 +19,6 @@
 
 package org.apache.samza.system;
 
-import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -34,7 +33,7 @@ import java.util.Map;
  *
  * It is immutable by design.
  */
-public class StreamSpec implements Serializable {
+public class StreamSpec {
 
   private static final int DEFAULT_PARTITION_COUNT = 1;
 
@@ -52,25 +51,25 @@ public class StreamSpec implements Serializable {
    * This identifier is used as a key for stream properties in the
    * job config and to distinguish between streams in a graph.
    */
-  private String id;
+  private final String id;
 
   /**
    * The System name on which this stream will exist. Corresponds to a named implementation of the
    * Samza System abstraction.
    */
-  private String systemName;
+  private final String systemName;
 
   /**
    * The physical identifier for the stream. This is the identifier that will be used in remote
    * systems to identify the stream. In Kafka this would be the topic name whereas in HDFS it
    * might be a file URN.
    */
-  private String physicalName;
+  private final String physicalName;
 
   /**
    * The number of partitions for the stream.
    */
-  private int partitionCount;
+  private final int partitionCount;
 
   /**
    * Bounded or unbounded stream
@@ -85,7 +84,7 @@ public class StreamSpec implements Serializable {
   /**
    * A set of all system-specific configurations for the stream.
    */
-  private Map<String, String> config;
+  private final Map<String, String> config;
 
   @Override
   public String toString() {

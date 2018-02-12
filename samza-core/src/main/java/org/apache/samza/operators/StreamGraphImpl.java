@@ -42,12 +42,12 @@ import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
-import com.google.common.base.Preconditions;
+import org.apache.samza.table.Table;
+import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.samza.table.Table;
-import org.apache.samza.table.TableSpec;
+import com.google.common.base.Preconditions;
 
 /**
  * A {@link StreamGraph} that provides APIs for accessing {@link MessageStream}s to be used to
@@ -61,8 +61,8 @@ public class StreamGraphImpl implements StreamGraph {
   private final Map<StreamSpec, InputOperatorSpec> inputOperators = new LinkedHashMap<>();
   private final Map<StreamSpec, OutputStreamImpl> outputStreams = new LinkedHashMap<>();
   private final Map<TableSpec, TableImpl> tables = new LinkedHashMap<>();
-  private final Config config;
   private final ApplicationRunner runner;
+  private final Config config;
 
 
   /**
@@ -113,7 +113,7 @@ public class StreamGraphImpl implements StreamGraph {
         OperatorSpecs.createInputOperatorSpec(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(),
             isKeyed, this.getNextOpId(OpCode.INPUT, null));
     inputOperators.put(streamSpec, inputOperatorSpec);
-    return new MessageStreamImpl<>(this, inputOperators.get(streamSpec));
+    return new MessageStreamImpl<M>(this, inputOperators.get(streamSpec));
   }
 
   @Override
@@ -150,10 +150,6 @@ public class StreamGraphImpl implements StreamGraph {
   }
 
   @Override
-  public void setContextManager(ContextManager contextManager) {
-    this.contextManager = contextManager;
-  }
-
   public <K, V> Table<KV<K, V>> getTable(TableDescriptor<K, V, ?> tableDesc) {
     TableSpec tableSpec = ((BaseTableDescriptor) tableDesc).getTableSpec();
     if (tables.containsKey(tableSpec)) {
@@ -163,6 +159,12 @@ public class StreamGraphImpl implements StreamGraph {
     }
     tables.put(tableSpec, new TableImpl(tableSpec));
     return tables.get(tableSpec);
+  }
+
+  @Override
+  public StreamGraph withContextManager(ContextManager contextManager) {
+    this.contextManager = contextManager;
+    return this;
   }
 
   /**

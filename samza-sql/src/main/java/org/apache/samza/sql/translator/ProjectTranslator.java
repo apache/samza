@@ -49,14 +49,14 @@ public class ProjectTranslator {
 
   private static final Logger LOG = LoggerFactory.getLogger(ProjectTranslator.class);
 
-  private static class MapProjectFunction implements MapFunction<SamzaSqlRelMessage, SamzaSqlRelMessage> {
+  private static class ProjectMapFunction implements MapFunction<SamzaSqlRelMessage, SamzaSqlRelMessage> {
     private transient Project project;
     private transient Expression expr;
     private transient TranslatorContext context;
 
     private final int projectId;
 
-    MapProjectFunction(int projectId) {
+    ProjectMapFunction(int projectId) {
       this.projectId = projectId;
     }
 
@@ -98,7 +98,7 @@ public class ProjectTranslator {
 
     final int projectId = project.getId();
 
-    MessageStream<SamzaSqlRelMessage> outputStream = messageStream.map(new MapProjectFunction(projectId));
+    MessageStream<SamzaSqlRelMessage> outputStream = messageStream.map(new ProjectMapFunction(projectId));
 
     context.registerMessageStream(project.getId(), outputStream);
     context.registerRelNode(project.getId(), project);

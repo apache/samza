@@ -37,7 +37,6 @@ import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.sql.data.RexToJavaCompiler;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
-import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 
 
 /**

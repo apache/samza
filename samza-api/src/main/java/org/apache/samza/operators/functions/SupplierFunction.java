@@ -19,11 +19,20 @@
 package org.apache.samza.operators.functions;
 
 import java.io.Serializable;
+import org.apache.samza.annotation.InterfaceStability;
 
 
 /**
  * A forced function interface as {@link java.util.function.Supplier}, but added mandatory interface methods in Samza
  */
+@InterfaceStability.Unstable
+@FunctionalInterface
 public interface SupplierFunction<T> extends InitableFunction, ClosableFunction, Serializable {
+
+  /**
+   * Method to offer the initial value of type T
+   *
+   * @return initial value for type T
+   */
   T get();
 }

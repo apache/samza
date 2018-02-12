@@ -27,9 +27,11 @@ import org.apache.samza.system.SystemStream;
 
 public class OutputStreamImpl<M> implements OutputStream<M>, Serializable {
 
+  // Avoid making multiple copies of StreamSpec/Serde per task, since the following transient members are only used to generate configuration
   private transient final StreamSpec streamSpec;
   private transient final Serde keySerde;
   private transient final Serde valueSerde;
+
   private final SystemStream systemStream;
   private final boolean isKeyed;
 
@@ -38,7 +40,7 @@ public class OutputStreamImpl<M> implements OutputStream<M>, Serializable {
     this.streamSpec = streamSpec;
     this.keySerde = keySerde;
     this.valueSerde = valueSerde;
-    this.systemStream = new SystemStream(streamSpec.getSystemName(), streamSpec.getPhysicalName());
+    this.systemStream = streamSpec.toSystemStream();
     this.isKeyed = isKeyed;
   }
 
@@ -61,5 +63,4 @@ public class OutputStreamImpl<M> implements OutputStream<M>, Serializable {
   public boolean isKeyed() {
     return isKeyed;
   }
-
 }

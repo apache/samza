@@ -23,7 +23,7 @@ import org.apache.samza.application.StreamApplication
 import org.apache.samza.config.Config
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
-import org.apache.samza.container.{SamzaContainer, SamzaContainerListener}
+import org.apache.samza.container.{SamzaContainerListener, SamzaContainer}
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.{JmxServer, MetricsReporter}
