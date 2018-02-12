@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BooleanSupplier;
+import com.google.common.collect.ImmutableList;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
@@ -46,7 +47,6 @@ import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
-
 
 public class TestZkUtils {
   private static EmbeddedZookeeper zkServer = null;
@@ -116,6 +116,21 @@ public class TestZkUtils {
     Assert.assertEquals(0, zkUtils.getSortedActiveProcessorsZnodes().size());
     zkUtils.registerProcessorAndGetId(new ProcessorData("processorData", "1"));
     Assert.assertEquals(1, zkUtils.getSortedActiveProcessorsZnodes().size());
+  }
+
+  @Test
+  public void testGetActiveProcessorIdShouldReturnEmptyForNonExistingZookeeperNodes() {
+    List<String> processorsIDs = zkUtils.getActiveProcessorsIDs(ImmutableList.of("node1", "node2"));
+
+    Assert.assertEquals(0, processorsIDs.size());
+  }
+
+
+  @Test
+  public void testGetAllProcessorNodesShouldReturnEmptyForNonExistingZookeeperNodes() {
+    List<ZkUtils.ProcessorNode> processorsIDs = zkUtils.getAllProcessorNodes();
+
+    Assert.assertEquals(0, processorsIDs.size());
   }
 
   @Test

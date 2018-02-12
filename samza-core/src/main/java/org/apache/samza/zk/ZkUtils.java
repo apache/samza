@@ -191,15 +191,18 @@ public class ZkUtils {
    * Fetches all the ephemeral processor nodes of a standalone job from zookeeper.
    * @return a list of {@link ProcessorNode}, where each ProcessorNode represents a registered stream processor.
    */
-  private List<ProcessorNode> getAllProcessorNodes() {
+  List<ProcessorNode> getAllProcessorNodes() {
     List<String> processorZNodes = getSortedActiveProcessorsZnodes();
     LOG.debug("Active ProcessorZNodes in zookeeper: {}.", processorZNodes);
-    return processorZNodes.stream()
-                          .map(processorZNode -> {
-                              String ephemeralProcessorPath = String.format("%s/%s", keyBuilder.getProcessorsPath(), processorZNode);
-                              String data = readProcessorData(ephemeralProcessorPath);
-                              return new ProcessorNode(new ProcessorData(data), ephemeralProcessorPath);
-                            }).collect(Collectors.toList());
+    List<ProcessorNode> processorNodes = new ArrayList<>();
+    for (String processorZNode: processorZNodes) {
+      String ephemeralProcessorPath = String.format("%s/%s", keyBuilder.getProcessorsPath(), processorZNode);
+      String data = readProcessorData(ephemeralProcessorPath);
+      if (data != null) {
+        processorNodes.add(new ProcessorNode(new ProcessorData(data), ephemeralProcessorPath));
+      }
+    }
+    return processorNodes;
   }
 
   /**
@@ -223,12 +226,10 @@ public class ZkUtils {
    * @throws SamzaException when fullPath doesn't exist in zookeeper
    * or problems with connecting to zookeeper.
    */
-  String readProcessorData(String fullPath) {
+  private String readProcessorData(String fullPath) {
     try {
-      String data = zkClient.readData(fullPath, false);
-      if (metrics != null) {
-        metrics.reads.inc();
-      }
+      String data = zkClient.readData(fullPath, true);
+      metrics.reads.inc();
       return data;
     } catch (Exception e) {
       throw new SamzaException(String.format("Cannot read ZK node: %s", fullPath), e);
@@ -254,7 +255,10 @@ public class ZkUtils {
     if (znodeIds.size() > 0) {
       for (String child : znodeIds) {
         String fullPath = String.format("%s/%s", processorPath, child);
-        processorIds.add(new ProcessorData(readProcessorData(fullPath)).getProcessorId());
+        String processorData = readProcessorData(fullPath);
+        if (processorData != null) {
+          processorIds.add(new ProcessorData(processorData).getProcessorId());
+        }
       }
       Collections.sort(processorIds);
       LOG.info("Found these children - " + znodeIds);
@@ -585,7 +589,7 @@ public class ZkUtils {
   /**
    * Represents zookeeper processor node.
    */
-  private static class ProcessorNode {
+  static class ProcessorNode {
     private final ProcessorData processorData;
 
     // Ex: /test/processors/0000000000

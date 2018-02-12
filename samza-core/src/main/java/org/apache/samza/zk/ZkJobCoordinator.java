@@ -189,11 +189,12 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     Set<String> uniqueProcessorIds = new HashSet<String>(currentProcessorIds);
 
     if (currentProcessorIds.size() != uniqueProcessorIds.size()) {
-      LOG.info("Processors: {} has duplicates. Not generating job model.", currentProcessorIds);
+      LOG.info("Processors: {} has duplicates. Not generating JobModel.", currentProcessorIds);
       return;
     }
 
     // Generate the JobModel
+    LOG.info("Generating new JobModel with processors: {}.", currentProcessorIds);
     JobModel jobModel = generateNewJobModel(currentProcessorIds);
     if (!hasCreatedChangeLogStreams) {
       JobModelManager.createChangeLogStreams(new StorageConfig(config), jobModel.maxChangeLogStreamPartitions);
@@ -202,7 +203,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     // Assign the next version of JobModel
     String currentJMVersion = zkUtils.getJobModelVersion();
     String nextJMVersion = zkUtils.getNextJobModelVersion(currentJMVersion);
-    LOG.info("pid=" + processorId + "Generated new Job Model. Version = " + nextJMVersion);
+    LOG.info("pid=" + processorId + "Generated new JobModel with version: " + nextJMVersion + " and processors: " + currentProcessorIds);
 
     // Publish the new job model
     zkUtils.publishJobModel(nextJMVersion, jobModel);
