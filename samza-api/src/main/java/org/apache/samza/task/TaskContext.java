@@ -81,7 +81,6 @@ public interface TaskContext {
    * windowing and commit.
    * @param key timer key
    * @param time system-clock time when the timer will fire
-   * @param callback callback to invoke when the timer fires
    * @param <K> type of the key
    */
   <K> void registerTimer(K key, long time, TimerCallback<K> callback);

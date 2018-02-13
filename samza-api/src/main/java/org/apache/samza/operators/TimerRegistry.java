@@ -20,9 +20,7 @@
 package org.apache.samza.operators;
 
 /**
- * A registry that allows user to register arbitrary system-clock timers in the operators. It's accessible
- * from the {@link OpContext} in {@link org.apache.samza.operators.functions.InitableFunction#init(org.apache.samza.config.Config, OpContext)}.
- * User needs to implement {@link org.apache.samza.operators.functions.TimerFunction} to receive timer firings.
+ * A registry that allows user to register arbitrary system-clock timers in the operators.
  * See {@link org.apache.samza.operators.functions.TimerFunction} for details.
  * @param <K> type of the timer key
  */

@@ -25,7 +25,6 @@ import java.util.function.Function;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.OpContext;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
@@ -36,6 +35,7 @@ import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.TableSpec;
+import org.apache.samza.task.TaskContext;
 
 
 /**
@@ -87,8 +87,8 @@ public class OperatorSpecs {
       }
 
       @Override
-      public void init(Config config, OpContext opContext) {
-        mapFn.init(config, opContext);
+      public void init(Config config, TaskContext context) {
+        mapFn.init(config, context);
       }
 
       @Override
@@ -121,8 +121,8 @@ public class OperatorSpecs {
       }
 
       @Override
-      public void init(Config config, OpContext opContext) {
-        filterFn.init(config, opContext);
+      public void init(Config config, TaskContext context) {
+        filterFn.init(config, context);
       }
 
       @Override

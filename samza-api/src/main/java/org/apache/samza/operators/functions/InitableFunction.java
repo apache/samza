@@ -21,7 +21,6 @@ package org.apache.samza.operators.functions;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.OpContext;
 import org.apache.samza.task.TaskContext;
 
 /**
@@ -41,16 +40,5 @@ public interface InitableFunction {
    * @param config the {@link Config} for the application
    * @param context the {@link TaskContext} for this task
    */
-  @Deprecated
   default void init(Config config, TaskContext context) { }
-
-  /**
-   * Initializes the function before any messages are processed.
-   *
-   * @param config the {@link Config} for the application
-   * @param opContext the {@link org.apache.samza.operators.OpContext} for the task
-   */
-  default void init(Config config, OpContext opContext) {
-    init(config, opContext.getTaskContext());
-  }
 }

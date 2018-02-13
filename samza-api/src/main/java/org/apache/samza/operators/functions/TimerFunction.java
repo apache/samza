@@ -19,16 +19,17 @@
 
 package org.apache.samza.operators.functions;
 
+import org.apache.samza.operators.TimerRegistry;
+
 import java.util.Collection;
 
 /**
- * Invoked when a keyed timer fires.
+ * Allows timer registration and is invoked when the timer is fired.
  * <p>
  * Example of a {@link FlatMapFunction} with timer:
  * <pre>{@code
  *    public class ExampleTimerFn implements FlatMapFunction<String, String>, TimerFunction<String, String> {
- *      public void init(Config config, OpContext opContext) {
- *        TimerRegistry<String> timerRegistry = opContext.getTimerRegistry();
+ *      public void registerTimer(TimerRegistry timerRegistry) {
  *        long time = System.currentTimeMillis() + 5000; // fire after 5 sec
  *        timerRegistry.register("example-timer", time);
  *      }
@@ -45,6 +46,12 @@ import java.util.Collection;
  * @param <OM> type of the output
  */
 public interface TimerFunction<K, OM> {
+
+  /**
+   * Registers any system timers using the registry
+   * @param timerRegistry a keyed {@link TimerRegistry}
+   */
+  void registerTimer(TimerRegistry<K> timerRegistry);
 
   /**
    * Returns the output after the timer with key fires.

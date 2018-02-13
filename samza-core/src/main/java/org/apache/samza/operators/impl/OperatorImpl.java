@@ -25,7 +25,6 @@ import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
-import org.apache.samza.operators.OpContext;
 import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
@@ -56,7 +55,7 @@ import java.util.Set;
  * @param <M> type of the input to this operator
  * @param <RM> type of the results of applying this operator
  */
-public abstract class OperatorImpl<M, RM> implements TimerRegistryFactory {
+public abstract class OperatorImpl<M, RM> {
   private static final Logger LOG = LoggerFactory.getLogger(OperatorImpl.class);
   private static final String METRICS_GROUP = OperatorImpl.class.getName();
 
@@ -126,18 +125,18 @@ public abstract class OperatorImpl<M, RM> implements TimerRegistryFactory {
     }
 
     this.taskContext = taskContext;
-    final OpContext opContext = new OpContextImpl(taskContext, this);
-    handleInit(config, opContext);
+    handleInit(config, taskContext);
 
     initialized = true;
   }
 
   /**
    * Initialize this {@link OperatorImpl} and its user-defined functions.
+   *
    * @param config  the {@link Config} for the task
-   * @param opContext context for this operator
+   * @param context  the {@link TaskContext} for the task
    */
-  protected abstract void handleInit(Config config, OpContext opContext);
+  protected abstract void handleInit(Config config, TaskContext context);
 
   /**
    * Register an operator that this operator should propagate its results to.
@@ -427,8 +426,7 @@ public abstract class OperatorImpl<M, RM> implements TimerRegistryFactory {
    * @param <K> key type for the timer.
    * @return an instance of {@link TimerRegistry}
    */
-  @Override
-  public <K> TimerRegistry<K> getTimerRegistry() {
+  <K> TimerRegistry<K> getTimerRegistry() {
     return new TimerRegistry<K>() {
       @Override
       public void register(K key, long time) {

@@ -25,8 +25,8 @@ import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.OpContext;
 import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.PartialJoinFunction;
 import org.apache.samza.operators.impl.store.TimestampedValue;
@@ -166,6 +166,11 @@ public class OperatorImplGraph {
       operatorImpl.init(config, context);
       operatorImpl.registerInputStream(inputStream);
 
+      if (operatorSpec.getTimerFn() != null) {
+        final TimerRegistry timerRegistry = operatorImpl.getTimerRegistry();
+        operatorSpec.getTimerFn().registerTimer(timerRegistry);
+      }
+
       // Note: The key here is opImplId, which may not equal opId for some impls (e.g. PartialJoinOperatorImpl).
       // This is currently OK since we don't need to look up a partial join operator impl again during traversal
       // (a join cannot have a cycle).
@@ -264,13 +269,12 @@ public class OperatorImplGraph {
       }
 
       @Override
-      public void init(Config config, OpContext opContext) {
+      public void init(Config config, TaskContext context) {
         String leftStoreName = joinOpSpec.getLeftOpId();
-        TaskContext taskContext = opContext.getTaskContext();
-        leftStreamState = (KeyValueStore<Object, TimestampedValue<Object>>) taskContext.getStore(leftStoreName);
+        leftStreamState = (KeyValueStore<Object, TimestampedValue<Object>>) context.getStore(leftStoreName);
 
         // user-defined joinFn should only be initialized once, so we do it only in left partial join function.
-        joinFn.init(config, opContext);
+        joinFn.init(config, context);
       }
 
       @Override

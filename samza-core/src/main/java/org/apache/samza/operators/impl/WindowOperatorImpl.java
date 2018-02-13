@@ -22,7 +22,6 @@ package org.apache.samza.operators.impl;
 
 import com.google.common.base.Preconditions;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.OpContext;
 import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.impl.store.TimeSeriesKey;
 import org.apache.samza.operators.impl.store.TimeSeriesStore;
@@ -112,17 +111,16 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
   }
 
   @Override
-  protected void handleInit(Config config, OpContext opContext) {
+  protected void handleInit(Config config, TaskContext context) {
     WindowInternal<M, K, Object> window = windowOpSpec.getWindow();
 
-    final TaskContext taskContext = opContext.getTaskContext();
     KeyValueStore<TimeSeriesKey<K>, Object> store =
-        (KeyValueStore<TimeSeriesKey<K>, Object>) taskContext.getStore(windowOpSpec.getOpId());
+        (KeyValueStore<TimeSeriesKey<K>, Object>) context.getStore(windowOpSpec.getOpId());
 
     // For aggregating windows, we use the store in over-write mode since we only retain the aggregated
     // value. Else, we use the store in append-mode.
     if (foldLeftFn != null) {
-      foldLeftFn.init(config, opContext);
+      foldLeftFn.init(config, context);
       timeSeriesStore = new TimeSeriesStoreImpl(store, false);
     } else {
       timeSeriesStore = new TimeSeriesStoreImpl(store, true);

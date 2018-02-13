@@ -22,7 +22,6 @@ package org.apache.samza.test.timer;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OpContext;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.FlatMapFunction;
@@ -62,8 +61,8 @@ public class TestTimerApp implements StreamApplication {
     private TimerRegistry<String> timerRegistry;
 
     @Override
-    public void init(Config config, OpContext opContext) {
-      this.timerRegistry = opContext.getTimerRegistry();
+    public void registerTimer(TimerRegistry<String> timerRegistry) {
+      this.timerRegistry = timerRegistry;
     }
 
     @Override
