@@ -30,6 +30,7 @@ import java.util.function.BooleanSupplier;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
+import org.I0Itec.zkclient.exception.ZkInterruptedException;
 import org.I0Itec.zkclient.exception.ZkNodeExistsException;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.samza.SamzaException;
@@ -46,6 +47,7 @@ import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import org.mockito.Mockito;
 
 
 public class TestZkUtils {
@@ -88,8 +90,9 @@ public class TestZkUtils {
 
   @After
   public void testTeardown() {
-    zkUtils.close();
-    zkClient.close();
+    if (zkClient != null) {
+      zkUtils.close();
+    }
   }
 
   private ZkUtils getZkUtils() {
@@ -390,6 +393,15 @@ public class TestZkUtils {
       Assert.assertTrue("path " + p1 + " exists", zkUtils.getZkClient().exists(p1));
     }
 
+  }
+
+  @Test
+  public void testCloseShouldNotThrowZkInterruptedExceptionToCaller() {
+    ZkClient zkClient = Mockito.mock(ZkClient.class);
+    ZkUtils zkUtils = new ZkUtils(KEY_BUILDER, zkClient,
+            SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
+    Mockito.doThrow(new ZkInterruptedException(new InterruptedException())).when(zkClient).close();
+    zkUtils.close();
   }
 
   public static boolean testWithDelayBackOff(BooleanSupplier cond, long startDelayMs, long maxDelayMs) {
