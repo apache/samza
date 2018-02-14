@@ -33,14 +33,14 @@ public class TestSamzaSqlRelMessage {
 
   @Test
   public void testGetField() {
-    SamzaSqlRelMessage message = SamzaSqlRelMessage.createRelMessage(values, names);
+    SamzaSqlRelMessage message = new SamzaSqlRelMessage(names, values);
     Assert.assertEquals(values.get(0), message.getField(names.get(0)).get());
     Assert.assertEquals(values.get(1), message.getField(names.get(1)).get());
   }
 
   @Test
   public void testGetNonExistentField() {
-    SamzaSqlRelMessage message = SamzaSqlRelMessage.createRelMessage(values, names);
+    SamzaSqlRelMessage message = new SamzaSqlRelMessage(names, values);
     Assert.assertFalse(message.getField("field3").isPresent());
   }
 }

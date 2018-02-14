@@ -57,7 +57,6 @@ import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.RelSchemaProvider;
 import org.apache.samza.sql.interfaces.SqlSystemStreamConfig;
 import org.apache.samza.sql.interfaces.UdfMetadata;
-import org.apache.samza.system.SystemStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,7 +74,6 @@ public class QueryPlanner {
 
   // Mapping between the source to the SqlSystemStreamConfig corresponding to the source.
   private final Map<String, SqlSystemStreamConfig> systemStreamConfigBySource;
-
 
   public QueryPlanner(Map<String, RelSchemaProvider> relSchemaProviders,
       Map<String, SqlSystemStreamConfig> systemStreamConfigBySource, Collection<UdfMetadata> udfMetadata) {
@@ -95,17 +93,18 @@ public class QueryPlanner {
         List<String> sourceParts = ssc.getSourceParts();
         RelSchemaProvider relSchemaProvider = relSchemaProviders.get(ssc.getSource());
 
-        for (String sourcePart : sourceParts) {
-          if (!sourcePart.equalsIgnoreCase(ssc.getStreamName())) {
+        for (int sourcePartIndex = 0; sourcePartIndex < sourceParts.size(); sourcePartIndex++) {
+          String sourcePart = sourceParts.get(sourcePartIndex);
+          if (sourcePartIndex < sourceParts.size() - 1) {
             SchemaPlus sourcePartSchema = rootSchema.getSubSchema(sourcePart);
             if (sourcePartSchema == null) {
               sourcePartSchema = previousLevelSchema.add(sourcePart, new AbstractSchema());
             }
             previousLevelSchema = sourcePartSchema;
           } else {
-            // If the source part is the streamName, then fetch the schema corresponding to the stream and register.
+            // If the source part is the last one, then fetch the schema corresponding to the stream and register.
             RelDataType relationalSchema = relSchemaProvider.getRelationalSchema();
-            previousLevelSchema.add(ssc.getStreamName(), createTableFromRelSchema(relationalSchema));
+            previousLevelSchema.add(sourcePart, createTableFromRelSchema(relationalSchema));
             break;
           }
         }
