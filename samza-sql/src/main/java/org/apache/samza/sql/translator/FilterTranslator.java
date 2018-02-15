@@ -45,7 +45,7 @@ public class FilterTranslator {
 
     MessageStream<SamzaSqlRelMessage> outputStream = inputStream.filter(message -> {
       Object[] result = new Object[1];
-      expr.execute(context.getExecutionContext(), context.getDataContext(), message.getRelFieldValues().toArray(), result);
+      expr.execute(context.getExecutionContext(), context.getDataContext(), message.getFieldValues().toArray(), result);
       if (result.length > 0 && result[0] instanceof Boolean) {
         boolean retVal = (Boolean) result[0];
         log.debug(

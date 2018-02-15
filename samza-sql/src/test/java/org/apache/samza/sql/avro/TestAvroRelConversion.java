@@ -28,7 +28,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.stream.Collectors;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -144,7 +143,6 @@ public class TestAvroRelConversion {
     Assert.assertEquals(message.getFieldNames().size(), message.getFieldValues().size());
   }
 
-
   @Test
   public void testNullRecordConversion() {
     SamzaSqlRelMessage message = simpleRecordAvroRelConverter.convertToRelMessage(new KV<>("key", null));
@@ -218,8 +216,7 @@ public class TestAvroRelConversion {
     RelDataType dataType = complexRecordSchemProvider.getRelationalSchema();
 
     SamzaSqlRelMessage message = complexRecordAvroRelConverter.convertToRelMessage(new KV<>("key", complexRecordValue));
-    Assert.assertEquals(message.getFieldNames().size(),
-        ComplexRecord.SCHEMA$.getFields().size());
+    Assert.assertEquals(message.getFieldNames().size(), ComplexRecord.SCHEMA$.getFields().size() + 1);
 
     Assert.assertEquals(message.getField("id").get(), id);
     Assert.assertEquals(message.getField("bool_value").get(), boolValue);
