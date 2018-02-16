@@ -21,10 +21,7 @@ package org.apache.samza.container.grouper.task;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.samza.container.TaskName;
-import org.apache.samza.coordinator.stream.AbstractCoordinatorStreamManager;
-import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer;
-import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer;
+import org.apache.samza.coordinator.stream.CoordinatorStreamManager;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.coordinator.stream.messages.Delete;
 import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping;
@@ -36,32 +33,20 @@ import org.slf4j.LoggerFactory;
  * Task assignment Manager is used to persist and read the task-to-container
  * assignment information from the coordinator stream
  * */
-public class TaskAssignmentManager extends AbstractCoordinatorStreamManager {
+public class TaskAssignmentManager {
   private static final Logger log = LoggerFactory.getLogger(TaskAssignmentManager.class);
   private final Map<String, String> taskNameToContainerId = new HashMap<>();
-  private boolean registered = false;
+  private final CoordinatorStreamManager coordinatorStreamManager;
+  private static final String SOURCE = "SamzaTaskAssignmentManager";
 
   /**
    * Default constructor that creates a read-write manager
    *
-   * @param coordinatorStreamProducer producer to the coordinator stream
-   * @param coordinatorStreamConsumer consumer for the coordinator stream
+   * @param coordinatorStreamManager coordinator stream manager.
    */
-  public TaskAssignmentManager(CoordinatorStreamSystemProducer coordinatorStreamProducer,
-                         CoordinatorStreamSystemConsumer coordinatorStreamConsumer) {
-    super(coordinatorStreamProducer, coordinatorStreamConsumer, "SamzaTaskAssignmentManager");
-    register(null);
-  }
-
-  @Override
-  public void register(TaskName taskName) {
-    if (!registered) {
-      // taskName will not be used. This producer is global scope.
-      registerCoordinatorStreamProducer(getSource());
-      // We don't register the consumer because we don't manage the consumer's
-      // lifecycle. Also, we don't need to set any properties on the consumer.
-      registered = true;
-    }
+  public TaskAssignmentManager(CoordinatorStreamManager coordinatorStreamManager) {
+    this.coordinatorStreamManager = coordinatorStreamManager;
+    coordinatorStreamManager.register(SOURCE);
   }
 
   /**
@@ -72,7 +57,7 @@ public class TaskAssignmentManager extends AbstractCoordinatorStreamManager {
    */
   public Map<String, String> readTaskAssignment() {
     taskNameToContainerId.clear();
-    for (CoordinatorStreamMessage message: getBootstrappedStream(SetTaskContainerMapping.TYPE)) {
+    for (CoordinatorStreamMessage message: coordinatorStreamManager.getBootstrappedStream(SetTaskContainerMapping.TYPE)) {
       if (message.isDelete()) {
         taskNameToContainerId.remove(message.getKey());
         log.debug("Got TaskContainerMapping delete message: {}", message);
@@ -105,10 +90,10 @@ public class TaskAssignmentManager extends AbstractCoordinatorStreamManager {
     }
 
     if (containerId == null) {
-      send(new Delete(getSource(), taskName, SetTaskContainerMapping.TYPE));
+      coordinatorStreamManager.send(new Delete(SOURCE, taskName, SetTaskContainerMapping.TYPE));
       taskNameToContainerId.remove(taskName);
     } else {
-      send(new SetTaskContainerMapping(getSource(), taskName, String.valueOf(containerId)));
+      coordinatorStreamManager.send(new SetTaskContainerMapping(SOURCE, taskName, String.valueOf(containerId)));
       taskNameToContainerId.put(taskName, containerId);
     }
   }

@@ -19,6 +19,7 @@
 
 package org.apache.samza.coordinator.stream;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -290,4 +291,8 @@ public class CoordinatorStreamSystemConsumer {
     return iterator.hasNext();
   }
 
+  @VisibleForTesting
+  boolean isStarted() {
+    return isStarted;
+  }
 }

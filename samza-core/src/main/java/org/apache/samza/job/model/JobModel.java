@@ -22,8 +22,10 @@ package org.apache.samza.job.model;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.LocalityManager;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 
 /**
@@ -31,7 +33,7 @@ import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
  * The data model used to represent a Samza job. The model is used in the job
  * coordinator and SamzaContainer to determine how to execute Samza jobs.
  * </p>
- * 
+ *
  * <p>
  * The hierarchy for a Samza's job data model is that jobs have containers, and
  * containers have tasks. Each data model contains relevant information, such as
@@ -139,6 +141,15 @@ public class JobModel {
 
   public Map<String, ContainerModel> getContainers() {
     return containers;
+  }
+
+  public Map<TaskName, Integer> getTaskPartitionMappings() {
+    HashMap<TaskName, Integer> mappings = new HashMap<>();
+    for (Map.Entry<String, ContainerModel> container: containers.entrySet()) {
+      mappings.putAll(container.getValue().getTasks().entrySet().stream()
+          .collect(Collectors.toMap(t -> t.getKey(), t -> t.getValue().getChangelogPartition().getPartitionId())));
+    }
+    return mappings;
   }
 
   @Override

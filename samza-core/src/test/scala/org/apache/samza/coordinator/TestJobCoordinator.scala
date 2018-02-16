@@ -42,9 +42,10 @@ import org.apache.samza.job.model.JobModel
 import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.job.model.TaskModel
 import org.apache.samza.config.JobConfig
-import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory
-import org.apache.samza.coordinator.stream.MockCoordinatorStreamWrappedConsumer
+import org.apache.samza.coordinator.stream.{CoordinatorStreamManager, MockCoordinatorStreamSystemFactory, MockCoordinatorStreamWrappedConsumer}
 import org.apache.samza.job.MockJobFactory
+import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.storage.ChangelogStreamManager
 import org.scalatest.{FlatSpec, PrivateMethodTester}
 
 import scala.collection.immutable
@@ -107,7 +108,7 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
     // We want the mocksystemconsumer to use the same instance across runs
     MockCoordinatorStreamSystemFactory.enableMockConsumerCache()
 
-    val coordinator = JobModelManager(new MapConfig((config ++ otherConfigs).asJava))
+    val coordinator = getTestJobModelManager(new MapConfig((config ++ otherConfigs).asJava))
     val expectedJobModel = new JobModel(new MapConfig(config.asJava), containers.asJava)
 
     // Verify that the atomicReference is initialized
@@ -167,7 +168,7 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
     MockCoordinatorStreamSystemFactory.enableMockConsumerCache()
 
     // start the job coordinator and verify if it has all the checkpoints through http port
-    val coordinator = JobModelManager(new MapConfig((config ++ otherConfigs).asJava))
+    val coordinator = getTestJobModelManager(new MapConfig((config ++ otherConfigs).asJava))
     coordinator.start
     val url = coordinator.server.getUrl.toString
 
@@ -192,7 +193,7 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
   @Test
   def testWithPartitionAssignmentWithThreadJobFactory {
     val config = getTestConfig(classOf[ThreadJobFactory])
-    val coordinator = JobModelManager(config)
+    val coordinator = getTestJobModelManager(config)
 
     // Construct the expected JobModel, so we can compare it to
     // JobCoordinator's JobModel.
@@ -213,7 +214,7 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
   @Test
   def testWithPartitionAssignmentWithProcessJobFactory {
     val config = getTestConfig(classOf[ProcessJobFactory])
-    val coordinator = JobModelManager(config)
+    val coordinator = getTestJobModelManager(config)
 
     // Construct the expected JobModel, so we can compare it to
     // JobCoordinator's JobModel.
@@ -277,6 +278,15 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
     taskModels.map{taskModel => {
       taskModel.getTaskName -> taskModel.getChangelogPartition.getPartitionId
     }}.toMap
+  }
+
+  def getTestJobModelManager(config: MapConfig) = {
+    val coordinatorStreamManager = new CoordinatorStreamManager(config, new MetricsRegistryMap)
+    coordinatorStreamManager.register("TestJobCoordinator")
+    coordinatorStreamManager.start
+    coordinatorStreamManager.bootstrap
+    val changelogPartitionManager = new ChangelogStreamManager(coordinatorStreamManager)
+    JobModelManager(coordinatorStreamManager, changelogPartitionManager.readPartitionMapping())
   }
 
   @Before
