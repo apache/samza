@@ -84,6 +84,16 @@ public class JavaSystemConfig extends MapConfig {
   }
 
   /**
+   * Get {@link SystemAdmin} instance for given system name.
+   *
+   * @param systemName System name
+   * @return SystemAdmin of the system if it exists, otherwise null.
+   */
+  public SystemAdmin getSystemAdmin(String systemName) {
+    return getSystemAdmins().get(systemName);
+  }
+
+  /**
    * Get {@link SystemFactory} instances for all the systems defined in this config.
    *
    * @return a map from system name to {@link SystemFactory}

@@ -19,7 +19,8 @@
 
 package org.apache.samza.config
 
-import org.apache.samza.container.RunLoopFactory
+import org.apache.samza.checkpoint.CheckpointManager
+import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system.SystemStream
 import org.apache.samza.util.{Logging, Util}
 
@@ -33,7 +34,7 @@ object TaskConfig {
   val COMMAND_BUILDER = "task.command.class" // streaming.task-factory-class
   val LIFECYCLE_LISTENERS = "task.lifecycle.listeners" // li-generator,foo
   val LIFECYCLE_LISTENER = "task.lifecycle.listener.%s.class" // task.lifecycle.listener.li-generator.class
-  val CHECKPOINT_MANAGER_FACTORY = "task.checkpoint.factory" // class name to use when sending offset checkpoints
+  val CHECKPOINT_MANAGER_FACTORY = TaskConfigJava.CHECKPOINT_MANAGER_FACTORY // class name to use when sending offset checkpoints
   val MESSAGE_CHOOSER_CLASS_NAME = "task.chooser.class"
   val DROP_DESERIALIZATION_ERROR = "task.drop.deserialization.errors" // define whether drop the messages or not when deserialization fails
   val DROP_SERIALIZATION_ERROR = "task.drop.serialization.errors" // define whether drop the messages or not when serialization fails
@@ -70,6 +71,8 @@ object TaskConfig {
 }
 
 class TaskConfig(config: Config) extends ScalaMapConfig(config) with Logging {
+  val javaTaskConfig = new TaskConfigJava(config)
+
   def getInputStreams = getOption(TaskConfig.INPUT_STREAMS) match {
     case Some(streams) => if (streams.length > 0) {
       streams.split(",").map(systemStreamNames => {
@@ -106,7 +109,11 @@ class TaskConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
   def getCommandClass(defaultValue: String) = getOrElse(TaskConfig.COMMAND_BUILDER, defaultValue)
 
-  def getCheckpointManagerFactory() = getOption(TaskConfig.CHECKPOINT_MANAGER_FACTORY)
+  def getCheckpointManagerFactory() = Option(javaTaskConfig.getCheckpointManagerFactoryName)
+
+  def getCheckpointManager(metricsRegistry: MetricsRegistry): Option[CheckpointManager] = {
+    Option(javaTaskConfig.getCheckpointManager(metricsRegistry))
+  }
 
   def getMessageChooserClass = getOption(TaskConfig.MESSAGE_CHOOSER_CLASS_NAME)
 

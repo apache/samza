@@ -21,18 +21,22 @@ package org.apache.samza.checkpoint
 
 import java.net.URI
 import java.util.regex.Pattern
+
 import joptsimple.OptionSet
 import org.apache.samza.checkpoint.CheckpointTool.TaskNameToCheckpointMap
 import org.apache.samza.config.TaskConfig.Config2Task
-import org.apache.samza.config.{JobConfig, ConfigRewriter, Config}
+import org.apache.samza.config.{Config, ConfigRewriter, JobConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.job.JobRunner._
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.util.{Util, CommandLine, Logging}
+import org.apache.samza.util.{CommandLine, Logging, Util}
 import org.apache.samza.{Partition, SamzaException}
+
 import scala.collection.JavaConverters._
 import org.apache.samza.coordinator.JobModelManager
+import org.apache.samza.coordinator.stream.CoordinatorStreamManager
+import org.apache.samza.storage.ChangelogStreamManager
 
 import scala.collection.mutable.ListBuffer
 
@@ -160,7 +164,12 @@ class CheckpointTool(config: Config, newOffsets: TaskNameToCheckpointMap, manage
     info("Using %s" format manager)
 
     // Find all the TaskNames that would be generated for this job config
-    val jobModelManager = JobModelManager(config)
+    val coordinatorStreamManager = new CoordinatorStreamManager(config, new MetricsRegistryMap())
+    coordinatorStreamManager.register(getClass.getSimpleName)
+    coordinatorStreamManager.start
+    coordinatorStreamManager.bootstrap
+    val changelogManager = new ChangelogStreamManager(coordinatorStreamManager)
+    val jobModelManager = JobModelManager(coordinatorStreamManager, changelogManager.readPartitionMapping())
     val taskNames = jobModelManager
       .jobModel
       .getContainers
@@ -185,6 +194,7 @@ class CheckpointTool(config: Config, newOffsets: TaskNameToCheckpointMap, manage
     }
 
     manager.stop
+    coordinatorStreamManager.stop();
   }
 
   /** Load the most recent checkpoint state for all a specified TaskName. */

@@ -19,6 +19,7 @@
 
 package org.apache.samza.coordinator.stream;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -147,5 +148,10 @@ public class CoordinatorStreamSystemProducer {
       send(new SetConfig(source, configPair.getKey(), configPair.getValue()));
     }
     systemProducer.flush(source);
+  }
+
+  @VisibleForTesting
+  boolean isStarted() {
+    return isStarted;
   }
 }

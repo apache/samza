@@ -38,7 +38,7 @@ import org.apache.samza.config._
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
 import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor, NoThrottlingDiskQuotaPolicyFactory, PollingScanDiskSpaceMonitor}
 import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStatistics, SystemStatisticsMonitor}
-import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer
+import org.apache.samza.coordinator.stream.{CoordinatorStreamManager, CoordinatorStreamSystemProducer}
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.serializers._
@@ -57,12 +57,6 @@ import scala.collection.JavaConverters._
 object SamzaContainer extends Logging {
   val DEFAULT_READ_JOBMODEL_DELAY_MS = 100
   val DISK_POLL_INTERVAL_KEY = "container.disk.poll.interval.ms"
-
-  def getLocalityManager(containerName: String, config: Config): LocalityManager = {
-    val registryMap = new MetricsRegistryMap(containerName)
-    val coordinatorSystemProducer = new CoordinatorStreamSystemProducer(config, new SamzaContainerMetrics(containerName, registryMap).registry)
-    new LocalityManager(coordinatorSystemProducer)
-  }
 
   /**
    * Fetches config, task:SSP assignments, and task:changelog partition
@@ -90,9 +84,13 @@ object SamzaContainer extends Logging {
     val containerName = "samza-container-%s" format containerId
     val maxChangeLogStreamPartitions = jobModel.maxChangeLogStreamPartitions
 
+    var coordinatorStreamManager: CoordinatorStreamManager = null
     var localityManager: LocalityManager = null
     if (new ClusterManagerConfig(config).getHostAffinityEnabled()) {
-      localityManager = getLocalityManager(containerName, config)
+      val registryMap = new MetricsRegistryMap(containerName)
+      val coordinatorStreamSystemProducer = new CoordinatorStreamSystemProducer(config, new SamzaContainerMetrics(containerName, registryMap).registry)
+      coordinatorStreamManager = new CoordinatorStreamManager(coordinatorStreamSystemProducer)
+      localityManager = new LocalityManager(coordinatorStreamManager)
     }
 
     val containerPID = Util.getContainerPID
@@ -625,6 +623,7 @@ object SamzaContainer extends Logging {
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
       offsetManager = offsetManager,
+      coordinatorStreamManager = coordinatorStreamManager,
       localityManager = localityManager,
       securityManager = securityManager,
       metrics = samzaContainerMetrics,
@@ -647,6 +646,7 @@ class SamzaContainer(
   diskSpaceMonitor: DiskSpaceMonitor = null,
   hostStatisticsMonitor: SystemStatisticsMonitor = null,
   offsetManager: OffsetManager = new OffsetManager,
+  coordinatorStreamManager: CoordinatorStreamManager = null,
   localityManager: LocalityManager = null,
   securityManager: SecurityManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
@@ -840,9 +840,15 @@ class SamzaContainer(
 
   def startLocalityManager {
     if(localityManager != null) {
-      info("Registering localityManager for the container")
-      localityManager.start
-      localityManager.register(String.valueOf(containerContext.id))
+      if(coordinatorStreamManager == null) {
+        // This should never happen.
+        throw new IllegalStateException("Cannot start LocalityManager without a CoordinatorStreamManager")
+      }
+
+      val containerName = "SamzaContainer-" + String.valueOf(containerContext.id)
+      info("Registering %s with the coordinator stream manager." format containerName)
+      coordinatorStreamManager.start
+      coordinatorStreamManager.register(containerName)
 
       info("Writing container locality and JMX address to Coordinator Stream")
       try {
@@ -1013,9 +1019,9 @@ class SamzaContainer(
   }
 
   def shutdownLocalityManager {
-    if(localityManager != null) {
-      info("Shutting down locality manager.")
-      localityManager.stop
+    if(coordinatorStreamManager != null) {
+      info("Shutting down coordinator stream manager used by locality manager.")
+      coordinatorStreamManager.stop
     }
   }
 

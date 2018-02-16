@@ -25,7 +25,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.Partition;
+import org.apache.samza.checkpoint.CheckpointManager;
+import org.apache.samza.checkpoint.CheckpointManagerFactory;
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Util;
@@ -43,11 +47,40 @@ public class TaskConfigJava extends MapConfig {
   public static final String BROADCAST_INPUT_STREAMS = "task.broadcast.inputs";
   private static final String BROADCAST_STREAM_PATTERN = "^[\\d]+$";
   private static final String BROADCAST_STREAM_RANGE_PATTERN = "^\\[[\\d]+\\-[\\d]+\\]$";
-  public static final Logger LOGGER = LoggerFactory.getLogger(TaskConfigJava.class);
 
+  // class name to use when sending offset checkpoints
+  public static final String CHECKPOINT_MANAGER_FACTORY = "task.checkpoint.factory";
+
+  public static final Logger LOGGER = LoggerFactory.getLogger(TaskConfigJava.class);
 
   public TaskConfigJava(Config config) {
     super(config);
+  }
+
+  /**
+   * Get the name of the checkpoint manager factory
+   *
+   * @return Name of checkpoint manager factory
+   */
+  public String getCheckpointManagerFactoryName() {
+    return get(CHECKPOINT_MANAGER_FACTORY, null);
+  }
+
+  /**
+   * Create the checkpoint manager
+   *
+   * @param metricsRegistry Registry of metrics to use. Can be null if not using metrics.
+   * @return CheckpointManager object if checkpoint manager factory is configured, otherwise null.
+   */
+  public CheckpointManager getCheckpointManager(MetricsRegistry metricsRegistry) {
+    // Initialize checkpoint streams during job coordination
+    String checkpointManagerFactoryName = getCheckpointManagerFactoryName();
+    if (StringUtils.isNotBlank(checkpointManagerFactoryName)) {
+      CheckpointManager checkpointManager =
+          Util.<CheckpointManagerFactory>getObj(checkpointManagerFactoryName).getCheckpointManager(this, metricsRegistry);
+      return checkpointManager;
+    }
+    return null;
   }
 
   /**
