@@ -310,6 +310,30 @@ project(':samza-elasticsearch') {
   }
 }
 
+project(":samza-inmemory") {
+  apply plugin: 'checkstyle'
+  apply plugin: 'java'
+
+  dependencies {
+    // internal dependencies
+    compile project(':samza-api')
+
+    // external libraries
+    compile "com.google.guava:guava:$guavaVersion"
+    compile "org.slf4j:slf4j-api:$slf4jVersion"
+
+
+    // test dependencies
+    testCompile "junit:junit:$junitVersion"
+    testCompile "org.mockito:mockito-core:$mockitoVersion"
+  }
+
+  checkstyle {
+    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+    toolVersion = "$checkstyleVersion"
+  }
+}
+
 project(':samza-sql') {
   apply plugin: 'java'
 
