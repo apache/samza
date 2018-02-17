@@ -37,6 +37,7 @@ import org.apache.samza.logging.log4j.serializers.LoggingEventJsonSerde;
 import org.apache.samza.logging.log4j.serializers.LoggingEventStringSerde;
 import org.apache.samza.logging.log4j.serializers.LoggingEventStringSerdeFactory;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Test;
 
 public class TestStreamAppender {
@@ -115,6 +116,21 @@ public class TestStreamAppender {
 
     List<String> messages = Lists.newArrayList("testing3", "testing4");
     logAndVerifyMessages(messages);
+  }
+
+  @Test
+  public void testStreamCreationUponSetup() {
+    System.setProperty("samza.container.name", "samza-container-1");
+
+    MockSystemProducerAppender systemProducerAppender = new MockSystemProducerAppender();
+    PatternLayout layout = new PatternLayout();
+    layout.setConversionPattern("%m");
+    systemProducerAppender.setLayout(layout);
+    systemProducerAppender.activateOptions();
+    log.addAppender(systemProducerAppender);
+
+    systemProducerAppender.setupSystem();
+    Assert.assertEquals(MockSystemAdmin.createdStreamName, "__samza_log4jTest_1_logs");
   }
 
   @Test

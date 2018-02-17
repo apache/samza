@@ -46,6 +46,9 @@ public class StreamSpec {
   // Internal checkpoint stream id. It is used for creating checkpoint StreamSpec.
   private static final String CHECKPOINT_STREAM_ID = "samza-internal-checkpoint-stream-id";
 
+  // Internal stream appender stream id. It is used for creating stream appender StreamSpec.
+  private static final String STREAM_APPENDER_ID = "samza-internal-stream-appender-stream-id";
+
   /**
    * Unique identifier for the stream in a Samza application.
    * This identifier is used as a key for stream properties in the
@@ -288,5 +291,9 @@ public class StreamSpec {
 
   public static StreamSpec createCheckpointStreamSpec(String physicalName, String systemName) {
     return new StreamSpec(CHECKPOINT_STREAM_ID, physicalName, systemName, 1);
+  }
+
+  public static StreamSpec createStreamAppenderSpec(String physicalName, String systemName, int partitionCount) {
+    return new StreamSpec(STREAM_APPENDER_ID, physicalName, systemName, partitionCount);
   }
 }

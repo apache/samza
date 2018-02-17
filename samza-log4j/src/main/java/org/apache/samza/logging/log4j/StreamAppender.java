@@ -32,6 +32,7 @@ import org.apache.log4j.Logger;
 import org.apache.log4j.spi.LoggingEvent;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.Log4jSystemConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.ShellCommandConfig;
@@ -44,6 +45,8 @@ import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeFactory;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.StreamSpec;
+import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
@@ -259,6 +262,12 @@ public class StreamAppender extends AppenderSkeleton {
     }
 
     setSerde(log4jSystemConfig, systemName, streamName);
+
+    // Explicitly create stream appender stream with the partition count the same as the number of containers.
+    JobConfig jobConfig = new JobConfig(config);
+    StreamSpec streamSpec = StreamSpec.createStreamAppenderSpec(streamName, systemName, jobConfig.getContainerCount());
+    SystemAdmin systemAdmin = systemFactory.getAdmin(systemName, config);
+    systemAdmin.createStream(streamSpec);
 
     systemProducer = systemFactory.getProducer(systemName, config, metricsRegistry);
     systemStream = new SystemStream(systemName, streamName);
