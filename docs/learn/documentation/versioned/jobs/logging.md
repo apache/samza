@@ -116,12 +116,14 @@ And then updating your log4j.xml to include the appender:
 
 #### Stream Log4j Appender
 
-Samza provides a StreamAppender to publish the logs into a specific system. You can specify the system name using "task.log4j.system" and change name of log stream with param 'StreamName'. Also, we have the [MDC](http://logback.qos.ch/manual/mdc.html) keys "containerName", "jobName" and "jobId", which help identify the source of the log. In order to use this appender, simply add:
+Samza provides a StreamAppender to publish the logs into a specific system. You can specify the system name using "task.log4j.system" and change name of log stream with param 'StreamName'. You can also specify the number of partitions for the log stream with param 'PartitionCount'; otherwise, the number of partitions will equal the number of containers configured for the job. Also, we have the [MDC](http://logback.qos.ch/manual/mdc.html) keys "containerName", "jobName" and "jobId", which help identify the source of the log. In order to use this appender, simply add:
 
 {% highlight xml %}
 <appender name="StreamAppender" class="org.apache.samza.logging.log4j.StreamAppender">
    <!-- optional -->
    <param name="StreamName" value="EpicStreamName"/>
+   <!-- optional -->
+   <param name="PartitionCount" value="8"/>
    <layout class="org.apache.log4j.PatternLayout">
      <param name="ConversionPattern" value="%X{containerName} %X{jobName} %X{jobId} %d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} [%p] %m%n" />
    </layout>

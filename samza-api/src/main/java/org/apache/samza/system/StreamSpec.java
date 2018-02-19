@@ -293,7 +293,7 @@ public class StreamSpec {
     return new StreamSpec(CHECKPOINT_STREAM_ID, physicalName, systemName, 1);
   }
 
-  public static StreamSpec createStreamAppenderSpec(String physicalName, String systemName, int partitionCount) {
+  public static StreamSpec createStreamAppenderStreamSpec(String physicalName, String systemName, int partitionCount) {
     return new StreamSpec(STREAM_APPENDER_ID, physicalName, systemName, partitionCount);
   }
 }

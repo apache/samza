@@ -73,6 +73,7 @@ public class StreamAppender extends AppenderSkeleton {
   private SystemProducer systemProducer = null;
   private String key = null;
   private String streamName = null;
+  private int partitionCount = 0;
   private boolean isApplicationMaster = false;
   private Serde<LoggingEvent> serde = null;
   private Logger log = Logger.getLogger(StreamAppender.class);
@@ -94,6 +95,17 @@ public class StreamAppender extends AppenderSkeleton {
 
   public void setStreamName(String streamName) {
     this.streamName = streamName;
+  }
+
+  public int getPartitionCount() {
+    if (partitionCount > 0) {
+      return partitionCount;
+    }
+    return new JobConfig(getConfig()).getContainerCount();
+  }
+
+  public void setPartitionCount(int partitionCount) {
+    this.partitionCount = partitionCount;
   }
 
   @Override
@@ -264,8 +276,7 @@ public class StreamAppender extends AppenderSkeleton {
     setSerde(log4jSystemConfig, systemName, streamName);
 
     // Explicitly create stream appender stream with the partition count the same as the number of containers.
-    JobConfig jobConfig = new JobConfig(config);
-    StreamSpec streamSpec = StreamSpec.createStreamAppenderSpec(streamName, systemName, jobConfig.getContainerCount());
+    StreamSpec streamSpec = StreamSpec.createStreamAppenderStreamSpec(streamName, systemName, getPartitionCount());
     SystemAdmin systemAdmin = systemFactory.getAdmin(systemName, config);
     systemAdmin.createStream(streamSpec);
 
