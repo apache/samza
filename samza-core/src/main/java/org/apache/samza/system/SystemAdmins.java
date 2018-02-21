@@ -43,13 +43,13 @@ public class SystemAdmins {
   }
 
   public void start() {
-    for (SystemAdmin systemAdmin: systemAdminMap.values()) {
+    for (SystemAdmin systemAdmin : systemAdminMap.values()) {
       systemAdmin.start();
     }
   }
 
   public void stop() {
-    for (SystemAdmin systemAdmin: systemAdminMap.values()) {
+    for (SystemAdmin systemAdmin : systemAdminMap.values()) {
       systemAdmin.stop();
     }
   }
@@ -60,5 +60,4 @@ public class SystemAdmins {
     }
     return systemAdminMap.get(systemName);
   }
-
 }
