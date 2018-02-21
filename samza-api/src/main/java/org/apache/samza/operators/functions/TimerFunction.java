@@ -24,7 +24,9 @@ import org.apache.samza.operators.TimerRegistry;
 import java.util.Collection;
 
 /**
- * Allows timer registration and is invoked when the timer is fired.
+ * Allows timer registration with a key and is invoked when the timer is fired.
+ * Key is the unique identifier of the timer, which can include information such as namespace, timerId, etc.
+ *
  * <p>
  * Example of a {@link FlatMapFunction} with timer:
  * <pre>{@code

@@ -656,7 +656,7 @@ class SamzaContainer(
   reporters: Map[String, MetricsReporter] = Map(),
   jvm: JvmMetrics = null,
   taskThreadPool: ExecutorService = null,
-  timerExecutor: ScheduledExecutorService = null) extends Runnable with Logging {
+  timerExecutor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor) extends Runnable with Logging {
 
   val shutdownMs = containerContext.config.getShutdownMs.getOrElse(TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS)
   var shutdownHookThread: Thread = null
@@ -1001,11 +1001,11 @@ class SamzaContainer(
       info("Shutting down timer executor")
       try {
         timerExecutor.shutdown()
-        if(timerExecutor.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
+        if (timerExecutor.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
           timerExecutor.shutdownNow()
         }
       } catch {
-        case e: Exception => error(e.getMessage, e)
+        case e: Exception => error("Ignoring exception shutting down timer executor", e)
       }
     }
 

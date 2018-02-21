@@ -167,7 +167,7 @@ public class OperatorImplGraph {
       operatorImpl.registerInputStream(inputStream);
 
       if (operatorSpec.getTimerFn() != null) {
-        final TimerRegistry timerRegistry = operatorImpl.getTimerRegistry();
+        final TimerRegistry timerRegistry = operatorImpl.createTimerRegistry();
         operatorSpec.getTimerFn().registerTimer(timerRegistry);
       }
 

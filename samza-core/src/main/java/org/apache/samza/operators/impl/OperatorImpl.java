@@ -426,7 +426,7 @@ public abstract class OperatorImpl<M, RM> {
    * @param <K> key type for the timer.
    * @return an instance of {@link TimerRegistry}
    */
-  <K> TimerRegistry<K> getTimerRegistry() {
+  <K> TimerRegistry<K> createTimerRegistry() {
     return new TimerRegistry<K>() {
       @Override
       public void register(K key, long time) {
@@ -441,8 +441,9 @@ public abstract class OperatorImpl<M, RM> {
                         op.onMessage(rm, collector, coordinator)));
               }
             } else {
-              throw new SamzaException("Operator " + getOperatorSpec().getOpCode().name() + " must implement" +
-                  "TimerFunction to use system timer.");
+              throw new SamzaException(
+                  String.format("Operator %s id %s (created at %s) must implement TimerFunction to use system timer.",
+                      getOperatorSpec().getOpCode().name(), getOpImplId(), getOperatorSpec().getSourceLocation()));
             }
           });
       }

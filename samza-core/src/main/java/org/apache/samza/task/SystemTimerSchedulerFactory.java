@@ -29,6 +29,10 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Per-task factory for keyed timer schedulers.
+ * It does the following things:
+ * 1) creates timer scheduler based on a given key.
+ * 2) keeps track of the schedulers created and timers that are ready.
+ * 3) triggers listener whenever a timer fires.
  */
 public class SystemTimerSchedulerFactory {
 

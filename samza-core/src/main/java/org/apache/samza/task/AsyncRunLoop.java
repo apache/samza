@@ -540,20 +540,20 @@ public class AsyncRunLoop implements Runnable, Throttleable {
             coordinatorRequests.update(coordinator);
             state.doneTimer();
           } catch (Throwable t) {
-            log.error("Task {} commit failed", task.taskName(), t);
+            log.error("Task {} timer failed", task.taskName(), t);
             abort(t);
           } finally {
-            log.trace("Task {} commit completed", task.taskName());
+            log.trace("Task {} timer completed", task.taskName());
             resume();
           }
         }
       };
 
       if (threadPool != null) {
-        log.trace("Task {} commits on the thread pool", task.taskName());
+        log.trace("Task {} timer runs on the thread pool", task.taskName());
         threadPool.submit(timerWorker);
       } else {
-        log.trace("Task {} commits on the run loop thread", task.taskName());
+        log.trace("Task {} timer runs on the run loop thread", task.taskName());
         timerWorker.run();
       }
     }
@@ -691,8 +691,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
         return (messagesInFlight.get() == 0 || isAsyncCommitEnabled) && !opInFlight;
       } else if (needWindow || needTimer || endOfStream) {
         /*
-         * A task is ready for window/timer operation, when task.window(needWindow) is requested by either user
-         * or window/timer thread. No window, timer, and commit are in progress.
+         * A task is ready for window, timer or end-of-stream operation.
          */
         return messagesInFlight.get() == 0 && !opInFlight;
       } else {
@@ -700,7 +699,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
          * A task is ready to process new message, when number of task.process calls in progress < task.max.concurrency
          * and either of the following conditions are true.
          * a) When window, commit and timer are not in progress.
-         * b) When task.async.commit is true and window/timer is not in progress.
+         * b) When task.async.commit is true and window and timer are not in progress.
          */
         return messagesInFlight.get() < maxConcurrency && !windowInFlight && !timerInFlight && (isAsyncCommitEnabled || !commitInFlight);
       }
