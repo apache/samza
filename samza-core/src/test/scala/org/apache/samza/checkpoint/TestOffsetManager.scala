@@ -61,7 +61,7 @@ class TestOffsetManager {
     val config = new MapConfig
     val checkpointManager = getCheckpointManager(systemStreamPartition, taskName)
     val systemAdmins = Map("test-system" -> getSystemAdmin)
-    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, new SystemAdmins(systemAdmins.asJava), Map(), new OffsetManagerMetrics)
+    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, new SystemAdmins(systemAdmins.asJava.asInstanceOf[java.util.Map[String, SystemAdmin]]), Map(), new OffsetManagerMetrics)
     offsetManager.register(taskName, Set(systemStreamPartition))
     offsetManager.start
     assertTrue(checkpointManager.isStarted)
@@ -94,7 +94,7 @@ class TestOffsetManager {
     val systemStreamMetadata = Map(systemStream -> testStreamMetadata)
     val config = new MapConfig
     val checkpointManager = getCheckpointManager(systemStreamPartition, taskName)
-    val systemAdmins = new SystemAdmins(Map("test-system" -> getSystemAdmin).asJava)
+    val systemAdmins = new SystemAdmins(Map("test-system" -> getSystemAdmin).asJava.asInstanceOf[java.util.Map[String, SystemAdmin]])
     val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, systemAdmins, Map(), new OffsetManagerMetrics)
     offsetManager.register(taskName, Set(systemStreamPartition))
     offsetManager.start
@@ -152,7 +152,7 @@ class TestOffsetManager {
     val checkpointManager = getCheckpointManager(systemStreamPartition1, taskName1)
     val systemAdmins = Map("test-system" -> getSystemAdmin)
     val config = new MapConfig
-    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, new SystemAdmins(systemAdmins.asJava))
+    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, new SystemAdmins(systemAdmins.asJava.asInstanceOf[java.util.Map[String, SystemAdmin]]))
     // Register both partitions. Partition 2 shouldn't have a checkpoint.
     offsetManager.register(taskName1, Set(systemStreamPartition1))
     offsetManager.register(taskName2, Set(systemStreamPartition2))
@@ -261,7 +261,7 @@ class TestOffsetManager {
       Map()
 
     val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager,
-                                      new SystemAdmins(systemAdmins.asJava), checkpointListeners, new OffsetManagerMetrics)
+                                      new SystemAdmins(systemAdmins.asJava.asInstanceOf[java.util.Map[String, SystemAdmin]]), checkpointListeners, new OffsetManagerMetrics)
     offsetManager.register(taskName, Set(systemStreamPartition, systemStreamPartition2))
 
     offsetManager.start
@@ -307,7 +307,7 @@ class TestOffsetManager {
     val systemStreamMetadata = Map(systemStream -> testStreamMetadata)
     val checkpointManager = getCheckpointManager(systemStreamPartition, taskName)
     val systemAdmins = Map("test-system" -> getSystemAdmin)
-    val offsetManager = OffsetManager(systemStreamMetadata, new MapConfig, checkpointManager, new SystemAdmins(systemAdmins.asJava), Map(), new OffsetManagerMetrics)
+    val offsetManager = OffsetManager(systemStreamMetadata, new MapConfig, checkpointManager, new SystemAdmins(systemAdmins.asJava.asInstanceOf[java.util.Map[String, SystemAdmin]]), Map(), new OffsetManagerMetrics)
     offsetManager.register(taskName, Set(systemStreamPartition))
     offsetManager.start
 
