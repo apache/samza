@@ -17,6 +17,10 @@
  * under the License.
  */
 
+apply plugin: 'maven'
+apply plugin: 'maven-publish'
+apply plugin: 'java'
+
 buildscript {
   repositories {
     mavenCentral()
@@ -490,6 +494,27 @@ project(":samza-yarn_$scalaVersion") {
     maven {
       url "http://repo.typesafe.com/typesafe/releases"
     }
+
+      mavenCentral()
+//      maven {
+//        url "s3://repo.code418.net/snapshot"
+//        authentication {
+//          awsIm(AwsImAuthentication) // load from EC2 role or env var
+//        }
+//
+//      }
+//      maven {
+//        url "s3://repo.code418.net/release"
+//
+//        authentication {
+//          awsIm(AwsImAuthentication) // load from EC2 role or env var
+//        }
+//      }
+
+      maven { url "https://repository.apache.org/content/groups/public" }
+
+      mavenLocal()
+
   }
 
   lesscss {
@@ -500,6 +525,29 @@ project(":samza-yarn_$scalaVersion") {
   }
 
   jar.dependsOn("lesscss")
+}
+
+publishing {
+  publications {
+    mavenJava(MavenPublication) {
+      groupId group
+      artifactId 'samza'
+      version version
+      from components.java
+    }
+  }
+//  repositories {
+//    maven {
+//      if (project.version.endsWith('-SNAPSHOT')) {
+//        url "s3://repo.code418.net/snapshot"
+//      } else {
+//        url "s3://repo.code418.net/release"
+//      }
+//      authentication {
+//        awsIm(AwsImAuthentication)
+//      }
+//    }
+//  }
 }
 
 project(":samza-shell") {

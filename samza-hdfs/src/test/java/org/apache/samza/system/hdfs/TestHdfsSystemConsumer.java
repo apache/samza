@@ -63,7 +63,7 @@ public class TestHdfsSystemConsumer {
     properties.put(String.format(HdfsConfig.CONSUMER_PARTITIONER_WHITELIST(), SYSTEM_NAME), ".*TestHdfsSystemConsumer.*avro");
     Path stagingDirectory = Files.createTempDirectory("staging");
     stagingDirectory.toFile().deleteOnExit();
-    properties.put(HdfsConfig.STAGING_DIRECTORY(), stagingDirectory.toString());
+    properties.put(String.format(HdfsConfig.STAGING_DIRECTORY(), SYSTEM_NAME), stagingDirectory.toString());
     return new MapConfig(properties);
   }
 
@@ -78,7 +78,7 @@ public class TestHdfsSystemConsumer {
    * partitioner, system consumer, and so on, making sure the basic functionality
    * works as expected.
    */
-  @Ignore
+  @Test
   public void testHdfsSystemConsumerE2E() throws Exception {
     Config config = generateDefaultConfig();
     HdfsSystemFactory systemFactory = new HdfsSystemFactory();

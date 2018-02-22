@@ -27,6 +27,7 @@ public class HdfsReaderFactory {
   public static SingleFileHdfsReader getHdfsReader(ReaderType readerType, SystemStreamPartition systemStreamPartition) {
     switch (readerType) {
       case AVRO: return new AvroFileHdfsReader(systemStreamPartition);
+      case PLAIN: return new TextFileHdfsReader(systemStreamPartition);
       default:
         throw new SamzaException("Unsupported reader type: " + readerType);
     }
@@ -54,6 +55,7 @@ public class HdfsReaderFactory {
    * text representing a record for example)
    */
   public enum ReaderType {
-    AVRO
+    AVRO,
+    PLAIN
   }
 }

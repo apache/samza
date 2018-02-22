@@ -59,6 +59,9 @@ public class MultiFileHdfsReader {
    * @return the file index part
    */
   public static int getCurFileIndex(String offset) {
+    if (offset == null){
+      return 0;
+    }
     String[] elements = offset.split(DELIMITER);
     if (elements.length < 2) {
       throw new SamzaException("Invalid offset for MultiFileHdfsReader: " + offset);
@@ -72,6 +75,9 @@ public class MultiFileHdfsReader {
    * @return the single file offset part
    */
   public static String getCurSingleFileOffset(String offset) {
+    if (offset == null){
+      return "0:0";
+    }
     String[] elements = offset.split(DELIMITER);
     if (elements.length < 2) {
       throw new SamzaException("Invalid offset for MultiFileHdfsReader: " + offset);
