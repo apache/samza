@@ -118,8 +118,6 @@ subprojects {
   tasks.withType(ScalaCompile) {
     // show compile errors in console output
     logging.setLevel LogLevel.WARN
-    scalaCompileOptions.fork = false
-    scalaCompileOptions.useAnt = true
   }
 
   tasks.withType(Test) {
