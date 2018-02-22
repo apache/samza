@@ -38,6 +38,21 @@ public class TestSamzaSqlQueryParser {
   }
 
   @Test
+  public void testParseJoinQuery() {
+    String sql =
+        "Insert into testavro.enrichedPageViewTopic"
+            + " select p.name as profileName, pv.pageKey"
+            + " from testavro.PAGEVIEW as pv"
+            + " join `table`.testavro.PROFILE as p"
+            + " on p.id = pv.profileId";
+    QueryInfo queryInfo = SamzaSqlQueryParser.parseQuery(sql);
+    Assert.assertEquals("testavro.enrichedPageViewTopic", queryInfo.getOutputSource());
+    Assert.assertEquals(2, queryInfo.getInputSources().size());
+    Assert.assertEquals("testavro.PAGEVIEW", queryInfo.getInputSources().get(0));
+    Assert.assertEquals("table.testavro.PROFILE", queryInfo.getInputSources().get(1));
+  }
+
+  @Test
   public void testParseInvalidQuery() {
 
     try {
@@ -54,15 +69,6 @@ public class TestSamzaSqlQueryParser {
 
     try {
       SamzaSqlQueryParser.parseQuery("insert into log.off select from tracking.bar");
-      Assert.fail("Expected a samzaException");
-    } catch (SamzaException e) {
-    }
-  }
-
-  @Test
-  public void testParseJoin() {
-    try {
-      SamzaSqlQueryParser.parseQuery("insert into log.foo select * from tracking.bar1,tracking.bar2");
       Assert.fail("Expected a samzaException");
     } catch (SamzaException e) {
     }

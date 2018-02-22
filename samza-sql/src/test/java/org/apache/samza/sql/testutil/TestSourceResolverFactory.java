@@ -33,6 +33,7 @@ public class TestSourceResolverFactory implements SourceResolverFactory {
   }
 
   private class TestSourceResolver implements SourceResolver {
+    private final String SAMZA_SQL_QUERY_TABLE_KEYWORD = "table";
     private final Config config;
 
     public TestSourceResolver(Config config) {
@@ -42,9 +43,23 @@ public class TestSourceResolverFactory implements SourceResolverFactory {
     @Override
     public SqlSystemStreamConfig fetchSourceInfo(String sourceName) {
       String[] sourceComponents = sourceName.split("\\.");
-      Config systemConfigs = config.subset(sourceComponents[0] + ".");
-      return new SqlSystemStreamConfig(sourceComponents[0], sourceComponents[sourceComponents.length - 1],
-          Arrays.asList(sourceComponents), systemConfigs);
+      boolean isTable = false;
+      int systemIdx = 0;
+      int streamIdx = sourceComponents.length - 1;
+
+      if (sourceComponents[0].toLowerCase().equals(SAMZA_SQL_QUERY_TABLE_KEYWORD)) {
+        isTable = true;
+        systemIdx++;
+      }
+      Config systemConfigs = config.subset(sourceComponents[systemIdx] + ".");
+      return new SqlSystemStreamConfig(sourceComponents[systemIdx], sourceComponents[streamIdx],
+          Arrays.asList(sourceComponents), systemConfigs, isTable);
+    }
+
+    @Override
+    public boolean isTable(String sourceName) {
+      String[] sourceComponents = sourceName.split("\\.");
+      return sourceComponents[0].toLowerCase().equals(SAMZA_SQL_QUERY_TABLE_KEYWORD);
     }
   }
 }

@@ -153,6 +153,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
       String executionPlanJson = plan.getPlanAsJson();
       writePlanJsonFile(executionPlanJson);
+      LOG.info("Execution Plan: \n" + executionPlanJson);
 
       // 2. create the necessary streams
       // TODO: System generated intermediate streams should have robust naming scheme. See SAMZA-1391

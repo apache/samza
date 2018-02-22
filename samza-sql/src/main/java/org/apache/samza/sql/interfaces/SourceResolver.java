@@ -31,4 +31,14 @@ public interface SourceResolver {
    *  System stream config corresponding to the source.
    */
   SqlSystemStreamConfig fetchSourceInfo(String sourceName);
+
+  /**
+   * Returns if a given source is a table. Different source resolvers could have different notations in the source
+   * name for denoting a table. Eg: table.system.stream, system.stream.table, bootstrap.system.stream, etc.
+   * @param sourceName
+   *  source that needs to be checked if it is a table.
+   * @return
+   *  true if the source is a table, else false.
+   */
+  boolean isTable(String sourceName);
 }

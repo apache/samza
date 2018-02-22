@@ -50,7 +50,6 @@ import org.apache.samza.sql.testutil.ReflectionUtils;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser.QueryInfo;
 import org.apache.samza.sql.testutil.SqlFileParser;
-import org.apache.samza.system.SystemStream;
 import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -240,5 +239,9 @@ public class SamzaSqlApplicationConfig {
 
   public Map<String, RelSchemaProvider> getRelSchemaProviders() {
     return relSchemaProvidersBySource;
+  }
+
+  public SourceResolver getSourceResolver() {
+    return sourceResolver;
   }
 }

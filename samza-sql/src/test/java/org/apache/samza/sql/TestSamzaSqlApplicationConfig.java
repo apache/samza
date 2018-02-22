@@ -21,13 +21,13 @@ package org.apache.samza.sql;
 
 import java.util.HashMap;
 import java.util.Map;
-import junit.framework.Assert;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.sql.impl.ConfigBasedUdfResolver;
 import org.apache.samza.sql.interfaces.SqlSystemStreamConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.testutil.SamzaSqlTestConfig;
+import org.junit.Assert;
 import org.junit.Test;
 
 

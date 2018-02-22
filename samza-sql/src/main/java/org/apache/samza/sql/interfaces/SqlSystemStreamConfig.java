@@ -36,6 +36,9 @@ public class SqlSystemStreamConfig {
 
   public static final String CFG_SAMZA_REL_CONVERTER = "samzaRelConverterName";
   public static final String CFG_REL_SCHEMA_PROVIDER = "relSchemaProviderName";
+  public static final String CFG_SAMZA_STREAM_BOOTSTRAP_STREAM = "streams.%s.samza.bootstrap";
+  public static final String CFG_SAMZA_STREAM_OFFSET_DEFAULT = "streams.%s.samza.offset.default";
+  public static final String CFG_SAMZA_STREAM_RESET_OFFSET = "streams.%s.samza.reset.offset";
 
   private final String systemName;
 
@@ -52,11 +55,15 @@ public class SqlSystemStreamConfig {
   private List<String> sourceParts;
 
   public SqlSystemStreamConfig(String systemName, String streamName, Config systemConfig) {
-    this(systemName, streamName, Arrays.asList(systemName, streamName), systemConfig);
+    this(systemName, streamName, Arrays.asList(systemName, streamName), systemConfig, false);
+  }
+
+  public SqlSystemStreamConfig(String systemName, String streamName, Config systemConfig, boolean isTable) {
+    this(systemName, streamName, Arrays.asList(systemName, streamName), systemConfig, isTable);
   }
 
   public SqlSystemStreamConfig(String systemName, String streamName, List<String> sourceParts,
-      Config systemConfig) {
+      Config systemConfig, boolean isTable) {
 
 
     HashMap<String, String> streamConfigs = new HashMap<>(systemConfig);
@@ -75,6 +82,12 @@ public class SqlSystemStreamConfig {
     // Removing the Samza SQL specific configs to get the remaining Samza configs.
     streamConfigs.remove(CFG_SAMZA_REL_CONVERTER);
     streamConfigs.remove(CFG_REL_SCHEMA_PROVIDER);
+
+    if (isTable) {
+      streamConfigs.put(String.format(CFG_SAMZA_STREAM_BOOTSTRAP_STREAM, streamName), "true");
+      streamConfigs.put(String.format(CFG_SAMZA_STREAM_OFFSET_DEFAULT, streamName), "oldest");
+      streamConfigs.put(String.format(CFG_SAMZA_STREAM_RESET_OFFSET, streamName), "true");
+    }
 
     config = new MapConfig(streamConfigs);
   }

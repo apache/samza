@@ -44,6 +44,7 @@ public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
   }
 
   private class ConfigBasedSourceResolver implements SourceResolver {
+    private final String SAMZA_SQL_QUERY_TABLE_KEYWORD = "table";
     private final Config config;
 
     public ConfigBasedSourceResolver(Config config) {
@@ -53,17 +54,34 @@ public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
     @Override
     public SqlSystemStreamConfig fetchSourceInfo(String source) {
       String[] sourceComponents = source.split("\\.");
+      boolean isTable = false;
+      int systemIdx = 0;
+      int streamIdx = sourceComponents.length - 1;
 
-      // This source resolver expects sources of format {systemName}.{streamName}
+      // This source resolver expects sources of format [table.]{systemName}.{streamName}
       if (sourceComponents.length != 2) {
-        String msg = String.format("Source %s is not of the format {systemName}.{streamName{", source);
-        LOG.error(msg);
-        throw new SamzaException(msg);
+        if (sourceComponents.length != 3 || !sourceComponents[0].equals(SAMZA_SQL_QUERY_TABLE_KEYWORD)) {
+          String msg = String.format("Source %s is not of the format [table.]{systemName}.{streamName{", source);
+          LOG.error(msg);
+          throw new SamzaException(msg);
+        }
       }
-      String systemName = sourceComponents[0];
-      String streamName = sourceComponents[1];
 
-      return new SqlSystemStreamConfig(systemName, streamName, fetchSystemConfigs(systemName));
+      if (sourceComponents[0].toLowerCase().equals(SAMZA_SQL_QUERY_TABLE_KEYWORD)) {
+        isTable = true;
+        systemIdx++;
+      }
+
+      String systemName = sourceComponents[systemIdx];
+      String streamName = sourceComponents[streamIdx];
+
+      return new SqlSystemStreamConfig(systemName, streamName, fetchSystemConfigs(systemName), isTable);
+    }
+
+    @Override
+    public boolean isTable(String sourceName) {
+      String[] sourceComponents = sourceName.split("\\.");
+      return sourceComponents[0].toLowerCase().equals(SAMZA_SQL_QUERY_TABLE_KEYWORD);
     }
 
     private Config fetchSystemConfigs(String systemName) {

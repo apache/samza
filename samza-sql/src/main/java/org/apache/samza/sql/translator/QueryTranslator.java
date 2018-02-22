@@ -24,6 +24,7 @@ import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.RelShuttleImpl;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.logical.LogicalFilter;
+import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
@@ -32,6 +33,7 @@ import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
+import org.apache.samza.sql.interfaces.SourceResolver;
 import org.apache.samza.sql.interfaces.SqlSystemStreamConfig;
 import org.apache.samza.sql.planner.QueryPlanner;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
@@ -62,6 +64,7 @@ public class QueryTranslator {
     final RelRoot relRoot = planner.plan(queryInfo.getSelectQuery());
     final TranslatorContext context = new TranslatorContext(streamGraph, relRoot, executionContext);
     final RelNode node = relRoot.project();
+    final int[] joinId = new int[1];
 
     node.accept(new RelShuttleImpl() {
       @Override
@@ -82,6 +85,15 @@ public class QueryTranslator {
       public RelNode visit(LogicalProject project) {
         RelNode node = super.visit(project);
         new ProjectTranslator().translate(project, context);
+        return node;
+      }
+
+      @Override
+      public RelNode visit(LogicalJoin join) {
+        RelNode node = super.visit(join);
+        joinId[0]++;
+        SourceResolver sourceResolver = context.getExecutionContext().getSamzaSqlApplicationConfig().getSourceResolver();
+        new JoinTranslator(joinId[0], sourceResolver).translate(join, context);
         return node;
       }
     });

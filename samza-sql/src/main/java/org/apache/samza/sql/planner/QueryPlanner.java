@@ -96,7 +96,7 @@ public class QueryPlanner {
         for (int sourcePartIndex = 0; sourcePartIndex < sourceParts.size(); sourcePartIndex++) {
           String sourcePart = sourceParts.get(sourcePartIndex);
           if (sourcePartIndex < sourceParts.size() - 1) {
-            SchemaPlus sourcePartSchema = rootSchema.getSubSchema(sourcePart);
+            SchemaPlus sourcePartSchema = previousLevelSchema.getSubSchema(sourcePart);
             if (sourcePartSchema == null) {
               sourcePartSchema = previousLevelSchema.add(sourcePart, new AbstractSchema());
             }
