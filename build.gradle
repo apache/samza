@@ -488,20 +488,20 @@ project(":samza-yarn_$scalaVersion") {
     }
 
       mavenCentral()
-      maven {
-        url "s3://repo.code418.net/snapshot"
-        authentication {
-          awsIm(AwsImAuthentication) // load from EC2 role or env var
-        }
-
-      }
-      maven {
-        url "s3://repo.code418.net/release"
-
-        authentication {
-          awsIm(AwsImAuthentication) // load from EC2 role or env var
-        }
-      }
+//      maven {
+//        url "s3://repo.code418.net/snapshot"
+//        authentication {
+//          awsIm(AwsImAuthentication) // load from EC2 role or env var
+//        }
+//
+//      }
+//      maven {
+//        url "s3://repo.code418.net/release"
+//
+//        authentication {
+//          awsIm(AwsImAuthentication) // load from EC2 role or env var
+//        }
+//      }
 
       maven { url "https://repository.apache.org/content/groups/public" }
 
@@ -528,18 +528,18 @@ publishing {
       from components.java
     }
   }
-  repositories {
-    maven {
-      if (project.version.endsWith('-SNAPSHOT')) {
-        url "s3://repo.code418.net/snapshot"
-      } else {
-        url "s3://repo.code418.net/release"
-      }
-      authentication {
-        awsIm(AwsImAuthentication)
-      }
-    }
-  }
+//  repositories {
+//    maven {
+//      if (project.version.endsWith('-SNAPSHOT')) {
+//        url "s3://repo.code418.net/snapshot"
+//      } else {
+//        url "s3://repo.code418.net/release"
+//      }
+//      authentication {
+//        awsIm(AwsImAuthentication)
+//      }
+//    }
+//  }
 }
 
 project(":samza-shell") {

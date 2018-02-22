@@ -100,7 +100,7 @@ abstract class SequenceFileHdfsWriter(dfs: FileSystem, systemName: String, confi
   }
 
   protected def shouldStartNewOutputFile: Boolean = {
-    bytesWritten >= batchSize || bucketer.get.shouldChangeBucket
+    bytesWritten >= batchSize || bucketer.get.shouldChwriteBucket
   }
 
   protected def getNextWriter: Option[SequenceFile.Writer] = {
