@@ -538,9 +538,8 @@ object SamzaContainer extends Logging {
         new SystemClock)
 
       val tableManager = new TableManager(config, serdes.asJava)
-      tableManager.initLocalTables(taskStores.asJava)
 
-      info("Got table manager");
+      info("Got table manager")
 
       val systemStreamPartitions = taskModel
         .getSystemStreamPartitions
