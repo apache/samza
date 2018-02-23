@@ -39,6 +39,8 @@ import scala.collection.JavaConverters._
 
 object KafkaSystemAdmin extends Logging {
 
+  // Used only for test
+  @volatile var deleteMessagesCalled = false
   val CLEAR_STREAM_RETRIES = 3
 
   /**
@@ -580,14 +582,17 @@ class KafkaSystemAdmin(
     * This only works with Kafka cluster 0.11 or later. Otherwise it's a no-op.
     */
   override def deleteMessages(offsets: util.Map[SystemStreamPartition, String]) {
-    if (!running)
-      throw new SamzaException("KafkaSystemAdmin has not started yet")
-    val nextOffsets = offsets.asScala.toSeq.map { case (systemStreamPartition, offset) =>
-      (new TopicPartition(systemStreamPartition.getStream, systemStreamPartition.getPartition.getPartitionId), offset.toLong + 1)
-    }.toMap
+    deleteMessagesCalled = true
 
-    if (deleteMessagesEnabled)
+    if (!running) {
+      throw new SamzaException(s"KafkaSystemAdmin has not started yet for system $systemName")
+    }
+    if (deleteMessagesEnabled) {
+      val nextOffsets = offsets.asScala.toSeq.map { case (systemStreamPartition, offset) =>
+        (new TopicPartition(systemStreamPartition.getStream, systemStreamPartition.getPartition.getPartitionId), offset.toLong + 1)
+      }.toMap
       adminClient.deleteRecordsBefore(nextOffsets)
+    }
   }
 
   /**

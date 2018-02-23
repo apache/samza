@@ -19,6 +19,7 @@
 package org.apache.samza.test.operator;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -26,17 +27,13 @@ import org.apache.samza.Partition;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
+import org.apache.samza.system.kafka.KafkaSystemAdmin;
 import org.apache.samza.util.ExponentialSleepStrategy;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Collections;
 import java.util.List;
-
-import static org.apache.samza.test.operator.RepartitionJoinWindowApp.AD_CLICKS;
-import static org.apache.samza.test.operator.RepartitionJoinWindowApp.OUTPUT_TOPIC;
-import static org.apache.samza.test.operator.RepartitionJoinWindowApp.PAGE_VIEWS;
 
 
 /**
@@ -44,38 +41,60 @@ import static org.apache.samza.test.operator.RepartitionJoinWindowApp.PAGE_VIEWS
  */
 public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTestHarness {
 
-  @Before
-  public void setup() {
+  void initializeTopics(String input1, String input2, String output) {
     // create topics
-    createTopic(PAGE_VIEWS, 2);
-    createTopic(AD_CLICKS, 2);
-    createTopic(OUTPUT_TOPIC, 1);
+    createTopic(input1, 2);
+    createTopic(input2, 2);
+    createTopic(output, 1);
 
     // create events for the following user activity.
     // userId: (viewId, pageId, (adIds))
     // u1: (v1, p1, (a1)), (v2, p2, (a3))
     // u2: (v3, p1, (a1)), (v4, p3, (a5))
-    produceMessage(PAGE_VIEWS, 0, "p1", "{\"viewId\":\"v1\",\"pageId\":\"p1\",\"userId\":\"u1\"}");
-    produceMessage(PAGE_VIEWS, 1, "p2", "{\"viewId\":\"v2\",\"pageId\":\"p2\",\"userId\":\"u1\"}");
-    produceMessage(PAGE_VIEWS, 0, "p1", "{\"viewId\":\"v3\",\"pageId\":\"p1\",\"userId\":\"u2\"}");
-    produceMessage(PAGE_VIEWS, 1, "p3", "{\"viewId\":\"v4\",\"pageId\":\"p3\",\"userId\":\"u2\"}");
+    produceMessage(input1, 0, "p1", "{\"viewId\":\"v1\",\"pageId\":\"p1\",\"userId\":\"u1\"}");
+    produceMessage(input1, 1, "p2", "{\"viewId\":\"v2\",\"pageId\":\"p2\",\"userId\":\"u1\"}");
+    produceMessage(input1, 0, "p1", "{\"viewId\":\"v3\",\"pageId\":\"p1\",\"userId\":\"u2\"}");
+    produceMessage(input1, 1, "p3", "{\"viewId\":\"v4\",\"pageId\":\"p3\",\"userId\":\"u2\"}");
 
-    produceMessage(AD_CLICKS, 0, "a1", "{\"viewId\":\"v1\",\"adId\":\"a1\"}");
-    produceMessage(AD_CLICKS, 0, "a3", "{\"viewId\":\"v2\",\"adId\":\"a3\"}");
-    produceMessage(AD_CLICKS, 0, "a1", "{\"viewId\":\"v3\",\"adId\":\"a1\"}");
-    produceMessage(AD_CLICKS, 0, "a5", "{\"viewId\":\"v4\",\"adId\":\"a5\"}");
+    produceMessage(input2, 0, "a1", "{\"viewId\":\"v1\",\"adId\":\"a1\"}");
+    produceMessage(input2, 0, "a3", "{\"viewId\":\"v2\",\"adId\":\"a3\"}");
+    produceMessage(input2, 0, "a1", "{\"viewId\":\"v3\",\"adId\":\"a1\"}");
+    produceMessage(input2, 0, "a5", "{\"viewId\":\"v4\",\"adId\":\"a5\"}");
+  }
 
+  @Test
+  public void testRepartitionJoinWindowAppWithoutDeletionOnCommit() throws Exception {
+    KafkaSystemAdmin.deleteMessagesCalled_$eq(false);
+
+    initializeTopics(RepartitionJoinWindowApp2.PAGE_VIEWS, RepartitionJoinWindowApp2.AD_CLICKS, RepartitionJoinWindowApp2.OUTPUT_TOPIC);
+
+    // run the application
+    RepartitionJoinWindowApp2 app = new RepartitionJoinWindowApp2();
+    String appName = "UserPageAdClickCounter2";
+    Map<String, String> configs = new HashMap<>();
+    configs.put("systems.kafka.samza.delete.messages.enabled", "false");
+    runApplication(app, appName, configs);
+
+    // consume and validate result
+    List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(RepartitionJoinWindowApp2.OUTPUT_TOPIC), 2);
+    Assert.assertEquals(2, messages.size());
+
+    Assert.assertFalse(KafkaSystemAdmin.deleteMessagesCalled());
   }
 
   @Test
   public void testRepartitionJoinWindowAppAndDeleteMessagesOnCommit() throws Exception {
+    initializeTopics(RepartitionJoinWindowApp.PAGE_VIEWS, RepartitionJoinWindowApp.AD_CLICKS, RepartitionJoinWindowApp.OUTPUT_TOPIC);
+
     // run the application
     RepartitionJoinWindowApp app = new RepartitionJoinWindowApp();
     final String appName = "UserPageAdClickCounter";
-    runApplication(app, appName, null);
+    Map<String, String> configs = new HashMap<>();
+    configs.put("systems.kafka.samza.delete.messages.enabled", "true");
+    runApplication(app, appName, configs);
 
     // consume and validate result
-    List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(OUTPUT_TOPIC), 2);
+    List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(RepartitionJoinWindowApp.OUTPUT_TOPIC), 2);
     Assert.assertEquals(2, messages.size());
 
     for (ConsumerRecord<String, String> message : messages) {
@@ -109,6 +128,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
 
   @Test
   public void testBroadcastApp() {
+    initializeTopics(RepartitionJoinWindowApp.PAGE_VIEWS, RepartitionJoinWindowApp.AD_CLICKS, RepartitionJoinWindowApp.OUTPUT_TOPIC);
     runApplication(new BroadcastAssertApp(), "BroadcastTest", null);
   }
 }

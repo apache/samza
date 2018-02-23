@@ -27,7 +27,6 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.protocol.SecurityProtocol;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.execution.TestStreamManager;
@@ -220,7 +219,7 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
    * @param appName the name of the application
    * @param overriddenConfigs configs to override
    */
-  public void runApplication(StreamApplication streamApplication, String appName, Config overriddenConfigs) {
+  public void runApplication(StreamApplication streamApplication, String appName, Map<String, String> overriddenConfigs) {
     Map<String, String> configs = new HashMap<>();
     configs.put("job.factory.class", "org.apache.samza.job.local.ThreadJobFactory");
     configs.put("job.name", appName);
@@ -233,7 +232,6 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     configs.put("systems.kafka.samza.key.serde", "string");
     configs.put("systems.kafka.samza.msg.serde", "string");
     configs.put("systems.kafka.samza.offset.default", "oldest");
-    configs.put("systems.kafka.samza.delete.messages.enabled", "true");
     configs.put("job.coordinator.system", "kafka");
     configs.put("job.default.system", "kafka");
     configs.put("job.coordinator.replication.factor", "1");
