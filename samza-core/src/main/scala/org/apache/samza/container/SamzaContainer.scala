@@ -26,6 +26,7 @@ import java.util
 import java.util.Base64
 import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
@@ -405,10 +406,14 @@ object SamzaContainer extends Logging {
     val threadPoolSize = config.getThreadPoolSize
     info("Got thread pool size: " + threadPoolSize)
 
-    val taskThreadPool = if (!singleThreadMode && threadPoolSize > 0)
-      Executors.newFixedThreadPool(threadPoolSize)
-    else
+
+    val taskThreadPool = if (!singleThreadMode && threadPoolSize > 0) {
+      Executors.newFixedThreadPool(threadPoolSize,
+        new ThreadFactoryBuilder().setNameFormat("Samza Container Thread-%d").build())
+    } else {
       null
+    }
+
 
     val finalTaskFactory = TaskFactoryUtil.finalizeTaskFactory(
       taskFactory,
