@@ -65,7 +65,7 @@ import static org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory.*;
  *      support for OR operator or any other operator in the join condition.
  *
  * It is assumed that the stream denoted as 'table' is already partitioned by the key(s) specified in the join
- * condition. We do not repartition the 'table' stream. But we always repartition the stream by the key(s) specified
+ * condition. We do not repartition the table. But we always repartition the stream by the key(s) specified
  * in the join condition.
  */
 public class JoinTranslator {
@@ -176,10 +176,8 @@ public class JoinTranslator {
   }
 
   private void validateJoinCondition(RexNode operand) {
-    // At leaf level of join condition, the condition won't be a RexCall. Return in that case.
-    // Eg: While parsing (a.key == b.key) condition, the leaf operand could be just a.key or b.key (references)
     if (!(operand instanceof RexCall)) {
-      return;
+      throw new SamzaException("Invalid join condition " + operand);
     }
 
     RexCall condition = (RexCall) operand;
@@ -192,30 +190,28 @@ public class JoinTranslator {
     if (condition.getKind() != SqlKind.EQUALS && condition.getKind() != SqlKind.AND) {
       throw new SamzaException("Only equi-joins and AND operator is supported in join condition.");
     }
-
-    if (condition.getOperands().size() < 2) {
-      throw new SamzaException(
-          "SQL Query is not supported. Join condition " + condition + " should have two operands" +
-              " but has " + condition.getOperands().size() + " operands.");
-    }
   }
 
-  // Get the stream and table indices corresponding to the fields given in the join condition.
+  // Get the stream and table indices corresponding to the fields given in the join condition by parsing through
+  // the condition.
   private void getStreamAndTableKeyIds(List<RexNode> operands, final LogicalJoin join, boolean isTablePosOnRight,
       List<Integer> streamIds, List<Integer> tableIds) {
 
-    if ((operands.get(0) instanceof RexCall) && (operands.get(1) instanceof RexCall)) {
-      validateJoinCondition(operands.get(0));
-      validateJoinCondition(operands.get(1));
-      getStreamAndTableKeyIds(((RexCall) operands.get(0)).getOperands(), join, isTablePosOnRight,
-          streamIds, tableIds);
-      getStreamAndTableKeyIds(((RexCall) operands.get(1)).getOperands(), join, isTablePosOnRight,
-          streamIds, tableIds);
+    // All non-leaf operands in the join condition should be expressions.
+    if (operands.get(0) instanceof RexCall) {
+      operands.forEach(operand -> {
+        validateJoinCondition(operand);
+        getStreamAndTableKeyIds(((RexCall) operand).getOperands(), join, isTablePosOnRight, streamIds, tableIds);
+      });
       return;
     }
 
-    // We are at the leaf of the join condition. Condition should be of the form: a.key = b.key.
+    // We are at the leaf of the join condition. Only binary operators are supported.
+    Validate.isTrue(operands.size() == 2);
 
+    // Only reference operands are supported in row expressions and not constants.
+    // a.key = b.key is supported with a.key and b.key being reference operands.
+    // a.key = "constant" is not yet supported.
     if (!(operands.get(0) instanceof RexInputRef) || !(operands.get(1) instanceof RexInputRef)) {
       throw new SamzaException("SQL query is not supported. Join condition " + join.getCondition() + " should have "
           + "reference operands but the types are " + operands.get(0).getClass() + " and " + operands.get(1).getClass());
