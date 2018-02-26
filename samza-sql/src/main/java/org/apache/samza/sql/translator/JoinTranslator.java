@@ -141,14 +141,6 @@ public class JoinTranslator {
       throw new SamzaException("Query with only INNER and LEFT/RIGHT OUTER join are supported.");
     }
 
-    RexNode condition = join.getCondition();
-
-    // At root-level of join condition, the condition should be a RexCall. Eg: a.key = b.key
-    if (!(condition instanceof RexCall)) {
-      throw new SamzaException("SQL Query is not supported. Join condition " + condition +
-          " is of type " + condition.getClass());
-    }
-
     boolean isTablePosOnLeft = isTable(join.getLeft());
     boolean isTablePosOnRight = isTable(join.getRight());
 
@@ -172,12 +164,13 @@ public class JoinTranslator {
           + "right side of join should be a 'stream'. " + dumpRelPlanForNode(join));
     }
 
-    validateJoinCondition(condition);
+    validateJoinCondition(join.getCondition());
   }
 
   private void validateJoinCondition(RexNode operand) {
     if (!(operand instanceof RexCall)) {
-      throw new SamzaException("Invalid join condition " + operand);
+      throw new SamzaException("SQL Query is not supported. Join condition operand " + operand +
+          " is of type " + operand.getClass());
     }
 
     RexCall condition = (RexCall) operand;
