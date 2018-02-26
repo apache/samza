@@ -21,6 +21,7 @@ package org.apache.samza.util;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -28,13 +29,13 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TestEmbeddedTaggedRateLimiter {
 
-  private int testInterval = 200; // ms
-  private int numberOfTasks = 2;
-  private int targetRateRed = 1000;
-  private int targetRatePerTaskRed = targetRateRed / numberOfTasks;
-  private int targetRateGreen = 2000;
-  private int targetRatePerTaskGreen = targetRateGreen / numberOfTasks;
-  private int increment = 2;
+  final static private int TEST_INTERVAL = 200; // ms
+  final static private int NUMBER_OF_TASKS = 2;
+  final static private int TARGET_RATE_RED = 1000;
+  final static private int TARGET_RATE_PER_TASK_RED = TARGET_RATE_RED / NUMBER_OF_TASKS;
+  final static private int TARGET_RATE_GREEN = 2000;
+  final static private int TARGET_RATE_PER_TASK_GREEN = TARGET_RATE_GREEN / NUMBER_OF_TASKS;
+  final static private int INCREMENT = 2;
 
   @Test
   public void testAcquire() {
@@ -45,23 +46,23 @@ public class TestEmbeddedTaggedRateLimiter {
     tagToCount.put("green", 0);
 
     Map<String, Integer> tagToCredits = new HashMap<>();
-    tagToCredits.put("red", increment);
-    tagToCredits.put("green", increment);
+    tagToCredits.put("red", INCREMENT);
+    tagToCredits.put("green", INCREMENT);
 
     long start = System.currentTimeMillis();
-    while (System.currentTimeMillis() - start < testInterval) {
+    while (System.currentTimeMillis() - start < TEST_INTERVAL) {
       rateLimiter.acquire(tagToCredits);
-      tagToCount.put("red", tagToCount.get("red") + increment);
-      tagToCount.put("green", tagToCount.get("green") + increment);
+      tagToCount.put("red", tagToCount.get("red") + INCREMENT);
+      tagToCount.put("green", tagToCount.get("green") + INCREMENT);
     }
 
     {
-      long rate = tagToCount.get("red") * 1000 / testInterval;
-      verifyRate(rate, targetRatePerTaskRed);
+      long rate = tagToCount.get("red") * 1000 / TEST_INTERVAL;
+      verifyRate(rate, TARGET_RATE_PER_TASK_RED);
     } {
-      // Note: due to the blocking, green is capped at red's QPS
-      long rate = tagToCount.get("green") * 1000 / testInterval;
-      verifyRate(rate, targetRatePerTaskRed);
+      // Note: due to blocking, green is capped at red's QPS
+      long rate = tagToCount.get("green") * 1000 / TEST_INTERVAL;
+      verifyRate(rate, TARGET_RATE_PER_TASK_RED);
     }
   }
 
@@ -75,22 +76,22 @@ public class TestEmbeddedTaggedRateLimiter {
     tagToCount.put("green", 0);
 
     Map<String, Integer> tagToCredits = new HashMap<>();
-    tagToCredits.put("red", increment);
-    tagToCredits.put("green", increment);
+    tagToCredits.put("red", INCREMENT);
+    tagToCredits.put("green", INCREMENT);
 
     long start = System.currentTimeMillis();
-    while (System.currentTimeMillis() - start < testInterval) {
+    while (System.currentTimeMillis() - start < TEST_INTERVAL) {
       Map<String, Integer> resultMap = rateLimiter.tryAcquire(tagToCredits);
       tagToCount.put("red", tagToCount.get("red") + resultMap.get("red"));
       tagToCount.put("green", tagToCount.get("green") + resultMap.get("green"));
     }
 
     {
-      long rate = tagToCount.get("red") * 1000 / testInterval;
-      verifyRate(rate, targetRatePerTaskRed);
+      long rate = tagToCount.get("red") * 1000 / TEST_INTERVAL;
+      verifyRate(rate, TARGET_RATE_PER_TASK_RED);
     } {
-      long rate = tagToCount.get("green") * 1000 / testInterval;
-      verifyRate(rate, targetRatePerTaskGreen);
+      long rate = tagToCount.get("green") * 1000 / TEST_INTERVAL;
+      verifyRate(rate, TARGET_RATE_PER_TASK_GREEN);
     }
   }
 
@@ -104,27 +105,27 @@ public class TestEmbeddedTaggedRateLimiter {
     tagToCount.put("green", 0);
 
     Map<String, Integer> tagToCredits = new HashMap<>();
-    tagToCredits.put("red", increment);
-    tagToCredits.put("green", increment);
+    tagToCredits.put("red", INCREMENT);
+    tagToCredits.put("green", INCREMENT);
 
     long start = System.currentTimeMillis();
-    while (System.currentTimeMillis() - start < testInterval) {
+    while (System.currentTimeMillis() - start < TEST_INTERVAL) {
       Map<String, Integer> resultMap = rateLimiter.acquire(tagToCredits, 20, MILLISECONDS);
       tagToCount.put("red", tagToCount.get("red") + resultMap.get("red"));
       tagToCount.put("green", tagToCount.get("green") + resultMap.get("green"));
     }
 
     {
-      long rate = tagToCount.get("red") * 1000 / testInterval;
-      verifyRate(rate, targetRatePerTaskRed);
+      long rate = tagToCount.get("red") * 1000 / TEST_INTERVAL;
+      verifyRate(rate, TARGET_RATE_PER_TASK_RED);
     } {
-      // Note: due to the blocking, green is capped at red's QPS
-      long rate = tagToCount.get("green") * 1000 / testInterval;
-      verifyRate(rate, targetRatePerTaskRed);
+      // Note: due to blocking, green is capped at red's QPS
+      long rate = tagToCount.get("green") * 1000 / TEST_INTERVAL;
+      verifyRate(rate, TARGET_RATE_PER_TASK_RED);
     }
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test(expected = IllegalStateException.class)
   public void testFailsWhenUninitialized() {
     Map<String, Integer> tagToTargetRateMap = new HashMap<>();
     tagToTargetRateMap.put("red", 1000);
@@ -138,21 +139,22 @@ public class TestEmbeddedTaggedRateLimiter {
     tagToCredits.put("red", 1);
     tagToCredits.put("green", 1);
     RateLimiter rateLimiter = new EmbeddedTaggedRateLimiter(tagToCredits);
-    TestEmbeddedRateLimiter.initRateLimiter(rateLimiter, 1);
+    TestEmbeddedRateLimiter.initRateLimiter(rateLimiter);
     rateLimiter.acquire(1);
   }
 
   private void verifyRate(long rate, long targetRate) {
-    junit.framework.Assert.assertTrue(Math.abs(rate - targetRate) <= 10 * increment * 1000 / testInterval);
+    // As the actual rate would likely not be exactly the same as target rate, the calculation below
+    // verifies the actual rate is within 5% of the target rate per task
+    Assert.assertTrue(Math.abs(rate - targetRate) <= targetRate * 5 / 100);
   }
-
 
   private RateLimiter createRateLimiter() {
     Map<String, Integer> tagToTargetRateMap = new HashMap<>();
-    tagToTargetRateMap.put("red", targetRateRed);
-    tagToTargetRateMap.put("green", targetRateGreen);
+    tagToTargetRateMap.put("red", TARGET_RATE_RED);
+    tagToTargetRateMap.put("green", TARGET_RATE_GREEN);
     RateLimiter rateLimiter = new EmbeddedTaggedRateLimiter(tagToTargetRateMap);
-    TestEmbeddedRateLimiter.initRateLimiter(rateLimiter, numberOfTasks);
+    TestEmbeddedRateLimiter.initRateLimiter(rateLimiter);
     return rateLimiter;
   }
 

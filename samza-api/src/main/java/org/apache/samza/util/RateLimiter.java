@@ -22,18 +22,19 @@ import java.io.Serializable;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.task.TaskContext;
 
 /**
  * A rate limiter interface used by Samza components to limit throughput of operations
- * against a resource. Operations to a resource are represented by credits.
+ * against a resource. Operations against a resource are represented by credits.
  * Resources could be streams, databases, web services, etc.
  *
  * <p>
  * This interface supports two categories of policies: tagged and non-tagged.
- * Tagged rate limiter is used, when further differentiation is required within a resource,
- * for example: messages in a stream may be treated different, depending on the
+ * Tagged rate limiter is used, when further differentiation is required within a resource.
+ * For example: messages in a stream may be treated differently depending on the
  * overall situation of processing; or read/write operations to a database.
  * Tagging is the mechanism to allow this differentiation.
  *
@@ -46,18 +47,27 @@ import org.apache.samza.task.TaskContext;
  * </ul>
  *
  */
+@InterfaceStability.Unstable
 public interface RateLimiter extends Serializable {
 
   /**
-   * Attempts to acquire the provided number of credits, blocks indefinitely until
-   * all requested credits become available
+   * Initialize this rate limiter, this method should be called during container initialization.
+   *
+   * @param config job configuration
+   * @param taskContext task context that owns this rate limiter
+   */
+  void init(Config config, TaskContext taskContext);
+
+  /**
+   * Attempt to acquire the provided number of credits, blocks indefinitely until
+   * all requested credits become available.
    *
    * @param numberOfCredit requested number of credits
    */
   void acquire(int numberOfCredit);
 
   /**
-   * Attempts to acquire the provided number of credits, blocks for up to provided amount of
+   * Attempt to acquire the provided number of credits, blocks for up to provided amount of
    * time for credits to become available. When timeout elapses and not all required credits
    * can be acquired, it returns the number of credits currently available. It may return
    * immediately, if it determines no credits can be acquired during the provided amount time.
@@ -70,7 +80,7 @@ public interface RateLimiter extends Serializable {
   int acquire(int numberOfCredit, long timeout, TimeUnit unit);
 
   /**
-   * Attempts to acquire the provided number of credits, returns immediately number of
+   * Attempt to acquire the provided number of credits, returns immediately number of
    * credits acquired.
    *
    * @param numberOfCredit requested number of credits
@@ -79,7 +89,7 @@ public interface RateLimiter extends Serializable {
   int tryAcquire(int numberOfCredit);
 
   /**
-   * Attempts to acquire the provided number of credits for a number of tag, blocks indefinitely
+   * Attempt to acquire the provided number of credits for a number of tags, blocks indefinitely
    * until all requested credits become available
    *
    * @param tagToCreditMap a map of requested number of credits keyed by tag
@@ -87,7 +97,7 @@ public interface RateLimiter extends Serializable {
   void acquire(Map<String, Integer> tagToCreditMap);
 
   /**
-   * Attempts to acquire the provided number of credits for a number of tags, blocks for up to provided amount of
+   * Attempt to acquire the provided number of credits for a number of tags, blocks for up to provided amount of
    * time for credits to become available. When timeout elapses and not all required credits
    * can be acquired, it returns the number of credits currently available. It may return
    * immediately, if it determines no credits can be acquired during the provided amount time.
@@ -100,20 +110,11 @@ public interface RateLimiter extends Serializable {
   Map<String, Integer> acquire(Map<String, Integer> tagToCreditMap, long timeout, TimeUnit unit);
 
   /**
-   /**
-   * Attempts to acquire the provided number of credits for a number of tags, returns immediately number of
+   * Attempt to acquire the provided number of credits for a number of tags, returns immediately number of
    * credits acquired.
    *
    * @param tagToCreditMap a map of requested number of credits keyed by tag
    * @return a map of number of credits acquired keyed by tag
    */
   Map<String, Integer> tryAcquire(Map<String, Integer> tagToCreditMap);
-
-  /**
-   * Initialize this rate limiter, this method should be called during container initialization.
-   *
-   * @param config job configuration
-   * @param taskContext task context that owns this rate limiter
-   */
-  void init(Config config, TaskContext taskContext);
 }

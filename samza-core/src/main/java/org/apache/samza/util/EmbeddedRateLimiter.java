@@ -23,6 +23,8 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.task.TaskContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 
@@ -32,7 +34,9 @@ import com.google.common.base.Preconditions;
  */
 public class EmbeddedRateLimiter implements RateLimiter {
 
-  private int targetRate;
+  static final private Logger LOGGER = LoggerFactory.getLogger(EmbeddedRateLimiter.class);
+
+  private final int targetRate;
   private com.google.common.util.concurrent.RateLimiter rateLimiter;
 
   public EmbeddedRateLimiter(int creditsPerSecond) {
@@ -46,23 +50,19 @@ public class EmbeddedRateLimiter implements RateLimiter {
   }
 
   @Override
-  public int acquire(int numberOfCredit, long timeout, TimeUnit unit) {
+  public int acquire(int numberOfCredits, long timeout, TimeUnit unit) {
     ensureInitialized();
-    if (rateLimiter.tryAcquire(numberOfCredit, timeout, unit)) {
-      return numberOfCredit;
-    } else {
-      return 0;
-    }
+    return rateLimiter.tryAcquire(numberOfCredits, timeout, unit)
+        ? numberOfCredits
+        : 0;
   }
 
   @Override
-  public int tryAcquire(int numberOfCredit) {
+  public int tryAcquire(int numberOfCredits) {
     ensureInitialized();
-    if (rateLimiter.tryAcquire(numberOfCredit)) {
-      return numberOfCredit;
-    } else {
-      return 0;
-    }
+    return rateLimiter.tryAcquire(numberOfCredits)
+        ? numberOfCredits
+        : 0;
   }
 
   @Override
@@ -82,13 +82,17 @@ public class EmbeddedRateLimiter implements RateLimiter {
 
   @Override
   public void init(Config config, TaskContext taskContext) {
-    int numberOfTasks = taskContext.getSamzaContainerContext().taskNames.size();
-    this.rateLimiter = com.google.common.util.concurrent.RateLimiter.create(
-        targetRate / numberOfTasks);
+    int effectiveRate = targetRate;
+    if (taskContext != null) {
+      effectiveRate /= taskContext.getSamzaContainerContext().taskNames.size();
+      LOGGER.info(String.format("Effective rate limit for task %s is %d",
+          taskContext.getTaskName(), effectiveRate));
+    }
+    this.rateLimiter = com.google.common.util.concurrent.RateLimiter.create(effectiveRate);
   }
 
   private void ensureInitialized() {
-    Preconditions.checkArgument(rateLimiter != null, "Not initialized");
+    Preconditions.checkState(rateLimiter != null, "Not initialized");
   }
 
 }

@@ -26,6 +26,8 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.samza.config.Config;
 import org.apache.samza.task.TaskContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
@@ -38,7 +40,9 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
  */
 public class EmbeddedTaggedRateLimiter implements RateLimiter {
 
-  private Map<String, Integer> tagToTargetRateMap;
+  static final private Logger LOGGER = LoggerFactory.getLogger(EmbeddedTaggedRateLimiter.class);
+
+  private final Map<String, Integer> tagToTargetRateMap;
   private Map<String, com.google.common.util.concurrent.RateLimiter> tagToRateLimiterMap;
 
   public EmbeddedTaggedRateLimiter(Map<String, Integer> tagToCreditsPerSecondMap) {
@@ -105,20 +109,24 @@ public class EmbeddedTaggedRateLimiter implements RateLimiter {
 
   @Override
   public void init(Config config, TaskContext taskContext) {
-    int numberOfTasks = taskContext.getSamzaContainerContext().taskNames.size();
     this.tagToRateLimiterMap = Collections.unmodifiableMap(tagToTargetRateMap.entrySet().stream()
         .map(e -> {
             String tag = e.getKey();
-            Integer ratePerTask = e.getValue() / numberOfTasks;
+            int effectiveRate = e.getValue();
+            if (taskContext != null) {
+              effectiveRate /= taskContext.getSamzaContainerContext().taskNames.size();
+              LOGGER.info(String.format("Effective rate limit for task %s and tag %s is %d",
+                  taskContext.getTaskName(), tag, effectiveRate));
+            }
             return new ImmutablePair<String, com.google.common.util.concurrent.RateLimiter>(
-                tag, com.google.common.util.concurrent.RateLimiter.create(ratePerTask));
+                tag, com.google.common.util.concurrent.RateLimiter.create(effectiveRate));
           })
         .collect(Collectors.toMap(ImmutablePair::getKey, ImmutablePair::getValue))
     );
   }
 
   private void ensureInitialized() {
-    Preconditions.checkArgument(tagToRateLimiterMap != null, "Not initialized");
+    Preconditions.checkState(tagToRateLimiterMap != null, "Not initialized");
   }
 
   private void ensureTagsAreValid(Map<String, ?> tagMap) {
