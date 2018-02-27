@@ -356,7 +356,7 @@ public abstract class OperatorImpl<M, RM> {
         // use samza-provided watermark handling
         // default is to propagate the input watermark
         output = handleWatermark(currentWatermark, collector, coordinator);
-        outputWm = getOutputWatermark();
+        outputWm = currentWatermark;
       }
 
       if (!output.isEmpty()) {
@@ -402,14 +402,13 @@ public abstract class OperatorImpl<M, RM> {
   }
 
   /**
-   * Returns the output watermark, default is the same as input.
-   * Operators which keep track of watermark should override this to return the current watermark.
+   * Returns the output watermark,
    * @return output watermark
    */
-  protected long getOutputWatermark() {
+  final long getOutputWatermark() {
     if (usedInCurrentTask) {
       // default as input
-      return this.currentWatermark;
+      return this.outputWatermark;
     } else {
       // always emit the max to indicate no input will be emitted afterwards
       return Long.MAX_VALUE;

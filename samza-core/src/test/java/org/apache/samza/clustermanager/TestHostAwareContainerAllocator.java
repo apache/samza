@@ -138,6 +138,46 @@ public class TestHostAwareContainerAllocator {
     assertEquals("ID2", requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST).get(0).getResourceID());
   }
 
+  /**
+   * Test that extra resources are buffered under ANY_HOST
+   */
+  @Test
+  public void testSurplusResourcesAreBufferedUnderAnyHost() throws Exception {
+    containerAllocator.requestResources(new HashMap<String, String>() {
+      {
+        put("0", "abc");
+        put("1", "xyz");
+      }
+    });
+
+    assertNotNull(requestState.getResourcesOnAHost("abc"));
+    assertEquals(0, requestState.getResourcesOnAHost("abc").size());
+
+    assertNotNull(requestState.getResourcesOnAHost("xyz"));
+    assertEquals(0, requestState.getResourcesOnAHost("xyz").size());
+
+    assertNull(requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST));
+
+    containerAllocator.addResource(new SamzaResource(1, 10, "abc", "ID1"));
+    containerAllocator.addResource(new SamzaResource(1, 10, "xyz", "ID2"));
+    // surplus resources for host - "abc"
+    containerAllocator.addResource(new SamzaResource(1, 10, "abc", "ID3"));
+    containerAllocator.addResource(new SamzaResource(1, 10, "abc", "ID4"));
+    containerAllocator.addResource(new SamzaResource(1, 10, "abc", "ID5"));
+    containerAllocator.addResource(new SamzaResource(1, 10, "abc", "ID6"));
+
+    assertNotNull(requestState.getResourcesOnAHost("abc"));
+    assertEquals(1, requestState.getResourcesOnAHost("abc").size());
+
+    assertNotNull(requestState.getResourcesOnAHost("xyz"));
+    assertEquals(1, requestState.getResourcesOnAHost("xyz").size());
+
+    assertNotNull(requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST));
+    // assert that the surplus resources goto the ANY_HOST buffer
+    assertTrue(requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST).size() == 4);
+    assertEquals("ID3", requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST).get(0).getResourceID());
+  }
+
   @Test
   public void testAllocatorReleasesExtraContainers() throws Exception {
     final SamzaResource resource0 = new SamzaResource(1, 1024, "abc", "id1");

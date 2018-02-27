@@ -20,11 +20,11 @@
 package org.apache.samza.coordinator
 
 import java.util.concurrent.{CountDownLatch, TimeUnit}
-
+import java.util.HashMap
 import org.apache.samza.Partition
 import org.apache.samza.metrics.{Gauge, MetricsRegistryMap}
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
-import org.apache.samza.system.{StreamMetadataCache, SystemAdmin, SystemStream, SystemStreamMetadata}
+import org.apache.samza.system._
 import org.junit.Assert._
 import org.junit.Test
 import org.mockito.Matchers
@@ -234,7 +234,7 @@ class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSug
     }
   }
 
-  class MockStreamMetadataCache extends StreamMetadataCache(Map[String, SystemAdmin]()) {
+  class MockStreamMetadataCache extends StreamMetadataCache(new SystemAdmins(new HashMap[String, SystemAdmin])) {
     /**
      * Returns metadata about each of the given streams (such as first offset, newest
      * offset, etc). If the metadata isn't in the cache, it is retrieved from the systems

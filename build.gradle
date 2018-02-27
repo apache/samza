@@ -100,7 +100,7 @@ allprojects {
   // For all scala compilation, add extra compiler options, taken from version-specific
   // dependency-versions-scala file applied above.
   tasks.withType(ScalaCompile) {
-    scalaCompileOptions.additionalParameters = [ scalaOptions ]
+    scalaCompileOptions.additionalParameters = scalaOptions
   }
 }
 
@@ -114,6 +114,11 @@ subprojects {
   apply plugin: 'eclipse'
   apply plugin: 'project-report'
   apply plugin: 'jacoco'
+
+  tasks.withType(ScalaCompile) {
+    // show compile errors in console output
+    logging.setLevel LogLevel.WARN
+  }
 
   tasks.withType(Test) {
     test {
@@ -376,6 +381,7 @@ project(":samza-kafka_$scalaVersion") {
   dependencies {
     compile project(':samza-api')
     compile project(":samza-core_$scalaVersion")
+    compile "log4j:log4j:$log4jVersion"
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     compile "com.101tec:zkclient:$zkClientVersion"
     compile "org.apache.zookeeper:zookeeper:$zookeeperVersion"

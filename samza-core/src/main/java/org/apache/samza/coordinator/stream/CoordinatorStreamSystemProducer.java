@@ -19,6 +19,7 @@
 
 package org.apache.samza.coordinator.stream;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -27,12 +28,15 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.coordinator.stream.messages.SetConfig;
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,21 +54,31 @@ public class CoordinatorStreamSystemProducer {
   private final SystemAdmin systemAdmin;
   private boolean isStarted;
 
-  public CoordinatorStreamSystemProducer(SystemStream systemStream, SystemProducer systemProducer, SystemAdmin systemAdmin) {
-    this(systemStream, systemProducer, systemAdmin, new JsonSerde<List<?>>(), new JsonSerde<Map<String, Object>>());
+
+  public CoordinatorStreamSystemProducer(Config config, MetricsRegistry registry) {
+    SystemStream coordinatorSystemStream = Util.getCoordinatorSystemStream(config);
+    SystemFactory systemFactory = Util.getCoordinatorSystemFactory(config);
+    SystemAdmin systemAdmin = systemFactory.getAdmin(coordinatorSystemStream.getSystem(), config);
+    SystemProducer systemProducer = systemFactory.getProducer(coordinatorSystemStream.getSystem(), config, registry);
+    this.systemStream = coordinatorSystemStream;
+    this.systemProducer = systemProducer;
+    this.systemAdmin = systemAdmin;
+    this.keySerde = new JsonSerde<>();
+    this.messageSerde = new JsonSerde<>();
   }
 
-  public CoordinatorStreamSystemProducer(SystemStream systemStream, SystemProducer systemProducer, SystemAdmin systemAdmin, Serde<List<?>> keySerde, Serde<Map<String, Object>> messageSerde) {
+  // Used only for test
+  public CoordinatorStreamSystemProducer(SystemStream systemStream, SystemProducer systemProducer, SystemAdmin systemAdmin) {
     this.systemStream = systemStream;
     this.systemProducer = systemProducer;
     this.systemAdmin = systemAdmin;
-    this.keySerde = keySerde;
-    this.messageSerde = messageSerde;
+    this.keySerde = new JsonSerde<>();
+    this.messageSerde = new JsonSerde<>();
   }
 
   /**
    * Registers a source with the underlying SystemProducer.
-   * 
+   *
    * @param source
    *          The source to register.
    */
@@ -82,6 +96,7 @@ public class CoordinatorStreamSystemProducer {
     }
     log.info("Starting coordinator stream producer.");
     systemProducer.start();
+    systemAdmin.start();
     isStarted = true;
   }
 
@@ -91,12 +106,13 @@ public class CoordinatorStreamSystemProducer {
   public void stop() {
     log.info("Stopping coordinator stream producer.");
     systemProducer.stop();
+    systemAdmin.stop();
     isStarted = false;
   }
 
   /**
    * Serialize and send a coordinator stream message.
-   * 
+   *
    * @param message
    *          The message to send.
    */
@@ -119,7 +135,7 @@ public class CoordinatorStreamSystemProducer {
   /**
    * Helper method that sends a series of SetConfig messages to the coordinator
    * stream.
-   * 
+   *
    * @param source
    *          An identifier to denote which source is sending a message. This
    *          can be any arbitrary string.
@@ -132,5 +148,10 @@ public class CoordinatorStreamSystemProducer {
       send(new SetConfig(source, configPair.getKey(), configPair.getValue()));
     }
     systemProducer.flush(source);
+  }
+
+  @VisibleForTesting
+  boolean isStarted() {
+    return isStarted;
   }
 }

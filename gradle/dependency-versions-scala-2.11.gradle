@@ -23,7 +23,7 @@ ext {
   // -feature: Give detailed warnings about language feature use (rather than just 'there were 4 warnings')
   // -language:implicitConversions: Allow the use of implicit conversions without warning or library import
   // -language:reflectiveCalls: Allow the automatic use of reflection to access fields without warning or library import
-  scalaOptions = "-feature -language:implicitConversions -language:reflectiveCalls"
+  scalaOptions = ["-feature", "-language:implicitConversions", "-language:reflectiveCalls"]
   scalatraVersion = "2.5.0"
   jettyVersion = "9.2.7.v20150116"
 }

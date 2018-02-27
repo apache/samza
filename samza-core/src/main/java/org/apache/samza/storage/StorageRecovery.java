@@ -33,6 +33,7 @@ import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.coordinator.JobModelManager;
+import org.apache.samza.coordinator.stream.CoordinatorStreamManager;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
@@ -40,7 +41,7 @@ import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.ByteSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamMetadataCache;
-import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemStream;
@@ -61,13 +62,12 @@ public class StorageRecovery extends CommandLine {
   private Config jobConfig;
   private int maxPartitionNumber = 0;
   private File storeBaseDir = null;
-  private HashMap<String, SystemStream> changeLogSystemStreams = new HashMap<String, SystemStream>();
-  private HashMap<String, StorageEngineFactory<?, ?>> storageEngineFactories = new HashMap<String, StorageEngineFactory<?, ?>>();
-  private HashMap<String, SystemFactory> systemFactories = new HashMap<String, SystemFactory>();
-  private HashMap<String, SystemAdmin> systemAdmins = new HashMap<String, SystemAdmin>();
-  private Map<String, ContainerModel> containers = new HashMap<String, ContainerModel>();
-  private List<TaskStorageManager> taskStorageManagers = new ArrayList<TaskStorageManager>();
+  private HashMap<String, SystemStream> changeLogSystemStreams = new HashMap<>();
+  private HashMap<String, StorageEngineFactory<?, ?>> storageEngineFactories = new HashMap<>();
+  private Map<String, ContainerModel> containers = new HashMap<>();
+  private List<TaskStorageManager> taskStorageManagers = new ArrayList<>();
   private Logger log = LoggerFactory.getLogger(StorageRecovery.class);
+  private SystemAdmins systemAdmins = null;
 
   /**
    * Construct the StorageRecovery
@@ -80,6 +80,7 @@ public class StorageRecovery extends CommandLine {
   StorageRecovery(Config config, String path) {
     jobConfig = config;
     storeBaseDir = new File(path, "state");
+    systemAdmins = new SystemAdmins(config);
   }
 
   /**
@@ -90,7 +91,6 @@ public class StorageRecovery extends CommandLine {
     log.info("setting up the recovery...");
 
     getContainerModels();
-    getSystemFactoriesAndAdmins();
     getChangeLogSystemStreamsAndStorageFactories();
     getChangeLogMaxPartitionNumber();
     getTaskStorageManagers();
@@ -104,11 +104,13 @@ public class StorageRecovery extends CommandLine {
 
     log.info("start recovering...");
 
+    systemAdmins.start();
     for (TaskStorageManager taskStorageManager : taskStorageManagers) {
       taskStorageManager.init();
       taskStorageManager.stopStores();
       log.debug("restored " + taskStorageManager.toString());
     }
+    systemAdmins.stop();
 
     log.info("successfully recovered in " + storeBaseDir.toString());
   }
@@ -118,29 +120,14 @@ public class StorageRecovery extends CommandLine {
    * map
    */
   private void getContainerModels() {
-    JobModel jobModel = JobModelManager.apply(jobConfig).jobModel();
+    CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(jobConfig, new MetricsRegistryMap());
+    coordinatorStreamManager.register(getClass().getSimpleName());
+    coordinatorStreamManager.start();
+    coordinatorStreamManager.bootstrap();
+    ChangelogStreamManager changelogStreamManager = new ChangelogStreamManager(coordinatorStreamManager);
+    JobModel jobModel = JobModelManager.apply(coordinatorStreamManager, changelogStreamManager.readPartitionMapping()).jobModel();
     containers = jobModel.getContainers();
-  }
-
-  /**
-   * get the SystemFactories and SystemAdmins specified in the config file and
-   * put them into the maps
-   */
-  private void getSystemFactoriesAndAdmins() {
-    JavaSystemConfig systemConfig = new JavaSystemConfig(jobConfig);
-    List<String> systems = systemConfig.getSystemNames();
-
-    for (String system : systems) {
-      String systemFactory = systemConfig.getSystemFactory(system);
-      if (systemFactory == null) {
-        throw new SamzaException("A stream uses system " + system + " which is missing from the configuration.");
-      }
-      systemFactories.put(system, Util.<SystemFactory>getObj(systemFactory));
-      systemAdmins.put(system, Util.<SystemFactory>getObj(systemFactory).getAdmin(system, jobConfig));
-    }
-
-    log.info("Got system factories: " + systemFactories.keySet().toString());
-    log.info("Got system admins: " + systemAdmins.keySet().toString());
+    coordinatorStreamManager.stop();
   }
 
   /**
@@ -175,7 +162,8 @@ public class StorageRecovery extends CommandLine {
    * get the SystemConsumers for the stores
    */
   private HashMap<String, SystemConsumer> getStoreConsumers() {
-    HashMap<String, SystemConsumer> storeConsumers = new HashMap<String, SystemConsumer>();
+    HashMap<String, SystemConsumer> storeConsumers = new HashMap<>();
+    Map<String, SystemFactory> systemFactories = new JavaSystemConfig(jobConfig).getSystemFactories();
 
     for (Entry<String, SystemStream> entry : changeLogSystemStreams.entrySet()) {
       String storeSystem = entry.getValue().getSystem();
@@ -207,7 +195,7 @@ public class StorageRecovery extends CommandLine {
    */
   @SuppressWarnings({ "unchecked", "rawtypes" })
   private void getTaskStorageManagers() {
-    StreamMetadataCache streamMetadataCache = new StreamMetadataCache(Util.javaMapAsScalaMap(systemAdmins), 5000, SystemClock.instance());
+    StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, SystemClock.instance());
 
     for (ContainerModel containerModel : containers.values()) {
       HashMap<String, StorageEngine> taskStores = new HashMap<String, StorageEngine>();
@@ -249,7 +237,7 @@ public class StorageRecovery extends CommandLine {
             storeBaseDir,
             storeBaseDir,
             taskModel.getChangelogPartition(),
-            Util.javaMapAsScalaMap(systemAdmins),
+            systemAdmins,
             new StorageConfig(jobConfig).getChangeLogDeleteRetentionsInMs(),
             new SystemClock());
 

@@ -89,7 +89,7 @@ public class ZkControllerImpl implements ZkController {
 
     // close zk connection
     if (zkUtils != null) {
-      zkUtils.getZkClient().close();
+      zkUtils.close();
     }
   }
 

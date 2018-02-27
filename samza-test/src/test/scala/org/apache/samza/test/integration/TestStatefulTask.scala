@@ -153,7 +153,7 @@ class StateStoreTestTask extends TestTask {
       .asScala
       .map(_.getValue)
       .toSet
-    System.err.println("StateStoreTestTask.init(): %s" format restored)
+    System.err.println("StateStoreTestTask.createStream(): %s" format restored)
     iter.close
   }
 

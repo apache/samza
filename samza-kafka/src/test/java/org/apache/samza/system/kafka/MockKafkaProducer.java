@@ -209,7 +209,7 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
   }
 
   public void sendOffsetsToTransaction(Map<TopicPartition, OffsetAndMetadata> offsets, String consumerGroupId) {
-    
+
   }
 
   private static class FutureFailure implements Future<RecordMetadata> {

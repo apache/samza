@@ -21,6 +21,7 @@ package org.apache.samza.container;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.coordinator.stream.CoordinatorStreamManager;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory.MockCoordinatorStreamSystemConsumer;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory.MockCoordinatorStreamSystemProducer;
@@ -66,21 +67,15 @@ public class TestLocalityManager {
         mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);
     MockCoordinatorStreamSystemConsumer consumer =
         mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(config, null);
-    LocalityManager localityManager = new LocalityManager(producer, consumer);
+    CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(producer, consumer);
+    LocalityManager localityManager = new LocalityManager(coordinatorStreamManager);
 
-    try {
-      localityManager.register(new TaskName("task-0"));
-      fail("Should have thrown UnsupportedOperationException");
-    } catch (UnsupportedOperationException uoe) {
-      // expected
-    }
-
-    localityManager.register("containerId-0");
+    coordinatorStreamManager.register("SamzaContainer-containerId-0");
     assertTrue(producer.isRegistered());
     assertEquals(producer.getRegisteredSource(), "SamzaContainer-containerId-0");
     assertTrue(consumer.isRegistered());
 
-    localityManager.start();
+    coordinatorStreamManager.start();
     assertTrue(producer.isStarted());
     assertTrue(consumer.isStarted());
 
@@ -101,7 +96,7 @@ public class TestLocalityManager {
       };
     assertEquals(expectedMap, localMap);
 
-    localityManager.stop();
+    coordinatorStreamManager.stop();
     assertTrue(producer.isStopped());
     assertTrue(consumer.isStopped());
   }
@@ -109,13 +104,14 @@ public class TestLocalityManager {
   @Test public void testWriteOnlyLocalityManager() {
     MockCoordinatorStreamSystemProducer producer =
         mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);
-    LocalityManager localityManager = new LocalityManager(producer);
+    CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(producer);
+    LocalityManager localityManager = new LocalityManager(coordinatorStreamManager);
 
-    localityManager.register("containerId-1");
+    coordinatorStreamManager.register("SamzaContainer-containerId-1");
     assertTrue(producer.isRegistered());
     assertEquals(producer.getRegisteredSource(), "SamzaContainer-containerId-1");
 
-    localityManager.start();
+    coordinatorStreamManager.start();
     assertTrue(producer.isStarted());
 
     localityManager.writeContainerToHostMapping("1", "localhost", "jmx:localhost:8181", "jmx:tunnel:localhost:9191");
@@ -134,7 +130,7 @@ public class TestLocalityManager {
             "jmx:tunnel:localhost:9191");
     assertEquals(expectedContainerMap, coordinatorStreamMessage);
 
-    localityManager.stop();
+    coordinatorStreamManager.stop();
     assertTrue(producer.isStopped());
   }
 }

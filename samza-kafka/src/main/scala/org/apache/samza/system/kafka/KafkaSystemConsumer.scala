@@ -144,6 +144,7 @@ private[kafka] class KafkaSystemConsumer(
       }
     }
 
+    systemAdmin.start()
     refreshBrokers
   }
 
@@ -161,6 +162,7 @@ private[kafka] class KafkaSystemConsumer(
   }
 
   def stop() {
+    systemAdmin.stop()
     brokerProxies.values.foreach(_.stop)
   }
 

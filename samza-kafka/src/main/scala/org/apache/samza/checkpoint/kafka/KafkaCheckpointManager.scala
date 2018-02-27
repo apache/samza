@@ -53,6 +53,9 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
                              checkpointMsgSerde: Serde[Checkpoint] = new CheckpointSerde,
                              checkpointKeySerde: Serde[KafkaCheckpointLogKey] = new KafkaCheckpointLogKeySerde) extends CheckpointManager with Logging {
 
+  // Retry duration is approximately 83 minutes.
+  var MaxRetriesOnFailure = 50
+
   info(s"Creating KafkaCheckpointManager for checkpointTopic:$checkpointTopic, systemName:$checkpointSystem " +
     s"validateCheckpoints:$validateCheckpoint")
 
@@ -68,6 +71,23 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   var taskNames = Set[TaskName]()
   var taskNamesToCheckpoints: Map[TaskName, Checkpoint] = null
 
+  /**
+    * Create checkpoint stream prior to start.
+    */
+  override def createResources = {
+    Preconditions.checkNotNull(systemAdmin)
+
+    systemAdmin.start()
+
+    info(s"Creating checkpoint stream: ${checkpointSpec.getPhysicalName} with " +
+      s"partition count: ${checkpointSpec.getPartitionCount}")
+    systemAdmin.createStream(checkpointSpec)
+
+    if (validateCheckpoint) {
+      info(s"Validating checkpoint stream")
+      systemAdmin.validateStream(checkpointSpec)
+    }
+  }
 
   /**
     * @inheritdoc
@@ -75,11 +95,6 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   override def start {
     Preconditions.checkNotNull(systemProducer)
     Preconditions.checkNotNull(systemConsumer)
-    Preconditions.checkNotNull(systemAdmin)
-
-    info(s"Creating checkpoint stream: ${checkpointSpec.getPhysicalName} with " +
-      s"partition count: ${checkpointSpec.getPartitionCount}")
-    systemAdmin.createStream(checkpointSpec)
 
     // register and start a producer for the checkpoint topic
     systemProducer.start
@@ -89,11 +104,6 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     info(s"Starting checkpoint SystemConsumer from oldest offset $oldestOffset")
     systemConsumer.register(checkpointSsp, oldestOffset)
     systemConsumer.start
-
-    if (validateCheckpoint) {
-      info(s"Validating checkpoint stream")
-      systemAdmin.validateStream(checkpointSpec)
-    }
   }
 
   /**
@@ -157,7 +167,12 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
       },
 
       (exception, loop) => {
-        warn(s"Retrying failed checkpoint write to key: $key, checkpoint: $checkpoint for task: $taskName", exception)
+        if (loop.sleepCount >= MaxRetriesOnFailure) {
+          error(s"Exhausted $MaxRetriesOnFailure retries when writing checkpoint: $checkpoint for task: $taskName.")
+          throw new SamzaException(s"Exception when writing checkpoint: $checkpoint for task: $taskName.", exception)
+        } else {
+          warn(s"Retrying failed checkpoint write to key: $key, checkpoint: $checkpoint for task: $taskName", exception)
+        }
       }
     )
   }
@@ -171,6 +186,8 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   }
 
   override def stop = {
+    systemAdmin.stop()
+
     if (systemProducer != null) {
       systemProducer.stop
     } else {

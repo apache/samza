@@ -34,8 +34,8 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.container.LocalityManager;
+import org.apache.samza.coordinator.stream.CoordinatorStreamManager;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer;
-import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.rest.model.Task;
@@ -93,10 +93,9 @@ public class SamzaTaskProxy implements TaskProxy {
    * @return built and initialized CoordinatorStreamSystemConsumer.
    */
   protected CoordinatorStreamSystemConsumer initializeCoordinatorStreamConsumer(JobInstance jobInstance) {
-    CoordinatorStreamSystemFactory coordinatorStreamSystemFactory = new CoordinatorStreamSystemFactory();
     Config coordinatorSystemConfig = getCoordinatorSystemConfig(jobInstance);
     LOG.debug("Using config: {} to create coordinatorStream consumer.", coordinatorSystemConfig);
-    CoordinatorStreamSystemConsumer consumer = coordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(coordinatorSystemConfig, METRICS_REGISTRY);
+    CoordinatorStreamSystemConsumer consumer = new CoordinatorStreamSystemConsumer(coordinatorSystemConfig, METRICS_REGISTRY);
     LOG.debug("Registering coordinator system stream consumer.");
     consumer.register();
     LOG.debug("Starting coordinator system stream consumer.");
@@ -131,7 +130,8 @@ public class SamzaTaskProxy implements TaskProxy {
    * @return list of {@link Task} constructed from job model in coordinator stream.
    */
   protected List<Task> readTasksFromCoordinatorStream(CoordinatorStreamSystemConsumer consumer) {
-    LocalityManager localityManager = new LocalityManager(null, consumer);
+    CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(consumer);
+    LocalityManager localityManager = new LocalityManager(coordinatorStreamManager);
     Map<String, Map<String, String>> containerIdToHostMapping = localityManager.readContainerLocality();
     Map<String, String> taskNameToContainerIdMapping = localityManager.getTaskAssignmentManager().readTaskAssignment();
     StorageConfig storageConfig = new StorageConfig(consumer.getConfig());

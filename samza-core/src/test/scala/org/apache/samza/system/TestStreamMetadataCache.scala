@@ -42,7 +42,7 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
     val systemAdmins = Map("foo" -> mock[SystemAdmin])
     when(systemAdmins("foo").getSystemStreamMetadata(Set("bar").asJava)).thenReturn(makeMetadata(Set("bar")).asJava)
     val streams = Set(new SystemStream("foo", "bar"))
-    val cache = new StreamMetadataCache(systemAdmins)
+    val cache = new StreamMetadataCache(new SystemAdmins(systemAdmins.asJava))
 
     val result = cache.getStreamMetadata(streams)
     streams shouldEqual result.keySet
@@ -56,7 +56,7 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
     val systemAdmins = Map("system" -> mock[SystemAdmin])
     when(systemAdmins("system").getSystemStreamMetadata(Set("stream").asJava)).thenReturn(makeMetadata().asJava)
     val streams = Set(new SystemStream("system", "stream"))
-    val cache = new StreamMetadataCache(systemAdmins = systemAdmins, clock = clock)
+    val cache = new StreamMetadataCache(new SystemAdmins(systemAdmins.asJava), clock = clock)
 
     when(clock.currentTimeMillis).thenReturn(0)
     cache.getStreamMetadata(streams)
@@ -84,7 +84,7 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
       new SystemStream("sys1", "stream1a"), new SystemStream("sys1", "stream1b"),
       new SystemStream("sys2", "stream2a"), new SystemStream("sys2", "stream2b")
     )
-    val result = new StreamMetadataCache(systemAdmins).getStreamMetadata(streams)
+    val result = new StreamMetadataCache(new SystemAdmins(systemAdmins.asJava)).getStreamMetadata(streams)
     result.keySet shouldEqual streams
     streams.foreach(stream => {
       val expectedPartitions = if (stream.getSystem == "sys1") 3 else 5
@@ -101,7 +101,7 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
       .thenReturn(makeMetadata(Set("stream1")).asJava) // metadata doesn't include stream2
     val streams = Set(new SystemStream("system", "stream1"), new SystemStream("system", "stream2"))
     val exception = intercept[SamzaException] {
-      new StreamMetadataCache(systemAdmins).getStreamMetadata(streams)
+      new StreamMetadataCache(new SystemAdmins(systemAdmins.asJava)).getStreamMetadata(streams)
     }
     exception.getMessage should startWith ("Cannot get metadata for unknown streams")
   }
@@ -113,7 +113,7 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
       .thenReturn(Map[String, SystemStreamMetadata]("stream" -> null).asJava)
     val streams = Set(new SystemStream("system", "stream"))
     val exception = intercept[SamzaException] {
-      new StreamMetadataCache(systemAdmins).getStreamMetadata(streams)
+      new StreamMetadataCache(new SystemAdmins(systemAdmins.asJava)).getStreamMetadata(streams)
     }
     exception.getMessage should startWith ("Cannot get metadata for unknown streams")
   }

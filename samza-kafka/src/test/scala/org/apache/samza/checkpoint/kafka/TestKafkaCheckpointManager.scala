@@ -33,6 +33,7 @@ import org.apache.samza.checkpoint.Checkpoint
 import org.apache.samza.config._
 import org.apache.samza.container.TaskName
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
+import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.serializers.CheckpointSerde
 import org.apache.samza.system._
 import org.apache.samza.system.kafka.{KafkaStreamSpec, KafkaSystemFactory}
@@ -40,6 +41,7 @@ import org.apache.samza.util.{KafkaUtilException, NoOpMetricsRegistry, Util}
 import org.apache.samza.{Partition, SamzaException}
 import org.junit.Assert._
 import org.junit._
+import org.mockito.Mockito
 
 class TestKafkaCheckpointManager extends KafkaServerTestHarness {
 
@@ -72,6 +74,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val checkpointTopic = "checkpoint-topic-1"
     val kcm1 = createKafkaCheckpointManager(checkpointTopic)
     kcm1.register(taskName)
+    kcm1.createResources
     kcm1.start
     kcm1.stop
     // check that start actually creates the topic with log compaction enabled
@@ -96,6 +99,29 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     assertEquals(checkpoint2, readCheckpoint(checkpointTopic, taskName))
   }
 
+  @Test(expected = classOf[SamzaException])
+  def testWriteCheckpointShouldRetryFiniteTimesOnFailure: Unit = {
+    val checkpointTopic = "checkpoint-topic-2"
+    val mockKafkaProducer: SystemProducer = Mockito.mock(classOf[SystemProducer])
+
+    class MockSystemFactory extends KafkaSystemFactory {
+      override def getProducer(systemName: String, config: Config, registry: MetricsRegistry): SystemProducer = {
+        mockKafkaProducer
+      }
+    }
+
+    Mockito.doThrow(new RuntimeException()).when(mockKafkaProducer).flush(taskName.getTaskName)
+
+    val props = new org.apache.samza.config.KafkaConfig(config).getCheckpointTopicProperties()
+    val spec = new KafkaStreamSpec("id", checkpointTopic, checkpointSystemName, 1, 1, false, props)
+    val checkPointManager = new KafkaCheckpointManager(spec, new MockSystemFactory, false, config, new NoOpMetricsRegistry)
+    checkPointManager.MaxRetriesOnFailure = 1
+
+    checkPointManager.register(taskName)
+    checkPointManager.start
+    checkPointManager.writeCheckpoint(taskName, new Checkpoint(ImmutableMap.of()))
+  }
+
   @Test
   def testFailOnTopicValidation {
     // By default, should fail if there is a topic validation error
@@ -105,6 +131,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     // create topic with the wrong number of partitions
     createTopic(checkpointTopic, 8, new KafkaConfig(config).getCheckpointTopicProperties())
     try {
+      kcm1.createResources
       kcm1.start
       fail("Expected an exception for invalid number of partitions in the checkpoint topic.")
     } catch {

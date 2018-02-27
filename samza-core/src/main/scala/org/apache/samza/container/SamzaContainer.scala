@@ -38,7 +38,7 @@ import org.apache.samza.config._
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
 import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor, NoThrottlingDiskQuotaPolicyFactory, PollingScanDiskSpaceMonitor}
 import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStatistics, SystemStatisticsMonitor}
-import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
+import org.apache.samza.coordinator.stream.{CoordinatorStreamManager, CoordinatorStreamSystemProducer}
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.serializers._
@@ -57,16 +57,6 @@ import scala.collection.JavaConverters._
 object SamzaContainer extends Logging {
   val DEFAULT_READ_JOBMODEL_DELAY_MS = 100
   val DISK_POLL_INTERVAL_KEY = "container.disk.poll.interval.ms"
-
-  def getLocalityManager(containerName: String, config: Config): LocalityManager = {
-    val registryMap = new MetricsRegistryMap(containerName)
-    val coordinatorSystemProducer =
-      new CoordinatorStreamSystemFactory()
-        .getCoordinatorStreamSystemProducer(
-          config,
-          new SamzaContainerMetrics(containerName, registryMap).registry)
-    new LocalityManager(coordinatorSystemProducer)
-  }
 
   /**
    * Fetches config, task:SSP assignments, and task:changelog partition
@@ -94,9 +84,13 @@ object SamzaContainer extends Logging {
     val containerName = "samza-container-%s" format containerId
     val maxChangeLogStreamPartitions = jobModel.maxChangeLogStreamPartitions
 
+    var coordinatorStreamManager: CoordinatorStreamManager = null
     var localityManager: LocalityManager = null
     if (new ClusterManagerConfig(config).getHostAffinityEnabled()) {
-      localityManager = getLocalityManager(containerName, config)
+      val registryMap = new MetricsRegistryMap(containerName)
+      val coordinatorStreamSystemProducer = new CoordinatorStreamSystemProducer(config, new SamzaContainerMetrics(containerName, registryMap).registry)
+      coordinatorStreamManager = new CoordinatorStreamManager(coordinatorStreamSystemProducer)
+      localityManager = new LocalityManager(coordinatorStreamManager)
     }
 
     val containerPID = Util.getContainerPID
@@ -104,6 +98,7 @@ object SamzaContainer extends Logging {
     info("Setting up Samza container: %s" format containerName)
 
     startupLog("Samza container PID: %s" format containerPID)
+    println("Container PID: %s" format containerPID)
     startupLog("Using configuration: %s" format config)
     startupLog("Using container model: %s" format containerModel)
 
@@ -151,12 +146,10 @@ object SamzaContainer extends Logging {
         .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemName))
       (systemName, Util.getObj[SystemFactory](systemFactoryClassName))
     }).toMap
-
-    val systemAdmins = systemNames
-      .map(systemName => (systemName, systemFactories(systemName).getAdmin(systemName, config)))
-      .toMap
-
     info("Got system factories: %s" format systemFactories.keys)
+
+    val systemAdmins = new SystemAdmins(config)
+    info("Got system admins: %s" format systemAdmins.getSystemAdminsMap().keySet())
 
     val streamMetadataCache = new StreamMetadataCache(systemAdmins)
     val inputStreamMetadata = streamMetadataCache.getStreamMetadata(inputSystemStreams)
@@ -360,12 +353,9 @@ object SamzaContainer extends Logging {
     // create a map of consumers with callbacks to pass to the OffsetManager
     val checkpointListeners = consumers.filter(_._2.isInstanceOf[CheckpointListener])
       .map { case (system, consumer) => (system, consumer.asInstanceOf[CheckpointListener])}
-
     info("Got checkpointListeners : %s" format checkpointListeners)
 
-    val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager,
-      systemAdmins, checkpointListeners, offsetManagerMetrics)
-
+    val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager, systemAdmins, checkpointListeners, offsetManagerMetrics)
     info("Got offset manager: %s" format offsetManager)
 
     val dropDeserializationError = config.getDropDeserialization match {
@@ -629,9 +619,11 @@ object SamzaContainer extends Logging {
       containerContext = containerContext,
       taskInstances = taskInstances,
       runLoop = runLoop,
+      systemAdmins = systemAdmins,
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
       offsetManager = offsetManager,
+      coordinatorStreamManager = coordinatorStreamManager,
       localityManager = localityManager,
       securityManager = securityManager,
       metrics = samzaContainerMetrics,
@@ -647,12 +639,14 @@ class SamzaContainer(
   containerContext: SamzaContainerContext,
   taskInstances: Map[TaskName, TaskInstance],
   runLoop: Runnable,
+  systemAdmins: SystemAdmins,
   consumerMultiplexer: SystemConsumers,
   producerMultiplexer: SystemProducers,
   metrics: SamzaContainerMetrics,
   diskSpaceMonitor: DiskSpaceMonitor = null,
   hostStatisticsMonitor: SystemStatisticsMonitor = null,
   offsetManager: OffsetManager = new OffsetManager,
+  coordinatorStreamManager: CoordinatorStreamManager = null,
   localityManager: LocalityManager = null,
   securityManager: SecurityManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
@@ -662,6 +656,7 @@ class SamzaContainer(
   val shutdownMs = containerContext.config.getShutdownMs.getOrElse(TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS)
   var shutdownHookThread: Thread = null
   var jmxServer: JmxServer = null
+  val isAutoCommitEnabled = containerContext.config.isAutoCommitEnabled
 
   @volatile private var status = SamzaContainerStatus.NOT_STARTED
   private var exceptionSeen: Throwable = null
@@ -686,6 +681,7 @@ class SamzaContainer(
       jmxServer = new JmxServer()
 
       startMetrics
+      startAdmins
       startOffsetManager
       startLocalityManager
       startStores
@@ -733,6 +729,7 @@ class SamzaContainer(
       shutdownOffsetManager
       shutdownMetrics
       shutdownSecurityManger
+      shutdownAdmins
 
       if (!status.equals(SamzaContainerStatus.FAILED)) {
         status = SamzaContainerStatus.STOPPED
@@ -843,9 +840,15 @@ class SamzaContainer(
 
   def startLocalityManager {
     if(localityManager != null) {
-      info("Registering localityManager for the container")
-      localityManager.start
-      localityManager.register(String.valueOf(containerContext.id))
+      if(coordinatorStreamManager == null) {
+        // This should never happen.
+        throw new IllegalStateException("Cannot start LocalityManager without a CoordinatorStreamManager")
+      }
+
+      val containerName = "SamzaContainer-" + String.valueOf(containerContext.id)
+      info("Registering %s with the coordinator stream manager." format containerName)
+      coordinatorStreamManager.start
+      coordinatorStreamManager.register(containerName)
 
       info("Writing container locality and JMX address to Coordinator Stream")
       try {
@@ -890,6 +893,13 @@ class SamzaContainer(
 
     taskInstances.values.foreach(_.initTask)
   }
+
+  def startAdmins {
+    info("Starting admin multiplexer.")
+
+    systemAdmins.start
+  }
+
 
   def startProducers {
     info("Registering task instances with producers.")
@@ -959,6 +969,13 @@ class SamzaContainer(
     consumerMultiplexer.stop
   }
 
+  def shutdownAdmins {
+    info("Shutting down admin multiplexer.")
+
+    systemAdmins.stop
+  }
+
+
   def shutdownProducers {
     info("Shutting down producer multiplexer.")
 
@@ -981,6 +998,11 @@ class SamzaContainer(
       }
     }
 
+    if (isAutoCommitEnabled) {
+      info("Committing offsets for all task instances")
+      taskInstances.values.foreach(_.commit)
+    }
+
     taskInstances.values.foreach(_.shutdownTask)
   }
 
@@ -997,9 +1019,9 @@ class SamzaContainer(
   }
 
   def shutdownLocalityManager {
-    if(localityManager != null) {
-      info("Shutting down locality manager.")
-      localityManager.stop
+    if(coordinatorStreamManager != null) {
+      info("Shutting down coordinator stream manager used by locality manager.")
+      coordinatorStreamManager.stop
     }
   }
 

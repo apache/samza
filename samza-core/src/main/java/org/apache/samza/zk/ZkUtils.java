@@ -94,8 +94,6 @@ public class ZkUtils {
     return currentGeneration.get();
   }
 
-
-
   public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs, MetricsRegistry metricsRegistry) {
     this.keyBuilder = zkKeyBuilder;
     this.connectionTimeoutMs = connectionTimeoutMs;
@@ -298,7 +296,13 @@ public class ZkUtils {
   }
 
   public void close() throws ZkInterruptedException {
-    zkClient.close();
+    try {
+      zkClient.close();
+    } catch (ZkInterruptedException e) {
+      // Swallowing due to occurrence in the last stage of lifecycle (Not actionable) and clear the interrupted status.
+      Thread.interrupted();
+      LOG.warn("Ignoring the exception when closing the zookeeper client.", e);
+    }
   }
 
   /**

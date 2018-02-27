@@ -71,13 +71,13 @@ public class ProjectTranslator {
     public SamzaSqlRelMessage apply(SamzaSqlRelMessage message) {
       RelDataType type = project.getRowType();
       Object[] output = new Object[type.getFieldCount()];
-      expr.execute(context.getExecutionContext(), context.getDataContext(), message.getRelFieldValues().toArray(), output);
+      expr.execute(context.getExecutionContext(), context.getDataContext(), message.getFieldValues().toArray(), output);
       List<String> names = new ArrayList<>();
       for (int index = 0; index < output.length; index++) {
         names.add(index, project.getNamedProjects().get(index).getValue());
       }
 
-      return SamzaSqlRelMessage.createRelMessage(Arrays.asList(output), names);
+      return new SamzaSqlRelMessage(names, Arrays.asList(output));
     }
   }
 
@@ -107,14 +107,14 @@ public class ProjectTranslator {
   private MessageStream<SamzaSqlRelMessage> translateFlatten(Integer flattenIndex,
       MessageStream<SamzaSqlRelMessage> inputStream) {
     return inputStream.flatMap(message -> {
-      Object field = message.getRelFieldValues().get(flattenIndex);
+      Object field = message.getFieldValues().get(flattenIndex);
 
       if (field != null && field instanceof List) {
         List<SamzaSqlRelMessage> outMessages = new ArrayList<>();
         for (Object fieldValue : (List) field) {
           List<Object> newValues = new ArrayList<>(message.getFieldValues());
           newValues.set(flattenIndex, Collections.singletonList(fieldValue));
-          outMessages.add(new SamzaSqlRelMessage(message.getKey(), message.getFieldNames(), newValues));
+          outMessages.add(new SamzaSqlRelMessage(message.getFieldNames(), newValues));
         }
         return outMessages;
       } else {

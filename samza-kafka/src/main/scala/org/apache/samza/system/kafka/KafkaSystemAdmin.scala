@@ -148,6 +148,17 @@ class KafkaSystemAdmin(
 
   import KafkaSystemAdmin._
 
+  @volatile var running = false
+
+  override def start() = {
+    running = true
+  }
+
+  override def stop() = {
+    running = false
+  }
+
+
   override def getSystemStreamPartitionCounts(streams: util.Set[String], cacheTTL: Long): util.Map[String, SystemStreamMetadata] = {
     getSystemStreamPartitionCounts(streams, new ExponentialSleepStrategy(initialDelayMs = 500), cacheTTL)
   }

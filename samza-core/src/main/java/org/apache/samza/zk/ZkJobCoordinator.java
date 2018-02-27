@@ -28,13 +28,14 @@ import java.util.Objects;
 import java.util.Set;
 import org.I0Itec.zkclient.IZkStateListener;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MetricsConfig;
+import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.config.ZkConfig;
-import org.apache.samza.config.StorageConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorListener;
@@ -47,13 +48,15 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
 import org.apache.samza.runtime.ProcessorIdGenerator;
+import org.apache.samza.storage.ChangelogStreamManager;
 import org.apache.samza.system.StreamMetadataCache;
+import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.util.ClassLoaderHelper;
 import org.apache.samza.util.MetricsReporterLoader;
+import org.apache.samza.util.SystemClock;
 import org.apache.zookeeper.Watcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 
 /**
  * JobCoordinator for stand alone processor managed via Zookeeper.
@@ -88,11 +91,12 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private final Map<String, MetricsReporter> reporters;
 
   private StreamMetadataCache streamMetadataCache = null;
+  private SystemAdmins systemAdmins = null;
   private ScheduleAfterDebounceTime debounceTimer = null;
   private JobCoordinatorListener coordinatorListener = null;
   private JobModel newJobModel;
   private int debounceTimeMs;
-  private boolean hasCreatedChangeLogStreams = false;
+  private boolean hasCreatedStreams = false;
   private String cachedJobModelVersion = null;
   private Map<TaskName, Integer> changeLogPartitionMap = new HashMap<>();
 
@@ -120,13 +124,14 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         LOG.error("Received exception from in JobCoordinator Processing!", throwable);
         stop();
       });
+    systemAdmins = new SystemAdmins(config);
+    streamMetadataCache = new StreamMetadataCache(systemAdmins, METADATA_CACHE_TTL_MS, SystemClock.instance());
   }
 
   @Override
   public void start() {
     startMetrics();
-    streamMetadataCache = StreamMetadataCache.apply(METADATA_CACHE_TTL_MS, config);
-
+    systemAdmins.start();
     zkController.register();
   }
 
@@ -144,6 +149,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     if (coordinatorListener != null) {
       coordinatorListener.onCoordinatorStop();
     }
+    systemAdmins.stop();
   }
 
   private void startMetrics() {
@@ -195,10 +201,19 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
     // Generate the JobModel
     JobModel jobModel = generateNewJobModel(currentProcessorIds);
-    if (!hasCreatedChangeLogStreams) {
-      JobModelManager.createChangeLogStreams(new StorageConfig(config), jobModel.maxChangeLogStreamPartitions);
-      hasCreatedChangeLogStreams = true;
+
+    // Create checkpoint and changelog streams if they don't exist
+    if (!hasCreatedStreams) {
+      CheckpointManager checkpointManager = new TaskConfigJava(jobModel.getConfig()).getCheckpointManager(metrics.getMetricsRegistry());
+      if (checkpointManager != null) {
+        checkpointManager.createResources();
+      }
+
+      // Pass in null Coordinator consumer and producer because ZK doesn't have coordinator streams.
+      ChangelogStreamManager.createChangelogStreams(jobModel.getConfig(), jobModel.maxChangeLogStreamPartitions);
+      hasCreatedStreams = true;
     }
+
     // Assign the next version of JobModel
     String currentJMVersion = zkUtils.getJobModelVersion();
     String nextJMVersion = zkUtils.getNextJobModelVersion(currentJMVersion);

@@ -27,8 +27,9 @@ import org.apache.samza.clustermanager.SamzaApplicationState
 import org.apache.samza.config.{Config, MapConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.JobModelManager
-import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory
+import org.apache.samza.coordinator.stream.{CoordinatorStreamManager, MockCoordinatorStreamSystemFactory}
 import org.apache.samza.metrics._
+import org.apache.samza.storage.ChangelogStreamManager
 import org.junit.Assert._
 import org.junit.Test
 
@@ -39,7 +40,7 @@ class TestSamzaYarnAppMasterService {
   @Test
   def testAppMasterDashboardShouldStart {
     val config = getDummyConfig
-    val jobModelManager = JobModelManager(config)
+    val jobModelManager = getTestJobModelManager(config)
     val samzaState = new SamzaApplicationState(jobModelManager)
     val registry = new MetricsRegistryMap()
 
@@ -74,7 +75,7 @@ class TestSamzaYarnAppMasterService {
   def testAppMasterDashboardWebServiceShouldStart {
     // Create some dummy config
     val config = getDummyConfig
-    val jobModelManager = JobModelManager(config)
+    val jobModelManager = getTestJobModelManager(config)
     val samzaState = new SamzaApplicationState(jobModelManager)
     val state = new YarnAppState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "testHost", 1, 1);
     val registry = new MetricsRegistryMap()
@@ -97,6 +98,15 @@ class TestSamzaYarnAppMasterService {
     } while (line != null)
 
     reader.close
+  }
+
+  private def getTestJobModelManager(config: Config) = {
+    val coordinatorStreamManager = new CoordinatorStreamManager(config, new MetricsRegistryMap)
+    coordinatorStreamManager.register("TestJobCoordinator")
+    coordinatorStreamManager.start
+    coordinatorStreamManager.bootstrap
+    val changelogPartitionManager = new ChangelogStreamManager(coordinatorStreamManager)
+    JobModelManager(coordinatorStreamManager, changelogPartitionManager.readPartitionMapping())
   }
 
   private def getDummyConfig: Config = new MapConfig(Map[String, String](
