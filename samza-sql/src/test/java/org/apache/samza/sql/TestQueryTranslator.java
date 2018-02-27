@@ -130,7 +130,7 @@ public class TestQueryTranslator extends AbstractIntegrationTestHarness {
     String sql =
         "Insert into testavro.enrichedPageViewTopic"
             + " select p.name as profileName, pv.pageKey"
-            + " from testavro.PAGEVIEW as pv, `table`.testavro.PROFILE as p"
+            + " from testavro.PAGEVIEW as pv, testavro.PROFILE.`$table` as p"
             + " where p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
@@ -148,7 +148,7 @@ public class TestQueryTranslator extends AbstractIntegrationTestHarness {
         "Insert into testavro.enrichedPageViewTopic"
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW as pv"
-            + " full join `table`.testavro.PROFILE as p"
+            + " full join testavro.PROFILE.`$table` as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
@@ -165,8 +165,8 @@ public class TestQueryTranslator extends AbstractIntegrationTestHarness {
     String sql =
         "Insert into testavro.enrichedPageViewTopic"
             + " select p1.name as profileName"
-            + " from `table`.testavro.PROFILE as p1"
-            + " join `table`.testavro.PROFILE as p2"
+            + " from testavro.PROFILE.`$table` as p1"
+            + " join testavro.PROFILE.`$table` as p2"
             + " on p1.id = p2.id";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
@@ -184,7 +184,7 @@ public class TestQueryTranslator extends AbstractIntegrationTestHarness {
         "Insert into testavro.enrichedPageViewTopic"
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW as pv"
-            + " join `table`.testavro.PROFILE as p"
+            + " join testavro.PROFILE.`$table` as p"
             + " on p.id <> pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
@@ -201,7 +201,7 @@ public class TestQueryTranslator extends AbstractIntegrationTestHarness {
     String sql =
         "Insert into testavro.enrichedPageViewTopic"
             + " select p.name as profileName, pv.pageKey"
-            + " from testavro.PAGEVIEW as pv, `table`.testavro.PROFILE as p";
+            + " from testavro.PAGEVIEW as pv, testavro.PROFILE.`$table` as p";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
@@ -218,7 +218,7 @@ public class TestQueryTranslator extends AbstractIntegrationTestHarness {
         "Insert into testavro.enrichedPageViewTopic"
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW as pv"
-            + " join `table`.testavro.PROFILE as p"
+            + " join testavro.PROFILE.`$table` as p"
             + " on p.id = pv.profileId and p.name = 'John'";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
@@ -237,7 +237,7 @@ public class TestQueryTranslator extends AbstractIntegrationTestHarness {
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW as pv"
             + " where exists "
-            + " (select p.id from `table`.testavro.PROFILE as p"
+            + " (select p.id from testavro.PROFILE.`$table` as p"
             + " where p.id = pv.profileId)";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
@@ -254,8 +254,8 @@ public class TestQueryTranslator extends AbstractIntegrationTestHarness {
     String sql =
         "Insert into testavro.enrichedPageViewTopic"
             + " select p.name as profileName, pv.pageKey"
-            + " from `table`.testavro.PAGEVIEW as pv"
-            + " join `table`.testavro.PROFILE as p"
+            + " from testavro.PAGEVIEW.`$table` as pv"
+            + " join testavro.PROFILE.`$table` as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
@@ -290,7 +290,7 @@ public class TestQueryTranslator extends AbstractIntegrationTestHarness {
     String sql =
         "Insert into testavro.enrichedPageViewTopic"
             + " select p.name as profileName, pv.pageKey"
-            + " from `table`.testavro.PAGEVIEW as pv"
+            + " from testavro.PAGEVIEW.`$table` as pv"
             + " left join testavro.PROFILE as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
@@ -309,7 +309,7 @@ public class TestQueryTranslator extends AbstractIntegrationTestHarness {
         "Insert into testavro.enrichedPageViewTopic"
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW as pv"
-            + " right join `table`.testavro.PROFILE as p"
+            + " right join testavro.PROFILE.`$table` as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
@@ -327,7 +327,7 @@ public class TestQueryTranslator extends AbstractIntegrationTestHarness {
         "Insert into testavro.enrichedPageViewTopic"
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW as pv"
-            + " join `table`.testavro.PROFILE as p"
+            + " join testavro.PROFILE.`$table` as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
@@ -365,7 +365,7 @@ public class TestQueryTranslator extends AbstractIntegrationTestHarness {
         "Insert into testavro.enrichedPageViewTopic"
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW as pv"
-            + " left join `table`.testavro.PROFILE as p"
+            + " left join testavro.PROFILE.`$table` as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
@@ -404,7 +404,7 @@ public class TestQueryTranslator extends AbstractIntegrationTestHarness {
     String sql =
         "Insert into testavro.enrichedPageViewTopic"
             + " select p.name as profileName, pv.pageKey"
-            + " from `table`.testavro.PROFILE as p"
+            + " from testavro.PROFILE.`$table` as p"
             + " right join testavro.PAGEVIEW as pv"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);

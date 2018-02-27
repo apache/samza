@@ -33,7 +33,7 @@ public class TestSourceResolverFactory implements SourceResolverFactory {
   }
 
   private class TestSourceResolver implements SourceResolver {
-    private final String SAMZA_SQL_QUERY_TABLE_KEYWORD = "table";
+    private final String SAMZA_SQL_QUERY_TABLE_KEYWORD = "$table";
     private final Config config;
 
     public TestSourceResolver(Config config) {
@@ -45,11 +45,12 @@ public class TestSourceResolverFactory implements SourceResolverFactory {
       String[] sourceComponents = sourceName.split("\\.");
       boolean isTable = false;
       int systemIdx = 0;
-      int streamIdx = sourceComponents.length - 1;
+      int endIdx = sourceComponents.length - 1;
+      int streamIdx = endIdx;
 
-      if (sourceComponents[0].toLowerCase().equals(SAMZA_SQL_QUERY_TABLE_KEYWORD)) {
+      if (sourceComponents[endIdx].toLowerCase().equals(SAMZA_SQL_QUERY_TABLE_KEYWORD)) {
         isTable = true;
-        systemIdx++;
+        streamIdx = endIdx - 1;
       }
       Config systemConfigs = config.subset(sourceComponents[systemIdx] + ".");
       return new SqlSystemStreamConfig(sourceComponents[systemIdx], sourceComponents[streamIdx],
@@ -59,7 +60,7 @@ public class TestSourceResolverFactory implements SourceResolverFactory {
     @Override
     public boolean isTable(String sourceName) {
       String[] sourceComponents = sourceName.split("\\.");
-      return sourceComponents[0].toLowerCase().equals(SAMZA_SQL_QUERY_TABLE_KEYWORD);
+      return sourceComponents[sourceComponents.length - 1].toLowerCase().equals(SAMZA_SQL_QUERY_TABLE_KEYWORD);
     }
   }
 }

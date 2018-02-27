@@ -182,7 +182,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
             + "select pv.pageKey, p.name as profileName "
-            + "from `table`.testavro.PROFILE as p "
+            + "from testavro.PROFILE.`$table` as p "
             + "join testavro.PAGEVIEW as pv "
             + " on p.id = pv.profileId";
 
@@ -211,7 +211,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
             + "select pv.pageKey, p.name as profileName "
-            + "from `table`.testavro.PROFILE as p "
+            + "from testavro.PROFILE.`$table` as p "
             + "join testavro.PAGEVIEW as pv "
             + " on p.id = pv.profileId "
             + "where p.name = 'Mike'";
@@ -245,7 +245,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
         "Insert into testavro.enrichedPageViewTopic "
             + "select pv.pageKey, p.name as profileName "
             + "from testavro.PAGEVIEW as pv "
-            + "join `table`.testavro.PROFILE as p "
+            + "join testavro.PROFILE.`$table` as p "
             + " on pv.profileId = p.id";
 
     List<String> sqlStmts = Arrays.asList(sql);
@@ -274,7 +274,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
         "Insert into testavro.enrichedPageViewTopic "
             + "select pv.pageKey, p.name as profileName "
             + "from testavro.PAGEVIEW as pv "
-            + "left join `table`.testavro.PROFILE as p "
+            + "left join testavro.PROFILE.`$table` as p "
             + " on pv.profileId = p.id";
 
     List<String> sqlStmts = Arrays.asList(sql);
@@ -302,7 +302,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
             + "select pv.pageKey, p.name as profileName "
-            + "from `table`.testavro.PROFILE as p "
+            + "from testavro.PROFILE.`$table` as p "
             + "right join testavro.PAGEVIEW as pv "
             + " on p.id = pv.profileId";
 
@@ -332,9 +332,9 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
         "Insert into testavro.enrichedPageViewTopic "
             + "select pv.pageKey, p.name as profileName, c.name as companyName "
             + "from testavro.PAGEVIEW as pv "
-            + "join `table`.testavro.PROFILE as p "
+            + "join testavro.PROFILE.`$table` as p "
             + " on p.id = pv.profileId "
-            + " join `table`.testavro.COMPANY as c "
+            + " join testavro.COMPANY.`$table` as c "
             + " on p.companyId = c.id";
 
     List<String> sqlStmts = Arrays.asList(sql);
@@ -362,9 +362,9 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
         "Insert into testavro.enrichedPageViewTopic "
             + "select pv.pageKey, p.name as profileName, c.name as companyName "
             + "from testavro.PAGEVIEW as pv "
-            + "join `table`.testavro.PROFILE as p "
+            + "join testavro.PROFILE.`$table` as p "
             + " on p.id = pv.profileId "
-            + " join `table`.testavro.COMPANY as c "
+            + " join testavro.COMPANY.`$table` as c "
             + " on p.companyId = c.id AND c.id = pv.profileId";
 
     List<String> sqlStmts = Arrays.asList(sql);

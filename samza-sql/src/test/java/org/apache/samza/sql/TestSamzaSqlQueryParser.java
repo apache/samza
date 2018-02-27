@@ -43,13 +43,13 @@ public class TestSamzaSqlQueryParser {
         "Insert into testavro.enrichedPageViewTopic"
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW as pv"
-            + " join `table`.testavro.PROFILE as p"
+            + " join testavro.PROFILE.`$table` as p"
             + " on p.id = pv.profileId";
     QueryInfo queryInfo = SamzaSqlQueryParser.parseQuery(sql);
     Assert.assertEquals("testavro.enrichedPageViewTopic", queryInfo.getOutputSource());
     Assert.assertEquals(2, queryInfo.getInputSources().size());
     Assert.assertEquals("testavro.PAGEVIEW", queryInfo.getInputSources().get(0));
-    Assert.assertEquals("table.testavro.PROFILE", queryInfo.getInputSources().get(1));
+    Assert.assertEquals("testavro.PROFILE.$table", queryInfo.getInputSources().get(1));
   }
 
   @Test
