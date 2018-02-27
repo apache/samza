@@ -110,7 +110,7 @@ public interface SystemAdmin {
    * @param offsets a map from system stream partition to offset
    */
   default void deleteMessages(Map<SystemStreamPartition, String> offsets) {
-    throw new UnsupportedOperationException();
+
   }
 
 }
