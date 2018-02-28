@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Source Resolver implementation that uses static config to return a config corresponding to a system stream.
- * This Source resolver implementation supports sources of type {systemName}.{streamName}
+ * This Source resolver implementation supports sources of type {systemName}.{streamName}[.$table]
  */
 public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
 
@@ -59,10 +59,12 @@ public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
       int endIdx = sourceComponents.length - 1;
       int streamIdx = endIdx;
 
-      // This source resolver expects sources of format [table.]{systemName}.{streamName}
+      // This source resolver expects sources of format {systemName}.{streamName}[.$table]
       if (sourceComponents.length != 2) {
-        if (sourceComponents.length != 3 || !sourceComponents[0].equals(SAMZA_SQL_QUERY_TABLE_KEYWORD)) {
-          String msg = String.format("Source %s is not of the format [table.]{systemName}.{streamName{", source);
+        if (sourceComponents.length != 3 ||
+            !sourceComponents[endIdx].toLowerCase().equals(SAMZA_SQL_QUERY_TABLE_KEYWORD)) {
+          String msg = String.format("Source %s is not of the format {systemName}.{streamName}[.%s]", source,
+              SAMZA_SQL_QUERY_TABLE_KEYWORD);
           LOG.error(msg);
           throw new SamzaException(msg);
         }

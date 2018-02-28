@@ -36,8 +36,8 @@ public class SqlSystemStreamConfig {
 
   public static final String CFG_SAMZA_REL_CONVERTER = "samzaRelConverterName";
   public static final String CFG_REL_SCHEMA_PROVIDER = "relSchemaProviderName";
-  public static final String CFG_SAMZA_STREAM_BOOTSTRAP_STREAM = "streams.%s.samza.bootstrap";
-  public static final String CFG_SAMZA_STREAM_OFFSET_DEFAULT = "streams.%s.samza.offset.default";
+  private static final String CFG_SAMZA_STREAM_BOOTSTRAP_STREAM = "streams.%s.samza.bootstrap";
+  private static final String CFG_SAMZA_STREAM_OFFSET_DEFAULT = "streams.%s.samza.offset.default";
 
   private final String systemName;
 

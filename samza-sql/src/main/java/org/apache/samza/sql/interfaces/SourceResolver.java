@@ -34,7 +34,7 @@ public interface SourceResolver {
 
   /**
    * Returns if a given source is a table. Different source resolvers could have different notations in the source
-   * name for denoting a table. Eg: table.system.stream, system.stream.table, bootstrap.system.stream, etc.
+   * name for denoting a table. Eg: system.stream.$table
    * @param sourceName
    *  source that needs to be checked if it is a table.
    * @return

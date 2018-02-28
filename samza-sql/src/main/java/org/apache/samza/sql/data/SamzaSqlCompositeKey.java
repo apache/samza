@@ -34,7 +34,7 @@ public class SamzaSqlCompositeKey implements Serializable {
 
   @JsonProperty("keyParts")
   private ArrayList<Object> keyParts;
-  int hashCode;
+  private int hashCode;
 
   @JsonCreator
   public SamzaSqlCompositeKey(@JsonProperty("keyParts") List<Object> keyParts) {
@@ -43,8 +43,8 @@ public class SamzaSqlCompositeKey implements Serializable {
   }
 
   /**
-   * Get the keyPartss of all the columns in the relational message.
-   * @return the keyPartss of all the columns
+   * Get the keyParts of all the columns in the relational message.
+   * @return the keyParts of all the columns
    */
   @JsonProperty("keyParts")
   public ArrayList<Object> getKeyParts() {
