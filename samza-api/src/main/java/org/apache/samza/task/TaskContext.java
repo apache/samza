@@ -80,10 +80,11 @@ public interface TaskContext {
    * The callback will be invoked exclusively with any other operations for this task,
    * e.g. processing, windowing and commit.
    * @param key timer key
-   * @param time system-clock time when the timer will fire
+   * @param timestamp epoch time when the timer will be fired, in milliseconds
+   * @param callback callback when the timer is fired
    * @param <K> type of the key
    */
-  <K> void registerTimer(K key, long time, TimerCallback<K> callback);
+  <K> void registerTimer(K key, long timestamp, TimerCallback<K> callback);
 
   /**
    * Delete the keyed timer in this task.

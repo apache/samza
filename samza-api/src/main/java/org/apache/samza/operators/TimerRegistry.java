@@ -29,9 +29,9 @@ public interface TimerRegistry<K> {
   /**
    * Register a processing-time timer with key.
    * @param key key of the timer
-   * @param time time when the timer will fire, in milliseconds
+   * @param timestamp epoch time when the timer will be fired, in milliseconds
    */
-  void register(K key, long time);
+  void register(K key, long timestamp);
 
   /**
    * Delete the timer of key from the registry.

@@ -135,8 +135,8 @@ public class TaskContextImpl implements TaskContext {
   }
 
   @Override
-  public <K> void registerTimer(K key, long time, TimerCallback<K> callback) {
-    timerFactory.getScheduler(key).schedule(time, (TimerCallback<K>) this);
+  public <K> void registerTimer(K key, long timestamp, TimerCallback<K> callback) {
+    timerFactory.getScheduler(key).schedule(timestamp, (TimerCallback<K>) this);
   }
 
   @Override

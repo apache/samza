@@ -38,7 +38,7 @@ import java.util.Collection;
  *      public Collection<String> apply(String s) {
  *        ...
  *      }
- *      public Collection<String> onTimer(String key, long time) {
+ *      public Collection<String> onTimer(String key, long timestamp) {
  *        // example-timer fired
  *        ...
  *      }
@@ -58,8 +58,8 @@ public interface TimerFunction<K, OM> {
   /**
    * Returns the output after the timer with key fires.
    * @param key time key
-   * @param time time of the timer, in milliseconds
+   * @param timestamp epoch time of the timer fired, in milliseconds
    * @return {@link Collection} of output elements
    */
-  Collection<OM> onTimer(K key, long time);
+  Collection<OM> onTimer(K key, long timestamp);
 }
