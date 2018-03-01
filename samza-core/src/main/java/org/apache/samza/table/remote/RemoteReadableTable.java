@@ -19,6 +19,7 @@
 
 package org.apache.samza.table.remote;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -26,12 +27,16 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Timer;
+import org.apache.samza.operators.KV;
 import org.apache.samza.table.ReadableTable;
 import org.apache.samza.task.TaskContext;
+import org.apache.samza.util.RateLimiter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
+
+import static org.apache.samza.table.remote.RemoteTableDescriptor.RL_READ_TAG;
 
 
 /**
@@ -58,36 +63,59 @@ import com.google.common.base.Preconditions;
  * @param <V> the type of the value in this table
  */
 public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
-  static final String READ_FN = "io.readFn";
-  static final String WRITE_FN = "io.writeFn";
-
   protected final String tableId;
   protected final Logger logger;
   protected final TableReadFunction<K, V> readFn;
   protected final String groupName;
+  protected final RateLimiter rateLimiter;
+  protected final CreditFunction<K, V> readCreditFn;
+  protected final boolean rateLimitReads;
 
   protected Timer getNs;
+  protected Timer getThrottleNs;
   protected Counter numGets;
 
-  public RemoteReadableTable(String tableId, TableReadFunction<K, V> readFn) {
+  /**
+   * Construct a RemoteReadableTable instance
+   * @param tableId table id
+   * @param readFn {@link TableReadFunction} for read operations
+   * @param rateLimiter optional {@link RateLimiter} for throttling reads
+   * @param readCreditFn function returning a credit to be charged for rate limiting per record
+   */
+  public RemoteReadableTable(String tableId, TableReadFunction<K, V> readFn, RateLimiter rateLimiter,
+      CreditFunction<K, V> readCreditFn) {
     Preconditions.checkArgument(tableId != null && !tableId.isEmpty(), "invalid table id");
     Preconditions.checkNotNull(readFn, "null read function");
     this.tableId = tableId;
     this.readFn = readFn;
+    this.rateLimiter = rateLimiter;
+    this.readCreditFn = readCreditFn;
     this.groupName = getClass().getSimpleName();
     this.logger = LoggerFactory.getLogger(groupName + tableId);
+    this.rateLimitReads = rateLimiter != null && rateLimiter.getSupportedTags().contains(RL_READ_TAG);
+    logger.info("Rate limiting is {} for remote read operations", rateLimitReads ? "enabled" : "disabled");
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
     getNs = taskContext.getMetricsRegistry().newTimer(groupName, tableId + "-get-ns");
+    getThrottleNs = taskContext.getMetricsRegistry().newTimer(groupName, tableId + "-get-throttle-ns");
     numGets = taskContext.getMetricsRegistry().newCounter(groupName, tableId + "-num-gets");
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public V get(K key) {
     try {
       numGets.inc();
+      if (rateLimitReads) {
+        throttle(key, null, RL_READ_TAG, readCreditFn, getThrottleNs);
+      }
       long startNs = System.nanoTime();
       V result = readFn.get(key);
       getNs.update(System.nanoTime() - startNs);
@@ -99,6 +127,9 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
     }
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public Map<K, V> getAll(List<K> keys) {
     Map<K, V> result;
@@ -131,5 +162,20 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
   @Override
   public void close() {
     readFn.close();
+  }
+
+  /**
+   * Throttle requests given a table record (key, value) with rate limiter and credit function
+   * @param key key of the table record (nullable)
+   * @param value value of the table record (nullable)
+   * @param tag tag for rate limiter
+   * @param creditFn mapper function from KV to credits to be charged
+   * @param timer timer metric to track throttling delays
+   */
+  protected void throttle(K key, V value, String tag, CreditFunction<K, V> creditFn, Timer timer) {
+    long startNs = System.nanoTime();
+    int credits = (creditFn == null) ? 1 : creditFn.apply(KV.of(key, value));
+    rateLimiter.acquire(Collections.singletonMap(tag, credits));
+    timer.update(System.nanoTime() - startNs);
   }
 }

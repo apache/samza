@@ -20,7 +20,6 @@
 package org.apache.samza.table.remote;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -35,6 +34,7 @@ import org.apache.samza.table.Table;
 import org.apache.samza.table.TableProvider;
 import org.apache.samza.table.TableSpec;
 import org.apache.samza.task.TaskContext;
+import org.apache.samza.util.RateLimiter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,6 +45,12 @@ import org.slf4j.LoggerFactory;
 public class RemoteTableProvider implements TableProvider {
   private static final Logger LOG = LoggerFactory.getLogger(RemoteTableProvider.class);
 
+  static final String READ_FN = "io.readFn";
+  static final String WRITE_FN = "io.writeFn";
+  static final String RATE_LIMITER = "io.ratelimiter";
+  static final String READ_CREDIT_FN = "io.readCreditFn";
+  static final String WRITE_CREDIT_FN = "io.writeCreditFn";
+
   private final TableSpec tableSpec;
   private final boolean readOnly;
   private final List<RemoteReadableTable<?, ?>> tables = new ArrayList<>();
@@ -53,7 +59,7 @@ public class RemoteTableProvider implements TableProvider {
 
   public RemoteTableProvider(TableSpec tableSpec) {
     this.tableSpec = tableSpec;
-    readOnly = !tableSpec.getConfig().containsKey(RemoteReadableTable.WRITE_FN);
+    readOnly = !tableSpec.getConfig().containsKey(WRITE_FN);
   }
 
   /**
@@ -65,38 +71,6 @@ public class RemoteTableProvider implements TableProvider {
     this.taskContext = taskContext;
   }
 
-  private <T> T deserializeObject(String strObject) throws IOException, ClassNotFoundException {
-    byte [] bytes = Base64.getDecoder().decode(strObject);
-    return (T) new ObjectInputStream(new ByteArrayInputStream(bytes)).readObject();
-  }
-
-  private TableReadFunction<?, ?> getReadFn() {
-    try {
-      TableReadFunction<?, ?> readFn = deserializeObject(tableSpec.getConfig().get(RemoteReadableTable.READ_FN));
-      readFn.init(containerContext.config, taskContext);
-      return readFn;
-    } catch (Exception e) {
-      String errMsg = "Failed to deserialize TableReadFunction";
-      throw new SamzaException(errMsg, e);
-    }
-  }
-
-  private TableWriteFunction<?, ?> getWriteFn() {
-    String strWriter = tableSpec.getConfig().getOrDefault(RemoteReadableTable.WRITE_FN, "");
-    if (strWriter.isEmpty()) {
-      return null;
-    }
-
-    try {
-      TableWriteFunction<?, ?> writeFn = deserializeObject(strWriter);
-      writeFn.init(containerContext.config, taskContext);
-      return writeFn;
-    } catch (Exception e) {
-      String errMsg = "Failed to deserialize TableWriteFunction";
-      throw new SamzaException(errMsg, e);
-    }
-  }
-
   /**
    * {@inheritDoc}
    */
@@ -104,10 +78,16 @@ public class RemoteTableProvider implements TableProvider {
   public Table getTable() {
     RemoteReadableTable table;
     TableReadFunction<?, ?> readFn = getReadFn();
+    RateLimiter rateLimiter = deserializeObject(RATE_LIMITER);
+    if (rateLimiter != null) {
+      rateLimiter.init(containerContext.config, taskContext);
+    }
+    CreditFunction<?, ?> readCreditFn = deserializeObject(READ_CREDIT_FN);
     if (readOnly) {
-      table = new RemoteReadableTable(tableSpec.getId(), readFn);
+      table = new RemoteReadableTable(tableSpec.getId(), readFn, rateLimiter, readCreditFn);
     } else {
-      table = new RemoteReadWriteTable(tableSpec.getId(), readFn, getWriteFn());
+      CreditFunction<?, ?> writeCreditFn = deserializeObject(WRITE_CREDIT_FN);
+      table = new RemoteReadWriteTable(tableSpec.getId(), readFn, getWriteFn(), rateLimiter, readCreditFn, writeCreditFn);
     }
     table.init(containerContext, taskContext);
     tables.add(table);
@@ -138,6 +118,37 @@ public class RemoteTableProvider implements TableProvider {
   @Override
   public void close() {
     tables.forEach(t -> t.close());
+  }
+
+  private <T> T deserializeObject(String key) {
+    String entry = tableSpec.getConfig().getOrDefault(key, "");
+    if (entry.isEmpty()) {
+      return null;
+    }
+
+    try {
+      byte [] bytes = Base64.getDecoder().decode(entry);
+      return (T) new ObjectInputStream(new ByteArrayInputStream(bytes)).readObject();
+    } catch (Exception e) {
+      String errMsg = "Failed to deserialize " + key;
+      throw new SamzaException(errMsg, e);
+    }
+  }
+
+  private TableReadFunction<?, ?> getReadFn() {
+    TableReadFunction<?, ?> readFn = deserializeObject(READ_FN);
+    if (readFn != null) {
+      readFn.init(containerContext.config, taskContext);
+    }
+    return readFn;
+  }
+
+  private TableWriteFunction<?, ?> getWriteFn() {
+    TableWriteFunction<?, ?> writeFn = deserializeObject(WRITE_FN);
+    if (writeFn != null) {
+      writeFn.init(containerContext.config, taskContext);
+    }
+    return writeFn;
   }
 }
 

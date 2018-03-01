@@ -29,6 +29,8 @@ import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.operators.BaseTableDescriptor;
 import org.apache.samza.table.TableSpec;
+import org.apache.samza.util.EmbeddedTaggedRateLimiter;
+import org.apache.samza.util.RateLimiter;
 
 import com.google.common.base.Preconditions;
 
@@ -40,11 +42,36 @@ import com.google.common.base.Preconditions;
  * @param <V> the type of the value
  */
 public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, RemoteTableDescriptor<K, V>> {
+  /**
+   * Tag to be used for provision credits for rate limiting read operations from the remote table.
+   * Caller must pre-populate the credits with this tag when specifying a custom rate limiter instance
+   * through {@link RemoteTableDescriptor#withRateLimiter(RateLimiter, CreditFunction, CreditFunction)}
+   */
+  public static final String RL_READ_TAG = "readTag";
+
+  /**
+   * Tag to be used for provision credits for rate limiting write operations into the remote table.
+   * Caller can optionally populate the credits with this tag when specifying a custom rate limiter instance
+   * through {@link RemoteTableDescriptor#withRateLimiter(RateLimiter, CreditFunction, CreditFunction)}
+   * and it needs the write functionality.
+   */
+  public static final String RL_WRITE_TAG = "writeTag";
+
   // Input support for a specific remote store (required)
   private TableReadFunction<K, V> readFn;
 
   // Output support for a specific remote store (optional)
   private TableWriteFunction<K, V> writeFn;
+
+  // Rate limiter for client-side throttling;
+  // can either be constructed indirectly from rates or overridden by withRateLimiter()
+  private RateLimiter rateLimiter;
+
+  // Rates for constructing the default rate limiter when they are non-zero
+  private Map<String, Integer> tagCreditsMap = new HashMap<>();
+
+  private CreditFunction<K, V> readCreditFn;
+  private CreditFunction<K, V> writeCreditFn;
 
   /**
    * Construct a table descriptor instance
@@ -61,11 +88,31 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     Map<String, String> tableSpecConfig = new HashMap<>();
     generateTableSpecConfig(tableSpecConfig);
 
-    // Serialize and store reader/writer functions with config
-    tableSpecConfig.put(RemoteReadableTable.READ_FN, serializeObject("read function", readFn));
+    // Serialize and store reader/writer functions
+    tableSpecConfig.put(RemoteTableProvider.READ_FN, serializeObject("read function", readFn));
 
     if (writeFn != null) {
-      tableSpecConfig.put(RemoteReadableTable.WRITE_FN, serializeObject("write function", writeFn));
+      tableSpecConfig.put(RemoteTableProvider.WRITE_FN, serializeObject("write function", writeFn));
+    }
+
+    // Serialize the rate limiter if specified
+    if (!tagCreditsMap.isEmpty()) {
+      rateLimiter = new EmbeddedTaggedRateLimiter(tagCreditsMap);
+    }
+
+    if (rateLimiter != null) {
+      tableSpecConfig.put(RemoteTableProvider.RATE_LIMITER, serializeObject("rate limiter", rateLimiter));
+    }
+
+    // Serialize the readCredit and writeCredit functions
+    if (readCreditFn != null) {
+      tableSpecConfig.put(RemoteTableProvider.READ_CREDIT_FN, serializeObject(
+          "read credit function", readCreditFn));
+    }
+
+    if (writeCreditFn != null) {
+      tableSpecConfig.put(RemoteTableProvider.WRITE_CREDIT_FN, serializeObject(
+          "write credit function", writeCreditFn));
     }
 
     return new TableSpec(tableId, serde, RemoteTableProviderFactory.class.getName(), tableSpecConfig);
@@ -94,12 +141,60 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   }
 
   /**
+   * Specify a rate limiter along with credit functions to map a table record (as KV) to the amount
+   * of credits to be charged from the rate limiter for table read and write operations.
+   * This is an advanced API that provides greater flexibility to throttle each record in the table
+   * with different number of credits. For most common use-cases eg: limit the number of read/write
+   * operations, please instead use the {@link RemoteTableDescriptor#withReadRateLimit(int)} and
+   * {@link RemoteTableDescriptor#withWriteRateLimit(int)}.
+   *
+   * @param rateLimiter rate limiter instance to be used for throttling
+   * @param readCreditFn credit function for rate limiting read operations
+   * @param writeCreditFn credit function for rate limiting write operations
+   * @return this table descriptor instance
+   */
+  public RemoteTableDescriptor<K, V> withRateLimiter(RateLimiter rateLimiter, CreditFunction<K, V> readCreditFn,
+      CreditFunction<K, V> writeCreditFn) {
+    Preconditions.checkNotNull(rateLimiter, "null read rate limiter");
+    this.rateLimiter = rateLimiter;
+    this.readCreditFn = readCreditFn;
+    this.writeCreditFn = writeCreditFn;
+    return this;
+  }
+
+  /**
+   * Specify the rate limit for table read operations. If the read rate limit is set with this method
+   * it is invalid to call {@link RemoteTableDescriptor#withRateLimiter(RateLimiter, CreditFunction, CreditFunction)}
+   * and vice versa.
+   * @param creditsPerSec rate limit for read operations; must be positive
+   * @return this table descriptor instance
+   */
+  public RemoteTableDescriptor<K, V> withReadRateLimit(int creditsPerSec) {
+    Preconditions.checkArgument(creditsPerSec > 0, "Max read rate must be a positive number.");
+    tagCreditsMap.put(RL_READ_TAG, creditsPerSec);
+    return this;
+  }
+
+  /**
+   * Specify the rate limit for table write operations. If the write rate limit is set with this method
+   * it is invalid to call {@link RemoteTableDescriptor#withRateLimiter(RateLimiter, CreditFunction, CreditFunction)}
+   * and vice versa.
+   * @param creditsPerSec rate limit for write operations; must be positive
+   * @return this table descriptor instance
+   */
+  public RemoteTableDescriptor<K, V> withWriteRateLimit(int creditsPerSec) {
+    Preconditions.checkArgument(creditsPerSec > 0, "Max write rate must be a positive number.");
+    tagCreditsMap.put(RL_WRITE_TAG, creditsPerSec);
+    return this;
+  }
+
+  /**
    * Helper method to serialize Java objects as Base64 strings
    * @param name name of the object (for error reporting)
    * @param object object to be serialized
    * @return Base64 representation of the object
    */
-  private String serializeObject(String name, Object object) {
+  private <T> String serializeObject(String name, T object) {
     try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ObjectOutputStream oos = new ObjectOutputStream(baos)) {
       oos.writeObject(object);
@@ -113,5 +208,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   protected void validate() {
     super.validate();
     Preconditions.checkNotNull(readFn, "TableReadFunction is required.");
+    Preconditions.checkArgument(rateLimiter == null || tagCreditsMap.isEmpty(),
+        "Only one of rateLimiter instance or read/write limits can be specified");
   }
 }

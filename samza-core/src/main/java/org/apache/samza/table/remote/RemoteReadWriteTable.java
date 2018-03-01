@@ -28,8 +28,11 @@ import org.apache.samza.metrics.Timer;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.task.TaskContext;
+import org.apache.samza.util.RateLimiter;
 
 import com.google.common.base.Preconditions;
+
+import static org.apache.samza.table.remote.RemoteTableDescriptor.RL_WRITE_TAG;
 
 
 /**
@@ -40,24 +43,35 @@ import com.google.common.base.Preconditions;
  */
 public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implements ReadWriteTable<K, V> {
   protected final TableWriteFunction<K, V> writeFn;
+  protected final CreditFunction<K, V> writeCreditFn;
+  protected final boolean rateLimitWrites;
 
   protected Timer putNs;
   protected Timer deleteNs;
   protected Timer flushNs;
+  protected Timer putThrottleNs; // use single timer for all write operations
   protected Counter numPuts;
   protected Counter numDeletes;
   protected Counter numFlushes;
 
-  public RemoteReadWriteTable(String tableId, TableReadFunction readFn, TableWriteFunction writeFn) {
-    super(tableId, readFn);
+  public RemoteReadWriteTable(String tableId, TableReadFunction readFn, TableWriteFunction writeFn,
+      RateLimiter ratelimiter, CreditFunction<K, V> readCreditFn, CreditFunction<K, V> writeCreditFn) {
+    super(tableId, readFn, ratelimiter, readCreditFn);
     Preconditions.checkNotNull(writeFn, "null write function");
     this.writeFn = writeFn;
+    this.writeCreditFn = writeCreditFn;
+    this.rateLimitWrites = rateLimiter != null && rateLimiter.getSupportedTags().contains(RL_WRITE_TAG);
+    logger.info("Rate limiting is {} for remote write operations", rateLimitWrites ? "enabled" : "disabled");
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
     super.init(containerContext, taskContext);
     putNs = taskContext.getMetricsRegistry().newTimer(groupName, tableId + "-put-ns");
+    putThrottleNs = taskContext.getMetricsRegistry().newTimer(groupName, tableId + "-put-throttle-ns");
     deleteNs = taskContext.getMetricsRegistry().newTimer(groupName, tableId + "-delete-ns");
     flushNs = taskContext.getMetricsRegistry().newTimer(groupName, tableId + "-flush-ns");
     numPuts = taskContext.getMetricsRegistry().newCounter(groupName, tableId + "-num-puts");
@@ -65,10 +79,16 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
     numFlushes = taskContext.getMetricsRegistry().newCounter(groupName, tableId + "-num-flushes");
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public void put(K key, V value) {
     try {
       numPuts.inc();
+      if (rateLimitWrites) {
+        throttle(key, value, RL_WRITE_TAG, writeCreditFn, putThrottleNs);
+      }
       long startNs = System.nanoTime();
       writeFn.put(key, value);
       putNs.update(System.nanoTime() - startNs);
@@ -79,6 +99,9 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
     }
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public void putAll(List<Entry<K, V>> entries) {
     try {
@@ -90,10 +113,16 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
     }
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public void delete(K key) {
     try {
       numDeletes.inc();
+      if (rateLimitWrites) {
+        throttle(key, null, RL_WRITE_TAG, writeCreditFn, putThrottleNs);
+      }
       long startNs = System.nanoTime();
       writeFn.delete(key);
       deleteNs.update(System.nanoTime() - startNs);
@@ -104,6 +133,9 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
     }
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public void deleteAll(List<K> keys) {
     try {
@@ -115,10 +147,16 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
     }
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public void flush() {
     try {
       numFlushes.inc();
+      if (rateLimitWrites) {
+        throttle(null, null, RL_WRITE_TAG, writeCreditFn, putThrottleNs);
+      }
       long startNs = System.nanoTime();
       writeFn.flush();
       flushNs.update(System.nanoTime() - startNs);

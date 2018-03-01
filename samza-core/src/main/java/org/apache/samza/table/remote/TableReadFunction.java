@@ -45,6 +45,7 @@ public interface TableReadFunction<K, V> extends Serializable, InitableFunction,
   /**
    * Fetch single table record for a specified {@code key}. This method must be thread-safe.
    * @param key key for the table record
+   * @return table record for the specified {@code key}
    */
   V get(K key);
 

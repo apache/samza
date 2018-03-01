@@ -48,6 +48,7 @@ import org.apache.samza.table.remote.RemoteReadWriteTable;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.apache.samza.test.util.Base64Serializer;
+import org.apache.samza.util.RateLimiter;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -112,15 +113,20 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     configs.put("streams.PageView.source", Base64Serializer.serialize(pageViews));
     configs.put("streams.PageView.partitionCount", String.valueOf(partitionCount));
 
+    final RateLimiter readRateLimiter = mock(RateLimiter.class);
+    final RateLimiter writeRateLimiter = mock(RateLimiter.class);
     final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
     final StreamApplication app = (streamGraph, cfg) -> {
       RemoteTableDescriptor<Integer, TestTableData.Profile> inputTableDesc = new RemoteTableDescriptor<>("profile-table-1");
-      inputTableDesc.withReadFunction(getInMemoryReader(profiles));
+      inputTableDesc
+          .withReadFunction(getInMemoryReader(profiles))
+          .withRateLimiter(readRateLimiter, null, null);
 
       RemoteTableDescriptor<Integer, TestTableData.EnrichedPageView> outputTableDesc = new RemoteTableDescriptor<>("enriched-page-view-table-1");
       outputTableDesc
           .withReadFunction(key -> null) // dummy reader
-          .withWriteFunction(writer);
+          .withWriteFunction(writer)
+          .withRateLimiter(writeRateLimiter, null, null);
 
       Table<KV<Integer, TestTableData.Profile>> inputTable = streamGraph.getTable(inputTableDesc);
       Table<KV<Integer, TestTableData.EnrichedPageView>> outputTable = streamGraph.getTable(outputTableDesc);
@@ -138,8 +144,9 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     runner.run(app);
     runner.waitForFinish();
 
-    Assert.assertEquals(count * partitionCount, received.size());
-    Assert.assertEquals(count * partitionCount, writtenRecords.size());
+    int numExpected = count * partitionCount;
+    Assert.assertEquals(numExpected, received.size());
+    Assert.assertEquals(numExpected, writtenRecords.size());
     Assert.assertTrue(writtenRecords.get(0) instanceof TestTableData.EnrichedPageView);
   }
 
@@ -156,18 +163,17 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
   public void testCatchReaderException() {
     TableReadFunction<String, ?> reader = mock(TableReadFunction.class);
     doThrow(new RuntimeException("Expected test exception")).when(reader).get(anyString());
-    RemoteReadableTable<String, ?> table = new RemoteReadableTable<>("table1", reader);
+    RemoteReadableTable<String, ?> table = new RemoteReadableTable<>("table1", reader, null, null);
     table.init(mock(SamzaContainerContext.class), createMockTaskContext());
     table.get("abc");
   }
-
 
   @Test(expected = SamzaException.class)
   public void testCatchWriterException() {
     TableReadFunction<String, String> reader = mock(TableReadFunction.class);
     TableWriteFunction<String, String> writer = mock(TableWriteFunction.class);
     doThrow(new RuntimeException("Expected test exception")).when(writer).put(anyString(), any());
-    RemoteReadWriteTable<String, String> table = new RemoteReadWriteTable<>("table1", reader, writer);
+    RemoteReadWriteTable<String, String> table = new RemoteReadWriteTable<>("table1", reader, writer, null, null, null);
     table.init(mock(SamzaContainerContext.class), createMockTaskContext());
     table.put("abc", "efg");
   }
