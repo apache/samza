@@ -183,8 +183,8 @@ public class TestEmbeddedTaggedRateLimiter {
 
   private void verifyRate(long rate, long targetRate) {
     // As the actual rate would likely not be exactly the same as target rate, the calculation below
-    // verifies the actual rate is within 5% of the target rate per task
-    Assert.assertTrue(Math.abs(rate - targetRate) <= targetRate * 5 / 100);
+    // verifies the actual rate is within 10% of the target rate per task
+    Assert.assertTrue(Math.abs(rate - targetRate) <= targetRate * 10 / 100);
   }
 
   private RateLimiter createRateLimiter() {
