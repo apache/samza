@@ -73,7 +73,7 @@ public class StreamAppender extends AppenderSkeleton {
   private SystemProducer systemProducer = null;
   private String key = null;
   private String streamName = null;
-  private int partitionCount = 0;
+  private int defaultPartitionCount = 0;
   private boolean isApplicationMaster = false;
   private Serde<LoggingEvent> serde = null;
   private Logger log = Logger.getLogger(StreamAppender.class);
@@ -97,15 +97,15 @@ public class StreamAppender extends AppenderSkeleton {
     this.streamName = streamName;
   }
 
-  public int getPartitionCount() {
-    if (partitionCount > 0) {
-      return partitionCount;
+  public int getDefaultPartitionCount() {
+    if (defaultPartitionCount > 0) {
+      return defaultPartitionCount;
     }
     return new JobConfig(getConfig()).getContainerCount();
   }
 
-  public void setPartitionCount(int partitionCount) {
-    this.partitionCount = partitionCount;
+  public void setDefaultPartitionCount(int defaultPartitionCount) {
+    this.defaultPartitionCount = defaultPartitionCount;
   }
 
   @Override
@@ -276,9 +276,14 @@ public class StreamAppender extends AppenderSkeleton {
     setSerde(log4jSystemConfig, systemName, streamName);
 
     // Explicitly create stream appender stream with the partition count the same as the number of containers.
-    StreamSpec streamSpec = StreamSpec.createStreamAppenderStreamSpec(streamName, systemName, getPartitionCount());
+    System.out.println("[StreamAppender] creating stream " + streamName + " with partition count " + getDefaultPartitionCount());
+    StreamSpec streamSpec = StreamSpec.createStreamAppenderStreamSpec(streamName, systemName, getDefaultPartitionCount());
+
+    // SystemAdmin only needed for stream creation here.
     SystemAdmin systemAdmin = systemFactory.getAdmin(systemName, config);
+    systemAdmin.start();
     systemAdmin.createStream(streamSpec);
+    systemAdmin.stop();
 
     systemProducer = systemFactory.getProducer(systemName, config, metricsRegistry);
     systemStream = new SystemStream(systemName, streamName);
