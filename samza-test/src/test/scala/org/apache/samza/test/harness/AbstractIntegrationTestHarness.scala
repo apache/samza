@@ -17,13 +17,12 @@
  * under the License.
  */
 package org.apache.samza.test.harness
-import java.util.{Properties, UUID}
+import java.util.Properties
 
-import kafka.consumer.ConsumerConfig
 import kafka.server.KafkaConfig
 import kafka.utils.{TestUtils, ZkUtils}
 import org.apache.kafka.common.security.JaasUtils
-import org.apache.samza.system.kafka.{ChangelogInfo, KafkaSystemAdmin}
+import org.apache.samza.system.kafka.KafkaSystemAdmin
 
 /**
  * LinkedIn integration test harness for Kafka

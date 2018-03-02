@@ -19,6 +19,7 @@
 
 package org.apache.samza.runtime;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.List;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
@@ -151,11 +152,10 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     }
   }
 
-  // Used only by test
+  @VisibleForTesting
   public List<StreamSpec> getIntermediateStreams(StreamApplication app) {
-    String runId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
     try {
-      ExecutionPlan plan = getExecutionPlan(app, runId);
+      ExecutionPlan plan = getExecutionPlan(app);
       return plan.getIntermediateStreams();
     } catch (Throwable t) {
       throw new SamzaException("Failed to run application", t);

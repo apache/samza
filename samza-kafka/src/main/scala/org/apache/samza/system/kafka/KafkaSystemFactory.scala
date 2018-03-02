@@ -154,7 +154,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     val appConfig = new ApplicationConfig(config)
     if (appConfig.getAppMode == ApplicationMode.BATCH) {
       val streamConfig = new StreamConfig(config)
-      streamConfig.getStreamIds().filter(streamConfig.getIsIntermediate(_)).map(streamId => {
+      streamConfig.getStreamIds().filter(streamConfig.getIsIntermediateStream(_)).map(streamId => {
         val properties = new Properties()
         properties.putAll(streamConfig.getStreamProperties(streamId))
         properties.putIfAbsent("retention.ms", String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH))

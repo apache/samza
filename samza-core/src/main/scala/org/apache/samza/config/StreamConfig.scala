@@ -166,7 +166,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
    * @param streamId  the identifier for the stream in the config.
    * @return          true if the stream is intermediate
    */
-  def getIsIntermediate(streamId: String) = {
+  def getIsIntermediateStream(streamId: String) = {
     getBoolean(StreamConfig.IS_INTERMEDIATE_FOR_STREAM_ID format streamId, false)
   }
 

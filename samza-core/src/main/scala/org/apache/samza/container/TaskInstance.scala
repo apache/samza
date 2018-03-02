@@ -73,7 +73,7 @@ class TaskInstance(
     scala.collection.mutable.Map[SystemStreamPartition, Boolean]()
   systemStreamPartitions.foreach(ssp2CaughtupMapping += _ -> false)
 
-  val intermediateStreams: Set[String] = config.getStreamIds.filter(config.getIsIntermediate).toSet
+  val intermediateStreams: Set[String] = config.getStreamIds.filter(config.getIsIntermediateStream).toSet
 
   def registerMetrics {
     debug("Registering metrics for taskName: %s" format taskName)
