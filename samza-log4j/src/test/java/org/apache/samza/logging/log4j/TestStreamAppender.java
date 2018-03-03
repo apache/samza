@@ -136,7 +136,7 @@ public class TestStreamAppender {
   @Test
   public void testDefaultPartitionCount() {
     MockSystemProducerAppender systemProducerAppender = new MockSystemProducerAppender();
-    Assert.assertEquals(1, systemProducerAppender.getDefaultPartitionCount()); // job.container.count defaults to 1
+    Assert.assertEquals(1, systemProducerAppender.getPartitionCount()); // job.container.count defaults to 1
 
     Map<String, String> map = new HashMap<>();
     map.put("job.name", "log4jTest");
@@ -145,11 +145,11 @@ public class TestStreamAppender {
     map.put("task.log4j.system", "mock");
     map.put("job.container.count", "4");
     systemProducerAppender = new MockSystemProducerAppender(new MapConfig(map));
-    Assert.assertEquals(4, systemProducerAppender.getDefaultPartitionCount());
+    Assert.assertEquals(4, systemProducerAppender.getPartitionCount());
 
     systemProducerAppender = new MockSystemProducerAppender();
-    systemProducerAppender.setDefaultPartitionCount(8);
-    Assert.assertEquals(8, systemProducerAppender.getDefaultPartitionCount());
+    systemProducerAppender.setPartitionCount(8);
+    Assert.assertEquals(8, systemProducerAppender.getPartitionCount());
   }
 
   @Test
