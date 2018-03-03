@@ -30,8 +30,8 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.execution.TestStreamManager;
+import org.apache.samza.runtime.AbstractApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunner;
-import org.apache.samza.runtime.RemoteApplicationRunner;
 import org.apache.samza.system.kafka.KafkaSystemAdmin;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.apache.samza.test.framework.StreamAssert;
@@ -102,7 +102,7 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
   private KafkaConsumer consumer;
   protected KafkaSystemAdmin systemAdmin;
   private StreamApplication app;
-  protected RemoteApplicationRunner runner;
+  protected AbstractApplicationRunner runner;
 
   private int numEmptyPolls = 3;
   private static final Duration POLL_TIMEOUT_MS = Duration.ofSeconds(20);
@@ -254,7 +254,7 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     }
 
     app = streamApplication;
-    runner = (RemoteApplicationRunner) ApplicationRunner.fromConfig(new MapConfig(configs));
+    runner = (AbstractApplicationRunner) ApplicationRunner.fromConfig(new MapConfig(configs));
     runner.run(streamApplication);
 
     StreamAssert.waitForComplete();

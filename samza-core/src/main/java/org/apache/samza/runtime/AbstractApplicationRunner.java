@@ -18,7 +18,10 @@
  */
 package org.apache.samza.runtime;
 
+import com.google.common.annotations.VisibleForTesting;
+import java.util.List;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ApplicationConfig.ApplicationMode;
@@ -171,4 +174,15 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
       log.warn("Failed to write execution plan json to file", e);
     }
   }
+
+  @VisibleForTesting
+  public List<StreamSpec> getIntermediateStreams(StreamApplication app) {
+    try {
+      ExecutionPlan plan = getExecutionPlan(app);
+      return plan.getIntermediateStreams();
+    } catch (Throwable t) {
+      throw new SamzaException("Failed to run application", t);
+    }
+  }
+
 }
