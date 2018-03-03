@@ -29,7 +29,7 @@ import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableManager;
-import org.apache.samza.task.SystemTimerSchedulerFactory;
+import org.apache.samza.task.SystemTimerScheduler;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TimerCallback;
 import org.slf4j.Logger;
@@ -53,7 +53,7 @@ public class TaskContextImpl implements TaskContext {
   private final JobModel jobModel;
   private final StreamMetadataCache streamMetadataCache;
   private final Map<String, Object> objectRegistry = new HashMap<>();
-  private final SystemTimerSchedulerFactory timerFactory;
+  private final SystemTimerScheduler timerScheduler;
 
   private Object userContext = null;
 
@@ -76,7 +76,7 @@ public class TaskContextImpl implements TaskContext {
     this.tableManager = tableManager;
     this.jobModel = jobModel;
     this.streamMetadataCache = streamMetadataCache;
-    this.timerFactory = SystemTimerSchedulerFactory.create(timerExecutor);
+    this.timerScheduler = SystemTimerScheduler.create(timerExecutor);
   }
 
   @Override
@@ -136,12 +136,12 @@ public class TaskContextImpl implements TaskContext {
 
   @Override
   public <K> void registerTimer(K key, long timestamp, TimerCallback<K> callback) {
-    timerFactory.getScheduler(key).schedule(timestamp, (TimerCallback<K>) this);
+    timerScheduler.setTimer(key, timestamp, (TimerCallback<K>) this);
   }
 
   @Override
   public <K> void deleteTimer(K key) {
-    timerFactory.removeScheduler(key);
+    timerScheduler.deleteTimer(key);
   }
 
   public void registerObject(String name, Object value) {
@@ -160,7 +160,7 @@ public class TaskContextImpl implements TaskContext {
     return streamMetadataCache;
   }
 
-  public SystemTimerSchedulerFactory getTimerFactory() {
-    return timerFactory;
+  public SystemTimerScheduler getTimerScheduler() {
+    return timerScheduler;
   }
 }

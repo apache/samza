@@ -20,22 +20,22 @@
 package org.apache.samza.operators;
 
 /**
- * A registry that allows user to register arbitrary system-clock timers in the operators.
+ * Allows registering epoch-time timer callbacks from the operators.
  * See {@link org.apache.samza.operators.functions.TimerFunction} for details.
  * @param <K> type of the timer key
  */
 public interface TimerRegistry<K> {
 
   /**
-   * Register a processing-time timer with key.
-   * @param key key of the timer
+   * Register a epoch-time timer with key.
+   * @param key unique timer key
    * @param timestamp epoch time when the timer will be fired, in milliseconds
    */
   void register(K key, long timestamp);
 
   /**
-   * Delete the timer of key from the registry.
-   * @param key key of the timer.
+   * Delete the timer for the provided key.
+   * @param key key for the timer to delete
    */
   void delete(K key);
 }

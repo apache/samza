@@ -348,7 +348,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
         }, commitMs, commitMs, TimeUnit.MILLISECONDS);
       }
 
-      final SystemTimerSchedulerFactory timerFactory = task.context().getTimerFactory();
+      final SystemTimerScheduler timerFactory = task.context().getTimerScheduler();
       if (timerFactory != null) {
         timerFactory.registerListener(() -> {
             state.needTimer();

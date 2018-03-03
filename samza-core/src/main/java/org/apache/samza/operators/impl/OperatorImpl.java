@@ -426,7 +426,7 @@ public abstract class OperatorImpl<M, RM> {
    * @param <K> key type for the timer.
    * @return an instance of {@link TimerRegistry}
    */
-  <K> TimerRegistry<K> createTimerRegistry() {
+  <K> TimerRegistry<K> createOperatorTimerRegistry() {
     return new TimerRegistry<K>() {
       @Override
       public void register(K key, long time) {

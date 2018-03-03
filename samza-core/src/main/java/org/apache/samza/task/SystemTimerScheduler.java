@@ -19,7 +19,6 @@
 
 package org.apache.samza.task;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,14 +26,16 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkState;
+
 /**
- * Per-task factory for keyed timer schedulers.
+ * Per-task scheduler for keyed timers.
  * It does the following things:
- * 1) creates timer scheduler based on a given key.
- * 2) keeps track of the schedulers created and timers that are ready.
+ * 1) schedules the timer on the {@link ScheduledExecutorService}.
+ * 2) keeps track of the timers created and timers that are ready.
  * 3) triggers listener whenever a timer fires.
  */
-public class SystemTimerSchedulerFactory {
+public class SystemTimerScheduler {
 
   /**
    * For run loop to listen to timer firing so it can schedule the callbacks.
@@ -44,32 +45,37 @@ public class SystemTimerSchedulerFactory {
   }
 
   private final ScheduledExecutorService executor;
-  private final Map<Object, SystemTimerScheduler> schedulers = new HashMap<>();
+  private final Map<Object, ScheduledFuture> scheduledFutures = new ConcurrentHashMap<>();
   private final Map<TimerKey<?>, TimerCallback> readyTimers = new ConcurrentHashMap<>();
   private TimerListener timerListener;
 
-  public static SystemTimerSchedulerFactory create(ScheduledExecutorService executor) {
-    return new SystemTimerSchedulerFactory(executor);
+  public static SystemTimerScheduler create(ScheduledExecutorService executor) {
+    return new SystemTimerScheduler(executor);
   }
 
-  private SystemTimerSchedulerFactory(ScheduledExecutorService executor) {
+  private SystemTimerScheduler(ScheduledExecutorService executor) {
     this.executor = executor;
   }
 
-  public <K> SystemTimerScheduler<K> getScheduler(K key) {
-    SystemTimerScheduler<K> scheduler = schedulers.get(key);
-    if (scheduler == null) {
-      scheduler = new SystemTimerScheduler<>(key);
-      schedulers.put(key, scheduler);
-    }
-    return scheduler;
+  public <K> void setTimer(K key, long timestamp, TimerCallback<K> callback) {
+    checkState(!scheduledFutures.containsKey(key),
+        String.format("Duplicate key %s registration for the same timer", key));
+
+    final long delay = timestamp - System.currentTimeMillis();
+    final ScheduledFuture<?> scheduledFuture = executor.schedule(() -> {
+        readyTimers.put(TimerKey.of(key, timestamp), callback);
+
+        if (timerListener != null) {
+          timerListener.onTimer();
+        }
+      }, delay > 0 ? delay : 0, TimeUnit.MILLISECONDS);
+    scheduledFutures.put(key, scheduledFuture);
   }
 
-  public <K> void removeScheduler(K key) {
-    final SystemTimerScheduler<K> scheduler = schedulers.get(key);
-    if (scheduler != null) {
-      scheduler.cancel();
-      schedulers.remove(key);
+  public <K> void deleteTimer(K key) {
+    final ScheduledFuture<?> scheduledFuture = scheduledFutures.remove(key);
+    if (scheduledFuture != null) {
+      scheduledFuture.cancel(false);
     }
   }
 
@@ -81,32 +87,6 @@ public class SystemTimerSchedulerFactory {
     final Map<TimerKey<?>, TimerCallback> timers = new TreeMap<>(readyTimers);
     readyTimers.keySet().removeAll(timers.keySet());
     return timers;
-  }
-
-  public class SystemTimerScheduler<K> {
-    private final K key;
-    private ScheduledFuture<?> scheduledFuture;
-
-    private SystemTimerScheduler(K key) {
-      this.key = key;
-    }
-
-    public void schedule(long time, TimerCallback<K> callback) {
-      final long delay = time - System.currentTimeMillis();
-      scheduledFuture = executor.schedule(() -> {
-          readyTimers.put(TimerKey.of(key, time), callback);
-
-          if (timerListener != null) {
-            timerListener.onTimer();
-          }
-        }, delay > 0 ? delay : 0, TimeUnit.MILLISECONDS);
-    }
-
-    public void cancel() {
-      if (scheduledFuture != null) {
-        scheduledFuture.cancel(false);
-      }
-    }
   }
 
   public static class TimerKey<K> implements Comparable<TimerKey<K>> {
@@ -143,12 +123,12 @@ public class SystemTimerSchedulerFactory {
       if (time != ((TimerKey<?>) o).time) {
         return false;
       }
-      return key != null ? key.equals(timerKey.key) : timerKey.key == null;
+      return key.equals(timerKey.key);
     }
 
     @Override
     public int hashCode() {
-      int result = key != null ? key.hashCode() : 0;
+      int result = key.hashCode();
       result = 31 * result + Long.valueOf(time).hashCode();
       return result;
     }
@@ -168,16 +148,7 @@ public class SystemTimerSchedulerFactory {
         return timeCompare;
       }
 
-      if (key == null) {
-        return o.key == null ? 0 : -1;
-      }
-
-      if (o.key == null) {
-        return 1;
-      }
-
       return key.hashCode() - o.key.hashCode();
     }
-
   }
 }

@@ -36,7 +36,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-public class TestSystemTimerSchedulerFactory {
+public class TestSystemTimerScheduler {
 
   private ScheduledExecutorService createExecutorService() {
     ScheduledExecutorService service = mock(ScheduledExecutorService.class);
@@ -44,12 +44,12 @@ public class TestSystemTimerSchedulerFactory {
         Object[] args = invocation.getArguments();
         Runnable runnable = (Runnable) args[0];
         runnable.run();
-        return null;
+        return mock(ScheduledFuture.class);
       });
     return service;
   }
 
-  private void fireTimers(SystemTimerSchedulerFactory factory) {
+  private void fireTimers(SystemTimerScheduler factory) {
     factory.removeReadyTimers().entrySet().forEach(entry -> {
         entry.getValue().onTimer(entry.getKey().getKey(), mock(MessageCollector.class), mock(TaskCoordinator.class));
       });
@@ -57,14 +57,13 @@ public class TestSystemTimerSchedulerFactory {
 
   @Test
   public void testSingleTimer() {
-    SystemTimerSchedulerFactory factory = SystemTimerSchedulerFactory.create(createExecutorService());
-    SystemTimerSchedulerFactory.SystemTimerScheduler<String> scheduler = factory.getScheduler("single-timer");
+    SystemTimerScheduler scheduler = SystemTimerScheduler.create(createExecutorService());
     List<String> results = new ArrayList<>();
-    scheduler.schedule(1, (key, collector, coordinator) -> {
+    scheduler.setTimer("single-timer", 1, (key, collector, coordinator) -> {
         results.add(key);
       });
 
-    fireTimers(factory);
+    fireTimers(scheduler);
 
     assertTrue(results.size() == 1);
     assertEquals(results.get(0), "single-timer");
@@ -72,25 +71,24 @@ public class TestSystemTimerSchedulerFactory {
 
   @Test
   public void testMultipleTimers() {
-    SystemTimerSchedulerFactory factory = SystemTimerSchedulerFactory.create(createExecutorService());
-    SystemTimerSchedulerFactory.SystemTimerScheduler<String> scheduler = factory.getScheduler("multiple-timer");
+    SystemTimerScheduler scheduler = SystemTimerScheduler.create(createExecutorService());
     List<String> results = new ArrayList<>();
-    scheduler.schedule(3, (key, collector, coordinator) -> {
+    scheduler.setTimer("multiple-timer-3", 3, (key, collector, coordinator) -> {
         results.add(key + ":3");
       });
-    scheduler.schedule(2, (key, collector, coordinator) -> {
+    scheduler.setTimer("multiple-timer-2", 2, (key, collector, coordinator) -> {
         results.add(key + ":2");
       });
-    scheduler.schedule(1, (key, collector, coordinator) -> {
+    scheduler.setTimer("multiple-timer-1", 1, (key, collector, coordinator) -> {
         results.add(key + ":1");
       });
 
-    fireTimers(factory);
+    fireTimers(scheduler);
 
     assertTrue(results.size() == 3);
-    assertEquals(results.get(0), "multiple-timer:1");
-    assertEquals(results.get(1), "multiple-timer:2");
-    assertEquals(results.get(2), "multiple-timer:3");
+    assertEquals(results.get(0), "multiple-timer-1:1");
+    assertEquals(results.get(1), "multiple-timer-2:2");
+    assertEquals(results.get(2), "multiple-timer-3:3");
   }
 
   @Test
@@ -99,19 +97,17 @@ public class TestSystemTimerSchedulerFactory {
     Object key2 = new Object();
     List<String> results = new ArrayList<>();
 
-    SystemTimerSchedulerFactory factory = SystemTimerSchedulerFactory.create(createExecutorService());
-    SystemTimerSchedulerFactory.SystemTimerScheduler<Object> scheduler = factory.getScheduler(key1);
-    scheduler.schedule(2, (key, collector, coordinator) -> {
+    SystemTimerScheduler scheduler = SystemTimerScheduler.create(createExecutorService());
+    scheduler.setTimer(key1, 2, (key, collector, coordinator) -> {
         assertEquals(key, key1);
         results.add("key1:2");
       });
-    scheduler = factory.getScheduler(key2);
-    scheduler.schedule(1, (key, collector, coordinator) -> {
+    scheduler.setTimer(key2, 1, (key, collector, coordinator) -> {
         assertEquals(key, key2);
         results.add("key2:1");
       });
 
-    fireTimers(factory);
+    fireTimers(scheduler);
 
     assertTrue(results.size() == 2);
     assertEquals(results.get(0), "key2:1");
@@ -124,19 +120,17 @@ public class TestSystemTimerSchedulerFactory {
     Long key2 = Long.MAX_VALUE;
     List<String> results = new ArrayList<>();
 
-    SystemTimerSchedulerFactory factory = SystemTimerSchedulerFactory.create(createExecutorService());
-    SystemTimerSchedulerFactory.SystemTimerScheduler<String> scheduler = factory.getScheduler(key1);
-    scheduler.schedule(1, (key, collector, coordinator) -> {
+    SystemTimerScheduler scheduler = SystemTimerScheduler.create(createExecutorService());
+    scheduler.setTimer(key1, 1, (key, collector, coordinator) -> {
         assertEquals(key, key1);
         results.add("key:1");
       });
-    SystemTimerSchedulerFactory.SystemTimerScheduler<Long> scheduler2 = factory.getScheduler(key2);
-    scheduler2.schedule(2, (key, collector, coordinator) -> {
+    scheduler.setTimer(key2, 2, (key, collector, coordinator) -> {
         assertEquals(key.longValue(), Long.MAX_VALUE);
         results.add(Long.MAX_VALUE + ":2");
       });
 
-    fireTimers(factory);
+    fireTimers(scheduler);
 
     assertTrue(results.size() == 2);
     assertEquals(results.get(0), key1 + ":1");
@@ -150,16 +144,15 @@ public class TestSystemTimerSchedulerFactory {
     when(future.cancel(anyBoolean())).thenReturn(true);
     when(service.schedule((Runnable) anyObject(), anyLong(), anyObject())).thenAnswer(invocation -> future);
 
-    SystemTimerSchedulerFactory factory = SystemTimerSchedulerFactory.create(service);
-    SystemTimerSchedulerFactory.SystemTimerScheduler<String> scheduler = factory.getScheduler("timer");
+    SystemTimerScheduler scheduler = SystemTimerScheduler.create(service);
     List<String> results = new ArrayList<>();
-    scheduler.schedule(1, (key, collector, coordinator) -> {
+    scheduler.setTimer("timer", 1, (key, collector, coordinator) -> {
         results.add(key);
       });
 
-    factory.removeScheduler("timer");
+    scheduler.deleteTimer("timer");
 
-    fireTimers(factory);
+    fireTimers(scheduler);
 
     assertTrue(results.isEmpty());
     verify(future, times(1)).cancel(anyBoolean());
@@ -167,17 +160,16 @@ public class TestSystemTimerSchedulerFactory {
 
   @Test
   public void testTimerListener() {
-    SystemTimerSchedulerFactory factory = SystemTimerSchedulerFactory.create(createExecutorService());
-    SystemTimerSchedulerFactory.SystemTimerScheduler<String> scheduler = factory.getScheduler("timer-listener");
+    SystemTimerScheduler scheduler = SystemTimerScheduler.create(createExecutorService());
     List<String> results = new ArrayList<>();
-    factory.registerListener(() -> {
+    scheduler.registerListener(() -> {
         results.add("timer-listener");
       });
 
-    scheduler.schedule(1, (key, collector, coordinator) -> {
+    scheduler.setTimer("timer-listener", 1, (key, collector, coordinator) -> {
       });
 
-    fireTimers(factory);
+    fireTimers(scheduler);
 
     assertTrue(results.size() == 1);
   }

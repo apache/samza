@@ -25,7 +25,7 @@ import java.util.Collection;
 
 /**
  * Allows timer registration with a key and is invoked when the timer is fired.
- * Key is the unique identifier of the timer, which can include information such as namespace, timerId, etc.
+ * Key must be a unique identifier for this timer, and is provided in the callback when the timer fires.
  *
  * <p>
  * Example of a {@link FlatMapFunction} with timer:
@@ -50,15 +50,15 @@ import java.util.Collection;
 public interface TimerFunction<K, OM> {
 
   /**
-   * Registers any system timers using the registry
+   * Registers any epoch-time timers using the registry
    * @param timerRegistry a keyed {@link TimerRegistry}
    */
   void registerTimer(TimerRegistry<K> timerRegistry);
 
   /**
    * Returns the output after the timer with key fires.
-   * @param key time key
-   * @param timestamp epoch time of the timer fired, in milliseconds
+   * @param key timer key
+   * @param timestamp time of the epoch-time timer fired, in milliseconds
    * @return {@link Collection} of output elements
    */
   Collection<OM> onTimer(K key, long timestamp);

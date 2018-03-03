@@ -19,6 +19,16 @@
 
 package org.apache.samza.task;
 
+/**
+ * The callback that is invoked when its corresponding timer registered via {@link TaskContext} fires.
+ * @param <K> type of the timer key
+ */
 public interface TimerCallback<K> {
+  /**
+   * Invoked when the timer of key fires.
+   * @param key timer key
+   * @param collector contains the means of sending message envelopes to the output stream.
+   * @param coordinator manages execution of tasks.
+   */
   void onTimer(K key, MessageCollector collector, TaskCoordinator coordinator);
 }
