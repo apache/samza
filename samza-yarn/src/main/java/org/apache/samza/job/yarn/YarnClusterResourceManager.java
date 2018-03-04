@@ -539,7 +539,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    * @param samzaContainerId id of the samza Container to run (passed as a command line parameter to the process)
    * @param container the samza container to run.
    * @param cmdBuilder the command builder that encapsulates the command, and the context
-   *
+   * @throws IOException on IO exceptions running the container
    */
   public void runContainer(String samzaContainerId, Container container, CommandBuilder cmdBuilder) throws IOException {
     String containerIdStr = ConverterUtils.toString(container.getId());

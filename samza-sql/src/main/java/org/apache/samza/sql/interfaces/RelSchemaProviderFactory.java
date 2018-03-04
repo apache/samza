@@ -26,7 +26,8 @@ public interface RelSchemaProviderFactory {
 
   /**
    * Create a {@link RelSchemaProvider} given the config
-   * @param config Config needed to create the {@link RelSchemaProvider}
+   * @param systemStream the system stream to create the {@link RelSchemaProvider} for
+   * @param config config needed to create the {@link RelSchemaProvider}
    * @return {@link RelSchemaProvider} object created.
    */
   RelSchemaProvider create(SystemStream systemStream, Config config);
