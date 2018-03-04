@@ -79,7 +79,7 @@ public class CoordinatorStreamManager {
   /**
    * Register source with the coordinator stream.
    *
-   * @param source
+   * @param source source to register with the coordinator stream
    */
   public void register(String source) {
     if (coordinatorStreamConsumer != null) {

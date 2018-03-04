@@ -31,19 +31,11 @@ import kafka.consumer.ConsumerConfig
 import kafka.message.MessageSet
 import org.apache.samza.SamzaException
 import org.apache.samza.util.ExponentialSleepStrategy
+import org.apache.samza.util.KafkaUtil
 import org.apache.samza.util.Logging
-import org.apache.samza.util.ThreadNamePrefix.SAMZA_THREAD_NAME_PREFIX
 
 import scala.collection.JavaConverters._
 import scala.collection.concurrent
-import org.apache.samza.util.KafkaUtil
-
-/**
- *  Companion object for class JvmMetrics encapsulating various constants
- */
-object BrokerProxy {
-  val BROKER_PROXY_THREAD_NAME_PREFIX = "BROKER-PROXY-"
-}
 
 /**
  * A BrokerProxy consolidates Kafka fetches meant for a particular broker and retrieves them all at once, providing
@@ -294,7 +286,7 @@ class BrokerProxy(
     if (!thread.isAlive) {
       info("Starting " + toString)
       thread.setDaemon(true)
-      thread.setName(SAMZA_THREAD_NAME_PREFIX + BrokerProxy.BROKER_PROXY_THREAD_NAME_PREFIX + thread.getName)
+      thread.setName("Samza BrokerProxy " + thread.getName)
       thread.setUncaughtExceptionHandler(new UncaughtExceptionHandler {
         override def uncaughtException(t: Thread, e: Throwable) = error("Uncaught exception in broker proxy:", e)
       })

@@ -19,24 +19,20 @@
 
 package org.apache.samza.system.filereader
 
-import org.apache.samza.util.BlockingEnvelopeMap
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.system.SystemStreamPartition
-import scala.collection.mutable.Map
-import java.io.RandomAccessFile
 import org.apache.samza.system.IncomingMessageEnvelope
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.Executors
-import java.util.concurrent.ExecutorService
-import org.apache.samza.util.DaemonThreadFactory
+import org.apache.samza.system.SystemStreamPartition
+import org.apache.samza.util.BlockingEnvelopeMap
 import org.apache.samza.util.Logging
 
-object FileReaderSystemConsumer {
-  /**
-   * prefix for the file reader system thread names
-   */
-  val FILE_READER_SYSTEM_THREAD_PREFIX = "filereader-"
-}
+import java.io.RandomAccessFile
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
+
+import scala.collection.mutable.Map
+
 
 class FileReaderSystemConsumer(
   systemName: String,
@@ -77,8 +73,9 @@ class FileReaderSystemConsumer(
    * start one thread for each file reader
    */
   override def start {
-    pool = Executors.newFixedThreadPool(systemStreamPartitionAndStartingOffset.size, new DaemonThreadFactory(FileReaderSystemConsumer.FILE_READER_SYSTEM_THREAD_PREFIX))
-    systemStreamPartitionAndStartingOffset.map { case (ssp, offset) => pool.execute(readInputFiles(ssp, offset)) }
+    pool = Executors.newFixedThreadPool(systemStreamPartitionAndStartingOffset.size,
+      new ThreadFactoryBuilder().setNameFormat("Samza FileReader Thread-%d").setDaemon(true).build())
+    systemStreamPartitionAndStartingOffset.foreach { case (ssp, offset) => pool.execute(readInputFiles(ssp, offset)) }
   }
 
   /**
