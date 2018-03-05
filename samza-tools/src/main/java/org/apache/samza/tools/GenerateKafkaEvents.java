@@ -172,11 +172,11 @@ public class GenerateKafkaEvents {
   /**
    * Encode an Avro record into byte array
    *
-   * @param clazz The class type of the Avro record
+   * @param clazz The class type of the avro record
    * @param record the instance of the avro record
    * @param <T> The type of the avro record.
    * @return encoded bytes
-   * @throws java.io.IOException throws IOException if failed to serialize
+   * @throws IOException on I/O errors encoding the avro record
    */
   public static <T> byte[] encodeAvroSpecificRecord(Class<T> clazz, T record) throws IOException {
     DatumWriter<T> msgDatumWriter = new SpecificDatumWriter<>(clazz);

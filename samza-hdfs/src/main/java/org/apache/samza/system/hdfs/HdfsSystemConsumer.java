@@ -121,7 +121,7 @@ public class HdfsSystemConsumer extends BlockingEnvelopeMap {
     super(consumerMetrics.getMetricsRegistry());
     hdfsConfig = new HdfsConfig(config);
     readerType = HdfsReaderFactory.getType(hdfsConfig.getFileReaderType(systemName));
-    stagingDirectory = hdfsConfig.getStagingDirectory();
+    stagingDirectory = hdfsConfig.getStagingDirectory(systemName);
     bufferCapacity = hdfsConfig.getConsumerBufferCapacity(systemName);
     numMaxRetires = hdfsConfig.getConsumerNumMaxRetries(systemName);
     readers = new ConcurrentHashMap<>();

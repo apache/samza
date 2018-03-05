@@ -31,9 +31,10 @@ public interface SamzaRelConverterFactory {
   /**
    * Create a {@link SamzaRelConverter}. This method is called when the framework wants to create the
    * {@link SamzaRelConverter} corresponding to the system.
-   * @param config
-   *  config that is used to create the object
-   * @return Returns the object created.
+   * @param systemStream the systemStream to create a converter for
+   * @param relSchemaProvider the relational schema provider
+   * @param config config that is used to create the object
+   * @return the object created.
    */
   SamzaRelConverter create(SystemStream systemStream, RelSchemaProvider relSchemaProvider, Config config);
 }
