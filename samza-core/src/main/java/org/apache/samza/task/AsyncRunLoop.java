@@ -67,6 +67,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
   private final long windowMs;
   private final long commitMs;
   private final long callbackTimeoutMs;
+  private final long maxNoWorkWaitMs;
   private final SamzaContainerMetrics containerMetrics;
   private final ScheduledExecutorService workerTimer;
   private final ScheduledExecutorService callbackTimer;
@@ -75,6 +76,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
   private volatile Throwable throwable = null;
   private final HighResolutionClock clock;
   private final boolean isAsyncCommitEnabled;
+  private boolean runLoopResumedSinceLastChecked;
 
   public AsyncRunLoop(Map<TaskName, TaskInstance> taskInstances,
       ExecutorService threadPool,
@@ -84,6 +86,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
       long commitMs,
       long callbackTimeoutMs,
       long maxThrottlingDelayMs,
+      long maxNoWorkWaitMs,
       SamzaContainerMetrics containerMetrics,
       HighResolutionClock clock,
       boolean isAsyncCommitEnabled) {
@@ -95,6 +98,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
     this.commitMs = commitMs;
     this.maxConcurrency = maxConcurrency;
     this.callbackTimeoutMs = callbackTimeoutMs;
+    this.maxNoWorkWaitMs = maxNoWorkWaitMs;
     this.callbackTimer = (callbackTimeoutMs > 0) ? Executors.newSingleThreadScheduledExecutor() : null;
     this.callbackExecutor = new ThrottlingScheduler(maxThrottlingDelayMs);
     this.coordinatorRequests = new CoordinatorRequests(taskInstances.keySet());
@@ -153,6 +157,8 @@ public class AsyncRunLoop implements Runnable, Throttleable {
         long chooseNs = clock.nanoTime();
 
         containerMetrics.chooseNs().update(chooseNs - startNs);
+
+        blockIfNoWork(envelope);
 
         runTasks(envelope);
 
@@ -256,6 +262,31 @@ public class AsyncRunLoop implements Runnable, Throttleable {
   }
 
   /**
+   * When there are no new messages to process and the run loop has not been resumed since the last time this code was
+   * run, block the AsyncRunLoop thread for a short while. This will prevent this task from spinning when it has no work
+   * to do. If a task worker finishes or window/commit completes before the timeout it will resume the AsyncRunLoop
+   * thread immediately. This performs a similar function to what the poll timeout in the SystemConsumers.choose method
+   * provides for the single threaded RunLoop code, but, in the async case we need the ability to resume any time a task
+   * worker completes processing a message. In the Async case, that event will allow the task worker to start processing
+   * a message that may have already been chosen.
+   */
+  private void blockIfNoWork(IncomingMessageEnvelope envelope) {
+    synchronized (latch) {
+      if ((envelope != null) || runLoopResumedSinceLastChecked) {
+        runLoopResumedSinceLastChecked = false;
+        return;
+      }
+      try {
+        log.trace("Start no work wait");
+        latch.wait(maxNoWorkWaitMs);
+        log.trace("End no work wait");
+      } catch (InterruptedException e) {
+        throw new SamzaException("Run loop is interrupted", e);
+      }
+    }
+  }
+
+  /**
    * Resume the runloop thread. It is triggered once a task becomes ready again or has failure.
    */
   private void resume() {
@@ -265,6 +296,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
     }
     synchronized (latch) {
       latch.notifyAll();
+      runLoopResumedSinceLastChecked = true;
     }
   }
 

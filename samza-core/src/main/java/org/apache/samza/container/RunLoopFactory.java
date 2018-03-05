@@ -92,6 +92,10 @@ public class RunLoopFactory {
 
       log.info("Got callbackTimeout: {}.", callbackTimeout);
 
+      Long maxNoWorkWaitMs = config.getMaxNoWorkWaitMs();
+
+      log.info("Got maxNoWorkWaitMs: {}.", maxNoWorkWaitMs);
+
       log.info("Run loop in asynchronous mode.");
 
       return new AsyncRunLoop(
@@ -103,6 +107,7 @@ public class RunLoopFactory {
         taskCommitMs,
         callbackTimeout,
         maxThrottlingDelayMs,
+        maxNoWorkWaitMs,
         containerMetrics,
         clock,
         isAsyncCommitEnabled);
