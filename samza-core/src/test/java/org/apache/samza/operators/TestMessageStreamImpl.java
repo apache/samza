@@ -334,7 +334,6 @@ public class TestMessageStreamImpl {
     SendToTableOperatorSpec sendToTableOperatorSpec = (SendToTableOperatorSpec) registeredOpSpec;
 
     assertEquals(OpCode.SEND_TO, sendToTableOperatorSpec.getOpCode());
-    assertEquals(inputOpSpec, sendToTableOperatorSpec.getInputOpSpec());
     assertEquals(tableSpec, sendToTableOperatorSpec.getTableSpec());
   }
 

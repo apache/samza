@@ -223,8 +223,8 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
 
   @Override
   public <K, V> void sendTo(Table<KV<K, V>> table) {
-    SendToTableOperatorSpec<K, V> op = OperatorSpecs.createSendToTableOperatorSpec(
-        this.source, ((TableImpl) table).getTableSpec(), this.graph.getNextOpId(OpCode.SEND_TO));
+    SendToTableOperatorSpec<K, V> op =
+        OperatorSpecs.createSendToTableOperatorSpec(((TableImpl) table).getTableSpec(), this.graph.getNextOpId(OpCode.SEND_TO));
     this.source.registerNextOperatorSpec(op);
   }
 

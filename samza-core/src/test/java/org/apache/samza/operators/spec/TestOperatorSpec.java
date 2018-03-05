@@ -21,15 +21,21 @@ package org.apache.samza.operators.spec;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.HashMap;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.data.TestOutputMessageEnvelope;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
+import org.apache.samza.serializers.JsonSerdeV2;
+import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.StreamSpec;
+import org.apache.samza.table.TableSpec;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
@@ -55,7 +61,7 @@ public class TestOperatorSpec implements Serializable {
 
   @Test
   public void testMapWithLambda() throws IOException, ClassNotFoundException {
-    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec = (StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>)
+    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec =
         OperatorSpecs.<TestMessageEnvelope, TestOutputMessageEnvelope>createMapOperatorSpec(m -> new TestOutputMessageEnvelope(m.getKey(), m.getMessage().hashCode()), "op0");
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec = streamOperatorSpec.copy();
     assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
@@ -174,5 +180,63 @@ public class TestOperatorSpec implements Serializable {
     assertTrue(joinOperatorSpec.isClone(joinOpCopy));
     assertNull(joinOpCopy.getLeftInputOpSpec());
     assertNull(joinOpCopy.getRightInputOpSpec());
+  }
+
+  @Test
+  public void testStreamTableJoinOperatorSpec() throws IOException, ClassNotFoundException {
+    StreamTableJoinFunction<String, Object, Object, TestOutputMessageEnvelope> joinFn = new StreamTableJoinFunction<String, Object, Object, TestOutputMessageEnvelope>() {
+      @Override
+      public TestOutputMessageEnvelope apply(Object message, Object record) {
+        return new TestOutputMessageEnvelope(message.toString(), message.hashCode() + record.hashCode());
+      }
+
+      @Override
+      public String getMessageKey(Object message) {
+        return message.toString();
+      }
+
+      @Override
+      public String getRecordKey(Object record) {
+        return record.toString();
+      }
+    };
+
+    TableSpec tableSpec = new TableSpec("table-0", KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>()), "my.table.provider.class",
+        new MapConfig(new HashMap<String, String>() { { this.put("config1", "value1"); this.put("config2", "value2"); } }));
+
+    StreamTableJoinOperatorSpec<String, Object, Object, TestOutputMessageEnvelope> joinOperatorSpec =
+        new StreamTableJoinOperatorSpec<>(tableSpec, joinFn, "join-3");
+
+    StreamTableJoinOperatorSpec<String, Object, Object, TestOutputMessageEnvelope> joinOpSpecCopy = joinOperatorSpec.copy();
+    assertNotEquals(joinOpSpecCopy, joinOperatorSpec);
+    assertEquals(joinOpSpecCopy.getOpId(), joinOperatorSpec.getOpId());
+    assertTrue(joinOpSpecCopy.getTableSpec() != joinOperatorSpec.getTableSpec());
+    assertEquals(joinOpSpecCopy.getTableSpec().getId(), joinOperatorSpec.getTableSpec().getId());
+    assertEquals(joinOpSpecCopy.getTableSpec().getTableProviderFactoryClassName(), joinOperatorSpec.getTableSpec().getTableProviderFactoryClassName());
+  }
+
+  @Test
+  public void testSendToTableOperatorSpec() throws IOException, ClassNotFoundException {
+    TableSpec tableSpec = new TableSpec("table-0", KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>()), "my.table.provider.class",
+        new MapConfig(new HashMap<String, String>() { { this.put("config1", "value1"); this.put("config2", "value2"); } }));
+    SendToTableOperatorSpec<String, Integer> sendOpSpec =
+        new SendToTableOperatorSpec<>(tableSpec, "output-1");
+    SendToTableOperatorSpec<String, Integer> sendToCopy = sendOpSpec.copy();
+    assertNotEquals(sendToCopy, sendOpSpec);
+    assertEquals(sendToCopy.getOpId(), sendOpSpec.getOpId());
+    assertTrue(sendToCopy.getTableSpec() != sendOpSpec.getTableSpec() && sendToCopy.getTableSpec().equals(sendOpSpec.getTableSpec()));
+  }
+
+  @Test
+  public void testBroadcastOperatorSpec() throws IOException, ClassNotFoundException {
+    OutputStreamImpl<TestOutputMessageEnvelope> outputStream =
+        new OutputStreamImpl<>(new StreamSpec("output-0", "outputStream-0", "kafka"), new StringSerde("UTF-8"), new JsonSerdeV2<TestOutputMessageEnvelope>(), true);
+    BroadcastOperatorSpec<TestOutputMessageEnvelope> broadcastOpSpec = new BroadcastOperatorSpec<>(outputStream, "broadcast-1");
+    BroadcastOperatorSpec<TestOutputMessageEnvelope> broadcastOpCopy = broadcastOpSpec.copy();
+    assertNotEquals(broadcastOpCopy, broadcastOpSpec);
+    assertEquals(broadcastOpCopy.getOpId(), broadcastOpSpec.getOpId());
+    assertTrue(broadcastOpCopy.getOutputStream() != broadcastOpSpec.getOutputStream());
+    assertEquals(broadcastOpCopy.getOutputStream().getSystemStream(), broadcastOpSpec.getOutputStream().getSystemStream());
+    assertEquals(broadcastOpCopy.getOutputStream().isKeyed(), broadcastOpSpec.getOutputStream().isKeyed());
   }
 }

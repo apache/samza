@@ -25,6 +25,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -231,8 +232,10 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
 
       assertEquals(count * partitionCount, sentToProfileTable1.size());
       assertEquals(count * partitionCount, sentToProfileTable2.size());
-      assertEquals(count * partitionCount, joinFn1.count);
-      assertEquals(count * partitionCount, joinFn2.count);
+
+      for (int i = 0; i < PageViewToProfileJoinFunction.seqNo; i++) {
+        assertEquals(count * partitionCount, PageViewToProfileJoinFunction.counterPerJoinFn.get(i).intValue());
+      }
       assertEquals(count * partitionCount, joinedPageViews1.size());
       assertEquals(count * partitionCount, joinedPageViews2.size());
       assertTrue(joinedPageViews1.get(0) instanceof EnrichedPageView);
@@ -327,10 +330,22 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
 
   private static class PageViewToProfileJoinFunction implements StreamTableJoinFunction
       <Integer, KV<Integer, PageView>, KV<Integer, Profile>, EnrichedPageView> {
-    private int count;
+    private static Map<Integer, AtomicInteger> counterPerJoinFn = new HashMap<>();
+    private static int seqNo = 0;
+    private final int currentSeqNo;
+
+    public PageViewToProfileJoinFunction() {
+      this.currentSeqNo = seqNo++;
+    }
+
+    @Override
+    public void init(Config config, TaskContext context) {
+      counterPerJoinFn.put(this.currentSeqNo, new AtomicInteger(0));
+    }
+
     @Override
     public EnrichedPageView apply(KV<Integer, PageView> m, KV<Integer, Profile> r) {
-      ++count;
+      counterPerJoinFn.get(this.currentSeqNo).incrementAndGet();
       return r == null ? null :
           new EnrichedPageView(m.getValue().getPageKey(), m.getKey(), r.getValue().getCompany());
     }

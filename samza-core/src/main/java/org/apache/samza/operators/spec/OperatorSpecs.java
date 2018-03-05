@@ -275,16 +275,14 @@ public class OperatorSpecs {
    * Creates a {@link SendToTableOperatorSpec} with a key extractor and a value extractor function,
    * the type of incoming message is expected to be KV&#60;K, V&#62;.
    *
-   * @param inputOpSpec the operator spec for the input stream
    * @param tableSpec the table spec for the underlying table
    * @param opId the unique ID of the operator
    * @param <K> the type of the table record key
    * @param <V> the type of the table record value
    * @return the {@link SendToTableOperatorSpec}
    */
-  public static <K, V> SendToTableOperatorSpec<K, V> createSendToTableOperatorSpec(
-      OperatorSpec<?, KV<K, V>> inputOpSpec, TableSpec tableSpec, String opId) {
-    return new SendToTableOperatorSpec(inputOpSpec, tableSpec, opId);
+  public static <K, V> SendToTableOperatorSpec<K, V> createSendToTableOperatorSpec(TableSpec tableSpec, String opId) {
+    return new SendToTableOperatorSpec(tableSpec, opId);
   }
 
   /**

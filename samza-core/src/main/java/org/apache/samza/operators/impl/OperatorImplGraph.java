@@ -231,11 +231,11 @@ public class OperatorImplGraph {
     } else if (operatorSpec instanceof JoinOperatorSpec) {
       return createPartialJoinOperatorImpl(prevOperatorSpec, (JoinOperatorSpec) operatorSpec, config, context, clock);
     } else if (operatorSpec instanceof StreamTableJoinOperatorSpec) {
-      return new StreamTableJoinOperatorImpl((StreamTableJoinOperatorSpec) operatorSpec, config, context);
+      return new StreamTableJoinOperatorImpl(((StreamTableJoinOperatorSpec) operatorSpec).copy(), config, context);
     } else if (operatorSpec instanceof SendToTableOperatorSpec) {
-      return new SendToTableOperatorImpl((SendToTableOperatorSpec) operatorSpec, config, context);
+      return new SendToTableOperatorImpl(((SendToTableOperatorSpec) operatorSpec).copy(), config, context);
     } else if (operatorSpec instanceof BroadcastOperatorSpec) {
-      return new BroadcastOperatorImpl((BroadcastOperatorSpec) operatorSpec, context);
+      return new BroadcastOperatorImpl(((BroadcastOperatorSpec) operatorSpec).copy(), context);
     }
     throw new IllegalArgumentException(
         String.format("Unsupported OperatorSpec: %s", operatorSpec.getClass().getName()));
