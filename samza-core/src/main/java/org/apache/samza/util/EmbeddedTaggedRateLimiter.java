@@ -20,6 +20,7 @@ package org.apache.samza.util;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -36,17 +37,25 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 
 /**
- * An embedded rate limiter that supports tags
+ * An embedded rate limiter that supports tags. A default tag will be used if users specifies a simple rate only
+ * for simple use cases.
  */
 public class EmbeddedTaggedRateLimiter implements RateLimiter {
-
   static final private Logger LOGGER = LoggerFactory.getLogger(EmbeddedTaggedRateLimiter.class);
+  private static final String DEFAULT_TAG = "default-tag";
+  private static final Map<String, Integer> DEFAULT_TAG_MAP = Collections.singletonMap(DEFAULT_TAG, 0);
 
   private final Map<String, Integer> tagToTargetRateMap;
   private Map<String, com.google.common.util.concurrent.RateLimiter> tagToRateLimiterMap;
+  private boolean initialized;
+
+  public EmbeddedTaggedRateLimiter(int creditsPerSecond) {
+    this(Collections.singletonMap(DEFAULT_TAG, creditsPerSecond));
+  }
 
   public EmbeddedTaggedRateLimiter(Map<String, Integer> tagToCreditsPerSecondMap) {
     Preconditions.checkArgument(tagToCreditsPerSecondMap.size() > 0, "Map of tags can't be empty");
+    tagToCreditsPerSecondMap.values().forEach(c -> Preconditions.checkArgument(c >= 0, "Credits must be non-negative"));
     this.tagToTargetRateMap = tagToCreditsPerSecondMap;
   }
 
@@ -72,39 +81,28 @@ public class EmbeddedTaggedRateLimiter implements RateLimiter {
             int availableCredits = rateLimiter.tryAcquire(requiredCredits, remainingTimeoutInNanos, NANOSECONDS)
                 ? requiredCredits
                 : 0;
-            return new ImmutablePair<String, Integer>(tag, availableCredits);
+            return new ImmutablePair<>(tag, availableCredits);
           })
         .collect(Collectors.toMap(ImmutablePair::getKey, ImmutablePair::getValue));
   }
 
   @Override
-  public Map<String, Integer> tryAcquire(Map<String, Integer> tagToCreditsMap) {
-    ensureTagsAreValid(tagToCreditsMap);
-    return tagToCreditsMap.entrySet().stream()
-        .map(e -> {
-            String tag = e.getKey();
-            int requiredCredits = e.getValue();
-            int availableCredits = tagToRateLimiterMap.get(tag).tryAcquire(requiredCredits)
-                ? requiredCredits
-                : 0;
-            return new ImmutablePair<String, Integer>(tag, availableCredits);
-          })
-        .collect(Collectors.toMap(ImmutablePair::getKey, ImmutablePair::getValue));
+  public Set<String> getSupportedTags() {
+    return Collections.unmodifiableSet(tagToRateLimiterMap.keySet());
   }
 
   @Override
   public void acquire(int numberOfCredits) {
-    throw new IllegalArgumentException("This method is not applicable");
+    ensureTagsAreValid(DEFAULT_TAG_MAP);
+    tagToRateLimiterMap.get(DEFAULT_TAG).acquire(numberOfCredits);
   }
 
   @Override
   public int acquire(int numberOfCredit, long timeout, TimeUnit unit) {
-    throw new IllegalArgumentException("This method is not applicable");
-  }
-
-  @Override
-  public int tryAcquire(int numberOfCredit) {
-    throw new IllegalArgumentException("This method is not applicable");
+    ensureTagsAreValid(DEFAULT_TAG_MAP);
+    return tagToRateLimiterMap.get(DEFAULT_TAG).tryAcquire(numberOfCredit, timeout, unit)
+        ? numberOfCredit
+        : 0;
   }
 
   @Override
@@ -118,15 +116,15 @@ public class EmbeddedTaggedRateLimiter implements RateLimiter {
               LOGGER.info(String.format("Effective rate limit for task %s and tag %s is %d",
                   taskContext.getTaskName(), tag, effectiveRate));
             }
-            return new ImmutablePair<String, com.google.common.util.concurrent.RateLimiter>(
-                tag, com.google.common.util.concurrent.RateLimiter.create(effectiveRate));
+            return new ImmutablePair<>(tag, com.google.common.util.concurrent.RateLimiter.create(effectiveRate));
           })
         .collect(Collectors.toMap(ImmutablePair::getKey, ImmutablePair::getValue))
     );
+    initialized = true;
   }
 
   private void ensureInitialized() {
-    Preconditions.checkState(tagToRateLimiterMap != null, "Not initialized");
+    Preconditions.checkState(initialized, "Not initialized");
   }
 
   private void ensureTagsAreValid(Map<String, ?> tagMap) {
