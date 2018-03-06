@@ -37,6 +37,7 @@ import org.apache.samza.logging.log4j.serializers.LoggingEventJsonSerde;
 import org.apache.samza.logging.log4j.serializers.LoggingEventStringSerde;
 import org.apache.samza.logging.log4j.serializers.LoggingEventStringSerdeFactory;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Test;
 
 public class TestStreamAppender {
@@ -115,6 +116,40 @@ public class TestStreamAppender {
 
     List<String> messages = Lists.newArrayList("testing3", "testing4");
     logAndVerifyMessages(messages);
+  }
+
+  @Test
+  public void testStreamCreationUponSetup() {
+    System.setProperty("samza.container.name", "samza-container-1");
+
+    MockSystemProducerAppender systemProducerAppender = new MockSystemProducerAppender();
+    PatternLayout layout = new PatternLayout();
+    layout.setConversionPattern("%m");
+    systemProducerAppender.setLayout(layout);
+    systemProducerAppender.activateOptions();
+    log.addAppender(systemProducerAppender);
+
+    systemProducerAppender.setupSystem();
+    Assert.assertEquals("__samza_log4jTest_1_logs", MockSystemAdmin.createdStreamName);
+  }
+
+  @Test
+  public void testDefaultPartitionCount() {
+    MockSystemProducerAppender systemProducerAppender = new MockSystemProducerAppender();
+    Assert.assertEquals(1, systemProducerAppender.getPartitionCount()); // job.container.count defaults to 1
+
+    Map<String, String> map = new HashMap<>();
+    map.put("job.name", "log4jTest");
+    map.put("job.id", "1");
+    map.put("systems.mock.samza.factory", MockSystemFactory.class.getCanonicalName());
+    map.put("task.log4j.system", "mock");
+    map.put("job.container.count", "4");
+    systemProducerAppender = new MockSystemProducerAppender(new MapConfig(map));
+    Assert.assertEquals(4, systemProducerAppender.getPartitionCount());
+
+    systemProducerAppender = new MockSystemProducerAppender();
+    systemProducerAppender.setPartitionCount(8);
+    Assert.assertEquals(8, systemProducerAppender.getPartitionCount());
   }
 
   @Test
