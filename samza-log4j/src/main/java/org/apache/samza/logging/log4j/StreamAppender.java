@@ -32,6 +32,7 @@ import org.apache.log4j.Logger;
 import org.apache.log4j.spi.LoggingEvent;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.Log4jSystemConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.ShellCommandConfig;
@@ -44,6 +45,8 @@ import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeFactory;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.StreamSpec;
+import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
@@ -70,6 +73,7 @@ public class StreamAppender extends AppenderSkeleton {
   private SystemProducer systemProducer = null;
   private String key = null;
   private String streamName = null;
+  private int partitionCount = 0;
   private boolean isApplicationMaster = false;
   private Serde<LoggingEvent> serde = null;
   private Logger log = Logger.getLogger(StreamAppender.class);
@@ -85,14 +89,48 @@ public class StreamAppender extends AppenderSkeleton {
    */
   private final AtomicBoolean recursiveCall = new AtomicBoolean(false);
 
+  /**
+   * Getter for the StreamName parameter. See also {@link #activateOptions()} for when this is called.
+   * Example: {@literal <param name="StreamName" value="ExampleStreamName"/>}
+   * @return The configured stream name.
+   */
   public String getStreamName() {
     return this.streamName;
   }
 
+  /**
+   * Setter for the StreamName parameter. See also {@link #activateOptions()} for when this is called.
+   * Example: {@literal <param name="StreamName" value="ExampleStreamName"/>}
+   * @param streamName The configured stream name.
+   */
   public void setStreamName(String streamName) {
     this.streamName = streamName;
   }
 
+  /**
+   * Getter for the number of partitions to create on a new StreamAppender stream. See also {@link #activateOptions()} for when this is called.
+   * Example: {@literal <param name="PartitionCount" value="4"/>}
+   * @return The configured partition count of the StreamAppender stream. If not set, returns {@link JobConfig#getContainerCount()}.
+   */
+  public int getPartitionCount() {
+    if (partitionCount > 0) {
+      return partitionCount;
+    }
+    return new JobConfig(getConfig()).getContainerCount();
+  }
+
+  /**
+   * Setter for the number of partitions to create on a new StreamAppender stream. See also {@link #activateOptions()} for when this is called.
+   * Example: {@literal <param name="PartitionCount" value="4"/>}
+   * @param partitionCount Configurable partition count.
+   */
+  public void setPartitionCount(int partitionCount) {
+    this.partitionCount = partitionCount;
+  }
+
+  /**
+   * Additional configurations needed before logging to stream. Called once in the container before the first log event is sent.
+   */
   @Override
   public void activateOptions() {
     String containerName = System.getProperty(JAVA_OPTS_CONTAINER_NAME);
@@ -259,6 +297,16 @@ public class StreamAppender extends AppenderSkeleton {
     }
 
     setSerde(log4jSystemConfig, systemName, streamName);
+
+    // Explicitly create stream appender stream with the partition count the same as the number of containers.
+    System.out.println("[StreamAppender] creating stream " + streamName + " with partition count " + getPartitionCount());
+    StreamSpec streamSpec = StreamSpec.createStreamAppenderStreamSpec(streamName, systemName, getPartitionCount());
+
+    // SystemAdmin only needed for stream creation here.
+    SystemAdmin systemAdmin = systemFactory.getAdmin(systemName, config);
+    systemAdmin.start();
+    systemAdmin.createStream(streamSpec);
+    systemAdmin.stop();
 
     systemProducer = systemFactory.getProducer(systemName, config, metricsRegistry);
     systemStream = new SystemStream(systemName, streamName);
