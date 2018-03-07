@@ -19,8 +19,13 @@
 
 package org.apache.samza.sql.interfaces;
 
+import org.apache.samza.operators.TableDescriptor;
+
+
 /**
- * Source Resolvers are used by Samza Sql application to fetch the {@link SqlSystemSourceConfig} corresponding to the source.
+ * Source Resolvers are used by Samza Sql application to fetch the {@link SqlSystemSourceConfig} corresponding
+ * to the source. Additionally, it provides capability to resolve Samza table sources and creating the matching
+ * table descriptors.
  */
 public interface SourceResolver {
   /**
@@ -41,4 +46,12 @@ public interface SourceResolver {
    *  true if the source is a table, else false.
    */
   boolean isTable(String sourceName);
+
+  /**
+   * Return a Samza table descriptor corresponding to the {@code sourceName} if the underlying source is a table,
+   * ie. {@link SourceResolver#isTable(String)} should return true for the same {@code sourceName}.
+   * @param sourceName source for which the table descriptor is requested.
+   * @return table descriptor; null if the source is not a table.
+   */
+  TableDescriptor getTableDescriptor(String sourceName);
 }

@@ -19,8 +19,10 @@
 
 package org.apache.samza.sql.impl;
 
+import org.apache.commons.lang.NotImplementedException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.sql.interfaces.SourceResolver;
 import org.apache.samza.sql.interfaces.SourceResolverFactory;
 import org.apache.samza.sql.interfaces.SqlSystemSourceConfig;
@@ -100,6 +102,11 @@ public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
     public boolean isTable(String sourceName) {
       String[] sourceComponents = sourceName.split("\\.");
       return sourceComponents[sourceComponents.length - 1].equalsIgnoreCase(SAMZA_SQL_QUERY_TABLE_KEYWORD);
+    }
+
+    @Override
+    public TableDescriptor getTableDescriptor(String sourceName) {
+      throw new NotImplementedException("TableDescriptor is currently not supported by ConfigBasedSourceResolverFactory.");
     }
 
     private Config fetchSystemConfigs(String systemName) {
