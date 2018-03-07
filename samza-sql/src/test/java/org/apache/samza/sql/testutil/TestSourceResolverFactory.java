@@ -20,16 +20,126 @@
 package org.apache.samza.sql.testutil;
 
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.apache.samza.config.Config;
+import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.operators.BaseTableDescriptor;
+import org.apache.samza.operators.TableDescriptor;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.sql.interfaces.SourceResolver;
 import org.apache.samza.sql.interfaces.SourceResolverFactory;
 import org.apache.samza.sql.interfaces.SqlSystemStreamConfig;
+import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.Table;
+import org.apache.samza.table.TableProvider;
+import org.apache.samza.table.TableProviderFactory;
+import org.apache.samza.table.TableSpec;
+import org.apache.samza.task.TaskContext;
+
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 
 public class TestSourceResolverFactory implements SourceResolverFactory {
+  public static final String TEST_DB_SYSTEM = "testDb";
+  public static final String TEST_TABLE_ID = "testDbId";
+
   @Override
   public SourceResolver create(Config config) {
     return new TestSourceResolver(config);
+  }
+
+  static class TestTableDescriptor extends BaseTableDescriptor {
+    protected TestTableDescriptor(String tableId) {
+      super(tableId);
+    }
+
+    @Override
+    public String getTableId() {
+      return tableId;
+    }
+
+    @Override
+    public TableSpec getTableSpec() {
+      return new TableSpec(tableId, KVSerde.of(new NoOpSerde(), new NoOpSerde()), TestTableProviderFactory.class.getName(), new HashMap<>());
+    }
+  }
+
+  public static class TestTable implements ReadWriteTable {
+    public static Map<Object, Object> records = new HashMap<>();
+    @Override
+    public Object get(Object key) {
+      throw new NotImplementedException();
+    }
+
+    @Override
+    public Map getAll(List keys) {
+      throw new NotImplementedException();
+    }
+
+    @Override
+    public void close() {
+    }
+
+    @Override
+    public void put(Object key, Object value) {
+      if (key == null) {
+        records.put(System.nanoTime(), value);
+      } else {
+        records.put(key, value);
+      }
+    }
+
+    @Override
+    public void delete(Object key) {
+      records.remove(key);
+    }
+
+    @Override
+    public void deleteAll(List keys) {
+      records.clear();
+    }
+
+    @Override
+    public void flush() {
+    }
+
+    @Override
+    public void putAll(List entries) {
+      throw new NotImplementedException();
+    }
+  }
+
+  public static class TestTableProviderFactory implements TableProviderFactory {
+    @Override
+    public TableProvider getTableProvider(TableSpec tableSpec) {
+      return new TestTableProvider();
+    }
+  }
+
+  static class TestTableProvider implements TableProvider {
+    @Override
+    public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
+
+    }
+
+    @Override
+    public Table getTable() {
+      return new TestTable();
+    }
+
+    @Override
+    public Map<String, String> generateConfig(Map<String, String> config) {
+      return new HashMap<>();
+    }
+
+    @Override
+    public void close() {
+
+    }
   }
 
   private class TestSourceResolver implements SourceResolver {
@@ -43,8 +153,19 @@ public class TestSourceResolverFactory implements SourceResolverFactory {
     public SqlSystemStreamConfig fetchSourceInfo(String sourceName) {
       String[] sourceComponents = sourceName.split("\\.");
       Config systemConfigs = config.subset(sourceComponents[0] + ".");
+
+      TableDescriptor tableDescriptor = null;
+      if (sourceComponents[0].equals(TEST_DB_SYSTEM)) {
+        // Table
+        tableDescriptor = getTestDbDescriptor(config);
+      }
+
       return new SqlSystemStreamConfig(sourceComponents[0], sourceComponents[sourceComponents.length - 1],
-          Arrays.asList(sourceComponents), systemConfigs);
+          Arrays.asList(sourceComponents), systemConfigs, tableDescriptor);
+    }
+
+    private TableDescriptor getTestDbDescriptor(Config config) {
+      return new TestTableDescriptor(TEST_TABLE_ID);
     }
   }
 }

@@ -56,7 +56,7 @@ public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
 
       // This source resolver expects sources of format {systemName}.{streamName}
       if (sourceComponents.length != 2) {
-        String msg = String.format("Source %s is not of the format {systemName}.{streamName{", source);
+        String msg = String.format("Source %s is not of the format {systemName}.{streamName}", source);
         LOG.error(msg);
         throw new SamzaException(msg);
       }
