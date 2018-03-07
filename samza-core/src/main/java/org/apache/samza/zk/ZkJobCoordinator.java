@@ -99,6 +99,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private boolean hasCreatedStreams = false;
   private String cachedJobModelVersion = null;
   private Map<TaskName, Integer> changeLogPartitionMap = new HashMap<>();
+  private boolean isStopped = false;
 
   ZkJobCoordinator(Config config, MetricsRegistry metricsRegistry, ZkUtils zkUtils) {
     this.config = config;
@@ -137,19 +138,23 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   @Override
   public synchronized void stop() {
-    if (coordinatorListener != null) {
-      coordinatorListener.onJobModelExpired();
-    }
-    //Setting the isLeader metric to false when the stream processor shuts down because it does not remain the leader anymore
-    metrics.isLeader.set(false);
-    debounceTimer.stopScheduler();
-    zkController.stop();
+    if (!isStopped) {
+      LOG.info("Shutting down.");
+      if (coordinatorListener != null) {
+        coordinatorListener.onJobModelExpired();
+      }
+      //Setting the isLeader metric to false when the stream processor shuts down because it does not remain the leader anymore
+      metrics.isLeader.set(false);
+      debounceTimer.stopScheduler();
+      zkController.stop();
 
-    shutdownMetrics();
-    if (coordinatorListener != null) {
-      coordinatorListener.onCoordinatorStop();
+      shutdownMetrics();
+      if (coordinatorListener != null) {
+        coordinatorListener.onCoordinatorStop();
+      }
+      systemAdmins.stop();
+      isStopped = true;
     }
-    systemAdmins.stop();
   }
 
   private void startMetrics() {
