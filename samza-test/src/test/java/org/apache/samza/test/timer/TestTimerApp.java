@@ -28,7 +28,7 @@ import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.test.operator.data.PageView;
-import com.apache.samza.test.framework.StreamAssert;
+import org.apache.samza.test.framework.StreamAssert;
 
 import java.util.ArrayList;
 import java.util.Arrays;
