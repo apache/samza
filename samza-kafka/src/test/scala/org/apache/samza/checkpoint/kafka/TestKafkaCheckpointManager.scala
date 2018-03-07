@@ -114,7 +114,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val props = new org.apache.samza.config.KafkaConfig(config).getCheckpointTopicProperties()
     val spec = new KafkaStreamSpec("id", checkpointTopic, checkpointSystemName, 1, 1, false, props)
     val checkPointManager = new KafkaCheckpointManager(spec, new MockSystemFactory, false, config, new NoOpMetricsRegistry)
-    checkPointManager.MaxRetriesOnFailure = 1
+    checkPointManager.MaxRetryDurationMs = 1
 
     checkPointManager.register(taskName)
     checkPointManager.start
