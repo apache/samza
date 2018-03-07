@@ -17,33 +17,25 @@
  * under the License.
  */
 
+package org.apache.samza.operators;
 
-package org.apache.samza.operators.spec;
+/**
+ * Allows registering epoch-time timer callbacks from the operators.
+ * See {@link org.apache.samza.operators.functions.TimerFunction} for details.
+ * @param <K> type of the timer key
+ */
+public interface TimerRegistry<K> {
 
-import org.apache.samza.operators.functions.TimerFunction;
-import org.apache.samza.operators.functions.WatermarkFunction;
+  /**
+   * Register a epoch-time timer with key.
+   * @param key unique timer key
+   * @param timestamp epoch time when the timer will be fired, in milliseconds
+   */
+  void register(K key, long timestamp);
 
-public class BroadcastOperatorSpec<M> extends OperatorSpec<M, Void> {
-  private final OutputStreamImpl<M> outputStream;
-
-
-  public BroadcastOperatorSpec(OutputStreamImpl<M> outputStream, String opId) {
-    super(OpCode.BROADCAST, opId);
-
-    this.outputStream = outputStream;
-  }
-
-  public OutputStreamImpl<M> getOutputStream() {
-    return this.outputStream;
-  }
-
-  @Override
-  public WatermarkFunction getWatermarkFn() {
-    return null;
-  }
-
-  @Override
-  public TimerFunction getTimerFn() {
-    return null;
-  }
+  /**
+   * Delete the timer for the provided key.
+   * @param key key for the timer to delete
+   */
+  void delete(K key);
 }

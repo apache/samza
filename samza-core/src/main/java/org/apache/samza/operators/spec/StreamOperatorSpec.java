@@ -19,6 +19,7 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.functions.FlatMapFunction;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
 
@@ -31,17 +32,20 @@ import org.apache.samza.operators.functions.WatermarkFunction;
 public class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
 
   private final FlatMapFunction<M, OM> transformFn;
+  private final Object originalFn;
 
   /**
    * Constructor for a {@link StreamOperatorSpec}.
    *
    * @param transformFn  the transformation function
+   * @param originalFn the original user function before wrapping to transformFn
    * @param opCode  the {@link OpCode} for this {@link StreamOperatorSpec}
    * @param opId  the unique ID for this {@link StreamOperatorSpec}
    */
-  StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, OperatorSpec.OpCode opCode, String opId) {
+  StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, Object originalFn, OperatorSpec.OpCode opCode, String opId) {
     super(opCode, opId);
     this.transformFn = transformFn;
+    this.originalFn = originalFn;
   }
 
   public FlatMapFunction<M, OM> getTransformFn() {
@@ -50,6 +54,11 @@ public class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
 
   @Override
   public WatermarkFunction getWatermarkFn() {
-    return transformFn instanceof WatermarkFunction ? (WatermarkFunction) transformFn : null;
+    return originalFn instanceof WatermarkFunction ? (WatermarkFunction) originalFn : null;
+  }
+
+  @Override
+  public TimerFunction getTimerFn() {
+    return originalFn instanceof TimerFunction ? (TimerFunction) originalFn : null;
   }
 }

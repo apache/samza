@@ -220,7 +220,7 @@ public class TestOperatorImplGraph {
         new OperatorImplGraph(streamGraph, mock(Config.class), mockTaskContext, mock(Clock.class));
 
     // verify that the DAG after merge is only traversed & initialized once
-    verify(mockMapFunction, times(1)).init(any(Config.class), any(TaskContextImpl.class));
+    verify(mockMapFunction, times(1)).init(any(Config.class), any(TaskContext.class));
   }
 
   @Test
@@ -249,7 +249,7 @@ public class TestOperatorImplGraph {
         new OperatorImplGraph(streamGraph, mockConfig, mockTaskContext, mock(Clock.class));
 
     // verify that join function is initialized once.
-    verify(mockJoinFunction, times(1)).init(any(Config.class), any(TaskContextImpl.class));
+    verify(mockJoinFunction, times(1)).init(any(Config.class), any(TaskContext.class));
 
     InputOperatorImpl inputOpImpl1 = opImplGraph.getInputOperator(new SystemStream("input-system", "input-stream1"));
     InputOperatorImpl inputOpImpl2 = opImplGraph.getInputOperator(new SystemStream("input-system", "input-stream2"));

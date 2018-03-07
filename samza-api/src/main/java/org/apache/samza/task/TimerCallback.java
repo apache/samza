@@ -17,33 +17,18 @@
  * under the License.
  */
 
+package org.apache.samza.task;
 
-package org.apache.samza.operators.spec;
-
-import org.apache.samza.operators.functions.TimerFunction;
-import org.apache.samza.operators.functions.WatermarkFunction;
-
-public class BroadcastOperatorSpec<M> extends OperatorSpec<M, Void> {
-  private final OutputStreamImpl<M> outputStream;
-
-
-  public BroadcastOperatorSpec(OutputStreamImpl<M> outputStream, String opId) {
-    super(OpCode.BROADCAST, opId);
-
-    this.outputStream = outputStream;
-  }
-
-  public OutputStreamImpl<M> getOutputStream() {
-    return this.outputStream;
-  }
-
-  @Override
-  public WatermarkFunction getWatermarkFn() {
-    return null;
-  }
-
-  @Override
-  public TimerFunction getTimerFn() {
-    return null;
-  }
+/**
+ * The callback that is invoked when its corresponding timer registered via {@link TaskContext} fires.
+ * @param <K> type of the timer key
+ */
+public interface TimerCallback<K> {
+  /**
+   * Invoked when the timer of key fires.
+   * @param key timer key
+   * @param collector contains the means of sending message envelopes to the output stream.
+   * @param coordinator manages execution of tasks.
+   */
+  void onTimer(K key, MessageCollector collector, TaskCoordinator coordinator);
 }

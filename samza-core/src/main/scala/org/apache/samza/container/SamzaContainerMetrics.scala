@@ -29,11 +29,13 @@ class SamzaContainerMetrics(
 
   val commits = newCounter("commit-calls")
   val windows = newCounter("window-calls")
+  val timers = newCounter("timer-calls")
   val processes = newCounter("process-calls")
   val envelopes = newCounter("process-envelopes")
   val nullEnvelopes = newCounter("process-null-envelopes")
   val chooseNs = newTimer("choose-ns")
   val windowNs = newTimer("window-ns")
+  val timerNs = newTimer("timer-ns")
   val processNs = newTimer("process-ns")
   val commitNs = newTimer("commit-ns")
   val blockNs = newTimer("block-ns")

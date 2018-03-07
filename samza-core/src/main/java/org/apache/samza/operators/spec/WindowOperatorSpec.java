@@ -20,6 +20,7 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.functions.FoldLeftFunction;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.impl.store.TimeSeriesKeySerde;
 import org.apache.samza.operators.triggers.AnyTrigger;
@@ -120,6 +121,12 @@ public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK
   public WatermarkFunction getWatermarkFn() {
     FoldLeftFunction fn = window.getFoldLeftFunction();
     return fn instanceof WatermarkFunction ? (WatermarkFunction) fn : null;
+  }
+
+  @Override
+  public TimerFunction getTimerFn() {
+    FoldLeftFunction fn = window.getFoldLeftFunction();
+    return fn instanceof TimerFunction ? (TimerFunction) fn : null;
   }
 
   @Override

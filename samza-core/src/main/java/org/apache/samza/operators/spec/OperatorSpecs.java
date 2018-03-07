@@ -95,7 +95,7 @@ public class OperatorSpecs {
       public void close() {
         mapFn.close();
       }
-    }, OperatorSpec.OpCode.MAP, opId);
+    }, mapFn, OperatorSpec.OpCode.MAP, opId);
   }
 
   /**
@@ -129,7 +129,7 @@ public class OperatorSpecs {
       public void close() {
         filterFn.close();
       }
-    }, OperatorSpec.OpCode.FILTER, opId);
+    }, filterFn, OperatorSpec.OpCode.FILTER, opId);
   }
 
   /**
@@ -143,7 +143,7 @@ public class OperatorSpecs {
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createFlatMapOperatorSpec(
       FlatMapFunction<? super M, ? extends OM> flatMapFn, String opId) {
-    return new StreamOperatorSpec<>((FlatMapFunction<M, OM>) flatMapFn, OperatorSpec.OpCode.FLAT_MAP, opId);
+    return new StreamOperatorSpec<>((FlatMapFunction<M, OM>) flatMapFn, flatMapFn, OperatorSpec.OpCode.FLAT_MAP, opId);
   }
 
   /**
@@ -242,7 +242,7 @@ public class OperatorSpecs {
             this.add(message);
           }
         },
-        OperatorSpec.OpCode.MERGE, opId);
+        null, OperatorSpec.OpCode.MERGE, opId);
   }
 
   /**
