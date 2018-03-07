@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.test.util;
+package com.apache.samza.test.framework;
 
 import com.google.common.collect.Iterables;
 import org.apache.samza.config.Config;
@@ -49,7 +49,7 @@ import static org.junit.Assert.assertThat;
 /**
  * An assertion on the content of a {@link MessageStream}.
  *
- * <p>Example: </pre>{@code
+ * <pre>Example: {@code
  * MessageStream<String> stream = streamGraph.getInputStream("input", serde).map(some_function)...;
  * ...
  * StreamAssert.that(id, stream, stringSerde).containsInAnyOrder(Arrays.asList("a", "b", "c"));
