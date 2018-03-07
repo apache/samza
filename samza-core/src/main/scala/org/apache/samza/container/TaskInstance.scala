@@ -20,12 +20,15 @@
 package org.apache.samza.container
 
 
+import java.util.concurrent.ScheduledExecutorService
+
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.metrics.MetricsReporter
+import org.apache.samza.operators.functions.TimerFunction
 import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system._
 import org.apache.samza.table.TableManager
@@ -33,6 +36,7 @@ import org.apache.samza.task._
 import org.apache.samza.util.Logging
 
 import scala.collection.JavaConverters._
+import scala.collection.JavaConversions._
 
 class TaskInstance(
   val task: Any,
@@ -50,7 +54,8 @@ class TaskInstance(
   val systemStreamPartitions: Set[SystemStreamPartition] = Set(),
   val exceptionHandler: TaskInstanceExceptionHandler = new TaskInstanceExceptionHandler,
   jobModel: JobModel = null,
-  streamMetadataCache: StreamMetadataCache = null) extends Logging {
+  streamMetadataCache: StreamMetadataCache = null,
+  timerExecutor : ScheduledExecutorService = null) extends Logging {
   val isInitableTask = task.isInstanceOf[InitableTask]
   val isWindowableTask = task.isInstanceOf[WindowableTask]
   val isEndOfStreamListenerTask = task.isInstanceOf[EndOfStreamListenerTask]
@@ -58,7 +63,7 @@ class TaskInstance(
   val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
 
   val context = new TaskContextImpl(taskName, metrics, containerContext, systemStreamPartitions.asJava, offsetManager,
-                                    storageManager, tableManager, jobModel, streamMetadataCache)
+                                    storageManager, tableManager, jobModel, streamMetadataCache, timerExecutor)
 
   // store the (ssp -> if this ssp is catched up) mapping. "catched up"
   // means the same ssp in other taskInstances have the same offset as
@@ -181,6 +186,16 @@ class TaskInstance(
 
       exceptionHandler.maybeHandle {
         task.asInstanceOf[WindowableTask].window(collector, coordinator)
+      }
+    }
+  }
+
+  def timer(coordinator: ReadableCoordinator) {
+    trace("Timer for taskName: %s" format taskName)
+
+    exceptionHandler.maybeHandle {
+      context.getTimerScheduler.removeReadyTimers().entrySet().foreach { entry =>
+        entry.getValue.asInstanceOf[TimerCallback[Any]].onTimer(entry.getKey.getKey, collector, coordinator)
       }
     }
   }

@@ -25,6 +25,7 @@ import java.util.Set;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
 /**
@@ -130,4 +131,6 @@ public abstract class OperatorSpec<M, OM> {
   }
 
   abstract public WatermarkFunction getWatermarkFn();
+
+  abstract public TimerFunction getTimerFn();
 }
