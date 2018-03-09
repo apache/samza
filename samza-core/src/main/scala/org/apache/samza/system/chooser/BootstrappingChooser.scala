@@ -266,9 +266,16 @@ class BootstrappingChooser(
 
     trace("Check %s offset %s against %s for %s." format (offsetType, offset, offsetToCheck, systemStreamPartition))
 
-    // The SSP is no longer lagging if the envelope's offset equals the
+    val systemAdmin = systemAdmins.getSystemAdmin(systemStreamPartition.getSystem)
+    val comparatorResult: Integer = if (offsetToCheck == null) {
+      -1
+    } else {
+      systemAdmin.offsetComparator(offset, offsetToCheck)
+    }
+
+    // The SSP is no longer lagging if the envelope's offset is greater than or equal to the
     // latest offset.
-    if (offset != null && offset.equals(offsetToCheck)) {
+    if (offset != null && comparatorResult != null && comparatorResult >= 0) {
       laggingSystemStreamPartitions -= systemStreamPartition
       systemStreamLagCounts += systemStream -> (systemStreamLagCounts(systemStream) - 1)
 
