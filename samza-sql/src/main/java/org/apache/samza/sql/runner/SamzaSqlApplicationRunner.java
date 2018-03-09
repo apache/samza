@@ -94,13 +94,13 @@ public class SamzaSqlApplicationRunner extends AbstractApplicationRunner {
       newConfig.putAll(outputSystemStreamConfig.getConfig());
     }
 
+    newConfig.putAll(config);
+
     if (localRunner) {
       newConfig.put(RUNNER_CONFIG, LocalApplicationRunner.class.getName());
     } else {
       newConfig.put(RUNNER_CONFIG, RemoteApplicationRunner.class.getName());
     }
-
-    newConfig.putAll(config);
 
     LOG.info("New Samza configs: " + newConfig);
     return new MapConfig(newConfig);
