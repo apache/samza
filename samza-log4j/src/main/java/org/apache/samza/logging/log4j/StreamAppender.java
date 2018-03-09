@@ -63,6 +63,9 @@ public class StreamAppender extends AppenderSkeleton {
   private static final String JOB_COORDINATOR_TAG = "samza-job-coordinator";
   private static final String SOURCE = "log4j-log";
 
+  // Hidden config for now. Will move to appropriate Config class when ready to.
+  private static final String CREATE_STREAM_ENABLED = "task.log4j.create.stream.enabled";
+
   protected static final int DEFAULT_QUEUE_SIZE = 100;
   private static final long DEFAULT_QUEUE_TIMEOUT_S = 2; // Abitrary choice
 
@@ -298,15 +301,17 @@ public class StreamAppender extends AppenderSkeleton {
 
     setSerde(log4jSystemConfig, systemName, streamName);
 
-    // Explicitly create stream appender stream with the partition count the same as the number of containers.
-    System.out.println("[StreamAppender] creating stream " + streamName + " with partition count " + getPartitionCount());
-    StreamSpec streamSpec = StreamSpec.createStreamAppenderStreamSpec(streamName, systemName, getPartitionCount());
+    if (config.getBoolean(CREATE_STREAM_ENABLED, false)) {
+      // Explicitly create stream appender stream with the partition count the same as the number of containers.
+      System.out.println("[StreamAppender] creating stream " + streamName + " with partition count " + getPartitionCount());
+      StreamSpec streamSpec = StreamSpec.createStreamAppenderStreamSpec(streamName, systemName, getPartitionCount());
 
-    // SystemAdmin only needed for stream creation here.
-    SystemAdmin systemAdmin = systemFactory.getAdmin(systemName, config);
-    systemAdmin.start();
-    systemAdmin.createStream(streamSpec);
-    systemAdmin.stop();
+      // SystemAdmin only needed for stream creation here.
+      SystemAdmin systemAdmin = systemFactory.getAdmin(systemName, config);
+      systemAdmin.start();
+      systemAdmin.createStream(streamSpec);
+      systemAdmin.stop();
+    }
 
     systemProducer = systemFactory.getProducer(systemName, config, metricsRegistry);
     systemStream = new SystemStream(systemName, streamName);
