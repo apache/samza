@@ -38,12 +38,12 @@ public class SamzaSqlRelMessage implements Serializable {
 
   public static final String KEY_NAME = "__key__";
 
-  @JsonProperty("fieldValues")
-  private final List<Object> fieldValues;
+  private final Object key;
+
   @JsonProperty("fieldNames")
   private final List<String> fieldNames;
-
-  private final Object key;
+  @JsonProperty("fieldValues")
+  private final List<Object> fieldValues;
 
   /**
    * Creates a {@link SamzaSqlRelMessage} from the list of relational fields and values.
@@ -66,8 +66,8 @@ public class SamzaSqlRelMessage implements Serializable {
     if (keyIndex != -1) {
       key = fieldValues.get(keyIndex);
     }
-
     this.key = key;
+
     this.fieldNames.addAll(fieldNames);
     this.fieldValues.addAll(fieldValues);
   }
@@ -83,13 +83,15 @@ public class SamzaSqlRelMessage implements Serializable {
    */
   public SamzaSqlRelMessage(Object key, List<String> fieldNames, List<Object> fieldValues) {
     Validate.isTrue(fieldNames.size() == fieldValues.size(), "Field Names and values are not of same length.");
+
     this.fieldNames = new ArrayList<>();
     this.fieldValues = new ArrayList<>();
 
     this.key = key;
     this.fieldNames.add(KEY_NAME);
-    this.fieldNames.addAll(fieldNames);
     this.fieldValues.add(key);
+
+    this.fieldNames.addAll(fieldNames);
     this.fieldValues.addAll(fieldValues);
   }
 

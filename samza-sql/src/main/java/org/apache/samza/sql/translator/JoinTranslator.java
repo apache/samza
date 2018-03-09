@@ -68,18 +68,18 @@ import static org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory.*;
  * condition. We do not repartition the table. But we always repartition the stream by the key(s) specified
  * in the join condition.
  */
-public class JoinTranslator {
+class JoinTranslator {
 
   private static final Logger log = LoggerFactory.getLogger(JoinTranslator.class);
   private int joinId;
   private SourceResolver sourceResolver;
 
-  public JoinTranslator(int joinId, SourceResolver sourceResolver) {
+  JoinTranslator(int joinId, SourceResolver sourceResolver) {
     this.joinId = joinId;
     this.sourceResolver = sourceResolver;
   }
 
-  public void translate(final LogicalJoin join, final TranslatorContext context) {
+  void translate(final LogicalJoin join, final TranslatorContext context) {
 
     // Do the validation of join query
     validateJoinQuery(join);

@@ -35,17 +35,17 @@ import org.apache.samza.sql.interfaces.SqlSystemStreamConfig;
  * Translator to translate the TableScans in relational graph to the corresponding input streams in the StreamGraph
  * implementation
  */
-public class ScanTranslator {
+class ScanTranslator {
 
   private final Map<String, SamzaRelConverter> relMsgConverters;
   private final Map<String, SqlSystemStreamConfig> systemStreamConfig;
 
-  public ScanTranslator(Map<String, SamzaRelConverter> converters, Map<String, SqlSystemStreamConfig> ssc) {
+  ScanTranslator(Map<String, SamzaRelConverter> converters, Map<String, SqlSystemStreamConfig> ssc) {
     relMsgConverters = converters;
     this.systemStreamConfig = ssc;
   }
 
-  public void translate(final TableScan tableScan, final TranslatorContext context) {
+  void translate(final TableScan tableScan, final TranslatorContext context) {
     StreamGraph streamGraph = context.getStreamGraph();
     List<String> tableNameParts = tableScan.getTable().getQualifiedName();
     String sourceName = SqlSystemStreamConfig.getSourceFromSourceParts(tableNameParts);

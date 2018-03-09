@@ -29,7 +29,7 @@ import org.codehaus.jackson.type.TypeReference;
 
 
 /**
- * A serializer for SamzaSqlRelMessage.
+ * A serializer for {@link SamzaSqlRelMessage}.
  */
 public final class SamzaSqlRelMessageSerdeFactory implements SerdeFactory<SamzaSqlRelMessage> {
   public Serde<SamzaSqlRelMessage> getSerde(String name, Config config) {

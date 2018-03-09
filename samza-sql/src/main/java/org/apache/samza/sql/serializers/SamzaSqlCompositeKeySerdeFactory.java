@@ -29,7 +29,7 @@ import org.codehaus.jackson.type.TypeReference;
 
 
 /**
- * A serializer for SamzaSqlCompositeKey.
+ * A serializer for {@link SamzaSqlCompositeKey}.
  */
 public final class SamzaSqlCompositeKeySerdeFactory implements SerdeFactory<SamzaSqlCompositeKey> {
   public Serde<SamzaSqlCompositeKey> getSerde(String name, Config config) {
