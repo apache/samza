@@ -100,7 +100,7 @@ class TaskInstance(
     if (tableManager != null) {
       debug("Starting table manager for taskName: %s" format taskName)
 
-      tableManager.start
+      tableManager.init(containerContext, context)
     } else {
       debug("Skipping table manager initialization for taskName: %s" format taskName)
     }
@@ -244,7 +244,7 @@ class TaskInstance(
     if (tableManager != null) {
       debug("Shutting down table manager for taskName: %s" format taskName)
 
-      tableManager.shutdown
+      tableManager.close
     } else {
       debug("Skipping table manager shutdown for taskName: %s" format taskName)
     }

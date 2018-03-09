@@ -20,6 +20,7 @@ package org.apache.samza.util;
 
 import java.io.Serializable;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.samza.annotation.InterfaceStability;
@@ -43,7 +44,6 @@ import org.apache.samza.task.TaskContext;
  * <ul>
  *   <li>Block indefinitely until requested credits become available</li>
  *   <li>Block for a provided amount of time, then return available credits</li>
- *   <li>Non-blocking, returns immediately available credits</li>
  * </ul>
  *
  */
@@ -80,15 +80,6 @@ public interface RateLimiter extends Serializable {
   int acquire(int numberOfCredit, long timeout, TimeUnit unit);
 
   /**
-   * Attempt to acquire the provided number of credits, returns immediately number of
-   * credits acquired.
-   *
-   * @param numberOfCredit requested number of credits
-   * @return number of credits acquired
-   */
-  int tryAcquire(int numberOfCredit);
-
-  /**
    * Attempt to acquire the provided number of credits for a number of tags, blocks indefinitely
    * until all requested credits become available
    *
@@ -110,11 +101,8 @@ public interface RateLimiter extends Serializable {
   Map<String, Integer> acquire(Map<String, Integer> tagToCreditMap, long timeout, TimeUnit unit);
 
   /**
-   * Attempt to acquire the provided number of credits for a number of tags, returns immediately number of
-   * credits acquired.
-   *
-   * @param tagToCreditMap a map of requested number of credits keyed by tag
-   * @return a map of number of credits acquired keyed by tag
+   * Get the entire set of tags for which we have configured credits for rate limiting.
+   * @return set of supported tags
    */
-  Map<String, Integer> tryAcquire(Map<String, Integer> tagToCreditMap);
+  Set<String> getSupportedTags();
 }
