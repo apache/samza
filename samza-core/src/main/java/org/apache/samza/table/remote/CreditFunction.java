@@ -16,22 +16,21 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.table;
 
-import org.apache.samza.storage.StorageEngine;
+package org.apache.samza.table.remote;
+
+import java.io.Serializable;
+import java.util.function.Function;
+
+import org.apache.samza.operators.KV;
 
 
 /**
- * Interface for tables backed by Samza local stores. The backing stores are
- * injected during initialization of the table. Since the lifecycle
- * of the underlying stores are already managed by Samza container,
- * the table provider will not manage the lifecycle of the backing
- * stores.
+ * Function interface for providing rate limiting credits for each table record.
+ * This interface allows callers to pass in lambda expressions which are otherwise
+ * non-serializable as-is.
+ * @param <K> the type of the key
+ * @param <V> the type of the value
  */
-public interface LocalStoreBackedTableProvider extends TableProvider {
-  /**
-   * Initializes the table provider with the backing store
-   * @param store the backing store
-   */
-  void init(StorageEngine store);
+public interface CreditFunction<K, V> extends Function<KV<K, V>, Integer>, Serializable {
 }
