@@ -20,11 +20,13 @@
 package org.apache.samza.runtime;
 
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 import org.apache.log4j.MDC;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.container.ContainerHeartbeatClient;
@@ -36,6 +38,7 @@ import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.system.SystemFactory;
 import org.apache.samza.task.TaskFactoryUtil;
 import org.apache.samza.util.ScalaToJavaUtils;
 import org.apache.samza.util.Util;
@@ -74,13 +77,15 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
   public void run(StreamApplication streamApp) {
     super.run(streamApp);
     Object taskFactory = TaskFactoryUtil.createTaskFactory(config, streamApp, this);
+    Map<String, SystemFactory> systemFactories = new JavaSystemConfig(jobModel.getConfig()).getSystemFactories();
 
     container = SamzaContainer$.MODULE$.apply(
         containerId,
         jobModel,
         config,
         Util.<String, MetricsReporter>javaMapAsScalaMap(new HashMap<>()),
-        taskFactory);
+        taskFactory,
+        Util.<String, SystemFactory>javaMapAsScalaMap(systemFactories));
     container.setContainerListener(
         new SamzaContainerListener() {
           @Override

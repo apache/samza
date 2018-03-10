@@ -38,6 +38,7 @@ import org.apache.samza.coordinator.JobCoordinatorFactory;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.system.SystemFactory;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.util.Util;
@@ -63,6 +64,7 @@ public class StreamProcessor {
   private final Config config;
   private final long taskShutdownMs;
   private final String processorId;
+  private final Map<String, SystemFactory> systemFactories;
 
   private ExecutorService executorService;
 
@@ -93,12 +95,13 @@ public class StreamProcessor {
    * @param processorListener         listener to the StreamProcessor life cycle
    */
   public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
-                         AsyncStreamTaskFactory asyncStreamTaskFactory, StreamProcessorLifecycleListener processorListener) {
-    this(config, customMetricsReporters, (Object) asyncStreamTaskFactory, processorListener, null);
+                         AsyncStreamTaskFactory asyncStreamTaskFactory, StreamProcessorLifecycleListener processorListener,
+                         Map<String, SystemFactory> systemFactories) {
+    this(config, customMetricsReporters, (Object) asyncStreamTaskFactory, processorListener, null, systemFactories);
   }
 
   /**
-   *Same as {@link #StreamProcessor(Config, Map, AsyncStreamTaskFactory, StreamProcessorLifecycleListener)}, except task
+   *Same as {@link #StreamProcessor(Config, Map, AsyncStreamTaskFactory, StreamProcessorLifecycleListener, Map)}, except task
    * instances are created using the provided {@link StreamTaskFactory}.
    * @param config - config
    * @param customMetricsReporters metric Reporter
@@ -106,8 +109,9 @@ public class StreamProcessor {
    * @param processorListener  listener to the StreamProcessor life cycle
    */
   public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
-                         StreamTaskFactory streamTaskFactory, StreamProcessorLifecycleListener processorListener) {
-    this(config, customMetricsReporters, (Object) streamTaskFactory, processorListener, null);
+                         StreamTaskFactory streamTaskFactory, StreamProcessorLifecycleListener processorListener,
+                         Map<String, SystemFactory> systemFactories) {
+    this(config, customMetricsReporters, (Object) streamTaskFactory, processorListener, null, systemFactories);
   }
 
   /* package private */
@@ -125,7 +129,8 @@ public class StreamProcessor {
   }
 
   StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, Object taskFactory,
-                  StreamProcessorLifecycleListener processorListener, JobCoordinator jobCoordinator) {
+                  StreamProcessorLifecycleListener processorListener, JobCoordinator jobCoordinator,
+                  Map<String, SystemFactory> systemFactories) {
     this.taskFactory = taskFactory;
     this.config = config;
     this.taskShutdownMs = new TaskConfigJava(config).getShutdownMs();
@@ -134,7 +139,7 @@ public class StreamProcessor {
     this.jobCoordinator = (jobCoordinator != null) ? jobCoordinator : getJobCoordinator();
     this.jobCoordinatorListener = createJobCoordinatorListener();
     this.jobCoordinator.setListener(jobCoordinatorListener);
-
+    this.systemFactories = systemFactories;
     processorId = this.jobCoordinator.getProcessorId();
   }
 
@@ -200,7 +205,8 @@ public class StreamProcessor {
         jobModel,
         config,
         Util.<String, MetricsReporter>javaMapAsScalaMap(customMetricsReporter),
-        taskFactory);
+        taskFactory,
+        Util.<String, SystemFactory>javaMapAsScalaMap(systemFactories));
   }
 
   JobCoordinatorListener createJobCoordinatorListener() {

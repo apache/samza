@@ -21,6 +21,7 @@ package org.apache.samza.runtime;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,6 +34,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfig;
@@ -43,6 +45,7 @@ import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.StreamProcessorLifecycleListener;
 import org.apache.samza.system.StreamSpec;
+import org.apache.samza.system.SystemFactory;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
@@ -261,12 +264,13 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       StreamApplication app,
       StreamProcessorLifecycleListener listener) {
     Object taskFactory = TaskFactoryUtil.createTaskFactory(config, app, new LocalApplicationRunner(config));
+    Map<String, SystemFactory> systemFactories = new JavaSystemConfig(config).getSystemFactories();
     if (taskFactory instanceof StreamTaskFactory) {
       return new StreamProcessor(
-          config, new HashMap<>(), (StreamTaskFactory) taskFactory, listener);
+          config, new HashMap<>(), (StreamTaskFactory) taskFactory, listener, systemFactories);
     } else if (taskFactory instanceof AsyncStreamTaskFactory) {
       return new StreamProcessor(
-          config, new HashMap<>(), (AsyncStreamTaskFactory) taskFactory, listener);
+          config, new HashMap<>(), (AsyncStreamTaskFactory) taskFactory, listener, systemFactories);
     } else {
       throw new SamzaException(String.format("%s is not a valid task factory",
           taskFactory.getClass().getCanonicalName()));
