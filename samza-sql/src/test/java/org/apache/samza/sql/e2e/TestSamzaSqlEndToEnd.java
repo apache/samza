@@ -30,10 +30,9 @@ import java.util.stream.IntStream;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.serializers.JsonSerdeV2Factory;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
-import org.apache.samza.sql.serializers.SamzaSqlCompositeKeySerdeFactory;
-import org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory;
 import org.apache.samza.sql.system.TestAvroSystemFactory;
 import org.apache.samza.sql.testutil.JsonUtil;
 import org.apache.samza.sql.testutil.MyTestUdf;
@@ -63,8 +62,8 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     configs.put("systems.kafka.default.stream.replication.factor", "1");
     configs.put("job.default.system", "kafka");
 
-    configs.put("serializers.registry.object.class", SamzaSqlCompositeKeySerdeFactory.class.getName());
-    configs.put("serializers.registry.samzaSqlRelMsg.class", SamzaSqlRelMessageSerdeFactory.class.getName());
+    configs.put("serializers.registry.object.class", JsonSerdeV2Factory.class.getName());
+    configs.put("serializers.registry.samzaSqlRelMsg.class", JsonSerdeV2Factory.class.getName());
   }
 
   @Test

@@ -26,10 +26,9 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.serializers.JsonSerdeV2Factory;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
-import org.apache.samza.sql.serializers.SamzaSqlCompositeKeySerdeFactory;
-import org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
 import org.apache.samza.sql.testutil.SamzaSqlTestConfig;
 import org.apache.samza.sql.translator.QueryTranslator;
@@ -54,8 +53,8 @@ public class TestQueryTranslator extends AbstractIntegrationTestHarness {
     configs.put("systems.kafka.default.stream.replication.factor", "1");
     configs.put("job.default.system", "kafka");
 
-    configs.put("serializers.registry.object.class", SamzaSqlCompositeKeySerdeFactory.class.getName());
-    configs.put("serializers.registry.samzaSqlRelMsg.class", SamzaSqlRelMessageSerdeFactory.class.getName());
+    configs.put("serializers.registry.object.class", JsonSerdeV2Factory.class.getName());
+    configs.put("serializers.registry.samzaSqlRelMsg.class", JsonSerdeV2Factory.class.getName());
   }
 
   @Test
@@ -310,6 +309,24 @@ public class TestQueryTranslator extends AbstractIntegrationTestHarness {
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW as pv"
             + " right join testavro.PROFILE.`$table` as p"
+            + " on p.id = pv.profileId";
+    config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
+    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
+    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
+    StreamGraphImpl streamGraph = new StreamGraphImpl(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    translator.translate(queryInfo, streamGraph);
+  }
+
+  @Test (expected = SamzaException.class)
+  public void testTranslateStreamTableInnerJoinWithMissingStream() {
+    Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 10);
+    String sql =
+        "Insert into testavro.enrichedPageViewTopic"
+            + " select p.name as profileName, pv.pageKey"
+            + " from testavro.PAGEVIEW as pv"
+            + " join testavro.`$table` as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));

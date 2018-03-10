@@ -34,10 +34,11 @@ import org.apache.samza.system.SystemStream;
  */
 public class SqlSystemStreamConfig {
 
-  public static final String CFG_SAMZA_REL_CONVERTER = "samzaRelConverterName";
-  public static final String CFG_REL_SCHEMA_PROVIDER = "relSchemaProviderName";
   private static final String CFG_SAMZA_STREAM_BOOTSTRAP_STREAM = "streams.%s.samza.bootstrap";
   private static final String CFG_SAMZA_STREAM_OFFSET_DEFAULT = "streams.%s.samza.offset.default";
+
+  public static final String CFG_SAMZA_REL_CONVERTER = "samzaRelConverterName";
+  public static final String CFG_REL_SCHEMA_PROVIDER = "relSchemaProviderName";
 
   private final String systemName;
 

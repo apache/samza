@@ -48,7 +48,7 @@ public class TestSourceResolverFactory implements SourceResolverFactory {
       int endIdx = sourceComponents.length - 1;
       int streamIdx = endIdx;
 
-      if (sourceComponents[endIdx].toLowerCase().equals(SAMZA_SQL_QUERY_TABLE_KEYWORD)) {
+      if (sourceComponents[endIdx].equalsIgnoreCase(SAMZA_SQL_QUERY_TABLE_KEYWORD)) {
         isTable = true;
         streamIdx = endIdx - 1;
       }
@@ -60,7 +60,7 @@ public class TestSourceResolverFactory implements SourceResolverFactory {
     @Override
     public boolean isTable(String sourceName) {
       String[] sourceComponents = sourceName.split("\\.");
-      return sourceComponents[sourceComponents.length - 1].toLowerCase().equals(SAMZA_SQL_QUERY_TABLE_KEYWORD);
+      return sourceComponents[sourceComponents.length - 1].equalsIgnoreCase(SAMZA_SQL_QUERY_TABLE_KEYWORD);
     }
   }
 }

@@ -19,6 +19,7 @@
 
 package org.apache.samza.sql.impl;
 
+import java.util.Arrays;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.interfaces.SourceResolver;
@@ -62,7 +63,7 @@ public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
       // This source resolver expects sources of format {systemName}.{streamName}[.$table]
       if (sourceComponents.length != 2) {
         if (sourceComponents.length != 3 ||
-            !sourceComponents[endIdx].toLowerCase().equals(SAMZA_SQL_QUERY_TABLE_KEYWORD)) {
+            !sourceComponents[endIdx].equalsIgnoreCase(SAMZA_SQL_QUERY_TABLE_KEYWORD)) {
           String msg = String.format("Source %s is not of the format {systemName}.{streamName}[.%s]", source,
               SAMZA_SQL_QUERY_TABLE_KEYWORD);
           LOG.error(msg);
@@ -70,7 +71,7 @@ public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
         }
       }
 
-      if (sourceComponents[endIdx].toLowerCase().equals(SAMZA_SQL_QUERY_TABLE_KEYWORD)) {
+      if (sourceComponents[endIdx].equalsIgnoreCase(SAMZA_SQL_QUERY_TABLE_KEYWORD)) {
         isTable = true;
         streamIdx = endIdx - 1;
       }
@@ -84,7 +85,7 @@ public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
     @Override
     public boolean isTable(String sourceName) {
       String[] sourceComponents = sourceName.split("\\.");
-      return sourceComponents[sourceComponents.length - 1].toLowerCase().equals(SAMZA_SQL_QUERY_TABLE_KEYWORD);
+      return sourceComponents[sourceComponents.length - 1].equalsIgnoreCase(SAMZA_SQL_QUERY_TABLE_KEYWORD);
     }
 
     private Config fetchSystemConfigs(String systemName) {

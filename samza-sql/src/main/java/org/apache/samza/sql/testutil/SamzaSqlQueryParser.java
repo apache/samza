@@ -108,7 +108,7 @@ public class SamzaSqlQueryParser {
       if (sqlInsert.getSource() instanceof SqlSelect) {
         SqlSelect sqlSelect = (SqlSelect) sqlInsert.getSource();
         selectQuery = m.group(2);
-        inputSources = getInputFromSelectQuery(sqlSelect);
+        inputSources = getInputsFromSelectQuery(sqlSelect);
       } else {
         throw new SamzaException("Sql query is not of the expected format");
       }
@@ -146,7 +146,7 @@ public class SamzaSqlQueryParser {
     return Frameworks.getPlanner(frameworkConfig);
   }
 
-  private static ArrayList<String> getInputFromSelectQuery(SqlSelect sqlSelect) {
+  private static ArrayList<String> getInputsFromSelectQuery(SqlSelect sqlSelect) {
     ArrayList<String> input = new ArrayList<>();
     getInput(sqlSelect.getFrom(), input);
     if (input.size() < 1) {
@@ -173,7 +173,7 @@ public class SamzaSqlQueryParser {
       if (basicCall.getOperator() instanceof SqlAsOperator) {
         getInput(basicCall.operand(0), inputSourceList);
       } else if (basicCall.getOperator() instanceof SqlUnnestOperator && basicCall.operand(0) instanceof SqlSelect) {
-        inputSourceList.addAll(getInputFromSelectQuery(basicCall.operand(0)));
+        inputSourceList.addAll(getInputsFromSelectQuery(basicCall.operand(0)));
         return;
       }
     } else if (node instanceof SqlSelect) {

@@ -33,35 +33,35 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.commons.lang.Validate;
 import org.apache.samza.SamzaException;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
+import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.sql.data.SamzaSqlCompositeKey;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SourceResolver;
-import org.apache.samza.sql.serializers.SamzaSqlCompositeKeySerdeFactory;
-import org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory;
 import org.apache.samza.storage.kv.RocksDbTableDescriptor;
 import org.apache.samza.table.Table;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.apache.samza.sql.data.SamzaSqlCompositeKey.*;
-import static org.apache.samza.sql.serializers.SamzaSqlCompositeKeySerdeFactory.*;
-import static org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory.*;
 
 
 /**
  * Translator to translate the LogicalJoin node in the relational graph to the corresponding StreamGraph
  * implementation.
  * Join is supported with the following caveats:
+ *   0. Only local tables are supported. Remote/composite tables are not yet supported.
  *   1. Only stream-table joins are supported. No stream-stream joins.
  *   2. Only Equi-joins are supported. No theta-joins.
  *   3. Inner joins, Left and Right outer joins are supported. No cross joins, full outer joins or natural joins.
- *   4. Compound join condition with only AND operator is supported. AND operator with a literal is not supported. No
+ *   4. Join condition with a constant is not supported.
+ *   5. Compound join condition with only AND operator is supported. AND operator with a constant is not supported. No
  *      support for OR operator or any other operator in the join condition.
  *
  * It is assumed that the stream denoted as 'table' is already partitioned by the key(s) specified in the join
@@ -85,20 +85,19 @@ class JoinTranslator {
     validateJoinQuery(join);
 
     boolean isTablePosOnRight = isTable(join.getRight());
-    List<Integer> streamIds = new LinkedList<>();
-    List<Integer> tableIds = new LinkedList<>();
+    List<Integer> streamKeyIds = new LinkedList<>();
+    List<Integer> tableKeyIds = new LinkedList<>();
 
     // Get the stream and table indices corresponding to the fields given in the join condition.
-    getStreamAndTableKeyIds(((RexCall) join.getCondition()).getOperands(), join, isTablePosOnRight, streamIds, tableIds);
+    getStreamAndTableKeyIds(((RexCall) join.getCondition()).getOperands(), join, isTablePosOnRight, streamKeyIds,
+        tableKeyIds);
 
     MessageStream<SamzaSqlRelMessage> inputTable =
         isTablePosOnRight ?
             context.getMessageStream(join.getRight().getId()) : context.getMessageStream(join.getLeft().getId());
 
-    SamzaSqlCompositeKeySerde keySerde =
-        (SamzaSqlCompositeKeySerde) new SamzaSqlCompositeKeySerdeFactory().getSerde(null, null);
-    SamzaSqlRelMessageSerde relMsgSerde =
-        (SamzaSqlRelMessageSerde) new SamzaSqlRelMessageSerdeFactory().getSerde(null, null);
+    JsonSerdeV2<SamzaSqlCompositeKey> keySerde = new JsonSerdeV2<>(SamzaSqlCompositeKey.class);
+    JsonSerdeV2<SamzaSqlRelMessage> relMsgSerde = new JsonSerdeV2<>(SamzaSqlRelMessage.class);
 
     // Create a table backed by RocksDb store with the fields in the join condition as composite key and relational
     // message as the value. Send the messages from the input stream denoted as 'table' to the created table store.
@@ -108,12 +107,12 @@ class JoinTranslator {
                 .withSerde(KVSerde.of(keySerde, relMsgSerde)));
 
     inputTable
-        .map(m -> new KV(createSamzaSqlCompositeKey(m, tableIds), m))
+        .map(m -> new KV(createSamzaSqlCompositeKey(m, tableKeyIds), m))
         .sendTo(table);
 
     List<String> tableFieldNames = (isTablePosOnRight ? join.getRight() : join.getLeft()).getRowType().getFieldNames();
     SamzaSqlRelMessageJoinFunction joinFn =
-        new SamzaSqlRelMessageJoinFunction(join.getJoinType(), isTablePosOnRight, streamIds, tableFieldNames);
+        new SamzaSqlRelMessageJoinFunction(join.getJoinType(), isTablePosOnRight, streamKeyIds, tableFieldNames);
 
     MessageStream<SamzaSqlRelMessage> inputStream =
         isTablePosOnRight ?
@@ -123,7 +122,7 @@ class JoinTranslator {
     // with the table.
     MessageStream<SamzaSqlRelMessage> outputStream =
         inputStream
-            .partitionBy(m -> createSamzaSqlCompositeKey(m, streamIds),
+            .partitionBy(m -> createSamzaSqlCompositeKey(m, streamKeyIds),
                 m -> m,
                 KVSerde.of(keySerde, relMsgSerde),
                 "stream_" + joinId)
@@ -188,13 +187,13 @@ class JoinTranslator {
   // Get the stream and table indices corresponding to the fields given in the join condition by parsing through
   // the condition.
   private void getStreamAndTableKeyIds(List<RexNode> operands, final LogicalJoin join, boolean isTablePosOnRight,
-      List<Integer> streamIds, List<Integer> tableIds) {
+      List<Integer> streamKeyIds, List<Integer> tableKeyIds) {
 
     // All non-leaf operands in the join condition should be expressions.
     if (operands.get(0) instanceof RexCall) {
       operands.forEach(operand -> {
         validateJoinCondition(operand);
-        getStreamAndTableKeyIds(((RexCall) operand).getOperands(), join, isTablePosOnRight, streamIds, tableIds);
+        getStreamAndTableKeyIds(((RexCall) operand).getOperands(), join, isTablePosOnRight, streamKeyIds, tableKeyIds);
       });
       return;
     }
@@ -216,16 +215,31 @@ class JoinTranslator {
     // index in rightRef.
     RexInputRef leftRef = (RexInputRef) operands.get(0);
     RexInputRef rightRef = (RexInputRef) operands.get(1);
+
+    // Let's validate the key used in the join condition.
+    validateKey(leftRef);
+    validateKey(rightRef);
+
     if (leftRef.getIndex() > rightRef.getIndex()) {
       RexInputRef tmpRef = leftRef;
       leftRef = rightRef;
       rightRef = tmpRef;
     }
 
-    // Get the table index and stream index
-    int deltaIdx = rightRef.getIndex() - join.getLeft().getRowType().getFieldCount();
-    streamIds.add(isTablePosOnRight ? leftRef.getIndex() : deltaIdx);
-    tableIds.add(isTablePosOnRight ? deltaIdx : leftRef.getIndex());
+    // Get the table key index and stream key index
+    int deltaKeyIdx = rightRef.getIndex() - join.getLeft().getRowType().getFieldCount();
+    streamKeyIds.add(isTablePosOnRight ? leftRef.getIndex() : deltaKeyIdx);
+    tableKeyIds.add(isTablePosOnRight ? deltaKeyIdx : leftRef.getIndex());
+  }
+
+  private void validateKey(RexInputRef ref) {
+    SqlTypeName sqlTypeName = ref.getType().getSqlTypeName();
+    if (sqlTypeName != SqlTypeName.BOOLEAN && sqlTypeName != SqlTypeName.TINYINT && sqlTypeName != SqlTypeName.SMALLINT
+        && sqlTypeName != SqlTypeName.INTEGER && sqlTypeName != SqlTypeName.CHAR && sqlTypeName != SqlTypeName.BIGINT
+        && sqlTypeName != SqlTypeName.VARCHAR && sqlTypeName != SqlTypeName.DOUBLE && sqlTypeName != SqlTypeName.FLOAT) {
+      log.error("Unsupported key type " + sqlTypeName + " used in join condition.");
+      throw new SamzaException("Unsupported key type used in join condition.");
+    }
   }
 
   private String dumpRelPlanForNode(RelNode relNode) {
