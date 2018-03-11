@@ -19,7 +19,6 @@
 
 package org.apache.samza.sql.translator;
 
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import org.apache.calcite.adapter.enumerable.EnumerableTableScan;
@@ -38,11 +37,12 @@ import org.apache.commons.lang.Validate;
 import org.apache.samza.SamzaException;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.sql.data.SamzaSqlCompositeKey;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
+import org.apache.samza.sql.data.SamzaSqlRelMessageJoinFunction;
 import org.apache.samza.sql.interfaces.SourceResolver;
 import org.apache.samza.storage.kv.RocksDbTableDescriptor;
 import org.apache.samza.table.Table;
@@ -88,35 +88,22 @@ class JoinTranslator {
     List<Integer> streamKeyIds = new LinkedList<>();
     List<Integer> tableKeyIds = new LinkedList<>();
 
-    // Get the stream and table indices corresponding to the fields given in the join condition.
-    getStreamAndTableKeyIds(((RexCall) join.getCondition()).getOperands(), join, isTablePosOnRight, streamKeyIds,
+    // Fetch the stream and table indices corresponding to the fields given in the join condition.
+    fetchStreamAndTableKeyIds(((RexCall) join.getCondition()).getOperands(), join, isTablePosOnRight, streamKeyIds,
         tableKeyIds);
-
-    MessageStream<SamzaSqlRelMessage> inputTable =
-        isTablePosOnRight ?
-            context.getMessageStream(join.getRight().getId()) : context.getMessageStream(join.getLeft().getId());
 
     JsonSerdeV2<SamzaSqlCompositeKey> keySerde = new JsonSerdeV2<>(SamzaSqlCompositeKey.class);
     JsonSerdeV2<SamzaSqlRelMessage> relMsgSerde = new JsonSerdeV2<>(SamzaSqlRelMessage.class);
 
-    // Create a table backed by RocksDb store with the fields in the join condition as composite key and relational
-    // message as the value. Send the messages from the input stream denoted as 'table' to the created table store.
-    Table<KV<SamzaSqlCompositeKey, SamzaSqlRelMessage>> table =
-        context.getStreamGraph()
-            .getTable(new RocksDbTableDescriptor("table_" + joinId)
-                .withSerde(KVSerde.of(keySerde, relMsgSerde)));
-
-    inputTable
-        .map(m -> new KV(createSamzaSqlCompositeKey(m, tableKeyIds), m))
-        .sendTo(table);
-
-    List<String> tableFieldNames = (isTablePosOnRight ? join.getRight() : join.getLeft()).getRowType().getFieldNames();
-    SamzaSqlRelMessageJoinFunction joinFn =
-        new SamzaSqlRelMessageJoinFunction(join.getJoinType(), isTablePosOnRight, streamKeyIds, tableFieldNames);
+    Table table = loadLocalTable(isTablePosOnRight, tableKeyIds, keySerde, relMsgSerde, join, context);
 
     MessageStream<SamzaSqlRelMessage> inputStream =
         isTablePosOnRight ?
             context.getMessageStream(join.getLeft().getId()) : context.getMessageStream(join.getRight().getId());
+
+    List<String> tableFieldNames = (isTablePosOnRight ? join.getRight() : join.getLeft()).getRowType().getFieldNames();
+    SamzaSqlRelMessageJoinFunction joinFn =
+        new SamzaSqlRelMessageJoinFunction(join.getJoinType(), isTablePosOnRight, streamKeyIds, tableFieldNames);
 
     // Always re-partition the messages from the input stream by the composite key and then join the messages
     // with the table.
@@ -184,16 +171,16 @@ class JoinTranslator {
     }
   }
 
-  // Get the stream and table indices corresponding to the fields given in the join condition by parsing through
+  // Fetch the stream and table indices corresponding to the fields given in the join condition by parsing through
   // the condition.
-  private void getStreamAndTableKeyIds(List<RexNode> operands, final LogicalJoin join, boolean isTablePosOnRight,
+  private void fetchStreamAndTableKeyIds(List<RexNode> operands, final LogicalJoin join, boolean isTablePosOnRight,
       List<Integer> streamKeyIds, List<Integer> tableKeyIds) {
 
     // All non-leaf operands in the join condition should be expressions.
     if (operands.get(0) instanceof RexCall) {
       operands.forEach(operand -> {
         validateJoinCondition(operand);
-        getStreamAndTableKeyIds(((RexCall) operand).getOperands(), join, isTablePosOnRight, streamKeyIds, tableKeyIds);
+        fetchStreamAndTableKeyIds(((RexCall) operand).getOperands(), join, isTablePosOnRight, streamKeyIds, tableKeyIds);
       });
       return;
     }
@@ -256,78 +243,23 @@ class JoinTranslator {
         sourceResolver.isTable(String.join(".", relNode.getTable().getQualifiedName()));
   }
 
-  private final class SamzaSqlRelMessageJoinFunction implements StreamTableJoinFunction<SamzaSqlCompositeKey,
-      SamzaSqlRelMessage, KV<SamzaSqlCompositeKey, SamzaSqlRelMessage>, SamzaSqlRelMessage> {
+  private Table loadLocalTable(boolean isTablePosOnRight, List<Integer> tableKeyIds, Serde keySerde, Serde relMsgSerde,
+      LogicalJoin join, TranslatorContext context) {
+    MessageStream<SamzaSqlRelMessage> inputTable =
+        isTablePosOnRight ?
+            context.getMessageStream(join.getRight().getId()) : context.getMessageStream(join.getLeft().getId());
 
-    JoinRelType joinRelType;
-    boolean isTablePosOnRight;
-    List<Integer> streamFieldIds;
-    // Table field names are used in the outer join when the table record is not found.
-    List<String> tableFieldNames;
+    // Create a table backed by RocksDb store with the fields in the join condition as composite key and relational
+    // message as the value. Send the messages from the input stream denoted as 'table' to the created table store.
+    Table<KV<SamzaSqlCompositeKey, SamzaSqlRelMessage>> table =
+        context.getStreamGraph()
+            .getTable(new RocksDbTableDescriptor("table_" + joinId)
+                .withSerde(KVSerde.of(keySerde, relMsgSerde)));
 
-    SamzaSqlRelMessageJoinFunction(JoinRelType joinRelType, boolean isTablePosOnRight, List<Integer> streamFieldIds,
-        List<String> tableFieldNames) {
-      this.joinRelType = joinRelType;
-      this.isTablePosOnRight = isTablePosOnRight;
-      Validate.isTrue((joinRelType.compareTo(JoinRelType.LEFT) == 0 && isTablePosOnRight) ||
-          (joinRelType.compareTo(JoinRelType.RIGHT) == 0 && !isTablePosOnRight) ||
-          joinRelType.compareTo(JoinRelType.INNER) == 0);
-      this.streamFieldIds = streamFieldIds;
-      this.tableFieldNames = tableFieldNames;
-    }
+    inputTable
+        .map(m -> new KV(createSamzaSqlCompositeKey(m, tableKeyIds), m))
+        .sendTo(table);
 
-    @Override
-    public SamzaSqlRelMessage apply(SamzaSqlRelMessage message, KV<SamzaSqlCompositeKey, SamzaSqlRelMessage> record) {
-
-      if (joinRelType.compareTo(JoinRelType.INNER) == 0 && record == null) {
-        log.debug("Record not found for the message with key: " + getMessageKey(message));
-        return null;
-      }
-
-      // The resulting join output should be a SamzaSqlRelMessage containing the fields from both the stream message and
-      // table record. The order of stream message fields and table record fields are dictated by the sql query. The
-      // output should also include the keys from both the stream message and the table record.
-      List<String> outFieldNames = new ArrayList<>();
-      List<Object> outFieldValues = new ArrayList<>();
-
-      // If table position is on the right, add the stream message fields first
-      if (isTablePosOnRight) {
-        outFieldNames.addAll(message.getFieldNames());
-        outFieldValues.addAll(message.getFieldValues());
-      }
-
-      // Add the table record fields.
-      if (record != null) {
-        outFieldNames.addAll(record.getValue().getFieldNames());
-        outFieldValues.addAll(record.getValue().getFieldValues());
-      } else {
-        // Table record could be null as the record could not be found in the store. This can
-        // happen for outer joins. Add nulls to all the field values in the output message.
-        outFieldNames.addAll(tableFieldNames);
-        tableFieldNames.forEach(s -> outFieldValues.add(null));
-      }
-
-      // If table position is on the left, add the stream message fields last
-      if (!isTablePosOnRight) {
-        outFieldNames.addAll(message.getFieldNames());
-        outFieldValues.addAll(message.getFieldValues());
-      }
-
-      return new SamzaSqlRelMessage(outFieldNames, outFieldValues);
-    }
-
-    @Override
-    public SamzaSqlCompositeKey getMessageKey(SamzaSqlRelMessage message) {
-      return createSamzaSqlCompositeKey(message, streamFieldIds);
-    }
-
-    @Override
-    public SamzaSqlCompositeKey getRecordKey(KV<SamzaSqlCompositeKey, SamzaSqlRelMessage> record) {
-      return record.getKey();
-    }
-
-    @Override
-    public void close() {
-    }
+    return table;
   }
 }
