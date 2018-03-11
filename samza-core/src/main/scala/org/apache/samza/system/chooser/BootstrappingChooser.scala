@@ -266,16 +266,22 @@ class BootstrappingChooser(
 
     trace("Check %s offset %s against %s for %s." format (offsetType, offset, offsetToCheck, systemStreamPartition))
 
-    val systemAdmin = systemAdmins.getSystemAdmin(systemStreamPartition.getSystem)
-    val comparatorResult: Integer = if (offsetToCheck == null) {
+    // Let's compare offset of the chosen message with offsetToCheck. For backward compatibility,
+    // let's also do string equality check along with calling systemAdmin offsetComparator API.
+    val comparatorResult: Integer = if (offset == null) {
+      -1
+    } else if (offset.equals(offsetToCheck)) {
+      0
+    } else if (offsetToCheck == null) {
       -1
     } else {
+      val systemAdmin = systemAdmins.getSystemAdmin(systemStreamPartition.getSystem)
       systemAdmin.offsetComparator(offset, offsetToCheck)
     }
 
     // The SSP is no longer lagging if the envelope's offset is greater than or equal to the
     // latest offset.
-    if (offset != null && comparatorResult != null && comparatorResult >= 0) {
+    if (comparatorResult != null && comparatorResult >= 0) {
       laggingSystemStreamPartitions -= systemStreamPartition
       systemStreamLagCounts += systemStream -> (systemStreamLagCounts(systemStream) - 1)
 
