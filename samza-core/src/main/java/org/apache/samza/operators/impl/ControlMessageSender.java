@@ -43,9 +43,9 @@ class ControlMessageSender {
   }
 
   void send(ControlMessage message, SystemStream systemStream, MessageCollector collector) {
-    SystemStreamMetadata metadata = metadataCache.getSystemStreamMetadata(systemStream, true);
+    SystemStreamMetadata metadata = metadataCache.getSystemStreamMetadata(systemStream, false);
     int partitionCount = metadata.getSystemStreamPartitionMetadata().size();
-    LOG.info(String.format("Broadcast %s message from task %s to %s with %s partition",
+    LOG.debug(String.format("Broadcast %s message from task %s to %s with %s partition",
         MessageType.of(message).name(), message.getTaskName(), systemStream, partitionCount));
 
     for (int i = 0; i < partitionCount; i++) {
