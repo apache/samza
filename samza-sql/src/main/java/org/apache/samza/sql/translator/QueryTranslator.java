@@ -34,7 +34,7 @@ import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.sql.interfaces.SourceResolver;
-import org.apache.samza.sql.interfaces.SqlSystemStreamConfig;
+import org.apache.samza.sql.interfaces.SqlSystemSourceConfig;
 import org.apache.samza.sql.planner.QueryPlanner;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
@@ -98,7 +98,7 @@ public class QueryTranslator {
       }
     });
 
-    SqlSystemStreamConfig outputSystemConfig =
+    SqlSystemSourceConfig outputSystemConfig =
         sqlConfig.getOutputSystemStreamConfigsBySource().get(queryInfo.getOutputSource());
     SamzaRelConverter samzaMsgConverter = sqlConfig.getSamzaRelConverters().get(queryInfo.getOutputSource());
     MessageStreamImpl<SamzaSqlRelMessage> stream =

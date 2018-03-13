@@ -17,7 +17,7 @@
 * under the License.
 */
 
-package org.apache.samza.sql.data;
+package org.apache.samza.sql.translator;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,25 +25,27 @@ import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.commons.lang.Validate;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
+import org.apache.samza.sql.data.SamzaSqlCompositeKey;
+import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.apache.samza.sql.data.SamzaSqlCompositeKey.*;
 
 
-public class SamzaSqlRelMessageJoinFunction implements StreamTableJoinFunction<SamzaSqlCompositeKey,
-  SamzaSqlRelMessage, KV<SamzaSqlCompositeKey, SamzaSqlRelMessage>, SamzaSqlRelMessage> {
+public class SamzaSqlRelMessageJoinFunction implements StreamTableJoinFunction<SamzaSqlCompositeKey, SamzaSqlRelMessage, KV<SamzaSqlCompositeKey, SamzaSqlRelMessage>, SamzaSqlRelMessage> {
 
   private static final Logger log = LoggerFactory.getLogger(SamzaSqlRelMessageJoinFunction.class);
 
-  private JoinRelType joinRelType;
-  private boolean isTablePosOnRight;
-  private List<Integer> streamFieldIds;
+  private final JoinRelType joinRelType;
+  private final boolean isTablePosOnRight;
+  private final List<Integer> streamFieldIds;
   // Table field names are used in the outer join when the table record is not found.
-  private List<String> tableFieldNames;
+  private final List<String> tableFieldNames;
+  private final List<String> outFieldNames;
 
   public SamzaSqlRelMessageJoinFunction(JoinRelType joinRelType, boolean isTablePosOnRight,
-      List<Integer> streamFieldIds, List<String> tableFieldNames) {
+      List<Integer> streamFieldIds, List<String> streamFieldNames, List<String> tableFieldNames) {
     this.joinRelType = joinRelType;
     this.isTablePosOnRight = isTablePosOnRight;
     Validate.isTrue((joinRelType.compareTo(JoinRelType.LEFT) == 0 && isTablePosOnRight) ||
@@ -51,42 +53,46 @@ public class SamzaSqlRelMessageJoinFunction implements StreamTableJoinFunction<S
         joinRelType.compareTo(JoinRelType.INNER) == 0);
     this.streamFieldIds = streamFieldIds;
     this.tableFieldNames = tableFieldNames;
+    this.outFieldNames = new ArrayList<>();
+    if (isTablePosOnRight) {
+      outFieldNames.addAll(streamFieldNames);
+    }
+    outFieldNames.addAll(tableFieldNames);
+    if (!isTablePosOnRight) {
+      outFieldNames.addAll(streamFieldNames);
+    }
   }
 
   @Override
   public SamzaSqlRelMessage apply(SamzaSqlRelMessage message, KV<SamzaSqlCompositeKey, SamzaSqlRelMessage> record) {
 
     if (joinRelType.compareTo(JoinRelType.INNER) == 0 && record == null) {
-      log.debug("Record not found for the message with key: " + getMessageKey(message));
+      log.debug("Inner Join: Record not found for the message with key: " + getMessageKey(message));
       return null;
     }
 
     // The resulting join output should be a SamzaSqlRelMessage containing the fields from both the stream message and
-    // table record. The order of stream message fields and table record fields are dictated by the sql query. The
-    // output should also include the keys from both the stream message and the table record.
-    List<String> outFieldNames = new ArrayList<>();
+    // table record. The order of stream message fields and table record fields are dictated by the position of stream
+    // and table in the 'from' clause of sql query. The output should also include the keys from both the stream message
+    // and the table record.
     List<Object> outFieldValues = new ArrayList<>();
 
     // If table position is on the right, add the stream message fields first
     if (isTablePosOnRight) {
-      outFieldNames.addAll(message.getFieldNames());
       outFieldValues.addAll(message.getFieldValues());
     }
 
     // Add the table record fields.
     if (record != null) {
-      outFieldNames.addAll(record.getValue().getFieldNames());
       outFieldValues.addAll(record.getValue().getFieldValues());
     } else {
       // Table record could be null as the record could not be found in the store. This can
       // happen for outer joins. Add nulls to all the field values in the output message.
-      outFieldNames.addAll(tableFieldNames);
       tableFieldNames.forEach(s -> outFieldValues.add(null));
     }
 
     // If table position is on the left, add the stream message fields last
     if (!isTablePosOnRight) {
-      outFieldNames.addAll(message.getFieldNames());
       outFieldValues.addAll(message.getFieldValues());
     }
 
@@ -95,7 +101,6 @@ public class SamzaSqlRelMessageJoinFunction implements StreamTableJoinFunction<S
 
   @Override
   public SamzaSqlCompositeKey getMessageKey(SamzaSqlRelMessage message) {
-    //return (SamzaSqlCompositeKey) message.getKey();
     return createSamzaSqlCompositeKey(message, streamFieldIds);
   }
 

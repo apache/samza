@@ -23,7 +23,7 @@ import java.util.Arrays;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.interfaces.SourceResolver;
 import org.apache.samza.sql.interfaces.SourceResolverFactory;
-import org.apache.samza.sql.interfaces.SqlSystemStreamConfig;
+import org.apache.samza.sql.interfaces.SqlSystemSourceConfig;
 
 
 public class TestSourceResolverFactory implements SourceResolverFactory {
@@ -41,7 +41,7 @@ public class TestSourceResolverFactory implements SourceResolverFactory {
     }
 
     @Override
-    public SqlSystemStreamConfig fetchSourceInfo(String sourceName) {
+    public SqlSystemSourceConfig fetchSourceInfo(String sourceName) {
       String[] sourceComponents = sourceName.split("\\.");
       boolean isTable = false;
       int systemIdx = 0;
@@ -53,7 +53,7 @@ public class TestSourceResolverFactory implements SourceResolverFactory {
         streamIdx = endIdx - 1;
       }
       Config systemConfigs = config.subset(sourceComponents[systemIdx] + ".");
-      return new SqlSystemStreamConfig(sourceComponents[systemIdx], sourceComponents[streamIdx],
+      return new SqlSystemSourceConfig(sourceComponents[systemIdx], sourceComponents[streamIdx],
           Arrays.asList(sourceComponents), systemConfigs, isTable);
     }
 

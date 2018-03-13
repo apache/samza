@@ -66,6 +66,11 @@ public class SamzaSqlCompositeKey implements Serializable {
     return this == o || o != null && getClass() == o.getClass() && keyParts.equals(((SamzaSqlCompositeKey) o).keyParts);
   }
 
+  /**
+   * Create the SamzaSqlCompositeKey from the rel message.
+   * @param message Represents the samza sql rel message.
+   * @param relIdx list of keys in the form of field indices within the rel message.
+   */
   public static SamzaSqlCompositeKey createSamzaSqlCompositeKey(SamzaSqlRelMessage message, List<Integer> relIdx) {
     ArrayList<Object> keyParts = new ArrayList<>();
     for (int idx : relIdx) {

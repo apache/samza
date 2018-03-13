@@ -42,7 +42,6 @@ import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.sql.data.SamzaSqlCompositeKey;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
-import org.apache.samza.sql.data.SamzaSqlRelMessageJoinFunction;
 import org.apache.samza.sql.interfaces.SourceResolver;
 import org.apache.samza.storage.kv.RocksDbTableDescriptor;
 import org.apache.samza.table.Table;
@@ -65,8 +64,9 @@ import static org.apache.samza.sql.data.SamzaSqlCompositeKey.*;
  *      support for OR operator or any other operator in the join condition.
  *
  * It is assumed that the stream denoted as 'table' is already partitioned by the key(s) specified in the join
- * condition. We do not repartition the table. But we always repartition the stream by the key(s) specified
- * in the join condition.
+ * condition. We do not repartition the table as bootstrap semantic is not propagated to the intermediate streams.
+ * Please refer SAMZA-1613 for more details on this. But we always repartition the stream by the key(s) specified in
+ * the join condition.
  */
 class JoinTranslator {
 
@@ -89,7 +89,7 @@ class JoinTranslator {
     List<Integer> tableKeyIds = new LinkedList<>();
 
     // Fetch the stream and table indices corresponding to the fields given in the join condition.
-    fetchStreamAndTableKeyIds(((RexCall) join.getCondition()).getOperands(), join, isTablePosOnRight, streamKeyIds,
+    populateStreamAndTableKeyIds(((RexCall) join.getCondition()).getOperands(), join, isTablePosOnRight, streamKeyIds,
         tableKeyIds);
 
     JsonSerdeV2<SamzaSqlCompositeKey> keySerde = new JsonSerdeV2<>(SamzaSqlCompositeKey.class);
@@ -101,9 +101,11 @@ class JoinTranslator {
         isTablePosOnRight ?
             context.getMessageStream(join.getLeft().getId()) : context.getMessageStream(join.getRight().getId());
 
+    List<String> streamFieldNames = (isTablePosOnRight ? join.getLeft() : join.getRight()).getRowType().getFieldNames();
     List<String> tableFieldNames = (isTablePosOnRight ? join.getRight() : join.getLeft()).getRowType().getFieldNames();
     SamzaSqlRelMessageJoinFunction joinFn =
-        new SamzaSqlRelMessageJoinFunction(join.getJoinType(), isTablePosOnRight, streamKeyIds, tableFieldNames);
+        new SamzaSqlRelMessageJoinFunction(join.getJoinType(), isTablePosOnRight, streamKeyIds, streamFieldNames,
+            tableFieldNames);
 
     // Always re-partition the messages from the input stream by the composite key and then join the messages
     // with the table.
@@ -171,16 +173,16 @@ class JoinTranslator {
     }
   }
 
-  // Fetch the stream and table indices corresponding to the fields given in the join condition by parsing through
-  // the condition.
-  private void fetchStreamAndTableKeyIds(List<RexNode> operands, final LogicalJoin join, boolean isTablePosOnRight,
+  // Fetch the stream and table key indices corresponding to the fields given in the join condition by parsing through
+  // the condition. Stream and table key indices are populated in streamKeyIds and tableKeyIds respectively.
+  private void populateStreamAndTableKeyIds(List<RexNode> operands, final LogicalJoin join, boolean isTablePosOnRight,
       List<Integer> streamKeyIds, List<Integer> tableKeyIds) {
 
     // All non-leaf operands in the join condition should be expressions.
     if (operands.get(0) instanceof RexCall) {
       operands.forEach(operand -> {
         validateJoinCondition(operand);
-        fetchStreamAndTableKeyIds(((RexCall) operand).getOperands(), join, isTablePosOnRight, streamKeyIds, tableKeyIds);
+        populateStreamAndTableKeyIds(((RexCall) operand).getOperands(), join, isTablePosOnRight, streamKeyIds, tableKeyIds);
       });
       return;
     }
@@ -199,7 +201,8 @@ class JoinTranslator {
     // Join condition is commutative, meaning, a.key = b.key is equivalent to b.key = a.key.
     // Calcite assigns the indices to the fields based on the order a and b are specified in
     // the sql 'from' clause. Let's put the operand with smaller index in leftRef and larger
-    // index in rightRef.
+    // index in rightRef so that the order of operands in the join condition is in the order
+    // the stream and table are specified in the 'from' clause.
     RexInputRef leftRef = (RexInputRef) operands.get(0);
     RexInputRef rightRef = (RexInputRef) operands.get(1);
 

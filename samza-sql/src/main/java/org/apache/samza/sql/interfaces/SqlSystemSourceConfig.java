@@ -30,9 +30,10 @@ import org.apache.samza.system.SystemStream;
 
 
 /**
- * Configs associated with a system stream.
+ * Configs associated with a system source. Both streams and table sources are supported.
+ * For now, only local tables are supported.
  */
-public class SqlSystemStreamConfig {
+public class SqlSystemSourceConfig {
 
   private static final String CFG_SAMZA_STREAM_BOOTSTRAP_STREAM = "streams.%s.samza.bootstrap";
   private static final String CFG_SAMZA_STREAM_OFFSET_DEFAULT = "streams.%s.samza.offset.default";
@@ -54,15 +55,15 @@ public class SqlSystemStreamConfig {
 
   private List<String> sourceParts;
 
-  public SqlSystemStreamConfig(String systemName, String streamName, Config systemConfig) {
+  public SqlSystemSourceConfig(String systemName, String streamName, Config systemConfig) {
     this(systemName, streamName, Arrays.asList(systemName, streamName), systemConfig, false);
   }
 
-  public SqlSystemStreamConfig(String systemName, String streamName, Config systemConfig, boolean isTable) {
+  public SqlSystemSourceConfig(String systemName, String streamName, Config systemConfig, boolean isTable) {
     this(systemName, streamName, Arrays.asList(systemName, streamName), systemConfig, isTable);
   }
 
-  public SqlSystemStreamConfig(String systemName, String streamName, List<String> sourceParts,
+  public SqlSystemSourceConfig(String systemName, String streamName, List<String> sourceParts,
       Config systemConfig, boolean isTable) {
 
 
