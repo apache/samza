@@ -224,6 +224,7 @@ class JoinTranslator {
 
   private void validateKey(RexInputRef ref) {
     SqlTypeName sqlTypeName = ref.getType().getSqlTypeName();
+    // Only primitive types are supported in the key
     if (sqlTypeName != SqlTypeName.BOOLEAN && sqlTypeName != SqlTypeName.TINYINT && sqlTypeName != SqlTypeName.SMALLINT
         && sqlTypeName != SqlTypeName.INTEGER && sqlTypeName != SqlTypeName.CHAR && sqlTypeName != SqlTypeName.BIGINT
         && sqlTypeName != SqlTypeName.VARCHAR && sqlTypeName != SqlTypeName.DOUBLE && sqlTypeName != SqlTypeName.FLOAT) {
