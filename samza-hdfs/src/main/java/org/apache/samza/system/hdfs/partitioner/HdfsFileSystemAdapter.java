@@ -28,7 +28,6 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.samza.SamzaException;
-import org.apache.samza.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,7 +43,11 @@ public class HdfsFileSystemAdapter implements FileSystemAdapter {
       FileSystem fileSystem = streamPath.getFileSystem(new Configuration());
       FileStatus[] fileStatuses = fileSystem.listStatus(streamPath);
       for (FileStatus fileStatus : fileStatuses) {
-        ret.add(new FileMetadata(fileStatus.getPath().toString(), fileStatus.getLen()));
+        if (!fileStatus.isDirectory()) {
+          ret.add(new FileMetadata(fileStatus.getPath().toString(), fileStatus.getLen()));
+        } else {
+          ret.addAll(getAllFiles(fileStatus.getPath().toString()));
+        }
       }
     } catch (IOException e) {
       LOG.error("Failed to get the list of files for " + streamName, e);
