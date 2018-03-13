@@ -38,7 +38,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 class ControlMessageSender {
   private static final Logger LOG = LoggerFactory.getLogger(ControlMessageSender.class);
-  private static final Map<SystemStream, Integer> partitions = new ConcurrentHashMap<>();
+  private static final Map<SystemStream, Integer> PARTITION_COUNT_CACHE = new ConcurrentHashMap<>();
 
   private final StreamMetadataCache metadataCache;
 
@@ -47,12 +47,10 @@ class ControlMessageSender {
   }
 
   void send(ControlMessage message, SystemStream systemStream, MessageCollector collector) {
-    Integer partitionCount = partitions.get(systemStream);
-    if (partitionCount == null) {
-      SystemStreamMetadata metadata = metadataCache.getSystemStreamMetadata(systemStream, true);
-      partitionCount = metadata.getSystemStreamPartitionMetadata().size();
-      partitions.put(systemStream, partitionCount);
-    }
+    Integer partitionCount = PARTITION_COUNT_CACHE.computeIfAbsent(systemStream, ss -> {
+        SystemStreamMetadata metadata = metadataCache.getSystemStreamMetadata(ss, true);
+        return metadata.getSystemStreamPartitionMetadata().size();
+      });
 
     LOG.debug(String.format("Broadcast %s message from task %s to %s with %s partition",
         MessageType.of(message).name(), message.getTaskName(), systemStream, partitionCount));
