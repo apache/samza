@@ -19,6 +19,7 @@
 
 package org.apache.samza.operators.impl;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.system.ControlMessage;
 import org.apache.samza.system.MessageType;
 import org.apache.samza.system.OutgoingMessageEnvelope;
@@ -49,6 +50,9 @@ class ControlMessageSender {
   void send(ControlMessage message, SystemStream systemStream, MessageCollector collector) {
     Integer partitionCount = PARTITION_COUNT_CACHE.computeIfAbsent(systemStream, ss -> {
         SystemStreamMetadata metadata = metadataCache.getSystemStreamMetadata(ss, true);
+        if (metadata == null) {
+          throw new SamzaException("Unable to find metadata for stream " + systemStream);
+        }
         return metadata.getSystemStreamPartitionMetadata().size();
       });
 
