@@ -129,7 +129,7 @@ public class TestQueryTranslator extends AbstractIntegrationTestHarness {
     String sql =
         "Insert into testavro.enrichedPageViewTopic"
             + " select p.name as profileName, pv.pageKey"
-            + " from testavro.`$table` as pv, testavro.PROFILE.`$table` as p"
+            + " from testavro.PAGEVIEW as pv, testavro.PROFILE.`$table` as p"
             + " where p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
