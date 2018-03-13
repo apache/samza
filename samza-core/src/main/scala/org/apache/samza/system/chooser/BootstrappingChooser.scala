@@ -276,7 +276,7 @@ class BootstrappingChooser(
 
     // The SSP is no longer lagging if the envelope's offset is greater than or equal to the
     // latest offset.
-    if (comparatorResult != null && comparatorResult >= 0) {
+    if (comparatorResult != null && comparatorResult.intValue() >= 0) {
       laggingSystemStreamPartitions -= systemStreamPartition
       systemStreamLagCounts += systemStream -> (systemStreamLagCounts(systemStream) - 1)
 
