@@ -266,13 +266,8 @@ class BootstrappingChooser(
 
     trace("Check %s offset %s against %s for %s." format (offsetType, offset, offsetToCheck, systemStreamPartition))
 
-    // Let's compare offset of the chosen message with offsetToCheck. For backward compatibility,
-    // let's also do string equality check along with calling systemAdmin offsetComparator API.
-    val comparatorResult: Integer = if (offset == null) {
-      -1
-    } else if (offset.equals(offsetToCheck)) {
-      0
-    } else if (offsetToCheck == null) {
+    // Let's compare offset of the chosen message with offsetToCheck.
+    val comparatorResult: Integer = if (offset == null || offsetToCheck == null) {
       -1
     } else {
       val systemAdmin = systemAdmins.getSystemAdmin(systemStreamPartition.getSystem)
