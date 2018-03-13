@@ -39,10 +39,12 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.StreamProcessorLifecycleListener;
+import org.apache.samza.system.SystemFactory;
 import org.apache.samza.task.AsyncStreamTaskAdapter;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
@@ -246,12 +248,14 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
 
     TestStubs(Config config, StreamTaskFactory taskFactory, String bootstrapServer) {
       this(bootstrapServer);
-      processor = new StreamProcessor(config, new HashMap<>(), taskFactory, listener);
+      Map<String, SystemFactory> systemFactories = new JavaSystemConfig(config).getSystemFactories();
+      processor = new StreamProcessor(config, new HashMap<>(), taskFactory, listener, systemFactories);
     }
 
     TestStubs(Config config, AsyncStreamTaskFactory taskFactory, String bootstrapServer) {
       this(bootstrapServer);
-      processor = new StreamProcessor(config, new HashMap<>(), taskFactory, listener);
+      Map<String, SystemFactory> systemFactories = new JavaSystemConfig(config).getSystemFactories();
+      processor = new StreamProcessor(config, new HashMap<>(), taskFactory, listener, systemFactories);
     }
 
     private void initConsumer(String bootstrapServer) {

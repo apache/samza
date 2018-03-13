@@ -28,6 +28,7 @@ import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.system.SystemFactory;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.StreamTaskFactory;
 import org.junit.After;
@@ -82,8 +83,9 @@ public class TestStreamProcessor {
         StreamTaskFactory streamTaskFactory,
         StreamProcessorLifecycleListener processorListener,
         JobCoordinator jobCoordinator,
-        SamzaContainer container) {
-      super(config, customMetricsReporters, streamTaskFactory, processorListener, jobCoordinator);
+        SamzaContainer container,
+        Map<String, SystemFactory> systemFactories) {
+      super(config, customMetricsReporters, streamTaskFactory, processorListener, jobCoordinator, systemFactories);
       this.container = container;
     }
 
@@ -160,7 +162,8 @@ public class TestStreamProcessor {
           }
         },
         mockJobCoordinator,
-        null);
+        null,
+        new HashMap<>());
 
     final CountDownLatch coordinatorStop = new CountDownLatch(1);
     final Thread jcThread = new Thread(() ->
@@ -257,7 +260,8 @@ public class TestStreamProcessor {
           }
         },
         mockJobCoordinator,
-        mockContainer);
+        mockContainer,
+        new HashMap<>());
 
     final CountDownLatch coordinatorStop = new CountDownLatch(1);
     doAnswer(invocation ->

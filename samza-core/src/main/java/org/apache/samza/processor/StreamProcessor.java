@@ -28,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.samza.SamzaContainerStatus;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.container.IllegalContainerStateException;
@@ -38,6 +39,7 @@ import org.apache.samza.coordinator.JobCoordinatorFactory;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.system.SystemFactory;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.util.Util;
@@ -63,6 +65,7 @@ public class StreamProcessor {
   private final Config config;
   private final long taskShutdownMs;
   private final String processorId;
+  private final Map<String, SystemFactory> systemFactories;
 
   private ExecutorService executorService;
 
@@ -76,6 +79,59 @@ public class StreamProcessor {
 
   @VisibleForTesting
   JobCoordinatorListener jobCoordinatorListener = null;
+
+
+  /**
+   * @deprecated use {@link #StreamProcessor(Config, Map, StreamTaskFactory, StreamProcessorLifecycleListener, Map)} instead.
+   *
+   *Same as {@link #StreamProcessor(Config, Map, AsyncStreamTaskFactory, StreamProcessorLifecycleListener, Map)}, except task
+   * instances are created using the provided {@link StreamTaskFactory}.
+   * @param config - config
+   * @param customMetricsReporters metric Reporter
+   * @param streamTaskFactory task factory to instantiate the Task
+   * @param processorListener  listener to the StreamProcessor life cycle
+   */
+  public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
+      StreamTaskFactory streamTaskFactory, StreamProcessorLifecycleListener processorListener) {
+    this(config, customMetricsReporters, (Object) streamTaskFactory, processorListener, null);
+  }
+
+  /**
+   * @deprecated use {@link #StreamProcessor(Config, Map, AsyncStreamTaskFactory, StreamProcessorLifecycleListener, Map)}()} instead.
+   *
+   * Create an instance of StreamProcessor that encapsulates a JobCoordinator and Samza Container
+   * <p>
+   * JobCoordinator controls how the various StreamProcessor instances belonging to a job coordinate. It is also
+   * responsible generating and updating JobModel.
+   * When StreamProcessor starts, it starts the JobCoordinator and brings up a SamzaContainer based on the JobModel.
+   * SamzaContainer is executed using an ExecutorService.
+   * <p>
+   * <b>Note:</b> Lifecycle of the ExecutorService is fully managed by the StreamProcessor, and NOT exposed to the user
+   *
+   * @param config                 Instance of config object - contains all configuration required for processing
+   * @param customMetricsReporters Map of custom MetricReporter instances that are to be injected in the Samza job
+   * @param asyncStreamTaskFactory The {@link AsyncStreamTaskFactory} to be used for creating task instances.
+   * @param processorListener         listener to the StreamProcessor life cycle
+   */
+  public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
+      AsyncStreamTaskFactory asyncStreamTaskFactory, StreamProcessorLifecycleListener processorListener) {
+    this(config, customMetricsReporters, (Object) asyncStreamTaskFactory, processorListener, null);
+  }
+
+  /**
+   *Same as {@link #StreamProcessor(Config, Map, AsyncStreamTaskFactory, StreamProcessorLifecycleListener, Map)}, except task
+   * instances are created using the provided {@link StreamTaskFactory}.
+   * @param config - config
+   * @param customMetricsReporters metric Reporter
+   * @param streamTaskFactory task factory to instantiate the Task
+   * @param processorListener  listener to the StreamProcessor life cycle
+   */
+  public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
+      StreamTaskFactory streamTaskFactory, StreamProcessorLifecycleListener processorListener,
+      Map<String, SystemFactory> systemFactories) {
+    this(config, customMetricsReporters, (Object) streamTaskFactory, processorListener, null, systemFactories);
+  }
+
 
   /**
    * Create an instance of StreamProcessor that encapsulates a JobCoordinator and Samza Container
@@ -93,21 +149,9 @@ public class StreamProcessor {
    * @param processorListener         listener to the StreamProcessor life cycle
    */
   public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
-                         AsyncStreamTaskFactory asyncStreamTaskFactory, StreamProcessorLifecycleListener processorListener) {
-    this(config, customMetricsReporters, (Object) asyncStreamTaskFactory, processorListener, null);
-  }
-
-  /**
-   *Same as {@link #StreamProcessor(Config, Map, AsyncStreamTaskFactory, StreamProcessorLifecycleListener)}, except task
-   * instances are created using the provided {@link StreamTaskFactory}.
-   * @param config - config
-   * @param customMetricsReporters metric Reporter
-   * @param streamTaskFactory task factory to instantiate the Task
-   * @param processorListener  listener to the StreamProcessor life cycle
-   */
-  public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
-                         StreamTaskFactory streamTaskFactory, StreamProcessorLifecycleListener processorListener) {
-    this(config, customMetricsReporters, (Object) streamTaskFactory, processorListener, null);
+      AsyncStreamTaskFactory asyncStreamTaskFactory, StreamProcessorLifecycleListener processorListener,
+      Map<String, SystemFactory> systemFactories) {
+    this(config, customMetricsReporters, (Object) asyncStreamTaskFactory, processorListener, null, systemFactories);
   }
 
   /* package private */
@@ -125,7 +169,8 @@ public class StreamProcessor {
   }
 
   StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, Object taskFactory,
-                  StreamProcessorLifecycleListener processorListener, JobCoordinator jobCoordinator) {
+                  StreamProcessorLifecycleListener processorListener, JobCoordinator jobCoordinator,
+                  Map<String, SystemFactory> systemFactories) {
     this.taskFactory = taskFactory;
     this.config = config;
     this.taskShutdownMs = new TaskConfigJava(config).getShutdownMs();
@@ -134,7 +179,21 @@ public class StreamProcessor {
     this.jobCoordinator = (jobCoordinator != null) ? jobCoordinator : getJobCoordinator();
     this.jobCoordinatorListener = createJobCoordinatorListener();
     this.jobCoordinator.setListener(jobCoordinatorListener);
+    this.systemFactories = systemFactories;
+    processorId = this.jobCoordinator.getProcessorId();
+  }
 
+  StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, Object taskFactory,
+      StreamProcessorLifecycleListener processorListener, JobCoordinator jobCoordinator) {
+    this.taskFactory = taskFactory;
+    this.config = config;
+    this.taskShutdownMs = new TaskConfigJava(config).getShutdownMs();
+    this.customMetricsReporter = customMetricsReporters;
+    this.processorListener = processorListener;
+    this.jobCoordinator = (jobCoordinator != null) ? jobCoordinator : getJobCoordinator();
+    this.jobCoordinatorListener = createJobCoordinatorListener();
+    this.jobCoordinator.setListener(jobCoordinatorListener);
+    this.systemFactories = new JavaSystemConfig(config).getSystemFactories();
     processorId = this.jobCoordinator.getProcessorId();
   }
 
@@ -200,7 +259,8 @@ public class StreamProcessor {
         jobModel,
         config,
         Util.<String, MetricsReporter>javaMapAsScalaMap(customMetricsReporter),
-        taskFactory);
+        taskFactory,
+        Util.<String, SystemFactory>javaMapAsScalaMap(systemFactories));
   }
 
   JobCoordinatorListener createJobCoordinatorListener() {

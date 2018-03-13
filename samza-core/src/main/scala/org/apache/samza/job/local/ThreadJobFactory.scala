@@ -19,8 +19,10 @@
 
 package org.apache.samza.job.local
 
+import org.apache.samza.SamzaException
 import org.apache.samza.config.{Config, TaskConfigJava}
 import org.apache.samza.config.JobConfig._
+import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.ShellCommandConfig._
 import org.apache.samza.container.{SamzaContainer, SamzaContainerListener}
 import org.apache.samza.coordinator.JobModelManager
@@ -29,8 +31,10 @@ import org.apache.samza.job.{StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.runtime.LocalContainerRunner
 import org.apache.samza.storage.ChangelogStreamManager
+import org.apache.samza.system.SystemFactory
 import org.apache.samza.task.TaskFactoryUtil
 import org.apache.samza.util.Logging
+import org.apache.samza.util.Util
 
 /**
  * Creates a new Thread job with the given config
@@ -83,6 +87,14 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
       }
     }
 
+    val systemNames = config.getSystemNames
+    val systemFactories = systemNames.map(systemName => {
+      val systemFactoryClassName = config
+        .getSystemFactory(systemName)
+        .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemName))
+      (systemName, Util.getObj[SystemFactory](systemFactoryClassName))
+    }).toMap
+
     try {
       coordinator.start
       val container = SamzaContainer(
@@ -90,7 +102,9 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         jobModel,
         config,
         Map[String, MetricsReporter](),
-        taskFactory)
+        taskFactory,
+        systemFactories
+      )
       container.setContainerListener(containerListener)
 
       val threadJob = new ThreadJob(container)

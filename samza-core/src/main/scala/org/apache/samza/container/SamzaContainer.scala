@@ -80,7 +80,8 @@ object SamzaContainer extends Logging {
     jobModel: JobModel,
     config: Config,
     customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter](),
-    taskFactory: Object) = {
+    taskFactory: Object,
+    systemFactories: Map[String, SystemFactory]) = {
     val containerModel = jobModel.getContainers.get(containerId)
     val containerName = "samza-container-%s" format containerId
     val maxChangeLogStreamPartitions = jobModel.maxChangeLogStreamPartitions
@@ -133,21 +134,15 @@ object SamzaContainer extends Logging {
       .map(_.getSystem)
       .toSet
 
-    val systemNames = config.getSystemNames
+    val systemNamesa = config.getSystemNames
+
+    val systemNames = systemFactories.keySet
 
     info("Got system names: %s" format systemNames)
 
     val serdeStreams = systemNames.foldLeft(Set[SystemStream]())(_ ++ config.getSerdeStreams(_))
 
     info("Got serde streams: %s" format serdeStreams)
-
-    val systemFactories = systemNames.map(systemName => {
-      val systemFactoryClassName = config
-        .getSystemFactory(systemName)
-        .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemName))
-      (systemName, Util.getObj[SystemFactory](systemFactoryClassName))
-    }).toMap
-    info("Got system factories: %s" format systemFactories.keys)
 
     val systemAdmins = new SystemAdmins(config)
     info("Got system admins: %s" format systemAdmins.getSystemAdminsMap().keySet())
