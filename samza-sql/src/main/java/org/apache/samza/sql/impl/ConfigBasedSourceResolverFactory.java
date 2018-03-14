@@ -57,12 +57,15 @@ public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
     public SqlSystemSourceConfig fetchSourceInfo(String source) {
       String[] sourceComponents = source.split("\\.");
       boolean isTable = false;
-      int systemIdx = 0;
+
+      // This source resolver expects sources of format {systemName}.{streamName}[.$table]
+      //  * First source part is always system name.
+      //  * The last source part could be either a "$table" keyword or stream name. If it is "$table", then stream name
+      //    should be the one before the last source part.
       int endIdx = sourceComponents.length - 1;
       int streamIdx = endIdx;
       boolean invalidQuery = false;
 
-      // This source resolver expects sources of format {systemName}.{streamName}[.$table]
       if (sourceComponents.length != 2) {
         if (sourceComponents.length != 3 ||
             !sourceComponents[endIdx].equalsIgnoreCase(SAMZA_SQL_QUERY_TABLE_KEYWORD)) {
@@ -87,7 +90,7 @@ public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
         streamIdx = endIdx - 1;
       }
 
-      String systemName = sourceComponents[systemIdx];
+      String systemName = sourceComponents[0];
       String streamName = sourceComponents[streamIdx];
 
       return new SqlSystemSourceConfig(systemName, streamName, fetchSystemConfigs(systemName), isTable);
