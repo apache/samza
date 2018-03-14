@@ -23,6 +23,7 @@ package org.apache.samza.config
 import java.io.File
 
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
+import org.apache.samza.coordinator.metadatastore.KafkaMetadataStoreFactory
 import org.apache.samza.util.Logging
 
 object JobConfig {
@@ -77,6 +78,11 @@ object JobConfig {
   val DEFAULT_MONITOR_PARTITION_CHANGE_FREQUENCY_MS = 300000
   val JOB_SECURITY_MANAGER_FACTORY = "job.security.manager.factory"
 
+   // TODO: Rename this configuration value and variable name properly later.
+
+  val METADATA_STORE_FACTORY = "metadata.store.factory"
+  val LOCATION_ID_PROVIDER_FACTORY = "locationid.provider.factory"
+
   // Processor Config Constants
   val PROCESSOR_ID = "processor.id"
   val PROCESSOR_LIST = "processor.list"
@@ -105,6 +111,7 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getName = getOption(JobConfig.JOB_NAME)
 
   def getCoordinatorSystemName = {
+
     val system = getCoordinatorSystemNameOrNull
     if (system == null) {
       throw new ConfigException("Missing job.coordinator.system configuration. Cannot proceed with job execution.")
@@ -175,4 +182,8 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   }
 
   def getDebounceTimeMs = getInt(JobConfig.JOB_DEBOUNCE_TIME_MS, JobConfig.DEFAULT_DEBOUNCE_TIME_MS)
+
+  def getMetadataStoreFactory = getOption(JobConfig.METADATA_STORE_FACTORY).getOrElse(classOf[KafkaMetadataStoreFactory].getCanonicalName)
+
+  def getLocationIdProviderFactory = getOption(JobConfig.LOCATION_ID_PROVIDER_FACTORY)
 }
