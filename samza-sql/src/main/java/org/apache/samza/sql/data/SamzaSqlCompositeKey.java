@@ -53,7 +53,7 @@ public class SamzaSqlCompositeKey implements Serializable {
 
   @Override
   public String toString() {
-    return Arrays.toString(keyParts.toArray());
+    return String.join(", ", Arrays.toString(keyParts.toArray()));
   }
 
   @Override

@@ -62,6 +62,7 @@ import static org.apache.samza.sql.data.SamzaSqlCompositeKey.*;
  *   4. Join condition with a constant is not supported.
  *   5. Compound join condition with only AND operator is supported. AND operator with a constant is not supported. No
  *      support for OR operator or any other operator in the join condition.
+ *   6. Join condition with UDFs is not supported. Eg: udf1(a.key) = udf2(b.key) is not supported.
  *
  * It is assumed that the stream denoted as 'table' is already partitioned by the key(s) specified in the join
  * condition. We do not repartition the table as bootstrap semantic is not propagated to the intermediate streams.
@@ -103,6 +104,12 @@ class JoinTranslator {
 
     List<String> streamFieldNames = (isTablePosOnRight ? join.getLeft() : join.getRight()).getRowType().getFieldNames();
     List<String> tableFieldNames = (isTablePosOnRight ? join.getRight() : join.getLeft()).getRowType().getFieldNames();
+    Validate.isTrue(streamKeyIds.size() == tableKeyIds.size());
+    log.info("Joining on the following Stream and Table field(s): ");
+    for (int i = 0; i < streamKeyIds.size(); i++) {
+      log.info(streamFieldNames.get(streamKeyIds.get(i)) + " with " + tableFieldNames.get(tableKeyIds.get(i)));
+    }
+
     SamzaSqlRelMessageJoinFunction joinFn =
         new SamzaSqlRelMessageJoinFunction(join.getJoinType(), isTablePosOnRight, streamKeyIds, streamFieldNames,
             tableFieldNames);
@@ -265,5 +272,8 @@ class JoinTranslator {
         .sendTo(table);
 
     return table;
+  }
+
+  private void logStringAndTableJoinKeys(List<String> fieldNames, List<Integer> fieldIds) {
   }
 }

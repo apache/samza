@@ -33,7 +33,12 @@ import org.slf4j.LoggerFactory;
 import static org.apache.samza.sql.data.SamzaSqlCompositeKey.*;
 
 
-public class SamzaSqlRelMessageJoinFunction implements StreamTableJoinFunction<SamzaSqlCompositeKey, SamzaSqlRelMessage, KV<SamzaSqlCompositeKey, SamzaSqlRelMessage>, SamzaSqlRelMessage> {
+/**
+ * This class joins incoming {@link SamzaSqlRelMessage} from a stream with the records in a table with the join key
+ * being {@link SamzaSqlCompositeKey}
+ */
+public class SamzaSqlRelMessageJoinFunction
+    implements StreamTableJoinFunction<SamzaSqlCompositeKey, SamzaSqlRelMessage, KV<SamzaSqlCompositeKey, SamzaSqlRelMessage>, SamzaSqlRelMessage> {
 
   private static final Logger log = LoggerFactory.getLogger(SamzaSqlRelMessageJoinFunction.class);
 
@@ -68,6 +73,7 @@ public class SamzaSqlRelMessageJoinFunction implements StreamTableJoinFunction<S
 
     if (joinRelType.compareTo(JoinRelType.INNER) == 0 && record == null) {
       log.debug("Inner Join: Record not found for the message with key: " + getMessageKey(message));
+      // Returning null would result in Join operator implementation to filter out the message.
       return null;
     }
 

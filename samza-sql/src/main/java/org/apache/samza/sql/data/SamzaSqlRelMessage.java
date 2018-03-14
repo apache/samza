@@ -33,6 +33,7 @@ import org.codehaus.jackson.annotate.JsonProperty;
  * their associated column names. Right now we donot store any other metadata other than the column name in the
  * SamzaSqlRelationalMessage, In future if we find a need, we could add additional column ddl metadata around
  * primary Key, nullability, etc.
+ * TODO: SAMZA-1619 Support serialization of nested SamzaSqlRelMessage.
  */
 public class SamzaSqlRelMessage implements Serializable {
 
