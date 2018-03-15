@@ -334,9 +334,6 @@ public class TestStreamProcessor {
     streamProcessor.start();
     streamProcessor.container = containerMock;
     streamProcessor.stop();
-
-    // Assert that the background thread in SamzaContainer.shutdown is not dead.
-    Assert.assertEquals(Thread.State.TIMED_WAITING, containerThread.getState());
   }
 
   // TODO:
