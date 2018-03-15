@@ -460,7 +460,6 @@ public class TestZkUtils {
     Assert.assertEquals("3", zkUtils.getNextJobModelVersion(zkUtils.getJobModelVersion()));
   }
 
-
   @Test
   public void testCloseShouldRetryOnceOnInterruptedException() {
     ZkClient zkClient = Mockito.mock(ZkClient.class);
@@ -503,5 +502,24 @@ public class TestZkUtils {
     threadToInterrupt.join();
 
     Assert.assertTrue(field.getBoolean(zkClient));
+  }
+
+  @Test
+  public void testDeleteProcessorNodeShouldDeleteTheCorrectProcessorNode() {
+    String testProcessorId1 = "processorId1";
+    String testProcessorId2 = "processorId2";
+
+    ZkUtils zkUtils = getZkUtils();
+    ZkUtils zkUtils1 = getZkUtils();
+
+    zkUtils.registerProcessorAndGetId(new ProcessorData("host1", testProcessorId1));
+    zkUtils1.registerProcessorAndGetId(new ProcessorData("host2", testProcessorId2));
+
+    zkUtils.deleteProcessorNode(testProcessorId1);
+
+    List<String> expectedProcessors = ImmutableList.of(testProcessorId2);
+    List<String> actualProcessors = zkUtils.getSortedActiveProcessorsIDs();
+
+    Assert.assertEquals(expectedProcessors, actualProcessors);
   }
 }
