@@ -21,6 +21,7 @@ package org.apache.samza.logging.log4j;
 
 import static org.junit.Assert.*;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -49,6 +50,7 @@ public class TestStreamAppender {
     log.removeAllAppenders();
     MockSystemProducer.listeners.clear();
     MockSystemProducer.messagesReceived.clear();
+    MockSystemAdmin.createdStreamName = "";
   }
 
   @Test
@@ -119,17 +121,37 @@ public class TestStreamAppender {
   }
 
   @Test
-  public void testStreamCreationUponSetup() {
+  public void testNoStreamCreationUponSetupByDefault() {
     System.setProperty("samza.container.name", "samza-container-1");
 
     MockSystemProducerAppender systemProducerAppender = new MockSystemProducerAppender();
     PatternLayout layout = new PatternLayout();
     layout.setConversionPattern("%m");
     systemProducerAppender.setLayout(layout);
-    systemProducerAppender.activateOptions();
+    systemProducerAppender.activateOptions(); // setupSystem() called inside here.
     log.addAppender(systemProducerAppender);
 
-    systemProducerAppender.setupSystem();
+    Assert.assertEquals("", MockSystemAdmin.createdStreamName);
+  }
+
+  @Test
+  public void testStreamCreationUpSetupWhenEnabled() {
+    System.setProperty("samza.container.name", "samza-container-1");
+
+    MapConfig mapConfig = new MapConfig(ImmutableMap.of(
+        "task.log4j.create.stream.enabled", "true", // Enable explicit stream creation
+        "job.name", "log4jTest",
+        "job.id", "1",
+        "systems.mock.samza.factory", MockSystemFactory.class.getCanonicalName(),
+        "task.log4j.system", "mock"));
+
+    MockSystemProducerAppender systemProducerAppender = new MockSystemProducerAppender(mapConfig);
+    PatternLayout layout = new PatternLayout();
+    layout.setConversionPattern("%m");
+    systemProducerAppender.setLayout(layout);
+    systemProducerAppender.activateOptions(); // setupSystem() called inside here.
+    log.addAppender(systemProducerAppender);
+
     Assert.assertEquals("__samza_log4jTest_1_logs", MockSystemAdmin.createdStreamName);
   }
 
