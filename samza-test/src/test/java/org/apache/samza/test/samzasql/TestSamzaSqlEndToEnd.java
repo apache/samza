@@ -17,7 +17,7 @@
 * under the License.
 */
 
-package org.apache.samza.sql.e2e;
+package org.apache.samza.test.samzasql;
 
 import java.util.ArrayList;
 import java.util.Arrays;
