@@ -25,6 +25,7 @@ import org.apache.calcite.rel.RelShuttleImpl;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.logical.LogicalProject;
+import org.apache.samza.SamzaException;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
@@ -36,6 +37,9 @@ import org.apache.samza.sql.interfaces.SqlSystemStreamConfig;
 import org.apache.samza.sql.planner.QueryPlanner;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
+import org.apache.samza.table.Table;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -44,6 +48,7 @@ import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
  * It then walks the relational graph and then populates the Samza's {@link StreamGraph} accordingly.
  */
 public class QueryTranslator {
+  private static final Logger LOG = LoggerFactory.getLogger(QueryTranslator.class);
 
   private final ScanTranslator scanTranslator;
   private final SamzaSqlApplicationConfig sqlConfig;
@@ -89,9 +94,19 @@ public class QueryTranslator {
     SqlSystemStreamConfig outputSystemConfig =
         sqlConfig.getOutputSystemStreamConfigsBySource().get(queryInfo.getOutputSource());
     SamzaRelConverter samzaMsgConverter = sqlConfig.getSamzaRelConverters().get(queryInfo.getOutputSource());
-    MessageStreamImpl<SamzaSqlRelMessage> stream =
-        (MessageStreamImpl<SamzaSqlRelMessage>) context.getMessageStream(node.getId());
+    MessageStreamImpl<SamzaSqlRelMessage> stream = (MessageStreamImpl<SamzaSqlRelMessage>) context.getMessageStream(node.getId());
     MessageStream<KV<Object, Object>> outputStream = stream.map(samzaMsgConverter::convertToSamzaMessage);
-    outputStream.sendTo(streamGraph.getOutputStream(outputSystemConfig.getStreamName()));
+
+    if (!outputSystemConfig.isTable()) {
+      outputStream.sendTo(streamGraph.getOutputStream(outputSystemConfig.getStreamName()));
+    } else {
+      Table outputTable = streamGraph.getTable(outputSystemConfig.getTableDescriptor());
+      if (outputTable == null) {
+        String msg = "Failed to obtain table with " + outputSystemConfig.getSource();
+        LOG.error(msg);
+        throw new SamzaException(msg);
+      }
+      outputStream.sendTo(outputTable);
+    }
   }
 }

@@ -26,6 +26,7 @@ import java.util.List;
 import org.apache.commons.lang.Validate;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.system.SystemStream;
 
 
@@ -51,12 +52,14 @@ public class SqlSystemStreamConfig {
 
   private List<String> sourceParts;
 
+  private TableDescriptor tableDescriptor;
+
   public SqlSystemStreamConfig(String systemName, String streamName, Config systemConfig) {
-    this(systemName, streamName, Arrays.asList(systemName, streamName), systemConfig);
+    this(systemName, streamName, Arrays.asList(systemName, streamName), systemConfig, null);
   }
 
   public SqlSystemStreamConfig(String systemName, String streamName, List<String> sourceParts,
-      Config systemConfig) {
+      Config systemConfig, TableDescriptor tableDescriptor) {
 
 
     HashMap<String, String> streamConfigs = new HashMap<>(systemConfig);
@@ -65,6 +68,7 @@ public class SqlSystemStreamConfig {
     this.source = getSourceFromSourceParts(sourceParts);
     this.sourceParts = sourceParts;
     this.systemStream = new SystemStream(systemName, streamName);
+    this.tableDescriptor = tableDescriptor;
 
     samzaRelConverterName = streamConfigs.get(CFG_SAMZA_REL_CONVERTER);
     Validate.notEmpty(samzaRelConverterName,
@@ -113,5 +117,13 @@ public class SqlSystemStreamConfig {
 
   public String getSource() {
     return source;
+  }
+
+  public boolean isTable() {
+    return tableDescriptor != null;
+  }
+
+  public TableDescriptor getTableDescriptor() {
+    return tableDescriptor;
   }
 }

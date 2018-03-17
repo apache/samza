@@ -35,6 +35,7 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.sql.data.RexToJavaCompiler;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
+import org.apache.samza.table.Table;
 
 
 /**
@@ -43,6 +44,7 @@ import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 public class TranslatorContext {
   private final StreamGraph streamGraph;
   private final Map<Integer, MessageStream> messsageStreams = new HashMap<>();
+  private final Map<String, Table> tables = new HashMap<>();
   private final RexToJavaCompiler compiler;
 
   private final SamzaSqlExecutionContext executionContext;

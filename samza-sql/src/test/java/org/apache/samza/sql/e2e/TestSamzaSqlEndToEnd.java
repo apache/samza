@@ -150,4 +150,5 @@ public class TestSamzaSqlEndToEnd {
     // There should be two messages that contain "4"
     Assert.assertEquals(TestAvroSystemFactory.messages.size(), 2);
   }
+
 }
