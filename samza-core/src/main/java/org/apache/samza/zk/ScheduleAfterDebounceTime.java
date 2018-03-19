@@ -93,6 +93,8 @@ public class ScheduleAfterDebounceTime {
    * and all pending enqueued tasks will be cancelled.
    */
   public synchronized void stopScheduler() {
+    LOG.info("Stopping Scheduler");
+
     scheduledExecutorService.shutdownNow();
 
     // Clear the existing future handles.
@@ -142,9 +144,9 @@ public class ScheduleAfterDebounceTime {
         } else {
           LOG.debug("Action: {} completed successfully.", actionName);
         }
-      } catch (Exception exception) {
-        LOG.error("Execution of action: {} failed.", actionName, exception);
-        doCleanUpOnTaskException(exception);
+      } catch (Throwable t) {
+        LOG.error("Execution of action: {} failed.", actionName, t);
+        doCleanUpOnTaskException(t);
       }
     };
   }
@@ -159,7 +161,7 @@ public class ScheduleAfterDebounceTime {
    *
    * @param exception the exception happened during task execution.
    */
-  private void doCleanUpOnTaskException(Exception exception) {
+  private void doCleanUpOnTaskException(Throwable exception) {
     stopScheduler();
 
     scheduledTaskCallback.ifPresent(callback -> callback.onError(exception));
