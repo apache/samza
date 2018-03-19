@@ -101,7 +101,7 @@ public class TestZkStreamProcessorSession extends TestZkStreamProcessorBase {
     // New containerShutdownLatch is created after each onNewJobModel,
     // so we need to get the current one, before it changed..
     for (int i = 0; i < processorIds.length; i++) {
-      containerStopLatches[i] = streamProcessors[i].containerShutdownLatch;
+      containerStopLatches[i] = streamProcessors[i].jcContainerShutdownLatch;
     }
 
     // expire zk session of one of the processors

@@ -127,7 +127,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
     // make sure it consumes all the messages from the first batch
     waitUntilMessagesLeftN(totalEventsToGenerate - messageCount);
-    CountDownLatch containerStopped1 = sp1.containerShutdownLatch;
+    CountDownLatch containerStopped1 = sp1.jcContainerShutdownLatch;
 
     // start the second processor
     CountDownLatch startWait2 = new CountDownLatch(1);
@@ -210,7 +210,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
     // make sure they consume all the messages from the first batch
     waitUntilMessagesLeftN(totalEventsToGenerate - messageCount);
-    CountDownLatch containerStopped2 = sp2.containerShutdownLatch;
+    CountDownLatch containerStopped2 = sp2.jcContainerShutdownLatch;
 
     // stop the first processor
     stopProcessor(stopLatch1);
