@@ -99,7 +99,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private boolean hasCreatedStreams = false;
   private String cachedJobModelVersion = null;
   private Map<TaskName, Integer> changeLogPartitionMap = new HashMap<>();
-  private boolean isStopped = false;
+  private volatile boolean isStopped = false;
 
   ZkJobCoordinator(Config config, MetricsRegistry metricsRegistry, ZkUtils zkUtils) {
     this.config = config;

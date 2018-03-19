@@ -1086,6 +1086,10 @@ class SamzaContainer(
       hostStatisticsMonitor.stop()
     }
   }
+
+  override def toString: String = {
+    containerContext.id
+  }
 }
 
 /**
