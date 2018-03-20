@@ -69,7 +69,7 @@ public class TestAsyncRunLoop {
   private final long commitMs = -1;
   private final long callbackTimeoutMs = 0;
   private final long maxThrottlingDelayMs = 0;
-  private final long maxNoWorkWaitMs = 10;
+  private final long maxIdleMs = 10;
   private final Partition p0 = new Partition(0);
   private final Partition p1 = new Partition(1);
   private final TaskName taskName0 = new TaskName(p0.toString());
@@ -219,7 +219,7 @@ public class TestAsyncRunLoop {
 
     int maxMessagesInFlight = 1;
     AsyncRunLoop runLoop = new AsyncRunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-        callbackTimeoutMs, maxThrottlingDelayMs, maxNoWorkWaitMs, containerMetrics, () -> 0L, false);
+        callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false);
 
     when(consumerMultiplexer.choose(false))
         .thenReturn(envelope0)
@@ -257,7 +257,7 @@ public class TestAsyncRunLoop {
 
     int maxMessagesInFlight = 1;
     AsyncRunLoop runLoop = new AsyncRunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-                                            callbackTimeoutMs, maxThrottlingDelayMs, maxNoWorkWaitMs, containerMetrics,
+                                            callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics,
                                             () -> 0L, false);
     when(consumerMultiplexer.choose(false)).thenReturn(envelope0).thenReturn(envelope1).thenReturn(null);
     runLoop.run();
@@ -289,7 +289,7 @@ public class TestAsyncRunLoop {
 
     int maxMessagesInFlight = 1;
     AsyncRunLoop runLoop = new AsyncRunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-                                            callbackTimeoutMs, maxThrottlingDelayMs, maxNoWorkWaitMs, containerMetrics,
+                                            callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics,
                                             () -> 0L, false);
     when(consumerMultiplexer.choose(false)).thenReturn(envelope0).thenReturn(envelope3).thenReturn(envelope1).thenReturn(null);
     runLoop.run();
@@ -347,7 +347,7 @@ public class TestAsyncRunLoop {
     task0.callbackHandler = buildOutofOrderCallback(task0);
 
     AsyncRunLoop runLoop = new AsyncRunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-                                            callbackTimeoutMs, maxThrottlingDelayMs, maxNoWorkWaitMs, containerMetrics,
+                                            callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics,
                                             () -> 0L, false);
     when(consumerMultiplexer.choose(false)).thenReturn(envelope0).thenReturn(envelope3).thenReturn(envelope1).thenReturn(null);
     runLoop.run();
@@ -377,7 +377,7 @@ public class TestAsyncRunLoop {
     long windowMs = 1;
     int maxMessagesInFlight = 1;
     AsyncRunLoop runLoop = new AsyncRunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-                                            callbackTimeoutMs, maxThrottlingDelayMs, maxNoWorkWaitMs, containerMetrics,
+                                            callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics,
                                             () -> 0L, false);
     when(consumerMultiplexer.choose(false)).thenReturn(null);
     runLoop.run();
@@ -404,7 +404,7 @@ public class TestAsyncRunLoop {
 
     int maxMessagesInFlight = 1;
     AsyncRunLoop runLoop = new AsyncRunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-                                            callbackTimeoutMs, maxThrottlingDelayMs, maxNoWorkWaitMs, containerMetrics,
+                                            callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics,
                                             () -> 0L, false);
     //have a null message in between to make sure task0 finishes processing and invoke the commit
     when(consumerMultiplexer.choose(false)).thenReturn(envelope0).thenReturn(null).thenReturn(envelope1).thenReturn(null);
@@ -437,7 +437,7 @@ public class TestAsyncRunLoop {
     int maxMessagesInFlight = 1;
 
     AsyncRunLoop runLoop = new AsyncRunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-                                            callbackTimeoutMs, maxThrottlingDelayMs, maxNoWorkWaitMs, containerMetrics,
+                                            callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics,
                                             () -> 0L, false);
     //have a null message in between to make sure task0 finishes processing and invoke the commit
     when(consumerMultiplexer.choose(false)).thenReturn(envelope0).thenReturn(null).thenReturn(envelope1).thenReturn(null);
@@ -473,7 +473,7 @@ public class TestAsyncRunLoop {
     int maxMessagesInFlight = 1;
 
     AsyncRunLoop runLoop = new AsyncRunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-                                            callbackTimeoutMs, maxThrottlingDelayMs, maxNoWorkWaitMs, containerMetrics,
+                                            callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics,
                                             () -> 0L, false);
     // consensus is reached after envelope1 is processed.
     when(consumerMultiplexer.choose(false)).thenReturn(envelope0).thenReturn(envelope1).thenReturn(null);
@@ -507,7 +507,7 @@ public class TestAsyncRunLoop {
 
     int maxMessagesInFlight = 1;
     AsyncRunLoop runLoop = new AsyncRunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-                                            callbackTimeoutMs, maxThrottlingDelayMs, maxNoWorkWaitMs, containerMetrics,
+                                            callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics,
                                             () -> 0L, false);
     when(consumerMultiplexer.choose(false))
       .thenReturn(envelope0)
@@ -548,7 +548,7 @@ public class TestAsyncRunLoop {
 
     task0.callbackHandler = buildOutofOrderCallback(task0);
     AsyncRunLoop runLoop = new AsyncRunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-                                            callbackTimeoutMs, maxThrottlingDelayMs, maxNoWorkWaitMs, containerMetrics,
+                                            callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics,
                                             () -> 0L, false);
     when(consumerMultiplexer.choose(false))
         .thenReturn(envelope0)
@@ -591,7 +591,7 @@ public class TestAsyncRunLoop {
     int maxMessagesInFlight = 1;
 
     AsyncRunLoop runLoop = new AsyncRunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-                                            callbackTimeoutMs, maxThrottlingDelayMs, maxNoWorkWaitMs, containerMetrics,
+                                            callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics,
                                             () -> 0L, false);
 
     when(consumerMultiplexer.choose(false)).thenReturn(envelope0)
@@ -666,7 +666,7 @@ public class TestAsyncRunLoop {
 
     int maxMessagesInFlight = 1;
     AsyncRunLoop runLoop = new AsyncRunLoop(tasks, executor, consumers, maxMessagesInFlight, windowMs, commitMs,
-                                            callbackTimeoutMs, maxThrottlingDelayMs, maxNoWorkWaitMs, containerMetrics,
+                                            callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics,
                                             () -> 0L, false);
 
     runLoop.run();
@@ -717,7 +717,7 @@ public class TestAsyncRunLoop {
                                            .thenReturn(null);
 
     AsyncRunLoop runLoop = new AsyncRunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-                                            callbackTimeoutMs, maxThrottlingDelayMs, maxNoWorkWaitMs, containerMetrics,
+                                            callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics,
                                             () -> 0L, false);
 
     runLoop.run();
@@ -767,7 +767,7 @@ public class TestAsyncRunLoop {
                                            .thenReturn(envelope1)
                                            .thenReturn(null);
     AsyncRunLoop runLoop = new AsyncRunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-                                            callbackTimeoutMs, maxThrottlingDelayMs, maxNoWorkWaitMs, containerMetrics,
+                                            callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics,
                                             () -> 0L, true);
 
     runLoop.run();

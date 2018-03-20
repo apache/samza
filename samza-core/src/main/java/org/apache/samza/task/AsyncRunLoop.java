@@ -67,7 +67,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
   private final long windowMs;
   private final long commitMs;
   private final long callbackTimeoutMs;
-  private final long maxNoWorkWaitMs;
+  private final long maxIdleMs;
   private final SamzaContainerMetrics containerMetrics;
   private final ScheduledExecutorService workerTimer;
   private final ScheduledExecutorService callbackTimer;
@@ -86,7 +86,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
       long commitMs,
       long callbackTimeoutMs,
       long maxThrottlingDelayMs,
-      long maxNoWorkWaitMs,
+      long maxIdleMs,
       SamzaContainerMetrics containerMetrics,
       HighResolutionClock clock,
       boolean isAsyncCommitEnabled) {
@@ -98,7 +98,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
     this.commitMs = commitMs;
     this.maxConcurrency = maxConcurrency;
     this.callbackTimeoutMs = callbackTimeoutMs;
-    this.maxNoWorkWaitMs = maxNoWorkWaitMs;
+    this.maxIdleMs = maxIdleMs;
     this.callbackTimer = (callbackTimeoutMs > 0) ? Executors.newSingleThreadScheduledExecutor() : null;
     this.callbackExecutor = new ThrottlingScheduler(maxThrottlingDelayMs);
     this.coordinatorRequests = new CoordinatorRequests(taskInstances.keySet());
@@ -278,7 +278,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
       }
       try {
         log.trace("Start no work wait");
-        latch.wait(maxNoWorkWaitMs);
+        latch.wait(maxIdleMs);
         log.trace("End no work wait");
       } catch (InterruptedException e) {
         throw new SamzaException("Run loop is interrupted", e);
