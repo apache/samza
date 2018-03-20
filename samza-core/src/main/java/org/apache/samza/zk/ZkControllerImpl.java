@@ -83,14 +83,12 @@ public class ZkControllerImpl implements ZkController {
 
   @Override
   public void stop() {
-    if (isLeader()) {
-      zkLeaderElector.resignLeadership();
-    }
-
-    zkUtils.deleteProcessorNode(processorId);
-
-    // close zk connection
-    if (zkUtils != null) {
+    try {
+      if (isLeader()) {
+        zkLeaderElector.resignLeadership();
+      }
+    } finally {
+      zkUtils.deleteProcessorNode(processorId);
       zkUtils.close();
     }
   }
