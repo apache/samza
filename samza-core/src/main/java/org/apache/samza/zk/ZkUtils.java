@@ -110,7 +110,7 @@ public class ZkUtils {
   }
 
   // reset all zk-session specific state
-  public void unregister() {
+  public synchronized void unregister() {
     ephemeralPath = null;
   }
 
@@ -154,12 +154,10 @@ public class ZkUtils {
    * Deletes the ephemeral node of a processor in zookeeper.
    * @param processorId uniqueId identifying the stream processor to delete.
    */
-  public void deleteProcessorNode(String processorId) {
-    for (ProcessorNode processorNode : getAllProcessorNodes()) {
-      if (processorNode.getProcessorData().getProcessorId().equals(processorId)) {
-        LOG.info("Deleting the ephemeral node: {} of the processor: {} in zookeeper.", processorNode.getEphemeralPath(), processorId);
-        zkClient.delete(processorNode.getEphemeralPath());
-      }
+  public synchronized void deleteProcessorNode(String processorId) {
+    if (ephemeralPath != null) {
+      LOG.info("Deleting the ephemeral node: {} of the processor: {} in zookeeper.", ephemeralPath, processorId);
+      zkClient.delete(ephemeralPath);
     }
   }
 
