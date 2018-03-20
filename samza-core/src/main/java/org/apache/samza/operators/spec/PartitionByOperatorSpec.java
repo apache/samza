@@ -21,6 +21,7 @@ package org.apache.samza.operators.spec;
 import java.io.IOException;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
 
@@ -74,12 +75,17 @@ public class PartitionByOperatorSpec<M, K, V> extends OperatorSpec<M, Void> {
     return valueFunction;
   }
 
+  public PartitionByOperatorSpec<M, K, V> copy() throws IOException, ClassNotFoundException {
+    return (PartitionByOperatorSpec<M, K, V>) super.copy();
+  }
+
   @Override
   public WatermarkFunction getWatermarkFn() {
     return null;
   }
 
-  public PartitionByOperatorSpec<M, K, V> copy() throws IOException, ClassNotFoundException {
-    return (PartitionByOperatorSpec<M, K, V>) super.copy();
+  @Override
+  public TimerFunction getTimerFn() {
+    return null;
   }
 }

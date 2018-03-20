@@ -74,7 +74,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     Profile[] profiles = TestTableData.generateProfiles(count);
 
     int partitionCount = 4;
-    Map<String, String> configs = getBaseJobConfig();
+    Map<String, String> configs = getBaseJobConfig(bootstrapUrl(), zkConnect());
 
     configs.put("streams.Profile.samza.system", "test");
     configs.put("streams.Profile.source", Base64Serializer.serialize(profiles));
@@ -154,7 +154,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     Profile[] profiles = TestTableData.generateProfiles(count);
 
     int partitionCount = 4;
-    Map<String, String> configs = getBaseJobConfig();
+    Map<String, String> configs = getBaseJobConfig(bootstrapUrl(), zkConnect());
 
     configs.put("streams.PageView.samza.system", "test");
     configs.put("streams.PageView.source", Base64Serializer.serialize(pageViews));
@@ -253,7 +253,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     Profile[] profiles = TestTableData.generateProfiles(count);
 
     int partitionCount = 4;
-    Map<String, String> configs = getBaseJobConfig();
+    Map<String, String> configs = getBaseJobConfig(bootstrapUrl(), zkConnect());
 
     configs.put("streams.Profile1.samza.system", "test");
     configs.put("streams.Profile1.source", Base64Serializer.serialize(profiles));
@@ -277,7 +277,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     dualJoinTest.runTest();
   }
 
-  private Map<String, String> getBaseJobConfig() {
+  static Map<String, String> getBaseJobConfig(String bootstrapUrl, String zkConnect) {
     Map<String, String> configs = new HashMap<>();
     configs.put("systems.test.samza.factory", ArraySystemFactory.class.getName());
 
@@ -289,8 +289,8 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
 
     // For intermediate streams
     configs.put("systems.kafka.samza.factory", "org.apache.samza.system.kafka.KafkaSystemFactory");
-    configs.put("systems.kafka.producer.bootstrap.servers", bootstrapUrl());
-    configs.put("systems.kafka.consumer.zookeeper.connect", zkConnect());
+    configs.put("systems.kafka.producer.bootstrap.servers", bootstrapUrl);
+    configs.put("systems.kafka.consumer.zookeeper.connect", zkConnect);
     configs.put("systems.kafka.samza.key.serde", "int");
     configs.put("systems.kafka.samza.msg.serde", "json");
     configs.put("systems.kafka.default.stream.replication.factor", "1");

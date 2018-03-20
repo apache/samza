@@ -21,6 +21,7 @@
 package org.apache.samza.operators.spec;
 
 import java.io.IOException;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
 public class BroadcastOperatorSpec<M> extends OperatorSpec<M, Void> {
@@ -37,12 +38,17 @@ public class BroadcastOperatorSpec<M> extends OperatorSpec<M, Void> {
     return this.outputStream;
   }
 
+  public BroadcastOperatorSpec<M> copy() throws IOException, ClassNotFoundException {
+    return (BroadcastOperatorSpec<M>) super.copy();
+  }
+
   @Override
   public WatermarkFunction getWatermarkFn() {
     return null;
   }
 
-  public BroadcastOperatorSpec<M> copy() throws IOException, ClassNotFoundException {
-    return (BroadcastOperatorSpec<M>) super.copy();
+  @Override
+  public TimerFunction getTimerFn() {
+    return null;
   }
 }

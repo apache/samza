@@ -20,6 +20,7 @@ package org.apache.samza.operators.spec;
 
 import java.io.IOException;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.system.StreamSpec;
@@ -65,12 +66,17 @@ public class InputOperatorSpec<K, V> extends OperatorSpec<KV<K, V>, Object> { //
     return isKeyed;
   }
 
+  public InputOperatorSpec<K, V> copy() throws IOException, ClassNotFoundException {
+    return (InputOperatorSpec<K, V>) super.copy();
+  }
+
   @Override
   public WatermarkFunction getWatermarkFn() {
     return null;
   }
 
-  public InputOperatorSpec<K, V> copy() throws IOException, ClassNotFoundException {
-    return (InputOperatorSpec<K, V>) super.copy();
+  @Override
+  public TimerFunction getTimerFn() {
+    return null;
   }
 }

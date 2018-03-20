@@ -24,7 +24,7 @@ import java.net.{URL, UnknownHostException}
 import java.nio.file.Path
 import java.util
 import java.util.Base64
-import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
+import java.util.concurrent.{ScheduledExecutorService, ExecutorService, Executors, TimeUnit}
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
@@ -436,6 +436,8 @@ object SamzaContainer extends Logging {
 
     val storeWatchPaths = new util.HashSet[Path]()
 
+    val timerExecutor = Executors.newSingleThreadScheduledExecutor
+
     val taskInstances: Map[TaskName, TaskInstance] = containerModel.getTasks.values.asScala.map(taskModel => {
       debug("Setting up task instance: %s" format taskModel)
 
@@ -536,9 +538,8 @@ object SamzaContainer extends Logging {
         new SystemClock)
 
       val tableManager = new TableManager(config, serdes.asJava)
-      tableManager.initLocalTables(taskStores.asJava)
 
-      info("Got table manager");
+      info("Got table manager")
 
       val systemStreamPartitions = taskModel
         .getSystemStreamPartitions
@@ -563,7 +564,8 @@ object SamzaContainer extends Logging {
           systemStreamPartitions = systemStreamPartitions,
           exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics, config),
           jobModel = jobModel,
-          streamMetadataCache = streamMetadataCache)
+          streamMetadataCache = streamMetadataCache,
+          timerExecutor = timerExecutor)
 
       val taskInstance = createTaskInstance(task)
 
@@ -636,7 +638,8 @@ object SamzaContainer extends Logging {
       jvm = jvm,
       diskSpaceMonitor = diskSpaceMonitor,
       hostStatisticsMonitor = memoryStatisticsMonitor,
-      taskThreadPool = taskThreadPool)
+      taskThreadPool = taskThreadPool,
+      timerExecutor = timerExecutor)
   }
 }
 
@@ -656,7 +659,8 @@ class SamzaContainer(
   securityManager: SecurityManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
   jvm: JvmMetrics = null,
-  taskThreadPool: ExecutorService = null) extends Runnable with Logging {
+  taskThreadPool: ExecutorService = null,
+  timerExecutor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor) extends Runnable with Logging {
 
   val shutdownMs = containerContext.config.getShutdownMs.getOrElse(TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS)
   var shutdownHookThread: Thread = null
@@ -1000,6 +1004,18 @@ class SamzaContainer(
         }
       } catch {
         case e: Exception => error(e.getMessage, e)
+      }
+    }
+
+    if (timerExecutor != null) {
+      info("Shutting down timer executor")
+      try {
+        timerExecutor.shutdown()
+        if (timerExecutor.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
+          timerExecutor.shutdownNow()
+        }
+      } catch {
+        case e: Exception => error("Ignoring exception shutting down timer executor", e)
       }
     }
 

@@ -21,6 +21,7 @@ package org.apache.samza.operators.spec;
 import java.io.IOException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.table.TableSpec;
 
@@ -52,12 +53,17 @@ public class SendToTableOperatorSpec<K, V> extends OperatorSpec<KV<K, V>, Void> 
     return tableSpec;
   }
 
+  public SendToTableOperatorSpec<K, V> copy() throws IOException, ClassNotFoundException {
+    return (SendToTableOperatorSpec<K, V>) super.copy();
+  }
+
   @Override
   public WatermarkFunction getWatermarkFn() {
     return null;
   }
 
-  public SendToTableOperatorSpec<K, V> copy() throws IOException, ClassNotFoundException {
-    return (SendToTableOperatorSpec<K, V>) super.copy();
+  @Override
+  public TimerFunction getTimerFn() {
+    return null;
   }
 }

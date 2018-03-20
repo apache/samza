@@ -21,9 +21,7 @@ package org.apache.samza.operators.spec;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 
-import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
@@ -35,7 +33,6 @@ import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.TableSpec;
-import org.apache.samza.task.TaskContext;
 
 
 /**
@@ -74,29 +71,7 @@ public class OperatorSpecs {
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createMapOperatorSpec(
       MapFunction<? super M, ? extends OM> mapFn, String opId) throws IOException {
-    return new StreamOperatorSpec<>(new FlatMapFunction<M, OM>() {
-      @Override
-      public Collection<OM> apply(M message) {
-        return new ArrayList<OM>() {
-          {
-            OM r = mapFn.apply(message);
-            if (r != null) {
-              this.add(r);
-            }
-          }
-        };
-      }
-
-      @Override
-      public void init(Config config, TaskContext context) {
-        mapFn.init(config, context);
-      }
-
-      @Override
-      public void close() {
-        mapFn.close();
-      }
-    }, OperatorSpec.OpCode.MAP, opId);
+    return new StreamOperatorSpec<>((MapFunction<M, OM>) mapFn, OperatorSpec.OpCode.MAP, opId);
   }
 
   /**
@@ -110,28 +85,7 @@ public class OperatorSpecs {
    */
   public static <M> StreamOperatorSpec<M, M> createFilterOperatorSpec(
       FilterFunction<? super M> filterFn, String opId) throws IOException {
-    return new StreamOperatorSpec<>(new FlatMapFunction<M, M>() {
-      @Override
-      public Collection<M> apply(M message) {
-        return new ArrayList<M>() {
-          {
-            if (filterFn.apply(message)) {
-              this.add(message);
-            }
-          }
-        };
-      }
-
-      @Override
-      public void init(Config config, TaskContext context) {
-        filterFn.init(config, context);
-      }
-
-      @Override
-      public void close() {
-        filterFn.close();
-      }
-    }, OperatorSpec.OpCode.FILTER, opId);
+    return new StreamOperatorSpec<M, M>((FilterFunction<M>) filterFn, OperatorSpec.OpCode.FILTER, opId);
   }
 
   /**
@@ -245,13 +199,12 @@ public class OperatorSpecs {
    * @throws IOException when fail to create a serializable {@link OperatorSpec}
    */
   public static <M> StreamOperatorSpec<M, M> createMergeOperatorSpec(String opId) throws IOException {
-    return new StreamOperatorSpec<>(message ->
+    return new StreamOperatorSpec<M, M>((M message) ->
         new ArrayList<M>() {
           {
             this.add(message);
           }
-        },
-        OperatorSpec.OpCode.MERGE, opId);
+        }, OperatorSpec.OpCode.MERGE, opId);
   }
 
   /**

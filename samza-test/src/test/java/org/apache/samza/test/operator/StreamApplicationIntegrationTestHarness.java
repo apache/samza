@@ -32,7 +32,7 @@ import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
-import org.apache.samza.test.util.StreamAssert;
+import org.apache.samza.test.framework.StreamAssert;
 import scala.Option;
 import scala.Option$;
 

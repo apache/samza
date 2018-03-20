@@ -29,6 +29,7 @@ import org.apache.samza.operators.data.TestOutputMessageEnvelope;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
@@ -51,7 +52,7 @@ public class TestOperatorSpec implements Serializable {
   public void testStreamOperatorSpec() throws IOException, ClassNotFoundException {
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec =
         new StreamOperatorSpec<>(
-            m -> new ArrayList<TestOutputMessageEnvelope>() { { this.add(new TestOutputMessageEnvelope(m.getKey(), m.getMessage().hashCode())); } },
+            (TestMessageEnvelope m) -> new ArrayList<TestOutputMessageEnvelope>() { { this.add(new TestOutputMessageEnvelope(m.getKey(), m.getMessage().hashCode())); } },
             OperatorSpec.OpCode.MAP, "op0");
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec = streamOperatorSpec.copy();
     assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
@@ -134,11 +135,19 @@ public class TestOperatorSpec implements Serializable {
       public WatermarkFunction getWatermarkFn() {
         return null;
       }
+      @Override
+      public TimerFunction getTimerFn() {
+        return null;
+      }
     };
     OperatorSpec<TestMessageEnvelope, Object> rightOpSpec = new OperatorSpec<TestMessageEnvelope, Object>(
         OperatorSpec.OpCode.INPUT, "op1") {
       @Override
       public WatermarkFunction getWatermarkFn() {
+        return null;
+      }
+      @Override
+      public TimerFunction getTimerFn() {
         return null;
       }
     };

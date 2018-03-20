@@ -25,6 +25,8 @@ import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.operators.TimerRegistry;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.metrics.Counter;
@@ -80,6 +82,7 @@ public abstract class OperatorImpl<M, RM> {
   private EndOfStreamStates eosStates;
   // watermark states
   private WatermarkStates watermarkStates;
+  private TaskContext taskContext;
 
   /**
    * Initialize this {@link OperatorImpl} and its user-defined functions.
@@ -121,7 +124,8 @@ public abstract class OperatorImpl<M, RM> {
       this.usedInCurrentTask = true;
     }
 
-    handleInit(config, context);
+    this.taskContext = taskContext;
+    handleInit(config, taskContext);
 
     initialized = true;
   }
@@ -413,6 +417,42 @@ public abstract class OperatorImpl<M, RM> {
       // always emit the max to indicate no input will be emitted afterwards
       return Long.MAX_VALUE;
     }
+  }
+
+  /**
+   * Returns a registry which allows registering arbitrary system-clock timer with K-typed key.
+   * The user-defined function in the operator spec needs to implement {@link TimerFunction#onTimer(Object, long)}
+   * for timer notifications.
+   * @param <K> key type for the timer.
+   * @return an instance of {@link TimerRegistry}
+   */
+  <K> TimerRegistry<K> createOperatorTimerRegistry() {
+    return new TimerRegistry<K>() {
+      @Override
+      public void register(K key, long time) {
+        taskContext.registerTimer(key, time, (k, collector, coordinator) -> {
+            final TimerFunction<K, RM> timerFn = getOperatorSpec().getTimerFn();
+            if (timerFn != null) {
+              final Collection<RM> output = timerFn.onTimer(key, time);
+
+              if (!output.isEmpty()) {
+                output.forEach(rm ->
+                    registeredOperators.forEach(op ->
+                        op.onMessage(rm, collector, coordinator)));
+              }
+            } else {
+              throw new SamzaException(
+                  String.format("Operator %s id %s (created at %s) must implement TimerFunction to use system timer.",
+                      getOperatorSpec().getOpCode().name(), getOpImplId(), getOperatorSpec().getSourceLocation()));
+            }
+          });
+      }
+
+      @Override
+      public void delete(K key) {
+        taskContext.deleteTimer(key);
+      }
+    };
   }
 
   public void close() {

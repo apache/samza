@@ -25,7 +25,7 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.test.operator.data.PageView;
-import org.apache.samza.test.util.StreamAssert;
+import org.apache.samza.test.framework.StreamAssert;
 
 import java.util.Arrays;
 

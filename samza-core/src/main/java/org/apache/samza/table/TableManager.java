@@ -24,12 +24,16 @@ import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
+import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.storage.StorageEngine;
+import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Preconditions;
+
 
 /**
  * A {@link TableManager} manages tables within a Samza task. For each table, it maintains
@@ -61,15 +65,14 @@ public class TableManager {
   // tableId -> TableCtx
   private final Map<String, TableCtx> tables = new HashMap<>();
 
-  private boolean localTablesInitialized;
+  private boolean initialized;
 
   /**
    * Construct a table manager instance
-   * @param config the job configuration
+   * @param config job configuration
    * @param serdes Serde instances for tables
    */
   public TableManager(Config config, Map<String, Serde<Object>> serdes) {
-
     new JavaTableConfig(config).getTableIds().forEach(tableId -> {
 
         // Construct the table provider
@@ -91,23 +94,14 @@ public class TableManager {
   }
 
   /**
-   * Initialize all local table
-   * @param stores stores created locally
+   * Initialize table providers with container and task contexts
+   * @param containerContext context for the Samza container
+   * @param taskContext context for the current task, nullable for global tables
    */
-  public void initLocalTables(Map<String, StorageEngine> stores) {
-    tables.values().forEach(ctx -> {
-        if (ctx.tableProvider instanceof LocalStoreBackedTableProvider) {
-          StorageEngine store = stores.get(ctx.tableSpec.getId());
-          if (store == null) {
-            throw new SamzaException(String.format(
-                "Backing store for table %s was not injected by SamzaContainer",
-                ctx.tableSpec.getId()));
-          }
-          ((LocalStoreBackedTableProvider) ctx.tableProvider).init(store);
-        }
-      });
-
-    localTablesInitialized = true;
+  public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
+    Preconditions.checkNotNull(containerContext, "null container context.");
+    tables.values().forEach(ctx -> ctx.tableProvider.init(containerContext, taskContext));
+    initialized = true;
   }
 
   /**
@@ -126,17 +120,10 @@ public class TableManager {
   }
 
   /**
-   * Start the table manager, internally it starts all tables
-   */
-  public void start() {
-    tables.values().forEach(ctx -> ctx.tableProvider.start());
-  }
-
-  /**
    * Shutdown the table manager, internally it shuts down all tables
    */
-  public void shutdown() {
-    tables.values().forEach(ctx -> ctx.tableProvider.stop());
+  public void close() {
+    tables.values().forEach(ctx -> ctx.tableProvider.close());
   }
 
   /**
@@ -145,9 +132,10 @@ public class TableManager {
    * @return table instance
    */
   public Table getTable(String tableId) {
-    if (!localTablesInitialized) {
-      throw new IllegalStateException("Local tables in TableManager not initialized.");
+    if (!initialized) {
+      throw new IllegalStateException("TableManager has not been initialized.");
     }
+    Preconditions.checkArgument(tables.containsKey(tableId), "Unknown tableId=" + tableId);
     return tables.get(tableId).tableProvider.getTable();
   }
 }

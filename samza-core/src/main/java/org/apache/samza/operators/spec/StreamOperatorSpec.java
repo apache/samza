@@ -19,8 +19,15 @@
 package org.apache.samza.operators.spec;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import org.apache.samza.config.Config;
+import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
+import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
+import org.apache.samza.task.TaskContext;
 
 
 /**
@@ -43,6 +50,60 @@ public class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
   StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, OperatorSpec.OpCode opCode, String opId) throws IOException {
     super(opCode, opId);
     this.transformFn = transformFn;
+    // TODO: initWatermarkAndTimerFunctions()
+  }
+
+  StreamOperatorSpec(MapFunction<M, OM> mapFn, OperatorSpec.OpCode opCode, String opId) throws IOException {
+    super(opCode, opId);
+    this.transformFn = new FlatMapFunction<M, OM>() {
+      @Override
+      public Collection<OM> apply(M message) {
+        return new ArrayList<OM>() {
+          {
+            OM r = mapFn.apply(message);
+            if (r != null) {
+              this.add(r);
+            }
+          }
+        };
+      }
+
+      @Override
+      public void init(Config config, TaskContext context) {
+        mapFn.init(config, context);
+      }
+
+      @Override
+      public void close() {
+        mapFn.close();
+      }
+    };
+  }
+
+  public StreamOperatorSpec(FilterFunction<M> filterFn, OperatorSpec.OpCode opCode, String opId) throws IOException {
+    super(opCode, opId);
+    this.transformFn = new FlatMapFunction<M, OM>() {
+      @Override
+      public Collection<OM> apply(M message) {
+        return new ArrayList<OM>() {
+          {
+            if (filterFn.apply(message)) {
+              this.add((OM) message);
+            }
+          }
+        };
+      }
+
+      @Override
+      public void init(Config config, TaskContext context) {
+        filterFn.init(config, context);
+      }
+
+      @Override
+      public void close() {
+        filterFn.close();
+      }
+    };
   }
 
   public FlatMapFunction<M, OM> getTransformFn() {
@@ -51,10 +112,16 @@ public class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
 
   @Override
   public WatermarkFunction getWatermarkFn() {
-    return transformFn instanceof WatermarkFunction ? (WatermarkFunction) transformFn : null;
+    return this.transformFn instanceof WatermarkFunction ? (WatermarkFunction) this.transformFn : null;
+  }
+
+  @Override
+  public TimerFunction getTimerFn() {
+    return this.transformFn instanceof TimerFunction ? (TimerFunction) this.transformFn : null;
   }
 
   public StreamOperatorSpec<M, OM> copy() throws IOException, ClassNotFoundException {
     return (StreamOperatorSpec<M, OM>) super.copy();
   }
+  // TODO: need to have an overriding method readObject() to initialize the timer/watermark functions
 }

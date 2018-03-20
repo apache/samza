@@ -20,6 +20,7 @@ package org.apache.samza.operators.spec;
 
 import java.io.IOException;
 import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
 
@@ -51,13 +52,17 @@ public class SinkOperatorSpec<M> extends OperatorSpec<M, Void> {
     return this.sinkFn;
   }
 
+  public SinkOperatorSpec<M> copy() throws IOException, ClassNotFoundException {
+    return (SinkOperatorSpec<M>) super.copy();
+  }
+
   @Override
   public WatermarkFunction getWatermarkFn() {
     return sinkFn instanceof WatermarkFunction ? (WatermarkFunction) sinkFn : null;
   }
 
-  public SinkOperatorSpec<M> copy() throws IOException, ClassNotFoundException {
-    return (SinkOperatorSpec<M>) super.copy();
+  @Override
+  public TimerFunction getTimerFn() {
+    return sinkFn instanceof TimerFunction ? (TimerFunction) sinkFn : null;
   }
-
 }

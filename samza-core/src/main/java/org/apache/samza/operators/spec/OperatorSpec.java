@@ -31,6 +31,7 @@ import java.util.Set;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
 /**
@@ -149,10 +150,12 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
     return String.format("%s:%s", element.getFileName(), element.getLineNumber());
   }
 
-  abstract public WatermarkFunction getWatermarkFn();
-
   // TODO: do we need this or an overridden equals()? Basically, if there is a use case to differentiate this == other vs this is a deserialized copy of other?
   public final boolean isClone(OperatorSpec other) {
     return this.getClass().isAssignableFrom(other.getClass()) && this.opCode.equals(other.opCode) && this.opId.equals(other.opId);
   }
+
+  abstract public WatermarkFunction getWatermarkFn();
+
+  abstract public TimerFunction getTimerFn();
 }
