@@ -304,7 +304,7 @@ public class ZkUtils {
     return zkClient.exists(path);
   }
 
-  public void close() throws ZkInterruptedException {
+  public void close() {
     try {
       zkClient.close();
     } catch (ZkInterruptedException e) {
