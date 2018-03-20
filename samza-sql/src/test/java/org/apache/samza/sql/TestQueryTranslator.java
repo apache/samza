@@ -26,36 +26,24 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.runtime.LocalApplicationRunner;
-import org.apache.samza.serializers.JsonSerdeV2Factory;
 import org.apache.samza.sql.impl.ConfigBasedSourceResolverFactory;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
 import org.apache.samza.sql.testutil.SamzaSqlTestConfig;
 import org.apache.samza.sql.translator.QueryTranslator;
-import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 
-public class TestQueryTranslator extends AbstractIntegrationTestHarness {
+public class TestQueryTranslator {
 
   private final Map<String, String> configs = new HashMap<>();
 
   @Before
   public void setUp() {
-    super.setUp();
-    configs.put("systems.kafka.samza.factory", "org.apache.samza.system.kafka.KafkaSystemFactory");
-    configs.put("systems.kafka.producer.bootstrap.servers", bootstrapUrl());
-    configs.put("systems.kafka.consumer.zookeeper.connect", zkConnect());
-    configs.put("systems.kafka.samza.key.serde", "object");
-    configs.put("systems.kafka.samza.msg.serde", "samzaSqlRelMsg");
-    configs.put("systems.kafka.default.stream.replication.factor", "1");
     configs.put("job.default.system", "kafka");
-
-    configs.put("serializers.registry.object.class", JsonSerdeV2Factory.class.getName());
-    configs.put("serializers.registry.samzaSqlRelMsg.class", JsonSerdeV2Factory.class.getName());
   }
 
   @Test

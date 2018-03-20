@@ -308,9 +308,6 @@ project(':samza-elasticsearch') {
 project(':samza-sql') {
   apply plugin: 'java'
 
-  sourceSets.main.java.srcDirs = []
-  sourceSets.test.java.srcDirs = []
-
   dependencies {
     compile project(':samza-api')
     compile project(":samza-kafka_$scalaVersion")
@@ -320,7 +317,6 @@ project(':samza-sql') {
     compile "org.apache.calcite:calcite-core:$calciteVersion"
     compile "org.slf4j:slf4j-api:$slf4jVersion"
 
-    testCompile project(":samza-test_$scalaVersion")
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
 
