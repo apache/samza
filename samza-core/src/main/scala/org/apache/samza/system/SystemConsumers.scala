@@ -219,9 +219,7 @@ class SystemConsumers (
         // code because in that case the chooser will not get updated with a new message for an SSP until after a
         // message is processed, See how updateChooser variable is used below. The AsyncRunLoop has its own way to
         // block when there is no work to process.
-        if (updateChooser) {
-          timeout = noNewMessagesTimeout
-        }
+        timeout = if (updateChooser) noNewMessagesTimeout else 0
       } else {
         val systemStreamPartition = envelopeFromChooser.getSystemStreamPartition
 
