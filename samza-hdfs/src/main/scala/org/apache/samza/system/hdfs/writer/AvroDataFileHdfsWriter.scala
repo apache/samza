@@ -66,7 +66,7 @@ class AvroDataFileHdfsWriter (dfs: FileSystem, systemName: String, config: HdfsC
   }
 
   protected def getNextWriter(record: Object): Option[DataFileWriter[Object]] = {
-    val path = bucketer.get.getNextWritePath(dfs)
+    val path = bucketer.get.getNextWritePath(dfs).suffix(".avro")
     val isGenericRecord = record.isInstanceOf[GenericRecord]
     val schema = record match {
       case genericRecord: GenericRecord => genericRecord.getSchema
