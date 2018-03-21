@@ -93,23 +93,23 @@ public class EventHubSystemAdmin implements SystemAdmin {
     try {
       ehRuntimeInfos.forEach((streamName, ehRuntimeInfo) -> {
 
-            if (!streamPartitions.containsKey(streamName)) {
-              LOG.debug(String.format("Partition ids for Stream=%s not found", streamName));
-              try {
+          if (!streamPartitions.containsKey(streamName)) {
+            LOG.debug(String.format("Partition ids for Stream=%s not found", streamName));
+            try {
 
-                long timeoutMs = eventHubConfig.getRuntimeInfoWaitTimeMS(systemName);
-                EventHubRuntimeInformation ehInfo = ehRuntimeInfo.get(timeoutMs, TimeUnit.MILLISECONDS);
+              long timeoutMs = eventHubConfig.getRuntimeInfoWaitTimeMS(systemName);
+              EventHubRuntimeInformation ehInfo = ehRuntimeInfo.get(timeoutMs, TimeUnit.MILLISECONDS);
 
-                LOG.debug(String.format("Adding partition ids for Stream=%s", streamName));
-                streamPartitions.put(streamName, ehInfo.getPartitionIds());
-              } catch (InterruptedException | ExecutionException | TimeoutException e) {
+              LOG.debug(String.format("Adding partition ids for Stream=%s", streamName));
+              streamPartitions.put(streamName, ehInfo.getPartitionIds());
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
 
-                String msg = String.format("Error while fetching EventHubRuntimeInfo for System:%s, Stream:%s", systemName,
-                    streamName);
-                LOG.error(msg, e);
-                throw new SamzaException(msg, e);
-              }
+              String msg = String.format("Error while fetching EventHubRuntimeInfo for System:%s, Stream:%s", systemName,
+                  streamName);
+              LOG.error(msg, e);
+              throw new SamzaException(msg, e);
             }
+          }
         });
 
       streamNames.forEach(streamName -> {
