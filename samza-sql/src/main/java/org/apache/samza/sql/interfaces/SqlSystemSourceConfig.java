@@ -26,13 +26,15 @@ import java.util.List;
 import org.apache.commons.lang.Validate;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.StreamConfig;
 import org.apache.samza.system.SystemStream;
 
 
 /**
- * Configs associated with a system stream.
+ * Configs associated with a system source. Both streams and table sources are supported.
+ * For now, only local tables are supported.
  */
-public class SqlSystemStreamConfig {
+public class SqlSystemSourceConfig {
 
   public static final String CFG_SAMZA_REL_CONVERTER = "samzaRelConverterName";
   public static final String CFG_REL_SCHEMA_PROVIDER = "relSchemaProviderName";
@@ -51,12 +53,16 @@ public class SqlSystemStreamConfig {
 
   private List<String> sourceParts;
 
-  public SqlSystemStreamConfig(String systemName, String streamName, Config systemConfig) {
-    this(systemName, streamName, Arrays.asList(systemName, streamName), systemConfig);
+  public SqlSystemSourceConfig(String systemName, String streamName, Config systemConfig) {
+    this(systemName, streamName, Arrays.asList(systemName, streamName), systemConfig, false);
   }
 
-  public SqlSystemStreamConfig(String systemName, String streamName, List<String> sourceParts,
-      Config systemConfig) {
+  public SqlSystemSourceConfig(String systemName, String streamName, Config systemConfig, boolean isTable) {
+    this(systemName, streamName, Arrays.asList(systemName, streamName), systemConfig, isTable);
+  }
+
+  public SqlSystemSourceConfig(String systemName, String streamName, List<String> sourceParts,
+      Config systemConfig, boolean isTable) {
 
 
     HashMap<String, String> streamConfigs = new HashMap<>(systemConfig);
@@ -75,6 +81,12 @@ public class SqlSystemStreamConfig {
     // Removing the Samza SQL specific configs to get the remaining Samza configs.
     streamConfigs.remove(CFG_SAMZA_REL_CONVERTER);
     streamConfigs.remove(CFG_REL_SCHEMA_PROVIDER);
+
+    // Currently, only local table is supported. And it is assumed that all tables are local tables.
+    if (isTable) {
+      streamConfigs.put(String.format(StreamConfig.BOOTSTRAP_FOR_STREAM_ID(), streamName), "true");
+      streamConfigs.put(String.format(StreamConfig.CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID(), streamName), "oldest");
+    }
 
     config = new MapConfig(streamConfigs);
   }

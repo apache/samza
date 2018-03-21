@@ -42,7 +42,7 @@ import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.sql.interfaces.SamzaRelConverterFactory;
 import org.apache.samza.sql.interfaces.SourceResolver;
 import org.apache.samza.sql.interfaces.SourceResolverFactory;
-import org.apache.samza.sql.interfaces.SqlSystemStreamConfig;
+import org.apache.samza.sql.interfaces.SqlSystemSourceConfig;
 import org.apache.samza.sql.interfaces.UdfMetadata;
 import org.apache.samza.sql.interfaces.UdfResolver;
 import org.apache.samza.sql.testutil.JsonUtil;
@@ -50,7 +50,6 @@ import org.apache.samza.sql.testutil.ReflectionUtils;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser.QueryInfo;
 import org.apache.samza.sql.testutil.SqlFileParser;
-import org.apache.samza.system.SystemStream;
 import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,8 +85,8 @@ public class SamzaSqlApplicationConfig {
 
   private final Collection<UdfMetadata> udfMetadata;
 
-  private final Map<String, SqlSystemStreamConfig> inputSystemStreamConfigBySource;
-  private final Map<String, SqlSystemStreamConfig> outputSystemStreamConfigsBySource;
+  private final Map<String, SqlSystemSourceConfig> inputSystemStreamConfigBySource;
+  private final Map<String, SqlSystemSourceConfig> outputSystemStreamConfigsBySource;
 
   private final List<String> sql;
 
@@ -109,7 +108,7 @@ public class SamzaSqlApplicationConfig {
         .flatMap(Collection::stream)
         .collect(Collectors.toMap(Function.identity(), sourceResolver::fetchSourceInfo));
 
-    Set<SqlSystemStreamConfig> systemStreamConfigs = new HashSet<>(inputSystemStreamConfigBySource.values());
+    Set<SqlSystemSourceConfig> systemStreamConfigs = new HashSet<>(inputSystemStreamConfigBySource.values());
 
     outputSystemStreamConfigsBySource = queryInfo.stream()
         .map(QueryInfo::getOutputSource)
@@ -117,13 +116,13 @@ public class SamzaSqlApplicationConfig {
     systemStreamConfigs.addAll(outputSystemStreamConfigsBySource.values());
 
     relSchemaProvidersBySource = systemStreamConfigs.stream()
-        .collect(Collectors.toMap(SqlSystemStreamConfig::getSource,
+        .collect(Collectors.toMap(SqlSystemSourceConfig::getSource,
             x -> initializePlugin("RelSchemaProvider", x.getRelSchemaProviderName(), staticConfig,
                 CFG_FMT_REL_SCHEMA_PROVIDER_DOMAIN,
                 (o, c) -> ((RelSchemaProviderFactory) o).create(x.getSystemStream(), c))));
 
     samzaRelConvertersBySource = systemStreamConfigs.stream()
-        .collect(Collectors.toMap(SqlSystemStreamConfig::getSource,
+        .collect(Collectors.toMap(SqlSystemSourceConfig::getSource,
             x -> initializePlugin("SamzaRelConverter", x.getSamzaRelConverterName(), staticConfig,
                 CFG_FMT_SAMZA_REL_CONVERTER_DOMAIN, (o, c) -> ((SamzaRelConverterFactory) o).create(x.getSystemStream(),
                     relSchemaProvidersBySource.get(x.getSource()), c))));
@@ -226,11 +225,11 @@ public class SamzaSqlApplicationConfig {
     return udfMetadata;
   }
 
-  public Map<String, SqlSystemStreamConfig> getInputSystemStreamConfigBySource() {
+  public Map<String, SqlSystemSourceConfig> getInputSystemStreamConfigBySource() {
     return inputSystemStreamConfigBySource;
   }
 
-  public Map<String, SqlSystemStreamConfig> getOutputSystemStreamConfigsBySource() {
+  public Map<String, SqlSystemSourceConfig> getOutputSystemStreamConfigsBySource() {
     return outputSystemStreamConfigsBySource;
   }
 
@@ -240,5 +239,9 @@ public class SamzaSqlApplicationConfig {
 
   public Map<String, RelSchemaProvider> getRelSchemaProviders() {
     return relSchemaProvidersBySource;
+  }
+
+  public SourceResolver getSourceResolver() {
+    return sourceResolver;
   }
 }

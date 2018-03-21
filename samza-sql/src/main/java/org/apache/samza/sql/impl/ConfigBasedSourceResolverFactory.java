@@ -23,14 +23,16 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.interfaces.SourceResolver;
 import org.apache.samza.sql.interfaces.SourceResolverFactory;
-import org.apache.samza.sql.interfaces.SqlSystemStreamConfig;
+import org.apache.samza.sql.interfaces.SqlSystemSourceConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
 /**
  * Source Resolver implementation that uses static config to return a config corresponding to a system stream.
- * This Source resolver implementation supports sources of type {systemName}.{streamName}
+ * This Source resolver implementation supports sources of type {systemName}.{streamName}[.$table]
+ * {systemName}.{streamName} indicates a stream
+ * {systemName}.{streamName}.$table indicates a table
  */
 public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
 
@@ -44,6 +46,7 @@ public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
   }
 
   private class ConfigBasedSourceResolver implements SourceResolver {
+    private final String SAMZA_SQL_QUERY_TABLE_KEYWORD = "$table";
     private final Config config;
 
     public ConfigBasedSourceResolver(Config config) {
@@ -51,19 +54,52 @@ public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
     }
 
     @Override
-    public SqlSystemStreamConfig fetchSourceInfo(String source) {
+    public SqlSystemSourceConfig fetchSourceInfo(String source) {
       String[] sourceComponents = source.split("\\.");
+      boolean isTable = false;
 
-      // This source resolver expects sources of format {systemName}.{streamName}
+      // This source resolver expects sources of format {systemName}.{streamName}[.$table]
+      //  * First source part is always system name.
+      //  * The last source part could be either a "$table" keyword or stream name. If it is "$table", then stream name
+      //    should be the one before the last source part.
+      int endIdx = sourceComponents.length - 1;
+      int streamIdx = endIdx;
+      boolean invalidQuery = false;
+
       if (sourceComponents.length != 2) {
-        String msg = String.format("Source %s is not of the format {systemName}.{streamName{", source);
+        if (sourceComponents.length != 3 ||
+            !sourceComponents[endIdx].equalsIgnoreCase(SAMZA_SQL_QUERY_TABLE_KEYWORD)) {
+          invalidQuery = true;
+        }
+      } else {
+        if (sourceComponents[0].equalsIgnoreCase(SAMZA_SQL_QUERY_TABLE_KEYWORD) ||
+            sourceComponents[1].equalsIgnoreCase(SAMZA_SQL_QUERY_TABLE_KEYWORD)) {
+          invalidQuery = true;
+        }
+      }
+
+      if (invalidQuery) {
+        String msg = String.format("Source %s is not of the format {systemName}.{streamName}[.%s]", source,
+            SAMZA_SQL_QUERY_TABLE_KEYWORD);
         LOG.error(msg);
         throw new SamzaException(msg);
       }
-      String systemName = sourceComponents[0];
-      String streamName = sourceComponents[1];
 
-      return new SqlSystemStreamConfig(systemName, streamName, fetchSystemConfigs(systemName));
+      if (sourceComponents[endIdx].equalsIgnoreCase(SAMZA_SQL_QUERY_TABLE_KEYWORD)) {
+        isTable = true;
+        streamIdx = endIdx - 1;
+      }
+
+      String systemName = sourceComponents[0];
+      String streamName = sourceComponents[streamIdx];
+
+      return new SqlSystemSourceConfig(systemName, streamName, fetchSystemConfigs(systemName), isTable);
+    }
+
+    @Override
+    public boolean isTable(String sourceName) {
+      String[] sourceComponents = sourceName.split("\\.");
+      return sourceComponents[sourceComponents.length - 1].equalsIgnoreCase(SAMZA_SQL_QUERY_TABLE_KEYWORD);
     }
 
     private Config fetchSystemConfigs(String systemName) {

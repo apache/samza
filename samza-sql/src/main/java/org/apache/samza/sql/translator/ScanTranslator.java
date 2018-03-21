@@ -28,27 +28,27 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
-import org.apache.samza.sql.interfaces.SqlSystemStreamConfig;
+import org.apache.samza.sql.interfaces.SqlSystemSourceConfig;
 
 
 /**
  * Translator to translate the TableScans in relational graph to the corresponding input streams in the StreamGraph
  * implementation
  */
-public class ScanTranslator {
+class ScanTranslator {
 
   private final Map<String, SamzaRelConverter> relMsgConverters;
-  private final Map<String, SqlSystemStreamConfig> systemStreamConfig;
+  private final Map<String, SqlSystemSourceConfig> systemStreamConfig;
 
-  public ScanTranslator(Map<String, SamzaRelConverter> converters, Map<String, SqlSystemStreamConfig> ssc) {
+  ScanTranslator(Map<String, SamzaRelConverter> converters, Map<String, SqlSystemSourceConfig> ssc) {
     relMsgConverters = converters;
     this.systemStreamConfig = ssc;
   }
 
-  public void translate(final TableScan tableScan, final TranslatorContext context) {
+  void translate(final TableScan tableScan, final TranslatorContext context) {
     StreamGraph streamGraph = context.getStreamGraph();
     List<String> tableNameParts = tableScan.getTable().getQualifiedName();
-    String sourceName = SqlSystemStreamConfig.getSourceFromSourceParts(tableNameParts);
+    String sourceName = SqlSystemSourceConfig.getSourceFromSourceParts(tableNameParts);
 
     Validate.isTrue(relMsgConverters.containsKey(sourceName), String.format("Unknown source %s", sourceName));
     SamzaRelConverter converter = relMsgConverters.get(sourceName);

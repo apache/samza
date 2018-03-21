@@ -20,7 +20,7 @@
 package org.apache.samza.sql.interfaces;
 
 /**
- * Source Resolvers are used by Samza Sql application to fetch the {@link SqlSystemStreamConfig} corresponding to the source.
+ * Source Resolvers are used by Samza Sql application to fetch the {@link SqlSystemSourceConfig} corresponding to the source.
  */
 public interface SourceResolver {
   /**
@@ -30,5 +30,15 @@ public interface SourceResolver {
    * @return
    *  System stream config corresponding to the source.
    */
-  SqlSystemStreamConfig fetchSourceInfo(String sourceName);
+  SqlSystemSourceConfig fetchSourceInfo(String sourceName);
+
+  /**
+   * Returns if a given source is a table. Different source resolvers could have different notations in the source
+   * name for denoting a table. Eg: system.stream.$table
+   * @param sourceName
+   *  source that needs to be checked if it is a table.
+   * @return
+   *  true if the source is a table, else false.
+   */
+  boolean isTable(String sourceName);
 }

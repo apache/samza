@@ -58,4 +58,8 @@ public class SamzaSqlExecutionContext {
     scalarUdf.init(udfConfig);
     return scalarUdf;
   }
+
+  public SamzaSqlApplicationConfig getSamzaSqlApplicationConfig() {
+    return sqlConfig;
+  }
 }
