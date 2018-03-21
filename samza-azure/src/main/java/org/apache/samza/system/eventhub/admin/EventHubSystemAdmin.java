@@ -110,9 +110,7 @@ public class EventHubSystemAdmin implements SystemAdmin {
               throw new SamzaException(msg, e);
             }
           }
-        });
 
-      streamNames.forEach(streamName -> {
           String[] partitionIds = streamPartitions.get(streamName);
           Map<Partition, SystemStreamPartitionMetadata> sspMetadataMap = getPartitionMetadata(streamName, partitionIds);
           SystemStreamMetadata systemStreamMetadata = new SystemStreamMetadata(streamName, sspMetadataMap);
