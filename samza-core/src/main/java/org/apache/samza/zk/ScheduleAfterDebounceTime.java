@@ -152,19 +152,19 @@ public class ScheduleAfterDebounceTime {
   }
 
   /**
-   * Handler method to invoke on a exception during an scheduled task execution and which
+   * Handler method to invoke on a throwable during an scheduled task execution and which
    * the following operations in sequential order.
    * <ul>
    *   <li> Stop the scheduler. If the task execution fails or a task is interrupted, scheduler will not accept/execute any new tasks.</li>
    *   <li> Invokes the onError handler method if taskCallback is defined.</li>
    * </ul>
    *
-   * @param exception the exception happened during task execution.
+   * @param throwable the throwable that happened during task execution.
    */
-  private void doCleanUpOnTaskException(Throwable exception) {
+  private void doCleanUpOnTaskException(Throwable throwable) {
     stopScheduler();
 
-    scheduledTaskCallback.ifPresent(callback -> callback.onError(exception));
+    scheduledTaskCallback.ifPresent(callback -> callback.onError(throwable));
   }
 
   /**
