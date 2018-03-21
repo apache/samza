@@ -26,6 +26,7 @@ import java.util.List;
 import org.apache.commons.lang.Validate;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.StreamConfig;
 import org.apache.samza.system.SystemStream;
 
 
@@ -34,9 +35,6 @@ import org.apache.samza.system.SystemStream;
  * For now, only local tables are supported.
  */
 public class SqlSystemSourceConfig {
-
-  private static final String CFG_SAMZA_STREAM_BOOTSTRAP_STREAM = "streams.%s.samza.bootstrap";
-  private static final String CFG_SAMZA_STREAM_OFFSET_DEFAULT = "streams.%s.samza.offset.default";
 
   public static final String CFG_SAMZA_REL_CONVERTER = "samzaRelConverterName";
   public static final String CFG_REL_SCHEMA_PROVIDER = "relSchemaProviderName";
@@ -86,8 +84,8 @@ public class SqlSystemSourceConfig {
 
     // Currently, only local table is supported. And it is assumed that all tables are local tables.
     if (isTable) {
-      streamConfigs.put(String.format(CFG_SAMZA_STREAM_BOOTSTRAP_STREAM, streamName), "true");
-      streamConfigs.put(String.format(CFG_SAMZA_STREAM_OFFSET_DEFAULT, streamName), "oldest");
+      streamConfigs.put(String.format(StreamConfig.BOOTSTRAP_FOR_STREAM_ID(), streamName), "true");
+      streamConfigs.put(String.format(StreamConfig.CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID(), streamName), "oldest");
     }
 
     config = new MapConfig(streamConfigs);
