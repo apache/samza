@@ -83,6 +83,7 @@ public abstract class OperatorImpl<M, RM> {
   // watermark states
   private WatermarkStates watermarkStates;
   private TaskContext taskContext;
+  private ControlMessageSender controlMessageSender;
 
   /**
    * Initialize this {@link OperatorImpl} and its user-defined functions.
@@ -114,6 +115,7 @@ public abstract class OperatorImpl<M, RM> {
     TaskContextImpl taskContext = (TaskContextImpl) context;
     this.eosStates = (EndOfStreamStates) taskContext.fetchObject(EndOfStreamStates.class.getName());
     this.watermarkStates = (WatermarkStates) taskContext.fetchObject(WatermarkStates.class.getName());
+    this.controlMessageSender = new ControlMessageSender(taskContext.getStreamMetadataCache());
 
     if (taskContext.getJobModel() != null) {
       ContainerModel containerModel = taskContext.getJobModel().getContainers()
@@ -265,6 +267,11 @@ public abstract class OperatorImpl<M, RM> {
     SystemStream stream = ssp.getSystemStream();
     if (eosStates.isEndOfStream(stream)) {
       LOG.info("Input {} reaches the end for task {}", stream.toString(), taskName.getTaskName());
+      if (eos.getTaskName() != null) {
+        // broadcast the end-of-stream to all the peer partitions
+        controlMessageSender.broadcast(new EndOfStreamMessage(), ssp, collector);
+      }
+      // populate the end-of-stream through the dag
       onEndOfStream(collector, coordinator);
 
       if (eosStates.allEndOfStream()) {
@@ -322,6 +329,11 @@ public abstract class OperatorImpl<M, RM> {
     long watermark = watermarkStates.getWatermark(ssp.getSystemStream());
     if (watermark != WatermarkStates.WATERMARK_NOT_EXIST) {
       LOG.debug("Got watermark {} from stream {}", watermark, ssp.getSystemStream());
+      if (watermarkMessage.getTaskName() != null) {
+        // broadcast the watermark to all the peer partitions
+        controlMessageSender.broadcast(new WatermarkMessage(watermark), ssp, collector);
+      }
+      // populate the watermark through the dag
       onWatermark(watermark, collector, coordinator);
     }
   }

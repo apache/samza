@@ -52,8 +52,10 @@ class EndOfStreamStates {
     synchronized void update(String taskName) {
       if (taskName != null) {
         tasks.add(taskName);
+        isEndOfStream = tasks.size() == expectedTotal;
+      } else {
+        isEndOfStream = true;
       }
-      isEndOfStream = tasks.size() == expectedTotal;
     }
 
     boolean isEndOfStream() {

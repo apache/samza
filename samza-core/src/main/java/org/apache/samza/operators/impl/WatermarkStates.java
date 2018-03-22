@@ -71,6 +71,8 @@ class WatermarkStates {
       if (timestamps.size() == expectedTotal) {
         Optional<Long> min = timestamps.values().stream().min(Long::compare);
         watermarkTime = min.orElse(timestamp);
+      } else if (taskName == null) {
+        watermarkTime = Math.max(watermarkTime, timestamp);
       }
     }
 
