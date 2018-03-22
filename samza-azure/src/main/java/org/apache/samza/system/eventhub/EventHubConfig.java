@@ -71,18 +71,18 @@ public class EventHubConfig extends MapConfig {
             .forEach((streamId) -> physcialToId.put(streamConfig.getPhysicalName(streamId), streamId));
   }
 
-  private String getFromStreamIdOrName(String configName, String systemName, String streamName, String defaultString) {
-    String result = getFromStreamIdOrName(configName, systemName, streamName);
+  private String getFromStreamIdOrName(String configName, String streamName, String defaultString) {
+    String result = getFromStreamIdOrName(configName, streamName);
     if (result == null) {
       return defaultString;
     }
     return result;
   }
 
-  private String getFromStreamIdOrName(String configName, String systemName, String streamName) {
+  private String getFromStreamIdOrName(String configName, String streamName) {
     String streamId = getStreamId(streamName);
-    return get(String.format(configName, systemName, streamId),
-            streamId.equals(streamName) ? null : get(String.format(configName, systemName, streamName)));
+    return get(String.format(configName, streamId),
+            streamId.equals(streamName) ? null : get(String.format(configName, streamName)));
   }
 
   private String validateRequiredConfig(String value, String fieldName, String systemName, String streamName) {
@@ -122,7 +122,7 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs namespace
    */
   public String getStreamNamespace(String systemName, String streamName) {
-    return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_NAMESPACE, systemName, streamName),
+    return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_NAMESPACE, streamName),
             "Namespace", systemName, streamName);
   }
 
@@ -134,7 +134,7 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs entity path
    */
   public String getStreamEntityPath(String systemName, String streamName) {
-    return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_ENTITYPATH, systemName, streamName),
+    return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_ENTITYPATH, streamName),
             "EntityPath", systemName, streamName);
   }
 
@@ -146,7 +146,7 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs SAS key name
    */
   public String getStreamSasKeyName(String systemName, String streamName) {
-    return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName),
+    return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_SAS_KEY_NAME, streamName),
             "SASKeyName", systemName, streamName);
   }
 
@@ -158,7 +158,7 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs SAS token
    */
   public String getStreamSasToken(String systemName, String streamName) {
-    return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_SAS_TOKEN, systemName, streamName),
+    return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_SAS_TOKEN, streamName),
             "SASToken", systemName, streamName);
   }
 
@@ -170,7 +170,7 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs consumer group
    */
   public String getStreamConsumerGroup(String systemName, String streamName) {
-    return getFromStreamIdOrName(CONFIG_STREAM_CONSUMER_GROUP, systemName, streamName, DEFAULT_CONFIG_STREAM_CONSUMER_GROUP);
+    return getFromStreamIdOrName(CONFIG_STREAM_CONSUMER_GROUP, streamName, DEFAULT_CONFIG_STREAM_CONSUMER_GROUP);
   }
 
   /**
