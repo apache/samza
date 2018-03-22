@@ -28,6 +28,12 @@
 
   @log4j.loggers.public_access@
   <logger name="org.apache" additivity="false">
+    <level value="INFO"/>
+    <appender-ref ref="console"/>
+  </logger>
+
+  @log4j.loggers.public_access@
+  <logger name="org.apache.calcite.sql2rel" additivity="false">
     <level value="DEBUG"/>
     <appender-ref ref="console"/>
   </logger>

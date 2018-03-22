@@ -19,10 +19,12 @@
 
 package org.apache.samza.sql.data;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.apache.commons.lang.Validate;
+import org.codehaus.jackson.annotate.JsonProperty;
 
 
 /**
@@ -31,14 +33,18 @@ import org.apache.commons.lang.Validate;
  * their associated column names. Right now we donot store any other metadata other than the column name in the
  * SamzaSqlRelationalMessage, In future if we find a need, we could add additional column ddl metadata around
  * primary Key, nullability, etc.
+ * TODO: SAMZA-1619 Support serialization of nested SamzaSqlRelMessage.
  */
-public class SamzaSqlRelMessage {
+public class SamzaSqlRelMessage implements Serializable {
 
   public static final String KEY_NAME = "__key__";
 
-  private final List<Object> fieldValues = new ArrayList<>();
-  private final List<String> fieldNames = new ArrayList<>();
   private final Object key;
+
+  @JsonProperty("fieldNames")
+  private final List<String> fieldNames;
+  @JsonProperty("fieldValues")
+  private final List<Object> fieldValues;
 
   /**
    * Creates a {@link SamzaSqlRelMessage} from the list of relational fields and values.
@@ -49,16 +55,20 @@ public class SamzaSqlRelMessage {
    *               delete change capture event in the stream or because of the result of the outer join or the fields
    *               themselves are null in the original stream.
    */
-  public SamzaSqlRelMessage(List<String> fieldNames, List<Object> fieldValues) {
+  public SamzaSqlRelMessage(@JsonProperty("fieldNames") List<String> fieldNames,
+      @JsonProperty("fieldValues") List<Object> fieldValues) {
     Validate.isTrue(fieldNames.size() == fieldValues.size(), "Field Names and values are not of same length.");
+
+    this.fieldNames = new ArrayList<>();
+    this.fieldValues = new ArrayList<>();
 
     int keyIndex = fieldNames.indexOf(KEY_NAME);
     Object key = null;
     if (keyIndex != -1) {
       key = fieldValues.get(keyIndex);
     }
-
     this.key = key;
+
     this.fieldNames.addAll(fieldNames);
     this.fieldValues.addAll(fieldValues);
   }
@@ -74,10 +84,15 @@ public class SamzaSqlRelMessage {
    */
   public SamzaSqlRelMessage(Object key, List<String> fieldNames, List<Object> fieldValues) {
     Validate.isTrue(fieldNames.size() == fieldValues.size(), "Field Names and values are not of same length.");
+
+    this.fieldNames = new ArrayList<>();
+    this.fieldValues = new ArrayList<>();
+
     this.key = key;
     this.fieldNames.add(KEY_NAME);
-    this.fieldNames.addAll(fieldNames);
     this.fieldValues.add(key);
+
+    this.fieldNames.addAll(fieldNames);
     this.fieldValues.addAll(fieldValues);
   }
 
@@ -85,10 +100,12 @@ public class SamzaSqlRelMessage {
    * Get the field names of all the columns in the relational message.
    * @return the field names of all columns.
    */
+  @JsonProperty("fieldNames")
   public List<String> getFieldNames() {
     return fieldNames;
   }
 
+  @JsonProperty("fieldValues")
   public List<Object> getFieldValues() {
     return this.fieldValues;
   }

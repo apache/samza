@@ -42,11 +42,11 @@ import org.slf4j.LoggerFactory;
  * Translator to translate the Project node in the relational graph to the corresponding StreamGraph
  * implementation.
  */
-public class ProjectTranslator {
+class ProjectTranslator {
 
   private static final Logger LOG = LoggerFactory.getLogger(ProjectTranslator.class);
 
-  public void translate(final Project project, final TranslatorContext context) {
+  void translate(final Project project, final TranslatorContext context) {
     MessageStream<SamzaSqlRelMessage> messageStream = context.getMessageStream(project.getInput().getId());
     List<Integer> flattenProjects =
         project.getProjects().stream().filter(this::isFlatten).map(this::getProjectIndex).collect(Collectors.toList());

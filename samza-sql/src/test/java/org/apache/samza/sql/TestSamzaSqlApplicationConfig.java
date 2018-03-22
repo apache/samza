@@ -21,13 +21,13 @@ package org.apache.samza.sql;
 
 import java.util.HashMap;
 import java.util.Map;
-import junit.framework.Assert;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.sql.impl.ConfigBasedUdfResolver;
-import org.apache.samza.sql.interfaces.SqlSystemStreamConfig;
+import org.apache.samza.sql.interfaces.SqlSystemSourceConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.testutil.SamzaSqlTestConfig;
+import org.junit.Assert;
 import org.junit.Test;
 
 
@@ -69,11 +69,11 @@ public class TestSamzaSqlApplicationConfig {
         String.format(SamzaSqlApplicationConfig.CFG_FMT_SOURCE_RESOLVER_DOMAIN, "config");
     String avroSamzaSqlConfigPrefix = configSourceResolverDomain + String.format("%s.", "testavro");
 
-    testWithoutConfigShouldFail(config, avroSamzaSqlConfigPrefix + SqlSystemStreamConfig.CFG_SAMZA_REL_CONVERTER);
+    testWithoutConfigShouldFail(config, avroSamzaSqlConfigPrefix + SqlSystemSourceConfig.CFG_SAMZA_REL_CONVERTER);
 
     // Configs for the unused system "log" is not mandatory.
     String logSamzaSqlConfigPrefix = configSourceResolverDomain + String.format("%s.", "log");
-    testWithoutConfigShouldPass(config, logSamzaSqlConfigPrefix + SqlSystemStreamConfig.CFG_SAMZA_REL_CONVERTER);
+    testWithoutConfigShouldPass(config, logSamzaSqlConfigPrefix + SqlSystemSourceConfig.CFG_SAMZA_REL_CONVERTER);
   }
 
   private void testWithoutConfigShouldPass(Map<String, String> config, String configKey) {
