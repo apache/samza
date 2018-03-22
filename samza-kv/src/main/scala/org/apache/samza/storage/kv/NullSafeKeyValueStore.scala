@@ -19,8 +19,6 @@
 
 package org.apache.samza.storage.kv
 
-import org.apache.samza.util.Util.notNull
-
 import scala.collection.JavaConverters._
 
 object NullSafeKeyValueStore {
@@ -84,5 +82,11 @@ class NullSafeKeyValueStore[K, V](store: KeyValueStore[K, V]) extends KeyValueSt
 
   def close {
     store.close
+  }
+
+  private def notNull[T](obj: T, msg: String) = {
+    if (obj == null) {
+      throw new NullPointerException(msg)
+    }
   }
 }

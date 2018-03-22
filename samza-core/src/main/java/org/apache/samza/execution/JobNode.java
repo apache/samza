@@ -46,7 +46,7 @@ import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.spec.StatefulOperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
-import org.apache.samza.operators.util.MathUtils;
+import org.apache.samza.util.MathUtil;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.system.StreamSpec;
@@ -187,7 +187,8 @@ public class JobNode {
         // Note: no need to generate config for Serde's, as they are already produced by addSerdeConfigs()
 
         // Generate additional configuration
-        TableProviderFactory tableProviderFactory = Util.getObj(tableSpec.getTableProviderFactoryClassName());
+        TableProviderFactory tableProviderFactory =
+            Util.getObj(tableSpec.getTableProviderFactoryClassName(), TableProviderFactory.class);
         TableProvider tableProvider = tableProviderFactory.getTableProvider(tableSpec);
         configs.putAll(tableProvider.generateConfig(configs));
       });
@@ -343,7 +344,7 @@ public class JobNode {
     }
 
     // Compute the gcd of the resultant list
-    return MathUtils.gcd(candidateTimerIntervals);
+    return MathUtil.gcd(candidateTimerIntervals);
   }
 
   /**

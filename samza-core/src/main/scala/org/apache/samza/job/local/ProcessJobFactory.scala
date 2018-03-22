@@ -79,7 +79,7 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
         case Some(cmdBuilderClassName) => {
           // A command class was specified, so we need to use a process job to
           // execute the command in its own process.
-          Util.getObj[CommandBuilder](cmdBuilderClassName)
+          Util.getObj(cmdBuilderClassName, classOf[CommandBuilder])
         }
         case _ => {
           info("Defaulting to ShellCommandBuilder")

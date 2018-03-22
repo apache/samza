@@ -36,7 +36,7 @@ import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.CoordinatorStreamUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,8 +56,8 @@ public class CoordinatorStreamSystemProducer {
 
 
   public CoordinatorStreamSystemProducer(Config config, MetricsRegistry registry) {
-    SystemStream coordinatorSystemStream = Util.getCoordinatorSystemStream(config);
-    SystemFactory systemFactory = Util.getCoordinatorSystemFactory(config);
+    SystemStream coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config);
+    SystemFactory systemFactory = CoordinatorStreamUtil.getCoordinatorSystemFactory(config);
     SystemAdmin systemAdmin = systemFactory.getAdmin(coordinatorSystemStream.getSystem(), config);
     SystemProducer systemProducer = systemFactory.getProducer(coordinatorSystemStream.getSystem(), config, registry);
     this.systemStream = coordinatorSystemStream;

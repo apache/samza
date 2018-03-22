@@ -27,8 +27,8 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.util.Util;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.JsonParser;
@@ -166,16 +166,23 @@ public class SamzaObjectMapper {
 
   public static class SystemStreamPartitionKeySerializer extends JsonSerializer<SystemStreamPartition> {
     @Override
-    public void serialize(SystemStreamPartition systemStreamPartition, JsonGenerator jgen, SerializerProvider provider) throws IOException {
-      String ssp = Util.sspToString(systemStreamPartition);
-      jgen.writeFieldName(ssp);
+    public void serialize(SystemStreamPartition ssp, JsonGenerator jgen, SerializerProvider provider) throws IOException {
+      String sspString = ssp.getSystem() + "." + ssp.getStream() + "." + String.valueOf(ssp.getPartition().getPartitionId());
+      jgen.writeFieldName(sspString);
     }
   }
 
   public static class SystemStreamPartitionKeyDeserializer extends KeyDeserializer {
     @Override
     public Object deserializeKey(String sspString, DeserializationContext ctxt) throws IOException {
-      return Util.stringToSsp(sspString);
+      int idx = sspString.indexOf('.');
+      int lastIdx = sspString.lastIndexOf('.');
+      if (idx < 0 || lastIdx < 0) {
+        throw new IllegalArgumentException("System stream partition expected in format 'system.stream.partition");
+      }
+      return new SystemStreamPartition(
+          new SystemStream(sspString.substring(0, idx), sspString.substring(idx + 1, lastIdx)),
+          new Partition(Integer.parseInt(sspString.substring(lastIdx + 1))));
     }
   }
 

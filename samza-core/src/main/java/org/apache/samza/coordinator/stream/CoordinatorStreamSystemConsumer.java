@@ -45,7 +45,7 @@ import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.SystemStreamPartitionIterator;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.CoordinatorStreamUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,8 +68,8 @@ public class CoordinatorStreamSystemConsumer {
   private volatile Set<CoordinatorStreamMessage> bootstrappedStreamSet = Collections.emptySet();
 
   public CoordinatorStreamSystemConsumer(Config config, MetricsRegistry registry) {
-    SystemStream coordinatorSystemStream = Util.getCoordinatorSystemStream(config);
-    SystemFactory systemFactory = Util.getCoordinatorSystemFactory(config);
+    SystemStream coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config);
+    SystemFactory systemFactory = CoordinatorStreamUtil.getCoordinatorSystemFactory(config);
     SystemAdmin systemAdmin = systemFactory.getAdmin(coordinatorSystemStream.getSystem(), config);
     SystemConsumer systemConsumer = systemFactory.getConsumer(coordinatorSystemStream.getSystem(), config, registry);
 

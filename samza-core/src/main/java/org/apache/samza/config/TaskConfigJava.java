@@ -77,7 +77,7 @@ public class TaskConfigJava extends MapConfig {
     String checkpointManagerFactoryName = getCheckpointManagerFactoryName();
     if (StringUtils.isNotBlank(checkpointManagerFactoryName)) {
       CheckpointManager checkpointManager =
-          Util.<CheckpointManagerFactory>getObj(checkpointManagerFactoryName).getCheckpointManager(this, metricsRegistry);
+          Util.getObj(checkpointManagerFactoryName, CheckpointManagerFactory.class).getCheckpointManager(this, metricsRegistry);
       return checkpointManager;
     }
     return null;

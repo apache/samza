@@ -78,7 +78,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
       .getSystemFactory(systemName)
       .getOrElse(throw new SamzaException("Trying to fetch system factory for system %s, which isn't defined in config." format systemName))
 
-    val systemFactory = Util.getObj[SystemFactory](systemFactoryClassName)
+    val systemFactory = Util.getObj(systemFactoryClassName, classOf[SystemFactory])
 
     info("Got system factory %s." format systemFactory)
 
@@ -94,9 +94,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
     val serde = if (serdeName != null) {
       config.getSerdeClass(serdeName) match {
         case Some(serdeClassName) =>
-          Util
-            .getObj[SerdeFactory[MetricsSnapshot]](serdeClassName)
-            .getSerde(serdeName, config)
+          Util.getObj(serdeClassName, classOf[SerdeFactory[MetricsSnapshot]]).getSerde(serdeName, config)
         case _ => null
       }
     } else {

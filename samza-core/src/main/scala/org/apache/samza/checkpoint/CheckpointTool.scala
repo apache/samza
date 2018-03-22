@@ -124,7 +124,8 @@ object CheckpointTool {
   def apply(config: Config, offsets: TaskNameToCheckpointMap) = {
     val manager = config.getCheckpointManagerFactory match {
       case Some(className) =>
-        Util.getObj[CheckpointManagerFactory](className).getCheckpointManager(config, new MetricsRegistryMap)
+        Util.getObj(className, classOf[CheckpointManagerFactory])
+          .getCheckpointManager(config, new MetricsRegistryMap)
       case _ =>
         throw new SamzaException("This job does not use checkpointing (task.checkpoint.factory is not set).")
     }
@@ -133,10 +134,10 @@ object CheckpointTool {
 
   def rewriteConfig(config: JobConfig): Config = {
     def rewrite(c: JobConfig, rewriterName: String): Config = {
-      val klass = config
+      val rewriterClassName = config
               .getConfigRewriterClass(rewriterName)
               .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
-      val rewriter = Util.getObj[ConfigRewriter](klass)
+      val rewriter = Util.getObj(rewriterClassName, classOf[ConfigRewriter])
       info("Re-writing config for CheckpointTool with " + rewriter)
       rewriter.rewrite(rewriterName, c)
     }
