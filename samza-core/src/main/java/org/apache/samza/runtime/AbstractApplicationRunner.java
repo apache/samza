@@ -181,7 +181,7 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
       ExecutionPlan plan = getExecutionPlan(app);
       return plan.getIntermediateStreams();
     } catch (Throwable t) {
-      throw new SamzaException("Failed to run application", t);
+      throw new SamzaException("Failed to get intermediate streams", t);
     }
   }
 

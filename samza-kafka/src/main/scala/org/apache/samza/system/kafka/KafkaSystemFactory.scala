@@ -127,7 +127,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
        (topicName, changelogInfo)
     }}
 
-    val deleteMessagesEnabled = config.deleteMessagesEnabled(systemName).exists(isEnabled => isEnabled.toBoolean)
+    val deleteCommittedMessages = config.deleteCommittedMessages(systemName).exists(isEnabled => isEnabled.toBoolean)
     val intermediateStreamProperties: Map[String, Properties] = getIntermediateStreamProperties(config)
     new KafkaSystemAdmin(
       systemName,
@@ -140,7 +140,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
       clientId,
       topicMetaInformation,
       intermediateStreamProperties,
-      deleteMessagesEnabled)
+      deleteCommittedMessages)
   }
 
   def getCoordinatorTopicProperties(config: Config) = {

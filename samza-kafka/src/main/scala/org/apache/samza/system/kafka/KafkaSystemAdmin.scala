@@ -21,7 +21,9 @@ package org.apache.samza.system.kafka
 
 import java.util
 import java.util.{Properties, UUID}
-import kafka.admin.{AdminUtils, AdminClient}
+
+import com.google.common.annotations.VisibleForTesting
+import kafka.admin.{AdminClient, AdminUtils}
 import kafka.api._
 import kafka.common.TopicAndPartition
 import kafka.consumer.{ConsumerConfig, SimpleConsumer}
@@ -39,8 +41,7 @@ import scala.collection.JavaConverters._
 
 object KafkaSystemAdmin extends Logging {
 
-  // Used only for test
-  @volatile var deleteMessagesCalled = false
+  @VisibleForTesting @volatile var deleteMessagesCalled = false
   val CLEAR_STREAM_RETRIES = 3
 
   /**
@@ -152,7 +153,7 @@ class KafkaSystemAdmin(
   /**
    * Whether deleteMessages() API can be used
    */
-  deleteMessagesEnabled: Boolean = false) extends ExtendedSystemAdmin with Logging {
+  deleteCommittedMessages: Boolean = false) extends ExtendedSystemAdmin with Logging {
 
   import KafkaSystemAdmin._
 
@@ -587,7 +588,7 @@ class KafkaSystemAdmin(
     if (!running) {
       throw new SamzaException(s"KafkaSystemAdmin has not started yet for system $systemName")
     }
-    if (deleteMessagesEnabled) {
+    if (deleteCommittedMessages) {
       val nextOffsets = offsets.asScala.toSeq.map { case (systemStreamPartition, offset) =>
         (new TopicPartition(systemStreamPartition.getStream, systemStreamPartition.getPartition.getPartitionId), offset.toLong + 1)
       }.toMap

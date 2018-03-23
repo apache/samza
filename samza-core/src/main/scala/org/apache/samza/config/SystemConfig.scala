@@ -30,7 +30,9 @@ object SystemConfig {
   val SYSTEM_PREFIX = JavaSystemConfig.SYSTEM_PREFIX + "%s."
   val SYSTEM_FACTORY = JavaSystemConfig.SYSTEM_FACTORY_FORMAT
   val CONSUMER_OFFSET_DEFAULT = SYSTEM_PREFIX + "samza.offset.default"
-  val DELETE_MESSAGES_ENABLED = SYSTEM_PREFIX + "samza.delete.messages.enabled"
+
+  // If true, automatically delete committed messages from intermediate streams
+  val DELETE_COMMITTED_MESSAGES = SYSTEM_PREFIX + "samza.delete.committed.messages"
 
   implicit def Config2System(config: Config) = new SystemConfig(config)
 }
@@ -46,7 +48,7 @@ class SystemConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
   def getDefaultSystemOffset(systemName: String) = getOption(SystemConfig.CONSUMER_OFFSET_DEFAULT format (systemName))
 
-  def deleteMessagesEnabled(systemName: String) = getOption(SystemConfig.DELETE_MESSAGES_ENABLED format (systemName))
+  def deleteCommittedMessages(systemName: String) = getOption(SystemConfig.DELETE_COMMITTED_MESSAGES format (systemName))
 
   /**
    * Returns a list of all system names from the config file. Useful for

@@ -72,7 +72,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     RepartitionJoinWindowApp2 app = new RepartitionJoinWindowApp2();
     String appName = "UserPageAdClickCounter2";
     Map<String, String> configs = new HashMap<>();
-    configs.put("systems.kafka.samza.delete.messages.enabled", "false");
+    configs.put("systems.kafka.samza.delete.committed.messages", "false");
     runApplication(app, appName, configs);
 
     // consume and validate result
@@ -90,7 +90,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     RepartitionJoinWindowApp app = new RepartitionJoinWindowApp();
     final String appName = "UserPageAdClickCounter";
     Map<String, String> configs = new HashMap<>();
-    configs.put("systems.kafka.samza.delete.messages.enabled", "true");
+    configs.put("systems.kafka.samza.delete.committed.messages", "true");
     runApplication(app, appName, configs);
 
     // consume and validate result
