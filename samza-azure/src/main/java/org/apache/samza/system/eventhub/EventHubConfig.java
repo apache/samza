@@ -44,6 +44,8 @@ public class EventHubConfig extends MapConfig {
 
   public static final String CONFIG_STREAM_SAS_TOKEN = Config.SENSITIVE_PREFIX + "streams.%s.eventhubs.sas.token";
 
+  public static final String CONFIG_SKIP_MESSAGES_LARGER_THAN = "systems.%s.eventhubs.skipMessagesLargerThanBytes";
+
   public static final String CONFIG_STREAM_CONSUMER_GROUP = "streams.%s.eventhubs.consumer.group";
   public static final String DEFAULT_CONFIG_STREAM_CONSUMER_GROUP = EventHubClient.DEFAULT_CONSUMER_GROUP_NAME;
 
@@ -59,6 +61,9 @@ public class EventHubConfig extends MapConfig {
 
   public static final String CONFIG_CONSUMER_BUFFER_CAPACITY = "systems.%s.eventhubs.receive.queue.size";
   public static final int DEFAULT_CONFIG_CONSUMER_BUFFER_CAPACITY = 100;
+
+  // By default we will skip messages larger than 1MB.
+  private static final int DEFAULT_MAX_MESSAGE_SIZE = 1024 * 1024;
 
   private final Map<String, String> physcialToId = new HashMap<>();
 
@@ -136,6 +141,16 @@ public class EventHubConfig extends MapConfig {
   public String getStreamEntityPath(String systemName, String streamName) {
     return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_ENTITYPATH, streamName),
             "EntityPath", systemName, streamName);
+  }
+
+  /**
+   * Get the EventHubs max Message size
+   *
+   * @param systemName name of the system
+   * @return the max message size supported in event hubs.
+   */
+  public Integer getSkipMessagesLargerThan(String systemName) {
+    return getInt(String.format(CONFIG_SKIP_MESSAGES_LARGER_THAN, systemName), DEFAULT_MAX_MESSAGE_SIZE);
   }
 
   /**
