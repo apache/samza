@@ -76,7 +76,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
   private volatile Throwable throwable = null;
   private final HighResolutionClock clock;
   private final boolean isAsyncCommitEnabled;
-  private boolean runLoopResumedSinceLastChecked;
+  private volatile boolean runLoopResumedSinceLastChecked;
 
   public AsyncRunLoop(Map<TaskName, TaskInstance> taskInstances,
       ExecutorService threadPool,
