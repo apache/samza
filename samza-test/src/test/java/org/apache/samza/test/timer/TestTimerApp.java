@@ -57,12 +57,13 @@ public class TestTimerApp implements StreamApplication {
 
   private static class FlatmapTimerFn implements FlatMapFunction<PageView, PageView>, TimerFunction<String, PageView> {
 
-    private List<PageView> pageViews = new ArrayList<>();
-    private TimerRegistry<String> timerRegistry;
+    private transient List<PageView> pageViews;
+    private transient TimerRegistry<String> timerRegistry;
 
     @Override
     public void registerTimer(TimerRegistry<String> timerRegistry) {
       this.timerRegistry = timerRegistry;
+      this.pageViews = new ArrayList<>();
     }
 
     @Override

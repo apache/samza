@@ -122,12 +122,10 @@ public class QueryTranslator {
 
     outputStream.sendTo(streamGraph.getOutputStream(outputSystemConfig.getStreamName()));
 
-    // NOTE: context used to initialize the streamGraph is shared among all tasks, if the context does not contain objects
-    // with per task state, we should be able to use the same shared object for all tasks
     streamGraph.withContextManager(new ContextManager() {
       @Override
       public void init(Config config, TaskContext taskContext) {
-        taskContext.setUserContext(context);
+        taskContext.setUserContext(context.clone());
       }
 
       @Override

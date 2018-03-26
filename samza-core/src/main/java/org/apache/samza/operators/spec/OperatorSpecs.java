@@ -71,7 +71,7 @@ public class OperatorSpecs {
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createMapOperatorSpec(
       MapFunction<? super M, ? extends OM> mapFn, String opId) throws IOException {
-    return new StreamOperatorSpec<>((MapFunction<M, OM>) mapFn, OperatorSpec.OpCode.MAP, opId);
+    return StreamOperatorSpec.<M, OM>createStreamOperatorSpec((MapFunction<M, OM>) mapFn, OperatorSpec.OpCode.MAP, opId);
   }
 
   /**
@@ -85,7 +85,7 @@ public class OperatorSpecs {
    */
   public static <M> StreamOperatorSpec<M, M> createFilterOperatorSpec(
       FilterFunction<? super M> filterFn, String opId) throws IOException {
-    return new StreamOperatorSpec<M, M>((FilterFunction<M>) filterFn, OperatorSpec.OpCode.FILTER, opId);
+    return StreamOperatorSpec.<M>createStreamOperatorSpec((FilterFunction<M>) filterFn, OperatorSpec.OpCode.FILTER, opId);
   }
 
   /**
@@ -100,7 +100,7 @@ public class OperatorSpecs {
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createFlatMapOperatorSpec(
       FlatMapFunction<? super M, ? extends OM> flatMapFn, String opId) throws IOException {
-    return new StreamOperatorSpec<>((FlatMapFunction<M, OM>) flatMapFn, OperatorSpec.OpCode.FLAT_MAP, opId);
+    return StreamOperatorSpec.<M, OM>createStreamOperatorSpec((FlatMapFunction<M, OM>) flatMapFn, OperatorSpec.OpCode.FLAT_MAP, opId);
   }
 
   /**
@@ -199,7 +199,7 @@ public class OperatorSpecs {
    * @throws IOException when fail to create a serializable {@link OperatorSpec}
    */
   public static <M> StreamOperatorSpec<M, M> createMergeOperatorSpec(String opId) throws IOException {
-    return new StreamOperatorSpec<M, M>((M message) ->
+    return StreamOperatorSpec.<M, M>createStreamOperatorSpec((M message) ->
         new ArrayList<M>() {
           {
             this.add(message);

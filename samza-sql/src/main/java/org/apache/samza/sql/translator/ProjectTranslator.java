@@ -35,6 +35,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.sql.data.Expression;
+import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.task.TaskContext;
 import org.slf4j.Logger;
@@ -53,6 +54,7 @@ public class ProjectTranslator {
     private transient Project project;
     private transient Expression expr;
     private transient TranslatorContext context;
+    private transient SamzaSqlExecutionContext executionContext;
 
     private final int projectId;
 
@@ -62,7 +64,9 @@ public class ProjectTranslator {
 
     @Override
     public void init(Config config, TaskContext taskContext) {
+      // todo: need a per task ExecutionContext instance here.
       this.context = (TranslatorContext) taskContext.getUserContext();
+      this.executionContext = this.context.getExecutionContext();
       this.project = (Project) this.context.getRelNode(projectId);
       this.expr = this.context.getExpressionCompiler().compile(project.getInputs(), project.getProjects());
     }

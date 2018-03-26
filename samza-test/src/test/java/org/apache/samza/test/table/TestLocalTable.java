@@ -328,7 +328,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     }
   }
 
-  private static class PageViewToProfileJoinFunction implements StreamTableJoinFunction
+  static class PageViewToProfileJoinFunction implements StreamTableJoinFunction
       <Integer, KV<Integer, PageView>, KV<Integer, Profile>, EnrichedPageView> {
     private static Map<Integer, AtomicInteger> counterPerJoinFn = new HashMap<>();
     private static int seqNo = 0;

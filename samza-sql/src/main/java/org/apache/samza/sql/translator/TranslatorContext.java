@@ -42,13 +42,19 @@ import org.apache.samza.sql.interfaces.SamzaRelConverter;
 /**
  * State that is maintained while translating the Calcite relational graph to Samza {@link StreamGraph}.
  */
-public class TranslatorContext {
+public class TranslatorContext implements Cloneable {
+  /**
+   * The internal variables that are shared among all cloned {@link TranslatorContext}
+   */
   private final StreamGraph streamGraph;
-  private final Map<Integer, MessageStream> messsageStreams = new HashMap<>();
-  private final Map<Integer, RelNode> relNodes = new HashMap<>();
-  private final Map<String, SamzaRelConverter> relSamzaConverters;
   private final RexToJavaCompiler compiler;
+  private final Map<String, SamzaRelConverter> relSamzaConverters;
+  private final Map<Integer, MessageStream> messsageStreams;
+  private final Map<Integer, RelNode> relNodes;
 
+  /**
+   * The internal variables that are not shared among all cloned {@link TranslatorContext}
+   */
   private final SamzaSqlExecutionContext executionContext;
   private final DataContextImpl dataContext;
 
@@ -94,6 +100,16 @@ public class TranslatorContext {
     }
   }
 
+  private TranslatorContext(TranslatorContext other) {
+    this.streamGraph  = other.streamGraph;
+    this.compiler = other.compiler;
+    this.relSamzaConverters = other.relSamzaConverters;
+    this.messsageStreams = other.messsageStreams;
+    this.relNodes = other.relNodes;
+    this.executionContext = other.executionContext.clone();
+    this.dataContext = new DataContextImpl();
+  }
+
   /**
    * Create the instance of TranslatorContext
    * @param streamGraph Samza's streamGraph that is populated during the translation.
@@ -107,6 +123,8 @@ public class TranslatorContext {
     this.executionContext = executionContext;
     this.dataContext = new DataContextImpl();
     this.relSamzaConverters = converters;
+    this.messsageStreams = new HashMap<>();
+    this.relNodes = new HashMap<>();
   }
 
   /**
@@ -178,4 +196,13 @@ public class TranslatorContext {
     return this.relSamzaConverters.get(source);
   }
 
+  /**
+   * This method helps to create a per task instance of translator context
+   *
+   * @return the cloned instance of {@link TranslatorContext}
+   */
+  @Override
+  public TranslatorContext clone() {
+    return new TranslatorContext(this);
+  }
 }

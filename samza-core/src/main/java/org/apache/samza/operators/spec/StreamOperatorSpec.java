@@ -19,6 +19,7 @@
 package org.apache.samza.operators.spec;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import org.apache.samza.config.Config;
@@ -39,6 +40,7 @@ import org.apache.samza.task.TaskContext;
 public class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
 
   private final FlatMapFunction<M, OM> transformFn;
+  private final Serializable userFn;
 
   /**
    * Constructor for a {@link StreamOperatorSpec}.
@@ -47,13 +49,13 @@ public class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
    * @param opCode  the {@link OpCode} for this {@link StreamOperatorSpec}
    * @param opId  the unique ID for this {@link StreamOperatorSpec}
    */
-  StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, OperatorSpec.OpCode opCode, String opId) throws IOException {
+  private StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, OperatorSpec.OpCode opCode, String opId) throws IOException {
     super(opCode, opId);
     this.transformFn = transformFn;
-    // TODO: initWatermarkAndTimerFunctions()
+    this.userFn = transformFn;
   }
 
-  StreamOperatorSpec(MapFunction<M, OM> mapFn, OperatorSpec.OpCode opCode, String opId) throws IOException {
+  private StreamOperatorSpec(MapFunction<M, OM> mapFn, OperatorSpec.OpCode opCode, String opId) throws IOException {
     super(opCode, opId);
     this.transformFn = new FlatMapFunction<M, OM>() {
       @Override
@@ -78,9 +80,10 @@ public class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
         mapFn.close();
       }
     };
+    this.userFn = mapFn;
   }
 
-  public StreamOperatorSpec(FilterFunction<M> filterFn, OperatorSpec.OpCode opCode, String opId) throws IOException {
+  private StreamOperatorSpec(FilterFunction<M> filterFn, OperatorSpec.OpCode opCode, String opId) throws IOException {
     super(opCode, opId);
     this.transformFn = new FlatMapFunction<M, OM>() {
       @Override
@@ -104,6 +107,7 @@ public class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
         filterFn.close();
       }
     };
+    this.userFn = filterFn;
   }
 
   public FlatMapFunction<M, OM> getTransformFn() {
@@ -112,16 +116,30 @@ public class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
 
   @Override
   public WatermarkFunction getWatermarkFn() {
-    return this.transformFn instanceof WatermarkFunction ? (WatermarkFunction) this.transformFn : null;
+    return this.userFn instanceof WatermarkFunction ? (WatermarkFunction) this.userFn : null;
   }
 
   @Override
   public TimerFunction getTimerFn() {
-    return this.transformFn instanceof TimerFunction ? (TimerFunction) this.transformFn : null;
+    return this.userFn instanceof TimerFunction ? (TimerFunction) this.userFn : null;
   }
 
   public StreamOperatorSpec<M, OM> copy() throws IOException, ClassNotFoundException {
     return (StreamOperatorSpec<M, OM>) super.copy();
   }
-  // TODO: need to have an overriding method readObject() to initialize the timer/watermark functions
+
+  public static <M, OM> StreamOperatorSpec<M, OM> createStreamOperatorSpec(MapFunction<M, OM> mapFn,
+      OperatorSpec.OpCode opCode, String opId) throws IOException {
+    return new StreamOperatorSpec<M, OM>(mapFn, opCode, opId);
+  }
+
+  public static <M, OM> StreamOperatorSpec<M, OM> createStreamOperatorSpec(FlatMapFunction<M, OM> flatMapFn,
+      OperatorSpec.OpCode opCode, String opId) throws IOException {
+    return new StreamOperatorSpec<M, OM>(flatMapFn, opCode, opId);
+  }
+
+  public static <M> StreamOperatorSpec<M, M> createStreamOperatorSpec(FilterFunction<M> filterFn,
+      OperatorSpec.OpCode opCode, String opId) throws IOException {
+    return new StreamOperatorSpec<M, M>(filterFn, opCode, opId);
+  }
 }

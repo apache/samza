@@ -32,11 +32,23 @@ import org.apache.samza.sql.testutil.ReflectionUtils;
 import org.apache.samza.sql.udfs.ScalarUdf;
 
 
-public class SamzaSqlExecutionContext {
+public class SamzaSqlExecutionContext implements Cloneable {
 
+  /**
+   * The variables that are shared among all cloned instance of {@link SamzaSqlExecutionContext}
+   */
   private final SamzaSqlApplicationConfig sqlConfig;
   private final Map<String, UdfMetadata> udfMetadata;
+
+  /**
+   * The variable that are not shared among all cloned instance of {@link SamzaSqlExecutionContext}
+   */
   private final Map<String, ScalarUdf> udfInstances = new HashMap<>();
+
+  private SamzaSqlExecutionContext(SamzaSqlExecutionContext other) {
+    this.sqlConfig = other.sqlConfig;
+    this.udfMetadata = other.udfMetadata;
+  }
 
   public SamzaSqlExecutionContext(SamzaSqlApplicationConfig config) {
     this.sqlConfig = config;
@@ -58,4 +70,10 @@ public class SamzaSqlExecutionContext {
     scalarUdf.init(udfConfig);
     return scalarUdf;
   }
+
+  @Override
+  public SamzaSqlExecutionContext clone() {
+    return new SamzaSqlExecutionContext(this);
+  }
+
 }

@@ -21,12 +21,17 @@ package org.apache.samza.operators.spec;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.data.TestOutputMessageEnvelope;
+import org.apache.samza.operators.functions.FilterFunction;
+import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
+import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.functions.TimerFunction;
@@ -38,6 +43,7 @@ import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.TableSpec;
 import org.junit.Test;
+import org.mockito.internal.util.reflection.Whitebox;
 
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
@@ -49,25 +55,72 @@ import static org.mockito.Mockito.*;
 public class TestOperatorSpec implements Serializable {
 
   @Test
-  public void testStreamOperatorSpec() throws IOException, ClassNotFoundException {
+  public void testStreamOperatorSpecWithFlatMap() throws IOException, ClassNotFoundException {
+    FlatMapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> flatMap =
+        (TestMessageEnvelope m) -> new ArrayList<TestOutputMessageEnvelope>() {
+          {
+            this.add(new TestOutputMessageEnvelope(m.getKey(), m.getMessage().hashCode()));
+          }
+        };
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec =
-        new StreamOperatorSpec<>(
-            (TestMessageEnvelope m) -> new ArrayList<TestOutputMessageEnvelope>() { { this.add(new TestOutputMessageEnvelope(m.getKey(), m.getMessage().hashCode())); } },
-            OperatorSpec.OpCode.MAP, "op0");
+        StreamOperatorSpec.createStreamOperatorSpec(flatMap, OperatorSpec.OpCode.MAP, "op0");
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec = streamOperatorSpec.copy();
     assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
     assertTrue(streamOperatorSpec.isClone(cloneOperatorSpec));
+    Serializable userFn = (Serializable) Whitebox.getInternalState(streamOperatorSpec, "userFn");
+    assertEquals(userFn, flatMap);
     assertNotEquals(streamOperatorSpec.getTransformFn(), cloneOperatorSpec.getTransformFn());
+    assertTrue(cloneOperatorSpec.getTransformFn() instanceof FlatMapFunction);
+    Serializable clonedUserFn = (Serializable) Whitebox.getInternalState(cloneOperatorSpec, "userFn");
+    assertTrue(clonedUserFn instanceof FlatMapFunction);
+    assertNotEquals(userFn, clonedUserFn);
+    assertNull(streamOperatorSpec.getWatermarkFn());
+    assertNull(cloneOperatorSpec.getWatermarkFn());
+    assertNull(streamOperatorSpec.getTimerFn());
+    assertNull(cloneOperatorSpec.getTimerFn());
   }
 
   @Test
-  public void testMapWithLambda() throws IOException, ClassNotFoundException {
+  public void testStreamOperatorSpecWithMap() throws IOException, ClassNotFoundException {
+    MapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> mapFn =
+        m -> new TestOutputMessageEnvelope(m.getKey(), m.getMessage().hashCode());
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec =
-        OperatorSpecs.<TestMessageEnvelope, TestOutputMessageEnvelope>createMapOperatorSpec(m -> new TestOutputMessageEnvelope(m.getKey(), m.getMessage().hashCode()), "op0");
+        OperatorSpecs.createMapOperatorSpec(mapFn, "op0");
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec = streamOperatorSpec.copy();
     assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
     assertTrue(streamOperatorSpec.isClone(cloneOperatorSpec));
+    Serializable userFn = (Serializable) Whitebox.getInternalState(streamOperatorSpec, "userFn");
+    assertEquals(userFn, mapFn);
     assertNotEquals(streamOperatorSpec.getTransformFn(), cloneOperatorSpec.getTransformFn());
+    Serializable clonedUserFn = (Serializable) Whitebox.getInternalState(cloneOperatorSpec, "userFn");
+    assertTrue(cloneOperatorSpec.getTransformFn() instanceof FlatMapFunction);
+    assertTrue(clonedUserFn instanceof MapFunction);
+    assertNotEquals(userFn, clonedUserFn);
+    assertNull(streamOperatorSpec.getWatermarkFn());
+    assertNull(cloneOperatorSpec.getWatermarkFn());
+    assertNull(streamOperatorSpec.getTimerFn());
+    assertNull(cloneOperatorSpec.getTimerFn());
+  }
+
+  @Test
+  public void testStreamOperatorSpecWithFilter() throws IOException, ClassNotFoundException {
+    FilterFunction<TestMessageEnvelope> filterFn = m -> m.getKey().equals("key1");
+    StreamOperatorSpec<TestMessageEnvelope, TestMessageEnvelope> streamOperatorSpec =
+        OperatorSpecs.createFilterOperatorSpec(filterFn, "op0");
+    StreamOperatorSpec<TestMessageEnvelope, TestMessageEnvelope> cloneOperatorSpec = streamOperatorSpec.copy();
+    assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
+    assertTrue(streamOperatorSpec.isClone(cloneOperatorSpec));
+    Serializable userFn = (Serializable) Whitebox.getInternalState(streamOperatorSpec, "userFn");
+    assertEquals(userFn, filterFn);
+    assertNotEquals(streamOperatorSpec.getTransformFn(), cloneOperatorSpec.getTransformFn());
+    Serializable clonedUserFn = (Serializable) Whitebox.getInternalState(cloneOperatorSpec, "userFn");
+    assertTrue(cloneOperatorSpec.getTransformFn() instanceof FlatMapFunction);
+    assertTrue(clonedUserFn instanceof FilterFunction);
+    assertNotEquals(userFn, clonedUserFn);
+    assertNull(streamOperatorSpec.getWatermarkFn());
+    assertNull(cloneOperatorSpec.getWatermarkFn());
+    assertNull(streamOperatorSpec.getTimerFn());
+    assertNull(cloneOperatorSpec.getTimerFn());
   }
 
   @Test
@@ -248,4 +301,80 @@ public class TestOperatorSpec implements Serializable {
     assertEquals(broadcastOpCopy.getOutputStream().getSystemStream(), broadcastOpSpec.getOutputStream().getSystemStream());
     assertEquals(broadcastOpCopy.getOutputStream().isKeyed(), broadcastOpSpec.getOutputStream().isKeyed());
   }
+
+  @Test
+  public void testMapStreamOperatorSpecWithWatermark() throws IOException, ClassNotFoundException {
+    class MapWithWatermarkFn implements MapFunction<TestMessageEnvelope, TestOutputMessageEnvelope>, WatermarkFunction<TestOutputMessageEnvelope> {
+
+      @Override
+      public Collection<TestOutputMessageEnvelope> processWatermark(long watermark) {
+        return null;
+      }
+
+      @Override
+      public Long getOutputWatermark() {
+        return null;
+      }
+
+      @Override
+      public TestOutputMessageEnvelope apply(TestMessageEnvelope m) {
+        return new TestOutputMessageEnvelope(m.getKey(), m.getMessage().hashCode());
+      }
+    }
+
+    MapWithWatermarkFn testMapFn = new MapWithWatermarkFn();
+
+    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec =
+        StreamOperatorSpec.createStreamOperatorSpec(
+            testMapFn,
+            OperatorSpec.OpCode.MAP, "op0");
+    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec = streamOperatorSpec.copy();
+    assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
+    assertTrue(streamOperatorSpec.isClone(cloneOperatorSpec));
+    assertNotEquals(streamOperatorSpec.getTransformFn(), cloneOperatorSpec.getTransformFn());
+    assertEquals(streamOperatorSpec.getWatermarkFn(), testMapFn);
+    assertNotNull(cloneOperatorSpec.getWatermarkFn());
+    assertNotEquals(cloneOperatorSpec.getTransformFn(), cloneOperatorSpec.getWatermarkFn());
+    assertNull(streamOperatorSpec.getTimerFn());
+    assertNull(cloneOperatorSpec.getTimerFn());
+  }
+
+  @Test
+  public void testMapStreamOperatorSpecWithTimer() throws IOException, ClassNotFoundException {
+    class MapWithTimerFn implements MapFunction<TestMessageEnvelope, TestOutputMessageEnvelope>, TimerFunction<String, TestOutputMessageEnvelope> {
+
+      @Override
+      public TestOutputMessageEnvelope apply(TestMessageEnvelope m) {
+        return new TestOutputMessageEnvelope(m.getKey(), m.getMessage().hashCode());
+      }
+
+      @Override
+      public void registerTimer(TimerRegistry<String> timerRegistry) {
+
+      }
+
+      @Override
+      public Collection<TestOutputMessageEnvelope> onTimer(String key, long timestamp) {
+        return null;
+      }
+    }
+
+    MapWithTimerFn testMapFn = new MapWithTimerFn();
+
+    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec =
+        StreamOperatorSpec.createStreamOperatorSpec(
+            testMapFn,
+            OperatorSpec.OpCode.MAP, "op0");
+    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec = streamOperatorSpec.copy();
+    assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
+    assertTrue(streamOperatorSpec.isClone(cloneOperatorSpec));
+    assertNotEquals(streamOperatorSpec.getTransformFn(), cloneOperatorSpec.getTransformFn());
+    assertNull(streamOperatorSpec.getWatermarkFn());
+    assertNull(cloneOperatorSpec.getWatermarkFn());
+    assertNotEquals(cloneOperatorSpec.getTransformFn(), cloneOperatorSpec.getWatermarkFn());
+    assertEquals(streamOperatorSpec.getTimerFn(), testMapFn);
+    assertNotNull(cloneOperatorSpec.getTimerFn());
+    assertNotEquals(streamOperatorSpec.getTimerFn(), cloneOperatorSpec.getTimerFn());
+  }
+
 }
