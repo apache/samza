@@ -23,19 +23,6 @@ import com.microsoft.azure.eventhubs.EventData;
 import com.microsoft.azure.eventhubs.EventHubClient;
 import com.microsoft.azure.eventhubs.PartitionSender;
 import com.microsoft.azure.servicebus.ServiceBusException;
-import org.apache.samza.SamzaException;
-import org.apache.samza.metrics.Counter;
-import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.system.OutgoingMessageEnvelope;
-import org.apache.samza.system.SystemProducer;
-import org.apache.samza.system.eventhub.EventHubClientManager;
-import org.apache.samza.system.eventhub.EventHubConfig;
-import org.apache.samza.system.eventhub.EventHubClientManagerFactory;
-import org.apache.samza.system.eventhub.Interceptor;
-import org.apache.samza.system.eventhub.metrics.SamzaHistogram;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -48,9 +35,22 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.samza.SamzaException;
+import org.apache.samza.metrics.Counter;
+import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.SystemProducer;
+import org.apache.samza.system.eventhub.EventHubClientManager;
+import org.apache.samza.system.eventhub.EventHubClientManagerFactory;
+import org.apache.samza.system.eventhub.EventHubConfig;
+import org.apache.samza.system.eventhub.Interceptor;
+import org.apache.samza.system.eventhub.metrics.SamzaHistogram;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 public class EventHubSystemProducer implements SystemProducer {
   private static final Logger LOG = LoggerFactory.getLogger(EventHubSystemProducer.class.getName());
@@ -61,11 +61,13 @@ public class EventHubSystemProducer implements SystemProducer {
   public static final String KEY = "key";
 
   // Metrics recording
+  private static final String EVENT_SKIP_RATE = "eventSkipRate";
   private static final String EVENT_WRITE_RATE = "eventWriteRate";
   private static final String EVENT_BYTE_WRITE_RATE = "eventByteWriteRate";
   private static final String SEND_ERRORS = "sendErrors";
   private static final String SEND_LATENCY = "sendLatency";
   private static final String SEND_CALLBACK_LATENCY = "sendCallbackLatency";
+  private static Counter aggEventSkipRate = null;
   private static Counter aggEventWriteRate = null;
   private static Counter aggEventByteWriteRate = null;
   private static Counter aggSendErrors = null;
@@ -76,11 +78,10 @@ public class EventHubSystemProducer implements SystemProducer {
   private static final Object AGGREGATE_METRICS_LOCK = new Object();
 
   public enum PartitioningMethod {
-    ROUND_ROBIN,
-    EVENT_HUB_HASHING,
-    PARTITION_KEY_AS_PARTITION
+    ROUND_ROBIN, EVENT_HUB_HASHING, PARTITION_KEY_AS_PARTITION
   }
 
+  private final HashMap<String, Counter> eventSkipRate = new HashMap<>();
   private final HashMap<String, Counter> eventWriteRate = new HashMap<>();
   private final HashMap<String, Counter> eventByteWriteRate = new HashMap<>();
   private final HashMap<String, SamzaHistogram> sendLatency = new HashMap<>();
@@ -91,6 +92,7 @@ public class EventHubSystemProducer implements SystemProducer {
   private final MetricsRegistry registry;
   private final PartitioningMethod partitioningMethod;
   private final String systemName;
+  private final int maxMessageSize;
 
   private final AtomicReference<Throwable> sendExceptionOnCallback = new AtomicReference<>(null);
   private volatile boolean isStarted = false;
@@ -104,20 +106,23 @@ public class EventHubSystemProducer implements SystemProducer {
   private final Set<CompletableFuture<Void>> pendingFutures = ConcurrentHashMap.newKeySet();
 
   public EventHubSystemProducer(EventHubConfig config, String systemName,
-                                EventHubClientManagerFactory eventHubClientManagerFactory,
-                                Map<String, Interceptor> interceptors, MetricsRegistry registry) {
+      EventHubClientManagerFactory eventHubClientManagerFactory, Map<String, Interceptor> interceptors,
+      MetricsRegistry registry) {
+    LOG.info("Creating EventHub Producer for system {}", systemName);
     this.config = config;
     this.registry = registry;
     this.systemName = systemName;
     this.partitioningMethod = config.getPartitioningMethod(systemName);
     this.interceptors = interceptors;
+    this.maxMessageSize = config.getSkipMessagesLargerThan(systemName);
 
     // Fetches the stream ids
     List<String> streamIds = config.getStreams(systemName);
 
     // Create and initiate connections to Event Hubs
     for (String streamId : streamIds) {
-      EventHubClientManager ehClient = eventHubClientManagerFactory.getEventHubClientManager(systemName, streamId, config);
+      EventHubClientManager ehClient =
+          eventHubClientManagerFactory.getEventHubClientManager(systemName, streamId, config);
       eventHubClients.put(streamId, ehClient);
       ehClient.init();
     }
@@ -125,6 +130,7 @@ public class EventHubSystemProducer implements SystemProducer {
 
   @Override
   public synchronized void register(String source) {
+    LOG.info("Registering source {}", source);
     if (isStarted) {
       String msg = "Cannot register once the producer is started.";
       throw new SamzaException(msg);
@@ -133,7 +139,7 @@ public class EventHubSystemProducer implements SystemProducer {
 
   @Override
   public synchronized void start() {
-    LOG.debug("Starting system producer.");
+    LOG.info("Starting system producer.");
 
     // Create partition senders if required
     if (PartitioningMethod.PARTITION_KEY_AS_PARTITION.equals(partitioningMethod)) {
@@ -144,8 +150,8 @@ public class EventHubSystemProducer implements SystemProducer {
           try {
             Map<Integer, PartitionSender> partitionSenders = new HashMap<>();
             long timeoutMs = config.getRuntimeInfoWaitTimeMS(systemName);
-            Integer numPartitions = ehClient.getRuntimeInformation().get(timeoutMs, TimeUnit.MILLISECONDS)
-                    .getPartitionCount();
+            Integer numPartitions =
+                ehClient.getRuntimeInformation().get(timeoutMs, TimeUnit.MILLISECONDS).getPartitionCount();
 
             for (int i = 0; i < numPartitions; i++) { // 32 partitions max
               String partitionId = String.valueOf(i);
@@ -166,6 +172,7 @@ public class EventHubSystemProducer implements SystemProducer {
 
     // Initiate metrics
     eventHubClients.keySet().forEach((streamId) -> {
+        eventSkipRate.put(streamId, registry.newCounter(streamId, EVENT_SKIP_RATE));
         eventWriteRate.put(streamId, registry.newCounter(streamId, EVENT_WRITE_RATE));
         eventByteWriteRate.put(streamId, registry.newCounter(streamId, EVENT_BYTE_WRITE_RATE));
         sendLatency.put(streamId, new SamzaHistogram(registry, streamId, SEND_LATENCY));
@@ -176,6 +183,7 @@ public class EventHubSystemProducer implements SystemProducer {
     // Locking to ensure that these aggregated metrics will be created only once across multiple system producers.
     synchronized (AGGREGATE_METRICS_LOCK) {
       if (aggEventWriteRate == null) {
+        aggEventSkipRate = registry.newCounter(AGGREGATE, EVENT_SKIP_RATE);
         aggEventWriteRate = registry.newCounter(AGGREGATE, EVENT_WRITE_RATE);
         aggEventByteWriteRate = registry.newCounter(AGGREGATE, EVENT_BYTE_WRITE_RATE);
         aggSendLatency = new SamzaHistogram(registry, AGGREGATE, SEND_LATENCY);
@@ -204,7 +212,17 @@ public class EventHubSystemProducer implements SystemProducer {
     checkCallbackThrowable("Received exception on message send");
 
     EventData eventData = createEventData(streamId, envelope);
-    int eventDataLength =  eventData.getBytes() == null ? 0 : eventData.getBytes().length;
+    int eventDataLength = eventData.getBytes() == null ? 0 : eventData.getBytes().length;
+
+    // If the maxMessageSize is lesser than zero, then it means there is no message size restriction.
+    if (this.maxMessageSize > 0 && eventDataLength > this.maxMessageSize) {
+      LOG.info("Received a message with size {} > maxMessageSize configured {(}), Skipping it",
+          eventDataLength, this.maxMessageSize);
+      eventSkipRate.get(streamId).inc();
+      aggEventSkipRate.inc();
+      return;
+    }
+
     eventWriteRate.get(streamId).inc();
     aggEventWriteRate.inc();
     eventByteWriteRate.get(streamId).inc(eventDataLength);
@@ -214,8 +232,8 @@ public class EventHubSystemProducer implements SystemProducer {
     long beforeSendTimeMs = System.currentTimeMillis();
 
     // Async send call
-    CompletableFuture<Void> sendResult = sendToEventHub(streamId, eventData, getEnvelopePartitionId(envelope),
-            ehClient.getEventHubClient());
+    CompletableFuture<Void> sendResult =
+        sendToEventHub(streamId, eventData, getEnvelopePartitionId(envelope), ehClient.getEventHubClient());
 
     long afterSendTimeMs = System.currentTimeMillis();
     long latencyMs = afterSendTimeMs - beforeSendTimeMs;
@@ -240,7 +258,7 @@ public class EventHubSystemProducer implements SystemProducer {
   }
 
   private CompletableFuture<Void> sendToEventHub(String streamId, EventData eventData, Object partitionKey,
-                                                 EventHubClient eventHubClient) {
+      EventHubClient eventHubClient) {
     if (PartitioningMethod.ROUND_ROBIN.equals(partitioningMethod)) {
       return eventHubClient.send(eventData);
     } else if (PartitioningMethod.EVENT_HUB_HASHING.equals(partitioningMethod)) {
@@ -276,7 +294,7 @@ public class EventHubSystemProducer implements SystemProducer {
     } else if (partitionKey instanceof byte[]) {
       return new String((byte[]) partitionKey, Charset.defaultCharset());
     } else {
-      throw new SamzaException("Unsupported key type: " +  partitionKey.getClass().toString());
+      throw new SamzaException("Unsupported key type: " + partitionKey.getClass().toString());
     }
   }
 
@@ -295,7 +313,7 @@ public class EventHubSystemProducer implements SystemProducer {
       String keyValue = "";
       if (envelope.getKey() != null) {
         keyValue = (envelope.getKey() instanceof byte[]) ? new String((byte[]) envelope.getKey())
-                : envelope.getKey().toString();
+            : envelope.getKey().toString();
       }
       eventData.getProperties().put(KEY, keyValue);
     }
@@ -304,27 +322,30 @@ public class EventHubSystemProducer implements SystemProducer {
 
   @Override
   public synchronized void flush(String source) {
-    LOG.debug("Trying to flush pending {} sends messages.", pendingFutures.size());
-    checkCallbackThrowable("Received exception on message send");
-
-    CompletableFuture<Void> future = CompletableFuture
-              .allOf(pendingFutures.toArray(new CompletableFuture[pendingFutures.size()]));
+    long incompleteSends = pendingFutures.stream().filter(x -> !x.isDone()).count();
+    LOG.info("Trying to flush pending {} sends.", incompleteSends);
+    checkCallbackThrowable("Received exception on message send.");
+    CompletableFuture<Void> future =
+        CompletableFuture.allOf(pendingFutures.toArray(new CompletableFuture[pendingFutures.size()]));
 
     try {
       // Block until all the pending sends are complete or timeout.
       future.get(DEFAULT_FLUSH_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      String msg = "Flush failed with error";
+      incompleteSends = pendingFutures.stream().filter(x -> !x.isDone()).count();
+      String msg = String.format("Flush failed with error. Total pending sends %d", incompleteSends);
+      LOG.error(msg, e);
       throw new SamzaException(msg, e);
     }
 
-    checkCallbackThrowable("Sending one or more of the messages failed during flush");
+    checkCallbackThrowable("Sending one or more of the messages failed during flush.");
   }
 
   private void checkCallbackThrowable(String msg) {
     // Check for send errors from EventHub side
     Throwable sendThrowable = sendExceptionOnCallback.get();
     if (sendThrowable != null) {
+      LOG.error(msg, sendThrowable);
       throw new SamzaException(msg, sendThrowable);
     }
     pendingFutures.clear();
@@ -332,7 +353,7 @@ public class EventHubSystemProducer implements SystemProducer {
 
   @Override
   public synchronized void stop() {
-    LOG.debug("Stopping producer.", pendingFutures.size());
+    LOG.info("Stopping producer.", pendingFutures.size());
 
     streamPartitionSenders.values().forEach((streamPartitionSender) -> {
         List<CompletableFuture<Void>> futures = new ArrayList<>();
