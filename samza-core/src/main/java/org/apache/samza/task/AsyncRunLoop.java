@@ -169,7 +169,6 @@ public class AsyncRunLoop implements Runnable, Throttleable {
         long activeNs = currentNs - blockNs;
         long totalNs = currentNs - prevNs;
         prevNs = currentNs;
-        containerMetrics.blockNs().update(currentNs - blockNs);
 
         if (totalNs != 0) {
           // totalNs is not 0 if timer metrics are enabled
