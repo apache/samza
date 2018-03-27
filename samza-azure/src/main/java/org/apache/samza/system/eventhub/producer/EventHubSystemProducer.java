@@ -216,8 +216,8 @@ public class EventHubSystemProducer implements SystemProducer {
 
     // If the maxMessageSize is lesser than zero, then it means there is no message size restriction.
     if (this.maxMessageSize > 0 && eventDataLength > this.maxMessageSize) {
-      LOG.info("Received a message (Key:{}) with size {} > maxMessageSize configured {(}), Skipping it",
-          envelope.getKey() == null ? "null" : String.valueOf(envelope.getKey()), eventDataLength, this.maxMessageSize);
+      LOG.info("Received a message with size {} > maxMessageSize configured {(}), Skipping it",
+          eventDataLength, this.maxMessageSize);
       eventSkipRate.get(streamId).inc();
       aggEventSkipRate.inc();
       return;
