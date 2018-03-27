@@ -1,21 +1,21 @@
 /*
-* Licensed to the Apache Software Foundation (ASF) under one
-* or more contributor license agreements.  See the NOTICE file
-* distributed with this work for additional information
-* regarding copyright ownership.  The ASF licenses this file
-* to you under the Apache License, Version 2.0 (the
-* "License"); you may not use this file except in compliance
-* with the License.  You may obtain a copy of the License at
-*
-*   http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing,
-* software distributed under the License is distributed on an
-* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-* KIND, either express or implied.  See the License for the
-* specific language governing permissions and limitations
-* under the License.
-*/
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
 package org.apache.samza.system.eventhub.producer;
 
@@ -26,23 +26,19 @@ import com.microsoft.azure.servicebus.ServiceBusException;
 import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
+import org.apache.samza.NoFlushAsyncSystemProducer;
 import org.apache.samza.SamzaException;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.OutgoingMessageEnvelope;
-import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.eventhub.EventHubClientManager;
 import org.apache.samza.system.eventhub.EventHubClientManagerFactory;
 import org.apache.samza.system.eventhub.EventHubConfig;
@@ -52,10 +48,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-public class EventHubSystemProducer implements SystemProducer {
+/**
+ * EventHub system producer that can be used in Samza jobs to send events to Azure EventHubs
+ */
+public class EventHubSystemProducer extends NoFlushAsyncSystemProducer {
   private static final Logger LOG = LoggerFactory.getLogger(EventHubSystemProducer.class.getName());
   private static final long DEFAULT_SHUTDOWN_TIMEOUT_MILLIS = Duration.ofMinutes(1L).toMillis();
-  private static final long DEFAULT_FLUSH_TIMEOUT_MILLIS = Duration.ofMinutes(1L).toMillis();
 
   public static final String PRODUCE_TIMESTAMP = "produce-timestamp";
   public static final String KEY = "key";
@@ -64,16 +62,12 @@ public class EventHubSystemProducer implements SystemProducer {
   private static final String EVENT_SKIP_RATE = "eventSkipRate";
   private static final String EVENT_WRITE_RATE = "eventWriteRate";
   private static final String EVENT_BYTE_WRITE_RATE = "eventByteWriteRate";
-  private static final String SEND_ERRORS = "sendErrors";
   private static final String SEND_LATENCY = "sendLatency";
-  private static final String SEND_CALLBACK_LATENCY = "sendCallbackLatency";
+
   private static Counter aggEventSkipRate = null;
   private static Counter aggEventWriteRate = null;
   private static Counter aggEventByteWriteRate = null;
-  private static Counter aggSendErrors = null;
   private static SamzaHistogram aggSendLatency = null;
-  private static SamzaHistogram aggSendCallbackLatency = null;
-  private static final String AGGREGATE = "aggregate";
 
   private static final Object AGGREGATE_METRICS_LOCK = new Object();
 
@@ -85,16 +79,12 @@ public class EventHubSystemProducer implements SystemProducer {
   private final HashMap<String, Counter> eventWriteRate = new HashMap<>();
   private final HashMap<String, Counter> eventByteWriteRate = new HashMap<>();
   private final HashMap<String, SamzaHistogram> sendLatency = new HashMap<>();
-  private final HashMap<String, SamzaHistogram> sendCallbackLatency = new HashMap<>();
-  private final HashMap<String, Counter> sendErrors = new HashMap<>();
 
   private final EventHubConfig config;
-  private final MetricsRegistry registry;
   private final PartitioningMethod partitioningMethod;
   private final String systemName;
   private final int maxMessageSize;
 
-  private final AtomicReference<Throwable> sendExceptionOnCallback = new AtomicReference<>(null);
   private volatile boolean isStarted = false;
 
   // Map of the system name to the event hub client.
@@ -103,14 +93,12 @@ public class EventHubSystemProducer implements SystemProducer {
 
   private final Map<String, Interceptor> interceptors;
 
-  private final Set<CompletableFuture<Void>> pendingFutures = ConcurrentHashMap.newKeySet();
-
   public EventHubSystemProducer(EventHubConfig config, String systemName,
       EventHubClientManagerFactory eventHubClientManagerFactory, Map<String, Interceptor> interceptors,
       MetricsRegistry registry) {
+    super(systemName, config, registry);
     LOG.info("Creating EventHub Producer for system {}", systemName);
     this.config = config;
-    this.registry = registry;
     this.systemName = systemName;
     this.partitioningMethod = config.getPartitioningMethod(systemName);
     this.interceptors = interceptors;
@@ -171,13 +159,11 @@ public class EventHubSystemProducer implements SystemProducer {
     }
 
     // Initiate metrics
-    eventHubClients.keySet().forEach((streamId) -> {
+    streamIds.forEach((streamId) -> {
         eventSkipRate.put(streamId, registry.newCounter(streamId, EVENT_SKIP_RATE));
         eventWriteRate.put(streamId, registry.newCounter(streamId, EVENT_WRITE_RATE));
         eventByteWriteRate.put(streamId, registry.newCounter(streamId, EVENT_BYTE_WRITE_RATE));
         sendLatency.put(streamId, new SamzaHistogram(registry, streamId, SEND_LATENCY));
-        sendCallbackLatency.put(streamId, new SamzaHistogram(registry, streamId, SEND_CALLBACK_LATENCY));
-        sendErrors.put(streamId, registry.newCounter(streamId, SEND_ERRORS));
       });
 
     // Locking to ensure that these aggregated metrics will be created only once across multiple system producers.
@@ -187,8 +173,6 @@ public class EventHubSystemProducer implements SystemProducer {
         aggEventWriteRate = registry.newCounter(AGGREGATE, EVENT_WRITE_RATE);
         aggEventByteWriteRate = registry.newCounter(AGGREGATE, EVENT_BYTE_WRITE_RATE);
         aggSendLatency = new SamzaHistogram(registry, AGGREGATE, SEND_LATENCY);
-        aggSendCallbackLatency = new SamzaHistogram(registry, AGGREGATE, SEND_CALLBACK_LATENCY);
-        aggSendErrors = registry.newCounter(AGGREGATE, SEND_ERRORS);
       }
     }
 
@@ -196,7 +180,7 @@ public class EventHubSystemProducer implements SystemProducer {
   }
 
   @Override
-  public synchronized void send(String source, OutgoingMessageEnvelope envelope) {
+  public synchronized CompletableFuture<Void> sendAsync(String source, OutgoingMessageEnvelope envelope) {
     LOG.debug(String.format("Trying to send %s", envelope));
     if (!isStarted) {
       throw new SamzaException("Trying to call send before the producer is started.");
@@ -209,18 +193,16 @@ public class EventHubSystemProducer implements SystemProducer {
       throw new SamzaException(msg);
     }
 
-    checkCallbackThrowable("Received exception on message send");
-
     EventData eventData = createEventData(streamId, envelope);
     int eventDataLength = eventData.getBytes() == null ? 0 : eventData.getBytes().length;
 
     // If the maxMessageSize is lesser than zero, then it means there is no message size restriction.
     if (this.maxMessageSize > 0 && eventDataLength > this.maxMessageSize) {
-      LOG.info("Received a message with size {} > maxMessageSize configured {(}), Skipping it",
-          eventDataLength, this.maxMessageSize);
+      LOG.info("Received a message with size {} > maxMessageSize configured {(}), Skipping it", eventDataLength,
+          this.maxMessageSize);
       eventSkipRate.get(streamId).inc();
       aggEventSkipRate.inc();
-      return;
+      return CompletableFuture.completedFuture(null);
     }
 
     eventWriteRate.get(streamId).inc();
@@ -240,21 +222,7 @@ public class EventHubSystemProducer implements SystemProducer {
     sendLatency.get(streamId).update(latencyMs);
     aggSendLatency.update(latencyMs);
 
-    pendingFutures.add(sendResult);
-
-    // Auto update the metrics and possible throwable when futures are complete.
-    sendResult.handle((aVoid, throwable) -> {
-        long callbackLatencyMs = System.currentTimeMillis() - afterSendTimeMs;
-        sendCallbackLatency.get(streamId).update(callbackLatencyMs);
-        aggSendCallbackLatency.update(callbackLatencyMs);
-        if (throwable != null) {
-          sendErrors.get(streamId).inc();
-          aggSendErrors.inc();
-          LOG.error("Send message to event hub: {} failed with exception: ", streamId, throwable);
-          sendExceptionOnCallback.compareAndSet(null, throwable);
-        }
-        return aVoid;
-      });
+    return sendResult;
   }
 
   private CompletableFuture<Void> sendToEventHub(String streamId, EventData eventData, Object partitionKey,
@@ -321,40 +289,8 @@ public class EventHubSystemProducer implements SystemProducer {
   }
 
   @Override
-  public synchronized void flush(String source) {
-    long incompleteSends = pendingFutures.stream().filter(x -> !x.isDone()).count();
-    LOG.info("Trying to flush pending {} sends.", incompleteSends);
-    checkCallbackThrowable("Received exception on message send.");
-    CompletableFuture<Void> future =
-        CompletableFuture.allOf(pendingFutures.toArray(new CompletableFuture[pendingFutures.size()]));
-
-    try {
-      // Block until all the pending sends are complete or timeout.
-      future.get(DEFAULT_FLUSH_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
-    } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      incompleteSends = pendingFutures.stream().filter(x -> !x.isDone()).count();
-      String msg = String.format("Flush failed with error. Total pending sends %d", incompleteSends);
-      LOG.error(msg, e);
-      throw new SamzaException(msg, e);
-    }
-
-    checkCallbackThrowable("Sending one or more of the messages failed during flush.");
-  }
-
-  private void checkCallbackThrowable(String msg) {
-    // Check for send errors from EventHub side
-    Throwable sendThrowable = sendExceptionOnCallback.get();
-    if (sendThrowable != null) {
-      LOG.error(msg, sendThrowable);
-      throw new SamzaException(msg, sendThrowable);
-    }
-    pendingFutures.clear();
-  }
-
-  @Override
   public synchronized void stop() {
-    LOG.info("Stopping producer.", pendingFutures.size());
-
+    LOG.info("Stopping producer.");
     streamPartitionSenders.values().forEach((streamPartitionSender) -> {
         List<CompletableFuture<Void>> futures = new ArrayList<>();
         streamPartitionSender.forEach((key, value) -> futures.add(value.close()));
@@ -367,9 +303,5 @@ public class EventHubSystemProducer implements SystemProducer {
       });
     eventHubClients.values().forEach(ehClient -> ehClient.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS));
     eventHubClients.clear();
-  }
-
-  Collection<CompletableFuture<Void>> getPendingFutures() {
-    return pendingFutures;
   }
 }
