@@ -154,20 +154,19 @@ public class AsyncRunLoop implements Runnable, Throttleable {
         long startNs = clock.nanoTime();
 
         IncomingMessageEnvelope envelope = chooseEnvelope();
-        long chooseNs = clock.nanoTime();
 
+        long chooseNs = clock.nanoTime();
         containerMetrics.chooseNs().update(chooseNs - startNs);
 
-        blockIfNoWork(envelope);
+        blockIfBusyOrNoNewWork(envelope);
+
+        long blockNs = clock.nanoTime();
+        containerMetrics.blockNs().update(blockNs - chooseNs);
 
         runTasks(envelope);
 
-        long blockNs = clock.nanoTime();
-
-        blockIfBusy(envelope);
-
         long currentNs = clock.nanoTime();
-        long activeNs = blockNs - chooseNs;
+        long activeNs = currentNs - blockNs;
         long totalNs = currentNs - prevNs;
         prevNs = currentNs;
         containerMetrics.blockNs().update(currentNs - blockNs);
@@ -239,14 +238,35 @@ public class AsyncRunLoop implements Runnable, Throttleable {
   /**
    * Block the runloop thread if all tasks are busy. When a task worker finishes or window/commit completes,
    * it will resume the runloop.
+   *
+   * In addition, delay the AsyncRunLoop thread for a short time if there are no new messages to process and the run loop
+   * has not been resumed since the last time this code was run. This will prevent the main thread from spinning when it
+   * has no work to distribute. If a task worker finishes or window/commit completes before the timeout then resume
+   * the AsyncRunLoop thread immediately. That event may allow a task worker to start processing a message that has already
+   * been chosen.  In any event it should only delay for a short time.  It needs to periodically check for new messages.
    */
-  private void blockIfBusy(IncomingMessageEnvelope envelope) {
+  private void blockIfBusyOrNoNewWork(IncomingMessageEnvelope envelope) {
     synchronized (latch) {
+
+      // First check to see if we should delay the run loop for a short time.  The runLoopResumedSinceLastChecked boolean
+      // is used to ensure we don't delay if there may already be a task ready to dequeue a previously chosen/pending
+      // message. It is better to occasionally make one additional loop when there is no work to do then delay the
+      // runloop when there is work that could be started immediately.
+      if ((envelope == null) && !runLoopResumedSinceLastChecked) {
+        try {
+          log.trace("Start no work wait");
+          latch.wait(maxIdleMs);
+          log.trace("End no work wait");
+        } catch (InterruptedException e) {
+          throw new SamzaException("Run loop is interrupted", e);
+        }
+      }
+      runLoopResumedSinceLastChecked = false;
+
+      // Next check to see if we should block if all the tasks are busy.
       while (!shutdownNow && throwable == null) {
         for (AsyncTaskWorker worker : taskWorkers) {
           if (worker.state.isReady()) {
-            // should continue running if any worker state is ready
-            // consumerMultiplexer will block on polling for empty partitions so it won't cause busy loop
             return;
           }
         }
@@ -257,31 +277,6 @@ public class AsyncRunLoop implements Runnable, Throttleable {
         } catch (InterruptedException e) {
           throw new SamzaException("Run loop is interrupted", e);
         }
-      }
-    }
-  }
-
-  /**
-   * When there are no new messages to process and the run loop has not been resumed since the last time this code was
-   * run, block the AsyncRunLoop thread for a short while. This will prevent this task from spinning when it has no work
-   * to do. If a task worker finishes or window/commit completes before the timeout it will resume the AsyncRunLoop
-   * thread immediately. This performs a similar function to what the poll timeout in the SystemConsumers.choose method
-   * provides for the single threaded RunLoop code, but, in the async case we need the ability to resume any time a task
-   * worker completes processing a message. In the Async case, that event will allow the task worker to start processing
-   * a message that may have already been chosen.
-   */
-  private void blockIfNoWork(IncomingMessageEnvelope envelope) {
-    synchronized (latch) {
-      if ((envelope != null) || runLoopResumedSinceLastChecked) {
-        runLoopResumedSinceLastChecked = false;
-        return;
-      }
-      try {
-        log.trace("Start no work wait");
-        latch.wait(maxIdleMs);
-        log.trace("End no work wait");
-      } catch (InterruptedException e) {
-        throw new SamzaException("Run loop is interrupted", e);
       }
     }
   }
