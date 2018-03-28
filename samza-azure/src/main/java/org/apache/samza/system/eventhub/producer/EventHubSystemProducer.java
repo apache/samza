@@ -177,7 +177,7 @@ public class EventHubSystemProducer extends NoFlushAsyncSystemProducer {
 
   @Override
   public synchronized void flush(String source) {
-    pendingFutures.clear();
+    super.flush(source);
   }
 
   @Override

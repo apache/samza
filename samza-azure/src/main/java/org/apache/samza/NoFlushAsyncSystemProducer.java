@@ -44,7 +44,7 @@ public abstract class NoFlushAsyncSystemProducer extends AsyncSystemProducer {
   }
 
   @Override
-  public synchronized void flush(String source) {
+  public void flush(String source) {
     long incompleteSends = pendingFutures.stream().filter(x -> !x.isDone()).count();
     LOG.info("Trying to flush pending {} sends.", incompleteSends);
     checkCallbackThrowable("Received exception on message send.");
