@@ -455,17 +455,17 @@ public class AsyncRunLoop implements Runnable, Throttleable {
             task.window(coordinator);
             containerMetrics.windowNs().update(clock.nanoTime() - startTime);
 
-            // A window() that executes for more than task.window.ms, will starve the next process() call
-            // when the application has job.thread.pool.size > 1. This is due to prioritizing window() ahead of process()
-            // to guarantee window() will fire close to its trigger interval time.
-            // We warn the users if the average window execution time is greater than equals to window trigger interval.
-            long lowerBoundForWindowTriggerTimeInMs = TimeUnit.NANOSECONDS
-                .toMillis((long) containerMetrics.windowNs().getSnapshot().getAverage());
-            if (windowMs <= lowerBoundForWindowTriggerTimeInMs) {
-              log.warn(
-                  "window() call might potentially starve process calls."
-                      + " Consider setting task.window.ms > {} ms",
-                  lowerBoundForWindowTriggerTimeInMs);
+            /**
+             * Window calls that execute for more than task.window.ms will starve process calls
+             * since window has higher priority than process in {@link AsyncTaskState#nextOp()}.
+             * Warn the users if this is the case.
+             */
+            long averageWindowMs = TimeUnit.NANOSECONDS.toMillis(
+                (long) containerMetrics.windowNs().getSnapshot().getAverage());
+            if (averageWindowMs >= windowMs) {
+              log.warn("Average window call duration {} is greater than the configured task.window.ms {}. " +
+                      "This can starve process calls, so consider setting task.window.ms >> {} ms.",
+                  new Object[]{averageWindowMs, windowMs, averageWindowMs});
             }
 
             coordinatorRequests.update(coordinator);
@@ -589,7 +589,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
               coordinatorRequests.update(callbackToUpdate.coordinator);
             }
           } catch (Throwable t) {
-            log.error(t.getMessage(), t);
+            log.error("Error marking process as complete.", t);
             abort(t);
           } finally {
             resume();
@@ -610,9 +610,9 @@ public class AsyncRunLoop implements Runnable, Throttleable {
         abort(t);
         // update pending count, but not offset
         TaskCallbackImpl callbackImpl = (TaskCallbackImpl) callback;
-        log.error("Got callback failure for task {}", callbackImpl.taskName);
+        log.error("Got callback failure for task {}", callbackImpl.taskName, t);
       } catch (Throwable e) {
-        log.error(e.getMessage(), e);
+        log.error("Error marking process as failed.", e);
       } finally {
         resume();
       }
