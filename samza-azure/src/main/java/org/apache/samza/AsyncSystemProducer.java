@@ -19,7 +19,6 @@
 
 package org.apache.samza;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,17 +42,21 @@ import org.slf4j.LoggerFactory;
 /**
  * SystemProducer Helper that can be used to implement SystemProducer that provide async send APIs
  * e.g. Kinesis, Event Hubs, etc..
+ * To implement an AsyncSystemProducer, you need to implement {@link AsyncSystemProducer#sendAsync}
  */
 public abstract class AsyncSystemProducer implements SystemProducer {
 
-  private static final Logger LOG = LoggerFactory.getLogger(NoFlushAsyncSystemProducer.class.getName());
+  private static final Logger LOG = LoggerFactory.getLogger(AsyncSystemProducer.class.getName());
 
   /**
    * The constant CONFIG_STREAM_LIST.
    */
   public static final String CONFIG_STREAM_LIST = "systems.%s.stream.list";
+
   private static final String SEND_ERRORS = "sendErrors";
   private static final String SEND_CALLBACK_LATENCY = "sendCallbackLatency";
+  private static final String SEND_LATENCY = "sendLatency";
+
   /**
    * The constant AGGREGATE.
    */
@@ -80,9 +83,14 @@ public abstract class AsyncSystemProducer implements SystemProducer {
   private final AtomicReference<Throwable> sendExceptionOnCallback = new AtomicReference<>(null);
 
   private static Counter aggSendErrors = null;
+  private static SamzaHistogram aggSendLatency = null;
   private static SamzaHistogram aggSendCallbackLatency = null;
+
+  private final HashMap<String, SamzaHistogram> sendLatency = new HashMap<>();
   private final HashMap<String, SamzaHistogram> sendCallbackLatency = new HashMap<>();
   private final HashMap<String, Counter> sendErrors = new HashMap<>();
+
+
 
   /**
    * Instantiates a new Async system producer.
@@ -102,14 +110,24 @@ public abstract class AsyncSystemProducer implements SystemProducer {
   /**
    * {@inheritDoc}
    */
+  @Override
   public void send(String source, OutgoingMessageEnvelope envelope) {
     checkCallbackThrowable("Received exception on message send");
-    CompletableFuture<Void> sendResult = sendAsync(source, envelope);
-    pendingFutures.add(sendResult);
 
     String streamName = envelope.getSystemStream().getStream();
     String streamId = physicalToStreamIds.getOrDefault(streamName, streamName);
+
+    long beforeSendTimeMs = System.currentTimeMillis();
+
+    CompletableFuture<Void> sendResult = sendAsync(source, envelope);
+
     long afterSendTimeMs = System.currentTimeMillis();
+
+    long latencyMs = afterSendTimeMs - beforeSendTimeMs;
+    sendLatency.get(streamId).update(latencyMs);
+    aggSendLatency.update(latencyMs);
+
+    pendingFutures.add(sendResult);
 
     // Auto update the metrics and possible throwable when futures are complete.
     sendResult.handle((aVoid, throwable) -> {
@@ -129,11 +147,15 @@ public abstract class AsyncSystemProducer implements SystemProducer {
   public void start() {
     streamIds.forEach(streamId -> {
         sendCallbackLatency.put(streamId, new SamzaHistogram(registry, streamId, SEND_CALLBACK_LATENCY));
+        sendLatency.put(streamId, new SamzaHistogram(registry, streamId, SEND_LATENCY));
         sendErrors.put(streamId, registry.newCounter(streamId, SEND_ERRORS));
       });
 
-    aggSendCallbackLatency = new SamzaHistogram(registry, AGGREGATE, SEND_CALLBACK_LATENCY);
-    aggSendErrors = registry.newCounter(AGGREGATE, SEND_ERRORS);
+    if (aggSendLatency == null) {
+      aggSendLatency = new SamzaHistogram(registry, AGGREGATE, SEND_LATENCY);
+      aggSendCallbackLatency = new SamzaHistogram(registry, AGGREGATE, SEND_CALLBACK_LATENCY);
+      aggSendErrors = registry.newCounter(AGGREGATE, SEND_ERRORS);
+    }
   }
 
   /**
@@ -150,20 +172,11 @@ public abstract class AsyncSystemProducer implements SystemProducer {
    * @param msg the msg
    */
   protected void checkCallbackThrowable(String msg) {
-    // Check for send errors from EventHub side
+    // Check for send errors
     Throwable sendThrowable = sendExceptionOnCallback.get();
     if (sendThrowable != null) {
       LOG.error(msg, sendThrowable);
       throw new SamzaException(msg, sendThrowable);
     }
-  }
-
-  /**
-   * Gets pending futures.
-   *
-   * @return the pending futures
-   */
-  public Collection<CompletableFuture<Void>> getPendingFutures() {
-    return pendingFutures;
   }
 }

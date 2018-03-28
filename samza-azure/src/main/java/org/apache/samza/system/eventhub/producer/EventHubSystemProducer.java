@@ -26,6 +26,7 @@ import com.microsoft.azure.servicebus.ServiceBusException;
 import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +44,6 @@ import org.apache.samza.system.eventhub.EventHubClientManager;
 import org.apache.samza.system.eventhub.EventHubClientManagerFactory;
 import org.apache.samza.system.eventhub.EventHubConfig;
 import org.apache.samza.system.eventhub.Interceptor;
-import org.apache.samza.system.eventhub.metrics.SamzaHistogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,12 +62,10 @@ public class EventHubSystemProducer extends NoFlushAsyncSystemProducer {
   private static final String EVENT_SKIP_RATE = "eventSkipRate";
   private static final String EVENT_WRITE_RATE = "eventWriteRate";
   private static final String EVENT_BYTE_WRITE_RATE = "eventByteWriteRate";
-  private static final String SEND_LATENCY = "sendLatency";
 
   private static Counter aggEventSkipRate = null;
   private static Counter aggEventWriteRate = null;
   private static Counter aggEventByteWriteRate = null;
-  private static SamzaHistogram aggSendLatency = null;
 
   private static final Object AGGREGATE_METRICS_LOCK = new Object();
 
@@ -78,7 +76,6 @@ public class EventHubSystemProducer extends NoFlushAsyncSystemProducer {
   private final HashMap<String, Counter> eventSkipRate = new HashMap<>();
   private final HashMap<String, Counter> eventWriteRate = new HashMap<>();
   private final HashMap<String, Counter> eventByteWriteRate = new HashMap<>();
-  private final HashMap<String, SamzaHistogram> sendLatency = new HashMap<>();
 
   private final EventHubConfig config;
   private final PartitioningMethod partitioningMethod;
@@ -127,6 +124,7 @@ public class EventHubSystemProducer extends NoFlushAsyncSystemProducer {
 
   @Override
   public synchronized void start() {
+    super.start();
     LOG.info("Starting system producer.");
 
     // Create partition senders if required
@@ -163,7 +161,6 @@ public class EventHubSystemProducer extends NoFlushAsyncSystemProducer {
         eventSkipRate.put(streamId, registry.newCounter(streamId, EVENT_SKIP_RATE));
         eventWriteRate.put(streamId, registry.newCounter(streamId, EVENT_WRITE_RATE));
         eventByteWriteRate.put(streamId, registry.newCounter(streamId, EVENT_BYTE_WRITE_RATE));
-        sendLatency.put(streamId, new SamzaHistogram(registry, streamId, SEND_LATENCY));
       });
 
     // Locking to ensure that these aggregated metrics will be created only once across multiple system producers.
@@ -172,11 +169,15 @@ public class EventHubSystemProducer extends NoFlushAsyncSystemProducer {
         aggEventSkipRate = registry.newCounter(AGGREGATE, EVENT_SKIP_RATE);
         aggEventWriteRate = registry.newCounter(AGGREGATE, EVENT_WRITE_RATE);
         aggEventByteWriteRate = registry.newCounter(AGGREGATE, EVENT_BYTE_WRITE_RATE);
-        aggSendLatency = new SamzaHistogram(registry, AGGREGATE, SEND_LATENCY);
       }
     }
 
     isStarted = true;
+  }
+
+  @Override
+  public synchronized void flush(String source) {
+    pendingFutures.clear();
   }
 
   @Override
@@ -211,16 +212,9 @@ public class EventHubSystemProducer extends NoFlushAsyncSystemProducer {
     aggEventByteWriteRate.inc(eventDataLength);
     EventHubClientManager ehClient = eventHubClients.get(streamId);
 
-    long beforeSendTimeMs = System.currentTimeMillis();
-
     // Async send call
     CompletableFuture<Void> sendResult =
         sendToEventHub(streamId, eventData, getEnvelopePartitionId(envelope), ehClient.getEventHubClient());
-
-    long afterSendTimeMs = System.currentTimeMillis();
-    long latencyMs = afterSendTimeMs - beforeSendTimeMs;
-    sendLatency.get(streamId).update(latencyMs);
-    aggSendLatency.update(latencyMs);
 
     return sendResult;
   }
@@ -303,5 +297,14 @@ public class EventHubSystemProducer extends NoFlushAsyncSystemProducer {
       });
     eventHubClients.values().forEach(ehClient -> ehClient.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS));
     eventHubClients.clear();
+  }
+
+  /**
+   * Gets pending futures. Used by the test.
+   *
+   * @return the pending futures
+   */
+  Collection<CompletableFuture<Void>> getPendingFutures() {
+    return pendingFutures;
   }
 }
