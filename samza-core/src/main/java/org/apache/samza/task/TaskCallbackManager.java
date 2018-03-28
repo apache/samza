@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.util.HighResolutionClock;
+import org.apache.samza.util.Util;
 
 
 /**
@@ -97,6 +98,7 @@ class TaskCallbackManager {
       Runnable timerTask = new Runnable() {
         @Override
         public void run() {
+          Util.printThreadDump("Thread dump at task callback timeout");
           String msg = "Task " + callback.taskName + " callback times out";
           callback.failure(new TaskCallbackTimeoutException(msg));
         }
