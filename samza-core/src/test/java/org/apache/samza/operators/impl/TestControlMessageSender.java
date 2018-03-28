@@ -97,7 +97,7 @@ public class TestControlMessageSender {
     ControlMessageSender sender = new ControlMessageSender(metadataCache);
     WatermarkMessage watermark = new WatermarkMessage(System.currentTimeMillis(), "task 0");
     SystemStreamPartition ssp = new SystemStreamPartition(systemStream, new Partition(0));
-    sender.broadcast(watermark, ssp, collector);
+    sender.broadcastToOtherPartitions(watermark, ssp, collector);
     assertEquals(partitions.size(), 3);
   }
 }

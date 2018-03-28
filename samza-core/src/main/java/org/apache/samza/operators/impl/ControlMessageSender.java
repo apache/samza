@@ -36,7 +36,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 
 /**
- * This is a helper class to broadcast control messages to each partition of an intermediate stream
+ * This is a helper class to send control messages to an intermediate stream
  */
 class ControlMessageSender {
   private static final Logger LOG = LoggerFactory.getLogger(ControlMessageSender.class);
@@ -50,6 +50,8 @@ class ControlMessageSender {
 
   void send(ControlMessage message, SystemStream systemStream, MessageCollector collector) {
     int partitionCount = getPartitionCount(systemStream);
+    // We pick a partition based on topic hashcode to aggregate the control messages from upstream tasks
+    // After aggregation the task will broadcast the results to other partitions
     int aggregatePartition = systemStream.getStream().hashCode() % partitionCount;
 
     LOG.debug(String.format("Send %s message from task %s to %s partition %s for aggregation",
@@ -59,7 +61,7 @@ class ControlMessageSender {
     collector.send(envelopeOut);
   }
 
-  void broadcast(ControlMessage message, SystemStreamPartition ssp, MessageCollector collector) {
+  void broadcastToOtherPartitions(ControlMessage message, SystemStreamPartition ssp, MessageCollector collector) {
     SystemStream systemStream = ssp.getSystemStream();
     int partitionCount = getPartitionCount(systemStream);
     int currentPartition = ssp.getPartition().getPartitionId();

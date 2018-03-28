@@ -268,8 +268,9 @@ public abstract class OperatorImpl<M, RM> {
     if (eosStates.isEndOfStream(stream)) {
       LOG.info("Input {} reaches the end for task {}", stream.toString(), taskName.getTaskName());
       if (eos.getTaskName() != null) {
+        // This is the aggregation task, which already received all the eos messages from upstream
         // broadcast the end-of-stream to all the peer partitions
-        controlMessageSender.broadcast(new EndOfStreamMessage(), ssp, collector);
+        controlMessageSender.broadcastToOtherPartitions(new EndOfStreamMessage(), ssp, collector);
       }
       // populate the end-of-stream through the dag
       onEndOfStream(collector, coordinator);
@@ -330,8 +331,9 @@ public abstract class OperatorImpl<M, RM> {
     if (watermark != WatermarkStates.WATERMARK_NOT_EXIST) {
       LOG.debug("Got watermark {} from stream {}", watermark, ssp.getSystemStream());
       if (watermarkMessage.getTaskName() != null) {
+        // This is the aggregation task, which already received all the watermark messages from upstream
         // broadcast the watermark to all the peer partitions
-        controlMessageSender.broadcast(new WatermarkMessage(watermark), ssp, collector);
+        controlMessageSender.broadcastToOtherPartitions(new WatermarkMessage(watermark), ssp, collector);
       }
       // populate the watermark through the dag
       onWatermark(watermark, collector, coordinator);
