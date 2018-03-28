@@ -51,9 +51,11 @@ class EndOfStreamStates {
 
     synchronized void update(String taskName) {
       if (taskName != null) {
+        // aggregate the eos messages
         tasks.add(taskName);
         isEndOfStream = tasks.size() == expectedTotal;
       } else {
+        // eos is coming from either source or aggregator task
         isEndOfStream = true;
       }
     }
