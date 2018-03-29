@@ -17,17 +17,22 @@
 * under the License.
 */
 
-package org.apache.samza;
+package org.apache.samza.system.eventhub.producer;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.metrics.Counter;
@@ -47,6 +52,8 @@ import org.slf4j.LoggerFactory;
 public abstract class AsyncSystemProducer implements SystemProducer {
 
   private static final Logger LOG = LoggerFactory.getLogger(AsyncSystemProducer.class.getName());
+
+  private static final long DEFAULT_FLUSH_TIMEOUT_MILLIS = Duration.ofMinutes(1L).toMillis();
 
   /**
    * The constant CONFIG_STREAM_LIST.
@@ -109,8 +116,8 @@ public abstract class AsyncSystemProducer implements SystemProducer {
    * {@inheritDoc}
    */
   @Override
-  public void send(String source, OutgoingMessageEnvelope envelope) {
-    checkCallbackThrowable("Received exception on message send");
+  public synchronized void send(String source, OutgoingMessageEnvelope envelope) {
+    checkForSendCallbackErrors("Received exception on message send");
 
     String streamName = envelope.getSystemStream().getStream();
     String streamId = physicalToStreamIds.getOrDefault(streamName, streamName);
@@ -158,6 +165,34 @@ public abstract class AsyncSystemProducer implements SystemProducer {
   }
 
   /**
+   * Default implementation of the flush that just waits for all the pendingFutures to be complete.
+   * SystemProducer should override this, If the underlying system provides flush semantics.
+   * @param source String representing the source of the message.
+   */
+  @Override
+  public synchronized void flush(String source) {
+    long incompleteSends = pendingFutures.stream().filter(x -> !x.isDone()).count();
+    LOG.info("Trying to flush pending {} sends.", incompleteSends);
+    checkForSendCallbackErrors("Received exception on message send.");
+    CompletableFuture<Void> future =
+        CompletableFuture.allOf(pendingFutures.toArray(new CompletableFuture[pendingFutures.size()]));
+
+    try {
+      // Block until all the pending sends are complete or timeout.
+      future.get(DEFAULT_FLUSH_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      incompleteSends = pendingFutures.stream().filter(x -> !x.isDone()).count();
+      String msg = String.format("Flush failed with error. Total pending sends %d", incompleteSends);
+      LOG.error(msg, e);
+      throw new SamzaException(msg, e);
+    }
+
+    pendingFutures.clear();
+
+    checkForSendCallbackErrors("Sending one or more of the messages failed during flush.");
+  }
+
+  /**
    * Sends a specified message envelope from a specified Samza source.
    * @param source String representing the source of the message.
    * @param envelope Aggregate object representing the serialized message to send from the source.
@@ -166,11 +201,10 @@ public abstract class AsyncSystemProducer implements SystemProducer {
   public abstract CompletableFuture<Void> sendAsync(String source, OutgoingMessageEnvelope envelope);
 
   /**
-   * Check callback throwable.
-   *
-   * @param msg the msg
+   * This method is used to check whether there were any previous exceptions in the send call backs.
+   * @param msg the msg that is used for throwing.
    */
-  protected void checkCallbackThrowable(String msg) {
+  protected void checkForSendCallbackErrors(String msg) {
     // Check for send errors
     Throwable sendThrowable = sendExceptionOnCallback.get();
     if (sendThrowable != null) {

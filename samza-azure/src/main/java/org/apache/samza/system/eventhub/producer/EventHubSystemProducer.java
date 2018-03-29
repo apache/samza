@@ -35,7 +35,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import org.apache.samza.NoFlushAsyncSystemProducer;
 import org.apache.samza.SamzaException;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -51,7 +50,7 @@ import org.slf4j.LoggerFactory;
 /**
  * EventHub system producer that can be used in Samza jobs to send events to Azure EventHubs
  */
-public class EventHubSystemProducer extends NoFlushAsyncSystemProducer {
+public class EventHubSystemProducer extends AsyncSystemProducer {
   private static final Logger LOG = LoggerFactory.getLogger(EventHubSystemProducer.class.getName());
   private static final long DEFAULT_SHUTDOWN_TIMEOUT_MILLIS = Duration.ofMinutes(1L).toMillis();
 
@@ -63,19 +62,25 @@ public class EventHubSystemProducer extends NoFlushAsyncSystemProducer {
   private static final String EVENT_WRITE_RATE = "eventWriteRate";
   private static final String EVENT_BYTE_WRITE_RATE = "eventByteWriteRate";
 
-  private static Counter aggEventSkipRate = null;
-  private static Counter aggEventWriteRate = null;
-  private static Counter aggEventByteWriteRate = null;
-
   private static final Object AGGREGATE_METRICS_LOCK = new Object();
 
   public enum PartitioningMethod {
     ROUND_ROBIN, EVENT_HUB_HASHING, PARTITION_KEY_AS_PARTITION
   }
 
+  /**
+   * Per stream metrics. Key is the stream Name.
+   */
   private final HashMap<String, Counter> eventSkipRate = new HashMap<>();
   private final HashMap<String, Counter> eventWriteRate = new HashMap<>();
   private final HashMap<String, Counter> eventByteWriteRate = new HashMap<>();
+
+  /**
+   * Aggregated metrics.
+   */
+  private static Counter aggEventSkipRate = null;
+  private static Counter aggEventWriteRate = null;
+  private static Counter aggEventByteWriteRate = null;
 
   private final EventHubConfig config;
   private final PartitioningMethod partitioningMethod;
@@ -84,10 +89,20 @@ public class EventHubSystemProducer extends NoFlushAsyncSystemProducer {
 
   private volatile boolean isStarted = false;
 
+  /**
+   * Per stream event hub client
+   */
   // Map of the system name to the event hub client.
   private final Map<String, EventHubClientManager> eventHubClients = new HashMap<>();
+
+  /**
+   * PartitionSender for each partition in the stream.
+   */
   private final Map<String, Map<Integer, PartitionSender>> streamPartitionSenders = new HashMap<>();
 
+  /**
+   * Per stream message interceptors
+   */
   private final Map<String, Interceptor> interceptors;
 
   public EventHubSystemProducer(EventHubConfig config, String systemName,
