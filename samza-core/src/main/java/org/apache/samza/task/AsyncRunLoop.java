@@ -67,6 +67,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
   private final long windowMs;
   private final long commitMs;
   private final long callbackTimeoutMs;
+  private final long maxIdleMs;
   private final SamzaContainerMetrics containerMetrics;
   private final ScheduledExecutorService workerTimer;
   private final ScheduledExecutorService callbackTimer;
@@ -75,6 +76,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
   private volatile Throwable throwable = null;
   private final HighResolutionClock clock;
   private final boolean isAsyncCommitEnabled;
+  private volatile boolean runLoopResumedSinceLastChecked;
 
   public AsyncRunLoop(Map<TaskName, TaskInstance> taskInstances,
       ExecutorService threadPool,
@@ -84,6 +86,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
       long commitMs,
       long callbackTimeoutMs,
       long maxThrottlingDelayMs,
+      long maxIdleMs,
       SamzaContainerMetrics containerMetrics,
       HighResolutionClock clock,
       boolean isAsyncCommitEnabled) {
@@ -95,6 +98,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
     this.commitMs = commitMs;
     this.maxConcurrency = maxConcurrency;
     this.callbackTimeoutMs = callbackTimeoutMs;
+    this.maxIdleMs = maxIdleMs;
     this.callbackTimer = (callbackTimeoutMs > 0) ? Executors.newSingleThreadScheduledExecutor() : null;
     this.callbackExecutor = new ThrottlingScheduler(maxThrottlingDelayMs);
     this.coordinatorRequests = new CoordinatorRequests(taskInstances.keySet());
@@ -150,21 +154,21 @@ public class AsyncRunLoop implements Runnable, Throttleable {
         long startNs = clock.nanoTime();
 
         IncomingMessageEnvelope envelope = chooseEnvelope();
-        long chooseNs = clock.nanoTime();
 
+        long chooseNs = clock.nanoTime();
         containerMetrics.chooseNs().update(chooseNs - startNs);
+
+        blockIfBusyOrNoNewWork(envelope);
+
+        long blockNs = clock.nanoTime();
+        containerMetrics.blockNs().update(blockNs - chooseNs);
 
         runTasks(envelope);
 
-        long blockNs = clock.nanoTime();
-
-        blockIfBusy(envelope);
-
         long currentNs = clock.nanoTime();
-        long activeNs = blockNs - chooseNs;
+        long activeNs = currentNs - blockNs;
         long totalNs = currentNs - prevNs;
         prevNs = currentNs;
-        containerMetrics.blockNs().update(currentNs - blockNs);
 
         if (totalNs != 0) {
           // totalNs is not 0 if timer metrics are enabled
@@ -233,14 +237,35 @@ public class AsyncRunLoop implements Runnable, Throttleable {
   /**
    * Block the runloop thread if all tasks are busy. When a task worker finishes or window/commit completes,
    * it will resume the runloop.
+   *
+   * In addition, delay the AsyncRunLoop thread for a short time if there are no new messages to process and the run loop
+   * has not been resumed since the last time this code was run. This will prevent the main thread from spinning when it
+   * has no work to distribute. If a task worker finishes or window/commit completes before the timeout then resume
+   * the AsyncRunLoop thread immediately. That event may allow a task worker to start processing a message that has already
+   * been chosen.  In any event it should only delay for a short time.  It needs to periodically check for new messages.
    */
-  private void blockIfBusy(IncomingMessageEnvelope envelope) {
+  private void blockIfBusyOrNoNewWork(IncomingMessageEnvelope envelope) {
     synchronized (latch) {
+
+      // First check to see if we should delay the run loop for a short time.  The runLoopResumedSinceLastChecked boolean
+      // is used to ensure we don't delay if there may already be a task ready to dequeue a previously chosen/pending
+      // message. It is better to occasionally make one additional loop when there is no work to do then delay the
+      // runloop when there is work that could be started immediately.
+      if ((envelope == null) && !runLoopResumedSinceLastChecked) {
+        try {
+          log.trace("Start no work wait");
+          latch.wait(maxIdleMs);
+          log.trace("End no work wait");
+        } catch (InterruptedException e) {
+          throw new SamzaException("Run loop is interrupted", e);
+        }
+      }
+      runLoopResumedSinceLastChecked = false;
+
+      // Next check to see if we should block if all the tasks are busy.
       while (!shutdownNow && throwable == null) {
         for (AsyncTaskWorker worker : taskWorkers) {
           if (worker.state.isReady()) {
-            // should continue running if any worker state is ready
-            // consumerMultiplexer will block on polling for empty partitions so it won't cause busy loop
             return;
           }
         }
@@ -265,6 +290,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
     }
     synchronized (latch) {
       latch.notifyAll();
+      runLoopResumedSinceLastChecked = true;
     }
   }
 

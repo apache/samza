@@ -44,11 +44,13 @@ object TaskConfig {
   val MAX_CONCURRENCY = "task.max.concurrency" // max number of concurrent process for a AsyncStreamTask
   val CALLBACK_TIMEOUT_MS = "task.callback.timeout.ms"  // timeout period for triggering a callback
   val ASYNC_COMMIT = "task.async.commit" // to enable async commit in a AsyncStreamTask
+  val MAX_IDLE_MS = "task.max.idle.ms"  // maximum time to wait for a task worker to complete when there are no new messages to handle
 
   val DEFAULT_WINDOW_MS: Long = -1L
   val DEFAULT_COMMIT_MS = 60000L
   val DEFAULT_CALLBACK_TIMEOUT_MS: Long = -1L
   val DEFAULT_MAX_CONCURRENCY: Int = 1
+  val DEFAULT_MAX_IDLE_MS: Long = 10
 
   /**
    * Samza's container polls for more messages under two conditions. The first
@@ -154,5 +156,10 @@ class TaskConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def isAutoCommitEnabled: Boolean = getOption(TaskConfig.COMMIT_MS) match {
     case Some(commitMs) => commitMs.toInt > 0
     case _ => TaskConfig.DEFAULT_COMMIT_MS > 0
+  }
+
+  def getMaxIdleMs: Long = getOption(TaskConfig.MAX_IDLE_MS) match {
+    case Some(ms) => ms.toLong
+    case _ => TaskConfig.DEFAULT_MAX_IDLE_MS
   }
 }
