@@ -27,6 +27,8 @@ import java.util.Queue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+
+import org.apache.samza.SamzaException;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.util.HighResolutionClock;
@@ -93,14 +95,15 @@ class TaskCallbackManager {
   public TaskCallbackImpl createCallback(TaskName taskName,
       IncomingMessageEnvelope envelope,
       ReadableCoordinator coordinator) {
-    final TaskCallbackImpl callback = new TaskCallbackImpl(listener, taskName, envelope, coordinator, seqNum++, clock.nanoTime());
+    final TaskCallbackImpl callback =
+        new TaskCallbackImpl(listener, taskName, envelope, coordinator, seqNum++, clock.nanoTime());
     if (timer != null) {
       Runnable timerTask = new Runnable() {
         @Override
         public void run() {
           Util.printThreadDump("Thread dump at task callback timeout");
-          String msg = "Task " + callback.taskName + " callback times out";
-          callback.failure(new TaskCallbackTimeoutException(msg));
+          String msg = "Callback for task {} " + callback.taskName + " timed out after " + timeout + " ms.";
+          callback.failure(new SamzaException(msg));
         }
       };
       ScheduledFuture scheduledFuture = timer.schedule(timerTask, timeout, TimeUnit.MILLISECONDS);

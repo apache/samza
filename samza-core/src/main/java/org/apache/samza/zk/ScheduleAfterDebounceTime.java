@@ -93,6 +93,8 @@ public class ScheduleAfterDebounceTime {
    * and all pending enqueued tasks will be cancelled.
    */
   public synchronized void stopScheduler() {
+    LOG.info("Stopping Scheduler");
+
     scheduledExecutorService.shutdownNow();
 
     // Clear the existing future handles.
@@ -142,27 +144,27 @@ public class ScheduleAfterDebounceTime {
         } else {
           LOG.debug("Action: {} completed successfully.", actionName);
         }
-      } catch (Exception exception) {
-        LOG.error("Execution of action: {} failed.", actionName, exception);
-        doCleanUpOnTaskException(exception);
+      } catch (Throwable t) {
+        LOG.error("Execution of action: {} failed.", actionName, t);
+        doCleanUpOnTaskException(t);
       }
     };
   }
 
   /**
-   * Handler method to invoke on a exception during an scheduled task execution and which
+   * Handler method to invoke on a throwable during an scheduled task execution and which
    * the following operations in sequential order.
    * <ul>
    *   <li> Stop the scheduler. If the task execution fails or a task is interrupted, scheduler will not accept/execute any new tasks.</li>
    *   <li> Invokes the onError handler method if taskCallback is defined.</li>
    * </ul>
    *
-   * @param exception the exception happened during task execution.
+   * @param throwable the throwable that happened during task execution.
    */
-  private void doCleanUpOnTaskException(Exception exception) {
+  private void doCleanUpOnTaskException(Throwable throwable) {
     stopScheduler();
 
-    scheduledTaskCallback.ifPresent(callback -> callback.onError(exception));
+    scheduledTaskCallback.ifPresent(callback -> callback.onError(throwable));
   }
 
   /**
