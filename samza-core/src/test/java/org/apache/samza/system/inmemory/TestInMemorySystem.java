@@ -127,7 +127,7 @@ public class TestInMemorySystem {
   }
 
   @Test
-  public void testEndofStreamMessage() {
+  public void testEndOfStreamMessage() {
     EndOfStreamMessage eos = new EndOfStreamMessage("test-task");
 
     produceMessages(eos);
