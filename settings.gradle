@@ -22,7 +22,6 @@ include \
   'samza-aws',
   'samza-azure',
   'samza-elasticsearch',
-  'samza-inmemory',
   'samza-log4j',
   'samza-rest',
   'samza-shell',

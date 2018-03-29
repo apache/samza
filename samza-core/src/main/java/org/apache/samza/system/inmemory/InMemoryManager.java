@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.apache.samza.Partition;
+import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
@@ -38,7 +39,7 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- *
+ * Initial draft of in-memory manager. It is test only and not meant for production use right now.
  */
 public class InMemoryManager {
   private static final Logger LOG = LoggerFactory.getLogger(InMemoryManager.class);
@@ -62,8 +63,13 @@ public class InMemoryManager {
 
   public void put(SystemStreamPartition ssp, Object key, Object message) {
     List<IncomingMessageEnvelope> messages = bufferedMessages.get(ssp);
-    int offset = messages.size();
-    IncomingMessageEnvelope messageEnvelope = new IncomingMessageEnvelope(ssp, String.valueOf(offset), key, message);
+    String offset = String.valueOf(messages.size());
+
+    if (message instanceof EndOfStreamMessage) {
+      offset = IncomingMessageEnvelope.END_OF_STREAM_OFFSET;
+    }
+
+    IncomingMessageEnvelope messageEnvelope = new IncomingMessageEnvelope(ssp, offset, key, message);
     bufferedMessages.get(ssp)
         .add(messageEnvelope);
   }

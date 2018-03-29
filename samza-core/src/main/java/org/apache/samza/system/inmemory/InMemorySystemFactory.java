@@ -28,7 +28,7 @@ import org.apache.samza.system.SystemProducer;
 
 
 /**
- * A system factory for in-memory
+ * Initial draft of in-memory {@link SystemFactory}. It is test only and not meant for production use right now.
  */
 public class InMemorySystemFactory implements SystemFactory {
   private static final InMemoryManager MEMORY_MANAGER = new InMemoryManager();

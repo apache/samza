@@ -33,7 +33,7 @@ import org.apache.samza.system.SystemStreamPartition;
 
 
 /**
- *
+ * Initial draft of in-memory {@link SystemAdmin}. It is test only and not meant for production use right now.
  */
 public class InMemorySystemAdmin implements SystemAdmin {
   private final InMemoryManager inMemoryManager;

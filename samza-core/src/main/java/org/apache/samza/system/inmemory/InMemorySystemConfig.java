@@ -23,6 +23,9 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 
 
+/**
+ * Initial draft of in-memory system config. It is test only and not meant for production use right now.
+ */
 public class InMemorySystemConfig extends MapConfig {
   // Serialized data set to initialize the consumer
   private static final String SERIALIZED_DATA_SET = "streams.%s.dataset";

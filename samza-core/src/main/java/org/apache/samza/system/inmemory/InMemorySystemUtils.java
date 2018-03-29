@@ -19,19 +19,15 @@
 
 package org.apache.samza.system.inmemory;
 
-import java.util.Base64;
-import java.util.HashSet;
 import java.util.Set;
 
 
 /**
- *
+ * Initial draft of in-memory utils. It is test only and not meant for production use right now.
  */
 public class InMemorySystemUtils {
 
   public static Set<Object> deserialize(String serializedDataSet) {
-    final byte[] bytes = Base64.getDecoder().decode(serializedDataSet);
-
-    return new HashSet();
+    throw new UnsupportedOperationException("Not yet implemented!");
   }
 }

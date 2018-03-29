@@ -30,7 +30,7 @@ import org.apache.samza.system.SystemStreamPartition;
 
 
 /**
- *
+ * Initial draft of in-memory {@link SystemConsumer}. It is test only and not meant for production use right now.
  */
 public class InMemorySystemConsumer implements SystemConsumer {
   private final InMemoryManager memoryManager;

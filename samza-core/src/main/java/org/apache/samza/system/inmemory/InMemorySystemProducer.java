@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- *
+ * Initial draft of in-memory {@link SystemProducer}. It is test only and not meant for production use right now.
  */
 public class InMemorySystemProducer implements SystemProducer {
   private static final Logger LOG = LoggerFactory.getLogger(InMemorySystemProducer.class);
@@ -88,7 +88,7 @@ public class InMemorySystemProducer implements SystemProducer {
     int hashCode = Optional.ofNullable(envelope.getPartitionKey())
         .map(Object::hashCode)
         .orElse(message.hashCode());
-    int partition = hashCode % memoryManager.getPartitionCountForSystemStream(envelope.getSystemStream());
+    int partition = Math.abs(hashCode) % memoryManager.getPartitionCountForSystemStream(envelope.getSystemStream());
 
     SystemStreamPartition ssp = new SystemStreamPartition(envelope.getSystemStream(), new Partition(partition));
     memoryManager.put(ssp, key, message);

@@ -19,7 +19,7 @@
 
 package org.apache.samza.system.inmemory;
 
-import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -30,6 +30,7 @@ import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
@@ -84,9 +85,11 @@ public class TestInMemorySystem {
         .mapToObj(partition -> new SystemStreamPartition(SYSTEM_STREAM, new Partition(partition)))
         .collect(Collectors.toSet());
 
-    Set<PageViewEvent> results = consumeMessages(sspsToPoll);
+    List<PageViewEvent> results = consumeMessages(sspsToPoll);
 
     assertEquals(2, results.size());
+    assertTrue(results.contains(event1));
+    assertTrue(results.contains(event2));
   }
 
   @Test
@@ -107,7 +110,7 @@ public class TestInMemorySystem {
       consumer.register(ssp, "0");
     }
 
-    Set<PageViewEvent> results = consumeMessages(consumer, sspsToPoll);
+    List<PageViewEvent> results = consumeMessages(consumer, sspsToPoll);
     assertEquals(1, results.size());
     assertTrue(results.contains(event));
 
@@ -123,7 +126,24 @@ public class TestInMemorySystem {
     assertTrue(results.contains(event1));
   }
 
-  private <T> Set<T> consumeMessages(Set<SystemStreamPartition> sspsToPoll) {
+  @Test
+  public void testEndofStreamMessage() {
+    EndOfStreamMessage eos = new EndOfStreamMessage("test-task");
+
+    produceMessages(eos);
+
+    Set<SystemStreamPartition> sspsToPoll = IntStream.range(0, PARTITION_COUNT)
+        .mapToObj(partition -> new SystemStreamPartition(SYSTEM_STREAM, new Partition(partition)))
+        .collect(Collectors.toSet());
+
+    List<IncomingMessageEnvelope> results = consumeRawMessages(sspsToPoll);
+
+    assertEquals(1, results.size());
+    assertTrue(results.get(0).isEndOfStream());
+  }
+
+
+  private <T> List<T> consumeMessages(Set<SystemStreamPartition> sspsToPoll) {
     SystemConsumer systemConsumer = systemFactory.getConsumer(SYSTEM_NAME, config, mockRegistry);
 
     // register the consumer for ssps
@@ -134,25 +154,40 @@ public class TestInMemorySystem {
     return consumeMessages(systemConsumer, sspsToPoll);
   }
 
-  private <T> Set<T> consumeMessages(SystemConsumer consumer, Set<SystemStreamPartition> sspsToPoll) {
+  private <T> List<T> consumeMessages(SystemConsumer consumer, Set<SystemStreamPartition> sspsToPoll) {
+    return consumeRawMessages(consumer, sspsToPoll)
+        .stream()
+        .map(IncomingMessageEnvelope::getMessage)
+        .map(message -> (T) message)
+        .collect(Collectors.toList());
+  }
+
+  private List<IncomingMessageEnvelope> consumeRawMessages(Set<SystemStreamPartition> sspsToPoll) {
+    SystemConsumer systemConsumer = systemFactory.getConsumer(SYSTEM_NAME, config, mockRegistry);
+
+    // register the consumer for ssps
+    for (SystemStreamPartition ssp : sspsToPoll) {
+      systemConsumer.register(ssp, "0");
+    }
+
+    return consumeRawMessages(systemConsumer, sspsToPoll);
+  }
+
+  private List<IncomingMessageEnvelope> consumeRawMessages(SystemConsumer consumer, Set<SystemStreamPartition> sspsToPoll) {
     try {
       Map<SystemStreamPartition, List<IncomingMessageEnvelope>> results = consumer.poll(sspsToPoll, POLL_TIMEOUT_MS);
 
-      Set<T> messages = results.entrySet()
+      return results.entrySet()
           .stream()
           .filter(entry -> entry.getValue().size() != 0)
           .map(Map.Entry::getValue)
           .flatMap(List::stream)
-          .map(IncomingMessageEnvelope::getMessage)
-          .map(message -> (T) message)
-          .collect(Collectors.toSet());
-
-      return messages;
+          .collect(Collectors.toList());
     } catch (Exception e) {
       fail("Unable to consume messages");
     }
 
-    return new HashSet<>();
+    return new ArrayList<>();
   }
 
   private void produceMessages(Object... events) {
