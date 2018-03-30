@@ -52,7 +52,7 @@ public class SamzaContainerExceptionHandler implements UncaughtExceptionHandler 
     System.err.println(msg);
     e.printStackTrace(System.err);
     try {
-      Util.printThreadDump("Thread dump from uncaught exception handler.");
+      Util.logThreadDump("Thread dump from uncaught exception handler.");
       runnable.run();
     } catch (Throwable throwable) {
       // Ignore to avoid further exception propagation
