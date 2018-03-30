@@ -56,7 +56,7 @@ public abstract class AsyncSystemProducer implements SystemProducer {
   private static final long DEFAULT_FLUSH_TIMEOUT_MILLIS = Duration.ofMinutes(1L).toMillis();
 
   /**
-   * The constant CONFIG_STREAM_LIST.
+   * The constant CONFIG_STREAM_LIST. This config is used to get the list of streams produced by this EventHub system.
    */
   public static final String CONFIG_STREAM_LIST = "systems.%s.stream.list";
 
@@ -74,16 +74,19 @@ public abstract class AsyncSystemProducer implements SystemProducer {
    */
   protected final List<String> streamIds;
   /**
-   * The Physical to stream ids.
+   * The Map between Physical streamName to virtual Samza streamids.
    */
   protected final Map<String, String> physicalToStreamIds;
-  /**
-   * The Registry.
-   */
-  protected final MetricsRegistry registry;
 
   /**
-   * The Pending futures.
+   * The Samza metrics registry used to store all the metrics emitted.
+   */
+  protected final MetricsRegistry metricsRegistry;
+
+  /**
+   * The Pending futures corresponding to the send calls that are still in flight and for which we haven't
+   * received the call backs yet.
+   * This needs to be concurrent because it is accessed across the send/flush thread and callback thread.
    */
   protected final Set<CompletableFuture<Void>> pendingFutures = ConcurrentHashMap.newKeySet();
 
@@ -102,14 +105,14 @@ public abstract class AsyncSystemProducer implements SystemProducer {
    *
    * @param systemName the system name
    * @param config the config
-   * @param registry the registry
+   * @param metricsRegistry the registry
    */
-  public AsyncSystemProducer(String systemName, Config config, MetricsRegistry registry) {
+  public AsyncSystemProducer(String systemName, Config config, MetricsRegistry metricsRegistry) {
     StreamConfig sconfig = new StreamConfig(config);
     streamIds = config.getList(String.format(CONFIG_STREAM_LIST, systemName));
     physicalToStreamIds =
         streamIds.stream().collect(Collectors.toMap(sconfig::getPhysicalName, Function.identity()));
-    this.registry = registry;
+    this.metricsRegistry = metricsRegistry;
   }
 
   /**
@@ -152,21 +155,21 @@ public abstract class AsyncSystemProducer implements SystemProducer {
 
   public void start() {
     streamIds.forEach(streamId -> {
-        sendCallbackLatency.put(streamId, new SamzaHistogram(registry, streamId, SEND_CALLBACK_LATENCY));
-        sendLatency.put(streamId, new SamzaHistogram(registry, streamId, SEND_LATENCY));
-        sendErrors.put(streamId, registry.newCounter(streamId, SEND_ERRORS));
+        sendCallbackLatency.put(streamId, new SamzaHistogram(metricsRegistry, streamId, SEND_CALLBACK_LATENCY));
+        sendLatency.put(streamId, new SamzaHistogram(metricsRegistry, streamId, SEND_LATENCY));
+        sendErrors.put(streamId, metricsRegistry.newCounter(streamId, SEND_ERRORS));
       });
 
     if (aggSendLatency == null) {
-      aggSendLatency = new SamzaHistogram(registry, AGGREGATE, SEND_LATENCY);
-      aggSendCallbackLatency = new SamzaHistogram(registry, AGGREGATE, SEND_CALLBACK_LATENCY);
-      aggSendErrors = registry.newCounter(AGGREGATE, SEND_ERRORS);
+      aggSendLatency = new SamzaHistogram(metricsRegistry, AGGREGATE, SEND_LATENCY);
+      aggSendCallbackLatency = new SamzaHistogram(metricsRegistry, AGGREGATE, SEND_CALLBACK_LATENCY);
+      aggSendErrors = metricsRegistry.newCounter(AGGREGATE, SEND_ERRORS);
     }
   }
 
   /**
    * Default implementation of the flush that just waits for all the pendingFutures to be complete.
-   * SystemProducer should override this, If the underlying system provides flush semantics.
+   * SystemProducer should override this, if the underlying system provides flush semantics.
    * @param source String representing the source of the message.
    */
   @Override
@@ -202,7 +205,8 @@ public abstract class AsyncSystemProducer implements SystemProducer {
 
   /**
    * This method is used to check whether there were any previous exceptions in the send call backs.
-   * @param msg the msg that is used for throwing.
+   * And if any exception occurs the producer is considered to be stuck/broken
+   * @param msg the msg that is passed to the exception.
    */
   protected void checkForSendCallbackErrors(String msg) {
     // Check for send errors

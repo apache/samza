@@ -173,17 +173,17 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
 
     // Initiate metrics
     streamIds.forEach((streamId) -> {
-        eventSkipRate.put(streamId, registry.newCounter(streamId, EVENT_SKIP_RATE));
-        eventWriteRate.put(streamId, registry.newCounter(streamId, EVENT_WRITE_RATE));
-        eventByteWriteRate.put(streamId, registry.newCounter(streamId, EVENT_BYTE_WRITE_RATE));
+        eventSkipRate.put(streamId, metricsRegistry.newCounter(streamId, EVENT_SKIP_RATE));
+        eventWriteRate.put(streamId, metricsRegistry.newCounter(streamId, EVENT_WRITE_RATE));
+        eventByteWriteRate.put(streamId, metricsRegistry.newCounter(streamId, EVENT_BYTE_WRITE_RATE));
       });
 
     // Locking to ensure that these aggregated metrics will be created only once across multiple system producers.
     synchronized (AGGREGATE_METRICS_LOCK) {
       if (aggEventWriteRate == null) {
-        aggEventSkipRate = registry.newCounter(AGGREGATE, EVENT_SKIP_RATE);
-        aggEventWriteRate = registry.newCounter(AGGREGATE, EVENT_WRITE_RATE);
-        aggEventByteWriteRate = registry.newCounter(AGGREGATE, EVENT_BYTE_WRITE_RATE);
+        aggEventSkipRate = metricsRegistry.newCounter(AGGREGATE, EVENT_SKIP_RATE);
+        aggEventWriteRate = metricsRegistry.newCounter(AGGREGATE, EVENT_WRITE_RATE);
+        aggEventByteWriteRate = metricsRegistry.newCounter(AGGREGATE, EVENT_BYTE_WRITE_RATE);
       }
     }
 
