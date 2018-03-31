@@ -117,6 +117,53 @@ public class TestEventHubSystemProducer {
     Assert.assertTrue(outgoingMessagesP1.equals(receivedData1));
   }
 
+  @Test
+  public void testSkipLargeMessageCheck() throws Exception {
+    String systemName = "eventhubs";
+    String streamName = "testLMStream";
+    int numEvents = 10;
+    int partitionId0 = 0;
+
+    TestMetricsRegistry testMetrics = new TestMetricsRegistry();
+    Map<String, Interceptor> interceptor = new HashMap<>();
+    interceptor.put(streamName, new PassThroughInterceptor());
+
+    List<String> outgoingMessagesP0 = generateMessages(numEvents / 2);
+    outgoingMessagesP0.add("1234567890123456789012345678901234567890");
+    outgoingMessagesP0.addAll(generateMessages(numEvents / 2));
+
+    // Set configs
+    Map<String, String> configMap = new HashMap<>();
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_LIST, systemName), streamName);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, streamName), EVENTHUB_NAMESPACE);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, streamName), EVENTHUB_KEY_NAME);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, streamName), EVENTHUB_KEY);
+    configMap.put(String.format(EventHubConfig.CONFIG_SKIP_MESSAGES_LARGER_THAN, systemName), "-1");
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, streamName), EVENTHUB_ENTITY1);
+    configMap.put(String.format(EventHubConfig.CONFIG_PRODUCER_PARTITION_METHOD, systemName),
+        PartitioningMethod.PARTITION_KEY_AS_PARTITION.toString());
+    MapConfig config = new MapConfig(configMap);
+
+    MockEventHubClientManagerFactory factory = new MockEventHubClientManagerFactory();
+
+    EventHubSystemProducer producer =
+        new EventHubSystemProducer(new EventHubConfig(config), systemName, factory, interceptor, testMetrics);
+
+    SystemStream systemStream = new SystemStream(systemName, streamName);
+    producer.register(SOURCE);
+    producer.start();
+
+    outgoingMessagesP0.forEach(message -> producer.send(SOURCE,
+        new OutgoingMessageEnvelope(systemStream, partitionId0, null, message.getBytes())));
+
+    // Retrieve sent data
+    List<String> receivedData0 = factory.getSentData(systemName, streamName, partitionId0)
+        .stream()
+        .map(eventData -> new String(eventData.getBytes()))
+        .collect(Collectors.toList());
+
+    Assert.assertEquals(outgoingMessagesP0.size(), receivedData0.size());
+  }
 
   @Test
   public void testSendingLargeMessage() throws Exception {
@@ -164,54 +211,6 @@ public class TestEventHubSystemProducer {
         .collect(Collectors.toList());
 
     Assert.assertEquals(outgoingMessagesP0.size(), receivedData0.size() + 1);
-  }
-
-  @Test
-  public void testSkipLargeMessageCheck() throws Exception {
-    String systemName = "eventhubs";
-    String streamName = "testLMStream";
-    int numEvents = 10;
-    int partitionId0 = 0;
-
-    TestMetricsRegistry testMetrics = new TestMetricsRegistry();
-    Map<String, Interceptor> interceptor = new HashMap<>();
-    interceptor.put(streamName, new PassThroughInterceptor());
-
-    List<String> outgoingMessagesP0 = generateMessages(numEvents / 2);
-    outgoingMessagesP0.add("1234567890123456789012345678901234567890");
-    outgoingMessagesP0.addAll(generateMessages(numEvents / 2));
-
-    // Set configs
-    Map<String, String> configMap = new HashMap<>();
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_LIST, systemName), streamName);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, streamName), EVENTHUB_NAMESPACE);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, streamName), EVENTHUB_KEY_NAME);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, streamName), EVENTHUB_KEY);
-    configMap.put(String.format(EventHubConfig.CONFIG_SKIP_MESSAGES_LARGER_THAN, systemName), "-1");
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, streamName), EVENTHUB_ENTITY1);
-    configMap.put(String.format(EventHubConfig.CONFIG_PRODUCER_PARTITION_METHOD, systemName),
-        PartitioningMethod.PARTITION_KEY_AS_PARTITION.toString());
-    MapConfig config = new MapConfig(configMap);
-
-    MockEventHubClientManagerFactory factory = new MockEventHubClientManagerFactory();
-
-    EventHubSystemProducer producer =
-        new EventHubSystemProducer(new EventHubConfig(config), systemName, factory, interceptor, testMetrics);
-
-    SystemStream systemStream = new SystemStream(systemName, streamName);
-    producer.register(SOURCE);
-    producer.start();
-
-    outgoingMessagesP0.forEach(message -> producer.send(SOURCE,
-        new OutgoingMessageEnvelope(systemStream, partitionId0, null, message.getBytes())));
-
-    // Retrieve sent data
-    List<String> receivedData0 = factory.getSentData(systemName, streamName, partitionId0)
-        .stream()
-        .map(eventData -> new String(eventData.getBytes()))
-        .collect(Collectors.toList());
-
-    Assert.assertEquals(outgoingMessagesP0.size(), receivedData0.size());
   }
 
   @Test
