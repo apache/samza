@@ -31,8 +31,10 @@ object SystemConfig {
   val SYSTEM_FACTORY = JavaSystemConfig.SYSTEM_FACTORY_FORMAT
   val CONSUMER_OFFSET_DEFAULT = SYSTEM_PREFIX + "samza.offset.default"
 
-  // If true, automatically delete committed messages from intermediate streams
-  val DELETE_COMMITTED_MESSAGES = SYSTEM_PREFIX + "samza.delete.committed.messages"
+  // If true, automatically delete committed messages from streams whose committed messages are deletable.
+  // A stream's committed messages are deletable if it is a intermediate stream, or if user has manually
+  // set streams.{streamId}.samza.committed.messages.deletable to true in the configuration.
+  val DELETE_COMMITTED_MESSAGES = SYSTEM_PREFIX + "samza.committed.messages.deletable"
 
   implicit def Config2System(config: Config) = new SystemConfig(config)
 }

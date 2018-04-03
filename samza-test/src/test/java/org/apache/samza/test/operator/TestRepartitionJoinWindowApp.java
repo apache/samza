@@ -64,19 +64,23 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
 
   @Test
   public void testRepartitionJoinWindowAppWithoutDeletionOnCommit() throws Exception {
+    String inputTopic1 = "page-views";
+    String inputTopic2 = "ad-clicks";
+    String outputTopic = "user-ad-click-counts";
+
     KafkaSystemAdmin.deleteMessagesCalled_$eq(false);
 
-    initializeTopics(RepartitionJoinWindowApp2.PAGE_VIEWS, RepartitionJoinWindowApp2.AD_CLICKS, RepartitionJoinWindowApp2.OUTPUT_TOPIC);
+    initializeTopics(inputTopic1, inputTopic2, outputTopic);
 
     // run the application
-    RepartitionJoinWindowApp2 app = new RepartitionJoinWindowApp2();
-    String appName = "UserPageAdClickCounter2";
+    RepartitionJoinWindowApp app = new RepartitionJoinWindowApp();
+    String appName = "UserPageAdClickCounter";
     Map<String, String> configs = new HashMap<>();
-    configs.put("systems.kafka.samza.delete.committed.messages", "false");
+    configs.put("systems.kafka.samza.committed.messages.deletable", "false");
     runApplication(app, appName, configs);
 
     // consume and validate result
-    List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(RepartitionJoinWindowApp2.OUTPUT_TOPIC), 2);
+    List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(outputTopic), 2);
     Assert.assertEquals(2, messages.size());
 
     Assert.assertFalse(KafkaSystemAdmin.deleteMessagesCalled());
@@ -84,17 +88,25 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
 
   @Test
   public void testRepartitionJoinWindowAppAndDeleteMessagesOnCommit() throws Exception {
-    initializeTopics(RepartitionJoinWindowApp.PAGE_VIEWS, RepartitionJoinWindowApp.AD_CLICKS, RepartitionJoinWindowApp.OUTPUT_TOPIC);
+    String inputTopic1 = "page-views2";
+    String inputTopic2 = "ad-clicks2";
+    String outputTopic = "user-ad-click-counts2";
+
+    initializeTopics(inputTopic1, inputTopic2, outputTopic);
 
     // run the application
     RepartitionJoinWindowApp app = new RepartitionJoinWindowApp();
-    final String appName = "UserPageAdClickCounter";
+    final String appName = "UserPageAdClickCounter2";
     Map<String, String> configs = new HashMap<>();
-    configs.put("systems.kafka.samza.delete.committed.messages", "true");
+    configs.put("systems.kafka.samza.committed.messages.deletable", "true");
+    configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_1_PROP, inputTopic1);
+    configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_2_PROP, inputTopic2);
+    configs.put(RepartitionJoinWindowApp.OUTPUT_TOPIC_PROP, outputTopic);
+
     runApplication(app, appName, configs);
 
     // consume and validate result
-    List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(RepartitionJoinWindowApp.OUTPUT_TOPIC), 2);
+    List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(outputTopic), 2);
     Assert.assertEquals(2, messages.size());
 
     for (ConsumerRecord<String, String> message : messages) {
@@ -106,7 +118,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
 
     // Verify that messages in the intermediate stream will be deleted in 10 seconds
     long startTimeMs = System.currentTimeMillis();
-    for (StreamSpec spec: runner.getIntermediateStreams(app)) {
+    for (StreamSpec spec: runner.getExecutionPlan(app).getIntermediateStreams()) {
       long remainingMessageNum = -1;
 
       while (remainingMessageNum != 0 && System.currentTimeMillis() - startTimeMs < 10000) {
@@ -128,7 +140,13 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
 
   @Test
   public void testBroadcastApp() {
-    initializeTopics(RepartitionJoinWindowApp.PAGE_VIEWS, RepartitionJoinWindowApp.AD_CLICKS, RepartitionJoinWindowApp.OUTPUT_TOPIC);
-    runApplication(new BroadcastAssertApp(), "BroadcastTest", null);
+    String inputTopic1 = "page-views";
+    String inputTopic2 = "ad-clicks";
+    String outputTopic = "user-ad-click-counts";
+    Map<String, String> configs = new HashMap<>();
+    configs.put(BroadcastAssertApp.INPUT_TOPIC_PROP, inputTopic1);
+
+    initializeTopics(inputTopic1, inputTopic2, outputTopic);
+    runApplication(new BroadcastAssertApp(), "BroadcastTest", configs);
   }
 }

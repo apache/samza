@@ -42,14 +42,19 @@ import java.time.Duration;
  * A {@link StreamApplication} that demonstrates a partitionBy, stream-stream join and a windowed count.
  */
 public class RepartitionJoinWindowApp implements StreamApplication {
-  static final String PAGE_VIEWS = "page-views";
-  static final String AD_CLICKS = "ad-clicks";
-  static final String OUTPUT_TOPIC = "user-ad-click-counts";
+
+  public static final String INPUT_TOPIC_1_PROP = "inputTopic1";
+  public static final String INPUT_TOPIC_2_PROP = "inputTopic2";
+  public static final String OUTPUT_TOPIC_PROP = "outputTopic";
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    MessageStream<PageView> pageViews = graph.getInputStream(PAGE_VIEWS, new JsonSerdeV2<>(PageView.class));
-    MessageStream<AdClick> adClicks = graph.getInputStream(AD_CLICKS, new JsonSerdeV2<>(AdClick.class));
+    String inputTopic1 = config.get(INPUT_TOPIC_1_PROP);
+    String inputTopic2 = config.get(INPUT_TOPIC_2_PROP);
+    String outputTopic = config.get(OUTPUT_TOPIC_PROP);
+
+    MessageStream<PageView> pageViews = graph.getInputStream(inputTopic1, new JsonSerdeV2<>(PageView.class));
+    MessageStream<AdClick> adClicks = graph.getInputStream(inputTopic2, new JsonSerdeV2<>(AdClick.class));
 
     MessageStream<PageView> pageViewsRepartitionedByViewId = pageViews
         .partitionBy(PageView::getViewId, pv -> pv,
@@ -75,7 +80,7 @@ public class RepartitionJoinWindowApp implements StreamApplication {
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), String.valueOf(windowPane.getMessage().size())))
         .sink((message, messageCollector, taskCoordinator) -> {
             taskCoordinator.commit(TaskCoordinator.RequestScope.ALL_TASKS_IN_CONTAINER);
-            messageCollector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", OUTPUT_TOPIC), null, message.getKey(), message.getValue()));
+            messageCollector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", outputTopic), null, message.getKey(), message.getValue()));
           });
   }
 

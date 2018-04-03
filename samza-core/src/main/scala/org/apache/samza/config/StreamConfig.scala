@@ -37,6 +37,7 @@ object StreamConfig {
   val BOOTSTRAP =               SAMZA_PROPERTY + "bootstrap"
   val PRIORITY =                SAMZA_PROPERTY + "priority"
   val IS_INTERMEDIATE =         SAMZA_PROPERTY + "intermediate"
+  val IS_COMMITTED_MESSAGES_DELETABLE = SAMZA_PROPERTY + "committed.messages.deletable"
   val IS_BOUNDED =              SAMZA_PROPERTY + "bounded"
 
   // We don't want any external dependencies on these patterns while both exist. Use getProperty to ensure proper values.
@@ -47,6 +48,7 @@ object StreamConfig {
   val SYSTEM_FOR_STREAM_ID = STREAM_ID_PREFIX + SYSTEM
   val PHYSICAL_NAME_FOR_STREAM_ID = STREAM_ID_PREFIX + PHYSICAL_NAME
   val IS_INTERMEDIATE_FOR_STREAM_ID = STREAM_ID_PREFIX + IS_INTERMEDIATE
+  val IS_COMMITTED_MESSAGES_DELETABLE_FOR_STREAM_ID = STREAM_ID_PREFIX + IS_COMMITTED_MESSAGES_DELETABLE
   val IS_BOUNDED_FOR_STREAM_ID = STREAM_ID_PREFIX + IS_BOUNDED
   val PRIORITY_FOR_STREAM_ID = STREAM_ID_PREFIX + PRIORITY
   val CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID = STREAM_ID_PREFIX + CONSUMER_OFFSET_DEFAULT
@@ -168,6 +170,15 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
    */
   def getIsIntermediateStream(streamId: String) = {
     getBoolean(StreamConfig.IS_INTERMEDIATE_FOR_STREAM_ID format streamId, false)
+  }
+
+  /**
+    * Gets the boolean flag of whether the committed messages specified streamId is deletable
+    * @param streamId  the identifier for the stream in the config.
+    * @return          true if the committed messages of the stream is deletable
+    */
+  def getIsCommittedMessagesDeletable(streamId: String) = {
+    getBoolean(StreamConfig.IS_COMMITTED_MESSAGES_DELETABLE_FOR_STREAM_ID format streamId, false)
   }
 
   def getIsBounded(streamId: String) = {
