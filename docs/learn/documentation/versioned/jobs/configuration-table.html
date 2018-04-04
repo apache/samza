@@ -766,6 +766,18 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="task-max-idle-ms">task.max.idle.ms</td>
+                    <td class="default">10</td>
+                    <td class="description">
+                        The maximum time to wait for a task worker to complete when there are no new messages to handle before resuming the main
+                        loop and potentially polling for more messages. See <a href="#task-poll-interval-ms" class="property">task.poll.interval.ms</a>
+                        This timeout value prevents the main loop from spinning when there is nothing for it to do.  Increasing this value will reduce
+                        the background load of the thread, but, also potentially increase message latency.  It should not be set greater than the
+                        <a href="#task-poll-interval-ms" class="property">task.poll.interval.ms</a>.
+                    </td>
+                </tr>
+
+                <tr>
                     <td class="property" id="task-ignored-exceptions">task.ignored.exceptions</td>
                     <td class="default"></td>
                     <td class="description">

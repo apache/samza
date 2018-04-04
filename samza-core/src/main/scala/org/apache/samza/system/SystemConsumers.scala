@@ -215,8 +215,11 @@ class SystemConsumers (
 
         metrics.choseNull.inc
 
-        // Sleep for a while so we don't poll in a tight loop.
-        timeout = noNewMessagesTimeout
+        // Sleep for a while so we don't poll in a tight loop, but, don't do this when called from the AsyncRunLoop
+        // code because in that case the chooser will not get updated with a new message for an SSP until after a
+        // message is processed, See how updateChooser variable is used below. The AsyncRunLoop has its own way to
+        // block when there is no work to process.
+        timeout = if (updateChooser) noNewMessagesTimeout else 0
       } else {
         val systemStreamPartition = envelopeFromChooser.getSystemStreamPartition
 

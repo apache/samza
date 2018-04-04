@@ -433,7 +433,7 @@ object Util extends Logging {
     }
   }
 
-  def printThreadDump(message: String): Unit = {
+  def logThreadDump(message: String): Unit = {
     try {
       val threadInfo = ThreadMxBean.dumpAllThreads(true, true)
       val sb = new StringBuilder
@@ -441,10 +441,10 @@ object Util extends Logging {
       for (ti <- threadInfo) {
         sb.append(ti.toString).append("\n")
       }
-      System.out.println(sb)
+      info(sb)
     } catch {
       case e: Exception =>
-        System.out.println("Could not get and log a thread dump", e)
+        info("Could not get and log a thread dump", e)
     }
   }
 }
