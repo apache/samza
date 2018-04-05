@@ -298,6 +298,11 @@ object Util extends Logging {
       oos = new ObjectOutputStream(fos)
       oos.writeLong(checksum)
       oos.writeUTF(data)
+    } catch {
+      case e: Exception => {
+        error("Exception while attempting to write file %s." format(file), e)
+        throw e
+      }
     } finally {
       oos.close()
       fos.close()
@@ -321,6 +326,11 @@ object Util extends Logging {
       } else {
         info("Checksum match failed. Data in file is corrupted. Skipping content.")
         null
+      }
+    } catch {
+      case e: Exception => {
+        error("Exception while attempting to read file %s." format(file), e)
+        throw e
       }
     } finally {
       ois.close()

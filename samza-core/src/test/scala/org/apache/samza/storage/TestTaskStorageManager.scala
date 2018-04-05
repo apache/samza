@@ -23,7 +23,7 @@ package org.apache.samza.storage
 import java.io.{File, FileOutputStream, ObjectOutputStream}
 import java.util
 
-import org.apache.samza.Partition
+import org.apache.samza.{Partition, SamzaException}
 import org.apache.samza.config.{MapConfig, StorageConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.storage.StoreProperties.StorePropertiesBuilder
@@ -308,8 +308,82 @@ class TestTaskStorageManager extends MockitoSugar {
     cleanDirMethod.setAccessible(true)
     cleanDirMethod.invoke(taskStorageManager, new Array[Object](0):_*)
 
-    assertTrue("Offset file was found in store partition directory. Clean up failed!", !offsetFile.exists())
-    assertTrue("Store directory exists. Clean up failed!", !storeDirectory.exists())
+    assertFalse("Offset file was found in store partition directory. Clean up failed!", offsetFile.exists())
+    assertFalse("Store directory exists. Clean up failed!", storeDirectory.exists())
+  }
+
+  @Test
+  def testStoreDeletedWhenOffsetFileInvalid(): Unit = {
+    val storeDirectory = TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName)
+
+    // Write garbage to produce a null result when it's read
+    val offsetFile = new File(storeDirectory, "OFFSET")
+    val fos = new FileOutputStream(offsetFile)
+    val oos = new ObjectOutputStream(fos)
+    oos.writeLong(1)
+    oos.writeUTF("Bad Offset")
+    oos.close()
+    fos.close()
+
+    val taskStorageManager = new TaskStorageManagerBuilder().addStore(store, false)
+      .addStore(loggedStore, true)
+      .build
+
+    val cleanDirMethod = taskStorageManager.getClass
+      .getDeclaredMethod("cleanBaseDirs",
+        new Array[java.lang.Class[_]](0):_*)
+    cleanDirMethod.setAccessible(true)
+    cleanDirMethod.invoke(taskStorageManager, new Array[Object](0):_*)
+
+    assertFalse("Offset file was found in store partition directory. Clean up failed!", offsetFile.exists())
+    assertFalse("Store directory exists. Clean up failed!", storeDirectory.exists())
+  }
+
+  /**
+    * It's not safe to delete the store in the case of a restore failure because we can't be sure whether
+    * the failure was due to corrupt files or some transient failure that could be fixed with a simple restart.
+    *
+    * We don't want to delete stores and cause performance issues or, worse, invalid store data for an orphaned
+    * container when a simple container restart would fix the issue. Also, this scenario has been rare thus far,
+    * so it's reasonable to fix it manually.
+    */
+  @Test
+  def testStoreNotDeletedWhenRestoreFailsWithAnException(): Unit = {
+    val storeDirectory = TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName)
+
+    // Write garbage to produce a null result when it's read
+    val offsetFile = new File(storeDirectory, "OFFSET")
+    Util.writeDataToFile(offsetFile, "13")
+
+    val mockStorageEngine = mock[StorageEngine]
+    when(mockStorageEngine.getStoreProperties).thenAnswer(new Answer[StoreProperties] {
+      override def answer(invocation: InvocationOnMock): StoreProperties = {
+        new StorePropertiesBuilder().setLoggedStore(true).setPersistedToDisk(true).build()
+      }
+    })
+    when(mockStorageEngine.restore(any())).thenThrow(new SamzaException())
+
+    val mockSystemConsumer = mock[SystemConsumer]
+    doNothing().when(mockSystemConsumer).stop()
+
+    val taskStorageManager = new TaskStorageManagerBuilder().addStore(loggedStore, mockStorageEngine, mockSystemConsumer)
+      .build
+
+    try {
+      val restoreStoresMethod = taskStorageManager.getClass
+        .getDeclaredMethod("restoreStores",
+          new Array[java.lang.Class[_]](0):_*)
+      restoreStoresMethod.setAccessible(true)
+      restoreStoresMethod.invoke(taskStorageManager, new Array[Object](0):_*)
+
+      fail("restoreStores() should have rethrown the SamzaException")
+    } catch {
+      case e: Exception => {
+        assertTrue("Offset file was deleted from store partition directory. This should not happen.", offsetFile.exists())
+        assertTrue("Store directory doesn't exist. Deleting the store could cause corrupted results in an orphaned container.",
+          storeDirectory.exists())
+      }
+    }
   }
 
   @Test
