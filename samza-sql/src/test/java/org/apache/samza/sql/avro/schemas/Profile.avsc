@@ -20,7 +20,7 @@
 {
     "name": "Profile",
     "version" : 1,
-    "namespace": "org.apache.samza.sql.system.avro",
+    "namespace": "org.apache.samza.sql.avro.schemas",
     "type": "record",
     "fields": [
         {
@@ -40,6 +40,42 @@
             "doc" : "Company id.",
             "type": ["null", "int"],
             "default":null
+        },
+        {
+            "name": "address",
+            "doc": "Profile Address",
+            "default":null,
+            "type": {
+                "name": "AddressRecord",
+                "namespace": "org.apache.samza.sql.avro.schemas",
+                "type": "record",
+                "fields": [
+                    {
+                        "name": "zip",
+                        "doc" : "zip code.",
+                        "type": ["null", "int"],
+                        "default":null
+                    },
+                    {
+                        "name": "streetnum",
+                        "doc": "Street Number",
+                        "default":null,
+                        "type": {
+                            "name": "StreetNumRecord",
+                            "namespace": "org.apache.samza.sql.avro.schemas",
+                            "type": "record",
+                            "fields": [
+                                {
+                                    "name": "number",
+                                    "doc": "street number.",
+                                    "type": ["null", "int"],
+                                    "default": null
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
         }
     ]
 }

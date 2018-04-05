@@ -39,6 +39,8 @@ import org.apache.samza.system.SystemStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.apache.samza.sql.data.SamzaSqlRelMessage.*;
+
 
 /**
  * This class converts a Samza Avro messages to Relational messages and vice versa.
@@ -140,6 +142,10 @@ public class AvroRelConverter implements SamzaRelConverter {
     this.avroSchema = Schema.parse(schemaProvider.getSchema(systemStream));
   }
 
+  /**
+   * Converts the nested avro object in SamzaMessage to relational message corresponding to
+   * the tableName with relational schema.
+   */
   @Override
   public SamzaSqlRelMessage convertToRelMessage(KV<Object, Object> samzaMessage) {
     List<Object> values = new ArrayList<>();
@@ -164,25 +170,69 @@ public class AvroRelConverter implements SamzaRelConverter {
     return new SamzaSqlRelMessage(samzaMessage.getKey(), fieldNames, values);
   }
 
+  private SamzaSqlRelRecord convertToRelRecord(GenericData.Record avroRecord) {
+    List<Object> values = new ArrayList<>();
+    List<String> fieldNames = new ArrayList<>();
+    if (avroRecord != null) {
+      fieldNames.addAll(avroRecord.getSchema().getFields()
+          .stream()
+          .map(Schema.Field::name)
+          .collect(Collectors.toList()));
+      values.addAll(avroRecord.getSchema().getFields()
+          .stream()
+          .map(x -> {
+            Object obj = avroRecord.get(x.name());
+            if (obj != null && obj instanceof GenericData.Record) {
+              return convertToRelRecord((GenericData.Record) obj);
+            }
+            return obj;
+          })
+          .collect(Collectors.toList()));
+    } else {
+      String msg = "Avro Record is null";
+      LOG.error(msg);
+      throw new SamzaException(msg);
+    }
+
+    return new SamzaSqlRelRecord(fieldNames, values);
+  }
+
+  /**
+   * Convert the nested relational message to the output message.
+   */
   @Override
   public KV<Object, Object> convertToSamzaMessage(SamzaSqlRelMessage relMessage) {
     return convertToSamzaMessage(relMessage, this.avroSchema);
   }
 
   protected KV<Object, Object> convertToSamzaMessage(SamzaSqlRelMessage relMessage, Schema avroSchema) {
+    return new KV<>(relMessage.getKey(), convertToGenericRecord(relMessage.getSamzaSqlRelRecord(), avroSchema));
+  }
+
+  private GenericRecord convertToGenericRecord(SamzaSqlRelRecord relRecord, Schema avroSchema) {
     GenericRecord record = new GenericData.Record(avroSchema);
-    List<String> fieldNames = relMessage.getFieldNames();
-    List<Object> values = relMessage.getFieldValues();
+    List<String> fieldNames = relRecord.getFieldNames();
+    List<Object> values = relRecord.getFieldValues();
     for (int index = 0; index < fieldNames.size(); index++) {
       if (!fieldNames.get(index).equalsIgnoreCase(SamzaSqlRelMessage.KEY_NAME)) {
-        record.put(fieldNames.get(index), values.get(index));
+        Object obj = values.get(index);
+        String fieldName = fieldNames.get(index);
+        if (obj instanceof SamzaSqlRelRecord) {
+          record.put(fieldName,
+              convertToGenericRecord((SamzaSqlRelRecord) obj, avroSchema.getField(fieldName).schema()));
+        } else {
+          record.put(fieldName, values.get(index));
+        }
       }
     }
 
-    return new KV<>(relMessage.getKey(), record);
+    return record;
   }
 
   private Object getRelField(RelDataType relType, Object avroObj) {
+    if (avroObj instanceof GenericData.Record) {
+      return convertToRelRecord((GenericData.Record) avroObj);
+    }
     return AvroToRelObjConverter.valueOf(relType.getClass().getSimpleName()).convert(avroObj);
   }
 }

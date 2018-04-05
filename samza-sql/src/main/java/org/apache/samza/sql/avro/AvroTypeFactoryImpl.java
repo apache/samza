@@ -28,11 +28,9 @@ import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelDataTypeFieldImpl;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.type.RelRecordType;
-import org.apache.calcite.sql.type.ArraySqlType;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.samza.SamzaException;
-import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,6 +55,10 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
       throw new SamzaException(msg);
     }
 
+    return convertRecord(schema);
+  }
+
+  private RelDataType convertRecord(Schema schema) {
     List<RelDataTypeField> relFields = getRelFields(schema.getFields());
     return new RelRecordType(relFields);
   }
@@ -101,8 +103,7 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
       case LONG:
         return createTypeWithNullability(createSqlType(SqlTypeName.BIGINT), true);
       case RECORD:
-//        List<RelDataTypeField> relFields = getRelFields(fieldSchema);
-//        return new RelRecordType(relFields);
+        // return createTypeWithNullability(convertRecord(fieldSchema), true);
         // TODO Calcite execution engine doesn't support record type yet.
         return createTypeWithNullability(createSqlType(SqlTypeName.ANY), true);
       case MAP:

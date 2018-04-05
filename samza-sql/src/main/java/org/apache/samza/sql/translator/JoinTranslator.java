@@ -43,12 +43,14 @@ import org.apache.samza.serializers.Serde;
 import org.apache.samza.sql.data.SamzaSqlCompositeKey;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SourceResolver;
+import org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory;
 import org.apache.samza.storage.kv.RocksDbTableDescriptor;
 import org.apache.samza.table.Table;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.apache.samza.sql.data.SamzaSqlCompositeKey.*;
+import static org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory.*;
 
 
 /**
@@ -94,7 +96,8 @@ class JoinTranslator {
         tableKeyIds);
 
     JsonSerdeV2<SamzaSqlCompositeKey> keySerde = new JsonSerdeV2<>(SamzaSqlCompositeKey.class);
-    JsonSerdeV2<SamzaSqlRelMessage> relMsgSerde = new JsonSerdeV2<>(SamzaSqlRelMessage.class);
+    SamzaSqlRelMessageSerde relMsgSerde =
+        (SamzaSqlRelMessageSerde) new SamzaSqlRelMessageSerdeFactory().getSerde(null, null);
 
     Table table = loadLocalTable(isTablePosOnRight, tableKeyIds, keySerde, relMsgSerde, join, context);
 

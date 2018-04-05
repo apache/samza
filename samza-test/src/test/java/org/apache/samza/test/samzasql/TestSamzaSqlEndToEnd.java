@@ -201,6 +201,40 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
   }
 
   @Test
+  public void testEndToEndStreamTableInnerJoinWithNestedRecord() throws Exception {
+    int numMessages = 20;
+
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    staticConfigs.putAll(configs);
+    String sql =
+        "Insert into testavro.enrichedPageViewTopic "
+            + "select pv.pageKey, p.name as profileName, p.address as profileAddress "
+            + "from testavro.PROFILE.`$table` as p "
+            + "join testavro.PAGEVIEW as pv "
+            + " on p.id = pv.profileId";
+
+    List<String> sqlStmts = Arrays.asList(sql);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
+    runner.runAndWaitForFinish();
+
+    List<String> outMessages = TestAvroSystemFactory.messages.stream()
+        .map(x -> {
+          GenericRecord profileAddr = (GenericRecord) ((GenericRecord) x.getMessage()).get("profileAddress");
+          GenericRecord streetNum = (GenericRecord) (profileAddr.get("streetnum"));
+          return ((GenericRecord) x.getMessage()).get("pageKey").toString() + ","
+              + (((GenericRecord) x.getMessage()).get("profileName") == null ? "null" :
+              ((GenericRecord) x.getMessage()).get("profileName").toString()) + ","
+              + profileAddr.get("zip") + "," + streetNum.get("number");
+        })
+        .collect(Collectors.toList());
+    Assert.assertEquals(numMessages, outMessages.size());
+    List<String> expectedOutMessages = TestAvroSystemFactory.getPageKeyProfileNameAddressJoin(numMessages);
+    Assert.assertEquals(outMessages, expectedOutMessages);
+  }
+
+  @Test
   public void testEndToEndStreamTableInnerJoinWithFilter() throws Exception {
     int numMessages = 20;
 
