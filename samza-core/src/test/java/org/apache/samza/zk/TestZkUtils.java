@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BooleanSupplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
@@ -36,8 +37,10 @@ import org.I0Itec.zkclient.exception.ZkNodeExistsException;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.runtime.LocationId;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.After;
@@ -462,5 +465,51 @@ public class TestZkUtils {
 
     // Get on the JobModel version should return 2, taking into account the published version 2.
     Assert.assertEquals("3", zkUtils.getNextJobModelVersion(zkUtils.getJobModelVersion()));
+  }
+
+  @Test
+  public void testReadTaskLocality() {
+    String taskName = "task-1";
+    String locationId  = "locationId-1";
+    String taskLocalityPath = String.format("%s/%s", KEY_BUILDER.getTaskLocalityPath(), taskName);
+
+    zkClient.createPersistent(taskLocalityPath, true);
+    zkClient.writeData(taskLocalityPath, locationId);
+
+    ImmutableMap<TaskName, LocationId> expectedTaskLocality = ImmutableMap.of(new TaskName(taskName),
+                                                                            new LocationId(locationId));
+    Map<TaskName, LocationId> actualTaskLocality = zkUtils.readTaskLocality();
+    Assert.assertEquals(expectedTaskLocality, actualTaskLocality);
+  }
+
+  @Test
+  public void testWriteTaskLocality() {
+    TaskName taskName1 = new TaskName("task-1");
+    LocationId locationId1  = new LocationId("locationId-1");
+    TaskName taskName2 = new TaskName("task-2");
+    LocationId locationId2  = new LocationId("locationId-2");
+    Map<TaskName, LocationId> locality = ImmutableMap.of(taskName1, locationId1,
+                                                                 taskName2, locationId2);
+    zkUtils.writeTaskLocality(locality);
+
+    Map<TaskName, LocationId> actualTaskLocality = zkUtils.readTaskLocality();
+    Assert.assertEquals(locality, actualTaskLocality);
+  }
+
+  @Test
+  public void testDeleteAllTaskLocality() {
+    TaskName taskName1 = new TaskName("task-1");
+    LocationId locationId1  = new LocationId("locationId-1");
+    TaskName taskName2 = new TaskName("task-2");
+    LocationId locationId2  = new LocationId("locationId-2");
+
+    zkUtils.writeTaskLocality(ImmutableMap.of(taskName1, locationId1, taskName2, locationId2));
+
+    zkUtils.deleteAllTaskLocality(ImmutableList.of(taskName1));
+
+    Map<TaskName, LocationId> expectedLocality = ImmutableMap.of(taskName2, locationId2);
+    Map<TaskName, LocationId> actualLocality = zkUtils.readTaskLocality();
+
+    Assert.assertEquals(expectedLocality, actualLocality);
   }
 }

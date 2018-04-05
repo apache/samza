@@ -20,12 +20,7 @@
 package org.apache.samza.zk;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -37,8 +32,10 @@ import org.I0Itec.zkclient.exception.ZkInterruptedException;
 import org.I0Itec.zkclient.exception.ZkNodeExistsException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.runtime.LocationId;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.zookeeper.data.Stat;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -201,6 +198,15 @@ public class ZkUtils {
       }
     }
     return processorNodes;
+  }
+
+  public Map<String, LocationId> readProcessorLocality() {
+    List<ProcessorNode> processorNodes = getAllProcessorNodes();
+    Map<String, LocationId> processorLocality = processorNodes.stream()
+                                                          .map(ProcessorNode::getProcessorData)
+                                                          .collect(Collectors.toMap(ProcessorData::getProcessorId, ProcessorData::getLocationId));
+    LOG.debug("Read processorLocality: {} from zookeeper.", processorLocality);
+    return processorLocality;
   }
 
   /**
@@ -505,6 +511,43 @@ public class ZkUtils {
     LOG.info("Current version for zk root node: " + rootPath + " is " + version + ", expected version is " + ZK_PROTOCOL_VERSION);
     if (!version.equals(ZK_PROTOCOL_VERSION)) {
       throw new SamzaException("ZK Protocol mismatch. Expected " + ZK_PROTOCOL_VERSION + "; found " + version);
+    }
+  }
+
+  public Map<TaskName, LocationId> readTaskLocality() {
+    List<String> taskNames = zkClient.getChildren(keyBuilder.getTaskLocalityPath());
+    Map<TaskName, LocationId> taskLocality = new HashMap<>();
+    for (String taskName : taskNames) {
+      String completeZKTaskNodePath = String.format("%s/%s", keyBuilder.getTaskLocalityPath(), taskName);
+      String locationId = zkClient.readData(completeZKTaskNodePath);
+      LOG.debug("Read locationId: {} for taskPath: {} from zookeeper.", locationId, completeZKTaskNodePath);
+      taskLocality.put(new TaskName(taskName), new LocationId(locationId));
+    }
+    return taskLocality;
+  }
+
+  public void writeTaskLocality(Map<TaskName, LocationId> taskLocality) {
+    for (Map.Entry<TaskName, LocationId> entry : taskLocality.entrySet()) {
+      TaskName taskName = entry.getKey();
+      String locationId = entry.getValue().getId();
+      String completeZkTaskNodePath = String.format("%s/%s", keyBuilder.getTaskLocalityPath(), taskName.getTaskName());
+      LOG.debug("Persisting locationId: {} for taskPath: {} into zookeeper.", locationId, completeZkTaskNodePath);
+      if (!zkClient.exists(completeZkTaskNodePath)) {
+        zkClient.createPersistent(completeZkTaskNodePath, true);
+      }
+      zkClient.writeData(completeZkTaskNodePath, locationId);
+    }
+  }
+
+  public void deleteAllTaskLocality(Collection<TaskName> taskNames) {
+    for (TaskName taskName : taskNames) {
+      String completeZKTaskNodePath = String.format("%s/%s", keyBuilder.getTaskLocalityPath(), taskName.getTaskName());
+      if (zkClient.exists(completeZKTaskNodePath)) {
+        LOG.info("Purging the taskNode directory: {} present in zookeeper.", completeZKTaskNodePath);
+        zkClient.delete(completeZKTaskNodePath);
+      } else {
+        LOG.info("Zookeeper path: {} does not exist.", completeZKTaskNodePath);
+      }
     }
   }
 

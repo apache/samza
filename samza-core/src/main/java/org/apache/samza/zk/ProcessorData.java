@@ -21,17 +21,18 @@ package org.apache.samza.zk;
 
 import java.util.Objects;
 import org.apache.samza.SamzaException;
+import org.apache.samza.runtime.LocationId;
 
 /**
  * Represents processor data stored in zookeeper processors node.
  */
 public class ProcessorData {
   private final String processorId;
-  private final String host;
+  private final String locationId;
 
-  public ProcessorData(String host, String processorId) {
+  public ProcessorData(String locationId, String processorId) {
     this.processorId = processorId;
-    this.host = host;
+    this.locationId = locationId;
   }
 
   public ProcessorData(String data) {
@@ -39,16 +40,16 @@ public class ProcessorData {
     if (splt.length != 2) {
       throw new SamzaException("incorrect processor data format = " + data);
     }
-    host = splt[0];
+    locationId = splt[0];
     processorId = splt[1];
   }
 
   public String toString() {
-    return host + " " + processorId;
+    return locationId + " " + processorId;
   }
 
-  public String getHost() {
-    return host;
+  public LocationId getLocationId() {
+    return new LocationId(locationId);
   }
 
   public String getProcessorId() {
@@ -57,7 +58,7 @@ public class ProcessorData {
 
   @Override
   public int hashCode() {
-    return Objects.hash(processorId, host);
+    return Objects.hash(processorId, locationId);
   }
 
   @Override
@@ -65,6 +66,6 @@ public class ProcessorData {
     if (obj == null) return false;
     if (getClass() != obj.getClass()) return false;
     final ProcessorData other = (ProcessorData) obj;
-    return Objects.equals(processorId, other.processorId) && Objects.equals(host, other.host);
+    return Objects.equals(processorId, other.processorId) && Objects.equals(locationId, other.locationId);
   }
 }

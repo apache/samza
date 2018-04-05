@@ -51,6 +51,7 @@ public class ZkKeyBuilder {
   static final String PROCESSORS_PATH = "processors";
   static final String JOBMODEL_GENERATION_PATH = "JobModelGeneration";
   static final String JOB_MODEL_UPGRADE_BARRIER = "jobModelUpgradeBarrier";
+  static final String TASK_LOCALITY_PATH = "taskLocality";
 
   public ZkKeyBuilder(String pathPrefix) {
     if (pathPrefix != null && !pathPrefix.trim().isEmpty()) {
@@ -97,5 +98,9 @@ public class ZkKeyBuilder {
 
   public String getJobModelVersionBarrierPrefix() {
     return String.format("%s/%s/%s/versionBarriers", getRootPath(), JOBMODEL_GENERATION_PATH, JOB_MODEL_UPGRADE_BARRIER);
+  }
+
+  public String getTaskLocalityPath() {
+    return String.format("%s/%s", getRootPath(), TASK_LOCALITY_PATH);
   }
 }
