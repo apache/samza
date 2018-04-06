@@ -221,13 +221,13 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
 
     List<String> outMessages = TestAvroSystemFactory.messages.stream()
         .map(x -> {
-          GenericRecord profileAddr = (GenericRecord) ((GenericRecord) x.getMessage()).get("profileAddress");
-          GenericRecord streetNum = (GenericRecord) (profileAddr.get("streetnum"));
-          return ((GenericRecord) x.getMessage()).get("pageKey").toString() + ","
-              + (((GenericRecord) x.getMessage()).get("profileName") == null ? "null" :
-              ((GenericRecord) x.getMessage()).get("profileName").toString()) + ","
-              + profileAddr.get("zip") + "," + streetNum.get("number");
-        })
+            GenericRecord profileAddr = (GenericRecord) ((GenericRecord) x.getMessage()).get("profileAddress");
+            GenericRecord streetNum = (GenericRecord) (profileAddr.get("streetnum"));
+            return ((GenericRecord) x.getMessage()).get("pageKey").toString() + ","
+                + (((GenericRecord) x.getMessage()).get("profileName") == null ? "null" :
+                ((GenericRecord) x.getMessage()).get("profileName").toString()) + ","
+                + profileAddr.get("zip") + "," + streetNum.get("number");
+          })
         .collect(Collectors.toList());
     Assert.assertEquals(numMessages, outMessages.size());
     List<String> expectedOutMessages = TestAvroSystemFactory.getPageKeyProfileNameAddressJoin(numMessages);
