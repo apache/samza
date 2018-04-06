@@ -19,7 +19,6 @@
 package org.apache.samza.clustermanager;
 
 import com.google.common.annotations.VisibleForTesting;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
