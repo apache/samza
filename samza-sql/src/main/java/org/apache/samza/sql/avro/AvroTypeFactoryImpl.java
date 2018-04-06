@@ -55,10 +55,10 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
       throw new SamzaException(msg);
     }
 
-    return convertRecord(schema);
+    return convertRecordType(schema);
   }
 
-  private RelDataType convertRecord(Schema schema) {
+  private RelDataType convertRecordType(Schema schema) {
     List<RelDataTypeField> relFields = getRelFields(schema.getFields());
     return new RelRecordType(relFields);
   }
@@ -103,7 +103,7 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
       case LONG:
         return createTypeWithNullability(createSqlType(SqlTypeName.BIGINT), true);
       case RECORD:
-        // return createTypeWithNullability(convertRecord(fieldSchema), true);
+        // return createTypeWithNullability(convertRecordType(fieldSchema), true);
         // TODO Calcite execution engine doesn't support record type yet.
         return createTypeWithNullability(createSqlType(SqlTypeName.ANY), true);
       case MAP:

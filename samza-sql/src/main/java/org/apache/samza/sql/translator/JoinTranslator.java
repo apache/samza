@@ -49,8 +49,8 @@ import org.apache.samza.table.Table;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.samza.sql.data.SamzaSqlCompositeKey.*;
-import static org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory.*;
+import static org.apache.samza.sql.data.SamzaSqlCompositeKey.createSamzaSqlCompositeKey;
+import static org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde;
 
 
 /**

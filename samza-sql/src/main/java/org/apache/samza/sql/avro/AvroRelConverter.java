@@ -39,7 +39,7 @@ import org.apache.samza.system.SystemStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.samza.sql.data.SamzaSqlRelMessage.*;
+import static org.apache.samza.sql.data.SamzaSqlRelMessage.SamzaSqlRelRecord;
 
 
 /**

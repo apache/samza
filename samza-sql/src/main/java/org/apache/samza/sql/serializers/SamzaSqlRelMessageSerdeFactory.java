@@ -46,8 +46,7 @@ public final class SamzaSqlRelMessageSerdeFactory implements SerdeFactory<SamzaS
         ObjectMapper mapper = new ObjectMapper();
         // Enable object typing to handle nested records
         mapper.enableDefaultTyping();
-        return mapper.readValue(new String(bytes, "UTF-8"), new TypeReference<SamzaSqlRelMessage>() {
-        });
+        return mapper.readValue(new String(bytes, "UTF-8"), new TypeReference<SamzaSqlRelMessage>() {});
       } catch (Exception e) {
         throw new SamzaException(e);
       }

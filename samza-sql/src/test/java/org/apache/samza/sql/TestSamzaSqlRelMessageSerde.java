@@ -41,7 +41,7 @@ import org.apache.samza.system.SystemStream;
 import org.junit.Assert;
 import org.junit.Test;
 
-import static org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory.*;
+import static org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde;
 
 
 public class TestSamzaSqlRelMessageSerde {
