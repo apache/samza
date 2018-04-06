@@ -18,7 +18,6 @@
  */
 package org.apache.samza.processor;
 
-import com.google.common.collect.ImmutableMap;
 import org.apache.samza.SamzaContainerStatus;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -35,9 +34,6 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.Mockito;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -54,8 +50,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class TestStreamProcessor {
-  private static final Logger LOGGER = LoggerFactory.getLogger(TestStreamProcessor.class);
-
   private ConcurrentMap<ListenerCallback, Boolean> processorListenerState;
   private enum ListenerCallback {
     ON_START, ON_SHUTDOWN, ON_FAILURE
@@ -300,40 +294,6 @@ public class TestStreamProcessor {
     Assert.assertFalse(processorListenerState.get(ListenerCallback.ON_SHUTDOWN));
     Assert.assertTrue(processorListenerState.get(ListenerCallback.ON_START));
     Assert.assertTrue(processorListenerState.get(ListenerCallback.ON_FAILURE));
-  }
-
-  @Test
-  public void testStopShouldFinishWhenSamzaContainerIsStuckInShutdownPhase() {
-    JobCoordinator mockJobCoordinator = mock(JobCoordinator.class);
-    SamzaContainer containerMock = Mockito.mock(SamzaContainer.class);
-    final Runnable containerShutdownBlock = () -> {
-      // Have a long sleep wait in container.shutdown and expect StreamProcessor.stop to finish.
-      long sleepDurationInMillis = TimeUnit.MINUTES.toMillis(60);
-      try {
-        Thread.sleep(sleepDurationInMillis);
-      } catch (Exception e) {
-        LOGGER.error("Exception occurred in sleep.", e);
-      }
-    };
-    final Thread containerThread = new Thread(containerShutdownBlock);
-
-    Mockito.doAnswer(invocation ->  {
-        containerThread.start();
-        long sleepDurationInMillis = TimeUnit.SECONDS.convert(60, TimeUnit.MILLISECONDS);
-        Thread.sleep(sleepDurationInMillis);
-        return null;
-      }).when(containerMock).shutdown();
-
-    StreamProcessor streamProcessor = new StreamProcessor(
-        new MapConfig(ImmutableMap.of("task.shutdown.ms", "300")),
-        new HashMap<>(),
-        mock(StreamTaskFactory.class),
-        mock(StreamProcessorLifecycleListener.class),
-        mockJobCoordinator);
-
-    streamProcessor.start();
-    streamProcessor.container = containerMock;
-    streamProcessor.stop();
   }
 
   // TODO:

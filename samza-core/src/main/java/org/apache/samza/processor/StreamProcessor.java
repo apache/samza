@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import org.apache.samza.SamzaContainerStatus;
@@ -72,7 +71,6 @@ public class StreamProcessor {
   @VisibleForTesting
   volatile SamzaContainer container = null;
   private volatile Throwable containerException = null;
-  private volatile Future<?> scheduledSamzaContainerFuture = null;
 
   // Latch used to synchronize between the JobCoordinator thread and the container thread, when the container is
   // stopped due to re-balancing
@@ -187,14 +185,6 @@ public class StreamProcessor {
         LOGGER.info("Shutting down the container: {} of stream processor: {}.", container, processorId);
         container.shutdown();
         LOGGER.info("Waiting {} milliseconds for the container: {} to shutdown.", taskShutdownMs, container);
-        if (executorService != null) {
-          executorService.shutdown();
-          if (!executorService.awaitTermination(taskShutdownMs, TimeUnit.MILLISECONDS)) {
-            LOGGER.info("Forcefully shutting down the executor service of the processor: {}.", processorId);
-            executorService.shutdownNow();
-            executorService.awaitTermination(taskShutdownMs, TimeUnit.MILLISECONDS);
-          }
-        }
         containerShutdownInvoked = true;
       } catch (Exception exception) {
         LOGGER.error(String.format("Shutdown of container: %s threw an exception.", container), exception);
@@ -230,11 +220,6 @@ public class StreamProcessor {
               container.pause();
               shutdownComplete = jcContainerShutdownLatch.await(taskShutdownMs, TimeUnit.MILLISECONDS);
               LOGGER.info("Container shutdown completion status is: {} for stream processor: {}.", shutdownComplete, processorId);
-              if (scheduledSamzaContainerFuture != null && !scheduledSamzaContainerFuture.isDone()) {
-                LOGGER.info(String.format("Container: %s did not shutdown after %s milliseconds. Interrupting the container thread of stream processor: %s.", container, taskShutdownMs, processorId));
-                scheduledSamzaContainerFuture.cancel(true);
-                shutdownComplete = jcContainerShutdownLatch.await(taskShutdownMs, TimeUnit.MILLISECONDS);
-              }
             } catch (IllegalContainerStateException icse) {
               // Ignored since container is not running
               LOGGER.info(String.format("Container: %s of stream processor: %s is not running.", container, processorId), icse);
@@ -310,7 +295,7 @@ public class StreamProcessor {
         LOGGER.info("Starting the container: {} for the stream processor: {}.", container, processorId);
         ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(String.format(CONTAINER_THREAD_NAME_FORMAT, processorId)).setDaemon(true).build();
         executorService = Executors.newSingleThreadExecutor(threadFactory);
-        scheduledSamzaContainerFuture = executorService.submit(container::run);
+        executorService.submit(container::run);
       }
 
       @Override
