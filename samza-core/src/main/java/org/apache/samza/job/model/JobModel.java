@@ -27,6 +27,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
+import org.codehaus.jackson.annotate.JsonIgnore;
 
 /**
  * <p>
@@ -143,6 +144,7 @@ public class JobModel {
     return containers;
   }
 
+  @JsonIgnore
   public Map<TaskName, Integer> getTaskPartitionMappings() {
     HashMap<TaskName, Integer> mappings = new HashMap<>();
     for (Map.Entry<String, ContainerModel> container: containers.entrySet()) {
