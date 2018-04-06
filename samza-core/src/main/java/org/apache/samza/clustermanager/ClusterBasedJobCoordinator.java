@@ -19,6 +19,8 @@
 package org.apache.samza.clustermanager;
 
 import com.google.common.annotations.VisibleForTesting;
+
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.SamzaException;
@@ -31,10 +33,13 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
 import org.apache.samza.coordinator.stream.CoordinatorStreamManager;
+import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
@@ -48,7 +53,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 
 /**
  * Implements a JobCoordinator that is completely independent of the underlying cluster
@@ -219,8 +223,17 @@ public class ClusterBasedJobCoordinator {
       ChangelogStreamManager.createChangelogStreams(jobModel.getConfig(), jobModel.maxChangeLogStreamPartitions);
 
       // Remap changelog partitions to tasks
-      Map prevPartitionMappings = changelogStreamManager.readPartitionMapping();
-      changelogStreamManager.updatePartitionMapping(prevPartitionMappings, jobModel.getTaskPartitionMappings());
+      Map<TaskName, Integer> prevPartitionMappings = changelogStreamManager.readPartitionMapping();
+
+      Map<TaskName, Integer> taskPartitionMappings = new HashMap<>();
+      Map<String, ContainerModel> containers = jobModel.getContainers();
+      for (ContainerModel containerModel: containers.values()) {
+        for (TaskModel taskModel : containerModel.getTasks().values()) {
+          taskPartitionMappings.put(taskModel.getTaskName(), taskModel.getChangelogPartition().getPartitionId());
+        }
+      }
+
+      changelogStreamManager.updatePartitionMapping(prevPartitionMappings, taskPartitionMappings);
 
       containerProcessManager.start();
       systemAdmins.start();
