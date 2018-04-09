@@ -25,6 +25,7 @@ import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.RelShuttleImpl;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.logical.LogicalFilter;
+import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
@@ -36,7 +37,8 @@ import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
-import org.apache.samza.sql.interfaces.SqlSystemStreamConfig;
+import org.apache.samza.sql.interfaces.SourceResolver;
+import org.apache.samza.sql.interfaces.SqlSystemSourceConfig;
 import org.apache.samza.sql.planner.QueryPlanner;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
@@ -89,6 +91,7 @@ public class QueryTranslator {
     final RelRoot relRoot = planner.plan(queryInfo.getSelectQuery());
     final TranslatorContext context = new TranslatorContext(streamGraph, relRoot, executionContext, this.converters);
     final RelNode node = relRoot.project();
+    final int[] joinId = new int[1];
 
     node.accept(new RelShuttleImpl() {
       @Override
@@ -111,9 +114,18 @@ public class QueryTranslator {
         new ProjectTranslator().translate(project, context);
         return node;
       }
+
+      @Override
+      public RelNode visit(LogicalJoin join) {
+        RelNode node = super.visit(join);
+        joinId[0]++;
+        SourceResolver sourceResolver = context.getExecutionContext().getSamzaSqlApplicationConfig().getSourceResolver();
+        new JoinTranslator(joinId[0], sourceResolver).translate(join, context);
+        return node;
+      }
     });
 
-    SqlSystemStreamConfig outputSystemConfig =
+    SqlSystemSourceConfig outputSystemConfig =
         sqlConfig.getOutputSystemStreamConfigsBySource().get(queryInfo.getOutputSource());
     final String outputTopic = queryInfo.getOutputSource();
     MessageStreamImpl<SamzaSqlRelMessage> stream =

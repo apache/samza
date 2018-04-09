@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -170,7 +171,8 @@ public class StreamGraphImpl implements StreamGraph {
   /**
    * See {@link StreamGraphImpl#getIntermediateStream(String, Serde, boolean)}.
    */
-  <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde) {
+  @VisibleForTesting
+  public <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde) {
     return getIntermediateStream(streamId, serde, false);
   }
 
@@ -187,7 +189,8 @@ public class StreamGraphImpl implements StreamGraph {
    *
    * TODO: once SAMZA-1566 is resolved, we should be able to pass in the StreamSpec directly.
    */
-  <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde, boolean isBroadcast) {
+  @VisibleForTesting
+  public <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde, boolean isBroadcast) {
     StreamSpec streamSpec = runner.getStreamSpec(streamId);
     if (isBroadcast) {
       streamSpec = streamSpec.copyWithBroadCast();

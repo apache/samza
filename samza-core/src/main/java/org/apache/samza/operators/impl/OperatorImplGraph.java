@@ -250,7 +250,7 @@ public class OperatorImplGraph {
       JoinOperatorSpec joinOpSpec, Config config, TaskContext context, Clock clock)
       throws IOException, ClassNotFoundException {
     KV<JoinOperatorSpec, KV<PartialJoinFunction, PartialJoinFunction>> partialJoinSpecs = getOrCreatePartialJoinSpecs(joinOpSpec);
-    if (joinOpSpec.getLeftInputOpSpec().isClone(prevOperatorSpec)) { // we got here from the left side of the join
+    if (joinOpSpec.getLeftInputOpSpec().equals(prevOperatorSpec)) { // we got here from the left side of the join
       return new PartialJoinOperatorImpl(partialJoinSpecs.getKey(), /* isLeftSide */ true,
           partialJoinSpecs.getValue().getKey(), partialJoinSpecs.getValue().getValue(), config, context, clock);
     } else { // we got here from the right side of the join

@@ -19,8 +19,8 @@
 
 package org.apache.samza.sql.translator;
 
+import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.rel.RelNode;
@@ -41,25 +41,33 @@ import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.internal.util.reflection.Whitebox;
+import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
-import static org.junit.Assert.*;
-import static org.mockito.Matchers.*;
-import static org.mockito.Mockito.*;
-
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Tests for {@link FilterTranslator}
  */
 @RunWith(PowerMockRunner.class)
 @PrepareForTest(LogicalFilter.class)
-public class TestFilterTranslator {
+public class TestFilterTranslator extends TranslatorTestBase {
 
   @Test
-  public void testTranslate() {
+  public void testTranslate() throws IOException, ClassNotFoundException {
     // setup mock values to the constructor of FilterTranslator
-    LogicalFilter mockFilter = mock(LogicalFilter.class);
+    LogicalFilter mockFilter = PowerMockito.mock(LogicalFilter.class);
     TranslatorContext mockContext = mock(TranslatorContext.class);
     RelNode mockInput = mock(RelNode.class);
     when(mockFilter.getInput()).thenReturn(mockInput);
@@ -69,15 +77,7 @@ public class TestFilterTranslator {
     OperatorSpec<Object, SamzaSqlRelMessage> mockInputOp = mock(OperatorSpec.class);
     MessageStream<SamzaSqlRelMessage> mockStream = new MessageStreamImpl<>(mockGraph, mockInputOp);
     when(mockContext.getMessageStream(eq(1))).thenReturn(mockStream);
-    HashMap<Integer, MessageStream<SamzaSqlRelMessage>> outputStreams = new HashMap<>();
-    doAnswer(x -> {
-      Integer id = x.getArgumentAt(0, Integer.class);
-      MessageStream stream = x.getArgumentAt(1, MessageStream.class);
-      if (id == 2) {
-        outputStreams.put(id, stream);
-      }
-      return null;
-    }).when(mockContext).registerMessageStream(eq(2), any(MessageStream.class));
+    doAnswer(this.getRegisterMessageStreamAnswer()).when(mockContext).registerMessageStream(eq(2), any(MessageStream.class));
     RexToJavaCompiler mockCompiler = mock(RexToJavaCompiler.class);
     when(mockContext.getExpressionCompiler()).thenReturn(mockCompiler);
     Expression mockExpr = mock(Expression.class);
@@ -88,10 +88,10 @@ public class TestFilterTranslator {
     filterTranslator.translate(mockFilter, mockContext);
     // make sure that context has been registered with LogicFilter and output message streams
     verify(mockContext, times(1)).registerRelNode(2, mockFilter);
-    verify(mockContext, times(1)).registerMessageStream(2, outputStreams.get(2));
+    verify(mockContext, times(1)).registerMessageStream(2, this.getRegisteredMessageStream(2));
     when(mockContext.getRelNode(2)).thenReturn(mockFilter);
-    when(mockContext.getMessageStream(2)).thenReturn(outputStreams.get(2));
-    StreamOperatorSpec filterSpec = (StreamOperatorSpec) Whitebox.getInternalState(outputStreams.get(2), "source");
+    when(mockContext.getMessageStream(2)).thenReturn(this.getRegisteredMessageStream(2));
+    StreamOperatorSpec filterSpec = (StreamOperatorSpec) Whitebox.getInternalState(this.getRegisteredMessageStream(2), "source");
     assertNotNull(filterSpec);
     assertEquals(filterSpec.getOpCode(), OperatorSpec.OpCode.FILTER);
 
@@ -128,6 +128,11 @@ public class TestFilterTranslator {
       return null;
     }).when(mockExpr).execute(eq(executionContext), eq(dataContext), eq(mockInputMsg.getFieldValues().toArray()), eq(result));
     assertFalse(filterFn.apply(mockInputMsg));
+
+    StreamOperatorSpec copyFilterSpec = filterSpec.copy();
+    assertTrue(copyFilterSpec != filterSpec);
+    assertTrue(copyFilterSpec.getTransformFn() != null);
+    assertTrue(copyFilterSpec.getTransformFn() != filterSpec.getTransformFn());
   }
 
 }

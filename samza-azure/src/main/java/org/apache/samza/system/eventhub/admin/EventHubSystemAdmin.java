@@ -104,9 +104,10 @@ public class EventHubSystemAdmin implements SystemAdmin {
               streamPartitions.put(streamName, ehInfo.getPartitionIds());
             } catch (InterruptedException | ExecutionException | TimeoutException e) {
 
-              String msg = String.format("Error while fetching EventHubRuntimeInfo for System:%s, Stream:%s",
-                      systemName, streamName);
-              throw new SamzaException(msg);
+              String msg = String.format("Error while fetching EventHubRuntimeInfo for System:%s, Stream:%s", systemName,
+                  streamName);
+              LOG.error(msg, e);
+              throw new SamzaException(msg, e);
             }
           }
 
@@ -172,7 +173,8 @@ public class EventHubSystemAdmin implements SystemAdmin {
           String msg = String.format(
                   "Error while fetching EventHubPartitionRuntimeInfo for System:%s, Stream:%s, Partition:%s",
                   systemName, streamName, partitionId);
-          throw new SamzaException(msg);
+          LOG.error(msg, e);
+          throw new SamzaException(msg, e);
         }
       });
     return sspMetadataMap;

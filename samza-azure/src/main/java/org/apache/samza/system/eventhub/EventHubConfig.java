@@ -36,15 +36,17 @@ public class EventHubConfig extends MapConfig {
 
   public static final String CONFIG_STREAM_LIST = "systems.%s.stream.list";
 
-  public static final String CONFIG_STREAM_NAMESPACE = "systems.%s.streams.%s.eventhubs.namespace";
+  public static final String CONFIG_STREAM_NAMESPACE = "streams.%s.eventhubs.namespace";
 
-  public static final String CONFIG_STREAM_ENTITYPATH = "systems.%s.streams.%s.eventhubs.entitypath";
+  public static final String CONFIG_STREAM_ENTITYPATH = "streams.%s.eventhubs.entitypath";
 
-  public static final String CONFIG_STREAM_SAS_KEY_NAME = "systems.%s.streams.%s.eventhubs.sas.keyname";
+  public static final String CONFIG_STREAM_SAS_KEY_NAME = Config.SENSITIVE_PREFIX + "streams.%s.eventhubs.sas.keyname";
 
-  public static final String CONFIG_STREAM_SAS_TOKEN = "systems.%s.streams.%s.eventhubs.sas.token";
+  public static final String CONFIG_STREAM_SAS_TOKEN = Config.SENSITIVE_PREFIX + "streams.%s.eventhubs.sas.token";
 
-  public static final String CONFIG_STREAM_CONSUMER_GROUP = "systems.%s.streams.%s.eventhubs.consumer.group";
+  public static final String CONFIG_SKIP_MESSAGES_LARGER_THAN = "systems.%s.eventhubs.skipMessagesLargerThanBytes";
+
+  public static final String CONFIG_STREAM_CONSUMER_GROUP = "streams.%s.eventhubs.consumer.group";
   public static final String DEFAULT_CONFIG_STREAM_CONSUMER_GROUP = EventHubClient.DEFAULT_CONSUMER_GROUP_NAME;
 
   public static final String CONFIG_PRODUCER_PARTITION_METHOD = "systems.%s.eventhubs.partition.method";
@@ -60,6 +62,9 @@ public class EventHubConfig extends MapConfig {
   public static final String CONFIG_CONSUMER_BUFFER_CAPACITY = "systems.%s.eventhubs.receive.queue.size";
   public static final int DEFAULT_CONFIG_CONSUMER_BUFFER_CAPACITY = 100;
 
+  // By default we will skip messages larger than 1MB.
+  private static final int DEFAULT_MAX_MESSAGE_SIZE = 1024 * 1024;
+
   private final Map<String, String> physcialToId = new HashMap<>();
 
   public EventHubConfig(Config config) {
@@ -71,18 +76,18 @@ public class EventHubConfig extends MapConfig {
             .forEach((streamId) -> physcialToId.put(streamConfig.getPhysicalName(streamId), streamId));
   }
 
-  private String getFromStreamIdOrName(String configName, String systemName, String streamName, String defaultString) {
-    String result = getFromStreamIdOrName(configName, systemName, streamName);
+  private String getFromStreamIdOrName(String configName, String streamName, String defaultString) {
+    String result = getFromStreamIdOrName(configName, streamName);
     if (result == null) {
       return defaultString;
     }
     return result;
   }
 
-  private String getFromStreamIdOrName(String configName, String systemName, String streamName) {
+  private String getFromStreamIdOrName(String configName, String streamName) {
     String streamId = getStreamId(streamName);
-    return get(String.format(configName, systemName, streamId),
-            streamId.equals(streamName) ? null : get(String.format(configName, systemName, streamName)));
+    return get(String.format(configName, streamId),
+            streamId.equals(streamName) ? null : get(String.format(configName, streamName)));
   }
 
   private String validateRequiredConfig(String value, String fieldName, String systemName, String streamName) {
@@ -122,7 +127,7 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs namespace
    */
   public String getStreamNamespace(String systemName, String streamName) {
-    return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_NAMESPACE, systemName, streamName),
+    return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_NAMESPACE, streamName),
             "Namespace", systemName, streamName);
   }
 
@@ -134,8 +139,18 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs entity path
    */
   public String getStreamEntityPath(String systemName, String streamName) {
-    return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_ENTITYPATH, systemName, streamName),
+    return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_ENTITYPATH, streamName),
             "EntityPath", systemName, streamName);
+  }
+
+  /**
+   * Get the EventHubs max Message size
+   *
+   * @param systemName name of the system
+   * @return the max message size supported in event hubs.
+   */
+  public Integer getSkipMessagesLargerThan(String systemName) {
+    return getInt(String.format(CONFIG_SKIP_MESSAGES_LARGER_THAN, systemName), DEFAULT_MAX_MESSAGE_SIZE);
   }
 
   /**
@@ -146,7 +161,7 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs SAS key name
    */
   public String getStreamSasKeyName(String systemName, String streamName) {
-    return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName),
+    return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_SAS_KEY_NAME, streamName),
             "SASKeyName", systemName, streamName);
   }
 
@@ -158,7 +173,7 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs SAS token
    */
   public String getStreamSasToken(String systemName, String streamName) {
-    return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_SAS_TOKEN, systemName, streamName),
+    return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_SAS_TOKEN, streamName),
             "SASToken", systemName, streamName);
   }
 
@@ -170,7 +185,7 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs consumer group
    */
   public String getStreamConsumerGroup(String systemName, String streamName) {
-    return getFromStreamIdOrName(CONFIG_STREAM_CONSUMER_GROUP, systemName, streamName, DEFAULT_CONFIG_STREAM_CONSUMER_GROUP);
+    return getFromStreamIdOrName(CONFIG_STREAM_CONSUMER_GROUP, streamName, DEFAULT_CONFIG_STREAM_CONSUMER_GROUP);
   }
 
   /**

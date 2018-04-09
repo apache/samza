@@ -100,6 +100,17 @@ public class TranslatorContext implements Cloneable {
     }
   }
 
+  private RexToJavaCompiler createExpressionCompiler(RelRoot relRoot) {
+    RelDataTypeFactory dataTypeFactory = relRoot.project().getCluster().getTypeFactory();
+    RexBuilder rexBuilder = new SamzaSqlRexBuilder(dataTypeFactory);
+    return new RexToJavaCompiler(rexBuilder);
+  }
+
+  /**
+   * Private constructor to make a clone of {@link TranslatorContext} object
+   *
+   * @param other the original object to copy from
+   */
   private TranslatorContext(TranslatorContext other) {
     this.streamGraph  = other.streamGraph;
     this.compiler = other.compiler;
@@ -117,7 +128,7 @@ public class TranslatorContext implements Cloneable {
    * @param executionContext the execution context
    * @param converters the map of schema to RelData converters
    */
-  public TranslatorContext(StreamGraph streamGraph, RelRoot relRoot, SamzaSqlExecutionContext executionContext, Map<String, SamzaRelConverter> converters) {
+  TranslatorContext(StreamGraph streamGraph, RelRoot relRoot, SamzaSqlExecutionContext executionContext, Map<String, SamzaRelConverter> converters) {
     this.streamGraph = streamGraph;
     this.compiler = createExpressionCompiler(relRoot);
     this.executionContext = executionContext;
@@ -136,22 +147,16 @@ public class TranslatorContext implements Cloneable {
     return streamGraph;
   }
 
-  private RexToJavaCompiler createExpressionCompiler(RelRoot relRoot) {
-    RelDataTypeFactory dataTypeFactory = relRoot.project().getCluster().getTypeFactory();
-    RexBuilder rexBuilder = new SamzaSqlRexBuilder(dataTypeFactory);
-    return new RexToJavaCompiler(rexBuilder);
-  }
-
   /**
    * Gets execution context.
    *
    * @return the execution context
    */
-  public SamzaSqlExecutionContext getExecutionContext() {
+  SamzaSqlExecutionContext getExecutionContext() {
     return executionContext;
   }
 
-  public DataContext getDataContext() {
+  DataContext getDataContext() {
     return dataContext;
   }
 
@@ -160,7 +165,7 @@ public class TranslatorContext implements Cloneable {
    *
    * @return the expression compiler
    */
-  public RexToJavaCompiler getExpressionCompiler() {
+  RexToJavaCompiler getExpressionCompiler() {
     return compiler;
   }
 
@@ -170,7 +175,7 @@ public class TranslatorContext implements Cloneable {
    * @param id the id
    * @param stream the stream
    */
-  public void registerMessageStream(int id, MessageStream stream) {
+  void registerMessageStream(int id, MessageStream stream) {
     messsageStreams.put(id, stream);
   }
 
@@ -180,19 +185,19 @@ public class TranslatorContext implements Cloneable {
    * @param id the id
    * @return the message stream
    */
-  public MessageStream getMessageStream(int id) {
+  MessageStream getMessageStream(int id) {
     return messsageStreams.get(id);
   }
 
-  public void registerRelNode(int id, RelNode relNode) {
+  void registerRelNode(int id, RelNode relNode) {
     relNodes.put(id, relNode);
   }
 
-  public RelNode getRelNode(int id) {
+  RelNode getRelNode(int id) {
     return relNodes.get(id);
   }
 
-  public SamzaRelConverter getMsgConverter(String source) {
+  SamzaRelConverter getMsgConverter(String source) {
     return this.relSamzaConverters.get(source);
   }
 

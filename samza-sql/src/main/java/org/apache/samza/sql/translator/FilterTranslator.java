@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
  * Translator to translate the LogicalFilter node in the relational graph to the corresponding StreamGraph
  * implementation
  */
-public class FilterTranslator {
+class FilterTranslator {
 
   private static final Logger log = LoggerFactory.getLogger(FilterTranslator.class);
 
@@ -75,7 +75,7 @@ public class FilterTranslator {
     }
   }
 
-  public void translate(final LogicalFilter filter, final TranslatorContext context) {
+  void translate(final LogicalFilter filter, final TranslatorContext context) {
     MessageStream<SamzaSqlRelMessage> inputStream = context.getMessageStream(filter.getInput().getId());
     final int filterId = filter.getId();
 

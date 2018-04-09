@@ -23,7 +23,7 @@ import java.util.Arrays;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.interfaces.SourceResolver;
 import org.apache.samza.sql.interfaces.SourceResolverFactory;
-import org.apache.samza.sql.interfaces.SqlSystemStreamConfig;
+import org.apache.samza.sql.interfaces.SqlSystemSourceConfig;
 
 
 public class TestSourceResolverFactory implements SourceResolverFactory {
@@ -33,6 +33,7 @@ public class TestSourceResolverFactory implements SourceResolverFactory {
   }
 
   private class TestSourceResolver implements SourceResolver {
+    private final String SAMZA_SQL_QUERY_TABLE_KEYWORD = "$table";
     private final Config config;
 
     public TestSourceResolver(Config config) {
@@ -40,11 +41,26 @@ public class TestSourceResolverFactory implements SourceResolverFactory {
     }
 
     @Override
-    public SqlSystemStreamConfig fetchSourceInfo(String sourceName) {
+    public SqlSystemSourceConfig fetchSourceInfo(String sourceName) {
       String[] sourceComponents = sourceName.split("\\.");
-      Config systemConfigs = config.subset(sourceComponents[0] + ".");
-      return new SqlSystemStreamConfig(sourceComponents[0], sourceComponents[sourceComponents.length - 1],
-          Arrays.asList(sourceComponents), systemConfigs);
+      boolean isTable = false;
+      int systemIdx = 0;
+      int endIdx = sourceComponents.length - 1;
+      int streamIdx = endIdx;
+
+      if (sourceComponents[endIdx].equalsIgnoreCase(SAMZA_SQL_QUERY_TABLE_KEYWORD)) {
+        isTable = true;
+        streamIdx = endIdx - 1;
+      }
+      Config systemConfigs = config.subset(sourceComponents[systemIdx] + ".");
+      return new SqlSystemSourceConfig(sourceComponents[systemIdx], sourceComponents[streamIdx],
+          Arrays.asList(sourceComponents), systemConfigs, isTable);
+    }
+
+    @Override
+    public boolean isTable(String sourceName) {
+      String[] sourceComponents = sourceName.split("\\.");
+      return sourceComponents[sourceComponents.length - 1].equalsIgnoreCase(SAMZA_SQL_QUERY_TABLE_KEYWORD);
     }
   }
 }

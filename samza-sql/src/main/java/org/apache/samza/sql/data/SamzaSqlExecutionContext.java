@@ -71,6 +71,10 @@ public class SamzaSqlExecutionContext implements Cloneable {
     return scalarUdf;
   }
 
+  public SamzaSqlApplicationConfig getSamzaSqlApplicationConfig() {
+    return sqlConfig;
+  }
+
   @Override
   public SamzaSqlExecutionContext clone() {
     return new SamzaSqlExecutionContext(this);

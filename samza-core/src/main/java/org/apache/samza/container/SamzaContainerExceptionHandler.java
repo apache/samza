@@ -20,6 +20,8 @@
 package org.apache.samza.container;
 
 import java.lang.Thread.UncaughtExceptionHandler;
+
+import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,10 +47,12 @@ public class SamzaContainerExceptionHandler implements UncaughtExceptionHandler 
    */
   @Override
   public void uncaughtException(Thread t, Throwable e) {
-    LOGGER.error(
-        String.format("Uncaught exception in thread (name=%s). Exiting process now.", t.getName()), e);
+    String msg = String.format("Uncaught exception in thread %s.", t.getName());
+    LOGGER.error(msg, e);
+    System.err.println(msg);
     e.printStackTrace(System.err);
     try {
+      Util.logThreadDump("Thread dump from uncaught exception handler.");
       runnable.run();
     } catch (Throwable throwable) {
       // Ignore to avoid further exception propagation

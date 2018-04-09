@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.spec;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -150,9 +151,10 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
     return String.format("%s:%s", element.getFileName(), element.getLineNumber());
   }
 
-  // TODO: do we need this or an overridden equals()? Basically, if there is a use case to differentiate this == other vs this is a deserialized copy of other?
-  public final boolean isClone(OperatorSpec other) {
-    return this.getClass().isAssignableFrom(other.getClass()) && this.opCode.equals(other.opCode) && this.opId.equals(other.opId);
+  @VisibleForTesting
+  final boolean isClone(OperatorSpec other) {
+    return this != other && this.getClass().isAssignableFrom(other.getClass())
+        && this.opCode.equals(other.opCode) && this.opId.equals(other.opId);
   }
 
   abstract public WatermarkFunction getWatermarkFn();

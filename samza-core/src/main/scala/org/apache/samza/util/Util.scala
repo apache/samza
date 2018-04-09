@@ -37,7 +37,8 @@ import scala.collection.immutable.Map
 
 
 object Util extends Logging {
-  val random = new Random
+  val Random = new Random
+  val ThreadMxBean = ManagementFactory.getThreadMXBean
 
   def clock: Long = System.currentTimeMillis
   /**
@@ -49,7 +50,7 @@ object Util extends Logging {
    * Get a random number >= startInclusive, and < endExclusive.
    */
   def randomBetween(startInclusive: Int, endExclusive: Int) =
-    startInclusive + random.nextInt(endExclusive - startInclusive)
+    startInclusive + Random.nextInt(endExclusive - startInclusive)
 
   /**
    * Recursively remove a directory (or file), and all sub-directories. Equivalent
@@ -429,6 +430,21 @@ object Util extends Logging {
     config.getConfigRewriters match {
       case Some(rewriters) => rewriters.split(",").foldLeft(config)(rewrite(_, _))
       case _ => config
+    }
+  }
+
+  def logThreadDump(message: String): Unit = {
+    try {
+      val threadInfo = ThreadMxBean.dumpAllThreads(true, true)
+      val sb = new StringBuilder
+      sb.append(message).append("\n")
+      for (ti <- threadInfo) {
+        sb.append(ti.toString).append("\n")
+      }
+      info(sb)
+    } catch {
+      case e: Exception =>
+        info("Could not get and log a thread dump", e)
     }
   }
 }

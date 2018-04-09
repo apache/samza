@@ -940,7 +940,7 @@ class SamzaContainer(
 
   def addShutdownHook {
     val runLoopThread = Thread.currentThread()
-    shutdownHookThread = new Thread("CONTAINER-SHUTDOWN-HOOK") {
+    shutdownHookThread = new Thread("Samza Container Shutdown Hook Thread") {
       override def run() = {
         info("Shutting down, will wait up to %s ms." format shutdownMs)
         shutdownRunLoop()  //TODO: Pull out shutdown hook to LocalContainerRunner or SP
@@ -954,6 +954,7 @@ class SamzaContainer(
           info("Shutdown complete")
         } else {
           error("Did not shut down within %s ms, exiting." format shutdownMs)
+          Util.logThreadDump("Thread dump from Samza Container Shutdown Hook.")
         }
       }
     }

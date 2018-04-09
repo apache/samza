@@ -30,18 +30,23 @@ import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
-import org.apache.samza.sql.interfaces.SqlSystemStreamConfig;
 import org.apache.samza.task.TaskContext;
+import org.apache.samza.sql.interfaces.SqlSystemSourceConfig;
 
 
 /**
  * Translator to translate the TableScans in relational graph to the corresponding input streams in the StreamGraph
  * implementation
  */
-public class ScanTranslator {
+class ScanTranslator {
 
   private final Map<String, SamzaRelConverter> relMsgConverters;
-  private final Map<String, SqlSystemStreamConfig> systemStreamConfig;
+  private final Map<String, SqlSystemSourceConfig> systemStreamConfig;
+
+  ScanTranslator(Map<String, SamzaRelConverter> converters, Map<String, SqlSystemSourceConfig> ssc) {
+    relMsgConverters = converters;
+    this.systemStreamConfig = ssc;
+  }
 
   private static class ScanMapFunction implements MapFunction<KV<Object, Object>, SamzaSqlRelMessage> {
     private final String streamName;
@@ -63,15 +68,10 @@ public class ScanTranslator {
     }
   }
 
-  public ScanTranslator(Map<String, SamzaRelConverter> converters, Map<String, SqlSystemStreamConfig> ssc) {
-    relMsgConverters = converters;
-    this.systemStreamConfig = ssc;
-  }
-
-  public void translate(final TableScan tableScan, final TranslatorContext context) {
+  void translate(final TableScan tableScan, final TranslatorContext context) {
     StreamGraph streamGraph = context.getStreamGraph();
     List<String> tableNameParts = tableScan.getTable().getQualifiedName();
-    String sourceName = SqlSystemStreamConfig.getSourceFromSourceParts(tableNameParts);
+    String sourceName = SqlSystemSourceConfig.getSourceFromSourceParts(tableNameParts);
 
     Validate.isTrue(relMsgConverters.containsKey(sourceName), String.format("Unknown source %s", sourceName));
     final String streamName = systemStreamConfig.get(sourceName).getStreamName();

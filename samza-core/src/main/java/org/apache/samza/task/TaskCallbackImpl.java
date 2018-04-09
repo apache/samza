@@ -21,6 +21,8 @@ package org.apache.samza.task;
 
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.apache.samza.SamzaException;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.slf4j.Logger;
@@ -63,14 +65,15 @@ class TaskCallbackImpl implements TaskCallback, Comparable<TaskCallbackImpl> {
     if (scheduledFuture != null) {
       scheduledFuture.cancel(true);
     }
-    log.trace("Callback complete for ssp {} offset {}.", envelope.getSystemStreamPartition(), envelope.getOffset());
+    log.trace("Callback complete for task {}, ssp {}, offset {}.",
+        new Object[] {taskName, envelope.getSystemStreamPartition(), envelope.getOffset()});
 
     if (isComplete.compareAndSet(false, true)) {
       listener.onComplete(this);
     } else {
-      Throwable throwable = new IllegalStateException("TaskCallback complete has been invoked after completion");
-      log.error("Callback for process task {}, envelope {}.", new Object[] {taskName, envelope}, throwable);
-      listener.onFailure(this, throwable);
+      String msg = String.format("Callback complete was invoked after completion for task {}, ssp {}, offset {}.",
+          taskName, envelope.getSystemStreamPartition(), envelope.getOffset());
+      listener.onFailure(this, new IllegalStateException(msg));
     }
   }
 
@@ -79,14 +82,15 @@ class TaskCallbackImpl implements TaskCallback, Comparable<TaskCallbackImpl> {
     if (scheduledFuture != null) {
       scheduledFuture.cancel(true);
     }
-    log.error("Callback fails for task {} envelope {}.", new Object[] {taskName, envelope}, t);
 
     if (isComplete.compareAndSet(false, true)) {
-      listener.onFailure(this, t);
+      String msg = String.format("Callback failed for task %s, ssp %s, offset %s.",
+          taskName, envelope.getSystemStreamPartition(), envelope.getOffset());
+      listener.onFailure(this, new SamzaException(msg, t));
     } else {
-      Throwable throwable = new IllegalStateException("TaskCallback failure has been invoked after completion", t);
-      log.error("Callback for process task {}, envelope {}.", new Object[] {taskName, envelope}, throwable);
-      listener.onFailure(this, throwable);
+      String msg = String.format("Task callback failure was invoked after completion for task %s, ssp %s, offset %s.",
+          taskName, envelope.getSystemStreamPartition(), envelope.getOffset());
+      listener.onFailure(this, new IllegalStateException(msg, t));
     }
   }
 
