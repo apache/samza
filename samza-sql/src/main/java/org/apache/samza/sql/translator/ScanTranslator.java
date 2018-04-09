@@ -49,8 +49,8 @@ class ScanTranslator {
   }
 
   private static class ScanMapFunction implements MapFunction<KV<Object, Object>, SamzaSqlRelMessage> {
-    private final String streamName;
     private transient SamzaRelConverter msgConverter;
+    private final String streamName;
 
     ScanMapFunction(String sourceStreamName) {
       this.streamName = sourceStreamName;

@@ -67,16 +67,17 @@ public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
    */
   private final WindowType windowType;
 
+  private Trigger<M> earlyTrigger;
+  private Trigger<M> lateTrigger;
+  private AccumulationMode mode;
+
   /**
-   * The following serdes should only be used in generating configs for store config.
+   * The following serdes should only be used to generate configs for store config.
+   * No need to create per-task copy of those {@link Serde} objects
    */
   private transient final Serde<WK> keySerde;
   private transient final Serde<WV> windowValSerde;
   private transient final Serde<M> msgSerde;
-
-  private Trigger<M> earlyTrigger;
-  private Trigger<M> lateTrigger;
-  private AccumulationMode mode;
 
   public WindowInternal(Trigger<M> defaultTrigger, SupplierFunction<WV> initializer, FoldLeftFunction<M, WV> foldLeftFunction,
       MapFunction<M, WK> keyExtractor, MapFunction<M, Long> eventTimeExtractor, WindowType windowType, Serde<WK> keySerde,

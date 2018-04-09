@@ -27,13 +27,14 @@ import org.apache.samza.system.SystemStream;
 
 public class OutputStreamImpl<M> implements OutputStream<M>, Serializable {
 
-  // Avoid making multiple copies of StreamSpec/Serde per task, since the following transient members are only used to generate configuration
+  private final SystemStream systemStream;
+  private final boolean isKeyed;
+
+  // Avoid making per-task copies of StreamSpec/Serde, since the following transient
+  // members are only used to generate configuration
   private transient final StreamSpec streamSpec;
   private transient final Serde keySerde;
   private transient final Serde valueSerde;
-
-  private final SystemStream systemStream;
-  private final boolean isKeyed;
 
   public OutputStreamImpl(StreamSpec streamSpec,
       Serde keySerde, Serde valueSerde, boolean isKeyed) {

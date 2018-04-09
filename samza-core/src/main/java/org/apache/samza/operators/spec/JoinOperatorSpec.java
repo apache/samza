@@ -43,14 +43,18 @@ import java.util.Map;
  */
 public class JoinOperatorSpec<K, M, OM, JM> extends OperatorSpec<Object, JM> implements StatefulOperatorSpec { // Object == M | OM
 
+  private final JoinFunction<K, M, OM, JM> joinFn;
+  private final long ttlMs;
+
+  // Make the following variables transient
+  // Copies of input operator specs are deserialized externally
   private transient final OperatorSpec<?, M> leftInputOpSpec;
   private transient final OperatorSpec<?, OM> rightInputOpSpec;
+  // Serdes are only used to generate configuration once
+  // No need to make per-task copies of serdes
   private transient final Serde<K> keySerde;
   private transient final Serde<TimestampedValue<M>> messageSerde;
   private transient final Serde<TimestampedValue<OM>> otherMessageSerde;
-
-  private final JoinFunction<K, M, OM, JM> joinFn;
-  private final long ttlMs;
 
   /**
    * Default constructor for a {@link JoinOperatorSpec}.

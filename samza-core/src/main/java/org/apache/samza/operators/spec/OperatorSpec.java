@@ -69,8 +69,16 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
    * The set of operators that consume the messages produced from this operator.
    * <p>
    * We use a LinkedHashSet since we need deterministic ordering in initializing/closing operators.
+   *
+   * Note: this is also made transient since the deserialized copies of {@link OperatorSpec} objects are made externally.
    */
   private transient final Set<OperatorSpec<OM, ?>> nextOperatorSpecs = new LinkedHashSet<>();
+
+  @VisibleForTesting
+  final boolean isClone(OperatorSpec other) {
+    return this != other && this.getClass().isAssignableFrom(other.getClass())
+        && this.opCode.equals(other.opCode) && this.opId.equals(other.opId);
+  }
 
   public OperatorSpec(OpCode opCode, String opId) {
     this.opCode = opCode;
@@ -149,12 +157,6 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
       }
     }
     return String.format("%s:%s", element.getFileName(), element.getLineNumber());
-  }
-
-  @VisibleForTesting
-  final boolean isClone(OperatorSpec other) {
-    return this != other && this.getClass().isAssignableFrom(other.getClass())
-        && this.opCode.equals(other.opCode) && this.opId.equals(other.opId);
   }
 
   abstract public WatermarkFunction getWatermarkFn();
