@@ -139,7 +139,6 @@ public abstract class AsyncSystemProducer implements SystemProducer {
 
     // Auto update the metrics and possible throwable when futures are complete.
     sendResult.handle((aVoid, throwable) -> {
-        pendingFutures.remove(sendResult);
         long callbackLatencyMs = System.currentTimeMillis() - afterSendTimeMs;
         sendCallbackLatency.get(streamId).update(callbackLatencyMs);
         aggSendCallbackLatency.update(callbackLatencyMs);

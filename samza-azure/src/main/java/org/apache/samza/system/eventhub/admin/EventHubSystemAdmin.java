@@ -19,8 +19,8 @@
 
 package org.apache.samza.system.eventhub.admin;
 
-import com.microsoft.azure.eventhubs.EventHubPartitionRuntimeInformation;
 import com.microsoft.azure.eventhubs.EventHubRuntimeInformation;
+import com.microsoft.azure.eventhubs.PartitionRuntimeInformation;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.system.SystemAdmin;
@@ -144,10 +144,10 @@ public class EventHubSystemAdmin implements SystemAdmin {
   private Map<Partition, SystemStreamPartitionMetadata> getPartitionMetadata(String streamName, String[] partitionIds) {
     EventHubClientManager eventHubClientManager = getOrCreateStreamEventHubClient(streamName);
     Map<Partition, SystemStreamPartitionMetadata> sspMetadataMap = new HashMap<>();
-    Map<String, CompletableFuture<EventHubPartitionRuntimeInformation>> ehRuntimeInfos = new HashMap<>();
+    Map<String, CompletableFuture<PartitionRuntimeInformation>> ehRuntimeInfos = new HashMap<>();
 
     for (String partition : partitionIds) {
-      CompletableFuture<EventHubPartitionRuntimeInformation> partitionRuntimeInfo = eventHubClientManager
+      CompletableFuture<PartitionRuntimeInformation> partitionRuntimeInfo = eventHubClientManager
               .getEventHubClient()
               .getPartitionRuntimeInformation(partition);
 
@@ -157,7 +157,7 @@ public class EventHubSystemAdmin implements SystemAdmin {
     ehRuntimeInfos.forEach((partitionId, ehPartitionRuntimeInfo) -> {
         try {
           long timeoutMs = eventHubConfig.getRuntimeInfoWaitTimeMS(systemName);
-          EventHubPartitionRuntimeInformation ehPartitionInfo = ehPartitionRuntimeInfo.get(timeoutMs, TimeUnit.MILLISECONDS);
+          PartitionRuntimeInformation ehPartitionInfo = ehPartitionRuntimeInfo.get(timeoutMs, TimeUnit.MILLISECONDS);
 
           // Set offsets
           String startingOffset = EventHubSystemConsumer.START_OF_STREAM;

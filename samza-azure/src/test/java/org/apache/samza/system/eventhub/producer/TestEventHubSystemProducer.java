@@ -20,9 +20,9 @@
 package org.apache.samza.system.eventhub.producer;
 
 import com.microsoft.azure.eventhubs.EventHubClient;
-import com.microsoft.azure.eventhubs.EventHubPartitionRuntimeInformation;
 import com.microsoft.azure.eventhubs.EventHubRuntimeInformation;
 import com.microsoft.azure.eventhubs.PartitionReceiver;
+import com.microsoft.azure.eventhubs.PartitionRuntimeInformation;
 import com.microsoft.azure.eventhubs.PartitionSender;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -49,7 +49,7 @@ import static org.apache.samza.system.eventhub.MockEventHubConfigFactory.*;
 
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({EventHubRuntimeInformation.class, EventHubPartitionRuntimeInformation.class, EventHubClient.class, PartitionReceiver.class, PartitionSender.class})
+@PrepareForTest({EventHubRuntimeInformation.class, PartitionRuntimeInformation.class, EventHubClient.class, PartitionReceiver.class, PartitionSender.class})
 public class TestEventHubSystemProducer {
 
   private static final String SOURCE = "TestEventHubSystemProducer";

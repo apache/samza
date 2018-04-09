@@ -27,6 +27,6 @@ public class EventHubClientManagerFactory {
     String sasKeyName = config.getStreamSasKeyName(systemName, streamName);
     String sasToken = config.getStreamSasToken(systemName, streamName);
 
-    return new SamzaEventHubClientManager(eventHubNamespace, entityPath, sasKeyName, sasToken);
+    return new SamzaEventHubClientManager(eventHubNamespace, entityPath, sasKeyName, sasToken, config.getNumClientThreads(systemName));
   }
 }

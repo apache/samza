@@ -202,7 +202,7 @@ project(':samza-azure') {
 
   dependencies {
     compile "com.microsoft.azure:azure-storage:5.3.1"
-    compile "com.microsoft.azure:azure-eventhubs:0.14.5"
+    compile "com.microsoft.azure:azure-eventhubs:1.0.1"
     compile "com.fasterxml.jackson.core:jackson-core:2.8.8"
     compile "io.dropwizard.metrics:metrics-core:3.1.2"
     compile project(':samza-api')

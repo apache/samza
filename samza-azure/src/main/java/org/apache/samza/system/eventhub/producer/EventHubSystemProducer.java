@@ -21,8 +21,9 @@ package org.apache.samza.system.eventhub.producer;
 
 import com.microsoft.azure.eventhubs.EventData;
 import com.microsoft.azure.eventhubs.EventHubClient;
+import com.microsoft.azure.eventhubs.EventHubException;
 import com.microsoft.azure.eventhubs.PartitionSender;
-import com.microsoft.azure.servicebus.ServiceBusException;
+import com.microsoft.azure.eventhubs.impl.EventDataImpl;
 import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -164,7 +165,7 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
           } catch (InterruptedException | ExecutionException | TimeoutException e) {
             String msg = "Failed to fetch number of Event Hub partitions for partition sender creation";
             throw new SamzaException(msg, e);
-          } catch (ServiceBusException | IllegalArgumentException e) {
+          } catch (EventHubException | IllegalArgumentException e) {
             String msg = "Creation of partition sender failed with exception";
             throw new SamzaException(msg, e);
           }
@@ -282,7 +283,7 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
       eventValue = interceptor.get().intercept(eventValue);
     }
 
-    EventData eventData = new EventData(eventValue);
+    EventData eventData = new EventDataImpl(eventValue);
 
     eventData.getProperties().put(PRODUCE_TIMESTAMP, Long.toString(System.currentTimeMillis()));
 

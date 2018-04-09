@@ -42,7 +42,7 @@ import java.util.stream.Collectors;
 import static org.apache.samza.system.eventhub.MockEventHubConfigFactory.*;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({EventHubRuntimeInformation.class, EventHubPartitionRuntimeInformation.class,
+@PrepareForTest({EventHubRuntimeInformation.class, PartitionRuntimeInformation.class,
         EventHubClient.class, PartitionReceiver.class, PartitionSender.class})
 public class TestEventHubSystemConsumer {
   private static final String MOCK_ENTITY_1 = "mocktopic1";
@@ -99,8 +99,8 @@ public class TestEventHubSystemConsumer {
     consumer.register(ssp, EventHubSystemConsumer.START_OF_STREAM);
     consumer.start();
 
-    Assert.assertEquals(EventHubSystemConsumer.START_OF_STREAM,
-            eventHubClientWrapperFactory.getPartitionOffset(String.valueOf(partitionId)));
+    Assert.assertEquals(EventPosition.fromOffset(EventHubSystemConsumer.START_OF_STREAM, false).toString(),
+            eventHubClientWrapperFactory.getPartitionOffset(String.valueOf(partitionId)).toString());
   }
 
   @Test
