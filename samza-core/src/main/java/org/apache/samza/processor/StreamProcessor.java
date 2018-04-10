@@ -68,8 +68,7 @@ public class StreamProcessor {
 
   private ExecutorService executorService;
 
-  @VisibleForTesting
-  volatile SamzaContainer container = null;
+  private volatile SamzaContainer container = null;
   private volatile Throwable containerException = null;
 
   // Latch used to synchronize between the JobCoordinator thread and the container thread, when the container is
