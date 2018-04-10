@@ -293,7 +293,7 @@ public class StreamProcessor {
         container = createSamzaContainer(processorId, jobModel);
         container.setContainerListener(containerListener);
         LOGGER.info("Starting the container: {} for the stream processor: {}.", container, processorId);
-        ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(String.format(CONTAINER_THREAD_NAME_FORMAT, processorId)).setDaemon(true).build();
+        ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(String.format(CONTAINER_THREAD_NAME_FORMAT, processorId)).build();
         executorService = Executors.newSingleThreadExecutor(threadFactory);
         executorService.submit(container::run);
       }
