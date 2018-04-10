@@ -19,6 +19,7 @@
 
 package org.apache.samza.system.eventhub.producer;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
@@ -27,6 +28,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -99,6 +102,7 @@ public abstract class AsyncSystemProducer implements SystemProducer {
   private final HashMap<String, SamzaHistogram> sendLatency = new HashMap<>();
   private final HashMap<String, SamzaHistogram> sendCallbackLatency = new HashMap<>();
   private final HashMap<String, Counter> sendErrors = new HashMap<>();
+  private final ScheduledExecutorService executorService;
 
   /**
    * Instantiates a new Async system producer.
@@ -113,6 +117,8 @@ public abstract class AsyncSystemProducer implements SystemProducer {
     physicalToStreamIds =
         streamIds.stream().collect(Collectors.toMap(sconfig::getPhysicalName, Function.identity()));
     this.metricsRegistry = metricsRegistry;
+    ThreadFactoryBuilder threadFactoryBuilder = new ThreadFactoryBuilder().setNameFormat("SamzaHistogram_%d");
+    executorService = Executors.newScheduledThreadPool(1, threadFactoryBuilder.build());
   }
 
   /**
@@ -154,14 +160,14 @@ public abstract class AsyncSystemProducer implements SystemProducer {
 
   public void start() {
     streamIds.forEach(streamId -> {
-        sendCallbackLatency.put(streamId, new SamzaHistogram(metricsRegistry, streamId, SEND_CALLBACK_LATENCY));
-        sendLatency.put(streamId, new SamzaHistogram(metricsRegistry, streamId, SEND_LATENCY));
+        sendCallbackLatency.put(streamId, new SamzaHistogram(metricsRegistry, streamId, SEND_CALLBACK_LATENCY, executorService));
+        sendLatency.put(streamId, new SamzaHistogram(metricsRegistry, streamId, SEND_LATENCY, executorService));
         sendErrors.put(streamId, metricsRegistry.newCounter(streamId, SEND_ERRORS));
       });
 
     if (aggSendLatency == null) {
-      aggSendLatency = new SamzaHistogram(metricsRegistry, AGGREGATE, SEND_LATENCY);
-      aggSendCallbackLatency = new SamzaHistogram(metricsRegistry, AGGREGATE, SEND_CALLBACK_LATENCY);
+      aggSendLatency = new SamzaHistogram(metricsRegistry, AGGREGATE, SEND_LATENCY, executorService);
+      aggSendCallbackLatency = new SamzaHistogram(metricsRegistry, AGGREGATE, SEND_CALLBACK_LATENCY, executorService);
       aggSendErrors = metricsRegistry.newCounter(AGGREGATE, SEND_ERRORS);
     }
   }
