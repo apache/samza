@@ -62,7 +62,7 @@ public class SamzaHistogram implements Runnable {
         .filter(x -> x > 0 && x <= 100)
         .collect(
             Collectors.toMap(Function.identity(), x -> registry.newGauge(group, name + "_" + String.valueOf(0), 0D)));
-    executorService.schedule(this, UPDATE_FREQUENCY_MS, TimeUnit.MILLISECONDS);
+    executorService.scheduleAtFixedRate(this, 0, UPDATE_FREQUENCY_MS, TimeUnit.MILLISECONDS);
   }
 
   public void update(long value) {
