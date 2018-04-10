@@ -264,7 +264,8 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
 
         PartitionReceiveHandler handler =
             new PartitionReceiverHandlerImpl(ssp, eventReadRates.get(streamId), eventByteReadRates.get(streamId),
-                readLatencies.get(streamId), readErrors.get(streamId), interceptors.getOrDefault(streamId, null));
+                readLatencies.get(streamId), readErrors.get(streamId), interceptors.getOrDefault(streamId, null),
+                config.getMaxEventCountPerPoll(systemName));
 
         // Timeout for EventHubClient receive
         receiver.setReceiveTimeout(DEFAULT_EVENTHUB_RECEIVER_TIMEOUT);
@@ -376,14 +377,14 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
     SystemStreamPartition ssp;
 
     PartitionReceiverHandlerImpl(SystemStreamPartition ssp, Counter eventReadRate, Counter eventByteReadRate,
-        SamzaHistogram readLatency, Counter readErrors, Interceptor interceptor) {
+        SamzaHistogram readLatency, Counter readErrors, Interceptor interceptor, int maxEventCount) {
       this.ssp = ssp;
       this.eventReadRate = eventReadRate;
       this.eventByteReadRate = eventByteReadRate;
       this.readLatency = readLatency;
       this.errorRate = readErrors;
       this.interceptor = interceptor;
-      this.maxEventCount = config.getMaxEventCountPerPoll(systemName);
+      this.maxEventCount = maxEventCount;
     }
 
     @Override

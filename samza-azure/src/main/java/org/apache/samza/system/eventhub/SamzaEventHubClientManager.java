@@ -19,12 +19,14 @@
 
 package org.apache.samza.system.eventhub;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.microsoft.azure.eventhubs.EventHubClient;
 import com.microsoft.azure.eventhubs.impl.ClientConstants;
 import com.microsoft.azure.eventhubs.ConnectionStringBuilder;
 import com.microsoft.azure.eventhubs.impl.RetryExponential;
 import com.microsoft.azure.eventhubs.RetryPolicy;
 import com.microsoft.azure.eventhubs.EventHubException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.apache.samza.SamzaException;
 import org.slf4j.Logger;
@@ -53,6 +55,7 @@ public class SamzaEventHubClientManager implements EventHubClientManager {
   private final String sasKeyName;
   private final String sasKey;
   private final RetryPolicy retryPolicy;
+  private ExecutorService eventHubClientExecutor;
 
   public SamzaEventHubClientManager(String eventHubNamespace, String entityPath, String sasKeyName, String sasKey,
       Integer numClientThreads) {
@@ -74,15 +77,15 @@ public class SamzaEventHubClientManager implements EventHubClientManager {
   public void init() {
     String remoteHost = String.format(EVENTHUB_REMOTE_HOST_FORMAT, eventHubNamespace);
     try {
-      ConnectionStringBuilder connectionStringBuilder =
-              new ConnectionStringBuilder()
+      ConnectionStringBuilder connectionStringBuilder = new ConnectionStringBuilder()
           .setNamespaceName(eventHubNamespace)
           .setEventHubName(entityPath)
           .setSasKeyName(sasKeyName)
           .setSasKey(sasKey);
 
-      eventHubClient = EventHubClient.createSync(connectionStringBuilder.toString(), retryPolicy,
-          Executors.newFixedThreadPool(numClientThreads));
+      ThreadFactoryBuilder threadFactoryBuilder = new ThreadFactoryBuilder().setNameFormat("Samza EventHubClient Thread-%d");
+      eventHubClientExecutor = Executors.newFixedThreadPool(numClientThreads, threadFactoryBuilder.build());
+      eventHubClient = EventHubClient.createSync(connectionStringBuilder.toString(), retryPolicy, eventHubClientExecutor);
     } catch (IOException | EventHubException e) {
       String msg = String.format("Creation of EventHub client failed for eventHub EntityPath: %s on remote host %s:%d",
               entityPath, remoteHost, ClientConstants.AMQPS_PORT);
@@ -101,6 +104,7 @@ public class SamzaEventHubClientManager implements EventHubClientManager {
     try {
       if (timeoutMS == EventHubClientManager.BLOCK_UNTIL_CLOSE) {
         eventHubClient.closeSync();
+        eventHubClientExecutor.shutdown();
       } else {
         CompletableFuture<Void> future = eventHubClient.close();
         future.get(timeoutMS, TimeUnit.MILLISECONDS);
