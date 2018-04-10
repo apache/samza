@@ -30,9 +30,6 @@ import java.util.stream.Collectors;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.MetricsVisitor;
-import org.apache.samza.system.eventhub.SamzaEventHubClientManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 /**
@@ -40,7 +37,6 @@ import org.slf4j.LoggerFactory;
  * Keeps a {@link Gauge} for each percentile
  */
 public class SamzaHistogram {
-  private static final Logger LOG = LoggerFactory.getLogger(SamzaEventHubClientManager.class.getName());
   private static final List<Double> DEFAULT_HISTOGRAM_PERCENTILES = Arrays.asList(50D, 99D);
   private final Histogram histogram;
   private final List<Double> percentiles;
