@@ -218,7 +218,7 @@ public class StreamProcessor {
               LOGGER.info("Job model expired. Shutting down the container: {} of stream processor: {}.", container, processorId);
               container.pause();
               shutdownComplete = jcContainerShutdownLatch.await(taskShutdownMs, TimeUnit.MILLISECONDS);
-              LOGGER.info("Shutdown status of container: {} for stream processor: {} is: {}.", container, processorId, shutdownComplete);
+              LOGGER.info(String.format("Shutdown status of container: %s for stream processor: %s is: %s.", container, processorId, shutdownComplete));
             } catch (IllegalContainerStateException icse) {
               // Ignored since container is not running
               LOGGER.info(String.format("Cannot shutdown container: %s for stream processor: %s. Container is not running.", container, processorId), icse);
@@ -313,7 +313,7 @@ public class StreamProcessor {
 
       @Override
       public void onCoordinatorFailure(Throwable throwable) {
-        LOGGER.info(String.format("Coordinator: %s failed with an exception. Stopping the stream processor: %s. Original exception:", coordinator, processorId), throwable);
+        LOGGER.info(String.format("Coordinator: %s failed with an exception. Stopping the stream processor: %s. Original exception:", jobCoordinator, processorId), throwable);
         stop();
         if (processorListener != null) {
           processorListener.onFailure(throwable);
