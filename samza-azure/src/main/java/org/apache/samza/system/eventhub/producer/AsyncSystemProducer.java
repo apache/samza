@@ -117,7 +117,7 @@ public abstract class AsyncSystemProducer implements SystemProducer {
     physicalToStreamIds =
         streamIds.stream().collect(Collectors.toMap(sconfig::getPhysicalName, Function.identity()));
     this.metricsRegistry = metricsRegistry;
-    ThreadFactoryBuilder threadFactoryBuilder = new ThreadFactoryBuilder().setNameFormat("SamzaHistogram_%d");
+    ThreadFactoryBuilder threadFactoryBuilder = new ThreadFactoryBuilder().setNameFormat("Samza Histogram Poll Thread-%d");
     executorService = Executors.newScheduledThreadPool(1, threadFactoryBuilder.build());
   }
 
