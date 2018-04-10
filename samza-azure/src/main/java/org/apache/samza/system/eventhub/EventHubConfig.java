@@ -20,6 +20,7 @@
 package org.apache.samza.system.eventhub;
 
 import com.microsoft.azure.eventhubs.EventHubClient;
+import com.microsoft.azure.eventhubs.PartitionReceiver;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
@@ -48,6 +49,15 @@ public class EventHubConfig extends MapConfig {
 
   public static final String CONFIG_STREAM_CONSUMER_GROUP = "streams.%s.eventhubs.consumer.group";
   public static final String DEFAULT_CONFIG_STREAM_CONSUMER_GROUP = EventHubClient.DEFAULT_CONSUMER_GROUP_NAME;
+
+  public static final String CONFIG_SYSTEM_NUM_CLIENT_THREADS = "streams.%s.eventhubs.numClientThreads";
+  public static final int DEFAULT_CONFIG_SYSTEM_NUM_CLIENT_THREADS = 10;
+
+  public static final String CONFIG_PREFETCH_COUNT = "systems.%s.eventhubs.prefetchCount";
+  public static final int DEFAULT_CONFIG_PREFETCH_COUNT = PartitionReceiver.DEFAULT_PREFETCH_COUNT;
+
+  public static final String CONFIG_MAX_EVENT_COUNT_PER_POLL = "systems.%s.eventhubs.maxEventCountPerPoll";
+  public static final int DEFAULT_CONFIG_MAX_EVENT_COUNT_PER_POLL = 50;
 
   public static final String CONFIG_PRODUCER_PARTITION_METHOD = "systems.%s.eventhubs.partition.method";
   public static final String DEFAULT_CONFIG_PRODUCER_PARTITION_METHOD = EventHubSystemProducer
@@ -141,6 +151,34 @@ public class EventHubConfig extends MapConfig {
   public String getStreamEntityPath(String systemName, String streamName) {
     return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_ENTITYPATH, streamName),
             "EntityPath", systemName, streamName);
+  }
+
+  /**
+   * Get the number of client threads, This is used to create the ThreadPool executor that is passed to the
+   * {@link EventHubClient#create}
+   * @param systemName Name of the system.
+   * @return Num of client threads to use.
+   */
+  public Integer getNumClientThreads(String systemName) {
+    return getInt(String.format(CONFIG_SYSTEM_NUM_CLIENT_THREADS, systemName), DEFAULT_CONFIG_SYSTEM_NUM_CLIENT_THREADS);
+  }
+
+  /**
+   * Get the max event count returned per poll
+   * @param systemName Name of the system
+   * @return Max number of events returned per poll
+   */
+  public Integer getMaxEventCountPerPoll(String systemName) {
+    return getInt(String.format(CONFIG_MAX_EVENT_COUNT_PER_POLL, systemName), DEFAULT_CONFIG_MAX_EVENT_COUNT_PER_POLL);
+  }
+
+  /**
+   * Get the per partition prefetch count for the event hub client
+   * @param systemName Name of the system.
+   * @return Per partition Prefetch count for the event hub client.
+   */
+  public Integer getPrefetchCount(String systemName) {
+    return getInt(String.format(CONFIG_PREFETCH_COUNT, systemName), DEFAULT_CONFIG_PREFETCH_COUNT);
   }
 
   /**
