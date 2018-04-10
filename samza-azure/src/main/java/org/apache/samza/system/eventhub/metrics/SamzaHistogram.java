@@ -56,28 +56,31 @@ public class SamzaHistogram {
     this.gauges = this.percentiles.stream()
         .filter(x -> x > 0 && x <= 100)
         .collect(Collectors.toMap(Function.identity(),
-            x -> registry.newGauge(group, new HistogramGauge(name + "_" + String.valueOf(0), 0D))));
+            x -> registry.newGauge(group, new HistogramGauge(x, name + "_" + String.valueOf(x), 0D))));
   }
 
   public void update(long value) {
     histogram.update(value);
   }
 
-  public void updateGaugeValues() {
+  public void updateGaugeValues(double percentile) {
     Snapshot values = histogram.getSnapshot();
-    percentiles.forEach(x -> gauges.get(x).set(values.getValue(x / 100)));
+    gauges.get(percentile).set(values.getValue(percentile / 100));
   }
 
   /**
    * Custom gauge whose value is set based on the underlying Histogram
    */
   private class HistogramGauge extends Gauge<Double> {
-    public HistogramGauge(String name, double value) {
+    private final Double percentile;
+
+    public HistogramGauge(Double percentile, String name, double value) {
       super(name, value);
+      this.percentile = percentile;
     }
 
     public void visit(MetricsVisitor visitor) {
-      updateGaugeValues();
+      updateGaugeValues(percentile);
       visitor.gauge(this);
     }
   }
