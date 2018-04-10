@@ -25,12 +25,11 @@ import com.codahale.metrics.Snapshot;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.metrics.MetricsVisitor;
 import org.apache.samza.system.eventhub.SamzaEventHubClientManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,42 +39,46 @@ import org.slf4j.LoggerFactory;
  * Creates a {@link Histogram} metric using {@link ExponentiallyDecayingReservoir}
  * Keeps a {@link Gauge} for each percentile
  */
-public class SamzaHistogram implements Runnable {
+public class SamzaHistogram {
   private static final Logger LOG = LoggerFactory.getLogger(SamzaEventHubClientManager.class.getName());
   private static final List<Double> DEFAULT_HISTOGRAM_PERCENTILES = Arrays.asList(50D, 99D);
-  private static final int UPDATE_FREQUENCY_MS = 60000; // 1 minute
   private final Histogram histogram;
   private final List<Double> percentiles;
   private final Map<Double, Gauge<Double>> gauges;
-  private final String name;
 
-  public SamzaHistogram(MetricsRegistry registry, String group, String name, ScheduledExecutorService executorService) {
-    this(registry, group, name, DEFAULT_HISTOGRAM_PERCENTILES, executorService);
+  public SamzaHistogram(MetricsRegistry registry, String group, String name) {
+    this(registry, group, name, DEFAULT_HISTOGRAM_PERCENTILES);
   }
 
-  public SamzaHistogram(MetricsRegistry registry, String group, String name, List<Double> percentiles,
-      ScheduledExecutorService executorService) {
-    this.name = name;
+  public SamzaHistogram(MetricsRegistry registry, String group, String name, List<Double> percentiles) {
     this.histogram = new Histogram(new ExponentiallyDecayingReservoir());
     this.percentiles = percentiles;
     this.gauges = this.percentiles.stream()
         .filter(x -> x > 0 && x <= 100)
-        .collect(
-            Collectors.toMap(Function.identity(), x -> registry.newGauge(group, name + "_" + String.valueOf(0), 0D)));
-    executorService.scheduleAtFixedRate(this, 0, UPDATE_FREQUENCY_MS, TimeUnit.MILLISECONDS);
+        .collect(Collectors.toMap(Function.identity(),
+            x -> registry.newGauge(group, new HistogramGauge(name + "_" + String.valueOf(0), 0D))));
   }
 
   public void update(long value) {
     histogram.update(value);
   }
 
-  @Override
-  public void run() {
-    try {
-      Snapshot values = histogram.getSnapshot();
-      percentiles.forEach(x -> gauges.get(x).set(values.getValue(x / 100)));
-    } catch (Exception e) {
-      LOG.warn("Error while computing the histogram percentiles for {}, Histogram metrics might be stale.", name, e);
+  public void updateGaugeValues() {
+    Snapshot values = histogram.getSnapshot();
+    percentiles.forEach(x -> gauges.get(x).set(values.getValue(x / 100)));
+  }
+
+  /**
+   * Custom gauge whose value is set based on the underlying Histogram
+   */
+  private class HistogramGauge extends Gauge<Double> {
+    public HistogramGauge(String name, double value) {
+      super(name, value);
+    }
+
+    public void visit(MetricsVisitor visitor) {
+      updateGaugeValues();
+      visitor.gauge(this);
     }
   }
 }

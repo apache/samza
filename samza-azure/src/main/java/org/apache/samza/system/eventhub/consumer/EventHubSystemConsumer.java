@@ -19,7 +19,6 @@
 
 package org.apache.samza.system.eventhub.consumer;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.microsoft.azure.eventhubs.EventData;
 import com.microsoft.azure.eventhubs.EventHubException;
 import com.microsoft.azure.eventhubs.EventPosition;
@@ -37,9 +36,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -133,7 +130,6 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   private final ConcurrentHashMap<SystemStreamPartition, String> streamPartitionOffsets = new ConcurrentHashMap<>();
   private final Map<String, Interceptor> interceptors;
   private final Integer prefetchCount;
-  private final ScheduledExecutorService executorService;
   private boolean isStarted = false;
   private final EventHubConfig config;
   private final String systemName;
@@ -159,8 +155,6 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
     }
     prefetchCount = config.getPrefetchCount(systemName);
 
-    ThreadFactoryBuilder threadFactoryBuilder = new ThreadFactoryBuilder().setNameFormat("SamzaHistogram_%d");
-    executorService = Executors.newScheduledThreadPool(1, threadFactoryBuilder.build());
 
 
     // Initiate metrics
@@ -169,7 +163,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
     eventByteReadRates = streamIds.stream()
         .collect(Collectors.toMap(Function.identity(), x -> registry.newCounter(x, EVENT_BYTE_READ_RATE)));
     readLatencies = streamIds.stream()
-        .collect(Collectors.toMap(Function.identity(), x -> new SamzaHistogram(registry, x, READ_LATENCY, executorService)));
+        .collect(Collectors.toMap(Function.identity(), x -> new SamzaHistogram(registry, x, READ_LATENCY)));
     readErrors =
         streamIds.stream().collect(Collectors.toMap(Function.identity(), x -> registry.newCounter(x, READ_ERRORS)));
 
@@ -178,7 +172,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
       if (aggEventReadRate == null) {
         aggEventReadRate = registry.newCounter(AGGREGATE, EVENT_READ_RATE);
         aggEventByteReadRate = registry.newCounter(AGGREGATE, EVENT_BYTE_READ_RATE);
-        aggReadLatency = new SamzaHistogram(registry, AGGREGATE, READ_LATENCY, executorService);
+        aggReadLatency = new SamzaHistogram(registry, AGGREGATE, READ_LATENCY);
         aggReadErrors = registry.newCounter(AGGREGATE, READ_ERRORS);
       }
     }
@@ -350,7 +344,6 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
       LOG.warn("Failed to close receivers", e);
     }
     streamEventHubManagers.values().forEach(ehClientManager -> ehClientManager.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS));
-    executorService.shutdown();
   }
 
   private boolean isErrorTransient(Throwable throwable) {
