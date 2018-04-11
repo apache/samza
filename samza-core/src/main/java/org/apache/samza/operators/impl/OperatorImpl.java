@@ -328,8 +328,9 @@ public abstract class OperatorImpl<M, RM> {
     LOG.debug("Received watermark {} from {}", watermarkMessage.getTimestamp(), ssp);
     watermarkStates.update(watermarkMessage, ssp);
     long watermark = watermarkStates.getWatermark(ssp.getSystemStream());
-    if (watermark != WatermarkStates.WATERMARK_NOT_EXIST) {
+    if (currentWatermark < watermark) {
       LOG.debug("Got watermark {} from stream {}", watermark, ssp.getSystemStream());
+
       if (watermarkMessage.getTaskName() != null) {
         // This is the aggregation task, which already received all the watermark messages from upstream
         // broadcast the watermark to all the peer partitions
