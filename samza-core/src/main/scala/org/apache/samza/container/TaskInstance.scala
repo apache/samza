@@ -75,7 +75,7 @@ class TaskInstance(
 
   val intermediateStreams: Set[String] = config.getStreamIds.filter(config.getIsIntermediateStream).toSet
 
-  val committedMessagesDeletableStreams: Set[String] = config.getStreamIds.filter(config.getIsCommittedMessagesDeletable).toSet
+  val streamsToDeleteCommittedMessages: Set[String] = config.getStreamIds.filter(config.getDeleteCommittedMessages).toSet
 
   def registerMetrics {
     debug("Registering metrics for taskName: %s" format taskName)
@@ -224,7 +224,7 @@ class TaskInstance(
 
     if (checkpoint != null) {
       checkpoint.getOffsets.asScala
-        .filter { case (ssp, _) => committedMessagesDeletableStreams.contains(ssp.getStream) } // Only delete data of intermediate streams
+        .filter { case (ssp, _) => streamsToDeleteCommittedMessages.contains(ssp.getStream) } // Only delete data of intermediate streams
         .groupBy { case (ssp, _) => ssp.getSystem }
         .foreach { case (systemName: String, offsets: Map[SystemStreamPartition, String]) =>
           systemAdmins.getSystemAdmin(systemName).deleteMessages(offsets.asJava)

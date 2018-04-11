@@ -43,18 +43,18 @@ import java.time.Duration;
  */
 public class RepartitionJoinWindowApp implements StreamApplication {
 
-  public static final String INPUT_TOPIC_1_PROP = "inputTopic1";
-  public static final String INPUT_TOPIC_2_PROP = "inputTopic2";
-  public static final String OUTPUT_TOPIC_PROP = "outputTopic";
+  public static final String INPUT_TOPIC_NAME_1_PROP = "inputTopicName1";
+  public static final String INPUT_TOPIC_NAME_2_PROP = "inputTopicName2";
+  public static final String OUTPUT_TOPIC_NAME_PROP = "outputTopicName";
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    String inputTopic1 = config.get(INPUT_TOPIC_1_PROP);
-    String inputTopic2 = config.get(INPUT_TOPIC_2_PROP);
-    String outputTopic = config.get(OUTPUT_TOPIC_PROP);
+    String inputTopicName1 = config.get(INPUT_TOPIC_NAME_1_PROP);
+    String inputTopicName2 = config.get(INPUT_TOPIC_NAME_2_PROP);
+    String outputTopic = config.get(OUTPUT_TOPIC_NAME_PROP);
 
-    MessageStream<PageView> pageViews = graph.getInputStream(inputTopic1, new JsonSerdeV2<>(PageView.class));
-    MessageStream<AdClick> adClicks = graph.getInputStream(inputTopic2, new JsonSerdeV2<>(AdClick.class));
+    MessageStream<PageView> pageViews = graph.getInputStream(inputTopicName1, new JsonSerdeV2<>(PageView.class));
+    MessageStream<AdClick> adClicks = graph.getInputStream(inputTopicName2, new JsonSerdeV2<>(AdClick.class));
 
     MessageStream<PageView> pageViewsRepartitionedByViewId = pageViews
         .partitionBy(PageView::getViewId, pv -> pv,

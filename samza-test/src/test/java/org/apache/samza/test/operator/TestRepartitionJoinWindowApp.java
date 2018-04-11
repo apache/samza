@@ -64,23 +64,27 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
 
   @Test
   public void testRepartitionJoinWindowAppWithoutDeletionOnCommit() throws Exception {
-    String inputTopic1 = "page-views";
-    String inputTopic2 = "ad-clicks";
-    String outputTopic = "user-ad-click-counts";
+    String inputTopicName1 = "page-views";
+    String inputTopicName2 = "ad-clicks";
+    String outputTopicName = "user-ad-click-counts";
 
     KafkaSystemAdmin.deleteMessagesCalled_$eq(false);
 
-    initializeTopics(inputTopic1, inputTopic2, outputTopic);
+    initializeTopics(inputTopicName1, inputTopicName2, outputTopicName);
 
     // run the application
     RepartitionJoinWindowApp app = new RepartitionJoinWindowApp();
     String appName = "UserPageAdClickCounter";
     Map<String, String> configs = new HashMap<>();
-    configs.put("systems.kafka.samza.committed.messages.deletable", "false");
+    configs.put("systems.kafka.samza.delete.committed.messages", "false");
+    configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_NAME_1_PROP, inputTopicName1);
+    configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_NAME_2_PROP, inputTopicName2);
+    configs.put(RepartitionJoinWindowApp.OUTPUT_TOPIC_NAME_PROP, outputTopicName);
+
     runApplication(app, appName, configs);
 
     // consume and validate result
-    List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(outputTopic), 2);
+    List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(outputTopicName), 2);
     Assert.assertEquals(2, messages.size());
 
     Assert.assertFalse(KafkaSystemAdmin.deleteMessagesCalled());
@@ -88,25 +92,25 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
 
   @Test
   public void testRepartitionJoinWindowAppAndDeleteMessagesOnCommit() throws Exception {
-    String inputTopic1 = "page-views2";
-    String inputTopic2 = "ad-clicks2";
-    String outputTopic = "user-ad-click-counts2";
+    String inputTopicName1 = "page-views2";
+    String inputTopicName2 = "ad-clicks2";
+    String outputTopicName = "user-ad-click-counts2";
 
-    initializeTopics(inputTopic1, inputTopic2, outputTopic);
+    initializeTopics(inputTopicName1, inputTopicName2, outputTopicName);
 
     // run the application
     RepartitionJoinWindowApp app = new RepartitionJoinWindowApp();
     final String appName = "UserPageAdClickCounter2";
     Map<String, String> configs = new HashMap<>();
-    configs.put("systems.kafka.samza.committed.messages.deletable", "true");
-    configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_1_PROP, inputTopic1);
-    configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_2_PROP, inputTopic2);
-    configs.put(RepartitionJoinWindowApp.OUTPUT_TOPIC_PROP, outputTopic);
+    configs.put("systems.kafka.samza.delete.committed.messages", "true");
+    configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_NAME_1_PROP, inputTopicName1);
+    configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_NAME_2_PROP, inputTopicName2);
+    configs.put(RepartitionJoinWindowApp.OUTPUT_TOPIC_NAME_PROP, outputTopicName);
 
     runApplication(app, appName, configs);
 
     // consume and validate result
-    List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(outputTopic), 2);
+    List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(outputTopicName), 2);
     Assert.assertEquals(2, messages.size());
 
     for (ConsumerRecord<String, String> message : messages) {
@@ -140,13 +144,13 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
 
   @Test
   public void testBroadcastApp() {
-    String inputTopic1 = "page-views";
-    String inputTopic2 = "ad-clicks";
-    String outputTopic = "user-ad-click-counts";
+    String inputTopicName1 = "page-views";
+    String inputTopicName2 = "ad-clicks";
+    String outputTopicName = "user-ad-click-counts";
     Map<String, String> configs = new HashMap<>();
-    configs.put(BroadcastAssertApp.INPUT_TOPIC_PROP, inputTopic1);
+    configs.put(BroadcastAssertApp.INPUT_TOPIC_NAME_PROP, inputTopicName1);
 
-    initializeTopics(inputTopic1, inputTopic2, outputTopic);
+    initializeTopics(inputTopicName1, inputTopicName2, outputTopicName);
     runApplication(new BroadcastAssertApp(), "BroadcastTest", configs);
   }
 }

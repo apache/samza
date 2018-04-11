@@ -31,12 +31,12 @@ import java.util.Arrays;
 
 public class BroadcastAssertApp implements StreamApplication {
 
-  public static final String INPUT_TOPIC_PROP = "inputTopic";
+  public static final String INPUT_TOPIC_NAME_PROP = "inputTopicName";
 
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    String inputTopic = config.get(INPUT_TOPIC_PROP);
+    String inputTopic = config.get(INPUT_TOPIC_NAME_PROP);
 
     final JsonSerdeV2<PageView> serde = new JsonSerdeV2<>(PageView.class);
     final MessageStream<PageView> broadcastPageViews = graph
