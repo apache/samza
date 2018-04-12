@@ -58,6 +58,10 @@ collector.send(envelope);
 
 Each [OutgoingMessageEnvelope](https://samza.apache.org/learn/documentation/latest/api/javadocs/org/apache/samza/system/OutgoingMessageEnvelope.html) is converted into an [EventData](https://docs.microsoft.com/en-us/java/api/com.microsoft.azure.eventhubs._event_data) instance whose body is set to the `message` in the envelope. Additionally, the `key` and the `produce timestamp` are set as properties in the EventData before sending it to EventHubs.
 
+#### Size limit of partition key:
+
+Note that EventHubs has a limit on the length of partition key (128 characters). In [EventHubSystemProducer](https://github.com/apache/samza/blob/master/samza-azure/src/main/java/org/apache/samza/system/eventhub/producer/EventHubSystemProducer.java) we truncate the partition key if the size of the key exceeds the limit.
+
 ### Advanced configuration:
 
 ##### Producer partitioning: 
