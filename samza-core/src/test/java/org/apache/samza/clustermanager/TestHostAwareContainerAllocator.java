@@ -20,6 +20,7 @@ package org.apache.samza.clustermanager;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -33,6 +34,7 @@ import org.apache.samza.testUtils.MockHttpServer;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -247,7 +249,7 @@ public class TestHostAwareContainerAllocator {
    */
 
   @Test
-  public void testExpiredRequestHandling() throws Exception {
+  public void testExpiredRequestAreAssignedToAnyHost() throws Exception {
     final SamzaResource resource0 = new SamzaResource(1, 1000, "xyz", "id1");
     final SamzaResource resource1 = new SamzaResource(1, 1000, "zzz", "id2");
 
@@ -304,7 +306,8 @@ public class TestHostAwareContainerAllocator {
   }
 
   @Test
-  public void testExpiredRequestHandling2() throws Exception {
+  public void testExpiredRequestsTriggerNewAnyHost() throws Exception {
+
     final SamzaResource resource0 = new SamzaResource(1, 1000, "xyz", "id1");
     final SamzaResource resource1 = new SamzaResource(1, 1000, "zzz", "id2");
 
@@ -321,7 +324,7 @@ public class TestHostAwareContainerAllocator {
         assertNull(requestState.getResourcesOnAHost("xyz"));
         assertNull(requestState.getResourcesOnAHost("zzz"));
         assertNotNull(requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST));
-        assertTrue(requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST).size() == 2);
+        assertEquals(1, requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST).size());
       }
     };
 
@@ -344,7 +347,7 @@ public class TestHostAwareContainerAllocator {
     };
     MockContainerListener listener = new MockContainerListener(2, 0, 2, 2, addContainerAssertions, null, assignContainerAssertions, runningContainerAssertions);
     requestState.registerContainerListener(listener);
-    ((MockClusterResourceManager) manager).registerContainerListener(listener);
+    manager.registerContainerListener(listener);
 
     containerAllocator.requestResources(containersToHostMapping);
     assertEquals(requestState.numPendingRequests(), 2);
@@ -356,9 +359,11 @@ public class TestHostAwareContainerAllocator {
     assertTrue(requestState.getRequestsToCountMap().get("def").get() == 1);
 
     containerAllocator.addResource(resource0);
-    //containerAllocator.addResource(resource1);
     allocatorThread.start();
-
+    manager.awaitRequestCount(4);
+    Assert.assertTrue(manager.getResourceRequests().size() >= 4);
+    Assert.assertTrue(manager.getCancelledRequests().size() >= 3);
+    containerAllocator.addResource(resource1);
     listener.verify();
   }
 

@@ -69,6 +69,18 @@ public class ResourceRequestState {
     this.manager = manager;
   }
 
+  public void cancelResourceRequest(SamzaResourceRequest request) {
+    synchronized (lock) {
+      requestsQueue.remove(request);
+      if (hostAffinityEnabled) {
+        // assignedHost may not always be the preferred host.
+        // Hence, we should safely decrement the counter for the preferredHost
+        requestsToCountMap.get(request.getPreferredHost()).decrementAndGet();
+      }
+      manager.cancelResourceRequest(request);
+    }
+  }
+
   /**
    * Enqueues a {@link SamzaResourceRequest} to be sent to a {@link ClusterResourceManager}.
    *

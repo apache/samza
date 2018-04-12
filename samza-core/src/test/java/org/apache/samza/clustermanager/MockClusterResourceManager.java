@@ -23,17 +23,30 @@ import com.google.common.collect.ImmutableList;
 import org.apache.samza.job.CommandBuilder;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
 
 public class MockClusterResourceManager extends ClusterResourceManager {
-  Set<SamzaResource> releasedResources = new HashSet<>();
-  List<SamzaResource> resourceRequests = new ArrayList<>();
-  List<SamzaResourceRequest> cancelledRequests = new ArrayList<>();
-  List<SamzaResource> launchedResources = new ArrayList<>();
-  List<MockContainerListener> mockContainerListeners = new ArrayList<MockContainerListener>();
+  Set<SamzaResource> releasedResources = new ConcurrentHashMap().keySet();
+  List<SamzaResource> resourceRequests = Collections.synchronizedList(new ArrayList<>());
+
+  public List<SamzaResource> getResourceRequests() {
+    return resourceRequests;
+  }
+
+  public List<SamzaResourceRequest> getCancelledRequests() {
+    return cancelledRequests;
+  }
+
+  List<SamzaResourceRequest> cancelledRequests = Collections.synchronizedList(new ArrayList<>());
+  List<SamzaResource> launchedResources = Collections.synchronizedList(new ArrayList<>());
+  List<MockContainerListener> mockContainerListeners = Collections.synchronizedList(new ArrayList<>());
+  private Semaphore requestCount = new Semaphore(0);
   Throwable nextException = null;
 
   public MockClusterResourceManager(ClusterResourceManager.Callback callback) {
@@ -50,13 +63,24 @@ public class MockClusterResourceManager extends ClusterResourceManager {
     SamzaResource resource = new SamzaResource(resourceRequest.getNumCores(), resourceRequest.getMemoryMB(),
         resourceRequest.getPreferredHost(), UUID.randomUUID().toString());
     resourceRequests.add(resource);
-    System.out.println("req ");
+    requestCount.release();
+    System.out.println("requesting ");
     clusterManagerCallback.onResourcesAvailable(ImmutableList.of(resource));
   }
 
   @Override
   public void cancelResourceRequest(SamzaResourceRequest request) {
+    System.out.println("cancelling");
     cancelledRequests.add(request);
+  }
+
+  public void awaitRequestCount(int numRequests)  {
+    System.out.println("await " + numRequests);
+    try {
+      requestCount.acquire(numRequests);
+    } catch (Exception e) {
+
+    }
   }
 
   @Override

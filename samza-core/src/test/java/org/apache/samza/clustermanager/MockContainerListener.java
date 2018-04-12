@@ -61,7 +61,9 @@ public class MockContainerListener {
   }
 
   public void postAddContainer(int totalAddedContainers) {
+    System.out.println("post add contaienr " + totalAddedContainers);
     if (containersAdded.update(totalAddedContainers)) {
+      System.out.println("counting ");
       conditionLatch.countDown();
     }
   }
