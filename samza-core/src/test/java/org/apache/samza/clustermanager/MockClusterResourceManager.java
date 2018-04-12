@@ -46,7 +46,9 @@ public class MockClusterResourceManager extends ClusterResourceManager {
   List<SamzaResourceRequest> cancelledRequests = Collections.synchronizedList(new ArrayList<>());
   List<SamzaResource> launchedResources = Collections.synchronizedList(new ArrayList<>());
   List<MockContainerListener> mockContainerListeners = Collections.synchronizedList(new ArrayList<>());
-  private Semaphore requestCount = new Semaphore(0);
+  private final Semaphore requestCount = new Semaphore(0);
+  private final Semaphore launchCount = new Semaphore(0);
+
   Throwable nextException = null;
 
   public MockClusterResourceManager(ClusterResourceManager.Callback callback) {
@@ -74,13 +76,13 @@ public class MockClusterResourceManager extends ClusterResourceManager {
     cancelledRequests.add(request);
   }
 
-  public void awaitRequestCount(int numRequests)  {
+  public void awaitRequestCount(int numRequests) throws Exception  {
     System.out.println("await " + numRequests);
-    try {
-      requestCount.acquire(numRequests);
-    } catch (Exception e) {
+    requestCount.acquire(numRequests);
+  }
 
-    }
+  public void awaitLaunchCount(int numLaunch) throws Exception {
+    launchCount.acquire(numLaunch);
   }
 
   @Override
@@ -99,6 +101,7 @@ public class MockClusterResourceManager extends ClusterResourceManager {
     for (MockContainerListener listener : mockContainerListeners) {
       listener.postRunContainer(launchedResources.size());
     }
+    launchCount.release();
   }
 
   @Override

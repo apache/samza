@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.LocalityManager;
@@ -306,23 +307,42 @@ public class TestHostAwareContainerAllocator {
   }
 
   @Test
+  public void testExpiredRequestsAreCancelled() throws Exception {
+    // request one container each on host-1 and host-2
+    containerAllocator.requestResources(ImmutableMap.of("0", "host-1", "1'", "host-2"));
+    // assert that the requests made it to YARN
+    Assert.assertEquals(manager.resourceRequests.size(), 2);
+    // allocate one resource from YARN on a different host (host-3)
+    SamzaResource resource0 = new SamzaResource(1, 1000, "host-3", "id1");
+    containerAllocator.addResource(resource0);
+    // let the matching begin
+    allocatorThread.start();
+
+    // verify that a container is launched on host-3 after the request expires
+    manager.awaitLaunchCount(1);
+    Assert.assertEquals(1, manager.launchedResources.size());
+    Assert.assertEquals(manager.launchedResources.get(0).getHost(), "host-3");
+    Assert.assertEquals(manager.launchedResources.get(0).getResourceID(), "id1");
+
+    // Now, there are no more resources left to run the 2nd container. Verify that we eventually issue another request
+    manager.awaitRequestCount(4);
+    // verify that we have cancelled previous requests and there's one outstanding request
+    Assert.assertEquals(manager.getCancelledRequests().size(), 3);
+  }
+
+  @Test
   public void testExpiredRequestsTriggerNewAnyHost() throws Exception {
 
-    final SamzaResource resource0 = new SamzaResource(1, 1000, "xyz", "id1");
-    final SamzaResource resource1 = new SamzaResource(1, 1000, "zzz", "id2");
+    final SamzaResource resource0 = new SamzaResource(1, 1000, "host-3", "id1");
+    final SamzaResource resource1 = new SamzaResource(1, 1000, "host-4", "id2");
 
-    Map<String, String> containersToHostMapping = new HashMap<String, String>() {
-      {
-        put("0", "abc");
-        put("1", "def");
-      }
-    };
+    Map<String, String> containersToHostMapping = ImmutableMap.of("0", "host-1", "1", "host-2");
 
     Runnable addContainerAssertions = new Runnable() {
       @Override
       public void run() {
-        assertNull(requestState.getResourcesOnAHost("xyz"));
-        assertNull(requestState.getResourcesOnAHost("zzz"));
+        assertNull(requestState.getResourcesOnAHost("host-3"));
+        assertNull(requestState.getResourcesOnAHost("host-4"));
         assertNotNull(requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST));
         assertEquals(1, requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST).size());
       }
@@ -333,8 +353,8 @@ public class TestHostAwareContainerAllocator {
       public void run() {
         assertEquals(requestState.numPendingRequests(), 0);
         assertNotNull(requestState.getRequestsToCountMap());
-        assertNotNull(requestState.getRequestsToCountMap().get("abc"));
-        assertNotNull(requestState.getRequestsToCountMap().get("def"));
+        assertNotNull(requestState.getRequestsToCountMap().get("host-1"));
+        assertNotNull(requestState.getRequestsToCountMap().get("host-2"));
       }
     };
 
@@ -352,17 +372,15 @@ public class TestHostAwareContainerAllocator {
     containerAllocator.requestResources(containersToHostMapping);
     assertEquals(requestState.numPendingRequests(), 2);
     assertNotNull(requestState.getRequestsToCountMap());
-    assertNotNull(requestState.getRequestsToCountMap().get("abc"));
-    assertTrue(requestState.getRequestsToCountMap().get("abc").get() == 1);
+    assertNotNull(requestState.getRequestsToCountMap().get("host-1"));
+    assertTrue(requestState.getRequestsToCountMap().get("host-1").get() == 1);
 
-    assertNotNull(requestState.getRequestsToCountMap().get("def"));
-    assertTrue(requestState.getRequestsToCountMap().get("def").get() == 1);
+    assertNotNull(requestState.getRequestsToCountMap().get("host-2"));
+    assertTrue(requestState.getRequestsToCountMap().get("host-2").get() == 1);
 
     containerAllocator.addResource(resource0);
     allocatorThread.start();
     manager.awaitRequestCount(4);
-    Assert.assertTrue(manager.getResourceRequests().size() >= 4);
-    Assert.assertTrue(manager.getCancelledRequests().size() >= 3);
     containerAllocator.addResource(resource1);
     listener.verify();
   }
