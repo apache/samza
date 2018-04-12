@@ -23,6 +23,7 @@ import com.microsoft.azure.eventhubs.EventData;
 import com.microsoft.azure.eventhubs.EventHubClient;
 import com.microsoft.azure.eventhubs.EventHubException;
 import com.microsoft.azure.eventhubs.PartitionSender;
+import com.microsoft.azure.eventhubs.impl.ClientConstants;
 import com.microsoft.azure.eventhubs.impl.EventDataImpl;
 import java.nio.charset.Charset;
 import java.time.Duration;
@@ -211,6 +212,8 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
     }
 
     EventData eventData = createEventData(streamId, envelope);
+    // SAMZA-1654: waiting for the client library to expose the API to calculate the exact size of the AMQP message
+    // https://github.com/Azure/azure-event-hubs-java/issues/305
     int eventDataLength = eventData.getBytes() == null ? 0 : eventData.getBytes().length;
 
     // If the maxMessageSize is lesser than zero, then it means there is no message size restriction.
@@ -265,15 +268,22 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
   }
 
   private String convertPartitionKeyToString(Object partitionKey) {
+    String partitionKeyStr;
     if (partitionKey instanceof String) {
-      return (String) partitionKey;
+      partitionKeyStr = (String) partitionKey;
     } else if (partitionKey instanceof Integer) {
-      return String.valueOf(partitionKey);
+      partitionKeyStr = String.valueOf(partitionKey);
     } else if (partitionKey instanceof byte[]) {
-      return new String((byte[]) partitionKey, Charset.defaultCharset());
+      partitionKeyStr = new String((byte[]) partitionKey, Charset.defaultCharset());
     } else {
       throw new SamzaException("Unsupported key type: " + partitionKey.getClass().toString());
     }
+    if (partitionKeyStr != null && partitionKeyStr.length() > ClientConstants.MAX_PARTITION_KEY_LENGTH) {
+      LOG.debug("Length of partition key: {} exceeds limit: {}. Truncating.", partitionKeyStr.length(),
+          ClientConstants.MAX_PARTITION_KEY_LENGTH);
+      partitionKeyStr = partitionKeyStr.substring(0, ClientConstants.MAX_PARTITION_KEY_LENGTH);
+    }
+    return partitionKeyStr;
   }
 
   protected EventData createEventData(String streamId, OutgoingMessageEnvelope envelope) {
