@@ -334,17 +334,16 @@ public class JobNode {
         .map(spec -> ((JoinOperatorSpec) spec).getTtlMs())
         .collect(Collectors.toList());
 
-    if (joinTtlIntervals.isEmpty()) {
-      return -1;
-    }
-
     // Combine both the above lists
     List<Long> candidateTimerIntervals = new ArrayList<>(joinTtlIntervals);
     candidateTimerIntervals.addAll(windowTimerIntervals);
 
+    if (candidateTimerIntervals.isEmpty()) {
+      return -1;
+    }
+
     // Compute the gcd of the resultant list
-    long timerInterval = MathUtils.gcd(candidateTimerIntervals);
-    return timerInterval;
+    return MathUtils.gcd(candidateTimerIntervals);
   }
 
   /**
