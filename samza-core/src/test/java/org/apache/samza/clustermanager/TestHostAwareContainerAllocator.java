@@ -303,6 +303,65 @@ public class TestHostAwareContainerAllocator {
     listener.verify();
   }
 
+  @Test
+  public void testExpiredRequestHandling2() throws Exception {
+    final SamzaResource resource0 = new SamzaResource(1, 1000, "xyz", "id1");
+    final SamzaResource resource1 = new SamzaResource(1, 1000, "zzz", "id2");
+
+    Map<String, String> containersToHostMapping = new HashMap<String, String>() {
+      {
+        put("0", "abc");
+        put("1", "def");
+      }
+    };
+
+    Runnable addContainerAssertions = new Runnable() {
+      @Override
+      public void run() {
+        assertNull(requestState.getResourcesOnAHost("xyz"));
+        assertNull(requestState.getResourcesOnAHost("zzz"));
+        assertNotNull(requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST));
+        assertTrue(requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST).size() == 2);
+      }
+    };
+
+    Runnable assignContainerAssertions = new Runnable() {
+      @Override
+      public void run() {
+        assertEquals(requestState.numPendingRequests(), 0);
+        assertNotNull(requestState.getRequestsToCountMap());
+        assertNotNull(requestState.getRequestsToCountMap().get("abc"));
+        assertNotNull(requestState.getRequestsToCountMap().get("def"));
+      }
+    };
+
+    Runnable runningContainerAssertions = new Runnable() {
+      @Override
+      public void run() {
+        assertTrue(manager.launchedResources.contains(resource0));
+        assertTrue(manager.launchedResources.contains(resource1));
+      }
+    };
+    MockContainerListener listener = new MockContainerListener(2, 0, 2, 2, addContainerAssertions, null, assignContainerAssertions, runningContainerAssertions);
+    requestState.registerContainerListener(listener);
+    ((MockClusterResourceManager) manager).registerContainerListener(listener);
+
+    containerAllocator.requestResources(containersToHostMapping);
+    assertEquals(requestState.numPendingRequests(), 2);
+    assertNotNull(requestState.getRequestsToCountMap());
+    assertNotNull(requestState.getRequestsToCountMap().get("abc"));
+    assertTrue(requestState.getRequestsToCountMap().get("abc").get() == 1);
+
+    assertNotNull(requestState.getRequestsToCountMap().get("def"));
+    assertTrue(requestState.getRequestsToCountMap().get("def").get() == 1);
+
+    containerAllocator.addResource(resource0);
+    //containerAllocator.addResource(resource1);
+    allocatorThread.start();
+
+    listener.verify();
+  }
+
   @After
   public void teardown() throws Exception {
     reader.stop();

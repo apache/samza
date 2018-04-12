@@ -50,7 +50,7 @@ public class MockClusterResourceManager extends ClusterResourceManager {
     SamzaResource resource = new SamzaResource(resourceRequest.getNumCores(), resourceRequest.getMemoryMB(),
         resourceRequest.getPreferredHost(), UUID.randomUUID().toString());
     resourceRequests.add(resource);
-
+    System.out.println("req ");
     clusterManagerCallback.onResourcesAvailable(ImmutableList.of(resource));
   }
 
