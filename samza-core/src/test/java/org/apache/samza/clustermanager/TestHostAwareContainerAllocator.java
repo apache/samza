@@ -21,6 +21,7 @@ package org.apache.samza.clustermanager;
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.google.common.collect.ImmutableMap;
@@ -308,7 +309,7 @@ public class TestHostAwareContainerAllocator {
   @Test
   public void testExpiredRequestsAreCancelled() throws Exception {
     // request one container each on host-1 and host-2
-    containerAllocator.requestResources(ImmutableMap.of("0", "host-1", "1'", "host-2"));
+    containerAllocator.requestResources(ImmutableMap.of("0", "host-1", "1", "host-2"));
     // assert that the requests made it to YARN
     Assert.assertEquals(clusterResourceManager.resourceRequests.size(), 2);
     // allocate one resource from YARN on a different host (host-3)
@@ -318,13 +319,17 @@ public class TestHostAwareContainerAllocator {
     allocatorThread.start();
 
     // verify that a container is launched on host-3 after the request expires
-    clusterResourceManager.awaitLaunchCount(1);
+    if (!clusterResourceManager.awaitContainerLaunch(1, 20, TimeUnit.SECONDS)) {
+      Assert.fail("Timed out waiting container launch");
+    }
     Assert.assertEquals(1, clusterResourceManager.launchedResources.size());
     Assert.assertEquals(clusterResourceManager.launchedResources.get(0).getHost(), "host-3");
     Assert.assertEquals(clusterResourceManager.launchedResources.get(0).getResourceID(), "id1");
 
     // Now, there are no more resources left to run the 2nd container. Verify that we eventually issue another request
-    clusterResourceManager.awaitRequestCount(4);
+    if (!clusterResourceManager.awaitResourceRequests(4, 20, TimeUnit.SECONDS)) {
+      Assert.fail("Timed out waiting for resource requests");
+    }
     // verify that we have cancelled previous requests and there's one outstanding request
     Assert.assertEquals(clusterResourceManager.cancelledRequests.size(), 3);
   }
@@ -385,9 +390,13 @@ public class TestHostAwareContainerAllocator {
     containerAllocator.addResource(resource0);
     allocatorThread.start();
     // verify that the first preferred host request should expire and container-0 should launch on host-3
-    clusterResourceManager.awaitLaunchCount(1);
+    if (!clusterResourceManager.awaitContainerLaunch(1, 20, TimeUnit.SECONDS)) {
+      Assert.fail("Timed out waiting for container-0 to launch");
+    }
     // verify that the second preferred host request should expire and should trigger ANY_HOST requests
-    clusterResourceManager.awaitRequestCount(4);
+    if (!clusterResourceManager.awaitResourceRequests(4, 20, TimeUnit.SECONDS)) {
+      Assert.fail("Timed out waiting for resource requests");
+    }
     // finally, provide a container from YARN after multiple requests
     containerAllocator.addResource(resource1);
     // verify all the test assertions

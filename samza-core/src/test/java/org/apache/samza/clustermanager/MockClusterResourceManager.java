@@ -28,22 +28,22 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 public class MockClusterResourceManager extends ClusterResourceManager {
-  Set<SamzaResource> releasedResources = new ConcurrentHashMap().keySet();
-  List<SamzaResource> resourceRequests = Collections.synchronizedList(new ArrayList<>());
-  List<SamzaResourceRequest> cancelledRequests = Collections.synchronizedList(new ArrayList<>());
-  List<SamzaResource> launchedResources = Collections.synchronizedList(new ArrayList<>());
-  List<MockContainerListener> mockContainerListeners = Collections.synchronizedList(new ArrayList<>());
+  final Set<SamzaResource> releasedResources = Collections.synchronizedSet(new HashSet<>());
+  final List<SamzaResource> resourceRequests = Collections.synchronizedList(new ArrayList<>());
+  final List<SamzaResourceRequest> cancelledRequests = Collections.synchronizedList(new ArrayList<>());
+  final List<SamzaResource> launchedResources = Collections.synchronizedList(new ArrayList<>());
+  final List<MockContainerListener> mockContainerListeners = Collections.synchronizedList(new ArrayList<>());
 
-  private final Semaphore requestCount = new Semaphore(0);
-  private final Semaphore launchCount = new Semaphore(0);
+  private final Semaphore requestCountSemaphore = new Semaphore(0);
+  private final Semaphore launchCountSemaphore = new Semaphore(0);
 
   Throwable nextException = null;
 
-  public MockClusterResourceManager(ClusterResourceManager.Callback callback) {
+  MockClusterResourceManager(ClusterResourceManager.Callback callback) {
     super(callback);
   }
 
@@ -57,7 +57,7 @@ public class MockClusterResourceManager extends ClusterResourceManager {
     SamzaResource resource = new SamzaResource(resourceRequest.getNumCores(), resourceRequest.getMemoryMB(),
         resourceRequest.getPreferredHost(), UUID.randomUUID().toString());
     resourceRequests.add(resource);
-    requestCount.release();
+    requestCountSemaphore.release();
     clusterManagerCallback.onResourcesAvailable(ImmutableList.of(resource));
   }
 
@@ -66,12 +66,12 @@ public class MockClusterResourceManager extends ClusterResourceManager {
     cancelledRequests.add(request);
   }
 
-  public void awaitRequestCount(int numRequests) throws Exception  {
-    requestCount.acquire(numRequests);
+  public boolean awaitResourceRequests(int numExpectedRequests, long val, TimeUnit unit) throws Exception  {
+    return requestCountSemaphore.tryAcquire(numExpectedRequests, val, unit);
   }
 
-  public void awaitLaunchCount(int numLaunch) throws Exception {
-    launchCount.acquire(numLaunch);
+  public boolean awaitContainerLaunch(int numExpectedContainers, long val, TimeUnit unit) throws Exception {
+    return launchCountSemaphore.tryAcquire(numExpectedContainers, val, unit);
   }
 
   @Override
@@ -90,12 +90,7 @@ public class MockClusterResourceManager extends ClusterResourceManager {
     for (MockContainerListener listener : mockContainerListeners) {
       listener.postRunContainer(launchedResources.size());
     }
-    launchCount.release();
-  }
-
-  @Override
-  public void stop(SamzaApplicationState.SamzaAppStatus status) {
-
+    launchCountSemaphore.release();
   }
 
   public void registerContainerListener(MockContainerListener listener) {
@@ -106,4 +101,8 @@ public class MockClusterResourceManager extends ClusterResourceManager {
     mockContainerListeners.clear();
   }
 
+  @Override
+  public void stop(SamzaApplicationState.SamzaAppStatus status) {
+
+  }
 }
