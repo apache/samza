@@ -212,7 +212,7 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
     }
 
     EventData eventData = createEventData(streamId, envelope);
-    // TODO: waiting for the client library to expose the API to calculate the exact size of the AMQP message
+    // SAMZA-1654: waiting for the client library to expose the API to calculate the exact size of the AMQP message
     // https://github.com/Azure/azure-event-hubs-java/issues/305
     int eventDataLength = eventData.getBytes() == null ? 0 : eventData.getBytes().length;
 
@@ -268,22 +268,22 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
   }
 
   private String convertPartitionKeyToString(Object partitionKey) {
-    String ret;
+    String partitionKeyStr;
     if (partitionKey instanceof String) {
-      ret = (String) partitionKey;
+      partitionKeyStr = (String) partitionKey;
     } else if (partitionKey instanceof Integer) {
-      ret = String.valueOf(partitionKey);
+      partitionKeyStr = String.valueOf(partitionKey);
     } else if (partitionKey instanceof byte[]) {
-      ret = new String((byte[]) partitionKey, Charset.defaultCharset());
+      partitionKeyStr = new String((byte[]) partitionKey, Charset.defaultCharset());
     } else {
       throw new SamzaException("Unsupported key type: " + partitionKey.getClass().toString());
     }
-    if (ret != null && ret.length() > ClientConstants.MAX_PARTITION_KEY_LENGTH) {
-      LOG.debug("length of partitioning key ({}) exceeds limit: {}. Will truncate the key...", ret.length(),
+    if (partitionKeyStr != null && partitionKeyStr.length() > ClientConstants.MAX_PARTITION_KEY_LENGTH) {
+      LOG.debug("Length of partition key: {} exceeds limit: {}. Truncating.", partitionKeyStr.length(),
           ClientConstants.MAX_PARTITION_KEY_LENGTH);
-      ret = ret.substring(0, ClientConstants.MAX_PARTITION_KEY_LENGTH);
+      partitionKeyStr = partitionKeyStr.substring(0, ClientConstants.MAX_PARTITION_KEY_LENGTH);
     }
-    return ret;
+    return partitionKeyStr;
   }
 
   protected EventData createEventData(String streamId, OutgoingMessageEnvelope envelope) {
