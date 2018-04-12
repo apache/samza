@@ -72,8 +72,9 @@ public class EventHubConfig extends MapConfig {
   public static final String CONFIG_CONSUMER_BUFFER_CAPACITY = "systems.%s.eventhubs.receive.queue.size";
   public static final int DEFAULT_CONFIG_CONSUMER_BUFFER_CAPACITY = 100;
 
-  // By default we will skip messages larger than 1MB.
-  private static final int DEFAULT_MAX_MESSAGE_SIZE = 1024 * 1024;
+  // By default we want to skip messages larger than 1MB. Also allow some buffer to account for the overhead of
+  // metadata and key. So set the default max message to be 1000 KB (instead of precisely 1MB)
+  private static final int DEFAULT_MAX_MESSAGE_SIZE = 1000 * 1024;
 
   private final Map<String, String> physcialToId = new HashMap<>();
 
