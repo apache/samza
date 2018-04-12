@@ -34,18 +34,10 @@ import java.util.concurrent.Semaphore;
 public class MockClusterResourceManager extends ClusterResourceManager {
   Set<SamzaResource> releasedResources = new ConcurrentHashMap().keySet();
   List<SamzaResource> resourceRequests = Collections.synchronizedList(new ArrayList<>());
-
-  public List<SamzaResource> getResourceRequests() {
-    return resourceRequests;
-  }
-
-  public List<SamzaResourceRequest> getCancelledRequests() {
-    return cancelledRequests;
-  }
-
   List<SamzaResourceRequest> cancelledRequests = Collections.synchronizedList(new ArrayList<>());
   List<SamzaResource> launchedResources = Collections.synchronizedList(new ArrayList<>());
   List<MockContainerListener> mockContainerListeners = Collections.synchronizedList(new ArrayList<>());
+
   private final Semaphore requestCount = new Semaphore(0);
   private final Semaphore launchCount = new Semaphore(0);
 
@@ -66,18 +58,15 @@ public class MockClusterResourceManager extends ClusterResourceManager {
         resourceRequest.getPreferredHost(), UUID.randomUUID().toString());
     resourceRequests.add(resource);
     requestCount.release();
-    System.out.println("requesting ");
     clusterManagerCallback.onResourcesAvailable(ImmutableList.of(resource));
   }
 
   @Override
   public void cancelResourceRequest(SamzaResourceRequest request) {
-    System.out.println("cancelling");
     cancelledRequests.add(request);
   }
 
   public void awaitRequestCount(int numRequests) throws Exception  {
-    System.out.println("await " + numRequests);
     requestCount.acquire(numRequests);
   }
 
