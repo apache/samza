@@ -77,49 +77,31 @@ public class EventHubSystemAdmin implements SystemAdmin {
 
   @Override
   public Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames) {
-    final Map<String, SystemStreamMetadata> requestedMetadata = new HashMap<>();
-    final Map<String, CompletableFuture<EventHubRuntimeInformation>> ehRuntimeInfos = new HashMap<>();
-
-    streamNames.forEach((streamName) -> {
-        if (!streamPartitions.containsKey(streamName)) {
-          EventHubClientManager eventHubClientManager = getOrCreateStreamEventHubClient(streamName);
-          CompletableFuture<EventHubRuntimeInformation> runtimeInfo = eventHubClientManager.getEventHubClient()
-                  .getRuntimeInformation();
-
-          ehRuntimeInfos.put(streamName, runtimeInfo);
-        }
-      });
+    Map<String, SystemStreamMetadata> requestedMetadata = new HashMap<>();
 
     try {
-      ehRuntimeInfos.forEach((streamName, ehRuntimeInfo) -> {
+      for (String streamName : streamNames) {
+        if (!streamPartitions.containsKey(streamName)) {
+          LOG.debug(String.format("Partition ids for Stream=%s not found", streamName));
 
-          if (!streamPartitions.containsKey(streamName)) {
-            LOG.debug(String.format("Partition ids for Stream=%s not found", streamName));
-            try {
+          EventHubClientManager eventHubClientManager = getOrCreateStreamEventHubClient(streamName);
+          CompletableFuture<EventHubRuntimeInformation> runtimeInfo = eventHubClientManager.getEventHubClient().getRuntimeInformation();
 
-              long timeoutMs = eventHubConfig.getRuntimeInfoWaitTimeMS(systemName);
-              EventHubRuntimeInformation ehInfo = ehRuntimeInfo.get(timeoutMs, TimeUnit.MILLISECONDS);
-
-              LOG.debug(String.format("Adding partition ids for Stream=%s", streamName));
-              streamPartitions.put(streamName, ehInfo.getPartitionIds());
-            } catch (InterruptedException | ExecutionException | TimeoutException e) {
-
-              String msg = String.format("Error while fetching EventHubRuntimeInfo for System:%s, Stream:%s", systemName,
-                  streamName);
-              LOG.error(msg, e);
-              throw new SamzaException(msg, e);
-            }
-          }
-
-          String[] partitionIds = streamPartitions.get(streamName);
-          Map<Partition, SystemStreamPartitionMetadata> sspMetadataMap = getPartitionMetadata(streamName, partitionIds);
-          SystemStreamMetadata systemStreamMetadata = new SystemStreamMetadata(streamName, sspMetadataMap);
-
-          requestedMetadata.put(streamName, systemStreamMetadata);
-        });
-
+          long timeoutMs = eventHubConfig.getRuntimeInfoWaitTimeMS(systemName);
+          EventHubRuntimeInformation ehInfo = runtimeInfo.get(timeoutMs, TimeUnit.MILLISECONDS);
+          LOG.debug(String.format("Adding partition ids for Stream=%s", streamName));
+          streamPartitions.put(streamName, ehInfo.getPartitionIds());
+        }
+        String[] partitionIds = streamPartitions.get(streamName);
+        Map<Partition, SystemStreamPartitionMetadata> sspMetadataMap = getPartitionMetadata(streamName, partitionIds);
+        SystemStreamMetadata systemStreamMetadata = new SystemStreamMetadata(streamName, sspMetadataMap);
+        requestedMetadata.put(streamName, systemStreamMetadata);
+      }
+    } catch (Exception e) {
+      String msg = String.format("Error while fetching EventHubRuntimeInfo for System:%s", systemName);
+      LOG.error(msg, e);
+      throw new SamzaException(msg, e);
     } finally {
-
       // Closing clients
       eventHubClients.forEach((streamName, client) -> client.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS));
       eventHubClients.clear();
