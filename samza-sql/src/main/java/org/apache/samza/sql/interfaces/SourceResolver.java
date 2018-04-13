@@ -19,8 +19,6 @@
 
 package org.apache.samza.sql.interfaces;
 
-import org.apache.samza.operators.TableDescriptor;
-
 
 /**
  * Source Resolvers are used by Samza Sql application to fetch the {@link SqlSystemSourceConfig} corresponding
@@ -32,26 +30,10 @@ public interface SourceResolver {
    * Returns the SystemStream config corresponding to the source name
    * @param sourceName
    *  source whose systemstreamconfig needs to be fetched.
+   * @param isSink
+   *  whether the source is an input or output source in the SQL statement
    * @return
    *  System stream config corresponding to the source.
    */
-  SqlSystemSourceConfig fetchSourceInfo(String sourceName);
-
-  /**
-   * Returns if a given source is a table. Different source resolvers could have different notations in the source
-   * name for denoting a table. Eg: system.stream.$table
-   * @param sourceName
-   *  source that needs to be checked if it is a table.
-   * @return
-   *  true if the source is a table, else false.
-   */
-  boolean isTable(String sourceName);
-
-  /**
-   * Return a Samza table descriptor corresponding to the {@code sourceName} if the underlying source is a table,
-   * ie. {@link SourceResolver#isTable(String)} should return true for the same {@code sourceName}.
-   * @param sourceName source for which the table descriptor is requested.
-   * @return table descriptor; null if the source is not a table.
-   */
-  TableDescriptor getTableDescriptor(String sourceName);
+  SqlSystemSourceConfig fetchSourceInfo(String sourceName, boolean isSink);
 }

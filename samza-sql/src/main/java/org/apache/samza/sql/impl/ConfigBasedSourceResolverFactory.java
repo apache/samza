@@ -42,6 +42,8 @@ public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
 
   public static final String CFG_FMT_SAMZA_PREFIX = "systems.%s.";
 
+  private static TableJoinUtils tableJoinUtils = new TableJoinUtils();
+
   @Override
   public SourceResolver create(Config config) {
     return new ConfigBasedSourceResolver(config);
@@ -56,16 +58,20 @@ public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
     }
 
     @Override
-    public SqlSystemSourceConfig fetchSourceInfo(String source) {
+    public SqlSystemSourceConfig fetchSourceInfo(String source, boolean isSink) {
       String[] sourceComponents = source.split("\\.");
-      boolean isTable = false;
+      boolean isTable = isTable(sourceComponents);
+
+      if (isTable && isSink) {
+        throw new NotImplementedException("Table is not as sink.");
+      }
 
       // This source resolver expects sources of format {systemName}.{streamName}[.$table]
       //  * First source part is always system name.
       //  * The last source part could be either a "$table" keyword or stream name. If it is "$table", then stream name
       //    should be the one before the last source part.
       int endIdx = sourceComponents.length - 1;
-      int streamIdx = endIdx;
+      int streamIdx = isTable ? endIdx - 1 : endIdx;
       boolean invalidQuery = false;
 
       if (sourceComponents.length != 2) {
@@ -87,26 +93,16 @@ public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
         throw new SamzaException(msg);
       }
 
-      if (sourceComponents[endIdx].equalsIgnoreCase(SAMZA_SQL_QUERY_TABLE_KEYWORD)) {
-        isTable = true;
-        streamIdx = endIdx - 1;
-      }
-
       String systemName = sourceComponents[0];
       String streamName = sourceComponents[streamIdx];
 
-      return new SqlSystemSourceConfig(systemName, streamName, fetchSystemConfigs(systemName), isTable);
+      TableDescriptor tableDescriptor = isTable ? tableJoinUtils.createDescriptor(source) : null;
+
+      return new SqlSystemSourceConfig(systemName, streamName, fetchSystemConfigs(systemName), tableDescriptor);
     }
 
-    @Override
-    public boolean isTable(String sourceName) {
-      String[] sourceComponents = sourceName.split("\\.");
+    private boolean isTable(String[] sourceComponents) {
       return sourceComponents[sourceComponents.length - 1].equalsIgnoreCase(SAMZA_SQL_QUERY_TABLE_KEYWORD);
-    }
-
-    @Override
-    public TableDescriptor getTableDescriptor(String sourceName) {
-      throw new NotImplementedException("TableDescriptor is currently not supported by ConfigBasedSourceResolverFactory.");
     }
 
     private Config fetchSystemConfigs(String systemName) {

@@ -27,6 +27,7 @@ import org.apache.commons.lang.Validate;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
+import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.system.SystemStream;
 
 
@@ -47,30 +48,34 @@ public class SqlSystemSourceConfig {
   private final SystemStream systemStream;
 
   private final String source;
-  private String relSchemaProviderName;
+  private final String relSchemaProviderName;
 
-  private Config config;
+  private final Config config;
 
-  private List<String> sourceParts;
+  private final List<String> sourceParts;
+
+  private final boolean isTable;
+
+  private final TableDescriptor tableDescriptor;
 
   public SqlSystemSourceConfig(String systemName, String streamName, Config systemConfig) {
-    this(systemName, streamName, Arrays.asList(systemName, streamName), systemConfig, false);
+    this(systemName, streamName, Arrays.asList(systemName, streamName), systemConfig, null);
   }
 
-  public SqlSystemSourceConfig(String systemName, String streamName, Config systemConfig, boolean isTable) {
-    this(systemName, streamName, Arrays.asList(systemName, streamName), systemConfig, isTable);
+  public SqlSystemSourceConfig(String systemName, String streamName, Config systemConfig, TableDescriptor tableDescriptor) {
+    this(systemName, streamName, Arrays.asList(systemName, streamName), systemConfig, tableDescriptor);
   }
 
   public SqlSystemSourceConfig(String systemName, String streamName, List<String> sourceParts,
-      Config systemConfig, boolean isTable) {
-
-
+      Config systemConfig, TableDescriptor tableDescriptor) {
     HashMap<String, String> streamConfigs = new HashMap<>(systemConfig);
     this.systemName = systemName;
     this.streamName = streamName;
     this.source = getSourceFromSourceParts(sourceParts);
     this.sourceParts = sourceParts;
     this.systemStream = new SystemStream(systemName, streamName);
+    this.isTable = tableDescriptor != null;
+    this.tableDescriptor = tableDescriptor;
 
     samzaRelConverterName = streamConfigs.get(CFG_SAMZA_REL_CONVERTER);
     Validate.notEmpty(samzaRelConverterName,
@@ -125,5 +130,13 @@ public class SqlSystemSourceConfig {
 
   public String getSource() {
     return source;
+  }
+
+  public boolean isTable() {
+    return isTable;
+  }
+
+  public TableDescriptor getTableDescriptor() {
+    return tableDescriptor;
   }
 }

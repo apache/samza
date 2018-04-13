@@ -113,13 +113,13 @@ public class SamzaSqlApplicationConfig {
     inputSystemStreamConfigBySource = queryInfo.stream()
         .map(QueryInfo::getInputSources)
         .flatMap(Collection::stream)
-        .collect(Collectors.toMap(Function.identity(), sourceResolver::fetchSourceInfo));
+        .collect(Collectors.toMap(Function.identity(), src -> sourceResolver.fetchSourceInfo(src, false)));
 
     Set<SqlSystemSourceConfig> systemStreamConfigs = new HashSet<>(inputSystemStreamConfigBySource.values());
 
     outputSystemStreamConfigsBySource = queryInfo.stream()
         .map(QueryInfo::getOutputSource)
-        .collect(Collectors.toMap(Function.identity(), x -> sourceResolver.fetchSourceInfo(x)));
+        .collect(Collectors.toMap(Function.identity(), x -> sourceResolver.fetchSourceInfo(x, true)));
     systemStreamConfigs.addAll(outputSystemStreamConfigsBySource.values());
 
     relSchemaProvidersBySource = systemStreamConfigs.stream()

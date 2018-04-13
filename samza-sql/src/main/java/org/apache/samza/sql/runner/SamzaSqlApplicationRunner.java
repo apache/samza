@@ -82,13 +82,13 @@ public class SamzaSqlApplicationRunner extends AbstractApplicationRunner {
     for (SamzaSqlQueryParser.QueryInfo query : queryInfo) {
       // Populate stream to system mapping config for input and output system streams
       for (String inputSource : query.getInputSources()) {
-        SqlSystemSourceConfig inputSystemStreamConfig = sourceResolver.fetchSourceInfo(inputSource);
+        SqlSystemSourceConfig inputSystemStreamConfig = sourceResolver.fetchSourceInfo(inputSource, false);
         newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, inputSystemStreamConfig.getStreamName()),
             inputSystemStreamConfig.getSystemName());
         newConfig.putAll(inputSystemStreamConfig.getConfig());
       }
 
-      SqlSystemSourceConfig outputSystemStreamConfig = sourceResolver.fetchSourceInfo(query.getOutputSource());
+      SqlSystemSourceConfig outputSystemStreamConfig = sourceResolver.fetchSourceInfo(query.getOutputSource(), true);
       newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, outputSystemStreamConfig.getStreamName()),
           outputSystemStreamConfig.getSystemName());
       newConfig.putAll(outputSystemStreamConfig.getConfig());

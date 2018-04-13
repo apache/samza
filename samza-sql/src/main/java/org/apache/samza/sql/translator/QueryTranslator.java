@@ -121,10 +121,10 @@ public class QueryTranslator {
     MessageStreamImpl<SamzaSqlRelMessage> stream = (MessageStreamImpl<SamzaSqlRelMessage>) context.getMessageStream(node.getId());
     MessageStream<KV<Object, Object>> outputStream = stream.map(samzaMsgConverter::convertToSamzaMessage);
 
-    if (!sourceResolver.isTable(outputSource)) {
+    if (!outputSystemConfig.isTable()) {
       outputStream.sendTo(streamGraph.getOutputStream(outputSystemConfig.getStreamName()));
     } else {
-      TableDescriptor tableDescriptor = sourceResolver.getTableDescriptor(outputSource);
+      TableDescriptor tableDescriptor = outputSystemConfig.getTableDescriptor();
       Table outputTable = streamGraph.getTable(tableDescriptor);
       if (outputTable == null) {
         String msg = "Failed to obtain table descriptor of " + outputSystemConfig.getSource();

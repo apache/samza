@@ -31,6 +31,7 @@ import org.apache.samza.operators.BaseTableDescriptor;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
+import org.apache.samza.sql.impl.TableJoinUtils;
 import org.apache.samza.sql.interfaces.SourceResolver;
 import org.apache.samza.sql.interfaces.SourceResolverFactory;
 import org.apache.samza.sql.interfaces.SqlSystemSourceConfig;
@@ -142,46 +143,39 @@ public class TestSourceResolverFactory implements SourceResolverFactory {
   private class TestSourceResolver implements SourceResolver {
     private final String SAMZA_SQL_QUERY_TABLE_KEYWORD = "$table";
     private final Config config;
+    private final Map<String, TableDescriptor> tableDescMap = new HashMap<>();
+    private final TableJoinUtils tableJoinUtils = new TableJoinUtils();
 
     public TestSourceResolver(Config config) {
       this.config = config;
     }
 
     @Override
-    public SqlSystemSourceConfig fetchSourceInfo(String sourceName) {
+    public SqlSystemSourceConfig fetchSourceInfo(String sourceName, boolean isSink) {
       String[] sourceComponents = sourceName.split("\\.");
-      boolean isTable = false;
       int systemIdx = 0;
       int endIdx = sourceComponents.length - 1;
       int streamIdx = endIdx;
+      TableDescriptor tableDescriptor = null;
 
       if (sourceComponents[endIdx].equalsIgnoreCase(SAMZA_SQL_QUERY_TABLE_KEYWORD)) {
-        isTable = true;
         streamIdx = endIdx - 1;
+
+        tableDescriptor = tableDescMap.get(sourceName);
+
+        if (tableDescriptor == null) {
+          if (isSink) {
+            tableDescriptor = new TestTableDescriptor(TEST_TABLE_ID + tableDescMap.size());
+          } else {
+            tableDescriptor = tableJoinUtils.createDescriptor(sourceName);
+          }
+          tableDescMap.put(sourceName, tableDescriptor);
+        }
       }
 
       Config systemConfigs = config.subset(sourceComponents[systemIdx] + ".");
       return new SqlSystemSourceConfig(sourceComponents[systemIdx], sourceComponents[streamIdx],
-          Arrays.asList(sourceComponents), systemConfigs, isTable);
-    }
-
-    @Override
-    public boolean isTable(String sourceName){
-      String[] sourceComponents = sourceName.split("\\.");
-      return sourceComponents[sourceComponents.length - 1].equalsIgnoreCase(SAMZA_SQL_QUERY_TABLE_KEYWORD) ||
-          sourceName.equalsIgnoreCase("testDb.testTable");
-    }
-
-    @Override
-    public TableDescriptor getTableDescriptor(String sourceName) {
-      String[] sourceComponents = sourceName.split("\\.");
-
-      TableDescriptor tableDescriptor = null;
-      if (sourceComponents[0].equals(TEST_DB_SYSTEM)) {
-        tableDescriptor = new TestTableDescriptor(TEST_TABLE_ID);;
-      }
-
-      return tableDescriptor;
+          Arrays.asList(sourceComponents), systemConfigs, tableDescriptor);
     }
   }
 }
