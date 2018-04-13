@@ -76,6 +76,48 @@
                     }
                 ]
             }
+        },
+        {
+            "name": "selfEmployed",
+            "doc": "Boolean Value.",
+            "type": ["null", "boolean"],
+            "default":null
+        },
+        {
+            "name": "phoneNumbers",
+            "doc" : "array values in the record.",
+            "default": null,
+            "type": [ "null",
+                {
+                    "type": "array",
+                    "items":{
+                        "name":"PhoneNumber",
+                        "type":"record",
+                        "fields":[
+                            {
+                                "name": "kind",
+                                "type": {
+                                    "name": "Kind",
+                                    "type": "enum",
+                                    "symbols" : ["Home", "Work", "Cell"]
+                                }
+                            },
+                            {"name":"number", "type":"string"}
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "map_values",
+            "doc" : "map values in the record.",
+            "default": null,
+            "type": [ "null",
+                {
+                    "type": "map",
+                    "values": "string"
+                }
+            ]
         }
     ]
 }

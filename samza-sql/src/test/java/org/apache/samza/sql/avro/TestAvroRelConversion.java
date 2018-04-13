@@ -50,6 +50,8 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.sql.avro.schemas.AddressRecord;
 import org.apache.samza.sql.avro.schemas.ComplexRecord;
+import org.apache.samza.sql.avro.schemas.Kind;
+import org.apache.samza.sql.avro.schemas.PhoneNumber;
 import org.apache.samza.sql.avro.schemas.Profile;
 import org.apache.samza.sql.avro.schemas.SimpleRecord;
 import org.apache.samza.sql.avro.schemas.StreetNumRecord;
@@ -220,10 +222,28 @@ public class TestAvroRelConversion {
     record.put("companyId", 0);
     GenericData.Record addressRecord = new GenericData.Record(AddressRecord.SCHEMA$);
     addressRecord.put("zip", 90000);
-    record.put("address", addressRecord);
     GenericData.Record streetNumRecord = new GenericData.Record(StreetNumRecord.SCHEMA$);
     streetNumRecord.put("number", 1200);
     addressRecord.put("streetnum", streetNumRecord);
+    record.put("address", addressRecord);
+    record.put("selfEmployed", "True");
+
+
+    GenericData.Record phoneNumberRecordH = new GenericData.Record(PhoneNumber.SCHEMA$);
+    phoneNumberRecordH.put("kind", Kind.Home);
+    phoneNumberRecordH.put("number", "111-111-1111");
+    GenericData.Record phoneNumberRecordC = new GenericData.Record(PhoneNumber.SCHEMA$);
+    phoneNumberRecordC.put("kind", Kind.Cell);
+    phoneNumberRecordC.put("number", "111-111-1112");
+    List<GenericData.Record> phoneNumbers = new ArrayList<>();
+    phoneNumbers.add(phoneNumberRecordH);
+    phoneNumbers.add(phoneNumberRecordC);
+    record.put("phoneNumbers", phoneNumbers);
+
+    HashMap<String, String> mapValues = new HashMap<>();
+    mapValues.put("key1", "value1");
+    mapValues.put("key2", "value2");
+    record.put("map_values", mapValues);
 
     SamzaSqlRelMessage relMessage = nestedRecordAvroRelConverter.convertToRelMessage(new KV<>("key", record));
 
@@ -235,7 +255,7 @@ public class TestAvroRelConversion {
 
     for (Schema.Field field : Profile.SCHEMA$.getFields()) {
       // equals() on GenericRecord does the nested record equality check as well.
-      Assert.assertEquals(recordPostConversion.get(field.name()), record.get(field.name()));
+      Assert.assertEquals(record.get(field.name()), recordPostConversion.get(field.name()));
     }
   }
 

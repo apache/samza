@@ -35,7 +35,9 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.sql.avro.schemas.AddressRecord;
 import org.apache.samza.sql.avro.schemas.Company;
 import org.apache.samza.sql.avro.schemas.ComplexRecord;
+import org.apache.samza.sql.avro.schemas.Kind;
 import org.apache.samza.sql.avro.schemas.PageView;
+import org.apache.samza.sql.avro.schemas.PhoneNumber;
 import org.apache.samza.sql.avro.schemas.Profile;
 import org.apache.samza.sql.avro.schemas.SimpleRecord;
 import org.apache.samza.sql.avro.schemas.StreetNumRecord;
@@ -60,6 +62,8 @@ public class TestAvroSystemFactory implements SystemFactory {
   private static final String[] profileNames = {"John", "Mike", "Mary", "Joe", "Brad", "Jennifer"};
   private static final int[] profileZips = {94000, 94001, 94002, 94003, 94004, 94005};
   private static final int[] streetNums = {1234, 1235, 1236, 1237, 1238, 1239};
+  private static final String[] phoneNumbers = {"000-000-0000", "111-111-1111", "222-222-2222", "333-333-3333",
+      "444-444-4444", "555-555-5555"};
   public static final String[] companies = {"MSFT", "LKND", "GOOG", "FB", "AMZN", "CSCO"};
   private static final String[] pagekeys = {"inbox", "home", "search", "pymk", "group", "job"};
 
@@ -194,6 +198,7 @@ public class TestAvroSystemFactory implements SystemFactory {
       record.put("name", profileNames[index % profileNames.length]);
       record.put("address", createProfileAddressRecord(index));
       record.put("companyId", includeNullForeignKeys && (index % 2 == 0) ? null : index % companies.length);
+      record.put("phoneNumbers", createProfilePhoneNumbers(index % phoneNumbers.length));
       return record;
     }
 
@@ -207,6 +212,36 @@ public class TestAvroSystemFactory implements SystemFactory {
     private Object createProfileStreetNumRecord(int index) {
       GenericRecord record = new GenericData.Record(StreetNumRecord.SCHEMA$);
       record.put("number", streetNums[index % streetNums.length]);
+      return record;
+    }
+
+    private List<Object> createProfilePhoneNumbers(int index) {
+      List<Object> phoneNums = new ArrayList<>();
+      phoneNums.add(createPhoneNumberRecord(index, Kind.Home));
+      phoneNums.add(createPhoneNumberRecord(index, Kind.Work));
+      phoneNums.add(createPhoneNumberRecord(index, Kind.Cell));
+      return phoneNums;
+    }
+
+    private Object createPhoneNumberRecord(int index, Kind kind) {
+      GenericRecord record = new GenericData.Record(PhoneNumber.SCHEMA$);
+      StringBuilder number = new StringBuilder(phoneNumbers[index]);
+      int lastCharIdx = number.length() - 1;
+      String suffix = "";
+      switch (kind) {
+        case Home:
+          suffix = "1";
+          break;
+        case Work:
+          suffix = "2";
+          break;
+        case Cell:
+          suffix = "3";
+          break;
+      }
+      number.replace(lastCharIdx, lastCharIdx + 1, suffix);
+      record.put("number", number);
+      record.put("kind", kind);
       return record;
     }
 
