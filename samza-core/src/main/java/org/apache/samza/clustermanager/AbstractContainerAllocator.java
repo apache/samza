@@ -208,7 +208,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
     resourceRequestState.addResourceRequest(request);
     state.containerRequests.incrementAndGet();
   }
-  
+
   /**
    * Returns true if there are resources allocated on a host.
    * @param host  the host for which a resource is needed.
