@@ -102,6 +102,24 @@ public class ResourceRequestState {
   }
 
   /**
+   * Cancels a {@link SamzaResourceRequest} previously submitted to the {@link ClusterResourceManager}
+   *
+   * @param request {@link SamzaResourceRequest} to cancel
+   */
+  public void cancelResourceRequest(SamzaResourceRequest request) {
+    log.info("Canceling resource request on {} for {}", request.getPreferredHost(), request.getContainerID());
+    synchronized (lock) {
+      requestsQueue.remove(request);
+      if (hostAffinityEnabled) {
+        // assignedHost may not always be the preferred host.
+        // Hence, we should safely decrement the counter for the preferredHost
+        requestsToCountMap.get(request.getPreferredHost()).decrementAndGet();
+      }
+      manager.cancelResourceRequest(request);
+    }
+  }
+
+  /**
    * Invoked each time a resource is returned from a {@link ClusterResourceManager}.
    * @param samzaResource The resource that was returned from the {@link ClusterResourceManager}
    */

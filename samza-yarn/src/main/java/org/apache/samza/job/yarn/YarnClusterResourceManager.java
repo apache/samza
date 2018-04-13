@@ -238,7 +238,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
               new String[]{preferredHost},
               null,
               priority,
-              true,
+              false,
               containerLabel);
     }
     //ensure that updating the state and making the request are done atomically.
