@@ -21,8 +21,10 @@ package org.apache.samza.clustermanager;
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.LocalityManager;
@@ -33,6 +35,7 @@ import org.apache.samza.testUtils.MockHttpServer;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -46,7 +49,7 @@ import static org.mockito.Mockito.when;
 public class TestHostAwareContainerAllocator {
 
   private final MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
-  private final MockClusterResourceManager manager = new MockClusterResourceManager(callback);
+  private final MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback);
   private final Config config = getConfig();
   private final JobModelManager reader = initializeJobModelManager(config, 1);
 
@@ -70,8 +73,8 @@ public class TestHostAwareContainerAllocator {
 
   @Before
   public void setup() throws Exception {
-    containerAllocator = new HostAwareContainerAllocator(manager, timeoutMillis, config, state);
-    requestState = new MockContainerRequestState(manager, true);
+    containerAllocator = new HostAwareContainerAllocator(clusterResourceManager, timeoutMillis, config, state);
+    requestState = new MockContainerRequestState(clusterResourceManager, true);
     Field requestStateField = containerAllocator.getClass().getSuperclass().getDeclaredField("resourceRequestState");
     requestStateField.setAccessible(true);
     requestStateField.set(containerAllocator, requestState);
@@ -187,9 +190,9 @@ public class TestHostAwareContainerAllocator {
     Runnable releasedAssertions = new Runnable() {
       @Override
       public void run() {
-        assertEquals(2, manager.releasedResources.size());
-        assertTrue(manager.releasedResources.contains(resource1));
-        assertTrue(manager.releasedResources.contains(resource2));
+        assertEquals(2, clusterResourceManager.releasedResources.size());
+        assertTrue(clusterResourceManager.releasedResources.contains(resource1));
+        assertTrue(clusterResourceManager.releasedResources.contains(resource2));
 
         // Test that state is cleaned up
         assertEquals(0, requestState.numPendingRequests());
@@ -227,8 +230,8 @@ public class TestHostAwareContainerAllocator {
 
     containerAllocator.requestResources(containersToHostMapping);
 
-    assertNotNull(manager.resourceRequests);
-    assertEquals(manager.resourceRequests.size(), 4);
+    assertNotNull(clusterResourceManager.resourceRequests);
+    assertEquals(clusterResourceManager.resourceRequests.size(), 4);
     assertEquals(requestState.numPendingRequests(), 4);
 
     Map<String, AtomicInteger> requestsMap = requestState.getRequestsToCountMap();
@@ -247,7 +250,7 @@ public class TestHostAwareContainerAllocator {
    */
 
   @Test
-  public void testExpiredRequestHandling() throws Exception {
+  public void testExpiredRequestAreAssignedToAnyHost() throws Exception {
     final SamzaResource resource0 = new SamzaResource(1, 1000, "xyz", "id1");
     final SamzaResource resource1 = new SamzaResource(1, 1000, "zzz", "id2");
 
@@ -289,17 +292,114 @@ public class TestHostAwareContainerAllocator {
     Runnable runningContainerAssertions = new Runnable() {
       @Override
       public void run() {
-        assertTrue(manager.launchedResources.contains(resource0));
-        assertTrue(manager.launchedResources.contains(resource1));
+        assertTrue(clusterResourceManager.launchedResources.contains(resource0));
+        assertTrue(clusterResourceManager.launchedResources.contains(resource1));
       }
     };
     MockContainerListener listener = new MockContainerListener(2, 0, 2, 2, addContainerAssertions, null, assignContainerAssertions, runningContainerAssertions);
     requestState.registerContainerListener(listener);
-    ((MockClusterResourceManager) manager).registerContainerListener(listener);
+    ((MockClusterResourceManager) clusterResourceManager).registerContainerListener(listener);
     containerAllocator.addResource(resource0);
     containerAllocator.addResource(resource1);
     allocatorThread.start();
 
+    listener.verify();
+  }
+
+  @Test
+  public void testExpiredRequestsAreCancelled() throws Exception {
+    // request one container each on host-1 and host-2
+    containerAllocator.requestResources(ImmutableMap.of("0", "host-1", "1", "host-2"));
+    // assert that the requests made it to YARN
+    Assert.assertEquals(clusterResourceManager.resourceRequests.size(), 2);
+    // allocate one resource from YARN on a different host (host-3)
+    SamzaResource resource0 = new SamzaResource(1, 1000, "host-3", "id1");
+    containerAllocator.addResource(resource0);
+    // let the matching begin
+    allocatorThread.start();
+
+    // verify that a container is launched on host-3 after the request expires
+    if (!clusterResourceManager.awaitContainerLaunch(1, 20, TimeUnit.SECONDS)) {
+      Assert.fail("Timed out waiting container launch");
+    }
+    Assert.assertEquals(1, clusterResourceManager.launchedResources.size());
+    Assert.assertEquals(clusterResourceManager.launchedResources.get(0).getHost(), "host-3");
+    Assert.assertEquals(clusterResourceManager.launchedResources.get(0).getResourceID(), "id1");
+
+    // Now, there are no more resources left to run the 2nd container. Verify that we eventually issue another request
+    if (!clusterResourceManager.awaitResourceRequests(4, 20, TimeUnit.SECONDS)) {
+      Assert.fail("Timed out waiting for resource requests");
+    }
+    // verify that we have cancelled previous requests and there's one outstanding request
+    Assert.assertEquals(clusterResourceManager.cancelledRequests.size(), 3);
+  }
+
+  @Test
+  public void testExpiryWithNonResponsiveClusterManager() throws Exception {
+
+    final SamzaResource resource0 = new SamzaResource(1, 1000, "host-3", "id1");
+    final SamzaResource resource1 = new SamzaResource(1, 1000, "host-4", "id2");
+
+    Map<String, String> containersToHostMapping = ImmutableMap.of("0", "host-1", "1", "host-2");
+
+    Runnable addContainerAssertions = new Runnable() {
+      @Override
+      public void run() {
+        // verify that resources are buffered in the right queue. ie, only those resources on previously requested hosts
+        // in the preferred-host queue while other resources end up in the ANY_HOST queue
+        assertNull(requestState.getResourcesOnAHost("host-3"));
+        assertNull(requestState.getResourcesOnAHost("host-4"));
+        assertNotNull(requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST));
+        assertEquals(1, requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST).size());
+      }
+    };
+
+    Runnable assignContainerAssertions = new Runnable() {
+      // verify that we processed all requests
+      @Override
+      public void run() {
+        assertEquals(requestState.numPendingRequests(), 0);
+      }
+    };
+
+    Runnable runningContainerAssertions = new Runnable() {
+      // verify that the two containers were actually launched
+      @Override
+      public void run() {
+        assertTrue(clusterResourceManager.launchedResources.contains(resource0));
+        assertTrue(clusterResourceManager.launchedResources.contains(resource1));
+      }
+    };
+    MockContainerListener listener = new MockContainerListener(2, 0, 2, 2, addContainerAssertions, null, assignContainerAssertions, runningContainerAssertions);
+    requestState.registerContainerListener(listener);
+    clusterResourceManager.registerContainerListener(listener);
+
+    // request for resources - one each on host-1 and host-2
+    containerAllocator.requestResources(containersToHostMapping);
+    assertEquals(requestState.numPendingRequests(), 2);
+    assertNotNull(requestState.getRequestsToCountMap());
+    assertNotNull(requestState.getRequestsToCountMap().get("host-1"));
+    assertTrue(requestState.getRequestsToCountMap().get("host-1").get() == 1);
+    assertNotNull(requestState.getRequestsToCountMap().get("host-2"));
+    assertTrue(requestState.getRequestsToCountMap().get("host-2").get() == 1);
+
+    // verify that no containers have been launched yet (since, YARN has not provided any resources)
+    assertEquals(0, clusterResourceManager.launchedResources.size());
+
+    // provide a resource on host-3
+    containerAllocator.addResource(resource0);
+    allocatorThread.start();
+    // verify that the first preferred host request should expire and container-0 should launch on host-3
+    if (!clusterResourceManager.awaitContainerLaunch(1, 20, TimeUnit.SECONDS)) {
+      Assert.fail("Timed out waiting for container-0 to launch");
+    }
+    // verify that the second preferred host request should expire and should trigger ANY_HOST requests
+    if (!clusterResourceManager.awaitResourceRequests(4, 20, TimeUnit.SECONDS)) {
+      Assert.fail("Timed out waiting for resource requests");
+    }
+    // finally, provide a container from YARN after multiple requests
+    containerAllocator.addResource(resource1);
+    // verify all the test assertions
     listener.verify();
   }
 
