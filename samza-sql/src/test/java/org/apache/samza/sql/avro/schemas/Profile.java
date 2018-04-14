@@ -26,7 +26,7 @@ package org.apache.samza.sql.avro.schemas;
 
 @SuppressWarnings("all")
 public class Profile extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  public static final org.apache.avro.Schema SCHEMA$ = org.apache.avro.Schema.parse("{\"type\":\"record\",\"name\":\"Profile\",\"namespace\":\"org.apache.samza.sql.avro.schemas\",\"fields\":[{\"name\":\"id\",\"type\":[\"null\",\"int\"],\"doc\":\"Profile id.\",\"default\":null},{\"name\":\"name\",\"type\":[\"null\",\"string\"],\"doc\":\"Profile name.\",\"default\":null},{\"name\":\"companyId\",\"type\":[\"null\",\"int\"],\"doc\":\"Company id.\",\"default\":null},{\"name\":\"address\",\"type\":{\"type\":\"record\",\"name\":\"AddressRecord\",\"fields\":[{\"name\":\"zip\",\"type\":[\"null\",\"int\"],\"doc\":\"zip code.\",\"default\":null},{\"name\":\"streetnum\",\"type\":{\"type\":\"record\",\"name\":\"StreetNumRecord\",\"fields\":[{\"name\":\"number\",\"type\":[\"null\",\"int\"],\"doc\":\"street number.\",\"default\":null}]},\"doc\":\"Street Number\",\"default\":null}]},\"doc\":\"Profile Address\",\"default\":null},{\"name\":\"selfEmployed\",\"type\":[\"null\",\"boolean\"],\"doc\":\"Boolean Value.\",\"default\":null},{\"name\":\"phoneNumbers\",\"type\":[\"null\",{\"type\":\"array\",\"items\":{\"type\":\"record\",\"name\":\"PhoneNumber\",\"fields\":[{\"name\":\"kind\",\"type\":{\"type\":\"enum\",\"name\":\"Kind\",\"symbols\":[\"Home\",\"Work\",\"Cell\"]}},{\"name\":\"number\",\"type\":\"string\"}]}}],\"doc\":\"array values in the record.\",\"default\":null},{\"name\":\"map_values\",\"type\":[\"null\",{\"type\":\"map\",\"values\":\"string\"}],\"doc\":\"map values in the record.\",\"default\":null}]}");
+  public static final org.apache.avro.Schema SCHEMA$ = org.apache.avro.Schema.parse("{\"type\":\"record\",\"name\":\"Profile\",\"namespace\":\"org.apache.samza.sql.avro.schemas\",\"fields\":[{\"name\":\"id\",\"type\":[\"null\",\"int\"],\"doc\":\"Profile id.\",\"default\":null},{\"name\":\"name\",\"type\":[\"null\",\"string\"],\"doc\":\"Profile name.\",\"default\":null},{\"name\":\"companyId\",\"type\":[\"null\",\"int\"],\"doc\":\"Company id.\",\"default\":null},{\"name\":\"address\",\"type\":{\"type\":\"record\",\"name\":\"AddressRecord\",\"fields\":[{\"name\":\"zip\",\"type\":[\"null\",\"int\"],\"doc\":\"zip code.\",\"default\":null},{\"name\":\"streetnum\",\"type\":{\"type\":\"record\",\"name\":\"StreetNumRecord\",\"fields\":[{\"name\":\"number\",\"type\":[\"null\",\"int\"],\"doc\":\"street number.\",\"default\":null}]},\"doc\":\"Street Number\",\"default\":null}]},\"doc\":\"Profile Address\",\"default\":null},{\"name\":\"selfEmployed\",\"type\":[\"null\",\"boolean\"],\"doc\":\"Boolean Value.\",\"default\":null},{\"name\":\"phoneNumbers\",\"type\":[\"null\",{\"type\":\"array\",\"items\":{\"type\":\"record\",\"name\":\"PhoneNumber\",\"fields\":[{\"name\":\"kind\",\"type\":{\"type\":\"enum\",\"name\":\"Kind\",\"symbols\":[\"Home\",\"Work\",\"Cell\"]}},{\"name\":\"number\",\"type\":\"string\"}]}}],\"doc\":\"array values in the record.\",\"default\":null},{\"name\":\"mapValues\",\"type\":[\"null\",{\"type\":\"map\",\"values\":[{\"type\":\"record\",\"name\":\"SimpleRecord\",\"fields\":[{\"name\":\"id\",\"type\":[\"null\",\"int\"],\"doc\":\"Record id.\",\"default\":null},{\"name\":\"name\",\"type\":[\"null\",\"string\"],\"doc\":\"Some name.\",\"default\":null}]}]}],\"doc\":\"map values in the record.\",\"default\":null}]}");
   /** Profile id. */
   public java.lang.Integer id;
   /** Profile name. */
@@ -38,9 +38,9 @@ public class Profile extends org.apache.avro.specific.SpecificRecordBase impleme
   /** Boolean Value. */
   public java.lang.Boolean selfEmployed;
   /** array values in the record. */
-  public java.util.List<PhoneNumber> phoneNumbers;
+  public java.util.List<org.apache.samza.sql.avro.schemas.PhoneNumber> phoneNumbers;
   /** map values in the record. */
-  public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> map_values;
+  public java.util.Map<java.lang.CharSequence,java.lang.Object> mapValues;
   public org.apache.avro.Schema getSchema() { return SCHEMA$; }
   // Used by DatumWriter.  Applications should not call.
   public java.lang.Object get(int field$) {
@@ -51,7 +51,7 @@ public class Profile extends org.apache.avro.specific.SpecificRecordBase impleme
     case 3: return address;
     case 4: return selfEmployed;
     case 5: return phoneNumbers;
-    case 6: return map_values;
+    case 6: return mapValues;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
@@ -64,8 +64,8 @@ public class Profile extends org.apache.avro.specific.SpecificRecordBase impleme
     case 2: companyId = (java.lang.Integer)value$; break;
     case 3: address = (org.apache.samza.sql.avro.schemas.AddressRecord)value$; break;
     case 4: selfEmployed = (java.lang.Boolean)value$; break;
-    case 5: phoneNumbers = (java.util.List<PhoneNumber>)value$; break;
-    case 6: map_values = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)value$; break;
+    case 5: phoneNumbers = (java.util.List<org.apache.samza.sql.avro.schemas.PhoneNumber>)value$; break;
+    case 6: mapValues = (java.util.Map<java.lang.CharSequence,java.lang.Object>)value$; break;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }

@@ -240,10 +240,16 @@ public class TestAvroRelConversion {
     phoneNumbers.add(phoneNumberRecordC);
     record.put("phoneNumbers", phoneNumbers);
 
-    HashMap<String, String> mapValues = new HashMap<>();
-    mapValues.put("key1", "value1");
-    mapValues.put("key2", "value2");
-    record.put("map_values", mapValues);
+    GenericData.Record simpleRecord1 = new GenericData.Record(SimpleRecord.SCHEMA$);
+    simpleRecord1.put("id", 1);
+    simpleRecord1.put("name", "name1");
+    GenericData.Record simpleRecord2 = new GenericData.Record(SimpleRecord.SCHEMA$);
+    simpleRecord2.put("id", 2);
+    simpleRecord2.put("name", "name2");
+    HashMap<String, IndexedRecord> mapValues = new HashMap<>();
+    mapValues.put("key1", simpleRecord1);
+    mapValues.put("key2", simpleRecord2);
+    record.put("mapValues", mapValues);
 
     SamzaSqlRelMessage relMessage = nestedRecordAvroRelConverter.convertToRelMessage(new KV<>("key", record));
 

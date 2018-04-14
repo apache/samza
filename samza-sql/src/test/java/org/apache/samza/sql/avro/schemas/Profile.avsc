@@ -109,13 +109,39 @@
             ]
         },
         {
-            "name": "map_values",
+            "name": "mapValues",
             "doc" : "map values in the record.",
             "default": null,
             "type": [ "null",
                 {
                     "type": "map",
-                    "values": "string"
+                    "values":[
+                        {
+                            "name": "SimpleRecord",
+                            "version" : 1,
+                            "type": "record",
+                            "fields": [
+                                {
+                                    "name": "id",
+                                    "doc": "Record id.",
+                                    "type": [
+                                        "null",
+                                        "int"
+                                    ],
+                                    "default": null
+                                },
+                                {
+                                    "name": "name",
+                                    "doc": "Some name.",
+                                    "type": [
+                                        "null",
+                                        "string"
+                                    ],
+                                    "default": null
+                                }
+                            ]
+                        }
+                    ]
                 }
             ]
         }
