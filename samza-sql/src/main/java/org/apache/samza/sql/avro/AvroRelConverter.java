@@ -49,8 +49,8 @@ import static org.apache.samza.sql.data.SamzaSqlRelMessage.SamzaSqlRelRecord;
  *     The key part of the samza message is represented as a special column {@link SamzaSqlRelMessage#KEY_NAME}
  *     in relational message.
  *
- *     The value part of the samza message is expected to be {@link IndexedRecord}, All the fields in the IndexedRecord form
- *     the corresponding fields of the relational message.
+ *     The value part of the samza message is expected to be {@link IndexedRecord}, All the fields in the IndexedRecord
+ *     form the corresponding fields of the relational message.
  *
  * Conversion from Relational to Samza Message :
  *     This converts the Samza relational message into Avro {@link GenericRecord}.
@@ -121,7 +121,7 @@ public class AvroRelConverter implements SamzaRelConverter {
   }
 
   /**
-   * Convert the nested relational message to the output message.
+   * Convert the nested relational message to the output samza message.
    */
   @Override
   public KV<Object, Object> convertToSamzaMessage(SamzaSqlRelMessage relMessage) {
@@ -141,35 +141,43 @@ public class AvroRelConverter implements SamzaRelConverter {
         Object relObj = values.get(index);
         String fieldName = fieldNames.get(index);
         Schema fieldSchema = schema.getField(fieldName).schema();
-        record.put(fieldName, convertToAvroObject(fieldSchema, relObj));
+        record.put(fieldName, convertToAvroObject(relObj, fieldSchema));
       }
     }
     return record;
   }
 
-  private Object convertToAvroObject(Schema schema, Object relObj) {
+  private Object convertToAvroObject(Object relObj, Schema schema) {
     if (relObj == null) {
       return null;
     }
-    if (relObj instanceof SamzaSqlRelRecord) {
-      return convertToGenericRecord((SamzaSqlRelRecord) relObj, getNonNullUnionSchema(schema));
-    } else if (relObj instanceof List) {
-      List<Object> avroList =
-          ((List<Object>) relObj).stream()
-              .map(o -> convertToAvroObject(getNonNullUnionSchema(schema).getElementType(), o))
-              .collect(Collectors.toList());
-      return avroList;
-    } else if (relObj instanceof Map) {
-      return ((Map<String, ?>) relObj).entrySet().stream()
-          .collect(Collectors.toMap(
-                  Map.Entry::getKey,
-                  e -> convertToAvroObject(getNonNullUnionSchema(schema).getValueType(), e.getValue())));
+    switch(schema.getType()) {
+      case RECORD:
+        return convertToGenericRecord((SamzaSqlRelRecord) relObj, getNonNullUnionSchema(schema));
+      case ARRAY:
+        List<Object> avroList = ((List<Object>) relObj).stream()
+            .map(o -> convertToAvroObject(o, getNonNullUnionSchema(schema).getElementType()))
+            .collect(Collectors.toList());
+        return avroList;
+      case MAP:
+        return ((Map<String, ?>) relObj).entrySet()
+            .stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> convertToAvroObject(e.getValue(),
+                getNonNullUnionSchema(schema).getValueType())));
+      case UNION:
+        return convertToAvroObject(relObj, getNonNullUnionSchema(schema));
+      default:
+        return relObj;
     }
-    return relObj;
   }
 
   private Object convertToJavaObject(Object avroObj, Schema schema) {
     switch(schema.getType()) {
+      case RECORD:
+        if (avroObj == null) {
+          return null;
+        }
+        return convertToRelRecord((IndexedRecord) avroObj);
       case ARRAY: {
         ArrayList<Object> retVal = new ArrayList<>();
         if (avroObj != null) {
@@ -199,11 +207,6 @@ public class AvroRelConverter implements SamzaRelConverter {
         }
         return retVal;
       }
-      case RECORD:
-        if (avroObj == null) {
-          return null;
-        }
-        return convertToRelRecord((IndexedRecord) avroObj);
       case UNION:
         if (avroObj == null) {
           return null;
