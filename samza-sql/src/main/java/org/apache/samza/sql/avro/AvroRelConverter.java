@@ -171,6 +171,8 @@ public class AvroRelConverter implements SamzaRelConverter {
     }
   }
 
+  // Not doing any validations of data types with Avro schema considering the resource cost per message.
+  // Casting would fail if the data types are not in sync with the schema.
   private Object convertToJavaObject(Object avroObj, Schema schema) {
     switch(schema.getType()) {
       case RECORD:
