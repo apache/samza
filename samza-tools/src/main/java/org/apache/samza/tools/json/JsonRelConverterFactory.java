@@ -59,8 +59,8 @@ public class JsonRelConverterFactory implements SamzaRelConverterFactory {
       String jsonValue;
       ObjectNode node = mapper.createObjectNode();
 
-      List<String> fieldNames = relMessage.getFieldNames();
-      List<Object> values = relMessage.getFieldValues();
+      List<String> fieldNames = relMessage.getSamzaSqlRelRecord().getFieldNames();
+      List<Object> values = relMessage.getSamzaSqlRelRecord().getFieldValues();
 
       for (int index = 0; index < fieldNames.size(); index++) {
         Object value = values.get(index);
