@@ -19,12 +19,9 @@
 
 package org.apache.samza.system.inmemory;
 
-import com.google.common.base.Strings;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.samza.config.Config;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.StreamValidationException;
 import org.apache.samza.system.SystemAdmin;
@@ -37,11 +34,9 @@ import org.apache.samza.system.SystemStreamPartition;
  */
 public class InMemorySystemAdmin implements SystemAdmin {
   private final InMemoryManager inMemoryManager;
-  private final InMemorySystemConfig inMemorySystemConfig;
 
-  public InMemorySystemAdmin(InMemoryManager manager, Config config) {
+  public InMemorySystemAdmin(InMemoryManager manager) {
     inMemoryManager = manager;
-    inMemorySystemConfig = new InMemorySystemConfig(config);
   }
 
   @Override
@@ -97,21 +92,11 @@ public class InMemorySystemAdmin implements SystemAdmin {
    */
   @Override
   public Integer offsetComparator(String offset1, String offset2) {
-    int o1 = Optional.ofNullable(offset1)
-        .filter(Strings::isNullOrEmpty)
-        .map(Integer::parseInt)
-        .orElse(-1);
-
-    int o2 = Optional.ofNullable(offset2)
-        .filter(Strings::isNullOrEmpty)
-        .map(Integer::parseInt)
-        .orElse(-1);
-
-    if (o1 == -1 || o2 == -1) {
+    if (offset1 == null || offset2 == null) {
       return null;
     }
 
-    return Integer.compare(o1, o2);
+    return Integer.compare(Integer.parseInt(offset1), Integer.parseInt(offset2));
   }
 
   /**
@@ -124,9 +109,7 @@ public class InMemorySystemAdmin implements SystemAdmin {
    */
   @Override
   public boolean createStream(StreamSpec streamSpec) {
-    return Optional.ofNullable(inMemorySystemConfig.getSerializedDataSet(streamSpec.getId()))
-        .map(serializedData -> inMemoryManager.initializeStream(streamSpec, serializedData))
-        .orElse(inMemoryManager.initializeStream(streamSpec));
+    return inMemoryManager.initializeStream(streamSpec);
   }
 
   /**

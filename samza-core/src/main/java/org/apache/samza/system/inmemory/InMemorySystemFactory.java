@@ -40,11 +40,11 @@ public class InMemorySystemFactory implements SystemFactory {
 
   @Override
   public SystemProducer getProducer(String systemName, Config config, MetricsRegistry registry) {
-    return new InMemorySystemProducer(systemName, new InMemorySystemConfig(config), registry, MEMORY_MANAGER);
+    return new InMemorySystemProducer(systemName, MEMORY_MANAGER);
   }
 
   @Override
   public SystemAdmin getAdmin(String systemName, Config config) {
-    return new InMemorySystemAdmin(MEMORY_MANAGER, config);
+    return new InMemorySystemAdmin(MEMORY_MANAGER);
   }
 }

@@ -27,12 +27,16 @@ import java.util.stream.Collectors;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemStreamPartition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
  * Initial draft of in-memory {@link SystemConsumer}. It is test only and not meant for production use right now.
  */
 public class InMemorySystemConsumer implements SystemConsumer {
+  private static final Logger LOG = LoggerFactory.getLogger(InMemorySystemConsumer.class);
+
   private final InMemoryManager memoryManager;
   private final Map<SystemStreamPartition, String> sspToOffset;
 
@@ -47,7 +51,7 @@ public class InMemorySystemConsumer implements SystemConsumer {
    */
   @Override
   public void start() {
-
+    LOG.info("Starting in memory system consumer...");
   }
 
   /**
@@ -57,7 +61,7 @@ public class InMemorySystemConsumer implements SystemConsumer {
    */
   @Override
   public void stop() {
-
+    LOG.info("Stopping in memory system consumer...");
   }
 
   /**
@@ -77,6 +81,7 @@ public class InMemorySystemConsumer implements SystemConsumer {
    */
   @Override
   public void register(SystemStreamPartition systemStreamPartition, String offset) {
+    LOG.info("Registering ssp {} with starting offset {}", systemStreamPartition, offset);
     sspToOffset.put(systemStreamPartition, offset);
   }
 

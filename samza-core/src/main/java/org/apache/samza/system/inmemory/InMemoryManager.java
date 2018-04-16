@@ -41,7 +41,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Initial draft of in-memory manager. It is test only and not meant for production use right now.
  */
-public class InMemoryManager {
+class InMemoryManager {
   private static final Logger LOG = LoggerFactory.getLogger(InMemoryManager.class);
   private static final int DEFAULT_PARTITION_COUNT = 1;
 
@@ -57,11 +57,14 @@ public class InMemoryManager {
     return  Collections.synchronizedList(new LinkedList<IncomingMessageEnvelope>());
   }
 
-  public void put(SystemStreamPartition ssp, Object message) {
-    put(ssp, null, message);
-  }
-
-  public void put(SystemStreamPartition ssp, Object key, Object message) {
+  /**
+   * Handles the produce request from {@link InMemorySystemProducer} and populates the underlying message queue.
+   *
+   * @param ssp system stream partition
+   * @param key key for message produced
+   * @param message actual payload
+   */
+  void put(SystemStreamPartition ssp, Object key, Object message) {
     List<IncomingMessageEnvelope> messages = bufferedMessages.get(ssp);
     String offset = String.valueOf(messages.size());
 
@@ -74,23 +77,20 @@ public class InMemoryManager {
         .add(messageEnvelope);
   }
 
-  public Map<SystemStreamPartition, List<IncomingMessageEnvelope>> poll(Map<SystemStreamPartition, String> sspsToOffsets) {
+  /**
+   * Handles the poll request from {@link InMemorySystemConsumer}. It uses the input offset as the starting offset for
+   * each {@link SystemStreamPartition}.
+   *
+   * @param sspsToOffsets ssps to offset mapping
+   *
+   * @return a {@link Map} of {@link SystemStreamPartition} to {@link List} of {@link IncomingMessageEnvelope}
+   */
+  Map<SystemStreamPartition, List<IncomingMessageEnvelope>> poll(Map<SystemStreamPartition, String> sspsToOffsets) {
     return sspsToOffsets.entrySet()
         .stream()
         .collect(Collectors.toMap(
             Map.Entry::getKey,
             entry -> poll(entry.getKey(), entry.getValue())));
-  }
-
-  private List<IncomingMessageEnvelope> poll(SystemStreamPartition ssp, String offset) {
-    int startingOffset = Integer.parseInt(offset);
-    List<IncomingMessageEnvelope> messageEnvelopesForSSP = bufferedMessages.getOrDefault(ssp, new LinkedList<>());
-
-    if (startingOffset >= messageEnvelopesForSSP.size()) {
-      return new ArrayList<>();
-    }
-
-    return messageEnvelopesForSSP.subList(startingOffset, messageEnvelopesForSSP.size());
   }
 
   /**
@@ -100,7 +100,8 @@ public class InMemoryManager {
    *
    * @return true if successful, false otherwise
    */
-  public boolean initializeStream(StreamSpec streamSpec) {
+  boolean initializeStream(StreamSpec streamSpec) {
+    LOG.info("Initializing the stream for {}", streamSpec.getId());
     systemStreamToPartitions.put(streamSpec.toSystemStream(), streamSpec.getPartitionCount());
 
     for (int partition = 0; partition < streamSpec.getPartitionCount(); partition++) {
@@ -112,27 +113,14 @@ public class InMemoryManager {
     return true;
   }
 
-  public boolean initializeStream(StreamSpec streamSpec, String serializedDataSet) {
-    boolean populateStream = false;
-    boolean initializeMetadata = initializeStream(streamSpec);
-    try {
-      int partition;
-      Set<Object> dataSet = InMemorySystemUtils.deserialize(serializedDataSet);
-
-      for (Object data : dataSet) {
-        partition = data.hashCode() % streamSpec.getPartitionCount();
-        put(new SystemStreamPartition(streamSpec.toSystemStream(), new Partition(partition)), data);
-      }
-
-      populateStream = true;
-    } catch (Exception e) {
-      LOG.error("Unable to initialize the stream due to deserialization error.", e);
-    }
-
-    return populateStream && initializeMetadata;
-  }
-
-  public Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames) {
+  /**
+   * Fetch system stream metadata for the given streams.
+   *
+   * @param streamNames set of input streams
+   *
+   * @return a {@link Map} of stream to {@link SystemStreamMetadata}
+   */
+  Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames) {
     Map<String, Map<SystemStreamPartition, List<IncomingMessageEnvelope>>> result =
         bufferedMessages.entrySet()
             .stream()
@@ -147,7 +135,14 @@ public class InMemoryManager {
             entry -> constructSystemStreamMetadata(entry.getKey(), entry.getValue())));
   }
 
-  public int getPartitionCountForSystemStream(SystemStream systemStream) {
+  /**
+   * Fetch partition count for the given input stream stream.
+   *
+   * @param systemStream input system stream
+   *
+   * @return the partition count if available or {@link InMemoryManager#DEFAULT_PARTITION_COUNT}
+   */
+  int getPartitionCountForSystemStream(SystemStream systemStream) {
     return systemStreamToPartitions.getOrDefault(systemStream, DEFAULT_PARTITION_COUNT);
   }
 
@@ -169,5 +164,16 @@ public class InMemoryManager {
               }));
 
     return new SystemStreamMetadata(systemName, partitionMetadata);
+  }
+
+  private List<IncomingMessageEnvelope> poll(SystemStreamPartition ssp, String offset) {
+    int startingOffset = Integer.parseInt(offset);
+    List<IncomingMessageEnvelope> messageEnvelopesForSSP = bufferedMessages.getOrDefault(ssp, new LinkedList<>());
+
+    if (startingOffset >= messageEnvelopesForSSP.size()) {
+      return new ArrayList<>();
+    }
+
+    return messageEnvelopesForSSP.subList(startingOffset, messageEnvelopesForSSP.size());
   }
 }

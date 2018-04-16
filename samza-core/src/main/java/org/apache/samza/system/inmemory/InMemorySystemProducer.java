@@ -21,7 +21,6 @@ package org.apache.samza.system.inmemory;
 
 import java.util.Optional;
 import org.apache.samza.Partition;
-import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStreamPartition;
@@ -36,13 +35,9 @@ public class InMemorySystemProducer implements SystemProducer {
   private static final Logger LOG = LoggerFactory.getLogger(InMemorySystemProducer.class);
   private final InMemoryManager memoryManager;
   private final String systemName;
-  private final InMemorySystemConfig inMemorySystemConfig;
-  private final MetricsRegistry metricsRegistry;
 
-  public InMemorySystemProducer(String systemName, InMemorySystemConfig config, MetricsRegistry metricsRegistry, InMemoryManager manager) {
+  public InMemorySystemProducer(String systemName, InMemoryManager manager) {
     this.systemName = systemName;
-    this.metricsRegistry = metricsRegistry;
-    this.inMemorySystemConfig = config;
     this.memoryManager = manager;
   }
 
@@ -51,7 +46,7 @@ public class InMemorySystemProducer implements SystemProducer {
    */
   @Override
   public void start() {
-
+    LOG.info("Starting in memory system producer for {}", systemName);
   }
 
   /**
@@ -60,7 +55,7 @@ public class InMemorySystemProducer implements SystemProducer {
    */
   @Override
   public void stop() {
-
+    LOG.info("Stopping in memory system producer for {}", systemName);
   }
 
   /**
@@ -70,7 +65,7 @@ public class InMemorySystemProducer implements SystemProducer {
    */
   @Override
   public void register(String source) {
-
+    LOG.info("Registering source {} with in memory producer", source);
   }
 
   /**
