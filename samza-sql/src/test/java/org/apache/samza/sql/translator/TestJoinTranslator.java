@@ -176,7 +176,8 @@ public class TestJoinTranslator extends TranslatorTestBase {
     outputFieldNames.addAll(rightStreamFieldNames);
     assertEquals(outputFieldNames, Whitebox.getInternalState(joinFn, "outFieldNames"));
 
-    StreamTableJoinOperatorSpec copyJoinSpec = joinSpec.copy();
+    StreamTableJoinOperatorSpec copyJoinSpec =
+        (StreamTableJoinOperatorSpec) OperatorSpec.fromByte(OperatorSpec.toByte(joinSpec));
     assertTrue(joinSpec != copyJoinSpec);
     assertTrue(copyJoinSpec.getTableSpec() != null);
     assertTrue(copyJoinSpec.getJoinFn() != joinSpec.getJoinFn());

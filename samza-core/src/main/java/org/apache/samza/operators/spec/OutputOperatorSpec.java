@@ -18,8 +18,6 @@
  */
 package org.apache.samza.operators.spec;
 
-import java.io.IOException;
-
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
@@ -53,10 +51,6 @@ public class OutputOperatorSpec<M> extends OperatorSpec<M, Void> {
    */
   public OutputStreamImpl<M> getOutputStream() {
     return this.outputStream;
-  }
-
-  public OutputOperatorSpec<M> copy() throws IOException, ClassNotFoundException {
-    return (OutputOperatorSpec<M>) super.copy();
   }
 
   @Override

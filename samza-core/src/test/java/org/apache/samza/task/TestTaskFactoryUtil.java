@@ -21,9 +21,12 @@ package org.apache.samza.task;
 import java.lang.reflect.Field;
 import java.util.concurrent.ExecutorService;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.StreamApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.testUtils.TestAsyncStreamTask;
 import org.apache.samza.testUtils.TestStreamTask;
@@ -31,7 +34,11 @@ import org.junit.Test;
 
 import java.util.HashMap;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 
 /**
@@ -66,6 +73,123 @@ public class TestTaskFactoryUtil {
   }
 
   @Test
+  public void testCreateStreamApplication() throws Exception {
+    Config config = new MapConfig(new HashMap<String, String>() {
+      {
+        this.put(ApplicationConfig.APP_CLASS, "org.apache.samza.testUtils.TestStreamApplication");
+      }
+    });
+    StreamApplication streamApp = TaskFactoryUtil.createStreamApplication(config);
+    assertNotNull(streamApp);
+    StreamGraphImpl graph = new StreamGraphImpl(mockRunner, config);
+    streamApp.init(graph, config);
+    Object retFactory = TaskFactoryUtil.createTaskFactory(config, graph);
+    assertTrue(retFactory instanceof StreamTaskFactory);
+    assertTrue(((StreamTaskFactory) retFactory).createInstance() instanceof StreamOperatorTask);
+
+    config = new MapConfig(new HashMap<String, String>() {
+      {
+        this.put(ApplicationConfig.APP_CLASS, "org.apache.samza.testUtils.InvalidStreamApplication");
+      }
+    });
+    try {
+      TaskFactoryUtil.createStreamApplication(config);
+      fail("Should have failed w/ no.such.class");
+    } catch (ConfigException ce) {
+      // expected
+    }
+
+    config = new MapConfig(new HashMap<String, String>() {
+      {
+        this.put(ApplicationConfig.APP_CLASS, "no.such.class");
+      }
+    });
+    try {
+      TaskFactoryUtil.createStreamApplication(config);
+      fail("Should have failed w/ no.such.class");
+    } catch (ConfigException ce) {
+      // expected
+    }
+
+    config = new MapConfig(new HashMap<String, String>() {
+      {
+        this.put(ApplicationConfig.APP_CLASS, "");
+      }
+    });
+    streamApp = TaskFactoryUtil.createStreamApplication(config);
+    assertNull(streamApp);
+
+    config = new MapConfig(new HashMap<>());
+    streamApp = TaskFactoryUtil.createStreamApplication(config);
+    assertNull(streamApp);
+  }
+
+  @Test
+  public void testCreateStreamApplicationWithTaskClass() throws Exception {
+    Config config = new MapConfig(new HashMap<String, String>() {
+      {
+        this.put(ApplicationConfig.APP_CLASS, "org.apache.samza.testUtils.TestStreamApplication");
+      }
+    });
+    StreamApplication streamApp = TaskFactoryUtil.createStreamApplication(config);
+    assertNotNull(streamApp);
+
+    config = new MapConfig(new HashMap<String, String>() {
+      {
+        this.put("task.class", "org.apache.samza.testUtils.TestAsyncStreamTask");
+        this.put(ApplicationConfig.APP_CLASS, "org.apache.samza.testUtils.TestStreamApplication");
+      }
+    });
+    try {
+      TaskFactoryUtil.createStreamApplication(config);
+      fail("should have failed with invalid config");
+    } catch (ConfigException ce) {
+      // expected
+    }
+
+    config = new MapConfig(new HashMap<String, String>() {
+      {
+        this.put("task.class", "no.such.class");
+        this.put(ApplicationConfig.APP_CLASS, "org.apache.samza.testUtils.TestStreamApplication");
+      }
+    });
+    try {
+      TaskFactoryUtil.createStreamApplication(config);
+      fail("should have failed with invalid config");
+    } catch (ConfigException ce) {
+      // expected
+    }
+
+
+    config = new MapConfig(new HashMap<String, String>() {
+      {
+        this.put("task.class", "");
+        this.put(ApplicationConfig.APP_CLASS, "org.apache.samza.testUtils.TestStreamApplication");
+      }
+    });
+    streamApp = TaskFactoryUtil.createStreamApplication(config);
+    assertNotNull(streamApp);
+
+  }
+
+  @Test
+  public void testStreamTaskClassWithInvalidStreamApplication() throws Exception {
+
+    Config config = new MapConfig(new HashMap<String, String>() {
+      {
+        this.put(ApplicationConfig.APP_CLASS, "org.apache.samza.testUtils.InvalidStreamApplication");
+      }
+    });
+    try {
+      TaskFactoryUtil.createStreamApplication(config);
+      fail("Should have failed w/ no.such.class");
+    } catch (ConfigException ce) {
+      // expected
+    }
+
+  }
+
+  @Test
   public void testAsyncStreamTask() {
     Config config = new MapConfig(new HashMap<String, String>() {
       {
@@ -83,6 +207,22 @@ public class TestTaskFactoryUtil {
     });
     try {
       TaskFactoryUtil.createTaskFactory(config, null);
+      fail("Should have failed w/ no.such.class");
+    } catch (ConfigException cfe) {
+      // expected
+    }
+  }
+
+  @Test
+  public void testAsyncStreamTaskWithInvalidStreamGraphBuilder() throws Exception {
+
+    Config config = new MapConfig(new HashMap<String, String>() {
+      {
+        this.put(ApplicationConfig.APP_CLASS, "org.apache.samza.testUtils.InvalidStreamApplication");
+      }
+    });
+    try {
+      TaskFactoryUtil.createStreamApplication(config);
       fail("Should have failed w/ no.such.class");
     } catch (ConfigException cfe) {
       // expected

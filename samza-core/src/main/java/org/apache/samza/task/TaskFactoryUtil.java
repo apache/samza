@@ -25,6 +25,7 @@ import org.apache.samza.config.ConfigException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.impl.SerializedStreamGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,10 +50,10 @@ public class TaskFactoryUtil {
    * @return  a task factory object, either a instance of {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory}
    */
   public static Object createTaskFactory(Config config, StreamGraphImpl streamGraph) {
-    return (streamGraph != null) ? createStreamOperatorTaskFactory(streamGraph) : fromTaskClassConfig(config);
+    return (streamGraph != null) ? createStreamOperatorTaskFactory(new SerializedStreamGraph(streamGraph)) : fromTaskClassConfig(config);
   }
 
-  private static StreamTaskFactory createStreamOperatorTaskFactory(StreamGraphImpl streamGraph) {
+  private static StreamTaskFactory createStreamOperatorTaskFactory(SerializedStreamGraph streamGraph) {
     return () -> new StreamOperatorTask(streamGraph);
   }
 

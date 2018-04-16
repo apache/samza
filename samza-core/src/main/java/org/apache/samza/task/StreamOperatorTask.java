@@ -19,11 +19,11 @@
 package org.apache.samza.task;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.impl.SerializedStreamGraph;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.MessageType;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.impl.InputOperatorImpl;
 import org.apache.samza.operators.impl.OperatorImplGraph;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -37,38 +37,40 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A {@link StreamTask} implementation that brings all the operator API implementation components together and
- * feeds the input messages into the user-defined transformation chains in {@link StreamGraphImpl}.
+ * feeds the input messages into the user-defined transformation chains in {@link org.apache.samza.operators.StreamGraphImpl}.
  */
 public class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask {
   private static final Logger LOG = LoggerFactory.getLogger(StreamOperatorTask.class);
 
-  private final StreamGraphImpl streamGraph;
+  private final SerializedStreamGraph serializedGraph;
   private final Clock clock;
 
   private OperatorImplGraph operatorImplGraph;
   private ContextManager contextManager;
 
   /**
-   * Constructs an adaptor task to run the user-implemented {@link StreamGraphImpl}.
-   * @param streamGraph the user-implemented {@link StreamGraphImpl} that creates the logical DAG
+   * Constructs an adaptor task to run the user-implemented {@link org.apache.samza.operators.StreamGraphImpl}.
+   * @param serializedGraph the serialized version of user-implemented {@link org.apache.samza.operators.StreamGraphImpl} that includes the logical DAG
    * @param clock the {@link Clock} to use for time-keeping
    */
-  public StreamOperatorTask(StreamGraphImpl streamGraph, Clock clock) {
-    this.streamGraph = streamGraph;
+  public StreamOperatorTask(SerializedStreamGraph serializedGraph, Clock clock) {
+    this.serializedGraph = serializedGraph;
     this.clock = clock;
   }
 
-  public StreamOperatorTask(StreamGraphImpl application) {
+  public StreamOperatorTask(SerializedStreamGraph application) {
     this(application, SystemClock.instance());
   }
 
   /**
    * Initializes this task during startup.
    * <p>
-   * Implementation: Initializes the user-implemented {@link StreamGraphImpl}. The {@link StreamGraphImpl} sets
-   * the input and output streams and the task-wide context manager using the {@link StreamGraphImpl} APIs,
+   * Implementation: Initializes the user-implemented {@link org.apache.samza.operators.StreamGraphImpl}.
+   * The {@link org.apache.samza.operators.StreamGraphImpl} sets the input and output streams and the task-wide
+   * context manager using the {@link org.apache.samza.operators.StreamGraphImpl} APIs,
    * and the logical transforms using the {@link org.apache.samza.operators.MessageStream} APIs. It then uses
-   * the {@link StreamGraphImpl} to create the {@link OperatorImplGraph} corresponding to the logical DAG.
+   * the serialized instance of {@link org.apache.samza.operators.StreamGraphImpl} to create the {@link OperatorImplGraph}
+   * corresponding to the logical DAG.
    *
    * @param config allows accessing of fields in the configuration files that this StreamTask is specified in
    * @param context allows initializing and accessing contextual data of this StreamTask
@@ -79,15 +81,15 @@ public class StreamOperatorTask implements StreamTask, InitableTask, WindowableT
 
     // get the user-implemented context manager and initialize it
     // NOTE: if we don't clone the ContextManager for each task, global variables used across different tasks are possible.
-    if (streamGraph.getContextManager() != null) {
-      this.contextManager = streamGraph.getContextManager();
+    if (serializedGraph.getContextManager() != null) {
+      this.contextManager = serializedGraph.getContextManager();
       if (this.contextManager != null) {
         this.contextManager.init(config, context);
       }
     }
 
     // create the operator impl DAG corresponding to the logical operator spec DAG
-    this.operatorImplGraph = new OperatorImplGraph(streamGraph, config, context, clock);
+    this.operatorImplGraph = new OperatorImplGraph(serializedGraph, config, context, clock);
   }
 
   /**

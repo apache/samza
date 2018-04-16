@@ -129,7 +129,7 @@ public class TestFilterTranslator extends TranslatorTestBase {
     }).when(mockExpr).execute(eq(executionContext), eq(dataContext), eq(mockInputMsg.getFieldValues().toArray()), eq(result));
     assertFalse(filterFn.apply(mockInputMsg));
 
-    StreamOperatorSpec copyFilterSpec = filterSpec.copy();
+    StreamOperatorSpec copyFilterSpec = (StreamOperatorSpec) OperatorSpec.fromByte(OperatorSpec.toByte(filterSpec));
     assertTrue(copyFilterSpec != filterSpec);
     assertTrue(copyFilterSpec.getTransformFn() != null);
     assertTrue(copyFilterSpec.getTransformFn() != filterSpec.getTransformFn());

@@ -22,7 +22,6 @@ package org.apache.samza.operators.impl;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import java.io.Serializable;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
@@ -33,6 +32,7 @@ import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.impl.store.TestInMemoryStore;
 import org.apache.samza.operators.impl.store.TimeSeriesKeySerde;
 import org.apache.samza.operators.triggers.FiringType;
@@ -75,7 +75,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 //TODO: why do we have to make the outer class implement Serializable?????
-public class TestWindowOperator implements Serializable {
+public class TestWindowOperator {
   private transient final TaskCoordinator taskCoordinator = mock(TaskCoordinator.class);
   private transient final List<Integer> integers = ImmutableList.of(1, 2, 1, 2, 1, 2, 1, 2, 3);
   private transient Config config;
@@ -110,8 +110,8 @@ public class TestWindowOperator implements Serializable {
   @Test
   public void testTumblingWindowsDiscardingMode() throws Exception {
 
-    StreamGraphImpl sgb = this.getKeyedTumblingWindowStreamGraph(AccumulationMode.DISCARDING,
-        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2)));
+    SerializedStreamGraph sgb = new SerializedStreamGraph(this.getKeyedTumblingWindowStreamGraph(AccumulationMode.DISCARDING,
+        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2))));
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
 
     TestClock testClock = new TestClock();
@@ -143,8 +143,8 @@ public class TestWindowOperator implements Serializable {
   @Test
   public void testNonKeyedTumblingWindowsDiscardingMode() throws Exception {
 
-    StreamGraphImpl sgb = this.getTumblingWindowStreamGraph(AccumulationMode.DISCARDING,
-        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(1000)));
+    SerializedStreamGraph sgb = new SerializedStreamGraph(this.getTumblingWindowStreamGraph(AccumulationMode.DISCARDING,
+        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(1000))));
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
 
     TestClock testClock = new TestClock();
@@ -172,8 +172,8 @@ public class TestWindowOperator implements Serializable {
     when(taskContext.getStore("jobName-jobId-window-w1"))
         .thenReturn(new TestInMemoryStore<>(new TimeSeriesKeySerde(new IntegerSerde()), new IntegerSerde()));
 
-    StreamGraphImpl sgb = this.getAggregateTumblingWindowStreamGraph(AccumulationMode.DISCARDING,
-        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2)));
+    SerializedStreamGraph sgb = new SerializedStreamGraph(this.getAggregateTumblingWindowStreamGraph(AccumulationMode.DISCARDING,
+        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2))));
     List<WindowPane<Integer, Integer>> windowPanes = new ArrayList<>();
 
     TestClock testClock = new TestClock();
@@ -194,8 +194,8 @@ public class TestWindowOperator implements Serializable {
 
   @Test
   public void testTumblingWindowsAccumulatingMode() throws Exception {
-    StreamGraphImpl sgb = this.getKeyedTumblingWindowStreamGraph(AccumulationMode.ACCUMULATING,
-        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2)));
+    SerializedStreamGraph sgb = new SerializedStreamGraph(this.getKeyedTumblingWindowStreamGraph(AccumulationMode.ACCUMULATING,
+        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2))));
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
     TestClock testClock = new TestClock();
     StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
@@ -223,7 +223,7 @@ public class TestWindowOperator implements Serializable {
 
   @Test
   public void testSessionWindowsDiscardingMode() throws Exception {
-    StreamGraphImpl sgb = this.getKeyedSessionWindowStreamGraph(AccumulationMode.DISCARDING, Duration.ofMillis(500));
+    SerializedStreamGraph sgb = new SerializedStreamGraph(this.getKeyedSessionWindowStreamGraph(AccumulationMode.DISCARDING, Duration.ofMillis(500)));
     TestClock testClock = new TestClock();
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
     StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
@@ -268,8 +268,8 @@ public class TestWindowOperator implements Serializable {
 
   @Test
   public void testSessionWindowsAccumulatingMode() throws Exception {
-    StreamGraphImpl sgb = this.getKeyedSessionWindowStreamGraph(AccumulationMode.DISCARDING,
-        Duration.ofMillis(500));
+    SerializedStreamGraph sgb = new SerializedStreamGraph(this.getKeyedSessionWindowStreamGraph(AccumulationMode.DISCARDING,
+        Duration.ofMillis(500)));
     TestClock testClock = new TestClock();
     StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
@@ -300,8 +300,8 @@ public class TestWindowOperator implements Serializable {
 
   @Test
   public void testCancellationOfOnceTrigger() throws Exception {
-    StreamGraphImpl sgb = this.getKeyedTumblingWindowStreamGraph(AccumulationMode.ACCUMULATING,
-        Duration.ofSeconds(1), Triggers.count(2));
+    SerializedStreamGraph sgb = new SerializedStreamGraph(this.getKeyedTumblingWindowStreamGraph(AccumulationMode.ACCUMULATING,
+        Duration.ofSeconds(1), Triggers.count(2)));
     TestClock testClock = new TestClock();
     StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
     task.init(config, taskContext);
@@ -344,8 +344,8 @@ public class TestWindowOperator implements Serializable {
 
   @Test
   public void testCancellationOfAnyTrigger() throws Exception {
-    StreamGraphImpl sgb = this.getKeyedTumblingWindowStreamGraph(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1),
-        Triggers.any(Triggers.count(2), Triggers.timeSinceFirstMessage(Duration.ofMillis(500))));
+    SerializedStreamGraph sgb = new SerializedStreamGraph(this.getKeyedTumblingWindowStreamGraph(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1),
+        Triggers.any(Triggers.count(2), Triggers.timeSinceFirstMessage(Duration.ofMillis(500)))));
     TestClock testClock = new TestClock();
     StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
     task.init(config, taskContext);
@@ -402,8 +402,8 @@ public class TestWindowOperator implements Serializable {
   @Test
   public void testCancelationOfRepeatingNestedTriggers() throws Exception {
 
-    StreamGraphImpl sgb = this.getKeyedTumblingWindowStreamGraph(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1),
-        Triggers.repeat(Triggers.any(Triggers.count(2), Triggers.timeSinceFirstMessage(Duration.ofMillis(500)))));
+    SerializedStreamGraph sgb = new SerializedStreamGraph(this.getKeyedTumblingWindowStreamGraph(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1),
+        Triggers.repeat(Triggers.any(Triggers.count(2), Triggers.timeSinceFirstMessage(Duration.ofMillis(500))))));
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
 
     MessageCollector messageCollector =
@@ -447,8 +447,8 @@ public class TestWindowOperator implements Serializable {
     when(taskContext.fetchObject(EndOfStreamStates.class.getName())).thenReturn(endOfStreamStates);
     when(taskContext.fetchObject(WatermarkStates.class.getName())).thenReturn(mock(WatermarkStates.class));
 
-    StreamGraphImpl sgb = this.getTumblingWindowStreamGraph(AccumulationMode.DISCARDING,
-        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2)));
+    SerializedStreamGraph sgb = new SerializedStreamGraph(this.getTumblingWindowStreamGraph(AccumulationMode.DISCARDING,
+        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2))));
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
 
     TestClock testClock = new TestClock();
@@ -488,7 +488,7 @@ public class TestWindowOperator implements Serializable {
     when(taskContext.fetchObject(EndOfStreamStates.class.getName())).thenReturn(endOfStreamStates);
     when(taskContext.fetchObject(WatermarkStates.class.getName())).thenReturn(mock(WatermarkStates.class));
 
-    StreamGraphImpl sgb = this.getKeyedSessionWindowStreamGraph(AccumulationMode.DISCARDING, Duration.ofMillis(500));
+    SerializedStreamGraph sgb = new SerializedStreamGraph(this.getKeyedSessionWindowStreamGraph(AccumulationMode.DISCARDING, Duration.ofMillis(500)));
     TestClock testClock = new TestClock();
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
     StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
@@ -524,7 +524,7 @@ public class TestWindowOperator implements Serializable {
     when(taskContext.fetchObject(EndOfStreamStates.class.getName())).thenReturn(endOfStreamStates);
     when(taskContext.fetchObject(WatermarkStates.class.getName())).thenReturn(mock(WatermarkStates.class));
 
-    StreamGraphImpl sgb = this.getKeyedSessionWindowStreamGraph(AccumulationMode.DISCARDING, Duration.ofMillis(500));
+    SerializedStreamGraph sgb = new SerializedStreamGraph(this.getKeyedSessionWindowStreamGraph(AccumulationMode.DISCARDING, Duration.ofMillis(500)));
     TestClock testClock = new TestClock();
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
     StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
@@ -601,7 +601,7 @@ public class TestWindowOperator implements Serializable {
         KVSerde.of(new IntegerSerde(), new IntegerSerde()));
 
     integers
-        .map(kv -> new IntegerEnvelope(kv.getKey()))
+        .map(new KVMapFunction())
         .window(Windows.<IntegerEnvelope, Integer>tumblingWindow(timeDuration, () -> 0, (m, c) -> c + 1, new IntegerSerde())
             .setEarlyTrigger(earlyTrigger)
             .setAccumulationMode(mode), "w1")
@@ -611,10 +611,18 @@ public class TestWindowOperator implements Serializable {
     return graph;
   }
 
-  private class IntegerEnvelope extends IncomingMessageEnvelope {
+  private static class IntegerEnvelope extends IncomingMessageEnvelope {
 
     IntegerEnvelope(Integer key) {
       super(new SystemStreamPartition("kafka", "integers", new Partition(0)), null, key, key);
+    }
+  }
+
+  private static class KVMapFunction implements MapFunction<KV<Integer, Integer>, IntegerEnvelope> {
+
+    @Override
+    public IntegerEnvelope apply(KV<Integer, Integer> message) {
+      return new IntegerEnvelope(message.getKey());
     }
   }
 

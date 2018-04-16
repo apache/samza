@@ -81,7 +81,7 @@ import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class TestOperatorImplGraph implements Serializable {
+public class TestOperatorImplGraph {
 
   private void addOperatorRecursively(HashSet<OperatorImpl> s, OperatorImpl op) {
     List<OperatorImpl> operators = new ArrayList<>();
@@ -219,7 +219,7 @@ public class TestOperatorImplGraph implements Serializable {
   public void testEmptyChain() {
     StreamGraphImpl streamGraph = new StreamGraphImpl(mock(ApplicationRunner.class), mock(Config.class));
     OperatorImplGraph opGraph =
-        new OperatorImplGraph(streamGraph, mock(Config.class), mock(TaskContextImpl.class), mock(Clock.class));
+        new OperatorImplGraph(new SerializedStreamGraph(streamGraph), mock(Config.class), mock(TaskContextImpl.class), mock(Clock.class));
     assertEquals(0, opGraph.getAllInputOperators().size());
   }
 
@@ -242,7 +242,7 @@ public class TestOperatorImplGraph implements Serializable {
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     when(mockTaskContext.getTaskName()).thenReturn(new TaskName("task 0"));
     OperatorImplGraph opImplGraph =
-        new OperatorImplGraph(streamGraph, mock(Config.class), mockTaskContext, mock(Clock.class));
+        new OperatorImplGraph(new SerializedStreamGraph(streamGraph), mock(Config.class), mockTaskContext, mock(Clock.class));
 
     InputOperatorImpl inputOpImpl = opImplGraph.getInputOperator(new SystemStream("input-system", "input-stream"));
     assertEquals(1, inputOpImpl.registeredOperators.size());
@@ -294,7 +294,7 @@ public class TestOperatorImplGraph implements Serializable {
         new SamzaContainerContext("0", mockConfig, Collections.singleton(new TaskName("task 0")), new MetricsRegistryMap());
     when(mockTaskContext.getSamzaContainerContext()).thenReturn(containerContext);
     OperatorImplGraph opImplGraph =
-        new OperatorImplGraph(streamGraph, mockConfig, mockTaskContext, mock(Clock.class));
+        new OperatorImplGraph(new SerializedStreamGraph(streamGraph), mockConfig, mockTaskContext, mock(Clock.class));
 
     InputOperatorImpl inputOpImpl = opImplGraph.getInputOperator(new SystemStream("input-system", "input-stream"));
     assertEquals(1, inputOpImpl.registeredOperators.size());
@@ -325,7 +325,7 @@ public class TestOperatorImplGraph implements Serializable {
     TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     OperatorImplGraph opImplGraph =
-        new OperatorImplGraph(streamGraph, mock(Config.class), mockTaskContext, mock(Clock.class));
+        new OperatorImplGraph(new SerializedStreamGraph(streamGraph), mock(Config.class), mockTaskContext, mock(Clock.class));
 
     InputOperatorImpl inputOpImpl = opImplGraph.getInputOperator(new SystemStream("input-system", "input-stream"));
     assertEquals(2, inputOpImpl.registeredOperators.size());
@@ -355,7 +355,7 @@ public class TestOperatorImplGraph implements Serializable {
     mergedStream.map(testMapFunction);
 
     OperatorImplGraph opImplGraph =
-        new OperatorImplGraph(streamGraph, mock(Config.class), mockTaskContext, mock(Clock.class));
+        new OperatorImplGraph(new SerializedStreamGraph(streamGraph), mock(Config.class), mockTaskContext, mock(Clock.class));
 
     Set<OperatorImpl> opSet = opImplGraph.getAllInputOperators().stream().collect(HashSet::new,
         (s, op) -> addOperatorRecursively(s, op), HashSet::addAll);
@@ -396,7 +396,7 @@ public class TestOperatorImplGraph implements Serializable {
     KeyValueStore mockRightStore = mock(KeyValueStore.class);
     when(mockTaskContext.getStore(eq("jobName-jobId-join-j1-R"))).thenReturn(mockRightStore);
     OperatorImplGraph opImplGraph =
-        new OperatorImplGraph(streamGraph, mockConfig, mockTaskContext, mock(Clock.class));
+        new OperatorImplGraph(new SerializedStreamGraph(streamGraph), mockConfig, mockTaskContext, mock(Clock.class));
 
     // verify that join function is initialized once.
     assertEquals(TestJoinFunction.getInstanceByTaskName(mockTaskName, "jobName-jobId-join-j1").numInitCalled, 1);
@@ -452,7 +452,7 @@ public class TestOperatorImplGraph implements Serializable {
     inputStream2.map(new TestMapFunction<Object, Object>("3", mapFn))
         .map(new TestMapFunction<Object, Object>("4", mapFn));
 
-    OperatorImplGraph opImplGraph = new OperatorImplGraph(streamGraph, mockConfig, mockContext, SystemClock.instance());
+    OperatorImplGraph opImplGraph = new OperatorImplGraph(new SerializedStreamGraph(streamGraph), mockConfig, mockContext, SystemClock.instance());
 
     List<String> initializedOperators = BaseTestFunction.getInitListByTaskName(mockTaskName);
 
@@ -559,7 +559,7 @@ public class TestOperatorImplGraph implements Serializable {
             mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
         .sendTo(outputStream2);
 
-    Multimap<SystemStream, SystemStream> outputToInput = OperatorImplGraph.getIntermediateToInputStreamsMap(streamGraph);
+    Multimap<SystemStream, SystemStream> outputToInput = OperatorImplGraph.getIntermediateToInputStreamsMap(new SerializedStreamGraph(streamGraph));
     Collection<SystemStream> inputs = outputToInput.get(int1.toSystemStream());
     assertEquals(inputs.size(), 2);
     assertTrue(inputs.contains(input1.toSystemStream()));

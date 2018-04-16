@@ -55,10 +55,6 @@ import static org.mockito.Mockito.*;
  */
 public class TestOperatorSpec {
 
-  private enum TestEnum {
-    One, Two, Three
-  }
-
   private static class MapWithWatermarkFn implements MapFunction<TestMessageEnvelope, TestOutputMessageEnvelope>, WatermarkFunction<TestOutputMessageEnvelope> {
 
     @Override
@@ -96,17 +92,17 @@ public class TestOperatorSpec {
   }
 
   private static class MapWithEnum implements MapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> {
-    private TestEnum type;
+    private OperatorSpecTestUtils.TestEnum type;
 
-    MapWithEnum(TestEnum type) {
+    MapWithEnum(OperatorSpecTestUtils.TestEnum type) {
       this.type = type;
     }
 
-    TestEnum getType() {
+    OperatorSpecTestUtils.TestEnum getType() {
       return this.type;
     }
 
-    void setType(TestEnum type) {
+    void setType(OperatorSpecTestUtils.TestEnum type) {
       this.type = type;
     }
 
@@ -159,7 +155,8 @@ public class TestOperatorSpec {
     };
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec =
         StreamOperatorSpec.createStreamOperatorSpec(flatMap, OperatorSpec.OpCode.MAP, "op0");
-    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec = streamOperatorSpec.copy();
+    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec =
+        (StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(streamOperatorSpec);
     assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
     assertTrue(streamOperatorSpec.isClone(cloneOperatorSpec));
     Serializable userFn = (Serializable) Whitebox.getInternalState(streamOperatorSpec, "userFn");
@@ -181,7 +178,8 @@ public class TestOperatorSpec {
         m -> new TestOutputMessageEnvelope(m.getKey(), m.getMessage().hashCode());
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec =
         OperatorSpecs.createMapOperatorSpec(mapFn, "op0");
-    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec = streamOperatorSpec.copy();
+    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec =
+        (StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(streamOperatorSpec);
     assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
     assertTrue(streamOperatorSpec.isClone(cloneOperatorSpec));
     Serializable userFn = (Serializable) Whitebox.getInternalState(streamOperatorSpec, "userFn");
@@ -202,7 +200,8 @@ public class TestOperatorSpec {
     FilterFunction<TestMessageEnvelope> filterFn = m -> m.getKey().equals("key1");
     StreamOperatorSpec<TestMessageEnvelope, TestMessageEnvelope> streamOperatorSpec =
         OperatorSpecs.createFilterOperatorSpec(filterFn, "op0");
-    StreamOperatorSpec<TestMessageEnvelope, TestMessageEnvelope> cloneOperatorSpec = streamOperatorSpec.copy();
+    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec =
+        (StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(streamOperatorSpec);
     assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
     assertTrue(streamOperatorSpec.isClone(cloneOperatorSpec));
     Serializable userFn = (Serializable) Whitebox.getInternalState(streamOperatorSpec, "userFn");
@@ -236,7 +235,7 @@ public class TestOperatorSpec {
     StreamSpec mockStreamSpec = mock(StreamSpec.class);
     InputOperatorSpec<String, Object> inputOperatorSpec = new InputOperatorSpec<>(
         mockStreamSpec, new StringSerde("UTF-8"), objSerde, true, "op0");
-    InputOperatorSpec<String, Object> inputOpCopy = inputOperatorSpec.copy();
+    InputOperatorSpec<String, Object> inputOpCopy = (InputOperatorSpec<String, Object>) OperatorSpecTestUtils.copyOpSpec(inputOperatorSpec);
 
     assertNotEquals("Expected deserialized copy of operator spec should not be the same as the original operator spec", inputOperatorSpec, inputOpCopy);
     assertTrue(inputOperatorSpec.isClone(inputOpCopy));
@@ -260,7 +259,8 @@ public class TestOperatorSpec {
     StreamSpec mockStreamSpec = mock(StreamSpec.class);
     OutputStreamImpl<KV<String, Object>> outputStrmImpl = new OutputStreamImpl<>(mockStreamSpec, new StringSerde("UTF-8"), objSerde, true);
     OutputOperatorSpec<KV<String, Object>> outputOperatorSpec = new OutputOperatorSpec<KV<String, Object>>(outputStrmImpl, "op0");
-    OutputOperatorSpec<KV<String, Object>> outputOpCopy = outputOperatorSpec.copy();
+    OutputOperatorSpec<KV<String, Object>> outputOpCopy = (OutputOperatorSpec<KV<String, Object>>) OperatorSpecTestUtils
+        .copyOpSpec(outputOperatorSpec);
     assertNotEquals("Expected deserialized copy of operator spec should not be the same as the original operator spec", outputOperatorSpec, outputOpCopy);
     assertTrue(outputOperatorSpec.isClone(outputOpCopy));
   }
@@ -269,7 +269,7 @@ public class TestOperatorSpec {
   public void testSinkOperatorSpec() throws IOException, ClassNotFoundException {
     SinkFunction<TestMessageEnvelope> sinkFn = (m, c, tc) -> System.out.print(m.toString());
     SinkOperatorSpec<TestMessageEnvelope> sinkOpSpec = new SinkOperatorSpec<>(sinkFn, "op0");
-    SinkOperatorSpec<TestMessageEnvelope> sinkOpCopy = sinkOpSpec.copy();
+    SinkOperatorSpec<TestMessageEnvelope> sinkOpCopy = (SinkOperatorSpec<TestMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(sinkOpSpec);
     assertNotEquals("Expected deserialized copy of operator spec should not be the same as the original operator spec", sinkOpSpec, sinkOpCopy);
     assertTrue(sinkOpSpec.isClone(sinkOpCopy));
   }
@@ -316,7 +316,8 @@ public class TestOperatorSpec {
     JoinFunction<String, Object, Object, TestOutputMessageEnvelope> joinFn = new TestJoinFunction();
     JoinOperatorSpec<String, Object, Object, TestOutputMessageEnvelope> joinOperatorSpec =
         new JoinOperatorSpec<>(leftOpSpec, rightOpSpec, joinFn, new StringSerde("UTF-8"), objSerde, objSerde, 50000, "op2");
-    JoinOperatorSpec<String, Object, Object, TestOutputMessageEnvelope> joinOpCopy = joinOperatorSpec.copy();
+    JoinOperatorSpec<String, Object, Object, TestOutputMessageEnvelope> joinOpCopy =
+        (JoinOperatorSpec<String, Object, Object, TestOutputMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(joinOperatorSpec);
     assertNotEquals("Expected deserialized copy of operator spec should not be the same as the original operator spec", joinOperatorSpec, joinOpCopy);
     assertTrue(joinOperatorSpec.isClone(joinOpCopy));
     assertNull(joinOpCopy.getLeftInputOpSpec());
@@ -333,7 +334,8 @@ public class TestOperatorSpec {
     StreamTableJoinOperatorSpec<String, Object, Object, TestOutputMessageEnvelope> joinOperatorSpec =
         new StreamTableJoinOperatorSpec<>(tableSpec, joinFn, "join-3");
 
-    StreamTableJoinOperatorSpec<String, Object, Object, TestOutputMessageEnvelope> joinOpSpecCopy = joinOperatorSpec.copy();
+    StreamTableJoinOperatorSpec<String, Object, Object, TestOutputMessageEnvelope> joinOpSpecCopy =
+        (StreamTableJoinOperatorSpec<String, Object, Object, TestOutputMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(joinOperatorSpec);
     assertNotEquals(joinOpSpecCopy, joinOperatorSpec);
     assertEquals(joinOpSpecCopy.getOpId(), joinOperatorSpec.getOpId());
     assertTrue(joinOpSpecCopy.getTableSpec() != joinOperatorSpec.getTableSpec());
@@ -347,7 +349,8 @@ public class TestOperatorSpec {
         new MapConfig(new HashMap<String, String>() { { this.put("config1", "value1"); this.put("config2", "value2"); } }));
     SendToTableOperatorSpec<String, Integer> sendOpSpec =
         new SendToTableOperatorSpec<>(tableSpec, "output-1");
-    SendToTableOperatorSpec<String, Integer> sendToCopy = sendOpSpec.copy();
+    SendToTableOperatorSpec<String, Integer> sendToCopy = (SendToTableOperatorSpec<String, Integer>) OperatorSpecTestUtils
+        .copyOpSpec(sendOpSpec);
     assertNotEquals(sendToCopy, sendOpSpec);
     assertEquals(sendToCopy.getOpId(), sendOpSpec.getOpId());
     assertTrue(sendToCopy.getTableSpec() != sendOpSpec.getTableSpec() && sendToCopy.getTableSpec().equals(sendOpSpec.getTableSpec()));
@@ -358,7 +361,8 @@ public class TestOperatorSpec {
     OutputStreamImpl<TestOutputMessageEnvelope> outputStream =
         new OutputStreamImpl<>(new StreamSpec("output-0", "outputStream-0", "kafka"), new StringSerde("UTF-8"), new JsonSerdeV2<TestOutputMessageEnvelope>(), true);
     BroadcastOperatorSpec<TestOutputMessageEnvelope> broadcastOpSpec = new BroadcastOperatorSpec<>(outputStream, "broadcast-1");
-    BroadcastOperatorSpec<TestOutputMessageEnvelope> broadcastOpCopy = broadcastOpSpec.copy();
+    BroadcastOperatorSpec<TestOutputMessageEnvelope> broadcastOpCopy = (BroadcastOperatorSpec<TestOutputMessageEnvelope>) OperatorSpecTestUtils
+        .copyOpSpec(broadcastOpSpec);
     assertNotEquals(broadcastOpCopy, broadcastOpSpec);
     assertEquals(broadcastOpCopy.getOpId(), broadcastOpSpec.getOpId());
     assertTrue(broadcastOpCopy.getOutputStream() != broadcastOpSpec.getOutputStream());
@@ -374,7 +378,8 @@ public class TestOperatorSpec {
         StreamOperatorSpec.createStreamOperatorSpec(
             testMapFn,
             OperatorSpec.OpCode.MAP, "op0");
-    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec = streamOperatorSpec.copy();
+    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec =
+        (StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(streamOperatorSpec);
     assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
     assertTrue(streamOperatorSpec.isClone(cloneOperatorSpec));
     assertNotEquals(streamOperatorSpec.getTransformFn(), cloneOperatorSpec.getTransformFn());
@@ -393,7 +398,8 @@ public class TestOperatorSpec {
         StreamOperatorSpec.createStreamOperatorSpec(
             testMapFn,
             OperatorSpec.OpCode.MAP, "op0");
-    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec = streamOperatorSpec.copy();
+    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec =
+        (StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(streamOperatorSpec);
     assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
     assertTrue(streamOperatorSpec.isClone(cloneOperatorSpec));
     assertNotEquals(streamOperatorSpec.getTransformFn(), cloneOperatorSpec.getTransformFn());
@@ -415,7 +421,8 @@ public class TestOperatorSpec {
         m -> new TestOutputMessageEnvelope(keys.get(m.getKey().hashCode() % 1), integers.get(m.getMessage().hashCode() % 1));
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec =
         OperatorSpecs.createMapOperatorSpec(mapFn, "op0");
-    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec = streamOperatorSpec.copy();
+    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec =
+        (StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(streamOperatorSpec);
     assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
     assertTrue(streamOperatorSpec.isClone(cloneOperatorSpec));
     Serializable userFn = (Serializable) Whitebox.getInternalState(streamOperatorSpec, "userFn");
@@ -441,7 +448,8 @@ public class TestOperatorSpec {
     MapFunction<KV<String, Object>, Object> mapFn = KV::getValue;
     StreamOperatorSpec<KV<String, Object>, Object> streamOperatorSpec =
         OperatorSpecs.createMapOperatorSpec(mapFn, "op0");
-    StreamOperatorSpec<KV<String, Object>, Object> cloneOperatorSpec = streamOperatorSpec.copy();
+    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec =
+        (StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(streamOperatorSpec);
     assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
     assertTrue(streamOperatorSpec.isClone(cloneOperatorSpec));
     Serializable userFn = (Serializable) Whitebox.getInternalState(streamOperatorSpec, "userFn");
@@ -455,10 +463,11 @@ public class TestOperatorSpec {
 
   @Test
   public void testStreamOperatorSpecWithMapWithEnum() throws IOException, ClassNotFoundException {
-    MapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> mapFn = new MapWithEnum(TestEnum.One);
+    MapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> mapFn = new MapWithEnum(OperatorSpecTestUtils.TestEnum.One);
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec =
         OperatorSpecs.createMapOperatorSpec(mapFn, "op0");
-    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec = streamOperatorSpec.copy();
+    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec =
+        (StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(streamOperatorSpec);
     assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
     assertTrue(streamOperatorSpec.isClone(cloneOperatorSpec));
     Serializable userFn = (Serializable) Whitebox.getInternalState(streamOperatorSpec, "userFn");
@@ -471,7 +480,7 @@ public class TestOperatorSpec {
     // originally the types should be the same
     assertTrue(((MapWithEnum) userFn).getType() == ((MapWithEnum) clonedUserFn).getType());
     // after changing the type of the cloned user function, the types are different now
-    ((MapWithEnum) clonedUserFn).setType(TestEnum.Two);
+    ((MapWithEnum) clonedUserFn).setType(OperatorSpecTestUtils.TestEnum.Two);
     assertTrue(((MapWithEnum) userFn).getType() != ((MapWithEnum) clonedUserFn).getType());
   }
 }

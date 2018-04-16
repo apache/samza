@@ -26,7 +26,6 @@ import org.apache.samza.operators.impl.store.TimestampedValueSerde;
 import org.apache.samza.operators.impl.store.TimestampedValue;
 import org.apache.samza.serializers.Serde;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
@@ -131,10 +130,6 @@ public class JoinOperatorSpec<K, M, OM, JM> extends OperatorSpec<Object, JM> imp
 
   public long getTtlMs() {
     return ttlMs;
-  }
-
-  public JoinOperatorSpec<K, M, OM, JM> copy() throws IOException, ClassNotFoundException {
-    return (JoinOperatorSpec<K, M, OM, JM>) super.copy();
   }
 
 }

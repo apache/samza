@@ -148,7 +148,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
           this.add(mockFieldObj);
         }});
 
-    StreamOperatorSpec copyProjectSpec = projectSpec.copy();
+    StreamOperatorSpec copyProjectSpec = (StreamOperatorSpec) OperatorSpec.fromByte(OperatorSpec.toByte(projectSpec));
     assertTrue(copyProjectSpec != projectSpec);
     assertTrue(copyProjectSpec.getTransformFn() != null);
     assertTrue(copyProjectSpec.getTransformFn() != projectSpec.getTransformFn());
@@ -247,7 +247,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
         .collect(ArrayList::new, (c, a) -> c.add(a), (c1, c2) -> c1.addAll(c2));
     assertEquals(testList, actualList);
 
-    StreamOperatorSpec copyFlattenOp = flattenOp.copy();
+    StreamOperatorSpec copyFlattenOp = (StreamOperatorSpec) OperatorSpec.fromByte(OperatorSpec.toByte(flattenOp));
     assertTrue(copyFlattenOp != flattenOp);
     assertTrue(copyFlattenOp.getTransformFn() != null);
     assertTrue(copyFlattenOp.getTransformFn() != flattenOp.getTransformFn());
@@ -291,7 +291,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
       this.add(mockFieldObj);
     }});
 
-    StreamOperatorSpec copyProjectSpec = projectSpec.copy();
+    StreamOperatorSpec copyProjectSpec = (StreamOperatorSpec) OperatorSpec.fromByte(OperatorSpec.toByte(projectSpec));
     assertTrue(copyProjectSpec != projectSpec);
     assertTrue(copyProjectSpec.getTransformFn() != null);
     assertTrue(copyProjectSpec.getTransformFn() != projectSpec.getTransformFn());

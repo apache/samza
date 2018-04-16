@@ -34,7 +34,6 @@ import org.apache.samza.serializers.Serde;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -141,10 +140,6 @@ public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK
     StoreDescriptor descriptor = new StoreDescriptor(storeName, storeFactory, storeKeySerde, storeValSerde, storeName,
         Collections.emptyMap());
     return Collections.singletonList(descriptor);
-  }
-
-  public WindowOperatorSpec<M, WK, WV> copy() throws IOException, ClassNotFoundException {
-    return (WindowOperatorSpec<M, WK, WV>) super.copy();
   }
 
 }

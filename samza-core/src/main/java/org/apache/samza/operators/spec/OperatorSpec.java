@@ -103,13 +103,19 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
     return nextOperatorSpecs;
   }
 
-  protected Object copy() throws IOException, ClassNotFoundException {
-    ByteArrayOutputStream serializedBytes = new ByteArrayOutputStream();
-    ObjectOutputStream outputStream = new ObjectOutputStream(serializedBytes);
-    outputStream.writeObject(this);
-    ByteArrayInputStream bStream = new ByteArrayInputStream(serializedBytes.toByteArray());
-    ObjectInputStream inputStream = new ObjectInputStream(bStream);
-    return inputStream.readObject();
+  public static byte[] toByte(OperatorSpec opSpec) throws IOException {
+    final ByteArrayOutputStream serializedBytes = new ByteArrayOutputStream();
+    final ObjectOutputStream outputStream = new ObjectOutputStream(serializedBytes);
+    outputStream.writeObject(opSpec);
+    outputStream.close();
+    return serializedBytes.toByteArray();
+  }
+
+  public static OperatorSpec fromByte(byte[] serializedBytes) throws IOException, ClassNotFoundException {
+    final ObjectInputStream inputStream = new ObjectInputStream(new ByteArrayInputStream(serializedBytes));
+    Object object = inputStream.readObject();
+    inputStream.close();
+    return (OperatorSpec) object;
   }
 
   /**

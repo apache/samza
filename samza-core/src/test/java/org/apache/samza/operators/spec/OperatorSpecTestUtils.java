@@ -17,33 +17,20 @@
  * under the License.
  */
 
-
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.operators.functions.TimerFunction;
-import org.apache.samza.operators.functions.WatermarkFunction;
-
-public class BroadcastOperatorSpec<M> extends OperatorSpec<M, Void> {
-  private final OutputStreamImpl<M> outputStream;
+import java.io.IOException;
 
 
-  public BroadcastOperatorSpec(OutputStreamImpl<M> outputStream, String opId) {
-    super(OpCode.BROADCAST, opId);
-
-    this.outputStream = outputStream;
+/**
+ * Test util methods for {@link OperatorSpec} classes
+ */
+public class OperatorSpecTestUtils {
+  static OperatorSpec copyOpSpec(OperatorSpec original) throws IOException, ClassNotFoundException {
+    return OperatorSpec.fromByte(OperatorSpec.toByte(original));
   }
 
-  public OutputStreamImpl<M> getOutputStream() {
-    return this.outputStream;
-  }
-
-  @Override
-  public WatermarkFunction getWatermarkFn() {
-    return null;
-  }
-
-  @Override
-  public TimerFunction getTimerFn() {
-    return null;
+  enum TestEnum {
+    One, Two, Three
   }
 }

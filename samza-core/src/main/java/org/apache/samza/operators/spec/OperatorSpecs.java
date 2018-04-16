@@ -19,7 +19,6 @@
 
 package org.apache.samza.operators.spec;
 
-import java.io.IOException;
 import java.util.ArrayList;
 
 import org.apache.samza.operators.KV;
@@ -67,10 +66,9 @@ public class OperatorSpecs {
    * @param <M>  type of input message
    * @param <OM>  type of output message
    * @return  the {@link StreamOperatorSpec}
-   * @throws IOException when fail to create a serializable {@link OperatorSpec}
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createMapOperatorSpec(
-      MapFunction<? super M, ? extends OM> mapFn, String opId) throws IOException {
+      MapFunction<? super M, ? extends OM> mapFn, String opId) {
     return StreamOperatorSpec.<M, OM>createStreamOperatorSpec((MapFunction<M, OM>) mapFn, OperatorSpec.OpCode.MAP, opId);
   }
 
@@ -81,10 +79,9 @@ public class OperatorSpecs {
    * @param opId  the unique ID of the operator
    * @param <M>  type of input message
    * @return  the {@link StreamOperatorSpec}
-   * @throws IOException when fail to create a serializable {@link OperatorSpec}
    */
   public static <M> StreamOperatorSpec<M, M> createFilterOperatorSpec(
-      FilterFunction<? super M> filterFn, String opId) throws IOException {
+      FilterFunction<? super M> filterFn, String opId) {
     return StreamOperatorSpec.<M>createStreamOperatorSpec((FilterFunction<M>) filterFn, OperatorSpec.OpCode.FILTER, opId);
   }
 
@@ -96,10 +93,9 @@ public class OperatorSpecs {
    * @param <M>  type of input message
    * @param <OM>  type of output message
    * @return  the {@link StreamOperatorSpec}
-   * @throws IOException when fail to create a serializable {@link OperatorSpec}
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createFlatMapOperatorSpec(
-      FlatMapFunction<? super M, ? extends OM> flatMapFn, String opId) throws IOException {
+      FlatMapFunction<? super M, ? extends OM> flatMapFn, String opId) {
     return StreamOperatorSpec.<M, OM>createStreamOperatorSpec((FlatMapFunction<M, OM>) flatMapFn, OperatorSpec.OpCode.FLAT_MAP, opId);
   }
 
@@ -110,10 +106,8 @@ public class OperatorSpecs {
    * @param opId  the unique ID of the operator
    * @param <M>  type of input message
    * @return  the {@link SinkOperatorSpec} for the sink operator
-   * @throws IOException when fail to create a serializable {@link OperatorSpec}
    */
-  public static <M> SinkOperatorSpec<M> createSinkOperatorSpec(SinkFunction<? super M> sinkFn, String opId)
-      throws IOException {
+  public static <M> SinkOperatorSpec<M> createSinkOperatorSpec(SinkFunction<? super M> sinkFn, String opId) {
     return new SinkOperatorSpec<>((SinkFunction<M>) sinkFn, opId);
   }
 
@@ -124,9 +118,8 @@ public class OperatorSpecs {
    * @param opId  the unique ID of the operator
    * @param <M> the type of message in the {@link OutputStreamImpl}
    * @return  the {@link OutputOperatorSpec} for the sendTo operator
-   * @throws IOException when fail to create a serializable {@link OperatorSpec}
    */
-  public static <M> OutputOperatorSpec<M> createSendToOperatorSpec(OutputStreamImpl<M> outputStream, String opId) throws IOException {
+  public static <M> OutputOperatorSpec<M> createSendToOperatorSpec(OutputStreamImpl<M> outputStream, String opId) {
     return new OutputOperatorSpec<>(outputStream, opId);
   }
 
@@ -141,11 +134,10 @@ public class OperatorSpecs {
    * @param valueFunction  the {@link MapFunction} for extracting the value from the message
    * @param opId  the unique ID of the operator
    * @return  the {@link OutputOperatorSpec} for the partitionBy operator
-   * @throws IOException when fail to create a serializable {@link OperatorSpec}
    */
   public static <M, K, V> PartitionByOperatorSpec<M, K, V> createPartitionByOperatorSpec(
       OutputStreamImpl<KV<K, V>> outputStream, MapFunction<? super M, ? extends K> keyFunction,
-      MapFunction<? super M, ? extends V> valueFunction, String opId) throws IOException {
+      MapFunction<? super M, ? extends V> valueFunction, String opId) {
     return new PartitionByOperatorSpec<>(outputStream, keyFunction, valueFunction, opId);
   }
 
@@ -158,10 +150,9 @@ public class OperatorSpecs {
    * @param <WK>  the type of key in the window output
    * @param <WV>  the type of value in the window
    * @return  the {@link WindowOperatorSpec}
-   * @throws IOException when fail to create a serializable {@link OperatorSpec}
    */
   public static <M, WK, WV> WindowOperatorSpec<M, WK, WV> createWindowOperatorSpec(
-      WindowInternal<M, WK, WV> window, String opId) throws IOException {
+      WindowInternal<M, WK, WV> window, String opId) {
     return new WindowOperatorSpec<>(window, opId);
   }
 
@@ -181,11 +172,10 @@ public class OperatorSpecs {
    * @param <OM>  the type of message in the other stream
    * @param <JM>  the type of join result
    * @return  the {@link JoinOperatorSpec}
-   * @throws IOException when fail to create a serializable {@link OperatorSpec}
    */
   public static <K, M, OM, JM> JoinOperatorSpec<K, M, OM, JM> createJoinOperatorSpec(
       OperatorSpec<?, M> leftInputOpSpec, OperatorSpec<?, OM> rightInputOpSpec, JoinFunction<K, M, OM, JM> joinFn,
-      Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde, long ttlMs, String opId) throws IOException {
+      Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde, long ttlMs, String opId) {
     return new JoinOperatorSpec<>(leftInputOpSpec, rightInputOpSpec, joinFn,
         keySerde, messageSerde, otherMessageSerde, ttlMs, opId);
   }
@@ -196,9 +186,8 @@ public class OperatorSpecs {
    * @param opId  the unique ID of the operator
    * @param <M>  the type of input message
    * @return  the {@link StreamOperatorSpec} for the merge
-   * @throws IOException when fail to create a serializable {@link OperatorSpec}
    */
-  public static <M> StreamOperatorSpec<M, M> createMergeOperatorSpec(String opId) throws IOException {
+  public static <M> StreamOperatorSpec<M, M> createMergeOperatorSpec(String opId) {
     return StreamOperatorSpec.<M, M>createStreamOperatorSpec((M message) ->
         new ArrayList<M>() {
           {

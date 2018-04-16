@@ -215,10 +215,6 @@ public class TestOperatorImpl {
      super(OpCode.INPUT, "1");
     }
 
-    protected TestOpSpec copy() throws IOException, ClassNotFoundException {
-      return (TestOpSpec) super.copy();
-    }
-
     @Override
     public WatermarkFunction getWatermarkFn() {
       return null;

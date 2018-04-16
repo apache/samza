@@ -18,7 +18,6 @@
  */
 package org.apache.samza.operators.spec;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -49,13 +48,13 @@ public class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
    * @param opCode  the {@link OpCode} for this {@link StreamOperatorSpec}
    * @param opId  the unique ID for this {@link StreamOperatorSpec}
    */
-  private StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, OperatorSpec.OpCode opCode, String opId) throws IOException {
+  private StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, OperatorSpec.OpCode opCode, String opId) {
     super(opCode, opId);
     this.transformFn = transformFn;
     this.userFn = transformFn;
   }
 
-  private StreamOperatorSpec(MapFunction<M, OM> mapFn, OperatorSpec.OpCode opCode, String opId) throws IOException {
+  private StreamOperatorSpec(MapFunction<M, OM> mapFn, OperatorSpec.OpCode opCode, String opId) {
     super(opCode, opId);
     this.transformFn = new FlatMapFunction<M, OM>() {
       @Override
@@ -83,7 +82,7 @@ public class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
     this.userFn = mapFn;
   }
 
-  private StreamOperatorSpec(FilterFunction<M> filterFn, OperatorSpec.OpCode opCode, String opId) throws IOException {
+  private StreamOperatorSpec(FilterFunction<M> filterFn, OperatorSpec.OpCode opCode, String opId) {
     super(opCode, opId);
     this.transformFn = new FlatMapFunction<M, OM>() {
       @Override
@@ -124,22 +123,18 @@ public class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
     return this.userFn instanceof TimerFunction ? (TimerFunction) this.userFn : null;
   }
 
-  public StreamOperatorSpec<M, OM> copy() throws IOException, ClassNotFoundException {
-    return (StreamOperatorSpec<M, OM>) super.copy();
-  }
-
   public static <M, OM> StreamOperatorSpec<M, OM> createStreamOperatorSpec(MapFunction<M, OM> mapFn,
-      OperatorSpec.OpCode opCode, String opId) throws IOException {
+      OperatorSpec.OpCode opCode, String opId) {
     return new StreamOperatorSpec<M, OM>(mapFn, opCode, opId);
   }
 
   public static <M, OM> StreamOperatorSpec<M, OM> createStreamOperatorSpec(FlatMapFunction<M, OM> flatMapFn,
-      OperatorSpec.OpCode opCode, String opId) throws IOException {
+      OperatorSpec.OpCode opCode, String opId) {
     return new StreamOperatorSpec<M, OM>(flatMapFn, opCode, opId);
   }
 
   public static <M> StreamOperatorSpec<M, M> createStreamOperatorSpec(FilterFunction<M> filterFn,
-      OperatorSpec.OpCode opCode, String opId) throws IOException {
+      OperatorSpec.OpCode opCode, String opId) {
     return new StreamOperatorSpec<M, M>(filterFn, opCode, opId);
   }
 }
