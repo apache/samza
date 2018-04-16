@@ -189,7 +189,7 @@ public class StreamGraphImpl implements StreamGraph {
    * TODO: once SAMZA-1566 is resolved, we should be able to pass in the StreamSpec directly.
    */
   @VisibleForTesting
-  public <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde, boolean isBroadcast) {
+  <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde, boolean isBroadcast) {
     StreamSpec streamSpec = runner.getStreamSpec(streamId);
     if (isBroadcast) {
       streamSpec = streamSpec.copyWithBroadCast();
