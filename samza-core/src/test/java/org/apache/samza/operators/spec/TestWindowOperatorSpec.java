@@ -99,7 +99,8 @@ public class TestWindowOperatorSpec {
 
     WindowOperatorSpec<Object, Object, Collection> spec = new WindowOperatorSpec<>(window, "w0");
 
-    WindowOperatorSpec<Object, Object, Collection> copy = (WindowOperatorSpec<Object, Object, Collection>) OperatorSpecTestUtils.copyOpSpec(spec);
+    WindowOperatorSpec<Object, Object, Collection> copy = (WindowOperatorSpec<Object, Object, Collection>) OperatorSpecTestUtils.copyOpSpec(spec
+    );
 
     Assert.assertNotEquals(spec, copy);
     Assert.assertTrue(spec.isClone(copy));

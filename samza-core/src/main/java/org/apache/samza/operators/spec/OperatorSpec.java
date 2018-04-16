@@ -70,7 +70,8 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
    * <p>
    * We use a LinkedHashSet since we need deterministic ordering in initializing/closing operators.
    *
-   * Note: this is also made transient since the deserialized copies of {@link OperatorSpec} objects are made externally.
+   * Note: this is also made transient since the deserialized copies of {@code nextOperatorSpecs} are made externally when
+   * traversing the DAG in the constructor of {@link org.apache.samza.operators.impl.OperatorImplGraph}.
    */
   private transient final Set<OperatorSpec<OM, ?>> nextOperatorSpecs = new LinkedHashSet<>();
 

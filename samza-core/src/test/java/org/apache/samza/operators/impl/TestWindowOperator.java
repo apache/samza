@@ -74,7 +74,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-//TODO: why do we have to make the outer class implement Serializable?????
 public class TestWindowOperator {
   private transient final TaskCoordinator taskCoordinator = mock(TaskCoordinator.class);
   private transient final List<Integer> integers = ImmutableList.of(1, 2, 1, 2, 1, 2, 1, 2, 3);

@@ -31,7 +31,6 @@ import org.apache.samza.operators.functions.WatermarkFunction;
  */
 public class OutputOperatorSpec<M> extends OperatorSpec<M, Void> {
 
-  // TODO: NOT optimal: we need multiple copies of {@link OperatorSpec} instances per task, but don't need multiple copies of {@link OutputStreamImpl} for the same output stream
   private final OutputStreamImpl<M> outputStream;
 
   /**

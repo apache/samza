@@ -141,5 +141,4 @@ public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK
         Collections.emptyMap());
     return Collections.singletonList(descriptor);
   }
-
 }

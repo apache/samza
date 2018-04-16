@@ -23,7 +23,8 @@ import java.util.Map;
 
 
 /**
- * Shared context factories used in unit tests
+ * Shared context factories used in unit tests. This is a temporarily solution to enable sharing of test latches in different
+ * scope of context (i.e. in the container or the task). This is not intended for production usage.
  */
 public class SharedContextFactories {
 

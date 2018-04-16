@@ -58,8 +58,8 @@ public class StreamOperatorTask implements StreamTask, InitableTask, WindowableT
     this.clock = clock;
   }
 
-  public StreamOperatorTask(SerializedStreamGraph application) {
-    this(application, SystemClock.instance());
+  public StreamOperatorTask(SerializedStreamGraph streamGraph) {
+    this(streamGraph, SystemClock.instance());
   }
 
   /**
@@ -80,7 +80,6 @@ public class StreamOperatorTask implements StreamTask, InitableTask, WindowableT
   public final void init(Config config, TaskContext context) throws Exception {
 
     // get the user-implemented context manager and initialize it
-    // NOTE: if we don't clone the ContextManager for each task, global variables used across different tasks are possible.
     if (serializedGraph.getContextManager() != null) {
       this.contextManager = serializedGraph.getContextManager();
       if (this.contextManager != null) {
