@@ -23,8 +23,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.avro.generic.GenericRecord;
@@ -41,6 +43,7 @@ import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -197,7 +200,41 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
         .collect(Collectors.toList());
     Assert.assertEquals(numMessages, outMessages.size());
     List<String> expectedOutMessages = TestAvroSystemFactory.getPageKeyProfileNameJoin(numMessages);
-    Assert.assertEquals(outMessages, expectedOutMessages);
+    Assert.assertEquals(expectedOutMessages, outMessages);
+  }
+
+  @Test
+  public void testEndToEndStreamTableInnerJoinWithNestedRecord() throws Exception {
+    int numMessages = 20;
+
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    staticConfigs.putAll(configs);
+    String sql =
+        "Insert into testavro.enrichedPageViewTopic "
+            + "select pv.pageKey, p.name as profileName, p.address as profileAddress "
+            + "from testavro.PROFILE.`$table` as p "
+            + "join testavro.PAGEVIEW as pv "
+            + " on p.id = pv.profileId";
+
+    List<String> sqlStmts = Arrays.asList(sql);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
+    runner.runAndWaitForFinish();
+
+    List<String> outMessages = TestAvroSystemFactory.messages.stream()
+        .map(x -> {
+            GenericRecord profileAddr = (GenericRecord) ((GenericRecord) x.getMessage()).get("profileAddress");
+            GenericRecord streetNum = (GenericRecord) (profileAddr.get("streetnum"));
+            return ((GenericRecord) x.getMessage()).get("pageKey").toString() + ","
+                + (((GenericRecord) x.getMessage()).get("profileName") == null ? "null" :
+                ((GenericRecord) x.getMessage()).get("profileName").toString()) + ","
+                + profileAddr.get("zip") + "," + streetNum.get("number");
+          })
+        .collect(Collectors.toList());
+    Assert.assertEquals(numMessages, outMessages.size());
+    List<String> expectedOutMessages = TestAvroSystemFactory.getPageKeyProfileNameAddressJoin(numMessages);
+    Assert.assertEquals(expectedOutMessages, outMessages);
   }
 
   @Test
@@ -265,7 +302,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
             .stream()
             .filter(msg -> msg.endsWith("Mike"))
             .collect(Collectors.toList());
-    Assert.assertEquals(outMessages, expectedOutMessages);
+    Assert.assertEquals(expectedOutMessages, outMessages);
   }
 
   @Test
@@ -294,7 +331,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     // Half the foreign keys are null.
     Assert.assertEquals(numMessages / 2, outMessages.size());
     List<String> expectedOutMessages = TestAvroSystemFactory.getPageKeyProfileNameJoinWithNullForeignKeys(numMessages);
-    Assert.assertEquals(outMessages, expectedOutMessages);
+    Assert.assertEquals(expectedOutMessages, outMessages);
   }
 
   @Test
@@ -323,7 +360,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     Assert.assertEquals(numMessages, outMessages.size());
     List<String> expectedOutMessages =
         TestAvroSystemFactory.getPageKeyProfileNameOuterJoinWithNullForeignKeys(numMessages);
-    Assert.assertEquals(outMessages, expectedOutMessages);
+    Assert.assertEquals(expectedOutMessages, outMessages);
   }
 
   @Test
@@ -352,7 +389,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     Assert.assertEquals(numMessages, outMessages.size());
     List<String> expectedOutMessages =
         TestAvroSystemFactory.getPageKeyProfileNameOuterJoinWithNullForeignKeys(numMessages);
-    Assert.assertEquals(outMessages, expectedOutMessages);
+    Assert.assertEquals(expectedOutMessages, outMessages);
   }
 
   @Test
@@ -382,7 +419,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
         .collect(Collectors.toList());
     Assert.assertEquals(numMessages, outMessages.size());
     List<String> expectedOutMessages = TestAvroSystemFactory.getPageKeyProfileCompanyNameJoin(numMessages);
-    Assert.assertEquals(outMessages, expectedOutMessages);
+    Assert.assertEquals(expectedOutMessages, outMessages);
   }
 
   @Test
@@ -413,7 +450,54 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     Assert.assertEquals(TestAvroSystemFactory.companies.length, outMessages.size());
     List<String> expectedOutMessages =
         TestAvroSystemFactory.getPageKeyProfileCompanyNameJoin(TestAvroSystemFactory.companies.length);
-    Assert.assertEquals(outMessages, expectedOutMessages);
+    Assert.assertEquals(expectedOutMessages, outMessages);
   }
 
+  // Disabling the test until SAMZA-1652 and SAMZA-1661 are fixed.
+  @Ignore
+  @Test
+  public void testEndToEndGroupBy() throws Exception {
+    int numMessages = 200;
+    long windowDurationMs = 200;
+
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs =
+        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages, false, windowDurationMs);
+    staticConfigs.putAll(configs);
+    String sql =
+        "Insert into testavro.pageViewCountTopic"
+            + " select 'SampleJob' as jobName, pv.pageKey, count(*) as `count`"
+            + " from testavro.PAGEVIEW as pv"
+            + " where pv.pageKey = 'job' or pv.pageKey = 'inbox'"
+            + " group by (pv.pageKey)";
+
+    List<String> sqlStmts = Arrays.asList(sql);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
+    runner.runAndWaitForFinish();
+
+    // Let's capture the list of windows/counts per key.
+    HashMap<String, List<String>> pageKeyCountListMap = new HashMap<>();
+    TestAvroSystemFactory.messages.stream()
+        .map(x -> {
+            String pageKey = ((GenericRecord) x.getMessage()).get("pageKey").toString();
+            String count = ((GenericRecord) x.getMessage()).get("count").toString();
+            pageKeyCountListMap.computeIfAbsent(pageKey, k -> new ArrayList<>()).add(count);
+            return pageKeyCountListMap;
+          });
+
+    HashMap<String, Integer> pageKeyCountMap = new HashMap<>();
+    pageKeyCountListMap.forEach((key, list) -> {
+        // Check that the number of windows per key is non-zero but less than the number of input messages per key.
+        Assert.assertTrue(list.size() > 1 && list.size() < numMessages / TestAvroSystemFactory.pageKeys.length);
+        // Collapse the count of messages per key
+        pageKeyCountMap.put(key, list.stream().mapToInt(Integer::parseInt).sum());
+      });
+
+    Set<String> pageKeys = new HashSet<>(Arrays.asList("job", "inbox"));
+    HashMap<String, Integer> expectedPageKeyCountMap =
+        TestAvroSystemFactory.getPageKeyGroupByResult(numMessages, pageKeys);
+
+    Assert.assertEquals(expectedPageKeyCountMap, pageKeyCountMap);
+  }
 }
