@@ -42,7 +42,7 @@ import org.apache.samza.util.NoOpMetricsRegistry;
 
 
 /**
- * Generic benchmark test for a system producer.
+ * Generic benchmark test for a {@link SystemProducer}.
  */
 public class SystemProducerBench extends AbstractSamzaBench {
 

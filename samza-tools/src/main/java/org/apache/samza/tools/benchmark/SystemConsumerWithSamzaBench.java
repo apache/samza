@@ -25,6 +25,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.commons.cli.ParseException;
@@ -74,7 +75,7 @@ public class SystemConsumerWithSamzaBench extends AbstractSamzaBench {
 
     runner.run(app);
 
-    while (consumeFn.eventsConsumed < totalEvents) {
+    while (consumeFn.getEventsConsumed() < totalEvents) {
       Thread.sleep(10);
     }
 
@@ -83,29 +84,33 @@ public class SystemConsumerWithSamzaBench extends AbstractSamzaBench {
     runner.kill(app);
 
     System.out.println("\n*******************");
-    System.out.println(String.format("Started at %s Ending at %s", consumeFn.startTime, endTime));
-    System.out.println(String.format("Event Rate is %s Messages/Sec",
-        (consumeFn.eventsConsumed * 1000 / Duration.between(consumeFn.startTime, Instant.now()).toMillis())));
+    System.out.println(String.format("Started at %s Ending at %s ", consumeFn.startTime, endTime));
+    System.out.println(String.format("Event Rate is %s Messages/Sec ",
+        (consumeFn.getEventsConsumed() * 1000 / Duration.between(consumeFn.startTime, Instant.now()).toMillis())));
 
     System.out.println(
-        "Event Rate is " + consumeFn.eventsConsumed * 1000 / Duration.between(consumeFn.startTime, endTime).toMillis());
+        "Event Rate is " + consumeFn.getEventsConsumed() * 1000 / Duration.between(consumeFn.startTime, endTime).toMillis());
     System.out.println("*******************\n");
 
     System.exit(0);
   }
 
   private class MessageConsumer implements MapFunction<Object, Object> {
-    volatile int eventsConsumed = 0;
+    AtomicInteger eventsConsumed = new AtomicInteger(0);
     volatile Instant startTime;
 
     @Override
     public Object apply(Object message) {
 
-      eventsConsumed++;
-      if (eventsConsumed == 1) {
+      eventsConsumed.incrementAndGet();
+      if (eventsConsumed.get() == 1) {
         startTime = Instant.now();
       }
       return message;
+    }
+
+    public int getEventsConsumed() {
+      return eventsConsumed.get();
     }
   }
 }

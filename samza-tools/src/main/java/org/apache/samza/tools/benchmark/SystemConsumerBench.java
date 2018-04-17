@@ -39,7 +39,7 @@ import org.apache.samza.util.NoOpMetricsRegistry;
 
 
 /**
- * Generic benchmark test for a system consumer.
+ * Generic benchmark test for {@link SystemConsumer}.
  */
 public class SystemConsumerBench extends AbstractSamzaBench {
 
@@ -67,7 +67,7 @@ public class SystemConsumerBench extends AbstractSamzaBench {
 
     consumer.start();
 
-    System.out.println("starting consumption at" + Instant.now());
+    System.out.println("starting consumption at " + Instant.now());
     Instant startTime = Instant.now();
     int numEvents = 0;
     while (numEvents < totalEvents) {
@@ -75,8 +75,8 @@ public class SystemConsumerBench extends AbstractSamzaBench {
       numEvents += pollResult.values().stream().mapToInt(List::size).sum();
     }
 
-    System.out.println("Ending consumption at" + Instant.now());
-    System.out.println(String.format("Event Rate is %s Messages/Sec",
+    System.out.println("Ending consumption at " + Instant.now());
+    System.out.println(String.format("Event Rate is %s Messages/Sec ",
         (numEvents * 1000 / Duration.between(startTime, Instant.now()).toMillis())));
     consumer.stop();
     System.exit(0);
