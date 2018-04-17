@@ -21,6 +21,7 @@ package org.apache.samza.system.eventhub.admin;
 
 import com.microsoft.azure.eventhubs.EventHubRuntimeInformation;
 import com.microsoft.azure.eventhubs.PartitionRuntimeInformation;
+import java.util.Arrays;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.system.SystemAdmin;
@@ -89,7 +90,7 @@ public class EventHubSystemAdmin implements SystemAdmin {
 
           long timeoutMs = eventHubConfig.getRuntimeInfoWaitTimeMS(systemName);
           EventHubRuntimeInformation ehInfo = runtimeInfo.get(timeoutMs, TimeUnit.MILLISECONDS);
-          LOG.debug(String.format("Adding partition ids for Stream=%s", streamName));
+          LOG.info(String.format("Adding partition ids=%s for stream=%s", Arrays.toString(ehInfo.getPartitionIds()), streamName));
           streamPartitions.put(streamName, ehInfo.getPartitionIds());
         }
         String[] partitionIds = streamPartitions.get(streamName);
