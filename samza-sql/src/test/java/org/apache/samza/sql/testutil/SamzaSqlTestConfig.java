@@ -32,6 +32,7 @@ import org.apache.samza.sql.avro.schemas.Company;
 import org.apache.samza.sql.avro.schemas.ComplexRecord;
 import org.apache.samza.sql.avro.schemas.EnrichedPageView;
 import org.apache.samza.sql.avro.schemas.PageView;
+import org.apache.samza.sql.avro.schemas.PageViewCount;
 import org.apache.samza.sql.avro.schemas.Profile;
 import org.apache.samza.sql.avro.schemas.SimpleRecord;
 import org.apache.samza.sql.fn.FlattenUdf;
@@ -62,6 +63,11 @@ public class SamzaSqlTestConfig {
 
   public static Map<String, String> fetchStaticConfigsWithFactories(Map<String, String> props, int numberOfMessages,
       boolean includeNullForeignKeys) {
+    return fetchStaticConfigsWithFactories(props, numberOfMessages, includeNullForeignKeys, 0);
+  }
+
+  public static Map<String, String> fetchStaticConfigsWithFactories(Map<String, String> props, int numberOfMessages,
+      boolean includeNullForeignKeys, long windowDurationMs) {
     HashMap<String, String> staticConfigs = new HashMap<>();
 
     staticConfigs.put(JobConfig.JOB_NAME(), "sql-job");
@@ -92,6 +98,9 @@ public class SamzaSqlTestConfig {
         String.valueOf(numberOfMessages));
     staticConfigs.put(avroSystemConfigPrefix + TestAvroSystemFactory.CFG_INCLUDE_NULL_FOREIGN_KEYS,
         includeNullForeignKeys ? "true" : "false");
+    staticConfigs.put(avroSystemConfigPrefix + TestAvroSystemFactory.CFG_SLEEP_BETWEEN_POLLS_MS,
+        String.valueOf(windowDurationMs / 2));
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_GROUPBY_WINDOW_DURATION_MS, String.valueOf(windowDurationMs));
     staticConfigs.put(avroSamzaSqlConfigPrefix + SqlSystemSourceConfig.CFG_SAMZA_REL_CONVERTER, "avro");
     staticConfigs.put(avroSamzaSqlConfigPrefix + SqlSystemSourceConfig.CFG_REL_SCHEMA_PROVIDER, "config");
 
@@ -128,6 +137,9 @@ public class SamzaSqlTestConfig {
 
     staticConfigs.put(configAvroRelSchemaProviderDomain + String.format(ConfigBasedAvroRelSchemaProviderFactory.CFG_SOURCE_SCHEMA,
         "testavro", "enrichedPageViewTopic"), EnrichedPageView.SCHEMA$.toString());
+
+    staticConfigs.put(configAvroRelSchemaProviderDomain + String.format(ConfigBasedAvroRelSchemaProviderFactory.CFG_SOURCE_SCHEMA,
+        "testavro", "pageViewCountTopic"), PageViewCount.SCHEMA$.toString());
 
     staticConfigs.putAll(props);
 
