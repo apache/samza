@@ -37,7 +37,7 @@ import org.apache.samza.system.SystemStreamPartition;
  * Grouper that assigns only the subset of partitions configured to the task. This can be used only
  * with {@link org.apache.samza.standalone.PassthroughJobCoordinator}.
  */
-public class ConfigBasedSspGrouperFactory implements SystemStreamPartitionGrouperFactory {
+class ConfigBasedSspGrouperFactory implements SystemStreamPartitionGrouperFactory {
 
   /**
    * Comma separated list of partitions that needs to be assigned to this task.
