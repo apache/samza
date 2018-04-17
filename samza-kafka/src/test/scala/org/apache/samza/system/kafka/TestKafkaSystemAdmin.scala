@@ -42,14 +42,10 @@ import org.junit._
 
 import scala.collection.JavaConverters._
 
-
 /**
- * Test creates a local ZK and Kafka cluster, and uses it to create and test
- * topics for to verify that offset APIs in SystemAdmin work as expected.
- *
- * NOTE: New tests should be added to the Java tests. See TestKafkaSystemAdminJava
- */
-class TestKafkaSystemAdmin extends KafkaServerTestHarness {
+  * README: New tests should be added to the Java tests. See TestKafkaSystemAdminJava
+  */
+object TestKafkaSystemAdmin extends KafkaServerTestHarness {
 
   val SYSTEM = "kafka"
   val TOPIC = "input"
@@ -70,7 +66,7 @@ class TestKafkaSystemAdmin extends KafkaServerTestHarness {
     props.map(KafkaConfig.fromProps)
   }
 
-  @Before
+  @BeforeClass
   override def setUp() {
     super.setUp()
     val config = new java.util.HashMap[String, String]()
@@ -84,7 +80,7 @@ class TestKafkaSystemAdmin extends KafkaServerTestHarness {
     systemAdmin.start()
   }
 
-  @After
+  @AfterClass
   override def tearDown() {
     systemAdmin.stop()
     producer.close()
@@ -140,6 +136,15 @@ class TestKafkaSystemAdmin extends KafkaServerTestHarness {
     new KafkaSystemAdmin(SYSTEM, brokerList, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure), coordinatorStreamProperties,
       coordinatorStreamReplicationFactor, 10000, ConsumerConfig.SocketBufferSize, UUID.randomUUID.toString, topicMetaInformation, Map())
   }
+
+}
+
+/**
+ * Test creates a local ZK and Kafka cluster, and uses it to create and test
+ * topics for to verify that offset APIs in SystemAdmin work as expected.
+ */
+class TestKafkaSystemAdmin {
+  import TestKafkaSystemAdmin._
 
   @Test
   def testShouldAssembleMetadata {
