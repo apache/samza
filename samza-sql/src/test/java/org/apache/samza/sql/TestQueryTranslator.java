@@ -19,12 +19,14 @@
 
 package org.apache.samza.sql;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.sql.impl.ConfigBasedSourceResolverFactory;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
@@ -347,6 +349,7 @@ public class TestQueryTranslator {
     StreamGraphImpl streamGraph = new StreamGraphImpl(new LocalApplicationRunner(samzaConfig), samzaConfig);
     translator.translate(queryInfo, streamGraph);
   }
+
   @Test
   public void testTranslateStreamTableInnerJoin() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 10);
@@ -463,5 +466,45 @@ public class TestQueryTranslator {
         streamGraph.getInputOperators().keySet().stream().skip(2).findFirst().get().getSystemName());
     Assert.assertEquals("sql-job-1-partition_by-stream_1",
         streamGraph.getInputOperators().keySet().stream().skip(2).findFirst().get().getPhysicalName());
+  }
+
+  @Test
+  public void testTranslateGroupBy() {
+    Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 10);
+    String sql =
+        "Insert into testavro.pageViewCountTopic"
+            + " select 'SampleJob' as jobName, pv.pageKey, count(*) as `count`"
+            + " from testavro.PAGEVIEW as pv"
+            + " where pv.pageKey = 'job' or pv.pageKey = 'inbox'"
+            + " group by (pv.pageKey)";
+    config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
+    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
+    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
+    StreamGraphImpl streamGraph = new StreamGraphImpl(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    translator.translate(queryInfo, streamGraph);
+
+    Assert.assertEquals(1, streamGraph.getInputOperators().size());
+    Assert.assertEquals(1, streamGraph.getOutputStreams().size());
+    Assert.assertTrue(streamGraph.hasWindowOrJoins());
+    Collection<OperatorSpec> operatorSpecs = streamGraph.getAllOperatorSpecs();
+  }
+
+  @Test (expected = SamzaException.class)
+  public void testTranslateGroupByWithSumAggregator() {
+    Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 10);
+    String sql =
+        "Insert into testavro.pageViewCountTopic"
+            + " select 'SampleJob' as jobName, pv.pageKey, sum(pv.profileId) as `sum`"
+            + " from testavro.PAGEVIEW as pv" + " where pv.pageKey = 'job' or pv.pageKey = 'inbox'"
+            + " group by (pv.pageKey)";
+    config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
+    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
+    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
+    StreamGraphImpl streamGraph = new StreamGraphImpl(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    translator.translate(queryInfo, streamGraph);
   }
 }
