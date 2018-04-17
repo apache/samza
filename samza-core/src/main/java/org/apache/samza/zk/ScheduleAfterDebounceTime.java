@@ -157,9 +157,9 @@ public class ScheduleAfterDebounceTime {
         } else {
           LOG.debug("Action: {} completed successfully.", actionName);
         }
-      } catch (Exception exception) {
-        LOG.error("Execution of action: {} failed.", actionName, exception);
-        doCleanUpOnTaskException(exception);
+      } catch (Throwable throwable) {
+        LOG.error("Execution of action: {} failed.", actionName, throwable);
+        doCleanUpOnTaskException(throwable);
       }
     };
   }
@@ -172,12 +172,12 @@ public class ScheduleAfterDebounceTime {
    *   <li> Invokes the onError handler method if taskCallback is defined.</li>
    * </ul>
    *
-   * @param exception the exception happened during task execution.
+   * @param throwable the exception happened during task execution.
    */
-  private void doCleanUpOnTaskException(Exception exception) {
+  private void doCleanUpOnTaskException(Throwable throwable) {
     stopScheduler();
 
-    scheduledTaskCallback.ifPresent(callback -> callback.onError(exception));
+    scheduledTaskCallback.ifPresent(callback -> callback.onError(throwable));
   }
 
   /**
