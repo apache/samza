@@ -44,7 +44,7 @@ import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
  */
 public class SystemConsumerWithSamzaBench extends AbstractSamzaBench {
   public SystemConsumerWithSamzaBench(String[] args) throws ParseException {
-    super(args);
+    super("system-consumer-with-samza-bench", args);
   }
 
   public static void main(String args[]) throws Exception {

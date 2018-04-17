@@ -31,4 +31,4 @@ if [ "x$HEAP_OPTS" = "x" ]; then
     export HEAP_OPTS="-Xmx1G -Xms1G"
 fi
 
-exec $base_dir/run-class.sh org.apache.samza.tools.benchmark.SystemConsumerWithSamszaBench "$@"
+exec $base_dir/run-class.sh org.apache.samza.tools.benchmark.SystemConsumerWithSamzaBench "$@"

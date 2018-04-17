@@ -81,7 +81,7 @@ public abstract class AbstractSamzaBench {
   protected int totalEvents;
   protected String streamId;
 
-  public AbstractSamzaBench(String args[]) throws ParseException {
+  public AbstractSamzaBench(String scriptName, String args[]) throws ParseException {
     options = new Options();
     options.addOption(
         CommandLineHelper.createOption(OPT_SHORT_PROPERTIES_FILE, OPT_LONG_PROPERTIES_FILE, OPT_ARG_PROPERTIES_FILE,
@@ -106,12 +106,10 @@ public abstract class AbstractSamzaBench {
       cmd = parser.parse(options, args);
     } catch (Exception e) {
       HelpFormatter formatter = new HelpFormatter();
-      formatter.printHelp(String.format("Error: %s%nsc-bench.sh", e.getMessage()), options);
+      formatter.printHelp(String.format("Error: %s.sh", scriptName), options);
       throw e;
     }
-
   }
-
 
   public void start() throws IOException, InterruptedException {
     startPartition = Integer.parseInt(cmd.getOptionValue(OPT_SHORT_START_PARTITION));

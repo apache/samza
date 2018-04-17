@@ -49,7 +49,7 @@ public class SystemConsumerBench extends AbstractSamzaBench {
   }
 
   public SystemConsumerBench(String args[]) throws ParseException {
-    super(args);
+    super("system-consumer-bench", args);
   }
 
   public void start() throws IOException, InterruptedException {

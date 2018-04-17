@@ -59,7 +59,7 @@ public class SystemProducerBench extends AbstractSamzaBench {
   }
 
   public SystemProducerBench(String args[]) throws ParseException {
-    super(args);
+    super("system-producer", args);
   }
 
   public void addOptions(Options options) {
@@ -83,24 +83,23 @@ public class SystemProducerBench extends AbstractSamzaBench {
     producer.register(source);
     producer.start();
 
-    System.out.println("starting production at" + Instant.now());
+    System.out.println("starting production at " + Instant.now());
     Instant startTime = Instant.now();
-    int numEvents = 0;
     for (int index = 0; index < totalEvents; index++) {
       SystemStreamPartition ssp = ssps.get(index % ssps.size());
       OutgoingMessageEnvelope messageEnvelope = createMessageEnvelope(ssp, index);
       producer.send(source, messageEnvelope);
     }
 
-    System.out.println("Ending production at" + Instant.now());
+    System.out.println("Ending production at " + Instant.now());
     System.out.println(String.format("Event Rate is %s Messages/Sec",
-        (numEvents * 1000 / Duration.between(startTime, Instant.now()).toMillis())));
+        (totalEvents * 1000 / Duration.between(startTime, Instant.now()).toMillis())));
 
     producer.flush(source);
 
-    System.out.println("Ending flush at" + Instant.now());
+    System.out.println("Ending flush at " + Instant.now());
     System.out.println(String.format("Event Rate with flush is %s Messages/Sec",
-        (numEvents * 1000 / Duration.between(startTime, Instant.now()).toMillis())));
+        (totalEvents * 1000 / Duration.between(startTime, Instant.now()).toMillis())));
     producer.stop();
     System.exit(0);
   }
