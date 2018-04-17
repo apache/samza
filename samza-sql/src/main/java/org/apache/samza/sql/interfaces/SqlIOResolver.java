@@ -21,19 +21,25 @@ package org.apache.samza.sql.interfaces;
 
 
 /**
- * Source Resolvers are used by Samza Sql application to fetch the {@link SqlSystemSourceConfig} corresponding
- * to the source. Additionally, it provides capability to resolve Samza table sources and creating the matching
- * table descriptors.
+ * IO Resolvers are used by Samza SQL application to fetch the {@link SqlIOConfig} corresponding
+ * to the input and output system, including both Samza stream and table systems.
  */
-public interface SourceResolver {
+public interface SqlIOResolver {
   /**
-   * Returns the SystemStream config corresponding to the source name
+   * Returns the SQL IO config corresponding to the source name
    * @param sourceName
-   *  source whose systemstreamconfig needs to be fetched.
-   * @param isSink
-   *  whether the source is an input or output source in the SQL statement
+   *  source whose IOConfig needs to be fetched.
    * @return
-   *  System stream config corresponding to the source.
+   *  IOConfig corresponding to the source.
    */
-  SqlSystemSourceConfig fetchSourceInfo(String sourceName, boolean isSink);
+  SqlIOConfig fetchSourceInfo(String sourceName);
+
+  /**
+   * Returns the SQL IO config corresponding to the sink name
+   * @param sinkName
+   *  sink whose IOConfig needs to be fetched.
+   * @return
+   *  IOConfig corresponding to the sink.
+   */
+  SqlIOConfig fetchSinkInfo(String sinkName);
 }

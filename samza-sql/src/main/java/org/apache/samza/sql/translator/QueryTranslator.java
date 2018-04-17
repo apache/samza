@@ -19,6 +19,8 @@
 
 package org.apache.samza.sql.translator;
 
+import java.util.Optional;
+
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.RelShuttleImpl;
@@ -36,8 +38,8 @@ import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
-import org.apache.samza.sql.interfaces.SourceResolver;
-import org.apache.samza.sql.interfaces.SqlSystemSourceConfig;
+import org.apache.samza.sql.interfaces.SqlIOResolver;
+import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.planner.QueryPlanner;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
@@ -71,7 +73,7 @@ public class QueryTranslator {
     final RelRoot relRoot = planner.plan(queryInfo.getSelectQuery());
     final TranslatorContext context = new TranslatorContext(streamGraph, relRoot, executionContext);
     final RelNode node = relRoot.project();
-    final SourceResolver sourceResolver = context.getExecutionContext().getSamzaSqlApplicationConfig().getSourceResolver();
+    final SqlIOResolver ioResolver = context.getExecutionContext().getSamzaSqlApplicationConfig().getIoResolver();
 
     node.accept(new RelShuttleImpl() {
       int windowId = 0;
@@ -102,7 +104,7 @@ public class QueryTranslator {
       public RelNode visit(LogicalJoin join) {
         RelNode node = super.visit(join);
         joinId++;
-        new JoinTranslator(joinId, sourceResolver).translate(join, context);
+        new JoinTranslator(joinId, ioResolver).translate(join, context);
         return node;
       }
 
@@ -115,19 +117,19 @@ public class QueryTranslator {
       }
     });
 
-    String outputSource = queryInfo.getOutputSource();
-    SqlSystemSourceConfig outputSystemConfig = sqlConfig.getOutputSystemStreamConfigsBySource().get(outputSource);
-    SamzaRelConverter samzaMsgConverter = sqlConfig.getSamzaRelConverters().get(queryInfo.getOutputSource());
+    String sink = queryInfo.getSink();
+    SqlIOConfig sinkConfig = sqlConfig.getOutputSystemStreamConfigsBySource().get(sink);
+    SamzaRelConverter samzaMsgConverter = sqlConfig.getSamzaRelConverters().get(queryInfo.getSink());
     MessageStreamImpl<SamzaSqlRelMessage> stream = (MessageStreamImpl<SamzaSqlRelMessage>) context.getMessageStream(node.getId());
     MessageStream<KV<Object, Object>> outputStream = stream.map(samzaMsgConverter::convertToSamzaMessage);
 
-    if (!outputSystemConfig.isTable()) {
-      outputStream.sendTo(streamGraph.getOutputStream(outputSystemConfig.getStreamName()));
+    Optional<TableDescriptor> tableDescriptor = sinkConfig.getTableDescriptor();
+    if (!tableDescriptor.isPresent()) {
+      outputStream.sendTo(streamGraph.getOutputStream(sinkConfig.getStreamName()));
     } else {
-      TableDescriptor tableDescriptor = outputSystemConfig.getTableDescriptor();
-      Table outputTable = streamGraph.getTable(tableDescriptor);
+      Table outputTable = streamGraph.getTable(tableDescriptor.get());
       if (outputTable == null) {
-        String msg = "Failed to obtain table descriptor of " + outputSystemConfig.getSource();
+        String msg = "Failed to obtain table descriptor of " + sinkConfig.getSource();
         LOG.error(msg);
         throw new SamzaException(msg);
       }

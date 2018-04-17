@@ -31,7 +31,11 @@ import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.storage.kv.RocksDbTableDescriptor;
 
 
-public class TableJoinUtils {
+/**
+ * Helper class for Samza SQL table join with RocksDb local table implementation. This can be used
+ * by Samza SQL IO resolvers to resolve the IO config for an input table in the SQL statement.
+ */
+public class SqlTableJoinUtils {
   private final Map<String, TableDescriptor> tableDescMap = new HashMap<>();
   private final Serde<SamzaSqlCompositeKey> keySerde = new JsonSerdeV2<>(SamzaSqlCompositeKey.class);
   private final Serde<SamzaSqlRelMessage> valueSerde = new JsonSerdeV2<>(SamzaSqlRelMessage.class);

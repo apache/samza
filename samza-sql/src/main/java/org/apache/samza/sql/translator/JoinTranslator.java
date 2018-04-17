@@ -41,16 +41,14 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.sql.data.SamzaSqlCompositeKey;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
-import org.apache.samza.sql.impl.TableJoinUtils;
-import org.apache.samza.sql.interfaces.SourceResolver;
-import org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory;
-import org.apache.samza.sql.interfaces.SqlSystemSourceConfig;
+import org.apache.samza.sql.impl.SqlTableJoinUtils;
+import org.apache.samza.sql.interfaces.SqlIOResolver;
+import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.table.Table;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.apache.samza.sql.data.SamzaSqlCompositeKey.createSamzaSqlCompositeKey;
-import static org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde;
 
 
 /**
@@ -75,11 +73,11 @@ class JoinTranslator {
 
   private static final Logger log = LoggerFactory.getLogger(JoinTranslator.class);
   private int joinId;
-  private SourceResolver sourceResolver;
+  private SqlIOResolver ioResolver;
 
-  JoinTranslator(int joinId, SourceResolver sourceResolver) {
+  JoinTranslator(int joinId, SqlIOResolver ioResolver) {
     this.joinId = joinId;
-    this.sourceResolver = sourceResolver;
+    this.ioResolver = ioResolver;
   }
 
   void translate(final LogicalJoin join, final TranslatorContext context) {
@@ -119,7 +117,7 @@ class JoinTranslator {
         inputStream
             .partitionBy(m -> createSamzaSqlCompositeKey(m, streamKeyIds),
                 m -> m,
-                KVSerde.of(TableJoinUtils.getKeySerde(), TableJoinUtils.getValueSerde()),
+                KVSerde.of(SqlTableJoinUtils.getKeySerde(), SqlTableJoinUtils.getValueSerde()),
                 "stream_" + joinId)
             .map(KV::getValue)
             .join(table, joinFn);
@@ -245,9 +243,9 @@ class JoinTranslator {
         SqlExplainLevel.EXPPLAN_ATTRIBUTES);
   }
 
-  private SqlSystemSourceConfig resolveSourceConfig(RelNode relNode) {
+  private SqlIOConfig resolveSourceConfig(RelNode relNode) {
     String sourceName = String.join(".", relNode.getTable().getQualifiedName());
-    SqlSystemSourceConfig sourceConfig = sourceResolver.fetchSourceInfo(sourceName, false);
+    SqlIOConfig sourceConfig = ioResolver.fetchSourceInfo(sourceName);
     if (sourceConfig == null) {
       throw new SamzaException("Unsupported source found in join statement: " + sourceName);
     }
@@ -259,25 +257,29 @@ class JoinTranslator {
     // stream-table-table join, the left side of the join is join output, which we always
     // assume to be a stream. The intermediate stream won't be an instance of EnumerableTableScan.
     if (relNode instanceof EnumerableTableScan) {
-      return resolveSourceConfig(relNode).isTable();
+      return resolveSourceConfig(relNode).getTableDescriptor().isPresent();
     } else {
       return false;
     }
   }
 
   private Table loadLocalTable(boolean isTablePosOnRight, List<Integer> tableKeyIds, LogicalJoin join, TranslatorContext context) {
-    MessageStream<SamzaSqlRelMessage> relOutputStream =
-        isTablePosOnRight ?
-            context.getMessageStream(join.getRight().getId()) : context.getMessageStream(join.getLeft().getId());
+    RelNode relNode = isTablePosOnRight ? join.getRight() : join.getLeft();
 
-    SqlSystemSourceConfig sourceConfig =
-        isTablePosOnRight ?
-            resolveSourceConfig(join.getRight()) : resolveSourceConfig(join.getLeft());
+    MessageStream<SamzaSqlRelMessage> relOutputStream = context.getMessageStream(relNode.getId());
+
+    SqlIOConfig sourceConfig = resolveSourceConfig(relNode);
+
+    if (!sourceConfig.getTableDescriptor().isPresent()) {
+      String errMsg = "Failed to resolve table source in join operation: node=" + relNode;
+      log.error(errMsg);
+      throw new SamzaException(errMsg);
+    }
 
     // Create a table backed by RocksDb store with the fields in the join condition as composite key and relational
     // message as the value. Send the messages from the input stream denoted as 'table' to the created table store.
     Table<KV<SamzaSqlCompositeKey, SamzaSqlRelMessage>> table =
-        context.getStreamGraph().getTable(sourceConfig.getTableDescriptor());
+        context.getStreamGraph().getTable(sourceConfig.getTableDescriptor().get());
 
     relOutputStream
         .map(m -> new KV(createSamzaSqlCompositeKey(m, tableKeyIds), m))

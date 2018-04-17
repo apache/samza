@@ -28,7 +28,7 @@ import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
 import org.apache.samza.sql.testutil.JsonUtil;
 import org.apache.samza.sql.testutil.SamzaSqlTestConfig;
-import org.apache.samza.sql.testutil.TestSourceResolverFactory;
+import org.apache.samza.sql.testutil.TestIOResolverFactory;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -38,7 +38,7 @@ public class TestSamzaSqlTable {
   public void testEndToEnd() throws Exception {
     int numMessages = 20;
 
-    TestSourceResolverFactory.TestTable.records.clear();
+    TestIOResolverFactory.TestTable.records.clear();
 
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
 
@@ -48,14 +48,14 @@ public class TestSamzaSqlTable {
     SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
     runner.runAndWaitForFinish();
 
-    Assert.assertEquals(numMessages, TestSourceResolverFactory.TestTable.records.size());
+    Assert.assertEquals(numMessages, TestIOResolverFactory.TestTable.records.size());
   }
 
   @Test
   public void testEndToEndWithKey() throws Exception {
     int numMessages = 20;
 
-    TestSourceResolverFactory.TestTable.records.clear();
+    TestIOResolverFactory.TestTable.records.clear();
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
 
     String sql1 = "Insert into testDb.testTable.`$table` select id __key__, name from testavro.SIMPLE1";
@@ -64,6 +64,6 @@ public class TestSamzaSqlTable {
     SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
     runner.runAndWaitForFinish();
 
-    Assert.assertEquals(numMessages, TestSourceResolverFactory.TestTable.records.size());
+    Assert.assertEquals(numMessages, TestIOResolverFactory.TestTable.records.size());
   }
 }

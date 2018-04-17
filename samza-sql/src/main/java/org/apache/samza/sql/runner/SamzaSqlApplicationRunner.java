@@ -31,8 +31,8 @@ import org.apache.samza.runtime.AbstractApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.runtime.RemoteApplicationRunner;
-import org.apache.samza.sql.interfaces.SourceResolver;
-import org.apache.samza.sql.interfaces.SqlSystemSourceConfig;
+import org.apache.samza.sql.interfaces.SqlIOResolver;
+import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,7 +70,7 @@ public class SamzaSqlApplicationRunner extends AbstractApplicationRunner {
   public static Config computeSamzaConfigs(Boolean localRunner, Config config) {
     Map<String, String> newConfig = new HashMap<>();
 
-    SourceResolver sourceResolver = SamzaSqlApplicationConfig.createSourceResolver(config);
+    SqlIOResolver ioResolver = SamzaSqlApplicationConfig.createIOResolver(config);
     // Parse the sql and find the input stream streams
     List<String> sqlStmts = SamzaSqlApplicationConfig.fetchSqlFromConfig(config);
 
@@ -81,14 +81,14 @@ public class SamzaSqlApplicationRunner extends AbstractApplicationRunner {
     List<SamzaSqlQueryParser.QueryInfo> queryInfo = SamzaSqlApplicationConfig.fetchQueryInfo(sqlStmts);
     for (SamzaSqlQueryParser.QueryInfo query : queryInfo) {
       // Populate stream to system mapping config for input and output system streams
-      for (String inputSource : query.getInputSources()) {
-        SqlSystemSourceConfig inputSystemStreamConfig = sourceResolver.fetchSourceInfo(inputSource, false);
+      for (String inputSource : query.getSources()) {
+        SqlIOConfig inputSystemStreamConfig = ioResolver.fetchSourceInfo(inputSource);
         newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, inputSystemStreamConfig.getStreamName()),
             inputSystemStreamConfig.getSystemName());
         newConfig.putAll(inputSystemStreamConfig.getConfig());
       }
 
-      SqlSystemSourceConfig outputSystemStreamConfig = sourceResolver.fetchSourceInfo(query.getOutputSource(), true);
+      SqlIOConfig outputSystemStreamConfig = ioResolver.fetchSinkInfo(query.getSink());
       newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, outputSystemStreamConfig.getStreamName()),
           outputSystemStreamConfig.getSystemName());
       newConfig.putAll(outputSystemStreamConfig.getConfig());

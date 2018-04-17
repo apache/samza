@@ -23,9 +23,9 @@ import org.apache.commons.lang.NotImplementedException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.TableDescriptor;
-import org.apache.samza.sql.interfaces.SourceResolver;
-import org.apache.samza.sql.interfaces.SourceResolverFactory;
-import org.apache.samza.sql.interfaces.SqlSystemSourceConfig;
+import org.apache.samza.sql.interfaces.SqlIOResolver;
+import org.apache.samza.sql.interfaces.SqlIOResolverFactory;
+import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,35 +36,31 @@ import org.slf4j.LoggerFactory;
  * {systemName}.{streamName} indicates a stream
  * {systemName}.{streamName}.$table indicates a table
  */
-public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
+public class ConfigBasedIOResolverFactory implements SqlIOResolverFactory {
 
-  private static final Logger LOG = LoggerFactory.getLogger(ConfigBasedSourceResolverFactory.class);
+  private static final Logger LOG = LoggerFactory.getLogger(ConfigBasedIOResolverFactory.class);
 
   public static final String CFG_FMT_SAMZA_PREFIX = "systems.%s.";
 
-  private static TableJoinUtils tableJoinUtils = new TableJoinUtils();
+  private static SqlTableJoinUtils sqlTableJoinUtils = new SqlTableJoinUtils();
 
   @Override
-  public SourceResolver create(Config config) {
-    return new ConfigBasedSourceResolver(config);
+  public SqlIOResolver create(Config config) {
+    return new ConfigBasedIOResolver(config);
   }
 
-  private class ConfigBasedSourceResolver implements SourceResolver {
+  private class ConfigBasedIOResolver implements SqlIOResolver {
     private final String SAMZA_SQL_QUERY_TABLE_KEYWORD = "$table";
     private final Config config;
 
-    public ConfigBasedSourceResolver(Config config) {
+    public ConfigBasedIOResolver(Config config) {
       this.config = config;
     }
 
     @Override
-    public SqlSystemSourceConfig fetchSourceInfo(String source, boolean isSink) {
+    public SqlIOConfig fetchSourceInfo(String source) {
       String[] sourceComponents = source.split("\\.");
       boolean isTable = isTable(sourceComponents);
-
-      if (isTable && isSink) {
-        throw new NotImplementedException("Table is not as sink.");
-      }
 
       // This source resolver expects sources of format {systemName}.{streamName}[.$table]
       //  * First source part is always system name.
@@ -96,9 +92,14 @@ public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
       String systemName = sourceComponents[0];
       String streamName = sourceComponents[streamIdx];
 
-      TableDescriptor tableDescriptor = isTable ? tableJoinUtils.createDescriptor(source) : null;
+      TableDescriptor tableDescriptor = isTable ? sqlTableJoinUtils.createDescriptor(source) : null;
 
-      return new SqlSystemSourceConfig(systemName, streamName, fetchSystemConfigs(systemName), tableDescriptor);
+      return new SqlIOConfig(systemName, streamName, fetchSystemConfigs(systemName), tableDescriptor);
+    }
+
+    @Override
+    public SqlIOConfig fetchSinkInfo(String sink) {
+      throw new NotImplementedException("No sink support in ConfigBasedIOResolver.");
     }
 
     private boolean isTable(String[] sourceComponents) {

@@ -31,10 +31,10 @@ import org.apache.samza.operators.BaseTableDescriptor;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
-import org.apache.samza.sql.impl.TableJoinUtils;
-import org.apache.samza.sql.interfaces.SourceResolver;
-import org.apache.samza.sql.interfaces.SourceResolverFactory;
-import org.apache.samza.sql.interfaces.SqlSystemSourceConfig;
+import org.apache.samza.sql.impl.SqlTableJoinUtils;
+import org.apache.samza.sql.interfaces.SqlIOResolver;
+import org.apache.samza.sql.interfaces.SqlIOResolverFactory;
+import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableProvider;
@@ -43,13 +43,13 @@ import org.apache.samza.table.TableSpec;
 import org.apache.samza.task.TaskContext;
 
 
-public class TestSourceResolverFactory implements SourceResolverFactory {
+public class TestIOResolverFactory implements SqlIOResolverFactory {
   public static final String TEST_DB_SYSTEM = "testDb";
   public static final String TEST_TABLE_ID = "testDbId";
 
   @Override
-  public SourceResolver create(Config config) {
-    return new TestSourceResolver(config);
+  public SqlIOResolver create(Config config) {
+    return new TestIOResolver(config);
   }
 
   static class TestTableDescriptor extends BaseTableDescriptor {
@@ -140,19 +140,18 @@ public class TestSourceResolverFactory implements SourceResolverFactory {
     }
   }
 
-  private class TestSourceResolver implements SourceResolver {
+  private class TestIOResolver implements SqlIOResolver {
     private final String SAMZA_SQL_QUERY_TABLE_KEYWORD = "$table";
     private final Config config;
     private final Map<String, TableDescriptor> tableDescMap = new HashMap<>();
-    private final TableJoinUtils tableJoinUtils = new TableJoinUtils();
+    private final SqlTableJoinUtils sqlTableJoinUtils = new SqlTableJoinUtils();
 
-    public TestSourceResolver(Config config) {
+    public TestIOResolver(Config config) {
       this.config = config;
     }
 
-    @Override
-    public SqlSystemSourceConfig fetchSourceInfo(String sourceName, boolean isSink) {
-      String[] sourceComponents = sourceName.split("\\.");
+    private SqlIOConfig fetchIOInfo(String ioName, boolean isSink) {
+      String[] sourceComponents = ioName.split("\\.");
       int systemIdx = 0;
       int endIdx = sourceComponents.length - 1;
       int streamIdx = endIdx;
@@ -161,21 +160,31 @@ public class TestSourceResolverFactory implements SourceResolverFactory {
       if (sourceComponents[endIdx].equalsIgnoreCase(SAMZA_SQL_QUERY_TABLE_KEYWORD)) {
         streamIdx = endIdx - 1;
 
-        tableDescriptor = tableDescMap.get(sourceName);
+        tableDescriptor = tableDescMap.get(ioName);
 
         if (tableDescriptor == null) {
           if (isSink) {
             tableDescriptor = new TestTableDescriptor(TEST_TABLE_ID + tableDescMap.size());
           } else {
-            tableDescriptor = tableJoinUtils.createDescriptor(sourceName);
+            tableDescriptor = sqlTableJoinUtils.createDescriptor(ioName);
           }
-          tableDescMap.put(sourceName, tableDescriptor);
+          tableDescMap.put(ioName, tableDescriptor);
         }
       }
 
       Config systemConfigs = config.subset(sourceComponents[systemIdx] + ".");
-      return new SqlSystemSourceConfig(sourceComponents[systemIdx], sourceComponents[streamIdx],
+      return new SqlIOConfig(sourceComponents[systemIdx], sourceComponents[streamIdx],
           Arrays.asList(sourceComponents), systemConfigs, tableDescriptor);
+    }
+
+    @Override
+    public SqlIOConfig fetchSourceInfo(String sourceName) {
+      return fetchIOInfo(sourceName, false);
+    }
+
+    @Override
+    public SqlIOConfig fetchSinkInfo(String sinkName) {
+      return fetchIOInfo(sinkName, true);
     }
   }
 }

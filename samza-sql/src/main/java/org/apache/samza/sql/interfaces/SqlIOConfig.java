@@ -23,6 +23,8 @@ import com.google.common.base.Joiner;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
+
 import org.apache.commons.lang.Validate;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
@@ -32,10 +34,9 @@ import org.apache.samza.system.SystemStream;
 
 
 /**
- * Configs associated with a system source. Both streams and table sources are supported.
- * For now, only local tables are supported.
+ * Configs associated with an IO resource. Both stream and table resources are supported.
  */
-public class SqlSystemSourceConfig {
+public class SqlIOConfig {
 
   public static final String CFG_SAMZA_REL_CONVERTER = "samzaRelConverterName";
   public static final String CFG_REL_SCHEMA_PROVIDER = "relSchemaProviderName";
@@ -54,19 +55,17 @@ public class SqlSystemSourceConfig {
 
   private final List<String> sourceParts;
 
-  private final boolean isTable;
+  private final Optional<TableDescriptor> tableDescriptor;
 
-  private final TableDescriptor tableDescriptor;
-
-  public SqlSystemSourceConfig(String systemName, String streamName, Config systemConfig) {
+  public SqlIOConfig(String systemName, String streamName, Config systemConfig) {
     this(systemName, streamName, Arrays.asList(systemName, streamName), systemConfig, null);
   }
 
-  public SqlSystemSourceConfig(String systemName, String streamName, Config systemConfig, TableDescriptor tableDescriptor) {
+  public SqlIOConfig(String systemName, String streamName, Config systemConfig, TableDescriptor tableDescriptor) {
     this(systemName, streamName, Arrays.asList(systemName, streamName), systemConfig, tableDescriptor);
   }
 
-  public SqlSystemSourceConfig(String systemName, String streamName, List<String> sourceParts,
+  public SqlIOConfig(String systemName, String streamName, List<String> sourceParts,
       Config systemConfig, TableDescriptor tableDescriptor) {
     HashMap<String, String> streamConfigs = new HashMap<>(systemConfig);
     this.systemName = systemName;
@@ -74,8 +73,7 @@ public class SqlSystemSourceConfig {
     this.source = getSourceFromSourceParts(sourceParts);
     this.sourceParts = sourceParts;
     this.systemStream = new SystemStream(systemName, streamName);
-    this.isTable = tableDescriptor != null;
-    this.tableDescriptor = tableDescriptor;
+    this.tableDescriptor = Optional.ofNullable(tableDescriptor);
 
     samzaRelConverterName = streamConfigs.get(CFG_SAMZA_REL_CONVERTER);
     Validate.notEmpty(samzaRelConverterName,
@@ -88,7 +86,7 @@ public class SqlSystemSourceConfig {
     streamConfigs.remove(CFG_REL_SCHEMA_PROVIDER);
 
     // Currently, only local table is supported. And it is assumed that all tables are local tables.
-    if (isTable) {
+    if (tableDescriptor != null) {
       streamConfigs.put(String.format(StreamConfig.BOOTSTRAP_FOR_STREAM_ID(), streamName), "true");
       streamConfigs.put(String.format(StreamConfig.CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID(), streamName), "oldest");
     }
@@ -132,11 +130,7 @@ public class SqlSystemSourceConfig {
     return source;
   }
 
-  public boolean isTable() {
-    return isTable;
-  }
-
-  public TableDescriptor getTableDescriptor() {
+  public Optional<TableDescriptor> getTableDescriptor() {
     return tableDescriptor;
   }
 }
