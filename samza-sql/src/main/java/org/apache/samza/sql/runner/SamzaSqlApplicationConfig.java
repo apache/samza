@@ -78,7 +78,9 @@ public class SamzaSqlApplicationConfig {
   public static final String CFG_UDF_RESOLVER = "samza.sql.udfResolver";
   public static final String CFG_FMT_UDF_RESOLVER_DOMAIN = "samza.sql.udfResolver.%s.";
 
-  public static final String CFG_WINDOW_DURATION_MS = "samza.sql.window.ms";
+  public static final String CFG_GROUPBY_WINDOW_DURATION_MS = "samza.sql.groupby.window.ms";
+
+  private static final long DEFAULT_GROUPBY_WINDOW_DURATION_MS = 300000; // default groupby window duration is 5 mins.
 
   private final Map<String, RelSchemaProvider> relSchemaProvidersBySource;
   private final Map<String, SamzaRelConverter> samzaRelConvertersBySource;
@@ -96,7 +98,6 @@ public class SamzaSqlApplicationConfig {
   private final List<QueryInfo> queryInfo;
 
   private final long windowDurationMs;
-  private static final long DEFAULT_WINDOW_DURATION_MS = 300000; // default window duration is 5 mins.
 
   public SamzaSqlApplicationConfig(Config staticConfig) {
 
@@ -133,7 +134,7 @@ public class SamzaSqlApplicationConfig {
                 CFG_FMT_SAMZA_REL_CONVERTER_DOMAIN, (o, c) -> ((SamzaRelConverterFactory) o).create(x.getSystemStream(),
                     relSchemaProvidersBySource.get(x.getSource()), c))));
 
-    windowDurationMs = staticConfig.getLong(CFG_WINDOW_DURATION_MS, DEFAULT_WINDOW_DURATION_MS);
+    windowDurationMs = staticConfig.getLong(CFG_GROUPBY_WINDOW_DURATION_MS, DEFAULT_GROUPBY_WINDOW_DURATION_MS);
   }
 
   private static <T> T initializePlugin(String pluginName, String plugin, Config staticConfig,
