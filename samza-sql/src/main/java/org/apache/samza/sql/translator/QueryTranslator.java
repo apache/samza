@@ -23,6 +23,7 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.RelShuttleImpl;
 import org.apache.calcite.rel.core.TableScan;
+import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
@@ -65,6 +66,7 @@ public class QueryTranslator {
     final TranslatorContext context = new TranslatorContext(streamGraph, relRoot, executionContext);
     final RelNode node = relRoot.project();
     final int[] joinId = new int[1];
+    final int[] windowId = new int[1];
 
     node.accept(new RelShuttleImpl() {
       @Override
@@ -94,6 +96,14 @@ public class QueryTranslator {
         joinId[0]++;
         SourceResolver sourceResolver = context.getExecutionContext().getSamzaSqlApplicationConfig().getSourceResolver();
         new JoinTranslator(joinId[0], sourceResolver).translate(join, context);
+        return node;
+      }
+
+      @Override
+      public RelNode visit(LogicalAggregate aggregate) {
+        RelNode node = super.visit(aggregate);
+        windowId[0] += 2;
+        new LogicalAggregateTranslator(windowId[0]).translate(aggregate, context);
         return node;
       }
     });
