@@ -20,12 +20,12 @@
 package org.apache.samza.zk;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -55,7 +55,8 @@ public class ScheduleAfterDebounceTime {
   /**
    * A map from actionName to {@link ScheduledFuture} of task scheduled for execution.
    */
-  private final Map<String, ScheduledFuture> futureHandles = new HashMap<>();
+  private final Map<String, ScheduledFuture> futureHandles = new ConcurrentHashMap<>();
+  private boolean isShuttingDown;
 
   public ScheduleAfterDebounceTime() {
     ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(DEBOUNCE_THREAD_NAME_FORMAT).setDaemon(true).build();
@@ -93,12 +94,24 @@ public class ScheduleAfterDebounceTime {
    * and all pending enqueued tasks will be cancelled.
    */
   public synchronized void stopScheduler() {
-    LOG.info("Stopping Scheduler");
+    if (isShuttingDown) {
+      LOG.debug("Debounce timer shutdown is already in progress!");
+      return;
+    }
 
-    scheduledExecutorService.shutdownNow();
+    isShuttingDown = true;
+    LOG.info("Shutting down debounce timer!");
 
-    // Clear the existing future handles.
-    futureHandles.clear();
+    // changing it back to use shutdown instead to prevent interruptions on the active task
+    scheduledExecutorService.shutdown();
+
+    // should clear out the future handles as well
+    futureHandles.keySet()
+        .forEach(this::tryCancelScheduledAction);
+  }
+
+  public synchronized void cancelAction(String action) {
+    this.tryCancelScheduledAction(action);
   }
 
   /**
@@ -144,27 +157,27 @@ public class ScheduleAfterDebounceTime {
         } else {
           LOG.debug("Action: {} completed successfully.", actionName);
         }
-      } catch (Throwable t) {
-        LOG.error("Execution of action: {} failed.", actionName, t);
-        doCleanUpOnTaskException(t);
+      } catch (Exception exception) {
+        LOG.error("Execution of action: {} failed.", actionName, exception);
+        doCleanUpOnTaskException(exception);
       }
     };
   }
 
   /**
-   * Handler method to invoke on a throwable during an scheduled task execution and which
+   * Handler method to invoke on a exception during an scheduled task execution and which
    * the following operations in sequential order.
    * <ul>
    *   <li> Stop the scheduler. If the task execution fails or a task is interrupted, scheduler will not accept/execute any new tasks.</li>
    *   <li> Invokes the onError handler method if taskCallback is defined.</li>
    * </ul>
    *
-   * @param throwable the throwable that happened during task execution.
+   * @param exception the exception happened during task execution.
    */
-  private void doCleanUpOnTaskException(Throwable throwable) {
+  private void doCleanUpOnTaskException(Exception exception) {
     stopScheduler();
 
-    scheduledTaskCallback.ifPresent(callback -> callback.onError(throwable));
+    scheduledTaskCallback.ifPresent(callback -> callback.onError(exception));
   }
 
   /**
