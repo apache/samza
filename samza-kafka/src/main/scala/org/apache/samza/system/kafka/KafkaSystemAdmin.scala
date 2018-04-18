@@ -22,12 +22,15 @@ package org.apache.samza.system.kafka
 import java.util
 import java.util.{Properties, UUID}
 
-import kafka.admin.AdminUtils
+import com.google.common.annotations.VisibleForTesting
+import kafka.admin.{AdminClient, AdminUtils}
 import kafka.api._
 import kafka.common.TopicAndPartition
 import kafka.consumer.{ConsumerConfig, SimpleConsumer}
 import kafka.utils.ZkUtils
+import org.apache.kafka.clients.CommonClientConfigs
 import org.apache.kafka.common.errors.TopicExistsException
+import org.apache.kafka.common.TopicPartition
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.apache.samza.system._
 import org.apache.samza.util.{ClientUtilTopicMetadataStore, ExponentialSleepStrategy, KafkaUtil, Logging}
@@ -38,6 +41,7 @@ import scala.collection.JavaConverters._
 
 object KafkaSystemAdmin extends Logging {
 
+  @VisibleForTesting @volatile var deleteMessagesCalled = false
   val CLEAR_STREAM_RETRIES = 3
 
   /**
@@ -144,20 +148,38 @@ class KafkaSystemAdmin(
   /**
    * Kafka properties to be used during the intermediate topic creation
    */
-  intermediateStreamProperties: Map[String, Properties] = Map()) extends ExtendedSystemAdmin with Logging {
+  intermediateStreamProperties: Map[String, Properties] = Map(),
+
+  /**
+   * Whether deleteMessages() API can be used
+   */
+  deleteCommittedMessages: Boolean = false) extends ExtendedSystemAdmin with Logging {
 
   import KafkaSystemAdmin._
 
   @volatile var running = false
+  @volatile var adminClient: AdminClient = null
 
   override def start() = {
-    running = true
+    if (!running) {
+      running = true
+      adminClient = createAdminClient()
+    }
   }
 
   override def stop() = {
-    running = false
+    if (running) {
+      running = false
+      adminClient.close()
+      adminClient = null
+    }
   }
 
+  private def createAdminClient(): AdminClient = {
+    val props = new Properties()
+    props.put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, brokerListString)
+    AdminClient.create(props)
+  }
 
   override def getSystemStreamPartitionCounts(streams: util.Set[String], cacheTTL: Long): util.Map[String, SystemStreamMetadata] = {
     getSystemStreamPartitionCounts(streams, new ExponentialSleepStrategy(initialDelayMs = 500), cacheTTL)
@@ -555,13 +577,33 @@ class KafkaSystemAdmin(
   }
 
   /**
+    * @inheritdoc
+    *
+    * Delete records up to (and including) the provided ssp offsets for all system stream partitions specified in the map
+    * This only works with Kafka cluster 0.11 or later. Otherwise it's a no-op.
+    */
+  override def deleteMessages(offsets: util.Map[SystemStreamPartition, String]) {
+    deleteMessagesCalled = true
+
+    if (!running) {
+      throw new SamzaException(s"KafkaSystemAdmin has not started yet for system $systemName")
+    }
+    if (deleteCommittedMessages) {
+      val nextOffsets = offsets.asScala.toSeq.map { case (systemStreamPartition, offset) =>
+        (new TopicPartition(systemStreamPartition.getStream, systemStreamPartition.getPartition.getPartitionId), offset.toLong + 1)
+      }.toMap
+      adminClient.deleteRecordsBefore(nextOffsets)
+    }
+  }
+
+  /**
    * Compare the two offsets. Returns x where x < 0 if offset1 < offset2;
    * x == 0 if offset1 == offset2; x > 0 if offset1 > offset2.
    *
    * Currently it's used in the context of the broadcast streams to detect
    * the mismatch between two streams when consuming the broadcast streams.
    */
-  override def offsetComparator(offset1: String, offset2: String) = {
+  override def offsetComparator(offset1: String, offset2: String): Integer = {
     offset1.toLong compare offset2.toLong
   }
 }

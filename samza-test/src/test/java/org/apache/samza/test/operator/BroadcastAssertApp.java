@@ -29,15 +29,18 @@ import org.apache.samza.test.framework.StreamAssert;
 
 import java.util.Arrays;
 
-import static org.apache.samza.test.operator.RepartitionJoinWindowApp.PAGE_VIEWS;
-
 public class BroadcastAssertApp implements StreamApplication {
+
+  public static final String INPUT_TOPIC_NAME_PROP = "inputTopicName";
+
 
   @Override
   public void init(StreamGraph graph, Config config) {
+    String inputTopic = config.get(INPUT_TOPIC_NAME_PROP);
+
     final JsonSerdeV2<PageView> serde = new JsonSerdeV2<>(PageView.class);
     final MessageStream<PageView> broadcastPageViews = graph
-        .getInputStream(PAGE_VIEWS, serde)
+        .getInputStream(inputTopic, serde)
         .broadcast(serde, "pv");
 
     /**
