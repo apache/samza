@@ -33,6 +33,7 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.config.ZkConfig;
@@ -348,7 +349,9 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
      * Host affinity is not supported in standalone. Hence, LocalityManager(which is responsible for container
      * to host mapping) is passed in as null when building the jobModel.
      */
-    return JobModelManager.readJobModel(this.config, changeLogPartitionMap, null, streamMetadataCache, processors);
+    JobModel model = JobModelManager.readJobModel(this.config, changeLogPartitionMap, null, streamMetadataCache, processors);
+    // Nuke the configuration in JobModel.
+    return new JobModel(new MapConfig(), model.getContainers());
   }
 
   class LeaderElectorListenerImpl implements LeaderElectorListener {
