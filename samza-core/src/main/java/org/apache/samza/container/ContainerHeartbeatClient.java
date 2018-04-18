@@ -25,7 +25,7 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.stream.Collectors;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.HttpUtil;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,7 +86,7 @@ public class ContainerHeartbeatClient {
     BufferedReader br = null;
     for (int currentTry = 0; currentTry < NUM_RETRIES; currentTry++) {
       try {
-        conn = Util.getHttpConnection(url, TIMEOUT_MS);
+        conn = HttpUtil.getHttpConnection(url, TIMEOUT_MS);
         br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
         if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
           throw new IOException(String.format("HTTP error fetching url %s. Returned status code %d", url.toString(),

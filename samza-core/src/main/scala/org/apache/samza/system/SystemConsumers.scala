@@ -24,7 +24,7 @@ import java.util
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
 import org.apache.samza.serializers.SerdeManager
-import org.apache.samza.util.{Logging, TimerUtils}
+import org.apache.samza.util.{Logging, TimerUtil}
 import org.apache.samza.system.chooser.MessageChooser
 import org.apache.samza.SamzaException
 import java.util.ArrayDeque
@@ -106,7 +106,7 @@ class SystemConsumers (
    * Clock can be used to inject a custom clock when mocking this class in
    * tests. The default implementation returns the current system clock time.
    */
-  val clock: () => Long = () => System.nanoTime()) extends Logging with TimerUtils {
+  val clock: () => Long = () => System.nanoTime()) extends Logging with TimerUtil {
 
   /**
    * A buffer of incoming messages grouped by SystemStreamPartition. These

@@ -26,7 +26,7 @@ import org.apache.samza.config.{Config, JobConfig, ShellCommandConfig, YarnConfi
 import org.apache.samza.job.ApplicationStatus.{Running, SuccessfulFinish, UnsuccessfulFinish}
 import org.apache.samza.job.{ApplicationStatus, StreamJob}
 import org.apache.samza.serializers.model.SamzaObjectMapper
-import org.apache.samza.util.Util
+import org.apache.samza.util.{CoordinatorStreamUtil, Util}
 import org.slf4j.LoggerFactory
 
 /**
@@ -53,7 +53,7 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
             format (ApplicationConstants.LOG_DIR_EXPANSION_VAR, ApplicationConstants.LOG_DIR_EXPANSION_VAR,
             cmdExec, ApplicationConstants.STDOUT, ApplicationConstants.STDERR)),
         Some({
-          val coordinatorSystemConfig = Util.buildCoordinatorStreamConfig(config)
+          val coordinatorSystemConfig = CoordinatorStreamUtil.buildCoordinatorStreamConfig(config)
           val envMap = Map(
             ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG -> Util.envVarEscape(SamzaObjectMapper.getObjectMapper.writeValueAsString
             (coordinatorSystemConfig)),
