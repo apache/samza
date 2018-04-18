@@ -22,11 +22,10 @@ package org.apache.samza.job.model;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.LocalityManager;
-import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
+import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 
 /**
  * <p>
@@ -40,6 +39,7 @@ import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
  * an id, partition information, etc.
  * </p>
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class JobModel {
   private static final String EMPTY_STRING = "";
   private final Config config;
@@ -141,15 +141,6 @@ public class JobModel {
 
   public Map<String, ContainerModel> getContainers() {
     return containers;
-  }
-
-  public Map<TaskName, Integer> getTaskPartitionMappings() {
-    HashMap<TaskName, Integer> mappings = new HashMap<>();
-    for (Map.Entry<String, ContainerModel> container: containers.entrySet()) {
-      mappings.putAll(container.getValue().getTasks().entrySet().stream()
-          .collect(Collectors.toMap(t -> t.getKey(), t -> t.getValue().getChangelogPartition().getPartitionId())));
-    }
-    return mappings;
   }
 
   @Override
