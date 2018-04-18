@@ -131,8 +131,9 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     map.put(ApplicationConfig.PROCESSOR_ID, pId);
 
     Config config = new MapConfig(map);
+    String jobCoordinatorFactoryClassName = new JobCoordinatorConfig(config).getJobCoordinatorFactoryClassName();
     JobCoordinator jobCoordinator =
-        Util.<JobCoordinatorFactory>getObj(new JobCoordinatorConfig(config).getJobCoordinatorFactoryClassName())
+        Util.getObj(jobCoordinatorFactoryClassName, JobCoordinatorFactory.class)
             .getJobCoordinator(config);
 
     StreamProcessorLifecycleListener listener = new StreamProcessorLifecycleListener() {

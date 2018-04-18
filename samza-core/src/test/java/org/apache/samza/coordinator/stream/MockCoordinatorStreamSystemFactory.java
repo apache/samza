@@ -26,8 +26,8 @@ import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.system.*;
+import org.apache.samza.util.CoordinatorStreamUtil;
 import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin;
-import org.apache.samza.util.Util;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -88,7 +88,7 @@ public class MockCoordinatorStreamSystemFactory implements SystemFactory {
     if (jobId == null) {
       jobId = "1";
     }
-    String streamName = Util.getCoordinatorStreamName(jobName, jobId);
+    String streamName = CoordinatorStreamUtil.getCoordinatorStreamName(jobName, jobId);
     SystemStreamPartition systemStreamPartition = new SystemStreamPartition(systemName, streamName, new Partition(0));
     mockConsumer = new MockCoordinatorStreamWrappedConsumer(systemStreamPartition, config);
     return mockConsumer;
@@ -97,7 +97,7 @@ public class MockCoordinatorStreamSystemFactory implements SystemFactory {
   private SystemStream getCoordinatorSystemStream(Config config) {
     assertNotNull(config.get("job.coordinator.system"));
     assertNotNull(config.get("job.name"));
-    return new SystemStream(config.get("job.coordinator.system"), Util.getCoordinatorStreamName(config.get("job.name"),
+    return new SystemStream(config.get("job.coordinator.system"), CoordinatorStreamUtil.getCoordinatorStreamName(config.get("job.name"),
         config.get("job.id") == null ? "1" : config.get("job.id")));
   }
 

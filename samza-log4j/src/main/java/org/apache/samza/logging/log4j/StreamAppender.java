@@ -50,6 +50,8 @@ import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.util.ExponentialSleepStrategy;
+import org.apache.samza.util.HttpUtil;
 import org.apache.samza.util.Util;
 
 /**
@@ -267,9 +269,8 @@ public class StreamAppender extends AppenderSkeleton {
         config = JobModelManager.currentJobModelManager().jobModel().getConfig();
       } else {
         String url = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL());
-        config = SamzaObjectMapper.getObjectMapper()
-            .readValue(Util.read(new URL(url), 30000), JobModel.class)
-            .getConfig();
+        String response = HttpUtil.read(new URL(url), 30000, new ExponentialSleepStrategy());
+        config = SamzaObjectMapper.getObjectMapper().readValue(response, JobModel.class).getConfig();
       }
     } catch (IOException e) {
       throw new SamzaException("can not read the config", e);
@@ -294,7 +295,7 @@ public class StreamAppender extends AppenderSkeleton {
     String systemName = log4jSystemConfig.getSystemName();
     String systemFactoryName = log4jSystemConfig.getSystemFactory(systemName);
     if (systemFactoryName != null) {
-      systemFactory = Util.<SystemFactory>getObj(systemFactoryName);
+      systemFactory = Util.getObj(systemFactoryName, SystemFactory.class);
     } else {
       throw new SamzaException("Could not figure out \"" + systemName + "\" system factory for log4j StreamAppender to use");
     }
@@ -388,7 +389,7 @@ public class StreamAppender extends AppenderSkeleton {
     }
 
     if (serdeClass != null) {
-      SerdeFactory<LoggingEvent> serdeFactory = Util.<SerdeFactory<LoggingEvent>>getObj(serdeClass);
+      SerdeFactory<LoggingEvent> serdeFactory = Util.getObj(serdeClass, SerdeFactory.class);
       serde = serdeFactory.getSerde(systemName, config);
     } else {
       String serdeKey = String.format(SerializerConfig.SERDE_FACTORY_CLASS(), serdeName);

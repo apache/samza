@@ -20,11 +20,12 @@
 package org.apache.samza.container
 
 import java.io.File
+import java.lang.management.ManagementFactory
 import java.net.{URL, UnknownHostException}
 import java.nio.file.Path
 import java.util
 import java.util.Base64
-import java.util.concurrent.{ScheduledExecutorService, ExecutorService, Executors, TimeUnit}
+import java.util.concurrent.{ExecutorService, Executors, ScheduledExecutorService, TimeUnit}
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
@@ -49,7 +50,7 @@ import org.apache.samza.system._
 import org.apache.samza.system.chooser.{DefaultChooser, MessageChooserFactory, RoundRobinChooserFactory}
 import org.apache.samza.table.TableManager
 import org.apache.samza.task._
-import org.apache.samza.util.Util.asScalaClock
+import org.apache.samza.util.Util
 import org.apache.samza.util._
 import org.apache.samza.{SamzaContainerStatus, SamzaException}
 
@@ -69,7 +70,7 @@ object SamzaContainer extends Logging {
     SamzaObjectMapper
       .getObjectMapper
       .readValue(
-        Util.read(
+        HttpUtil.read(
           url = new URL(url),
           retryBackoff = new ExponentialSleepStrategy(initialDelayMs = initialDelayMs)),
         classOf[JobModel])
@@ -94,7 +95,7 @@ object SamzaContainer extends Logging {
       localityManager = new LocalityManager(coordinatorStreamManager)
     }
 
-    val containerPID = Util.getContainerPID
+    val containerPID = ManagementFactory.getRuntimeMXBean().getName()
 
     info("Setting up Samza container: %s" format containerName)
 
@@ -145,7 +146,7 @@ object SamzaContainer extends Logging {
       val systemFactoryClassName = config
         .getSystemFactory(systemName)
         .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemName))
-      (systemName, Util.getObj[SystemFactory](systemFactoryClassName))
+      (systemName, Util.getObj(systemFactoryClassName, classOf[SystemFactory]))
     }).toMap
     info("Got system factories: %s" format systemFactories.keys)
 
@@ -192,9 +193,9 @@ object SamzaContainer extends Logging {
     val serdesFromFactories = config.getSerdeNames.map(serdeName => {
       val serdeClassName = config
         .getSerdeClass(serdeName)
-        .getOrElse(Util.defaultSerdeFactoryFromSerdeName(serdeName))
+        .getOrElse(SerializerConfig.getSerdeFactoryName(serdeName))
 
-      val serde = Util.getObj[SerdeFactory[Object]](serdeClassName)
+      val serde = Util.getObj(serdeClassName, classOf[SerdeFactory[Object]])
         .getSerde(serdeName, config)
 
       (serdeName, serde)
@@ -326,7 +327,7 @@ object SamzaContainer extends Logging {
 
     val chooserFactoryClassName = config.getMessageChooserClass.getOrElse(classOf[RoundRobinChooserFactory].getName)
 
-    val chooserFactory = Util.getObj[MessageChooserFactory](chooserFactoryClassName)
+    val chooserFactory = Util.getObj(chooserFactoryClassName, classOf[MessageChooserFactory])
 
     val chooser = DefaultChooser(inputStreamMetadata, chooserFactory, config, samzaContainerMetrics.registry, systemAdmins)
 
@@ -339,7 +340,7 @@ object SamzaContainer extends Logging {
     val securityManager = config.getSecurityManagerFactory match {
       case Some(securityManagerFactoryClassName) =>
         Util
-          .getObj[SecurityManagerFactory](securityManagerFactoryClassName)
+          .getObj(securityManagerFactoryClassName, classOf[SecurityManagerFactory])
           .getSecurityManager(config)
       case _ => null
     }
@@ -347,7 +348,8 @@ object SamzaContainer extends Logging {
 
     val checkpointManager = config.getCheckpointManagerFactory()
       .filterNot(_.isEmpty)
-      .map(Util.getObj[CheckpointManagerFactory](_).getCheckpointManager(config, samzaContainerMetrics.registry))
+      .map(Util.getObj(_, classOf[CheckpointManagerFactory])
+        .getCheckpointManager(config, samzaContainerMetrics.registry))
       .orNull
     info("Got checkpoint manager: %s" format checkpointManager)
 
@@ -381,7 +383,7 @@ object SamzaContainer extends Logging {
       metrics = systemConsumersMetrics,
       dropDeserializationError = dropDeserializationError,
       pollIntervalMs = pollIntervalMs,
-      clock = clock)
+      clock = () => clock.nanoTime())
 
     val producerMultiplexer = new SystemProducers(
       producers = producers,
@@ -395,7 +397,7 @@ object SamzaContainer extends Logging {
         val storageFactoryClassName = config
           .getStorageFactoryClassName(storeName)
           .getOrElse(throw new SamzaException("Missing storage factory for %s." format storeName))
-        (storeName, Util.getObj[StorageEngineFactory[Object, Object]](storageFactoryClassName))
+        (storeName, Util.getObj(storageFactoryClassName, classOf[StorageEngineFactory[Object, Object]]))
       }).toMap
 
     info("Got storage engines: %s" format storageEngineFactories.keys)
@@ -468,7 +470,10 @@ object SamzaContainer extends Logging {
 
       var loggedStorageBaseDir: File = null
       if(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR) != null) {
-        val jobNameAndId = Util.getJobNameAndId(config)
+        val jobNameAndId = (
+          config.getName.getOrElse(throw new ConfigException("Missing required config: job.name")),
+          config.getJobId.getOrElse("1")
+        )
         loggedStorageBaseDir = new File(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR)
           + File.separator + jobNameAndId._1 + "-" + jobNameAndId._2)
       } else {
@@ -598,7 +603,7 @@ object SamzaContainer extends Logging {
 
     val diskQuotaPolicyFactoryString = config.get("container.disk.quota.policy.factory",
       classOf[NoThrottlingDiskQuotaPolicyFactory].getName)
-    val diskQuotaPolicyFactory = Util.getObj[DiskQuotaPolicyFactory](diskQuotaPolicyFactoryString)
+    val diskQuotaPolicyFactory = Util.getObj(diskQuotaPolicyFactoryString, classOf[DiskQuotaPolicyFactory])
     val diskQuotaPolicy = diskQuotaPolicyFactory.create(config)
 
     var diskSpaceMonitor: DiskSpaceMonitor = null

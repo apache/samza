@@ -47,7 +47,6 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.BlobUtils;
-import org.apache.samza.util.ClassLoaderHelper;
 import org.apache.samza.util.LeaseBlobManager;
 import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.TableUtils;
@@ -301,7 +300,8 @@ public class AzureJobCoordinator implements JobCoordinator {
   private SystemStreamPartitionGrouper getSystemStreamPartitionGrouper() {
     JobConfig jobConfig = new JobConfig(config);
     String factoryString = jobConfig.getSystemStreamPartitionGrouperFactory();
-    SystemStreamPartitionGrouper grouper = Util.<SystemStreamPartitionGrouperFactory>getObj(factoryString).getSystemStreamPartitionGrouper(jobConfig);
+    SystemStreamPartitionGrouper grouper = Util.getObj(factoryString, SystemStreamPartitionGrouperFactory.class)
+        .getSystemStreamPartitionGrouper(jobConfig);
     return grouper;
   }
 
@@ -479,7 +479,7 @@ public class AzureJobCoordinator implements JobCoordinator {
       return appConfig.getProcessorId();
     } else if (StringUtils.isNotBlank(appConfig.getAppProcessorIdGeneratorClass())) {
       ProcessorIdGenerator idGenerator =
-          ClassLoaderHelper.fromClassName(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
+          Util.getObj(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
       return idGenerator.generateProcessorId(config);
     } else {
       throw new ConfigException(String

@@ -107,7 +107,7 @@ public class JavaSystemConfig extends MapConfig {
           throw new SamzaException(
               String.format("A stream uses system %s, which is missing from the configuration.", systemName));
         }
-        return Util.getObj(systemFactoryClassName);
+        return Util.getObj(systemFactoryClassName, SystemFactory.class);
       }));
 
     return systemFactories;

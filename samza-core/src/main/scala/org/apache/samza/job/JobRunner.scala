@@ -30,7 +30,7 @@ import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.ApplicationRunnerMain.ApplicationRunnerCommandLine
 import org.apache.samza.runtime.ApplicationRunnerOperation
 import org.apache.samza.system.StreamSpec
-import org.apache.samza.util.{Logging, Util}
+import org.apache.samza.util.{CoordinatorStreamUtil, Logging, Util}
 
 import scala.collection.JavaConverters._
 
@@ -83,8 +83,8 @@ class JobRunner(config: Config) extends Logging {
 
     // Create the coordinator stream if it doesn't exist
     info("Creating coordinator stream")
-    val coordinatorSystemStream = Util.getCoordinatorSystemStream(config)
-    val systemFactory = Util.getCoordinatorSystemFactory(config)
+    val coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config)
+    val systemFactory = CoordinatorStreamUtil.getCoordinatorSystemFactory(config)
     val systemAdmin = systemFactory.getAdmin(coordinatorSystemStream.getSystem, config)
     val streamName = coordinatorSystemStream.getStream
     val coordinatorSpec = StreamSpec.createCoordinatorStreamSpec(streamName, coordinatorSystemStream.getSystem)

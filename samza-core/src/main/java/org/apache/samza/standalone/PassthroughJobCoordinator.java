@@ -141,7 +141,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
       return appConfig.getProcessorId();
     } else if (appConfig.getAppProcessorIdGeneratorClass() != null) {
       ProcessorIdGenerator idGenerator =
-          ClassLoaderHelper.fromClassName(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
+          Util.getObj(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
       return idGenerator.generateProcessorId(config);
     } else {
       throw new ConfigException(String

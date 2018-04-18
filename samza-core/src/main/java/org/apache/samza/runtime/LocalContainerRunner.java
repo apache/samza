@@ -35,10 +35,8 @@ import org.apache.samza.container.SamzaContainerExceptionHandler;
 import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.task.TaskFactoryUtil;
-import org.apache.samza.util.ScalaToJavaUtils;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ScalaJavaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -79,7 +77,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
         containerId,
         jobModel,
         config,
-        Util.<String, MetricsReporter>javaMapAsScalaMap(new HashMap<>()),
+        ScalaJavaUtil.toScalaMap(new HashMap<>()),
         taskFactory);
     container.setContainerListener(
         new SamzaContainerListener() {
@@ -140,7 +138,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
       throw new SamzaException("can not find the job name");
     }
     String jobName = jobConfig.getName().get();
-    String jobId = jobConfig.getJobId().getOrElse(ScalaToJavaUtils.defaultValue("1"));
+    String jobId = jobConfig.getJobId().getOrElse(ScalaJavaUtil.defaultValue("1"));
     MDC.put("containerName", "samza-container-" + containerId);
     MDC.put("jobName", jobName);
     MDC.put("jobId", jobId);

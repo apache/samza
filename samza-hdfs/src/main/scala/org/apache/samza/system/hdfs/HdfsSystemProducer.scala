@@ -24,14 +24,14 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileSystem
 import org.apache.samza.system.hdfs.writer.HdfsWriter
 import org.apache.samza.system.{OutgoingMessageEnvelope, SystemProducer}
-import org.apache.samza.util.{Logging, TimerUtils}
+import org.apache.samza.util.{Logging, TimerUtil}
 
 import scala.collection.mutable.{Map => MMap}
 
 
 class HdfsSystemProducer(
   systemName: String, clientId: String, config: HdfsConfig, metrics: HdfsSystemProducerMetrics,
-  val clock: () => Long = () => System.currentTimeMillis) extends SystemProducer with Logging with TimerUtils {
+  val clock: () => Long = () => System.currentTimeMillis) extends SystemProducer with Logging with TimerUtil {
   val dfs = FileSystem.newInstance(new Configuration(true))
   val writers: MMap[String, HdfsWriter[_]] = MMap.empty[String, HdfsWriter[_]]
   private val lock = new Object //synchronization lock for thread safe access
