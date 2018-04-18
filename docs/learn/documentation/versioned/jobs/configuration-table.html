@@ -951,6 +951,16 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="systems-samza-delete-committed-messages">systems.<span class="system">system-name</span>.<br>samza.delete.committed.messages</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        If set to true, automatically delete committed messages from streams whose committed messages can be deleted.
+                        A stream's committed messages can be deleted if it is a intermediate stream, or if user has manually
+                        set <a href="#streams-samza-delete-committed-messages">streams.<span class="stream">stream-id</span>.<br>samza.delete.committed.messages</a> to true in the configuration.
+                    </td>
+                </tr>
+
+                <tr>
                     <td class="property" id="systems-samza-key-serde-legacy">systems.<span class="system">system-name</span>.<br>samza.key.serde</td>
                     <td class="default" rowspan="2"></td>
                     <td class="description">
@@ -1101,6 +1111,16 @@
                         This property is for an individual stream. To set it for all streams within a system, see
                         <a href="#systems-samza-offset-default">systems.<span class="system">system-name</span>.<br>samza.offset.default</a>
                         If both are defined, the stream-level definition takes precedence.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="streams-samza-delete-committed-messages">streams.<span class="stream">stream-id</span>.<br>samza.delete.committed.messages</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        If set to true, committed messages of this stream can be deleted. Committed messages of this stream will be deleted
+                        if <a href="#systems-samza-delete-committed-messages">systems.<span class="system">system-name</span>.samza.delete.committed.messages</a> is also
+                        set to true.
                     </td>
                 </tr>
 
