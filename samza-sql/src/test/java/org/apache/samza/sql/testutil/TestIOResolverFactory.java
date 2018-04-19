@@ -29,12 +29,15 @@ import org.apache.samza.config.Config;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.operators.BaseTableDescriptor;
 import org.apache.samza.operators.TableDescriptor;
+import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
-import org.apache.samza.sql.impl.SqlTableJoinUtils;
+import org.apache.samza.sql.data.SamzaSqlCompositeKey;
+import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SqlIOResolver;
 import org.apache.samza.sql.interfaces.SqlIOResolverFactory;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
+import org.apache.samza.storage.kv.RocksDbTableDescriptor;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableProvider;
@@ -144,7 +147,6 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
     private final String SAMZA_SQL_QUERY_TABLE_KEYWORD = "$table";
     private final Config config;
     private final Map<String, TableDescriptor> tableDescMap = new HashMap<>();
-    private final SqlTableJoinUtils sqlTableJoinUtils = new SqlTableJoinUtils();
 
     public TestIOResolver(Config config) {
       this.config = config;
@@ -166,7 +168,10 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
           if (isSink) {
             tableDescriptor = new TestTableDescriptor(TEST_TABLE_ID + tableDescMap.size());
           } else {
-            tableDescriptor = sqlTableJoinUtils.createDescriptor(ioName);
+            tableDescriptor = new RocksDbTableDescriptor("InputTable-" + ioName)
+                .withSerde(KVSerde.of(
+                    new JsonSerdeV2<>(SamzaSqlCompositeKey.class),
+                    new JsonSerdeV2<>(SamzaSqlRelMessage.class)));
           }
           tableDescMap.put(ioName, tableDescriptor);
         }

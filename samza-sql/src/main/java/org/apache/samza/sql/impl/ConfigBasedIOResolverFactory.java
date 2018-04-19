@@ -23,9 +23,14 @@ import org.apache.commons.lang.NotImplementedException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.TableDescriptor;
+import org.apache.samza.serializers.JsonSerdeV2;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.sql.data.SamzaSqlCompositeKey;
+import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SqlIOResolver;
 import org.apache.samza.sql.interfaces.SqlIOResolverFactory;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
+import org.apache.samza.storage.kv.RocksDbTableDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,8 +46,6 @@ public class ConfigBasedIOResolverFactory implements SqlIOResolverFactory {
   private static final Logger LOG = LoggerFactory.getLogger(ConfigBasedIOResolverFactory.class);
 
   public static final String CFG_FMT_SAMZA_PREFIX = "systems.%s.";
-
-  private static SqlTableJoinUtils sqlTableJoinUtils = new SqlTableJoinUtils();
 
   @Override
   public SqlIOResolver create(Config config) {
@@ -92,7 +95,13 @@ public class ConfigBasedIOResolverFactory implements SqlIOResolverFactory {
       String systemName = sourceComponents[0];
       String streamName = sourceComponents[streamIdx];
 
-      TableDescriptor tableDescriptor = isTable ? sqlTableJoinUtils.createDescriptor(source) : null;
+      TableDescriptor tableDescriptor = null;
+      if (isTable) {
+        tableDescriptor = new RocksDbTableDescriptor("InputTable-" + source)
+            .withSerde(KVSerde.of(
+                new JsonSerdeV2<>(SamzaSqlCompositeKey.class),
+                new JsonSerdeV2<>(SamzaSqlRelMessage.class)));
+      }
 
       return new SqlIOConfig(systemName, streamName, fetchSystemConfigs(systemName), tableDescriptor);
     }
