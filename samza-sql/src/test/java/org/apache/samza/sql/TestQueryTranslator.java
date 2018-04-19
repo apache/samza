@@ -28,7 +28,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.runtime.LocalApplicationRunner;
-import org.apache.samza.sql.impl.ConfigBasedSourceResolverFactory;
+import org.apache.samza.sql.impl.ConfigBasedIOResolverFactory;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
@@ -313,10 +313,10 @@ public class TestQueryTranslator {
   @Test (expected = SamzaException.class)
   public void testTranslateStreamTableInnerJoinWithMissingStream() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 10);
-    String configSourceResolverDomain =
+    String configIOResolverDomain =
         String.format(SamzaSqlApplicationConfig.CFG_FMT_SOURCE_RESOLVER_DOMAIN, "config");
-    config.put(configSourceResolverDomain + SamzaSqlApplicationConfig.CFG_FACTORY,
-        ConfigBasedSourceResolverFactory.class.getName());
+    config.put(configIOResolverDomain + SamzaSqlApplicationConfig.CFG_FACTORY,
+        ConfigBasedIOResolverFactory.class.getName());
     String sql =
         "Insert into testavro.enrichedPageViewTopic"
             + " select p.name as profileName, pv.pageKey"
