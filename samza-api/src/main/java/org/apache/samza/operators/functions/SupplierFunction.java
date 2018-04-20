@@ -23,16 +23,16 @@ import org.apache.samza.annotation.InterfaceStability;
 
 
 /**
- * A forced function interface as {@link java.util.function.Supplier}, but added mandatory interface methods in Samza
+ * A supplier of values with life-cycle hooks for initialization and close. It is expected to return a new value at each invocation
  */
 @InterfaceStability.Unstable
 @FunctionalInterface
 public interface SupplierFunction<T> extends InitableFunction, ClosableFunction, Serializable {
 
   /**
-   * Method to offer the initial value of type T
+   * Returns a value of type T
    *
-   * @return initial value for type T
+   * @return a value for type T
    */
   T get();
 }

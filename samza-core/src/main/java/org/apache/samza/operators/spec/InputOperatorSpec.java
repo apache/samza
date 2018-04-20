@@ -35,8 +35,10 @@ public class InputOperatorSpec<K, V> extends OperatorSpec<KV<K, V>, Object> { //
 
   private final boolean isKeyed;
 
-  // Avoid making per-task copies of StreamSpec/Serde, since the following transient members are only
-  // used to generate configuration
+  /**
+   * The following {@link Serde}s are serialized by the ExecutionPlanner when generating the configs for a stream, and deserialized
+   * once during startup in SamzaContainer. They don't need to be deserialized here on a per-task basis
+   */
   private transient final StreamSpec streamSpec;
   private transient final Serde<K> keySerde;
   private transient final Serde<V> valueSerde;

@@ -130,16 +130,8 @@ public final class Windows {
       Serde<WV> windowValueSerde) {
 
     Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
-    return new WindowInternal<>(
-        defaultTrigger,
-        (SupplierFunction<WV>) initialValue,
-        (FoldLeftFunction<M, WV>) aggregator,
-        (MapFunction<M, K>) keyFn,
-        null,
-        WindowType.TUMBLING,
-        keySerde,
-        windowValueSerde,
-        null);
+    return new WindowInternal<>(defaultTrigger, (SupplierFunction<WV>) initialValue, (FoldLeftFunction<M, WV>) aggregator,
+        (MapFunction<M, K>) keyFn, null, WindowType.TUMBLING, keySerde, windowValueSerde, null);
   }
 
   /**
@@ -168,16 +160,8 @@ public final class Windows {
       Serde<K> keySerde, Serde<M> msgSerde) {
 
     Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
-    return new WindowInternal<>(
-        defaultTrigger,
-        null,
-        null,
-        keyFn,
-        null,
-        WindowType.TUMBLING,
-        keySerde,
-        null,
-        msgSerde);
+    return new WindowInternal<>(defaultTrigger, null, null, keyFn, null, WindowType.TUMBLING,
+        keySerde, null, msgSerde);
   }
 
   /**
@@ -207,16 +191,8 @@ public final class Windows {
   public static <M, WV> Window<M, Void, WV> tumblingWindow(Duration interval, SupplierFunction<? extends WV> initialValue,
       FoldLeftFunction<? super M, WV> aggregator, Serde<WV> windowValueSerde) {
     Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
-    return new WindowInternal<>(
-        defaultTrigger,
-        (SupplierFunction<WV>) initialValue,
-        (FoldLeftFunction<M, WV>) aggregator,
-        null,
-        null,
-        WindowType.TUMBLING,
-        null,
-        windowValueSerde,
-        null);
+    return new WindowInternal<>(defaultTrigger, (SupplierFunction<WV>) initialValue, (FoldLeftFunction<M, WV>) aggregator,
+        null, null, WindowType.TUMBLING, null, windowValueSerde, null);
   }
 
   /**
@@ -244,16 +220,8 @@ public final class Windows {
    */
   public static <M> Window<M, Void, Collection<M>> tumblingWindow(Duration duration, Serde<M> msgSerde) {
     Trigger<M> defaultTrigger = new TimeTrigger<>(duration);
-    return new WindowInternal<>(
-        defaultTrigger,
-        null,
-        null,
-        null,
-       null,
-        WindowType.TUMBLING,
-        null,
-        null,
-        msgSerde);
+    return new WindowInternal<>(defaultTrigger, null, null, null, null,
+        WindowType.TUMBLING, null, null, msgSerde);
   }
 
   /**
@@ -292,16 +260,8 @@ public final class Windows {
       Duration sessionGap, SupplierFunction<? extends WV> initialValue, FoldLeftFunction<? super M, WV> aggregator,
       Serde<K> keySerde, Serde<WV> windowValueSerde) {
     Trigger<M> defaultTrigger = Triggers.timeSinceLastMessage(sessionGap);
-    return new WindowInternal<>(
-        defaultTrigger,
-        (SupplierFunction<WV>) initialValue,
-        (FoldLeftFunction<M, WV>) aggregator,
-        (MapFunction<M, K>) keyFn,
-        null,
-        WindowType.SESSION,
-        keySerde,
-        windowValueSerde,
-        null);
+    return new WindowInternal<>(defaultTrigger, (SupplierFunction<WV>) initialValue, (FoldLeftFunction<M, WV>) aggregator,
+        (MapFunction<M, K>) keyFn, null, WindowType.SESSION, keySerde, windowValueSerde, null);
   }
 
   /**
@@ -335,15 +295,7 @@ public final class Windows {
   public static <M, K> Window<M, K, Collection<M>> keyedSessionWindow(MapFunction<? super M, ? extends K> keyFn,
       Duration sessionGap, Serde<K> keySerde, Serde<M> msgSerde) {
     Trigger<M> defaultTrigger = Triggers.timeSinceLastMessage(sessionGap);
-    return new WindowInternal<>(
-        defaultTrigger,
-        null,
-        null,
-        (MapFunction<M, K>) keyFn,
-        null,
-        WindowType.SESSION,
-        keySerde,
-        null,
-        msgSerde);
+    return new WindowInternal<>(defaultTrigger, null, null, (MapFunction<M, K>) keyFn,
+        null, WindowType.SESSION, keySerde, null, msgSerde);
   }
 }

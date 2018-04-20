@@ -49,8 +49,11 @@ public class JoinOperatorSpec<K, M, OM, JM> extends OperatorSpec<Object, JM> imp
   // Copies of input operator specs are deserialized externally
   private transient final OperatorSpec<?, M> leftInputOpSpec;
   private transient final OperatorSpec<?, OM> rightInputOpSpec;
-  // Serdes are only used to generate configuration once
-  // No need to make per-task copies of serdes
+
+  /**
+   * The following {@link Serde}s are serialized by the ExecutionPlanner when generating the store configs for a join, and
+   * deserialized once during startup in SamzaContainer. They don't need to be deserialized here on a per-task basis
+   */
   private transient final Serde<K> keySerde;
   private transient final Serde<TimestampedValue<M>> messageSerde;
   private transient final Serde<TimestampedValue<OM>> otherMessageSerde;

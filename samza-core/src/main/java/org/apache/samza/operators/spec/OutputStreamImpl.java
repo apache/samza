@@ -30,8 +30,10 @@ public class OutputStreamImpl<M> implements OutputStream<M>, Serializable {
   private final SystemStream systemStream;
   private final boolean isKeyed;
 
-  // Avoid making per-task copies of StreamSpec/Serde, since the following transient
-  // members are only used to generate configuration
+  /**
+   * The following fields are serialized by the ExecutionPlanner when generating the configs for the output stream, and
+   * deserialized once during startup in SamzaContainer. They don't need to be deserialized here on a per-task basis
+   */
   private transient final StreamSpec streamSpec;
   private transient final Serde keySerde;
   private transient final Serde valueSerde;

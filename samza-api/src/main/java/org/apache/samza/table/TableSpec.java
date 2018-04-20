@@ -47,8 +47,10 @@ public class TableSpec implements Serializable {
   private final String id;
   private final String tableProviderFactoryClassName;
 
-  // The following two variables are set to transient since they are only used to generate configuration.
-  // No need to create per-task deserialized copy of those objects.
+  /**
+   * The following fields are serialized by the ExecutionPlanner when generating the configs for a table, and deserialized
+   * once during startup in SamzaContainer. They don't need to be deserialized here on a per-task basis
+   */
   private transient final KVSerde serde;
   private transient final Map<String, String> config = new HashMap<>();
 

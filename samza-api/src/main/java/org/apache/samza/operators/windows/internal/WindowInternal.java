@@ -72,8 +72,8 @@ public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
   private AccumulationMode mode;
 
   /**
-   * The following serdes should only be used to generate configs for store config.
-   * No need to create per-task copy of those {@link Serde} objects
+   * The following {@link Serde}s are serialized by the ExecutionPlanner when generating the store configs, and deserialized
+   * once during startup in SamzaContainer. They don't need to be deserialized here on a per-task basis
    */
   private transient final Serde<WK> keySerde;
   private transient final Serde<WV> windowValSerde;

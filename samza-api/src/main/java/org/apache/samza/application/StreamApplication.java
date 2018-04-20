@@ -18,7 +18,6 @@
  */
 package org.apache.samza.application;
 
-import java.io.IOException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
