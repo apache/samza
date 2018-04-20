@@ -19,11 +19,18 @@
 
 package org.apache.samza.sql.impl;
 
+import org.apache.commons.lang.NotImplementedException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.sql.interfaces.SourceResolver;
-import org.apache.samza.sql.interfaces.SourceResolverFactory;
-import org.apache.samza.sql.interfaces.SqlSystemSourceConfig;
+import org.apache.samza.operators.TableDescriptor;
+import org.apache.samza.serializers.JsonSerdeV2;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.sql.data.SamzaSqlCompositeKey;
+import org.apache.samza.sql.data.SamzaSqlRelMessage;
+import org.apache.samza.sql.interfaces.SqlIOResolver;
+import org.apache.samza.sql.interfaces.SqlIOResolverFactory;
+import org.apache.samza.sql.interfaces.SqlIOConfig;
+import org.apache.samza.storage.kv.RocksDbTableDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,36 +41,36 @@ import org.slf4j.LoggerFactory;
  * {systemName}.{streamName} indicates a stream
  * {systemName}.{streamName}.$table indicates a table
  */
-public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
+public class ConfigBasedIOResolverFactory implements SqlIOResolverFactory {
 
-  private static final Logger LOG = LoggerFactory.getLogger(ConfigBasedSourceResolverFactory.class);
+  private static final Logger LOG = LoggerFactory.getLogger(ConfigBasedIOResolverFactory.class);
 
   public static final String CFG_FMT_SAMZA_PREFIX = "systems.%s.";
 
   @Override
-  public SourceResolver create(Config config) {
-    return new ConfigBasedSourceResolver(config);
+  public SqlIOResolver create(Config config) {
+    return new ConfigBasedIOResolver(config);
   }
 
-  private class ConfigBasedSourceResolver implements SourceResolver {
+  private class ConfigBasedIOResolver implements SqlIOResolver {
     private final String SAMZA_SQL_QUERY_TABLE_KEYWORD = "$table";
     private final Config config;
 
-    public ConfigBasedSourceResolver(Config config) {
+    public ConfigBasedIOResolver(Config config) {
       this.config = config;
     }
 
     @Override
-    public SqlSystemSourceConfig fetchSourceInfo(String source) {
+    public SqlIOConfig fetchSourceInfo(String source) {
       String[] sourceComponents = source.split("\\.");
-      boolean isTable = false;
+      boolean isTable = isTable(sourceComponents);
 
       // This source resolver expects sources of format {systemName}.{streamName}[.$table]
       //  * First source part is always system name.
       //  * The last source part could be either a "$table" keyword or stream name. If it is "$table", then stream name
       //    should be the one before the last source part.
       int endIdx = sourceComponents.length - 1;
-      int streamIdx = endIdx;
+      int streamIdx = isTable ? endIdx - 1 : endIdx;
       boolean invalidQuery = false;
 
       if (sourceComponents.length != 2) {
@@ -85,20 +92,26 @@ public class ConfigBasedSourceResolverFactory implements SourceResolverFactory {
         throw new SamzaException(msg);
       }
 
-      if (sourceComponents[endIdx].equalsIgnoreCase(SAMZA_SQL_QUERY_TABLE_KEYWORD)) {
-        isTable = true;
-        streamIdx = endIdx - 1;
-      }
-
       String systemName = sourceComponents[0];
       String streamName = sourceComponents[streamIdx];
 
-      return new SqlSystemSourceConfig(systemName, streamName, fetchSystemConfigs(systemName), isTable);
+      TableDescriptor tableDescriptor = null;
+      if (isTable) {
+        tableDescriptor = new RocksDbTableDescriptor("InputTable-" + source)
+            .withSerde(KVSerde.of(
+                new JsonSerdeV2<>(SamzaSqlCompositeKey.class),
+                new JsonSerdeV2<>(SamzaSqlRelMessage.class)));
+      }
+
+      return new SqlIOConfig(systemName, streamName, fetchSystemConfigs(systemName), tableDescriptor);
     }
 
     @Override
-    public boolean isTable(String sourceName) {
-      String[] sourceComponents = sourceName.split("\\.");
+    public SqlIOConfig fetchSinkInfo(String sink) {
+      throw new NotImplementedException("No sink support in ConfigBasedIOResolver.");
+    }
+
+    private boolean isTable(String[] sourceComponents) {
       return sourceComponents[sourceComponents.length - 1].equalsIgnoreCase(SAMZA_SQL_QUERY_TABLE_KEYWORD);
     }
 

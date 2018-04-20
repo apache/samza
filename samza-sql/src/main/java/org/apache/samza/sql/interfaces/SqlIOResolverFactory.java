@@ -23,14 +23,14 @@ import org.apache.samza.config.Config;
 
 
 /**
- * Factory that is used to create {@link SourceResolver}.
+ * Factory that is used to create {@link SqlIOResolver}.
  */
-public interface SourceResolverFactory {
+public interface SqlIOResolverFactory {
 
   /**
-   * Create the {@link SourceResolver}. This is called during the application initialization.
-   * @param config config for the SourceResolver
-   * @return Returns the created {@link SourceResolver}
+   * Create the {@link SqlIOResolver}. This is called during the application initialization.
+   * @param config config for the SqlIOResolver
+   * @return Returns the created {@link SqlIOResolver}
    */
-  SourceResolver create(Config config);
+  SqlIOResolver create(Config config);
 }
