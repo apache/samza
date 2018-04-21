@@ -329,23 +329,10 @@ class TaskStorageManager(
     debug("Persisting logged key value stores")
 
     for ((storeName, systemStream) <- changeLogSystemStreams.filterKeys(storeName => persistedStores.contains(storeName))) {
-      val systemAdmin = systemAdmins.getSystemAdmin(systemStream.getSystem)
-
       debug("Fetching newest offset for store %s" format(storeName))
       try {
-        val newestOffset = if (systemAdmin.isInstanceOf[ExtendedSystemAdmin]) {
-          // This approach is much more efficient because it only fetches the newest offset for 1 SSP
-          // rather than newest and oldest offsets for all SSPs. Use it if we can.
-          systemAdmin.asInstanceOf[ExtendedSystemAdmin].getNewestOffset(new SystemStreamPartition(systemStream.getSystem, systemStream.getStream, partition), 3)
-        } else {
-          val streamToMetadata = systemAdmins.getSystemAdmin(systemStream.getSystem)
-                  .getSystemStreamMetadata(Set(systemStream.getStream).asJava)
-          val sspMetadata = streamToMetadata
-                  .get(systemStream.getStream)
-                  .getSystemStreamPartitionMetadata
-                  .get(partition)
-          sspMetadata.getNewestOffset
-        }
+        val newestOffset = streamMetadataCache
+          .getNewestOffset(new SystemStreamPartition(systemStream.getSystem, systemStream.getStream, partition), 3)
         debug("Got offset %s for store %s" format(newestOffset, storeName))
 
         val loggedStorePartitionDir = TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, storeName, taskName)

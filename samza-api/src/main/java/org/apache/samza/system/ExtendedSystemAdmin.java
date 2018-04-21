@@ -18,8 +18,10 @@
  */
 package org.apache.samza.system;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+
 
 /**
  * Interface extends the more generic SystemAdmin interface
@@ -28,6 +30,31 @@ import java.util.Set;
 public interface ExtendedSystemAdmin extends SystemAdmin {
   Map<String, SystemStreamMetadata> getSystemStreamPartitionCounts(Set<String> streamNames, long cacheTTL);
 
-  // Makes fewer offset requests than getSystemStreamMetadata
+  /**
+   * Makes fewer offset requests than getSystemStreamMetadata.
+   * Returns null if no newest offset was found (e.g. topic is empty).
+   *
+   * Deprecated: Use/implement getNewestOffsets instead
+   */
+  @Deprecated
   String getNewestOffset(SystemStreamPartition ssp, Integer maxRetries);
+
+  /**
+   * Batch call for getting newest offsets for multiple SystemStreamPartitions.
+   * By default, this will delegate to the individual getNewestOffset (also gives backwards compatibility), but it can
+   * be overridden by implementors as an optimization.
+   * There will be no entry for an SSP if no newest offset was found (e.g. topic is empty).
+   * @param maxRetriesPerSSP Max number of attempts to fetch the newest offset for an individual SSP
+   */
+  default Map<SystemStreamPartition, String> getNewestOffsets(Set<SystemStreamPartition> ssps,
+      Integer maxRetriesPerSSP) {
+    final Map<SystemStreamPartition, String> newestOffsets = new HashMap<>();
+    for (final SystemStreamPartition ssp: ssps) {
+      final String newestOffset = getNewestOffset(ssp, maxRetriesPerSSP);
+      if (newestOffset != null) {
+        newestOffsets.put(ssp, newestOffset);
+      }
+    }
+    return newestOffsets;
+  }
 }
