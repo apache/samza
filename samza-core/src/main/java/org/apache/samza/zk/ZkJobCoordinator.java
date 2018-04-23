@@ -33,6 +33,7 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.config.ZkConfig;
@@ -239,13 +240,13 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
     // Create checkpoint and changelog streams if they don't exist
     if (!hasCreatedStreams) {
-      CheckpointManager checkpointManager = new TaskConfigJava(jobModel.getConfig()).getCheckpointManager(metrics.getMetricsRegistry());
+      CheckpointManager checkpointManager = new TaskConfigJava(config).getCheckpointManager(metrics.getMetricsRegistry());
       if (checkpointManager != null) {
         checkpointManager.createResources();
       }
 
       // Pass in null Coordinator consumer and producer because ZK doesn't have coordinator streams.
-      ChangelogStreamManager.createChangelogStreams(jobModel.getConfig(), jobModel.maxChangeLogStreamPartitions);
+      ChangelogStreamManager.createChangelogStreams(config, jobModel.maxChangeLogStreamPartitions);
       hasCreatedStreams = true;
     }
 
@@ -348,7 +349,9 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
      * Host affinity is not supported in standalone. Hence, LocalityManager(which is responsible for container
      * to host mapping) is passed in as null when building the jobModel.
      */
-    return JobModelManager.readJobModel(this.config, changeLogPartitionMap, null, streamMetadataCache, processors);
+    JobModel model = JobModelManager.readJobModel(this.config, changeLogPartitionMap, null, streamMetadataCache, processors);
+    // Nuke the configuration in JobModel.
+    return new JobModel(new MapConfig(), model.getContainers());
   }
 
   class LeaderElectorListenerImpl implements LeaderElectorListener {
