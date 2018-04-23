@@ -27,7 +27,7 @@ import org.apache.samza.operators.triggers.AnyTrigger;
 import org.apache.samza.operators.triggers.RepeatingTrigger;
 import org.apache.samza.operators.triggers.TimeBasedTrigger;
 import org.apache.samza.operators.triggers.Trigger;
-import org.apache.samza.operators.util.MathUtils;
+import org.apache.samza.util.MathUtil;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.serializers.Serde;
@@ -95,7 +95,7 @@ public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK
         .map(timeBasedTrigger -> timeBasedTrigger.getDuration().toMillis())
         .collect(Collectors.toList());
 
-    return MathUtils.gcd(candidateDurations);
+    return MathUtil.gcd(candidateDurations);
   }
 
   private List<TimeBasedTrigger> getTimeBasedTriggers(Trigger rootTrigger) {

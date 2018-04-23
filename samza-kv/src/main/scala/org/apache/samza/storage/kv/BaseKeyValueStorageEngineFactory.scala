@@ -25,12 +25,11 @@ import org.apache.samza.SamzaException
 import org.apache.samza.container.SamzaContainerContext
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.serializers.Serde
-import org.apache.samza.storage.{StoreProperties, StorageEngine, StorageEngineFactory}
+import org.apache.samza.storage.{StorageEngine, StorageEngineFactory, StoreProperties}
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.MessageCollector
 import org.apache.samza.config.MetricsConfig.Config2Metrics
-import org.apache.samza.util.HighResolutionClock
-import org.apache.samza.util.Util.asScalaClock
+import org.apache.samza.util.{HighResolutionClock, ScalaJavaUtil}
 
 /**
  * A key value storage engine factory implementation
@@ -152,7 +151,8 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
       }
     }
 
-    new KeyValueStorageEngine(storePropertiesBuilder.build(), nullSafeStore, rawStore, keyValueStorageEngineMetrics, batchSize, clock)
+    new KeyValueStorageEngine(storePropertiesBuilder.build(), nullSafeStore, rawStore,
+      keyValueStorageEngineMetrics, batchSize, () => clock.nanoTime())
   }
 
 }

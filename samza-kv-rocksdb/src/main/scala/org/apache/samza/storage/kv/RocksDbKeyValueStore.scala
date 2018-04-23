@@ -20,12 +20,13 @@
 package org.apache.samza.storage.kv
 
 import java.io.File
+import java.util.Comparator
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantReadWriteLock
 
 import org.apache.samza.SamzaException
 import org.apache.samza.config.Config
-import org.apache.samza.util.{LexicographicComparator, Logging}
+import org.apache.samza.util.Logging
 import org.rocksdb.{TtlDB, _}
 
 object RocksDbKeyValueStore extends Logging {
@@ -299,6 +300,23 @@ class RocksDbKeyValueStore(
 
     override def hasNext() = ifOpen {
       super.hasNext() && comparator.compare(peekKey(), to) < 0
+    }
+  }
+
+  /**
+    * A comparator that applies a lexicographical comparison on byte arrays.
+    */
+  class LexicographicComparator extends Comparator[Array[Byte]] {
+    def compare(k1: Array[Byte], k2: Array[Byte]): Int = {
+      val l = math.min(k1.length, k2.length)
+      var i = 0
+      while (i < l) {
+        if (k1(i) != k2(i))
+          return (k1(i) & 0xff) - (k2(i) & 0xff)
+        i += 1
+      }
+      // okay prefixes are equal, the shorter array is less
+      k1.length - k2.length
     }
   }
 }

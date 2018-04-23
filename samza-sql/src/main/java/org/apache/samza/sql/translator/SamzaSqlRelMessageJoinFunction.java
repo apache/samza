@@ -85,12 +85,12 @@ public class SamzaSqlRelMessageJoinFunction
 
     // If table position is on the right, add the stream message fields first
     if (isTablePosOnRight) {
-      outFieldValues.addAll(message.getFieldValues());
+      outFieldValues.addAll(message.getSamzaSqlRelRecord().getFieldValues());
     }
 
     // Add the table record fields.
     if (record != null) {
-      outFieldValues.addAll(record.getValue().getFieldValues());
+      outFieldValues.addAll(record.getValue().getSamzaSqlRelRecord().getFieldValues());
     } else {
       // Table record could be null as the record could not be found in the store. This can
       // happen for outer joins. Add nulls to all the field values in the output message.
@@ -99,7 +99,7 @@ public class SamzaSqlRelMessageJoinFunction
 
     // If table position is on the left, add the stream message fields last
     if (!isTablePosOnRight) {
-      outFieldValues.addAll(message.getFieldValues());
+      outFieldValues.addAll(message.getSamzaSqlRelRecord().getFieldValues());
     }
 
     return new SamzaSqlRelMessage(outFieldNames, outFieldValues);

@@ -119,8 +119,7 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
     return new StreamSpec(streamId, physicalName, system, isBounded, properties);
   }
 
-  /* package private */
-  ExecutionPlan getExecutionPlan(StreamApplication app) throws Exception {
+  public ExecutionPlan getExecutionPlan(StreamApplication app) throws Exception {
     return getExecutionPlan(app, null);
   }
 
@@ -171,4 +170,5 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
       log.warn("Failed to write execution plan json to file", e);
     }
   }
+
 }

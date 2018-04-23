@@ -31,10 +31,10 @@ public class TestSamzaSqlQueryParser {
   @Test
   public void testParseQuery() {
     QueryInfo queryInfo = SamzaSqlQueryParser.parseQuery("insert into log.foo select * from tracking.bar");
-    Assert.assertEquals("log.foo", queryInfo.getOutputSource());
+    Assert.assertEquals("log.foo", queryInfo.getSink());
     Assert.assertEquals(queryInfo.getSelectQuery(), "select * from tracking.bar", queryInfo.getSelectQuery());
-    Assert.assertEquals(1, queryInfo.getInputSources().size());
-    Assert.assertEquals("tracking.bar", queryInfo.getInputSources().get(0));
+    Assert.assertEquals(1, queryInfo.getSources().size());
+    Assert.assertEquals("tracking.bar", queryInfo.getSources().get(0));
   }
 
   @Test
@@ -46,10 +46,10 @@ public class TestSamzaSqlQueryParser {
             + " join testavro.PROFILE.`$table` as p"
             + " on p.id = pv.profileId";
     QueryInfo queryInfo = SamzaSqlQueryParser.parseQuery(sql);
-    Assert.assertEquals("testavro.enrichedPageViewTopic", queryInfo.getOutputSource());
-    Assert.assertEquals(2, queryInfo.getInputSources().size());
-    Assert.assertEquals("testavro.PAGEVIEW", queryInfo.getInputSources().get(0));
-    Assert.assertEquals("testavro.PROFILE.$table", queryInfo.getInputSources().get(1));
+    Assert.assertEquals("testavro.enrichedPageViewTopic", queryInfo.getSink());
+    Assert.assertEquals(2, queryInfo.getSources().size());
+    Assert.assertEquals("testavro.PAGEVIEW", queryInfo.getSources().get(0));
+    Assert.assertEquals("testavro.PROFILE.$table", queryInfo.getSources().get(1));
   }
 
   @Test

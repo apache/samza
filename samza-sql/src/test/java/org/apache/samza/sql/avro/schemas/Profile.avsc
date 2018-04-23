@@ -20,7 +20,7 @@
 {
     "name": "Profile",
     "version" : 1,
-    "namespace": "org.apache.samza.sql.system.avro",
+    "namespace": "org.apache.samza.sql.avro.schemas",
     "type": "record",
     "fields": [
         {
@@ -40,6 +40,110 @@
             "doc" : "Company id.",
             "type": ["null", "int"],
             "default":null
+        },
+        {
+            "name": "address",
+            "doc": "Profile Address",
+            "default":null,
+            "type": {
+                "name": "AddressRecord",
+                "namespace": "org.apache.samza.sql.avro.schemas",
+                "type": "record",
+                "fields": [
+                    {
+                        "name": "zip",
+                        "doc" : "zip code.",
+                        "type": ["null", "int"],
+                        "default":null
+                    },
+                    {
+                        "name": "streetnum",
+                        "doc": "Street Number",
+                        "default":null,
+                        "type": {
+                            "name": "StreetNumRecord",
+                            "namespace": "org.apache.samza.sql.avro.schemas",
+                            "type": "record",
+                            "fields": [
+                                {
+                                    "name": "number",
+                                    "doc": "street number.",
+                                    "type": ["null", "int"],
+                                    "default": null
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "selfEmployed",
+            "doc": "Boolean Value.",
+            "type": ["null", "boolean"],
+            "default":null
+        },
+        {
+            "name": "phoneNumbers",
+            "doc" : "array values in the record.",
+            "default": null,
+            "type": [ "null",
+                {
+                    "type": "array",
+                    "items":{
+                        "name":"PhoneNumber",
+                        "type":"record",
+                        "fields":[
+                            {
+                                "name": "kind",
+                                "type": {
+                                    "name": "Kind",
+                                    "type": "enum",
+                                    "symbols" : ["Home", "Work", "Cell"]
+                                }
+                            },
+                            {"name":"number", "type":"string"}
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "mapValues",
+            "doc" : "map values in the record.",
+            "default": null,
+            "type": [ "null",
+                {
+                    "type": "map",
+                    "values":[
+                        {
+                            "name": "SimpleRecord",
+                            "version" : 1,
+                            "type": "record",
+                            "fields": [
+                                {
+                                    "name": "id",
+                                    "doc": "Record id.",
+                                    "type": [
+                                        "null",
+                                        "int"
+                                    ],
+                                    "default": null
+                                },
+                                {
+                                    "name": "name",
+                                    "doc": "Some name.",
+                                    "type": [
+                                        "null",
+                                        "string"
+                                    ],
+                                    "default": null
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
         }
     ]
 }

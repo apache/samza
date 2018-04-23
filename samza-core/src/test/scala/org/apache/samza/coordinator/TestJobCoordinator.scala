@@ -25,7 +25,7 @@ import org.apache.samza.checkpoint.TestCheckpointTool.MockCheckpointManagerFacto
 import org.apache.samza.job.local.ProcessJobFactory
 import org.apache.samza.job.local.ThreadJobFactory
 import org.apache.samza.serializers.model.SamzaObjectMapper
-import org.apache.samza.util.Util
+import org.apache.samza.util.{HttpUtil, Util}
 import org.junit.{After, Before, Test}
 import org.junit.Assert._
 
@@ -119,8 +119,9 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
     assertEquals(new MapConfig(config.asJava), coordinator.jobModel.getConfig)
     assertEquals(expectedJobModel, coordinator.jobModel)
 
+    val response = HttpUtil.read(coordinator.server.getUrl)
     // Verify that the JobServlet is serving the correct jobModel
-    val jobModelFromCoordinatorUrl = SamzaObjectMapper.getObjectMapper.readValue(Util.read(coordinator.server.getUrl), classOf[JobModel])
+    val jobModelFromCoordinatorUrl = SamzaObjectMapper.getObjectMapper.readValue(response, classOf[JobModel])
     assertEquals(expectedJobModel, jobModelFromCoordinatorUrl)
 
     coordinator.stop
@@ -245,7 +246,7 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
       val systemFactoryClassName = config
         .getSystemFactory(systemName)
         .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemName))
-      val systemFactory = Util.getObj[SystemFactory](systemFactoryClassName)
+      val systemFactory = Util.getObj(systemFactoryClassName, classOf[SystemFactory])
       systemName -> systemFactory.getAdmin(systemName, config)
     }).toMap
 

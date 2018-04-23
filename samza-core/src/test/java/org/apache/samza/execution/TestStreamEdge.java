@@ -63,7 +63,7 @@ public class TestStreamEdge {
     StreamConfig streamConfig = new StreamConfig(config);
     assertEquals(streamConfig.getSystem(spec.getId()), "system-1");
     assertEquals(streamConfig.getPhysicalName(spec.getId()), "physical-stream-1");
-    assertEquals(streamConfig.getIsIntermediate(spec.getId()), false);
+    assertEquals(streamConfig.getIsIntermediateStream(spec.getId()), false);
     assertEquals(streamConfig.getIsBounded(spec.getId()), false);
     assertEquals(streamConfig.getStreamProperties(spec.getId()).get("property1"), "haha");
 
@@ -78,7 +78,8 @@ public class TestStreamEdge {
     edge = new StreamEdge(spec, true, new MapConfig());
     config = edge.generateConfig();
     streamConfig = new StreamConfig(config);
-    assertEquals(streamConfig.getIsIntermediate(spec.getId()), true);
+    assertEquals(streamConfig.getIsIntermediateStream(spec.getId()), true);
     assertEquals(streamConfig.getDefaultStreamOffset(spec.toSystemStream()).get(), "oldest");
+    assertEquals(streamConfig.getPriority(spec.toSystemStream()), Integer.MAX_VALUE);
   }
 }

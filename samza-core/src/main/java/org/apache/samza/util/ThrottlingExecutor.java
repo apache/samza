@@ -71,7 +71,7 @@ public class ThrottlingExecutor implements Throttleable, Executor {
       // the sleep operation (if applicable), so they do not continue to grow. We also clamp the
       // maximum sleep time to prevent excessively large sleeps between executions.
       pendingNanos = Math.min(maxDelayNanos,
-          Util.clampAdd(pendingNanos, (long) (workNanos * currentWorkToIdleFactor)));
+          MathUtil.clampAdd(pendingNanos, (long) (workNanos * currentWorkToIdleFactor)));
       if (pendingNanos > 0) {
         try {
           pendingNanos = sleep(pendingNanos);
@@ -139,6 +139,6 @@ public class ThrottlingExecutor implements Throttleable, Executor {
     final long start = System.nanoTime();
     TimeUnit.NANOSECONDS.sleep(nanos);
 
-    return Util.clampAdd(nanos, -(System.nanoTime() - start));
+    return MathUtil.clampAdd(nanos, -(System.nanoTime() - start));
   }
 }

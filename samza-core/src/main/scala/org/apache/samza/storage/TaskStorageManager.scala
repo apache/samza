@@ -26,9 +26,7 @@ import org.apache.samza.config.StorageConfig
 import org.apache.samza.{Partition, SamzaException}
 import org.apache.samza.container.TaskName
 import org.apache.samza.system._
-import org.apache.samza.util.Logging
-import org.apache.samza.util.Util
-import org.apache.samza.util.Clock
+import org.apache.samza.util.{Clock, FileUtil, Logging, Util}
 
 import scala.collection.JavaConverters._
 
@@ -91,7 +89,7 @@ class TaskStorageManager(
 
       if(storePartitionDir.exists()) {
         info("Deleting default storage partition directory %s" format storePartitionDir.toPath.toString)
-        Util.rm(storePartitionDir)
+        FileUtil.rm(storePartitionDir)
       }
 
       val loggedStorePartitionDir = TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, storeName, taskName)
@@ -100,7 +98,7 @@ class TaskStorageManager(
       // Delete the logged store if it is not valid.
       if (!isLoggedStoreValid(storeName, loggedStorePartitionDir)) {
         info("Deleting logged storage partition directory %s." format loggedStorePartitionDir.toPath.toString)
-        Util.rm(loggedStorePartitionDir)
+        FileUtil.rm(loggedStorePartitionDir)
       } else {
         val offset = readOffsetFile(loggedStorePartitionDir)
         info("Read offset %s for the store %s from logged storage partition directory %s." format(offset, storeName, loggedStorePartitionDir))
@@ -199,7 +197,7 @@ class TaskStorageManager(
     val offsetFileRef = new File(loggedStoragePartitionDir, offsetFileName)
     if (offsetFileRef.exists()) {
       info("Found offset file in logged storage partition directory: %s" format loggedStoragePartitionDir.toPath.toString)
-      offset = Util.readDataFromFile(offsetFileRef)
+      offset = FileUtil.readWithChecksum(offsetFileRef)
     } else {
       info("No offset file found in logged storage partition directory: %s" format loggedStoragePartitionDir.toPath.toString)
     }
@@ -354,12 +352,12 @@ class TaskStorageManager(
         val offsetFile = new File(loggedStorePartitionDir, offsetFileName)
         if (newestOffset != null) {
           debug("Storing offset for store in OFFSET file ")
-          Util.writeDataToFile(offsetFile, newestOffset)
+          FileUtil.writeWithChecksum(offsetFile, newestOffset)
           debug("Successfully stored offset %s for store %s in OFFSET file " format(newestOffset, storeName))
         } else {
           //if newestOffset is null, then it means the store is (or has become) empty. No need to persist the offset file
           if (offsetFile.exists()) {
-            Util.rm(offsetFile)
+            FileUtil.rm(offsetFile)
           }
           debug("Not storing OFFSET file for taskName %s. Store %s backed by changelog topic: %s, partition: %s is empty. " format (taskName, storeName, systemStream.getStream, partition.getPartitionId))
         }

@@ -53,12 +53,13 @@ public class TestSamzaSqlRelMessageJoinFunction {
         new SamzaSqlRelMessageJoinFunction(joinRelType, true, streamKeyIds, streamFieldNames, tableFieldNames);
     SamzaSqlRelMessage outMsg = joinFn.apply(streamMsg, record);
 
-    Assert.assertEquals(outMsg.getFieldValues().size(), outMsg.getFieldNames().size());
+    Assert.assertEquals(outMsg.getSamzaSqlRelRecord().getFieldValues().size(),
+        outMsg.getSamzaSqlRelRecord().getFieldNames().size());
     List<String> expectedFieldNames = new ArrayList<>(streamFieldNames);
     expectedFieldNames.addAll(tableFieldNames);
     List<Object> expectedFieldValues = new ArrayList<>(streamFieldValues);
     expectedFieldValues.addAll(tableFieldValues);
-    Assert.assertEquals(outMsg.getFieldValues(), expectedFieldValues);
+    Assert.assertEquals(outMsg.getSamzaSqlRelRecord().getFieldValues(), expectedFieldValues);
   }
 
   @Test
@@ -75,12 +76,13 @@ public class TestSamzaSqlRelMessageJoinFunction {
         new SamzaSqlRelMessageJoinFunction(joinRelType, false, streamKeyIds, streamFieldNames, tableFieldNames);
     SamzaSqlRelMessage outMsg = joinFn.apply(streamMsg, record);
 
-    Assert.assertEquals(outMsg.getFieldValues().size(), outMsg.getFieldNames().size());
+    Assert.assertEquals(outMsg.getSamzaSqlRelRecord().getFieldValues().size(),
+        outMsg.getSamzaSqlRelRecord().getFieldNames().size());
     List<String> expectedFieldNames = new ArrayList<>(tableFieldNames);
     expectedFieldNames.addAll(streamFieldNames);
     List<Object> expectedFieldValues = new ArrayList<>(tableFieldValues);
     expectedFieldValues.addAll(streamFieldValues);
-    Assert.assertEquals(outMsg.getFieldValues(), expectedFieldValues);
+    Assert.assertEquals(outMsg.getSamzaSqlRelRecord().getFieldValues(), expectedFieldValues);
   }
 
   @Test
@@ -106,11 +108,12 @@ public class TestSamzaSqlRelMessageJoinFunction {
             tableFieldNames);
     SamzaSqlRelMessage outMsg = joinFn.apply(streamMsg, null);
 
-    Assert.assertEquals(outMsg.getFieldValues().size(), outMsg.getFieldNames().size());
+    Assert.assertEquals(outMsg.getSamzaSqlRelRecord().getFieldValues().size(),
+        outMsg.getSamzaSqlRelRecord().getFieldNames().size());
     List<String> expectedFieldNames = new ArrayList<>(streamFieldNames);
     expectedFieldNames.addAll(tableFieldNames);
     List<Object> expectedFieldValues = new ArrayList<>(streamFieldValues);
     expectedFieldValues.addAll(tableFieldNames.stream().map( name -> null ).collect(Collectors.toList()));
-    Assert.assertEquals(outMsg.getFieldValues(), expectedFieldValues);
+    Assert.assertEquals(outMsg.getSamzaSqlRelRecord().getFieldValues(), expectedFieldValues);
   }
 }

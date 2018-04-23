@@ -41,6 +41,7 @@ import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
+import org.apache.samza.util.ScalaJavaUtil;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -114,11 +115,8 @@ public class StreamProcessor {
 
   /* package private */
   JobCoordinator getJobCoordinator() {
-    return Util.
-        <JobCoordinatorFactory>getObj(
-            new JobCoordinatorConfig(config)
-                .getJobCoordinatorFactoryClassName())
-        .getJobCoordinator(config);
+    String jobCoordinatorFactoryClassName = new JobCoordinatorConfig(config).getJobCoordinatorFactoryClassName();
+    return Util.getObj(jobCoordinatorFactoryClassName, JobCoordinatorFactory.class).getJobCoordinator(config);
   }
 
   @VisibleForTesting
@@ -201,7 +199,7 @@ public class StreamProcessor {
         processorId,
         jobModel,
         config,
-        Util.javaMapAsScalaMap(customMetricsReporter),
+        ScalaJavaUtil.toScalaMap(customMetricsReporter),
         taskFactory);
   }
 

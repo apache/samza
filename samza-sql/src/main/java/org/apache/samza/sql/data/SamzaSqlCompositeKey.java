@@ -74,7 +74,7 @@ public class SamzaSqlCompositeKey implements Serializable {
   public static SamzaSqlCompositeKey createSamzaSqlCompositeKey(SamzaSqlRelMessage message, List<Integer> relIdx) {
     ArrayList<Object> keyParts = new ArrayList<>();
     for (int idx : relIdx) {
-      keyParts.add(message.getFieldValues().get(idx));
+      keyParts.add(message.getSamzaSqlRelRecord().getFieldValues().get(idx));
     }
     return new SamzaSqlCompositeKey(keyParts);
   }

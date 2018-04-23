@@ -34,14 +34,14 @@ import org.apache.samza.system.SystemProducerException
 import org.apache.samza.util.ExponentialSleepStrategy
 import org.apache.samza.util.KafkaUtil
 import org.apache.samza.util.Logging
-import org.apache.samza.util.TimerUtils
+import org.apache.samza.util.TimerUtil
 
 class KafkaSystemProducer(systemName: String,
                           retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
                           getProducer: () => Producer[Array[Byte], Array[Byte]],
                           metrics: KafkaSystemProducerMetrics,
                           val clock: () => Long = () => System.nanoTime,
-                          val dropProducerExceptions: Boolean = false) extends SystemProducer with Logging with TimerUtils {
+                          val dropProducerExceptions: Boolean = false) extends SystemProducer with Logging with TimerUtil {
 
   // Represents a fatal error that caused the producer to close.
   val fatalException: AtomicReference[SystemProducerException] = new AtomicReference[SystemProducerException]()
