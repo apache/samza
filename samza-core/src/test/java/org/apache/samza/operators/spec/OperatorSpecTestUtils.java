@@ -27,7 +27,7 @@ import java.io.IOException;
  */
 public class OperatorSpecTestUtils {
   static OperatorSpec copyOpSpec(OperatorSpec original) throws IOException, ClassNotFoundException {
-    return OperatorSpec.fromByte(OperatorSpec.toByte(original));
+    return OperatorSpec.fromBytes(OperatorSpec.toBytes(original));
   }
 
   enum TestEnum {

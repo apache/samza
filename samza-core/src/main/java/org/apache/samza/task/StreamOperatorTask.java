@@ -19,7 +19,7 @@
 package org.apache.samza.task;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.impl.SerializedStreamGraph;
+import org.apache.samza.operators.impl.OperatorSpecGraph;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.MessageType;
 import org.apache.samza.operators.ContextManager;
@@ -42,7 +42,7 @@ import org.slf4j.LoggerFactory;
 public class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask {
   private static final Logger LOG = LoggerFactory.getLogger(StreamOperatorTask.class);
 
-  private final SerializedStreamGraph serializedGraph;
+  private final OperatorSpecGraph serializedGraph;
   private final Clock clock;
 
   private OperatorImplGraph operatorImplGraph;
@@ -53,23 +53,24 @@ public class StreamOperatorTask implements StreamTask, InitableTask, WindowableT
    * @param serializedGraph the serialized version of user-implemented {@link org.apache.samza.operators.StreamGraphImpl} that includes the logical DAG
    * @param clock the {@link Clock} to use for time-keeping
    */
-  public StreamOperatorTask(SerializedStreamGraph serializedGraph, Clock clock) {
+  public StreamOperatorTask(OperatorSpecGraph serializedGraph, Clock clock) {
     this.serializedGraph = serializedGraph;
     this.clock = clock;
   }
 
-  public StreamOperatorTask(SerializedStreamGraph streamGraph) {
+  public StreamOperatorTask(OperatorSpecGraph streamGraph) {
     this(streamGraph, SystemClock.instance());
   }
 
   /**
    * Initializes this task during startup.
    * <p>
-   * Implementation: Initializes the user-implemented {@link org.apache.samza.operators.StreamGraphImpl}.
+   * Implementation: Initializes the runtime {@link OperatorImplGraph} according to user-defined {@link OperatorSpecGraph}.
    * The {@link org.apache.samza.operators.StreamGraphImpl} sets the input and output streams and the task-wide
    * context manager using the {@link org.apache.samza.operators.StreamGraphImpl} APIs,
-   * and the logical transforms using the {@link org.apache.samza.operators.MessageStream} APIs. It then uses
-   * the serialized instance of {@link org.apache.samza.operators.StreamGraphImpl} to create the {@link OperatorImplGraph}
+   * and the logical transforms using the {@link org.apache.samza.operators.MessageStream} APIs. After the
+   * {@link org.apache.samza.operators.StreamGraphImpl} is initialized once by the application, it then creates
+   * an immutable {@link OperatorSpecGraph} accordingly, which is passed in to this class to create the {@link OperatorImplGraph}
    * corresponding to the logical DAG.
    *
    * @param config allows accessing of fields in the configuration files that this StreamTask is specified in
@@ -79,12 +80,10 @@ public class StreamOperatorTask implements StreamTask, InitableTask, WindowableT
   @Override
   public final void init(Config config, TaskContext context) throws Exception {
 
-    // get the user-implemented context manager and initialize it
-    if (serializedGraph.getContextManager() != null) {
-      this.contextManager = serializedGraph.getContextManager();
-      if (this.contextManager != null) {
-        this.contextManager.init(config, context);
-      }
+    // get the user-implemented per task context manager and initialize it
+    this.contextManager = serializedGraph.getContextManager();
+    if (this.contextManager != null) {
+      this.contextManager.init(config, context);
     }
 
     // create the operator impl DAG corresponding to the logical operator spec DAG

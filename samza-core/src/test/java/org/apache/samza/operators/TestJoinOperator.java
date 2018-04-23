@@ -33,7 +33,7 @@ import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.impl.store.TestInMemoryStore;
 import org.apache.samza.operators.impl.store.TimestampedValueSerde;
-import org.apache.samza.operators.impl.SerializedStreamGraph;
+import org.apache.samza.operators.impl.OperatorSpecGraph;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
@@ -315,7 +315,7 @@ public class TestJoinOperator {
     when(taskContext.getStore(eq("jobName-jobId-join-j1-R")))
         .thenReturn(new TestInMemoryStore(integerSerde, timestampedValueSerde));
 
-    StreamOperatorTask sot = new StreamOperatorTask(new SerializedStreamGraph(streamGraph), clock);
+    StreamOperatorTask sot = new StreamOperatorTask(new OperatorSpecGraph(streamGraph), clock);
     sot.init(config, taskContext);
     return sot;
   }

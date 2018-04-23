@@ -18,23 +18,14 @@
  */
 package org.apache.samza.operators.impl;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-import org.apache.samza.SamzaException;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.PartialJoinFunction;
@@ -56,8 +47,16 @@ import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.Tuple3;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * The DAG of {@link OperatorImpl}s corresponding to the DAG of {@link OperatorSpec}s.
@@ -79,28 +78,24 @@ public class OperatorImplGraph {
   private final Map<SystemStream, InputOperatorImpl> inputOperators = new HashMap<>();
 
   /**
-   * A mapping from {@link JoinOperatorSpec} IDs to the single copy of {@link JoinOperatorSpec} per each task, and their
-   * two {@link PartialJoinFunction}s.
-   * Used to associate the two {@link PartialJoinOperatorImpl}s for a {@link JoinOperatorSpec} with each other since they're
+   * A mapping from {@link JoinOperatorSpec} IDs to their two {@link PartialJoinFunction}s. Used to associate
+   * the two {@link PartialJoinOperatorImpl}s for a {@link JoinOperatorSpec} with each other since they're
    * reached from different {@link OperatorSpec} during DAG traversals.
    */
-  private final Map<String, Tuple3<JoinOperatorSpec, PartialJoinFunction, PartialJoinFunction>> joinSpecs = new HashMap<>();
+  private final Map<String, KV<PartialJoinOperatorImpl, PartialJoinOperatorImpl>> joinOpImpls = new HashMap<>();
 
-  /**
-   * Method to get the current time.
-   */
   private final Clock clock;
 
   /**
    * Constructs the DAG of {@link OperatorImpl}s corresponding to the the DAG of {@link OperatorSpec}s
    * in the {@code streamGraph}.
    *
-   * @param streamGraph  the {@link SerializedStreamGraph} containing the logical {@link OperatorSpec} DAG
+   * @param streamGraph  the {@link OperatorSpecGraph} containing the logical {@link OperatorSpec} DAG
    * @param config  the {@link Config} required to instantiate operators
    * @param context  the {@link TaskContext} required to instantiate operators
    * @param clock  the {@link Clock} to get current time
    */
-  public OperatorImplGraph(final SerializedStreamGraph streamGraph, final Config config, final TaskContext context, final Clock clock) {
+  public OperatorImplGraph(OperatorSpecGraph streamGraph, Config config, TaskContext context, Clock clock) {
     this.clock = clock;
 
     TaskContextImpl taskContext = (TaskContextImpl) context;
@@ -123,10 +118,11 @@ public class OperatorImplGraph {
         SystemStream systemStream = new SystemStream(streamSpec.getSystemName(), streamSpec.getPhysicalName());
         try {
           InputOperatorImpl inputOperatorImpl =
-                (InputOperatorImpl) createAndRegisterOperatorImpl(null, inputOpSpec, systemStream, config, context, streamGraph);
+              (InputOperatorImpl) createAndRegisterOperatorImpl(null, inputOpSpec, systemStream, config, context,
+                  streamGraph);
           this.inputOperators.put(systemStream, inputOperatorImpl);
         } catch (IOException | ClassNotFoundException e) {
-          throw new SamzaException(String.format("Exception in OperatorImplGraph constructor while creating operator %s.", inputOpSpec.getOpId()), e);
+          throw new SamzaException(String.format("Exception while creating OperatorImpl for operator %s.", inputOpSpec.getOpId()), e);
         }
       });
   }
@@ -161,13 +157,17 @@ public class OperatorImplGraph {
    * creates the corresponding DAG of {@link OperatorImpl}s, and returns the root {@link OperatorImpl} node.
    *
    * @param prevOperatorSpec  the parent of the current {@code operatorSpec} in the traversal
-   * @param operatorSpec  the {@link OperatorSpec} instance to create the {@link OperatorImpl} for
+   * @param operatorSpec  the {@link OperatorSpec} to create the {@link OperatorImpl} for
+   * @param inputStream  the source input stream that we traverse the {@link OperatorSpecGraph} from
    * @param config  the {@link Config} required to instantiate operators
    * @param context  the {@link TaskContext} required to instantiate operators
+   * @param streamGraph  the immutable {@link OperatorSpecGraph} with all {@link OperatorSpec}s
    * @return  the operator implementation for the operatorSpec
+   * @throws IOException if failed to serialize/deserialize {@code operatorSpec}
+   * @throws ClassNotFoundException if failed to deserialize {@code operatorSpec}
    */
-  OperatorImpl createAndRegisterOperatorImpl(final OperatorSpec prevOperatorSpec, final OperatorSpec operatorSpec,
-      final SystemStream inputStream, final Config config, final TaskContext context, final SerializedStreamGraph streamGraph)
+  private OperatorImpl createAndRegisterOperatorImpl(OperatorSpec prevOperatorSpec, OperatorSpec operatorSpec,
+      SystemStream inputStream, Config config, TaskContext context, OperatorSpecGraph streamGraph)
       throws IOException, ClassNotFoundException {
 
     if (!operatorImpls.containsKey(operatorSpec.getOpId()) || operatorSpec instanceof JoinOperatorSpec) {
@@ -191,10 +191,11 @@ public class OperatorImplGraph {
       registeredSpecs.forEach(registeredSpec -> {
           try {
             LOG.debug("Creating operator {} with opCode: {}", registeredSpec.getOpId(), registeredSpec.getOpCode());
-            OperatorImpl nextImpl = createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, config, context, streamGraph);
+            OperatorImpl nextImpl =
+                createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, config, context, streamGraph);
             operatorImpl.registerNextOperator(nextImpl);
           } catch (IOException | ClassNotFoundException e) {
-            throw new SamzaException(String.format("Exception while creating operator %s.", registeredSpec.getOpId()), e);
+            throw new SamzaException(String.format("Exception while creating OperatorImpl for operator %s.", registeredSpec.getOpId()), e);
           }
         });
       return operatorImpl;
@@ -209,7 +210,7 @@ public class OperatorImplGraph {
           try {
             createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, config, context, streamGraph);
           } catch (IOException | ClassNotFoundException e) {
-            throw new SamzaException(String.format("Exception while creating operator %s.", registeredSpec.getOpId()), e);
+            throw new SamzaException(String.format("Exception while creating OperatorImpl for operator %s.", registeredSpec.getOpId()), e);
           }
         });
       return operatorImpl;
@@ -219,56 +220,52 @@ public class OperatorImplGraph {
   /**
    * Creates a new {@link OperatorImpl} instance for the provided {@link OperatorSpec}.
    *
-   * @param operatorSpec  the immutable {@link OperatorSpec} definition.
+   * @param prevOperatorSpec the original {@link OperatorSpec} that produces output for {@code operatorSpec} from {@link OperatorSpecGraph}
+   * @param operatorSpec  the original {@link OperatorSpec} from {@link OperatorSpecGraph}
    * @param config  the {@link Config} required to instantiate operators
    * @param context  the {@link TaskContext} required to instantiate operators
+   * @param streamGraph the original {@link OperatorSpecGraph}
    * @return  the {@link OperatorImpl} implementation instance
+   * @throws IOException if failed to serialize/deserialize {@code operatorSpec}
+   * @throws ClassNotFoundException if failed to deserialize {@code operatorSpec}
    */
-  OperatorImpl createOperatorImpl(final OperatorSpec prevOperatorSpec, final OperatorSpec operatorSpec,
-      final Config config, final TaskContext context, final SerializedStreamGraph streamGraph)
+  OperatorImpl createOperatorImpl(OperatorSpec prevOperatorSpec, OperatorSpec operatorSpec,
+      Config config, TaskContext context, OperatorSpecGraph streamGraph)
       throws IOException, ClassNotFoundException {
+    if (operatorSpec instanceof JoinOperatorSpec) {
+      return getOrCreatePartialJoinOpImpls((JoinOperatorSpec) operatorSpec, prevOperatorSpec.equals(((JoinOperatorSpec) operatorSpec).getLeftInputOpSpec()),
+          config, context, clock, streamGraph);
+    }
+    // for all other operatorSpec, create a per-task instance of OperatorSpec
+    OperatorSpec perTaskOpSpec = streamGraph.getOpSpec(operatorSpec.getOpId());
     if (operatorSpec instanceof InputOperatorSpec) {
-      return new InputOperatorImpl((InputOperatorSpec) streamGraph.getOpSpec(operatorSpec.getOpId()));
+      return new InputOperatorImpl((InputOperatorSpec) perTaskOpSpec);
     } else if (operatorSpec instanceof StreamOperatorSpec) {
-      return new StreamOperatorImpl((StreamOperatorSpec) streamGraph.getOpSpec(operatorSpec.getOpId()), config, context);
+      return new StreamOperatorImpl((StreamOperatorSpec) perTaskOpSpec, config, context);
     } else if (operatorSpec instanceof SinkOperatorSpec) {
-      return new SinkOperatorImpl((SinkOperatorSpec) streamGraph.getOpSpec(operatorSpec.getOpId()), config, context);
+      return new SinkOperatorImpl((SinkOperatorSpec) perTaskOpSpec, config, context);
     } else if (operatorSpec instanceof OutputOperatorSpec) {
-      return new OutputOperatorImpl((OutputOperatorSpec) streamGraph.getOpSpec(operatorSpec.getOpId()));
+      return new OutputOperatorImpl((OutputOperatorSpec) perTaskOpSpec);
     } else if (operatorSpec instanceof PartitionByOperatorSpec) {
-      return new PartitionByOperatorImpl((PartitionByOperatorSpec) streamGraph.getOpSpec(operatorSpec.getOpId()), config, context);
+      return new PartitionByOperatorImpl((PartitionByOperatorSpec) perTaskOpSpec, config, context);
     } else if (operatorSpec instanceof WindowOperatorSpec) {
-      return new WindowOperatorImpl((WindowOperatorSpec) streamGraph.getOpSpec(operatorSpec.getOpId()), clock);
-    } else if (operatorSpec instanceof JoinOperatorSpec) {
-      return createPartialJoinOperatorImpl(prevOperatorSpec, (JoinOperatorSpec) operatorSpec, config, context, clock, streamGraph);
+      return new WindowOperatorImpl((WindowOperatorSpec) perTaskOpSpec, clock);
     } else if (operatorSpec instanceof StreamTableJoinOperatorSpec) {
-      return new StreamTableJoinOperatorImpl((StreamTableJoinOperatorSpec) streamGraph.getOpSpec(operatorSpec.getOpId()), config, context);
+      return new StreamTableJoinOperatorImpl((StreamTableJoinOperatorSpec) perTaskOpSpec, config, context);
     } else if (operatorSpec instanceof SendToTableOperatorSpec) {
-      return new SendToTableOperatorImpl((SendToTableOperatorSpec) streamGraph.getOpSpec(operatorSpec.getOpId()), config, context);
+      return new SendToTableOperatorImpl((SendToTableOperatorSpec) perTaskOpSpec, config, context);
     } else if (operatorSpec instanceof BroadcastOperatorSpec) {
-      return new BroadcastOperatorImpl((BroadcastOperatorSpec) streamGraph.getOpSpec(operatorSpec.getOpId()), context);
+      return new BroadcastOperatorImpl((BroadcastOperatorSpec) perTaskOpSpec, context);
     }
     throw new IllegalArgumentException(
         String.format("Unsupported OperatorSpec: %s", operatorSpec.getClass().getName()));
   }
 
-  private PartialJoinOperatorImpl createPartialJoinOperatorImpl(final OperatorSpec prevOperatorSpec,
-      final JoinOperatorSpec joinOpSpec, final Config config, final TaskContext context, final Clock clock,
-      final SerializedStreamGraph streamGraph) throws IOException, ClassNotFoundException {
-    Tuple3<JoinOperatorSpec, PartialJoinFunction, PartialJoinFunction> partialJoinSpecs = getOrCreatePartialJoinSpecs(joinOpSpec, streamGraph);
-    if (joinOpSpec.getLeftInputOpSpec().equals(prevOperatorSpec)) { // we got here from the left side of the join
-      return new PartialJoinOperatorImpl(partialJoinSpecs._1(), /* isLeftSide */ true,
-          partialJoinSpecs._2(), partialJoinSpecs._3(), config, context, clock);
-    } else { // we got here from the right side of the join
-      return new PartialJoinOperatorImpl(partialJoinSpecs._1(), /* isLeftSide */ false,
-          partialJoinSpecs._3(), partialJoinSpecs._2(), config, context, clock);
-    }
-  }
-
-  private Tuple3<JoinOperatorSpec, PartialJoinFunction, PartialJoinFunction> getOrCreatePartialJoinSpecs(
-      final JoinOperatorSpec joinOpSpec, final SerializedStreamGraph streamGraph) {
-    // get the per task copy of JoinOperatorSpec
-    return joinSpecs.computeIfAbsent(joinOpSpec.getOpId(),
+  private PartialJoinOperatorImpl getOrCreatePartialJoinOpImpls(
+      JoinOperatorSpec joinOpSpec, boolean isLeft, Config config, TaskContext context, Clock clock,
+      OperatorSpecGraph streamGraph) throws IOException, ClassNotFoundException {
+    // get the per task pair of PartialJoinOperatorImpl for the corresponding {@code joinOpSpec}
+    KV<PartialJoinOperatorImpl, PartialJoinOperatorImpl> partialJoinOpImpls = joinOpImpls.computeIfAbsent(joinOpSpec.getOpId(),
         joinOpId -> {
         JoinOperatorSpec newJoinSpec = null;
         try {
@@ -276,11 +273,20 @@ public class OperatorImplGraph {
         } catch (IOException | ClassNotFoundException e) {
           throw new SamzaException(String.format("Failed to deserialized operator %s from the serialized user program.", joinOpId), e);
         }
-        return new Tuple3<>(newJoinSpec, createLeftJoinFn(newJoinSpec), createRightJoinFn(newJoinSpec));
+        PartialJoinFunction leftJoinFn = createLeftJoinFn(newJoinSpec);
+        PartialJoinFunction rightJoinFn = createRightJoinFn(newJoinSpec);
+        return new KV(new PartialJoinOperatorImpl(newJoinSpec, true, leftJoinFn, rightJoinFn, config, context, clock),
+            new PartialJoinOperatorImpl(newJoinSpec, false, rightJoinFn, leftJoinFn, config, context, clock));
       });
+
+    if (isLeft) { // we got here from the left side of the join
+      return partialJoinOpImpls.getKey();
+    } else { // we got here from the right side of the join
+      return partialJoinOpImpls.getValue();
+    }
   }
 
-  private PartialJoinFunction<Object, Object, Object, Object> createLeftJoinFn(final JoinOperatorSpec joinOpSpec) {
+  private PartialJoinFunction<Object, Object, Object, Object> createLeftJoinFn(JoinOperatorSpec joinOpSpec) {
     return new PartialJoinFunction<Object, Object, Object, Object>() {
       private final JoinFunction joinFn = joinOpSpec.getJoinFn();
       private KeyValueStore<Object, TimestampedValue<Object>> leftStreamState;
@@ -317,7 +323,7 @@ public class OperatorImplGraph {
     };
   }
 
-  private PartialJoinFunction<Object, Object, Object, Object> createRightJoinFn(final JoinOperatorSpec joinOpSpec) {
+  private PartialJoinFunction<Object, Object, Object, Object> createRightJoinFn(JoinOperatorSpec joinOpSpec) {
     return new PartialJoinFunction<Object, Object, Object, Object>() {
       private final JoinFunction joinFn = joinOpSpec.getJoinFn();
       private KeyValueStore<Object, TimestampedValue<Object>> rightStreamState;
@@ -348,7 +354,7 @@ public class OperatorImplGraph {
     };
   }
 
-  private boolean hasIntermediateStreams(final SerializedStreamGraph streamGraph) {
+  private boolean hasIntermediateStreams(OperatorSpecGraph streamGraph) {
     return !Collections.disjoint(streamGraph.getInputOperators().keySet(), streamGraph.getOutputStreams().keySet());
   }
 
@@ -390,10 +396,10 @@ public class OperatorImplGraph {
 
   /**
    * calculate the mapping from output streams to input streams
-   * @param streamGraph the user {@link StreamGraphImpl} instance
+   * @param streamGraph the user {@link OperatorSpecGraph}
    * @return mapping from output streams to input streams
    */
-  static Multimap<SystemStream, SystemStream> getIntermediateToInputStreamsMap(SerializedStreamGraph streamGraph) {
+  static Multimap<SystemStream, SystemStream> getIntermediateToInputStreamsMap(OperatorSpecGraph streamGraph) {
     Multimap<SystemStream, SystemStream> outputToInputStreams = HashMultimap.create();
     streamGraph.getInputOperators().entrySet().stream()
         .forEach(

@@ -69,7 +69,7 @@ public class OperatorSpecs {
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createMapOperatorSpec(
       MapFunction<? super M, ? extends OM> mapFn, String opId) {
-    return StreamOperatorSpec.<M, OM>createStreamOperatorSpec((MapFunction<M, OM>) mapFn, OperatorSpec.OpCode.MAP, opId);
+    return StreamOperatorSpec.createStreamOperatorSpec((MapFunction<M, OM>) mapFn, OperatorSpec.OpCode.MAP, opId);
   }
 
   /**
@@ -82,7 +82,7 @@ public class OperatorSpecs {
    */
   public static <M> StreamOperatorSpec<M, M> createFilterOperatorSpec(
       FilterFunction<? super M> filterFn, String opId) {
-    return StreamOperatorSpec.<M>createStreamOperatorSpec((FilterFunction<M>) filterFn, OperatorSpec.OpCode.FILTER, opId);
+    return StreamOperatorSpec.createStreamOperatorSpec((FilterFunction<M>) filterFn, OperatorSpec.OpCode.FILTER, opId);
   }
 
   /**
@@ -96,7 +96,7 @@ public class OperatorSpecs {
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createFlatMapOperatorSpec(
       FlatMapFunction<? super M, ? extends OM> flatMapFn, String opId) {
-    return StreamOperatorSpec.<M, OM>createStreamOperatorSpec((FlatMapFunction<M, OM>) flatMapFn, OperatorSpec.OpCode.FLAT_MAP, opId);
+    return StreamOperatorSpec.createStreamOperatorSpec((FlatMapFunction<M, OM>) flatMapFn, OperatorSpec.OpCode.FLAT_MAP, opId);
   }
 
   /**
@@ -188,7 +188,7 @@ public class OperatorSpecs {
    * @return  the {@link StreamOperatorSpec} for the merge
    */
   public static <M> StreamOperatorSpec<M, M> createMergeOperatorSpec(String opId) {
-    return StreamOperatorSpec.<M, M>createStreamOperatorSpec((M message) ->
+    return StreamOperatorSpec.createStreamOperatorSpec((M message) ->
         new ArrayList<M>() {
           {
             this.add(message);
@@ -223,7 +223,8 @@ public class OperatorSpecs {
    * @param <V> the type of the table record value
    * @return the {@link SendToTableOperatorSpec}
    */
-  public static <K, V> SendToTableOperatorSpec<K, V> createSendToTableOperatorSpec(TableSpec tableSpec, String opId) {
+  public static <K, V> SendToTableOperatorSpec<K, V> createSendToTableOperatorSpec(
+     TableSpec tableSpec, String opId) {
     return new SendToTableOperatorSpec(tableSpec, opId);
   }
 

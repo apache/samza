@@ -112,7 +112,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
       streamApp.init(streamGraph, config);
       return TaskFactoryUtil.createTaskFactory(config, streamGraph);
     }
-    return TaskFactoryUtil.createTaskFactory(config, null);
+    return TaskFactoryUtil.createTaskFactory(config);
   }
 
   @Override

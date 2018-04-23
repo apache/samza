@@ -65,6 +65,7 @@ public class StreamGraphImpl implements StreamGraph {
   private final ApplicationRunner runner;
   private final Config config;
 
+
   /**
    * The 0-based position of the next operator in the graph.
    * Part of the unique ID for each OperatorSpec in the graph.
@@ -113,7 +114,7 @@ public class StreamGraphImpl implements StreamGraph {
         OperatorSpecs.createInputOperatorSpec(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(),
             isKeyed, this.getNextOpId(OpCode.INPUT, null));
     inputOperators.put(streamSpec, inputOperatorSpec);
-    return new MessageStreamImpl<M>(this, inputOperators.get(streamSpec));
+    return new MessageStreamImpl<>(this, inputOperators.get(streamSpec));
   }
 
   @Override
@@ -210,7 +211,7 @@ public class StreamGraphImpl implements StreamGraph {
             isKeyed, this.getNextOpId(OpCode.INPUT, null));
     inputOperators.put(streamSpec, inputOperatorSpec);
     outputStreams.put(streamSpec, new OutputStreamImpl(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed));
-    return new IntermediateMessageStreamImpl<M>(this, inputOperators.get(streamSpec), outputStreams.get(streamSpec));
+    return new IntermediateMessageStreamImpl<>(this, inputOperators.get(streamSpec), outputStreams.get(streamSpec));
   }
 
   public Map<StreamSpec, InputOperatorSpec> getInputOperators() {

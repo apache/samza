@@ -45,8 +45,10 @@ public class JoinOperatorSpec<K, M, OM, JM> extends OperatorSpec<Object, JM> imp
   private final JoinFunction<K, M, OM, JM> joinFn;
   private final long ttlMs;
 
-  // Make the following variables transient
-  // Copies of input operator specs are deserialized externally
+  /**
+   * The input {@link OperatorSpec}s are declared as transient since currently we only use the non-deserialized original
+   * {@link JoinOperatorSpec} to traverse the graph in {@link org.apache.samza.operators.impl.OperatorImplGraph}.
+   */
   private transient final OperatorSpec<?, M> leftInputOpSpec;
   private transient final OperatorSpec<?, OM> rightInputOpSpec;
 

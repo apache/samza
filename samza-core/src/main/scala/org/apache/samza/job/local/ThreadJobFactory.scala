@@ -63,16 +63,14 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     val jmxServer = new JmxServer
     val streamApp = TaskFactoryUtil.createStreamApplication(config)
     val appRunner = new LocalContainerRunner(jobModel, "0")
-    val streamGraph = Option(streamApp) match {
-        case app: Some[StreamApplication] => {
-          var graph = new StreamGraphImpl(appRunner, config)
-          app.get.init(graph, config)
-          graph
-        }
-        case _ => null
-      }
 
-    val taskFactory = TaskFactoryUtil.createTaskFactory(config, streamGraph)
+    val taskFactory = if (streamApp != null) {
+      val graph = new StreamGraphImpl(appRunner, config)
+      streamApp.init(graph, config)
+      TaskFactoryUtil.createTaskFactory(config, graph)
+    } else {
+      TaskFactoryUtil.createTaskFactory(config)
+    }
 
     // Give developers a nice friendly warning if they've specified task.opts and are using a threaded job.
     config.getTaskOpts match {

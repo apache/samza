@@ -38,24 +38,24 @@ import static com.google.common.base.Preconditions.*;
  * Defines the serialized format of {@link StreamGraphImpl}. This class encapsulates all getter methods to get the {@link OperatorSpec}
  * initialized in the {@link StreamGraphImpl} and constructsthe corresponding serialized instances of {@link OperatorSpec}.
  * The {@link StreamGraphImpl} and {@link OperatorSpec} instances included in this class are considered as immutable and read-only.
- * The instance of {@link SerializedStreamGraph} should only be used in runtime to construct {@link org.apache.samza.task.StreamOperatorTask}.
+ * The instance of {@link OperatorSpecGraph} should only be used in runtime to construct {@link org.apache.samza.task.StreamOperatorTask}.
  */
-public class SerializedStreamGraph {
+public class OperatorSpecGraph {
   private final Map<String, OperatorSpec> operatorSpecMap = new HashMap<>();
   private final Map<String, byte[]> serializedOpSpecs = new ConcurrentHashMap<>();
   private final StreamGraphImpl originalGraph;
 
-  public SerializedStreamGraph(StreamGraphImpl streamGraph) {
+  public OperatorSpecGraph(StreamGraphImpl streamGraph) {
     this.originalGraph = streamGraph;
     streamGraph.getAllOperatorSpecs().stream().forEach(opSpec -> this.operatorSpecMap.put(opSpec.getOpId(), opSpec));
   }
 
   public OperatorSpec getOpSpec(String opId) throws IOException, ClassNotFoundException {
 
-    return OperatorSpec.fromByte(this.serializedOpSpecs.computeIfAbsent(opId, operatorId -> {
+    return OperatorSpec.fromBytes(this.serializedOpSpecs.computeIfAbsent(opId, operatorId -> {
         checkNotNull(this.operatorSpecMap.get(opId), String.format("Input operator %s does not exist in serialized user program.", opId));
         try {
-          return OperatorSpec.toByte(this.operatorSpecMap.get(operatorId));
+          return OperatorSpec.toBytes(this.operatorSpecMap.get(operatorId));
         } catch (IOException e) {
           throw new SamzaException(String.format("Failed to serialize operator %s.", opId), e);
         }

@@ -35,6 +35,7 @@ import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
+
 /**
  * A stream operator specification that holds all the information required to transform
  * the input {@link org.apache.samza.operators.MessageStreamImpl} and produce the output
@@ -70,8 +71,9 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
    * <p>
    * We use a LinkedHashSet since we need deterministic ordering in initializing/closing operators.
    *
-   * Note: this is also made transient since the deserialized copies of {@code nextOperatorSpecs} are made externally when
-   * traversing the DAG in the constructor of {@link org.apache.samza.operators.impl.OperatorImplGraph}.
+   * This set is declared as transient since currently we only use the non-deserialized original {@link OperatorSpec} to
+   * traverse the graph and register next operators while constructing {@link org.apache.samza.operators.impl.OperatorImpl}s
+   * in {@link org.apache.samza.operators.impl.OperatorImplGraph}.
    */
   private transient final Set<OperatorSpec<OM, ?>> nextOperatorSpecs = new LinkedHashSet<>();
 
@@ -104,7 +106,7 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
     return nextOperatorSpecs;
   }
 
-  public static byte[] toByte(OperatorSpec opSpec) throws IOException {
+  public static byte[] toBytes(OperatorSpec opSpec) throws IOException {
     final ByteArrayOutputStream serializedBytes = new ByteArrayOutputStream();
     final ObjectOutputStream outputStream = new ObjectOutputStream(serializedBytes);
     outputStream.writeObject(opSpec);
@@ -112,7 +114,7 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
     return serializedBytes.toByteArray();
   }
 
-  public static OperatorSpec fromByte(byte[] serializedBytes) throws IOException, ClassNotFoundException {
+  public static OperatorSpec fromBytes(byte[] serializedBytes) throws IOException, ClassNotFoundException {
     final ObjectInputStream inputStream = new ObjectInputStream(new ByteArrayInputStream(serializedBytes));
     Object object = inputStream.readObject();
     inputStream.close();

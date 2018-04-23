@@ -109,7 +109,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
     verify(mockContext, times(1)).registerMessageStream(2, this.getRegisteredMessageStream(2));
     when(mockContext.getRelNode(2)).thenReturn(mockProject);
     when(mockContext.getMessageStream(2)).thenReturn(this.getRegisteredMessageStream(2));
-    StreamOperatorSpec projectSpec = (StreamOperatorSpec) Whitebox.getInternalState(this.getRegisteredMessageStream(2), "source");
+    StreamOperatorSpec projectSpec = (StreamOperatorSpec) Whitebox.getInternalState(this.getRegisteredMessageStream(2), "operatorSpec");
     assertNotNull(projectSpec);
     assertEquals(projectSpec.getOpCode(), OperatorSpec.OpCode.MAP);
 
@@ -148,7 +148,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
           this.add(mockFieldObj);
         }});
 
-    StreamOperatorSpec copyProjectSpec = (StreamOperatorSpec) OperatorSpec.fromByte(OperatorSpec.toByte(projectSpec));
+    StreamOperatorSpec copyProjectSpec = (StreamOperatorSpec) OperatorSpec.fromBytes(OperatorSpec.toBytes(projectSpec));
     assertTrue(copyProjectSpec != projectSpec);
     assertTrue(copyProjectSpec.getTransformFn() != null);
     assertTrue(copyProjectSpec.getTransformFn() != projectSpec.getTransformFn());
@@ -219,7 +219,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
 
 
     Collection<OperatorSpec>
-        nextOps = ((OperatorSpec) Whitebox.getInternalState(mockStream, "source")).getRegisteredOperatorSpecs();
+        nextOps = ((OperatorSpec) Whitebox.getInternalState(mockStream, "operatorSpec")).getRegisteredOperatorSpecs();
     StreamOperatorSpec flattenOp = (StreamOperatorSpec) nextOps.iterator().next();
     assertNotNull(flattenOp);
     Object testObj = new Object();
@@ -247,12 +247,12 @@ public class TestProjectTranslator extends TranslatorTestBase {
         .collect(ArrayList::new, (c, a) -> c.add(a), (c1, c2) -> c1.addAll(c2));
     assertEquals(testList, actualList);
 
-    StreamOperatorSpec copyFlattenOp = (StreamOperatorSpec) OperatorSpec.fromByte(OperatorSpec.toByte(flattenOp));
+    StreamOperatorSpec copyFlattenOp = (StreamOperatorSpec) OperatorSpec.fromBytes(OperatorSpec.toBytes(flattenOp));
     assertTrue(copyFlattenOp != flattenOp);
     assertTrue(copyFlattenOp.getTransformFn() != null);
     assertTrue(copyFlattenOp.getTransformFn() != flattenOp.getTransformFn());
 
-    StreamOperatorSpec projectSpec = (StreamOperatorSpec) Whitebox.getInternalState(this.getRegisteredMessageStream(2), "source");
+    StreamOperatorSpec projectSpec = (StreamOperatorSpec) Whitebox.getInternalState(this.getRegisteredMessageStream(2), "operatorSpec");
     assertNotNull(projectSpec);
     assertEquals(projectSpec.getOpCode(), OperatorSpec.OpCode.MAP);
 
@@ -291,7 +291,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
       this.add(mockFieldObj);
     }});
 
-    StreamOperatorSpec copyProjectSpec = (StreamOperatorSpec) OperatorSpec.fromByte(OperatorSpec.toByte(projectSpec));
+    StreamOperatorSpec copyProjectSpec = (StreamOperatorSpec) OperatorSpec.fromBytes(OperatorSpec.toBytes(projectSpec));
     assertTrue(copyProjectSpec != projectSpec);
     assertTrue(copyProjectSpec.getTransformFn() != null);
     assertTrue(copyProjectSpec.getTransformFn() != projectSpec.getTransformFn());

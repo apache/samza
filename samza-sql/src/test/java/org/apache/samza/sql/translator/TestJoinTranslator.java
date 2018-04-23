@@ -161,7 +161,7 @@ public class TestJoinTranslator extends TranslatorTestBase {
     when(mockContext.getRelNode(3)).thenReturn(mockJoin);
     when(mockContext.getMessageStream(3)).thenReturn(this.getRegisteredMessageStream(3));
     StreamTableJoinOperatorSpec
-        joinSpec = (StreamTableJoinOperatorSpec) Whitebox.getInternalState(this.getRegisteredMessageStream(3), "source");
+        joinSpec = (StreamTableJoinOperatorSpec) Whitebox.getInternalState(this.getRegisteredMessageStream(3), "operatorSpec");
     assertNotNull(joinSpec);
     assertEquals(joinSpec.getOpCode(), OperatorSpec.OpCode.JOIN);
 
@@ -177,7 +177,7 @@ public class TestJoinTranslator extends TranslatorTestBase {
     assertEquals(outputFieldNames, Whitebox.getInternalState(joinFn, "outFieldNames"));
 
     StreamTableJoinOperatorSpec copyJoinSpec =
-        (StreamTableJoinOperatorSpec) OperatorSpec.fromByte(OperatorSpec.toByte(joinSpec));
+        (StreamTableJoinOperatorSpec) OperatorSpec.fromBytes(OperatorSpec.toBytes(joinSpec));
     assertTrue(joinSpec != copyJoinSpec);
     assertTrue(copyJoinSpec.getTableSpec() != null);
     assertTrue(copyJoinSpec.getJoinFn() != joinSpec.getJoinFn());

@@ -49,11 +49,11 @@ import static org.mockito.Mockito.*;
 
 
 /**
- * Unit tests for {@link SerializedStreamGraph}
+ * Unit tests for {@link OperatorSpecGraph}
  */
 @RunWith(PowerMockRunner.class)
 @PrepareForTest(OperatorSpec.class)
-public class TestSerializedStreamGraph {
+public class TestOperatorSpecGraph {
 
   private StreamGraphImpl mockGraph;
   private ContextManager mockContextManager;
@@ -98,7 +98,7 @@ public class TestSerializedStreamGraph {
 
   @Test
   public void testConstructor() {
-    SerializedStreamGraph serializedGraph = new SerializedStreamGraph(mockGraph);
+    OperatorSpecGraph serializedGraph = new OperatorSpecGraph(mockGraph);
     assertEquals(serializedGraph.getContextManager(), mockContextManager);
     assertEquals(serializedGraph.getInputOperators(), inputOpSpecMap);
     assertEquals(serializedGraph.getOutputStreams(), outputStrmMap);
@@ -106,11 +106,11 @@ public class TestSerializedStreamGraph {
 
   @Test
   public void testGetOpSpec() {
-    SerializedStreamGraph serializedStreamGraph = new SerializedStreamGraph(mockGraph);
+    OperatorSpecGraph operatorSpecGraph = new OperatorSpecGraph(mockGraph);
     // get all deserialized operator spec
     this.allOpSpecs.stream().forEach(op -> {
         try {
-          OperatorSpec deserializedOp = serializedStreamGraph.getOpSpec(op.getOpId());
+          OperatorSpec deserializedOp = operatorSpecGraph.getOpSpec(op.getOpId());
           assertTrue(deserializedOp != op);
           assertTrue(deserializedOp.getOpCode() == op.getOpCode());
           assertEquals(deserializedOp.getOpId(), op.getOpId());
@@ -127,10 +127,10 @@ public class TestSerializedStreamGraph {
     this.allOpSpecs.add(mockFailedOpSpec);
     when(this.mockGraph.getAllOperatorSpecs()).thenReturn(this.allOpSpecs);
 
-    SerializedStreamGraph serializedStreamGraph = new SerializedStreamGraph(mockGraph);
+    OperatorSpecGraph operatorSpecGraph = new OperatorSpecGraph(mockGraph);
     // get deserialized operator spec failed
     try {
-      serializedStreamGraph.getOpSpec("test-failed-op-4");
+      operatorSpecGraph.getOpSpec("test-failed-op-4");
       fail("Should have failed with serialization exception");
     } catch (SamzaException nse) {
       // expected, continue
@@ -145,10 +145,10 @@ public class TestSerializedStreamGraph {
     this.allOpSpecs.add(spyTestOp);
     when(this.mockGraph.getAllOperatorSpecs()).thenReturn(this.allOpSpecs);
 
-    SerializedStreamGraph serializedStreamGraph = new SerializedStreamGraph(mockGraph);
+    OperatorSpecGraph operatorSpecGraph = new OperatorSpecGraph(mockGraph);
     // get deserialized operator spec failed
     try {
-      serializedStreamGraph.getOpSpec("test-failed-op-4");
+      operatorSpecGraph.getOpSpec("test-failed-op-4");
       fail("Should have failed with deserialization exception");
     } catch (SamzaException nse) {
       // expected, continue

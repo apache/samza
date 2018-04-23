@@ -91,7 +91,7 @@ public class TestFilterTranslator extends TranslatorTestBase {
     verify(mockContext, times(1)).registerMessageStream(2, this.getRegisteredMessageStream(2));
     when(mockContext.getRelNode(2)).thenReturn(mockFilter);
     when(mockContext.getMessageStream(2)).thenReturn(this.getRegisteredMessageStream(2));
-    StreamOperatorSpec filterSpec = (StreamOperatorSpec) Whitebox.getInternalState(this.getRegisteredMessageStream(2), "source");
+    StreamOperatorSpec filterSpec = (StreamOperatorSpec) Whitebox.getInternalState(this.getRegisteredMessageStream(2), "operatorSpec");
     assertNotNull(filterSpec);
     assertEquals(filterSpec.getOpCode(), OperatorSpec.OpCode.FILTER);
 
@@ -129,7 +129,7 @@ public class TestFilterTranslator extends TranslatorTestBase {
     }).when(mockExpr).execute(eq(executionContext), eq(dataContext), eq(mockInputMsg.getFieldValues().toArray()), eq(result));
     assertFalse(filterFn.apply(mockInputMsg));
 
-    StreamOperatorSpec copyFilterSpec = (StreamOperatorSpec) OperatorSpec.fromByte(OperatorSpec.toByte(filterSpec));
+    StreamOperatorSpec copyFilterSpec = (StreamOperatorSpec) OperatorSpec.fromBytes(OperatorSpec.toBytes(filterSpec));
     assertTrue(copyFilterSpec != filterSpec);
     assertTrue(copyFilterSpec.getTransformFn() != null);
     assertTrue(copyFilterSpec.getTransformFn() != filterSpec.getTransformFn());
