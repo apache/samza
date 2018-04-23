@@ -280,6 +280,8 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     assertTrue(Integer.parseInt(previousJobModelVersion[0]) < Integer.parseInt(currentJobModelVersion));
     // Job model before and after the addition of second stream processor should be the same.
     assertEquals(previousJobModel[0], updatedJobModel);
+
+    assertEquals(new MapConfig(), updatedJobModel.getConfig());
     // TODO: After SAMZA-1364 add assertion for localApplicationRunner2.status(streamApp)
     // ProcessedMessagesLatch shouldn't have changed. Should retain it's initial value.
     assertEquals(NUM_KAFKA_EVENTS, processedMessagesLatch.getCount());
@@ -361,7 +363,10 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 
     // Task names in the job model should be different but the set of partitions should be the same and each task name
     // should be assigned to a different container.
+    assertEquals(new MapConfig(), previousJobModel[0].getConfig());
     assertEquals(previousJobModel[0].getContainers().get(PROCESSOR_IDS[0]).getTasks().size(), 1);
+
+    assertEquals(new MapConfig(), updatedJobModel.getConfig());
     assertEquals(updatedJobModel.getContainers().get(PROCESSOR_IDS[0]).getTasks().size(), 1);
     assertEquals(updatedJobModel.getContainers().get(PROCESSOR_IDS[1]).getTasks().size(), 1);
     Map<TaskName, TaskModel> updatedTaskModelMap1 = updatedJobModel.getContainers().get(PROCESSOR_IDS[0]).getTasks();
@@ -406,6 +411,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     // Verifications before killing the leader.
     String jobModelVersion = zkUtils.getJobModelVersion();
     JobModel jobModel = zkUtils.getJobModel(jobModelVersion);
+    assertEquals(new MapConfig(), jobModel.getConfig());
     assertEquals(3, jobModel.getContainers().size());
     assertEquals(Sets.newHashSet("0000000000", "0000000001", "0000000002"), jobModel.getContainers().keySet());
     assertEquals("1", jobModelVersion);
