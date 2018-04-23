@@ -76,6 +76,12 @@ public class EventHubSystemAdmin implements SystemAdmin {
     return results;
   }
 
+  // EventHubRuntimeInformation does not implement toString()
+  private String printEventHubRuntimeInfo(EventHubRuntimeInformation ehInfo) {
+    return String.format("[EventHubRuntimeInformation: createAt=%s, partitionCount=%d, path=%s]", ehInfo.getCreatedAt(),
+        ehInfo.getPartitionCount(), ehInfo.getPath());
+  }
+
   @Override
   public Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames) {
     Map<String, SystemStreamMetadata> requestedMetadata = new HashMap<>();
@@ -90,7 +96,8 @@ public class EventHubSystemAdmin implements SystemAdmin {
 
           long timeoutMs = eventHubConfig.getRuntimeInfoWaitTimeMS(systemName);
           EventHubRuntimeInformation ehInfo = runtimeInfo.get(timeoutMs, TimeUnit.MILLISECONDS);
-          LOG.info(String.format("Adding partition ids=%s for stream=%s", Arrays.toString(ehInfo.getPartitionIds()), streamName));
+          LOG.info(String.format("Adding partition ids=%s for stream=%s. EHRuntimetInfo=%s",
+              Arrays.toString(ehInfo.getPartitionIds()), streamName, printEventHubRuntimeInfo(ehInfo)));
           streamPartitions.put(streamName, ehInfo.getPartitionIds());
         }
         String[] partitionIds = streamPartitions.get(streamName);
@@ -113,7 +120,7 @@ public class EventHubSystemAdmin implements SystemAdmin {
 
   private EventHubClientManager getOrCreateStreamEventHubClient(String streamName) {
     if (!eventHubClients.containsKey(streamName)) {
-      LOG.debug(String.format("Creating EventHubClient for Stream=%s", streamName));
+      LOG.info(String.format("Creating EventHubClient for Stream=%s", streamName));
 
       EventHubClientManager eventHubClientManager = eventHubClientManagerFactory
               .getEventHubClientManager(systemName, streamName, eventHubConfig);
