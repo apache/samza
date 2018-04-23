@@ -80,11 +80,18 @@ public class AvroRelConverter implements SamzaRelConverter {
     Object value = samzaMessage.getValue();
     if (value instanceof IndexedRecord) {
       IndexedRecord record = (IndexedRecord) value;
+      // Please note that record schema and cached schema could be different due to schema evolution.
+      // Always represent record schema in the form of cached schema. This approach has the side-effect
+      // of dropping the newly added fields in the scenarios where the record schema has newer version
+      // than the cached schema. [TODO: SAMZA-1679]
+      Schema recordSchema = record.getSchema();
       fieldNames.addAll(avroSchema.getFields().stream()
           .map(Schema.Field::name)
           .collect(Collectors.toList()));
       fieldValues.addAll(fieldNames.stream()
-          .map(f -> convertToJavaObject(record.get(avroSchema.getField(f).pos()), avroSchema.getField(f).schema()))
+          .map(f -> convertToJavaObject(
+              recordSchema.getField(f) != null ? record.get(recordSchema.getField(f).pos()) : null,
+              getNonNullUnionSchema(avroSchema.getField(f).schema())))
           .collect(Collectors.toList()));
     } else if (value == null) {
       fieldNames.addAll(avroSchema.getFields().stream().map(Schema.Field::name).collect(Collectors.toList()));
@@ -109,7 +116,7 @@ public class AvroRelConverter implements SamzaRelConverter {
       values.addAll(avroRecord.getSchema().getFields()
           .stream()
           .map(f -> convertToJavaObject(avroRecord.get(avroRecord.getSchema().getField(f.name()).pos()),
-              avroRecord.getSchema().getField(f.name()).schema()))
+              getNonNullUnionSchema(avroRecord.getSchema().getField(f.name()).schema())))
           .collect(Collectors.toList()));
     } else {
       String msg = "Avro Record is null";
@@ -141,13 +148,13 @@ public class AvroRelConverter implements SamzaRelConverter {
         Object relObj = values.get(index);
         String fieldName = fieldNames.get(index);
         Schema fieldSchema = schema.getField(fieldName).schema();
-        record.put(fieldName, convertToAvroObject(relObj, fieldSchema));
+        record.put(fieldName, convertToAvroObject(relObj, getNonNullUnionSchema(fieldSchema)));
       }
     }
     return record;
   }
 
-  private Object convertToAvroObject(Object relObj, Schema schema) {
+  public Object convertToAvroObject(Object relObj, Schema schema) {
     if (relObj == null) {
       return null;
     }
@@ -173,7 +180,7 @@ public class AvroRelConverter implements SamzaRelConverter {
 
   // Not doing any validations of data types with Avro schema considering the resource cost per message.
   // Casting would fail if the data types are not in sync with the schema.
-  private Object convertToJavaObject(Object avroObj, Schema schema) {
+  public Object convertToJavaObject(Object avroObj, Schema schema) {
     switch(schema.getType()) {
       case RECORD:
         if (avroObj == null) {
@@ -220,7 +227,7 @@ public class AvroRelConverter implements SamzaRelConverter {
   }
 
   // Two non-nullable types in a union is not yet supported.
-  private Schema getNonNullUnionSchema(Schema schema) {
+  public Schema getNonNullUnionSchema(Schema schema) {
     if (schema.getType().equals(Schema.Type.UNION)) {
       if (schema.getTypes().get(0).getType() != Schema.Type.NULL) {
         return schema.getTypes().get(0);
