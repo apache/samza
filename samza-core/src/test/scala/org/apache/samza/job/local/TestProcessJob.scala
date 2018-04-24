@@ -20,49 +20,128 @@
 package org.apache.samza.job.local
 
 import org.apache.samza.coordinator.JobModelManager
+import org.apache.samza.job.ApplicationStatus.{SuccessfulFinish, UnsuccessfulFinish}
+import org.apache.samza.job.CommandBuilder
 import org.junit.Assert._
 import org.junit.Test
-import org.apache.samza.job.ApplicationStatus
-import org.apache.samza.job.CommandBuilder
+
 import scala.collection.JavaConverters._
 
-class TestProcessJob {
-  @Test
-  def testProcessJobShouldFinishOnItsOwn {
+object TestProcessJob {
+
+  val OneSecondCommand = "sleep 1"
+  val TenSecondCommand = "sleep 10"
+  val SimpleCommand = "true"
+  val FailingCommand = "false"
+  val BadCommand = "bad-non-existing-command"
+
+  private def createProcessJob(command: String): ProcessJob = {
     val commandBuilder = new CommandBuilder {
-      override def buildCommand = "sleep 1"
+      override def buildCommand = command
+
       override def buildEnvironment = Map[String, String]().asJava
     }
-    val coordinator = new MockJobModelManager()
-    val job = new ProcessJob(commandBuilder, coordinator)
-    job.submit
-    job.waitForFinish(999999)
+    new ProcessJob(commandBuilder, new MockJobModelManager)
   }
 
-  // TODO: fix in SAMZA-1261
-  // @Test
-  def testProcessJobKillShouldWork {
-    val commandBuilder = new CommandBuilder {
-      override def buildCommand = "sleep 999999999"
-      override def buildEnvironment = Map[String, String]().asJava
-    }
-    val coordinator = new MockJobModelManager()
-    val job = new ProcessJob(commandBuilder, coordinator)
-    job.submit
-    job.waitForFinish(500)
-    job.kill
-    job.waitForFinish(999999)
-    assertTrue(coordinator.stopped)
-    assertEquals(ApplicationStatus.UnsuccessfulFinish, job.waitForFinish(999999999))
+  private def getMockJobModelManager(processJob: ProcessJob): MockJobModelManager = {
+    processJob.jobModelManager.asInstanceOf[MockJobModelManager]
+  }
+}
+
+class TestProcessJob {
+
+  import TestProcessJob._
+
+  @Test
+  def testProcessJobShouldFinishOnItsOwn: Unit = {
+    val processJob = createProcessJob(SimpleCommand)
+
+    val status = processJob.submit.waitForFinish(0)
+
+    assertEquals(SuccessfulFinish, status)
+    assertTrue(getMockJobModelManager(processJob).stopped)
+  }
+
+  @Test
+  def testProcessJobShouldReportFailingCommands: Unit = {
+    val processJob = createProcessJob(FailingCommand)
+
+    val status = processJob.submit.waitForFinish(0)
+
+    assertEquals(UnsuccessfulFinish, status)
+    assertTrue(getMockJobModelManager(processJob).stopped)
+  }
+
+  @Test
+  def testProcessJobWaitForFinishShouldTimeOut: Unit = {
+    val processJob = createProcessJob(OneSecondCommand)
+
+    val status = processJob.waitForFinish(10)
+
+    assertNotEquals(SuccessfulFinish, status)
+    assertNotEquals(UnsuccessfulFinish, status)
+  }
+
+  @Test
+  def testProcessJobKillShouldWork: Unit = {
+    val processJob = createProcessJob(TenSecondCommand)
+
+    processJob.submit.kill
+
+    assertEquals(UnsuccessfulFinish, processJob.getStatus)
+    assertTrue(getMockJobModelManager(processJob).stopped)
+  }
+
+  @Test
+  def testProcessJobSubmitBadProcessShouldFailGracefully: Unit = {
+    val processJob = createProcessJob(BadCommand)
+
+    processJob.submit.waitForFinish(0)
+
+    assertEquals(UnsuccessfulFinish, processJob.getStatus)
+    assertTrue(getMockJobModelManager(processJob).stopped)
+  }
+
+  @Test
+  def testProcessJobWaitForStatusShouldWork: Unit = {
+    val processJob = createProcessJob(SimpleCommand)
+
+    processJob.submit.waitForStatus(SuccessfulFinish, 0)
+
+    assertEquals(SuccessfulFinish, processJob.getStatus)
+    assertTrue(getMockJobModelManager(processJob).stopped)
+  }
+
+  @Test
+  def testProcessJobWaitForStatusShouldTimeOut: Unit = {
+    val processJob = createProcessJob(OneSecondCommand)
+
+    val status = processJob.submit.waitForFinish(10)
+
+    assertNotEquals(SuccessfulFinish, status)
+    assertNotEquals(UnsuccessfulFinish, status)
+  }
+
+  @Test(expected = classOf[IllegalArgumentException])
+  def testProcessJobWaitForStatusShouldThrowOnNegativeTimeout: Unit = {
+    val processJob = createProcessJob(SimpleCommand)
+    processJob.waitForStatus(SuccessfulFinish, -1)
+  }
+
+  @Test(expected = classOf[IllegalArgumentException])
+  def testProcessJobWaitForFinishShouldThrowOnNegativeTimeout: Unit = {
+    val processJob = createProcessJob(SimpleCommand)
+    processJob.waitForFinish(-1)
   }
 }
 
 class MockJobModelManager extends JobModelManager(null, null) {
   var stopped: Boolean = false
 
-  override def start: Unit = { }
+  override def start: Unit = {}
 
   override def stop: Unit = {
-    stopped = true;
+    stopped = true
   }
 }

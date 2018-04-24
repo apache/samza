@@ -19,113 +19,112 @@
 
 package org.apache.samza.job.local
 
-import java.io.{InputStream, OutputStream}
 import java.util.concurrent.CountDownLatch
 
-import org.apache.samza.SamzaException
 import org.apache.samza.coordinator.JobModelManager
-import org.apache.samza.job.ApplicationStatus.{New, Running, UnsuccessfulFinish}
+import org.apache.samza.job.ApplicationStatus.{New, Running, SuccessfulFinish, UnsuccessfulFinish}
 import org.apache.samza.job.{ApplicationStatus, CommandBuilder, StreamJob}
 import org.apache.samza.util.Logging
 
 import scala.collection.JavaConverters._
 
-class ProcessJob(commandBuilder: CommandBuilder, jobCoordinator: JobModelManager) extends StreamJob with Logging {
-  var jobStatus: Option[ApplicationStatus] = None
-  var process: Process = null
-
-  def submit: StreamJob = {
-    jobStatus = Some(New)
-    val waitForThreadStart = new CountDownLatch(1)
+object ProcessJob {
+  private def createProcessBuilder(commandBuilder: CommandBuilder): ProcessBuilder = {
     val processBuilder = new ProcessBuilder(commandBuilder.buildCommand.split(" ").toList.asJava)
+    processBuilder.environment.putAll(commandBuilder.buildEnvironment)
+
+    // Pipe all output to this process's streams.
+    processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT)
+    processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT)
 
     processBuilder
-      .environment
-      .putAll(commandBuilder.buildEnvironment)
+  }
+}
 
-    // create a non-daemon thread to make job runner block until the job finishes.
-    // without this, the proc dies when job runner ends.
-    val procThread = new Thread {
+class ProcessJob(commandBuilder: CommandBuilder, val jobModelManager: JobModelManager) extends StreamJob with Logging {
+
+  import ProcessJob._
+
+  val lock = new Object
+  val processBuilder: ProcessBuilder = createProcessBuilder(commandBuilder)
+  var jobStatus: ApplicationStatus = New
+  var processThread: Option[Thread] = None
+
+
+  def submit: StreamJob = {
+    val threadStartCountDownLatch = new CountDownLatch(1)
+
+    // Create a non-daemon thread to make job runner block until the job finishes.
+    // Without this, the proc dies when job runner ends.
+    processThread = Some(new Thread {
       override def run {
-        process = processBuilder.start
+        var processExitCode = -1
+        var process: Option[Process] = None
 
-        // pipe all output to this process's streams
-        val outThread = new Thread(new Piper(process.getInputStream, System.out))
-        val errThread = new Thread(new Piper(process.getErrorStream, System.err))
-        outThread.setDaemon(true)
-        errThread.setDaemon(true)
-        outThread.start
-        errThread.start
-        waitForThreadStart.countDown
-        process.waitFor
-        jobCoordinator.stop
+        setStatus(Running)
+
+        try {
+          threadStartCountDownLatch.countDown
+          process = Some(processBuilder.start)
+          processExitCode = process.get.waitFor
+        } catch {
+          case _: InterruptedException => process foreach { p => p.destroyForcibly }
+          case e: Exception => error("Encountered an error during job start: %s".format(e.getMessage))
+        } finally {
+          jobModelManager.stop
+          setStatus(if (processExitCode == 0) SuccessfulFinish else UnsuccessfulFinish)
+        }
       }
-    }
+    })
 
-    procThread.start
-    waitForThreadStart.await
-    jobStatus = Some(Running)
+    processThread.get.start
+    threadStartCountDownLatch.await
     ProcessJob.this
   }
 
   def kill: StreamJob = {
-    process.destroyForcibly
-    jobStatus = Some(UnsuccessfulFinish)
+    if (getStatus == Running) {
+      processThread foreach { thread =>
+        thread.interrupt
+        thread.join
+      }
+    }
     ProcessJob.this
   }
 
-  def waitForFinish(timeoutMs: Long) = {
-    val thread = new Thread {
-      setDaemon(true)
-      override def run {
-        try {
-          process.waitFor
-        } catch {
-          case e: InterruptedException => info("Got interrupt.", e)
+  def waitForFinish(timeoutMs: Long): ApplicationStatus = {
+    require(timeoutMs >= 0, "Timeout values must be non-negative.")
+
+    processThread foreach { thread => thread.join(timeoutMs) }
+    getStatus
+  }
+
+  def waitForStatus(status: ApplicationStatus, timeoutMs: Long): ApplicationStatus = lock.synchronized {
+    require(timeoutMs >= 0, "Timeout values must be non-negative.")
+
+    timeoutMs match {
+      case 0 => while (getStatus != status) lock.wait(0)
+      case _ => {
+        val startTimeMs = System.currentTimeMillis
+        var remainingTimeoutMs = timeoutMs
+
+        while (getStatus != status && remainingTimeoutMs > 0) {
+          lock.wait(remainingTimeoutMs)
+
+          val elapsedWaitTimeMs = System.currentTimeMillis - startTimeMs
+          remainingTimeoutMs = timeoutMs - elapsedWaitTimeMs
         }
       }
     }
-
-    thread.start
-    thread.join(timeoutMs)
-    thread.interrupt
-    jobStatus.getOrElse(null)
+    getStatus
   }
 
-  def waitForStatus(status: ApplicationStatus, timeoutMs: Long) = {
-    val start = System.currentTimeMillis
-
-    while (System.currentTimeMillis - start < timeoutMs && status != jobStatus) {
-      Thread.sleep(500)
-    }
-
-    jobStatus.getOrElse(null)
+  def getStatus: ApplicationStatus = lock.synchronized {
+    jobStatus
   }
 
-  def getStatus = jobStatus.getOrElse(null)
-}
-
-/**
- * Silly class to forward bytes from one stream to another. Using this to pipe
- * output from subprocess to this process' stdout/stderr.
- */
-class Piper(in: InputStream, out: OutputStream) extends Runnable {
-  def run() {
-    try {
-      val b = new Array[Byte](512)
-      var read = 1;
-      while (read > -1) {
-        read = in.read(b, 0, b.length)
-        if (read > -1) {
-          out.write(b, 0, read)
-          out.flush()
-        }
-      }
-    } catch {
-      case e: Exception => throw new SamzaException("Broken pipe", e);
-    } finally {
-      in.close()
-      out.close()
-    }
+  private def setStatus(status: ApplicationStatus): Unit = lock.synchronized {
+    jobStatus = status
+    lock.notify
   }
 }
