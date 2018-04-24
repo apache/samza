@@ -24,7 +24,7 @@ Samza's documentation uses Jekyll to build a website out of markdown pages. Prer
 
 To serve the website on [localhost:4000](http://localhost:4000/):
 
-    bundle exec jekyll serve --watch --baseurl
+    bundle exec jekyll serve --watch --baseurl ""
 
 To compile the website in the \_site directory, execute:
 
@@ -32,7 +32,7 @@ To compile the website in the \_site directory, execute:
 
 To test the site, run:
 
-    bundle exec jekyll serve --watch --baseurl
+    bundle exec jekyll serve --watch --baseurl ""
 
 ## Versioning
 
