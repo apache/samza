@@ -76,6 +76,7 @@ public class SamzaEventHubClientManager implements EventHubClientManager {
   @Override
   public void init() {
     String remoteHost = String.format(EVENTHUB_REMOTE_HOST_FORMAT, eventHubNamespace);
+    LOG.info("Initializing SamzaEventHubClientManager for namespace: " + eventHubNamespace);
     try {
       ConnectionStringBuilder connectionStringBuilder = new ConnectionStringBuilder()
           .setNamespaceName(eventHubNamespace)
@@ -92,6 +93,7 @@ public class SamzaEventHubClientManager implements EventHubClientManager {
       LOG.error(msg, e);
       throw new SamzaException(msg, e);
     }
+    LOG.info("SamzaEventHubClientManager initialized for namespace: " + eventHubNamespace);
   }
 
   @Override
