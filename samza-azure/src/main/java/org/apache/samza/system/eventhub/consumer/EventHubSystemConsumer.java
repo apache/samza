@@ -106,7 +106,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   public static final String END_OF_STREAM = "-2";
   public static final String EVENT_READ_RATE = "eventReadRate";
   public static final String EVENT_BYTE_READ_RATE = "eventByteReadRate";
-  public static final String READ_LATENCY = "readLatency";
+  public static final String CONSUMPTION_LAG_MS = "consumptionLagMs";
   public static final String READ_ERRORS = "readErrors";
   public static final String AGGREGATE = "aggregate";
 
@@ -114,12 +114,12 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
 
   private static Counter aggEventReadRate = null;
   private static Counter aggEventByteReadRate = null;
-  private static SamzaHistogram aggReadLatency = null;
+  private static SamzaHistogram aggConsumptionLagMs = null;
   private static Counter aggReadErrors = null;
 
   private final Map<String, Counter> eventReadRates;
   private final Map<String, Counter> eventByteReadRates;
-  private final Map<String, SamzaHistogram> readLatencies;
+  private final Map<String, SamzaHistogram> consumptionLagMs;
   private final Map<String, Counter> readErrors;
 
   final ConcurrentHashMap<SystemStreamPartition, PartitionReceiveHandler> streamPartitionHandlers =
@@ -162,8 +162,8 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
         streamIds.stream().collect(Collectors.toMap(Function.identity(), x -> registry.newCounter(x, EVENT_READ_RATE)));
     eventByteReadRates = streamIds.stream()
         .collect(Collectors.toMap(Function.identity(), x -> registry.newCounter(x, EVENT_BYTE_READ_RATE)));
-    readLatencies = streamIds.stream()
-        .collect(Collectors.toMap(Function.identity(), x -> new SamzaHistogram(registry, x, READ_LATENCY)));
+    consumptionLagMs = streamIds.stream()
+        .collect(Collectors.toMap(Function.identity(), x -> new SamzaHistogram(registry, x, CONSUMPTION_LAG_MS)));
     readErrors =
         streamIds.stream().collect(Collectors.toMap(Function.identity(), x -> registry.newCounter(x, READ_ERRORS)));
 
@@ -172,7 +172,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
       if (aggEventReadRate == null) {
         aggEventReadRate = registry.newCounter(AGGREGATE, EVENT_READ_RATE);
         aggEventByteReadRate = registry.newCounter(AGGREGATE, EVENT_BYTE_READ_RATE);
-        aggReadLatency = new SamzaHistogram(registry, AGGREGATE, READ_LATENCY);
+        aggConsumptionLagMs = new SamzaHistogram(registry, AGGREGATE, CONSUMPTION_LAG_MS);
         aggReadErrors = registry.newCounter(AGGREGATE, READ_ERRORS);
       }
     }
@@ -222,6 +222,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   @Override
   public void start() {
     isStarted = true;
+    LOG.info("Starting EventHubSystemConsumer. Count of SSPs registered: " + streamPartitionOffsets.entrySet().size());
     // Create receivers for Event Hubs
     for (Map.Entry<SystemStreamPartition, String> entry : streamPartitionOffsets.entrySet()) {
 
@@ -258,7 +259,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
 
         PartitionReceiveHandler handler =
             new PartitionReceiverHandlerImpl(ssp, eventReadRates.get(streamId), eventByteReadRates.get(streamId),
-                readLatencies.get(streamId), readErrors.get(streamId), interceptors.getOrDefault(streamId, null),
+                consumptionLagMs.get(streamId), readErrors.get(streamId), interceptors.getOrDefault(streamId, null),
                 config.getMaxEventCountPerPoll(systemName));
 
         // Timeout for EventHubClient receive
@@ -274,8 +275,9 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
             String.format("Failed to create receiver for EventHubs: namespace=%s, entity=%s, partitionId=%d", namespace,
                 entityPath, partitionId), e);
       }
-      LOG.debug(String.format("Connection successfully started for namespace=%s, entity=%s ", namespace, entityPath));
+      LOG.info(String.format("Connection successfully started for namespace=%s, entity=%s ", namespace, entityPath));
     }
+    LOG.info("EventHubSystemConsumer started");
   }
 
   @Override
@@ -334,7 +336,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
 
   @Override
   public void stop() {
-    LOG.debug("Stopping event hub system consumer...");
+    LOG.info("Stopping event hub system consumer...");
     List<CompletableFuture<Void>> futures = new ArrayList<>();
     streamPartitionReceivers.values().forEach((receiver) -> futures.add(receiver.close()));
     CompletableFuture<Void> future = CompletableFuture.allOf(futures.toArray(new CompletableFuture[futures.size()]));
@@ -422,9 +424,9 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
       eventByteReadRate.inc(eventDataLength);
       aggEventByteReadRate.inc(eventDataLength);
 
-      long latencyMs = Duration.between(Instant.now(), event.getSystemProperties().getEnqueuedTime()).toMillis();
+      long latencyMs = Duration.between(event.getSystemProperties().getEnqueuedTime(), Instant.now()).toMillis();
       readLatency.update(latencyMs);
-      aggReadLatency.update(latencyMs);
+      aggConsumptionLagMs.update(latencyMs);
     }
 
     @Override
@@ -440,12 +442,16 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
           // Only set to transient throwable if there has been no previous errors
           eventHubHandlerError.compareAndSet(null, throwable);
 
+          LOG.warn(
+              String.format("Received transient exception from EH client. Renew partition receiver for ssp: %s", ssp),
+              throwable);
           // Retry creating a receiver since error likely due to timeout
           renewPartitionReceiver(ssp);
           return;
         }
       }
 
+      LOG.error(String.format("Received non transient exception from EH client for ssp: %s", ssp), throwable);
       // Propagate non transient or unknown errors
       eventHubHandlerError.set(throwable);
     }
