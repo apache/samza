@@ -102,7 +102,14 @@ public class AvroRelConverter implements SamzaRelConverter {
       throw new SamzaException(msg);
     }
 
-    return new SamzaSqlRelMessage(samzaMessage.getKey(), fieldNames, fieldValues);
+    Object key = samzaMessage.getKey();
+    if (key != null && key instanceof IndexedRecord) {
+      IndexedRecord keyRecord = (IndexedRecord) key;
+      Schema keySchema = keyRecord.getSchema();
+      key = convertToJavaObject(samzaMessage.getKey(), keySchema);
+    }
+
+    return new SamzaSqlRelMessage(key, fieldNames, fieldValues);
   }
 
   private SamzaSqlRelRecord convertToRelRecord(IndexedRecord avroRecord) {
@@ -162,17 +169,27 @@ public class AvroRelConverter implements SamzaRelConverter {
       case RECORD:
         return convertToGenericRecord((SamzaSqlRelRecord) relObj, getNonNullUnionSchema(schema));
       case ARRAY:
+        if (((List<Object>) relObj).size() == 0) {
+          return null;
+        }
         List<Object> avroList = ((List<Object>) relObj).stream()
             .map(o -> convertToAvroObject(o, getNonNullUnionSchema(schema).getElementType()))
             .collect(Collectors.toList());
         return avroList;
       case MAP:
+        if (((Map<String, ?>) relObj).size() == 0) {
+          return null;
+        }
         return ((Map<String, ?>) relObj).entrySet()
             .stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> convertToAvroObject(e.getValue(),
                 getNonNullUnionSchema(schema).getValueType())));
       case UNION:
         return convertToAvroObject(relObj, getNonNullUnionSchema(schema));
+      case FIXED:
+        return new GenericData.Fixed(schema, ((String) relObj).getBytes());
+      case ENUM:
+        return new GenericData.EnumSymbol(schema, (String) relObj);
       default:
         return relObj;
     }
@@ -190,11 +207,13 @@ public class AvroRelConverter implements SamzaRelConverter {
       case ARRAY: {
         ArrayList<Object> retVal = new ArrayList<>();
         if (avroObj != null) {
-          List<Object> avroArray = null;
+          List<Object> avroArray;
           if (avroObj instanceof GenericData.Array) {
             avroArray = (GenericData.Array) avroObj;
           } else if (avroObj instanceof List) {
             avroArray = (List) avroObj;
+          } else {
+            throw new SamzaException("Unsupported array type " + avroObj.getClass().getSimpleName());
           }
 
           if (avroArray != null) {
@@ -221,6 +240,13 @@ public class AvroRelConverter implements SamzaRelConverter {
           return null;
         }
         return convertToJavaObject(avroObj, getNonNullUnionSchema(schema));
+      case ENUM:
+      case FIXED:
+        if (avroObj == null) {
+          return null;
+        }
+        return avroObj.toString();
+
       default:
         return avroObj;
     }

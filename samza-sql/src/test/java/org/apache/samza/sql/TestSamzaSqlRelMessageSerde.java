@@ -81,7 +81,7 @@ public class TestSamzaSqlRelMessageSerde {
 
     for (Schema.Field field : Profile.SCHEMA$.getFields()) {
       // equals() on GenericRecord does the nested record equality check as well.
-      Assert.assertEquals(recordPostConversion.get(field.name()), messageRecordPair.getValue().get(field.name()));
+      Assert.assertEquals(messageRecordPair.getValue().get(field.name()), recordPostConversion.get(field.name()));
     }
   }
 
