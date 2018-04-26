@@ -22,6 +22,8 @@ package org.apache.samza.system.eventhub.admin;
 import com.microsoft.azure.eventhubs.EventHubClient;
 import com.microsoft.azure.eventhubs.EventHubRuntimeInformation;
 import com.microsoft.azure.eventhubs.PartitionRuntimeInformation;
+
+import java.util.ArrayList;
 import java.util.Arrays;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
@@ -38,6 +40,7 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -121,17 +124,6 @@ public class EventHubSystemAdmin implements SystemAdmin {
           EventHubRuntimeInformation ehInfo = runtimeInfo.get(timeoutMs, TimeUnit.MILLISECONDS);
           LOG.info(String.format("Adding partition ids=%s for stream=%s. EHRuntimetInfo=%s",
               Arrays.toString(ehInfo.getPartitionIds()), streamName, printEventHubRuntimeInfo(ehInfo)));
-
-          try {
-            for (String partitionId : ehInfo.getPartitionIds()) {
-              LOG.info(printPartitionRuntimeInfo(
-                  ehClient.getPartitionRuntimeInformation(partitionId).get(timeoutMs, TimeUnit.MILLISECONDS)));
-            }
-          } catch (Exception e) {
-            // ignore failures as this is just for information logging
-            LOG.warn("Failed to fetch and print partition runtime info from EventHubs.", e);
-          }
-
           streamPartitions.put(streamName, ehInfo.getPartitionIds());
         }
         String[] partitionIds = streamPartitions.get(streamName);
@@ -168,39 +160,37 @@ public class EventHubSystemAdmin implements SystemAdmin {
   private Map<Partition, SystemStreamPartitionMetadata> getPartitionMetadata(String streamName, String[] partitionIds) {
     EventHubClientManager eventHubClientManager = getOrCreateStreamEventHubClient(streamName);
     Map<Partition, SystemStreamPartitionMetadata> sspMetadataMap = new HashMap<>();
-    Map<String, CompletableFuture<PartitionRuntimeInformation>> ehRuntimeInfos = new HashMap<>();
+    List<CompletableFuture<PartitionRuntimeInformation>> futureList = new ArrayList<>();
 
     for (String partition : partitionIds) {
       CompletableFuture<PartitionRuntimeInformation> partitionRuntimeInfo = eventHubClientManager
               .getEventHubClient()
               .getPartitionRuntimeInformation(partition);
-
-      ehRuntimeInfos.put(partition, partitionRuntimeInfo);
-    }
-
-    ehRuntimeInfos.forEach((partitionId, ehPartitionRuntimeInfo) -> {
-        try {
-          long timeoutMs = eventHubConfig.getRuntimeInfoWaitTimeMS(systemName);
-          PartitionRuntimeInformation ehPartitionInfo = ehPartitionRuntimeInfo.get(timeoutMs, TimeUnit.MILLISECONDS);
-
+      futureList.add(partitionRuntimeInfo);
+      partitionRuntimeInfo.thenAccept(ehPartitionInfo -> {
+          LOG.info(printPartitionRuntimeInfo(ehPartitionInfo));
           // Set offsets
           String startingOffset = EventHubSystemConsumer.START_OF_STREAM;
           String newestOffset = ehPartitionInfo.getLastEnqueuedOffset();
-          String upcomingOffset = getNextOffset(newestOffset);
+          String upcomingOffset = EventHubSystemConsumer.END_OF_STREAM;
           SystemStreamPartitionMetadata sspMetadata = new SystemStreamPartitionMetadata(startingOffset, newestOffset,
-                  upcomingOffset);
+            upcomingOffset);
+          sspMetadataMap.put(new Partition(Integer.parseInt(partition)), sspMetadata);
+        });
+    }
 
-          Partition partition = new Partition(Integer.parseInt(partitionId));
-
-          sspMetadataMap.put(partition, sspMetadata);
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-          String msg = String.format(
-                  "Error while fetching EventHubPartitionRuntimeInfo for System:%s, Stream:%s, Partition:%s",
-                  systemName, streamName, partitionId);
-          LOG.error(msg, e);
-          throw new SamzaException(msg, e);
-        }
-      });
+    CompletableFuture<Void> futureGroup =
+        CompletableFuture.allOf(futureList.toArray(new CompletableFuture[futureList.size()]));
+    long timeoutMs = eventHubConfig.getRuntimeInfoWaitTimeMS(systemName);
+    try {
+      futureGroup.get(timeoutMs, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      String msg = String.format(
+          "Error while fetching EventHubPartitionRuntimeInfo for System:%s, Stream:%s",
+          systemName, streamName);
+      LOG.error(msg, e);
+      throw new SamzaException(msg, e);
+    }
     return sspMetadataMap;
   }
 
