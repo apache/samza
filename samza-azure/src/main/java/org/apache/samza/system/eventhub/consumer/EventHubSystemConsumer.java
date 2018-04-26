@@ -361,6 +361,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
       LOG.warn("Failed to close receivers", e);
     }
     perPartitionEventHubManagers.values()
+        .parallelStream()
         .forEach(ehClientManager -> ehClientManager.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS));
     perPartitionEventHubManagers.clear();
     perStreamEventHubManagers.clear();

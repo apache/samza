@@ -360,7 +360,9 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
           LOG.error("Closing the partition sender failed ", e);
         }
       });
-    perStreamEventHubClientManagers.values().forEach(ehClient -> ehClient.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS));
+    perStreamEventHubClientManagers.values()
+        .parallelStream()
+        .forEach(ehClient -> ehClient.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS));
     perStreamEventHubClientManagers.clear();
     if (config.getPerPartitionConnection(systemName)) {
       perPartitionEventHubClients.values()
