@@ -79,6 +79,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class YarnClusterResourceManager extends ClusterResourceManager implements AMRMClientAsync.CallbackHandler, NMClientAsync.CallbackHandler {
 
+  private static final int PREFERRED_HOST_PRIORITY = 0;
+  private static final int ANY_HOST_PRIORITY = 1;
+
   private final String INVALID_YARN_CONTAINER_ID = "-1";
 
   /**
@@ -213,7 +216,6 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    */
   @Override
   public void requestResources(SamzaResourceRequest resourceRequest) {
-    final int DEFAULT_PRIORITY = 0;
     log.info("Requesting resources on  " + resourceRequest.getPreferredHost() + " for container " + resourceRequest.getContainerID());
 
     int memoryMb = resourceRequest.getMemoryMB();
@@ -221,25 +223,27 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     String containerLabel = yarnConfig.getContainerLabel();
     String preferredHost = resourceRequest.getPreferredHost();
     Resource capability = Resource.newInstance(memoryMb, cpuCores);
-    Priority priority =  Priority.newInstance(DEFAULT_PRIORITY);
 
     AMRMClient.ContainerRequest issuedRequest;
 
-    if (preferredHost.equals("ANY_HOST"))
-    {
-      log.info("Making a request for ANY_HOST " + preferredHost );
-      issuedRequest = new AMRMClient.ContainerRequest(capability, null, null, priority, true, containerLabel);
+    /*
+     * Yarn enforces these two checks:
+     *   1. ANY_HOST requests should always be made with relax-locality = true
+     *   2. A request with relax-locality = false should not be in the same priority as another with relax-locality = true
+     *
+     * Since the Samza AM makes preferred-host requests with relax-locality = false, it follows that ANY_HOST requests
+     * should specify a different priority-level. We can safely set priority of preferred-host requests to be higher than
+     * any-host requests since data-locality is critical.
+     */
+    if (preferredHost.equals("ANY_HOST")) {
+      log.info("Making a request for ANY_HOST ");
+      issuedRequest = new AMRMClient.ContainerRequest(capability, null, null,
+          Priority.newInstance(ANY_HOST_PRIORITY), true, containerLabel);
     }
-    else
-    {
+    else {
       log.info("Making a preferred host request on " + preferredHost);
-      issuedRequest = new AMRMClient.ContainerRequest(
-              capability,
-              new String[]{preferredHost},
-              null,
-              priority,
-              false,
-              containerLabel);
+      issuedRequest = new AMRMClient.ContainerRequest(capability, new String[]{preferredHost}, null,
+          Priority.newInstance(PREFERRED_HOST_PRIORITY), false, containerLabel);
     }
     //ensure that updating the state and making the request are done atomically.
     synchronized (lock) {
