@@ -41,16 +41,20 @@ public interface ExtendedSystemAdmin extends SystemAdmin {
 
   /**
    * Batch call for getting newest offsets for multiple SystemStreamPartitions.
-   * By default, this will delegate to the individual getNewestOffset (also gives backwards compatibility), but it can
-   * be overridden by implementors as an optimization.
-   * There will be no entry for an SSP if no newest offset was found (e.g. topic is empty).
-   * @param maxRetriesPerSSP Max number of attempts to fetch the newest offset for an individual SSP
+   * Override the default implementation if a more efficient batch get exists. The default implementation exists for
+   * backwards compatibility.
+   * It is up to the implementor to give a best-effort attempt to fetch newest offsets (including internal retries).
+   * There will be no entry for an SSP if no newest offset exists (e.g. topic is empty).
+   * If the newest offset information could not be accessed, then this should throw an exception. This case is different
+   * than the "no newest offset exists" case, because in the "no newest offset exists" case, the newest offset info was
+   * accessible, but none existed.
    */
-  default Map<SystemStreamPartition, String> getNewestOffsets(Set<SystemStreamPartition> ssps,
-      Integer maxRetriesPerSSP) {
+  default Map<SystemStreamPartition, String> getNewestOffsets(Set<SystemStreamPartition> ssps) {
+    // some fallback retry count since getNewestOffset needs it; remove this when getNewestOffset is removed
+    final int defaultRetriesPerSSP = 3;
     final Map<SystemStreamPartition, String> newestOffsets = new HashMap<>();
     for (final SystemStreamPartition ssp: ssps) {
-      final String newestOffset = getNewestOffset(ssp, maxRetriesPerSSP);
+      final String newestOffset = getNewestOffset(ssp, defaultRetriesPerSSP);
       if (newestOffset != null) {
         newestOffsets.put(ssp, newestOffset);
       }

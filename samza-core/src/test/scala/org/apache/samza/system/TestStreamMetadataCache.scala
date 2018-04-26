@@ -26,8 +26,7 @@ import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadat
 import org.apache.samza.util.Clock
 import org.apache.samza.{Partition, SamzaException}
 import org.junit.Assert._
-import org.junit.rules.ExpectedException
-import org.junit.{Before, Rule, Test}
+import org.junit.{Before, Test}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
@@ -41,7 +40,6 @@ import scala.collection.JavaConverters._
 class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with ScalaTestMatchers {
   private val SYSTEM = "system"
   private val EXTENDED_SYSTEM = "extendedSystem"
-  private val NEWEST_OFFSET_RETRIES = 3
 
   @Mock
   var systemAdmin: SystemAdmin = _
@@ -50,9 +48,6 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
   @Mock
   var clock: Clock = _
   var streamMetadataCache: StreamMetadataCache = _
-
-  @Rule
-  def expectedException: ExpectedException = ExpectedException.none()
 
   @Before
   def setup(): Unit = {
@@ -150,11 +145,10 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
   def testGetNewestOffsetFirstFetch() {
     val ssp = new SystemStreamPartition(EXTENDED_SYSTEM, "stream", new Partition(0))
     when(clock.currentTimeMillis()).thenReturn(10, 11) // second time is within TTL, so use cached value
-    when(extendedSystemAdmin.getNewestOffsets(Set(ssp).asJava, NEWEST_OFFSET_RETRIES))
-      .thenReturn(Map(ssp -> "5").asJava)
-    assertEquals("5", streamMetadataCache.getNewestOffset(ssp, NEWEST_OFFSET_RETRIES))
-    assertEquals("5", streamMetadataCache.getNewestOffset(ssp, NEWEST_OFFSET_RETRIES))
-    verify(extendedSystemAdmin).getNewestOffsets(Set(ssp).asJava, NEWEST_OFFSET_RETRIES)
+    when(extendedSystemAdmin.getNewestOffsets(Set(ssp).asJava)).thenReturn(Map(ssp -> "5").asJava)
+    assertEquals("5", streamMetadataCache.getNewestOffset(ssp))
+    assertEquals("5", streamMetadataCache.getNewestOffset(ssp))
+    verify(extendedSystemAdmin).getNewestOffsets(Set(ssp).asJava)
   }
 
   /**
@@ -166,11 +160,11 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
   def testGetNewestOffsetFirstFetchEmpty() {
     val ssp = new SystemStreamPartition(EXTENDED_SYSTEM, "stream", new Partition(0))
     when(clock.currentTimeMillis()).thenReturn(10, 11) // second time is within TTL, so use cached value
-    when(extendedSystemAdmin.getNewestOffsets(Set(ssp).asJava, NEWEST_OFFSET_RETRIES))
+    when(extendedSystemAdmin.getNewestOffsets(Set(ssp).asJava))
       .thenReturn(Map[SystemStreamPartition, String]().asJava)
-    assertEquals(null, streamMetadataCache.getNewestOffset(ssp, NEWEST_OFFSET_RETRIES))
-    assertEquals(null, streamMetadataCache.getNewestOffset(ssp, NEWEST_OFFSET_RETRIES))
-    verify(extendedSystemAdmin).getNewestOffsets(Set(ssp).asJava, NEWEST_OFFSET_RETRIES)
+    assertEquals(null, streamMetadataCache.getNewestOffset(ssp))
+    assertEquals(null, streamMetadataCache.getNewestOffset(ssp))
+    verify(extendedSystemAdmin).getNewestOffsets(Set(ssp).asJava)
   }
 
   /**
@@ -181,11 +175,11 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
   def testGetNewestOffsetStaleEntry() {
     val ssp = new SystemStreamPartition(EXTENDED_SYSTEM, "stream", new Partition(0))
     when(clock.currentTimeMillis()).thenReturn(10, 11 + streamMetadataCache.cacheTTLms) // second time is outside TTL
-    when(extendedSystemAdmin.getNewestOffsets(Set(ssp).asJava, NEWEST_OFFSET_RETRIES))
+    when(extendedSystemAdmin.getNewestOffsets(Set(ssp).asJava))
       .thenReturn(Map(ssp -> "5").asJava)
-    assertEquals("5", streamMetadataCache.getNewestOffset(ssp, NEWEST_OFFSET_RETRIES))
-    assertEquals("5", streamMetadataCache.getNewestOffset(ssp, NEWEST_OFFSET_RETRIES))
-    verify(extendedSystemAdmin, times(2)).getNewestOffsets(Set(ssp).asJava, NEWEST_OFFSET_RETRIES)
+    assertEquals("5", streamMetadataCache.getNewestOffset(ssp))
+    assertEquals("5", streamMetadataCache.getNewestOffset(ssp))
+    verify(extendedSystemAdmin, times(2)).getNewestOffsets(Set(ssp).asJava)
   }
 
   /**
@@ -211,48 +205,47 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
 
     // make some calls to fill in the cache for some ssps, and these will be used as "stale"
     when(clock.currentTimeMillis()).thenReturn(10)
-    when(extendedSystemAdmin.getNewestOffsets(Set(sspStale).asJava, NEWEST_OFFSET_RETRIES))
+    when(extendedSystemAdmin.getNewestOffsets(Set(sspStale).asJava))
       .thenReturn(Map(sspStale -> "10").asJava)
-    when(extendedSystemAdmin.getNewestOffsets(Set(sspStaleEmpty).asJava, NEWEST_OFFSET_RETRIES))
+    when(extendedSystemAdmin.getNewestOffsets(Set(sspStaleEmpty).asJava))
       .thenReturn(Map[SystemStreamPartition, String]().asJava)
-    when(otherExtendedSystemAdmin.getNewestOffsets(Set(sspStaleDifferentSystem).asJava, NEWEST_OFFSET_RETRIES))
+    when(otherExtendedSystemAdmin.getNewestOffsets(Set(sspStaleDifferentSystem).asJava))
       .thenReturn(Map(sspStaleDifferentSystem -> "11").asJava)
-    streamMetadataCache.getNewestOffset(sspStale, NEWEST_OFFSET_RETRIES)
-    streamMetadataCache.getNewestOffset(sspStaleEmpty, NEWEST_OFFSET_RETRIES)
-    streamMetadataCache.getNewestOffset(sspStaleDifferentSystem, NEWEST_OFFSET_RETRIES)
+    streamMetadataCache.getNewestOffset(sspStale)
+    streamMetadataCache.getNewestOffset(sspStaleEmpty)
+    streamMetadataCache.getNewestOffset(sspStaleDifferentSystem)
 
     // add an entry which will be considered as "fresh"
     when(clock.currentTimeMillis()).thenReturn(100)
-    when(extendedSystemAdmin.getNewestOffsets(Set(sspFresh).asJava, NEWEST_OFFSET_RETRIES))
+    when(extendedSystemAdmin.getNewestOffsets(Set(sspFresh).asJava))
       .thenReturn(Map(sspFresh -> "12").asJava)
-    streamMetadataCache.getNewestOffset(sspFresh, NEWEST_OFFSET_RETRIES)
+    streamMetadataCache.getNewestOffset(sspFresh)
 
     // move clock forward so to trigger stale entries
     when(clock.currentTimeMillis()).thenReturn(11 + streamMetadataCache.cacheTTLms)
-    when(extendedSystemAdmin.getNewestOffsets(Set(sspStale, sspStaleEmpty).asJava, NEWEST_OFFSET_RETRIES))
+    when(extendedSystemAdmin.getNewestOffsets(Set(sspStale, sspStaleEmpty).asJava))
       .thenReturn(Map(sspStale -> "20").asJava)
-    when(otherExtendedSystemAdmin.getNewestOffsets(Set(sspStaleDifferentSystem).asJava, NEWEST_OFFSET_RETRIES))
+    when(otherExtendedSystemAdmin.getNewestOffsets(Set(sspStaleDifferentSystem).asJava))
       .thenReturn(Map(sspStaleDifferentSystem -> "21").asJava)
 
-    assertEquals("20", streamMetadataCache.getNewestOffset(sspStale, NEWEST_OFFSET_RETRIES))
-    assertEquals(null, streamMetadataCache.getNewestOffset(sspStaleEmpty, NEWEST_OFFSET_RETRIES))
-    assertEquals("21", streamMetadataCache.getNewestOffset(sspStaleDifferentSystem, NEWEST_OFFSET_RETRIES))
-    assertEquals("12", streamMetadataCache.getNewestOffset(sspFresh, NEWEST_OFFSET_RETRIES))
+    assertEquals("20", streamMetadataCache.getNewestOffset(sspStale))
+    assertEquals(null, streamMetadataCache.getNewestOffset(sspStaleEmpty))
+    assertEquals("21", streamMetadataCache.getNewestOffset(sspStaleDifferentSystem))
+    assertEquals("12", streamMetadataCache.getNewestOffset(sspFresh))
 
     // should only get one admin call for sspStale individually (initial call)
-    verify(extendedSystemAdmin).getNewestOffsets(Set(sspStale).asJava, NEWEST_OFFSET_RETRIES)
+    verify(extendedSystemAdmin).getNewestOffsets(Set(sspStale).asJava)
     // should only get one admin call for sspStaleEmpty individually (initial call)
-    verify(extendedSystemAdmin).getNewestOffsets(Set(sspStaleEmpty).asJava, NEWEST_OFFSET_RETRIES)
+    verify(extendedSystemAdmin).getNewestOffsets(Set(sspStaleEmpty).asJava)
     // should only get one admin call for sspFresh, since the data should be cached
-    verify(extendedSystemAdmin).getNewestOffsets(Set(sspFresh).asJava, NEWEST_OFFSET_RETRIES)
+    verify(extendedSystemAdmin).getNewestOffsets(Set(sspFresh).asJava)
     // should get two admin calls for sspStaleDifferentSystem (one initial, one after became stale)
-    verify(otherExtendedSystemAdmin, times(2)).getNewestOffsets(Set(sspStaleDifferentSystem).asJava,
-      NEWEST_OFFSET_RETRIES)
+    verify(otherExtendedSystemAdmin, times(2)).getNewestOffsets(Set(sspStaleDifferentSystem).asJava)
     /*
      * Should get one admin call for sspStale and sspStaleEmpty together which tests prefetch; should not include
      * sspStaleDifferentSystem since it is a different system.
      */
-    verify(extendedSystemAdmin).getNewestOffsets(Set(sspStale, sspStaleEmpty).asJava, NEWEST_OFFSET_RETRIES)
+    verify(extendedSystemAdmin).getNewestOffsets(Set(sspStale, sspStaleEmpty).asJava)
   }
 
   /**
@@ -267,8 +260,8 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
       .thenReturn(Map("stream" -> new SystemStreamMetadata("stream",
         Map(new Partition(0) -> new SystemStreamPartitionMetadata("0", "10", "11")).asJava)).asJava)
 
-    assertEquals("10", streamMetadataCache.getNewestOffset(ssp, NEWEST_OFFSET_RETRIES))
-    assertEquals("10", streamMetadataCache.getNewestOffset(ssp, NEWEST_OFFSET_RETRIES))
+    assertEquals("10", streamMetadataCache.getNewestOffset(ssp))
+    assertEquals("10", streamMetadataCache.getNewestOffset(ssp))
     verify(systemAdmin).getSystemStreamMetadata(Set("stream").asJava)
   }
 
@@ -283,8 +276,8 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
       .thenReturn(Map("stream" -> new SystemStreamMetadata("stream",
         Map(new Partition(0) -> new SystemStreamPartitionMetadata(null, null, null)).asJava)).asJava)
 
-    assertEquals(null, streamMetadataCache.getNewestOffset(ssp, NEWEST_OFFSET_RETRIES))
-    assertEquals(null, streamMetadataCache.getNewestOffset(ssp, NEWEST_OFFSET_RETRIES))
+    assertEquals(null, streamMetadataCache.getNewestOffset(ssp))
+    assertEquals(null, streamMetadataCache.getNewestOffset(ssp))
     verify(systemAdmin).getSystemStreamMetadata(Set("stream").asJava)
   }
 
@@ -299,8 +292,8 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
       .thenReturn(Map("stream" -> new SystemStreamMetadata("stream",
         Map[Partition, SystemStreamPartitionMetadata]().asJava)).asJava)
 
-    assertEquals(null, streamMetadataCache.getNewestOffset(ssp, NEWEST_OFFSET_RETRIES))
-    assertEquals(null, streamMetadataCache.getNewestOffset(ssp, NEWEST_OFFSET_RETRIES))
+    assertEquals(null, streamMetadataCache.getNewestOffset(ssp))
+    assertEquals(null, streamMetadataCache.getNewestOffset(ssp))
     verify(systemAdmin).getSystemStreamMetadata(Set("stream").asJava)
   }
 
@@ -314,8 +307,8 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
     when(systemAdmin.getSystemStreamMetadata(Set("stream").asJava))
       .thenReturn(Map[String, SystemStreamMetadata]().asJava)
 
-    assertEquals(null, streamMetadataCache.getNewestOffset(ssp, NEWEST_OFFSET_RETRIES))
-    assertEquals(null, streamMetadataCache.getNewestOffset(ssp, NEWEST_OFFSET_RETRIES))
+    assertEquals(null, streamMetadataCache.getNewestOffset(ssp))
+    assertEquals(null, streamMetadataCache.getNewestOffset(ssp))
     verify(systemAdmin).getSystemStreamMetadata(Set("stream").asJava)
   }
 
@@ -335,8 +328,8 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
     when(systemAdmin.getSystemStreamMetadata(Set("otherStream").asJava))
       .thenReturn(Map("otherStream" -> new SystemStreamMetadata("otherStream",
         Map(new Partition(0) -> new SystemStreamPartitionMetadata("0", "12", "13")).asJava)).asJava)
-    streamMetadataCache.getNewestOffset(ssp, NEWEST_OFFSET_RETRIES)
-    streamMetadataCache.getNewestOffset(sspOtherStream, NEWEST_OFFSET_RETRIES)
+    streamMetadataCache.getNewestOffset(ssp)
+    streamMetadataCache.getNewestOffset(sspOtherStream)
 
     // move time forward to make the entries stale
     when(clock.currentTimeMillis()).thenReturn(11 + streamMetadataCache.cacheTTLms)
@@ -347,8 +340,8 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
         Map(new Partition(0) -> new SystemStreamPartitionMetadata("0", "22", "23")).asJava)).asJava)
 
     // get the newest offsets again; first call should do prefetching
-    assertEquals("20", streamMetadataCache.getNewestOffset(ssp, NEWEST_OFFSET_RETRIES))
-    assertEquals("22", streamMetadataCache.getNewestOffset(sspOtherStream, NEWEST_OFFSET_RETRIES))
+    assertEquals("20", streamMetadataCache.getNewestOffset(ssp))
+    assertEquals("22", streamMetadataCache.getNewestOffset(sspOtherStream))
     // only one call to each due to caching
     verify(systemAdmin).getSystemStreamMetadata(Set("stream").asJava)
     verify(systemAdmin).getSystemStreamMetadata(Set("otherStream").asJava)
@@ -366,17 +359,16 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
     // setup: fill the cache
     when(clock.currentTimeMillis()).thenReturn(10)
     Range(0, numPartitions).foreach(i => {
-      when(extendedSystemAdmin.getNewestOffsets(Set(ssp(i)).asJava, NEWEST_OFFSET_RETRIES))
+      when(extendedSystemAdmin.getNewestOffsets(Set(ssp(i)).asJava))
         .thenReturn(Map[SystemStreamPartition, String]().asJava)
-      streamMetadataCache.getNewestOffset(ssp(i), NEWEST_OFFSET_RETRIES)
+      streamMetadataCache.getNewestOffset(ssp(i))
     })
 
     // move time forward to make the entries stale
     when(clock.currentTimeMillis()).thenReturn(11 + streamMetadataCache.cacheTTLms)
 
     // prefetching call
-    when(extendedSystemAdmin.getNewestOffsets(Range(0, numPartitions).map(i => ssp(i)).toSet.asJava,
-      NEWEST_OFFSET_RETRIES))
+    when(extendedSystemAdmin.getNewestOffsets(Range(0, numPartitions).map(i => ssp(i)).toSet.asJava))
       .thenAnswer(new Answer[util.Map[SystemStreamPartition, String]] {
         override def answer(invocation: InvocationOnMock): util.Map[SystemStreamPartition, String] = {
           // wait a bit in order to have threads overlap on the lock
@@ -389,16 +381,15 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
     val executorService = Executors.newFixedThreadPool(10)
     Range(0, numPartitions).foreach(i => {
       assertEquals(i.toString, executorService.submit(new Callable[String]() {
-        override def call(): String = streamMetadataCache.getNewestOffset(ssp(i), NEWEST_OFFSET_RETRIES)
+        override def call(): String = streamMetadataCache.getNewestOffset(ssp(i))
       }).get())
     })
 
     // should only see initial calls to fill cache and one call to get newest offsets from admin
     Range(0, numPartitions).foreach(i => {
-      verify(extendedSystemAdmin).getNewestOffsets(Set(ssp(i)).asJava, NEWEST_OFFSET_RETRIES)
+      verify(extendedSystemAdmin).getNewestOffsets(Set(ssp(i)).asJava)
     })
-    verify(extendedSystemAdmin).getNewestOffsets(Range(0, numPartitions).map(i => ssp(i)).toSet.asJava,
-      NEWEST_OFFSET_RETRIES)
+    verify(extendedSystemAdmin).getNewestOffsets(Range(0, numPartitions).map(i => ssp(i)).toSet.asJava)
     verifyNoMoreInteractions(extendedSystemAdmin)
 
     executorService.shutdownNow()
@@ -411,8 +402,8 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
   @Test(expected = classOf[SamzaException])
   def testGetNewestOffsetException() {
     val ssp = new SystemStreamPartition(EXTENDED_SYSTEM, "stream", new Partition(0))
-    when(extendedSystemAdmin.getNewestOffsets(Set(ssp).asJava, NEWEST_OFFSET_RETRIES)).thenThrow(new SamzaException())
-    streamMetadataCache.getNewestOffset(ssp, NEWEST_OFFSET_RETRIES)
+    when(extendedSystemAdmin.getNewestOffsets(Set(ssp).asJava)).thenThrow(new SamzaException())
+    streamMetadataCache.getNewestOffset(ssp)
   }
 
   /**
@@ -423,6 +414,6 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
   def testGetNewestOffsetSystemAdminException() {
     val ssp = new SystemStreamPartition(SYSTEM, "stream", new Partition(0))
     when(systemAdmin.getSystemStreamMetadata(Set("stream").asJava)).thenThrow(new SamzaException())
-    streamMetadataCache.getNewestOffset(ssp, NEWEST_OFFSET_RETRIES)
+    streamMetadataCache.getNewestOffset(ssp)
   }
 }

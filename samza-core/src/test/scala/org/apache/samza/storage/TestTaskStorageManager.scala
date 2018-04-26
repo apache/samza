@@ -94,7 +94,7 @@ class TestTaskStorageManager extends MockitoSugar {
       }
     })
     when(mockStreamMetadataCache.getStreamMetadata(any(), any())).thenReturn(Map(ss -> metadata))
-    when(mockStreamMetadataCache.getNewestOffset(ssp, 3)).thenReturn(sspMetadata.getNewestOffset)
+    when(mockStreamMetadataCache.getNewestOffset(ssp)).thenReturn(sspMetadata.getNewestOffset)
 
     val taskManager = new TaskStorageManagerBuilder()
       .addStore(loggedStore, mockStorageEngine, mockSystemConsumer)
@@ -114,7 +114,7 @@ class TestTaskStorageManager extends MockitoSugar {
     assertEquals("50", FileUtil.readWithChecksum(offsetFile))
 
     // Test 3: Update sspMetadata before shutdown and verify that offset file is updated correctly
-    when(mockStreamMetadataCache.getNewestOffset(ssp, 3)).thenReturn("100")
+    when(mockStreamMetadataCache.getNewestOffset(ssp)).thenReturn("100")
     taskManager.stop()
     assertTrue(storeFile.exists())
     assertTrue(offsetFile.exists())
@@ -300,7 +300,7 @@ class TestTaskStorageManager extends MockitoSugar {
     val offsetFilePath = new File(TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName) + File.separator + "OFFSET")
 
     val mockStreamMetadataCache = mock[StreamMetadataCache]
-    when(mockStreamMetadataCache.getNewestOffset(any(classOf[SystemStreamPartition]), anyInt())).thenReturn("100")
+    when(mockStreamMetadataCache.getNewestOffset(any(classOf[SystemStreamPartition]))).thenReturn("100")
 
     //Build TaskStorageManager
     val taskStorageManager = new TaskStorageManagerBuilder()
@@ -330,7 +330,7 @@ class TestTaskStorageManager extends MockitoSugar {
         TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, store, taskName) + File.separator + "OFFSET")
 
     val mockStreamMetadataCache = mock[StreamMetadataCache]
-    when(mockStreamMetadataCache.getNewestOffset(any(classOf[SystemStreamPartition]), anyInt())).thenReturn("100")
+    when(mockStreamMetadataCache.getNewestOffset(any(classOf[SystemStreamPartition]))).thenReturn("100")
 
     //Build TaskStorageManager
     val taskStorageManager = new TaskStorageManagerBuilder()
@@ -360,7 +360,7 @@ class TestTaskStorageManager extends MockitoSugar {
     val offsetFilePath = new File(TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName) + File.separator + "OFFSET")
 
     val mockStreamMetadataCache = mock[StreamMetadataCache]
-    when(mockStreamMetadataCache.getNewestOffset(any(classOf[SystemStreamPartition]), anyInt())).thenReturn("100").thenReturn(null)
+    when(mockStreamMetadataCache.getNewestOffset(any(classOf[SystemStreamPartition]))).thenReturn("100").thenReturn(null)
 
     //Build TaskStorageManager
     val taskStorageManager = new TaskStorageManagerBuilder()
@@ -392,7 +392,7 @@ class TestTaskStorageManager extends MockitoSugar {
     FileUtil.writeWithChecksum(offsetFilePath, "100")
 
     val mockStreamMetadataCache = mock[StreamMetadataCache]
-    when(mockStreamMetadataCache.getNewestOffset(ssp, 3)).thenReturn("139")
+    when(mockStreamMetadataCache.getNewestOffset(ssp)).thenReturn("139")
 
     //Build TaskStorageManager
     val taskStorageManager = new TaskStorageManagerBuilder()
@@ -409,7 +409,7 @@ class TestTaskStorageManager extends MockitoSugar {
     assertEquals("Found incorrect value in offset file!", "139", FileUtil.readWithChecksum(offsetFilePath))
 
     // Flush again
-    when(mockStreamMetadataCache.getNewestOffset(ssp, 3)).thenReturn("193")
+    when(mockStreamMetadataCache.getNewestOffset(ssp)).thenReturn("193")
 
     //Invoke test method
     taskStorageManager.flush()
@@ -427,7 +427,7 @@ class TestTaskStorageManager extends MockitoSugar {
     val offsetFilePath = new File(TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName) + File.separator + "OFFSET")
 
     val mockStreamMetadataCache = mock[StreamMetadataCache]
-    when(mockStreamMetadataCache.getNewestOffset(ssp, 3)).thenReturn(null)
+    when(mockStreamMetadataCache.getNewestOffset(ssp)).thenReturn(null)
 
     //Build TaskStorageManager
     val taskStorageManager = new TaskStorageManagerBuilder()
@@ -614,7 +614,7 @@ class TaskStorageManagerBuilder extends MockitoSugar {
   var taskStores: Map[String, StorageEngine] = Map()
   var storeConsumers: Map[String, SystemConsumer] = Map()
   var changeLogSystemStreams: Map[String, SystemStream] = Map()
-  var streamMetadataCache = mock[StreamMetadataCache]
+  var streamMetadataCache: StreamMetadataCache = mock[StreamMetadataCache]
   var partition: Partition = new Partition(0)
   var systemAdmins: Map[String, SystemAdmin] = Map("kafka" -> mock[SystemAdmin])
   var taskName: TaskName = new TaskName("testTask")

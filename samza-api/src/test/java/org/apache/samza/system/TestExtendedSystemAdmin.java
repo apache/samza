@@ -53,12 +53,12 @@ public class TestExtendedSystemAdmin {
     // check that there is no map entry if the newest offset is missing
     when(extendedSystemAdmin.getNewestOffset(sspNoNewestOffset, numRetries)).thenReturn(null);
     final Set<SystemStreamPartition> allInputSSPs = new HashSet<>(Arrays.asList(ssp, otherSSP, sspNoNewestOffset));
-    when(extendedSystemAdmin.getNewestOffsets(allInputSSPs, numRetries)).thenCallRealMethod();
+    when(extendedSystemAdmin.getNewestOffsets(allInputSSPs)).thenCallRealMethod();
 
     final Map<SystemStreamPartition, String> expected = new HashMap<>();
     expected.put(ssp, "0");
     expected.put(otherSSP, "1");
-    assertEquals(expected, extendedSystemAdmin.getNewestOffsets(allInputSSPs, numRetries));
+    assertEquals(expected, extendedSystemAdmin.getNewestOffsets(allInputSSPs));
     verify(extendedSystemAdmin).getNewestOffset(ssp, numRetries);
     verify(extendedSystemAdmin).getNewestOffset(otherSSP, numRetries);
     verify(extendedSystemAdmin).getNewestOffset(sspNoNewestOffset, numRetries);
@@ -81,9 +81,9 @@ public class TestExtendedSystemAdmin {
     when(extendedSystemAdmin.getNewestOffset(otherSSP, numRetries)).thenThrow(
         new SamzaException("newest offset error"));
     final Set<SystemStreamPartition> allInputSSPs = new HashSet<>(Arrays.asList(ssp, otherSSP));
-    when(extendedSystemAdmin.getNewestOffsets(allInputSSPs, numRetries)).thenCallRealMethod();
+    when(extendedSystemAdmin.getNewestOffsets(allInputSSPs)).thenCallRealMethod();
 
-    extendedSystemAdmin.getNewestOffsets(allInputSSPs, numRetries);
+    extendedSystemAdmin.getNewestOffsets(allInputSSPs);
   }
 
   /**
