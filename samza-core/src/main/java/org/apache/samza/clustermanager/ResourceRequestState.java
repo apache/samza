@@ -37,7 +37,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * this state is shared across both the Allocator Thread, and the Callback handler thread.
  *
  */
-public class  ResourceRequestState {
+public class ResourceRequestState {
   private static final Logger log = LoggerFactory.getLogger(ResourceRequestState.class);
   public static final String ANY_HOST = "ANY_HOST";
 
