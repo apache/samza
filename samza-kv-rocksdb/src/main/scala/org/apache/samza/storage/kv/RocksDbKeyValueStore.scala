@@ -20,6 +20,7 @@
 package org.apache.samza.storage.kv
 
 import java.io.File
+import java.util
 import java.util.Comparator
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantReadWriteLock
@@ -203,6 +204,18 @@ class RocksDbKeyValueStore(
     new RocksDbIterator(iter)
   }
 
+  def iterate(from: Array[Byte], to: Array[Byte]): KeyValueIterable[Array[Byte], Array[Byte]] = {
+    //snapshot the iterator
+    val iter : RocksDbRangeIterator = range(from, to).asInstanceOf[RocksDbRangeIterator]
+    new KeyValueIterable[Array[Byte], Array[Byte]] {
+      def iterator(): KeyValueIterator[Array[Byte], Array[Byte]] = {
+        // reset to the beginning
+        iter.seek(from)
+        iter
+      }
+    }
+  }
+
   def flush(): Unit = ifOpen {
     metrics.flushes.inc
     trace("Flushing store: %s" format storeName)
@@ -300,6 +313,10 @@ class RocksDbKeyValueStore(
 
     override def hasNext() = ifOpen {
       super.hasNext() && comparator.compare(peekKey(), to) < 0
+    }
+
+    def seek(key: Array[Byte]) = {
+      iter.seek(key)
     }
   }
 
