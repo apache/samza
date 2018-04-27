@@ -469,18 +469,25 @@ object SamzaContainer extends Logging {
       info("Got store consumers: %s" format storeConsumers)
 
       var loggedStorageBaseDir: File = null
+      val jobNameAndId = (
+        config.getName.getOrElse(throw new ConfigException("Missing required config: job.name")),
+        config.getJobId.getOrElse("1")
+      )
+
       if(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR) != null) {
-        val jobNameAndId = (
-          config.getName.getOrElse(throw new ConfigException("Missing required config: job.name")),
-          config.getJobId.getOrElse("1")
-        )
         loggedStorageBaseDir = new File(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR)
           + File.separator + jobNameAndId._1 + "-" + jobNameAndId._2)
       } else {
-        warn("No override was provided for logged store base directory. This disables local state re-use on " +
-          "application restart. If you want to enable this feature, set LOGGED_STORE_BASE_DIR as an environment " +
-          "variable in all machines running the Samza container")
-        loggedStorageBaseDir = defaultStoreBaseDir
+        config.getLoggedStoreBaseDir match {
+          case Some(storeBaseDir) =>
+            info("Using user provided value for job state store base directory")
+            loggedStorageBaseDir = new File(storeBaseDir + File.separator + jobNameAndId._1 + "-" + jobNameAndId._2)
+          case None =>
+            warn("No override was provided for logged store base directory. This disables local state re-use on " +
+              "application restart. If you want to enable this feature, set LOGGED_STORE_BASE_DIR as an environment " +
+              "variable in all machines running the Samza container")
+            loggedStorageBaseDir = defaultStoreBaseDir
+        }
       }
 
       info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)

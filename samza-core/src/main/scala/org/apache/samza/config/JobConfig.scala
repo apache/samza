@@ -81,6 +81,9 @@ object JobConfig {
   val PROCESSOR_ID = "processor.id"
   val PROCESSOR_LIST = "processor.list"
 
+  // job level configuration for base directory for state stores
+  val JOB_LOGGED_STORE_BASE_DIRECTORY = "job.logged.store.base.dir";
+
   implicit def Config2Job(config: Config) = new JobConfig(config)
 
   /**
@@ -175,4 +178,6 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   }
 
   def getDebounceTimeMs = getInt(JobConfig.JOB_DEBOUNCE_TIME_MS, JobConfig.DEFAULT_DEBOUNCE_TIME_MS)
+
+  def getLoggedStoreBaseDir = getOption(JobConfig.JOB_LOGGED_STORE_BASE_DIRECTORY)
 }

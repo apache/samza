@@ -474,6 +474,16 @@
                         These coordination utils are currently used for intermediate stream creation.
                     </td>
                 </tr>
+
+                <tr>
+                    <td class="property" id="job.logged.store.base.dir">job.logged.store.base.dir</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        The base directory for state stores used by Samza application. Other ways to configure the base directory is by setting environment variable <i>LOGGED_STORE_BASE_DIR</i>.
+                        <br><b>Note:</b> Configuration through environment variable takes higher precedence compared to <i>job.logged.store.base.dire</i>.
+                    </td>
+                </tr>
+
                 <tr>
                                               <!-- change link to StandAlone design/tutorial doc. SAMZA-1299 -->
                 <th colspan="3" class="section" id="ZkBasedJobCoordination"><a href="../index.html">Zookeeper-based job configuration</a></th>
