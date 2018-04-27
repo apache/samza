@@ -64,7 +64,16 @@ public class TestEventHubSystemProducer {
   }
 
   @Test
-  public void testSendingToSpecificPartitions() throws Exception {
+  public void testSendingToSpecificPartitionsPerPartitionConnection() throws Exception {
+    testSendingToSpecificPartitions(true);
+  }
+
+  @Test
+  public void testSendingToSpecificPartitionsShareConnection() throws Exception {
+    testSendingToSpecificPartitions(false);
+  }
+
+  private void testSendingToSpecificPartitions(boolean perPartitionConnection) throws Exception {
     String systemName = "eventhubs";
     String streamName = "testStream";
     int numEvents = 10;
@@ -87,6 +96,8 @@ public class TestEventHubSystemProducer {
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, streamName), EVENTHUB_ENTITY1);
     configMap.put(String.format(EventHubConfig.CONFIG_PRODUCER_PARTITION_METHOD, systemName),
         PartitioningMethod.PARTITION_KEY_AS_PARTITION.toString());
+    configMap.put(String.format(EventHubConfig.CONFIG_PER_PARTITION_CONNECTION, systemName),
+        String.valueOf(perPartitionConnection));
     MapConfig config = new MapConfig(configMap);
 
     MockEventHubClientManagerFactory factory = new MockEventHubClientManagerFactory();
@@ -115,6 +126,16 @@ public class TestEventHubSystemProducer {
 
     Assert.assertTrue(outgoingMessagesP0.equals(receivedData0));
     Assert.assertTrue(outgoingMessagesP1.equals(receivedData1));
+    if (perPartitionConnection) {
+      Assert.assertNotEquals("perPartitionConnection=true; partitions should not share the same client",
+          producer.perPartitionEventHubClients.get(streamName).get(0),
+          producer.perPartitionEventHubClients.get(streamName).get(1));
+    } else {
+
+      Assert.assertEquals("perPartitionConnection=false; partitions should share the same client",
+          producer.perPartitionEventHubClients.get(streamName).get(0),
+          producer.perPartitionEventHubClients.get(streamName).get(1));
+    }
   }
 
   @Test

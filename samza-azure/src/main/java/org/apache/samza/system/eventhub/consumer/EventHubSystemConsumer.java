@@ -19,12 +19,12 @@
 
 package org.apache.samza.system.eventhub.consumer;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.microsoft.azure.eventhubs.EventData;
 import com.microsoft.azure.eventhubs.EventHubException;
 import com.microsoft.azure.eventhubs.EventPosition;
 import com.microsoft.azure.eventhubs.PartitionReceiveHandler;
 import com.microsoft.azure.eventhubs.PartitionReceiver;
-import com.microsoft.azure.eventhubs.PartitionRuntimeInformation;
 import com.microsoft.azure.eventhubs.impl.ClientConstants;
 import java.time.Duration;
 import java.time.Instant;
@@ -42,6 +42,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import org.apache.commons.lang3.Validate;
 import org.apache.samza.SamzaException;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -122,17 +124,21 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   private final Map<String, SamzaHistogram> consumptionLagMs;
   private final Map<String, Counter> readErrors;
 
-  final ConcurrentHashMap<SystemStreamPartition, PartitionReceiveHandler> streamPartitionHandlers =
-      new ConcurrentHashMap<>();
-  private final ConcurrentHashMap<SystemStreamPartition, PartitionReceiver> streamPartitionReceivers =
-      new ConcurrentHashMap<>();
-  private final ConcurrentHashMap<String, EventHubClientManager> streamEventHubManagers = new ConcurrentHashMap<>();
-  private final ConcurrentHashMap<SystemStreamPartition, String> streamPartitionOffsets = new ConcurrentHashMap<>();
+  @VisibleForTesting
+  final Map<SystemStreamPartition, PartitionReceiveHandler> streamPartitionHandlers = new ConcurrentHashMap<>();
+  @VisibleForTesting
+  final Map<SystemStreamPartition, EventHubClientManager> perPartitionEventHubManagers = new ConcurrentHashMap<>();
+
+  private final Map<SystemStreamPartition, PartitionReceiver> streamPartitionReceivers = new ConcurrentHashMap<>();
+  // should remain empty if PerPartitionConnection is true
+  private final Map<String, EventHubClientManager> perStreamEventHubManagers = new ConcurrentHashMap<>();
+  private final Map<SystemStreamPartition, String> streamPartitionOffsets = new ConcurrentHashMap<>();
   private final Map<String, Interceptor> interceptors;
   private final Integer prefetchCount;
-  private boolean isStarted = false;
+  private volatile boolean isStarted = false;
   private final EventHubConfig config;
   private final String systemName;
+  private final EventHubClientManagerFactory eventHubClientManagerFactory;
 
   // Partition receiver error propagation
   private final AtomicReference<Throwable> eventHubHandlerError = new AtomicReference<>(null);
@@ -145,14 +151,8 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
     this.config = config;
     this.systemName = systemName;
     this.interceptors = interceptors;
+    this.eventHubClientManagerFactory = eventHubClientManagerFactory;
     List<String> streamIds = config.getStreams(systemName);
-    // Create and initiate connections to Event Hubs
-    for (String streamId : streamIds) {
-      EventHubClientManager eventHubClientManager =
-          eventHubClientManagerFactory.getEventHubClientManager(systemName, streamId, config);
-      streamEventHubManagers.put(streamId, eventHubClientManager);
-      eventHubClientManager.init();
-    }
     prefetchCount = config.getPrefetchCount(systemName);
 
 
@@ -200,47 +200,62 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
     streamPartitionOffsets.put(systemStreamPartition, offset);
   }
 
-  private String getNewestEventHubOffset(EventHubClientManager eventHubClientManager, String streamName,
-      Integer partitionId) {
-    CompletableFuture<PartitionRuntimeInformation> partitionRuntimeInfoFuture =
-        eventHubClientManager.getEventHubClient().getPartitionRuntimeInformation(partitionId.toString());
-    try {
-      long timeoutMs = config.getRuntimeInfoWaitTimeMS(systemName);
-
-      PartitionRuntimeInformation partitionRuntimeInformation =
-          partitionRuntimeInfoFuture.get(timeoutMs, TimeUnit.MILLISECONDS);
-
-      return partitionRuntimeInformation.getLastEnqueuedOffset();
-    } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      String msg =
-          String.format("Error while fetching EventHubPartitionRuntimeInfo for System:%s, Stream:%s, Partition:%s",
-              systemName, streamName, partitionId);
-      throw new SamzaException(msg);
+  // Based on the config PerPartitionConnection, create or get EventHubClientManager for the SSP
+  // Note: this should be used only when starting up. After initialization, directly use perPartitionEventHubManagers
+  // to obtain the corresponding EventHubClientManager
+  private EventHubClientManager createOrGetEventHubClientManagerForSSP(String streamId, SystemStreamPartition ssp) {
+    EventHubClientManager eventHubClientManager;
+    if (config.getPerPartitionConnection(systemName)) {
+      // will create one EventHub client per partition
+      if (perPartitionEventHubManagers.containsKey(ssp)) {
+        LOG.warn(String.format("Trying to create new EventHubClientManager for ssp=%s. But one already exists", ssp));
+        eventHubClientManager = perPartitionEventHubManagers.get(ssp);
+      } else {
+        LOG.info("Creating EventHub client manager for SSP: " + ssp);
+        eventHubClientManager = eventHubClientManagerFactory.getEventHubClientManager(systemName, streamId, config);
+        eventHubClientManager.init();
+        perPartitionEventHubManagers.put(ssp, eventHubClientManager);
+      }
+    } else {
+      // will share one EventHub client per stream
+      if (!perStreamEventHubManagers.containsKey(streamId)) {
+        LOG.info("Creating EventHub client manager for stream: " + streamId);
+        EventHubClientManager perStreamEventHubClientManager =
+            eventHubClientManagerFactory.getEventHubClientManager(systemName, streamId, config);
+        perStreamEventHubClientManager.init();
+        perStreamEventHubManagers.put(streamId, perStreamEventHubClientManager);
+      }
+      eventHubClientManager = perStreamEventHubManagers.get(streamId);
+      perPartitionEventHubManagers.put(ssp, eventHubClientManager);
     }
+    LOG.info("EventHub client created for ssp: " + ssp);
+    Validate.notNull(eventHubClientManager,
+        String.format("Fail to create or get EventHubClientManager for ssp=%s", ssp));
+    return eventHubClientManager;
   }
 
   @Override
   public void start() {
+    if (isStarted) {
+      LOG.warn("Trying to start EventHubSystemConsumer while it's already started. Ignore the request.");
+      return;
+    }
     isStarted = true;
     LOG.info("Starting EventHubSystemConsumer. Count of SSPs registered: " + streamPartitionOffsets.entrySet().size());
     // Create receivers for Event Hubs
     for (Map.Entry<SystemStreamPartition, String> entry : streamPartitionOffsets.entrySet()) {
-
       SystemStreamPartition ssp = entry.getKey();
-      String streamName = ssp.getStream();
       String streamId = config.getStreamId(ssp.getStream());
       Integer partitionId = ssp.getPartition().getPartitionId();
       String offset = entry.getValue();
       String consumerGroup = config.getStreamConsumerGroup(systemName, streamId);
       String namespace = config.getStreamNamespace(systemName, streamId);
       String entityPath = config.getStreamEntityPath(systemName, streamId);
-      EventHubClientManager eventHubClientManager = streamEventHubManagers.get(streamId);
+      EventHubClientManager eventHubClientManager = createOrGetEventHubClientManagerForSSP(streamId, ssp);
 
       try {
-        // Fetch the newest offset
-        String newestEventHubOffset = getNewestEventHubOffset(eventHubClientManager, streamName, partitionId);
         PartitionReceiver receiver;
-        if (END_OF_STREAM.equals(offset) || EventHubSystemAdmin.compareOffsets(newestEventHubOffset, offset) == -1) {
+        if (END_OF_STREAM.equals(offset)) {
           // If the offset is greater than the newest offset, use the use current Instant as
           // offset to fetch in Eventhub.
           receiver = eventHubClientManager.getEventHubClient()
@@ -306,7 +321,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
 
   private void renewPartitionReceiver(SystemStreamPartition ssp) {
     String streamId = config.getStreamId(ssp.getStream());
-    EventHubClientManager eventHubClientManager = streamEventHubManagers.get(streamId);
+    EventHubClientManager eventHubClientManager = perPartitionEventHubManagers.get(ssp);
     String offset = streamPartitionOffsets.get(ssp);
     Integer partitionId = ssp.getPartition().getPartitionId();
     String consumerGroup = config.getStreamConsumerGroup(ssp.getSystem(), streamId);
@@ -345,7 +360,13 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
     } catch (ExecutionException | InterruptedException | TimeoutException e) {
       LOG.warn("Failed to close receivers", e);
     }
-    streamEventHubManagers.values().forEach(ehClientManager -> ehClientManager.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS));
+    perPartitionEventHubManagers.values()
+        .parallelStream()
+        .forEach(ehClientManager -> ehClientManager.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS));
+    perPartitionEventHubManagers.clear();
+    perStreamEventHubManagers.clear();
+    isStarted = false;
+    LOG.info("Event hub system consumer stopped.");
   }
 
   private boolean isErrorTransient(Throwable throwable) {
