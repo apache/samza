@@ -42,6 +42,25 @@ import java.util.Optional;
  * with value {@link org.apache.samza.zk.ZkBarrierForVersionUpgrade.State#TIMED_OUT} and indicates to everyone that it
  * is no longer valid.
  *
+ *
+ * Describes the lifecycle of a barrier.
+ * <pre>
+ *
+ *                               When expected participants join
+ *      Leader    ---&lt; NEW ---------------------------------------- &lt; DONE
+ *                         |      barrier within barrierTimeOut.
+ *                         |
+ *                         |
+ *                         |
+ *                         |
+ *                         |
+ *                         |    When expected participants doesn't
+ *                         | ----------------------------------------- &lt; TIMED_OUT
+ *                              join barrier within barrierTimeOut.
+ *
+ * </pre>
+ *
+ *
  * The caller can listen to events associated with the barrier by registering a {@link ZkBarrierListener}.
  *
  * Zk Tree Reference:
@@ -214,7 +233,7 @@ public class ZkBarrierForVersionUpgrade {
         zkUtils.unsubscribeDataChanges(barrierStatePath, this);
         barrierListenerOptional.ifPresent(zkBarrierListener -> zkBarrierListener.onBarrierStateChanged(barrierVersion, (State) data));
       } else {
-        LOG.debug("Barrier version: {} has state: {}. Ignoring the barrierState change notification.", barrierVersion, barrierState);
+        LOG.debug("Barrier version: {} is at state: {}. Ignoring the barrierState change notification.", barrierVersion, barrierState);
       }
     }
 
