@@ -203,7 +203,16 @@ public class TestEventHubSystemConsumer {
   }
 
   @Test
-  public void testMultiPartitionConsumptionHappyPath() throws Exception {
+  public void testMultiPartitionConsumptionPerPartitionConnection() throws Exception {
+    testMultiPartitionConsumptionHappyPath(true);
+  }
+
+  @Test
+  public void testMultiPartitionConsumptionShareConnection() throws Exception {
+    testMultiPartitionConsumptionHappyPath(false);
+  }
+
+  private void testMultiPartitionConsumptionHappyPath(boolean perPartitionConnection) throws Exception {
     String systemName = "eventhubs";
     String streamName = "testStream";
     int numEvents = 10; // needs to be less than BLOCKING_QUEUE_SIZE
@@ -229,6 +238,8 @@ public class TestEventHubSystemConsumer {
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, streamName), EVENTHUB_NAMESPACE);
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, streamName), EVENTHUB_KEY_NAME);
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, streamName), EVENTHUB_KEY);
+    configMap.put(String.format(EventHubConfig.CONFIG_PER_PARTITION_CONNECTION, systemName),
+        String.valueOf(perPartitionConnection));
     MapConfig config = new MapConfig(configMap);
 
     MockEventHubClientManagerFactory eventHubClientWrapperFactory = new MockEventHubClientManagerFactory(eventData);
@@ -257,6 +268,14 @@ public class TestEventHubSystemConsumer {
 
     Assert.assertEquals(counters.get(EventHubSystemConsumer.EVENT_READ_RATE).getCount(), numEvents * 2);
     Assert.assertEquals(counters.get(EventHubSystemConsumer.READ_ERRORS).getCount(), 0);
+    if (perPartitionConnection) {
+      Assert.assertNotEquals("perPartitionConnection=true; SSPs should not share the same client",
+          consumer.perPartitionEventHubManagers.get(ssp1), consumer.perPartitionEventHubManagers.get(ssp2));
+    } else {
+
+      Assert.assertEquals("perPartitionConnection=false; SSPs should share the same client",
+          consumer.perPartitionEventHubManagers.get(ssp1), consumer.perPartitionEventHubManagers.get(ssp2));
+    }
   }
 
   @Test
