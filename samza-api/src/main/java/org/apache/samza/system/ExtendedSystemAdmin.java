@@ -31,25 +31,31 @@ public interface ExtendedSystemAdmin extends SystemAdmin {
   Map<String, SystemStreamMetadata> getSystemStreamPartitionCounts(Set<String> streamNames, long cacheTTL);
 
   /**
-   * Makes fewer offset requests than getSystemStreamMetadata.
-   * Returns null if no newest offset was found (e.g. topic is empty).
-   *
    * Deprecated: Use/implement getNewestOffsets instead
+   * Gets the newest offset for an {@code ssp}. This makes fewer offset requests than getSystemStreamMetadata.
+   * @return Newest offset for ssp. Returns null if no newest offset was found (e.g. topic is empty).
+   * @throws RuntimeException if the newest offset information could not be accessed. This exception case is different
+   * than the "no newest offset exists" case, because in the "no newest offset exists" case, the newest offset info was
+   * accessible, but none existed.
    */
   @Deprecated
   String getNewestOffset(SystemStreamPartition ssp, Integer maxRetries);
 
   /**
-   * Batch call for getting newest offsets for multiple SystemStreamPartitions.
-   * Override the default implementation if a more efficient batch get exists. The default implementation exists for
-   * backwards compatibility.
-   * It is up to the implementor to give a best-effort attempt to fetch newest offsets (including internal retries).
-   * There will be no entry for an SSP if no newest offset exists (e.g. topic is empty).
-   * If the newest offset information could not be accessed, then this should throw an exception. This case is different
+   * Gets the newest offsets for {@code ssps}.
+   * <p>
+   *   Implementation notes: Override the default implementation if a more efficient batch get exists. It is up to the
+   *   implementor to give a best-effort attempt to fetch newest offsets (including internal retries).
+   * </p>
+   * @return A Map containing newest offsets for each ssp which had a newest offset. Each key is an ssp, and the
+   * corresponding value is the newest offset. An ssp which does not have a newest offset (e.g. topic is empty) does not
+   * have an entry in the map.
+   * @throws RuntimeException if the newest offset information could not be accessed. This exception case is different
    * than the "no newest offset exists" case, because in the "no newest offset exists" case, the newest offset info was
    * accessible, but none existed.
    */
   default Map<SystemStreamPartition, String> getNewestOffsets(Set<SystemStreamPartition> ssps) {
+    // default implementation exists for backwards compatibility
     // some fallback retry count since getNewestOffset needs it; remove this when getNewestOffset is removed
     final int defaultRetriesPerSSP = 3;
     final Map<SystemStreamPartition, String> newestOffsets = new HashMap<>();

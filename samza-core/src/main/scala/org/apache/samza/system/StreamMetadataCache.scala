@@ -45,21 +45,15 @@ class StreamMetadataCache (
     /** Clock used for determining expiry (for mocking in tests) */
     clock: Clock = SystemClock.instance) extends Logging {
 
-  /**
-    * @param lastRefreshMs last time that the entry was updated
-    * @tparam T type of data in entry
-    */
-  private case class CacheEntry[T](data: T, lastRefreshMs: Long)
-
   private val fullMetadataCache = new ConcurrentHashMap[SystemStream, CacheEntry[SystemStreamMetadata]]()
 
   /**
     * Caches newest offset data.
     * The CacheEntry data is Optional so we can also cache if there is "no newest offset" (e.g. topic is empty). This
     * allows us to keep an entry in the cache for prefetching in the future.
-    * Using a regular HashMap here instead of ConcurrentHashMap because updates already need to be protected by a lock.
     */
-  private val newestOffsetCache = new util.HashMap[SystemStreamPartition, CacheEntry[Optional[String]]]()
+  private val newestOffsetCache = new ConcurrentHashMap[SystemStreamPartition, CacheEntry[Optional[String]]]()
+  private val newestOffsetLock = new Object
 
   /**
    * Returns metadata about each of the given streams (such as first offset, newest
@@ -96,8 +90,7 @@ class StreamMetadataCache (
       throw new SamzaException("Cannot get metadata for unknown streams: " + missing.mkString(", "))
     }
     if (!partitionsMetadataOnly) {
-      cacheMisses.foreach { case (stream, metadata) => fullMetadataCache.put(stream, CacheEntry(metadata, time))
-      }
+      cacheMisses.foreach { case (stream, metadata) => fullMetadataCache.put(stream, CacheEntry(metadata, time)) }
     }
     allResults
   }
@@ -114,30 +107,20 @@ class StreamMetadataCache (
   }
 
   /**
-    * Returns a tuple (key, data in the CacheEntry corresponding to key in the cache).
-    * If there is no CacheEntry, or the CacheEntry is stale, then this will return None.
-    */
-  private def getFromCache[K, V] (cache: util.Map[K, CacheEntry[V]], key: K, now: Long): Option[(K, V)] = {
-    if (cache.containsKey(key)) {
-      val cacheEntry = cache.get(key)
-      if (!isStale(now, cacheEntry.lastRefreshMs)) {
-        return Some(key -> cacheEntry.data)
-      }
-    }
-    None
-  }
-
-  /**
-    * Get the newest offset for the systemStreamPartition. This returns null if there is no newest offset (e.g. stream
-    * is empty).
+    * Gets the newest offset for the systemStreamPartition.
     * Returns a cached value if it is fresh enough, even if the cached value has no newest offset data. Otherwise, call
     * the admin to get the newest offset.
     * As an optimization, this will also prefetch the newest offsets for other systemStreamPartitions that have been
     * fetched in previous calls to getNewestOffset.
+    * @return Newest offset for the systemStreamPartition. Returns null if there is no newest offset (e.g. stream is
+    * empty).
+    * @throws RuntimeException if the newest offset information could not be accessed. This exception case is different
+    * than the "no newest offset exists" case, because in the "no newest offset exists" case, the newest offset info was
+    * accessible, but none existed.
     */
   def getNewestOffset(systemStreamPartition: SystemStreamPartition): String = {
-    // needs synchronization so that other threads don't come in a try to also do a fetch
-    newestOffsetCache synchronized {
+    // needs synchronization so that other threads don't come in and try to also do a fetch
+    newestOffsetLock synchronized {
       val now = clock.currentTimeMillis
       getFromCache(newestOffsetCache, systemStreamPartition, now) match {
         // has a fresh enough entry; even if it does not have data, don't do another fetch yet
@@ -146,6 +129,20 @@ class StreamMetadataCache (
         case None => fetchNewestOffsetWithPrefetching(systemStreamPartition, now)
       }
     }
+  }
+
+  /**
+    * Returns a tuple (key, data in the CacheEntry corresponding to key in the cache).
+    * If there is no CacheEntry, or the CacheEntry is stale, then this will return None.
+    */
+  private def getFromCache[K, V](cache: util.Map[K, CacheEntry[V]], key: K, now: Long): Option[(K, V)] = {
+    if (cache.containsKey(key)) {
+      val cacheEntry = cache.get(key)
+      if (!isStale(now, cacheEntry.lastRefreshMs)) {
+        return Some(key -> cacheEntry.data)
+      }
+    }
+    None
   }
 
   /**
@@ -159,9 +156,9 @@ class StreamMetadataCache (
      * request now if it is stale. Also make sure it has the same system, since we will only use the admin for the
      * system of the requestedSSP.
      */
-    val sspsToFetchBuilder : ImmutableSet.Builder[SystemStreamPartition] = new ImmutableSet.Builder()
+    val sspsToFetchBuilder = new ImmutableSet.Builder[SystemStreamPartition]()
     sspsToFetchBuilder.add(requestedSSP)
-    for (entry : util.Map.Entry[SystemStreamPartition, CacheEntry[Optional[String]]] <- newestOffsetCache.entrySet.asScala) {
+    for (entry <- newestOffsetCache.entrySet.asScala) {
       val sspToMaybeFetch = entry.getKey
       if (systemToFetch.equals(sspToMaybeFetch.getSystem) && isStale(now, entry.getValue.lastRefreshMs)) {
         sspsToFetchBuilder.add(sspToMaybeFetch)
@@ -170,8 +167,8 @@ class StreamMetadataCache (
     val sspsToFetch = sspsToFetchBuilder.build()
     val newestOffsets: util.Map[SystemStreamPartition, String] =
       fetchNewestOffsetsWithSystemAdmin(sspsToFetch, systemAdmins.getSystemAdmin(systemToFetch))
-    // want to put an entry in regardless of if we got data from newestOffsets, so iterate over sspsToFetch
-    for (sspToFetch : SystemStreamPartition <- sspsToFetch.asScala) {
+    // we want to add an ssp entry even if there was no newest offset (e.g. empty partition), so iterate over sspsToFetch
+    for (sspToFetch <- sspsToFetch.asScala) {
       val cacheEntryData = Optional.ofNullable(newestOffsets.get(sspToFetch))
       newestOffsetCache.put(sspToFetch, CacheEntry(cacheEntryData, now))
     }
@@ -179,7 +176,7 @@ class StreamMetadataCache (
   }
 
   private def fetchNewestOffsetsWithSystemAdmin(sspsToFetch: util.Set[SystemStreamPartition],
-                                                systemAdmin: SystemAdmin): util.Map[SystemStreamPartition, String] = {
+    systemAdmin: SystemAdmin): util.Map[SystemStreamPartition, String] = {
     systemAdmin match {
       case extendedSystemAdmin: ExtendedSystemAdmin =>
         /*
@@ -188,16 +185,15 @@ class StreamMetadataCache (
          */
         extendedSystemAdmin.getNewestOffsets(sspsToFetch)
       case fallbackSystemAdmin =>
-        val streamsToFetchBuilder : ImmutableSet.Builder[String] = new ImmutableSet.Builder()
-        for (sspToFetch : SystemStreamPartition <- sspsToFetch.asScala) {
+        val streamsToFetchBuilder = new ImmutableSet.Builder[String]()
+        for (sspToFetch <- sspsToFetch.asScala) {
           streamsToFetchBuilder.add(sspToFetch.getStream)
         }
         val streamsToFetch = streamsToFetchBuilder.build()
-        val streamToMetadata : util.Map[String, SystemStreamMetadata] =
-          fallbackSystemAdmin.getSystemStreamMetadata(streamsToFetch)
+        val streamToMetadata = fallbackSystemAdmin.getSystemStreamMetadata(streamsToFetch)
         // TODO can we add this to the fullMetadataCache as well?
-        val sspToNewestOffsetBuilder : ImmutableMap.Builder[SystemStreamPartition, String] = new ImmutableMap.Builder()
-        for (sspToFetch : SystemStreamPartition <- sspsToFetch.asScala) {
+        val sspToNewestOffsetBuilder = new ImmutableMap.Builder[SystemStreamPartition, String]()
+        for (sspToFetch <- sspsToFetch.asScala) {
           val systemStreamMetadata = streamToMetadata.get(sspToFetch.getStream)
           if (systemStreamMetadata != null) {
             val sspMetadata = systemStreamMetadata.getSystemStreamPartitionMetadata
@@ -215,4 +211,6 @@ class StreamMetadataCache (
   private def isStale(now: Long, lastRefreshedAt: Long): Boolean = {
     now - lastRefreshedAt > cacheTTLms
   }
+
+  private case class CacheEntry[T](data: T, lastRefreshMs: Long)
 }
