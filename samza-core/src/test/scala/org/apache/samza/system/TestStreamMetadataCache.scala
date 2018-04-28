@@ -144,7 +144,8 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
   @Test
   def testGetNewestOffsetFirstFetch() {
     val ssp = new SystemStreamPartition(EXTENDED_SYSTEM, "stream", new Partition(0))
-    when(clock.currentTimeMillis()).thenReturn(10, 11) // second time is within TTL, so use cached value
+    // t = 10: first read, t = 11: first write, t = 11 + streamMetadataCache.cacheTTLms: second read (within TTL)
+    when(clock.currentTimeMillis()).thenReturn(10, 11, 11 + streamMetadataCache.cacheTTLms)
     when(extendedSystemAdmin.getNewestOffsets(Set(ssp).asJava)).thenReturn(Map(ssp -> "5").asJava)
     assertEquals("5", streamMetadataCache.getNewestOffset(ssp))
     assertEquals("5", streamMetadataCache.getNewestOffset(ssp))
@@ -159,7 +160,8 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
   @Test
   def testGetNewestOffsetFirstFetchEmpty() {
     val ssp = new SystemStreamPartition(EXTENDED_SYSTEM, "stream", new Partition(0))
-    when(clock.currentTimeMillis()).thenReturn(10, 11) // second time is within TTL, so use cached value
+    // t = 10: first read, t = 11: first write, t = 11 + streamMetadataCache.cacheTTLms: second read (within TTL)
+    when(clock.currentTimeMillis()).thenReturn(10, 11, 11 + streamMetadataCache.cacheTTLms)
     when(extendedSystemAdmin.getNewestOffsets(Set(ssp).asJava))
       .thenReturn(Map[SystemStreamPartition, String]().asJava)
     assertEquals(null, streamMetadataCache.getNewestOffset(ssp))
@@ -174,7 +176,8 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
   @Test
   def testGetNewestOffsetStaleEntry() {
     val ssp = new SystemStreamPartition(EXTENDED_SYSTEM, "stream", new Partition(0))
-    when(clock.currentTimeMillis()).thenReturn(10, 11 + streamMetadataCache.cacheTTLms) // second time is outside TTL
+    // t = 10: first read, t = 11: first write, t = 12 + streamMetadataCache.cacheTTLms: second read (outside TTL)
+    when(clock.currentTimeMillis()).thenReturn(10, 11, 12 + streamMetadataCache.cacheTTLms)
     when(extendedSystemAdmin.getNewestOffsets(Set(ssp).asJava))
       .thenReturn(Map(ssp -> "5").asJava)
     assertEquals("5", streamMetadataCache.getNewestOffset(ssp))
@@ -255,7 +258,8 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
   @Test
   def testGetNewestOffsetSystemAdmin() {
     val ssp = new SystemStreamPartition(SYSTEM, "stream", new Partition(0))
-    when(clock.currentTimeMillis()).thenReturn(10, 11) // second time is within TTL, so use cached value
+    // t = 10: first read, t = 11: first write, t = 11 + streamMetadataCache.cacheTTLms: second read (within TTL)
+    when(clock.currentTimeMillis()).thenReturn(10, 11, 11 + streamMetadataCache.cacheTTLms)
     when(systemAdmin.getSystemStreamMetadata(Set("stream").asJava))
       .thenReturn(Map("stream" -> new SystemStreamMetadata("stream",
         Map(new Partition(0) -> new SystemStreamPartitionMetadata("0", "10", "11")).asJava)).asJava)
@@ -271,7 +275,8 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
   @Test
   def testGetNewestOffsetSystemAdminNoNewestOffset() {
     val ssp = new SystemStreamPartition(SYSTEM, "stream", new Partition(0))
-    when(clock.currentTimeMillis()).thenReturn(10, 11) // second time is within TTL, so use cached value
+    // t = 10: first read, t = 11: first write, t = 11 + streamMetadataCache.cacheTTLms: second read (within TTL)
+    when(clock.currentTimeMillis()).thenReturn(10, 11, 11 + streamMetadataCache.cacheTTLms)
     when(systemAdmin.getSystemStreamMetadata(Set("stream").asJava))
       .thenReturn(Map("stream" -> new SystemStreamMetadata("stream",
         Map(new Partition(0) -> new SystemStreamPartitionMetadata(null, null, null)).asJava)).asJava)
@@ -287,7 +292,8 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
   @Test
   def testGetNewestOffsetSystemAdminNoPartitionMetadata(): Unit = {
     val ssp = new SystemStreamPartition(SYSTEM, "stream", new Partition(0))
-    when(clock.currentTimeMillis()).thenReturn(10, 11) // second time is within TTL, so use cached value
+    // t = 10: first read, t = 11: first write, t = 11 + streamMetadataCache.cacheTTLms: second read (within TTL)
+    when(clock.currentTimeMillis()).thenReturn(10, 11, 11 + streamMetadataCache.cacheTTLms)
     when(systemAdmin.getSystemStreamMetadata(Set("stream").asJava))
       .thenReturn(Map("stream" -> new SystemStreamMetadata("stream",
         Map[Partition, SystemStreamPartitionMetadata]().asJava)).asJava)
@@ -303,7 +309,8 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with 
   @Test
   def testGetNewestOffsetSystemAdminNoStreamMetadata() {
     val ssp = new SystemStreamPartition(SYSTEM, "stream", new Partition(0))
-    when(clock.currentTimeMillis()).thenReturn(10, 11) // second time is within TTL, so use cached value
+    // t = 10: first read, t = 11: first write, t = 11 + streamMetadataCache.cacheTTLms: second read (within TTL)
+    when(clock.currentTimeMillis()).thenReturn(10, 11, 11 + streamMetadataCache.cacheTTLms)
     when(systemAdmin.getSystemStreamMetadata(Set("stream").asJava))
       .thenReturn(Map[String, SystemStreamMetadata]().asJava)
 

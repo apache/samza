@@ -149,7 +149,7 @@ class StreamMetadataCache (
     * Fetch the newest offset for requestedSSP. Returns null if there is no newest offset.
     * Also prefetch the newest offsets for any other stale SSPs which had the same system as requestedSSP.
     */
-  private def fetchNewestOffsetWithPrefetching(requestedSSP: SystemStreamPartition, now: Long): String = {
+  private def fetchNewestOffsetWithPrefetching(requestedSSP: SystemStreamPartition, initialReadAt: Long): String = {
     val systemToFetch = requestedSSP.getSystem
     /*
      * If an ssp is in the newestOffsetCache, then we have fetched it before, so include it in the metadata fetch
@@ -160,19 +160,19 @@ class StreamMetadataCache (
     sspsToFetchBuilder.add(requestedSSP)
     for (entry <- newestOffsetCache.entrySet.asScala) {
       val sspToMaybeFetch = entry.getKey
-      if (systemToFetch.equals(sspToMaybeFetch.getSystem) && isStale(now, entry.getValue.lastRefreshMs)) {
+      if (systemToFetch.equals(sspToMaybeFetch.getSystem) && isStale(initialReadAt, entry.getValue.lastRefreshMs)) {
         sspsToFetchBuilder.add(sspToMaybeFetch)
       }
     }
     val sspsToFetch = sspsToFetchBuilder.build()
-    val newestOffsets: util.Map[SystemStreamPartition, String] =
-      fetchNewestOffsetsWithSystemAdmin(sspsToFetch, systemAdmins.getSystemAdmin(systemToFetch))
+    val sspToNewestOffset = fetchNewestOffsetsWithSystemAdmin(sspsToFetch, systemAdmins.getSystemAdmin(systemToFetch))
+    val cacheEntryLastRefreshAt = clock.currentTimeMillis
     // we want to add an ssp entry even if there was no newest offset (e.g. empty partition), so iterate over sspsToFetch
     for (sspToFetch <- sspsToFetch.asScala) {
-      val cacheEntryData = Optional.ofNullable(newestOffsets.get(sspToFetch))
-      newestOffsetCache.put(sspToFetch, CacheEntry(cacheEntryData, now))
+      val cacheEntryData = Optional.ofNullable(sspToNewestOffset.get(sspToFetch))
+      newestOffsetCache.put(sspToFetch, CacheEntry(cacheEntryData, cacheEntryLastRefreshAt))
     }
-    newestOffsets.get(requestedSSP)
+    sspToNewestOffset.get(requestedSSP)
   }
 
   private def fetchNewestOffsetsWithSystemAdmin(sspsToFetch: util.Set[SystemStreamPartition],
