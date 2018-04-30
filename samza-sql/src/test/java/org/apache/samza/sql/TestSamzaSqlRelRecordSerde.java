@@ -23,40 +23,39 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import javafx.util.Pair;
+
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericRecord;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.operators.KV;
 import org.apache.samza.sql.avro.AvroRelConverter;
 import org.apache.samza.sql.avro.AvroRelSchemaProvider;
 import org.apache.samza.sql.avro.ConfigBasedAvroRelSchemaProviderFactory;
-import org.apache.samza.sql.avro.schemas.AddressRecord;
 import org.apache.samza.sql.avro.schemas.Profile;
-import org.apache.samza.sql.avro.schemas.StreetNumRecord;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
-import org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory;
+import org.apache.samza.sql.serializers.SamzaSqlRelRecordSerdeFactory;
 import org.apache.samza.system.SystemStream;
 import org.junit.Assert;
 import org.junit.Test;
 
-import static org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde;
+import javafx.util.Pair;
+
+import static org.apache.samza.sql.serializers.SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde;
+import static org.apache.samza.sql.data.SamzaSqlRelMessage.SamzaSqlRelRecord;
 
 
-public class TestSamzaSqlRelMessageSerde {
+public class TestSamzaSqlRelRecordSerde {
 
   private List<Object> values = Arrays.asList("value1", 1, null);
   private List<String> names = Arrays.asList("field1", "field2", "field3");
 
   @Test
   public void testWithDifferentFields() {
-    SamzaSqlRelMessage message = new SamzaSqlRelMessage(names, values);
-    SamzaSqlRelMessageSerde serde =
-        (SamzaSqlRelMessageSerde) new SamzaSqlRelMessageSerdeFactory().getSerde(null, null);
-    SamzaSqlRelMessage resultMsg = serde.fromBytes(serde.toBytes(message));
-    Assert.assertEquals(names, resultMsg.getSamzaSqlRelRecord().getFieldNames());
-    Assert.assertEquals(values, resultMsg.getSamzaSqlRelRecord().getFieldValues());
+    SamzaSqlRelRecord record = new SamzaSqlRelMessage(names, values).getSamzaSqlRelRecord();
+    SamzaSqlRelRecordSerde serde =
+        (SamzaSqlRelRecordSerde) new SamzaSqlRelRecordSerdeFactory().getSerde(null, null);
+    SamzaSqlRelRecord resultRecord = serde.fromBytes(serde.toBytes(record));
+    Assert.assertEquals(names, resultRecord.getFieldNames());
+    Assert.assertEquals(values, resultRecord.getFieldValues());
   }
 
   @Test
@@ -67,36 +66,22 @@ public class TestSamzaSqlRelMessageSerde {
         String.format(ConfigBasedAvroRelSchemaProviderFactory.CFG_SOURCE_SCHEMA, ss1.getSystem(), ss1.getStream()),
         Profile.SCHEMA$.toString());
     ConfigBasedAvroRelSchemaProviderFactory factory = new ConfigBasedAvroRelSchemaProviderFactory();
-    AvroRelSchemaProvider nestedRecordSchemaProvider = (AvroRelSchemaProvider) factory.create(ss1, new MapConfig(props));
-    AvroRelConverter nestedRecordAvroRelConverter = new AvroRelConverter(ss1, nestedRecordSchemaProvider, new MapConfig());
+    AvroRelSchemaProvider nestedRecordSchemaProvider =
+        (AvroRelSchemaProvider) factory.create(ss1, new MapConfig(props));
+    AvroRelConverter nestedRecordAvroRelConverter =
+        new AvroRelConverter(ss1, nestedRecordSchemaProvider, new MapConfig());
 
     Pair<SamzaSqlRelMessage, GenericData.Record> messageRecordPair =
-        createNestedSamzaSqlRelMessage(nestedRecordAvroRelConverter);
-    SamzaSqlRelMessageSerde serde =
-        (SamzaSqlRelMessageSerde) new SamzaSqlRelMessageSerdeFactory().getSerde(null, null);
-    SamzaSqlRelMessage resultMsg = serde.fromBytes(serde.toBytes(messageRecordPair.getKey()));
-    KV<Object, Object> samzaMessage = nestedRecordAvroRelConverter.convertToSamzaMessage(resultMsg);
-    GenericRecord recordPostConversion = (GenericRecord) samzaMessage.getValue();
+        TestSamzaSqlRelMessageSerde.createNestedSamzaSqlRelMessage(nestedRecordAvroRelConverter);
+    SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde serde =
+        (SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde) new SamzaSqlRelRecordSerdeFactory().getSerde(null, null);
+    SamzaSqlRelRecord resultRecord = serde.fromBytes(serde.toBytes(messageRecordPair.getKey().getSamzaSqlRelRecord()));
+    GenericData.Record recordPostConversion =
+        (GenericData.Record) nestedRecordAvroRelConverter.convertToAvroObject(resultRecord, Profile.SCHEMA$);
 
     for (Schema.Field field : Profile.SCHEMA$.getFields()) {
       // equals() on GenericRecord does the nested record equality check as well.
       Assert.assertEquals(messageRecordPair.getValue().get(field.name()), recordPostConversion.get(field.name()));
     }
   }
-
-  public static Pair<SamzaSqlRelMessage, GenericData.Record> createNestedSamzaSqlRelMessage(
-      AvroRelConverter nestedRecordAvroRelConverter) {
-    GenericData.Record record = new GenericData.Record(Profile.SCHEMA$);
-    record.put("id", 1);
-    record.put("name", "name1");
-    record.put("companyId", 0);
-    GenericData.Record addressRecord = new GenericData.Record(AddressRecord.SCHEMA$);
-    addressRecord.put("zip", 90000);
-    record.put("address", addressRecord);
-    GenericData.Record streetNumRecord = new GenericData.Record(StreetNumRecord.SCHEMA$);
-    streetNumRecord.put("number", 1200);
-    addressRecord.put("streetnum", streetNumRecord);
-    return new Pair<>(nestedRecordAvroRelConverter.convertToRelMessage(new KV<>("key", record)), record);
-  }
-
 }
