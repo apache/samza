@@ -75,7 +75,6 @@ public class TestSamzaSqlRelMessageSerde {
     SamzaSqlRelMessageSerde serde =
         (SamzaSqlRelMessageSerde) new SamzaSqlRelMessageSerdeFactory().getSerde(null, null);
     SamzaSqlRelMessage resultMsg = serde.fromBytes(serde.toBytes(messageRecordPair.getKey()));
-    nestedRecordAvroRelConverter.convertToSamzaMessage(resultMsg);
     KV<Object, Object> samzaMessage = nestedRecordAvroRelConverter.convertToSamzaMessage(resultMsg);
     GenericRecord recordPostConversion = (GenericRecord) samzaMessage.getValue();
 
@@ -85,7 +84,7 @@ public class TestSamzaSqlRelMessageSerde {
     }
   }
 
-  private Pair<SamzaSqlRelMessage, GenericData.Record> createNestedSamzaSqlRelMessage(
+  public static Pair<SamzaSqlRelMessage, GenericData.Record> createNestedSamzaSqlRelMessage(
       AvroRelConverter nestedRecordAvroRelConverter) {
     GenericData.Record record = new GenericData.Record(Profile.SCHEMA$);
     record.put("id", 1);
