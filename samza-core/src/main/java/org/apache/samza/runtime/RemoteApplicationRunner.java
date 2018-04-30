@@ -19,6 +19,8 @@
 
 package org.apache.samza.runtime;
 
+import java.time.Duration;
+import java.util.concurrent.TimeoutException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
@@ -34,6 +36,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.UUID;
 
+import static org.apache.samza.job.ApplicationStatus.*;
+
 
 /**
  * This class implements the {@link ApplicationRunner} that runs the applications in a remote cluster
@@ -41,6 +45,7 @@ import java.util.UUID;
 public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
   private static final Logger LOG = LoggerFactory.getLogger(RemoteApplicationRunner.class);
+  private static final long DEFAULT_TIME_TO_SLEEP_DURING_WAIT = 2000;
 
   public RemoteApplicationRunner(Config config) {
     super(config);
@@ -110,9 +115,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
       ExecutionPlan plan = getExecutionPlan(app);
       for (JobConfig jobConfig : plan.getJobConfigs()) {
-        JobRunner runner = new JobRunner(jobConfig);
-        ApplicationStatus status = runner.status();
-        LOG.debug("Status is {} for job {}", new Object[]{status, jobConfig.getName()});
+        ApplicationStatus status = getApplicationStatus(jobConfig);
 
         switch (status.getStatusCode()) {
           case New:
@@ -133,19 +136,70 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
       if (hasNewJobs) {
         // There are jobs not started, report as New
-        return ApplicationStatus.New;
+        return New;
       } else if (hasRunningJobs) {
         // All jobs are started, some are running
-        return ApplicationStatus.Running;
+        return Running;
       } else if (unsuccessfulFinishStatus != null) {
         // All jobs are finished, some are not successful
         return unsuccessfulFinishStatus;
       } else {
         // All jobs are finished successfully
-        return ApplicationStatus.SuccessfulFinish;
+        return SuccessfulFinish;
       }
     } catch (Throwable t) {
       throw new SamzaException("Failed to get status for application", t);
+    }
+  }
+
+  /* package private */ ApplicationStatus getApplicationStatus(JobConfig jobConfig) {
+    JobRunner runner = new JobRunner(jobConfig);
+    ApplicationStatus status = runner.status();
+    LOG.debug("Status is {} for job {}", new Object[]{status, jobConfig.getName()});
+    return status;
+  }
+
+  /**
+   * Waits until the application finishes.
+   */
+  public void waitForFinish() {
+    waitForFinish(Duration.ofMillis(0));
+  }
+
+  /**
+   * Waits until the application finishes. It times out after the input duration has elapsed.
+   * Provide a value less than 1 for input duration to wait indefinitely.
+   *
+   * @param timeout time to wait for the application to finish
+   */
+  public void waitForFinish(Duration timeout) {
+    JobConfig jobConfig = new JobConfig(config);
+    long timeoutInMs = timeout.toMillis();
+    long startTimeInMs = System.currentTimeMillis();
+    long sleepDurationInMs = Math.min(timeoutInMs, DEFAULT_TIME_TO_SLEEP_DURING_WAIT);
+
+    long timeElapsed = 0L;
+    ApplicationStatus status;
+
+    try {
+      while(timeoutInMs < 1 || timeElapsed <= timeoutInMs) {
+        status = getApplicationStatus(jobConfig);
+        if (status == SuccessfulFinish || status == UnsuccessfulFinish) {
+          LOG.info("Application finished with status {}", status);
+          break;
+        }
+
+        Thread.sleep(sleepDurationInMs);
+        timeElapsed = System.currentTimeMillis() - startTimeInMs;
+      }
+
+      if(timeElapsed > timeoutInMs) {
+        LOG.error("Waiting to shutdown remote application runner timed out.");
+        throw new TimeoutException("Waiting to shutdown remote application runner timed out.");
+      }
+    } catch (Exception e) {
+      LOG.error("Wait for application finish failed due to", e);
+      throw new SamzaException(e);
     }
   }
 

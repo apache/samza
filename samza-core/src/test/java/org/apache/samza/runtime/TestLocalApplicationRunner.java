@@ -20,12 +20,14 @@
 package org.apache.samza.runtime;
 
 import com.google.common.collect.ImmutableList;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.JobConfig;
@@ -51,6 +53,7 @@ import org.powermock.modules.junit4.PowerMockRunner;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.*;
@@ -302,6 +305,28 @@ public class TestLocalApplicationRunner {
 
     assertFalse("Expected both of the latch ids to be different",
         planIdBeforeShuffle.equals(getExecutionPlanId(updatedStreamSpecs)));
+  }
+
+  @Test
+  public void testWaitForFinishReturnsBeforeTimeout() {
+    LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig());
+    long startTime = System.currentTimeMillis();
+    long timeoutInMs = 1000;
+    runner.shutdownLatch.countDown();
+    runner.waitForFinish(Duration.ofMillis(timeoutInMs));
+    assertTrue(System.currentTimeMillis() - startTime < timeoutInMs);
+  }
+
+  @Test
+  public void testWaitForFinishTimesout() {
+    LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig());
+    long timeoutInMs = 100;
+    try {
+      runner.waitForFinish(Duration.ofMillis(timeoutInMs));
+    } catch (SamzaException e) {
+      assertNotNull(e);
+      assertEquals(e.getCause().getMessage(), "Waiting to shutdown local application runner timed out.");
+    }
   }
 
   private String getExecutionPlanId(List<StreamSpec> updatedStreamSpecs) {

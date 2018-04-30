@@ -19,6 +19,7 @@
 
 package org.apache.samza.runtime;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
@@ -59,7 +60,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
   private final String uid;
   private final Set<StreamProcessor> processors = ConcurrentHashMap.newKeySet();
-  private final CountDownLatch shutdownLatch = new CountDownLatch(1);
+  /* package private */ final CountDownLatch shutdownLatch = new CountDownLatch(1);
   private final AtomicInteger numProcessorsToStart = new AtomicInteger();
   private final AtomicReference<Throwable> failure = new AtomicReference<>();
 
@@ -194,13 +195,36 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   }
 
   /**
-   * Block until the application finishes
+   * Waits until the application finishes.
    */
+  @Override
   public void waitForFinish() {
+    waitForFinish(Duration.ofMillis(0));
+  }
+
+  /**
+   * Waits until the application finishes. It times out after the input duration has elapsed.
+   * Provide a value less than 1 for input duration to wait indefinitely.
+   *
+   * @param timeout time to wait for the application to finish
+   */
+  @Override
+  public void waitForFinish(Duration timeout) {
+    long timeoutInMs = timeout.toMillis();
+
     try {
-      shutdownLatch.await();
+      if (timeoutInMs < 1) {
+        shutdownLatch.await();
+      } else {
+        boolean success = shutdownLatch.await(timeoutInMs, TimeUnit.MILLISECONDS);
+
+        if (!success) {
+          LOG.error("Waiting to shutdown local application runner timed out timed out.");
+          throw new TimeoutException("Waiting to shutdown local application runner timed out.");
+        }
+      }
     } catch (Exception e) {
-      LOG.error("Wait is interrupted by exception", e);
+      LOG.error("Wait for application finish failed due to", e);
       throw new SamzaException(e);
     }
   }
