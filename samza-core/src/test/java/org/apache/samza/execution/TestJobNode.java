@@ -28,6 +28,7 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.functions.JoinFunction;
+import org.apache.samza.operators.impl.OperatorSpecGraph;
 import org.apache.samza.operators.impl.store.TimestampedValueSerde;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.serializers.JsonSerdeV2;
@@ -84,7 +85,7 @@ public class TestJobNode {
             Duration.ofHours(1), "j1")
         .sendTo(output);
 
-    JobNode jobNode = new JobNode("jobName", "jobId", streamGraph, mockConfig);
+    JobNode jobNode = new JobNode("jobName", "jobId", new OperatorSpecGraph(streamGraph), mockConfig);
     Config config = new MapConfig();
     StreamEdge input1Edge = new StreamEdge(input1Spec, config);
     StreamEdge input2Edge = new StreamEdge(input2Spec, config);

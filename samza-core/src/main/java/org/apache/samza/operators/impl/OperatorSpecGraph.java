@@ -18,20 +18,21 @@
  */
 package org.apache.samza.operators.impl;
 
-import java.io.IOException;
+import java.io.Serializable;
+import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import org.apache.samza.SamzaException;
-import org.apache.samza.operators.ContextManager;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.TableImpl;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
+import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.system.StreamSpec;
-
-import static com.google.common.base.Preconditions.*;
+import org.apache.samza.table.TableSpec;
 
 
 /**
@@ -40,38 +41,90 @@ import static com.google.common.base.Preconditions.*;
  * The {@link StreamGraphImpl} and {@link OperatorSpec} instances included in this class are considered as immutable and read-only.
  * The instance of {@link OperatorSpecGraph} should only be used in runtime to construct {@link org.apache.samza.task.StreamOperatorTask}.
  */
-public class OperatorSpecGraph {
-  private final Map<String, OperatorSpec> operatorSpecMap = new HashMap<>();
-  private final Map<String, byte[]> serializedOpSpecs = new ConcurrentHashMap<>();
-  private final StreamGraphImpl originalGraph;
+public class OperatorSpecGraph implements Serializable {
+  // We use a LHM for deterministic order in initializing and closing operators.
+  private final Map<StreamSpec, InputOperatorSpec> inputOperators;
+  private final Map<StreamSpec, OutputStreamImpl> outputStreams;
+  private final Map<TableSpec, TableImpl> tables;
+  private final Set<OperatorSpec> allOpSpecs;
+  private final boolean hasWindowOrJoins;
+
+  // The following objects are transient since they are recreateable.
+  private transient SerializableSerde<OperatorSpecGraph> graphSpecSerde = null;
+  private transient byte[] serializedGraphSpec = null;
+
+  private HashSet<OperatorSpec> findAllOperatorSpecs() {
+    Collection<InputOperatorSpec> inputOperatorSpecs = this.inputOperators.values();
+    HashSet<OperatorSpec> operatorSpecs = new HashSet<>();
+    for (InputOperatorSpec inputOperatorSpec : inputOperatorSpecs) {
+      operatorSpecs.add(inputOperatorSpec);
+      doGetOperatorSpecs(inputOperatorSpec, operatorSpecs);
+    }
+    return operatorSpecs;
+  }
+
+  private void doGetOperatorSpecs(OperatorSpec operatorSpec, Set<OperatorSpec> specs) {
+    Collection<OperatorSpec> registeredOperatorSpecs = operatorSpec.getRegisteredOperatorSpecs();
+    for (OperatorSpec registeredOperatorSpec : registeredOperatorSpecs) {
+      specs.add(registeredOperatorSpec);
+      doGetOperatorSpecs(registeredOperatorSpec, specs);
+    }
+  }
+
+  private boolean checkWindowOrJoins() {
+    Set<OperatorSpec> windowOrJoinSpecs = allOpSpecs.stream()
+        .filter(spec -> spec.getOpCode() == OperatorSpec.OpCode.WINDOW || spec.getOpCode() == OperatorSpec.OpCode.JOIN)
+        .collect(Collectors.toSet());
+
+    return windowOrJoinSpecs.size() != 0;
+  }
 
   public OperatorSpecGraph(StreamGraphImpl streamGraph) {
-    this.originalGraph = streamGraph;
-    streamGraph.getAllOperatorSpecs().stream().forEach(opSpec -> this.operatorSpecMap.put(opSpec.getOpId(), opSpec));
-  }
-
-  public OperatorSpec getOpSpec(String opId) throws IOException, ClassNotFoundException {
-
-    return OperatorSpec.fromBytes(this.serializedOpSpecs.computeIfAbsent(opId, operatorId -> {
-        checkNotNull(this.operatorSpecMap.get(opId), String.format("Input operator %s does not exist in serialized user program.", opId));
-        try {
-          return OperatorSpec.toBytes(this.operatorSpecMap.get(operatorId));
-        } catch (IOException e) {
-          throw new SamzaException(String.format("Failed to serialize operator %s.", opId), e);
-        }
-      }));
-  }
-
-  public ContextManager getContextManager() {
-    return this.originalGraph.getContextManager();
+    this.inputOperators = streamGraph.getInputOperators();
+    this.outputStreams = streamGraph.getOutputStreams();
+    this.tables = streamGraph.getTables();
+    this.allOpSpecs = Collections.unmodifiableSet(this.findAllOperatorSpecs());
+    hasWindowOrJoins = checkWindowOrJoins();
   }
 
   public Map<StreamSpec, InputOperatorSpec> getInputOperators() {
-    return Collections.unmodifiableMap(this.originalGraph.getInputOperators());
+    return inputOperators;
   }
 
   public Map<StreamSpec, OutputStreamImpl> getOutputStreams() {
-    return Collections.unmodifiableMap(this.originalGraph.getOutputStreams());
+    return outputStreams;
+  }
+
+  public Map<TableSpec, TableImpl> getTables() {
+    return tables;
+  }
+
+  /**
+   * Get all {@link OperatorSpec}s available in this {@link StreamGraphImpl}
+   *
+   * @return all available {@link OperatorSpec}s
+   */
+  public Collection<OperatorSpec> getAllOperatorSpecs() {
+    return allOpSpecs;
+  }
+
+  /**
+   * Returns <tt>true</tt> iff this {@link StreamGraphImpl} contains a join or a window operator
+   *
+   * @return  <tt>true</tt> iff this {@link StreamGraphImpl} contains a join or a window operator
+   */
+  public boolean hasWindowOrJoins() {
+    return hasWindowOrJoins;
+  }
+
+  public OperatorSpecGraph clone() {
+    if (graphSpecSerde == null) {
+      graphSpecSerde = new SerializableSerde<>();
+    }
+    if (serializedGraphSpec == null) {
+      serializedGraphSpec = graphSpecSerde.toBytes(this);
+    }
+    return graphSpecSerde.fromBytes(serializedGraphSpec);
   }
 
 }

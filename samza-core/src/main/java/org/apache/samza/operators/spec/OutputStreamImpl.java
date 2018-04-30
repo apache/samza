@@ -27,14 +27,13 @@ import org.apache.samza.system.SystemStream;
 
 public class OutputStreamImpl<M> implements OutputStream<M>, Serializable {
 
-  private final SystemStream systemStream;
+  private final StreamSpec streamSpec;
   private final boolean isKeyed;
 
   /**
    * The following fields are serialized by the ExecutionPlanner when generating the configs for the output stream, and
    * deserialized once during startup in SamzaContainer. They don't need to be deserialized here on a per-task basis
    */
-  private transient final StreamSpec streamSpec;
   private transient final Serde keySerde;
   private transient final Serde valueSerde;
 
@@ -43,7 +42,6 @@ public class OutputStreamImpl<M> implements OutputStream<M>, Serializable {
     this.streamSpec = streamSpec;
     this.keySerde = keySerde;
     this.valueSerde = valueSerde;
-    this.systemStream = streamSpec.toSystemStream();
     this.isKeyed = isKeyed;
   }
 
@@ -60,7 +58,7 @@ public class OutputStreamImpl<M> implements OutputStream<M>, Serializable {
   }
 
   public SystemStream getSystemStream() {
-    return this.systemStream;
+    return this.streamSpec.toSystemStream();
   }
 
   public boolean isKeyed() {

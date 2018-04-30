@@ -19,15 +19,9 @@
 package org.apache.samza.operators.spec;
 
 import com.google.common.annotations.VisibleForTesting;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.LinkedHashSet;
-import java.util.Set;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.MessageStream;
@@ -69,13 +63,9 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
   /**
    * The set of operators that consume the messages produced from this operator.
    * <p>
-   * We use a LinkedHashSet since we need deterministic ordering in initializing/closing operators.
-   *
-   * This set is declared as transient since currently we only use the non-deserialized original {@link OperatorSpec} to
-   * traverse the graph and register next operators while constructing {@link org.apache.samza.operators.impl.OperatorImpl}s
-   * in {@link org.apache.samza.operators.impl.OperatorImplGraph}.
+   * We use a LinkedHashSet since we need both deterministic ordering in initializing/closing operators and serializability.
    */
-  private transient final Set<OperatorSpec<OM, ?>> nextOperatorSpecs = new LinkedHashSet<>();
+  private final LinkedHashSet<OperatorSpec<OM, ?>> nextOperatorSpecs = new LinkedHashSet<>();
 
   @VisibleForTesting
   final boolean isClone(OperatorSpec other) {
@@ -104,21 +94,6 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
    */
   public Collection<OperatorSpec<OM, ?>> getRegisteredOperatorSpecs() {
     return nextOperatorSpecs;
-  }
-
-  public static byte[] toBytes(OperatorSpec opSpec) throws IOException {
-    final ByteArrayOutputStream serializedBytes = new ByteArrayOutputStream();
-    final ObjectOutputStream outputStream = new ObjectOutputStream(serializedBytes);
-    outputStream.writeObject(opSpec);
-    outputStream.close();
-    return serializedBytes.toByteArray();
-  }
-
-  public static OperatorSpec fromBytes(byte[] serializedBytes) throws IOException, ClassNotFoundException {
-    final ObjectInputStream inputStream = new ObjectInputStream(new ByteArrayInputStream(serializedBytes));
-    Object object = inputStream.readObject();
-    inputStream.close();
-    return (OperatorSpec) object;
   }
 
   /**

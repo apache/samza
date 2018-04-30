@@ -42,24 +42,30 @@ import org.slf4j.LoggerFactory;
 public class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask {
   private static final Logger LOG = LoggerFactory.getLogger(StreamOperatorTask.class);
 
-  private final OperatorSpecGraph serializedGraph;
+  private final OperatorSpecGraph specGraph;
+  // TODO: when we make the context also serializable, this should be folded into serializedGraph
+  private final ContextManager contextManager;
   private final Clock clock;
 
   private OperatorImplGraph operatorImplGraph;
-  private ContextManager contextManager;
 
   /**
    * Constructs an adaptor task to run the user-implemented {@link org.apache.samza.operators.StreamGraphImpl}.
    * @param serializedGraph the serialized version of user-implemented {@link org.apache.samza.operators.StreamGraphImpl} that includes the logical DAG
    * @param clock the {@link Clock} to use for time-keeping
    */
-  public StreamOperatorTask(OperatorSpecGraph serializedGraph, Clock clock) {
-    this.serializedGraph = serializedGraph;
+  public StreamOperatorTask(OperatorSpecGraph serializedGraph, ContextManager contextManager, Clock clock) {
+    this.specGraph = serializedGraph.clone();
+    this.contextManager = contextManager;
     this.clock = clock;
   }
 
-  public StreamOperatorTask(OperatorSpecGraph streamGraph) {
-    this(streamGraph, SystemClock.instance());
+  public StreamOperatorTask(OperatorSpecGraph streamGraph, ContextManager contextManager) {
+    this(streamGraph, contextManager, SystemClock.instance());
+  }
+
+  public StreamOperatorTask(OperatorSpecGraph specGraph) {
+    this(specGraph, null, SystemClock.instance());
   }
 
   /**
@@ -81,13 +87,12 @@ public class StreamOperatorTask implements StreamTask, InitableTask, WindowableT
   public final void init(Config config, TaskContext context) throws Exception {
 
     // get the user-implemented per task context manager and initialize it
-    this.contextManager = serializedGraph.getContextManager();
     if (this.contextManager != null) {
       this.contextManager.init(config, context);
     }
 
     // create the operator impl DAG corresponding to the logical operator spec DAG
-    this.operatorImplGraph = new OperatorImplGraph(serializedGraph, config, context, clock);
+    this.operatorImplGraph = new OperatorImplGraph(specGraph, config, context, clock);
   }
 
   /**

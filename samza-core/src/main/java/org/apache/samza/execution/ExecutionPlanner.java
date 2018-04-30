@@ -35,6 +35,7 @@ import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.impl.OperatorSpecGraph;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.system.StreamSpec;
@@ -64,15 +65,17 @@ public class ExecutionPlanner {
   public ExecutionPlan plan(StreamGraphImpl streamGraph) throws Exception {
     validateConfig();
 
+    OperatorSpecGraph specGraph = new OperatorSpecGraph(streamGraph);
+
     // create physical job graph based on stream graph
-    JobGraph jobGraph = createJobGraph(streamGraph);
+    JobGraph jobGraph = createJobGraph(specGraph);
 
     // fetch the external streams partition info
     updateExistingPartitions(jobGraph, streamManager);
 
     if (!jobGraph.getIntermediateStreamEdges().isEmpty()) {
       // figure out the partitions for internal streams
-      calculatePartitions(streamGraph, jobGraph);
+      calculatePartitions(jobGraph);
     }
 
     return jobGraph;
@@ -91,12 +94,12 @@ public class ExecutionPlanner {
   /**
    * Create the physical graph from StreamGraph
    */
-  /* package private */ JobGraph createJobGraph(StreamGraphImpl streamGraph) {
-    JobGraph jobGraph = new JobGraph(config);
-    Set<StreamSpec> sourceStreams = new HashSet<>(streamGraph.getInputOperators().keySet());
-    Set<StreamSpec> sinkStreams = new HashSet<>(streamGraph.getOutputStreams().keySet());
+  /* package private */ JobGraph createJobGraph(OperatorSpecGraph specGraph) {
+    JobGraph jobGraph = new JobGraph(config, specGraph);
+    Set<StreamSpec> sourceStreams = new HashSet<>(specGraph.getInputOperators().keySet());
+    Set<StreamSpec> sinkStreams = new HashSet<>(specGraph.getOutputStreams().keySet());
     Set<StreamSpec> intStreams = new HashSet<>(sourceStreams);
-    Set<TableSpec> tables = new HashSet<>(streamGraph.getTables().keySet());
+    Set<TableSpec> tables = new HashSet<>(specGraph.getTables().keySet());
     intStreams.retainAll(sinkStreams);
     sourceStreams.removeAll(intStreams);
     sinkStreams.removeAll(intStreams);
@@ -104,7 +107,7 @@ public class ExecutionPlanner {
     // For this phase, we have a single job node for the whole dag
     String jobName = config.get(JobConfig.JOB_NAME());
     String jobId = config.get(JobConfig.JOB_ID(), "1");
-    JobNode node = jobGraph.getOrCreateJobNode(jobName, jobId, streamGraph);
+    JobNode node = jobGraph.getOrCreateJobNode(jobName, jobId);
 
     // add sources
     sourceStreams.forEach(spec -> jobGraph.addSource(spec, node));
@@ -126,9 +129,9 @@ public class ExecutionPlanner {
   /**
    * Figure out the number of partitions of all streams
    */
-  /* package private */ void calculatePartitions(StreamGraphImpl streamGraph, JobGraph jobGraph) {
+  /* package private */ void calculatePartitions(JobGraph jobGraph) {
     // calculate the partitions for the input streams of join operators
-    calculateJoinInputPartitions(streamGraph, jobGraph);
+    calculateJoinInputPartitions(jobGraph);
 
     // calculate the partitions for the rest of intermediate streams
     calculateIntStreamPartitions(jobGraph, config);
@@ -172,7 +175,7 @@ public class ExecutionPlanner {
   /**
    * Calculate the partitions for the input streams of join operators
    */
-  /* package private */ static void calculateJoinInputPartitions(StreamGraphImpl streamGraph, JobGraph jobGraph) {
+  /* package private */ static void calculateJoinInputPartitions(JobGraph jobGraph) {
     // mapping from a source stream to all join specs reachable from it
     Multimap<OperatorSpec, StreamEdge> joinSpecToStreamEdges = HashMultimap.create();
     // reverse mapping of the above
@@ -182,7 +185,7 @@ public class ExecutionPlanner {
     // The visited set keeps track of the join specs that have been already inserted in the queue before
     Set<OperatorSpec> visited = new HashSet<>();
 
-    streamGraph.getInputOperators().entrySet().forEach(entry -> {
+    jobGraph.getSpecGraph().getInputOperators().entrySet().forEach(entry -> {
         StreamEdge streamEdge = jobGraph.getOrCreateStreamEdge(entry.getKey());
         // Traverses the StreamGraph to find and update mappings for all Joins reachable from this input StreamEdge
         findReachableJoins(entry.getValue(), streamEdge, joinSpecToStreamEdges, streamEdgeToJoinSpecs,

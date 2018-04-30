@@ -24,7 +24,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.TaskConfig;
-import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.impl.OperatorSpecGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,14 +43,14 @@ public class TaskFactoryUtil {
   private static final Logger log = LoggerFactory.getLogger(TaskFactoryUtil.class);
 
   /**
-   * This method creates a task factory class based on the configuration and {@link StreamApplication}
+   * This method creates a task factory class based on the {@link StreamApplication}
    *
-   * @param config  the {@link Config} for this job
-   * @param streamGraph the {@link StreamGraphImpl}
+   * @param specGraph the {@link OperatorSpecGraph}
+   * @param contextManager the {@link ContextManager} to set up initial context for {@code specGraph}
    * @return  a task factory object, either a instance of {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory}
    */
-  public static Object createTaskFactory(Config config, StreamGraphImpl streamGraph) {
-    return (streamGraph != null) ? createStreamOperatorTaskFactory(new OperatorSpecGraph(streamGraph)) : fromTaskClassConfig(config);
+  public static Object createTaskFactory(OperatorSpecGraph specGraph, ContextManager contextManager) {
+    return createStreamOperatorTaskFactory(specGraph, contextManager);
   }
 
   /**
@@ -63,8 +63,8 @@ public class TaskFactoryUtil {
     return fromTaskClassConfig(config);
   }
 
-  private static StreamTaskFactory createStreamOperatorTaskFactory(OperatorSpecGraph streamGraph) {
-    return () -> new StreamOperatorTask(streamGraph);
+  private static StreamTaskFactory createStreamOperatorTaskFactory(OperatorSpecGraph specGraph, ContextManager contextManager) {
+    return () -> new StreamOperatorTask(specGraph, contextManager);
   }
 
   /**

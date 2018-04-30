@@ -175,14 +175,6 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     return partitionBy(keyExtractor, valueExtractor, null, userDefinedId);
   }
 
-  /**
-   * Get the {@link OperatorSpec} associated with this {@link MessageStreamImpl}.
-   * @return the {@link OperatorSpec} associated with this {@link MessageStreamImpl}.
-   */
-  protected OperatorSpec<?, M> getOperatorSpec() {
-    return this.operatorSpec;
-  }
-
   @Override
   public <K, V> void sendTo(Table<KV<K, V>> table) {
     SendToTableOperatorSpec<K, V> op =
@@ -203,6 +195,14 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   @Override
   public MessageStream<M> broadcast(String userDefinedId) {
     return broadcast(null, userDefinedId);
+  }
+
+  /**
+   * Get the {@link OperatorSpec} associated with this {@link MessageStreamImpl}.
+   * @return the {@link OperatorSpec} associated with this {@link MessageStreamImpl}.
+   */
+  protected OperatorSpec<?, M> getOperatorSpec() {
+    return this.operatorSpec;
   }
 
 }

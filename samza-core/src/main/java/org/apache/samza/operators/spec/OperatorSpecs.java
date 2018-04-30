@@ -19,8 +19,6 @@
 
 package org.apache.samza.operators.spec;
 
-import java.util.ArrayList;
-
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
@@ -69,7 +67,7 @@ public class OperatorSpecs {
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createMapOperatorSpec(
       MapFunction<? super M, ? extends OM> mapFn, String opId) {
-    return StreamOperatorSpec.createStreamOperatorSpec((MapFunction<M, OM>) mapFn, OperatorSpec.OpCode.MAP, opId);
+    return new MapOperatorSpec<>((MapFunction<M, OM>) mapFn, opId);
   }
 
   /**
@@ -82,7 +80,7 @@ public class OperatorSpecs {
    */
   public static <M> StreamOperatorSpec<M, M> createFilterOperatorSpec(
       FilterFunction<? super M> filterFn, String opId) {
-    return StreamOperatorSpec.createStreamOperatorSpec((FilterFunction<M>) filterFn, OperatorSpec.OpCode.FILTER, opId);
+    return new FilterOperatorSpec<>((FilterFunction<M>) filterFn, opId);
   }
 
   /**
@@ -96,7 +94,7 @@ public class OperatorSpecs {
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createFlatMapOperatorSpec(
       FlatMapFunction<? super M, ? extends OM> flatMapFn, String opId) {
-    return StreamOperatorSpec.createStreamOperatorSpec((FlatMapFunction<M, OM>) flatMapFn, OperatorSpec.OpCode.FLAT_MAP, opId);
+    return new FlatMapOperatorSpec<>((FlatMapFunction<M, OM>) flatMapFn, opId);
   }
 
   /**
@@ -188,12 +186,7 @@ public class OperatorSpecs {
    * @return  the {@link StreamOperatorSpec} for the merge
    */
   public static <M> StreamOperatorSpec<M, M> createMergeOperatorSpec(String opId) {
-    return StreamOperatorSpec.createStreamOperatorSpec((M message) ->
-        new ArrayList<M>() {
-          {
-            this.add(message);
-          }
-        }, OperatorSpec.OpCode.MERGE, opId);
+    return new MergeOperatorSpec<>(opId);
   }
 
   /**

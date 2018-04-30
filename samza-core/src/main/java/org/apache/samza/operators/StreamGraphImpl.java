@@ -19,21 +19,18 @@
 package org.apache.samza.operators;
 
 import com.google.common.annotations.VisibleForTesting;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.spec.InputOperatorSpec;
-import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec.OpCode;
 import org.apache.samza.operators.spec.OperatorSpecs;
 import org.apache.samza.operators.spec.OutputStreamImpl;
@@ -265,45 +262,6 @@ public class StreamGraphImpl implements StreamGraph {
    */
   /* package private */ String getNextOpId(OpCode opCode) {
     return getNextOpId(opCode, null);
-  }
-
-  /**
-   * Get all {@link OperatorSpec}s available in this {@link StreamGraphImpl}
-   *
-   * @return  all available {@link OperatorSpec}s
-   */
-  public Collection<OperatorSpec> getAllOperatorSpecs() {
-    Collection<InputOperatorSpec> inputOperatorSpecs = inputOperators.values();
-    Set<OperatorSpec> operatorSpecs = new HashSet<>();
-    for (InputOperatorSpec inputOperatorSpec: inputOperatorSpecs) {
-      operatorSpecs.add(inputOperatorSpec);
-      doGetOperatorSpecs(inputOperatorSpec, operatorSpecs);
-    }
-    return operatorSpecs;
-  }
-
-  private void doGetOperatorSpecs(OperatorSpec operatorSpec, Set<OperatorSpec> specs) {
-    Collection<OperatorSpec> registeredOperatorSpecs = operatorSpec.getRegisteredOperatorSpecs();
-    for (OperatorSpec registeredOperatorSpec: registeredOperatorSpecs) {
-      specs.add(registeredOperatorSpec);
-      doGetOperatorSpecs(registeredOperatorSpec, specs);
-    }
-  }
-
-  /**
-   * Returns <tt>true</tt> iff this {@link StreamGraphImpl} contains a join or a window operator
-   *
-   * @return  <tt>true</tt> iff this {@link StreamGraphImpl} contains a join or a window operator
-   */
-  public boolean hasWindowOrJoins() {
-    // Obtain the operator specs from the streamGraph
-    Collection<OperatorSpec> operatorSpecs = getAllOperatorSpecs();
-
-    Set<OperatorSpec> windowOrJoinSpecs = operatorSpecs.stream()
-        .filter(spec -> spec.getOpCode() == OperatorSpec.OpCode.WINDOW || spec.getOpCode() == OperatorSpec.OpCode.JOIN)
-        .collect(Collectors.toSet());
-
-    return windowOrJoinSpecs.size() != 0;
   }
 
   private KV<Serde, Serde> getKVSerdes(String streamId, Serde serde) {

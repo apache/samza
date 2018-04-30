@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
@@ -168,7 +169,7 @@ public class TestLocalApplicationRunner {
       }).when(sp).start();
 
     LocalApplicationRunner spy = spy(runner);
-    doReturn(sp).when(spy).createStreamProcessor(anyObject(), anyObject(), captor.capture());
+    doReturn(sp).when(spy).createStreamProcessor(any(Config.class), captor.capture());
 
     spy.runTask();
 

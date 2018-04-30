@@ -19,7 +19,6 @@
 package org.apache.samza.operators.spec;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -39,6 +38,7 @@ import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.StreamSpec;
@@ -158,18 +158,13 @@ public class TestOperatorSpec {
       return result;
     };
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec =
-        StreamOperatorSpec.createStreamOperatorSpec(flatMap, OperatorSpec.OpCode.MAP, "op0");
+        OperatorSpecs.createFlatMapOperatorSpec(flatMap, "op0");
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec =
         (StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(streamOperatorSpec);
     assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
     assertTrue(streamOperatorSpec.isClone(cloneOperatorSpec));
-    Serializable userFn = (Serializable) Whitebox.getInternalState(streamOperatorSpec, "userFn");
-    assertEquals(userFn, flatMap);
     assertNotEquals(streamOperatorSpec.getTransformFn(), cloneOperatorSpec.getTransformFn());
     assertTrue(cloneOperatorSpec.getTransformFn() instanceof FlatMapFunction);
-    Serializable clonedUserFn = (Serializable) Whitebox.getInternalState(cloneOperatorSpec, "userFn");
-    assertTrue(clonedUserFn instanceof FlatMapFunction);
-    assertNotEquals(userFn, clonedUserFn);
     assertNull(streamOperatorSpec.getWatermarkFn());
     assertNull(cloneOperatorSpec.getWatermarkFn());
     assertNull(streamOperatorSpec.getTimerFn());
@@ -186,10 +181,10 @@ public class TestOperatorSpec {
         (StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(streamOperatorSpec);
     assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
     assertTrue(streamOperatorSpec.isClone(cloneOperatorSpec));
-    Serializable userFn = (Serializable) Whitebox.getInternalState(streamOperatorSpec, "userFn");
+    MapFunction userFn = (MapFunction) Whitebox.getInternalState(streamOperatorSpec, "mapFn");
     assertEquals(userFn, mapFn);
     assertNotEquals(streamOperatorSpec.getTransformFn(), cloneOperatorSpec.getTransformFn());
-    Serializable clonedUserFn = (Serializable) Whitebox.getInternalState(cloneOperatorSpec, "userFn");
+    MapFunction clonedUserFn = (MapFunction) Whitebox.getInternalState(cloneOperatorSpec, "mapFn");
     assertTrue(cloneOperatorSpec.getTransformFn() instanceof FlatMapFunction);
     assertTrue(clonedUserFn instanceof MapFunction);
     assertNotEquals(userFn, clonedUserFn);
@@ -208,10 +203,10 @@ public class TestOperatorSpec {
         (StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(streamOperatorSpec);
     assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
     assertTrue(streamOperatorSpec.isClone(cloneOperatorSpec));
-    Serializable userFn = (Serializable) Whitebox.getInternalState(streamOperatorSpec, "userFn");
+    FilterFunction userFn = (FilterFunction) Whitebox.getInternalState(streamOperatorSpec, "filterFn");
     assertEquals(userFn, filterFn);
     assertNotEquals(streamOperatorSpec.getTransformFn(), cloneOperatorSpec.getTransformFn());
-    Serializable clonedUserFn = (Serializable) Whitebox.getInternalState(cloneOperatorSpec, "userFn");
+    FilterFunction clonedUserFn = (FilterFunction) Whitebox.getInternalState(cloneOperatorSpec, "filterFn");
     assertTrue(cloneOperatorSpec.getTransformFn() instanceof FlatMapFunction);
     assertTrue(clonedUserFn instanceof FilterFunction);
     assertNotEquals(userFn, clonedUserFn);
@@ -281,28 +276,12 @@ public class TestOperatorSpec {
   @Test
   public void testJoinOperatorSpec() throws IOException, ClassNotFoundException {
 
-    OperatorSpec<TestMessageEnvelope, Object> leftOpSpec = new OperatorSpec<TestMessageEnvelope, Object>(
-        OperatorSpec.OpCode.INPUT, "op0") {
-      @Override
-      public WatermarkFunction getWatermarkFn() {
-        return null;
-      }
-      @Override
-      public TimerFunction getTimerFn() {
-        return null;
-      }
-    };
-    OperatorSpec<TestMessageEnvelope, Object> rightOpSpec = new OperatorSpec<TestMessageEnvelope, Object>(
-        OperatorSpec.OpCode.INPUT, "op1") {
-      @Override
-      public WatermarkFunction getWatermarkFn() {
-        return null;
-      }
-      @Override
-      public TimerFunction getTimerFn() {
-        return null;
-      }
-    };
+    InputOperatorSpec<TestMessageEnvelope, Object> leftOpSpec = new InputOperatorSpec<>(
+        new StreamSpec("test-input-1", "test-input-1", "kafka"), new NoOpSerde<>(),
+        new NoOpSerde<>(), false, "op0");
+    InputOperatorSpec<TestMessageEnvelope, Object> rightOpSpec = new InputOperatorSpec<>(
+        new StreamSpec("test-input-2", "test-input-2", "kafka"), new NoOpSerde<>(),
+        new NoOpSerde<>(), false, "op1");
 
     Serde<Object> objSerde = new Serde<Object>() {
 
@@ -324,8 +303,8 @@ public class TestOperatorSpec {
         (JoinOperatorSpec<String, Object, Object, TestOutputMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(joinOperatorSpec);
     assertNotEquals("Expected deserialized copy of operator spec should not be the same as the original operator spec", joinOperatorSpec, joinOpCopy);
     assertTrue(joinOperatorSpec.isClone(joinOpCopy));
-    assertNull(joinOpCopy.getLeftInputOpSpec());
-    assertNull(joinOpCopy.getRightInputOpSpec());
+    assertTrue(joinOpCopy.getLeftInputOpSpec().isClone(leftOpSpec));
+    assertTrue(joinOpCopy.getRightInputOpSpec().isClone(rightOpSpec));
   }
 
   @Test
@@ -379,9 +358,7 @@ public class TestOperatorSpec {
     MapWithWatermarkFn testMapFn = new MapWithWatermarkFn();
 
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec =
-        StreamOperatorSpec.createStreamOperatorSpec(
-            testMapFn,
-            OperatorSpec.OpCode.MAP, "op0");
+        OperatorSpecs.createMapOperatorSpec(testMapFn, "op0");
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec =
         (StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(streamOperatorSpec);
     assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
@@ -399,9 +376,7 @@ public class TestOperatorSpec {
     MapWithTimerFn testMapFn = new MapWithTimerFn();
 
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec =
-        StreamOperatorSpec.createStreamOperatorSpec(
-            testMapFn,
-            OperatorSpec.OpCode.MAP, "op0");
+        OperatorSpecs.createMapOperatorSpec(testMapFn, "op0");
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec =
         (StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(streamOperatorSpec);
     assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
@@ -429,10 +404,10 @@ public class TestOperatorSpec {
         (StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(streamOperatorSpec);
     assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
     assertTrue(streamOperatorSpec.isClone(cloneOperatorSpec));
-    Serializable userFn = (Serializable) Whitebox.getInternalState(streamOperatorSpec, "userFn");
+    MapFunction userFn = (MapFunction) Whitebox.getInternalState(streamOperatorSpec, "mapFn");
     assertEquals(userFn, mapFn);
     assertNotEquals(streamOperatorSpec.getTransformFn(), cloneOperatorSpec.getTransformFn());
-    Serializable clonedUserFn = (Serializable) Whitebox.getInternalState(cloneOperatorSpec, "userFn");
+    MapFunction clonedUserFn = (MapFunction) Whitebox.getInternalState(cloneOperatorSpec, "mapFn");
     assertTrue(cloneOperatorSpec.getTransformFn() instanceof FlatMapFunction);
     assertTrue(clonedUserFn instanceof MapFunction);
     assertNotEquals(userFn, clonedUserFn);
@@ -456,10 +431,10 @@ public class TestOperatorSpec {
         (StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(streamOperatorSpec);
     assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
     assertTrue(streamOperatorSpec.isClone(cloneOperatorSpec));
-    Serializable userFn = (Serializable) Whitebox.getInternalState(streamOperatorSpec, "userFn");
+    MapFunction userFn = (MapFunction) Whitebox.getInternalState(streamOperatorSpec, "mapFn");
     assertEquals(userFn, mapFn);
     assertNotEquals(streamOperatorSpec.getTransformFn(), cloneOperatorSpec.getTransformFn());
-    Serializable clonedUserFn = (Serializable) Whitebox.getInternalState(cloneOperatorSpec, "userFn");
+    MapFunction clonedUserFn = (MapFunction) Whitebox.getInternalState(cloneOperatorSpec, "mapFn");
     assertTrue(cloneOperatorSpec.getTransformFn() instanceof FlatMapFunction);
     assertTrue(clonedUserFn instanceof MapFunction);
     assertNotEquals(userFn, clonedUserFn);
@@ -470,14 +445,15 @@ public class TestOperatorSpec {
     MapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> mapFn = new MapWithEnum(OperatorSpecTestUtils.TestEnum.One);
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec =
         OperatorSpecs.createMapOperatorSpec(mapFn, "op0");
+    assertTrue(streamOperatorSpec instanceof MapOperatorSpec);
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec =
         (StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(streamOperatorSpec);
     assertNotEquals(streamOperatorSpec, cloneOperatorSpec);
     assertTrue(streamOperatorSpec.isClone(cloneOperatorSpec));
-    Serializable userFn = (Serializable) Whitebox.getInternalState(streamOperatorSpec, "userFn");
+    MapFunction userFn = (MapFunction) Whitebox.getInternalState(streamOperatorSpec, "mapFn");
     assertEquals(userFn, mapFn);
     assertNotEquals(streamOperatorSpec.getTransformFn(), cloneOperatorSpec.getTransformFn());
-    Serializable clonedUserFn = (Serializable) Whitebox.getInternalState(cloneOperatorSpec, "userFn");
+    MapFunction clonedUserFn = (MapFunction) Whitebox.getInternalState(cloneOperatorSpec, "mapFn");
     assertTrue(cloneOperatorSpec.getTransformFn() instanceof FlatMapFunction);
     assertTrue(clonedUserFn instanceof MapWithEnum);
     assertNotEquals(userFn, clonedUserFn);

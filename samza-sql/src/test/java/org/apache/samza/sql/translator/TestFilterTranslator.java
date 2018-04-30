@@ -101,7 +101,7 @@ public class TestFilterTranslator extends TranslatorTestBase {
         new HashSet<>(), null, null, null, null, null, null);
     taskContext.setUserContext(mockContext);
     filterSpec.getTransformFn().init(mockConfig, taskContext);
-    FilterFunction filterFn = (FilterFunction) Whitebox.getInternalState(filterSpec, "userFn");
+    FilterFunction filterFn = (FilterFunction) Whitebox.getInternalState(filterSpec, "filterFn");
     assertNotNull(filterFn);
     assertEquals(mockContext, Whitebox.getInternalState(filterFn, "context"));
     assertEquals(mockFilter, Whitebox.getInternalState(filterFn, "filter"));
@@ -129,10 +129,6 @@ public class TestFilterTranslator extends TranslatorTestBase {
     }).when(mockExpr).execute(eq(executionContext), eq(dataContext), eq(mockInputMsg.getFieldValues().toArray()), eq(result));
     assertFalse(filterFn.apply(mockInputMsg));
 
-    StreamOperatorSpec copyFilterSpec = (StreamOperatorSpec) OperatorSpec.fromBytes(OperatorSpec.toBytes(filterSpec));
-    assertTrue(copyFilterSpec != filterSpec);
-    assertTrue(copyFilterSpec.getTransformFn() != null);
-    assertTrue(copyFilterSpec.getTransformFn() != filterSpec.getTransformFn());
   }
 
 }

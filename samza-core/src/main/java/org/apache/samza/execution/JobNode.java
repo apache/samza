@@ -39,7 +39,7 @@ import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.config.TaskConfigJava;
-import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.impl.OperatorSpecGraph;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -73,22 +73,22 @@ public class JobNode {
   private final String jobName;
   private final String jobId;
   private final String id;
-  private final StreamGraphImpl streamGraph;
+  private final OperatorSpecGraph specGraph;
   private final List<StreamEdge> inEdges = new ArrayList<>();
   private final List<StreamEdge> outEdges = new ArrayList<>();
   private final List<TableSpec> tables = new ArrayList<>();
   private final Config config;
 
-  JobNode(String jobName, String jobId, StreamGraphImpl streamGraph, Config config) {
+  JobNode(String jobName, String jobId, OperatorSpecGraph specGraph, Config config) {
     this.jobName = jobName;
     this.jobId = jobId;
     this.id = createId(jobName, jobId);
-    this.streamGraph = streamGraph;
+    this.specGraph = specGraph;
     this.config = config;
   }
 
-  public StreamGraphImpl getStreamGraph() {
-    return streamGraph;
+  public OperatorSpecGraph getSpecGraph() {
+    return this.specGraph;
   }
 
   public  String getId() {
@@ -154,7 +154,7 @@ public class JobNode {
     }
 
     // set triggering interval if a window or join is defined
-    if (streamGraph.hasWindowOrJoins()) {
+    if (specGraph.hasWindowOrJoins()) {
       if ("-1".equals(config.get(TaskConfig.WINDOW_MS(), "-1"))) {
         long triggerInterval = computeTriggerInterval();
         log.info("Using triggering interval: {} for jobName: {}", triggerInterval, jobName);
@@ -163,7 +163,7 @@ public class JobNode {
       }
     }
 
-    streamGraph.getAllOperatorSpecs().forEach(opSpec -> {
+    specGraph.getAllOperatorSpecs().forEach(opSpec -> {
         if (opSpec instanceof StatefulOperatorSpec) {
           ((StatefulOperatorSpec) opSpec).getStoreDescriptors()
               .forEach(sd -> configs.putAll(sd.getStorageConfigs()));
@@ -227,14 +227,14 @@ public class JobNode {
     // collect all key and msg serde instances for streams
     Map<String, Serde> streamKeySerdes = new HashMap<>();
     Map<String, Serde> streamMsgSerdes = new HashMap<>();
-    Map<StreamSpec, InputOperatorSpec> inputOperators = streamGraph.getInputOperators();
+    Map<StreamSpec, InputOperatorSpec> inputOperators = specGraph.getInputOperators();
     inEdges.forEach(edge -> {
         String streamId = edge.getStreamSpec().getId();
         InputOperatorSpec inputOperatorSpec = inputOperators.get(edge.getStreamSpec());
         streamKeySerdes.put(streamId, inputOperatorSpec.getKeySerde());
         streamMsgSerdes.put(streamId, inputOperatorSpec.getValueSerde());
       });
-    Map<StreamSpec, OutputStreamImpl> outputStreams = streamGraph.getOutputStreams();
+    Map<StreamSpec, OutputStreamImpl> outputStreams = specGraph.getOutputStreams();
     outEdges.forEach(edge -> {
         String streamId = edge.getStreamSpec().getId();
         OutputStreamImpl outputStream = outputStreams.get(edge.getStreamSpec());
@@ -245,7 +245,7 @@ public class JobNode {
     // collect all key and msg serde instances for stores
     Map<String, Serde> storeKeySerdes = new HashMap<>();
     Map<String, Serde> storeMsgSerdes = new HashMap<>();
-    streamGraph.getAllOperatorSpecs().forEach(opSpec -> {
+    specGraph.getAllOperatorSpecs().forEach(opSpec -> {
         if (opSpec instanceof StatefulOperatorSpec) {
           ((StatefulOperatorSpec) opSpec).getStoreDescriptors().forEach(storeDescriptor -> {
               storeKeySerdes.put(storeDescriptor.getStoreName(), storeDescriptor.getKeySerde());
@@ -320,7 +320,7 @@ public class JobNode {
    */
   private long computeTriggerInterval() {
     // Obtain the operator specs from the streamGraph
-    Collection<OperatorSpec> operatorSpecs = streamGraph.getAllOperatorSpecs();
+    Collection<OperatorSpec> operatorSpecs = specGraph.getAllOperatorSpecs();
 
     // Filter out window operators, and obtain a list of their triggering interval values
     List<Long> windowTimerIntervals = operatorSpecs.stream()

@@ -19,15 +19,17 @@
 
 package org.apache.samza.operators.spec;
 
-import java.io.IOException;
+import org.apache.samza.serializers.SerializableSerde;
 
 
 /**
  * Test util methods for {@link OperatorSpec} classes
  */
 public class OperatorSpecTestUtils {
-  static OperatorSpec copyOpSpec(OperatorSpec original) throws IOException, ClassNotFoundException {
-    return OperatorSpec.fromBytes(OperatorSpec.toBytes(original));
+  private final static SerializableSerde<OperatorSpec> SPEC_SERDE = new SerializableSerde<>();
+
+  static OperatorSpec copyOpSpec(OperatorSpec original) {
+    return SPEC_SERDE.fromBytes(SPEC_SERDE.toBytes(original));
   }
 
   enum TestEnum {

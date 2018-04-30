@@ -27,6 +27,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.impl.OperatorSpecGraph;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.testUtils.TestAsyncStreamTask;
 import org.apache.samza.testUtils.TestStreamTask;
@@ -55,7 +56,7 @@ public class TestTaskFactoryUtil {
         this.put("task.class", "org.apache.samza.testUtils.TestStreamTask");
       }
     });
-    Object retFactory = TaskFactoryUtil.createTaskFactory(config, null);
+    Object retFactory = TaskFactoryUtil.createTaskFactory(config);
     assertTrue(retFactory instanceof StreamTaskFactory);
     assertTrue(((StreamTaskFactory) retFactory).createInstance() instanceof TestStreamTask);
 
@@ -65,7 +66,7 @@ public class TestTaskFactoryUtil {
       }
     });
     try {
-      TaskFactoryUtil.createTaskFactory(config, null);
+      TaskFactoryUtil.createTaskFactory(config);
       fail("Should have failed w/ no.such.class");
     } catch (ConfigException cfe) {
       // expected
@@ -83,7 +84,7 @@ public class TestTaskFactoryUtil {
     assertNotNull(streamApp);
     StreamGraphImpl graph = new StreamGraphImpl(mockRunner, config);
     streamApp.init(graph, config);
-    Object retFactory = TaskFactoryUtil.createTaskFactory(config, graph);
+    Object retFactory = TaskFactoryUtil.createTaskFactory(new OperatorSpecGraph(graph), null);
     assertTrue(retFactory instanceof StreamTaskFactory);
     assertTrue(((StreamTaskFactory) retFactory).createInstance() instanceof StreamOperatorTask);
 
@@ -196,7 +197,7 @@ public class TestTaskFactoryUtil {
         this.put("task.class", "org.apache.samza.testUtils.TestAsyncStreamTask");
       }
     });
-    Object retFactory = TaskFactoryUtil.createTaskFactory(config, null);
+    Object retFactory = TaskFactoryUtil.createTaskFactory(config);
     assertTrue(retFactory instanceof AsyncStreamTaskFactory);
     assertTrue(((AsyncStreamTaskFactory) retFactory).createInstance() instanceof TestAsyncStreamTask);
 
@@ -206,7 +207,7 @@ public class TestTaskFactoryUtil {
       }
     });
     try {
-      TaskFactoryUtil.createTaskFactory(config, null);
+      TaskFactoryUtil.createTaskFactory(config);
       fail("Should have failed w/ no.such.class");
     } catch (ConfigException cfe) {
       // expected

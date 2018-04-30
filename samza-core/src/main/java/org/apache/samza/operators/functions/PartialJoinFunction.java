@@ -18,14 +18,13 @@
  */
 package org.apache.samza.operators.functions;
 
-import java.io.Serializable;
 import org.apache.samza.operators.impl.store.TimestampedValue;
 import org.apache.samza.storage.kv.KeyValueStore;
 
 /**
  * An internal function that maintains state and join logic for one side of a two-way join.
  */
-public interface PartialJoinFunction<K, M, OM, JM> extends InitableFunction, ClosableFunction, Serializable {
+public interface PartialJoinFunction<K, M, OM, JM> extends InitableFunction, ClosableFunction {
 
   /**
    * Joins a message in this stream with a message from another stream.

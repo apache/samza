@@ -119,7 +119,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
         new HashSet<>(), null, null, null, null, null, null);
     taskContext.setUserContext(mockContext);
     projectSpec.getTransformFn().init(mockConfig, taskContext);
-    MapFunction mapFn = (MapFunction) Whitebox.getInternalState(projectSpec, "userFn");
+    MapFunction mapFn = (MapFunction) Whitebox.getInternalState(projectSpec, "mapFn");
     assertNotNull(mapFn);
     assertEquals(mockContext, Whitebox.getInternalState(mapFn, "context"));
     assertEquals(mockProject, Whitebox.getInternalState(mapFn, "project"));
@@ -148,10 +148,6 @@ public class TestProjectTranslator extends TranslatorTestBase {
           this.add(mockFieldObj);
         }});
 
-    StreamOperatorSpec copyProjectSpec = (StreamOperatorSpec) OperatorSpec.fromBytes(OperatorSpec.toBytes(projectSpec));
-    assertTrue(copyProjectSpec != projectSpec);
-    assertTrue(copyProjectSpec.getTransformFn() != null);
-    assertTrue(copyProjectSpec.getTransformFn() != projectSpec.getTransformFn());
   }
 
   @Test
@@ -247,11 +243,6 @@ public class TestProjectTranslator extends TranslatorTestBase {
         .collect(ArrayList::new, (c, a) -> c.add(a), (c1, c2) -> c1.addAll(c2));
     assertEquals(testList, actualList);
 
-    StreamOperatorSpec copyFlattenOp = (StreamOperatorSpec) OperatorSpec.fromBytes(OperatorSpec.toBytes(flattenOp));
-    assertTrue(copyFlattenOp != flattenOp);
-    assertTrue(copyFlattenOp.getTransformFn() != null);
-    assertTrue(copyFlattenOp.getTransformFn() != flattenOp.getTransformFn());
-
     StreamOperatorSpec projectSpec = (StreamOperatorSpec) Whitebox.getInternalState(this.getRegisteredMessageStream(2), "operatorSpec");
     assertNotNull(projectSpec);
     assertEquals(projectSpec.getOpCode(), OperatorSpec.OpCode.MAP);
@@ -262,7 +253,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
         new HashSet<>(), null, null, null, null, null, null);
     taskContext.setUserContext(mockContext);
     projectSpec.getTransformFn().init(mockConfig, taskContext);
-    MapFunction mapFn = (MapFunction) Whitebox.getInternalState(projectSpec, "userFn");
+    MapFunction mapFn = (MapFunction) Whitebox.getInternalState(projectSpec, "mapFn");
     assertNotNull(mapFn);
     assertEquals(mockContext, Whitebox.getInternalState(mapFn, "context"));
     assertEquals(mockProject, Whitebox.getInternalState(mapFn, "project"));
@@ -291,10 +282,6 @@ public class TestProjectTranslator extends TranslatorTestBase {
       this.add(mockFieldObj);
     }});
 
-    StreamOperatorSpec copyProjectSpec = (StreamOperatorSpec) OperatorSpec.fromBytes(OperatorSpec.toBytes(projectSpec));
-    assertTrue(copyProjectSpec != projectSpec);
-    assertTrue(copyProjectSpec.getTransformFn() != null);
-    assertTrue(copyProjectSpec.getTransformFn() != projectSpec.getTransformFn());
   }
 
 }

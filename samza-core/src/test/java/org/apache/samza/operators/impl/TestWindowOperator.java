@@ -114,7 +114,7 @@ public class TestWindowOperator {
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
 
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, null, testClock);
     task.init(config, taskContext);
     MessageCollector messageCollector =
         envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
@@ -147,7 +147,7 @@ public class TestWindowOperator {
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
 
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, null, testClock);
     task.init(config, taskContext);
 
     MessageCollector messageCollector =
@@ -176,7 +176,7 @@ public class TestWindowOperator {
     List<WindowPane<Integer, Integer>> windowPanes = new ArrayList<>();
 
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, null, testClock);
     task.init(config, taskContext);
     MessageCollector messageCollector = envelope -> windowPanes.add((WindowPane<Integer, Integer>) envelope.getMessage());
     integers.forEach(n -> task.process(new IntegerEnvelope(n), messageCollector, taskCoordinator));
@@ -197,7 +197,7 @@ public class TestWindowOperator {
         Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2))));
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, null, testClock);
     task.init(config, taskContext);
 
     MessageCollector messageCollector =
@@ -226,7 +226,7 @@ public class TestWindowOperator {
         sgb = new OperatorSpecGraph(this.getKeyedSessionWindowStreamGraph(AccumulationMode.DISCARDING, Duration.ofMillis(500)));
     TestClock testClock = new TestClock();
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, null, testClock);
     task.init(config, taskContext);
     MessageCollector messageCollector =
         envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
@@ -271,7 +271,7 @@ public class TestWindowOperator {
     OperatorSpecGraph sgb = new OperatorSpecGraph(this.getKeyedSessionWindowStreamGraph(AccumulationMode.DISCARDING,
         Duration.ofMillis(500)));
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, null, testClock);
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
 
     MessageCollector messageCollector =
@@ -303,7 +303,7 @@ public class TestWindowOperator {
     OperatorSpecGraph sgb = new OperatorSpecGraph(this.getKeyedTumblingWindowStreamGraph(AccumulationMode.ACCUMULATING,
         Duration.ofSeconds(1), Triggers.count(2)));
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, null, testClock);
     task.init(config, taskContext);
 
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
@@ -348,7 +348,7 @@ public class TestWindowOperator {
         sgb = new OperatorSpecGraph(this.getKeyedTumblingWindowStreamGraph(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1),
         Triggers.any(Triggers.count(2), Triggers.timeSinceFirstMessage(Duration.ofMillis(500)))));
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, null, testClock);
     task.init(config, taskContext);
 
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
@@ -412,7 +412,7 @@ public class TestWindowOperator {
         envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
 
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, null, testClock);
     task.init(config, taskContext);
 
     task.process(new IntegerEnvelope(1), messageCollector, taskCoordinator);
@@ -454,7 +454,7 @@ public class TestWindowOperator {
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
 
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, null, testClock);
     task.init(config, taskContext);
 
     MessageCollector messageCollector =
@@ -494,7 +494,7 @@ public class TestWindowOperator {
         sgb = new OperatorSpecGraph(this.getKeyedSessionWindowStreamGraph(AccumulationMode.DISCARDING, Duration.ofMillis(500)));
     TestClock testClock = new TestClock();
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, null, testClock);
     task.init(config, taskContext);
 
     MessageCollector messageCollector =
@@ -531,7 +531,7 @@ public class TestWindowOperator {
         sgb = new OperatorSpecGraph(this.getKeyedSessionWindowStreamGraph(AccumulationMode.DISCARDING, Duration.ofMillis(500)));
     TestClock testClock = new TestClock();
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, null, testClock);
     task.init(config, taskContext);
 
     MessageCollector messageCollector =

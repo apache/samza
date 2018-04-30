@@ -41,6 +41,7 @@ import org.apache.samza.coordinator.DistributedLockWithState;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.impl.OperatorSpecGraph;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.StreamProcessorLifecycleListener;
 import org.apache.samza.system.StreamSpec;
@@ -138,7 +139,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     LOG.info("LocalApplicationRunner will run " + taskName);
     LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
 
-    StreamProcessor processor = createStreamProcessor(jobConfig, null, listener);
+    StreamProcessor processor = createStreamProcessor(jobConfig, listener);
 
     numProcessorsToStart.set(1);
     listener.setProcessor(processor);
@@ -251,6 +252,20 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     }
   }
 
+
+  /**
+   * Create {@link StreamProcessor} based on {@link StreamApplication} and the config
+   * @param config config
+   * @return {@link StreamProcessor]}
+   */
+  /* package private */
+  StreamProcessor createStreamProcessor(
+      Config config,
+      StreamProcessorLifecycleListener listener) {
+    Object taskFactory = TaskFactoryUtil.createTaskFactory(config);
+    return createStreamProcessor(config, taskFactory, listener);
+  }
+
   /**
    * Create {@link StreamProcessor} based on {@link StreamApplication} and the config
    * @param config config
@@ -262,7 +277,11 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       Config config,
       StreamGraphImpl streamGraph,
       StreamProcessorLifecycleListener listener) {
-    Object taskFactory = TaskFactoryUtil.createTaskFactory(config, streamGraph);
+    Object taskFactory = TaskFactoryUtil.createTaskFactory(new OperatorSpecGraph(streamGraph), streamGraph.getContextManager());
+    return createStreamProcessor(config, taskFactory, listener);
+  }
+
+  private StreamProcessor createStreamProcessor(Config config, Object taskFactory, StreamProcessorLifecycleListener listener) {
     if (taskFactory instanceof StreamTaskFactory) {
       return new StreamProcessor(
           config, new HashMap<>(), (StreamTaskFactory) taskFactory, listener);

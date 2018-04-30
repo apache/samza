@@ -18,20 +18,14 @@
  */
 package org.apache.samza.example;
 
-import com.google.common.cache.Cache;
 import java.io.IOException;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FoldLeftFunction;
-import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SupplierFunction;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.AccumulationMode;
@@ -41,42 +35,15 @@ import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.storage.kv.KeyValueStore;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
-import sun.net.www.http.HttpClient;
-import sun.util.locale.LocaleObjectCache;
 
 
 /**
  * Example code to implement window-based counter
  */
 public class PageViewCounterExample implements StreamApplication {
-
-  static class MyFilterFunction implements FilterFunction<PageViewEvent> {
-    private transient Map<String, String> cachePerTask;
-
-    @Override
-    public boolean apply(PageViewEvent message) {
-      return checkDups(message);
-    }
-
-    private boolean checkDups(PageViewEvent message) {
-      return false;
-    }
-
-    @Override
-    public void close() {
-
-    }
-
-    @Override
-    public void init(Config config, TaskContext context) {
-      this.cachePerTask = (Map<String, String>) context.getUserContext();
-    }
-  }
 
   // local execution mode
   public static void main(String[] args) throws IOException {
@@ -106,18 +73,6 @@ public class PageViewCounterExample implements StreamApplication {
             .setAccumulationMode(AccumulationMode.DISCARDING), "tumblingWindow")
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), new PageViewCount(windowPane)))
         .sendTo(pageViewEventPerMemberStream);
-
-    graph.withContextManager(new ContextManager() {
-      @Override
-      public void init(Config config, TaskContext context) {
-        context.setUserContext(new ConcurrentHashMap<>());
-      }
-
-      @Override
-      public void close() {
-
-      }
-    });
 
   }
 

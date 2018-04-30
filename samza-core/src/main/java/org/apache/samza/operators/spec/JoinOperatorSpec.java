@@ -45,12 +45,8 @@ public class JoinOperatorSpec<K, M, OM, JM> extends OperatorSpec<Object, JM> imp
   private final JoinFunction<K, M, OM, JM> joinFn;
   private final long ttlMs;
 
-  /**
-   * The input {@link OperatorSpec}s are declared as transient since currently we only use the non-deserialized original
-   * {@link JoinOperatorSpec} to traverse the graph in {@link org.apache.samza.operators.impl.OperatorImplGraph}.
-   */
-  private transient final OperatorSpec<?, M> leftInputOpSpec;
-  private transient final OperatorSpec<?, OM> rightInputOpSpec;
+  private final OperatorSpec<?, M> leftInputOpSpec;
+  private final OperatorSpec<?, OM> rightInputOpSpec;
 
   /**
    * The following {@link Serde}s are serialized by the ExecutionPlanner when generating the store configs for a join, and

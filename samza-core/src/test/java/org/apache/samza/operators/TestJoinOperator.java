@@ -315,7 +315,7 @@ public class TestJoinOperator {
     when(taskContext.getStore(eq("jobName-jobId-join-j1-R")))
         .thenReturn(new TestInMemoryStore(integerSerde, timestampedValueSerde));
 
-    StreamOperatorTask sot = new StreamOperatorTask(new OperatorSpecGraph(streamGraph), clock);
+    StreamOperatorTask sot = new StreamOperatorTask(new OperatorSpecGraph(streamGraph), streamGraph.getContextManager(), clock);
     sot.init(config, taskContext);
     return sot;
   }
