@@ -102,8 +102,7 @@ public class AvroRelConverter implements SamzaRelConverter {
       throw new SamzaException(msg);
     }
 
-    Object key = samzaMessage.getKey();
-    return new SamzaSqlRelMessage(key, fieldNames, fieldValues);
+    return new SamzaSqlRelMessage(samzaMessage.getKey(), fieldNames, fieldValues);
   }
 
   private SamzaSqlRelRecord convertToRelRecord(IndexedRecord avroRecord) {
