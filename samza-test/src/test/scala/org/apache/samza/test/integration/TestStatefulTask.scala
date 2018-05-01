@@ -78,7 +78,7 @@ class TestStatefulTask extends StreamTaskTestUtil {
     // since the second part of the test expects to replay the input streams.
     "systems.kafka.streams.input.samza.reset.offset" -> "true"))
 
-  //@Test
+  @Test
   def testShouldStartAndRestore {
     // Have to do this in one test to guarantee ordering.
     testShouldStartTaskForFirstTime
