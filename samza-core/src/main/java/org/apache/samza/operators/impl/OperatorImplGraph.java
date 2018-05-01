@@ -33,6 +33,7 @@ import org.apache.samza.operators.spec.BroadcastOperatorSpec;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.PartitionByOperatorSpec;
 import org.apache.samza.operators.spec.SendToTableOperatorSpec;
@@ -209,12 +210,6 @@ public class OperatorImplGraph {
    */
   OperatorImpl createOperatorImpl(OperatorSpec prevOperatorSpec, OperatorSpec operatorSpec,
       Config config, TaskContext context) {
-    if (operatorSpec instanceof JoinOperatorSpec) {
-      return getOrCreatePartialJoinOpImpls((JoinOperatorSpec) operatorSpec,
-          prevOperatorSpec.equals(((JoinOperatorSpec) operatorSpec).getLeftInputOpSpec()),
-          config, context, clock);
-    }
-    // for all other operatorSpec, create a per-task instance of OperatorSpec
     if (operatorSpec instanceof InputOperatorSpec) {
       return new InputOperatorImpl((InputOperatorSpec) operatorSpec);
     } else if (operatorSpec instanceof StreamOperatorSpec) {
@@ -227,6 +222,10 @@ public class OperatorImplGraph {
       return new PartitionByOperatorImpl((PartitionByOperatorSpec) operatorSpec, config, context);
     } else if (operatorSpec instanceof WindowOperatorSpec) {
       return new WindowOperatorImpl((WindowOperatorSpec) operatorSpec, clock);
+    } else if (operatorSpec instanceof JoinOperatorSpec) {
+      return getOrCreatePartialJoinOpImpls((JoinOperatorSpec) operatorSpec,
+          prevOperatorSpec.equals(((JoinOperatorSpec) operatorSpec).getLeftInputOpSpec()),
+          config, context, clock);
     } else if (operatorSpec instanceof StreamTableJoinOperatorSpec) {
       return new StreamTableJoinOperatorImpl((StreamTableJoinOperatorSpec) operatorSpec, config, context);
     } else if (operatorSpec instanceof SendToTableOperatorSpec) {

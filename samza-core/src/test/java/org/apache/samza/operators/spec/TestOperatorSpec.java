@@ -18,7 +18,6 @@
  */
 package org.apache.samza.operators.spec;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -151,7 +150,7 @@ public class TestOperatorSpec {
   }
 
   @Test
-  public void testStreamOperatorSpecWithFlatMap() throws IOException, ClassNotFoundException {
+  public void testStreamOperatorSpecWithFlatMap() {
     FlatMapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> flatMap = m -> {
       List<TestOutputMessageEnvelope> result = new ArrayList<>();
       result.add(new TestOutputMessageEnvelope(m.getKey(), m.getMessage().hashCode()));
@@ -172,7 +171,7 @@ public class TestOperatorSpec {
   }
 
   @Test
-  public void testStreamOperatorSpecWithMap() throws IOException, ClassNotFoundException {
+  public void testStreamOperatorSpecWithMap() {
     MapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> mapFn =
         m -> new TestOutputMessageEnvelope(m.getKey(), m.getMessage().hashCode());
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec =
@@ -195,7 +194,7 @@ public class TestOperatorSpec {
   }
 
   @Test
-  public void testStreamOperatorSpecWithFilter() throws IOException, ClassNotFoundException {
+  public void testStreamOperatorSpecWithFilter() {
     FilterFunction<TestMessageEnvelope> filterFn = m -> m.getKey().equals("key1");
     StreamOperatorSpec<TestMessageEnvelope, TestMessageEnvelope> streamOperatorSpec =
         OperatorSpecs.createFilterOperatorSpec(filterFn, "op0");
@@ -217,7 +216,7 @@ public class TestOperatorSpec {
   }
 
   @Test
-  public void testInputOperatorSpec() throws IOException, ClassNotFoundException {
+  public void testInputOperatorSpec() {
     Serde<Object> objSerde = new Serde<Object>() {
 
       @Override
@@ -242,7 +241,7 @@ public class TestOperatorSpec {
   }
 
   @Test
-  public void testOutputOperatorSpec() throws IOException, ClassNotFoundException {
+  public void testOutputOperatorSpec() {
     Serde<Object> objSerde = new Serde<Object>() {
 
       @Override
@@ -265,7 +264,7 @@ public class TestOperatorSpec {
   }
 
   @Test
-  public void testSinkOperatorSpec() throws IOException, ClassNotFoundException {
+  public void testSinkOperatorSpec() {
     SinkFunction<TestMessageEnvelope> sinkFn = (m, c, tc) -> System.out.print(m.toString());
     SinkOperatorSpec<TestMessageEnvelope> sinkOpSpec = new SinkOperatorSpec<>(sinkFn, "op0");
     SinkOperatorSpec<TestMessageEnvelope> sinkOpCopy = (SinkOperatorSpec<TestMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(sinkOpSpec);
@@ -274,7 +273,7 @@ public class TestOperatorSpec {
   }
 
   @Test
-  public void testJoinOperatorSpec() throws IOException, ClassNotFoundException {
+  public void testJoinOperatorSpec() {
 
     InputOperatorSpec<TestMessageEnvelope, Object> leftOpSpec = new InputOperatorSpec<>(
         new StreamSpec("test-input-1", "test-input-1", "kafka"), new NoOpSerde<>(),
@@ -308,7 +307,7 @@ public class TestOperatorSpec {
   }
 
   @Test
-  public void testStreamTableJoinOperatorSpec() throws IOException, ClassNotFoundException {
+  public void testStreamTableJoinOperatorSpec() {
     StreamTableJoinFunction<String, Object, Object, TestOutputMessageEnvelope> joinFn = new TestStreamTableJoinFunction();
 
     TableSpec tableSpec = new TableSpec("table-0", KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>()), "my.table.provider.class",
@@ -327,7 +326,7 @@ public class TestOperatorSpec {
   }
 
   @Test
-  public void testSendToTableOperatorSpec() throws IOException, ClassNotFoundException {
+  public void testSendToTableOperatorSpec() {
     TableSpec tableSpec = new TableSpec("table-0", KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>()), "my.table.provider.class",
         new MapConfig(new HashMap<String, String>() { { this.put("config1", "value1"); this.put("config2", "value2"); } }));
     SendToTableOperatorSpec<String, Integer> sendOpSpec =
@@ -340,7 +339,7 @@ public class TestOperatorSpec {
   }
 
   @Test
-  public void testBroadcastOperatorSpec() throws IOException, ClassNotFoundException {
+  public void testBroadcastOperatorSpec() {
     OutputStreamImpl<TestOutputMessageEnvelope> outputStream =
         new OutputStreamImpl<>(new StreamSpec("output-0", "outputStream-0", "kafka"), new StringSerde("UTF-8"), new JsonSerdeV2<TestOutputMessageEnvelope>(), true);
     BroadcastOperatorSpec<TestOutputMessageEnvelope> broadcastOpSpec = new BroadcastOperatorSpec<>(outputStream, "broadcast-1");
@@ -354,7 +353,7 @@ public class TestOperatorSpec {
   }
 
   @Test
-  public void testMapStreamOperatorSpecWithWatermark() throws IOException, ClassNotFoundException {
+  public void testMapStreamOperatorSpecWithWatermark() {
     MapWithWatermarkFn testMapFn = new MapWithWatermarkFn();
 
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec =
@@ -372,7 +371,7 @@ public class TestOperatorSpec {
   }
 
   @Test
-  public void testMapStreamOperatorSpecWithTimer() throws IOException, ClassNotFoundException {
+  public void testMapStreamOperatorSpecWithTimer() {
     MapWithTimerFn testMapFn = new MapWithTimerFn();
 
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec =
@@ -391,7 +390,7 @@ public class TestOperatorSpec {
   }
 
   @Test
-  public void testStreamOperatorSpecWithMapAndListInClosure() throws IOException, ClassNotFoundException {
+  public void testStreamOperatorSpecWithMapAndListInClosure() {
     List<Integer> integers = new ArrayList<>(1);
     integers.add(0, 100);
     List<String> keys = new ArrayList<>(1);
@@ -423,7 +422,7 @@ public class TestOperatorSpec {
   }
 
   @Test
-  public void testStreamOperatorSpecWithMapWithFunctionReference() throws IOException, ClassNotFoundException {
+  public void testStreamOperatorSpecWithMapWithFunctionReference() {
     MapFunction<KV<String, Object>, Object> mapFn = KV::getValue;
     StreamOperatorSpec<KV<String, Object>, Object> streamOperatorSpec =
         OperatorSpecs.createMapOperatorSpec(mapFn, "op0");
@@ -441,7 +440,7 @@ public class TestOperatorSpec {
   }
 
   @Test
-  public void testStreamOperatorSpecWithMapWithEnum() throws IOException, ClassNotFoundException {
+  public void testStreamOperatorSpecWithMapWithEnum() {
     MapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> mapFn = new MapWithEnum(OperatorSpecTestUtils.TestEnum.One);
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec =
         OperatorSpecs.createMapOperatorSpec(mapFn, "op0");

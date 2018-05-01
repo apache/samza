@@ -32,8 +32,8 @@ import org.apache.samza.operators.functions.WatermarkFunction;
 
 /**
  * A stream operator specification that holds all the information required to transform
- * the input {@link org.apache.samza.operators.MessageStreamImpl} and produce the output
- * {@link org.apache.samza.operators.MessageStreamImpl}.
+ * the input {@link MessageStreamImpl} and produce the output
+ * {@link MessageStreamImpl}.
  *
  * @param <M>  the type of input message to the operator
  * @param <OM>  the type of output message from the operator

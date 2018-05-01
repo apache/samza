@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.impl;
+package org.apache.samza.operators;
 
 import java.io.Serializable;
 import java.util.Collection;
@@ -25,8 +25,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.samza.operators.StreamGraphImpl;
-import org.apache.samza.operators.TableImpl;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
@@ -36,9 +34,9 @@ import org.apache.samza.table.TableSpec;
 
 
 /**
- * Defines the serialized format of {@link StreamGraphImpl}. This class encapsulates all getter methods to get the {@link OperatorSpec}
- * initialized in the {@link StreamGraphImpl} and constructsthe corresponding serialized instances of {@link OperatorSpec}.
- * The {@link StreamGraphImpl} and {@link OperatorSpec} instances included in this class are considered as immutable and read-only.
+ * Defines the serialized format of {@link StreamGraphBuilder}. This class encapsulates all getter methods to get the {@link OperatorSpec}
+ * initialized in the {@link StreamGraphBuilder} and constructsthe corresponding serialized instances of {@link OperatorSpec}.
+ * The {@link StreamGraphBuilder} and {@link OperatorSpec} instances included in this class are considered as immutable and read-only.
  * The instance of {@link OperatorSpecGraph} should only be used in runtime to construct {@link org.apache.samza.task.StreamOperatorTask}.
  */
 public class OperatorSpecGraph implements Serializable {
@@ -50,8 +48,8 @@ public class OperatorSpecGraph implements Serializable {
   private final boolean hasWindowOrJoins;
 
   // The following objects are transient since they are recreateable.
-  private transient SerializableSerde<OperatorSpecGraph> graphSpecSerde = null;
-  private transient byte[] serializedGraphSpec = null;
+  private transient SerializableSerde<OperatorSpecGraph> graphSpecSerde = new SerializableSerde<>();
+  private transient final byte[] serializedGraphSpec;
 
   private HashSet<OperatorSpec> findAllOperatorSpecs() {
     Collection<InputOperatorSpec> inputOperatorSpecs = this.inputOperators.values();
@@ -79,12 +77,13 @@ public class OperatorSpecGraph implements Serializable {
     return windowOrJoinSpecs.size() != 0;
   }
 
-  public OperatorSpecGraph(StreamGraphImpl streamGraph) {
+  OperatorSpecGraph(StreamGraphBuilder streamGraph) {
     this.inputOperators = streamGraph.getInputOperators();
     this.outputStreams = streamGraph.getOutputStreams();
     this.tables = streamGraph.getTables();
     this.allOpSpecs = Collections.unmodifiableSet(this.findAllOperatorSpecs());
     hasWindowOrJoins = checkWindowOrJoins();
+    serializedGraphSpec = graphSpecSerde.toBytes(this);
   }
 
   public Map<StreamSpec, InputOperatorSpec> getInputOperators() {
@@ -100,7 +99,7 @@ public class OperatorSpecGraph implements Serializable {
   }
 
   /**
-   * Get all {@link OperatorSpec}s available in this {@link StreamGraphImpl}
+   * Get all {@link OperatorSpec}s available in this {@link StreamGraphBuilder}
    *
    * @return all available {@link OperatorSpec}s
    */
@@ -109,9 +108,9 @@ public class OperatorSpecGraph implements Serializable {
   }
 
   /**
-   * Returns <tt>true</tt> iff this {@link StreamGraphImpl} contains a join or a window operator
+   * Returns <tt>true</tt> iff this {@link StreamGraphBuilder} contains a join or a window operator
    *
-   * @return  <tt>true</tt> iff this {@link StreamGraphImpl} contains a join or a window operator
+   * @return  <tt>true</tt> iff this {@link StreamGraphBuilder} contains a join or a window operator
    */
   public boolean hasWindowOrJoins() {
     return hasWindowOrJoins;
@@ -119,10 +118,7 @@ public class OperatorSpecGraph implements Serializable {
 
   public OperatorSpecGraph clone() {
     if (graphSpecSerde == null) {
-      graphSpecSerde = new SerializableSerde<>();
-    }
-    if (serializedGraphSpec == null) {
-      serializedGraphSpec = graphSpecSerde.toBytes(this);
+      throw new IllegalStateException("Cannot clone from an already deserialized OperatorSpecGraph.");
     }
     return graphSpecSerde.fromBytes(serializedGraphSpec);
   }

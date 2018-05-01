@@ -39,7 +39,7 @@ import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.config.TaskConfigJava;
-import org.apache.samza.operators.impl.OperatorSpecGraph;
+import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -319,7 +319,7 @@ public class JobNode {
    * Computes the triggering interval to use during the execution of this {@link JobNode}
    */
   private long computeTriggerInterval() {
-    // Obtain the operator specs from the streamGraph
+    // Obtain the operator specs from the specGraph
     Collection<OperatorSpec> operatorSpecs = specGraph.getAllOperatorSpecs();
 
     // Filter out window operators, and obtain a list of their triggering interval values

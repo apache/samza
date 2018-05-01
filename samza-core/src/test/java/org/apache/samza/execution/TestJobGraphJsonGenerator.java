@@ -25,7 +25,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.ApplicationRunner;
@@ -116,7 +116,7 @@ public class TestJobGraphJsonGenerator {
     systemAdmins.put("system2", systemAdmin2);
     StreamManager streamManager = new StreamManager(new SystemAdmins(systemAdmins));
 
-    StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
+    StreamGraphBuilder streamGraph = new StreamGraphBuilder(runner, config);
     streamGraph.setDefaultSerde(KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
     MessageStream<KV<Object, Object>> messageStream1 =
         streamGraph.<KV<Object, Object>>getInputStream("input1")
@@ -146,7 +146,7 @@ public class TestJobGraphJsonGenerator {
         .sendTo(outputStream2);
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    ExecutionPlan plan = planner.plan(streamGraph);
+    ExecutionPlan plan = planner.plan(streamGraph.build());
     String json = plan.getPlanAsJson();
     System.out.println(json);
 
@@ -191,7 +191,7 @@ public class TestJobGraphJsonGenerator {
     systemAdmins.put("kafka", systemAdmin2);
     StreamManager streamManager = new StreamManager(new SystemAdmins(systemAdmins));
 
-    StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
+    StreamGraphBuilder streamGraph = new StreamGraphBuilder(runner, config);
     MessageStream<KV<String, PageViewEvent>> inputStream = streamGraph.getInputStream("PageView");
     inputStream
         .partitionBy(kv -> kv.getValue().getCountry(), kv -> kv.getValue(), "keyed-by-country")
@@ -205,7 +205,7 @@ public class TestJobGraphJsonGenerator {
         .sendTo(streamGraph.getOutputStream("PageViewCount"));
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    ExecutionPlan plan = planner.plan(streamGraph);
+    ExecutionPlan plan = planner.plan(streamGraph.build());
     String json = plan.getPlanAsJson();
     System.out.println(json);
 

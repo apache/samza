@@ -25,7 +25,7 @@ import org.apache.samza.config.ConfigException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.operators.ContextManager;
-import org.apache.samza.operators.impl.OperatorSpecGraph;
+import org.apache.samza.operators.OperatorSpecGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

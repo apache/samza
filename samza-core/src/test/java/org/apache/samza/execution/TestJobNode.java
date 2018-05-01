@@ -26,9 +26,8 @@ import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.operators.functions.JoinFunction;
-import org.apache.samza.operators.impl.OperatorSpecGraph;
 import org.apache.samza.operators.impl.store.TimestampedValueSerde;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.serializers.JsonSerdeV2;
@@ -72,11 +71,11 @@ public class TestJobNode {
     when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("jobName");
     when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("jobId");
 
-    StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mockConfig);
-    streamGraph.setDefaultSerde(KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
-    MessageStream<KV<String, Object>> input1 = streamGraph.getInputStream("input1");
-    MessageStream<KV<String, Object>> input2 = streamGraph.getInputStream("input2");
-    OutputStream<KV<String, Object>> output = streamGraph.getOutputStream("output");
+    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mockConfig);
+    graphBuilder.setDefaultSerde(KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
+    MessageStream<KV<String, Object>> input1 = graphBuilder.getInputStream("input1");
+    MessageStream<KV<String, Object>> input2 = graphBuilder.getInputStream("input2");
+    OutputStream<KV<String, Object>> output = graphBuilder.getOutputStream("output");
     JoinFunction<String, Object, Object, KV<String, Object>> mockJoinFn = mock(JoinFunction.class);
     input1
         .partitionBy(KV::getKey, KV::getValue, "p1").map(kv -> kv.value)
@@ -85,7 +84,7 @@ public class TestJobNode {
             Duration.ofHours(1), "j1")
         .sendTo(output);
 
-    JobNode jobNode = new JobNode("jobName", "jobId", new OperatorSpecGraph(streamGraph), mockConfig);
+    JobNode jobNode = new JobNode("jobName", "jobId", graphBuilder.build(), mockConfig);
     Config config = new MapConfig();
     StreamEdge input1Edge = new StreamEdge(input1Spec, config);
     StreamEdge input2Edge = new StreamEdge(input2Spec, config);

@@ -34,7 +34,7 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -124,7 +124,7 @@ public class TestJoinTranslator extends TranslatorTestBase {
     when(mockRightInput.getRowType()).thenReturn(mockRightRowType);
     when(mockRightRowType.getFieldNames()).thenReturn(rightStreamFieldNames);
 
-    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    StreamGraphBuilder mockGraph = mock(StreamGraphBuilder.class);
     OperatorSpec<Object, SamzaSqlRelMessage> mockLeftInputOp = mock(OperatorSpec.class);
     MessageStream<SamzaSqlRelMessage> mockLeftInputStream = new MessageStreamImpl<>(mockGraph, mockLeftInputOp);
     when(mockContext.getMessageStream(eq(mockLeftInput.getId()))).thenReturn(mockLeftInputStream);

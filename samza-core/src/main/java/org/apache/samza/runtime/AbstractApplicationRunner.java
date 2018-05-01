@@ -29,7 +29,8 @@ import org.apache.samza.config.StreamConfig;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.execution.ExecutionPlanner;
 import org.apache.samza.execution.StreamManager;
-import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.OperatorSpecGraph;
+import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmins;
 import org.slf4j.Logger;
@@ -52,11 +53,11 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
   private final StreamManager streamManager;
   private final SystemAdmins systemAdmins;
 
-  protected final StreamGraphImpl streamGraph;
+  protected final StreamGraphBuilder graphBuilder;
 
   public AbstractApplicationRunner(Config config) {
     super(config);
-    this.streamGraph = new StreamGraphImpl(this, config);
+    this.graphBuilder = new StreamGraphBuilder(this, config);
     this.systemAdmins = new SystemAdmins(config);
     this.streamManager = new StreamManager(systemAdmins);
   }
@@ -130,22 +131,23 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
   /* package private */
   ExecutionPlan getExecutionPlan(StreamApplication app, String runId) throws Exception {
     // build stream graph
-    app.init(streamGraph, config);
+    app.init(graphBuilder, config);
 
+    OperatorSpecGraph specGraph = graphBuilder.build();
     // create the physical execution plan
     Map<String, String> cfg = new HashMap<>(config);
     if (StringUtils.isNoneEmpty(runId)) {
       cfg.put(ApplicationConfig.APP_RUN_ID, runId);
     }
 
-    Set<StreamSpec> inputStreams = new HashSet<>(streamGraph.getInputOperators().keySet());
-    inputStreams.removeAll(streamGraph.getOutputStreams().keySet());
+    Set<StreamSpec> inputStreams = new HashSet<>(specGraph.getInputOperators().keySet());
+    inputStreams.removeAll(specGraph.getOutputStreams().keySet());
     ApplicationMode mode = inputStreams.stream().allMatch(StreamSpec::isBounded)
         ? ApplicationMode.BATCH : ApplicationMode.STREAM;
     cfg.put(ApplicationConfig.APP_MODE, mode.name());
 
     ExecutionPlanner planner = new ExecutionPlanner(new MapConfig(cfg), streamManager);
-    return planner.plan(streamGraph);
+    return planner.plan(specGraph);
   }
 
   /* package private for testing */
@@ -173,4 +175,5 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
       log.warn("Failed to write execution plan json to file", e);
     }
   }
+
 }

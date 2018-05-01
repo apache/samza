@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.impl;
+package org.apache.samza.operators;
 
 import java.io.IOException;
 import java.io.NotSerializableException;
@@ -32,8 +32,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.SamzaException;
-import org.apache.samza.operators.StreamGraphImpl;
-import org.apache.samza.operators.TableImpl;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.spec.InputOperatorSpec;
@@ -65,14 +63,14 @@ import static org.mockito.Mockito.*;
 @PrepareForTest(OperatorSpec.class)
 public class TestOperatorSpecGraph {
 
-  private StreamGraphImpl mockGraph;
+  private StreamGraphBuilder mockGraph;
   private Map<StreamSpec, InputOperatorSpec> inputOpSpecMap;
   private Map<StreamSpec, OutputStreamImpl> outputStrmMap;
   private Set<OperatorSpec> allOpSpecs;
 
   @Before
   public void setUp() {
-    this.mockGraph = mock(StreamGraphImpl.class);
+    this.mockGraph = mock(StreamGraphBuilder.class);
 
     /**
      * Setup two linear transformation pipelines:
@@ -230,10 +228,9 @@ public class TestOperatorSpecGraph {
     allOpSpecs.add(mockFailedOpSpec);
     inputOpSpecMap.values().stream().findFirst().get().registerNextOperatorSpec(mockFailedOpSpec);
 
-    OperatorSpecGraph operatorSpecGraph = new OperatorSpecGraph(mockGraph);
     //failed with serialization error
     try {
-      operatorSpecGraph.clone();
+      new OperatorSpecGraph(mockGraph);
       fail("Should have failed with serialization error");
     } catch (SamzaException se) {
       throw se.getCause();
@@ -242,10 +239,9 @@ public class TestOperatorSpecGraph {
 
   @Test(expected = IOException.class)
   public void testCloneWithDeserializationError() throws Throwable {
-    TestDeserializeOperatorSpec spyTestOp = PowerMockito.spy(new TestDeserializeOperatorSpec(OperatorSpec.OpCode.MAP, "test-failed-op-4"));
-    doThrow(new IOException()).when(spyTestOp).readObject(any());
-    this.allOpSpecs.add(spyTestOp);
-    inputOpSpecMap.values().stream().findFirst().get().registerNextOperatorSpec(spyTestOp);
+    TestDeserializeOperatorSpec testOp = new TestDeserializeOperatorSpec(OperatorSpec.OpCode.MAP, "test-failed-op-4");
+    this.allOpSpecs.add(testOp);
+    inputOpSpecMap.values().stream().findFirst().get().registerNextOperatorSpec(testOp);
 
     OperatorSpecGraph operatorSpecGraph = new OperatorSpecGraph(mockGraph);
     //failed with serialization error
@@ -264,7 +260,7 @@ public class TestOperatorSpecGraph {
     }
 
     private void readObject(ObjectInputStream ois) throws IOException, ClassNotFoundException {
-      ois.readObject();
+      throw new IOException("Raise IOException to cause deserialization failure");
     }
 
     @Override

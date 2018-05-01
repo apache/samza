@@ -23,7 +23,7 @@ import org.apache.samza.annotation.InterfaceStability;
 
 
 /**
- * A supplier of values with life-cycle hooks for initialization and close. It is expected to return a new value at each invocation
+ * A supplier to return a new value at each invocation
  */
 @InterfaceStability.Unstable
 @FunctionalInterface

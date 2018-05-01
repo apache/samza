@@ -19,11 +19,6 @@
 package org.apache.samza.operators;
 
 import com.google.common.collect.ImmutableSet;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -33,7 +28,6 @@ import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.impl.store.TestInMemoryStore;
 import org.apache.samza.operators.impl.store.TimestampedValueSerde;
-import org.apache.samza.operators.impl.OperatorSpecGraph;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
@@ -49,11 +43,16 @@ import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.testUtils.TestClock;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.SystemClock;
-
-import java.time.Duration;
-import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.io.IOException;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertEquals;
@@ -84,8 +83,8 @@ public class TestJoinOperator {
 
   @Test
   public void join() throws Exception {
-    StreamGraphImpl graph = this.getTestJoinStreamGraph(new TestJoinFunction());
-    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), graph);
+    StreamGraphBuilder graphBuilder = this.getTestJoinStreamGraph(new TestJoinFunction());
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), graphBuilder);
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -102,21 +101,21 @@ public class TestJoinOperator {
   public void joinWithSelfThrowsException() throws Exception {
     config.put("streams.instream.system", "insystem");
 
-    StreamGraphImpl graph = new StreamGraphImpl(mock(ApplicationRunner.class), config);
+    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mock(ApplicationRunner.class), config);
     IntegerSerde integerSerde = new IntegerSerde();
     KVSerde<Integer, Integer> kvSerde = KVSerde.of(integerSerde, integerSerde);
-    MessageStream<KV<Integer, Integer>> inStream = graph.getInputStream("instream", kvSerde);
+    MessageStream<KV<Integer, Integer>> inStream = graphBuilder.getInputStream("instream", kvSerde);
 
     inStream.join(inStream, new TestJoinFunction(), integerSerde, kvSerde, kvSerde, JOIN_TTL, "join");
 
-    createStreamOperatorTask(new SystemClock(), graph); // should throw an exception
+    createStreamOperatorTask(new SystemClock(), graphBuilder); // should throw an exception
   }
 
   @Test
   public void joinFnInitAndClose() throws Exception {
     TestJoinFunction joinFn = new TestJoinFunction();
-    StreamGraphImpl streamGraph = this.getTestJoinStreamGraph(joinFn);
-    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), streamGraph);
+    StreamGraphBuilder graphBuilder = this.getTestJoinStreamGraph(joinFn);
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), graphBuilder);
 
     MessageCollector messageCollector = mock(MessageCollector.class);
 
@@ -134,8 +133,8 @@ public class TestJoinOperator {
 
   @Test
   public void joinReverse() throws Exception {
-    StreamGraphImpl graph = this.getTestJoinStreamGraph(new TestJoinFunction());
-    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), graph);
+    StreamGraphBuilder graphBuilder = this.getTestJoinStreamGraph(new TestJoinFunction());
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), graphBuilder);
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -150,8 +149,8 @@ public class TestJoinOperator {
 
   @Test
   public void joinNoMatch() throws Exception {
-    StreamGraphImpl graph = this.getTestJoinStreamGraph(new TestJoinFunction());
-    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), graph);
+    StreamGraphBuilder graphBuilder = this.getTestJoinStreamGraph(new TestJoinFunction());
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), graphBuilder);
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -165,8 +164,8 @@ public class TestJoinOperator {
 
   @Test
   public void joinNoMatchReverse() throws Exception {
-    StreamGraphImpl graph = this.getTestJoinStreamGraph(new TestJoinFunction());
-    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), graph);
+    StreamGraphBuilder graphBuilder = this.getTestJoinStreamGraph(new TestJoinFunction());
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), graphBuilder);
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -180,8 +179,8 @@ public class TestJoinOperator {
 
   @Test
   public void joinRetainsLatestMessageForKey() throws Exception {
-    StreamGraphImpl graph = this.getTestJoinStreamGraph(new TestJoinFunction());
-    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), graph);
+    StreamGraphBuilder graphBuilder = this.getTestJoinStreamGraph(new TestJoinFunction());
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), graphBuilder);
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -198,8 +197,8 @@ public class TestJoinOperator {
 
   @Test
   public void joinRetainsLatestMessageForKeyReverse() throws Exception {
-    StreamGraphImpl graph = this.getTestJoinStreamGraph(new TestJoinFunction());
-    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), graph);
+    StreamGraphBuilder graphBuilder = this.getTestJoinStreamGraph(new TestJoinFunction());
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), graphBuilder);
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -216,8 +215,8 @@ public class TestJoinOperator {
 
   @Test
   public void joinRetainsMatchedMessages() throws Exception {
-    StreamGraphImpl graph = this.getTestJoinStreamGraph(new TestJoinFunction());
-    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), graph);
+    StreamGraphBuilder graphBuilder = this.getTestJoinStreamGraph(new TestJoinFunction());
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), graphBuilder);
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -239,8 +238,8 @@ public class TestJoinOperator {
 
   @Test
   public void joinRetainsMatchedMessagesReverse() throws Exception {
-    StreamGraphImpl graph = this.getTestJoinStreamGraph(new TestJoinFunction());
-    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), graph);
+    StreamGraphBuilder graphBuilder = this.getTestJoinStreamGraph(new TestJoinFunction());
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), graphBuilder);
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -263,8 +262,8 @@ public class TestJoinOperator {
   @Test
   public void joinRemovesExpiredMessages() throws Exception {
     TestClock testClock = new TestClock();
-    StreamGraphImpl graph = this.getTestJoinStreamGraph(new TestJoinFunction());
-    StreamOperatorTask sot = createStreamOperatorTask(testClock, graph);
+    StreamGraphBuilder graphBuilder = this.getTestJoinStreamGraph(new TestJoinFunction());
+    StreamOperatorTask sot = createStreamOperatorTask(testClock, graphBuilder);
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -283,8 +282,8 @@ public class TestJoinOperator {
   @Test
   public void joinRemovesExpiredMessagesReverse() throws Exception {
     TestClock testClock = new TestClock();
-    StreamGraphImpl graph = this.getTestJoinStreamGraph(new TestJoinFunction());
-    StreamOperatorTask sot = createStreamOperatorTask(testClock, graph);
+    StreamGraphBuilder graphBuilder = this.getTestJoinStreamGraph(new TestJoinFunction());
+    StreamOperatorTask sot = createStreamOperatorTask(testClock, graphBuilder);
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -300,7 +299,7 @@ public class TestJoinOperator {
     assertTrue(output.isEmpty());
   }
 
-  private StreamOperatorTask createStreamOperatorTask(Clock clock, StreamGraphImpl streamGraph) throws Exception {
+  private StreamOperatorTask createStreamOperatorTask(Clock clock, StreamGraphBuilder streamGraph) throws Exception {
 
     TaskContextImpl taskContext = mock(TaskContextImpl.class);
     when(taskContext.getSystemStreamPartitions()).thenReturn(ImmutableSet
@@ -315,30 +314,30 @@ public class TestJoinOperator {
     when(taskContext.getStore(eq("jobName-jobId-join-j1-R")))
         .thenReturn(new TestInMemoryStore(integerSerde, timestampedValueSerde));
 
-    StreamOperatorTask sot = new StreamOperatorTask(new OperatorSpecGraph(streamGraph), streamGraph.getContextManager(), clock);
+    StreamOperatorTask sot = new StreamOperatorTask(streamGraph.build(), streamGraph.getContextManager(), clock);
     sot.init(config, taskContext);
     return sot;
   }
 
-  private StreamGraphImpl getTestJoinStreamGraph(TestJoinFunction joinFn) throws IOException {
+  private StreamGraphBuilder getTestJoinStreamGraph(TestJoinFunction joinFn) throws IOException {
     ApplicationRunner runner = mock(ApplicationRunner.class);
     when(runner.getStreamSpec("instream")).thenReturn(new StreamSpec("instream", "instream", "insystem"));
     when(runner.getStreamSpec("instream2")).thenReturn(new StreamSpec("instream2", "instream2", "insystem"));
 
-    StreamGraphImpl graph = new StreamGraphImpl(runner, config);
+    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(runner, config);
     IntegerSerde integerSerde = new IntegerSerde();
     KVSerde<Integer, Integer> kvSerde = KVSerde.of(integerSerde, integerSerde);
-    MessageStream<KV<Integer, Integer>> inStream = graph.getInputStream("instream", kvSerde);
-    MessageStream<KV<Integer, Integer>> inStream2 = graph.getInputStream("instream2", kvSerde);
+    MessageStream<KV<Integer, Integer>> inStream = graphBuilder.getInputStream("instream", kvSerde);
+    MessageStream<KV<Integer, Integer>> inStream2 = graphBuilder.getInputStream("instream2", kvSerde);
 
-    SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
     inStream
         .join(inStream2, joinFn, integerSerde, kvSerde, kvSerde, JOIN_TTL, "j1")
         .sink((message, messageCollector, taskCoordinator) -> {
+            SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
             messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
           });
 
-    return graph;
+    return graphBuilder;
   }
 
   private static class TestJoinFunction
@@ -392,5 +391,4 @@ public class TestJoinOperator {
       super(new SystemStreamPartition("insystem", "instream2", new Partition(0)), "1", key, value);
     }
   }
-
 }

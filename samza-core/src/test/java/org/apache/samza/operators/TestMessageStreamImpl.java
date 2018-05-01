@@ -70,7 +70,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testMap() {
-    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    StreamGraphBuilder mockGraph = mock(StreamGraphBuilder.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
 
@@ -95,7 +95,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testFlatMap() {
-    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    StreamGraphBuilder mockGraph = mock(StreamGraphBuilder.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
 
@@ -112,7 +112,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testFlatMapWithRelaxedTypes() {
-    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    StreamGraphBuilder mockGraph = mock(StreamGraphBuilder.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<TestInputMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
 
@@ -132,7 +132,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testFilter() {
-    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    StreamGraphBuilder mockGraph = mock(StreamGraphBuilder.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
 
@@ -157,7 +157,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testSink() {
-    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    StreamGraphBuilder mockGraph = mock(StreamGraphBuilder.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
 
@@ -174,7 +174,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testSendTo() {
-    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    StreamGraphBuilder mockGraph = mock(StreamGraphBuilder.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
     OutputStreamImpl<TestMessageEnvelope> mockOutputStreamImpl = mock(OutputStreamImpl.class);
@@ -200,7 +200,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testPartitionBy() throws IOException {
-    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    StreamGraphBuilder mockGraph = mock(StreamGraphBuilder.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
     String mockOpName = "mockName";
     when(mockGraph.getNextOpId(anyObject(), anyObject())).thenReturn(mockOpName);
@@ -231,7 +231,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testRepartitionWithoutSerde() {
-    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    StreamGraphBuilder mockGraph = mock(StreamGraphBuilder.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
     String mockOpName = "mockName";
     when(mockGraph.getNextOpId(anyObject(), anyObject())).thenReturn(mockOpName);
@@ -261,7 +261,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testWindowWithRelaxedTypes() throws Exception {
-    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    StreamGraphBuilder mockGraph = mock(StreamGraphBuilder.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
     MessageStream<TestInputMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
 
@@ -285,7 +285,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testJoin() {
-    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    StreamGraphBuilder mockGraph = mock(StreamGraphBuilder.class);
     OperatorSpec leftInputOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<TestMessageEnvelope> source1 = new MessageStreamImpl<>(mockGraph, leftInputOpSpec);
     OperatorSpec rightInputOpSpec = mock(OperatorSpec.class);
@@ -317,7 +317,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testSendToTable() {
-    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    StreamGraphBuilder mockGraph = mock(StreamGraphBuilder.class);
     OperatorSpec inputOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<TestMessageEnvelope> source = new MessageStreamImpl<>(mockGraph, inputOpSpec);
 
@@ -339,7 +339,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testStreamTableJoin() {
-    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    StreamGraphBuilder mockGraph = mock(StreamGraphBuilder.class);
     OperatorSpec leftInputOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<KV<String, TestMessageEnvelope>> source1 = new MessageStreamImpl<>(mockGraph, leftInputOpSpec);
     OperatorSpec rightInputOpSpec = mock(OperatorSpec.class);
@@ -367,7 +367,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testMerge() {
-    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    StreamGraphBuilder mockGraph = mock(StreamGraphBuilder.class);
     OperatorSpec mockOpSpec1 = mock(OperatorSpec.class);
     MessageStream<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec1);
 
@@ -407,7 +407,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testMergeWithRelaxedTypes() {
-    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    StreamGraphBuilder mockGraph = mock(StreamGraphBuilder.class);
     MessageStream<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mock(OperatorSpec.class));
 
     // other streams have the same message type T as input stream message type M

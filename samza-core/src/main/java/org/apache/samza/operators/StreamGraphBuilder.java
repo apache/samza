@@ -48,11 +48,13 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Preconditions;
 
 /**
- * A {@link StreamGraph} that provides APIs for accessing {@link MessageStream}s to be used to
+ * This class defines:
+ * 1) an implementation of {@link StreamGraph} that provides APIs for accessing {@link MessageStream}s to be used to
  * create the DAG of transforms.
+ * 2) a builder that creates a serializable {@link OperatorSpecGraph} from user-defined DAG
  */
-public class StreamGraphImpl implements StreamGraph {
-  private static final Logger LOGGER = LoggerFactory.getLogger(StreamGraphImpl.class);
+public class StreamGraphBuilder implements StreamGraph {
+  private static final Logger LOGGER = LoggerFactory.getLogger(StreamGraphBuilder.class);
   private static final Pattern USER_DEFINED_ID_PATTERN = Pattern.compile("[\\d\\w-_.]+");
 
   // We use a LHM for deterministic order in initializing and closing operators.
@@ -61,7 +63,6 @@ public class StreamGraphImpl implements StreamGraph {
   private final Map<TableSpec, TableImpl> tables = new LinkedHashMap<>();
   private final ApplicationRunner runner;
   private final Config config;
-
 
   /**
    * The 0-based position of the next operator in the graph.
@@ -73,8 +74,8 @@ public class StreamGraphImpl implements StreamGraph {
   private Serde<?> defaultSerde = new KVSerde(new NoOpSerde(), new NoOpSerde());
   private ContextManager contextManager = null;
 
-  public StreamGraphImpl(ApplicationRunner runner, Config config) {
-    // TODO: SAMZA-1118 - Move StreamSpec and ApplicationRunner out of StreamGraphImpl once Systems
+  public StreamGraphBuilder(ApplicationRunner runner, Config config) {
+    // TODO: SAMZA-1118 - Move StreamSpec and ApplicationRunner out of StreamGraphBuilder once Systems
     // can use streamId to send and receive messages.
     this.runner = runner;
     this.config = config;
@@ -166,7 +167,11 @@ public class StreamGraphImpl implements StreamGraph {
   }
 
   /**
-   * See {@link StreamGraphImpl#getIntermediateStream(String, Serde, boolean)}.
+   * See {@link StreamGraphBuilder#getIntermediateStream(String, Serde, boolean)}.
+   *
+   * @param <M> type of messages in the intermediate stream
+   * @param streamId the id of the stream to be created
+   * @param serde the {@link Serde} to use for messages in the intermediate stream. If null, the default serde is used.
    */
   @VisibleForTesting
   public <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde) {
@@ -211,20 +216,24 @@ public class StreamGraphImpl implements StreamGraph {
     return new IntermediateMessageStreamImpl<>(this, inputOperators.get(streamSpec), outputStreams.get(streamSpec));
   }
 
-  public Map<StreamSpec, InputOperatorSpec> getInputOperators() {
+  Map<StreamSpec, InputOperatorSpec> getInputOperators() {
     return Collections.unmodifiableMap(inputOperators);
   }
 
-  public Map<StreamSpec, OutputStreamImpl> getOutputStreams() {
+  Map<StreamSpec, OutputStreamImpl> getOutputStreams() {
     return Collections.unmodifiableMap(outputStreams);
   }
 
-  public Map<TableSpec, TableImpl> getTables() {
+  Map<TableSpec, TableImpl> getTables() {
     return Collections.unmodifiableMap(tables);
   }
 
   public ContextManager getContextManager() {
     return this.contextManager;
+  }
+
+  public OperatorSpecGraph build() {
+    return new OperatorSpecGraph(this);
   }
 
   /**
@@ -235,7 +244,7 @@ public class StreamGraphImpl implements StreamGraph {
    * @param userDefinedId the optional user-provided name of the next operator or null
    * @return the unique ID for the next operator in the graph
    */
-  /* package private */ String getNextOpId(OpCode opCode, String userDefinedId) {
+  public String getNextOpId(OpCode opCode, String userDefinedId) {
     if (StringUtils.isNotBlank(userDefinedId) && !USER_DEFINED_ID_PATTERN.matcher(userDefinedId).matches()) {
       throw new SamzaException("Operator ID must not contain spaces and special characters: " + userDefinedId);
     }
@@ -260,7 +269,7 @@ public class StreamGraphImpl implements StreamGraph {
    * @param opCode the {@link OpCode} of the next operator
    * @return the unique ID for the next operator in the graph
    */
-  /* package private */ String getNextOpId(OpCode opCode) {
+  public String getNextOpId(OpCode opCode) {
     return getNextOpId(opCode, null);
   }
 

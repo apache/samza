@@ -36,7 +36,6 @@ import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsReporter;
-import org.apache.samza.operators.impl.OperatorSpecGraph;
 import org.apache.samza.task.TaskFactoryUtil;
 import org.apache.samza.util.ScalaToJavaUtils;
 import org.apache.samza.util.Util;
@@ -110,8 +109,8 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
 
   private Object getTaskFactory(StreamApplication streamApp) {
     if (streamApp != null) {
-      streamApp.init(streamGraph, config);
-      return TaskFactoryUtil.createTaskFactory(new OperatorSpecGraph(streamGraph), streamGraph.getContextManager());
+      streamApp.init(graphBuilder, config);
+      return TaskFactoryUtil.createTaskFactory(graphBuilder.build(), graphBuilder.getContextManager());
     }
     return TaskFactoryUtil.createTaskFactory(config);
   }

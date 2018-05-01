@@ -34,8 +34,7 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.operators.StreamGraphImpl;
-import org.apache.samza.operators.impl.OperatorSpecGraph;
+import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.system.StreamSpec;
@@ -62,10 +61,8 @@ public class ExecutionPlanner {
     this.streamManager = streamManager;
   }
 
-  public ExecutionPlan plan(StreamGraphImpl streamGraph) throws Exception {
+  public ExecutionPlan plan(OperatorSpecGraph specGraph) throws Exception {
     validateConfig();
-
-    OperatorSpecGraph specGraph = new OperatorSpecGraph(streamGraph);
 
     // create physical job graph based on stream graph
     JobGraph jobGraph = createJobGraph(specGraph);

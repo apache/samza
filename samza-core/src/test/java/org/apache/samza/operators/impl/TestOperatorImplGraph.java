@@ -45,8 +45,8 @@ import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.functions.ClosableFunction;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.InitableFunction;
@@ -217,9 +217,9 @@ public class TestOperatorImplGraph {
 
   @Test
   public void testEmptyChain() {
-    StreamGraphImpl streamGraph = new StreamGraphImpl(mock(ApplicationRunner.class), mock(Config.class));
+    StreamGraphBuilder streamGraph = new StreamGraphBuilder(mock(ApplicationRunner.class), mock(Config.class));
     OperatorImplGraph opGraph =
-        new OperatorImplGraph(new OperatorSpecGraph(streamGraph), mock(Config.class), mock(TaskContextImpl.class), mock(Clock.class));
+        new OperatorImplGraph(streamGraph.build(), mock(Config.class), mock(TaskContextImpl.class), mock(Clock.class));
     assertEquals(0, opGraph.getAllInputOperators().size());
   }
 
@@ -228,7 +228,7 @@ public class TestOperatorImplGraph {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     when(mockRunner.getStreamSpec(eq("input"))).thenReturn(new StreamSpec("input", "input-stream", "input-system"));
     when(mockRunner.getStreamSpec(eq("output"))).thenReturn(mock(StreamSpec.class));
-    StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mock(Config.class));
+    StreamGraphBuilder streamGraph = new StreamGraphBuilder(mockRunner, mock(Config.class));
 
     MessageStream<Object> inputStream = streamGraph.getInputStream("input");
     OutputStream<Object> outputStream = streamGraph.getOutputStream("output");
@@ -242,7 +242,7 @@ public class TestOperatorImplGraph {
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     when(mockTaskContext.getTaskName()).thenReturn(new TaskName("task 0"));
     OperatorImplGraph opImplGraph =
-        new OperatorImplGraph(new OperatorSpecGraph(streamGraph), mock(Config.class), mockTaskContext, mock(Clock.class));
+        new OperatorImplGraph(streamGraph.build(), mock(Config.class), mockTaskContext, mock(Clock.class));
 
     InputOperatorImpl inputOpImpl = opImplGraph.getInputOperator(new SystemStream("input-system", "input-stream"));
     assertEquals(1, inputOpImpl.registeredOperators.size());
@@ -270,7 +270,7 @@ public class TestOperatorImplGraph {
     Config mockConfig = mock(Config.class);
     when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("jobName");
     when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("jobId");
-    StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mockConfig);
+    StreamGraphBuilder streamGraph = new StreamGraphBuilder(mockRunner, mockConfig);
     MessageStream<Object> inputStream = streamGraph.getInputStream("input");
     OutputStream<KV<Integer, String>> outputStream = streamGraph
         .getOutputStream("output", KVSerde.of(mock(IntegerSerde.class), mock(StringSerde.class)));
@@ -294,7 +294,7 @@ public class TestOperatorImplGraph {
         new SamzaContainerContext("0", mockConfig, Collections.singleton(new TaskName("task 0")), new MetricsRegistryMap());
     when(mockTaskContext.getSamzaContainerContext()).thenReturn(containerContext);
     OperatorImplGraph opImplGraph =
-        new OperatorImplGraph(new OperatorSpecGraph(streamGraph), mockConfig, mockTaskContext, mock(Clock.class));
+        new OperatorImplGraph(streamGraph.build(), mockConfig, mockTaskContext, mock(Clock.class));
 
     InputOperatorImpl inputOpImpl = opImplGraph.getInputOperator(new SystemStream("input-system", "input-stream"));
     assertEquals(1, inputOpImpl.registeredOperators.size());
@@ -316,7 +316,7 @@ public class TestOperatorImplGraph {
   public void testBroadcastChain() {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     when(mockRunner.getStreamSpec(eq("input"))).thenReturn(new StreamSpec("input", "input-stream", "input-system"));
-    StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mock(Config.class));
+    StreamGraphBuilder streamGraph = new StreamGraphBuilder(mockRunner, mock(Config.class));
 
     MessageStream<Object> inputStream = streamGraph.getInputStream("input");
     inputStream.filter(mock(FilterFunction.class));
@@ -325,7 +325,7 @@ public class TestOperatorImplGraph {
     TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     OperatorImplGraph opImplGraph =
-        new OperatorImplGraph(new OperatorSpecGraph(streamGraph), mock(Config.class), mockTaskContext, mock(Clock.class));
+        new OperatorImplGraph(streamGraph.build(), mock(Config.class), mockTaskContext, mock(Clock.class));
 
     InputOperatorImpl inputOpImpl = opImplGraph.getInputOperator(new SystemStream("input-system", "input-stream"));
     assertEquals(2, inputOpImpl.registeredOperators.size());
@@ -338,8 +338,9 @@ public class TestOperatorImplGraph {
   @Test
   public void testMergeChain() {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
-    when(mockRunner.getStreamSpec(eq("input"))).thenReturn(new StreamSpec("input", "input-stream", "input-system"));
-    StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mock(Config.class));
+    when(mockRunner.getStreamSpec(eq("input")))
+        .thenReturn(new StreamSpec("input", "input-stream", "input-system"));
+    StreamGraphBuilder streamGraph = new StreamGraphBuilder(mockRunner, mock(Config.class));
 
     MessageStream<Object> inputStream = streamGraph.getInputStream("input");
     MessageStream<Object> stream1 = inputStream.filter(mock(FilterFunction.class));
@@ -355,7 +356,7 @@ public class TestOperatorImplGraph {
     mergedStream.map(testMapFunction);
 
     OperatorImplGraph opImplGraph =
-        new OperatorImplGraph(new OperatorSpecGraph(streamGraph), mock(Config.class), mockTaskContext, mock(Clock.class));
+        new OperatorImplGraph(streamGraph.build(), mock(Config.class), mockTaskContext, mock(Clock.class));
 
     Set<OperatorImpl> opSet = opImplGraph.getAllInputOperators().stream().collect(HashSet::new,
         (s, op) -> addOperatorRecursively(s, op), HashSet::addAll);
@@ -377,11 +378,12 @@ public class TestOperatorImplGraph {
     Config mockConfig = mock(Config.class);
     when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("jobName");
     when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("jobId");
-    StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mockConfig);
+    StreamGraphBuilder streamGraph = new StreamGraphBuilder(mockRunner, mockConfig);
 
     Integer joinKey = new Integer(1);
     Function<Object, Integer> keyFn = (Function & Serializable) m -> joinKey;
-    JoinFunction testJoinFunction = new TestJoinFunction("jobName-jobId-join-j1", (BiFunction & Serializable) (m1, m2) -> KV.of(m1, m2), keyFn, keyFn);
+    JoinFunction testJoinFunction = new TestJoinFunction("jobName-jobId-join-j1",
+        (BiFunction & Serializable) (m1, m2) -> KV.of(m1, m2), keyFn, keyFn);
     MessageStream<Object> inputStream1 = streamGraph.getInputStream("input1", new NoOpSerde<>());
     MessageStream<Object> inputStream2 = streamGraph.getInputStream("input2", new NoOpSerde<>());
     inputStream1.join(inputStream2, testJoinFunction,
@@ -396,7 +398,7 @@ public class TestOperatorImplGraph {
     KeyValueStore mockRightStore = mock(KeyValueStore.class);
     when(mockTaskContext.getStore(eq("jobName-jobId-join-j1-R"))).thenReturn(mockRightStore);
     OperatorImplGraph opImplGraph =
-        new OperatorImplGraph(new OperatorSpecGraph(streamGraph), mockConfig, mockTaskContext, mock(Clock.class));
+        new OperatorImplGraph(streamGraph.build(), mockConfig, mockTaskContext, mock(Clock.class));
 
     // verify that join function is initialized once.
     assertEquals(TestJoinFunction.getInstanceByTaskName(mockTaskName, "jobName-jobId-join-j1").numInitCalled, 1);
@@ -440,7 +442,7 @@ public class TestOperatorImplGraph {
     TaskContextImpl mockContext = mock(TaskContextImpl.class);
     when(mockContext.getTaskName()).thenReturn(mockTaskName);
     when(mockContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
-    StreamGraphImpl streamGraph = new StreamGraphImpl(mockRunner, mockConfig);
+    StreamGraphBuilder streamGraph = new StreamGraphBuilder(mockRunner, mockConfig);
 
     MessageStream<Object> inputStream1 = streamGraph.getInputStream("input1");
     MessageStream<Object> inputStream2 = streamGraph.getInputStream("input2");
@@ -452,7 +454,7 @@ public class TestOperatorImplGraph {
     inputStream2.map(new TestMapFunction<Object, Object>("3", mapFn))
         .map(new TestMapFunction<Object, Object>("4", mapFn));
 
-    OperatorImplGraph opImplGraph = new OperatorImplGraph(new OperatorSpecGraph(streamGraph), mockConfig, mockContext, SystemClock.instance());
+    OperatorImplGraph opImplGraph = new OperatorImplGraph(streamGraph.build(), mockConfig, mockContext, SystemClock.instance());
 
     List<String> initializedOperators = BaseTestFunction.getInitListByTaskName(mockTaskName);
 
@@ -538,7 +540,7 @@ public class TestOperatorImplGraph {
     when(runner.getStreamSpec("test-app-1-partition_by-p2")).thenReturn(int1);
     when(runner.getStreamSpec("test-app-1-partition_by-p1")).thenReturn(int2);
 
-    StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
+    StreamGraphBuilder streamGraph = new StreamGraphBuilder(runner, config);
     MessageStream messageStream1 = streamGraph.getInputStream("input1").map(m -> m);
     MessageStream messageStream2 = streamGraph.getInputStream("input2").filter(m -> true);
     MessageStream messageStream3 =
@@ -559,7 +561,8 @@ public class TestOperatorImplGraph {
             mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
         .sendTo(outputStream2);
 
-    Multimap<SystemStream, SystemStream> outputToInput = OperatorImplGraph.getIntermediateToInputStreamsMap(new OperatorSpecGraph(streamGraph));
+    Multimap<SystemStream, SystemStream> outputToInput =
+        OperatorImplGraph.getIntermediateToInputStreamsMap(streamGraph.build());
     Collection<SystemStream> inputs = outputToInput.get(int1.toSystemStream());
     assertEquals(inputs.size(), 2);
     assertTrue(inputs.contains(input1.toSystemStream()));

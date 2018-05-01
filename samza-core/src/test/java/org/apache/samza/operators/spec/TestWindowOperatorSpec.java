@@ -20,9 +20,6 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.serializers.Serde;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
 import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SupplierFunction;
@@ -34,6 +31,8 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
 
 import static org.mockito.Mockito.mock;
 
@@ -73,7 +72,7 @@ public class TestWindowOperatorSpec {
   }
 
   @Test
-  public void testCopy() throws IOException, ClassNotFoundException {
+  public void testCopy() {
     Trigger defaultTrigger = Triggers.timeSinceFirstMessage(Duration.ofMillis(150));
     Trigger earlyTrigger = Triggers.repeat(Triggers.count(5));
 
@@ -86,15 +85,8 @@ public class TestWindowOperatorSpec {
     MapFunction<Object, Long> timeFn = m -> 123456L;
 
     WindowInternal<Object, Object, Collection> window = new WindowInternal<Object, Object, Collection>(
-        defaultTrigger,
-        supplierFunction,
-        foldFn,
-        keyFn,
-        timeFn,
-        WindowType.SESSION,
-        null,
-        mock(Serde.class),
-        mock(Serde.class));
+        defaultTrigger, supplierFunction, foldFn, keyFn, timeFn, WindowType.SESSION, null,
+        mock(Serde.class), mock(Serde.class));
     window.setEarlyTrigger(earlyTrigger);
 
     WindowOperatorSpec<Object, Object, Collection> spec = new WindowOperatorSpec<>(window, "w0");
