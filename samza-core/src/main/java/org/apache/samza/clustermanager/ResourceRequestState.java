@@ -190,8 +190,12 @@ public class ResourceRequestState {
     synchronized (lock) {
       requestsQueue.remove(request);
       // A reference for the resource could either be held in the preferred host buffer or in the ANY_HOST buffer.
-      allocatedResources.get(assignedHost).remove(samzaResource);
-      allocatedResources.get(ANY_HOST).remove(samzaResource);
+      if (allocatedResources.get(assignedHost) != null) {
+        allocatedResources.get(assignedHost).remove(samzaResource);
+      }
+      if (allocatedResources.get(ANY_HOST) != null) {
+        allocatedResources.get(ANY_HOST).remove(samzaResource);
+      }
       if (hostAffinityEnabled) {
         // assignedHost may not always be the preferred host.
         // Hence, we should safely decrement the counter for the preferredHost

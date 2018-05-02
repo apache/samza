@@ -19,11 +19,12 @@
 
 package org.apache.samza.zk;
 
+import com.google.common.collect.ImmutableList;
+import java.util.Objects;
 import org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,6 +42,25 @@ import java.util.Optional;
  * with value {@link org.apache.samza.zk.ZkBarrierForVersionUpgrade.State#TIMED_OUT} and indicates to everyone that it
  * is no longer valid.
  *
+ *
+ * Describes the lifecycle of a barrier.
+ * <pre>
+ *
+ *                               When expected participants join
+ *      Leader    ---&lt; NEW ---------------------------------------- &lt; DONE
+ *                         |      barrier within barrierTimeOut.
+ *                         |
+ *                         |
+ *                         |
+ *                         |
+ *                         |
+ *                         |    When expected participants doesn't
+ *                         | ----------------------------------------- &lt; TIMED_OUT
+ *                              join barrier within barrierTimeOut.
+ *
+ * </pre>
+ *
+ *
  * The caller can listen to events associated with the barrier by registering a {@link ZkBarrierListener}.
  *
  * Zk Tree Reference:
@@ -48,7 +68,7 @@ import java.util.Optional;
  *  |
  *  |- barrier_{version1}/
  *  |   |- barrier_state/
- *  |   |  ([DONE|TIMED_OUT])
+ *  |   |  ([NEW|DONE|TIMED_OUT])
  *  |   |- barrier_participants/
  *  |   |   |- {id1}
  *  |   |   |- {id2}
@@ -61,9 +81,19 @@ public class ZkBarrierForVersionUpgrade {
   private final Optional<ZkBarrierListener> barrierListenerOptional;
 
   public enum State {
-    TIMED_OUT, DONE
-  }
+    NEW("NEW"), TIMED_OUT("TIMED_OUT"), DONE("DONE");
 
+    private String str;
+
+    State(String str) {
+      this.str = str;
+    }
+
+    @Override
+    public String toString() {
+      return str;
+    }
+  }
 
   public ZkBarrierForVersionUpgrade(String barrierRoot, ZkUtils zkUtils, ZkBarrierListener barrierListener) {
     if (zkUtils == null) {
@@ -81,16 +111,19 @@ public class ZkBarrierForVersionUpgrade {
    * @param participants List of expected participated for this barrier to complete
    */
   public void create(final String version, List<String> participants) {
+    LOG.info(String.format("Creating barrier with version: %s, participants: %s.", version, participants));
     String barrierRoot = keyBuilder.getBarrierRoot();
     String barrierParticipantsPath = keyBuilder.getBarrierParticipantsPath(version);
+    String barrierStatePath = keyBuilder.getBarrierStatePath(version);
     zkUtils.validatePaths(new String[]{
         barrierRoot,
         keyBuilder.getBarrierPath(version),
         barrierParticipantsPath,
-        keyBuilder.getBarrierStatePath(version)});
+        barrierStatePath});
+    LOG.info("Marking the barrier state: {} as {}.", barrierStatePath, State.NEW);
+    zkUtils.writeData(barrierStatePath, State.NEW);
 
-    // subscribe for participant's list changes
-    LOG.info("Subscribing for child changes at " + barrierParticipantsPath);
+    LOG.info("Subscribing child changes on the path: {} for barrier version: {}.", barrierParticipantsPath, version);
     zkUtils.subscribeChildChanges(barrierParticipantsPath, new ZkBarrierChangeHandler(version, participants, zkUtils));
 
     barrierListenerOptional.ifPresent(zkBarrierListener -> zkBarrierListener.onBarrierCreated(version));
@@ -103,8 +136,10 @@ public class ZkBarrierForVersionUpgrade {
    * @param participantId Identifier of the participant
    */
   public void join(String version, String participantId) {
-    String barrierDonePath = keyBuilder.getBarrierStatePath(version);
-    zkUtils.subscribeDataChanges(barrierDonePath, new ZkBarrierReachedHandler(barrierDonePath, version, zkUtils));
+    LOG.info("Joining the barrier version: {} as participant: {}.", version, participantId);
+    String barrierStatePath = keyBuilder.getBarrierStatePath(version);
+    LOG.info("Subscribing data changes on the path: {} for barrier version: {}.", barrierStatePath, version);
+    zkUtils.subscribeDataChanges(barrierStatePath, new ZkBarrierReachedHandler(barrierStatePath, version, zkUtils));
 
     // TODO: Handle ZkNodeExistsException - SAMZA-1304
     zkUtils.getZkClient().createPersistent(
@@ -117,41 +152,54 @@ public class ZkBarrierForVersionUpgrade {
    * @param version Version associated with the Barrier
    */
   public void expire(String version) {
-    zkUtils.writeData(keyBuilder.getBarrierStatePath(version), State.TIMED_OUT);
-
+    String barrierStatePath = keyBuilder.getBarrierStatePath(version);
+    State barrierState = zkUtils.getZkClient().readData(barrierStatePath);
+    if (Objects.equals(barrierState, State.NEW)) {
+      LOG.info(String.format("Expiring the barrier version: %s. Marking the barrier state: %s as %s.", version, barrierStatePath, State.TIMED_OUT));
+      zkUtils.writeData(keyBuilder.getBarrierStatePath(version), State.TIMED_OUT);
+    } else {
+      LOG.debug(String.format("Barrier version: %s is at: %s state. Not marking barrier as %s.", version, barrierState, State.TIMED_OUT));
+    }
   }
+
   /**
    * Listener for changes to the list of participants. It is meant to be subscribed only by the creator of the barrier
    * node. It checks to see when the barrier is ready to be marked as completed.
    */
   class ZkBarrierChangeHandler extends ZkUtils.GenIZkChildListener {
     private final String barrierVersion;
-    private final List<String> names;
+    private final List<String> expectedParticipantIds;
 
-    public ZkBarrierChangeHandler(String barrierVersion, List<String> names, ZkUtils zkUtils) {
+    public ZkBarrierChangeHandler(String barrierVersion, List<String> expectedParticipantIds, ZkUtils zkUtils) {
       super(zkUtils, "ZkBarrierChangeHandler");
       this.barrierVersion = barrierVersion;
-      this.names = names;
+      this.expectedParticipantIds = expectedParticipantIds;
     }
 
     @Override
-    public void handleChildChange(String parentPath, List<String> currentChildren) {
+    public void handleChildChange(String barrierParticipantPath, List<String> participantIds) {
       if (notAValidEvent()) {
         return;
       }
-      if (currentChildren == null) {
-        LOG.info("Got ZkBarrierChangeHandler handleChildChange with null currentChildren");
+      if (participantIds == null) {
+        LOG.info("Received notification with null participants for barrier: {}. Ignoring it.", barrierParticipantPath);
         return;
       }
-      LOG.info("list of children in the barrier = " + parentPath + ":" + Arrays.toString(currentChildren.toArray()));
-      LOG.info("list of children to compare against = " + parentPath + ":" + Arrays.toString(names.toArray()));
+      LOG.info(String.format("Current participants in barrier version: %s = %s.", barrierVersion, participantIds));
+      LOG.info(String.format("Expected participants in barrier version: %s = %s.", barrierVersion, expectedParticipantIds));
 
       // check if all the expected participants are in
-      if (currentChildren.size() == names.size() && CollectionUtils.containsAll(currentChildren, names)) {
-        String barrierDonePath = keyBuilder.getBarrierStatePath(barrierVersion);
-        LOG.info("Writing BARRIER DONE to " + barrierDonePath);
-        zkUtils.writeData(barrierDonePath, State.DONE); // this will trigger notifications
-        zkUtils.unsubscribeChildChanges(barrierDonePath, this);
+      if (participantIds.size() == expectedParticipantIds.size() && CollectionUtils.containsAll(participantIds, expectedParticipantIds)) {
+        String barrierStatePath = keyBuilder.getBarrierStatePath(barrierVersion);
+        State barrierState = zkUtils.getZkClient().readData(barrierStatePath);
+        if (Objects.equals(barrierState, State.NEW)) {
+          LOG.info(String.format("Expected participants has joined the barrier version: %s. Marking the barrier state: %s as %s.", barrierVersion, barrierStatePath, State.DONE));
+          zkUtils.writeData(barrierStatePath, State.DONE); // this will trigger notifications
+        } else {
+          LOG.debug(String.format("Barrier version: %s is at: %s state. Not marking barrier as %s.", barrierVersion, barrierState, State.DONE));
+        }
+        LOG.info("Unsubscribing child changes on the path: {} for barrier version: {}.", barrierParticipantPath, barrierVersion);
+        zkUtils.unsubscribeChildChanges(barrierParticipantPath, this);
       }
     }
   }
@@ -174,18 +222,23 @@ public class ZkBarrierForVersionUpgrade {
 
     @Override
     public void handleDataChange(String dataPath, Object data) {
-      LOG.info("got notification about barrier " + barrierStatePath + "; done=" + data);
+      LOG.info(String.format("Received barrierState change notification for barrier version: %s from zkNode: %s with data: %s.", barrierVersion, dataPath, data));
       if (notAValidEvent())
         return;
 
-      zkUtils.unsubscribeDataChanges(barrierStatePath, this);
-      barrierListenerOptional.ifPresent(
-          zkBarrierListener -> zkBarrierListener.onBarrierStateChanged(barrierVersion, (State) data));
+      State barrierState = (State) data;
+      List<State> expectedBarrierStates = ImmutableList.of(State.DONE, State.TIMED_OUT);
+
+      if (barrierState != null && expectedBarrierStates.contains(barrierState)) {
+        zkUtils.unsubscribeDataChanges(barrierStatePath, this);
+        barrierListenerOptional.ifPresent(zkBarrierListener -> zkBarrierListener.onBarrierStateChanged(barrierVersion, (State) data));
+      } else {
+        LOG.debug("Barrier version: {} is at state: {}. Ignoring the barrierState change notification.", barrierVersion, barrierState);
+      }
     }
 
     @Override
-    public void handleDataDeleted(String dataPath)
-        throws Exception {
+    public void handleDataDeleted(String dataPath) {
       LOG.warn("barrier done node got deleted at " + dataPath);
       if (notAValidEvent())
         return;

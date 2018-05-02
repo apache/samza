@@ -77,6 +77,12 @@ public class EventHubConfig extends MapConfig {
   private static final int MESSAGE_HEADER_OVERHEAD = 24 * 1024;
   private static final int DEFAULT_MAX_MESSAGE_SIZE = 1024 * 1024 - MESSAGE_HEADER_OVERHEAD;
 
+  // Each EventHub client maintains single TCP connection. To improve throughput, we will instantiate one
+  // client for each partition. Allow the option to disable the feature in case too many EventHub clients
+  // end up causing unpredictable issues when number of partitions is really high.
+  public static final String CONFIG_PER_PARTITION_CONNECTION = "systems.%s.eventhubs.perPartition.connection";
+  public static final Boolean DEFAULT_CONFIG_PER_PARTITION_CONNECTION = true;
+
   private final Map<String, String> physcialToId = new HashMap<>();
 
   public EventHubConfig(Config config) {
@@ -280,4 +286,16 @@ public class EventHubConfig extends MapConfig {
     return Integer.parseInt(bufferCapacity);
   }
 
+  /**
+   * Returns whether to create one EventHub client per partition. Each EventHub client maintains
+   * single TCP connection. More EventHub clients will improve throughput in general.
+   * For producer this config is only relevant when partition method is PARTITION_KEY_AS_PARTITION
+   */
+  public Boolean getPerPartitionConnection(String systemName) {
+    String isPerPartitionConnection = get(String.format(CONFIG_PER_PARTITION_CONNECTION, systemName));
+    if (isPerPartitionConnection == null) {
+      return DEFAULT_CONFIG_PER_PARTITION_CONNECTION;
+    }
+    return Boolean.valueOf(isPerPartitionConnection);
+  }
 }

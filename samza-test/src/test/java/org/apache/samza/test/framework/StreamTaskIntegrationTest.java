@@ -29,7 +29,7 @@ import org.junit.Test;
 
 public class StreamTaskIntegrationTest {
 
-  @Test(timeout=1000)
+  @Test
   public void testSyncTaskWithSinglePartition() throws Exception {
     List<Integer> inputList = Arrays.asList(1, 2, 3, 4, 5);
     List<Integer> outputList = Arrays.asList(10, 20, 30, 40, 50);

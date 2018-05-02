@@ -48,7 +48,7 @@ public class StreamApplicationIntegrationTest {
 
   private static final String[] PAGEKEYS = {"inbox", "home", "search", "pymk", "group", "job"};
 
-  @Test(timeout=1000)
+  @Test
   public void testHighLevelApi() throws Exception {
     Random random = new Random();
     int count = 10;
