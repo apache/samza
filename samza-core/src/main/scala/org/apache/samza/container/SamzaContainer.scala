@@ -469,6 +469,10 @@ object SamzaContainer extends Logging {
       info("Got store consumers: %s" format storeConsumers)
 
       var loggedStorageBaseDir: File = null
+
+      var useJobStorePathFromConfig: Boolean = false
+
+      val jobStorePathFromConfig = config.getJobStorePath
       val jobNameAndId = (
         config.getName.getOrElse(throw new ConfigException("Missing required config: job.name")),
         config.getJobId.getOrElse("1")
@@ -477,17 +481,15 @@ object SamzaContainer extends Logging {
       if(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR) != null) {
         loggedStorageBaseDir = new File(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR)
           + File.separator + jobNameAndId._1 + "-" + jobNameAndId._2)
+      } else if (jobStorePathFromConfig != null) {
+        info("Using %s for job state store base directory" format jobStorePathFromConfig)
+        loggedStorageBaseDir = new File(jobStorePathFromConfig + File.separator + jobNameAndId._1 + "-" + jobNameAndId._2)
+        useJobStorePathFromConfig = true
       } else {
-        config.getLoggedStoreBaseDir match {
-          case Some(storeBaseDir) =>
-            info("Using user provided value for job state store base directory")
-            loggedStorageBaseDir = new File(storeBaseDir + File.separator + jobNameAndId._1 + "-" + jobNameAndId._2)
-          case None =>
-            warn("No override was provided for logged store base directory. This disables local state re-use on " +
-              "application restart. If you want to enable this feature, set LOGGED_STORE_BASE_DIR as an environment " +
-              "variable in all machines running the Samza container")
-            loggedStorageBaseDir = defaultStoreBaseDir
-        }
+        warn("No override was provided for logged store base directory. This disables local state re-use on " +
+          "application restart. If you want to enable this feature, set LOGGED_STORE_BASE_DIR as an environment " +
+          "variable in all machines running the Samza container or configure job.store.path for your application")
+        loggedStorageBaseDir = defaultStoreBaseDir
       }
 
       info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
@@ -513,7 +515,11 @@ object SamzaContainer extends Logging {
               case _ => null
             }
 
-            val storeDir = if (changeLogSystemStreamPartition != null) {
+            // We want to use the job store path from the config for standalone deployment model for both changelog
+            // enabled & disabled stores. We preserve the existing behaviour in yarn where non-changelog stores
+            // use "user.dir" for store base directory even if the environment variable LOGGED_STORE_BASE_DIR is set.
+            // TODO: Identify the impact of using logged store directories for non-changelog stores.
+            val storeDir = if (changeLogSystemStreamPartition != null || useJobStorePathFromConfig) {
               TaskStorageManager.getStorePartitionDir(loggedStorageBaseDir, storeName, taskName)
             } else {
               TaskStorageManager.getStorePartitionDir(defaultStoreBaseDir, storeName, taskName)
