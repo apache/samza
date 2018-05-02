@@ -103,8 +103,14 @@ class ProcessJob(commandBuilder: CommandBuilder, val jobModelManager: JobModelMa
     require(timeoutMs >= 0, "Timeout values must be non-negative.")
 
     timeoutMs match {
-      case 0 => while (getStatus != status) lock.wait(0)
+      case 0 => {
+        info("Waiting for application status %s indefinitely".format(status))
+
+        while (getStatus != status) lock.wait(0)
+      }
       case _ => {
+        info("Waiting for application status %s for %d ms".format(status, timeoutMs))
+
         val startTimeMs = System.currentTimeMillis
         var remainingTimeoutMs = timeoutMs
 

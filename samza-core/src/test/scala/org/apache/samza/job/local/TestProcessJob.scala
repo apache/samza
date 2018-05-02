@@ -20,7 +20,7 @@
 package org.apache.samza.job.local
 
 import org.apache.samza.coordinator.JobModelManager
-import org.apache.samza.job.ApplicationStatus.{SuccessfulFinish, UnsuccessfulFinish}
+import org.apache.samza.job.ApplicationStatus.{Running, SuccessfulFinish, UnsuccessfulFinish}
 import org.apache.samza.job.CommandBuilder
 import org.junit.Assert._
 import org.junit.Test
@@ -77,10 +77,10 @@ class TestProcessJob {
   def testProcessJobWaitForFinishShouldTimeOut: Unit = {
     val processJob = createProcessJob(OneSecondCommand)
 
-    val status = processJob.waitForFinish(10)
+    // Wait for a shorter duration than that necessary for the specified command to complete.
+    val status = processJob.submit.waitForFinish(10)
 
-    assertNotEquals(SuccessfulFinish, status)
-    assertNotEquals(UnsuccessfulFinish, status)
+    assertEquals(Running, status)
   }
 
   @Test
@@ -117,10 +117,10 @@ class TestProcessJob {
   def testProcessJobWaitForStatusShouldTimeOut: Unit = {
     val processJob = createProcessJob(OneSecondCommand)
 
-    val status = processJob.submit.waitForFinish(10)
+    // Wait for a shorter duration than that necessary for the specified command to complete.
+    val status = processJob.submit.waitForStatus(SuccessfulFinish, 10)
 
-    assertNotEquals(SuccessfulFinish, status)
-    assertNotEquals(UnsuccessfulFinish, status)
+    assertEquals(Running, status)
   }
 
   @Test(expected = classOf[IllegalArgumentException])
