@@ -76,6 +76,49 @@ object SamzaContainer extends Logging {
         classOf[JobModel])
   }
 
+  // Ideally, we want this to reside in TaskStorageManager since container should not be in the business of
+  // determining which directories to use for which stores.
+  def getNonLoggedStorageBaseDir(config: Config, defaultStoreBaseDir: File) = {
+    config.getNonLoggedStorePath match {
+      case Some(nonLoggedStorePath) =>
+        new File(nonLoggedStorePath)
+      case None =>
+        defaultStoreBaseDir
+    }
+  }
+
+  // Ideally, we want this to reside in TaskStorageManager since container should not be in the business of
+  // determining which directories to use for which stores.
+  def getLoggedStorageBaseDir(config: Config, defaultStoreBaseDir: File) = {
+    val defaultLoggedStorageBaseDir = config.getLoggedStorePath match {
+      case Some(durableStorePath) =>
+        new File(durableStorePath)
+      case None =>
+        defaultStoreBaseDir
+    }
+
+    var loggedStorageBaseDir:File = null
+    if(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR) != null) {
+      val jobNameAndId = (
+        config.getName.getOrElse(throw new ConfigException("Missing required config: job.name")),
+        config.getJobId.getOrElse("1")
+      )
+
+      loggedStorageBaseDir = new File(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR)
+        + File.separator + jobNameAndId._1 + "-" + jobNameAndId._2)
+    } else {
+      if (config.getLoggedStorePath.isEmpty) {
+        warn("No override was provided for logged store base directory. This disables local state re-use on " +
+          "application restart. If you want to enable this feature, set LOGGED_STORE_BASE_DIR as an environment " +
+          "variable in all machines running the Samza container or configure job.logged.store.path for your application")
+      }
+
+      loggedStorageBaseDir = defaultLoggedStorageBaseDir
+    }
+
+    loggedStorageBaseDir
+  }
+
   def apply(
     containerId: String,
     jobModel: JobModel,
@@ -431,10 +474,6 @@ object SamzaContainer extends Logging {
       .toSet
     val containerContext = new SamzaContainerContext(containerId, config, taskNames.asJava, samzaContainerMetrics.registry)
 
-    // TODO not sure how we should make this config based, or not. Kind of
-    // strange, since it has some dynamic directories when used with YARN.
-    val defaultStoreBaseDir = new File(System.getProperty("user.dir"), "state")
-    info("Got default storage engine base directory: %s" format defaultStoreBaseDir)
 
     val storeWatchPaths = new util.HashSet[Path]()
 
@@ -468,30 +507,13 @@ object SamzaContainer extends Logging {
 
       info("Got store consumers: %s" format storeConsumers)
 
-      var loggedStorageBaseDir: File = null
+      val defaultStoreBaseDir = new File(System.getProperty("user.dir"), "state")
+      info("Got default storage engine base directory: %s" format defaultStoreBaseDir)
 
-      var useJobStorePathFromConfig: Boolean = false
+      val nonLoggedStorageBaseDir = getNonLoggedStorageBaseDir(config, defaultStoreBaseDir)
+      info("Got base directory for non logged data stores: %s" format nonLoggedStorageBaseDir)
 
-      val jobStorePathFromConfig = config.getJobStorePath
-      val jobNameAndId = (
-        config.getName.getOrElse(throw new ConfigException("Missing required config: job.name")),
-        config.getJobId.getOrElse("1")
-      )
-
-      if(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR) != null) {
-        loggedStorageBaseDir = new File(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR)
-          + File.separator + jobNameAndId._1 + "-" + jobNameAndId._2)
-      } else if (jobStorePathFromConfig != null) {
-        info("Using %s for job state store base directory" format jobStorePathFromConfig)
-        loggedStorageBaseDir = new File(jobStorePathFromConfig + File.separator + jobNameAndId._1 + "-" + jobNameAndId._2)
-        useJobStorePathFromConfig = true
-      } else {
-        warn("No override was provided for logged store base directory. This disables local state re-use on " +
-          "application restart. If you want to enable this feature, set LOGGED_STORE_BASE_DIR as an environment " +
-          "variable in all machines running the Samza container or configure job.store.path for your application")
-        loggedStorageBaseDir = defaultStoreBaseDir
-      }
-
+      var loggedStorageBaseDir = getLoggedStorageBaseDir(config, defaultStoreBaseDir)
       info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
 
       val taskStores = storageEngineFactories
@@ -515,14 +537,10 @@ object SamzaContainer extends Logging {
               case _ => null
             }
 
-            // We want to use the job store path from the config for standalone deployment model for both changelog
-            // enabled & disabled stores. We preserve the existing behaviour in yarn where non-changelog stores
-            // use "user.dir" for store base directory even if the environment variable LOGGED_STORE_BASE_DIR is set.
-            // TODO: Identify the impact of using logged store directories for non-changelog stores.
-            val storeDir = if (changeLogSystemStreamPartition != null || useJobStorePathFromConfig) {
+            val storeDir = if (changeLogSystemStreamPartition != null) {
               TaskStorageManager.getStorePartitionDir(loggedStorageBaseDir, storeName, taskName)
             } else {
-              TaskStorageManager.getStorePartitionDir(defaultStoreBaseDir, storeName, taskName)
+              TaskStorageManager.getStorePartitionDir(nonLoggedStorageBaseDir, storeName, taskName)
             }
 
             storeWatchPaths.add(storeDir.toPath)
@@ -548,7 +566,7 @@ object SamzaContainer extends Logging {
         changeLogSystemStreams = changeLogSystemStreams,
         maxChangeLogStreamPartitions,
         streamMetadataCache = streamMetadataCache,
-        storeBaseDir = defaultStoreBaseDir,
+        nonLoggedStoreBaseDir = nonLoggedStorageBaseDir,
         loggedStoreBaseDir = loggedStorageBaseDir,
         partition = taskModel.getChangelogPartition,
         systemAdmins = systemAdmins,

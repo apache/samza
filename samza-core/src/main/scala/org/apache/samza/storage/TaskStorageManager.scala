@@ -45,18 +45,18 @@ object TaskStorageManager {
  * Manage all the storage engines for a given task
  */
 class TaskStorageManager(
-  taskName: TaskName,
-  taskStores: Map[String, StorageEngine] = Map(),
-  storeConsumers: Map[String, SystemConsumer] = Map(),
-  changeLogSystemStreams: Map[String, SystemStream] = Map(),
-  changeLogStreamPartitions: Int,
-  streamMetadataCache: StreamMetadataCache,
-  storeBaseDir: File = new File(System.getProperty("user.dir"), "state"),
-  loggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
-  partition: Partition,
-  systemAdmins: SystemAdmins,
-  changeLogDeleteRetentionsInMs: Map[String, Long],
-  clock: Clock) extends Logging {
+                          taskName: TaskName,
+                          taskStores: Map[String, StorageEngine] = Map(),
+                          storeConsumers: Map[String, SystemConsumer] = Map(),
+                          changeLogSystemStreams: Map[String, SystemStream] = Map(),
+                          changeLogStreamPartitions: Int,
+                          streamMetadataCache: StreamMetadataCache,
+                          nonLoggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
+                          loggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
+                          partition: Partition,
+                          systemAdmins: SystemAdmins,
+                          changeLogDeleteRetentionsInMs: Map[String, Long],
+                          clock: Clock) extends Logging {
 
   var taskStoresToRestore = taskStores.filter{
     case (storeName, storageEngine) => storageEngine.getStoreProperties.isLoggedStore
@@ -84,12 +84,12 @@ class TaskStorageManager(
     debug("Cleaning base directories for stores.")
 
     taskStores.keys.foreach(storeName => {
-      val storePartitionDir = TaskStorageManager.getStorePartitionDir(storeBaseDir, storeName, taskName)
-      info("Got default storage partition directory as %s" format storePartitionDir.toPath.toString)
+      val nonLoggedStorePartitionDir = TaskStorageManager.getStorePartitionDir(nonLoggedStoreBaseDir, storeName, taskName)
+      info("Got non logged storage partition directory as %s" format nonLoggedStorePartitionDir.toPath.toString)
 
-      if(storePartitionDir.exists()) {
-        info("Deleting default storage partition directory %s" format storePartitionDir.toPath.toString)
-        FileUtil.rm(storePartitionDir)
+      if(nonLoggedStorePartitionDir.exists()) {
+        info("Deleting non logged storage partition directory %s" format nonLoggedStorePartitionDir.toPath.toString)
+        FileUtil.rm(nonLoggedStorePartitionDir)
       }
 
       val loggedStorePartitionDir = TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, storeName, taskName)
@@ -179,9 +179,9 @@ class TaskStorageManager(
           info("Using logged storage partition directory: %s for store: %s." format(loggedStorePartitionDir.toPath.toString, storeName))
           if (!loggedStorePartitionDir.exists()) loggedStorePartitionDir.mkdirs()
         } else {
-          val storePartitionDir = TaskStorageManager.getStorePartitionDir(storeBaseDir, storeName, taskName)
-          info("Using storage partition directory: %s for store: %s." format(storePartitionDir.toPath.toString, storeName))
-          storePartitionDir.mkdirs()
+          val nonLoggedStorePartitionDir = TaskStorageManager.getStorePartitionDir(nonLoggedStoreBaseDir, storeName, taskName)
+          info("Using non logged storage partition directory: %s for store: %s." format(nonLoggedStorePartitionDir.toPath.toString, storeName))
+          nonLoggedStorePartitionDir.mkdirs()
         }
     }
   }
