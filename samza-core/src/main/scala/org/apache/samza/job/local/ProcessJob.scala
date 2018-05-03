@@ -77,30 +77,40 @@ class ProcessJob(commandBuilder: CommandBuilder, val jobModelManager: JobModelMa
       }
     })
 
+    info("Starting process job")
+
     processThread.get.start
     threadStartCountDownLatch.await
     ProcessJob.this
   }
 
   def kill: StreamJob = {
-    if (getStatus == Running) {
-      processThread foreach { thread =>
-        thread.interrupt
-        thread.join
+    getStatus match {
+      case Running => {
+        info("Attempting to kill running process job")
+
+        processThread foreach { thread =>
+          thread.interrupt
+          thread.join
+
+          info("Process job killed successfully")
+        }
       }
+      case status => warn("Ignoring attempt to kill a process job that is not running. Job status is %s".format(status))
     }
+
     ProcessJob.this
   }
 
   def waitForFinish(timeoutMs: Long): ApplicationStatus = {
-    require(timeoutMs >= 0, "Timeout values must be non-negative.")
+    require(timeoutMs >= 0, "Timeout values must be non-negative")
 
     processThread foreach { thread => thread.join(timeoutMs) }
     getStatus
   }
 
   def waitForStatus(status: ApplicationStatus, timeoutMs: Long): ApplicationStatus = lock.synchronized {
-    require(timeoutMs >= 0, "Timeout values must be non-negative.")
+    require(timeoutMs >= 0, "Timeout values must be non-negative")
 
     timeoutMs match {
       case 0 => {
@@ -130,6 +140,8 @@ class ProcessJob(commandBuilder: CommandBuilder, val jobModelManager: JobModelMa
   }
 
   private def setStatus(status: ApplicationStatus): Unit = lock.synchronized {
+    info("Changing process job status from %s to %s".format(jobStatus, status))
+
     jobStatus = status
     lock.notify
   }
