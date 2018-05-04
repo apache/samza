@@ -112,6 +112,8 @@ public interface KeyValueStore<K, V> {
 
   /**
    * Returns an iterable for a sorted range of entries specified by [{@code from}, {@code to}).
+   * Note that we snapshot the iterator when the iterable is created from this function, and
+   * the iteration results is guaranteed to reflect the snapshot if only one iterator is in use at a time.
    *
    * @param from the key specifying the low endpoint (inclusive) of the keys in the returned range.
    * @param to the key specifying the high endpoint (exclusive) of the keys in the returned range.

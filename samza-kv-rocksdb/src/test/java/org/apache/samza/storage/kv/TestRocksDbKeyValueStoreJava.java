@@ -48,7 +48,7 @@ public class TestRocksDbKeyValueStoreJava {
     Options options = new Options();
     options.setCreateIfMissing(true);
 
-    File dbDir = new File(System.getProperty("java.io.tmpdir"));
+    File dbDir = new File(System.getProperty("java.io.tmpdir") + "/dbStore" + System.currentTimeMillis());
     RocksDbKeyValueStore store = new RocksDbKeyValueStore(dbDir, options, config, false, "dbStore",
         new WriteOptions(), new FlushOptions(), new KeyValueStoreMetrics("dbStore", new MetricsRegistryMap()));
 
