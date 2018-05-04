@@ -114,4 +114,7 @@ class LoggedStore[K, V](
     store.close
   }
 
+  override def iterate(from: K, to: K): KeyValueIterable[K, V] = {
+    store.iterate(from, to)
+  }
 }
