@@ -204,8 +204,8 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   }
 
   /**
-   * Waits until the application finishes. It times out after the input duration has elapsed.
-   * If timeout is zero or negative, then real time is not taken into consideration and the thread simply waits until notified.
+   * Waits for {@code timeout} duration for the application to finish.
+   * If timeout < 1, blocks the caller indefinitely.
    *
    * @param timeout time to wait for the application to finish
    * @return true - application finished before timeout
@@ -223,11 +223,11 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
         finished = shutdownLatch.await(timeoutInMs, TimeUnit.MILLISECONDS);
 
         if (!finished) {
-          LOG.error("Waiting to shutdown local application runner timed out.");
+          LOG.warn("Timed out waiting for application to finish.");
         }
       }
     } catch (Exception e) {
-      LOG.error("Wait for application finish failed due to", e);
+      LOG.error("Error waiting for application to finish", e);
       throw new SamzaException(e);
     }
 

@@ -44,7 +44,7 @@ import static org.apache.samza.job.ApplicationStatus.*;
 public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
   private static final Logger LOG = LoggerFactory.getLogger(RemoteApplicationRunner.class);
-  private static final long DEFAULT_TIME_TO_SLEEP_DURING_WAIT = 2000;
+  private static final long DEFAULT_SLEEP_DURATION_MS = 2000;
 
   public RemoteApplicationRunner(Config config) {
     super(config);
@@ -166,8 +166,8 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   }
 
   /**
-   * Waits until the application finishes. It times out after the input duration has elapsed.
-   * If timeout is zero or negative, then real time is not taken into consideration and the thread simply waits until notified.
+   * Waits for {@code timeout} duration for the application to finish.
+   * If timeout < 1, blocks the caller indefinitely.
    *
    * @param timeout time to wait for the application to finish
    * @return true - application finished before timeout
@@ -175,12 +175,13 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
    */
   public boolean waitForFinish(Duration timeout) {
     JobConfig jobConfig = new JobConfig(config);
+    boolean finished = true;
     long timeoutInMs = timeout.toMillis();
     long startTimeInMs = System.currentTimeMillis();
-    long sleepDurationInMs = Math.min(timeoutInMs, DEFAULT_TIME_TO_SLEEP_DURING_WAIT);
-    boolean finished = true;
-
     long timeElapsed = 0L;
+
+    long sleepDurationInMs = timeoutInMs < 1 ?
+        DEFAULT_SLEEP_DURATION_MS : Math.min(timeoutInMs, DEFAULT_SLEEP_DURATION_MS);
     ApplicationStatus status;
 
     try {
@@ -196,11 +197,11 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
       }
 
       if (timeElapsed > timeoutInMs) {
-        LOG.error("Waiting to shutdown remote application runner timed out.");
+        LOG.warn("Timed out waiting for application to finish.");
         finished = false;
       }
     } catch (Exception e) {
-      LOG.error("Wait for application finish failed due to", e);
+      LOG.error("Error waiting for application to finish", e);
       throw new SamzaException(e);
     }
 

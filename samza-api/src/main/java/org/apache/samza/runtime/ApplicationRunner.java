@@ -115,14 +115,14 @@ public abstract class ApplicationRunner {
   }
 
   /**
-   * Waits for the application to finish. It times out after the input duration has elapsed.
+   * Waits for {@code timeout} duration for the application to finish.
    *
    * @param timeout time to wait for the application to finish
    * @return true - application finished before timeout
    *         false - otherwise
    */
   public boolean waitForFinish(Duration timeout) {
-    throw new UnsupportedOperationException(getClass().getName() + " does not support waitForFinish.");
+    throw new UnsupportedOperationException(getClass().getName() + " does not support timed waitForFinish.");
   }
 
   /**
