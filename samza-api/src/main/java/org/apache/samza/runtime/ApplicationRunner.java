@@ -108,17 +108,18 @@ public abstract class ApplicationRunner {
   public abstract ApplicationStatus status(StreamApplication streamApp);
 
   /**
-   *
+   * Waits until the application finishes.
    */
   public void waitForFinish() {
     throw new UnsupportedOperationException(getClass().getName() + " does not support waitForFinish.");
   }
 
   /**
+   * Waits for the application to finish. It times out after the input duration has elapsed.
    *
-   * @param duration
+   * @param timeout time to wait for the application to finish
    */
-  public void waitForFinish(Duration duration) {
+  public void waitForFinish(Duration timeout) {
     throw new UnsupportedOperationException(getClass().getName() + " does not support waitForFinish.");
   }
 

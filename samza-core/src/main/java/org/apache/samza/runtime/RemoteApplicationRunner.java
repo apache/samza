@@ -182,7 +182,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     ApplicationStatus status;
 
     try {
-      while(timeoutInMs < 1 || timeElapsed <= timeoutInMs) {
+      while (timeoutInMs < 1 || timeElapsed <= timeoutInMs) {
         status = getApplicationStatus(jobConfig);
         if (status == SuccessfulFinish || status == UnsuccessfulFinish) {
           LOG.info("Application finished with status {}", status);
@@ -193,7 +193,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
         timeElapsed = System.currentTimeMillis() - startTimeInMs;
       }
 
-      if(timeElapsed > timeoutInMs) {
+      if (timeElapsed > timeoutInMs) {
         LOG.error("Waiting to shutdown remote application runner timed out.");
         throw new TimeoutException("Waiting to shutdown remote application runner timed out.");
       }
