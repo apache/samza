@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.JobConfig;
@@ -310,23 +309,19 @@ public class TestLocalApplicationRunner {
   @Test
   public void testWaitForFinishReturnsBeforeTimeout() {
     LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig());
-    long startTime = System.currentTimeMillis();
     long timeoutInMs = 1000;
-    runner.shutdownLatch.countDown();
-    runner.waitForFinish(Duration.ofMillis(timeoutInMs));
-    assertTrue(System.currentTimeMillis() - startTime < timeoutInMs);
+
+    runner.getShutdownLatch().countDown();
+    boolean finished = runner.waitForFinish(Duration.ofMillis(timeoutInMs));
+    assertTrue("Application did not finish before the timeout.", finished);
   }
 
   @Test
   public void testWaitForFinishTimesout() {
     LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig());
     long timeoutInMs = 100;
-    try {
-      runner.waitForFinish(Duration.ofMillis(timeoutInMs));
-    } catch (SamzaException e) {
-      assertNotNull(e);
-      assertEquals(e.getCause().getMessage(), "Waiting to shutdown local application runner timed out.");
-    }
+    boolean finished = runner.waitForFinish(Duration.ofMillis(timeoutInMs));
+    assertFalse("Application finished before the timeout.", finished);
   }
 
   private String getExecutionPlanId(List<StreamSpec> updatedStreamSpecs) {

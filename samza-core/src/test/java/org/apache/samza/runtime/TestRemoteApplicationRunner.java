@@ -20,7 +20,6 @@
 package org.apache.samza.runtime;
 
 import java.time.Duration;
-import org.apache.samza.SamzaException;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.ApplicationStatus;
@@ -37,24 +36,18 @@ public class TestRemoteApplicationRunner {
   @Test
   public void testWaitForFinishReturnsBeforeTimeout() {
     RemoteApplicationRunner runner = spy(new RemoteApplicationRunner(new MapConfig()));
-    long startTime = System.currentTimeMillis();
-    long timeoutInMs = 5000;
     doReturn(ApplicationStatus.SuccessfulFinish).when(runner).getApplicationStatus(any(JobConfig.class));
-    runner.waitForFinish(Duration.ofMillis(timeoutInMs));
-    assertTrue(System.currentTimeMillis() - startTime < timeoutInMs);
+
+    boolean finished = runner.waitForFinish(Duration.ofMillis(5000));
+    assertTrue("Application did not finish before the timeout.", finished);
   }
 
   @Test
   public void testWaitForFinishTimesout() {
     RemoteApplicationRunner runner = spy(new RemoteApplicationRunner(new MapConfig()));
-    long timeoutInMs = 1000;
+    doReturn(ApplicationStatus.Running).when(runner).getApplicationStatus(any(JobConfig.class));
 
-    try {
-      doReturn(ApplicationStatus.Running).when(runner).getApplicationStatus(any(JobConfig.class));
-      runner.waitForFinish(Duration.ofMillis(timeoutInMs));
-    } catch (SamzaException e) {
-      assertNotNull(e);
-      assertEquals(e.getCause().getMessage(), "Waiting to shutdown remote application runner timed out.");
-    }
+    boolean finished = runner.waitForFinish(Duration.ofMillis(1000));
+    assertFalse("Application finished before the timeout.", finished);
   }
 }

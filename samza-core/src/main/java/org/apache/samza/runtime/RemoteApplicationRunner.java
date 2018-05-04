@@ -20,7 +20,6 @@
 package org.apache.samza.runtime;
 
 import java.time.Duration;
-import java.util.concurrent.TimeoutException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
@@ -168,15 +167,18 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
   /**
    * Waits until the application finishes. It times out after the input duration has elapsed.
-   * Provide a value less than 1 for input duration to wait indefinitely.
+   * If timeout is zero or negative, then real time is not taken into consideration and the thread simply waits until notified.
    *
    * @param timeout time to wait for the application to finish
+   * @return true - application finished before timeout
+   *         false - otherwise
    */
-  public void waitForFinish(Duration timeout) {
+  public boolean waitForFinish(Duration timeout) {
     JobConfig jobConfig = new JobConfig(config);
     long timeoutInMs = timeout.toMillis();
     long startTimeInMs = System.currentTimeMillis();
     long sleepDurationInMs = Math.min(timeoutInMs, DEFAULT_TIME_TO_SLEEP_DURING_WAIT);
+    boolean finished = true;
 
     long timeElapsed = 0L;
     ApplicationStatus status;
@@ -195,12 +197,14 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
       if (timeElapsed > timeoutInMs) {
         LOG.error("Waiting to shutdown remote application runner timed out.");
-        throw new TimeoutException("Waiting to shutdown remote application runner timed out.");
+        finished = false;
       }
     } catch (Exception e) {
       LOG.error("Wait for application finish failed due to", e);
       throw new SamzaException(e);
     }
+
+    return finished;
   }
 
   private Config getConfigFromPrevRun() {

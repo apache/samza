@@ -19,6 +19,7 @@
 
 package org.apache.samza.runtime;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
@@ -60,7 +61,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
   private final String uid;
   private final Set<StreamProcessor> processors = ConcurrentHashMap.newKeySet();
-  /* package private */ final CountDownLatch shutdownLatch = new CountDownLatch(1);
+  private final CountDownLatch shutdownLatch = new CountDownLatch(1);
   private final AtomicInteger numProcessorsToStart = new AtomicInteger();
   private final AtomicReference<Throwable> failure = new AtomicReference<>();
 
@@ -204,29 +205,33 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
   /**
    * Waits until the application finishes. It times out after the input duration has elapsed.
-   * Provide a value less than 1 for input duration to wait indefinitely.
+   * If timeout is zero or negative, then real time is not taken into consideration and the thread simply waits until notified.
    *
    * @param timeout time to wait for the application to finish
+   * @return true - application finished before timeout
+   *         false - otherwise
    */
   @Override
-  public void waitForFinish(Duration timeout) {
+  public boolean waitForFinish(Duration timeout) {
     long timeoutInMs = timeout.toMillis();
+    boolean finished = true;
 
     try {
       if (timeoutInMs < 1) {
         shutdownLatch.await();
       } else {
-        boolean success = shutdownLatch.await(timeoutInMs, TimeUnit.MILLISECONDS);
+        finished = shutdownLatch.await(timeoutInMs, TimeUnit.MILLISECONDS);
 
-        if (!success) {
-          LOG.error("Waiting to shutdown local application runner timed out timed out.");
-          throw new TimeoutException("Waiting to shutdown local application runner timed out.");
+        if (!finished) {
+          LOG.error("Waiting to shutdown local application runner timed out.");
         }
       }
     } catch (Exception e) {
       LOG.error("Wait for application finish failed due to", e);
       throw new SamzaException(e);
     }
+
+    return finished;
   }
 
   /**
@@ -303,5 +308,10 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   /* package private for testing */
   Set<StreamProcessor> getProcessors() {
     return processors;
+  }
+
+  @VisibleForTesting
+  CountDownLatch getShutdownLatch() {
+    return shutdownLatch;
   }
 }
