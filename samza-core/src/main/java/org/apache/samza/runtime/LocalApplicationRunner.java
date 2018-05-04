@@ -175,8 +175,10 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
       // 4. start the StreamProcessors
       processors.forEach(StreamProcessor::start);
-    } catch (Exception e) {
-      throw new SamzaException("Failed to start application", e);
+    } catch (Throwable throwable) {
+      appStatus = ApplicationStatus.unsuccessfulFinish(throwable);
+      shutdownLatch.countDown();
+      throw new SamzaException(String.format("Failed to start application: %s.", app), throwable);
     }
   }
 
