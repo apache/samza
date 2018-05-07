@@ -82,11 +82,11 @@ object JobConfig {
   val PROCESSOR_LIST = "processor.list"
 
   // Represents the store path for non-changelog stores.
-  val JOB_NON_LOGGED_STORE_PATH = "job.non-logged.store.path"
+  val JOB_NON_LOGGED_STORE_BASE_DIR = "job.non-logged.store.base.dir"
 
   // Represents the store path for stores with changelog enabled. Typically the stores are not cleaned up
   // across application restarts
-  val JOB_LOGGED_STORE_PATH = "job.logged.store.path"
+  val JOB_LOGGED_STORE_BASE_DIR = "job.logged.store.base.dir"
 
   implicit def Config2Job(config: Config) = new JobConfig(config)
 
@@ -183,7 +183,7 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
   def getDebounceTimeMs = getInt(JobConfig.JOB_DEBOUNCE_TIME_MS, JobConfig.DEFAULT_DEBOUNCE_TIME_MS)
 
-  def getNonLoggedStorePath = getOption(JobConfig.JOB_NON_LOGGED_STORE_PATH)
+  def getNonLoggedStorePath = getOption(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR)
 
-  def getLoggedStorePath = getOption(JobConfig.JOB_LOGGED_STORE_PATH)
+  def getLoggedStorePath = getOption(JobConfig.JOB_LOGGED_STORE_BASE_DIR)
 }

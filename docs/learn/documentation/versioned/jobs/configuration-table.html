@@ -477,36 +477,31 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="job.logged.store.path">job.logged.store.path</td>
+                    <td class="property" id="job.logged.store.base.dir">job.logged.store.base.dir</td>
                     <td class="default">
-                        <dl>
-                            <dt><i>user.dir</i> environment property</dt>
-                            <dt>If <i>user.dir</i> is not defined, <i>CWD</i> is used</dt>
-                        </dl>
+                        <i>user.dir</i> environment property if set, else current working directory of the process
                     </td>
                     <td class="description">
-                        The base directory for changelog stores used by Samza application. It allows users to configure the base directory at a job level. Another way to configure the base directory is by setting environment variable <i>LOGGED_STORE_BASE_DIR</i>.
-                        <b>Note:</b> The environment variable takes precedence over <i>job.logged.store.path</i>.
+                        The base directory for changelog stores used by Samza application. Another way to configure the base directory is by setting environment variable <i>LOGGED_STORE_BASE_DIR</i>.
+                        <b>Note:</b> The environment variable takes precedence over <i>job.logged.store.base.dir</i>.
 
-                        <br>By opting in, users are responsible for cleaning up the store directories if necessary. For jobs with host-affinity, make sure the changelog stores are persisted across application restarts to minimize restoration time.
+                        <br>By opting in, users are responsible for cleaning up the store directories if necessary. Jobs using host affinity should ensure that the stores are persisted across application/container restarts.
+                        This means that the location and cleanup of this directory should be separate from the container lifecycle and resource cleanup.
                     </td>
                 </tr>
 
                 <tr>
-                    <td class="property" id="job.non-logged.store.path">job.non-logged.store.path</td>
+                    <td class="property" id="job.non-logged.store.base.dir">job.non-logged.store.base.dir</td>
                     <td class="default">
-                        <dl>
-                            <dt><i>user.dir</i> environment property</dt>
-                            <dt>If <i>user.dir</i> is not defined, <i>CWD</i> is used</dt>
-                        </dl>
+                        <i>user.dir</i> environment property if set, else current working directory of the process
                     </td>
                     <td class="description">
-                        The base directory for non-changelog stores used by Samza application. It allows users to configure the base directory at a job level.
+                        The base directory for non-changelog stores used by Samza application.
 
-                        <br>For YARN, the current behaviour without the configuration is to create non-changelog store directories in CWD which happens to be the yarn container directory. As part of NodeManager's deletion service, the data gets cleaned up
-                        periodically, which is controlled by the YARN config <i>yarn.nodemanager.delete.debug-delay-sec</i>.
+                        <br>In YARN, the default behaviour without the configuration is to create non-changelog store directories in CWD which happens to be the YARN container directory.
+                        This gets cleaned up periodically as part of NodeManager's deletion service, which is controlled by the YARN config <i>yarn.nodemanager.delete.debug-delay-sec</i>.
 
-                        <br>By opting in, users are responsible for cleaning up the store directories if necessary.
+                        <br>In non-YARN deployment models or when using a different directory other than YARN container directory, stores need to be cleaned up periodically.
                     </td>
                 </tr>
 

@@ -108,7 +108,7 @@ object SamzaContainer extends Logging {
       if (config.getLoggedStorePath.isEmpty) {
         warn("No override was provided for logged store base directory. This disables local state re-use on " +
           "application restart. If you want to enable this feature, set LOGGED_STORE_BASE_DIR as an environment " +
-          "variable in all machines running the Samza container or configure job.logged.store.path for your application")
+          "variable in all machines running the Samza container or configure job.logged.store.base.dir for your application")
       }
 
       loggedStorageBaseDir = defaultLoggedStorageBaseDir
