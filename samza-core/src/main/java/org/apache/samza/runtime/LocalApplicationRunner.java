@@ -205,7 +205,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
   /**
    * Waits for {@code timeout} duration for the application to finish.
-   * If timeout < 1, blocks the caller indefinitely.
+   * If timeout &lt; 1, blocks the caller indefinitely.
    *
    * @param timeout time to wait for the application to finish
    * @return true - application finished before timeout
