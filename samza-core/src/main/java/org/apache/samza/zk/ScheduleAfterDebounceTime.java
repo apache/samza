@@ -50,7 +50,7 @@ public class ScheduleAfterDebounceTime {
   private Optional<ScheduledTaskCallback> scheduledTaskCallback;
 
   // Responsible for scheduling delayed actions.
-  private ScheduledExecutorService scheduledExecutorService;
+  private final ScheduledExecutorService scheduledExecutorService;
 
   /**
    * A map from actionName to {@link ScheduledFuture} of task scheduled for execution.
@@ -169,7 +169,7 @@ public class ScheduleAfterDebounceTime {
             LOG.warn("Action: {} is interrupted.", actionName);
             doCleanUpOnTaskException(new InterruptedException());
           } else {
-            LOG.debug("Action: {} completed successfully.", actionName);
+            LOG.info("Action: {} completed successfully.", actionName);
           }
         }
       } catch (Throwable throwable) {
