@@ -286,6 +286,10 @@ class CachedStore[K, V](
   }
 
   def hasArrayKeys = containsArrayKeys
+
+  override def iterate(from: K, to: K): KeyValueIterable[K, V] = {
+    store.iterate(from, to)
+  }
 }
 
 private case class CacheEntry[K, V](var value: V, var dirty: mutable.DoubleLinkedList[K])

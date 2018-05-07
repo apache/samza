@@ -20,7 +20,7 @@ package org.apache.samza.storage.kv.inmemory
 
 import com.google.common.primitives.UnsignedBytes
 import org.apache.samza.util.Logging
-import org.apache.samza.storage.kv.{KeyValueStoreMetrics, KeyValueIterator, Entry, KeyValueStore}
+import org.apache.samza.storage.kv._
 import java.util
 
 /**
@@ -111,5 +111,15 @@ class InMemoryKeyValueStore(val metrics: KeyValueStoreMetrics = new KeyValueStor
       metrics.bytesRead.inc(found.size)
     }
     found
+  }
+
+  override def iterate(from: Array[Byte], to: Array[Byte]): KeyValueIterable[Array[Byte], Array[Byte]] = {
+    // snapshot the iterable
+    val entries = underlying.subMap(from, to).entrySet()
+    new KeyValueIterable[Array[Byte], Array[Byte]] {
+      override def iterator(): KeyValueIterator[Array[Byte], Array[Byte]] = {
+        new InMemoryIterator(entries.iterator())
+      }
+    }
   }
 }
