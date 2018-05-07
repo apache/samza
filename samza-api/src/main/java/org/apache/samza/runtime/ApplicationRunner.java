@@ -18,6 +18,7 @@
  */
 package org.apache.samza.runtime;
 
+import java.time.Duration;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
@@ -105,6 +106,24 @@ public abstract class ApplicationRunner {
    * @return the status of the application
    */
   public abstract ApplicationStatus status(StreamApplication streamApp);
+
+  /**
+   * Waits until the application finishes.
+   */
+  public void waitForFinish() {
+    throw new UnsupportedOperationException(getClass().getName() + " does not support waitForFinish.");
+  }
+
+  /**
+   * Waits for {@code timeout} duration for the application to finish.
+   *
+   * @param timeout time to wait for the application to finish
+   * @return true - application finished before timeout
+   *         false - otherwise
+   */
+  public boolean waitForFinish(Duration timeout) {
+    throw new UnsupportedOperationException(getClass().getName() + " does not support timed waitForFinish.");
+  }
 
   /**
    * Constructs a {@link StreamSpec} from the configuration for the specified streamId.
