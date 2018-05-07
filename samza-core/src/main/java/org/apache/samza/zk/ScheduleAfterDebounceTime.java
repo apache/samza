@@ -125,10 +125,6 @@ public class ScheduleAfterDebounceTime {
     cancelAllScheduledActions();
   }
 
-  public synchronized void cancelAction(String action) {
-    this.tryCancelScheduledAction(action);
-  }
-
   public synchronized void cancelAllScheduledActions() {
     if (!isShuttingDown) {
       futureHandles.keySet().forEach(this::tryCancelScheduledAction);
