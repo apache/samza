@@ -148,4 +148,15 @@ class SerializedKeyValueStore[K, V](
     }
     bytes
   }
+
+  override def iterate(from: K, to: K): KeyValueIterable[K, V] = {
+    val fromBytes = toBytesOrNull(from, keySerde)
+    val toBytes = toBytesOrNull(to, keySerde)
+    val iterable = store.iterate(fromBytes, toBytes)
+    new KeyValueIterable[K, V] {
+      override def iterator(): KeyValueIterator[K, V] = {
+        new DeserializingIterator(iterable.iterator())
+      }
+    }
+  }
 }
