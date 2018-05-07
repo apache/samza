@@ -34,6 +34,8 @@ public class TestScheduleAfterDebounceTime {
 
   private static final long WAIT_TIME = 500;
 
+  private static final String TEST_PROCESSOR_ID = "TEST_PROCESSOR_ID";
+
   @Rule
   public Timeout testTimeOutInSeconds = new Timeout(10, TimeUnit.SECONDS);
 
@@ -52,7 +54,7 @@ public class TestScheduleAfterDebounceTime {
 
   @Test
   public void testSchedule() throws InterruptedException {
-    ScheduleAfterDebounceTime scheduledQueue = new ScheduleAfterDebounceTime();
+    ScheduleAfterDebounceTime scheduledQueue = new ScheduleAfterDebounceTime(TEST_PROCESSOR_ID);
     final CountDownLatch latch = new CountDownLatch(1);
 
     final TestObj testObj = new TestScheduleAfterDebounceTime.TestObj();
@@ -72,7 +74,7 @@ public class TestScheduleAfterDebounceTime {
 
   @Test
   public void testCancelAndSchedule() throws InterruptedException {
-    ScheduleAfterDebounceTime scheduledQueue = new ScheduleAfterDebounceTime();
+    ScheduleAfterDebounceTime scheduledQueue = new ScheduleAfterDebounceTime(TEST_PROCESSOR_ID);
     final CountDownLatch test1Latch = new CountDownLatch(1);
 
     final TestObj testObj = new TestScheduleAfterDebounceTime.TestObj();
@@ -101,7 +103,7 @@ public class TestScheduleAfterDebounceTime {
   public void testRunnableWithExceptionInvokesCallback() throws InterruptedException {
     final CountDownLatch latch = new CountDownLatch(1);
     final Throwable[] taskCallbackException = new Exception[1];
-    ScheduleAfterDebounceTime scheduledQueue = new ScheduleAfterDebounceTime();
+    ScheduleAfterDebounceTime scheduledQueue = new ScheduleAfterDebounceTime(TEST_PROCESSOR_ID);
     scheduledQueue.setScheduledTaskCallback(throwable -> {
         taskCallbackException[0] = throwable;
         latch.countDown();
@@ -120,5 +122,13 @@ public class TestScheduleAfterDebounceTime {
     Assert.assertEquals(0, testObj.get());
     Assert.assertEquals(RuntimeException.class, taskCallbackException[0].getClass());
     scheduledQueue.stopScheduler();
+  }
+
+  @Test
+  public void testNewTasksScheduledAfterShutdownDoesNotThrowException() throws InterruptedException {
+    ScheduleAfterDebounceTime scheduledQueue = new ScheduleAfterDebounceTime(TEST_PROCESSOR_ID);
+
+    scheduledQueue.stopScheduler();
+    scheduledQueue.scheduleAfterDebounceTime("TEST1", 2 * WAIT_TIME, () -> Assert.fail("New event should not be scheduled"));
   }
 }
