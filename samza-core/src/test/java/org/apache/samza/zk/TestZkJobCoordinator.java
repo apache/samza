@@ -73,6 +73,6 @@ public class TestZkJobCoordinator {
 
     verify(zkUtils).incGeneration();
     verify(mockDebounceTimer).cancelAllScheduledActions();
-    verify(mockDebounceTimer).scheduleAfterDebounceTime(Mockito.eq("ZK_SESSION_ERROR"), Mockito.eq(0L), Mockito.any(Runnable.class));
+    verify(mockDebounceTimer).scheduleAfterDebounceTime(Mockito.eq("ZK_SESSION_EXPIRED"), Mockito.eq(0L), Mockito.any(Runnable.class));
   }
 }

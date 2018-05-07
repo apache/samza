@@ -421,6 +421,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   class ZkSessionStateChangedListener implements IZkStateListener {
 
     private static final String ZK_SESSION_ERROR = "ZK_SESSION_ERROR";
+    private static final String ZK_SESSION_EXPIRED = "ZK_SESSION_EXPIRED";
 
     @Override
     public void handleStateChanged(Watcher.Event.KeeperState state) {
@@ -446,7 +447,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
            */
           LOG.info("Cancelling all scheduled actions in session expiration for processorId: {}.", processorId);
           debounceTimer.cancelAllScheduledActions();
-          debounceTimer.scheduleAfterDebounceTime(ZK_SESSION_ERROR, 0, () -> {
+          debounceTimer.scheduleAfterDebounceTime(ZK_SESSION_EXPIRED, 0, () -> {
               if (coordinatorListener != null) {
                 coordinatorListener.onJobModelExpired();
               }
@@ -480,7 +481,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     @Override
     public void handleNewSession() {
       LOG.info("Got new session created event for processor=" + processorId);
-      debounceTimer.cancelAction(ZK_SESSION_ERROR);
+      debounceTimer.cancelAllScheduledActions();
       LOG.info("register zk controller for the new session");
       zkController.register();
     }
