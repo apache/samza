@@ -50,7 +50,7 @@ public class ScheduleAfterDebounceTime {
   private Optional<ScheduledTaskCallback> scheduledTaskCallback;
 
   // Responsible for scheduling delayed actions.
-  private ScheduledExecutorService scheduledExecutorService;
+  private final ScheduledExecutorService scheduledExecutorService;
 
   /**
    * A map from actionName to {@link ScheduledFuture} of task scheduled for execution.
