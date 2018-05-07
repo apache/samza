@@ -76,8 +76,7 @@ object SamzaContainer extends Logging {
         classOf[JobModel])
   }
 
-  // Ideally, we want this to reside in TaskStorageManager since container should not be in the business of
-  // determining which directories to use for which stores.
+  // TODO: SAMZA-1701 SamzaContainer should not contain any logic related to store directories
   def getNonLoggedStorageBaseDir(config: Config, defaultStoreBaseDir: File) = {
     config.getNonLoggedStorePath match {
       case Some(nonLoggedStorePath) =>
@@ -87,8 +86,7 @@ object SamzaContainer extends Logging {
     }
   }
 
-  // Ideally, we want this to reside in TaskStorageManager since container should not be in the business of
-  // determining which directories to use for which stores.
+  // TODO: SAMZA-1701 SamzaContainer should not contain any logic related to store directories
   def getLoggedStorageBaseDir(config: Config, defaultStoreBaseDir: File) = {
     val defaultLoggedStorageBaseDir = config.getLoggedStorePath match {
       case Some(durableStorePath) =>

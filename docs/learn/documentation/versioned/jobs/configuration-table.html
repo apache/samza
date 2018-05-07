@@ -472,6 +472,7 @@
                             <dt><code>org.apache.samza.coordinator.AzureCoordinationUtilsFactory</code></dt>
                             <dd>Azure based coordination utils.</dd>
                         These coordination utils are currently used for intermediate stream creation.
+                        </dl>
                     </td>
                 </tr>
 
@@ -484,11 +485,10 @@
                         </dl>
                     </td>
                     <td class="description">
-                        The base directory for changelog stores used by Samza application. Another way to configure the base directory is by setting environment variable <i>LOGGED_STORE_BASE_DIR</i>.
-                        <br>Samza does not have any default clean up policy for changelog store directories. Typically, changelog stores are persisted across application attempts for host affinity feature to work.
-                        Although, application may still need some clean up policy in the event of store schema changes, etc to prevent stale data in clusters.
+                        The base directory for changelog stores used by Samza application. It allows users to configure the base directory at a job level. Another way to configure the base directory is by setting environment variable <i>LOGGED_STORE_BASE_DIR</i>.
+                        <b>Note:</b> The environment variable takes precedence over <i>job.logged.store.path</i>.
 
-                        <br><b>Note:</b> Environment variable <i>LOGGED_STORE_BASE_DIR</i> takes precedence over <i>job.logged.store.path</i>
+                        <br>By opting in, users are responsible for cleaning up the store directories if necessary. For jobs with host-affinity, make sure the changelog stores are persisted across application restarts to minimize restoration time.
                     </td>
                 </tr>
 
@@ -501,13 +501,12 @@
                         </dl>
                     </td>
                     <td class="description">
-                        The base directory for non-changelog stores used by Samza application. Typically, non-changelog stores get cleaned up across application restarts.
+                        The base directory for non-changelog stores used by Samza application. It allows users to configure the base directory at a job level.
 
-                        Samza does not have any default clean up policy for non changelog stores.
-                        For Yarn, the current behaviour without the configuration is to create non-changelog store directories within the yarn container directory. The data gets cleaned up
-                        as part of yarn container clean up across application attempts. With this configuration, application needs to be mindful about cleaning up store data upon completion.
+                        <br>For YARN, the current behaviour without the configuration is to create non-changelog store directories in CWD which happens to be the yarn container directory. As part of NodeManager's deletion service, the data gets cleaned up
+                        periodically, which is controlled by the YARN config <i>yarn.nodemanager.delete.debug-delay-sec</i>.
 
-                        <br><b>Note:</b>Lack of clean up policy might affect application behaviour across restarts
+                        <br>By opting in, users are responsible for cleaning up the store directories if necessary.
                     </td>
                 </tr>
 

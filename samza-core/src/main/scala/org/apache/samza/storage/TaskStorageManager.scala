@@ -45,18 +45,18 @@ object TaskStorageManager {
  * Manage all the storage engines for a given task
  */
 class TaskStorageManager(
-                          taskName: TaskName,
-                          taskStores: Map[String, StorageEngine] = Map(),
-                          storeConsumers: Map[String, SystemConsumer] = Map(),
-                          changeLogSystemStreams: Map[String, SystemStream] = Map(),
-                          changeLogStreamPartitions: Int,
-                          streamMetadataCache: StreamMetadataCache,
-                          nonLoggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
-                          loggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
-                          partition: Partition,
-                          systemAdmins: SystemAdmins,
-                          changeLogDeleteRetentionsInMs: Map[String, Long],
-                          clock: Clock) extends Logging {
+  taskName: TaskName,
+  taskStores: Map[String, StorageEngine] = Map(),
+  storeConsumers: Map[String, SystemConsumer] = Map(),
+  changeLogSystemStreams: Map[String, SystemStream] = Map(),
+  changeLogStreamPartitions: Int,
+  streamMetadataCache: StreamMetadataCache,
+  nonLoggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
+  loggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
+  partition: Partition,
+  systemAdmins: SystemAdmins,
+  changeLogDeleteRetentionsInMs: Map[String, Long],
+  clock: Clock) extends Logging {
 
   var taskStoresToRestore = taskStores.filter{
     case (storeName, storageEngine) => storageEngine.getStoreProperties.isLoggedStore

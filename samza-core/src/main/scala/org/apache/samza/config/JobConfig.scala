@@ -81,8 +81,7 @@ object JobConfig {
   val PROCESSOR_ID = "processor.id"
   val PROCESSOR_LIST = "processor.list"
 
-  // Represents the store path for non-changelog stores which are persisted in the disk and potentially cleaned up
-  // across application restarts
+  // Represents the store path for non-changelog stores.
   val JOB_NON_LOGGED_STORE_PATH = "job.non-logged.store.path"
 
   // Represents the store path for stores with changelog enabled. Typically the stores are not cleaned up
