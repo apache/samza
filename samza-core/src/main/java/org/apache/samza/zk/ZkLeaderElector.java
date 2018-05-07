@@ -51,7 +51,7 @@ public class ZkLeaderElector implements LeaderElector {
   private final String hostName;
 
   private AtomicBoolean isLeader = new AtomicBoolean(false);
-  private final IZkDataListener previousProcessorChangeListener;
+  private IZkDataListener previousProcessorChangeListener;
   private LeaderElectorListener leaderElectorListener = null;
   private String currentSubscription = null;
   private final Random random = new Random();
@@ -130,6 +130,7 @@ public class ZkLeaderElector implements LeaderElector {
         LOG.debug(zLog("Unsubscribing data change for " + currentSubscription));
         zkUtils.unsubscribeDataChanges(keyBuilder.getProcessorsPath() + "/" + currentSubscription,
             previousProcessorChangeListener);
+        previousProcessorChangeListener = new PreviousProcessorChangeListener(zkUtils);
       }
       currentSubscription = predecessor;
       LOG.info(zLog("Subscribing data change for " + predecessor));
