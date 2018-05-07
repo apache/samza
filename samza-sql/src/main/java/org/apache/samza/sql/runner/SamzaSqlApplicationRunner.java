@@ -110,7 +110,7 @@ public class SamzaSqlApplicationRunner extends AbstractApplicationRunner {
     Validate.isTrue(localRunner, "This method can be called only in standalone mode.");
     SamzaSqlApplication app = new SamzaSqlApplication();
     run(app);
-    ((LocalApplicationRunner) appRunner).waitForFinish();
+    appRunner.waitForFinish();
   }
 
   @Override

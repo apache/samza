@@ -160,4 +160,11 @@ class KeyValueStorageEngine[K, V](
   }
 
   override def getStoreProperties: StoreProperties = storeProperties
+
+  override def iterate(from: K, to: K): KeyValueIterable[K, V] = {
+    updateTimer(metrics.iterateNs) {
+      metrics.iterates.inc
+      wrapperStore.iterate(from, to)
+    }
+  }
 }

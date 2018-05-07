@@ -21,6 +21,7 @@ package org.apache.samza.operators.impl.store;
 import com.google.common.primitives.UnsignedBytes;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.storage.kv.Entry;
+import org.apache.samza.storage.kv.KeyValueIterable;
 import org.apache.samza.storage.kv.KeyValueIterator;
 import org.apache.samza.storage.kv.KeyValueStore;
 
@@ -96,6 +97,17 @@ public class TestInMemoryStore<K, V> implements KeyValueStore<K, V> {
   public KeyValueIterator<K, V> range(K from, K to) {
     ConcurrentNavigableMap<byte[], byte[]> values = map.subMap(keySerde.toBytes(from), keySerde.toBytes(to));
     return new InMemoryIterator(values.entrySet().iterator(), keySerde, valSerde);
+  }
+
+  @Override
+  public KeyValueIterable<K, V> iterate(K from, K to) {
+    final ConcurrentNavigableMap<byte[], byte[]> values = map.subMap(keySerde.toBytes(from), keySerde.toBytes(to));
+    return new KeyValueIterable<K, V>() {
+      @Override
+      public KeyValueIterator<K, V> iterator() {
+        return new InMemoryIterator<>(values.entrySet().iterator(), keySerde, valSerde);
+      }
+    };
   }
 
   @Override
