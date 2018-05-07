@@ -715,7 +715,7 @@ class TaskStorageManagerBuilder extends MockitoSugar {
       changeLogSystemStreams = changeLogSystemStreams,
       changeLogStreamPartitions = changeLogStreamPartitions,
       streamMetadataCache = streamMetadataCache,
-      storeBaseDir = storeBaseDir,
+      nonLoggedStoreBaseDir = storeBaseDir,
       loggedStoreBaseDir = loggedStoreBaseDir,
       partition = partition,
       systemAdmins = new SystemAdmins(systemAdmins.asJava),
