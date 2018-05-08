@@ -111,9 +111,8 @@ public interface KeyValueStore<K, V> {
   KeyValueIterator<K, V> range(K from, K to);
 
   /**
-   * Returns an iterable for a sorted range of entries specified by [{@code from}, {@code to}).
-   * Note that we snapshot the store when the iterable is created, so the iterator created later
-   * is guaranteed to reflect the snapshot.
+   * Returns a snapshot of this store for a sorted range of entries specified by [{@code from}, {@code to}).
+   * The snapshot is immutable - ie., any mutations to the store are not reflected in the snapshot after it is created.
    *
    * @param from the key specifying the low endpoint (inclusive) of the keys in the returned range.
    * @param to the key specifying the high endpoint (exclusive) of the keys in the returned range.
