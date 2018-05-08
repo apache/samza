@@ -122,8 +122,14 @@ public class ScheduleAfterDebounceTime {
     scheduledExecutorService.shutdown();
 
     // should clear out the future handles as well
-    futureHandles.keySet()
-        .forEach(this::tryCancelScheduledAction);
+    cancelAllScheduledActions();
+  }
+
+  public synchronized void cancelAllScheduledActions() {
+    if (!isShuttingDown) {
+      futureHandles.keySet().forEach(this::tryCancelScheduledAction);
+      futureHandles.clear();
+    }
   }
 
   /**
