@@ -95,8 +95,8 @@ public class InternalInMemoryStore<K, V> implements KeyValueStore<K, V> {
   }
 
   @Override
-  public KeyValueIterable<K, V> iterate(K from, K to) {
-    throw new UnsupportedOperationException("iterate() is not supported in " + InternalInMemoryStore.class.getName());
+  public KeyValueIterable<K, V> snapshot(K from, K to) {
+    throw new UnsupportedOperationException("snapshot() is not supported in " + InternalInMemoryStore.class.getName());
   }
 
   @Override

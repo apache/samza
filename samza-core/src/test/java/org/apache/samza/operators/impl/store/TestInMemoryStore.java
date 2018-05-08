@@ -100,7 +100,7 @@ public class TestInMemoryStore<K, V> implements KeyValueStore<K, V> {
   }
 
   @Override
-  public KeyValueIterable<K, V> iterate(K from, K to) {
+  public KeyValueIterable<K, V> snapshot(K from, K to) {
     final ConcurrentNavigableMap<byte[], byte[]> values = map.subMap(keySerde.toBytes(from), keySerde.toBytes(to));
     return new KeyValueIterable<K, V>() {
       @Override

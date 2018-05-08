@@ -51,7 +51,7 @@ public class TestInMemoryKeyValueStore {
 
     byte[] firstKey = genKey(outputStream, prefix, 0);
     byte[] lastKey = genKey(outputStream, prefix, 100);
-    KeyValueIterable<byte[], byte[]> iterable = store.iterate(firstKey, lastKey);
+    KeyValueIterable<byte[], byte[]> iterable = store.snapshot(firstKey, lastKey);
     // Make sure the cached Iterable won't change when new elements are added
     store.put(genKey(outputStream, prefix, 200), genValue());
     assertTrue(Iterators.size(iterable.iterator()) == 100);

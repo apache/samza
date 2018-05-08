@@ -113,7 +113,7 @@ class InMemoryKeyValueStore(val metrics: KeyValueStoreMetrics = new KeyValueStor
     found
   }
 
-  override def iterate(from: Array[Byte], to: Array[Byte]): KeyValueIterable[Array[Byte], Array[Byte]] = {
+  override def snapshot(from: Array[Byte], to: Array[Byte]): KeyValueIterable[Array[Byte], Array[Byte]] = {
     // snapshot the iterable
     val entries = underlying.subMap(from, to).entrySet()
     new KeyValueIterable[Array[Byte], Array[Byte]] {

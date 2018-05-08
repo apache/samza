@@ -92,11 +92,11 @@ class AccessLoggedStore[K, V](
     store.all()
   }
 
-  override def iterate(from: K, to: K): KeyValueIterable[K, V] = {
+  override def snapshot(from: K, to: K): KeyValueIterable[K, V] = {
     val list : util.ArrayList[K] = new util.ArrayList[K]()
     list.add(from)
     list.add(to)
-    logAccess(DBOperation.ITERATE, serializeKeys(list), store.iterate(from, to))
+    logAccess(DBOperation.ITERATE, serializeKeys(list), store.snapshot(from, to))
   }
 
   def close(): Unit = {

@@ -204,26 +204,13 @@ class RocksDbKeyValueStore(
     new RocksDbIterator(iter)
   }
 
-  override def iterate(from: Array[Byte], to: Array[Byte]): KeyValueIterable[Array[Byte], Array[Byte]] = {
-    //snapshot the iterator
-    val snapshotIter : RocksDbRangeIterator = range(from, to).asInstanceOf[RocksDbRangeIterator]
-    new KeyValueIterable[Array[Byte], Array[Byte]] {
-      var iter:RocksDbRangeIterator = null
+  override def snapshot(from: Array[Byte], to: Array[Byte]): KeyValueIterable[Array[Byte], Array[Byte]] = {
+    val readOptions = new ReadOptions()
+    readOptions.setSnapshot(db.getSnapshot)
 
+    new KeyValueIterable[Array[Byte], Array[Byte]] {
       def iterator(): KeyValueIterator[Array[Byte], Array[Byte]] = {
-        this.synchronized {
-          if (iter == null) {
-            iter = snapshotIter
-            iter
-          } else if(iter.isOpen() && !iter.hasNext()) {
-            // use the cached iterator and reset the position to the beginning
-            iter.seek(from)
-            iter
-          } else {
-            // we need to create a new iterator since the cached one is still in use or already closed
-            range(from, to)
-          }
-        }
+        new RocksDbRangeIterator(db.newIterator(readOptions), from, to)
       }
     }
   }

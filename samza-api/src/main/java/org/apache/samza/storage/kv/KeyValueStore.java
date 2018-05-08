@@ -112,16 +112,16 @@ public interface KeyValueStore<K, V> {
 
   /**
    * Returns an iterable for a sorted range of entries specified by [{@code from}, {@code to}).
-   * Note that we snapshot the iterator when the iterable is created from this function, and
-   * the iteration results is guaranteed to reflect the snapshot if only one iterator is in use at a time.
+   * Note that we snapshot the store when the iterable is created, so the iterator created later
+   * is guaranteed to reflect the snapshot.
    *
    * @param from the key specifying the low endpoint (inclusive) of the keys in the returned range.
    * @param to the key specifying the high endpoint (exclusive) of the keys in the returned range.
    * @return an iterable for the specified key range.
    * @throws NullPointerException if null is used for {@code from} or {@code to}.
    */
-  default KeyValueIterable<K, V> iterate(K from, K to) {
-    return () -> range(from, to);
+  default KeyValueIterable<K, V> snapshot(K from, K to) {
+    throw new UnsupportedOperationException("snapshot() is not supported in " + this.getClass().getName());
   }
 
   /**
