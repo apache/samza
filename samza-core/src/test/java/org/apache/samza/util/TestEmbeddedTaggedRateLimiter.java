@@ -66,6 +66,7 @@ public class TestEmbeddedTaggedRateLimiter {
   }
 
   @Test
+  @Ignore("Flaky Test.")
   public void testAcquireWithTimeout() {
     RateLimiter rateLimiter = new EmbeddedTaggedRateLimiter(TARGET_RATE);
     initRateLimiter(rateLimiter);
