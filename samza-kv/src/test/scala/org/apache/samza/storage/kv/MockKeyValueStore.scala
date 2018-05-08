@@ -70,7 +70,7 @@ class MockKeyValueStore extends KeyValueStore[String, String] {
 
   override def close() { kvMap.clear() }
 
-  override def snapshot(from: String, to: String): KeyValueIterable[String, String] = {
+  override def snapshot(from: String, to: String): KeyValueSnapshot[String, String] = {
     throw new UnsupportedOperationException("iterator() not supported")
   }
 }

@@ -92,7 +92,7 @@ class AccessLoggedStore[K, V](
     store.all()
   }
 
-  override def snapshot(from: K, to: K): KeyValueIterable[K, V] = {
+  override def snapshot(from: K, to: K): KeyValueSnapshot[K, V] = {
     val list : util.ArrayList[K] = new util.ArrayList[K]()
     list.add(from)
     list.add(to)

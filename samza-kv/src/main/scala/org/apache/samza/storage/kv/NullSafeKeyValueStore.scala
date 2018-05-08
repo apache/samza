@@ -90,7 +90,7 @@ class NullSafeKeyValueStore[K, V](store: KeyValueStore[K, V]) extends KeyValueSt
     }
   }
 
-  override def snapshot(from: K, to: K): KeyValueIterable[K, V] = {
+  override def snapshot(from: K, to: K): KeyValueSnapshot[K, V] = {
     notNull(from, NullKeyErrorMessage)
     notNull(to, NullKeyErrorMessage)
     store.snapshot(from, to)

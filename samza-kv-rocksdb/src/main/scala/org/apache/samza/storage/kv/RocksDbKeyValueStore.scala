@@ -204,13 +204,17 @@ class RocksDbKeyValueStore(
     new RocksDbIterator(iter)
   }
 
-  override def snapshot(from: Array[Byte], to: Array[Byte]): KeyValueIterable[Array[Byte], Array[Byte]] = {
+  override def snapshot(from: Array[Byte], to: Array[Byte]): KeyValueSnapshot[Array[Byte], Array[Byte]] = {
     val readOptions = new ReadOptions()
     readOptions.setSnapshot(db.getSnapshot)
 
-    new KeyValueIterable[Array[Byte], Array[Byte]] {
+    new KeyValueSnapshot[Array[Byte], Array[Byte]] {
       def iterator(): KeyValueIterator[Array[Byte], Array[Byte]] = {
         new RocksDbRangeIterator(db.newIterator(readOptions), from, to)
+      }
+
+      def close() = {
+        db.releaseSnapshot(readOptions.snapshot())
       }
     }
   }

@@ -287,7 +287,7 @@ class CachedStore[K, V](
 
   def hasArrayKeys = containsArrayKeys
 
-  override def snapshot(from: K, to: K): KeyValueIterable[K, V] = {
+  override def snapshot(from: K, to: K): KeyValueSnapshot[K, V] = {
     store.snapshot(from, to)
   }
 }

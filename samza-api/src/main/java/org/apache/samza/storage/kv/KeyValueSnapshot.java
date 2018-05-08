@@ -19,6 +19,11 @@
 
 package org.apache.samza.storage.kv;
 
-public interface KeyValueIterable<K, V> extends Iterable<Entry<K, V>> {
+public interface KeyValueSnapshot<K, V> extends Iterable<Entry<K, V>> {
   KeyValueIterator<K, V> iterator();
+
+  /**
+   * Close the snapshot. After closing, no iterators can be created anymore.
+   */
+  void close();
 }
