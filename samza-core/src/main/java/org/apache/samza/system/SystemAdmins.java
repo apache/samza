@@ -20,26 +20,30 @@
 package org.apache.samza.system;
 
 import java.util.Map;
+import java.util.Set;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
+import org.apache.samza.config.MapConfig;
 
 
+/**
+ * Provides a mapping from system name to a {@link SystemAdmin}. Remember to start/stop this.
+ */
 public class SystemAdmins {
   private final Map<String, SystemAdmin> systemAdminMap;
-
-  public Map<String, SystemAdmin> getSystemAdminsMap() {
-    return systemAdminMap;
-  }
 
   public SystemAdmins(Config config) {
     JavaSystemConfig systemConfig = new JavaSystemConfig(config);
     this.systemAdminMap = systemConfig.getSystemAdmins();
   }
 
-  // Used only for test
-  public SystemAdmins(Map<String, SystemAdmin> systemAdminMap) {
-    this.systemAdminMap = systemAdminMap;
+  /**
+   * @return New instance of {@link SystemAdmins} with an empty admin mapping. Since it has no admins, it does not need
+   * to be started/stopped.
+   */
+  public static SystemAdmins empty() {
+    return new SystemAdmins(new MapConfig());
   }
 
   public void start() {
@@ -59,5 +63,9 @@ public class SystemAdmins {
       throw new SamzaException("Cannot get systemAdmin for system " + systemName);
     }
     return systemAdminMap.get(systemName);
+  }
+
+  public Set<String> getAdminKeys() {
+    return systemAdminMap.keySet();
   }
 }
