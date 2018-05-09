@@ -28,7 +28,7 @@ import org.apache.samza.config.MapConfig;
 
 
 /**
- * Provides a mapping from system name to a {@link SystemAdmin}. Remember to start/stop this.
+ * Provides a mapping from system name to a {@link SystemAdmin}. Needs to be started before use and stopped after use.
  */
 public class SystemAdmins {
   private final Map<String, SystemAdmin> systemAdminMap;
@@ -39,8 +39,8 @@ public class SystemAdmins {
   }
 
   /**
-   * @return New instance of {@link SystemAdmins} with an empty admin mapping. Since it has no admins, it does not need
-   * to be started/stopped.
+   * Creates a new instance of {@link SystemAdmins} with an empty admin mapping.
+   * @return New empty instance of {@link SystemAdmins}
    */
   public static SystemAdmins empty() {
     return new SystemAdmins(new MapConfig());
@@ -65,7 +65,7 @@ public class SystemAdmins {
     return systemAdminMap.get(systemName);
   }
 
-  public Set<String> getAdminKeys() {
+  public Set<String> getSystemNames() {
     return systemAdminMap.keySet();
   }
 }
