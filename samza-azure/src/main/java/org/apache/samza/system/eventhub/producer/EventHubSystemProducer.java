@@ -97,7 +97,7 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
 
   // We implement lazy initialization for producer as a workaround for
   // slow shutdown issue.
-  private volatile boolean isInitialized = false;
+  private boolean isInitialized = false;
 
   /**
    * Per partition event hub client. Partitions from the same stream may share the same client,
