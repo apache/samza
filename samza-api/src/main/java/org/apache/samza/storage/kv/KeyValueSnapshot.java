@@ -21,6 +21,8 @@ package org.apache.samza.storage.kv;
 
 /**
  * An immutable view of the {@link KeyValueStore} at a point-in-time.
+ * The snapshot MUST be closed after use.
+ *
  * @param <K> key type
  * @param <V> value type
  */
