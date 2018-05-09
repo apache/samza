@@ -79,7 +79,7 @@ public class TestLocalApplicationRunner {
     doNothing().when(app).init(anyObject(), anyObject());
 
     StreamManager streamManager = mock(StreamManager.class);
-    doReturn(streamManager).when(runner).getStreamManager();
+    doReturn(streamManager).when(runner).buildStreamManager(any());
 
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.singletonList(new StreamSpec("test-stream", "test-stream", "test-system")));
@@ -115,7 +115,7 @@ public class TestLocalApplicationRunner {
     doNothing().when(app).init(anyObject(), anyObject());
 
     StreamManager streamManager = mock(StreamManager.class);
-    doReturn(streamManager).when(runner).getStreamManager();
+    doReturn(streamManager).when(runner).buildStreamManager(any());
 
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.singletonList(new StreamSpec("test-stream", "test-stream", "test-system")));

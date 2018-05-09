@@ -41,10 +41,12 @@ import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.DistributedLockWithState;
 import org.apache.samza.execution.ExecutionPlan;
+import org.apache.samza.execution.StreamManager;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.StreamProcessorLifecycleListener;
 import org.apache.samza.system.StreamSpec;
+import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
@@ -148,10 +150,13 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
   @Override
   public void run(StreamApplication app) {
+    SystemAdmins systemAdmins = null;
     try {
-      super.run(app);
+      systemAdmins = buildAndStartSystemAdmins();
+      StreamManager streamManager = buildStreamManager(systemAdmins);
+
       // 1. initialize and plan
-      ExecutionPlan plan = getExecutionPlan(app);
+      ExecutionPlan plan = getExecutionPlan(app, streamManager);
 
       String executionPlanJson = plan.getPlanAsJson();
       writePlanJsonFile(executionPlanJson);
@@ -160,7 +165,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       // 2. create the necessary streams
       // TODO: System generated intermediate streams should have robust naming scheme. See SAMZA-1391
       String planId = String.valueOf(executionPlanJson.hashCode());
-      createStreams(planId, plan.getIntermediateStreams());
+      createStreams(planId, plan.getIntermediateStreams(), streamManager);
 
       // 3. create the StreamProcessors
       if (plan.getJobConfigs().isEmpty()) {
@@ -181,13 +186,16 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       appStatus = ApplicationStatus.unsuccessfulFinish(throwable);
       shutdownLatch.countDown();
       throw new SamzaException(String.format("Failed to start application: %s.", app), throwable);
+    } finally {
+      if (systemAdmins != null) {
+        systemAdmins.stop();
+      }
     }
   }
 
   @Override
   public void kill(StreamApplication streamApp) {
     processors.forEach(StreamProcessor::stop);
-    super.kill(streamApp);
   }
 
   @Override
@@ -243,7 +251,9 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
    * @param intStreams list of intermediate {@link StreamSpec}s
    * @throws TimeoutException exception for latch timeout
    */
-  /* package private */ void createStreams(String planId, List<StreamSpec> intStreams) throws TimeoutException {
+  private void createStreams(String planId,
+      List<StreamSpec> intStreams,
+      StreamManager streamManager) throws TimeoutException {
     if (intStreams.isEmpty()) {
       LOG.info("Set of intermediate streams is empty. Nothing to create.");
       return;
@@ -259,7 +269,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       LOG.warn("Processor {} failed to create utils. Each processor will attempt to create streams.", uid);
       // each application process will try creating the streams, which
       // requires stream creation to be idempotent
-      getStreamManager().createStreams(intStreams);
+      streamManager.createStreams(intStreams);
       return;
     }
 
@@ -268,7 +278,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       // check if the processor needs to go through leader election and stream creation
       if (lockWithState.lockIfNotSet(1000, TimeUnit.MILLISECONDS)) {
         LOG.info("lock acquired for streams creation by " + uid);
-        getStreamManager().createStreams(intStreams);
+        streamManager.createStreams(intStreams);
         lockWithState.unlockAndSet();
       } else {
         LOG.info("Processor {} did not obtain the lock for streams creation. They must've been created by another processor.", uid);
