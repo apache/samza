@@ -106,6 +106,12 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private JobModel newJobModel;
   private boolean hasCreatedStreams = false;
   private String cachedJobModelVersion = null;
+<<<<<<< HEAD
+=======
+
+  @VisibleForTesting
+  ScheduleAfterDebounceTime debounceTimer;
+>>>>>>> Minor code cleanup.
 
   ZkJobCoordinator(Config config, MetricsRegistry metricsRegistry, ZkUtils zkUtils) {
     this.config = config;
@@ -143,7 +149,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   }
 
   @Override
-  public synchronized void stop() {
+  public void stop() {
     // Make the shutdown idempotent
     if (initiatedShutdown.compareAndSet(false, true)) {
 
