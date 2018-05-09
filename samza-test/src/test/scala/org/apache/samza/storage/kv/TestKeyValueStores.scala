@@ -409,40 +409,6 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
   }
 
   @Test
-  def testParallelReadWriteSameKey(): Unit = {
-    // Make test deterministic by seeding the random number generator.
-    val key = b("key")
-    val oldVal = "val1"
-    val newVal = "val2"
-
-    val runner1 = new Thread(new Runnable {
-      override def run(): Unit = {
-        store.put(key, b(oldVal))
-      }
-    })
-
-    val runner2 = new Thread(new Runnable {
-      override def run(): Unit = {
-        while (store.get(key) == null) {
-        }
-
-        store.put(key, b(newVal))
-      }
-    })
-
-    runner2.start()
-    runner1.start()
-
-    runner2.join()
-    runner1.join()
-
-    assertEquals(newVal, new String(store.get(key), "UTF-8"))
-
-    store.delete(key)
-    store.flush()
-  }
-
-  @Test
   def testParallelReadWriteDiffKeys(): Unit = {
     // Make test deterministic by seeding the random number generator.
     val key1 = b("key1")
