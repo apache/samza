@@ -42,6 +42,7 @@ import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.StreamProcessorLifecycleListener;
 import org.apache.samza.system.StreamSpec;
+import org.apache.samza.system.SystemAdmins;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -186,6 +187,9 @@ public class TestLocalApplicationRunner {
     StreamApplication app = mock(StreamApplication.class);
     doNothing().when(app).init(anyObject(), anyObject());
 
+    SystemAdmins systemAdmins = mock(SystemAdmins.class);
+    // buildAndStartSystemAdmins already includes start, so not going to verify it gets called
+    when(runner.buildAndStartSystemAdmins()).thenReturn(systemAdmins);
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.emptyList());
     when(plan.getPlanAsJson()).thenReturn("");
@@ -209,6 +213,7 @@ public class TestLocalApplicationRunner {
     runner.run(app);
 
     assertEquals(runner.status(app), ApplicationStatus.SuccessfulFinish);
+    verify(systemAdmins).stop();
   }
 
   @Test
@@ -220,6 +225,9 @@ public class TestLocalApplicationRunner {
     StreamApplication app = mock(StreamApplication.class);
     doNothing().when(app).init(anyObject(), anyObject());
 
+    SystemAdmins systemAdmins = mock(SystemAdmins.class);
+    // buildAndStartSystemAdmins already includes start, so not going to verify it gets called
+    when(runner.buildAndStartSystemAdmins()).thenReturn(systemAdmins);
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.emptyList());
     when(plan.getPlanAsJson()).thenReturn("");
@@ -244,6 +252,7 @@ public class TestLocalApplicationRunner {
     }
 
     assertEquals(runner.status(app), ApplicationStatus.UnsuccessfulFinish);
+    verify(systemAdmins).stop();
   }
 
   public static Set<StreamProcessor> getProcessors(LocalApplicationRunner runner) {

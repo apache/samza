@@ -151,7 +151,8 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
     }
   }
 
-  protected SystemAdmins buildAndStartSystemAdmins() {
+  @VisibleForTesting
+  SystemAdmins buildAndStartSystemAdmins() {
     SystemAdmins systemAdmins = new SystemAdmins(this.config);
     systemAdmins.start();
     return systemAdmins;
