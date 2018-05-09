@@ -34,6 +34,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -60,20 +61,62 @@ public class TestRocksDbKeyValueStoreJava {
 
     byte[] firstKey = genKey(outputStream, prefix, 0);
     byte[] lastKey = genKey(outputStream, prefix, 1000);
-    KeyValueIterable<byte[], byte[]> iterable = store.iterate(firstKey, lastKey);
+    KeyValueSnapshot<byte[], byte[]> snapshot = store.snapshot(firstKey, lastKey);
     // Make sure the cached Iterable won't change when new elements are added
     store.put(genKey(outputStream, prefix, 200), genValue());
-    assertTrue(Iterators.size(iterable.iterator()) == 100);
+    assertTrue(Iterators.size(snapshot.iterator()) == 100);
 
     List<Integer> keys = new ArrayList<>();
-    for (Entry<byte[], byte[]> entry : iterable) {
+    for (Entry<byte[], byte[]> entry : snapshot) {
       int key = Ints.fromByteArray(Arrays.copyOfRange(entry.getKey(), prefix.getBytes().length, entry.getKey().length));
       keys.add(key);
     }
     assertEquals(keys, IntStream.rangeClosed(0, 99).boxed().collect(Collectors.toList()));
 
     outputStream.close();
+    snapshot.close();
     store.close();
+  }
+
+  @Test
+  public void testPerf() throws Exception {
+    Config config = new MapConfig();
+    Options options = new Options();
+    options.setCreateIfMissing(true);
+
+    File dbDir = new File(System.getProperty("java.io.tmpdir") + "/dbStore" + System.currentTimeMillis());
+    RocksDbKeyValueStore store = new RocksDbKeyValueStore(dbDir, options, config, false, "dbStore",
+        new WriteOptions(), new FlushOptions(), new KeyValueStoreMetrics("dbStore", new MetricsRegistryMap()));
+
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    String prefix = "this is the key prefix";
+    Random r = new Random();
+    for(int i = 0; i < 100000; i++) {
+      store.put(genKey(outputStream, prefix, r.nextInt()), genValue());
+    }
+
+    byte[] firstKey = genKey(outputStream, prefix, 0);
+    byte[] lastKey = genKey(outputStream, prefix, Integer.MAX_VALUE);
+
+    long start;
+    KeyValueIterator iter;
+
+    start = System.currentTimeMillis();
+    iter = store.range(firstKey, lastKey);
+    long rangeTime = System.currentTimeMillis() - start;
+    start = System.currentTimeMillis();
+    Iterators.size(iter);
+    long rangeIterTime = System.currentTimeMillis() - start;
+    System.out.println("range iter create time: " + rangeTime + ", iterate time: " + rangeIterTime);
+
+    // Please comment out range query part in order to do an accurate perf test for snapshot
+    start = System.currentTimeMillis();
+    iter = store.snapshot(firstKey, lastKey).iterator();
+    long snapshotTime = System.currentTimeMillis() - start;
+    start = System.currentTimeMillis();
+    Iterators.size(iter);
+    long snapshotIterTime = System.currentTimeMillis() - start;
+    System.out.println("snapshot iter create time: " + snapshotTime + ", iterate time: " + snapshotIterTime);
   }
 
   private byte[] genKey(ByteArrayOutputStream outputStream, String prefix, int i) throws Exception {
@@ -84,7 +127,7 @@ public class TestRocksDbKeyValueStoreJava {
   }
 
   private byte[] genValue() {
-    int randomVal = ThreadLocalRandom.current().nextInt(0, 100000);
+    int randomVal = ThreadLocalRandom.current().nextInt();
     return Ints.toByteArray(randomVal);
   }
 }
