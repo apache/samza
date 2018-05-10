@@ -1,0 +1,553 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/*<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * AbstractMetricsContext.java<a name="line.2"></a>
+<span class="sourceLineNo">003</span> *<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * Licensed to the Apache Software Foundation (ASF) under one<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * or more contributor license agreements.  See the NOTICE file<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * distributed with this work for additional information<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * regarding copyright ownership.  The ASF licenses this file<a name="line.7"></a>
+<span class="sourceLineNo">008</span> * to you under the Apache License, Version 2.0 (the<a name="line.8"></a>
+<span class="sourceLineNo">009</span> * "License"); you may not use this file except in compliance<a name="line.9"></a>
+<span class="sourceLineNo">010</span> * with the License.  You may obtain a copy of the License at<a name="line.10"></a>
+<span class="sourceLineNo">011</span> *<a name="line.11"></a>
+<span class="sourceLineNo">012</span> *     http://www.apache.org/licenses/LICENSE-2.0<a name="line.12"></a>
+<span class="sourceLineNo">013</span> *<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * Unless required by applicable law or agreed to in writing, software<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * distributed under the License is distributed on an "AS IS" BASIS,<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.<a name="line.16"></a>
+<span class="sourceLineNo">017</span> * See the License for the specific language governing permissions and<a name="line.17"></a>
+<span class="sourceLineNo">018</span> * limitations under the License.<a name="line.18"></a>
+<span class="sourceLineNo">019</span> */<a name="line.19"></a>
+<span class="sourceLineNo">020</span><a name="line.20"></a>
+<span class="sourceLineNo">021</span>package org.apache.hadoop.metrics.spi;<a name="line.21"></a>
+<span class="sourceLineNo">022</span><a name="line.22"></a>
+<span class="sourceLineNo">023</span>import java.io.IOException;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import java.util.ArrayList;<a name="line.24"></a>
+<span class="sourceLineNo">025</span>import java.util.Collection;<a name="line.25"></a>
+<span class="sourceLineNo">026</span>import java.util.HashMap;<a name="line.26"></a>
+<span class="sourceLineNo">027</span>import java.util.HashSet;<a name="line.27"></a>
+<span class="sourceLineNo">028</span>import java.util.Iterator;<a name="line.28"></a>
+<span class="sourceLineNo">029</span>import java.util.List;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import java.util.Map;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import java.util.Set;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import java.util.Timer;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import java.util.TimerTask;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import java.util.TreeMap;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import java.util.Map.Entry;<a name="line.35"></a>
+<span class="sourceLineNo">036</span><a name="line.36"></a>
+<span class="sourceLineNo">037</span>import org.apache.hadoop.classification.InterfaceAudience;<a name="line.37"></a>
+<span class="sourceLineNo">038</span>import org.apache.hadoop.classification.InterfaceStability;<a name="line.38"></a>
+<span class="sourceLineNo">039</span>import org.apache.hadoop.metrics.ContextFactory;<a name="line.39"></a>
+<span class="sourceLineNo">040</span>import org.apache.hadoop.metrics.MetricsContext;<a name="line.40"></a>
+<span class="sourceLineNo">041</span>import org.apache.hadoop.metrics.MetricsException;<a name="line.41"></a>
+<span class="sourceLineNo">042</span>import org.apache.hadoop.metrics.MetricsRecord;<a name="line.42"></a>
+<span class="sourceLineNo">043</span>import org.apache.hadoop.metrics.Updater;<a name="line.43"></a>
+<span class="sourceLineNo">044</span><a name="line.44"></a>
+<span class="sourceLineNo">045</span>/**<a name="line.45"></a>
+<span class="sourceLineNo">046</span> * The main class of the Service Provider Interface.  This class should be<a name="line.46"></a>
+<span class="sourceLineNo">047</span> * extended in order to integrate the Metrics API with a specific metrics<a name="line.47"></a>
+<span class="sourceLineNo">048</span> * client library. &lt;p/&gt;<a name="line.48"></a>
+<span class="sourceLineNo">049</span> *<a name="line.49"></a>
+<span class="sourceLineNo">050</span> * This class implements the internal table of metric data, and the timer<a name="line.50"></a>
+<span class="sourceLineNo">051</span> * on which data is to be sent to the metrics system.  Subclasses must<a name="line.51"></a>
+<span class="sourceLineNo">052</span> * override the abstract &lt;code&gt;emitRecord&lt;/code&gt; method in order to transmit<a name="line.52"></a>
+<span class="sourceLineNo">053</span> * the data. &lt;p/&gt;<a name="line.53"></a>
+<span class="sourceLineNo">054</span> */<a name="line.54"></a>
+<span class="sourceLineNo">055</span>@InterfaceAudience.Public<a name="line.55"></a>
+<span class="sourceLineNo">056</span>@InterfaceStability.Evolving<a name="line.56"></a>
+<span class="sourceLineNo">057</span>public abstract class AbstractMetricsContext implements MetricsContext {<a name="line.57"></a>
+<span class="sourceLineNo">058</span>    <a name="line.58"></a>
+<span class="sourceLineNo">059</span>  private int period = MetricsContext.DEFAULT_PERIOD;<a name="line.59"></a>
+<span class="sourceLineNo">060</span>  private Timer timer = null;<a name="line.60"></a>
+<span class="sourceLineNo">061</span>    <a name="line.61"></a>
+<span class="sourceLineNo">062</span>  private Set&lt;Updater&gt; updaters = new HashSet&lt;Updater&gt;(1);<a name="line.62"></a>
+<span class="sourceLineNo">063</span>  private volatile boolean isMonitoring = false;<a name="line.63"></a>
+<span class="sourceLineNo">064</span>    <a name="line.64"></a>
+<span class="sourceLineNo">065</span>  private ContextFactory factory = null;<a name="line.65"></a>
+<span class="sourceLineNo">066</span>  private String contextName = null;<a name="line.66"></a>
+<span class="sourceLineNo">067</span>    <a name="line.67"></a>
+<span class="sourceLineNo">068</span>  @InterfaceAudience.Private<a name="line.68"></a>
+<span class="sourceLineNo">069</span>  public static class TagMap extends TreeMap&lt;String,Object&gt; {<a name="line.69"></a>
+<span class="sourceLineNo">070</span>    private static final long serialVersionUID = 3546309335061952993L;<a name="line.70"></a>
+<span class="sourceLineNo">071</span>    TagMap() {<a name="line.71"></a>
+<span class="sourceLineNo">072</span>      super();<a name="line.72"></a>
+<span class="sourceLineNo">073</span>    }<a name="line.73"></a>
+<span class="sourceLineNo">074</span>    TagMap(TagMap orig) {<a name="line.74"></a>
+<span class="sourceLineNo">075</span>      super(orig);<a name="line.75"></a>
+<span class="sourceLineNo">076</span>    }<a name="line.76"></a>
+<span class="sourceLineNo">077</span>    /**<a name="line.77"></a>
+<span class="sourceLineNo">078</span>     * Returns true if this tagmap contains every tag in other.<a name="line.78"></a>
+<span class="sourceLineNo">079</span>     */<a name="line.79"></a>
+<span class="sourceLineNo">080</span>    public boolean containsAll(TagMap other) {<a name="line.80"></a>
+<span class="sourceLineNo">081</span>      for (Map.Entry&lt;String,Object&gt; entry : other.entrySet()) {<a name="line.81"></a>
+<span class="sourceLineNo">082</span>        Object value = get(entry.getKey());<a name="line.82"></a>
+<span class="sourceLineNo">083</span>        if (value == null || !value.equals(entry.getValue())) {<a name="line.83"></a>
+<span class="sourceLineNo">084</span>          // either key does not exist here, or the value is different<a name="line.84"></a>
+<span class="sourceLineNo">085</span>          return false;<a name="line.85"></a>
+<span class="sourceLineNo">086</span>        }<a name="line.86"></a>
+<span class="sourceLineNo">087</span>      }<a name="line.87"></a>
+<span class="sourceLineNo">088</span>      return true;<a name="line.88"></a>
+<span class="sourceLineNo">089</span>    }<a name="line.89"></a>
+<span class="sourceLineNo">090</span>  }<a name="line.90"></a>
+<span class="sourceLineNo">091</span>  <a name="line.91"></a>
+<span class="sourceLineNo">092</span>  @InterfaceAudience.Private<a name="line.92"></a>
+<span class="sourceLineNo">093</span>  public static class MetricMap extends TreeMap&lt;String,Number&gt; {<a name="line.93"></a>
+<span class="sourceLineNo">094</span>    private static final long serialVersionUID = -7495051861141631609L;<a name="line.94"></a>
+<span class="sourceLineNo">095</span>    MetricMap() {<a name="line.95"></a>
+<span class="sourceLineNo">096</span>      super();<a name="line.96"></a>
+<span class="sourceLineNo">097</span>    }<a name="line.97"></a>
+<span class="sourceLineNo">098</span>    MetricMap(MetricMap orig) {<a name="line.98"></a>
+<span class="sourceLineNo">099</span>      super(orig);<a name="line.99"></a>
+<span class="sourceLineNo">100</span>    }<a name="line.100"></a>
+<span class="sourceLineNo">101</span>  }<a name="line.101"></a>
+<span class="sourceLineNo">102</span>            <a name="line.102"></a>
+<span class="sourceLineNo">103</span>  static class RecordMap extends HashMap&lt;TagMap,MetricMap&gt; {<a name="line.103"></a>
+<span class="sourceLineNo">104</span>    private static final long serialVersionUID = 259835619700264611L;<a name="line.104"></a>
+<span class="sourceLineNo">105</span>  }<a name="line.105"></a>
+<span class="sourceLineNo">106</span>    <a name="line.106"></a>
+<span class="sourceLineNo">107</span>  private Map&lt;String,RecordMap&gt; bufferedData = new HashMap&lt;String,RecordMap&gt;();<a name="line.107"></a>
+<span class="sourceLineNo">108</span>    <a name="line.108"></a>
+<span class="sourceLineNo">109</span><a name="line.109"></a>
+<span class="sourceLineNo">110</span>  /**<a name="line.110"></a>
+<span class="sourceLineNo">111</span>   * Creates a new instance of AbstractMetricsContext<a name="line.111"></a>
+<span class="sourceLineNo">112</span>   */<a name="line.112"></a>
+<span class="sourceLineNo">113</span>  protected AbstractMetricsContext() {<a name="line.113"></a>
+<span class="sourceLineNo">114</span>  }<a name="line.114"></a>
+<span class="sourceLineNo">115</span>    <a name="line.115"></a>
+<span class="sourceLineNo">116</span>  /**<a name="line.116"></a>
+<span class="sourceLineNo">117</span>   * Initializes the context.<a name="line.117"></a>
+<span class="sourceLineNo">118</span>   */<a name="line.118"></a>
+<span class="sourceLineNo">119</span>  public void init(String contextName, ContextFactory factory) <a name="line.119"></a>
+<span class="sourceLineNo">120</span>  {<a name="line.120"></a>
+<span class="sourceLineNo">121</span>    this.contextName = contextName;<a name="line.121"></a>
+<span class="sourceLineNo">122</span>    this.factory = factory;<a name="line.122"></a>
+<span class="sourceLineNo">123</span>  }<a name="line.123"></a>
+<span class="sourceLineNo">124</span>    <a name="line.124"></a>
+<span class="sourceLineNo">125</span>  /**<a name="line.125"></a>
+<span class="sourceLineNo">126</span>   * Convenience method for subclasses to access factory attributes.<a name="line.126"></a>
+<span class="sourceLineNo">127</span>   */<a name="line.127"></a>
+<span class="sourceLineNo">128</span>  protected String getAttribute(String attributeName) {<a name="line.128"></a>
+<span class="sourceLineNo">129</span>    String factoryAttribute = contextName + "." + attributeName;<a name="line.129"></a>
+<span class="sourceLineNo">130</span>    return (String) factory.getAttribute(factoryAttribute);  <a name="line.130"></a>
+<span class="sourceLineNo">131</span>  }<a name="line.131"></a>
+<span class="sourceLineNo">132</span>    <a name="line.132"></a>
+<span class="sourceLineNo">133</span>  /**<a name="line.133"></a>
+<span class="sourceLineNo">134</span>   * Returns an attribute-value map derived from the factory attributes<a name="line.134"></a>
+<span class="sourceLineNo">135</span>   * by finding all factory attributes that begin with <a name="line.135"></a>
+<span class="sourceLineNo">136</span>   * &lt;i&gt;contextName&lt;/i&gt;.&lt;i&gt;tableName&lt;/i&gt;.  The returned map consists of<a name="line.136"></a>
+<span class="sourceLineNo">137</span>   * those attributes with the contextName and tableName stripped off.<a name="line.137"></a>
+<span class="sourceLineNo">138</span>   */<a name="line.138"></a>
+<span class="sourceLineNo">139</span>  protected Map&lt;String,String&gt; getAttributeTable(String tableName) {<a name="line.139"></a>
+<span class="sourceLineNo">140</span>    String prefix = contextName + "." + tableName + ".";<a name="line.140"></a>
+<span class="sourceLineNo">141</span>    Map&lt;String,String&gt; result = new HashMap&lt;String,String&gt;();<a name="line.141"></a>
+<span class="sourceLineNo">142</span>    for (String attributeName : factory.getAttributeNames()) {<a name="line.142"></a>
+<span class="sourceLineNo">143</span>      if (attributeName.startsWith(prefix)) {<a name="line.143"></a>
+<span class="sourceLineNo">144</span>        String name = attributeName.substring(prefix.length());<a name="line.144"></a>
+<span class="sourceLineNo">145</span>        String value = (String) factory.getAttribute(attributeName);<a name="line.145"></a>
+<span class="sourceLineNo">146</span>        result.put(name, value);<a name="line.146"></a>
+<span class="sourceLineNo">147</span>      }<a name="line.147"></a>
+<span class="sourceLineNo">148</span>    }<a name="line.148"></a>
+<span class="sourceLineNo">149</span>    return result;<a name="line.149"></a>
+<span class="sourceLineNo">150</span>  }<a name="line.150"></a>
+<span class="sourceLineNo">151</span>    <a name="line.151"></a>
+<span class="sourceLineNo">152</span>  /**<a name="line.152"></a>
+<span class="sourceLineNo">153</span>   * Returns the context name.<a name="line.153"></a>
+<span class="sourceLineNo">154</span>   */<a name="line.154"></a>
+<span class="sourceLineNo">155</span>  public String getContextName() {<a name="line.155"></a>
+<span class="sourceLineNo">156</span>    return contextName;<a name="line.156"></a>
+<span class="sourceLineNo">157</span>  }<a name="line.157"></a>
+<span class="sourceLineNo">158</span>    <a name="line.158"></a>
+<span class="sourceLineNo">159</span>  /**<a name="line.159"></a>
+<span class="sourceLineNo">160</span>   * Returns the factory by which this context was created.<a name="line.160"></a>
+<span class="sourceLineNo">161</span>   */<a name="line.161"></a>
+<span class="sourceLineNo">162</span>  public ContextFactory getContextFactory() {<a name="line.162"></a>
+<span class="sourceLineNo">163</span>    return factory;<a name="line.163"></a>
+<span class="sourceLineNo">164</span>  }<a name="line.164"></a>
+<span class="sourceLineNo">165</span>    <a name="line.165"></a>
+<span class="sourceLineNo">166</span>  /**<a name="line.166"></a>
+<span class="sourceLineNo">167</span>   * Starts or restarts monitoring, the emitting of metrics records.<a name="line.167"></a>
+<span class="sourceLineNo">168</span>   */<a name="line.168"></a>
+<span class="sourceLineNo">169</span>  public synchronized void startMonitoring()<a name="line.169"></a>
+<span class="sourceLineNo">170</span>    throws IOException {<a name="line.170"></a>
+<span class="sourceLineNo">171</span>    if (!isMonitoring) {<a name="line.171"></a>
+<span class="sourceLineNo">172</span>      startTimer();<a name="line.172"></a>
+<span class="sourceLineNo">173</span>      isMonitoring = true;<a name="line.173"></a>
+<span class="sourceLineNo">174</span>    }<a name="line.174"></a>
+<span class="sourceLineNo">175</span>  }<a name="line.175"></a>
+<span class="sourceLineNo">176</span>    <a name="line.176"></a>
+<span class="sourceLineNo">177</span>  /**<a name="line.177"></a>
+<span class="sourceLineNo">178</span>   * Stops monitoring.  This does not free buffered data. <a name="line.178"></a>
+<span class="sourceLineNo">179</span>   * @see #close()<a name="line.179"></a>
+<span class="sourceLineNo">180</span>   */<a name="line.180"></a>
+<span class="sourceLineNo">181</span>  public synchronized void stopMonitoring() {<a name="line.181"></a>
+<span class="sourceLineNo">182</span>    if (isMonitoring) {<a name="line.182"></a>
+<span class="sourceLineNo">183</span>      stopTimer();<a name="line.183"></a>
+<span class="sourceLineNo">184</span>      isMonitoring = false;<a name="line.184"></a>
+<span class="sourceLineNo">185</span>    }<a name="line.185"></a>
+<span class="sourceLineNo">186</span>  }<a name="line.186"></a>
+<span class="sourceLineNo">187</span>    <a name="line.187"></a>
+<span class="sourceLineNo">188</span>  /**<a name="line.188"></a>
+<span class="sourceLineNo">189</span>   * Returns true if monitoring is currently in progress.<a name="line.189"></a>
+<span class="sourceLineNo">190</span>   */<a name="line.190"></a>
+<span class="sourceLineNo">191</span>  public boolean isMonitoring() {<a name="line.191"></a>
+<span class="sourceLineNo">192</span>    return isMonitoring;<a name="line.192"></a>
+<span class="sourceLineNo">193</span>  }<a name="line.193"></a>
+<span class="sourceLineNo">194</span>    <a name="line.194"></a>
+<span class="sourceLineNo">195</span>  /**<a name="line.195"></a>
+<span class="sourceLineNo">196</span>   * Stops monitoring and frees buffered data, returning this<a name="line.196"></a>
+<span class="sourceLineNo">197</span>   * object to its initial state.  <a name="line.197"></a>
+<span class="sourceLineNo">198</span>   */<a name="line.198"></a>
+<span class="sourceLineNo">199</span>  public synchronized void close() {<a name="line.199"></a>
+<span class="sourceLineNo">200</span>    stopMonitoring();<a name="line.200"></a>
+<span class="sourceLineNo">201</span>    clearUpdaters();<a name="line.201"></a>
+<span class="sourceLineNo">202</span>  } <a name="line.202"></a>
+<span class="sourceLineNo">203</span>    <a name="line.203"></a>
+<span class="sourceLineNo">204</span>  /**<a name="line.204"></a>
+<span class="sourceLineNo">205</span>   * Creates a new AbstractMetricsRecord instance with the given &lt;code&gt;recordName&lt;/code&gt;.<a name="line.205"></a>
+<span class="sourceLineNo">206</span>   * Throws an exception if the metrics implementation is configured with a fixed<a name="line.206"></a>
+<span class="sourceLineNo">207</span>   * set of record names and &lt;code&gt;recordName&lt;/code&gt; is not in that set.<a name="line.207"></a>
+<span class="sourceLineNo">208</span>   * <a name="line.208"></a>
+<span class="sourceLineNo">209</span>   * @param recordName the name of the record<a name="line.209"></a>
+<span class="sourceLineNo">210</span>   * @throws MetricsException if recordName conflicts with configuration data<a name="line.210"></a>
+<span class="sourceLineNo">211</span>   */<a name="line.211"></a>
+<span class="sourceLineNo">212</span>  public final synchronized MetricsRecord createRecord(String recordName) {<a name="line.212"></a>
+<span class="sourceLineNo">213</span>    if (bufferedData.get(recordName) == null) {<a name="line.213"></a>
+<span class="sourceLineNo">214</span>      bufferedData.put(recordName, new RecordMap());<a name="line.214"></a>
+<span class="sourceLineNo">215</span>    }<a name="line.215"></a>
+<span class="sourceLineNo">216</span>    return newRecord(recordName);<a name="line.216"></a>
+<span class="sourceLineNo">217</span>  }<a name="line.217"></a>
+<span class="sourceLineNo">218</span>    <a name="line.218"></a>
+<span class="sourceLineNo">219</span>  /**<a name="line.219"></a>
+<span class="sourceLineNo">220</span>   * Subclasses should override this if they subclass MetricsRecordImpl.<a name="line.220"></a>
+<span class="sourceLineNo">221</span>   * @param recordName the name of the record<a name="line.221"></a>
+<span class="sourceLineNo">222</span>   * @return newly created instance of MetricsRecordImpl or subclass<a name="line.222"></a>
+<span class="sourceLineNo">223</span>   */<a name="line.223"></a>
+<span class="sourceLineNo">224</span>  protected MetricsRecord newRecord(String recordName) {<a name="line.224"></a>
+<span class="sourceLineNo">225</span>    return new MetricsRecordImpl(recordName, this);<a name="line.225"></a>
+<span class="sourceLineNo">226</span>  }<a name="line.226"></a>
+<span class="sourceLineNo">227</span>    <a name="line.227"></a>
+<span class="sourceLineNo">228</span>  /**<a name="line.228"></a>
+<span class="sourceLineNo">229</span>   * Registers a callback to be called at time intervals determined by<a name="line.229"></a>
+<span class="sourceLineNo">230</span>   * the configuration.<a name="line.230"></a>
+<span class="sourceLineNo">231</span>   *<a name="line.231"></a>
+<span class="sourceLineNo">232</span>   * @param updater object to be run periodically; it should update<a name="line.232"></a>
+<span class="sourceLineNo">233</span>   * some metrics records <a name="line.233"></a>
+<span class="sourceLineNo">234</span>   */<a name="line.234"></a>
+<span class="sourceLineNo">235</span>  public synchronized void registerUpdater(final Updater updater) {<a name="line.235"></a>
+<span class="sourceLineNo">236</span>    if (!updaters.contains(updater)) {<a name="line.236"></a>
+<span class="sourceLineNo">237</span>      updaters.add(updater);<a name="line.237"></a>
+<span class="sourceLineNo">238</span>    }<a name="line.238"></a>
+<span class="sourceLineNo">239</span>  }<a name="line.239"></a>
+<span class="sourceLineNo">240</span>    <a name="line.240"></a>
+<span class="sourceLineNo">241</span>  /**<a name="line.241"></a>
+<span class="sourceLineNo">242</span>   * Removes a callback, if it exists.<a name="line.242"></a>
+<span class="sourceLineNo">243</span>   *<a name="line.243"></a>
+<span class="sourceLineNo">244</span>   * @param updater object to be removed from the callback list<a name="line.244"></a>
+<span class="sourceLineNo">245</span>   */<a name="line.245"></a>
+<span class="sourceLineNo">246</span>  public synchronized void unregisterUpdater(Updater updater) {<a name="line.246"></a>
+<span class="sourceLineNo">247</span>    updaters.remove(updater);<a name="line.247"></a>
+<span class="sourceLineNo">248</span>  }<a name="line.248"></a>
+<span class="sourceLineNo">249</span>    <a name="line.249"></a>
+<span class="sourceLineNo">250</span>  private synchronized void clearUpdaters() {<a name="line.250"></a>
+<span class="sourceLineNo">251</span>    updaters.clear();<a name="line.251"></a>
+<span class="sourceLineNo">252</span>  }<a name="line.252"></a>
+<span class="sourceLineNo">253</span>    <a name="line.253"></a>
+<span class="sourceLineNo">254</span>  /**<a name="line.254"></a>
+<span class="sourceLineNo">255</span>   * Starts timer if it is not already started<a name="line.255"></a>
+<span class="sourceLineNo">256</span>   */<a name="line.256"></a>
+<span class="sourceLineNo">257</span>  private synchronized void startTimer() {<a name="line.257"></a>
+<span class="sourceLineNo">258</span>    if (timer == null) {<a name="line.258"></a>
+<span class="sourceLineNo">259</span>      timer = new Timer("Timer thread for monitoring " + getContextName(), <a name="line.259"></a>
+<span class="sourceLineNo">260</span>                        true);<a name="line.260"></a>
+<span class="sourceLineNo">261</span>      TimerTask task = new TimerTask() {<a name="line.261"></a>
+<span class="sourceLineNo">262</span>          public void run() {<a name="line.262"></a>
+<span class="sourceLineNo">263</span>            try {<a name="line.263"></a>
+<span class="sourceLineNo">264</span>              timerEvent();<a name="line.264"></a>
+<span class="sourceLineNo">265</span>            }<a name="line.265"></a>
+<span class="sourceLineNo">266</span>            catch (IOException ioe) {<a name="line.266"></a>
+<span class="sourceLineNo">267</span>              ioe.printStackTrace();<a name="line.267"></a>
+<span class="sourceLineNo">268</span>            }<a name="line.268"></a>
+<span class="sourceLineNo">269</span>          }<a name="line.269"></a>
+<span class="sourceLineNo">270</span>        };<a name="line.270"></a>
+<span class="sourceLineNo">271</span>      long millis = period * 1000;<a name="line.271"></a>
+<span class="sourceLineNo">272</span>      timer.scheduleAtFixedRate(task, millis, millis);<a name="line.272"></a>
+<span class="sourceLineNo">273</span>    }<a name="line.273"></a>
+<span class="sourceLineNo">274</span>  }<a name="line.274"></a>
+<span class="sourceLineNo">275</span>    <a name="line.275"></a>
+<span class="sourceLineNo">276</span>  /**<a name="line.276"></a>
+<span class="sourceLineNo">277</span>   * Stops timer if it is running<a name="line.277"></a>
+<span class="sourceLineNo">278</span>   */<a name="line.278"></a>
+<span class="sourceLineNo">279</span>  private synchronized void stopTimer() {<a name="line.279"></a>
+<span class="sourceLineNo">280</span>    if (timer != null) {<a name="line.280"></a>
+<span class="sourceLineNo">281</span>      timer.cancel();<a name="line.281"></a>
+<span class="sourceLineNo">282</span>      timer = null;<a name="line.282"></a>
+<span class="sourceLineNo">283</span>    }<a name="line.283"></a>
+<span class="sourceLineNo">284</span>  }<a name="line.284"></a>
+<span class="sourceLineNo">285</span>    <a name="line.285"></a>
+<span class="sourceLineNo">286</span>  /**<a name="line.286"></a>
+<span class="sourceLineNo">287</span>   * Timer callback.<a name="line.287"></a>
+<span class="sourceLineNo">288</span>   */<a name="line.288"></a>
+<span class="sourceLineNo">289</span>  private void timerEvent() throws IOException {<a name="line.289"></a>
+<span class="sourceLineNo">290</span>    if (isMonitoring) {<a name="line.290"></a>
+<span class="sourceLineNo">291</span>      Collection&lt;Updater&gt; myUpdaters;<a name="line.291"></a>
+<span class="sourceLineNo">292</span>      synchronized (this) {<a name="line.292"></a>
+<span class="sourceLineNo">293</span>        myUpdaters = new ArrayList&lt;Updater&gt;(updaters);<a name="line.293"></a>
+<span class="sourceLineNo">294</span>      }     <a name="line.294"></a>
+<span class="sourceLineNo">295</span>      // Run all the registered updates without holding a lock<a name="line.295"></a>
+<span class="sourceLineNo">296</span>      // on this context<a name="line.296"></a>
+<span class="sourceLineNo">297</span>      for (Updater updater : myUpdaters) {<a name="line.297"></a>
+<span class="sourceLineNo">298</span>        try {<a name="line.298"></a>
+<span class="sourceLineNo">299</span>          updater.doUpdates(this);<a name="line.299"></a>
+<span class="sourceLineNo">300</span>        }<a name="line.300"></a>
+<span class="sourceLineNo">301</span>        catch (Throwable throwable) {<a name="line.301"></a>
+<span class="sourceLineNo">302</span>          throwable.printStackTrace();<a name="line.302"></a>
+<span class="sourceLineNo">303</span>        }<a name="line.303"></a>
+<span class="sourceLineNo">304</span>      }<a name="line.304"></a>
+<span class="sourceLineNo">305</span>      emitRecords();<a name="line.305"></a>
+<span class="sourceLineNo">306</span>    }<a name="line.306"></a>
+<span class="sourceLineNo">307</span>  }<a name="line.307"></a>
+<span class="sourceLineNo">308</span>    <a name="line.308"></a>
+<span class="sourceLineNo">309</span>  /**<a name="line.309"></a>
+<span class="sourceLineNo">310</span>   *  Emits the records.<a name="line.310"></a>
+<span class="sourceLineNo">311</span>   */<a name="line.311"></a>
+<span class="sourceLineNo">312</span>  private synchronized void emitRecords() throws IOException {<a name="line.312"></a>
+<span class="sourceLineNo">313</span>    for (String recordName : bufferedData.keySet()) {<a name="line.313"></a>
+<span class="sourceLineNo">314</span>      RecordMap recordMap = bufferedData.get(recordName);<a name="line.314"></a>
+<span class="sourceLineNo">315</span>      synchronized (recordMap) {<a name="line.315"></a>
+<span class="sourceLineNo">316</span>        Set&lt;Entry&lt;TagMap, MetricMap&gt;&gt; entrySet = recordMap.entrySet ();<a name="line.316"></a>
+<span class="sourceLineNo">317</span>        for (Entry&lt;TagMap, MetricMap&gt; entry : entrySet) {<a name="line.317"></a>
+<span class="sourceLineNo">318</span>          OutputRecord outRec = new OutputRecord(entry.getKey(), entry.getValue());<a name="line.318"></a>
+<span class="sourceLineNo">319</span>          emitRecord(contextName, recordName, outRec);<a name="line.319"></a>
+<span class="sourceLineNo">320</span>        }<a name="line.320"></a>
+<span class="sourceLineNo">321</span>      }<a name="line.321"></a>
+<span class="sourceLineNo">322</span>    }<a name="line.322"></a>
+<span class="sourceLineNo">323</span>    flush();<a name="line.323"></a>
+<span class="sourceLineNo">324</span>  }<a name="line.324"></a>
+<span class="sourceLineNo">325</span>  <a name="line.325"></a>
+<span class="sourceLineNo">326</span>  /**<a name="line.326"></a>
+<span class="sourceLineNo">327</span>   * Retrieves all the records managed by this MetricsContext.<a name="line.327"></a>
+<span class="sourceLineNo">328</span>   * Useful for monitoring systems that are polling-based.<a name="line.328"></a>
+<span class="sourceLineNo">329</span>   * @return A non-null collection of all monitoring records.<a name="line.329"></a>
+<span class="sourceLineNo">330</span>   */<a name="line.330"></a>
+<span class="sourceLineNo">331</span>  public synchronized Map&lt;String, Collection&lt;OutputRecord&gt;&gt; getAllRecords() {<a name="line.331"></a>
+<span class="sourceLineNo">332</span>    Map&lt;String, Collection&lt;OutputRecord&gt;&gt; out = new TreeMap&lt;String, Collection&lt;OutputRecord&gt;&gt;();<a name="line.332"></a>
+<span class="sourceLineNo">333</span>    for (String recordName : bufferedData.keySet()) {<a name="line.333"></a>
+<span class="sourceLineNo">334</span>      RecordMap recordMap = bufferedData.get(recordName);<a name="line.334"></a>
+<span class="sourceLineNo">335</span>      synchronized (recordMap) {<a name="line.335"></a>
+<span class="sourceLineNo">336</span>        List&lt;OutputRecord&gt; records = new ArrayList&lt;OutputRecord&gt;();<a name="line.336"></a>
+<span class="sourceLineNo">337</span>        Set&lt;Entry&lt;TagMap, MetricMap&gt;&gt; entrySet = recordMap.entrySet();<a name="line.337"></a>
+<span class="sourceLineNo">338</span>        for (Entry&lt;TagMap, MetricMap&gt; entry : entrySet) {<a name="line.338"></a>
+<span class="sourceLineNo">339</span>          OutputRecord outRec = new OutputRecord(entry.getKey(), entry.getValue());<a name="line.339"></a>
+<span class="sourceLineNo">340</span>          records.add(outRec);<a name="line.340"></a>
+<span class="sourceLineNo">341</span>        }<a name="line.341"></a>
+<span class="sourceLineNo">342</span>        out.put(recordName, records);<a name="line.342"></a>
+<span class="sourceLineNo">343</span>      }<a name="line.343"></a>
+<span class="sourceLineNo">344</span>    }<a name="line.344"></a>
+<span class="sourceLineNo">345</span>    return out;<a name="line.345"></a>
+<span class="sourceLineNo">346</span>  }<a name="line.346"></a>
+<span class="sourceLineNo">347</span><a name="line.347"></a>
+<span class="sourceLineNo">348</span>  /**<a name="line.348"></a>
+<span class="sourceLineNo">349</span>   * Sends a record to the metrics system.<a name="line.349"></a>
+<span class="sourceLineNo">350</span>   */<a name="line.350"></a>
+<span class="sourceLineNo">351</span>  protected abstract void emitRecord(String contextName, String recordName, <a name="line.351"></a>
+<span class="sourceLineNo">352</span>                                     OutputRecord outRec) throws IOException;<a name="line.352"></a>
+<span class="sourceLineNo">353</span>    <a name="line.353"></a>
+<span class="sourceLineNo">354</span>  /**<a name="line.354"></a>
+<span class="sourceLineNo">355</span>   * Called each period after all records have been emitted, this method does nothing.<a name="line.355"></a>
+<span class="sourceLineNo">356</span>   * Subclasses may override it in order to perform some kind of flush.<a name="line.356"></a>
+<span class="sourceLineNo">357</span>   */<a name="line.357"></a>
+<span class="sourceLineNo">358</span>  protected void flush() throws IOException {<a name="line.358"></a>
+<span class="sourceLineNo">359</span>  }<a name="line.359"></a>
+<span class="sourceLineNo">360</span>    <a name="line.360"></a>
+<span class="sourceLineNo">361</span>  /**<a name="line.361"></a>
+<span class="sourceLineNo">362</span>   * Called by MetricsRecordImpl.update().  Creates or updates a row in<a name="line.362"></a>
+<span class="sourceLineNo">363</span>   * the internal table of metric data.<a name="line.363"></a>
+<span class="sourceLineNo">364</span>   */<a name="line.364"></a>
+<span class="sourceLineNo">365</span>  protected void update(MetricsRecordImpl record) {<a name="line.365"></a>
+<span class="sourceLineNo">366</span>    String recordName = record.getRecordName();<a name="line.366"></a>
+<span class="sourceLineNo">367</span>    TagMap tagTable = record.getTagTable();<a name="line.367"></a>
+<span class="sourceLineNo">368</span>    Map&lt;String,MetricValue&gt; metricUpdates = record.getMetricTable();<a name="line.368"></a>
+<span class="sourceLineNo">369</span>        <a name="line.369"></a>
+<span class="sourceLineNo">370</span>    RecordMap recordMap = getRecordMap(recordName);<a name="line.370"></a>
+<span class="sourceLineNo">371</span>    synchronized (recordMap) {<a name="line.371"></a>
+<span class="sourceLineNo">372</span>      MetricMap metricMap = recordMap.get(tagTable);<a name="line.372"></a>
+<span class="sourceLineNo">373</span>      if (metricMap == null) {<a name="line.373"></a>
+<span class="sourceLineNo">374</span>        metricMap = new MetricMap();<a name="line.374"></a>
+<span class="sourceLineNo">375</span>        TagMap tagMap = new TagMap(tagTable); // clone tags<a name="line.375"></a>
+<span class="sourceLineNo">376</span>        recordMap.put(tagMap, metricMap);<a name="line.376"></a>
+<span class="sourceLineNo">377</span>      }<a name="line.377"></a>
+<span class="sourceLineNo">378</span><a name="line.378"></a>
+<span class="sourceLineNo">379</span>      Set&lt;Entry&lt;String, MetricValue&gt;&gt; entrySet = metricUpdates.entrySet();<a name="line.379"></a>
+<span class="sourceLineNo">380</span>      for (Entry&lt;String, MetricValue&gt; entry : entrySet) {<a name="line.380"></a>
+<span class="sourceLineNo">381</span>        String metricName = entry.getKey ();<a name="line.381"></a>
+<span class="sourceLineNo">382</span>        MetricValue updateValue = entry.getValue ();<a name="line.382"></a>
+<span class="sourceLineNo">383</span>        Number updateNumber = updateValue.getNumber();<a name="line.383"></a>
+<span class="sourceLineNo">384</span>        Number currentNumber = metricMap.get(metricName);<a name="line.384"></a>
+<span class="sourceLineNo">385</span>        if (currentNumber == null || updateValue.isAbsolute()) {<a name="line.385"></a>
+<span class="sourceLineNo">386</span>          metricMap.put(metricName, updateNumber);<a name="line.386"></a>
+<span class="sourceLineNo">387</span>        }<a name="line.387"></a>
+<span class="sourceLineNo">388</span>        else {<a name="line.388"></a>
+<span class="sourceLineNo">389</span>          Number newNumber = sum(updateNumber, currentNumber);<a name="line.389"></a>
+<span class="sourceLineNo">390</span>          metricMap.put(metricName, newNumber);<a name="line.390"></a>
+<span class="sourceLineNo">391</span>        }<a name="line.391"></a>
+<span class="sourceLineNo">392</span>      }<a name="line.392"></a>
+<span class="sourceLineNo">393</span>    }<a name="line.393"></a>
+<span class="sourceLineNo">394</span>  }<a name="line.394"></a>
+<span class="sourceLineNo">395</span>    <a name="line.395"></a>
+<span class="sourceLineNo">396</span>  private synchronized RecordMap getRecordMap(String recordName) {<a name="line.396"></a>
+<span class="sourceLineNo">397</span>    return bufferedData.get(recordName);<a name="line.397"></a>
+<span class="sourceLineNo">398</span>  }<a name="line.398"></a>
+<span class="sourceLineNo">399</span>    <a name="line.399"></a>
+<span class="sourceLineNo">400</span>  /**<a name="line.400"></a>
+<span class="sourceLineNo">401</span>   * Adds two numbers, coercing the second to the type of the first.<a name="line.401"></a>
+<span class="sourceLineNo">402</span>   *<a name="line.402"></a>
+<span class="sourceLineNo">403</span>   */<a name="line.403"></a>
+<span class="sourceLineNo">404</span>  private Number sum(Number a, Number b) {<a name="line.404"></a>
+<span class="sourceLineNo">405</span>    if (a instanceof Integer) {<a name="line.405"></a>
+<span class="sourceLineNo">406</span>      return Integer.valueOf(a.intValue() + b.intValue());<a name="line.406"></a>
+<span class="sourceLineNo">407</span>    }<a name="line.407"></a>
+<span class="sourceLineNo">408</span>    else if (a instanceof Float) {<a name="line.408"></a>
+<span class="sourceLineNo">409</span>      return new Float(a.floatValue() + b.floatValue());<a name="line.409"></a>
+<span class="sourceLineNo">410</span>    }<a name="line.410"></a>
+<span class="sourceLineNo">411</span>    else if (a instanceof Short) {<a name="line.411"></a>
+<span class="sourceLineNo">412</span>      return Short.valueOf((short)(a.shortValue() + b.shortValue()));<a name="line.412"></a>
+<span class="sourceLineNo">413</span>    }<a name="line.413"></a>
+<span class="sourceLineNo">414</span>    else if (a instanceof Byte) {<a name="line.414"></a>
+<span class="sourceLineNo">415</span>      return Byte.valueOf((byte)(a.byteValue() + b.byteValue()));<a name="line.415"></a>
+<span class="sourceLineNo">416</span>    }<a name="line.416"></a>
+<span class="sourceLineNo">417</span>    else if (a instanceof Long) {<a name="line.417"></a>
+<span class="sourceLineNo">418</span>      return Long.valueOf((a.longValue() + b.longValue()));<a name="line.418"></a>
+<span class="sourceLineNo">419</span>    }<a name="line.419"></a>
+<span class="sourceLineNo">420</span>    else {<a name="line.420"></a>
+<span class="sourceLineNo">421</span>      // should never happen<a name="line.421"></a>
+<span class="sourceLineNo">422</span>      throw new MetricsException("Invalid number type");<a name="line.422"></a>
+<span class="sourceLineNo">423</span>    }<a name="line.423"></a>
+<span class="sourceLineNo">424</span>            <a name="line.424"></a>
+<span class="sourceLineNo">425</span>  }<a name="line.425"></a>
+<span class="sourceLineNo">426</span>    <a name="line.426"></a>
+<span class="sourceLineNo">427</span>  /**<a name="line.427"></a>
+<span class="sourceLineNo">428</span>   * Called by MetricsRecordImpl.remove().  Removes all matching rows in<a name="line.428"></a>
+<span class="sourceLineNo">429</span>   * the internal table of metric data.  A row matches if it has the same<a name="line.429"></a>
+<span class="sourceLineNo">430</span>   * tag names and values as record, but it may also have additional<a name="line.430"></a>
+<span class="sourceLineNo">431</span>   * tags.<a name="line.431"></a>
+<span class="sourceLineNo">432</span>   */    <a name="line.432"></a>
+<span class="sourceLineNo">433</span>  protected void remove(MetricsRecordImpl record) {<a name="line.433"></a>
+<span class="sourceLineNo">434</span>    String recordName = record.getRecordName();<a name="line.434"></a>
+<span class="sourceLineNo">435</span>    TagMap tagTable = record.getTagTable();<a name="line.435"></a>
+<span class="sourceLineNo">436</span>        <a name="line.436"></a>
+<span class="sourceLineNo">437</span>    RecordMap recordMap = getRecordMap(recordName);<a name="line.437"></a>
+<span class="sourceLineNo">438</span>    synchronized (recordMap) {<a name="line.438"></a>
+<span class="sourceLineNo">439</span>      Iterator&lt;TagMap&gt; it = recordMap.keySet().iterator();<a name="line.439"></a>
+<span class="sourceLineNo">440</span>      while (it.hasNext()) {<a name="line.440"></a>
+<span class="sourceLineNo">441</span>        TagMap rowTags = it.next();<a name="line.441"></a>
+<span class="sourceLineNo">442</span>        if (rowTags.containsAll(tagTable)) {<a name="line.442"></a>
+<span class="sourceLineNo">443</span>          it.remove();<a name="line.443"></a>
+<span class="sourceLineNo">444</span>        }<a name="line.444"></a>
+<span class="sourceLineNo">445</span>      }<a name="line.445"></a>
+<span class="sourceLineNo">446</span>    }<a name="line.446"></a>
+<span class="sourceLineNo">447</span>  }<a name="line.447"></a>
+<span class="sourceLineNo">448</span>    <a name="line.448"></a>
+<span class="sourceLineNo">449</span>  /**<a name="line.449"></a>
+<span class="sourceLineNo">450</span>   * Returns the timer period.<a name="line.450"></a>
+<span class="sourceLineNo">451</span>   */<a name="line.451"></a>
+<span class="sourceLineNo">452</span>  public int getPeriod() {<a name="line.452"></a>
+<span class="sourceLineNo">453</span>    return period;<a name="line.453"></a>
+<span class="sourceLineNo">454</span>  }<a name="line.454"></a>
+<span class="sourceLineNo">455</span>    <a name="line.455"></a>
+<span class="sourceLineNo">456</span>  /**<a name="line.456"></a>
+<span class="sourceLineNo">457</span>   * Sets the timer period<a name="line.457"></a>
+<span class="sourceLineNo">458</span>   */<a name="line.458"></a>
+<span class="sourceLineNo">459</span>  protected void setPeriod(int period) {<a name="line.459"></a>
+<span class="sourceLineNo">460</span>    this.period = period;<a name="line.460"></a>
+<span class="sourceLineNo">461</span>  }<a name="line.461"></a>
+<span class="sourceLineNo">462</span>  <a name="line.462"></a>
+<span class="sourceLineNo">463</span>  /**<a name="line.463"></a>
+<span class="sourceLineNo">464</span>   * If a period is set in the attribute passed in, override<a name="line.464"></a>
+<span class="sourceLineNo">465</span>   * the default with it.<a name="line.465"></a>
+<span class="sourceLineNo">466</span>   */<a name="line.466"></a>
+<span class="sourceLineNo">467</span>  protected void parseAndSetPeriod(String attributeName) {<a name="line.467"></a>
+<span class="sourceLineNo">468</span>    String periodStr = getAttribute(attributeName);<a name="line.468"></a>
+<span class="sourceLineNo">469</span>    if (periodStr != null) {<a name="line.469"></a>
+<span class="sourceLineNo">470</span>      int period = 0;<a name="line.470"></a>
+<span class="sourceLineNo">471</span>      try {<a name="line.471"></a>
+<span class="sourceLineNo">472</span>        period = Integer.parseInt(periodStr);<a name="line.472"></a>
+<span class="sourceLineNo">473</span>      } catch (NumberFormatException nfe) {<a name="line.473"></a>
+<span class="sourceLineNo">474</span>      }<a name="line.474"></a>
+<span class="sourceLineNo">475</span>      if (period &lt;= 0) {<a name="line.475"></a>
+<span class="sourceLineNo">476</span>        throw new MetricsException("Invalid period: " + periodStr);<a name="line.476"></a>
+<span class="sourceLineNo">477</span>      }<a name="line.477"></a>
+<span class="sourceLineNo">478</span>      setPeriod(period);<a name="line.478"></a>
+<span class="sourceLineNo">479</span>    }<a name="line.479"></a>
+<span class="sourceLineNo">480</span>  }<a name="line.480"></a>
+<span class="sourceLineNo">481</span>}<a name="line.481"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

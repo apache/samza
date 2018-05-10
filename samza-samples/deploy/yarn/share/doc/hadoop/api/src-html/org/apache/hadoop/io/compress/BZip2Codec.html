@@ -1,0 +1,617 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/**<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Licensed to the Apache Software Foundation (ASF) under one<a name="line.2"></a>
+<span class="sourceLineNo">003</span> * or more contributor license agreements.  See the NOTICE file<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * distributed with this work for additional information<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * regarding copyright ownership.  The ASF licenses this file<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * to you under the Apache License, Version 2.0 (the<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * "License"); you may not use this file except in compliance<a name="line.7"></a>
+<span class="sourceLineNo">008</span> * with the License.  You may obtain a copy of the License at<a name="line.8"></a>
+<span class="sourceLineNo">009</span> *<a name="line.9"></a>
+<span class="sourceLineNo">010</span> *     http://www.apache.org/licenses/LICENSE-2.0<a name="line.10"></a>
+<span class="sourceLineNo">011</span> *<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Unless required by applicable law or agreed to in writing, software<a name="line.12"></a>
+<span class="sourceLineNo">013</span> * distributed under the License is distributed on an "AS IS" BASIS,<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * See the License for the specific language governing permissions and<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * limitations under the License.<a name="line.16"></a>
+<span class="sourceLineNo">017</span> */<a name="line.17"></a>
+<span class="sourceLineNo">018</span><a name="line.18"></a>
+<span class="sourceLineNo">019</span>package org.apache.hadoop.io.compress;<a name="line.19"></a>
+<span class="sourceLineNo">020</span><a name="line.20"></a>
+<span class="sourceLineNo">021</span>import java.io.BufferedInputStream;<a name="line.21"></a>
+<span class="sourceLineNo">022</span>import java.io.IOException;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import java.io.InputStream;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import java.io.OutputStream;<a name="line.24"></a>
+<span class="sourceLineNo">025</span><a name="line.25"></a>
+<span class="sourceLineNo">026</span>import org.apache.hadoop.conf.Configurable;<a name="line.26"></a>
+<span class="sourceLineNo">027</span>import org.apache.hadoop.conf.Configuration;<a name="line.27"></a>
+<span class="sourceLineNo">028</span><a name="line.28"></a>
+<span class="sourceLineNo">029</span>import org.apache.hadoop.classification.InterfaceAudience;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import org.apache.hadoop.classification.InterfaceStability;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import org.apache.hadoop.fs.Seekable;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import org.apache.hadoop.io.compress.bzip2.BZip2Constants;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import org.apache.hadoop.io.compress.bzip2.CBZip2InputStream;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import org.apache.hadoop.io.compress.bzip2.CBZip2OutputStream;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import org.apache.hadoop.io.compress.bzip2.Bzip2Factory;<a name="line.35"></a>
+<span class="sourceLineNo">036</span><a name="line.36"></a>
+<span class="sourceLineNo">037</span>/**<a name="line.37"></a>
+<span class="sourceLineNo">038</span> * This class provides output and input streams for bzip2 compression<a name="line.38"></a>
+<span class="sourceLineNo">039</span> * and decompression.  It uses the native bzip2 library on the system<a name="line.39"></a>
+<span class="sourceLineNo">040</span> * if possible, else it uses a pure-Java implementation of the bzip2<a name="line.40"></a>
+<span class="sourceLineNo">041</span> * algorithm.  The configuration parameter<a name="line.41"></a>
+<span class="sourceLineNo">042</span> * io.compression.codec.bzip2.library can be used to control this<a name="line.42"></a>
+<span class="sourceLineNo">043</span> * behavior.<a name="line.43"></a>
+<span class="sourceLineNo">044</span> *<a name="line.44"></a>
+<span class="sourceLineNo">045</span> * In the pure-Java mode, the Compressor and Decompressor interfaces<a name="line.45"></a>
+<span class="sourceLineNo">046</span> * are not implemented.  Therefore, in that mode, those methods of<a name="line.46"></a>
+<span class="sourceLineNo">047</span> * CompressionCodec which have a Compressor or Decompressor type<a name="line.47"></a>
+<span class="sourceLineNo">048</span> * argument, throw UnsupportedOperationException.<a name="line.48"></a>
+<span class="sourceLineNo">049</span> *<a name="line.49"></a>
+<span class="sourceLineNo">050</span> * Currently, support for splittability is available only in the<a name="line.50"></a>
+<span class="sourceLineNo">051</span> * pure-Java mode; therefore, if a SplitCompressionInputStream is<a name="line.51"></a>
+<span class="sourceLineNo">052</span> * requested, the pure-Java implementation is used, regardless of the<a name="line.52"></a>
+<span class="sourceLineNo">053</span> * setting of the configuration parameter mentioned above.<a name="line.53"></a>
+<span class="sourceLineNo">054</span> */<a name="line.54"></a>
+<span class="sourceLineNo">055</span>@InterfaceAudience.Public<a name="line.55"></a>
+<span class="sourceLineNo">056</span>@InterfaceStability.Evolving<a name="line.56"></a>
+<span class="sourceLineNo">057</span>public class BZip2Codec implements Configurable, SplittableCompressionCodec {<a name="line.57"></a>
+<span class="sourceLineNo">058</span><a name="line.58"></a>
+<span class="sourceLineNo">059</span>  private static final String HEADER = "BZ";<a name="line.59"></a>
+<span class="sourceLineNo">060</span>  private static final int HEADER_LEN = HEADER.length();<a name="line.60"></a>
+<span class="sourceLineNo">061</span>  private static final String SUB_HEADER = "h9";<a name="line.61"></a>
+<span class="sourceLineNo">062</span>  private static final int SUB_HEADER_LEN = SUB_HEADER.length();<a name="line.62"></a>
+<span class="sourceLineNo">063</span><a name="line.63"></a>
+<span class="sourceLineNo">064</span>  private Configuration conf;<a name="line.64"></a>
+<span class="sourceLineNo">065</span>  <a name="line.65"></a>
+<span class="sourceLineNo">066</span>  /**<a name="line.66"></a>
+<span class="sourceLineNo">067</span>   * Set the configuration to be used by this object.<a name="line.67"></a>
+<span class="sourceLineNo">068</span>   *<a name="line.68"></a>
+<span class="sourceLineNo">069</span>   * @param conf the configuration object.<a name="line.69"></a>
+<span class="sourceLineNo">070</span>   */<a name="line.70"></a>
+<span class="sourceLineNo">071</span>  @Override<a name="line.71"></a>
+<span class="sourceLineNo">072</span>  public void setConf(Configuration conf) {<a name="line.72"></a>
+<span class="sourceLineNo">073</span>    this.conf = conf;<a name="line.73"></a>
+<span class="sourceLineNo">074</span>  }<a name="line.74"></a>
+<span class="sourceLineNo">075</span>  <a name="line.75"></a>
+<span class="sourceLineNo">076</span>  /**<a name="line.76"></a>
+<span class="sourceLineNo">077</span>   * Return the configuration used by this object.<a name="line.77"></a>
+<span class="sourceLineNo">078</span>   *<a name="line.78"></a>
+<span class="sourceLineNo">079</span>   * @return the configuration object used by this objec.<a name="line.79"></a>
+<span class="sourceLineNo">080</span>   */<a name="line.80"></a>
+<span class="sourceLineNo">081</span>  @Override<a name="line.81"></a>
+<span class="sourceLineNo">082</span>  public Configuration getConf() {<a name="line.82"></a>
+<span class="sourceLineNo">083</span>    return conf;<a name="line.83"></a>
+<span class="sourceLineNo">084</span>  }<a name="line.84"></a>
+<span class="sourceLineNo">085</span>  <a name="line.85"></a>
+<span class="sourceLineNo">086</span>  /**<a name="line.86"></a>
+<span class="sourceLineNo">087</span>  * Creates a new instance of BZip2Codec.<a name="line.87"></a>
+<span class="sourceLineNo">088</span>  */<a name="line.88"></a>
+<span class="sourceLineNo">089</span>  public BZip2Codec() { }<a name="line.89"></a>
+<span class="sourceLineNo">090</span><a name="line.90"></a>
+<span class="sourceLineNo">091</span>  /**<a name="line.91"></a>
+<span class="sourceLineNo">092</span>   * Create a {@link CompressionOutputStream} that will write to the given<a name="line.92"></a>
+<span class="sourceLineNo">093</span>   * {@link OutputStream}.<a name="line.93"></a>
+<span class="sourceLineNo">094</span>   *<a name="line.94"></a>
+<span class="sourceLineNo">095</span>   * @param out        the location for the final output stream<a name="line.95"></a>
+<span class="sourceLineNo">096</span>   * @return a stream the user can write uncompressed data to, to have it <a name="line.96"></a>
+<span class="sourceLineNo">097</span>   *         compressed<a name="line.97"></a>
+<span class="sourceLineNo">098</span>   * @throws IOException<a name="line.98"></a>
+<span class="sourceLineNo">099</span>   */<a name="line.99"></a>
+<span class="sourceLineNo">100</span>  @Override<a name="line.100"></a>
+<span class="sourceLineNo">101</span>  public CompressionOutputStream createOutputStream(OutputStream out)<a name="line.101"></a>
+<span class="sourceLineNo">102</span>      throws IOException {<a name="line.102"></a>
+<span class="sourceLineNo">103</span>    return CompressionCodec.Util.<a name="line.103"></a>
+<span class="sourceLineNo">104</span>        createOutputStreamWithCodecPool(this, conf, out);<a name="line.104"></a>
+<span class="sourceLineNo">105</span>  }<a name="line.105"></a>
+<span class="sourceLineNo">106</span><a name="line.106"></a>
+<span class="sourceLineNo">107</span>  /**<a name="line.107"></a>
+<span class="sourceLineNo">108</span>   * Create a {@link CompressionOutputStream} that will write to the given<a name="line.108"></a>
+<span class="sourceLineNo">109</span>   * {@link OutputStream} with the given {@link Compressor}.<a name="line.109"></a>
+<span class="sourceLineNo">110</span>   *<a name="line.110"></a>
+<span class="sourceLineNo">111</span>   * @param out        the location for the final output stream<a name="line.111"></a>
+<span class="sourceLineNo">112</span>   * @param compressor compressor to use<a name="line.112"></a>
+<span class="sourceLineNo">113</span>   * @return a stream the user can write uncompressed data to, to have it <a name="line.113"></a>
+<span class="sourceLineNo">114</span>   *         compressed<a name="line.114"></a>
+<span class="sourceLineNo">115</span>   * @throws IOException<a name="line.115"></a>
+<span class="sourceLineNo">116</span>   */<a name="line.116"></a>
+<span class="sourceLineNo">117</span>  @Override<a name="line.117"></a>
+<span class="sourceLineNo">118</span>  public CompressionOutputStream createOutputStream(OutputStream out,<a name="line.118"></a>
+<span class="sourceLineNo">119</span>      Compressor compressor) throws IOException {<a name="line.119"></a>
+<span class="sourceLineNo">120</span>    return Bzip2Factory.isNativeBzip2Loaded(conf) ?<a name="line.120"></a>
+<span class="sourceLineNo">121</span>      new CompressorStream(out, compressor, <a name="line.121"></a>
+<span class="sourceLineNo">122</span>                           conf.getInt("io.file.buffer.size", 4*1024)) :<a name="line.122"></a>
+<span class="sourceLineNo">123</span>      new BZip2CompressionOutputStream(out);<a name="line.123"></a>
+<span class="sourceLineNo">124</span>  }<a name="line.124"></a>
+<span class="sourceLineNo">125</span><a name="line.125"></a>
+<span class="sourceLineNo">126</span>  /**<a name="line.126"></a>
+<span class="sourceLineNo">127</span>   * Get the type of {@link Compressor} needed by this {@link CompressionCodec}.<a name="line.127"></a>
+<span class="sourceLineNo">128</span>   *<a name="line.128"></a>
+<span class="sourceLineNo">129</span>   * @return the type of compressor needed by this codec.<a name="line.129"></a>
+<span class="sourceLineNo">130</span>   */<a name="line.130"></a>
+<span class="sourceLineNo">131</span>  @Override<a name="line.131"></a>
+<span class="sourceLineNo">132</span>  public Class&lt;? extends Compressor&gt; getCompressorType() {<a name="line.132"></a>
+<span class="sourceLineNo">133</span>    return Bzip2Factory.getBzip2CompressorType(conf);<a name="line.133"></a>
+<span class="sourceLineNo">134</span>  }<a name="line.134"></a>
+<span class="sourceLineNo">135</span><a name="line.135"></a>
+<span class="sourceLineNo">136</span>  /**<a name="line.136"></a>
+<span class="sourceLineNo">137</span>   * Create a new {@link Compressor} for use by this {@link CompressionCodec}.<a name="line.137"></a>
+<span class="sourceLineNo">138</span>   *<a name="line.138"></a>
+<span class="sourceLineNo">139</span>   * @return a new compressor for use by this codec<a name="line.139"></a>
+<span class="sourceLineNo">140</span>   */<a name="line.140"></a>
+<span class="sourceLineNo">141</span>  @Override<a name="line.141"></a>
+<span class="sourceLineNo">142</span>  public Compressor createCompressor() {<a name="line.142"></a>
+<span class="sourceLineNo">143</span>    return Bzip2Factory.getBzip2Compressor(conf);<a name="line.143"></a>
+<span class="sourceLineNo">144</span>  }<a name="line.144"></a>
+<span class="sourceLineNo">145</span><a name="line.145"></a>
+<span class="sourceLineNo">146</span>  /**<a name="line.146"></a>
+<span class="sourceLineNo">147</span>   * Create a {@link CompressionInputStream} that will read from the given<a name="line.147"></a>
+<span class="sourceLineNo">148</span>   * input stream and return a stream for uncompressed data.<a name="line.148"></a>
+<span class="sourceLineNo">149</span>   *<a name="line.149"></a>
+<span class="sourceLineNo">150</span>   * @param in the stream to read compressed bytes from<a name="line.150"></a>
+<span class="sourceLineNo">151</span>   * @return a stream to read uncompressed bytes from<a name="line.151"></a>
+<span class="sourceLineNo">152</span>   * @throws IOException<a name="line.152"></a>
+<span class="sourceLineNo">153</span>   */<a name="line.153"></a>
+<span class="sourceLineNo">154</span>  @Override<a name="line.154"></a>
+<span class="sourceLineNo">155</span>  public CompressionInputStream createInputStream(InputStream in)<a name="line.155"></a>
+<span class="sourceLineNo">156</span>      throws IOException {<a name="line.156"></a>
+<span class="sourceLineNo">157</span>    return CompressionCodec.Util.<a name="line.157"></a>
+<span class="sourceLineNo">158</span>        createInputStreamWithCodecPool(this, conf, in);<a name="line.158"></a>
+<span class="sourceLineNo">159</span>  }<a name="line.159"></a>
+<span class="sourceLineNo">160</span><a name="line.160"></a>
+<span class="sourceLineNo">161</span>  /**<a name="line.161"></a>
+<span class="sourceLineNo">162</span>   * Create a {@link CompressionInputStream} that will read from the given<a name="line.162"></a>
+<span class="sourceLineNo">163</span>   * {@link InputStream} with the given {@link Decompressor}, and return a <a name="line.163"></a>
+<span class="sourceLineNo">164</span>   * stream for uncompressed data.<a name="line.164"></a>
+<span class="sourceLineNo">165</span>   *<a name="line.165"></a>
+<span class="sourceLineNo">166</span>   * @param in           the stream to read compressed bytes from<a name="line.166"></a>
+<span class="sourceLineNo">167</span>   * @param decompressor decompressor to use<a name="line.167"></a>
+<span class="sourceLineNo">168</span>   * @return a stream to read uncompressed bytes from<a name="line.168"></a>
+<span class="sourceLineNo">169</span>   * @throws IOException<a name="line.169"></a>
+<span class="sourceLineNo">170</span>   */<a name="line.170"></a>
+<span class="sourceLineNo">171</span>  @Override<a name="line.171"></a>
+<span class="sourceLineNo">172</span>  public CompressionInputStream createInputStream(InputStream in,<a name="line.172"></a>
+<span class="sourceLineNo">173</span>      Decompressor decompressor) throws IOException {<a name="line.173"></a>
+<span class="sourceLineNo">174</span>    return Bzip2Factory.isNativeBzip2Loaded(conf) ? <a name="line.174"></a>
+<span class="sourceLineNo">175</span>      new DecompressorStream(in, decompressor,<a name="line.175"></a>
+<span class="sourceLineNo">176</span>                             conf.getInt("io.file.buffer.size", 4*1024)) :<a name="line.176"></a>
+<span class="sourceLineNo">177</span>      new BZip2CompressionInputStream(in);<a name="line.177"></a>
+<span class="sourceLineNo">178</span>  }<a name="line.178"></a>
+<span class="sourceLineNo">179</span><a name="line.179"></a>
+<span class="sourceLineNo">180</span>  /**<a name="line.180"></a>
+<span class="sourceLineNo">181</span>   * Creates CompressionInputStream to be used to read off uncompressed data<a name="line.181"></a>
+<span class="sourceLineNo">182</span>   * in one of the two reading modes. i.e. Continuous or Blocked reading modes<a name="line.182"></a>
+<span class="sourceLineNo">183</span>   *<a name="line.183"></a>
+<span class="sourceLineNo">184</span>   * @param seekableIn The InputStream<a name="line.184"></a>
+<span class="sourceLineNo">185</span>   * @param start The start offset into the compressed stream<a name="line.185"></a>
+<span class="sourceLineNo">186</span>   * @param end The end offset into the compressed stream<a name="line.186"></a>
+<span class="sourceLineNo">187</span>   * @param readMode Controls whether progress is reported continuously or<a name="line.187"></a>
+<span class="sourceLineNo">188</span>   *                 only at block boundaries.<a name="line.188"></a>
+<span class="sourceLineNo">189</span>   *<a name="line.189"></a>
+<span class="sourceLineNo">190</span>   * @return CompressionInputStream for BZip2 aligned at block boundaries<a name="line.190"></a>
+<span class="sourceLineNo">191</span>   */<a name="line.191"></a>
+<span class="sourceLineNo">192</span>  public SplitCompressionInputStream createInputStream(InputStream seekableIn,<a name="line.192"></a>
+<span class="sourceLineNo">193</span>      Decompressor decompressor, long start, long end, READ_MODE readMode)<a name="line.193"></a>
+<span class="sourceLineNo">194</span>      throws IOException {<a name="line.194"></a>
+<span class="sourceLineNo">195</span><a name="line.195"></a>
+<span class="sourceLineNo">196</span>    if (!(seekableIn instanceof Seekable)) {<a name="line.196"></a>
+<span class="sourceLineNo">197</span>      throw new IOException("seekableIn must be an instance of " +<a name="line.197"></a>
+<span class="sourceLineNo">198</span>          Seekable.class.getName());<a name="line.198"></a>
+<span class="sourceLineNo">199</span>    }<a name="line.199"></a>
+<span class="sourceLineNo">200</span><a name="line.200"></a>
+<span class="sourceLineNo">201</span>    //find the position of first BZip2 start up marker<a name="line.201"></a>
+<span class="sourceLineNo">202</span>    ((Seekable)seekableIn).seek(0);<a name="line.202"></a>
+<span class="sourceLineNo">203</span><a name="line.203"></a>
+<span class="sourceLineNo">204</span>    // BZip2 start of block markers are of 6 bytes.  But the very first block<a name="line.204"></a>
+<span class="sourceLineNo">205</span>    // also has "BZh9", making it 10 bytes.  This is the common case.  But at<a name="line.205"></a>
+<span class="sourceLineNo">206</span>    // time stream might start without a leading BZ.<a name="line.206"></a>
+<span class="sourceLineNo">207</span>    final long FIRST_BZIP2_BLOCK_MARKER_POSITION =<a name="line.207"></a>
+<span class="sourceLineNo">208</span>      CBZip2InputStream.numberOfBytesTillNextMarker(seekableIn);<a name="line.208"></a>
+<span class="sourceLineNo">209</span>    long adjStart = Math.max(0L, start - FIRST_BZIP2_BLOCK_MARKER_POSITION);<a name="line.209"></a>
+<span class="sourceLineNo">210</span><a name="line.210"></a>
+<span class="sourceLineNo">211</span>    ((Seekable)seekableIn).seek(adjStart);<a name="line.211"></a>
+<span class="sourceLineNo">212</span>    SplitCompressionInputStream in =<a name="line.212"></a>
+<span class="sourceLineNo">213</span>      new BZip2CompressionInputStream(seekableIn, adjStart, end, readMode);<a name="line.213"></a>
+<span class="sourceLineNo">214</span><a name="line.214"></a>
+<span class="sourceLineNo">215</span><a name="line.215"></a>
+<span class="sourceLineNo">216</span>    // The following if clause handles the following case:<a name="line.216"></a>
+<span class="sourceLineNo">217</span>    // Assume the following scenario in BZip2 compressed stream where<a name="line.217"></a>
+<span class="sourceLineNo">218</span>    // . represent compressed data.<a name="line.218"></a>
+<span class="sourceLineNo">219</span>    // .....[48 bit Block].....[48 bit   Block].....[48 bit Block]...<a name="line.219"></a>
+<span class="sourceLineNo">220</span>    // ........................[47 bits][1 bit].....[48 bit Block]...<a name="line.220"></a>
+<span class="sourceLineNo">221</span>    // ................................^[Assume a Byte alignment here]<a name="line.221"></a>
+<span class="sourceLineNo">222</span>    // ........................................^^[current position of stream]<a name="line.222"></a>
+<span class="sourceLineNo">223</span>    // .....................^^[We go back 10 Bytes in stream and find a Block marker]<a name="line.223"></a>
+<span class="sourceLineNo">224</span>    // ........................................^^[We align at wrong position!]<a name="line.224"></a>
+<span class="sourceLineNo">225</span>    // ...........................................................^^[While this pos is correct]<a name="line.225"></a>
+<span class="sourceLineNo">226</span><a name="line.226"></a>
+<span class="sourceLineNo">227</span>    if (in.getPos() &lt;= start) {<a name="line.227"></a>
+<span class="sourceLineNo">228</span>      ((Seekable)seekableIn).seek(start);<a name="line.228"></a>
+<span class="sourceLineNo">229</span>      in = new BZip2CompressionInputStream(seekableIn, start, end, readMode);<a name="line.229"></a>
+<span class="sourceLineNo">230</span>    }<a name="line.230"></a>
+<span class="sourceLineNo">231</span><a name="line.231"></a>
+<span class="sourceLineNo">232</span>    return in;<a name="line.232"></a>
+<span class="sourceLineNo">233</span>  }<a name="line.233"></a>
+<span class="sourceLineNo">234</span><a name="line.234"></a>
+<span class="sourceLineNo">235</span>  /**<a name="line.235"></a>
+<span class="sourceLineNo">236</span>   * Get the type of {@link Decompressor} needed by this {@link CompressionCodec}.<a name="line.236"></a>
+<span class="sourceLineNo">237</span>   *<a name="line.237"></a>
+<span class="sourceLineNo">238</span>   * @return the type of decompressor needed by this codec.<a name="line.238"></a>
+<span class="sourceLineNo">239</span>   */<a name="line.239"></a>
+<span class="sourceLineNo">240</span>  @Override<a name="line.240"></a>
+<span class="sourceLineNo">241</span>  public Class&lt;? extends Decompressor&gt; getDecompressorType() {<a name="line.241"></a>
+<span class="sourceLineNo">242</span>    return Bzip2Factory.getBzip2DecompressorType(conf);<a name="line.242"></a>
+<span class="sourceLineNo">243</span>  }<a name="line.243"></a>
+<span class="sourceLineNo">244</span><a name="line.244"></a>
+<span class="sourceLineNo">245</span>  /**<a name="line.245"></a>
+<span class="sourceLineNo">246</span>   * Create a new {@link Decompressor} for use by this {@link CompressionCodec}.<a name="line.246"></a>
+<span class="sourceLineNo">247</span>   *<a name="line.247"></a>
+<span class="sourceLineNo">248</span>   * @return a new decompressor for use by this codec<a name="line.248"></a>
+<span class="sourceLineNo">249</span>   */<a name="line.249"></a>
+<span class="sourceLineNo">250</span>  @Override<a name="line.250"></a>
+<span class="sourceLineNo">251</span>  public Decompressor createDecompressor() {<a name="line.251"></a>
+<span class="sourceLineNo">252</span>    return Bzip2Factory.getBzip2Decompressor(conf);<a name="line.252"></a>
+<span class="sourceLineNo">253</span>  }<a name="line.253"></a>
+<span class="sourceLineNo">254</span><a name="line.254"></a>
+<span class="sourceLineNo">255</span>  /**<a name="line.255"></a>
+<span class="sourceLineNo">256</span>  * .bz2 is recognized as the default extension for compressed BZip2 files<a name="line.256"></a>
+<span class="sourceLineNo">257</span>  *<a name="line.257"></a>
+<span class="sourceLineNo">258</span>  * @return A String telling the default bzip2 file extension<a name="line.258"></a>
+<span class="sourceLineNo">259</span>  */<a name="line.259"></a>
+<span class="sourceLineNo">260</span>  @Override<a name="line.260"></a>
+<span class="sourceLineNo">261</span>  public String getDefaultExtension() {<a name="line.261"></a>
+<span class="sourceLineNo">262</span>    return ".bz2";<a name="line.262"></a>
+<span class="sourceLineNo">263</span>  }<a name="line.263"></a>
+<span class="sourceLineNo">264</span><a name="line.264"></a>
+<span class="sourceLineNo">265</span>  private static class BZip2CompressionOutputStream extends<a name="line.265"></a>
+<span class="sourceLineNo">266</span>      CompressionOutputStream {<a name="line.266"></a>
+<span class="sourceLineNo">267</span><a name="line.267"></a>
+<span class="sourceLineNo">268</span>    // class data starts here//<a name="line.268"></a>
+<span class="sourceLineNo">269</span>    private CBZip2OutputStream output;<a name="line.269"></a>
+<span class="sourceLineNo">270</span>    private boolean needsReset; <a name="line.270"></a>
+<span class="sourceLineNo">271</span>    // class data ends here//<a name="line.271"></a>
+<span class="sourceLineNo">272</span><a name="line.272"></a>
+<span class="sourceLineNo">273</span>    public BZip2CompressionOutputStream(OutputStream out)<a name="line.273"></a>
+<span class="sourceLineNo">274</span>        throws IOException {<a name="line.274"></a>
+<span class="sourceLineNo">275</span>      super(out);<a name="line.275"></a>
+<span class="sourceLineNo">276</span>      needsReset = true;<a name="line.276"></a>
+<span class="sourceLineNo">277</span>    }<a name="line.277"></a>
+<span class="sourceLineNo">278</span><a name="line.278"></a>
+<span class="sourceLineNo">279</span>    private void writeStreamHeader() throws IOException {<a name="line.279"></a>
+<span class="sourceLineNo">280</span>      if (super.out != null) {<a name="line.280"></a>
+<span class="sourceLineNo">281</span>        // The compressed bzip2 stream should start with the<a name="line.281"></a>
+<span class="sourceLineNo">282</span>        // identifying characters BZ. Caller of CBZip2OutputStream<a name="line.282"></a>
+<span class="sourceLineNo">283</span>        // i.e. this class must write these characters.<a name="line.283"></a>
+<span class="sourceLineNo">284</span>        out.write(HEADER.getBytes());<a name="line.284"></a>
+<span class="sourceLineNo">285</span>      }<a name="line.285"></a>
+<span class="sourceLineNo">286</span>    }<a name="line.286"></a>
+<span class="sourceLineNo">287</span><a name="line.287"></a>
+<span class="sourceLineNo">288</span>    public void finish() throws IOException {<a name="line.288"></a>
+<span class="sourceLineNo">289</span>      if (needsReset) {<a name="line.289"></a>
+<span class="sourceLineNo">290</span>        // In the case that nothing is written to this stream, we still need to<a name="line.290"></a>
+<span class="sourceLineNo">291</span>        // write out the header before closing, otherwise the stream won't be<a name="line.291"></a>
+<span class="sourceLineNo">292</span>        // recognized by BZip2CompressionInputStream.<a name="line.292"></a>
+<span class="sourceLineNo">293</span>        internalReset();<a name="line.293"></a>
+<span class="sourceLineNo">294</span>      }<a name="line.294"></a>
+<span class="sourceLineNo">295</span>      this.output.finish();<a name="line.295"></a>
+<span class="sourceLineNo">296</span>      needsReset = true;<a name="line.296"></a>
+<span class="sourceLineNo">297</span>    }<a name="line.297"></a>
+<span class="sourceLineNo">298</span><a name="line.298"></a>
+<span class="sourceLineNo">299</span>    private void internalReset() throws IOException {<a name="line.299"></a>
+<span class="sourceLineNo">300</span>      if (needsReset) {<a name="line.300"></a>
+<span class="sourceLineNo">301</span>        needsReset = false;<a name="line.301"></a>
+<span class="sourceLineNo">302</span>        writeStreamHeader();<a name="line.302"></a>
+<span class="sourceLineNo">303</span>        this.output = new CBZip2OutputStream(out);<a name="line.303"></a>
+<span class="sourceLineNo">304</span>      }<a name="line.304"></a>
+<span class="sourceLineNo">305</span>    }    <a name="line.305"></a>
+<span class="sourceLineNo">306</span>    <a name="line.306"></a>
+<span class="sourceLineNo">307</span>    public void resetState() throws IOException {<a name="line.307"></a>
+<span class="sourceLineNo">308</span>      // Cannot write to out at this point because out might not be ready<a name="line.308"></a>
+<span class="sourceLineNo">309</span>      // yet, as in SequenceFile.Writer implementation.<a name="line.309"></a>
+<span class="sourceLineNo">310</span>      needsReset = true;<a name="line.310"></a>
+<span class="sourceLineNo">311</span>    }<a name="line.311"></a>
+<span class="sourceLineNo">312</span><a name="line.312"></a>
+<span class="sourceLineNo">313</span>    public void write(int b) throws IOException {<a name="line.313"></a>
+<span class="sourceLineNo">314</span>      if (needsReset) {<a name="line.314"></a>
+<span class="sourceLineNo">315</span>        internalReset();<a name="line.315"></a>
+<span class="sourceLineNo">316</span>      }<a name="line.316"></a>
+<span class="sourceLineNo">317</span>      this.output.write(b);<a name="line.317"></a>
+<span class="sourceLineNo">318</span>    }<a name="line.318"></a>
+<span class="sourceLineNo">319</span><a name="line.319"></a>
+<span class="sourceLineNo">320</span>    public void write(byte[] b, int off, int len) throws IOException {<a name="line.320"></a>
+<span class="sourceLineNo">321</span>      if (needsReset) {<a name="line.321"></a>
+<span class="sourceLineNo">322</span>        internalReset();<a name="line.322"></a>
+<span class="sourceLineNo">323</span>      }<a name="line.323"></a>
+<span class="sourceLineNo">324</span>      this.output.write(b, off, len);<a name="line.324"></a>
+<span class="sourceLineNo">325</span>    }<a name="line.325"></a>
+<span class="sourceLineNo">326</span><a name="line.326"></a>
+<span class="sourceLineNo">327</span>    public void close() throws IOException {<a name="line.327"></a>
+<span class="sourceLineNo">328</span>      if (needsReset) {<a name="line.328"></a>
+<span class="sourceLineNo">329</span>        // In the case that nothing is written to this stream, we still need to<a name="line.329"></a>
+<span class="sourceLineNo">330</span>        // write out the header before closing, otherwise the stream won't be<a name="line.330"></a>
+<span class="sourceLineNo">331</span>        // recognized by BZip2CompressionInputStream.<a name="line.331"></a>
+<span class="sourceLineNo">332</span>        internalReset();<a name="line.332"></a>
+<span class="sourceLineNo">333</span>      }<a name="line.333"></a>
+<span class="sourceLineNo">334</span>      this.output.flush();<a name="line.334"></a>
+<span class="sourceLineNo">335</span>      this.output.close();<a name="line.335"></a>
+<span class="sourceLineNo">336</span>      needsReset = true;<a name="line.336"></a>
+<span class="sourceLineNo">337</span>    }<a name="line.337"></a>
+<span class="sourceLineNo">338</span><a name="line.338"></a>
+<span class="sourceLineNo">339</span>  }// end of class BZip2CompressionOutputStream<a name="line.339"></a>
+<span class="sourceLineNo">340</span><a name="line.340"></a>
+<span class="sourceLineNo">341</span>  /**<a name="line.341"></a>
+<span class="sourceLineNo">342</span>   * This class is capable to de-compress BZip2 data in two modes;<a name="line.342"></a>
+<span class="sourceLineNo">343</span>   * CONTINOUS and BYBLOCK.  BYBLOCK mode makes it possible to<a name="line.343"></a>
+<span class="sourceLineNo">344</span>   * do decompression starting any arbitrary position in the stream.<a name="line.344"></a>
+<span class="sourceLineNo">345</span>   *<a name="line.345"></a>
+<span class="sourceLineNo">346</span>   * So this facility can easily be used to parallelize decompression<a name="line.346"></a>
+<span class="sourceLineNo">347</span>   * of a large BZip2 file for performance reasons.  (It is exactly<a name="line.347"></a>
+<span class="sourceLineNo">348</span>   * done so for Hadoop framework.  See LineRecordReader for an<a name="line.348"></a>
+<span class="sourceLineNo">349</span>   * example).  So one can break the file (of course logically) into<a name="line.349"></a>
+<span class="sourceLineNo">350</span>   * chunks for parallel processing.  These "splits" should be like<a name="line.350"></a>
+<span class="sourceLineNo">351</span>   * default Hadoop splits (e.g as in FileInputFormat getSplit metod).<a name="line.351"></a>
+<span class="sourceLineNo">352</span>   * So this code is designed and tested for FileInputFormat's way<a name="line.352"></a>
+<span class="sourceLineNo">353</span>   * of splitting only.<a name="line.353"></a>
+<span class="sourceLineNo">354</span>   */<a name="line.354"></a>
+<span class="sourceLineNo">355</span><a name="line.355"></a>
+<span class="sourceLineNo">356</span>  private static class BZip2CompressionInputStream extends<a name="line.356"></a>
+<span class="sourceLineNo">357</span>      SplitCompressionInputStream {<a name="line.357"></a>
+<span class="sourceLineNo">358</span><a name="line.358"></a>
+<span class="sourceLineNo">359</span>    // class data starts here//<a name="line.359"></a>
+<span class="sourceLineNo">360</span>    private CBZip2InputStream input;<a name="line.360"></a>
+<span class="sourceLineNo">361</span>    boolean needsReset;<a name="line.361"></a>
+<span class="sourceLineNo">362</span>    private BufferedInputStream bufferedIn;<a name="line.362"></a>
+<span class="sourceLineNo">363</span>    private boolean isHeaderStripped = false;<a name="line.363"></a>
+<span class="sourceLineNo">364</span>    private boolean isSubHeaderStripped = false;<a name="line.364"></a>
+<span class="sourceLineNo">365</span>    private READ_MODE readMode = READ_MODE.CONTINUOUS;<a name="line.365"></a>
+<span class="sourceLineNo">366</span>    private long startingPos = 0L;<a name="line.366"></a>
+<span class="sourceLineNo">367</span><a name="line.367"></a>
+<span class="sourceLineNo">368</span>    // Following state machine handles different states of compressed stream<a name="line.368"></a>
+<span class="sourceLineNo">369</span>    // position<a name="line.369"></a>
+<span class="sourceLineNo">370</span>    // HOLD : Don't advertise compressed stream position<a name="line.370"></a>
+<span class="sourceLineNo">371</span>    // ADVERTISE : Read 1 more character and advertise stream position<a name="line.371"></a>
+<span class="sourceLineNo">372</span>    // See more comments about it before updatePos method.<a name="line.372"></a>
+<span class="sourceLineNo">373</span>    private enum POS_ADVERTISEMENT_STATE_MACHINE {<a name="line.373"></a>
+<span class="sourceLineNo">374</span>      HOLD, ADVERTISE<a name="line.374"></a>
+<span class="sourceLineNo">375</span>    };<a name="line.375"></a>
+<span class="sourceLineNo">376</span><a name="line.376"></a>
+<span class="sourceLineNo">377</span>    POS_ADVERTISEMENT_STATE_MACHINE posSM = POS_ADVERTISEMENT_STATE_MACHINE.HOLD;<a name="line.377"></a>
+<span class="sourceLineNo">378</span>    long compressedStreamPosition = 0;<a name="line.378"></a>
+<span class="sourceLineNo">379</span><a name="line.379"></a>
+<span class="sourceLineNo">380</span>    // class data ends here//<a name="line.380"></a>
+<span class="sourceLineNo">381</span><a name="line.381"></a>
+<span class="sourceLineNo">382</span>    public BZip2CompressionInputStream(InputStream in) throws IOException {<a name="line.382"></a>
+<span class="sourceLineNo">383</span>      this(in, 0L, Long.MAX_VALUE, READ_MODE.CONTINUOUS);<a name="line.383"></a>
+<span class="sourceLineNo">384</span>    }<a name="line.384"></a>
+<span class="sourceLineNo">385</span><a name="line.385"></a>
+<span class="sourceLineNo">386</span>    public BZip2CompressionInputStream(InputStream in, long start, long end,<a name="line.386"></a>
+<span class="sourceLineNo">387</span>        READ_MODE readMode) throws IOException {<a name="line.387"></a>
+<span class="sourceLineNo">388</span>      super(in, start, end);<a name="line.388"></a>
+<span class="sourceLineNo">389</span>      needsReset = false;<a name="line.389"></a>
+<span class="sourceLineNo">390</span>      bufferedIn = new BufferedInputStream(super.in);<a name="line.390"></a>
+<span class="sourceLineNo">391</span>      this.startingPos = super.getPos();<a name="line.391"></a>
+<span class="sourceLineNo">392</span>      this.readMode = readMode;<a name="line.392"></a>
+<span class="sourceLineNo">393</span>      if (this.startingPos == 0) {<a name="line.393"></a>
+<span class="sourceLineNo">394</span>        // We only strip header if it is start of file<a name="line.394"></a>
+<span class="sourceLineNo">395</span>        bufferedIn = readStreamHeader();<a name="line.395"></a>
+<span class="sourceLineNo">396</span>      }<a name="line.396"></a>
+<span class="sourceLineNo">397</span>      input = new CBZip2InputStream(bufferedIn, readMode);<a name="line.397"></a>
+<span class="sourceLineNo">398</span>      if (this.isHeaderStripped) {<a name="line.398"></a>
+<span class="sourceLineNo">399</span>        input.updateReportedByteCount(HEADER_LEN);<a name="line.399"></a>
+<span class="sourceLineNo">400</span>      }<a name="line.400"></a>
+<span class="sourceLineNo">401</span><a name="line.401"></a>
+<span class="sourceLineNo">402</span>      if (this.isSubHeaderStripped) {<a name="line.402"></a>
+<span class="sourceLineNo">403</span>        input.updateReportedByteCount(SUB_HEADER_LEN);<a name="line.403"></a>
+<span class="sourceLineNo">404</span>      }<a name="line.404"></a>
+<span class="sourceLineNo">405</span><a name="line.405"></a>
+<span class="sourceLineNo">406</span>      this.updatePos(false);<a name="line.406"></a>
+<span class="sourceLineNo">407</span>    }<a name="line.407"></a>
+<span class="sourceLineNo">408</span><a name="line.408"></a>
+<span class="sourceLineNo">409</span>    private BufferedInputStream readStreamHeader() throws IOException {<a name="line.409"></a>
+<span class="sourceLineNo">410</span>      // We are flexible enough to allow the compressed stream not to<a name="line.410"></a>
+<span class="sourceLineNo">411</span>      // start with the header of BZ. So it works fine either we have<a name="line.411"></a>
+<span class="sourceLineNo">412</span>      // the header or not.<a name="line.412"></a>
+<span class="sourceLineNo">413</span>      if (super.in != null) {<a name="line.413"></a>
+<span class="sourceLineNo">414</span>        bufferedIn.mark(HEADER_LEN);<a name="line.414"></a>
+<span class="sourceLineNo">415</span>        byte[] headerBytes = new byte[HEADER_LEN];<a name="line.415"></a>
+<span class="sourceLineNo">416</span>        int actualRead = bufferedIn.read(headerBytes, 0, HEADER_LEN);<a name="line.416"></a>
+<span class="sourceLineNo">417</span>        if (actualRead != -1) {<a name="line.417"></a>
+<span class="sourceLineNo">418</span>          String header = new String(headerBytes);<a name="line.418"></a>
+<span class="sourceLineNo">419</span>          if (header.compareTo(HEADER) != 0) {<a name="line.419"></a>
+<span class="sourceLineNo">420</span>            bufferedIn.reset();<a name="line.420"></a>
+<span class="sourceLineNo">421</span>          } else {<a name="line.421"></a>
+<span class="sourceLineNo">422</span>            this.isHeaderStripped = true;<a name="line.422"></a>
+<span class="sourceLineNo">423</span>            // In case of BYBLOCK mode, we also want to strip off<a name="line.423"></a>
+<span class="sourceLineNo">424</span>            // remaining two character of the header.<a name="line.424"></a>
+<span class="sourceLineNo">425</span>            if (this.readMode == READ_MODE.BYBLOCK) {<a name="line.425"></a>
+<span class="sourceLineNo">426</span>              actualRead = bufferedIn.read(headerBytes, 0,<a name="line.426"></a>
+<span class="sourceLineNo">427</span>                  SUB_HEADER_LEN);<a name="line.427"></a>
+<span class="sourceLineNo">428</span>              if (actualRead != -1) {<a name="line.428"></a>
+<span class="sourceLineNo">429</span>                this.isSubHeaderStripped = true;<a name="line.429"></a>
+<span class="sourceLineNo">430</span>              }<a name="line.430"></a>
+<span class="sourceLineNo">431</span>            }<a name="line.431"></a>
+<span class="sourceLineNo">432</span>          }<a name="line.432"></a>
+<span class="sourceLineNo">433</span>        }<a name="line.433"></a>
+<span class="sourceLineNo">434</span>      }<a name="line.434"></a>
+<span class="sourceLineNo">435</span><a name="line.435"></a>
+<span class="sourceLineNo">436</span>      if (bufferedIn == null) {<a name="line.436"></a>
+<span class="sourceLineNo">437</span>        throw new IOException("Failed to read bzip2 stream.");<a name="line.437"></a>
+<span class="sourceLineNo">438</span>      }<a name="line.438"></a>
+<span class="sourceLineNo">439</span><a name="line.439"></a>
+<span class="sourceLineNo">440</span>      return bufferedIn;<a name="line.440"></a>
+<span class="sourceLineNo">441</span><a name="line.441"></a>
+<span class="sourceLineNo">442</span>    }// end of method<a name="line.442"></a>
+<span class="sourceLineNo">443</span><a name="line.443"></a>
+<span class="sourceLineNo">444</span>    public void close() throws IOException {<a name="line.444"></a>
+<span class="sourceLineNo">445</span>      if (!needsReset) {<a name="line.445"></a>
+<span class="sourceLineNo">446</span>        input.close();<a name="line.446"></a>
+<span class="sourceLineNo">447</span>        needsReset = true;<a name="line.447"></a>
+<span class="sourceLineNo">448</span>      }<a name="line.448"></a>
+<span class="sourceLineNo">449</span>    }<a name="line.449"></a>
+<span class="sourceLineNo">450</span><a name="line.450"></a>
+<span class="sourceLineNo">451</span>    /**<a name="line.451"></a>
+<span class="sourceLineNo">452</span>    * This method updates compressed stream position exactly when the<a name="line.452"></a>
+<span class="sourceLineNo">453</span>    * client of this code has read off at least one byte passed any BZip2<a name="line.453"></a>
+<span class="sourceLineNo">454</span>    * end of block marker.<a name="line.454"></a>
+<span class="sourceLineNo">455</span>    *<a name="line.455"></a>
+<span class="sourceLineNo">456</span>    * This mechanism is very helpful to deal with data level record<a name="line.456"></a>
+<span class="sourceLineNo">457</span>    * boundaries. Please see constructor and next methods of<a name="line.457"></a>
+<span class="sourceLineNo">458</span>    * org.apache.hadoop.mapred.LineRecordReader as an example usage of this<a name="line.458"></a>
+<span class="sourceLineNo">459</span>    * feature.  We elaborate it with an example in the following:<a name="line.459"></a>
+<span class="sourceLineNo">460</span>    *<a name="line.460"></a>
+<span class="sourceLineNo">461</span>    * Assume two different scenarios of the BZip2 compressed stream, where<a name="line.461"></a>
+<span class="sourceLineNo">462</span>    * [m] represent end of block, \n is line delimiter and . represent compressed<a name="line.462"></a>
+<span class="sourceLineNo">463</span>    * data.<a name="line.463"></a>
+<span class="sourceLineNo">464</span>    *<a name="line.464"></a>
+<span class="sourceLineNo">465</span>    * ............[m]......\n.......<a name="line.465"></a>
+<span class="sourceLineNo">466</span>    *<a name="line.466"></a>
+<span class="sourceLineNo">467</span>    * ..........\n[m]......\n.......<a name="line.467"></a>
+<span class="sourceLineNo">468</span>    *<a name="line.468"></a>
+<span class="sourceLineNo">469</span>    * Assume that end is right after [m].  In the first case the reading<a name="line.469"></a>
+<span class="sourceLineNo">470</span>    * will stop at \n and there is no need to read one more line.  (To see the<a name="line.470"></a>
+<span class="sourceLineNo">471</span>    * reason of reading one more line in the next() method is explained in LineRecordReader.)<a name="line.471"></a>
+<span class="sourceLineNo">472</span>    * While in the second example LineRecordReader needs to read one more line<a name="line.472"></a>
+<span class="sourceLineNo">473</span>    * (till the second \n).  Now since BZip2Codecs only update position<a name="line.473"></a>
+<span class="sourceLineNo">474</span>    * at least one byte passed a maker, so it is straight forward to differentiate<a name="line.474"></a>
+<span class="sourceLineNo">475</span>    * between the two cases mentioned.<a name="line.475"></a>
+<span class="sourceLineNo">476</span>    *<a name="line.476"></a>
+<span class="sourceLineNo">477</span>    */<a name="line.477"></a>
+<span class="sourceLineNo">478</span><a name="line.478"></a>
+<span class="sourceLineNo">479</span>    public int read(byte[] b, int off, int len) throws IOException {<a name="line.479"></a>
+<span class="sourceLineNo">480</span>      if (needsReset) {<a name="line.480"></a>
+<span class="sourceLineNo">481</span>        internalReset();<a name="line.481"></a>
+<span class="sourceLineNo">482</span>      }<a name="line.482"></a>
+<span class="sourceLineNo">483</span><a name="line.483"></a>
+<span class="sourceLineNo">484</span>      int result = 0;<a name="line.484"></a>
+<span class="sourceLineNo">485</span>      result = this.input.read(b, off, len);<a name="line.485"></a>
+<span class="sourceLineNo">486</span>      if (result == BZip2Constants.END_OF_BLOCK) {<a name="line.486"></a>
+<span class="sourceLineNo">487</span>        this.posSM = POS_ADVERTISEMENT_STATE_MACHINE.ADVERTISE;<a name="line.487"></a>
+<span class="sourceLineNo">488</span>      }<a name="line.488"></a>
+<span class="sourceLineNo">489</span><a name="line.489"></a>
+<span class="sourceLineNo">490</span>      if (this.posSM == POS_ADVERTISEMENT_STATE_MACHINE.ADVERTISE) {<a name="line.490"></a>
+<span class="sourceLineNo">491</span>        result = this.input.read(b, off, off + 1);<a name="line.491"></a>
+<span class="sourceLineNo">492</span>        // This is the precise time to update compressed stream position<a name="line.492"></a>
+<span class="sourceLineNo">493</span>        // to the client of this code.<a name="line.493"></a>
+<span class="sourceLineNo">494</span>        this.updatePos(true);<a name="line.494"></a>
+<span class="sourceLineNo">495</span>        this.posSM = POS_ADVERTISEMENT_STATE_MACHINE.HOLD;<a name="line.495"></a>
+<span class="sourceLineNo">496</span>      }<a name="line.496"></a>
+<span class="sourceLineNo">497</span><a name="line.497"></a>
+<span class="sourceLineNo">498</span>      return result;<a name="line.498"></a>
+<span class="sourceLineNo">499</span><a name="line.499"></a>
+<span class="sourceLineNo">500</span>    }<a name="line.500"></a>
+<span class="sourceLineNo">501</span><a name="line.501"></a>
+<span class="sourceLineNo">502</span>    public int read() throws IOException {<a name="line.502"></a>
+<span class="sourceLineNo">503</span>      byte b[] = new byte[1];<a name="line.503"></a>
+<span class="sourceLineNo">504</span>      int result = this.read(b, 0, 1);<a name="line.504"></a>
+<span class="sourceLineNo">505</span>      return (result &lt; 0) ? result : (b[0] &amp; 0xff);<a name="line.505"></a>
+<span class="sourceLineNo">506</span>    }<a name="line.506"></a>
+<span class="sourceLineNo">507</span><a name="line.507"></a>
+<span class="sourceLineNo">508</span>    private void internalReset() throws IOException {<a name="line.508"></a>
+<span class="sourceLineNo">509</span>      if (needsReset) {<a name="line.509"></a>
+<span class="sourceLineNo">510</span>        needsReset = false;<a name="line.510"></a>
+<span class="sourceLineNo">511</span>        BufferedInputStream bufferedIn = readStreamHeader();<a name="line.511"></a>
+<span class="sourceLineNo">512</span>        input = new CBZip2InputStream(bufferedIn, this.readMode);<a name="line.512"></a>
+<span class="sourceLineNo">513</span>      }<a name="line.513"></a>
+<span class="sourceLineNo">514</span>    }    <a name="line.514"></a>
+<span class="sourceLineNo">515</span>    <a name="line.515"></a>
+<span class="sourceLineNo">516</span>    public void resetState() throws IOException {<a name="line.516"></a>
+<span class="sourceLineNo">517</span>      // Cannot read from bufferedIn at this point because bufferedIn<a name="line.517"></a>
+<span class="sourceLineNo">518</span>      // might not be ready<a name="line.518"></a>
+<span class="sourceLineNo">519</span>      // yet, as in SequenceFile.Reader implementation.<a name="line.519"></a>
+<span class="sourceLineNo">520</span>      needsReset = true;<a name="line.520"></a>
+<span class="sourceLineNo">521</span>    }<a name="line.521"></a>
+<span class="sourceLineNo">522</span><a name="line.522"></a>
+<span class="sourceLineNo">523</span>    public long getPos() {<a name="line.523"></a>
+<span class="sourceLineNo">524</span>      return this.compressedStreamPosition;<a name="line.524"></a>
+<span class="sourceLineNo">525</span>      }<a name="line.525"></a>
+<span class="sourceLineNo">526</span><a name="line.526"></a>
+<span class="sourceLineNo">527</span>    /*<a name="line.527"></a>
+<span class="sourceLineNo">528</span>     * As the comments before read method tell that<a name="line.528"></a>
+<span class="sourceLineNo">529</span>     * compressed stream is advertised when at least<a name="line.529"></a>
+<span class="sourceLineNo">530</span>     * one byte passed EOB have been read off.  But<a name="line.530"></a>
+<span class="sourceLineNo">531</span>     * there is an exception to this rule.  When we<a name="line.531"></a>
+<span class="sourceLineNo">532</span>     * construct the stream we advertise the position<a name="line.532"></a>
+<span class="sourceLineNo">533</span>     * exactly at EOB.  In the following method<a name="line.533"></a>
+<span class="sourceLineNo">534</span>     * shouldAddOn boolean captures this exception.<a name="line.534"></a>
+<span class="sourceLineNo">535</span>     *<a name="line.535"></a>
+<span class="sourceLineNo">536</span>     */<a name="line.536"></a>
+<span class="sourceLineNo">537</span>    private void updatePos(boolean shouldAddOn) {<a name="line.537"></a>
+<span class="sourceLineNo">538</span>      int addOn = shouldAddOn ? 1 : 0;<a name="line.538"></a>
+<span class="sourceLineNo">539</span>      this.compressedStreamPosition = this.startingPos<a name="line.539"></a>
+<span class="sourceLineNo">540</span>          + this.input.getProcessedByteCount() + addOn;<a name="line.540"></a>
+<span class="sourceLineNo">541</span>    }<a name="line.541"></a>
+<span class="sourceLineNo">542</span><a name="line.542"></a>
+<span class="sourceLineNo">543</span>  }// end of BZip2CompressionInputStream<a name="line.543"></a>
+<span class="sourceLineNo">544</span><a name="line.544"></a>
+<span class="sourceLineNo">545</span>}<a name="line.545"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

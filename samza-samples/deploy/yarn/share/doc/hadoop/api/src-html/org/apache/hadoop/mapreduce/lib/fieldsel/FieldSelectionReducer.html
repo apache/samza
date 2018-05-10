@@ -1,0 +1,178 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/**<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Licensed to the Apache Software Foundation (ASF) under one<a name="line.2"></a>
+<span class="sourceLineNo">003</span> * or more contributor license agreements.  See the NOTICE file<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * distributed with this work for additional information<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * regarding copyright ownership.  The ASF licenses this file<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * to you under the Apache License, Version 2.0 (the<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * "License"); you may not use this file except in compliance<a name="line.7"></a>
+<span class="sourceLineNo">008</span> * with the License.  You may obtain a copy of the License at<a name="line.8"></a>
+<span class="sourceLineNo">009</span> *<a name="line.9"></a>
+<span class="sourceLineNo">010</span> *     http://www.apache.org/licenses/LICENSE-2.0<a name="line.10"></a>
+<span class="sourceLineNo">011</span> *<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Unless required by applicable law or agreed to in writing, software<a name="line.12"></a>
+<span class="sourceLineNo">013</span> * distributed under the License is distributed on an "AS IS" BASIS,<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * See the License for the specific language governing permissions and<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * limitations under the License.<a name="line.16"></a>
+<span class="sourceLineNo">017</span> */<a name="line.17"></a>
+<span class="sourceLineNo">018</span><a name="line.18"></a>
+<span class="sourceLineNo">019</span>package org.apache.hadoop.mapreduce.lib.fieldsel;<a name="line.19"></a>
+<span class="sourceLineNo">020</span><a name="line.20"></a>
+<span class="sourceLineNo">021</span>import java.io.IOException;<a name="line.21"></a>
+<span class="sourceLineNo">022</span>import java.util.ArrayList;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import java.util.List;<a name="line.23"></a>
+<span class="sourceLineNo">024</span><a name="line.24"></a>
+<span class="sourceLineNo">025</span>import org.apache.commons.logging.Log;<a name="line.25"></a>
+<span class="sourceLineNo">026</span>import org.apache.commons.logging.LogFactory;<a name="line.26"></a>
+<span class="sourceLineNo">027</span>import org.apache.hadoop.classification.InterfaceAudience;<a name="line.27"></a>
+<span class="sourceLineNo">028</span>import org.apache.hadoop.classification.InterfaceStability;<a name="line.28"></a>
+<span class="sourceLineNo">029</span>import org.apache.hadoop.conf.Configuration;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import org.apache.hadoop.io.Text;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import org.apache.hadoop.mapreduce.Reducer;<a name="line.31"></a>
+<span class="sourceLineNo">032</span><a name="line.32"></a>
+<span class="sourceLineNo">033</span>/**<a name="line.33"></a>
+<span class="sourceLineNo">034</span> * This class implements a reducer class that can be used to perform field<a name="line.34"></a>
+<span class="sourceLineNo">035</span> * selections in a manner similar to unix cut. <a name="line.35"></a>
+<span class="sourceLineNo">036</span> * <a name="line.36"></a>
+<span class="sourceLineNo">037</span> * The input data is treated as fields separated by a user specified<a name="line.37"></a>
+<span class="sourceLineNo">038</span> * separator (the default value is "\t"). The user can specify a list of<a name="line.38"></a>
+<span class="sourceLineNo">039</span> * fields that form the reduce output keys, and a list of fields that form<a name="line.39"></a>
+<span class="sourceLineNo">040</span> * the reduce output values. The fields are the union of those from the key<a name="line.40"></a>
+<span class="sourceLineNo">041</span> * and those from the value.<a name="line.41"></a>
+<span class="sourceLineNo">042</span> * <a name="line.42"></a>
+<span class="sourceLineNo">043</span> * The field separator is under attribute "mapreduce.fieldsel.data.field.separator"<a name="line.43"></a>
+<span class="sourceLineNo">044</span> * <a name="line.44"></a>
+<span class="sourceLineNo">045</span> * The reduce output field list spec is under attribute <a name="line.45"></a>
+<span class="sourceLineNo">046</span> * "mapreduce.fieldsel.reduce.output.key.value.fields.spec". <a name="line.46"></a>
+<span class="sourceLineNo">047</span> * The value is expected to be like<a name="line.47"></a>
+<span class="sourceLineNo">048</span> * "keyFieldsSpec:valueFieldsSpec" key/valueFieldsSpec are comma (,) <a name="line.48"></a>
+<span class="sourceLineNo">049</span> * separated field spec: fieldSpec,fieldSpec,fieldSpec ... Each field spec<a name="line.49"></a>
+<span class="sourceLineNo">050</span> * can be a simple number (e.g. 5) specifying a specific field, or a range<a name="line.50"></a>
+<span class="sourceLineNo">051</span> * (like 2-5) to specify a range of fields, or an open range (like 3-) <a name="line.51"></a>
+<span class="sourceLineNo">052</span> * specifying all the fields starting from field 3. The open range field<a name="line.52"></a>
+<span class="sourceLineNo">053</span> * spec applies value fields only. They have no effect on the key fields.<a name="line.53"></a>
+<span class="sourceLineNo">054</span> * <a name="line.54"></a>
+<span class="sourceLineNo">055</span> * Here is an example: "4,3,0,1:6,5,1-3,7-". It specifies to use fields<a name="line.55"></a>
+<span class="sourceLineNo">056</span> * 4,3,0 and 1 for keys, and use fields 6,5,1,2,3,7 and above for values.<a name="line.56"></a>
+<span class="sourceLineNo">057</span> */<a name="line.57"></a>
+<span class="sourceLineNo">058</span>@InterfaceAudience.Public<a name="line.58"></a>
+<span class="sourceLineNo">059</span>@InterfaceStability.Stable<a name="line.59"></a>
+<span class="sourceLineNo">060</span>public class FieldSelectionReducer&lt;K, V&gt;<a name="line.60"></a>
+<span class="sourceLineNo">061</span>    extends Reducer&lt;Text, Text, Text, Text&gt; {<a name="line.61"></a>
+<span class="sourceLineNo">062</span><a name="line.62"></a>
+<span class="sourceLineNo">063</span>  private String fieldSeparator = "\t";<a name="line.63"></a>
+<span class="sourceLineNo">064</span><a name="line.64"></a>
+<span class="sourceLineNo">065</span>  private String reduceOutputKeyValueSpec;<a name="line.65"></a>
+<span class="sourceLineNo">066</span><a name="line.66"></a>
+<span class="sourceLineNo">067</span>  private List&lt;Integer&gt; reduceOutputKeyFieldList = new ArrayList&lt;Integer&gt;();<a name="line.67"></a>
+<span class="sourceLineNo">068</span><a name="line.68"></a>
+<span class="sourceLineNo">069</span>  private List&lt;Integer&gt; reduceOutputValueFieldList = new ArrayList&lt;Integer&gt;();<a name="line.69"></a>
+<span class="sourceLineNo">070</span><a name="line.70"></a>
+<span class="sourceLineNo">071</span>  private int allReduceValueFieldsFrom = -1;<a name="line.71"></a>
+<span class="sourceLineNo">072</span><a name="line.72"></a>
+<span class="sourceLineNo">073</span>  public static final Log LOG = LogFactory.getLog("FieldSelectionMapReduce");<a name="line.73"></a>
+<span class="sourceLineNo">074</span><a name="line.74"></a>
+<span class="sourceLineNo">075</span>  public void setup(Context context) <a name="line.75"></a>
+<span class="sourceLineNo">076</span>      throws IOException, InterruptedException {<a name="line.76"></a>
+<span class="sourceLineNo">077</span>    Configuration conf = context.getConfiguration();<a name="line.77"></a>
+<span class="sourceLineNo">078</span>    <a name="line.78"></a>
+<span class="sourceLineNo">079</span>    this.fieldSeparator = <a name="line.79"></a>
+<span class="sourceLineNo">080</span>      conf.get(FieldSelectionHelper.DATA_FIELD_SEPERATOR, "\t");<a name="line.80"></a>
+<span class="sourceLineNo">081</span>    <a name="line.81"></a>
+<span class="sourceLineNo">082</span>    this.reduceOutputKeyValueSpec = <a name="line.82"></a>
+<span class="sourceLineNo">083</span>      conf.get(FieldSelectionHelper.REDUCE_OUTPUT_KEY_VALUE_SPEC, "0-:");<a name="line.83"></a>
+<span class="sourceLineNo">084</span>    <a name="line.84"></a>
+<span class="sourceLineNo">085</span>    allReduceValueFieldsFrom = FieldSelectionHelper.parseOutputKeyValueSpec(<a name="line.85"></a>
+<span class="sourceLineNo">086</span>      reduceOutputKeyValueSpec, reduceOutputKeyFieldList,<a name="line.86"></a>
+<span class="sourceLineNo">087</span>      reduceOutputValueFieldList);<a name="line.87"></a>
+<span class="sourceLineNo">088</span><a name="line.88"></a>
+<span class="sourceLineNo">089</span>    LOG.info(FieldSelectionHelper.specToString(fieldSeparator,<a name="line.89"></a>
+<span class="sourceLineNo">090</span>      reduceOutputKeyValueSpec, allReduceValueFieldsFrom,<a name="line.90"></a>
+<span class="sourceLineNo">091</span>      reduceOutputKeyFieldList, reduceOutputValueFieldList));<a name="line.91"></a>
+<span class="sourceLineNo">092</span>  }<a name="line.92"></a>
+<span class="sourceLineNo">093</span><a name="line.93"></a>
+<span class="sourceLineNo">094</span>  public void reduce(Text key, Iterable&lt;Text&gt; values, Context context)<a name="line.94"></a>
+<span class="sourceLineNo">095</span>      throws IOException, InterruptedException {<a name="line.95"></a>
+<span class="sourceLineNo">096</span>    String keyStr = key.toString() + this.fieldSeparator;<a name="line.96"></a>
+<span class="sourceLineNo">097</span>    <a name="line.97"></a>
+<span class="sourceLineNo">098</span>    for (Text val : values) {<a name="line.98"></a>
+<span class="sourceLineNo">099</span>      FieldSelectionHelper helper = new FieldSelectionHelper();<a name="line.99"></a>
+<span class="sourceLineNo">100</span>      helper.extractOutputKeyValue(keyStr, val.toString(),<a name="line.100"></a>
+<span class="sourceLineNo">101</span>        fieldSeparator, reduceOutputKeyFieldList,<a name="line.101"></a>
+<span class="sourceLineNo">102</span>        reduceOutputValueFieldList, allReduceValueFieldsFrom, false, false);<a name="line.102"></a>
+<span class="sourceLineNo">103</span>      context.write(helper.getKey(), helper.getValue());<a name="line.103"></a>
+<span class="sourceLineNo">104</span>    }<a name="line.104"></a>
+<span class="sourceLineNo">105</span>  }<a name="line.105"></a>
+<span class="sourceLineNo">106</span>}<a name="line.106"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

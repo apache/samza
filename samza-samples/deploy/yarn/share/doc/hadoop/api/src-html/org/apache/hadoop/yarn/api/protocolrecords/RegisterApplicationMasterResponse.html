@@ -1,0 +1,278 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/**<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Licensed to the Apache Software Foundation (ASF) under one<a name="line.2"></a>
+<span class="sourceLineNo">003</span> * or more contributor license agreements.  See the NOTICE file<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * distributed with this work for additional information<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * regarding copyright ownership.  The ASF licenses this file<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * to you under the Apache License, Version 2.0 (the<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * "License"); you may not use this file except in compliance<a name="line.7"></a>
+<span class="sourceLineNo">008</span> * with the License.  You may obtain a copy of the License at<a name="line.8"></a>
+<span class="sourceLineNo">009</span> *<a name="line.9"></a>
+<span class="sourceLineNo">010</span> *     http://www.apache.org/licenses/LICENSE-2.0<a name="line.10"></a>
+<span class="sourceLineNo">011</span> *<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Unless required by applicable law or agreed to in writing, software<a name="line.12"></a>
+<span class="sourceLineNo">013</span> * distributed under the License is distributed on an "AS IS" BASIS,<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * See the License for the specific language governing permissions and<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * limitations under the License.<a name="line.16"></a>
+<span class="sourceLineNo">017</span> */<a name="line.17"></a>
+<span class="sourceLineNo">018</span><a name="line.18"></a>
+<span class="sourceLineNo">019</span>package org.apache.hadoop.yarn.api.protocolrecords;<a name="line.19"></a>
+<span class="sourceLineNo">020</span><a name="line.20"></a>
+<span class="sourceLineNo">021</span>import java.nio.ByteBuffer;<a name="line.21"></a>
+<span class="sourceLineNo">022</span>import java.util.EnumSet;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import java.util.List;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import java.util.Map;<a name="line.24"></a>
+<span class="sourceLineNo">025</span><a name="line.25"></a>
+<span class="sourceLineNo">026</span>import org.apache.hadoop.classification.InterfaceAudience.Private;<a name="line.26"></a>
+<span class="sourceLineNo">027</span>import org.apache.hadoop.classification.InterfaceAudience.Public;<a name="line.27"></a>
+<span class="sourceLineNo">028</span>import org.apache.hadoop.classification.InterfaceStability.Stable;<a name="line.28"></a>
+<span class="sourceLineNo">029</span>import org.apache.hadoop.classification.InterfaceStability.Unstable;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import org.apache.hadoop.yarn.api.ApplicationMasterProtocol;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import org.apache.hadoop.yarn.api.records.ApplicationAccessType;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import org.apache.hadoop.yarn.api.records.Container;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import org.apache.hadoop.yarn.api.records.NMToken;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import org.apache.hadoop.yarn.api.records.Resource;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import org.apache.hadoop.yarn.proto.YarnServiceProtos.SchedulerResourceTypes;<a name="line.35"></a>
+<span class="sourceLineNo">036</span>import org.apache.hadoop.yarn.util.Records;<a name="line.36"></a>
+<span class="sourceLineNo">037</span><a name="line.37"></a>
+<span class="sourceLineNo">038</span>/**<a name="line.38"></a>
+<span class="sourceLineNo">039</span> * &lt;p&gt;The response sent by the &lt;code&gt;ResourceManager&lt;/code&gt; to a new <a name="line.39"></a>
+<span class="sourceLineNo">040</span> * &lt;code&gt;ApplicationMaster&lt;/code&gt; on registration.&lt;/p&gt;<a name="line.40"></a>
+<span class="sourceLineNo">041</span> * <a name="line.41"></a>
+<span class="sourceLineNo">042</span> * &lt;p&gt;The response contains critical details such as:<a name="line.42"></a>
+<span class="sourceLineNo">043</span> * &lt;ul&gt;<a name="line.43"></a>
+<span class="sourceLineNo">044</span> *   &lt;li&gt;Maximum capability for allocated resources in the cluster.&lt;/li&gt;<a name="line.44"></a>
+<span class="sourceLineNo">045</span> *   &lt;li&gt;&lt;code&gt;ApplicationACL&lt;/code&gt;s for the application.&lt;/li&gt;<a name="line.45"></a>
+<span class="sourceLineNo">046</span> *   &lt;li&gt;ClientToAMToken master key.&lt;/li&gt;<a name="line.46"></a>
+<span class="sourceLineNo">047</span> * &lt;/ul&gt;<a name="line.47"></a>
+<span class="sourceLineNo">048</span> * &lt;/p&gt;<a name="line.48"></a>
+<span class="sourceLineNo">049</span> * <a name="line.49"></a>
+<span class="sourceLineNo">050</span> * @see ApplicationMasterProtocol#registerApplicationMaster(RegisterApplicationMasterRequest)<a name="line.50"></a>
+<span class="sourceLineNo">051</span> */<a name="line.51"></a>
+<span class="sourceLineNo">052</span>@Public<a name="line.52"></a>
+<span class="sourceLineNo">053</span>@Stable<a name="line.53"></a>
+<span class="sourceLineNo">054</span>public abstract class RegisterApplicationMasterResponse {<a name="line.54"></a>
+<span class="sourceLineNo">055</span><a name="line.55"></a>
+<span class="sourceLineNo">056</span>  @Private<a name="line.56"></a>
+<span class="sourceLineNo">057</span>  @Unstable<a name="line.57"></a>
+<span class="sourceLineNo">058</span>  public static RegisterApplicationMasterResponse newInstance(<a name="line.58"></a>
+<span class="sourceLineNo">059</span>      Resource minCapability, Resource maxCapability,<a name="line.59"></a>
+<span class="sourceLineNo">060</span>      Map&lt;ApplicationAccessType, String&gt; acls, ByteBuffer key,<a name="line.60"></a>
+<span class="sourceLineNo">061</span>      List&lt;Container&gt; containersFromPreviousAttempt, String queue,<a name="line.61"></a>
+<span class="sourceLineNo">062</span>      List&lt;NMToken&gt; nmTokensFromPreviousAttempts) {<a name="line.62"></a>
+<span class="sourceLineNo">063</span>    RegisterApplicationMasterResponse response =<a name="line.63"></a>
+<span class="sourceLineNo">064</span>        Records.newRecord(RegisterApplicationMasterResponse.class);<a name="line.64"></a>
+<span class="sourceLineNo">065</span>    response.setMaximumResourceCapability(maxCapability);<a name="line.65"></a>
+<span class="sourceLineNo">066</span>    response.setApplicationACLs(acls);<a name="line.66"></a>
+<span class="sourceLineNo">067</span>    response.setClientToAMTokenMasterKey(key);<a name="line.67"></a>
+<span class="sourceLineNo">068</span>    response.setContainersFromPreviousAttempts(containersFromPreviousAttempt);<a name="line.68"></a>
+<span class="sourceLineNo">069</span>    response.setNMTokensFromPreviousAttempts(nmTokensFromPreviousAttempts);<a name="line.69"></a>
+<span class="sourceLineNo">070</span>    response.setQueue(queue);<a name="line.70"></a>
+<span class="sourceLineNo">071</span>    return response;<a name="line.71"></a>
+<span class="sourceLineNo">072</span>  }<a name="line.72"></a>
+<span class="sourceLineNo">073</span><a name="line.73"></a>
+<span class="sourceLineNo">074</span>  /**<a name="line.74"></a>
+<span class="sourceLineNo">075</span>   * Get the maximum capability for any {@link Resource} allocated by the <a name="line.75"></a>
+<span class="sourceLineNo">076</span>   * &lt;code&gt;ResourceManager&lt;/code&gt; in the cluster.<a name="line.76"></a>
+<span class="sourceLineNo">077</span>   * @return maximum capability of allocated resources in the cluster<a name="line.77"></a>
+<span class="sourceLineNo">078</span>   */<a name="line.78"></a>
+<span class="sourceLineNo">079</span>  @Public<a name="line.79"></a>
+<span class="sourceLineNo">080</span>  @Stable<a name="line.80"></a>
+<span class="sourceLineNo">081</span>  public abstract Resource getMaximumResourceCapability();<a name="line.81"></a>
+<span class="sourceLineNo">082</span>  <a name="line.82"></a>
+<span class="sourceLineNo">083</span>  @Private<a name="line.83"></a>
+<span class="sourceLineNo">084</span>  @Unstable<a name="line.84"></a>
+<span class="sourceLineNo">085</span>  public abstract void setMaximumResourceCapability(Resource capability);<a name="line.85"></a>
+<span class="sourceLineNo">086</span><a name="line.86"></a>
+<span class="sourceLineNo">087</span>  /**<a name="line.87"></a>
+<span class="sourceLineNo">088</span>   * Get the &lt;code&gt;ApplicationACL&lt;/code&gt;s for the application. <a name="line.88"></a>
+<span class="sourceLineNo">089</span>   * @return all the &lt;code&gt;ApplicationACL&lt;/code&gt;s<a name="line.89"></a>
+<span class="sourceLineNo">090</span>   */<a name="line.90"></a>
+<span class="sourceLineNo">091</span>  @Public<a name="line.91"></a>
+<span class="sourceLineNo">092</span>  @Stable<a name="line.92"></a>
+<span class="sourceLineNo">093</span>  public abstract Map&lt;ApplicationAccessType, String&gt; getApplicationACLs();<a name="line.93"></a>
+<span class="sourceLineNo">094</span><a name="line.94"></a>
+<span class="sourceLineNo">095</span>  /**<a name="line.95"></a>
+<span class="sourceLineNo">096</span>   * Set the &lt;code&gt;ApplicationACL&lt;/code&gt;s for the application. <a name="line.96"></a>
+<span class="sourceLineNo">097</span>   * @param acls<a name="line.97"></a>
+<span class="sourceLineNo">098</span>   */<a name="line.98"></a>
+<span class="sourceLineNo">099</span>  @Private<a name="line.99"></a>
+<span class="sourceLineNo">100</span>  @Unstable<a name="line.100"></a>
+<span class="sourceLineNo">101</span>  public abstract void setApplicationACLs(Map&lt;ApplicationAccessType, String&gt; acls);<a name="line.101"></a>
+<span class="sourceLineNo">102</span><a name="line.102"></a>
+<span class="sourceLineNo">103</span>  /**<a name="line.103"></a>
+<span class="sourceLineNo">104</span>   * &lt;p&gt;Get ClientToAMToken master key.&lt;/p&gt;<a name="line.104"></a>
+<span class="sourceLineNo">105</span>   * &lt;p&gt;The ClientToAMToken master key is sent to &lt;code&gt;ApplicationMaster&lt;/code&gt;<a name="line.105"></a>
+<span class="sourceLineNo">106</span>   * by &lt;code&gt;ResourceManager&lt;/code&gt; via {@link RegisterApplicationMasterResponse}<a name="line.106"></a>
+<span class="sourceLineNo">107</span>   * , used to verify corresponding ClientToAMToken.&lt;/p&gt;<a name="line.107"></a>
+<span class="sourceLineNo">108</span>   */<a name="line.108"></a>
+<span class="sourceLineNo">109</span>  @Public<a name="line.109"></a>
+<span class="sourceLineNo">110</span>  @Stable<a name="line.110"></a>
+<span class="sourceLineNo">111</span>  public abstract ByteBuffer getClientToAMTokenMasterKey();<a name="line.111"></a>
+<span class="sourceLineNo">112</span><a name="line.112"></a>
+<span class="sourceLineNo">113</span>  /**<a name="line.113"></a>
+<span class="sourceLineNo">114</span>   * Set ClientToAMToken master key.<a name="line.114"></a>
+<span class="sourceLineNo">115</span>   */<a name="line.115"></a>
+<span class="sourceLineNo">116</span>  @Public<a name="line.116"></a>
+<span class="sourceLineNo">117</span>  @Stable<a name="line.117"></a>
+<span class="sourceLineNo">118</span>  public abstract void setClientToAMTokenMasterKey(ByteBuffer key);<a name="line.118"></a>
+<span class="sourceLineNo">119</span><a name="line.119"></a>
+<span class="sourceLineNo">120</span>  /**<a name="line.120"></a>
+<span class="sourceLineNo">121</span>   * &lt;p&gt;Get the queue that the application was placed in.&lt;p&gt;<a name="line.121"></a>
+<span class="sourceLineNo">122</span>   */<a name="line.122"></a>
+<span class="sourceLineNo">123</span>  @Public<a name="line.123"></a>
+<span class="sourceLineNo">124</span>  @Stable<a name="line.124"></a>
+<span class="sourceLineNo">125</span>  public abstract String getQueue();<a name="line.125"></a>
+<span class="sourceLineNo">126</span>  <a name="line.126"></a>
+<span class="sourceLineNo">127</span>  /**<a name="line.127"></a>
+<span class="sourceLineNo">128</span>   * &lt;p&gt;Set the queue that the application was placed in.&lt;p&gt;<a name="line.128"></a>
+<span class="sourceLineNo">129</span>   */<a name="line.129"></a>
+<span class="sourceLineNo">130</span>  @Public<a name="line.130"></a>
+<span class="sourceLineNo">131</span>  @Stable<a name="line.131"></a>
+<span class="sourceLineNo">132</span>  public abstract void setQueue(String queue);<a name="line.132"></a>
+<span class="sourceLineNo">133</span>  <a name="line.133"></a>
+<span class="sourceLineNo">134</span>  /**<a name="line.134"></a>
+<span class="sourceLineNo">135</span>   * &lt;p&gt;<a name="line.135"></a>
+<span class="sourceLineNo">136</span>   * Get the list of running containers as viewed by<a name="line.136"></a>
+<span class="sourceLineNo">137</span>   * &lt;code&gt;ResourceManager&lt;/code&gt; from previous application attempts.<a name="line.137"></a>
+<span class="sourceLineNo">138</span>   * &lt;/p&gt;<a name="line.138"></a>
+<span class="sourceLineNo">139</span>   * <a name="line.139"></a>
+<span class="sourceLineNo">140</span>   * @return the list of running containers as viewed by<a name="line.140"></a>
+<span class="sourceLineNo">141</span>   *         &lt;code&gt;ResourceManager&lt;/code&gt; from previous application attempts<a name="line.141"></a>
+<span class="sourceLineNo">142</span>   * @see RegisterApplicationMasterResponse#getNMTokensFromPreviousAttempts()<a name="line.142"></a>
+<span class="sourceLineNo">143</span>   */<a name="line.143"></a>
+<span class="sourceLineNo">144</span>  @Public<a name="line.144"></a>
+<span class="sourceLineNo">145</span>  @Unstable<a name="line.145"></a>
+<span class="sourceLineNo">146</span>  public abstract List&lt;Container&gt; getContainersFromPreviousAttempts();<a name="line.146"></a>
+<span class="sourceLineNo">147</span><a name="line.147"></a>
+<span class="sourceLineNo">148</span>  /**<a name="line.148"></a>
+<span class="sourceLineNo">149</span>   * Set the list of running containers as viewed by<a name="line.149"></a>
+<span class="sourceLineNo">150</span>   * &lt;code&gt;ResourceManager&lt;/code&gt; from previous application attempts.<a name="line.150"></a>
+<span class="sourceLineNo">151</span>   * <a name="line.151"></a>
+<span class="sourceLineNo">152</span>   * @param containersFromPreviousAttempt<a name="line.152"></a>
+<span class="sourceLineNo">153</span>   *          the list of running containers as viewed by<a name="line.153"></a>
+<span class="sourceLineNo">154</span>   *          &lt;code&gt;ResourceManager&lt;/code&gt; from previous application attempts.<a name="line.154"></a>
+<span class="sourceLineNo">155</span>   */<a name="line.155"></a>
+<span class="sourceLineNo">156</span>  @Private<a name="line.156"></a>
+<span class="sourceLineNo">157</span>  @Unstable<a name="line.157"></a>
+<span class="sourceLineNo">158</span>  public abstract void setContainersFromPreviousAttempts(<a name="line.158"></a>
+<span class="sourceLineNo">159</span>      List&lt;Container&gt; containersFromPreviousAttempt);<a name="line.159"></a>
+<span class="sourceLineNo">160</span><a name="line.160"></a>
+<span class="sourceLineNo">161</span>  /**<a name="line.161"></a>
+<span class="sourceLineNo">162</span>   * Get the list of NMTokens for communicating with the NMs where the<a name="line.162"></a>
+<span class="sourceLineNo">163</span>   * containers of previous application attempts are running.<a name="line.163"></a>
+<span class="sourceLineNo">164</span>   * <a name="line.164"></a>
+<span class="sourceLineNo">165</span>   * @return the list of NMTokens for communicating with the NMs where the<a name="line.165"></a>
+<span class="sourceLineNo">166</span>   *         containers of previous application attempts are running.<a name="line.166"></a>
+<span class="sourceLineNo">167</span>   * <a name="line.167"></a>
+<span class="sourceLineNo">168</span>   * @see RegisterApplicationMasterResponse#getContainersFromPreviousAttempts()<a name="line.168"></a>
+<span class="sourceLineNo">169</span>   */<a name="line.169"></a>
+<span class="sourceLineNo">170</span>  @Public<a name="line.170"></a>
+<span class="sourceLineNo">171</span>  @Stable<a name="line.171"></a>
+<span class="sourceLineNo">172</span>  public abstract List&lt;NMToken&gt; getNMTokensFromPreviousAttempts();<a name="line.172"></a>
+<span class="sourceLineNo">173</span><a name="line.173"></a>
+<span class="sourceLineNo">174</span>  /**<a name="line.174"></a>
+<span class="sourceLineNo">175</span>   * Set the list of NMTokens for communicating with the NMs where the the<a name="line.175"></a>
+<span class="sourceLineNo">176</span>   * containers of previous application attempts are running.<a name="line.176"></a>
+<span class="sourceLineNo">177</span>   * <a name="line.177"></a>
+<span class="sourceLineNo">178</span>   * @param nmTokens<a name="line.178"></a>
+<span class="sourceLineNo">179</span>   *          the list of NMTokens for communicating with the NMs where the<a name="line.179"></a>
+<span class="sourceLineNo">180</span>   *          containers of previous application attempts are running.<a name="line.180"></a>
+<span class="sourceLineNo">181</span>   */<a name="line.181"></a>
+<span class="sourceLineNo">182</span>  @Private<a name="line.182"></a>
+<span class="sourceLineNo">183</span>  @Unstable<a name="line.183"></a>
+<span class="sourceLineNo">184</span>  public abstract void setNMTokensFromPreviousAttempts(List&lt;NMToken&gt; nmTokens);<a name="line.184"></a>
+<span class="sourceLineNo">185</span><a name="line.185"></a>
+<span class="sourceLineNo">186</span>  /**<a name="line.186"></a>
+<span class="sourceLineNo">187</span>   * Get a set of the resource types considered by the scheduler.<a name="line.187"></a>
+<span class="sourceLineNo">188</span>   *<a name="line.188"></a>
+<span class="sourceLineNo">189</span>   * @return a Map of RM settings<a name="line.189"></a>
+<span class="sourceLineNo">190</span>   */<a name="line.190"></a>
+<span class="sourceLineNo">191</span>  @Public<a name="line.191"></a>
+<span class="sourceLineNo">192</span>  @Unstable<a name="line.192"></a>
+<span class="sourceLineNo">193</span>  public abstract EnumSet&lt;SchedulerResourceTypes&gt; getSchedulerResourceTypes();<a name="line.193"></a>
+<span class="sourceLineNo">194</span><a name="line.194"></a>
+<span class="sourceLineNo">195</span>  /**<a name="line.195"></a>
+<span class="sourceLineNo">196</span>   * Set the resource types used by the scheduler.<a name="line.196"></a>
+<span class="sourceLineNo">197</span>   *<a name="line.197"></a>
+<span class="sourceLineNo">198</span>   * @param types<a name="line.198"></a>
+<span class="sourceLineNo">199</span>   *          a set of the resource types that the scheduler considers during<a name="line.199"></a>
+<span class="sourceLineNo">200</span>   *          scheduling<a name="line.200"></a>
+<span class="sourceLineNo">201</span>   */<a name="line.201"></a>
+<span class="sourceLineNo">202</span>  @Private<a name="line.202"></a>
+<span class="sourceLineNo">203</span>  @Unstable<a name="line.203"></a>
+<span class="sourceLineNo">204</span>  public abstract void setSchedulerResourceTypes(<a name="line.204"></a>
+<span class="sourceLineNo">205</span>      EnumSet&lt;SchedulerResourceTypes&gt; types);<a name="line.205"></a>
+<span class="sourceLineNo">206</span>}<a name="line.206"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

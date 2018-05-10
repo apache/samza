@@ -1,0 +1,272 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/**<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Licensed to the Apache Software Foundation (ASF) under one<a name="line.2"></a>
+<span class="sourceLineNo">003</span> * or more contributor license agreements.  See the NOTICE file<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * distributed with this work for additional information<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * regarding copyright ownership.  The ASF licenses this file<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * to you under the Apache License, Version 2.0 (the<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * "License"); you may not use this file except in compliance<a name="line.7"></a>
+<span class="sourceLineNo">008</span> * with the License.  You may obtain a copy of the License at<a name="line.8"></a>
+<span class="sourceLineNo">009</span> *<a name="line.9"></a>
+<span class="sourceLineNo">010</span> *     http://www.apache.org/licenses/LICENSE-2.0<a name="line.10"></a>
+<span class="sourceLineNo">011</span> *<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Unless required by applicable law or agreed to in writing, software<a name="line.12"></a>
+<span class="sourceLineNo">013</span> * distributed under the License is distributed on an "AS IS" BASIS,<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * See the License for the specific language governing permissions and<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * limitations under the License.<a name="line.16"></a>
+<span class="sourceLineNo">017</span> */<a name="line.17"></a>
+<span class="sourceLineNo">018</span>package org.apache.hadoop.metrics.spi;<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>import java.io.IOException;<a name="line.20"></a>
+<span class="sourceLineNo">021</span>import java.lang.reflect.InvocationHandler;<a name="line.21"></a>
+<span class="sourceLineNo">022</span>import java.lang.reflect.Method;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import java.lang.reflect.Proxy;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import java.util.ArrayList;<a name="line.24"></a>
+<span class="sourceLineNo">025</span><a name="line.25"></a>
+<span class="sourceLineNo">026</span>import org.apache.commons.logging.Log;<a name="line.26"></a>
+<span class="sourceLineNo">027</span>import org.apache.commons.logging.LogFactory;<a name="line.27"></a>
+<span class="sourceLineNo">028</span><a name="line.28"></a>
+<span class="sourceLineNo">029</span>import org.apache.hadoop.classification.InterfaceAudience;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import org.apache.hadoop.classification.InterfaceStability;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import org.apache.hadoop.metrics.ContextFactory;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import org.apache.hadoop.metrics.MetricsContext;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import org.apache.hadoop.metrics.MetricsRecord;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import org.apache.hadoop.metrics.MetricsUtil;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import org.apache.hadoop.metrics.Updater;<a name="line.35"></a>
+<span class="sourceLineNo">036</span><a name="line.36"></a>
+<span class="sourceLineNo">037</span>@InterfaceAudience.Public<a name="line.37"></a>
+<span class="sourceLineNo">038</span>@InterfaceStability.Evolving<a name="line.38"></a>
+<span class="sourceLineNo">039</span>public class CompositeContext extends AbstractMetricsContext {<a name="line.39"></a>
+<span class="sourceLineNo">040</span><a name="line.40"></a>
+<span class="sourceLineNo">041</span>  private static final Log LOG = LogFactory.getLog(CompositeContext.class);<a name="line.41"></a>
+<span class="sourceLineNo">042</span>  private static final String ARITY_LABEL = "arity";<a name="line.42"></a>
+<span class="sourceLineNo">043</span>  private static final String SUB_FMT = "%s.sub%d";<a name="line.43"></a>
+<span class="sourceLineNo">044</span>  private final ArrayList&lt;MetricsContext&gt; subctxt =<a name="line.44"></a>
+<span class="sourceLineNo">045</span>    new ArrayList&lt;MetricsContext&gt;();<a name="line.45"></a>
+<span class="sourceLineNo">046</span><a name="line.46"></a>
+<span class="sourceLineNo">047</span>  @InterfaceAudience.Private<a name="line.47"></a>
+<span class="sourceLineNo">048</span>  public CompositeContext() {<a name="line.48"></a>
+<span class="sourceLineNo">049</span>  }<a name="line.49"></a>
+<span class="sourceLineNo">050</span><a name="line.50"></a>
+<span class="sourceLineNo">051</span>  @InterfaceAudience.Private<a name="line.51"></a>
+<span class="sourceLineNo">052</span>  public void init(String contextName, ContextFactory factory) {<a name="line.52"></a>
+<span class="sourceLineNo">053</span>    super.init(contextName, factory);<a name="line.53"></a>
+<span class="sourceLineNo">054</span>    int nKids;<a name="line.54"></a>
+<span class="sourceLineNo">055</span>    try {<a name="line.55"></a>
+<span class="sourceLineNo">056</span>      String sKids = getAttribute(ARITY_LABEL);<a name="line.56"></a>
+<span class="sourceLineNo">057</span>      nKids = Integer.valueOf(sKids);<a name="line.57"></a>
+<span class="sourceLineNo">058</span>    } catch (Exception e) {<a name="line.58"></a>
+<span class="sourceLineNo">059</span>      LOG.error("Unable to initialize composite metric " + contextName +<a name="line.59"></a>
+<span class="sourceLineNo">060</span>                ": could not init arity", e);<a name="line.60"></a>
+<span class="sourceLineNo">061</span>      return;<a name="line.61"></a>
+<span class="sourceLineNo">062</span>    }<a name="line.62"></a>
+<span class="sourceLineNo">063</span>    for (int i = 0; i &lt; nKids; ++i) {<a name="line.63"></a>
+<span class="sourceLineNo">064</span>      MetricsContext ctxt = MetricsUtil.getContext(<a name="line.64"></a>
+<span class="sourceLineNo">065</span>          String.format(SUB_FMT, contextName, i), contextName);<a name="line.65"></a>
+<span class="sourceLineNo">066</span>      if (null != ctxt) {<a name="line.66"></a>
+<span class="sourceLineNo">067</span>        subctxt.add(ctxt);<a name="line.67"></a>
+<span class="sourceLineNo">068</span>      }<a name="line.68"></a>
+<span class="sourceLineNo">069</span>    }<a name="line.69"></a>
+<span class="sourceLineNo">070</span>  }<a name="line.70"></a>
+<span class="sourceLineNo">071</span><a name="line.71"></a>
+<span class="sourceLineNo">072</span>  @InterfaceAudience.Private<a name="line.72"></a>
+<span class="sourceLineNo">073</span>  @Override<a name="line.73"></a>
+<span class="sourceLineNo">074</span>  public MetricsRecord newRecord(String recordName) {<a name="line.74"></a>
+<span class="sourceLineNo">075</span>    return (MetricsRecord) Proxy.newProxyInstance(<a name="line.75"></a>
+<span class="sourceLineNo">076</span>        MetricsRecord.class.getClassLoader(),<a name="line.76"></a>
+<span class="sourceLineNo">077</span>        new Class[] { MetricsRecord.class },<a name="line.77"></a>
+<span class="sourceLineNo">078</span>        new MetricsRecordDelegator(recordName, subctxt));<a name="line.78"></a>
+<span class="sourceLineNo">079</span>  }<a name="line.79"></a>
+<span class="sourceLineNo">080</span><a name="line.80"></a>
+<span class="sourceLineNo">081</span>  @InterfaceAudience.Private<a name="line.81"></a>
+<span class="sourceLineNo">082</span>  @Override<a name="line.82"></a>
+<span class="sourceLineNo">083</span>  protected void emitRecord(String contextName, String recordName,<a name="line.83"></a>
+<span class="sourceLineNo">084</span>      OutputRecord outRec) throws IOException {<a name="line.84"></a>
+<span class="sourceLineNo">085</span>    for (MetricsContext ctxt : subctxt) {<a name="line.85"></a>
+<span class="sourceLineNo">086</span>      try {<a name="line.86"></a>
+<span class="sourceLineNo">087</span>        ((AbstractMetricsContext)ctxt).emitRecord(<a name="line.87"></a>
+<span class="sourceLineNo">088</span>          contextName, recordName, outRec);<a name="line.88"></a>
+<span class="sourceLineNo">089</span>        if (contextName == null || recordName == null || outRec == null) {<a name="line.89"></a>
+<span class="sourceLineNo">090</span>          throw new IOException(contextName + ":" + recordName + ":" + outRec);<a name="line.90"></a>
+<span class="sourceLineNo">091</span>        }<a name="line.91"></a>
+<span class="sourceLineNo">092</span>      } catch (IOException e) {<a name="line.92"></a>
+<span class="sourceLineNo">093</span>        LOG.warn("emitRecord failed: " + ctxt.getContextName(), e);<a name="line.93"></a>
+<span class="sourceLineNo">094</span>      }<a name="line.94"></a>
+<span class="sourceLineNo">095</span>    }<a name="line.95"></a>
+<span class="sourceLineNo">096</span>  }<a name="line.96"></a>
+<span class="sourceLineNo">097</span><a name="line.97"></a>
+<span class="sourceLineNo">098</span>  @InterfaceAudience.Private<a name="line.98"></a>
+<span class="sourceLineNo">099</span>  @Override<a name="line.99"></a>
+<span class="sourceLineNo">100</span>  protected void flush() throws IOException {<a name="line.100"></a>
+<span class="sourceLineNo">101</span>    for (MetricsContext ctxt : subctxt) {<a name="line.101"></a>
+<span class="sourceLineNo">102</span>      try {<a name="line.102"></a>
+<span class="sourceLineNo">103</span>        ((AbstractMetricsContext)ctxt).flush();<a name="line.103"></a>
+<span class="sourceLineNo">104</span>      } catch (IOException e) {<a name="line.104"></a>
+<span class="sourceLineNo">105</span>        LOG.warn("flush failed: " + ctxt.getContextName(), e);<a name="line.105"></a>
+<span class="sourceLineNo">106</span>      }<a name="line.106"></a>
+<span class="sourceLineNo">107</span>    }<a name="line.107"></a>
+<span class="sourceLineNo">108</span>  }<a name="line.108"></a>
+<span class="sourceLineNo">109</span><a name="line.109"></a>
+<span class="sourceLineNo">110</span>  @InterfaceAudience.Private<a name="line.110"></a>
+<span class="sourceLineNo">111</span>  @Override<a name="line.111"></a>
+<span class="sourceLineNo">112</span>  public void startMonitoring() throws IOException {<a name="line.112"></a>
+<span class="sourceLineNo">113</span>    for (MetricsContext ctxt : subctxt) {<a name="line.113"></a>
+<span class="sourceLineNo">114</span>      try {<a name="line.114"></a>
+<span class="sourceLineNo">115</span>        ctxt.startMonitoring();<a name="line.115"></a>
+<span class="sourceLineNo">116</span>      } catch (IOException e) {<a name="line.116"></a>
+<span class="sourceLineNo">117</span>        LOG.warn("startMonitoring failed: " + ctxt.getContextName(), e);<a name="line.117"></a>
+<span class="sourceLineNo">118</span>      }<a name="line.118"></a>
+<span class="sourceLineNo">119</span>    }<a name="line.119"></a>
+<span class="sourceLineNo">120</span>  }<a name="line.120"></a>
+<span class="sourceLineNo">121</span><a name="line.121"></a>
+<span class="sourceLineNo">122</span>  @InterfaceAudience.Private<a name="line.122"></a>
+<span class="sourceLineNo">123</span>  @Override<a name="line.123"></a>
+<span class="sourceLineNo">124</span>  public void stopMonitoring() {<a name="line.124"></a>
+<span class="sourceLineNo">125</span>    for (MetricsContext ctxt : subctxt) {<a name="line.125"></a>
+<span class="sourceLineNo">126</span>      ctxt.stopMonitoring();<a name="line.126"></a>
+<span class="sourceLineNo">127</span>    }<a name="line.127"></a>
+<span class="sourceLineNo">128</span>  }<a name="line.128"></a>
+<span class="sourceLineNo">129</span><a name="line.129"></a>
+<span class="sourceLineNo">130</span>  /**<a name="line.130"></a>
+<span class="sourceLineNo">131</span>   * Return true if all subcontexts are monitoring.<a name="line.131"></a>
+<span class="sourceLineNo">132</span>   */<a name="line.132"></a>
+<span class="sourceLineNo">133</span>  @InterfaceAudience.Private<a name="line.133"></a>
+<span class="sourceLineNo">134</span>  @Override<a name="line.134"></a>
+<span class="sourceLineNo">135</span>  public boolean isMonitoring() {<a name="line.135"></a>
+<span class="sourceLineNo">136</span>    boolean ret = true;<a name="line.136"></a>
+<span class="sourceLineNo">137</span>    for (MetricsContext ctxt : subctxt) {<a name="line.137"></a>
+<span class="sourceLineNo">138</span>      ret &amp;= ctxt.isMonitoring();<a name="line.138"></a>
+<span class="sourceLineNo">139</span>    }<a name="line.139"></a>
+<span class="sourceLineNo">140</span>    return ret;<a name="line.140"></a>
+<span class="sourceLineNo">141</span>  }<a name="line.141"></a>
+<span class="sourceLineNo">142</span><a name="line.142"></a>
+<span class="sourceLineNo">143</span>  @InterfaceAudience.Private<a name="line.143"></a>
+<span class="sourceLineNo">144</span>  @Override<a name="line.144"></a>
+<span class="sourceLineNo">145</span>  public void close() {<a name="line.145"></a>
+<span class="sourceLineNo">146</span>    for (MetricsContext ctxt : subctxt) {<a name="line.146"></a>
+<span class="sourceLineNo">147</span>      ctxt.close();<a name="line.147"></a>
+<span class="sourceLineNo">148</span>    }<a name="line.148"></a>
+<span class="sourceLineNo">149</span>  }<a name="line.149"></a>
+<span class="sourceLineNo">150</span><a name="line.150"></a>
+<span class="sourceLineNo">151</span>  @InterfaceAudience.Private<a name="line.151"></a>
+<span class="sourceLineNo">152</span>  @Override<a name="line.152"></a>
+<span class="sourceLineNo">153</span>  public void registerUpdater(Updater updater) {<a name="line.153"></a>
+<span class="sourceLineNo">154</span>    for (MetricsContext ctxt : subctxt) {<a name="line.154"></a>
+<span class="sourceLineNo">155</span>      ctxt.registerUpdater(updater);<a name="line.155"></a>
+<span class="sourceLineNo">156</span>    }<a name="line.156"></a>
+<span class="sourceLineNo">157</span>  }<a name="line.157"></a>
+<span class="sourceLineNo">158</span><a name="line.158"></a>
+<span class="sourceLineNo">159</span>  @InterfaceAudience.Private<a name="line.159"></a>
+<span class="sourceLineNo">160</span>  @Override<a name="line.160"></a>
+<span class="sourceLineNo">161</span>  public void unregisterUpdater(Updater updater) {<a name="line.161"></a>
+<span class="sourceLineNo">162</span>    for (MetricsContext ctxt : subctxt) {<a name="line.162"></a>
+<span class="sourceLineNo">163</span>      ctxt.unregisterUpdater(updater);<a name="line.163"></a>
+<span class="sourceLineNo">164</span>    }<a name="line.164"></a>
+<span class="sourceLineNo">165</span>  }<a name="line.165"></a>
+<span class="sourceLineNo">166</span><a name="line.166"></a>
+<span class="sourceLineNo">167</span>  private static class MetricsRecordDelegator implements InvocationHandler {<a name="line.167"></a>
+<span class="sourceLineNo">168</span>    private static final Method m_getRecordName = initMethod();<a name="line.168"></a>
+<span class="sourceLineNo">169</span>    private static Method initMethod() {<a name="line.169"></a>
+<span class="sourceLineNo">170</span>      try {<a name="line.170"></a>
+<span class="sourceLineNo">171</span>        return MetricsRecord.class.getMethod("getRecordName", new Class[0]);<a name="line.171"></a>
+<span class="sourceLineNo">172</span>      } catch (Exception e) {<a name="line.172"></a>
+<span class="sourceLineNo">173</span>        throw new RuntimeException("Internal error", e);<a name="line.173"></a>
+<span class="sourceLineNo">174</span>      }<a name="line.174"></a>
+<span class="sourceLineNo">175</span>    }<a name="line.175"></a>
+<span class="sourceLineNo">176</span><a name="line.176"></a>
+<span class="sourceLineNo">177</span>    private final String recordName;<a name="line.177"></a>
+<span class="sourceLineNo">178</span>    private final ArrayList&lt;MetricsRecord&gt; subrecs;<a name="line.178"></a>
+<span class="sourceLineNo">179</span><a name="line.179"></a>
+<span class="sourceLineNo">180</span>    MetricsRecordDelegator(String recordName, ArrayList&lt;MetricsContext&gt; ctxts) {<a name="line.180"></a>
+<span class="sourceLineNo">181</span>      this.recordName = recordName;<a name="line.181"></a>
+<span class="sourceLineNo">182</span>      this.subrecs = new ArrayList&lt;MetricsRecord&gt;(ctxts.size());<a name="line.182"></a>
+<span class="sourceLineNo">183</span>      for (MetricsContext ctxt : ctxts) {<a name="line.183"></a>
+<span class="sourceLineNo">184</span>        subrecs.add(ctxt.createRecord(recordName));<a name="line.184"></a>
+<span class="sourceLineNo">185</span>      }<a name="line.185"></a>
+<span class="sourceLineNo">186</span>    }<a name="line.186"></a>
+<span class="sourceLineNo">187</span><a name="line.187"></a>
+<span class="sourceLineNo">188</span>    public Object invoke(Object p, Method m, Object[] args) throws Throwable {<a name="line.188"></a>
+<span class="sourceLineNo">189</span>      if (m_getRecordName.equals(m)) {<a name="line.189"></a>
+<span class="sourceLineNo">190</span>        return recordName;<a name="line.190"></a>
+<span class="sourceLineNo">191</span>      }<a name="line.191"></a>
+<span class="sourceLineNo">192</span>      assert Void.TYPE.equals(m.getReturnType());<a name="line.192"></a>
+<span class="sourceLineNo">193</span>      for (MetricsRecord rec : subrecs) {<a name="line.193"></a>
+<span class="sourceLineNo">194</span>        m.invoke(rec, args);<a name="line.194"></a>
+<span class="sourceLineNo">195</span>      }<a name="line.195"></a>
+<span class="sourceLineNo">196</span>      return null;<a name="line.196"></a>
+<span class="sourceLineNo">197</span>    }<a name="line.197"></a>
+<span class="sourceLineNo">198</span>  }<a name="line.198"></a>
+<span class="sourceLineNo">199</span><a name="line.199"></a>
+<span class="sourceLineNo">200</span>}<a name="line.200"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

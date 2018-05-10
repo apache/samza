@@ -1,0 +1,594 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/**<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Licensed to the Apache Software Foundation (ASF) under one<a name="line.2"></a>
+<span class="sourceLineNo">003</span> * or more contributor license agreements.  See the NOTICE file<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * distributed with this work for additional information<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * regarding copyright ownership.  The ASF licenses this file<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * to you under the Apache License, Version 2.0 (the<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * "License"); you may not use this file except in compliance<a name="line.7"></a>
+<span class="sourceLineNo">008</span> * with the License.  You may obtain a copy of the License at<a name="line.8"></a>
+<span class="sourceLineNo">009</span> *<a name="line.9"></a>
+<span class="sourceLineNo">010</span> *     http://www.apache.org/licenses/LICENSE-2.0<a name="line.10"></a>
+<span class="sourceLineNo">011</span> *<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Unless required by applicable law or agreed to in writing, software<a name="line.12"></a>
+<span class="sourceLineNo">013</span> * distributed under the License is distributed on an "AS IS" BASIS,<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * See the License for the specific language governing permissions and<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * limitations under the License.<a name="line.16"></a>
+<span class="sourceLineNo">017</span> */<a name="line.17"></a>
+<span class="sourceLineNo">018</span><a name="line.18"></a>
+<span class="sourceLineNo">019</span>package org.apache.hadoop.mapred.pipes;<a name="line.19"></a>
+<span class="sourceLineNo">020</span><a name="line.20"></a>
+<span class="sourceLineNo">021</span>import java.io.IOException;<a name="line.21"></a>
+<span class="sourceLineNo">022</span>import java.net.URI;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import java.net.URISyntaxException;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import java.net.URL;<a name="line.24"></a>
+<span class="sourceLineNo">025</span>import java.net.URLClassLoader;<a name="line.25"></a>
+<span class="sourceLineNo">026</span>import java.security.AccessController;<a name="line.26"></a>
+<span class="sourceLineNo">027</span>import java.security.PrivilegedAction;<a name="line.27"></a>
+<span class="sourceLineNo">028</span>import java.util.StringTokenizer;<a name="line.28"></a>
+<span class="sourceLineNo">029</span><a name="line.29"></a>
+<span class="sourceLineNo">030</span>import org.apache.commons.cli.BasicParser;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import org.apache.commons.cli.CommandLine;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import org.apache.commons.cli.Option;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import org.apache.commons.cli.OptionBuilder;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import org.apache.commons.cli.Options;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import org.apache.commons.cli.ParseException;<a name="line.35"></a>
+<span class="sourceLineNo">036</span>import org.apache.commons.cli.Parser;<a name="line.36"></a>
+<span class="sourceLineNo">037</span>import org.apache.commons.logging.Log;<a name="line.37"></a>
+<span class="sourceLineNo">038</span>import org.apache.commons.logging.LogFactory;<a name="line.38"></a>
+<span class="sourceLineNo">039</span>import org.apache.hadoop.classification.InterfaceAudience;<a name="line.39"></a>
+<span class="sourceLineNo">040</span>import org.apache.hadoop.classification.InterfaceStability;<a name="line.40"></a>
+<span class="sourceLineNo">041</span>import org.apache.hadoop.conf.Configuration;<a name="line.41"></a>
+<span class="sourceLineNo">042</span>import org.apache.hadoop.conf.Configured;<a name="line.42"></a>
+<span class="sourceLineNo">043</span>import org.apache.hadoop.fs.FileSystem;<a name="line.43"></a>
+<span class="sourceLineNo">044</span>import org.apache.hadoop.fs.Path;<a name="line.44"></a>
+<span class="sourceLineNo">045</span>import org.apache.hadoop.io.Text;<a name="line.45"></a>
+<span class="sourceLineNo">046</span>import org.apache.hadoop.mapred.FileInputFormat;<a name="line.46"></a>
+<span class="sourceLineNo">047</span>import org.apache.hadoop.mapred.FileOutputFormat;<a name="line.47"></a>
+<span class="sourceLineNo">048</span>import org.apache.hadoop.mapred.InputFormat;<a name="line.48"></a>
+<span class="sourceLineNo">049</span>import org.apache.hadoop.mapred.JobClient;<a name="line.49"></a>
+<span class="sourceLineNo">050</span>import org.apache.hadoop.mapred.JobConf;<a name="line.50"></a>
+<span class="sourceLineNo">051</span>import org.apache.hadoop.mapred.Mapper;<a name="line.51"></a>
+<span class="sourceLineNo">052</span>import org.apache.hadoop.mapred.OutputFormat;<a name="line.52"></a>
+<span class="sourceLineNo">053</span>import org.apache.hadoop.mapred.Partitioner;<a name="line.53"></a>
+<span class="sourceLineNo">054</span>import org.apache.hadoop.mapred.Reducer;<a name="line.54"></a>
+<span class="sourceLineNo">055</span>import org.apache.hadoop.mapred.RunningJob;<a name="line.55"></a>
+<span class="sourceLineNo">056</span>import org.apache.hadoop.mapred.lib.HashPartitioner;<a name="line.56"></a>
+<span class="sourceLineNo">057</span>import org.apache.hadoop.mapred.lib.LazyOutputFormat;<a name="line.57"></a>
+<span class="sourceLineNo">058</span>import org.apache.hadoop.mapred.lib.NullOutputFormat;<a name="line.58"></a>
+<span class="sourceLineNo">059</span>import org.apache.hadoop.mapreduce.MRJobConfig;<a name="line.59"></a>
+<span class="sourceLineNo">060</span>import org.apache.hadoop.mapreduce.filecache.DistributedCache;<a name="line.60"></a>
+<span class="sourceLineNo">061</span>import org.apache.hadoop.util.ExitUtil;<a name="line.61"></a>
+<span class="sourceLineNo">062</span>import org.apache.hadoop.util.GenericOptionsParser;<a name="line.62"></a>
+<span class="sourceLineNo">063</span>import org.apache.hadoop.util.Tool;<a name="line.63"></a>
+<span class="sourceLineNo">064</span><a name="line.64"></a>
+<span class="sourceLineNo">065</span>/**<a name="line.65"></a>
+<span class="sourceLineNo">066</span> * The main entry point and job submitter. It may either be used as a command<a name="line.66"></a>
+<span class="sourceLineNo">067</span> * line-based or API-based method to launch Pipes jobs.<a name="line.67"></a>
+<span class="sourceLineNo">068</span> */<a name="line.68"></a>
+<span class="sourceLineNo">069</span>@InterfaceAudience.Public<a name="line.69"></a>
+<span class="sourceLineNo">070</span>@InterfaceStability.Stable<a name="line.70"></a>
+<span class="sourceLineNo">071</span>public class Submitter extends Configured implements Tool {<a name="line.71"></a>
+<span class="sourceLineNo">072</span><a name="line.72"></a>
+<span class="sourceLineNo">073</span>  protected static final Log LOG = LogFactory.getLog(Submitter.class);<a name="line.73"></a>
+<span class="sourceLineNo">074</span>  public static final String PRESERVE_COMMANDFILE = <a name="line.74"></a>
+<span class="sourceLineNo">075</span>    "mapreduce.pipes.commandfile.preserve";<a name="line.75"></a>
+<span class="sourceLineNo">076</span>  public static final String EXECUTABLE = "mapreduce.pipes.executable";<a name="line.76"></a>
+<span class="sourceLineNo">077</span>  public static final String INTERPRETOR = <a name="line.77"></a>
+<span class="sourceLineNo">078</span>    "mapreduce.pipes.executable.interpretor";<a name="line.78"></a>
+<span class="sourceLineNo">079</span>  public static final String IS_JAVA_MAP = "mapreduce.pipes.isjavamapper";<a name="line.79"></a>
+<span class="sourceLineNo">080</span>  public static final String IS_JAVA_RR = "mapreduce.pipes.isjavarecordreader";<a name="line.80"></a>
+<span class="sourceLineNo">081</span>  public static final String IS_JAVA_RW = "mapreduce.pipes.isjavarecordwriter";<a name="line.81"></a>
+<span class="sourceLineNo">082</span>  public static final String IS_JAVA_REDUCE = "mapreduce.pipes.isjavareducer";<a name="line.82"></a>
+<span class="sourceLineNo">083</span>  public static final String PARTITIONER = "mapreduce.pipes.partitioner";<a name="line.83"></a>
+<span class="sourceLineNo">084</span>  public static final String INPUT_FORMAT = "mapreduce.pipes.inputformat";<a name="line.84"></a>
+<span class="sourceLineNo">085</span>  public static final String PORT = "mapreduce.pipes.command.port";<a name="line.85"></a>
+<span class="sourceLineNo">086</span>  <a name="line.86"></a>
+<span class="sourceLineNo">087</span>  public Submitter() {<a name="line.87"></a>
+<span class="sourceLineNo">088</span>    this(new Configuration());<a name="line.88"></a>
+<span class="sourceLineNo">089</span>  }<a name="line.89"></a>
+<span class="sourceLineNo">090</span>  <a name="line.90"></a>
+<span class="sourceLineNo">091</span>  public Submitter(Configuration conf) {<a name="line.91"></a>
+<span class="sourceLineNo">092</span>    setConf(conf);<a name="line.92"></a>
+<span class="sourceLineNo">093</span>  }<a name="line.93"></a>
+<span class="sourceLineNo">094</span>  <a name="line.94"></a>
+<span class="sourceLineNo">095</span>  /**<a name="line.95"></a>
+<span class="sourceLineNo">096</span>   * Get the URI of the application's executable.<a name="line.96"></a>
+<span class="sourceLineNo">097</span>   * @param conf<a name="line.97"></a>
+<span class="sourceLineNo">098</span>   * @return the URI where the application's executable is located<a name="line.98"></a>
+<span class="sourceLineNo">099</span>   */<a name="line.99"></a>
+<span class="sourceLineNo">100</span>  public static String getExecutable(JobConf conf) {<a name="line.100"></a>
+<span class="sourceLineNo">101</span>    return conf.get(Submitter.EXECUTABLE);<a name="line.101"></a>
+<span class="sourceLineNo">102</span>  }<a name="line.102"></a>
+<span class="sourceLineNo">103</span><a name="line.103"></a>
+<span class="sourceLineNo">104</span>  /**<a name="line.104"></a>
+<span class="sourceLineNo">105</span>   * Set the URI for the application's executable. Normally this is a hdfs: <a name="line.105"></a>
+<span class="sourceLineNo">106</span>   * location.<a name="line.106"></a>
+<span class="sourceLineNo">107</span>   * @param conf<a name="line.107"></a>
+<span class="sourceLineNo">108</span>   * @param executable The URI of the application's executable.<a name="line.108"></a>
+<span class="sourceLineNo">109</span>   */<a name="line.109"></a>
+<span class="sourceLineNo">110</span>  public static void setExecutable(JobConf conf, String executable) {<a name="line.110"></a>
+<span class="sourceLineNo">111</span>    conf.set(Submitter.EXECUTABLE, executable);<a name="line.111"></a>
+<span class="sourceLineNo">112</span>  }<a name="line.112"></a>
+<span class="sourceLineNo">113</span><a name="line.113"></a>
+<span class="sourceLineNo">114</span>  /**<a name="line.114"></a>
+<span class="sourceLineNo">115</span>   * Set whether the job is using a Java RecordReader.<a name="line.115"></a>
+<span class="sourceLineNo">116</span>   * @param conf the configuration to modify<a name="line.116"></a>
+<span class="sourceLineNo">117</span>   * @param value the new value<a name="line.117"></a>
+<span class="sourceLineNo">118</span>   */<a name="line.118"></a>
+<span class="sourceLineNo">119</span>  public static void setIsJavaRecordReader(JobConf conf, boolean value) {<a name="line.119"></a>
+<span class="sourceLineNo">120</span>    conf.setBoolean(Submitter.IS_JAVA_RR, value);<a name="line.120"></a>
+<span class="sourceLineNo">121</span>  }<a name="line.121"></a>
+<span class="sourceLineNo">122</span><a name="line.122"></a>
+<span class="sourceLineNo">123</span>  /**<a name="line.123"></a>
+<span class="sourceLineNo">124</span>   * Check whether the job is using a Java RecordReader<a name="line.124"></a>
+<span class="sourceLineNo">125</span>   * @param conf the configuration to check<a name="line.125"></a>
+<span class="sourceLineNo">126</span>   * @return is it a Java RecordReader?<a name="line.126"></a>
+<span class="sourceLineNo">127</span>   */<a name="line.127"></a>
+<span class="sourceLineNo">128</span>  public static boolean getIsJavaRecordReader(JobConf conf) {<a name="line.128"></a>
+<span class="sourceLineNo">129</span>    return conf.getBoolean(Submitter.IS_JAVA_RR, false);<a name="line.129"></a>
+<span class="sourceLineNo">130</span>  }<a name="line.130"></a>
+<span class="sourceLineNo">131</span><a name="line.131"></a>
+<span class="sourceLineNo">132</span>  /**<a name="line.132"></a>
+<span class="sourceLineNo">133</span>   * Set whether the Mapper is written in Java.<a name="line.133"></a>
+<span class="sourceLineNo">134</span>   * @param conf the configuration to modify<a name="line.134"></a>
+<span class="sourceLineNo">135</span>   * @param value the new value<a name="line.135"></a>
+<span class="sourceLineNo">136</span>   */<a name="line.136"></a>
+<span class="sourceLineNo">137</span>  public static void setIsJavaMapper(JobConf conf, boolean value) {<a name="line.137"></a>
+<span class="sourceLineNo">138</span>    conf.setBoolean(Submitter.IS_JAVA_MAP, value);<a name="line.138"></a>
+<span class="sourceLineNo">139</span>  }<a name="line.139"></a>
+<span class="sourceLineNo">140</span><a name="line.140"></a>
+<span class="sourceLineNo">141</span>  /**<a name="line.141"></a>
+<span class="sourceLineNo">142</span>   * Check whether the job is using a Java Mapper.<a name="line.142"></a>
+<span class="sourceLineNo">143</span>   * @param conf the configuration to check<a name="line.143"></a>
+<span class="sourceLineNo">144</span>   * @return is it a Java Mapper?<a name="line.144"></a>
+<span class="sourceLineNo">145</span>   */<a name="line.145"></a>
+<span class="sourceLineNo">146</span>  public static boolean getIsJavaMapper(JobConf conf) {<a name="line.146"></a>
+<span class="sourceLineNo">147</span>    return conf.getBoolean(Submitter.IS_JAVA_MAP, false);<a name="line.147"></a>
+<span class="sourceLineNo">148</span>  }<a name="line.148"></a>
+<span class="sourceLineNo">149</span><a name="line.149"></a>
+<span class="sourceLineNo">150</span>  /**<a name="line.150"></a>
+<span class="sourceLineNo">151</span>   * Set whether the Reducer is written in Java.<a name="line.151"></a>
+<span class="sourceLineNo">152</span>   * @param conf the configuration to modify<a name="line.152"></a>
+<span class="sourceLineNo">153</span>   * @param value the new value<a name="line.153"></a>
+<span class="sourceLineNo">154</span>   */<a name="line.154"></a>
+<span class="sourceLineNo">155</span>  public static void setIsJavaReducer(JobConf conf, boolean value) {<a name="line.155"></a>
+<span class="sourceLineNo">156</span>    conf.setBoolean(Submitter.IS_JAVA_REDUCE, value);<a name="line.156"></a>
+<span class="sourceLineNo">157</span>  }<a name="line.157"></a>
+<span class="sourceLineNo">158</span><a name="line.158"></a>
+<span class="sourceLineNo">159</span>  /**<a name="line.159"></a>
+<span class="sourceLineNo">160</span>   * Check whether the job is using a Java Reducer.<a name="line.160"></a>
+<span class="sourceLineNo">161</span>   * @param conf the configuration to check<a name="line.161"></a>
+<span class="sourceLineNo">162</span>   * @return is it a Java Reducer?<a name="line.162"></a>
+<span class="sourceLineNo">163</span>   */<a name="line.163"></a>
+<span class="sourceLineNo">164</span>  public static boolean getIsJavaReducer(JobConf conf) {<a name="line.164"></a>
+<span class="sourceLineNo">165</span>    return conf.getBoolean(Submitter.IS_JAVA_REDUCE, false);<a name="line.165"></a>
+<span class="sourceLineNo">166</span>  }<a name="line.166"></a>
+<span class="sourceLineNo">167</span><a name="line.167"></a>
+<span class="sourceLineNo">168</span>  /**<a name="line.168"></a>
+<span class="sourceLineNo">169</span>   * Set whether the job will use a Java RecordWriter.<a name="line.169"></a>
+<span class="sourceLineNo">170</span>   * @param conf the configuration to modify<a name="line.170"></a>
+<span class="sourceLineNo">171</span>   * @param value the new value to set<a name="line.171"></a>
+<span class="sourceLineNo">172</span>   */<a name="line.172"></a>
+<span class="sourceLineNo">173</span>  public static void setIsJavaRecordWriter(JobConf conf, boolean value) {<a name="line.173"></a>
+<span class="sourceLineNo">174</span>    conf.setBoolean(Submitter.IS_JAVA_RW, value);<a name="line.174"></a>
+<span class="sourceLineNo">175</span>  }<a name="line.175"></a>
+<span class="sourceLineNo">176</span><a name="line.176"></a>
+<span class="sourceLineNo">177</span>  /**<a name="line.177"></a>
+<span class="sourceLineNo">178</span>   * Will the reduce use a Java RecordWriter?<a name="line.178"></a>
+<span class="sourceLineNo">179</span>   * @param conf the configuration to check<a name="line.179"></a>
+<span class="sourceLineNo">180</span>   * @return true, if the output of the job will be written by Java<a name="line.180"></a>
+<span class="sourceLineNo">181</span>   */<a name="line.181"></a>
+<span class="sourceLineNo">182</span>  public static boolean getIsJavaRecordWriter(JobConf conf) {<a name="line.182"></a>
+<span class="sourceLineNo">183</span>    return conf.getBoolean(Submitter.IS_JAVA_RW, false);<a name="line.183"></a>
+<span class="sourceLineNo">184</span>  }<a name="line.184"></a>
+<span class="sourceLineNo">185</span><a name="line.185"></a>
+<span class="sourceLineNo">186</span>  /**<a name="line.186"></a>
+<span class="sourceLineNo">187</span>   * Set the configuration, if it doesn't already have a value for the given<a name="line.187"></a>
+<span class="sourceLineNo">188</span>   * key.<a name="line.188"></a>
+<span class="sourceLineNo">189</span>   * @param conf the configuration to modify<a name="line.189"></a>
+<span class="sourceLineNo">190</span>   * @param key the key to set<a name="line.190"></a>
+<span class="sourceLineNo">191</span>   * @param value the new "default" value to set<a name="line.191"></a>
+<span class="sourceLineNo">192</span>   */<a name="line.192"></a>
+<span class="sourceLineNo">193</span>  private static void setIfUnset(JobConf conf, String key, String value) {<a name="line.193"></a>
+<span class="sourceLineNo">194</span>    if (conf.get(key) == null) {<a name="line.194"></a>
+<span class="sourceLineNo">195</span>      conf.set(key, value);<a name="line.195"></a>
+<span class="sourceLineNo">196</span>    }<a name="line.196"></a>
+<span class="sourceLineNo">197</span>  }<a name="line.197"></a>
+<span class="sourceLineNo">198</span><a name="line.198"></a>
+<span class="sourceLineNo">199</span>  /**<a name="line.199"></a>
+<span class="sourceLineNo">200</span>   * Save away the user's original partitioner before we override it.<a name="line.200"></a>
+<span class="sourceLineNo">201</span>   * @param conf the configuration to modify<a name="line.201"></a>
+<span class="sourceLineNo">202</span>   * @param cls the user's partitioner class<a name="line.202"></a>
+<span class="sourceLineNo">203</span>   */<a name="line.203"></a>
+<span class="sourceLineNo">204</span>  static void setJavaPartitioner(JobConf conf, Class cls) {<a name="line.204"></a>
+<span class="sourceLineNo">205</span>    conf.set(Submitter.PARTITIONER, cls.getName());<a name="line.205"></a>
+<span class="sourceLineNo">206</span>  }<a name="line.206"></a>
+<span class="sourceLineNo">207</span>  <a name="line.207"></a>
+<span class="sourceLineNo">208</span>  /**<a name="line.208"></a>
+<span class="sourceLineNo">209</span>   * Get the user's original partitioner.<a name="line.209"></a>
+<span class="sourceLineNo">210</span>   * @param conf the configuration to look in<a name="line.210"></a>
+<span class="sourceLineNo">211</span>   * @return the class that the user submitted<a name="line.211"></a>
+<span class="sourceLineNo">212</span>   */<a name="line.212"></a>
+<span class="sourceLineNo">213</span>  static Class&lt;? extends Partitioner&gt; getJavaPartitioner(JobConf conf) {<a name="line.213"></a>
+<span class="sourceLineNo">214</span>    return conf.getClass(Submitter.PARTITIONER, <a name="line.214"></a>
+<span class="sourceLineNo">215</span>                         HashPartitioner.class,<a name="line.215"></a>
+<span class="sourceLineNo">216</span>                         Partitioner.class);<a name="line.216"></a>
+<span class="sourceLineNo">217</span>  }<a name="line.217"></a>
+<span class="sourceLineNo">218</span><a name="line.218"></a>
+<span class="sourceLineNo">219</span>  /**<a name="line.219"></a>
+<span class="sourceLineNo">220</span>   * Does the user want to keep the command file for debugging? If this is<a name="line.220"></a>
+<span class="sourceLineNo">221</span>   * true, pipes will write a copy of the command data to a file in the<a name="line.221"></a>
+<span class="sourceLineNo">222</span>   * task directory named "downlink.data", which may be used to run the C++<a name="line.222"></a>
+<span class="sourceLineNo">223</span>   * program under the debugger. You probably also want to set <a name="line.223"></a>
+<span class="sourceLineNo">224</span>   * JobConf.setKeepFailedTaskFiles(true) to keep the entire directory from<a name="line.224"></a>
+<span class="sourceLineNo">225</span>   * being deleted.<a name="line.225"></a>
+<span class="sourceLineNo">226</span>   * To run using the data file, set the environment variable <a name="line.226"></a>
+<span class="sourceLineNo">227</span>   * "mapreduce.pipes.commandfile" to point to the file.<a name="line.227"></a>
+<span class="sourceLineNo">228</span>   * @param conf the configuration to check<a name="line.228"></a>
+<span class="sourceLineNo">229</span>   * @return will the framework save the command file?<a name="line.229"></a>
+<span class="sourceLineNo">230</span>   */<a name="line.230"></a>
+<span class="sourceLineNo">231</span>  public static boolean getKeepCommandFile(JobConf conf) {<a name="line.231"></a>
+<span class="sourceLineNo">232</span>    return conf.getBoolean(Submitter.PRESERVE_COMMANDFILE, false);<a name="line.232"></a>
+<span class="sourceLineNo">233</span>  }<a name="line.233"></a>
+<span class="sourceLineNo">234</span><a name="line.234"></a>
+<span class="sourceLineNo">235</span>  /**<a name="line.235"></a>
+<span class="sourceLineNo">236</span>   * Set whether to keep the command file for debugging<a name="line.236"></a>
+<span class="sourceLineNo">237</span>   * @param conf the configuration to modify<a name="line.237"></a>
+<span class="sourceLineNo">238</span>   * @param keep the new value<a name="line.238"></a>
+<span class="sourceLineNo">239</span>   */<a name="line.239"></a>
+<span class="sourceLineNo">240</span>  public static void setKeepCommandFile(JobConf conf, boolean keep) {<a name="line.240"></a>
+<span class="sourceLineNo">241</span>    conf.setBoolean(Submitter.PRESERVE_COMMANDFILE, keep);<a name="line.241"></a>
+<span class="sourceLineNo">242</span>  }<a name="line.242"></a>
+<span class="sourceLineNo">243</span><a name="line.243"></a>
+<span class="sourceLineNo">244</span>  /**<a name="line.244"></a>
+<span class="sourceLineNo">245</span>   * Submit a job to the map/reduce cluster. All of the necessary modifications<a name="line.245"></a>
+<span class="sourceLineNo">246</span>   * to the job to run under pipes are made to the configuration.<a name="line.246"></a>
+<span class="sourceLineNo">247</span>   * @param conf the job to submit to the cluster (MODIFIED)<a name="line.247"></a>
+<span class="sourceLineNo">248</span>   * @throws IOException<a name="line.248"></a>
+<span class="sourceLineNo">249</span>   * @deprecated Use {@link Submitter#runJob(JobConf)}<a name="line.249"></a>
+<span class="sourceLineNo">250</span>   */<a name="line.250"></a>
+<span class="sourceLineNo">251</span>  @Deprecated<a name="line.251"></a>
+<span class="sourceLineNo">252</span>  public static RunningJob submitJob(JobConf conf) throws IOException {<a name="line.252"></a>
+<span class="sourceLineNo">253</span>    return runJob(conf);<a name="line.253"></a>
+<span class="sourceLineNo">254</span>  }<a name="line.254"></a>
+<span class="sourceLineNo">255</span><a name="line.255"></a>
+<span class="sourceLineNo">256</span>  /**<a name="line.256"></a>
+<span class="sourceLineNo">257</span>   * Submit a job to the map/reduce cluster. All of the necessary modifications<a name="line.257"></a>
+<span class="sourceLineNo">258</span>   * to the job to run under pipes are made to the configuration.<a name="line.258"></a>
+<span class="sourceLineNo">259</span>   * @param conf the job to submit to the cluster (MODIFIED)<a name="line.259"></a>
+<span class="sourceLineNo">260</span>   * @throws IOException<a name="line.260"></a>
+<span class="sourceLineNo">261</span>   */<a name="line.261"></a>
+<span class="sourceLineNo">262</span>  public static RunningJob runJob(JobConf conf) throws IOException {<a name="line.262"></a>
+<span class="sourceLineNo">263</span>    setupPipesJob(conf);<a name="line.263"></a>
+<span class="sourceLineNo">264</span>    return JobClient.runJob(conf);<a name="line.264"></a>
+<span class="sourceLineNo">265</span>  }<a name="line.265"></a>
+<span class="sourceLineNo">266</span><a name="line.266"></a>
+<span class="sourceLineNo">267</span>  /**<a name="line.267"></a>
+<span class="sourceLineNo">268</span>   * Submit a job to the Map-Reduce framework.<a name="line.268"></a>
+<span class="sourceLineNo">269</span>   * This returns a handle to the {@link RunningJob} which can be used to track<a name="line.269"></a>
+<span class="sourceLineNo">270</span>   * the running-job.<a name="line.270"></a>
+<span class="sourceLineNo">271</span>   * <a name="line.271"></a>
+<span class="sourceLineNo">272</span>   * @param conf the job configuration.<a name="line.272"></a>
+<span class="sourceLineNo">273</span>   * @return a handle to the {@link RunningJob} which can be used to track the<a name="line.273"></a>
+<span class="sourceLineNo">274</span>   *         running-job.<a name="line.274"></a>
+<span class="sourceLineNo">275</span>   * @throws IOException<a name="line.275"></a>
+<span class="sourceLineNo">276</span>   */<a name="line.276"></a>
+<span class="sourceLineNo">277</span>  public static RunningJob jobSubmit(JobConf conf) throws IOException {<a name="line.277"></a>
+<span class="sourceLineNo">278</span>    setupPipesJob(conf);<a name="line.278"></a>
+<span class="sourceLineNo">279</span>    return new JobClient(conf).submitJob(conf);<a name="line.279"></a>
+<span class="sourceLineNo">280</span>  }<a name="line.280"></a>
+<span class="sourceLineNo">281</span>  <a name="line.281"></a>
+<span class="sourceLineNo">282</span>  private static void setupPipesJob(JobConf conf) throws IOException {<a name="line.282"></a>
+<span class="sourceLineNo">283</span>    // default map output types to Text<a name="line.283"></a>
+<span class="sourceLineNo">284</span>    if (!getIsJavaMapper(conf)) {<a name="line.284"></a>
+<span class="sourceLineNo">285</span>      conf.setMapRunnerClass(PipesMapRunner.class);<a name="line.285"></a>
+<span class="sourceLineNo">286</span>      // Save the user's partitioner and hook in our's.<a name="line.286"></a>
+<span class="sourceLineNo">287</span>      setJavaPartitioner(conf, conf.getPartitionerClass());<a name="line.287"></a>
+<span class="sourceLineNo">288</span>      conf.setPartitionerClass(PipesPartitioner.class);<a name="line.288"></a>
+<span class="sourceLineNo">289</span>    }<a name="line.289"></a>
+<span class="sourceLineNo">290</span>    if (!getIsJavaReducer(conf)) {<a name="line.290"></a>
+<span class="sourceLineNo">291</span>      conf.setReducerClass(PipesReducer.class);<a name="line.291"></a>
+<span class="sourceLineNo">292</span>      if (!getIsJavaRecordWriter(conf)) {<a name="line.292"></a>
+<span class="sourceLineNo">293</span>        conf.setOutputFormat(NullOutputFormat.class);<a name="line.293"></a>
+<span class="sourceLineNo">294</span>      }<a name="line.294"></a>
+<span class="sourceLineNo">295</span>    }<a name="line.295"></a>
+<span class="sourceLineNo">296</span>    String textClassname = Text.class.getName();<a name="line.296"></a>
+<span class="sourceLineNo">297</span>    setIfUnset(conf, MRJobConfig.MAP_OUTPUT_KEY_CLASS, textClassname);<a name="line.297"></a>
+<span class="sourceLineNo">298</span>    setIfUnset(conf, MRJobConfig.MAP_OUTPUT_VALUE_CLASS, textClassname);<a name="line.298"></a>
+<span class="sourceLineNo">299</span>    setIfUnset(conf, MRJobConfig.OUTPUT_KEY_CLASS, textClassname);<a name="line.299"></a>
+<span class="sourceLineNo">300</span>    setIfUnset(conf, MRJobConfig.OUTPUT_VALUE_CLASS, textClassname);<a name="line.300"></a>
+<span class="sourceLineNo">301</span>    <a name="line.301"></a>
+<span class="sourceLineNo">302</span>    // Use PipesNonJavaInputFormat if necessary to handle progress reporting<a name="line.302"></a>
+<span class="sourceLineNo">303</span>    // from C++ RecordReaders ...<a name="line.303"></a>
+<span class="sourceLineNo">304</span>    if (!getIsJavaRecordReader(conf) &amp;&amp; !getIsJavaMapper(conf)) {<a name="line.304"></a>
+<span class="sourceLineNo">305</span>      conf.setClass(Submitter.INPUT_FORMAT, <a name="line.305"></a>
+<span class="sourceLineNo">306</span>                    conf.getInputFormat().getClass(), InputFormat.class);<a name="line.306"></a>
+<span class="sourceLineNo">307</span>      conf.setInputFormat(PipesNonJavaInputFormat.class);<a name="line.307"></a>
+<span class="sourceLineNo">308</span>    }<a name="line.308"></a>
+<span class="sourceLineNo">309</span>    <a name="line.309"></a>
+<span class="sourceLineNo">310</span>    String exec = getExecutable(conf);<a name="line.310"></a>
+<span class="sourceLineNo">311</span>    if (exec == null) {<a name="line.311"></a>
+<span class="sourceLineNo">312</span>      throw new IllegalArgumentException("No application program defined.");<a name="line.312"></a>
+<span class="sourceLineNo">313</span>    }<a name="line.313"></a>
+<span class="sourceLineNo">314</span>    // add default debug script only when executable is expressed as<a name="line.314"></a>
+<span class="sourceLineNo">315</span>    // &lt;path&gt;#&lt;executable&gt;<a name="line.315"></a>
+<span class="sourceLineNo">316</span>    if (exec.contains("#")) {<a name="line.316"></a>
+<span class="sourceLineNo">317</span>      // set default gdb commands for map and reduce task <a name="line.317"></a>
+<span class="sourceLineNo">318</span>      String defScript = "$HADOOP_PREFIX/src/c++/pipes/debug/pipes-default-script";<a name="line.318"></a>
+<span class="sourceLineNo">319</span>      setIfUnset(conf, MRJobConfig.MAP_DEBUG_SCRIPT,defScript);<a name="line.319"></a>
+<span class="sourceLineNo">320</span>      setIfUnset(conf, MRJobConfig.REDUCE_DEBUG_SCRIPT,defScript);<a name="line.320"></a>
+<span class="sourceLineNo">321</span>    }<a name="line.321"></a>
+<span class="sourceLineNo">322</span>    URI[] fileCache = DistributedCache.getCacheFiles(conf);<a name="line.322"></a>
+<span class="sourceLineNo">323</span>    if (fileCache == null) {<a name="line.323"></a>
+<span class="sourceLineNo">324</span>      fileCache = new URI[1];<a name="line.324"></a>
+<span class="sourceLineNo">325</span>    } else {<a name="line.325"></a>
+<span class="sourceLineNo">326</span>      URI[] tmp = new URI[fileCache.length+1];<a name="line.326"></a>
+<span class="sourceLineNo">327</span>      System.arraycopy(fileCache, 0, tmp, 1, fileCache.length);<a name="line.327"></a>
+<span class="sourceLineNo">328</span>      fileCache = tmp;<a name="line.328"></a>
+<span class="sourceLineNo">329</span>    }<a name="line.329"></a>
+<span class="sourceLineNo">330</span>    try {<a name="line.330"></a>
+<span class="sourceLineNo">331</span>      fileCache[0] = new URI(exec);<a name="line.331"></a>
+<span class="sourceLineNo">332</span>    } catch (URISyntaxException e) {<a name="line.332"></a>
+<span class="sourceLineNo">333</span>      IOException ie = new IOException("Problem parsing execable URI " + exec);<a name="line.333"></a>
+<span class="sourceLineNo">334</span>      ie.initCause(e);<a name="line.334"></a>
+<span class="sourceLineNo">335</span>      throw ie;<a name="line.335"></a>
+<span class="sourceLineNo">336</span>    }<a name="line.336"></a>
+<span class="sourceLineNo">337</span>    DistributedCache.setCacheFiles(fileCache, conf);<a name="line.337"></a>
+<span class="sourceLineNo">338</span>  }<a name="line.338"></a>
+<span class="sourceLineNo">339</span><a name="line.339"></a>
+<span class="sourceLineNo">340</span>  /**<a name="line.340"></a>
+<span class="sourceLineNo">341</span>   * A command line parser for the CLI-based Pipes job submitter.<a name="line.341"></a>
+<span class="sourceLineNo">342</span>   */<a name="line.342"></a>
+<span class="sourceLineNo">343</span>  static class CommandLineParser {<a name="line.343"></a>
+<span class="sourceLineNo">344</span>    private Options options = new Options();<a name="line.344"></a>
+<span class="sourceLineNo">345</span>    <a name="line.345"></a>
+<span class="sourceLineNo">346</span>    void addOption(String longName, boolean required, String description, <a name="line.346"></a>
+<span class="sourceLineNo">347</span>                   String paramName) {<a name="line.347"></a>
+<span class="sourceLineNo">348</span>      Option option = OptionBuilder.withArgName(paramName).hasArgs(1).withDescription(description).isRequired(required).create(longName);<a name="line.348"></a>
+<span class="sourceLineNo">349</span>      options.addOption(option);<a name="line.349"></a>
+<span class="sourceLineNo">350</span>    }<a name="line.350"></a>
+<span class="sourceLineNo">351</span>    <a name="line.351"></a>
+<span class="sourceLineNo">352</span>    void addArgument(String name, boolean required, String description) {<a name="line.352"></a>
+<span class="sourceLineNo">353</span>      Option option = OptionBuilder.withArgName(name).hasArgs(1).withDescription(description).isRequired(required).create();<a name="line.353"></a>
+<span class="sourceLineNo">354</span>      options.addOption(option);<a name="line.354"></a>
+<span class="sourceLineNo">355</span><a name="line.355"></a>
+<span class="sourceLineNo">356</span>    }<a name="line.356"></a>
+<span class="sourceLineNo">357</span><a name="line.357"></a>
+<span class="sourceLineNo">358</span>    Parser createParser() {<a name="line.358"></a>
+<span class="sourceLineNo">359</span>      Parser result = new BasicParser();<a name="line.359"></a>
+<span class="sourceLineNo">360</span>      return result;<a name="line.360"></a>
+<span class="sourceLineNo">361</span>    }<a name="line.361"></a>
+<span class="sourceLineNo">362</span>    <a name="line.362"></a>
+<span class="sourceLineNo">363</span>    void printUsage() {<a name="line.363"></a>
+<span class="sourceLineNo">364</span>      // The CLI package should do this for us, but I can't figure out how<a name="line.364"></a>
+<span class="sourceLineNo">365</span>      // to make it print something reasonable.<a name="line.365"></a>
+<span class="sourceLineNo">366</span>      System.out.println("bin/hadoop pipes");<a name="line.366"></a>
+<span class="sourceLineNo">367</span>      System.out.println("  [-input &lt;path&gt;] // Input directory");<a name="line.367"></a>
+<span class="sourceLineNo">368</span>      System.out.println("  [-output &lt;path&gt;] // Output directory");<a name="line.368"></a>
+<span class="sourceLineNo">369</span>      System.out.println("  [-jar &lt;jar file&gt; // jar filename");<a name="line.369"></a>
+<span class="sourceLineNo">370</span>      System.out.println("  [-inputformat &lt;class&gt;] // InputFormat class");<a name="line.370"></a>
+<span class="sourceLineNo">371</span>      System.out.println("  [-map &lt;class&gt;] // Java Map class");<a name="line.371"></a>
+<span class="sourceLineNo">372</span>      System.out.println("  [-partitioner &lt;class&gt;] // Java Partitioner");<a name="line.372"></a>
+<span class="sourceLineNo">373</span>      System.out.println("  [-reduce &lt;class&gt;] // Java Reduce class");<a name="line.373"></a>
+<span class="sourceLineNo">374</span>      System.out.println("  [-writer &lt;class&gt;] // Java RecordWriter");<a name="line.374"></a>
+<span class="sourceLineNo">375</span>      System.out.println("  [-program &lt;executable&gt;] // executable URI");<a name="line.375"></a>
+<span class="sourceLineNo">376</span>      System.out.println("  [-reduces &lt;num&gt;] // number of reduces");<a name="line.376"></a>
+<span class="sourceLineNo">377</span>      System.out.println("  [-lazyOutput &lt;true/false&gt;] // createOutputLazily");<a name="line.377"></a>
+<span class="sourceLineNo">378</span>      System.out.println();<a name="line.378"></a>
+<span class="sourceLineNo">379</span>      GenericOptionsParser.printGenericCommandUsage(System.out);<a name="line.379"></a>
+<span class="sourceLineNo">380</span>    }<a name="line.380"></a>
+<span class="sourceLineNo">381</span>  }<a name="line.381"></a>
+<span class="sourceLineNo">382</span>  <a name="line.382"></a>
+<span class="sourceLineNo">383</span>  private static &lt;InterfaceType&gt; <a name="line.383"></a>
+<span class="sourceLineNo">384</span>  Class&lt;? extends InterfaceType&gt; getClass(CommandLine cl, String key, <a name="line.384"></a>
+<span class="sourceLineNo">385</span>                                          JobConf conf, <a name="line.385"></a>
+<span class="sourceLineNo">386</span>                                          Class&lt;InterfaceType&gt; cls<a name="line.386"></a>
+<span class="sourceLineNo">387</span>                                         ) throws ClassNotFoundException {<a name="line.387"></a>
+<span class="sourceLineNo">388</span>    return conf.getClassByName(cl.getOptionValue(key)).asSubclass(cls);<a name="line.388"></a>
+<span class="sourceLineNo">389</span>  }<a name="line.389"></a>
+<span class="sourceLineNo">390</span><a name="line.390"></a>
+<span class="sourceLineNo">391</span>  @Override<a name="line.391"></a>
+<span class="sourceLineNo">392</span>  public int run(String[] args) throws Exception {<a name="line.392"></a>
+<span class="sourceLineNo">393</span>    CommandLineParser cli = new CommandLineParser();<a name="line.393"></a>
+<span class="sourceLineNo">394</span>    if (args.length == 0) {<a name="line.394"></a>
+<span class="sourceLineNo">395</span>      cli.printUsage();<a name="line.395"></a>
+<span class="sourceLineNo">396</span>      return 1;<a name="line.396"></a>
+<span class="sourceLineNo">397</span>    }<a name="line.397"></a>
+<span class="sourceLineNo">398</span>    cli.addOption("input", false, "input path to the maps", "path");<a name="line.398"></a>
+<span class="sourceLineNo">399</span>    cli.addOption("output", false, "output path from the reduces", "path");<a name="line.399"></a>
+<span class="sourceLineNo">400</span>    <a name="line.400"></a>
+<span class="sourceLineNo">401</span>    cli.addOption("jar", false, "job jar file", "path");<a name="line.401"></a>
+<span class="sourceLineNo">402</span>    cli.addOption("inputformat", false, "java classname of InputFormat", <a name="line.402"></a>
+<span class="sourceLineNo">403</span>                  "class");<a name="line.403"></a>
+<span class="sourceLineNo">404</span>    //cli.addArgument("javareader", false, "is the RecordReader in Java");<a name="line.404"></a>
+<span class="sourceLineNo">405</span>    cli.addOption("map", false, "java classname of Mapper", "class");<a name="line.405"></a>
+<span class="sourceLineNo">406</span>    cli.addOption("partitioner", false, "java classname of Partitioner", <a name="line.406"></a>
+<span class="sourceLineNo">407</span>                  "class");<a name="line.407"></a>
+<span class="sourceLineNo">408</span>    cli.addOption("reduce", false, "java classname of Reducer", "class");<a name="line.408"></a>
+<span class="sourceLineNo">409</span>    cli.addOption("writer", false, "java classname of OutputFormat", "class");<a name="line.409"></a>
+<span class="sourceLineNo">410</span>    cli.addOption("program", false, "URI to application executable", "class");<a name="line.410"></a>
+<span class="sourceLineNo">411</span>    cli.addOption("reduces", false, "number of reduces", "num");<a name="line.411"></a>
+<span class="sourceLineNo">412</span>    cli.addOption("jobconf", false, <a name="line.412"></a>
+<span class="sourceLineNo">413</span>        "\"n1=v1,n2=v2,..\" (Deprecated) Optional. Add or override a JobConf property.",<a name="line.413"></a>
+<span class="sourceLineNo">414</span>        "key=val");<a name="line.414"></a>
+<span class="sourceLineNo">415</span>    cli.addOption("lazyOutput", false, "Optional. Create output lazily",<a name="line.415"></a>
+<span class="sourceLineNo">416</span>                  "boolean");<a name="line.416"></a>
+<span class="sourceLineNo">417</span>    Parser parser = cli.createParser();<a name="line.417"></a>
+<span class="sourceLineNo">418</span>    try {<a name="line.418"></a>
+<span class="sourceLineNo">419</span>      <a name="line.419"></a>
+<span class="sourceLineNo">420</span>      GenericOptionsParser genericParser = new GenericOptionsParser(getConf(), args);<a name="line.420"></a>
+<span class="sourceLineNo">421</span>      CommandLine results = parser.parse(cli.options, genericParser.getRemainingArgs());<a name="line.421"></a>
+<span class="sourceLineNo">422</span>      <a name="line.422"></a>
+<span class="sourceLineNo">423</span>      JobConf job = new JobConf(getConf());<a name="line.423"></a>
+<span class="sourceLineNo">424</span>      <a name="line.424"></a>
+<span class="sourceLineNo">425</span>      if (results.hasOption("input")) {<a name="line.425"></a>
+<span class="sourceLineNo">426</span>        FileInputFormat.setInputPaths(job, results.getOptionValue("input"));<a name="line.426"></a>
+<span class="sourceLineNo">427</span>      }<a name="line.427"></a>
+<span class="sourceLineNo">428</span>      if (results.hasOption("output")) {<a name="line.428"></a>
+<span class="sourceLineNo">429</span>        FileOutputFormat.setOutputPath(job, <a name="line.429"></a>
+<span class="sourceLineNo">430</span>          new Path(results.getOptionValue("output")));<a name="line.430"></a>
+<span class="sourceLineNo">431</span>      }<a name="line.431"></a>
+<span class="sourceLineNo">432</span>      if (results.hasOption("jar")) {<a name="line.432"></a>
+<span class="sourceLineNo">433</span>        job.setJar(results.getOptionValue("jar"));<a name="line.433"></a>
+<span class="sourceLineNo">434</span>      }<a name="line.434"></a>
+<span class="sourceLineNo">435</span>      if (results.hasOption("inputformat")) {<a name="line.435"></a>
+<span class="sourceLineNo">436</span>        setIsJavaRecordReader(job, true);<a name="line.436"></a>
+<span class="sourceLineNo">437</span>        job.setInputFormat(getClass(results, "inputformat", job,<a name="line.437"></a>
+<span class="sourceLineNo">438</span>                                     InputFormat.class));<a name="line.438"></a>
+<span class="sourceLineNo">439</span>      }<a name="line.439"></a>
+<span class="sourceLineNo">440</span>      if (results.hasOption("javareader")) {<a name="line.440"></a>
+<span class="sourceLineNo">441</span>        setIsJavaRecordReader(job, true);<a name="line.441"></a>
+<span class="sourceLineNo">442</span>      }<a name="line.442"></a>
+<span class="sourceLineNo">443</span>      if (results.hasOption("map")) {<a name="line.443"></a>
+<span class="sourceLineNo">444</span>        setIsJavaMapper(job, true);<a name="line.444"></a>
+<span class="sourceLineNo">445</span>        job.setMapperClass(getClass(results, "map", job, Mapper.class));<a name="line.445"></a>
+<span class="sourceLineNo">446</span>      }<a name="line.446"></a>
+<span class="sourceLineNo">447</span>      if (results.hasOption("partitioner")) {<a name="line.447"></a>
+<span class="sourceLineNo">448</span>        job.setPartitionerClass(getClass(results, "partitioner", job,<a name="line.448"></a>
+<span class="sourceLineNo">449</span>                                          Partitioner.class));<a name="line.449"></a>
+<span class="sourceLineNo">450</span>      }<a name="line.450"></a>
+<span class="sourceLineNo">451</span>      if (results.hasOption("reduce")) {<a name="line.451"></a>
+<span class="sourceLineNo">452</span>        setIsJavaReducer(job, true);<a name="line.452"></a>
+<span class="sourceLineNo">453</span>        job.setReducerClass(getClass(results, "reduce", job, Reducer.class));<a name="line.453"></a>
+<span class="sourceLineNo">454</span>      }<a name="line.454"></a>
+<span class="sourceLineNo">455</span>      if (results.hasOption("reduces")) {<a name="line.455"></a>
+<span class="sourceLineNo">456</span>        job.setNumReduceTasks(Integer.parseInt( <a name="line.456"></a>
+<span class="sourceLineNo">457</span>                                           results.getOptionValue("reduces")));<a name="line.457"></a>
+<span class="sourceLineNo">458</span>      }<a name="line.458"></a>
+<span class="sourceLineNo">459</span>      if (results.hasOption("writer")) {<a name="line.459"></a>
+<span class="sourceLineNo">460</span>        setIsJavaRecordWriter(job, true);<a name="line.460"></a>
+<span class="sourceLineNo">461</span>        job.setOutputFormat(getClass(results, "writer", job, <a name="line.461"></a>
+<span class="sourceLineNo">462</span>                                      OutputFormat.class));<a name="line.462"></a>
+<span class="sourceLineNo">463</span>      }<a name="line.463"></a>
+<span class="sourceLineNo">464</span>      <a name="line.464"></a>
+<span class="sourceLineNo">465</span>      if (results.hasOption("lazyOutput")) {<a name="line.465"></a>
+<span class="sourceLineNo">466</span>        if (Boolean.parseBoolean(results.getOptionValue("lazyOutput"))) {<a name="line.466"></a>
+<span class="sourceLineNo">467</span>          LazyOutputFormat.setOutputFormatClass(job,<a name="line.467"></a>
+<span class="sourceLineNo">468</span>              job.getOutputFormat().getClass());<a name="line.468"></a>
+<span class="sourceLineNo">469</span>        }<a name="line.469"></a>
+<span class="sourceLineNo">470</span>      }<a name="line.470"></a>
+<span class="sourceLineNo">471</span>      <a name="line.471"></a>
+<span class="sourceLineNo">472</span>      if (results.hasOption("program")) {<a name="line.472"></a>
+<span class="sourceLineNo">473</span>        setExecutable(job, results.getOptionValue("program"));<a name="line.473"></a>
+<span class="sourceLineNo">474</span>      }<a name="line.474"></a>
+<span class="sourceLineNo">475</span>      if (results.hasOption("jobconf")) {<a name="line.475"></a>
+<span class="sourceLineNo">476</span>        LOG.warn("-jobconf option is deprecated, please use -D instead.");<a name="line.476"></a>
+<span class="sourceLineNo">477</span>        String options = results.getOptionValue("jobconf");<a name="line.477"></a>
+<span class="sourceLineNo">478</span>        StringTokenizer tokenizer = new StringTokenizer(options, ",");<a name="line.478"></a>
+<span class="sourceLineNo">479</span>        while (tokenizer.hasMoreTokens()) {<a name="line.479"></a>
+<span class="sourceLineNo">480</span>          String keyVal = tokenizer.nextToken().trim();<a name="line.480"></a>
+<span class="sourceLineNo">481</span>          String[] keyValSplit = keyVal.split("=");<a name="line.481"></a>
+<span class="sourceLineNo">482</span>          job.set(keyValSplit[0], keyValSplit[1]);<a name="line.482"></a>
+<span class="sourceLineNo">483</span>        }<a name="line.483"></a>
+<span class="sourceLineNo">484</span>      }<a name="line.484"></a>
+<span class="sourceLineNo">485</span>      // if they gave us a jar file, include it into the class path<a name="line.485"></a>
+<span class="sourceLineNo">486</span>      String jarFile = job.getJar();<a name="line.486"></a>
+<span class="sourceLineNo">487</span>      if (jarFile != null) {<a name="line.487"></a>
+<span class="sourceLineNo">488</span>        final URL[] urls = new URL[]{ FileSystem.getLocal(job).<a name="line.488"></a>
+<span class="sourceLineNo">489</span>            pathToFile(new Path(jarFile)).toURL()};<a name="line.489"></a>
+<span class="sourceLineNo">490</span>        //FindBugs complains that creating a URLClassLoader should be<a name="line.490"></a>
+<span class="sourceLineNo">491</span>        //in a doPrivileged() block. <a name="line.491"></a>
+<span class="sourceLineNo">492</span>        ClassLoader loader =<a name="line.492"></a>
+<span class="sourceLineNo">493</span>          AccessController.doPrivileged(<a name="line.493"></a>
+<span class="sourceLineNo">494</span>              new PrivilegedAction&lt;ClassLoader&gt;() {<a name="line.494"></a>
+<span class="sourceLineNo">495</span>                public ClassLoader run() {<a name="line.495"></a>
+<span class="sourceLineNo">496</span>                  return new URLClassLoader(urls);<a name="line.496"></a>
+<span class="sourceLineNo">497</span>                }<a name="line.497"></a>
+<span class="sourceLineNo">498</span>              }<a name="line.498"></a>
+<span class="sourceLineNo">499</span>            );<a name="line.499"></a>
+<span class="sourceLineNo">500</span>        job.setClassLoader(loader);<a name="line.500"></a>
+<span class="sourceLineNo">501</span>      }<a name="line.501"></a>
+<span class="sourceLineNo">502</span>      <a name="line.502"></a>
+<span class="sourceLineNo">503</span>      runJob(job);<a name="line.503"></a>
+<span class="sourceLineNo">504</span>      return 0;<a name="line.504"></a>
+<span class="sourceLineNo">505</span>    } catch (ParseException pe) {<a name="line.505"></a>
+<span class="sourceLineNo">506</span>      LOG.info("Error : " + pe);<a name="line.506"></a>
+<span class="sourceLineNo">507</span>      cli.printUsage();<a name="line.507"></a>
+<span class="sourceLineNo">508</span>      return 1;<a name="line.508"></a>
+<span class="sourceLineNo">509</span>    }<a name="line.509"></a>
+<span class="sourceLineNo">510</span>    <a name="line.510"></a>
+<span class="sourceLineNo">511</span>  }<a name="line.511"></a>
+<span class="sourceLineNo">512</span>  <a name="line.512"></a>
+<span class="sourceLineNo">513</span>  /**<a name="line.513"></a>
+<span class="sourceLineNo">514</span>   * Submit a pipes job based on the command line arguments.<a name="line.514"></a>
+<span class="sourceLineNo">515</span>   * @param args<a name="line.515"></a>
+<span class="sourceLineNo">516</span>   */<a name="line.516"></a>
+<span class="sourceLineNo">517</span>  public static void main(String[] args) throws Exception {<a name="line.517"></a>
+<span class="sourceLineNo">518</span>    int exitCode =  new Submitter().run(args);<a name="line.518"></a>
+<span class="sourceLineNo">519</span>    ExitUtil.terminate(exitCode);<a name="line.519"></a>
+<span class="sourceLineNo">520</span>  }<a name="line.520"></a>
+<span class="sourceLineNo">521</span><a name="line.521"></a>
+<span class="sourceLineNo">522</span>}<a name="line.522"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

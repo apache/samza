@@ -1,0 +1,292 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/**<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Licensed to the Apache Software Foundation (ASF) under one<a name="line.2"></a>
+<span class="sourceLineNo">003</span> * or more contributor license agreements.  See the NOTICE file<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * distributed with this work for additional information<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * regarding copyright ownership.  The ASF licenses this file<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * to you under the Apache License, Version 2.0 (the<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * "License"); you may not use this file except in compliance<a name="line.7"></a>
+<span class="sourceLineNo">008</span> * with the License.  You may obtain a copy of the License at<a name="line.8"></a>
+<span class="sourceLineNo">009</span> *<a name="line.9"></a>
+<span class="sourceLineNo">010</span> *     http://www.apache.org/licenses/LICENSE-2.0<a name="line.10"></a>
+<span class="sourceLineNo">011</span> *<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Unless required by applicable law or agreed to in writing, software<a name="line.12"></a>
+<span class="sourceLineNo">013</span> * distributed under the License is distributed on an "AS IS" BASIS,<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * See the License for the specific language governing permissions and<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * limitations under the License.<a name="line.16"></a>
+<span class="sourceLineNo">017</span> */<a name="line.17"></a>
+<span class="sourceLineNo">018</span>package org.apache.hadoop.mapreduce.lib.chain;<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>import org.apache.hadoop.classification.InterfaceAudience;<a name="line.20"></a>
+<span class="sourceLineNo">021</span>import org.apache.hadoop.classification.InterfaceStability;<a name="line.21"></a>
+<span class="sourceLineNo">022</span>import org.apache.hadoop.conf.Configuration;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import org.apache.hadoop.mapreduce.Job;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import org.apache.hadoop.mapreduce.Mapper;<a name="line.24"></a>
+<span class="sourceLineNo">025</span>import org.apache.hadoop.mapreduce.Reducer;<a name="line.25"></a>
+<span class="sourceLineNo">026</span>import org.apache.hadoop.mapreduce.lib.chain.Chain.ChainBlockingQueue;<a name="line.26"></a>
+<span class="sourceLineNo">027</span><a name="line.27"></a>
+<span class="sourceLineNo">028</span>import java.io.IOException;<a name="line.28"></a>
+<span class="sourceLineNo">029</span><a name="line.29"></a>
+<span class="sourceLineNo">030</span>/**<a name="line.30"></a>
+<span class="sourceLineNo">031</span> * The ChainReducer class allows to chain multiple Mapper classes after a<a name="line.31"></a>
+<span class="sourceLineNo">032</span> * Reducer within the Reducer task.<a name="line.32"></a>
+<span class="sourceLineNo">033</span> * <a name="line.33"></a>
+<span class="sourceLineNo">034</span> * &lt;p&gt;<a name="line.34"></a>
+<span class="sourceLineNo">035</span> * For each record output by the Reducer, the Mapper classes are invoked in a<a name="line.35"></a>
+<span class="sourceLineNo">036</span> * chained (or piped) fashion. The output of the reducer becomes the input of<a name="line.36"></a>
+<span class="sourceLineNo">037</span> * the first mapper and output of first becomes the input of the second, and so<a name="line.37"></a>
+<span class="sourceLineNo">038</span> * on until the last Mapper, the output of the last Mapper will be written to<a name="line.38"></a>
+<span class="sourceLineNo">039</span> * the task's output.<a name="line.39"></a>
+<span class="sourceLineNo">040</span> * &lt;/p&gt;<a name="line.40"></a>
+<span class="sourceLineNo">041</span> * &lt;p&gt;<a name="line.41"></a>
+<span class="sourceLineNo">042</span> * The key functionality of this feature is that the Mappers in the chain do not<a name="line.42"></a>
+<span class="sourceLineNo">043</span> * need to be aware that they are executed after the Reducer or in a chain. This<a name="line.43"></a>
+<span class="sourceLineNo">044</span> * enables having reusable specialized Mappers that can be combined to perform<a name="line.44"></a>
+<span class="sourceLineNo">045</span> * composite operations within a single task.<a name="line.45"></a>
+<span class="sourceLineNo">046</span> * &lt;/p&gt;<a name="line.46"></a>
+<span class="sourceLineNo">047</span> * &lt;p&gt;<a name="line.47"></a>
+<span class="sourceLineNo">048</span> * Special care has to be taken when creating chains that the key/values output<a name="line.48"></a>
+<span class="sourceLineNo">049</span> * by a Mapper are valid for the following Mapper in the chain. It is assumed<a name="line.49"></a>
+<span class="sourceLineNo">050</span> * all Mappers and the Reduce in the chain use matching output and input key and<a name="line.50"></a>
+<span class="sourceLineNo">051</span> * value classes as no conversion is done by the chaining code.<a name="line.51"></a>
+<span class="sourceLineNo">052</span> * &lt;/p&gt;<a name="line.52"></a>
+<span class="sourceLineNo">053</span> * &lt;/p&gt; Using the ChainMapper and the ChainReducer classes is possible to<a name="line.53"></a>
+<span class="sourceLineNo">054</span> * compose Map/Reduce jobs that look like &lt;code&gt;[MAP+ / REDUCE MAP*]&lt;/code&gt;. And<a name="line.54"></a>
+<span class="sourceLineNo">055</span> * immediate benefit of this pattern is a dramatic reduction in disk IO. &lt;/p&gt;<a name="line.55"></a>
+<span class="sourceLineNo">056</span> * &lt;p&gt;<a name="line.56"></a>
+<span class="sourceLineNo">057</span> * IMPORTANT: There is no need to specify the output key/value classes for the<a name="line.57"></a>
+<span class="sourceLineNo">058</span> * ChainReducer, this is done by the setReducer or the addMapper for the last<a name="line.58"></a>
+<span class="sourceLineNo">059</span> * element in the chain.<a name="line.59"></a>
+<span class="sourceLineNo">060</span> * &lt;/p&gt;<a name="line.60"></a>
+<span class="sourceLineNo">061</span> * ChainReducer usage pattern:<a name="line.61"></a>
+<span class="sourceLineNo">062</span> * &lt;p/&gt;<a name="line.62"></a>
+<span class="sourceLineNo">063</span> * <a name="line.63"></a>
+<span class="sourceLineNo">064</span> * &lt;pre&gt;<a name="line.64"></a>
+<span class="sourceLineNo">065</span> * ...<a name="line.65"></a>
+<span class="sourceLineNo">066</span> * Job = new Job(conf);<a name="line.66"></a>
+<span class="sourceLineNo">067</span> * ....<a name="line.67"></a>
+<span class="sourceLineNo">068</span> * &lt;p/&gt;<a name="line.68"></a>
+<span class="sourceLineNo">069</span> * Configuration reduceConf = new Configuration(false);<a name="line.69"></a>
+<span class="sourceLineNo">070</span> * ...<a name="line.70"></a>
+<span class="sourceLineNo">071</span> * ChainReducer.setReducer(job, XReduce.class, LongWritable.class, Text.class,<a name="line.71"></a>
+<span class="sourceLineNo">072</span> *   Text.class, Text.class, true, reduceConf);<a name="line.72"></a>
+<span class="sourceLineNo">073</span> * &lt;p/&gt;<a name="line.73"></a>
+<span class="sourceLineNo">074</span> * ChainReducer.addMapper(job, CMap.class, Text.class, Text.class,<a name="line.74"></a>
+<span class="sourceLineNo">075</span> *   LongWritable.class, Text.class, false, null);<a name="line.75"></a>
+<span class="sourceLineNo">076</span> * &lt;p/&gt;<a name="line.76"></a>
+<span class="sourceLineNo">077</span> * ChainReducer.addMapper(job, DMap.class, LongWritable.class, Text.class,<a name="line.77"></a>
+<span class="sourceLineNo">078</span> *   LongWritable.class, LongWritable.class, true, null);<a name="line.78"></a>
+<span class="sourceLineNo">079</span> * &lt;p/&gt;<a name="line.79"></a>
+<span class="sourceLineNo">080</span> * ...<a name="line.80"></a>
+<span class="sourceLineNo">081</span> * &lt;p/&gt;<a name="line.81"></a>
+<span class="sourceLineNo">082</span> * job.waitForCompletion(true);<a name="line.82"></a>
+<span class="sourceLineNo">083</span> * ...<a name="line.83"></a>
+<span class="sourceLineNo">084</span> * &lt;/pre&gt;<a name="line.84"></a>
+<span class="sourceLineNo">085</span> */<a name="line.85"></a>
+<span class="sourceLineNo">086</span>@InterfaceAudience.Public<a name="line.86"></a>
+<span class="sourceLineNo">087</span>@InterfaceStability.Stable<a name="line.87"></a>
+<span class="sourceLineNo">088</span>public class ChainReducer&lt;KEYIN, VALUEIN, KEYOUT, VALUEOUT&gt; extends<a name="line.88"></a>
+<span class="sourceLineNo">089</span>    Reducer&lt;KEYIN, VALUEIN, KEYOUT, VALUEOUT&gt; {<a name="line.89"></a>
+<span class="sourceLineNo">090</span><a name="line.90"></a>
+<span class="sourceLineNo">091</span>  /**<a name="line.91"></a>
+<span class="sourceLineNo">092</span>   * Sets the {@link Reducer} class to the chain job.<a name="line.92"></a>
+<span class="sourceLineNo">093</span>   * <a name="line.93"></a>
+<span class="sourceLineNo">094</span>   * &lt;p&gt;<a name="line.94"></a>
+<span class="sourceLineNo">095</span>   * The key and values are passed from one element of the chain to the next, by<a name="line.95"></a>
+<span class="sourceLineNo">096</span>   * value. For the added Reducer the configuration given for it,<a name="line.96"></a>
+<span class="sourceLineNo">097</span>   * &lt;code&gt;reducerConf&lt;/code&gt;, have precedence over the job's Configuration.<a name="line.97"></a>
+<span class="sourceLineNo">098</span>   * This precedence is in effect when the task is running.<a name="line.98"></a>
+<span class="sourceLineNo">099</span>   * &lt;/p&gt;<a name="line.99"></a>
+<span class="sourceLineNo">100</span>   * &lt;p&gt;<a name="line.100"></a>
+<span class="sourceLineNo">101</span>   * IMPORTANT: There is no need to specify the output key/value classes for the<a name="line.101"></a>
+<span class="sourceLineNo">102</span>   * ChainReducer, this is done by the setReducer or the addMapper for the last<a name="line.102"></a>
+<span class="sourceLineNo">103</span>   * element in the chain.<a name="line.103"></a>
+<span class="sourceLineNo">104</span>   * &lt;/p&gt;<a name="line.104"></a>
+<span class="sourceLineNo">105</span>   * <a name="line.105"></a>
+<span class="sourceLineNo">106</span>   * @param job<a name="line.106"></a>
+<span class="sourceLineNo">107</span>   *          the job<a name="line.107"></a>
+<span class="sourceLineNo">108</span>   * @param klass<a name="line.108"></a>
+<span class="sourceLineNo">109</span>   *          the Reducer class to add.<a name="line.109"></a>
+<span class="sourceLineNo">110</span>   * @param inputKeyClass<a name="line.110"></a>
+<span class="sourceLineNo">111</span>   *          reducer input key class.<a name="line.111"></a>
+<span class="sourceLineNo">112</span>   * @param inputValueClass<a name="line.112"></a>
+<span class="sourceLineNo">113</span>   *          reducer input value class.<a name="line.113"></a>
+<span class="sourceLineNo">114</span>   * @param outputKeyClass<a name="line.114"></a>
+<span class="sourceLineNo">115</span>   *          reducer output key class.<a name="line.115"></a>
+<span class="sourceLineNo">116</span>   * @param outputValueClass<a name="line.116"></a>
+<span class="sourceLineNo">117</span>   *          reducer output value class.<a name="line.117"></a>
+<span class="sourceLineNo">118</span>   * @param reducerConf<a name="line.118"></a>
+<span class="sourceLineNo">119</span>   *          a configuration for the Reducer class. It is recommended to use a<a name="line.119"></a>
+<span class="sourceLineNo">120</span>   *          Configuration without default values using the<a name="line.120"></a>
+<span class="sourceLineNo">121</span>   *          &lt;code&gt;Configuration(boolean loadDefaults)&lt;/code&gt; constructor with<a name="line.121"></a>
+<span class="sourceLineNo">122</span>   *          FALSE.<a name="line.122"></a>
+<span class="sourceLineNo">123</span>   */<a name="line.123"></a>
+<span class="sourceLineNo">124</span>  public static void setReducer(Job job, Class&lt;? extends Reducer&gt; klass,<a name="line.124"></a>
+<span class="sourceLineNo">125</span>      Class&lt;?&gt; inputKeyClass, Class&lt;?&gt; inputValueClass,<a name="line.125"></a>
+<span class="sourceLineNo">126</span>      Class&lt;?&gt; outputKeyClass, Class&lt;?&gt; outputValueClass,<a name="line.126"></a>
+<span class="sourceLineNo">127</span>      Configuration reducerConf) {<a name="line.127"></a>
+<span class="sourceLineNo">128</span>    job.setReducerClass(ChainReducer.class);<a name="line.128"></a>
+<span class="sourceLineNo">129</span>    job.setOutputKeyClass(outputKeyClass);<a name="line.129"></a>
+<span class="sourceLineNo">130</span>    job.setOutputValueClass(outputValueClass);<a name="line.130"></a>
+<span class="sourceLineNo">131</span>    Chain.setReducer(job, klass, inputKeyClass, inputValueClass,<a name="line.131"></a>
+<span class="sourceLineNo">132</span>        outputKeyClass, outputValueClass, reducerConf);<a name="line.132"></a>
+<span class="sourceLineNo">133</span>  }<a name="line.133"></a>
+<span class="sourceLineNo">134</span><a name="line.134"></a>
+<span class="sourceLineNo">135</span>  /**<a name="line.135"></a>
+<span class="sourceLineNo">136</span>   * Adds a {@link Mapper} class to the chain reducer.<a name="line.136"></a>
+<span class="sourceLineNo">137</span>   * <a name="line.137"></a>
+<span class="sourceLineNo">138</span>   * &lt;p&gt;<a name="line.138"></a>
+<span class="sourceLineNo">139</span>   * The key and values are passed from one element of the chain to the next, by<a name="line.139"></a>
+<span class="sourceLineNo">140</span>   * value For the added Mapper the configuration given for it,<a name="line.140"></a>
+<span class="sourceLineNo">141</span>   * &lt;code&gt;mapperConf&lt;/code&gt;, have precedence over the job's Configuration. This<a name="line.141"></a>
+<span class="sourceLineNo">142</span>   * precedence is in effect when the task is running.<a name="line.142"></a>
+<span class="sourceLineNo">143</span>   * &lt;/p&gt;<a name="line.143"></a>
+<span class="sourceLineNo">144</span>   * &lt;p&gt;<a name="line.144"></a>
+<span class="sourceLineNo">145</span>   * IMPORTANT: There is no need to specify the output key/value classes for the<a name="line.145"></a>
+<span class="sourceLineNo">146</span>   * ChainMapper, this is done by the addMapper for the last mapper in the<a name="line.146"></a>
+<span class="sourceLineNo">147</span>   * chain.<a name="line.147"></a>
+<span class="sourceLineNo">148</span>   * &lt;/p&gt;<a name="line.148"></a>
+<span class="sourceLineNo">149</span>   * <a name="line.149"></a>
+<span class="sourceLineNo">150</span>   * @param job<a name="line.150"></a>
+<span class="sourceLineNo">151</span>   *          The job.<a name="line.151"></a>
+<span class="sourceLineNo">152</span>   * @param klass<a name="line.152"></a>
+<span class="sourceLineNo">153</span>   *          the Mapper class to add.<a name="line.153"></a>
+<span class="sourceLineNo">154</span>   * @param inputKeyClass<a name="line.154"></a>
+<span class="sourceLineNo">155</span>   *          mapper input key class.<a name="line.155"></a>
+<span class="sourceLineNo">156</span>   * @param inputValueClass<a name="line.156"></a>
+<span class="sourceLineNo">157</span>   *          mapper input value class.<a name="line.157"></a>
+<span class="sourceLineNo">158</span>   * @param outputKeyClass<a name="line.158"></a>
+<span class="sourceLineNo">159</span>   *          mapper output key class.<a name="line.159"></a>
+<span class="sourceLineNo">160</span>   * @param outputValueClass<a name="line.160"></a>
+<span class="sourceLineNo">161</span>   *          mapper output value class.<a name="line.161"></a>
+<span class="sourceLineNo">162</span>   * @param mapperConf<a name="line.162"></a>
+<span class="sourceLineNo">163</span>   *          a configuration for the Mapper class. It is recommended to use a<a name="line.163"></a>
+<span class="sourceLineNo">164</span>   *          Configuration without default values using the<a name="line.164"></a>
+<span class="sourceLineNo">165</span>   *          &lt;code&gt;Configuration(boolean loadDefaults)&lt;/code&gt; constructor with<a name="line.165"></a>
+<span class="sourceLineNo">166</span>   *          FALSE.<a name="line.166"></a>
+<span class="sourceLineNo">167</span>   */<a name="line.167"></a>
+<span class="sourceLineNo">168</span>  public static void addMapper(Job job, Class&lt;? extends Mapper&gt; klass,<a name="line.168"></a>
+<span class="sourceLineNo">169</span>      Class&lt;?&gt; inputKeyClass, Class&lt;?&gt; inputValueClass,<a name="line.169"></a>
+<span class="sourceLineNo">170</span>      Class&lt;?&gt; outputKeyClass, Class&lt;?&gt; outputValueClass,<a name="line.170"></a>
+<span class="sourceLineNo">171</span>      Configuration mapperConf) throws IOException {<a name="line.171"></a>
+<span class="sourceLineNo">172</span>    job.setOutputKeyClass(outputKeyClass);<a name="line.172"></a>
+<span class="sourceLineNo">173</span>    job.setOutputValueClass(outputValueClass);<a name="line.173"></a>
+<span class="sourceLineNo">174</span>    Chain.addMapper(false, job, klass, inputKeyClass, inputValueClass,<a name="line.174"></a>
+<span class="sourceLineNo">175</span>        outputKeyClass, outputValueClass, mapperConf);<a name="line.175"></a>
+<span class="sourceLineNo">176</span>  }<a name="line.176"></a>
+<span class="sourceLineNo">177</span><a name="line.177"></a>
+<span class="sourceLineNo">178</span>  private Chain chain;<a name="line.178"></a>
+<span class="sourceLineNo">179</span><a name="line.179"></a>
+<span class="sourceLineNo">180</span>  protected void setup(Context context) {<a name="line.180"></a>
+<span class="sourceLineNo">181</span>    chain = new Chain(false);<a name="line.181"></a>
+<span class="sourceLineNo">182</span>    chain.setup(context.getConfiguration());<a name="line.182"></a>
+<span class="sourceLineNo">183</span>  }<a name="line.183"></a>
+<span class="sourceLineNo">184</span><a name="line.184"></a>
+<span class="sourceLineNo">185</span>  public void run(Context context) throws IOException, InterruptedException {<a name="line.185"></a>
+<span class="sourceLineNo">186</span>    setup(context);<a name="line.186"></a>
+<span class="sourceLineNo">187</span><a name="line.187"></a>
+<span class="sourceLineNo">188</span>    // if no reducer is set, just do nothing<a name="line.188"></a>
+<span class="sourceLineNo">189</span>    if (chain.getReducer() == null) {<a name="line.189"></a>
+<span class="sourceLineNo">190</span>      return;<a name="line.190"></a>
+<span class="sourceLineNo">191</span>    }<a name="line.191"></a>
+<span class="sourceLineNo">192</span>    int numMappers = chain.getAllMappers().size();<a name="line.192"></a>
+<span class="sourceLineNo">193</span>    // if there are no mappers in chain, run the reducer<a name="line.193"></a>
+<span class="sourceLineNo">194</span>    if (numMappers == 0) {<a name="line.194"></a>
+<span class="sourceLineNo">195</span>      chain.runReducer(context);<a name="line.195"></a>
+<span class="sourceLineNo">196</span>      return;<a name="line.196"></a>
+<span class="sourceLineNo">197</span>    }<a name="line.197"></a>
+<span class="sourceLineNo">198</span><a name="line.198"></a>
+<span class="sourceLineNo">199</span>    // add reducer and all mappers with proper context<a name="line.199"></a>
+<span class="sourceLineNo">200</span>    ChainBlockingQueue&lt;Chain.KeyValuePair&lt;?, ?&gt;&gt; inputqueue;<a name="line.200"></a>
+<span class="sourceLineNo">201</span>    ChainBlockingQueue&lt;Chain.KeyValuePair&lt;?, ?&gt;&gt; outputqueue;<a name="line.201"></a>
+<span class="sourceLineNo">202</span>    // add reducer<a name="line.202"></a>
+<span class="sourceLineNo">203</span>    outputqueue = chain.createBlockingQueue();<a name="line.203"></a>
+<span class="sourceLineNo">204</span>    chain.addReducer(context, outputqueue);<a name="line.204"></a>
+<span class="sourceLineNo">205</span>    // add all mappers except last one<a name="line.205"></a>
+<span class="sourceLineNo">206</span>    for (int i = 0; i &lt; numMappers - 1; i++) {<a name="line.206"></a>
+<span class="sourceLineNo">207</span>      inputqueue = outputqueue;<a name="line.207"></a>
+<span class="sourceLineNo">208</span>      outputqueue = chain.createBlockingQueue();<a name="line.208"></a>
+<span class="sourceLineNo">209</span>      chain.addMapper(inputqueue, outputqueue, context, i);<a name="line.209"></a>
+<span class="sourceLineNo">210</span>    }<a name="line.210"></a>
+<span class="sourceLineNo">211</span>    // add last mapper<a name="line.211"></a>
+<span class="sourceLineNo">212</span>    chain.addMapper(outputqueue, context, numMappers - 1);<a name="line.212"></a>
+<span class="sourceLineNo">213</span><a name="line.213"></a>
+<span class="sourceLineNo">214</span>    // start all threads<a name="line.214"></a>
+<span class="sourceLineNo">215</span>    chain.startAllThreads();<a name="line.215"></a>
+<span class="sourceLineNo">216</span>    <a name="line.216"></a>
+<span class="sourceLineNo">217</span>    // wait for all threads<a name="line.217"></a>
+<span class="sourceLineNo">218</span>    chain.joinAllThreads();<a name="line.218"></a>
+<span class="sourceLineNo">219</span>  }<a name="line.219"></a>
+<span class="sourceLineNo">220</span>}<a name="line.220"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

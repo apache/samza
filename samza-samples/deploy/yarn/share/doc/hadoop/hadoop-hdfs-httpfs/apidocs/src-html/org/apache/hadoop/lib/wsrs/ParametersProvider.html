@@ -1,0 +1,198 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/**<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Licensed to the Apache Software Foundation (ASF) under one<a name="line.2"></a>
+<span class="sourceLineNo">003</span> * or more contributor license agreements.  See the NOTICE file<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * distributed with this work for additional information<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * regarding copyright ownership.  The ASF licenses this file<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * to you under the Apache License, Version 2.0 (the<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * "License"); you may not use this file except in compliance<a name="line.7"></a>
+<span class="sourceLineNo">008</span> * with the License.  You may obtain a copy of the License at<a name="line.8"></a>
+<span class="sourceLineNo">009</span> *<a name="line.9"></a>
+<span class="sourceLineNo">010</span> *     http://www.apache.org/licenses/LICENSE-2.0<a name="line.10"></a>
+<span class="sourceLineNo">011</span> *<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Unless required by applicable law or agreed to in writing, software<a name="line.12"></a>
+<span class="sourceLineNo">013</span> * distributed under the License is distributed on an "AS IS" BASIS,<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * See the License for the specific language governing permissions and<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * limitations under the License.<a name="line.16"></a>
+<span class="sourceLineNo">017</span> */<a name="line.17"></a>
+<span class="sourceLineNo">018</span><a name="line.18"></a>
+<span class="sourceLineNo">019</span>package org.apache.hadoop.lib.wsrs;<a name="line.19"></a>
+<span class="sourceLineNo">020</span><a name="line.20"></a>
+<span class="sourceLineNo">021</span>import com.google.common.collect.Lists;<a name="line.21"></a>
+<span class="sourceLineNo">022</span>import com.sun.jersey.api.core.HttpContext;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import com.sun.jersey.core.spi.component.ComponentContext;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import com.sun.jersey.core.spi.component.ComponentScope;<a name="line.24"></a>
+<span class="sourceLineNo">025</span>import com.sun.jersey.server.impl.inject.AbstractHttpContextInjectable;<a name="line.25"></a>
+<span class="sourceLineNo">026</span>import com.sun.jersey.spi.inject.Injectable;<a name="line.26"></a>
+<span class="sourceLineNo">027</span>import com.sun.jersey.spi.inject.InjectableProvider;<a name="line.27"></a>
+<span class="sourceLineNo">028</span>import org.apache.hadoop.classification.InterfaceAudience;<a name="line.28"></a>
+<span class="sourceLineNo">029</span><a name="line.29"></a>
+<span class="sourceLineNo">030</span>import javax.ws.rs.core.Context;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import javax.ws.rs.core.MultivaluedMap;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import java.lang.reflect.Type;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import java.text.MessageFormat;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import java.util.HashMap;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import java.util.List;<a name="line.35"></a>
+<span class="sourceLineNo">036</span>import java.util.Map;<a name="line.36"></a>
+<span class="sourceLineNo">037</span><a name="line.37"></a>
+<span class="sourceLineNo">038</span>/**<a name="line.38"></a>
+<span class="sourceLineNo">039</span> * Jersey provider that parses the request parameters based on the<a name="line.39"></a>
+<span class="sourceLineNo">040</span> * given parameter definition. <a name="line.40"></a>
+<span class="sourceLineNo">041</span> */<a name="line.41"></a>
+<span class="sourceLineNo">042</span>@InterfaceAudience.Private<a name="line.42"></a>
+<span class="sourceLineNo">043</span>public class ParametersProvider<a name="line.43"></a>
+<span class="sourceLineNo">044</span>  extends AbstractHttpContextInjectable&lt;Parameters&gt;<a name="line.44"></a>
+<span class="sourceLineNo">045</span>  implements InjectableProvider&lt;Context, Type&gt; {<a name="line.45"></a>
+<span class="sourceLineNo">046</span><a name="line.46"></a>
+<span class="sourceLineNo">047</span>  private String driverParam;<a name="line.47"></a>
+<span class="sourceLineNo">048</span>  private Class&lt;? extends Enum&gt; enumClass;<a name="line.48"></a>
+<span class="sourceLineNo">049</span>  private Map&lt;Enum, Class&lt;Param&lt;?&gt;&gt;[]&gt; paramsDef;<a name="line.49"></a>
+<span class="sourceLineNo">050</span><a name="line.50"></a>
+<span class="sourceLineNo">051</span>  public ParametersProvider(String driverParam, Class&lt;? extends Enum&gt; enumClass,<a name="line.51"></a>
+<span class="sourceLineNo">052</span>                            Map&lt;Enum, Class&lt;Param&lt;?&gt;&gt;[]&gt; paramsDef) {<a name="line.52"></a>
+<span class="sourceLineNo">053</span>    this.driverParam = driverParam;<a name="line.53"></a>
+<span class="sourceLineNo">054</span>    this.enumClass = enumClass;<a name="line.54"></a>
+<span class="sourceLineNo">055</span>    this.paramsDef = paramsDef;<a name="line.55"></a>
+<span class="sourceLineNo">056</span>  }<a name="line.56"></a>
+<span class="sourceLineNo">057</span><a name="line.57"></a>
+<span class="sourceLineNo">058</span>  @Override<a name="line.58"></a>
+<span class="sourceLineNo">059</span>  @SuppressWarnings("unchecked")<a name="line.59"></a>
+<span class="sourceLineNo">060</span>  public Parameters getValue(HttpContext httpContext) {<a name="line.60"></a>
+<span class="sourceLineNo">061</span>    Map&lt;String, List&lt;Param&lt;?&gt;&gt;&gt; map = new HashMap&lt;String, List&lt;Param&lt;?&gt;&gt;&gt;();<a name="line.61"></a>
+<span class="sourceLineNo">062</span>    Map&lt;String, List&lt;String&gt;&gt; queryString =<a name="line.62"></a>
+<span class="sourceLineNo">063</span>      httpContext.getRequest().getQueryParameters();<a name="line.63"></a>
+<span class="sourceLineNo">064</span>    String str = ((MultivaluedMap&lt;String, String&gt;) queryString).<a name="line.64"></a>
+<span class="sourceLineNo">065</span>        getFirst(driverParam);<a name="line.65"></a>
+<span class="sourceLineNo">066</span>    if (str == null) {<a name="line.66"></a>
+<span class="sourceLineNo">067</span>      throw new IllegalArgumentException(<a name="line.67"></a>
+<span class="sourceLineNo">068</span>        MessageFormat.format("Missing Operation parameter [{0}]",<a name="line.68"></a>
+<span class="sourceLineNo">069</span>                             driverParam));<a name="line.69"></a>
+<span class="sourceLineNo">070</span>    }<a name="line.70"></a>
+<span class="sourceLineNo">071</span>    Enum op;<a name="line.71"></a>
+<span class="sourceLineNo">072</span>    try {<a name="line.72"></a>
+<span class="sourceLineNo">073</span>      op = Enum.valueOf(enumClass, str.toUpperCase());<a name="line.73"></a>
+<span class="sourceLineNo">074</span>    } catch (IllegalArgumentException ex) {<a name="line.74"></a>
+<span class="sourceLineNo">075</span>      throw new IllegalArgumentException(<a name="line.75"></a>
+<span class="sourceLineNo">076</span>        MessageFormat.format("Invalid Operation [{0}]", str));<a name="line.76"></a>
+<span class="sourceLineNo">077</span>    }<a name="line.77"></a>
+<span class="sourceLineNo">078</span>    if (!paramsDef.containsKey(op)) {<a name="line.78"></a>
+<span class="sourceLineNo">079</span>      throw new IllegalArgumentException(<a name="line.79"></a>
+<span class="sourceLineNo">080</span>        MessageFormat.format("Unsupported Operation [{0}]", op));<a name="line.80"></a>
+<span class="sourceLineNo">081</span>    }<a name="line.81"></a>
+<span class="sourceLineNo">082</span>    for (Class&lt;Param&lt;?&gt;&gt; paramClass : paramsDef.get(op)) {<a name="line.82"></a>
+<span class="sourceLineNo">083</span>      Param&lt;?&gt; param = newParam(paramClass);<a name="line.83"></a>
+<span class="sourceLineNo">084</span>      List&lt;Param&lt;?&gt;&gt; paramList = Lists.newArrayList();<a name="line.84"></a>
+<span class="sourceLineNo">085</span>      List&lt;String&gt; ps = queryString.get(param.getName());<a name="line.85"></a>
+<span class="sourceLineNo">086</span>      if (ps != null) {<a name="line.86"></a>
+<span class="sourceLineNo">087</span>        for (String p : ps) {<a name="line.87"></a>
+<span class="sourceLineNo">088</span>          try {<a name="line.88"></a>
+<span class="sourceLineNo">089</span>            param.parseParam(p);<a name="line.89"></a>
+<span class="sourceLineNo">090</span>          }<a name="line.90"></a>
+<span class="sourceLineNo">091</span>          catch (Exception ex) {<a name="line.91"></a>
+<span class="sourceLineNo">092</span>            throw new IllegalArgumentException(ex.toString(), ex);<a name="line.92"></a>
+<span class="sourceLineNo">093</span>          }<a name="line.93"></a>
+<span class="sourceLineNo">094</span>          paramList.add(param);<a name="line.94"></a>
+<span class="sourceLineNo">095</span>          param = newParam(paramClass);<a name="line.95"></a>
+<span class="sourceLineNo">096</span>        }<a name="line.96"></a>
+<span class="sourceLineNo">097</span>      } else {<a name="line.97"></a>
+<span class="sourceLineNo">098</span>        paramList.add(param);<a name="line.98"></a>
+<span class="sourceLineNo">099</span>      }<a name="line.99"></a>
+<span class="sourceLineNo">100</span><a name="line.100"></a>
+<span class="sourceLineNo">101</span>      map.put(param.getName(), paramList);<a name="line.101"></a>
+<span class="sourceLineNo">102</span>    }<a name="line.102"></a>
+<span class="sourceLineNo">103</span>    return new Parameters(map);<a name="line.103"></a>
+<span class="sourceLineNo">104</span>  }<a name="line.104"></a>
+<span class="sourceLineNo">105</span><a name="line.105"></a>
+<span class="sourceLineNo">106</span>  private Param&lt;?&gt; newParam(Class&lt;Param&lt;?&gt;&gt; paramClass) {<a name="line.106"></a>
+<span class="sourceLineNo">107</span>    try {<a name="line.107"></a>
+<span class="sourceLineNo">108</span>      return paramClass.newInstance();<a name="line.108"></a>
+<span class="sourceLineNo">109</span>    } catch (Exception ex) {<a name="line.109"></a>
+<span class="sourceLineNo">110</span>      throw new UnsupportedOperationException(<a name="line.110"></a>
+<span class="sourceLineNo">111</span>        MessageFormat.format(<a name="line.111"></a>
+<span class="sourceLineNo">112</span>          "Param class [{0}] does not have default constructor",<a name="line.112"></a>
+<span class="sourceLineNo">113</span>          paramClass.getName()));<a name="line.113"></a>
+<span class="sourceLineNo">114</span>    }<a name="line.114"></a>
+<span class="sourceLineNo">115</span>  }<a name="line.115"></a>
+<span class="sourceLineNo">116</span><a name="line.116"></a>
+<span class="sourceLineNo">117</span>  @Override<a name="line.117"></a>
+<span class="sourceLineNo">118</span>  public ComponentScope getScope() {<a name="line.118"></a>
+<span class="sourceLineNo">119</span>    return ComponentScope.PerRequest;<a name="line.119"></a>
+<span class="sourceLineNo">120</span>  }<a name="line.120"></a>
+<span class="sourceLineNo">121</span><a name="line.121"></a>
+<span class="sourceLineNo">122</span>  @Override<a name="line.122"></a>
+<span class="sourceLineNo">123</span>  public Injectable getInjectable(ComponentContext componentContext, Context context, Type type) {<a name="line.123"></a>
+<span class="sourceLineNo">124</span>    return (type.equals(Parameters.class)) ? this : null;<a name="line.124"></a>
+<span class="sourceLineNo">125</span>  }<a name="line.125"></a>
+<span class="sourceLineNo">126</span>}<a name="line.126"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

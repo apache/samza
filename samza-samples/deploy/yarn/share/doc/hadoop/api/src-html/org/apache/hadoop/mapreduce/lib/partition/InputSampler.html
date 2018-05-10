@@ -1,0 +1,491 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/**<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Licensed to the Apache Software Foundation (ASF) under one<a name="line.2"></a>
+<span class="sourceLineNo">003</span> * or more contributor license agreements.  See the NOTICE file<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * distributed with this work for additional information<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * regarding copyright ownership.  The ASF licenses this file<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * to you under the Apache License, Version 2.0 (the<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * "License"); you may not use this file except in compliance<a name="line.7"></a>
+<span class="sourceLineNo">008</span> * with the License.  You may obtain a copy of the License at<a name="line.8"></a>
+<span class="sourceLineNo">009</span> *<a name="line.9"></a>
+<span class="sourceLineNo">010</span> *     http://www.apache.org/licenses/LICENSE-2.0<a name="line.10"></a>
+<span class="sourceLineNo">011</span> *<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Unless required by applicable law or agreed to in writing, software<a name="line.12"></a>
+<span class="sourceLineNo">013</span> * distributed under the License is distributed on an "AS IS" BASIS,<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * See the License for the specific language governing permissions and<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * limitations under the License.<a name="line.16"></a>
+<span class="sourceLineNo">017</span> */<a name="line.17"></a>
+<span class="sourceLineNo">018</span><a name="line.18"></a>
+<span class="sourceLineNo">019</span>package org.apache.hadoop.mapreduce.lib.partition;<a name="line.19"></a>
+<span class="sourceLineNo">020</span><a name="line.20"></a>
+<span class="sourceLineNo">021</span>import java.io.IOException;<a name="line.21"></a>
+<span class="sourceLineNo">022</span>import java.util.ArrayList;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import java.util.Arrays;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import java.util.List;<a name="line.24"></a>
+<span class="sourceLineNo">025</span>import java.util.Random;<a name="line.25"></a>
+<span class="sourceLineNo">026</span><a name="line.26"></a>
+<span class="sourceLineNo">027</span>import org.apache.commons.logging.Log;<a name="line.27"></a>
+<span class="sourceLineNo">028</span>import org.apache.commons.logging.LogFactory;<a name="line.28"></a>
+<span class="sourceLineNo">029</span>import org.apache.hadoop.classification.InterfaceAudience;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import org.apache.hadoop.classification.InterfaceStability;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import org.apache.hadoop.conf.Configuration;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import org.apache.hadoop.conf.Configured;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import org.apache.hadoop.fs.FileSystem;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import org.apache.hadoop.fs.Path;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import org.apache.hadoop.io.NullWritable;<a name="line.35"></a>
+<span class="sourceLineNo">036</span>import org.apache.hadoop.io.RawComparator;<a name="line.36"></a>
+<span class="sourceLineNo">037</span>import org.apache.hadoop.io.SequenceFile;<a name="line.37"></a>
+<span class="sourceLineNo">038</span>import org.apache.hadoop.io.WritableComparable;<a name="line.38"></a>
+<span class="sourceLineNo">039</span>import org.apache.hadoop.mapreduce.InputFormat;<a name="line.39"></a>
+<span class="sourceLineNo">040</span>import org.apache.hadoop.mapreduce.InputSplit;<a name="line.40"></a>
+<span class="sourceLineNo">041</span>import org.apache.hadoop.mapreduce.Job;<a name="line.41"></a>
+<span class="sourceLineNo">042</span>import org.apache.hadoop.mapreduce.RecordReader;<a name="line.42"></a>
+<span class="sourceLineNo">043</span>import org.apache.hadoop.mapreduce.TaskAttemptContext;<a name="line.43"></a>
+<span class="sourceLineNo">044</span>import org.apache.hadoop.mapreduce.TaskAttemptID;<a name="line.44"></a>
+<span class="sourceLineNo">045</span>import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;<a name="line.45"></a>
+<span class="sourceLineNo">046</span>import org.apache.hadoop.mapreduce.task.TaskAttemptContextImpl;<a name="line.46"></a>
+<span class="sourceLineNo">047</span>import org.apache.hadoop.util.ReflectionUtils;<a name="line.47"></a>
+<span class="sourceLineNo">048</span>import org.apache.hadoop.util.Tool;<a name="line.48"></a>
+<span class="sourceLineNo">049</span>import org.apache.hadoop.util.ToolRunner;<a name="line.49"></a>
+<span class="sourceLineNo">050</span><a name="line.50"></a>
+<span class="sourceLineNo">051</span>/**<a name="line.51"></a>
+<span class="sourceLineNo">052</span> * Utility for collecting samples and writing a partition file for<a name="line.52"></a>
+<span class="sourceLineNo">053</span> * {@link TotalOrderPartitioner}.<a name="line.53"></a>
+<span class="sourceLineNo">054</span> */<a name="line.54"></a>
+<span class="sourceLineNo">055</span>@InterfaceAudience.Public<a name="line.55"></a>
+<span class="sourceLineNo">056</span>@InterfaceStability.Stable<a name="line.56"></a>
+<span class="sourceLineNo">057</span>public class InputSampler&lt;K,V&gt; extends Configured implements Tool  {<a name="line.57"></a>
+<span class="sourceLineNo">058</span><a name="line.58"></a>
+<span class="sourceLineNo">059</span>  private static final Log LOG = LogFactory.getLog(InputSampler.class);<a name="line.59"></a>
+<span class="sourceLineNo">060</span><a name="line.60"></a>
+<span class="sourceLineNo">061</span>  static int printUsage() {<a name="line.61"></a>
+<span class="sourceLineNo">062</span>    System.out.println("sampler -r &lt;reduces&gt;\n" +<a name="line.62"></a>
+<span class="sourceLineNo">063</span>      "      [-inFormat &lt;input format class&gt;]\n" +<a name="line.63"></a>
+<span class="sourceLineNo">064</span>      "      [-keyClass &lt;map input &amp; output key class&gt;]\n" +<a name="line.64"></a>
+<span class="sourceLineNo">065</span>      "      [-splitRandom &lt;double pcnt&gt; &lt;numSamples&gt; &lt;maxsplits&gt; | " +<a name="line.65"></a>
+<span class="sourceLineNo">066</span>      "             // Sample from random splits at random (general)\n" +<a name="line.66"></a>
+<span class="sourceLineNo">067</span>      "       -splitSample &lt;numSamples&gt; &lt;maxsplits&gt; | " +<a name="line.67"></a>
+<span class="sourceLineNo">068</span>      "             // Sample from first records in splits (random data)\n"+<a name="line.68"></a>
+<span class="sourceLineNo">069</span>      "       -splitInterval &lt;double pcnt&gt; &lt;maxsplits&gt;]" +<a name="line.69"></a>
+<span class="sourceLineNo">070</span>      "             // Sample from splits at intervals (sorted data)");<a name="line.70"></a>
+<span class="sourceLineNo">071</span>    System.out.println("Default sampler: -splitRandom 0.1 10000 10");<a name="line.71"></a>
+<span class="sourceLineNo">072</span>    ToolRunner.printGenericCommandUsage(System.out);<a name="line.72"></a>
+<span class="sourceLineNo">073</span>    return -1;<a name="line.73"></a>
+<span class="sourceLineNo">074</span>  }<a name="line.74"></a>
+<span class="sourceLineNo">075</span><a name="line.75"></a>
+<span class="sourceLineNo">076</span>  public InputSampler(Configuration conf) {<a name="line.76"></a>
+<span class="sourceLineNo">077</span>    setConf(conf);<a name="line.77"></a>
+<span class="sourceLineNo">078</span>  }<a name="line.78"></a>
+<span class="sourceLineNo">079</span><a name="line.79"></a>
+<span class="sourceLineNo">080</span>  /**<a name="line.80"></a>
+<span class="sourceLineNo">081</span>   * Interface to sample using an <a name="line.81"></a>
+<span class="sourceLineNo">082</span>   * {@link org.apache.hadoop.mapreduce.InputFormat}.<a name="line.82"></a>
+<span class="sourceLineNo">083</span>   */<a name="line.83"></a>
+<span class="sourceLineNo">084</span>  public interface Sampler&lt;K,V&gt; {<a name="line.84"></a>
+<span class="sourceLineNo">085</span>    /**<a name="line.85"></a>
+<span class="sourceLineNo">086</span>     * For a given job, collect and return a subset of the keys from the<a name="line.86"></a>
+<span class="sourceLineNo">087</span>     * input data.<a name="line.87"></a>
+<span class="sourceLineNo">088</span>     */<a name="line.88"></a>
+<span class="sourceLineNo">089</span>    K[] getSample(InputFormat&lt;K,V&gt; inf, Job job) <a name="line.89"></a>
+<span class="sourceLineNo">090</span>    throws IOException, InterruptedException;<a name="line.90"></a>
+<span class="sourceLineNo">091</span>  }<a name="line.91"></a>
+<span class="sourceLineNo">092</span><a name="line.92"></a>
+<span class="sourceLineNo">093</span>  /**<a name="line.93"></a>
+<span class="sourceLineNo">094</span>   * Samples the first n records from s splits.<a name="line.94"></a>
+<span class="sourceLineNo">095</span>   * Inexpensive way to sample random data.<a name="line.95"></a>
+<span class="sourceLineNo">096</span>   */<a name="line.96"></a>
+<span class="sourceLineNo">097</span>  public static class SplitSampler&lt;K,V&gt; implements Sampler&lt;K,V&gt; {<a name="line.97"></a>
+<span class="sourceLineNo">098</span><a name="line.98"></a>
+<span class="sourceLineNo">099</span>    protected final int numSamples;<a name="line.99"></a>
+<span class="sourceLineNo">100</span>    protected final int maxSplitsSampled;<a name="line.100"></a>
+<span class="sourceLineNo">101</span><a name="line.101"></a>
+<span class="sourceLineNo">102</span>    /**<a name="line.102"></a>
+<span class="sourceLineNo">103</span>     * Create a SplitSampler sampling &lt;em&gt;all&lt;/em&gt; splits.<a name="line.103"></a>
+<span class="sourceLineNo">104</span>     * Takes the first numSamples / numSplits records from each split.<a name="line.104"></a>
+<span class="sourceLineNo">105</span>     * @param numSamples Total number of samples to obtain from all selected<a name="line.105"></a>
+<span class="sourceLineNo">106</span>     *                   splits.<a name="line.106"></a>
+<span class="sourceLineNo">107</span>     */<a name="line.107"></a>
+<span class="sourceLineNo">108</span>    public SplitSampler(int numSamples) {<a name="line.108"></a>
+<span class="sourceLineNo">109</span>      this(numSamples, Integer.MAX_VALUE);<a name="line.109"></a>
+<span class="sourceLineNo">110</span>    }<a name="line.110"></a>
+<span class="sourceLineNo">111</span><a name="line.111"></a>
+<span class="sourceLineNo">112</span>    /**<a name="line.112"></a>
+<span class="sourceLineNo">113</span>     * Create a new SplitSampler.<a name="line.113"></a>
+<span class="sourceLineNo">114</span>     * @param numSamples Total number of samples to obtain from all selected<a name="line.114"></a>
+<span class="sourceLineNo">115</span>     *                   splits.<a name="line.115"></a>
+<span class="sourceLineNo">116</span>     * @param maxSplitsSampled The maximum number of splits to examine.<a name="line.116"></a>
+<span class="sourceLineNo">117</span>     */<a name="line.117"></a>
+<span class="sourceLineNo">118</span>    public SplitSampler(int numSamples, int maxSplitsSampled) {<a name="line.118"></a>
+<span class="sourceLineNo">119</span>      this.numSamples = numSamples;<a name="line.119"></a>
+<span class="sourceLineNo">120</span>      this.maxSplitsSampled = maxSplitsSampled;<a name="line.120"></a>
+<span class="sourceLineNo">121</span>    }<a name="line.121"></a>
+<span class="sourceLineNo">122</span><a name="line.122"></a>
+<span class="sourceLineNo">123</span>    /**<a name="line.123"></a>
+<span class="sourceLineNo">124</span>     * From each split sampled, take the first numSamples / numSplits records.<a name="line.124"></a>
+<span class="sourceLineNo">125</span>     */<a name="line.125"></a>
+<span class="sourceLineNo">126</span>    @SuppressWarnings("unchecked") // ArrayList::toArray doesn't preserve type<a name="line.126"></a>
+<span class="sourceLineNo">127</span>    public K[] getSample(InputFormat&lt;K,V&gt; inf, Job job) <a name="line.127"></a>
+<span class="sourceLineNo">128</span>        throws IOException, InterruptedException {<a name="line.128"></a>
+<span class="sourceLineNo">129</span>      List&lt;InputSplit&gt; splits = inf.getSplits(job);<a name="line.129"></a>
+<span class="sourceLineNo">130</span>      ArrayList&lt;K&gt; samples = new ArrayList&lt;K&gt;(numSamples);<a name="line.130"></a>
+<span class="sourceLineNo">131</span>      int splitsToSample = Math.min(maxSplitsSampled, splits.size());<a name="line.131"></a>
+<span class="sourceLineNo">132</span>      int samplesPerSplit = numSamples / splitsToSample;<a name="line.132"></a>
+<span class="sourceLineNo">133</span>      long records = 0;<a name="line.133"></a>
+<span class="sourceLineNo">134</span>      for (int i = 0; i &lt; splitsToSample; ++i) {<a name="line.134"></a>
+<span class="sourceLineNo">135</span>        TaskAttemptContext samplingContext = new TaskAttemptContextImpl(<a name="line.135"></a>
+<span class="sourceLineNo">136</span>            job.getConfiguration(), new TaskAttemptID());<a name="line.136"></a>
+<span class="sourceLineNo">137</span>        RecordReader&lt;K,V&gt; reader = inf.createRecordReader(<a name="line.137"></a>
+<span class="sourceLineNo">138</span>            splits.get(i), samplingContext);<a name="line.138"></a>
+<span class="sourceLineNo">139</span>        reader.initialize(splits.get(i), samplingContext);<a name="line.139"></a>
+<span class="sourceLineNo">140</span>        while (reader.nextKeyValue()) {<a name="line.140"></a>
+<span class="sourceLineNo">141</span>          samples.add(ReflectionUtils.copy(job.getConfiguration(),<a name="line.141"></a>
+<span class="sourceLineNo">142</span>                                           reader.getCurrentKey(), null));<a name="line.142"></a>
+<span class="sourceLineNo">143</span>          ++records;<a name="line.143"></a>
+<span class="sourceLineNo">144</span>          if ((i+1) * samplesPerSplit &lt;= records) {<a name="line.144"></a>
+<span class="sourceLineNo">145</span>            break;<a name="line.145"></a>
+<span class="sourceLineNo">146</span>          }<a name="line.146"></a>
+<span class="sourceLineNo">147</span>        }<a name="line.147"></a>
+<span class="sourceLineNo">148</span>        reader.close();<a name="line.148"></a>
+<span class="sourceLineNo">149</span>      }<a name="line.149"></a>
+<span class="sourceLineNo">150</span>      return (K[])samples.toArray();<a name="line.150"></a>
+<span class="sourceLineNo">151</span>    }<a name="line.151"></a>
+<span class="sourceLineNo">152</span>  }<a name="line.152"></a>
+<span class="sourceLineNo">153</span><a name="line.153"></a>
+<span class="sourceLineNo">154</span>  /**<a name="line.154"></a>
+<span class="sourceLineNo">155</span>   * Sample from random points in the input.<a name="line.155"></a>
+<span class="sourceLineNo">156</span>   * General-purpose sampler. Takes numSamples / maxSplitsSampled inputs from<a name="line.156"></a>
+<span class="sourceLineNo">157</span>   * each split.<a name="line.157"></a>
+<span class="sourceLineNo">158</span>   */<a name="line.158"></a>
+<span class="sourceLineNo">159</span>  public static class RandomSampler&lt;K,V&gt; implements Sampler&lt;K,V&gt; {<a name="line.159"></a>
+<span class="sourceLineNo">160</span>    protected double freq;<a name="line.160"></a>
+<span class="sourceLineNo">161</span>    protected final int numSamples;<a name="line.161"></a>
+<span class="sourceLineNo">162</span>    protected final int maxSplitsSampled;<a name="line.162"></a>
+<span class="sourceLineNo">163</span><a name="line.163"></a>
+<span class="sourceLineNo">164</span>    /**<a name="line.164"></a>
+<span class="sourceLineNo">165</span>     * Create a new RandomSampler sampling &lt;em&gt;all&lt;/em&gt; splits.<a name="line.165"></a>
+<span class="sourceLineNo">166</span>     * This will read every split at the client, which is very expensive.<a name="line.166"></a>
+<span class="sourceLineNo">167</span>     * @param freq Probability with which a key will be chosen.<a name="line.167"></a>
+<span class="sourceLineNo">168</span>     * @param numSamples Total number of samples to obtain from all selected<a name="line.168"></a>
+<span class="sourceLineNo">169</span>     *                   splits.<a name="line.169"></a>
+<span class="sourceLineNo">170</span>     */<a name="line.170"></a>
+<span class="sourceLineNo">171</span>    public RandomSampler(double freq, int numSamples) {<a name="line.171"></a>
+<span class="sourceLineNo">172</span>      this(freq, numSamples, Integer.MAX_VALUE);<a name="line.172"></a>
+<span class="sourceLineNo">173</span>    }<a name="line.173"></a>
+<span class="sourceLineNo">174</span><a name="line.174"></a>
+<span class="sourceLineNo">175</span>    /**<a name="line.175"></a>
+<span class="sourceLineNo">176</span>     * Create a new RandomSampler.<a name="line.176"></a>
+<span class="sourceLineNo">177</span>     * @param freq Probability with which a key will be chosen.<a name="line.177"></a>
+<span class="sourceLineNo">178</span>     * @param numSamples Total number of samples to obtain from all selected<a name="line.178"></a>
+<span class="sourceLineNo">179</span>     *                   splits.<a name="line.179"></a>
+<span class="sourceLineNo">180</span>     * @param maxSplitsSampled The maximum number of splits to examine.<a name="line.180"></a>
+<span class="sourceLineNo">181</span>     */<a name="line.181"></a>
+<span class="sourceLineNo">182</span>    public RandomSampler(double freq, int numSamples, int maxSplitsSampled) {<a name="line.182"></a>
+<span class="sourceLineNo">183</span>      this.freq = freq;<a name="line.183"></a>
+<span class="sourceLineNo">184</span>      this.numSamples = numSamples;<a name="line.184"></a>
+<span class="sourceLineNo">185</span>      this.maxSplitsSampled = maxSplitsSampled;<a name="line.185"></a>
+<span class="sourceLineNo">186</span>    }<a name="line.186"></a>
+<span class="sourceLineNo">187</span><a name="line.187"></a>
+<span class="sourceLineNo">188</span>    /**<a name="line.188"></a>
+<span class="sourceLineNo">189</span>     * Randomize the split order, then take the specified number of keys from<a name="line.189"></a>
+<span class="sourceLineNo">190</span>     * each split sampled, where each key is selected with the specified<a name="line.190"></a>
+<span class="sourceLineNo">191</span>     * probability and possibly replaced by a subsequently selected key when<a name="line.191"></a>
+<span class="sourceLineNo">192</span>     * the quota of keys from that split is satisfied.<a name="line.192"></a>
+<span class="sourceLineNo">193</span>     */<a name="line.193"></a>
+<span class="sourceLineNo">194</span>    @SuppressWarnings("unchecked") // ArrayList::toArray doesn't preserve type<a name="line.194"></a>
+<span class="sourceLineNo">195</span>    public K[] getSample(InputFormat&lt;K,V&gt; inf, Job job) <a name="line.195"></a>
+<span class="sourceLineNo">196</span>        throws IOException, InterruptedException {<a name="line.196"></a>
+<span class="sourceLineNo">197</span>      List&lt;InputSplit&gt; splits = inf.getSplits(job);<a name="line.197"></a>
+<span class="sourceLineNo">198</span>      ArrayList&lt;K&gt; samples = new ArrayList&lt;K&gt;(numSamples);<a name="line.198"></a>
+<span class="sourceLineNo">199</span>      int splitsToSample = Math.min(maxSplitsSampled, splits.size());<a name="line.199"></a>
+<span class="sourceLineNo">200</span><a name="line.200"></a>
+<span class="sourceLineNo">201</span>      Random r = new Random();<a name="line.201"></a>
+<span class="sourceLineNo">202</span>      long seed = r.nextLong();<a name="line.202"></a>
+<span class="sourceLineNo">203</span>      r.setSeed(seed);<a name="line.203"></a>
+<span class="sourceLineNo">204</span>      LOG.debug("seed: " + seed);<a name="line.204"></a>
+<span class="sourceLineNo">205</span>      // shuffle splits<a name="line.205"></a>
+<span class="sourceLineNo">206</span>      for (int i = 0; i &lt; splits.size(); ++i) {<a name="line.206"></a>
+<span class="sourceLineNo">207</span>        InputSplit tmp = splits.get(i);<a name="line.207"></a>
+<span class="sourceLineNo">208</span>        int j = r.nextInt(splits.size());<a name="line.208"></a>
+<span class="sourceLineNo">209</span>        splits.set(i, splits.get(j));<a name="line.209"></a>
+<span class="sourceLineNo">210</span>        splits.set(j, tmp);<a name="line.210"></a>
+<span class="sourceLineNo">211</span>      }<a name="line.211"></a>
+<span class="sourceLineNo">212</span>      // our target rate is in terms of the maximum number of sample splits,<a name="line.212"></a>
+<span class="sourceLineNo">213</span>      // but we accept the possibility of sampling additional splits to hit<a name="line.213"></a>
+<span class="sourceLineNo">214</span>      // the target sample keyset<a name="line.214"></a>
+<span class="sourceLineNo">215</span>      for (int i = 0; i &lt; splitsToSample ||<a name="line.215"></a>
+<span class="sourceLineNo">216</span>                     (i &lt; splits.size() &amp;&amp; samples.size() &lt; numSamples); ++i) {<a name="line.216"></a>
+<span class="sourceLineNo">217</span>        TaskAttemptContext samplingContext = new TaskAttemptContextImpl(<a name="line.217"></a>
+<span class="sourceLineNo">218</span>            job.getConfiguration(), new TaskAttemptID());<a name="line.218"></a>
+<span class="sourceLineNo">219</span>        RecordReader&lt;K,V&gt; reader = inf.createRecordReader(<a name="line.219"></a>
+<span class="sourceLineNo">220</span>            splits.get(i), samplingContext);<a name="line.220"></a>
+<span class="sourceLineNo">221</span>        reader.initialize(splits.get(i), samplingContext);<a name="line.221"></a>
+<span class="sourceLineNo">222</span>        while (reader.nextKeyValue()) {<a name="line.222"></a>
+<span class="sourceLineNo">223</span>          if (r.nextDouble() &lt;= freq) {<a name="line.223"></a>
+<span class="sourceLineNo">224</span>            if (samples.size() &lt; numSamples) {<a name="line.224"></a>
+<span class="sourceLineNo">225</span>              samples.add(ReflectionUtils.copy(job.getConfiguration(),<a name="line.225"></a>
+<span class="sourceLineNo">226</span>                                               reader.getCurrentKey(), null));<a name="line.226"></a>
+<span class="sourceLineNo">227</span>            } else {<a name="line.227"></a>
+<span class="sourceLineNo">228</span>              // When exceeding the maximum number of samples, replace a<a name="line.228"></a>
+<span class="sourceLineNo">229</span>              // random element with this one, then adjust the frequency<a name="line.229"></a>
+<span class="sourceLineNo">230</span>              // to reflect the possibility of existing elements being<a name="line.230"></a>
+<span class="sourceLineNo">231</span>              // pushed out<a name="line.231"></a>
+<span class="sourceLineNo">232</span>              int ind = r.nextInt(numSamples);<a name="line.232"></a>
+<span class="sourceLineNo">233</span>              if (ind != numSamples) {<a name="line.233"></a>
+<span class="sourceLineNo">234</span>                samples.set(ind, ReflectionUtils.copy(job.getConfiguration(),<a name="line.234"></a>
+<span class="sourceLineNo">235</span>                                 reader.getCurrentKey(), null));<a name="line.235"></a>
+<span class="sourceLineNo">236</span>              }<a name="line.236"></a>
+<span class="sourceLineNo">237</span>              freq *= (numSamples - 1) / (double) numSamples;<a name="line.237"></a>
+<span class="sourceLineNo">238</span>            }<a name="line.238"></a>
+<span class="sourceLineNo">239</span>          }<a name="line.239"></a>
+<span class="sourceLineNo">240</span>        }<a name="line.240"></a>
+<span class="sourceLineNo">241</span>        reader.close();<a name="line.241"></a>
+<span class="sourceLineNo">242</span>      }<a name="line.242"></a>
+<span class="sourceLineNo">243</span>      return (K[])samples.toArray();<a name="line.243"></a>
+<span class="sourceLineNo">244</span>    }<a name="line.244"></a>
+<span class="sourceLineNo">245</span>  }<a name="line.245"></a>
+<span class="sourceLineNo">246</span><a name="line.246"></a>
+<span class="sourceLineNo">247</span>  /**<a name="line.247"></a>
+<span class="sourceLineNo">248</span>   * Sample from s splits at regular intervals.<a name="line.248"></a>
+<span class="sourceLineNo">249</span>   * Useful for sorted data.<a name="line.249"></a>
+<span class="sourceLineNo">250</span>   */<a name="line.250"></a>
+<span class="sourceLineNo">251</span>  public static class IntervalSampler&lt;K,V&gt; implements Sampler&lt;K,V&gt; {<a name="line.251"></a>
+<span class="sourceLineNo">252</span>    protected final double freq;<a name="line.252"></a>
+<span class="sourceLineNo">253</span>    protected final int maxSplitsSampled;<a name="line.253"></a>
+<span class="sourceLineNo">254</span><a name="line.254"></a>
+<span class="sourceLineNo">255</span>    /**<a name="line.255"></a>
+<span class="sourceLineNo">256</span>     * Create a new IntervalSampler sampling &lt;em&gt;all&lt;/em&gt; splits.<a name="line.256"></a>
+<span class="sourceLineNo">257</span>     * @param freq The frequency with which records will be emitted.<a name="line.257"></a>
+<span class="sourceLineNo">258</span>     */<a name="line.258"></a>
+<span class="sourceLineNo">259</span>    public IntervalSampler(double freq) {<a name="line.259"></a>
+<span class="sourceLineNo">260</span>      this(freq, Integer.MAX_VALUE);<a name="line.260"></a>
+<span class="sourceLineNo">261</span>    }<a name="line.261"></a>
+<span class="sourceLineNo">262</span><a name="line.262"></a>
+<span class="sourceLineNo">263</span>    /**<a name="line.263"></a>
+<span class="sourceLineNo">264</span>     * Create a new IntervalSampler.<a name="line.264"></a>
+<span class="sourceLineNo">265</span>     * @param freq The frequency with which records will be emitted.<a name="line.265"></a>
+<span class="sourceLineNo">266</span>     * @param maxSplitsSampled The maximum number of splits to examine.<a name="line.266"></a>
+<span class="sourceLineNo">267</span>     * @see #getSample<a name="line.267"></a>
+<span class="sourceLineNo">268</span>     */<a name="line.268"></a>
+<span class="sourceLineNo">269</span>    public IntervalSampler(double freq, int maxSplitsSampled) {<a name="line.269"></a>
+<span class="sourceLineNo">270</span>      this.freq = freq;<a name="line.270"></a>
+<span class="sourceLineNo">271</span>      this.maxSplitsSampled = maxSplitsSampled;<a name="line.271"></a>
+<span class="sourceLineNo">272</span>    }<a name="line.272"></a>
+<span class="sourceLineNo">273</span><a name="line.273"></a>
+<span class="sourceLineNo">274</span>    /**<a name="line.274"></a>
+<span class="sourceLineNo">275</span>     * For each split sampled, emit when the ratio of the number of records<a name="line.275"></a>
+<span class="sourceLineNo">276</span>     * retained to the total record count is less than the specified<a name="line.276"></a>
+<span class="sourceLineNo">277</span>     * frequency.<a name="line.277"></a>
+<span class="sourceLineNo">278</span>     */<a name="line.278"></a>
+<span class="sourceLineNo">279</span>    @SuppressWarnings("unchecked") // ArrayList::toArray doesn't preserve type<a name="line.279"></a>
+<span class="sourceLineNo">280</span>    public K[] getSample(InputFormat&lt;K,V&gt; inf, Job job) <a name="line.280"></a>
+<span class="sourceLineNo">281</span>        throws IOException, InterruptedException {<a name="line.281"></a>
+<span class="sourceLineNo">282</span>      List&lt;InputSplit&gt; splits = inf.getSplits(job);<a name="line.282"></a>
+<span class="sourceLineNo">283</span>      ArrayList&lt;K&gt; samples = new ArrayList&lt;K&gt;();<a name="line.283"></a>
+<span class="sourceLineNo">284</span>      int splitsToSample = Math.min(maxSplitsSampled, splits.size());<a name="line.284"></a>
+<span class="sourceLineNo">285</span>      long records = 0;<a name="line.285"></a>
+<span class="sourceLineNo">286</span>      long kept = 0;<a name="line.286"></a>
+<span class="sourceLineNo">287</span>      for (int i = 0; i &lt; splitsToSample; ++i) {<a name="line.287"></a>
+<span class="sourceLineNo">288</span>        TaskAttemptContext samplingContext = new TaskAttemptContextImpl(<a name="line.288"></a>
+<span class="sourceLineNo">289</span>            job.getConfiguration(), new TaskAttemptID());<a name="line.289"></a>
+<span class="sourceLineNo">290</span>        RecordReader&lt;K,V&gt; reader = inf.createRecordReader(<a name="line.290"></a>
+<span class="sourceLineNo">291</span>            splits.get(i), samplingContext);<a name="line.291"></a>
+<span class="sourceLineNo">292</span>        reader.initialize(splits.get(i), samplingContext);<a name="line.292"></a>
+<span class="sourceLineNo">293</span>        while (reader.nextKeyValue()) {<a name="line.293"></a>
+<span class="sourceLineNo">294</span>          ++records;<a name="line.294"></a>
+<span class="sourceLineNo">295</span>          if ((double) kept / records &lt; freq) {<a name="line.295"></a>
+<span class="sourceLineNo">296</span>            samples.add(ReflectionUtils.copy(job.getConfiguration(),<a name="line.296"></a>
+<span class="sourceLineNo">297</span>                                 reader.getCurrentKey(), null));<a name="line.297"></a>
+<span class="sourceLineNo">298</span>            ++kept;<a name="line.298"></a>
+<span class="sourceLineNo">299</span>          }<a name="line.299"></a>
+<span class="sourceLineNo">300</span>        }<a name="line.300"></a>
+<span class="sourceLineNo">301</span>        reader.close();<a name="line.301"></a>
+<span class="sourceLineNo">302</span>      }<a name="line.302"></a>
+<span class="sourceLineNo">303</span>      return (K[])samples.toArray();<a name="line.303"></a>
+<span class="sourceLineNo">304</span>    }<a name="line.304"></a>
+<span class="sourceLineNo">305</span>  }<a name="line.305"></a>
+<span class="sourceLineNo">306</span><a name="line.306"></a>
+<span class="sourceLineNo">307</span>  /**<a name="line.307"></a>
+<span class="sourceLineNo">308</span>   * Write a partition file for the given job, using the Sampler provided.<a name="line.308"></a>
+<span class="sourceLineNo">309</span>   * Queries the sampler for a sample keyset, sorts by the output key<a name="line.309"></a>
+<span class="sourceLineNo">310</span>   * comparator, selects the keys for each rank, and writes to the destination<a name="line.310"></a>
+<span class="sourceLineNo">311</span>   * returned from {@link TotalOrderPartitioner#getPartitionFile}.<a name="line.311"></a>
+<span class="sourceLineNo">312</span>   */<a name="line.312"></a>
+<span class="sourceLineNo">313</span>  @SuppressWarnings("unchecked") // getInputFormat, getOutputKeyComparator<a name="line.313"></a>
+<span class="sourceLineNo">314</span>  public static &lt;K,V&gt; void writePartitionFile(Job job, Sampler&lt;K,V&gt; sampler) <a name="line.314"></a>
+<span class="sourceLineNo">315</span>      throws IOException, ClassNotFoundException, InterruptedException {<a name="line.315"></a>
+<span class="sourceLineNo">316</span>    Configuration conf = job.getConfiguration();<a name="line.316"></a>
+<span class="sourceLineNo">317</span>    final InputFormat inf = <a name="line.317"></a>
+<span class="sourceLineNo">318</span>        ReflectionUtils.newInstance(job.getInputFormatClass(), conf);<a name="line.318"></a>
+<span class="sourceLineNo">319</span>    int numPartitions = job.getNumReduceTasks();<a name="line.319"></a>
+<span class="sourceLineNo">320</span>    K[] samples = (K[])sampler.getSample(inf, job);<a name="line.320"></a>
+<span class="sourceLineNo">321</span>    LOG.info("Using " + samples.length + " samples");<a name="line.321"></a>
+<span class="sourceLineNo">322</span>    RawComparator&lt;K&gt; comparator =<a name="line.322"></a>
+<span class="sourceLineNo">323</span>      (RawComparator&lt;K&gt;) job.getSortComparator();<a name="line.323"></a>
+<span class="sourceLineNo">324</span>    Arrays.sort(samples, comparator);<a name="line.324"></a>
+<span class="sourceLineNo">325</span>    Path dst = new Path(TotalOrderPartitioner.getPartitionFile(conf));<a name="line.325"></a>
+<span class="sourceLineNo">326</span>    FileSystem fs = dst.getFileSystem(conf);<a name="line.326"></a>
+<span class="sourceLineNo">327</span>    if (fs.exists(dst)) {<a name="line.327"></a>
+<span class="sourceLineNo">328</span>      fs.delete(dst, false);<a name="line.328"></a>
+<span class="sourceLineNo">329</span>    }<a name="line.329"></a>
+<span class="sourceLineNo">330</span>    SequenceFile.Writer writer = SequenceFile.createWriter(fs, <a name="line.330"></a>
+<span class="sourceLineNo">331</span>      conf, dst, job.getMapOutputKeyClass(), NullWritable.class);<a name="line.331"></a>
+<span class="sourceLineNo">332</span>    NullWritable nullValue = NullWritable.get();<a name="line.332"></a>
+<span class="sourceLineNo">333</span>    float stepSize = samples.length / (float) numPartitions;<a name="line.333"></a>
+<span class="sourceLineNo">334</span>    int last = -1;<a name="line.334"></a>
+<span class="sourceLineNo">335</span>    for(int i = 1; i &lt; numPartitions; ++i) {<a name="line.335"></a>
+<span class="sourceLineNo">336</span>      int k = Math.round(stepSize * i);<a name="line.336"></a>
+<span class="sourceLineNo">337</span>      while (last &gt;= k &amp;&amp; comparator.compare(samples[last], samples[k]) == 0) {<a name="line.337"></a>
+<span class="sourceLineNo">338</span>        ++k;<a name="line.338"></a>
+<span class="sourceLineNo">339</span>      }<a name="line.339"></a>
+<span class="sourceLineNo">340</span>      writer.append(samples[k], nullValue);<a name="line.340"></a>
+<span class="sourceLineNo">341</span>      last = k;<a name="line.341"></a>
+<span class="sourceLineNo">342</span>    }<a name="line.342"></a>
+<span class="sourceLineNo">343</span>    writer.close();<a name="line.343"></a>
+<span class="sourceLineNo">344</span>  }<a name="line.344"></a>
+<span class="sourceLineNo">345</span><a name="line.345"></a>
+<span class="sourceLineNo">346</span>  /**<a name="line.346"></a>
+<span class="sourceLineNo">347</span>   * Driver for InputSampler from the command line.<a name="line.347"></a>
+<span class="sourceLineNo">348</span>   * Configures a JobConf instance and calls {@link #writePartitionFile}.<a name="line.348"></a>
+<span class="sourceLineNo">349</span>   */<a name="line.349"></a>
+<span class="sourceLineNo">350</span>  public int run(String[] args) throws Exception {<a name="line.350"></a>
+<span class="sourceLineNo">351</span>    Job job = new Job(getConf());<a name="line.351"></a>
+<span class="sourceLineNo">352</span>    ArrayList&lt;String&gt; otherArgs = new ArrayList&lt;String&gt;();<a name="line.352"></a>
+<span class="sourceLineNo">353</span>    Sampler&lt;K,V&gt; sampler = null;<a name="line.353"></a>
+<span class="sourceLineNo">354</span>    for(int i=0; i &lt; args.length; ++i) {<a name="line.354"></a>
+<span class="sourceLineNo">355</span>      try {<a name="line.355"></a>
+<span class="sourceLineNo">356</span>        if ("-r".equals(args[i])) {<a name="line.356"></a>
+<span class="sourceLineNo">357</span>          job.setNumReduceTasks(Integer.parseInt(args[++i]));<a name="line.357"></a>
+<span class="sourceLineNo">358</span>        } else if ("-inFormat".equals(args[i])) {<a name="line.358"></a>
+<span class="sourceLineNo">359</span>          job.setInputFormatClass(<a name="line.359"></a>
+<span class="sourceLineNo">360</span>              Class.forName(args[++i]).asSubclass(InputFormat.class));<a name="line.360"></a>
+<span class="sourceLineNo">361</span>        } else if ("-keyClass".equals(args[i])) {<a name="line.361"></a>
+<span class="sourceLineNo">362</span>          job.setMapOutputKeyClass(<a name="line.362"></a>
+<span class="sourceLineNo">363</span>              Class.forName(args[++i]).asSubclass(WritableComparable.class));<a name="line.363"></a>
+<span class="sourceLineNo">364</span>        } else if ("-splitSample".equals(args[i])) {<a name="line.364"></a>
+<span class="sourceLineNo">365</span>          int numSamples = Integer.parseInt(args[++i]);<a name="line.365"></a>
+<span class="sourceLineNo">366</span>          int maxSplits = Integer.parseInt(args[++i]);<a name="line.366"></a>
+<span class="sourceLineNo">367</span>          if (0 &gt;= maxSplits) maxSplits = Integer.MAX_VALUE;<a name="line.367"></a>
+<span class="sourceLineNo">368</span>          sampler = new SplitSampler&lt;K,V&gt;(numSamples, maxSplits);<a name="line.368"></a>
+<span class="sourceLineNo">369</span>        } else if ("-splitRandom".equals(args[i])) {<a name="line.369"></a>
+<span class="sourceLineNo">370</span>          double pcnt = Double.parseDouble(args[++i]);<a name="line.370"></a>
+<span class="sourceLineNo">371</span>          int numSamples = Integer.parseInt(args[++i]);<a name="line.371"></a>
+<span class="sourceLineNo">372</span>          int maxSplits = Integer.parseInt(args[++i]);<a name="line.372"></a>
+<span class="sourceLineNo">373</span>          if (0 &gt;= maxSplits) maxSplits = Integer.MAX_VALUE;<a name="line.373"></a>
+<span class="sourceLineNo">374</span>          sampler = new RandomSampler&lt;K,V&gt;(pcnt, numSamples, maxSplits);<a name="line.374"></a>
+<span class="sourceLineNo">375</span>        } else if ("-splitInterval".equals(args[i])) {<a name="line.375"></a>
+<span class="sourceLineNo">376</span>          double pcnt = Double.parseDouble(args[++i]);<a name="line.376"></a>
+<span class="sourceLineNo">377</span>          int maxSplits = Integer.parseInt(args[++i]);<a name="line.377"></a>
+<span class="sourceLineNo">378</span>          if (0 &gt;= maxSplits) maxSplits = Integer.MAX_VALUE;<a name="line.378"></a>
+<span class="sourceLineNo">379</span>          sampler = new IntervalSampler&lt;K,V&gt;(pcnt, maxSplits);<a name="line.379"></a>
+<span class="sourceLineNo">380</span>        } else {<a name="line.380"></a>
+<span class="sourceLineNo">381</span>          otherArgs.add(args[i]);<a name="line.381"></a>
+<span class="sourceLineNo">382</span>        }<a name="line.382"></a>
+<span class="sourceLineNo">383</span>      } catch (NumberFormatException except) {<a name="line.383"></a>
+<span class="sourceLineNo">384</span>        System.out.println("ERROR: Integer expected instead of " + args[i]);<a name="line.384"></a>
+<span class="sourceLineNo">385</span>        return printUsage();<a name="line.385"></a>
+<span class="sourceLineNo">386</span>      } catch (ArrayIndexOutOfBoundsException except) {<a name="line.386"></a>
+<span class="sourceLineNo">387</span>        System.out.println("ERROR: Required parameter missing from " +<a name="line.387"></a>
+<span class="sourceLineNo">388</span>            args[i-1]);<a name="line.388"></a>
+<span class="sourceLineNo">389</span>        return printUsage();<a name="line.389"></a>
+<span class="sourceLineNo">390</span>      }<a name="line.390"></a>
+<span class="sourceLineNo">391</span>    }<a name="line.391"></a>
+<span class="sourceLineNo">392</span>    if (job.getNumReduceTasks() &lt;= 1) {<a name="line.392"></a>
+<span class="sourceLineNo">393</span>      System.err.println("Sampler requires more than one reducer");<a name="line.393"></a>
+<span class="sourceLineNo">394</span>      return printUsage();<a name="line.394"></a>
+<span class="sourceLineNo">395</span>    }<a name="line.395"></a>
+<span class="sourceLineNo">396</span>    if (otherArgs.size() &lt; 2) {<a name="line.396"></a>
+<span class="sourceLineNo">397</span>      System.out.println("ERROR: Wrong number of parameters: ");<a name="line.397"></a>
+<span class="sourceLineNo">398</span>      return printUsage();<a name="line.398"></a>
+<span class="sourceLineNo">399</span>    }<a name="line.399"></a>
+<span class="sourceLineNo">400</span>    if (null == sampler) {<a name="line.400"></a>
+<span class="sourceLineNo">401</span>      sampler = new RandomSampler&lt;K,V&gt;(0.1, 10000, 10);<a name="line.401"></a>
+<span class="sourceLineNo">402</span>    }<a name="line.402"></a>
+<span class="sourceLineNo">403</span><a name="line.403"></a>
+<span class="sourceLineNo">404</span>    Path outf = new Path(otherArgs.remove(otherArgs.size() - 1));<a name="line.404"></a>
+<span class="sourceLineNo">405</span>    TotalOrderPartitioner.setPartitionFile(getConf(), outf);<a name="line.405"></a>
+<span class="sourceLineNo">406</span>    for (String s : otherArgs) {<a name="line.406"></a>
+<span class="sourceLineNo">407</span>      FileInputFormat.addInputPath(job, new Path(s));<a name="line.407"></a>
+<span class="sourceLineNo">408</span>    }<a name="line.408"></a>
+<span class="sourceLineNo">409</span>    InputSampler.&lt;K,V&gt;writePartitionFile(job, sampler);<a name="line.409"></a>
+<span class="sourceLineNo">410</span><a name="line.410"></a>
+<span class="sourceLineNo">411</span>    return 0;<a name="line.411"></a>
+<span class="sourceLineNo">412</span>  }<a name="line.412"></a>
+<span class="sourceLineNo">413</span><a name="line.413"></a>
+<span class="sourceLineNo">414</span>  public static void main(String[] args) throws Exception {<a name="line.414"></a>
+<span class="sourceLineNo">415</span>    InputSampler&lt;?,?&gt; sampler = new InputSampler(new Configuration());<a name="line.415"></a>
+<span class="sourceLineNo">416</span>    int res = ToolRunner.run(sampler, args);<a name="line.416"></a>
+<span class="sourceLineNo">417</span>    System.exit(res);<a name="line.417"></a>
+<span class="sourceLineNo">418</span>  }<a name="line.418"></a>
+<span class="sourceLineNo">419</span>}<a name="line.419"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

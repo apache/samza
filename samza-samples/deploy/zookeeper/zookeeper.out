@@ -1,0 +1,44 @@
+2018-05-09 16:41:48,085 [myid:] - INFO  [main:QuorumPeerConfig@101] - Reading configuration from: /Users/fji/workspace/hello-samza/deploy/zookeeper/bin/../conf/zoo.cfg
+2018-05-09 16:41:48,089 [myid:] - INFO  [main:DatadirCleanupManager@78] - autopurge.snapRetainCount set to 3
+2018-05-09 16:41:48,089 [myid:] - INFO  [main:DatadirCleanupManager@79] - autopurge.purgeInterval set to 0
+2018-05-09 16:41:48,089 [myid:] - INFO  [main:DatadirCleanupManager@101] - Purge task is not scheduled.
+2018-05-09 16:41:48,089 [myid:] - WARN  [main:QuorumPeerMain@113] - Either no config or no quorum defined in config, running  in standalone mode
+2018-05-09 16:41:48,099 [myid:] - INFO  [main:QuorumPeerConfig@101] - Reading configuration from: /Users/fji/workspace/hello-samza/deploy/zookeeper/bin/../conf/zoo.cfg
+2018-05-09 16:41:48,099 [myid:] - INFO  [main:ZooKeeperServerMain@95] - Starting server
+2018-05-09 16:41:48,105 [myid:] - INFO  [main:Environment@98] - Server environment:zookeeper.version=3.4.3-1240972, built on 02/06/2012 10:48 GMT
+2018-05-09 16:41:48,105 [myid:] - INFO  [main:Environment@98] - Server environment:host.name=fji-mn1.linkedin.biz
+2018-05-09 16:41:48,105 [myid:] - INFO  [main:Environment@98] - Server environment:java.version=1.8.0_172
+2018-05-09 16:41:48,105 [myid:] - INFO  [main:Environment@98] - Server environment:java.vendor=Oracle Corporation
+2018-05-09 16:41:48,106 [myid:] - INFO  [main:Environment@98] - Server environment:java.home=/Library/Java/JavaVirtualMachines/jdk1.8.0_172.jdk/Contents/Home/jre
+2018-05-09 16:41:48,106 [myid:] - INFO  [main:Environment@98] - Server environment:java.class.path=/Users/fji/workspace/hello-samza/deploy/zookeeper/bin/../build/classes:/Users/fji/workspace/hello-samza/deploy/zookeeper/bin/../build/lib/*.jar:/Users/fji/workspace/hello-samza/deploy/zookeeper/bin/../lib/slf4j-log4j12-1.6.1.jar:/Users/fji/workspace/hello-samza/deploy/zookeeper/bin/../lib/slf4j-api-1.6.1.jar:/Users/fji/workspace/hello-samza/deploy/zookeeper/bin/../lib/netty-3.2.2.Final.jar:/Users/fji/workspace/hello-samza/deploy/zookeeper/bin/../lib/log4j-1.2.15.jar:/Users/fji/workspace/hello-samza/deploy/zookeeper/bin/../lib/jline-0.9.94.jar:/Users/fji/workspace/hello-samza/deploy/zookeeper/bin/../zookeeper-3.4.3.jar:/Users/fji/workspace/hello-samza/deploy/zookeeper/bin/../src/java/lib/*.jar:/Users/fji/workspace/hello-samza/deploy/zookeeper/bin/../conf:
+2018-05-09 16:41:48,106 [myid:] - INFO  [main:Environment@98] - Server environment:java.library.path=/Users/fji/Library/Java/Extensions:/Library/Java/Extensions:/Network/Library/Java/Extensions:/System/Library/Java/Extensions:/usr/lib/java:.
+2018-05-09 16:41:48,106 [myid:] - INFO  [main:Environment@98] - Server environment:java.io.tmpdir=/var/folders/c3/06j1dsvn07l4vd5gzdnq7sf000051z/T/
+2018-05-09 16:41:48,106 [myid:] - INFO  [main:Environment@98] - Server environment:java.compiler=<NA>
+2018-05-09 16:41:48,106 [myid:] - INFO  [main:Environment@98] - Server environment:os.name=Mac OS X
+2018-05-09 16:41:48,106 [myid:] - INFO  [main:Environment@98] - Server environment:os.arch=x86_64
+2018-05-09 16:41:48,107 [myid:] - INFO  [main:Environment@98] - Server environment:os.version=10.13.3
+2018-05-09 16:41:48,107 [myid:] - INFO  [main:Environment@98] - Server environment:user.name=fji
+2018-05-09 16:41:48,107 [myid:] - INFO  [main:Environment@98] - Server environment:user.home=/Users/fji
+2018-05-09 16:41:48,107 [myid:] - INFO  [main:Environment@98] - Server environment:user.dir=/Users/fji/workspace/hello-samza/deploy/zookeeper
+2018-05-09 16:41:48,111 [myid:] - INFO  [main:ZooKeeperServer@733] - tickTime set to 2000
+2018-05-09 16:41:48,112 [myid:] - INFO  [main:ZooKeeperServer@742] - minSessionTimeout set to -1
+2018-05-09 16:41:48,112 [myid:] - INFO  [main:ZooKeeperServer@751] - maxSessionTimeout set to -1
+2018-05-09 16:41:48,130 [myid:] - INFO  [main:NIOServerCnxnFactory@110] - binding to port 0.0.0.0/0.0.0.0:2181
+2018-05-09 16:41:48,142 [myid:] - INFO  [main:FileSnap@83] - Reading snapshot /tmp/zookeeper/version-2/snapshot.0
+2018-05-09 16:41:48,159 [myid:] - INFO  [main:FileTxnSnapLog@238] - Snapshotting: 0x1b to /tmp/zookeeper/version-2/snapshot.1b
+2018-05-09 16:41:48,778 [myid:] - INFO  [NIOServerCxn.Factory:0.0.0.0/0.0.0.0:2181:NIOServerCnxnFactory@213] - Accepted socket connection from /0:0:0:0:0:0:0:1:62710
+2018-05-09 16:41:49,780 [myid:] - WARN  [NIOServerCxn.Factory:0.0.0.0/0.0.0.0:2181:NIOServerCnxn@349] - caught end of stream exception
+EndOfStreamException: Unable to read additional data from client sessionid 0x0, likely client has closed socket
+	at org.apache.zookeeper.server.NIOServerCnxn.doIO(NIOServerCnxn.java:220)
+	at org.apache.zookeeper.server.NIOServerCnxnFactory.run(NIOServerCnxnFactory.java:224)
+	at java.lang.Thread.run(Thread.java:748)
+2018-05-09 16:41:49,781 [myid:] - INFO  [NIOServerCxn.Factory:0.0.0.0/0.0.0.0:2181:NIOServerCnxn@1000] - Closed socket connection for client /0:0:0:0:0:0:0:1:62710 (no session established for client)
+2018-05-09 16:42:01,922 [myid:] - INFO  [NIOServerCxn.Factory:0.0.0.0/0.0.0.0:2181:NIOServerCnxnFactory@213] - Accepted socket connection from /fe80:0:0:0:0:0:0:1%1:62745
+2018-05-09 16:42:01,930 [myid:] - INFO  [NIOServerCxn.Factory:0.0.0.0/0.0.0.0:2181:ZooKeeperServer@838] - Client attempting to establish new session at /fe80:0:0:0:0:0:0:1%1:62745
+2018-05-09 16:42:01,931 [myid:] - INFO  [SyncThread:0:FileTxnLog@199] - Creating new log file: log.1c
+2018-05-09 16:42:01,937 [myid:] - INFO  [SyncThread:0:ZooKeeperServer@604] - Established session 0x163474843040000 with negotiated timeout 6000 for client /fe80:0:0:0:0:0:0:1%1:62745
+2018-05-09 16:42:02,338 [myid:] - INFO  [ProcessThread(sid:0 cport:-1)::PrepRequestProcessor@617] - Got user-level KeeperException when processing sessionid:0x163474843040000 type:delete cxid:0x23 zxid:0x1f txntype:-1 reqpath:n/a Error Path:/admin/preferred_replica_election Error:KeeperErrorCode = NoNode for /admin/preferred_replica_election
+2018-05-09 16:42:02,390 [myid:] - INFO  [ProcessThread(sid:0 cport:-1)::PrepRequestProcessor@617] - Got user-level KeeperException when processing sessionid:0x163474843040000 type:create cxid:0x2e zxid:0x20 txntype:-1 reqpath:n/a Error Path:/brokers Error:KeeperErrorCode = NodeExists for /brokers
+2018-05-09 16:42:02,390 [myid:] - INFO  [ProcessThread(sid:0 cport:-1)::PrepRequestProcessor@617] - Got user-level KeeperException when processing sessionid:0x163474843040000 type:create cxid:0x2f zxid:0x21 txntype:-1 reqpath:n/a Error Path:/brokers/ids Error:KeeperErrorCode = NodeExists for /brokers/ids
+2018-05-09 16:46:47,568 [myid:] - INFO  [ProcessThread(sid:0 cport:-1)::PrepRequestProcessor@466] - Processed session termination for sessionid: 0x163474843040000
+2018-05-09 16:46:47,570 [myid:] - INFO  [NIOServerCxn.Factory:0.0.0.0/0.0.0.0:2181:NIOServerCnxn@1000] - Closed socket connection for client /fe80:0:0:0:0:0:0:1%1:62745 which had sessionid 0x163474843040000

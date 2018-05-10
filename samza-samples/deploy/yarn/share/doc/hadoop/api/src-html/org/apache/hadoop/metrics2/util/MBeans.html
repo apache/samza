@@ -1,0 +1,170 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/**<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Licensed to the Apache Software Foundation (ASF) under one<a name="line.2"></a>
+<span class="sourceLineNo">003</span> * or more contributor license agreements.  See the NOTICE file<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * distributed with this work for additional information<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * regarding copyright ownership.  The ASF licenses this file<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * to you under the Apache License, Version 2.0 (the<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * "License"); you may not use this file except in compliance<a name="line.7"></a>
+<span class="sourceLineNo">008</span> * with the License.  You may obtain a copy of the License at<a name="line.8"></a>
+<span class="sourceLineNo">009</span> *<a name="line.9"></a>
+<span class="sourceLineNo">010</span> *     http://www.apache.org/licenses/LICENSE-2.0<a name="line.10"></a>
+<span class="sourceLineNo">011</span> *<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Unless required by applicable law or agreed to in writing, software<a name="line.12"></a>
+<span class="sourceLineNo">013</span> * distributed under the License is distributed on an "AS IS" BASIS,<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * See the License for the specific language governing permissions and<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * limitations under the License.<a name="line.16"></a>
+<span class="sourceLineNo">017</span> */<a name="line.17"></a>
+<span class="sourceLineNo">018</span>package org.apache.hadoop.metrics2.util;<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>import java.lang.management.ManagementFactory;<a name="line.20"></a>
+<span class="sourceLineNo">021</span><a name="line.21"></a>
+<span class="sourceLineNo">022</span>import javax.management.InstanceAlreadyExistsException;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import javax.management.MBeanServer;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import javax.management.ObjectName;<a name="line.24"></a>
+<span class="sourceLineNo">025</span><a name="line.25"></a>
+<span class="sourceLineNo">026</span>import org.apache.commons.logging.Log;<a name="line.26"></a>
+<span class="sourceLineNo">027</span>import org.apache.commons.logging.LogFactory;<a name="line.27"></a>
+<span class="sourceLineNo">028</span>import org.apache.hadoop.classification.InterfaceAudience;<a name="line.28"></a>
+<span class="sourceLineNo">029</span>import org.apache.hadoop.classification.InterfaceStability;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;<a name="line.30"></a>
+<span class="sourceLineNo">031</span><a name="line.31"></a>
+<span class="sourceLineNo">032</span>/**<a name="line.32"></a>
+<span class="sourceLineNo">033</span> * This util class provides a method to register an MBean using<a name="line.33"></a>
+<span class="sourceLineNo">034</span> * our standard naming convention as described in the doc<a name="line.34"></a>
+<span class="sourceLineNo">035</span> *  for {link {@link #register(String, String, Object)}<a name="line.35"></a>
+<span class="sourceLineNo">036</span> */<a name="line.36"></a>
+<span class="sourceLineNo">037</span>@InterfaceAudience.Public<a name="line.37"></a>
+<span class="sourceLineNo">038</span>@InterfaceStability.Stable<a name="line.38"></a>
+<span class="sourceLineNo">039</span>public class MBeans {<a name="line.39"></a>
+<span class="sourceLineNo">040</span>  private static final Log LOG = LogFactory.getLog(MBeans.class);<a name="line.40"></a>
+<span class="sourceLineNo">041</span><a name="line.41"></a>
+<span class="sourceLineNo">042</span>  /**<a name="line.42"></a>
+<span class="sourceLineNo">043</span>   * Register the MBean using our standard MBeanName format<a name="line.43"></a>
+<span class="sourceLineNo">044</span>   * "hadoop:service=&lt;serviceName&gt;,name=&lt;nameName&gt;"<a name="line.44"></a>
+<span class="sourceLineNo">045</span>   * Where the &lt;serviceName&gt; and &lt;nameName&gt; are the supplied parameters<a name="line.45"></a>
+<span class="sourceLineNo">046</span>   *<a name="line.46"></a>
+<span class="sourceLineNo">047</span>   * @param serviceName<a name="line.47"></a>
+<span class="sourceLineNo">048</span>   * @param nameName<a name="line.48"></a>
+<span class="sourceLineNo">049</span>   * @param theMbean - the MBean to register<a name="line.49"></a>
+<span class="sourceLineNo">050</span>   * @return the named used to register the MBean<a name="line.50"></a>
+<span class="sourceLineNo">051</span>   */<a name="line.51"></a>
+<span class="sourceLineNo">052</span>  static public ObjectName register(String serviceName, String nameName,<a name="line.52"></a>
+<span class="sourceLineNo">053</span>                                    Object theMbean) {<a name="line.53"></a>
+<span class="sourceLineNo">054</span>    final MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();<a name="line.54"></a>
+<span class="sourceLineNo">055</span>    ObjectName name = getMBeanName(serviceName, nameName);<a name="line.55"></a>
+<span class="sourceLineNo">056</span>    try {<a name="line.56"></a>
+<span class="sourceLineNo">057</span>      mbs.registerMBean(theMbean, name);<a name="line.57"></a>
+<span class="sourceLineNo">058</span>      LOG.debug("Registered "+ name);<a name="line.58"></a>
+<span class="sourceLineNo">059</span>      return name;<a name="line.59"></a>
+<span class="sourceLineNo">060</span>    } catch (InstanceAlreadyExistsException iaee) {<a name="line.60"></a>
+<span class="sourceLineNo">061</span>      if (LOG.isTraceEnabled()) {<a name="line.61"></a>
+<span class="sourceLineNo">062</span>        LOG.trace("Failed to register MBean \""+ name + "\"", iaee);<a name="line.62"></a>
+<span class="sourceLineNo">063</span>      } else {<a name="line.63"></a>
+<span class="sourceLineNo">064</span>        LOG.warn("Failed to register MBean \""+ name<a name="line.64"></a>
+<span class="sourceLineNo">065</span>            + "\": Instance already exists.");<a name="line.65"></a>
+<span class="sourceLineNo">066</span>      }<a name="line.66"></a>
+<span class="sourceLineNo">067</span>    } catch (Exception e) {<a name="line.67"></a>
+<span class="sourceLineNo">068</span>      LOG.warn("Failed to register MBean \""+ name + "\"", e);<a name="line.68"></a>
+<span class="sourceLineNo">069</span>    }<a name="line.69"></a>
+<span class="sourceLineNo">070</span>    return null;<a name="line.70"></a>
+<span class="sourceLineNo">071</span>  }<a name="line.71"></a>
+<span class="sourceLineNo">072</span><a name="line.72"></a>
+<span class="sourceLineNo">073</span>  static public void unregister(ObjectName mbeanName) {<a name="line.73"></a>
+<span class="sourceLineNo">074</span>    LOG.debug("Unregistering "+ mbeanName);<a name="line.74"></a>
+<span class="sourceLineNo">075</span>    final MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();<a name="line.75"></a>
+<span class="sourceLineNo">076</span>    if (mbeanName == null) {<a name="line.76"></a>
+<span class="sourceLineNo">077</span>      LOG.debug("Stacktrace: ", new Throwable());<a name="line.77"></a>
+<span class="sourceLineNo">078</span>      return;<a name="line.78"></a>
+<span class="sourceLineNo">079</span>    }<a name="line.79"></a>
+<span class="sourceLineNo">080</span>    try {<a name="line.80"></a>
+<span class="sourceLineNo">081</span>      mbs.unregisterMBean(mbeanName);<a name="line.81"></a>
+<span class="sourceLineNo">082</span>    } catch (Exception e) {<a name="line.82"></a>
+<span class="sourceLineNo">083</span>      LOG.warn("Error unregistering "+ mbeanName, e);<a name="line.83"></a>
+<span class="sourceLineNo">084</span>    }<a name="line.84"></a>
+<span class="sourceLineNo">085</span>    DefaultMetricsSystem.removeMBeanName(mbeanName);<a name="line.85"></a>
+<span class="sourceLineNo">086</span>  }<a name="line.86"></a>
+<span class="sourceLineNo">087</span><a name="line.87"></a>
+<span class="sourceLineNo">088</span>  static private ObjectName getMBeanName(String serviceName, String nameName) {<a name="line.88"></a>
+<span class="sourceLineNo">089</span>    ObjectName name = null;<a name="line.89"></a>
+<span class="sourceLineNo">090</span>    String nameStr = "Hadoop:service="+ serviceName +",name="+ nameName;<a name="line.90"></a>
+<span class="sourceLineNo">091</span>    try {<a name="line.91"></a>
+<span class="sourceLineNo">092</span>      name = DefaultMetricsSystem.newMBeanName(nameStr);<a name="line.92"></a>
+<span class="sourceLineNo">093</span>    } catch (Exception e) {<a name="line.93"></a>
+<span class="sourceLineNo">094</span>      LOG.warn("Error creating MBean object name: "+ nameStr, e);<a name="line.94"></a>
+<span class="sourceLineNo">095</span>    }<a name="line.95"></a>
+<span class="sourceLineNo">096</span>    return name;<a name="line.96"></a>
+<span class="sourceLineNo">097</span>  }<a name="line.97"></a>
+<span class="sourceLineNo">098</span>}<a name="line.98"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

@@ -1,0 +1,2100 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/**<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Licensed to the Apache Software Foundation (ASF) under one<a name="line.2"></a>
+<span class="sourceLineNo">003</span> * or more contributor license agreements.  See the NOTICE file<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * distributed with this work for additional information<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * regarding copyright ownership.  The ASF licenses this file<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * to you under the Apache License, Version 2.0 (the<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * "License"); you may not use this file except in compliance<a name="line.7"></a>
+<span class="sourceLineNo">008</span> * with the License.  You may obtain a copy of the License at<a name="line.8"></a>
+<span class="sourceLineNo">009</span> *<a name="line.9"></a>
+<span class="sourceLineNo">010</span> *     http://www.apache.org/licenses/LICENSE-2.0<a name="line.10"></a>
+<span class="sourceLineNo">011</span> *<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Unless required by applicable law or agreed to in writing, software<a name="line.12"></a>
+<span class="sourceLineNo">013</span> * distributed under the License is distributed on an "AS IS" BASIS,<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * See the License for the specific language governing permissions and<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * limitations under the License.<a name="line.16"></a>
+<span class="sourceLineNo">017</span> */<a name="line.17"></a>
+<span class="sourceLineNo">018</span><a name="line.18"></a>
+<span class="sourceLineNo">019</span>package org.apache.hadoop.mapred;<a name="line.19"></a>
+<span class="sourceLineNo">020</span><a name="line.20"></a>
+<span class="sourceLineNo">021</span><a name="line.21"></a>
+<span class="sourceLineNo">022</span>import java.io.IOException;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import java.util.regex.Pattern;<a name="line.23"></a>
+<span class="sourceLineNo">024</span><a name="line.24"></a>
+<span class="sourceLineNo">025</span>import org.apache.commons.logging.Log;<a name="line.25"></a>
+<span class="sourceLineNo">026</span>import org.apache.commons.logging.LogFactory;<a name="line.26"></a>
+<span class="sourceLineNo">027</span>import org.apache.hadoop.classification.InterfaceAudience;<a name="line.27"></a>
+<span class="sourceLineNo">028</span>import org.apache.hadoop.classification.InterfaceAudience.Private;<a name="line.28"></a>
+<span class="sourceLineNo">029</span>import org.apache.hadoop.classification.InterfaceStability;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import org.apache.hadoop.conf.Configuration;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import org.apache.hadoop.fs.FileStatus;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import org.apache.hadoop.fs.FileSystem;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import org.apache.hadoop.fs.Path;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import org.apache.hadoop.io.LongWritable;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import org.apache.hadoop.io.RawComparator;<a name="line.35"></a>
+<span class="sourceLineNo">036</span>import org.apache.hadoop.io.Text;<a name="line.36"></a>
+<span class="sourceLineNo">037</span>import org.apache.hadoop.io.WritableComparable;<a name="line.37"></a>
+<span class="sourceLineNo">038</span>import org.apache.hadoop.io.WritableComparator;<a name="line.38"></a>
+<span class="sourceLineNo">039</span>import org.apache.hadoop.io.compress.CompressionCodec;<a name="line.39"></a>
+<span class="sourceLineNo">040</span>import org.apache.hadoop.mapred.lib.HashPartitioner;<a name="line.40"></a>
+<span class="sourceLineNo">041</span>import org.apache.hadoop.mapred.lib.IdentityMapper;<a name="line.41"></a>
+<span class="sourceLineNo">042</span>import org.apache.hadoop.mapred.lib.IdentityReducer;<a name="line.42"></a>
+<span class="sourceLineNo">043</span>import org.apache.hadoop.mapred.lib.KeyFieldBasedComparator;<a name="line.43"></a>
+<span class="sourceLineNo">044</span>import org.apache.hadoop.mapred.lib.KeyFieldBasedPartitioner;<a name="line.44"></a>
+<span class="sourceLineNo">045</span>import org.apache.hadoop.mapreduce.MRConfig;<a name="line.45"></a>
+<span class="sourceLineNo">046</span>import org.apache.hadoop.mapreduce.MRJobConfig;<a name="line.46"></a>
+<span class="sourceLineNo">047</span>import org.apache.hadoop.mapreduce.filecache.DistributedCache;<a name="line.47"></a>
+<span class="sourceLineNo">048</span>import org.apache.hadoop.mapreduce.util.ConfigUtil;<a name="line.48"></a>
+<span class="sourceLineNo">049</span>import org.apache.hadoop.security.Credentials;<a name="line.49"></a>
+<span class="sourceLineNo">050</span>import org.apache.hadoop.util.ClassUtil;<a name="line.50"></a>
+<span class="sourceLineNo">051</span>import org.apache.hadoop.util.ReflectionUtils;<a name="line.51"></a>
+<span class="sourceLineNo">052</span>import org.apache.hadoop.util.Tool;<a name="line.52"></a>
+<span class="sourceLineNo">053</span>import org.apache.log4j.Level;<a name="line.53"></a>
+<span class="sourceLineNo">054</span><a name="line.54"></a>
+<span class="sourceLineNo">055</span>/** <a name="line.55"></a>
+<span class="sourceLineNo">056</span> * A map/reduce job configuration.<a name="line.56"></a>
+<span class="sourceLineNo">057</span> * <a name="line.57"></a>
+<span class="sourceLineNo">058</span> * &lt;p&gt;&lt;code&gt;JobConf&lt;/code&gt; is the primary interface for a user to describe a <a name="line.58"></a>
+<span class="sourceLineNo">059</span> * map-reduce job to the Hadoop framework for execution. The framework tries to<a name="line.59"></a>
+<span class="sourceLineNo">060</span> * faithfully execute the job as-is described by &lt;code&gt;JobConf&lt;/code&gt;, however:<a name="line.60"></a>
+<span class="sourceLineNo">061</span> * &lt;ol&gt;<a name="line.61"></a>
+<span class="sourceLineNo">062</span> *   &lt;li&gt;<a name="line.62"></a>
+<span class="sourceLineNo">063</span> *   Some configuration parameters might have been marked as <a name="line.63"></a>
+<span class="sourceLineNo">064</span> *   &lt;a href="{@docRoot}/org/apache/hadoop/conf/Configuration.html#FinalParams"&gt;<a name="line.64"></a>
+<span class="sourceLineNo">065</span> *   final&lt;/a&gt; by administrators and hence cannot be altered.<a name="line.65"></a>
+<span class="sourceLineNo">066</span> *   &lt;/li&gt;<a name="line.66"></a>
+<span class="sourceLineNo">067</span> *   &lt;li&gt;<a name="line.67"></a>
+<span class="sourceLineNo">068</span> *   While some job parameters are straight-forward to set <a name="line.68"></a>
+<span class="sourceLineNo">069</span> *   (e.g. {@link #setNumReduceTasks(int)}), some parameters interact subtly<a name="line.69"></a>
+<span class="sourceLineNo">070</span> *   with the rest of the framework and/or job-configuration and is relatively<a name="line.70"></a>
+<span class="sourceLineNo">071</span> *   more complex for the user to control finely<a name="line.71"></a>
+<span class="sourceLineNo">072</span> *   (e.g. {@link #setNumMapTasks(int)}).<a name="line.72"></a>
+<span class="sourceLineNo">073</span> *   &lt;/li&gt;<a name="line.73"></a>
+<span class="sourceLineNo">074</span> * &lt;/ol&gt;&lt;/p&gt;<a name="line.74"></a>
+<span class="sourceLineNo">075</span> * <a name="line.75"></a>
+<span class="sourceLineNo">076</span> * &lt;p&gt;&lt;code&gt;JobConf&lt;/code&gt; typically specifies the {@link Mapper}, combiner <a name="line.76"></a>
+<span class="sourceLineNo">077</span> * (if any), {@link Partitioner}, {@link Reducer}, {@link InputFormat} and <a name="line.77"></a>
+<span class="sourceLineNo">078</span> * {@link OutputFormat} implementations to be used etc.<a name="line.78"></a>
+<span class="sourceLineNo">079</span> *<a name="line.79"></a>
+<span class="sourceLineNo">080</span> * &lt;p&gt;Optionally &lt;code&gt;JobConf&lt;/code&gt; is used to specify other advanced facets <a name="line.80"></a>
+<span class="sourceLineNo">081</span> * of the job such as &lt;code&gt;Comparator&lt;/code&gt;s to be used, files to be put in  <a name="line.81"></a>
+<span class="sourceLineNo">082</span> * the {@link DistributedCache}, whether or not intermediate and/or job outputs <a name="line.82"></a>
+<span class="sourceLineNo">083</span> * are to be compressed (and how), debugability via user-provided scripts <a name="line.83"></a>
+<span class="sourceLineNo">084</span> * ( {@link #setMapDebugScript(String)}/{@link #setReduceDebugScript(String)}),<a name="line.84"></a>
+<span class="sourceLineNo">085</span> * for doing post-processing on task logs, task's stdout, stderr, syslog. <a name="line.85"></a>
+<span class="sourceLineNo">086</span> * and etc.&lt;/p&gt;<a name="line.86"></a>
+<span class="sourceLineNo">087</span> * <a name="line.87"></a>
+<span class="sourceLineNo">088</span> * &lt;p&gt;Here is an example on how to configure a job via &lt;code&gt;JobConf&lt;/code&gt;:&lt;/p&gt;<a name="line.88"></a>
+<span class="sourceLineNo">089</span> * &lt;p&gt;&lt;blockquote&gt;&lt;pre&gt;<a name="line.89"></a>
+<span class="sourceLineNo">090</span> *     // Create a new JobConf<a name="line.90"></a>
+<span class="sourceLineNo">091</span> *     JobConf job = new JobConf(new Configuration(), MyJob.class);<a name="line.91"></a>
+<span class="sourceLineNo">092</span> *     <a name="line.92"></a>
+<span class="sourceLineNo">093</span> *     // Specify various job-specific parameters     <a name="line.93"></a>
+<span class="sourceLineNo">094</span> *     job.setJobName("myjob");<a name="line.94"></a>
+<span class="sourceLineNo">095</span> *     <a name="line.95"></a>
+<span class="sourceLineNo">096</span> *     FileInputFormat.setInputPaths(job, new Path("in"));<a name="line.96"></a>
+<span class="sourceLineNo">097</span> *     FileOutputFormat.setOutputPath(job, new Path("out"));<a name="line.97"></a>
+<span class="sourceLineNo">098</span> *     <a name="line.98"></a>
+<span class="sourceLineNo">099</span> *     job.setMapperClass(MyJob.MyMapper.class);<a name="line.99"></a>
+<span class="sourceLineNo">100</span> *     job.setCombinerClass(MyJob.MyReducer.class);<a name="line.100"></a>
+<span class="sourceLineNo">101</span> *     job.setReducerClass(MyJob.MyReducer.class);<a name="line.101"></a>
+<span class="sourceLineNo">102</span> *     <a name="line.102"></a>
+<span class="sourceLineNo">103</span> *     job.setInputFormat(SequenceFileInputFormat.class);<a name="line.103"></a>
+<span class="sourceLineNo">104</span> *     job.setOutputFormat(SequenceFileOutputFormat.class);<a name="line.104"></a>
+<span class="sourceLineNo">105</span> * &lt;/pre&gt;&lt;/blockquote&gt;&lt;/p&gt;<a name="line.105"></a>
+<span class="sourceLineNo">106</span> * <a name="line.106"></a>
+<span class="sourceLineNo">107</span> * @see JobClient<a name="line.107"></a>
+<span class="sourceLineNo">108</span> * @see ClusterStatus<a name="line.108"></a>
+<span class="sourceLineNo">109</span> * @see Tool<a name="line.109"></a>
+<span class="sourceLineNo">110</span> * @see DistributedCache<a name="line.110"></a>
+<span class="sourceLineNo">111</span> */<a name="line.111"></a>
+<span class="sourceLineNo">112</span>@InterfaceAudience.Public<a name="line.112"></a>
+<span class="sourceLineNo">113</span>@InterfaceStability.Stable<a name="line.113"></a>
+<span class="sourceLineNo">114</span>public class JobConf extends Configuration {<a name="line.114"></a>
+<span class="sourceLineNo">115</span><a name="line.115"></a>
+<span class="sourceLineNo">116</span>  private static final Log LOG = LogFactory.getLog(JobConf.class);<a name="line.116"></a>
+<span class="sourceLineNo">117</span><a name="line.117"></a>
+<span class="sourceLineNo">118</span>  static{<a name="line.118"></a>
+<span class="sourceLineNo">119</span>    ConfigUtil.loadResources();<a name="line.119"></a>
+<span class="sourceLineNo">120</span>  }<a name="line.120"></a>
+<span class="sourceLineNo">121</span><a name="line.121"></a>
+<span class="sourceLineNo">122</span>  /**<a name="line.122"></a>
+<span class="sourceLineNo">123</span>   * @deprecated Use {@link #MAPREDUCE_JOB_MAP_MEMORY_MB_PROPERTY} and<a name="line.123"></a>
+<span class="sourceLineNo">124</span>   * {@link #MAPREDUCE_JOB_REDUCE_MEMORY_MB_PROPERTY}<a name="line.124"></a>
+<span class="sourceLineNo">125</span>   */<a name="line.125"></a>
+<span class="sourceLineNo">126</span>  @Deprecated<a name="line.126"></a>
+<span class="sourceLineNo">127</span>  public static final String MAPRED_TASK_MAXVMEM_PROPERTY =<a name="line.127"></a>
+<span class="sourceLineNo">128</span>    "mapred.task.maxvmem";<a name="line.128"></a>
+<span class="sourceLineNo">129</span><a name="line.129"></a>
+<span class="sourceLineNo">130</span>  /**<a name="line.130"></a>
+<span class="sourceLineNo">131</span>   * @deprecated <a name="line.131"></a>
+<span class="sourceLineNo">132</span>   */<a name="line.132"></a>
+<span class="sourceLineNo">133</span>  @Deprecated<a name="line.133"></a>
+<span class="sourceLineNo">134</span>  public static final String UPPER_LIMIT_ON_TASK_VMEM_PROPERTY =<a name="line.134"></a>
+<span class="sourceLineNo">135</span>    "mapred.task.limit.maxvmem";<a name="line.135"></a>
+<span class="sourceLineNo">136</span><a name="line.136"></a>
+<span class="sourceLineNo">137</span>  /**<a name="line.137"></a>
+<span class="sourceLineNo">138</span>   * @deprecated<a name="line.138"></a>
+<span class="sourceLineNo">139</span>   */<a name="line.139"></a>
+<span class="sourceLineNo">140</span>  @Deprecated<a name="line.140"></a>
+<span class="sourceLineNo">141</span>  public static final String MAPRED_TASK_DEFAULT_MAXVMEM_PROPERTY =<a name="line.141"></a>
+<span class="sourceLineNo">142</span>    "mapred.task.default.maxvmem";<a name="line.142"></a>
+<span class="sourceLineNo">143</span><a name="line.143"></a>
+<span class="sourceLineNo">144</span>  /**<a name="line.144"></a>
+<span class="sourceLineNo">145</span>   * @deprecated<a name="line.145"></a>
+<span class="sourceLineNo">146</span>   */<a name="line.146"></a>
+<span class="sourceLineNo">147</span>  @Deprecated<a name="line.147"></a>
+<span class="sourceLineNo">148</span>  public static final String MAPRED_TASK_MAXPMEM_PROPERTY =<a name="line.148"></a>
+<span class="sourceLineNo">149</span>    "mapred.task.maxpmem";<a name="line.149"></a>
+<span class="sourceLineNo">150</span><a name="line.150"></a>
+<span class="sourceLineNo">151</span>  /**<a name="line.151"></a>
+<span class="sourceLineNo">152</span>   * A value which if set for memory related configuration options,<a name="line.152"></a>
+<span class="sourceLineNo">153</span>   * indicates that the options are turned off.<a name="line.153"></a>
+<span class="sourceLineNo">154</span>   * Deprecated because it makes no sense in the context of MR2.<a name="line.154"></a>
+<span class="sourceLineNo">155</span>   */<a name="line.155"></a>
+<span class="sourceLineNo">156</span>  @Deprecated<a name="line.156"></a>
+<span class="sourceLineNo">157</span>  public static final long DISABLED_MEMORY_LIMIT = -1L;<a name="line.157"></a>
+<span class="sourceLineNo">158</span><a name="line.158"></a>
+<span class="sourceLineNo">159</span>  /**<a name="line.159"></a>
+<span class="sourceLineNo">160</span>   * Property name for the configuration property mapreduce.cluster.local.dir<a name="line.160"></a>
+<span class="sourceLineNo">161</span>   */<a name="line.161"></a>
+<span class="sourceLineNo">162</span>  public static final String MAPRED_LOCAL_DIR_PROPERTY = MRConfig.LOCAL_DIR;<a name="line.162"></a>
+<span class="sourceLineNo">163</span><a name="line.163"></a>
+<span class="sourceLineNo">164</span>  /**<a name="line.164"></a>
+<span class="sourceLineNo">165</span>   * Name of the queue to which jobs will be submitted, if no queue<a name="line.165"></a>
+<span class="sourceLineNo">166</span>   * name is mentioned.<a name="line.166"></a>
+<span class="sourceLineNo">167</span>   */<a name="line.167"></a>
+<span class="sourceLineNo">168</span>  public static final String DEFAULT_QUEUE_NAME = "default";<a name="line.168"></a>
+<span class="sourceLineNo">169</span><a name="line.169"></a>
+<span class="sourceLineNo">170</span>  static final String MAPREDUCE_JOB_MAP_MEMORY_MB_PROPERTY =<a name="line.170"></a>
+<span class="sourceLineNo">171</span>      JobContext.MAP_MEMORY_MB;<a name="line.171"></a>
+<span class="sourceLineNo">172</span><a name="line.172"></a>
+<span class="sourceLineNo">173</span>  static final String MAPREDUCE_JOB_REDUCE_MEMORY_MB_PROPERTY =<a name="line.173"></a>
+<span class="sourceLineNo">174</span>    JobContext.REDUCE_MEMORY_MB;<a name="line.174"></a>
+<span class="sourceLineNo">175</span><a name="line.175"></a>
+<span class="sourceLineNo">176</span>  /**<a name="line.176"></a>
+<span class="sourceLineNo">177</span>   * The variable is kept for M/R 1.x applications, while M/R 2.x applications<a name="line.177"></a>
+<span class="sourceLineNo">178</span>   * should use {@link #MAPREDUCE_JOB_MAP_MEMORY_MB_PROPERTY}<a name="line.178"></a>
+<span class="sourceLineNo">179</span>   */<a name="line.179"></a>
+<span class="sourceLineNo">180</span>  @Deprecated<a name="line.180"></a>
+<span class="sourceLineNo">181</span>  public static final String MAPRED_JOB_MAP_MEMORY_MB_PROPERTY =<a name="line.181"></a>
+<span class="sourceLineNo">182</span>      "mapred.job.map.memory.mb";<a name="line.182"></a>
+<span class="sourceLineNo">183</span><a name="line.183"></a>
+<span class="sourceLineNo">184</span>  /**<a name="line.184"></a>
+<span class="sourceLineNo">185</span>   * The variable is kept for M/R 1.x applications, while M/R 2.x applications<a name="line.185"></a>
+<span class="sourceLineNo">186</span>   * should use {@link #MAPREDUCE_JOB_REDUCE_MEMORY_MB_PROPERTY}<a name="line.186"></a>
+<span class="sourceLineNo">187</span>   */<a name="line.187"></a>
+<span class="sourceLineNo">188</span>  @Deprecated<a name="line.188"></a>
+<span class="sourceLineNo">189</span>  public static final String MAPRED_JOB_REDUCE_MEMORY_MB_PROPERTY =<a name="line.189"></a>
+<span class="sourceLineNo">190</span>      "mapred.job.reduce.memory.mb";<a name="line.190"></a>
+<span class="sourceLineNo">191</span><a name="line.191"></a>
+<span class="sourceLineNo">192</span>  /** Pattern for the default unpacking behavior for job jars */<a name="line.192"></a>
+<span class="sourceLineNo">193</span>  public static final Pattern UNPACK_JAR_PATTERN_DEFAULT =<a name="line.193"></a>
+<span class="sourceLineNo">194</span>    Pattern.compile("(?:classes/|lib/).*");<a name="line.194"></a>
+<span class="sourceLineNo">195</span><a name="line.195"></a>
+<span class="sourceLineNo">196</span>  /**<a name="line.196"></a>
+<span class="sourceLineNo">197</span>   * Configuration key to set the java command line options for the child<a name="line.197"></a>
+<span class="sourceLineNo">198</span>   * map and reduce tasks.<a name="line.198"></a>
+<span class="sourceLineNo">199</span>   * <a name="line.199"></a>
+<span class="sourceLineNo">200</span>   * Java opts for the task tracker child processes.<a name="line.200"></a>
+<span class="sourceLineNo">201</span>   * The following symbol, if present, will be interpolated: @taskid@. <a name="line.201"></a>
+<span class="sourceLineNo">202</span>   * It is replaced by current TaskID. Any other occurrences of '@' will go <a name="line.202"></a>
+<span class="sourceLineNo">203</span>   * unchanged.<a name="line.203"></a>
+<span class="sourceLineNo">204</span>   * For example, to enable verbose gc logging to a file named for the taskid in<a name="line.204"></a>
+<span class="sourceLineNo">205</span>   * /tmp and to set the heap maximum to be a gigabyte, pass a 'value' of:<a name="line.205"></a>
+<span class="sourceLineNo">206</span>   *          -Xmx1024m -verbose:gc -Xloggc:/tmp/@taskid@.gc<a name="line.206"></a>
+<span class="sourceLineNo">207</span>   * <a name="line.207"></a>
+<span class="sourceLineNo">208</span>   * The configuration variable {@link #MAPRED_TASK_ENV} can be used to pass <a name="line.208"></a>
+<span class="sourceLineNo">209</span>   * other environment variables to the child processes.<a name="line.209"></a>
+<span class="sourceLineNo">210</span>   * <a name="line.210"></a>
+<span class="sourceLineNo">211</span>   * @deprecated Use {@link #MAPRED_MAP_TASK_JAVA_OPTS} or <a name="line.211"></a>
+<span class="sourceLineNo">212</span>   *                 {@link #MAPRED_REDUCE_TASK_JAVA_OPTS}<a name="line.212"></a>
+<span class="sourceLineNo">213</span>   */<a name="line.213"></a>
+<span class="sourceLineNo">214</span>  @Deprecated<a name="line.214"></a>
+<span class="sourceLineNo">215</span>  public static final String MAPRED_TASK_JAVA_OPTS = "mapred.child.java.opts";<a name="line.215"></a>
+<span class="sourceLineNo">216</span>  <a name="line.216"></a>
+<span class="sourceLineNo">217</span>  /**<a name="line.217"></a>
+<span class="sourceLineNo">218</span>   * Configuration key to set the java command line options for the map tasks.<a name="line.218"></a>
+<span class="sourceLineNo">219</span>   * <a name="line.219"></a>
+<span class="sourceLineNo">220</span>   * Java opts for the task tracker child map processes.<a name="line.220"></a>
+<span class="sourceLineNo">221</span>   * The following symbol, if present, will be interpolated: @taskid@. <a name="line.221"></a>
+<span class="sourceLineNo">222</span>   * It is replaced by current TaskID. Any other occurrences of '@' will go <a name="line.222"></a>
+<span class="sourceLineNo">223</span>   * unchanged.<a name="line.223"></a>
+<span class="sourceLineNo">224</span>   * For example, to enable verbose gc logging to a file named for the taskid in<a name="line.224"></a>
+<span class="sourceLineNo">225</span>   * /tmp and to set the heap maximum to be a gigabyte, pass a 'value' of:<a name="line.225"></a>
+<span class="sourceLineNo">226</span>   *          -Xmx1024m -verbose:gc -Xloggc:/tmp/@taskid@.gc<a name="line.226"></a>
+<span class="sourceLineNo">227</span>   * <a name="line.227"></a>
+<span class="sourceLineNo">228</span>   * The configuration variable {@link #MAPRED_MAP_TASK_ENV} can be used to pass <a name="line.228"></a>
+<span class="sourceLineNo">229</span>   * other environment variables to the map processes.<a name="line.229"></a>
+<span class="sourceLineNo">230</span>   */<a name="line.230"></a>
+<span class="sourceLineNo">231</span>  public static final String MAPRED_MAP_TASK_JAVA_OPTS = <a name="line.231"></a>
+<span class="sourceLineNo">232</span>    JobContext.MAP_JAVA_OPTS;<a name="line.232"></a>
+<span class="sourceLineNo">233</span>  <a name="line.233"></a>
+<span class="sourceLineNo">234</span>  /**<a name="line.234"></a>
+<span class="sourceLineNo">235</span>   * Configuration key to set the java command line options for the reduce tasks.<a name="line.235"></a>
+<span class="sourceLineNo">236</span>   * <a name="line.236"></a>
+<span class="sourceLineNo">237</span>   * Java opts for the task tracker child reduce processes.<a name="line.237"></a>
+<span class="sourceLineNo">238</span>   * The following symbol, if present, will be interpolated: @taskid@. <a name="line.238"></a>
+<span class="sourceLineNo">239</span>   * It is replaced by current TaskID. Any other occurrences of '@' will go <a name="line.239"></a>
+<span class="sourceLineNo">240</span>   * unchanged.<a name="line.240"></a>
+<span class="sourceLineNo">241</span>   * For example, to enable verbose gc logging to a file named for the taskid in<a name="line.241"></a>
+<span class="sourceLineNo">242</span>   * /tmp and to set the heap maximum to be a gigabyte, pass a 'value' of:<a name="line.242"></a>
+<span class="sourceLineNo">243</span>   *          -Xmx1024m -verbose:gc -Xloggc:/tmp/@taskid@.gc<a name="line.243"></a>
+<span class="sourceLineNo">244</span>   * <a name="line.244"></a>
+<span class="sourceLineNo">245</span>   * The configuration variable {@link #MAPRED_REDUCE_TASK_ENV} can be used to <a name="line.245"></a>
+<span class="sourceLineNo">246</span>   * pass process environment variables to the reduce processes.<a name="line.246"></a>
+<span class="sourceLineNo">247</span>   */<a name="line.247"></a>
+<span class="sourceLineNo">248</span>  public static final String MAPRED_REDUCE_TASK_JAVA_OPTS = <a name="line.248"></a>
+<span class="sourceLineNo">249</span>    JobContext.REDUCE_JAVA_OPTS;<a name="line.249"></a>
+<span class="sourceLineNo">250</span>  <a name="line.250"></a>
+<span class="sourceLineNo">251</span>  public static final String DEFAULT_MAPRED_TASK_JAVA_OPTS = "-Xmx200m";<a name="line.251"></a>
+<span class="sourceLineNo">252</span>  <a name="line.252"></a>
+<span class="sourceLineNo">253</span>  /**<a name="line.253"></a>
+<span class="sourceLineNo">254</span>   * @deprecated<a name="line.254"></a>
+<span class="sourceLineNo">255</span>   * Configuration key to set the maximum virtual memory available to the child<a name="line.255"></a>
+<span class="sourceLineNo">256</span>   * map and reduce tasks (in kilo-bytes). This has been deprecated and will no<a name="line.256"></a>
+<span class="sourceLineNo">257</span>   * longer have any effect.<a name="line.257"></a>
+<span class="sourceLineNo">258</span>   */<a name="line.258"></a>
+<span class="sourceLineNo">259</span>  @Deprecated<a name="line.259"></a>
+<span class="sourceLineNo">260</span>  public static final String MAPRED_TASK_ULIMIT = "mapred.child.ulimit";<a name="line.260"></a>
+<span class="sourceLineNo">261</span><a name="line.261"></a>
+<span class="sourceLineNo">262</span>  /**<a name="line.262"></a>
+<span class="sourceLineNo">263</span>   * @deprecated<a name="line.263"></a>
+<span class="sourceLineNo">264</span>   * Configuration key to set the maximum virtual memory available to the<a name="line.264"></a>
+<span class="sourceLineNo">265</span>   * map tasks (in kilo-bytes). This has been deprecated and will no<a name="line.265"></a>
+<span class="sourceLineNo">266</span>   * longer have any effect.<a name="line.266"></a>
+<span class="sourceLineNo">267</span>   */<a name="line.267"></a>
+<span class="sourceLineNo">268</span>  @Deprecated<a name="line.268"></a>
+<span class="sourceLineNo">269</span>  public static final String MAPRED_MAP_TASK_ULIMIT = "mapreduce.map.ulimit";<a name="line.269"></a>
+<span class="sourceLineNo">270</span>  <a name="line.270"></a>
+<span class="sourceLineNo">271</span>  /**<a name="line.271"></a>
+<span class="sourceLineNo">272</span>   * @deprecated<a name="line.272"></a>
+<span class="sourceLineNo">273</span>   * Configuration key to set the maximum virtual memory available to the<a name="line.273"></a>
+<span class="sourceLineNo">274</span>   * reduce tasks (in kilo-bytes). This has been deprecated and will no<a name="line.274"></a>
+<span class="sourceLineNo">275</span>   * longer have any effect.<a name="line.275"></a>
+<span class="sourceLineNo">276</span>   */<a name="line.276"></a>
+<span class="sourceLineNo">277</span>  @Deprecated<a name="line.277"></a>
+<span class="sourceLineNo">278</span>  public static final String MAPRED_REDUCE_TASK_ULIMIT =<a name="line.278"></a>
+<span class="sourceLineNo">279</span>    "mapreduce.reduce.ulimit";<a name="line.279"></a>
+<span class="sourceLineNo">280</span><a name="line.280"></a>
+<span class="sourceLineNo">281</span><a name="line.281"></a>
+<span class="sourceLineNo">282</span>  /**<a name="line.282"></a>
+<span class="sourceLineNo">283</span>   * Configuration key to set the environment of the child map/reduce tasks.<a name="line.283"></a>
+<span class="sourceLineNo">284</span>   * <a name="line.284"></a>
+<span class="sourceLineNo">285</span>   * The format of the value is &lt;code&gt;k1=v1,k2=v2&lt;/code&gt;. Further it can <a name="line.285"></a>
+<span class="sourceLineNo">286</span>   * reference existing environment variables via &lt;code&gt;$key&lt;/code&gt; on<a name="line.286"></a>
+<span class="sourceLineNo">287</span>   * Linux or &lt;code&gt;%key%&lt;/code&gt; on Windows.<a name="line.287"></a>
+<span class="sourceLineNo">288</span>   * <a name="line.288"></a>
+<span class="sourceLineNo">289</span>   * Example:<a name="line.289"></a>
+<span class="sourceLineNo">290</span>   * &lt;ul&gt;<a name="line.290"></a>
+<span class="sourceLineNo">291</span>   *   &lt;li&gt; A=foo - This will set the env variable A to foo. &lt;/li&gt;<a name="line.291"></a>
+<span class="sourceLineNo">292</span>   *   &lt;li&gt; B=$X:c This is inherit tasktracker's X env variable on Linux. &lt;/li&gt;<a name="line.292"></a>
+<span class="sourceLineNo">293</span>   *   &lt;li&gt; B=%X%;c This is inherit tasktracker's X env variable on Windows. &lt;/li&gt;<a name="line.293"></a>
+<span class="sourceLineNo">294</span>   * &lt;/ul&gt;<a name="line.294"></a>
+<span class="sourceLineNo">295</span>   * <a name="line.295"></a>
+<span class="sourceLineNo">296</span>   * @deprecated Use {@link #MAPRED_MAP_TASK_ENV} or <a name="line.296"></a>
+<span class="sourceLineNo">297</span>   *                 {@link #MAPRED_REDUCE_TASK_ENV}<a name="line.297"></a>
+<span class="sourceLineNo">298</span>   */<a name="line.298"></a>
+<span class="sourceLineNo">299</span>  @Deprecated<a name="line.299"></a>
+<span class="sourceLineNo">300</span>  public static final String MAPRED_TASK_ENV = "mapred.child.env";<a name="line.300"></a>
+<span class="sourceLineNo">301</span><a name="line.301"></a>
+<span class="sourceLineNo">302</span>  /**<a name="line.302"></a>
+<span class="sourceLineNo">303</span>   * Configuration key to set the environment of the child map tasks.<a name="line.303"></a>
+<span class="sourceLineNo">304</span>   * <a name="line.304"></a>
+<span class="sourceLineNo">305</span>   * The format of the value is &lt;code&gt;k1=v1,k2=v2&lt;/code&gt;. Further it can<a name="line.305"></a>
+<span class="sourceLineNo">306</span>   * reference existing environment variables via &lt;code&gt;$key&lt;/code&gt; on<a name="line.306"></a>
+<span class="sourceLineNo">307</span>   * Linux or &lt;code&gt;%key%&lt;/code&gt; on Windows.<a name="line.307"></a>
+<span class="sourceLineNo">308</span>   * <a name="line.308"></a>
+<span class="sourceLineNo">309</span>   * Example:<a name="line.309"></a>
+<span class="sourceLineNo">310</span>   * &lt;ul&gt;<a name="line.310"></a>
+<span class="sourceLineNo">311</span>   *   &lt;li&gt; A=foo - This will set the env variable A to foo. &lt;/li&gt;<a name="line.311"></a>
+<span class="sourceLineNo">312</span>   *   &lt;li&gt; B=$X:c This is inherit tasktracker's X env variable on Linux. &lt;/li&gt;<a name="line.312"></a>
+<span class="sourceLineNo">313</span>   *   &lt;li&gt; B=%X%;c This is inherit tasktracker's X env variable on Windows. &lt;/li&gt;<a name="line.313"></a>
+<span class="sourceLineNo">314</span>   * &lt;/ul&gt;<a name="line.314"></a>
+<span class="sourceLineNo">315</span>   */<a name="line.315"></a>
+<span class="sourceLineNo">316</span>  public static final String MAPRED_MAP_TASK_ENV = JobContext.MAP_ENV;<a name="line.316"></a>
+<span class="sourceLineNo">317</span>  <a name="line.317"></a>
+<span class="sourceLineNo">318</span>  /**<a name="line.318"></a>
+<span class="sourceLineNo">319</span>   * Configuration key to set the environment of the child reduce tasks.<a name="line.319"></a>
+<span class="sourceLineNo">320</span>   * <a name="line.320"></a>
+<span class="sourceLineNo">321</span>   * The format of the value is &lt;code&gt;k1=v1,k2=v2&lt;/code&gt;. Further it can <a name="line.321"></a>
+<span class="sourceLineNo">322</span>   * reference existing environment variables via &lt;code&gt;$key&lt;/code&gt; on<a name="line.322"></a>
+<span class="sourceLineNo">323</span>   * Linux or &lt;code&gt;%key%&lt;/code&gt; on Windows.<a name="line.323"></a>
+<span class="sourceLineNo">324</span>   * <a name="line.324"></a>
+<span class="sourceLineNo">325</span>   * Example:<a name="line.325"></a>
+<span class="sourceLineNo">326</span>   * &lt;ul&gt;<a name="line.326"></a>
+<span class="sourceLineNo">327</span>   *   &lt;li&gt; A=foo - This will set the env variable A to foo. &lt;/li&gt;<a name="line.327"></a>
+<span class="sourceLineNo">328</span>   *   &lt;li&gt; B=$X:c This is inherit tasktracker's X env variable on Linux. &lt;/li&gt;<a name="line.328"></a>
+<span class="sourceLineNo">329</span>   *   &lt;li&gt; B=%X%;c This is inherit tasktracker's X env variable on Windows. &lt;/li&gt;<a name="line.329"></a>
+<span class="sourceLineNo">330</span>   * &lt;/ul&gt;<a name="line.330"></a>
+<span class="sourceLineNo">331</span>   */<a name="line.331"></a>
+<span class="sourceLineNo">332</span>  public static final String MAPRED_REDUCE_TASK_ENV = JobContext.REDUCE_ENV;<a name="line.332"></a>
+<span class="sourceLineNo">333</span><a name="line.333"></a>
+<span class="sourceLineNo">334</span>  private Credentials credentials = new Credentials();<a name="line.334"></a>
+<span class="sourceLineNo">335</span>  <a name="line.335"></a>
+<span class="sourceLineNo">336</span>  /**<a name="line.336"></a>
+<span class="sourceLineNo">337</span>   * Configuration key to set the logging {@link Level} for the map task.<a name="line.337"></a>
+<span class="sourceLineNo">338</span>   *<a name="line.338"></a>
+<span class="sourceLineNo">339</span>   * The allowed logging levels are:<a name="line.339"></a>
+<span class="sourceLineNo">340</span>   * OFF, FATAL, ERROR, WARN, INFO, DEBUG, TRACE and ALL.<a name="line.340"></a>
+<span class="sourceLineNo">341</span>   */<a name="line.341"></a>
+<span class="sourceLineNo">342</span>  public static final String MAPRED_MAP_TASK_LOG_LEVEL = <a name="line.342"></a>
+<span class="sourceLineNo">343</span>    JobContext.MAP_LOG_LEVEL;<a name="line.343"></a>
+<span class="sourceLineNo">344</span>  <a name="line.344"></a>
+<span class="sourceLineNo">345</span>  /**<a name="line.345"></a>
+<span class="sourceLineNo">346</span>   * Configuration key to set the logging {@link Level} for the reduce task.<a name="line.346"></a>
+<span class="sourceLineNo">347</span>   *<a name="line.347"></a>
+<span class="sourceLineNo">348</span>   * The allowed logging levels are:<a name="line.348"></a>
+<span class="sourceLineNo">349</span>   * OFF, FATAL, ERROR, WARN, INFO, DEBUG, TRACE and ALL.<a name="line.349"></a>
+<span class="sourceLineNo">350</span>   */<a name="line.350"></a>
+<span class="sourceLineNo">351</span>  public static final String MAPRED_REDUCE_TASK_LOG_LEVEL = <a name="line.351"></a>
+<span class="sourceLineNo">352</span>    JobContext.REDUCE_LOG_LEVEL;<a name="line.352"></a>
+<span class="sourceLineNo">353</span>  <a name="line.353"></a>
+<span class="sourceLineNo">354</span>  /**<a name="line.354"></a>
+<span class="sourceLineNo">355</span>   * Default logging level for map/reduce tasks.<a name="line.355"></a>
+<span class="sourceLineNo">356</span>   */<a name="line.356"></a>
+<span class="sourceLineNo">357</span>  public static final Level DEFAULT_LOG_LEVEL = Level.INFO;<a name="line.357"></a>
+<span class="sourceLineNo">358</span><a name="line.358"></a>
+<span class="sourceLineNo">359</span>  /**<a name="line.359"></a>
+<span class="sourceLineNo">360</span>   * The variable is kept for M/R 1.x applications, M/R 2.x applications should<a name="line.360"></a>
+<span class="sourceLineNo">361</span>   * use {@link MRJobConfig#WORKFLOW_ID} instead<a name="line.361"></a>
+<span class="sourceLineNo">362</span>   */<a name="line.362"></a>
+<span class="sourceLineNo">363</span>  @Deprecated<a name="line.363"></a>
+<span class="sourceLineNo">364</span>  public static final String WORKFLOW_ID = MRJobConfig.WORKFLOW_ID;<a name="line.364"></a>
+<span class="sourceLineNo">365</span><a name="line.365"></a>
+<span class="sourceLineNo">366</span>  /**<a name="line.366"></a>
+<span class="sourceLineNo">367</span>   * The variable is kept for M/R 1.x applications, M/R 2.x applications should<a name="line.367"></a>
+<span class="sourceLineNo">368</span>   * use {@link MRJobConfig#WORKFLOW_NAME} instead<a name="line.368"></a>
+<span class="sourceLineNo">369</span>   */<a name="line.369"></a>
+<span class="sourceLineNo">370</span>  @Deprecated<a name="line.370"></a>
+<span class="sourceLineNo">371</span>  public static final String WORKFLOW_NAME = MRJobConfig.WORKFLOW_NAME;<a name="line.371"></a>
+<span class="sourceLineNo">372</span><a name="line.372"></a>
+<span class="sourceLineNo">373</span>  /**<a name="line.373"></a>
+<span class="sourceLineNo">374</span>   * The variable is kept for M/R 1.x applications, M/R 2.x applications should<a name="line.374"></a>
+<span class="sourceLineNo">375</span>   * use {@link MRJobConfig#WORKFLOW_NODE_NAME} instead<a name="line.375"></a>
+<span class="sourceLineNo">376</span>   */<a name="line.376"></a>
+<span class="sourceLineNo">377</span>  @Deprecated<a name="line.377"></a>
+<span class="sourceLineNo">378</span>  public static final String WORKFLOW_NODE_NAME =<a name="line.378"></a>
+<span class="sourceLineNo">379</span>      MRJobConfig.WORKFLOW_NODE_NAME;<a name="line.379"></a>
+<span class="sourceLineNo">380</span><a name="line.380"></a>
+<span class="sourceLineNo">381</span>  /**<a name="line.381"></a>
+<span class="sourceLineNo">382</span>   * The variable is kept for M/R 1.x applications, M/R 2.x applications should<a name="line.382"></a>
+<span class="sourceLineNo">383</span>   * use {@link MRJobConfig#WORKFLOW_ADJACENCY_PREFIX_STRING} instead<a name="line.383"></a>
+<span class="sourceLineNo">384</span>   */<a name="line.384"></a>
+<span class="sourceLineNo">385</span>  @Deprecated<a name="line.385"></a>
+<span class="sourceLineNo">386</span>  public static final String WORKFLOW_ADJACENCY_PREFIX_STRING =<a name="line.386"></a>
+<span class="sourceLineNo">387</span>      MRJobConfig.WORKFLOW_ADJACENCY_PREFIX_STRING;<a name="line.387"></a>
+<span class="sourceLineNo">388</span><a name="line.388"></a>
+<span class="sourceLineNo">389</span>  /**<a name="line.389"></a>
+<span class="sourceLineNo">390</span>   * The variable is kept for M/R 1.x applications, M/R 2.x applications should<a name="line.390"></a>
+<span class="sourceLineNo">391</span>   * use {@link MRJobConfig#WORKFLOW_ADJACENCY_PREFIX_PATTERN} instead<a name="line.391"></a>
+<span class="sourceLineNo">392</span>   */<a name="line.392"></a>
+<span class="sourceLineNo">393</span>  @Deprecated<a name="line.393"></a>
+<span class="sourceLineNo">394</span>  public static final String WORKFLOW_ADJACENCY_PREFIX_PATTERN =<a name="line.394"></a>
+<span class="sourceLineNo">395</span>      MRJobConfig.WORKFLOW_ADJACENCY_PREFIX_PATTERN;<a name="line.395"></a>
+<span class="sourceLineNo">396</span><a name="line.396"></a>
+<span class="sourceLineNo">397</span>  /**<a name="line.397"></a>
+<span class="sourceLineNo">398</span>   * The variable is kept for M/R 1.x applications, M/R 2.x applications should<a name="line.398"></a>
+<span class="sourceLineNo">399</span>   * use {@link MRJobConfig#WORKFLOW_TAGS} instead<a name="line.399"></a>
+<span class="sourceLineNo">400</span>   */<a name="line.400"></a>
+<span class="sourceLineNo">401</span>  @Deprecated<a name="line.401"></a>
+<span class="sourceLineNo">402</span>  public static final String WORKFLOW_TAGS = MRJobConfig.WORKFLOW_TAGS;<a name="line.402"></a>
+<span class="sourceLineNo">403</span><a name="line.403"></a>
+<span class="sourceLineNo">404</span>  /**<a name="line.404"></a>
+<span class="sourceLineNo">405</span>   * The variable is kept for M/R 1.x applications, M/R 2.x applications should<a name="line.405"></a>
+<span class="sourceLineNo">406</span>   * not use it<a name="line.406"></a>
+<span class="sourceLineNo">407</span>   */<a name="line.407"></a>
+<span class="sourceLineNo">408</span>  @Deprecated<a name="line.408"></a>
+<span class="sourceLineNo">409</span>  public static final String MAPREDUCE_RECOVER_JOB =<a name="line.409"></a>
+<span class="sourceLineNo">410</span>      "mapreduce.job.restart.recover";<a name="line.410"></a>
+<span class="sourceLineNo">411</span><a name="line.411"></a>
+<span class="sourceLineNo">412</span>  /**<a name="line.412"></a>
+<span class="sourceLineNo">413</span>   * The variable is kept for M/R 1.x applications, M/R 2.x applications should<a name="line.413"></a>
+<span class="sourceLineNo">414</span>   * not use it<a name="line.414"></a>
+<span class="sourceLineNo">415</span>   */<a name="line.415"></a>
+<span class="sourceLineNo">416</span>  @Deprecated<a name="line.416"></a>
+<span class="sourceLineNo">417</span>  public static final boolean DEFAULT_MAPREDUCE_RECOVER_JOB = true;<a name="line.417"></a>
+<span class="sourceLineNo">418</span><a name="line.418"></a>
+<span class="sourceLineNo">419</span>  /**<a name="line.419"></a>
+<span class="sourceLineNo">420</span>   * Construct a map/reduce job configuration.<a name="line.420"></a>
+<span class="sourceLineNo">421</span>   */<a name="line.421"></a>
+<span class="sourceLineNo">422</span>  public JobConf() {<a name="line.422"></a>
+<span class="sourceLineNo">423</span>    checkAndWarnDeprecation();<a name="line.423"></a>
+<span class="sourceLineNo">424</span>  }<a name="line.424"></a>
+<span class="sourceLineNo">425</span><a name="line.425"></a>
+<span class="sourceLineNo">426</span>  /** <a name="line.426"></a>
+<span class="sourceLineNo">427</span>   * Construct a map/reduce job configuration.<a name="line.427"></a>
+<span class="sourceLineNo">428</span>   * <a name="line.428"></a>
+<span class="sourceLineNo">429</span>   * @param exampleClass a class whose containing jar is used as the job's jar.<a name="line.429"></a>
+<span class="sourceLineNo">430</span>   */<a name="line.430"></a>
+<span class="sourceLineNo">431</span>  public JobConf(Class exampleClass) {<a name="line.431"></a>
+<span class="sourceLineNo">432</span>    setJarByClass(exampleClass);<a name="line.432"></a>
+<span class="sourceLineNo">433</span>    checkAndWarnDeprecation();<a name="line.433"></a>
+<span class="sourceLineNo">434</span>  }<a name="line.434"></a>
+<span class="sourceLineNo">435</span>  <a name="line.435"></a>
+<span class="sourceLineNo">436</span>  /**<a name="line.436"></a>
+<span class="sourceLineNo">437</span>   * Construct a map/reduce job configuration.<a name="line.437"></a>
+<span class="sourceLineNo">438</span>   * <a name="line.438"></a>
+<span class="sourceLineNo">439</span>   * @param conf a Configuration whose settings will be inherited.<a name="line.439"></a>
+<span class="sourceLineNo">440</span>   */<a name="line.440"></a>
+<span class="sourceLineNo">441</span>  public JobConf(Configuration conf) {<a name="line.441"></a>
+<span class="sourceLineNo">442</span>    super(conf);<a name="line.442"></a>
+<span class="sourceLineNo">443</span>    <a name="line.443"></a>
+<span class="sourceLineNo">444</span>    if (conf instanceof JobConf) {<a name="line.444"></a>
+<span class="sourceLineNo">445</span>      JobConf that = (JobConf)conf;<a name="line.445"></a>
+<span class="sourceLineNo">446</span>      credentials = that.credentials;<a name="line.446"></a>
+<span class="sourceLineNo">447</span>    }<a name="line.447"></a>
+<span class="sourceLineNo">448</span>    <a name="line.448"></a>
+<span class="sourceLineNo">449</span>    checkAndWarnDeprecation();<a name="line.449"></a>
+<span class="sourceLineNo">450</span>  }<a name="line.450"></a>
+<span class="sourceLineNo">451</span><a name="line.451"></a>
+<span class="sourceLineNo">452</span><a name="line.452"></a>
+<span class="sourceLineNo">453</span>  /** Construct a map/reduce job configuration.<a name="line.453"></a>
+<span class="sourceLineNo">454</span>   * <a name="line.454"></a>
+<span class="sourceLineNo">455</span>   * @param conf a Configuration whose settings will be inherited.<a name="line.455"></a>
+<span class="sourceLineNo">456</span>   * @param exampleClass a class whose containing jar is used as the job's jar.<a name="line.456"></a>
+<span class="sourceLineNo">457</span>   */<a name="line.457"></a>
+<span class="sourceLineNo">458</span>  public JobConf(Configuration conf, Class exampleClass) {<a name="line.458"></a>
+<span class="sourceLineNo">459</span>    this(conf);<a name="line.459"></a>
+<span class="sourceLineNo">460</span>    setJarByClass(exampleClass);<a name="line.460"></a>
+<span class="sourceLineNo">461</span>  }<a name="line.461"></a>
+<span class="sourceLineNo">462</span><a name="line.462"></a>
+<span class="sourceLineNo">463</span><a name="line.463"></a>
+<span class="sourceLineNo">464</span>  /** Construct a map/reduce configuration.<a name="line.464"></a>
+<span class="sourceLineNo">465</span>   *<a name="line.465"></a>
+<span class="sourceLineNo">466</span>   * @param config a Configuration-format XML job description file.<a name="line.466"></a>
+<span class="sourceLineNo">467</span>   */<a name="line.467"></a>
+<span class="sourceLineNo">468</span>  public JobConf(String config) {<a name="line.468"></a>
+<span class="sourceLineNo">469</span>    this(new Path(config));<a name="line.469"></a>
+<span class="sourceLineNo">470</span>  }<a name="line.470"></a>
+<span class="sourceLineNo">471</span><a name="line.471"></a>
+<span class="sourceLineNo">472</span>  /** Construct a map/reduce configuration.<a name="line.472"></a>
+<span class="sourceLineNo">473</span>   *<a name="line.473"></a>
+<span class="sourceLineNo">474</span>   * @param config a Configuration-format XML job description file.<a name="line.474"></a>
+<span class="sourceLineNo">475</span>   */<a name="line.475"></a>
+<span class="sourceLineNo">476</span>  public JobConf(Path config) {<a name="line.476"></a>
+<span class="sourceLineNo">477</span>    super();<a name="line.477"></a>
+<span class="sourceLineNo">478</span>    addResource(config);<a name="line.478"></a>
+<span class="sourceLineNo">479</span>    checkAndWarnDeprecation();<a name="line.479"></a>
+<span class="sourceLineNo">480</span>  }<a name="line.480"></a>
+<span class="sourceLineNo">481</span><a name="line.481"></a>
+<span class="sourceLineNo">482</span>  /** A new map/reduce configuration where the behavior of reading from the<a name="line.482"></a>
+<span class="sourceLineNo">483</span>   * default resources can be turned off.<a name="line.483"></a>
+<span class="sourceLineNo">484</span>   * &lt;p/&gt;<a name="line.484"></a>
+<span class="sourceLineNo">485</span>   * If the parameter {@code loadDefaults} is false, the new instance<a name="line.485"></a>
+<span class="sourceLineNo">486</span>   * will not load resources from the default files.<a name="line.486"></a>
+<span class="sourceLineNo">487</span>   *<a name="line.487"></a>
+<span class="sourceLineNo">488</span>   * @param loadDefaults specifies whether to load from the default files<a name="line.488"></a>
+<span class="sourceLineNo">489</span>   */<a name="line.489"></a>
+<span class="sourceLineNo">490</span>  public JobConf(boolean loadDefaults) {<a name="line.490"></a>
+<span class="sourceLineNo">491</span>    super(loadDefaults);<a name="line.491"></a>
+<span class="sourceLineNo">492</span>    checkAndWarnDeprecation();<a name="line.492"></a>
+<span class="sourceLineNo">493</span>  }<a name="line.493"></a>
+<span class="sourceLineNo">494</span><a name="line.494"></a>
+<span class="sourceLineNo">495</span>  /**<a name="line.495"></a>
+<span class="sourceLineNo">496</span>   * Get credentials for the job.<a name="line.496"></a>
+<span class="sourceLineNo">497</span>   * @return credentials for the job<a name="line.497"></a>
+<span class="sourceLineNo">498</span>   */<a name="line.498"></a>
+<span class="sourceLineNo">499</span>  public Credentials getCredentials() {<a name="line.499"></a>
+<span class="sourceLineNo">500</span>    return credentials;<a name="line.500"></a>
+<span class="sourceLineNo">501</span>  }<a name="line.501"></a>
+<span class="sourceLineNo">502</span>  <a name="line.502"></a>
+<span class="sourceLineNo">503</span>  @Private<a name="line.503"></a>
+<span class="sourceLineNo">504</span>  public void setCredentials(Credentials credentials) {<a name="line.504"></a>
+<span class="sourceLineNo">505</span>    this.credentials = credentials;<a name="line.505"></a>
+<span class="sourceLineNo">506</span>  }<a name="line.506"></a>
+<span class="sourceLineNo">507</span>  <a name="line.507"></a>
+<span class="sourceLineNo">508</span>  /**<a name="line.508"></a>
+<span class="sourceLineNo">509</span>   * Get the user jar for the map-reduce job.<a name="line.509"></a>
+<span class="sourceLineNo">510</span>   * <a name="line.510"></a>
+<span class="sourceLineNo">511</span>   * @return the user jar for the map-reduce job.<a name="line.511"></a>
+<span class="sourceLineNo">512</span>   */<a name="line.512"></a>
+<span class="sourceLineNo">513</span>  public String getJar() { return get(JobContext.JAR); }<a name="line.513"></a>
+<span class="sourceLineNo">514</span>  <a name="line.514"></a>
+<span class="sourceLineNo">515</span>  /**<a name="line.515"></a>
+<span class="sourceLineNo">516</span>   * Set the user jar for the map-reduce job.<a name="line.516"></a>
+<span class="sourceLineNo">517</span>   * <a name="line.517"></a>
+<span class="sourceLineNo">518</span>   * @param jar the user jar for the map-reduce job.<a name="line.518"></a>
+<span class="sourceLineNo">519</span>   */<a name="line.519"></a>
+<span class="sourceLineNo">520</span>  public void setJar(String jar) { set(JobContext.JAR, jar); }<a name="line.520"></a>
+<span class="sourceLineNo">521</span><a name="line.521"></a>
+<span class="sourceLineNo">522</span>  /**<a name="line.522"></a>
+<span class="sourceLineNo">523</span>   * Get the pattern for jar contents to unpack on the tasktracker<a name="line.523"></a>
+<span class="sourceLineNo">524</span>   */<a name="line.524"></a>
+<span class="sourceLineNo">525</span>  public Pattern getJarUnpackPattern() {<a name="line.525"></a>
+<span class="sourceLineNo">526</span>    return getPattern(JobContext.JAR_UNPACK_PATTERN, UNPACK_JAR_PATTERN_DEFAULT);<a name="line.526"></a>
+<span class="sourceLineNo">527</span>  }<a name="line.527"></a>
+<span class="sourceLineNo">528</span><a name="line.528"></a>
+<span class="sourceLineNo">529</span>  <a name="line.529"></a>
+<span class="sourceLineNo">530</span>  /**<a name="line.530"></a>
+<span class="sourceLineNo">531</span>   * Set the job's jar file by finding an example class location.<a name="line.531"></a>
+<span class="sourceLineNo">532</span>   * <a name="line.532"></a>
+<span class="sourceLineNo">533</span>   * @param cls the example class.<a name="line.533"></a>
+<span class="sourceLineNo">534</span>   */<a name="line.534"></a>
+<span class="sourceLineNo">535</span>  public void setJarByClass(Class cls) {<a name="line.535"></a>
+<span class="sourceLineNo">536</span>    String jar = ClassUtil.findContainingJar(cls);<a name="line.536"></a>
+<span class="sourceLineNo">537</span>    if (jar != null) {<a name="line.537"></a>
+<span class="sourceLineNo">538</span>      setJar(jar);<a name="line.538"></a>
+<span class="sourceLineNo">539</span>    }   <a name="line.539"></a>
+<span class="sourceLineNo">540</span>  }<a name="line.540"></a>
+<span class="sourceLineNo">541</span><a name="line.541"></a>
+<span class="sourceLineNo">542</span>  public String[] getLocalDirs() throws IOException {<a name="line.542"></a>
+<span class="sourceLineNo">543</span>    return getTrimmedStrings(MRConfig.LOCAL_DIR);<a name="line.543"></a>
+<span class="sourceLineNo">544</span>  }<a name="line.544"></a>
+<span class="sourceLineNo">545</span><a name="line.545"></a>
+<span class="sourceLineNo">546</span>  /**<a name="line.546"></a>
+<span class="sourceLineNo">547</span>   * Use MRAsyncDiskService.moveAndDeleteAllVolumes instead.<a name="line.547"></a>
+<span class="sourceLineNo">548</span>   */<a name="line.548"></a>
+<span class="sourceLineNo">549</span>  @Deprecated<a name="line.549"></a>
+<span class="sourceLineNo">550</span>  public void deleteLocalFiles() throws IOException {<a name="line.550"></a>
+<span class="sourceLineNo">551</span>    String[] localDirs = getLocalDirs();<a name="line.551"></a>
+<span class="sourceLineNo">552</span>    for (int i = 0; i &lt; localDirs.length; i++) {<a name="line.552"></a>
+<span class="sourceLineNo">553</span>      FileSystem.getLocal(this).delete(new Path(localDirs[i]), true);<a name="line.553"></a>
+<span class="sourceLineNo">554</span>    }<a name="line.554"></a>
+<span class="sourceLineNo">555</span>  }<a name="line.555"></a>
+<span class="sourceLineNo">556</span><a name="line.556"></a>
+<span class="sourceLineNo">557</span>  public void deleteLocalFiles(String subdir) throws IOException {<a name="line.557"></a>
+<span class="sourceLineNo">558</span>    String[] localDirs = getLocalDirs();<a name="line.558"></a>
+<span class="sourceLineNo">559</span>    for (int i = 0; i &lt; localDirs.length; i++) {<a name="line.559"></a>
+<span class="sourceLineNo">560</span>      FileSystem.getLocal(this).delete(new Path(localDirs[i], subdir), true);<a name="line.560"></a>
+<span class="sourceLineNo">561</span>    }<a name="line.561"></a>
+<span class="sourceLineNo">562</span>  }<a name="line.562"></a>
+<span class="sourceLineNo">563</span><a name="line.563"></a>
+<span class="sourceLineNo">564</span>  /** <a name="line.564"></a>
+<span class="sourceLineNo">565</span>   * Constructs a local file name. Files are distributed among configured<a name="line.565"></a>
+<span class="sourceLineNo">566</span>   * local directories.<a name="line.566"></a>
+<span class="sourceLineNo">567</span>   */<a name="line.567"></a>
+<span class="sourceLineNo">568</span>  public Path getLocalPath(String pathString) throws IOException {<a name="line.568"></a>
+<span class="sourceLineNo">569</span>    return getLocalPath(MRConfig.LOCAL_DIR, pathString);<a name="line.569"></a>
+<span class="sourceLineNo">570</span>  }<a name="line.570"></a>
+<span class="sourceLineNo">571</span><a name="line.571"></a>
+<span class="sourceLineNo">572</span>  /**<a name="line.572"></a>
+<span class="sourceLineNo">573</span>   * Get the reported username for this job.<a name="line.573"></a>
+<span class="sourceLineNo">574</span>   * <a name="line.574"></a>
+<span class="sourceLineNo">575</span>   * @return the username<a name="line.575"></a>
+<span class="sourceLineNo">576</span>   */<a name="line.576"></a>
+<span class="sourceLineNo">577</span>  public String getUser() {<a name="line.577"></a>
+<span class="sourceLineNo">578</span>    return get(JobContext.USER_NAME);<a name="line.578"></a>
+<span class="sourceLineNo">579</span>  }<a name="line.579"></a>
+<span class="sourceLineNo">580</span>  <a name="line.580"></a>
+<span class="sourceLineNo">581</span>  /**<a name="line.581"></a>
+<span class="sourceLineNo">582</span>   * Set the reported username for this job.<a name="line.582"></a>
+<span class="sourceLineNo">583</span>   * <a name="line.583"></a>
+<span class="sourceLineNo">584</span>   * @param user the username for this job.<a name="line.584"></a>
+<span class="sourceLineNo">585</span>   */<a name="line.585"></a>
+<span class="sourceLineNo">586</span>  public void setUser(String user) {<a name="line.586"></a>
+<span class="sourceLineNo">587</span>    set(JobContext.USER_NAME, user);<a name="line.587"></a>
+<span class="sourceLineNo">588</span>  }<a name="line.588"></a>
+<span class="sourceLineNo">589</span><a name="line.589"></a>
+<span class="sourceLineNo">590</span><a name="line.590"></a>
+<span class="sourceLineNo">591</span>  <a name="line.591"></a>
+<span class="sourceLineNo">592</span>  /**<a name="line.592"></a>
+<span class="sourceLineNo">593</span>   * Set whether the framework should keep the intermediate files for <a name="line.593"></a>
+<span class="sourceLineNo">594</span>   * failed tasks.<a name="line.594"></a>
+<span class="sourceLineNo">595</span>   * <a name="line.595"></a>
+<span class="sourceLineNo">596</span>   * @param keep &lt;code&gt;true&lt;/code&gt; if framework should keep the intermediate files <a name="line.596"></a>
+<span class="sourceLineNo">597</span>   *             for failed tasks, &lt;code&gt;false&lt;/code&gt; otherwise.<a name="line.597"></a>
+<span class="sourceLineNo">598</span>   * <a name="line.598"></a>
+<span class="sourceLineNo">599</span>   */<a name="line.599"></a>
+<span class="sourceLineNo">600</span>  public void setKeepFailedTaskFiles(boolean keep) {<a name="line.600"></a>
+<span class="sourceLineNo">601</span>    setBoolean(JobContext.PRESERVE_FAILED_TASK_FILES, keep);<a name="line.601"></a>
+<span class="sourceLineNo">602</span>  }<a name="line.602"></a>
+<span class="sourceLineNo">603</span>  <a name="line.603"></a>
+<span class="sourceLineNo">604</span>  /**<a name="line.604"></a>
+<span class="sourceLineNo">605</span>   * Should the temporary files for failed tasks be kept?<a name="line.605"></a>
+<span class="sourceLineNo">606</span>   * <a name="line.606"></a>
+<span class="sourceLineNo">607</span>   * @return should the files be kept?<a name="line.607"></a>
+<span class="sourceLineNo">608</span>   */<a name="line.608"></a>
+<span class="sourceLineNo">609</span>  public boolean getKeepFailedTaskFiles() {<a name="line.609"></a>
+<span class="sourceLineNo">610</span>    return getBoolean(JobContext.PRESERVE_FAILED_TASK_FILES, false);<a name="line.610"></a>
+<span class="sourceLineNo">611</span>  }<a name="line.611"></a>
+<span class="sourceLineNo">612</span>  <a name="line.612"></a>
+<span class="sourceLineNo">613</span>  /**<a name="line.613"></a>
+<span class="sourceLineNo">614</span>   * Set a regular expression for task names that should be kept. <a name="line.614"></a>
+<span class="sourceLineNo">615</span>   * The regular expression ".*_m_000123_0" would keep the files<a name="line.615"></a>
+<span class="sourceLineNo">616</span>   * for the first instance of map 123 that ran.<a name="line.616"></a>
+<span class="sourceLineNo">617</span>   * <a name="line.617"></a>
+<span class="sourceLineNo">618</span>   * @param pattern the java.util.regex.Pattern to match against the <a name="line.618"></a>
+<span class="sourceLineNo">619</span>   *        task names.<a name="line.619"></a>
+<span class="sourceLineNo">620</span>   */<a name="line.620"></a>
+<span class="sourceLineNo">621</span>  public void setKeepTaskFilesPattern(String pattern) {<a name="line.621"></a>
+<span class="sourceLineNo">622</span>    set(JobContext.PRESERVE_FILES_PATTERN, pattern);<a name="line.622"></a>
+<span class="sourceLineNo">623</span>  }<a name="line.623"></a>
+<span class="sourceLineNo">624</span>  <a name="line.624"></a>
+<span class="sourceLineNo">625</span>  /**<a name="line.625"></a>
+<span class="sourceLineNo">626</span>   * Get the regular expression that is matched against the task names<a name="line.626"></a>
+<span class="sourceLineNo">627</span>   * to see if we need to keep the files.<a name="line.627"></a>
+<span class="sourceLineNo">628</span>   * <a name="line.628"></a>
+<span class="sourceLineNo">629</span>   * @return the pattern as a string, if it was set, othewise null.<a name="line.629"></a>
+<span class="sourceLineNo">630</span>   */<a name="line.630"></a>
+<span class="sourceLineNo">631</span>  public String getKeepTaskFilesPattern() {<a name="line.631"></a>
+<span class="sourceLineNo">632</span>    return get(JobContext.PRESERVE_FILES_PATTERN);<a name="line.632"></a>
+<span class="sourceLineNo">633</span>  }<a name="line.633"></a>
+<span class="sourceLineNo">634</span>  <a name="line.634"></a>
+<span class="sourceLineNo">635</span>  /**<a name="line.635"></a>
+<span class="sourceLineNo">636</span>   * Set the current working directory for the default file system.<a name="line.636"></a>
+<span class="sourceLineNo">637</span>   * <a name="line.637"></a>
+<span class="sourceLineNo">638</span>   * @param dir the new current working directory.<a name="line.638"></a>
+<span class="sourceLineNo">639</span>   */<a name="line.639"></a>
+<span class="sourceLineNo">640</span>  public void setWorkingDirectory(Path dir) {<a name="line.640"></a>
+<span class="sourceLineNo">641</span>    dir = new Path(getWorkingDirectory(), dir);<a name="line.641"></a>
+<span class="sourceLineNo">642</span>    set(JobContext.WORKING_DIR, dir.toString());<a name="line.642"></a>
+<span class="sourceLineNo">643</span>  }<a name="line.643"></a>
+<span class="sourceLineNo">644</span>  <a name="line.644"></a>
+<span class="sourceLineNo">645</span>  /**<a name="line.645"></a>
+<span class="sourceLineNo">646</span>   * Get the current working directory for the default file system.<a name="line.646"></a>
+<span class="sourceLineNo">647</span>   * <a name="line.647"></a>
+<span class="sourceLineNo">648</span>   * @return the directory name.<a name="line.648"></a>
+<span class="sourceLineNo">649</span>   */<a name="line.649"></a>
+<span class="sourceLineNo">650</span>  public Path getWorkingDirectory() {<a name="line.650"></a>
+<span class="sourceLineNo">651</span>    String name = get(JobContext.WORKING_DIR);<a name="line.651"></a>
+<span class="sourceLineNo">652</span>    if (name != null) {<a name="line.652"></a>
+<span class="sourceLineNo">653</span>      return new Path(name);<a name="line.653"></a>
+<span class="sourceLineNo">654</span>    } else {<a name="line.654"></a>
+<span class="sourceLineNo">655</span>      try {<a name="line.655"></a>
+<span class="sourceLineNo">656</span>        Path dir = FileSystem.get(this).getWorkingDirectory();<a name="line.656"></a>
+<span class="sourceLineNo">657</span>        set(JobContext.WORKING_DIR, dir.toString());<a name="line.657"></a>
+<span class="sourceLineNo">658</span>        return dir;<a name="line.658"></a>
+<span class="sourceLineNo">659</span>      } catch (IOException e) {<a name="line.659"></a>
+<span class="sourceLineNo">660</span>        throw new RuntimeException(e);<a name="line.660"></a>
+<span class="sourceLineNo">661</span>      }<a name="line.661"></a>
+<span class="sourceLineNo">662</span>    }<a name="line.662"></a>
+<span class="sourceLineNo">663</span>  }<a name="line.663"></a>
+<span class="sourceLineNo">664</span>  <a name="line.664"></a>
+<span class="sourceLineNo">665</span>  /**<a name="line.665"></a>
+<span class="sourceLineNo">666</span>   * Sets the number of tasks that a spawned task JVM should run<a name="line.666"></a>
+<span class="sourceLineNo">667</span>   * before it exits<a name="line.667"></a>
+<span class="sourceLineNo">668</span>   * @param numTasks the number of tasks to execute; defaults to 1;<a name="line.668"></a>
+<span class="sourceLineNo">669</span>   * -1 signifies no limit<a name="line.669"></a>
+<span class="sourceLineNo">670</span>   */<a name="line.670"></a>
+<span class="sourceLineNo">671</span>  public void setNumTasksToExecutePerJvm(int numTasks) {<a name="line.671"></a>
+<span class="sourceLineNo">672</span>    setInt(JobContext.JVM_NUMTASKS_TORUN, numTasks);<a name="line.672"></a>
+<span class="sourceLineNo">673</span>  }<a name="line.673"></a>
+<span class="sourceLineNo">674</span>  <a name="line.674"></a>
+<span class="sourceLineNo">675</span>  /**<a name="line.675"></a>
+<span class="sourceLineNo">676</span>   * Get the number of tasks that a spawned JVM should execute<a name="line.676"></a>
+<span class="sourceLineNo">677</span>   */<a name="line.677"></a>
+<span class="sourceLineNo">678</span>  public int getNumTasksToExecutePerJvm() {<a name="line.678"></a>
+<span class="sourceLineNo">679</span>    return getInt(JobContext.JVM_NUMTASKS_TORUN, 1);<a name="line.679"></a>
+<span class="sourceLineNo">680</span>  }<a name="line.680"></a>
+<span class="sourceLineNo">681</span>  <a name="line.681"></a>
+<span class="sourceLineNo">682</span>  /**<a name="line.682"></a>
+<span class="sourceLineNo">683</span>   * Get the {@link InputFormat} implementation for the map-reduce job,<a name="line.683"></a>
+<span class="sourceLineNo">684</span>   * defaults to {@link TextInputFormat} if not specified explicity.<a name="line.684"></a>
+<span class="sourceLineNo">685</span>   * <a name="line.685"></a>
+<span class="sourceLineNo">686</span>   * @return the {@link InputFormat} implementation for the map-reduce job.<a name="line.686"></a>
+<span class="sourceLineNo">687</span>   */<a name="line.687"></a>
+<span class="sourceLineNo">688</span>  public InputFormat getInputFormat() {<a name="line.688"></a>
+<span class="sourceLineNo">689</span>    return ReflectionUtils.newInstance(getClass("mapred.input.format.class",<a name="line.689"></a>
+<span class="sourceLineNo">690</span>                                                             TextInputFormat.class,<a name="line.690"></a>
+<span class="sourceLineNo">691</span>                                                             InputFormat.class),<a name="line.691"></a>
+<span class="sourceLineNo">692</span>                                                    this);<a name="line.692"></a>
+<span class="sourceLineNo">693</span>  }<a name="line.693"></a>
+<span class="sourceLineNo">694</span>  <a name="line.694"></a>
+<span class="sourceLineNo">695</span>  /**<a name="line.695"></a>
+<span class="sourceLineNo">696</span>   * Set the {@link InputFormat} implementation for the map-reduce job.<a name="line.696"></a>
+<span class="sourceLineNo">697</span>   * <a name="line.697"></a>
+<span class="sourceLineNo">698</span>   * @param theClass the {@link InputFormat} implementation for the map-reduce <a name="line.698"></a>
+<span class="sourceLineNo">699</span>   *                 job.<a name="line.699"></a>
+<span class="sourceLineNo">700</span>   */<a name="line.700"></a>
+<span class="sourceLineNo">701</span>  public void setInputFormat(Class&lt;? extends InputFormat&gt; theClass) {<a name="line.701"></a>
+<span class="sourceLineNo">702</span>    setClass("mapred.input.format.class", theClass, InputFormat.class);<a name="line.702"></a>
+<span class="sourceLineNo">703</span>  }<a name="line.703"></a>
+<span class="sourceLineNo">704</span>  <a name="line.704"></a>
+<span class="sourceLineNo">705</span>  /**<a name="line.705"></a>
+<span class="sourceLineNo">706</span>   * Get the {@link OutputFormat} implementation for the map-reduce job,<a name="line.706"></a>
+<span class="sourceLineNo">707</span>   * defaults to {@link TextOutputFormat} if not specified explicity.<a name="line.707"></a>
+<span class="sourceLineNo">708</span>   * <a name="line.708"></a>
+<span class="sourceLineNo">709</span>   * @return the {@link OutputFormat} implementation for the map-reduce job.<a name="line.709"></a>
+<span class="sourceLineNo">710</span>   */<a name="line.710"></a>
+<span class="sourceLineNo">711</span>  public OutputFormat getOutputFormat() {<a name="line.711"></a>
+<span class="sourceLineNo">712</span>    return ReflectionUtils.newInstance(getClass("mapred.output.format.class",<a name="line.712"></a>
+<span class="sourceLineNo">713</span>                                                              TextOutputFormat.class,<a name="line.713"></a>
+<span class="sourceLineNo">714</span>                                                              OutputFormat.class),<a name="line.714"></a>
+<span class="sourceLineNo">715</span>                                                     this);<a name="line.715"></a>
+<span class="sourceLineNo">716</span>  }<a name="line.716"></a>
+<span class="sourceLineNo">717</span><a name="line.717"></a>
+<span class="sourceLineNo">718</span>  /**<a name="line.718"></a>
+<span class="sourceLineNo">719</span>   * Get the {@link OutputCommitter} implementation for the map-reduce job,<a name="line.719"></a>
+<span class="sourceLineNo">720</span>   * defaults to {@link FileOutputCommitter} if not specified explicitly.<a name="line.720"></a>
+<span class="sourceLineNo">721</span>   * <a name="line.721"></a>
+<span class="sourceLineNo">722</span>   * @return the {@link OutputCommitter} implementation for the map-reduce job.<a name="line.722"></a>
+<span class="sourceLineNo">723</span>   */<a name="line.723"></a>
+<span class="sourceLineNo">724</span>  public OutputCommitter getOutputCommitter() {<a name="line.724"></a>
+<span class="sourceLineNo">725</span>    return (OutputCommitter)ReflectionUtils.newInstance(<a name="line.725"></a>
+<span class="sourceLineNo">726</span>      getClass("mapred.output.committer.class", FileOutputCommitter.class,<a name="line.726"></a>
+<span class="sourceLineNo">727</span>               OutputCommitter.class), this);<a name="line.727"></a>
+<span class="sourceLineNo">728</span>  }<a name="line.728"></a>
+<span class="sourceLineNo">729</span><a name="line.729"></a>
+<span class="sourceLineNo">730</span>  /**<a name="line.730"></a>
+<span class="sourceLineNo">731</span>   * Set the {@link OutputCommitter} implementation for the map-reduce job.<a name="line.731"></a>
+<span class="sourceLineNo">732</span>   * <a name="line.732"></a>
+<span class="sourceLineNo">733</span>   * @param theClass the {@link OutputCommitter} implementation for the map-reduce <a name="line.733"></a>
+<span class="sourceLineNo">734</span>   *                 job.<a name="line.734"></a>
+<span class="sourceLineNo">735</span>   */<a name="line.735"></a>
+<span class="sourceLineNo">736</span>  public void setOutputCommitter(Class&lt;? extends OutputCommitter&gt; theClass) {<a name="line.736"></a>
+<span class="sourceLineNo">737</span>    setClass("mapred.output.committer.class", theClass, OutputCommitter.class);<a name="line.737"></a>
+<span class="sourceLineNo">738</span>  }<a name="line.738"></a>
+<span class="sourceLineNo">739</span>  <a name="line.739"></a>
+<span class="sourceLineNo">740</span>  /**<a name="line.740"></a>
+<span class="sourceLineNo">741</span>   * Set the {@link OutputFormat} implementation for the map-reduce job.<a name="line.741"></a>
+<span class="sourceLineNo">742</span>   * <a name="line.742"></a>
+<span class="sourceLineNo">743</span>   * @param theClass the {@link OutputFormat} implementation for the map-reduce <a name="line.743"></a>
+<span class="sourceLineNo">744</span>   *                 job.<a name="line.744"></a>
+<span class="sourceLineNo">745</span>   */<a name="line.745"></a>
+<span class="sourceLineNo">746</span>  public void setOutputFormat(Class&lt;? extends OutputFormat&gt; theClass) {<a name="line.746"></a>
+<span class="sourceLineNo">747</span>    setClass("mapred.output.format.class", theClass, OutputFormat.class);<a name="line.747"></a>
+<span class="sourceLineNo">748</span>  }<a name="line.748"></a>
+<span class="sourceLineNo">749</span><a name="line.749"></a>
+<span class="sourceLineNo">750</span>  /**<a name="line.750"></a>
+<span class="sourceLineNo">751</span>   * Should the map outputs be compressed before transfer?<a name="line.751"></a>
+<span class="sourceLineNo">752</span>   * <a name="line.752"></a>
+<span class="sourceLineNo">753</span>   * @param compress should the map outputs be compressed?<a name="line.753"></a>
+<span class="sourceLineNo">754</span>   */<a name="line.754"></a>
+<span class="sourceLineNo">755</span>  public void setCompressMapOutput(boolean compress) {<a name="line.755"></a>
+<span class="sourceLineNo">756</span>    setBoolean(JobContext.MAP_OUTPUT_COMPRESS, compress);<a name="line.756"></a>
+<span class="sourceLineNo">757</span>  }<a name="line.757"></a>
+<span class="sourceLineNo">758</span>  <a name="line.758"></a>
+<span class="sourceLineNo">759</span>  /**<a name="line.759"></a>
+<span class="sourceLineNo">760</span>   * Are the outputs of the maps be compressed?<a name="line.760"></a>
+<span class="sourceLineNo">761</span>   * <a name="line.761"></a>
+<span class="sourceLineNo">762</span>   * @return &lt;code&gt;true&lt;/code&gt; if the outputs of the maps are to be compressed,<a name="line.762"></a>
+<span class="sourceLineNo">763</span>   *         &lt;code&gt;false&lt;/code&gt; otherwise.<a name="line.763"></a>
+<span class="sourceLineNo">764</span>   */<a name="line.764"></a>
+<span class="sourceLineNo">765</span>  public boolean getCompressMapOutput() {<a name="line.765"></a>
+<span class="sourceLineNo">766</span>    return getBoolean(JobContext.MAP_OUTPUT_COMPRESS, false);<a name="line.766"></a>
+<span class="sourceLineNo">767</span>  }<a name="line.767"></a>
+<span class="sourceLineNo">768</span><a name="line.768"></a>
+<span class="sourceLineNo">769</span>  /**<a name="line.769"></a>
+<span class="sourceLineNo">770</span>   * Set the given class as the  {@link CompressionCodec} for the map outputs.<a name="line.770"></a>
+<span class="sourceLineNo">771</span>   * <a name="line.771"></a>
+<span class="sourceLineNo">772</span>   * @param codecClass the {@link CompressionCodec} class that will compress  <a name="line.772"></a>
+<span class="sourceLineNo">773</span>   *                   the map outputs.<a name="line.773"></a>
+<span class="sourceLineNo">774</span>   */<a name="line.774"></a>
+<span class="sourceLineNo">775</span>  public void <a name="line.775"></a>
+<span class="sourceLineNo">776</span>  setMapOutputCompressorClass(Class&lt;? extends CompressionCodec&gt; codecClass) {<a name="line.776"></a>
+<span class="sourceLineNo">777</span>    setCompressMapOutput(true);<a name="line.777"></a>
+<span class="sourceLineNo">778</span>    setClass(JobContext.MAP_OUTPUT_COMPRESS_CODEC, codecClass, <a name="line.778"></a>
+<span class="sourceLineNo">779</span>             CompressionCodec.class);<a name="line.779"></a>
+<span class="sourceLineNo">780</span>  }<a name="line.780"></a>
+<span class="sourceLineNo">781</span>  <a name="line.781"></a>
+<span class="sourceLineNo">782</span>  /**<a name="line.782"></a>
+<span class="sourceLineNo">783</span>   * Get the {@link CompressionCodec} for compressing the map outputs.<a name="line.783"></a>
+<span class="sourceLineNo">784</span>   * <a name="line.784"></a>
+<span class="sourceLineNo">785</span>   * @param defaultValue the {@link CompressionCodec} to return if not set<a name="line.785"></a>
+<span class="sourceLineNo">786</span>   * @return the {@link CompressionCodec} class that should be used to compress the <a name="line.786"></a>
+<span class="sourceLineNo">787</span>   *         map outputs.<a name="line.787"></a>
+<span class="sourceLineNo">788</span>   * @throws IllegalArgumentException if the class was specified, but not found<a name="line.788"></a>
+<span class="sourceLineNo">789</span>   */<a name="line.789"></a>
+<span class="sourceLineNo">790</span>  public Class&lt;? extends CompressionCodec&gt; <a name="line.790"></a>
+<span class="sourceLineNo">791</span>  getMapOutputCompressorClass(Class&lt;? extends CompressionCodec&gt; defaultValue) {<a name="line.791"></a>
+<span class="sourceLineNo">792</span>    Class&lt;? extends CompressionCodec&gt; codecClass = defaultValue;<a name="line.792"></a>
+<span class="sourceLineNo">793</span>    String name = get(JobContext.MAP_OUTPUT_COMPRESS_CODEC);<a name="line.793"></a>
+<span class="sourceLineNo">794</span>    if (name != null) {<a name="line.794"></a>
+<span class="sourceLineNo">795</span>      try {<a name="line.795"></a>
+<span class="sourceLineNo">796</span>        codecClass = getClassByName(name).asSubclass(CompressionCodec.class);<a name="line.796"></a>
+<span class="sourceLineNo">797</span>      } catch (ClassNotFoundException e) {<a name="line.797"></a>
+<span class="sourceLineNo">798</span>        throw new IllegalArgumentException("Compression codec " + name + <a name="line.798"></a>
+<span class="sourceLineNo">799</span>                                           " was not found.", e);<a name="line.799"></a>
+<span class="sourceLineNo">800</span>      }<a name="line.800"></a>
+<span class="sourceLineNo">801</span>    }<a name="line.801"></a>
+<span class="sourceLineNo">802</span>    return codecClass;<a name="line.802"></a>
+<span class="sourceLineNo">803</span>  }<a name="line.803"></a>
+<span class="sourceLineNo">804</span>  <a name="line.804"></a>
+<span class="sourceLineNo">805</span>  /**<a name="line.805"></a>
+<span class="sourceLineNo">806</span>   * Get the key class for the map output data. If it is not set, use the<a name="line.806"></a>
+<span class="sourceLineNo">807</span>   * (final) output key class. This allows the map output key class to be<a name="line.807"></a>
+<span class="sourceLineNo">808</span>   * different than the final output key class.<a name="line.808"></a>
+<span class="sourceLineNo">809</span>   *  <a name="line.809"></a>
+<span class="sourceLineNo">810</span>   * @return the map output key class.<a name="line.810"></a>
+<span class="sourceLineNo">811</span>   */<a name="line.811"></a>
+<span class="sourceLineNo">812</span>  public Class&lt;?&gt; getMapOutputKeyClass() {<a name="line.812"></a>
+<span class="sourceLineNo">813</span>    Class&lt;?&gt; retv = getClass(JobContext.MAP_OUTPUT_KEY_CLASS, null, Object.class);<a name="line.813"></a>
+<span class="sourceLineNo">814</span>    if (retv == null) {<a name="line.814"></a>
+<span class="sourceLineNo">815</span>      retv = getOutputKeyClass();<a name="line.815"></a>
+<span class="sourceLineNo">816</span>    }<a name="line.816"></a>
+<span class="sourceLineNo">817</span>    return retv;<a name="line.817"></a>
+<span class="sourceLineNo">818</span>  }<a name="line.818"></a>
+<span class="sourceLineNo">819</span>  <a name="line.819"></a>
+<span class="sourceLineNo">820</span>  /**<a name="line.820"></a>
+<span class="sourceLineNo">821</span>   * Set the key class for the map output data. This allows the user to<a name="line.821"></a>
+<span class="sourceLineNo">822</span>   * specify the map output key class to be different than the final output<a name="line.822"></a>
+<span class="sourceLineNo">823</span>   * value class.<a name="line.823"></a>
+<span class="sourceLineNo">824</span>   * <a name="line.824"></a>
+<span class="sourceLineNo">825</span>   * @param theClass the map output key class.<a name="line.825"></a>
+<span class="sourceLineNo">826</span>   */<a name="line.826"></a>
+<span class="sourceLineNo">827</span>  public void setMapOutputKeyClass(Class&lt;?&gt; theClass) {<a name="line.827"></a>
+<span class="sourceLineNo">828</span>    setClass(JobContext.MAP_OUTPUT_KEY_CLASS, theClass, Object.class);<a name="line.828"></a>
+<span class="sourceLineNo">829</span>  }<a name="line.829"></a>
+<span class="sourceLineNo">830</span>  <a name="line.830"></a>
+<span class="sourceLineNo">831</span>  /**<a name="line.831"></a>
+<span class="sourceLineNo">832</span>   * Get the value class for the map output data. If it is not set, use the<a name="line.832"></a>
+<span class="sourceLineNo">833</span>   * (final) output value class This allows the map output value class to be<a name="line.833"></a>
+<span class="sourceLineNo">834</span>   * different than the final output value class.<a name="line.834"></a>
+<span class="sourceLineNo">835</span>   *  <a name="line.835"></a>
+<span class="sourceLineNo">836</span>   * @return the map output value class.<a name="line.836"></a>
+<span class="sourceLineNo">837</span>   */<a name="line.837"></a>
+<span class="sourceLineNo">838</span>  public Class&lt;?&gt; getMapOutputValueClass() {<a name="line.838"></a>
+<span class="sourceLineNo">839</span>    Class&lt;?&gt; retv = getClass(JobContext.MAP_OUTPUT_VALUE_CLASS, null,<a name="line.839"></a>
+<span class="sourceLineNo">840</span>        Object.class);<a name="line.840"></a>
+<span class="sourceLineNo">841</span>    if (retv == null) {<a name="line.841"></a>
+<span class="sourceLineNo">842</span>      retv = getOutputValueClass();<a name="line.842"></a>
+<span class="sourceLineNo">843</span>    }<a name="line.843"></a>
+<span class="sourceLineNo">844</span>    return retv;<a name="line.844"></a>
+<span class="sourceLineNo">845</span>  }<a name="line.845"></a>
+<span class="sourceLineNo">846</span>  <a name="line.846"></a>
+<span class="sourceLineNo">847</span>  /**<a name="line.847"></a>
+<span class="sourceLineNo">848</span>   * Set the value class for the map output data. This allows the user to<a name="line.848"></a>
+<span class="sourceLineNo">849</span>   * specify the map output value class to be different than the final output<a name="line.849"></a>
+<span class="sourceLineNo">850</span>   * value class.<a name="line.850"></a>
+<span class="sourceLineNo">851</span>   * <a name="line.851"></a>
+<span class="sourceLineNo">852</span>   * @param theClass the map output value class.<a name="line.852"></a>
+<span class="sourceLineNo">853</span>   */<a name="line.853"></a>
+<span class="sourceLineNo">854</span>  public void setMapOutputValueClass(Class&lt;?&gt; theClass) {<a name="line.854"></a>
+<span class="sourceLineNo">855</span>    setClass(JobContext.MAP_OUTPUT_VALUE_CLASS, theClass, Object.class);<a name="line.855"></a>
+<span class="sourceLineNo">856</span>  }<a name="line.856"></a>
+<span class="sourceLineNo">857</span>  <a name="line.857"></a>
+<span class="sourceLineNo">858</span>  /**<a name="line.858"></a>
+<span class="sourceLineNo">859</span>   * Get the key class for the job output data.<a name="line.859"></a>
+<span class="sourceLineNo">860</span>   * <a name="line.860"></a>
+<span class="sourceLineNo">861</span>   * @return the key class for the job output data.<a name="line.861"></a>
+<span class="sourceLineNo">862</span>   */<a name="line.862"></a>
+<span class="sourceLineNo">863</span>  public Class&lt;?&gt; getOutputKeyClass() {<a name="line.863"></a>
+<span class="sourceLineNo">864</span>    return getClass(JobContext.OUTPUT_KEY_CLASS,<a name="line.864"></a>
+<span class="sourceLineNo">865</span>                    LongWritable.class, Object.class);<a name="line.865"></a>
+<span class="sourceLineNo">866</span>  }<a name="line.866"></a>
+<span class="sourceLineNo">867</span>  <a name="line.867"></a>
+<span class="sourceLineNo">868</span>  /**<a name="line.868"></a>
+<span class="sourceLineNo">869</span>   * Set the key class for the job output data.<a name="line.869"></a>
+<span class="sourceLineNo">870</span>   * <a name="line.870"></a>
+<span class="sourceLineNo">871</span>   * @param theClass the key class for the job output data.<a name="line.871"></a>
+<span class="sourceLineNo">872</span>   */<a name="line.872"></a>
+<span class="sourceLineNo">873</span>  public void setOutputKeyClass(Class&lt;?&gt; theClass) {<a name="line.873"></a>
+<span class="sourceLineNo">874</span>    setClass(JobContext.OUTPUT_KEY_CLASS, theClass, Object.class);<a name="line.874"></a>
+<span class="sourceLineNo">875</span>  }<a name="line.875"></a>
+<span class="sourceLineNo">876</span><a name="line.876"></a>
+<span class="sourceLineNo">877</span>  /**<a name="line.877"></a>
+<span class="sourceLineNo">878</span>   * Get the {@link RawComparator} comparator used to compare keys.<a name="line.878"></a>
+<span class="sourceLineNo">879</span>   * <a name="line.879"></a>
+<span class="sourceLineNo">880</span>   * @return the {@link RawComparator} comparator used to compare keys.<a name="line.880"></a>
+<span class="sourceLineNo">881</span>   */<a name="line.881"></a>
+<span class="sourceLineNo">882</span>  public RawComparator getOutputKeyComparator() {<a name="line.882"></a>
+<span class="sourceLineNo">883</span>    Class&lt;? extends RawComparator&gt; theClass = getClass(<a name="line.883"></a>
+<span class="sourceLineNo">884</span>      JobContext.KEY_COMPARATOR, null, RawComparator.class);<a name="line.884"></a>
+<span class="sourceLineNo">885</span>    if (theClass != null)<a name="line.885"></a>
+<span class="sourceLineNo">886</span>      return ReflectionUtils.newInstance(theClass, this);<a name="line.886"></a>
+<span class="sourceLineNo">887</span>    return WritableComparator.get(getMapOutputKeyClass().asSubclass(WritableComparable.class), this);<a name="line.887"></a>
+<span class="sourceLineNo">888</span>  }<a name="line.888"></a>
+<span class="sourceLineNo">889</span><a name="line.889"></a>
+<span class="sourceLineNo">890</span>  /**<a name="line.890"></a>
+<span class="sourceLineNo">891</span>   * Set the {@link RawComparator} comparator used to compare keys.<a name="line.891"></a>
+<span class="sourceLineNo">892</span>   * <a name="line.892"></a>
+<span class="sourceLineNo">893</span>   * @param theClass the {@link RawComparator} comparator used to <a name="line.893"></a>
+<span class="sourceLineNo">894</span>   *                 compare keys.<a name="line.894"></a>
+<span class="sourceLineNo">895</span>   * @see #setOutputValueGroupingComparator(Class)                 <a name="line.895"></a>
+<span class="sourceLineNo">896</span>   */<a name="line.896"></a>
+<span class="sourceLineNo">897</span>  public void setOutputKeyComparatorClass(Class&lt;? extends RawComparator&gt; theClass) {<a name="line.897"></a>
+<span class="sourceLineNo">898</span>    setClass(JobContext.KEY_COMPARATOR,<a name="line.898"></a>
+<span class="sourceLineNo">899</span>             theClass, RawComparator.class);<a name="line.899"></a>
+<span class="sourceLineNo">900</span>  }<a name="line.900"></a>
+<span class="sourceLineNo">901</span><a name="line.901"></a>
+<span class="sourceLineNo">902</span>  /**<a name="line.902"></a>
+<span class="sourceLineNo">903</span>   * Set the {@link KeyFieldBasedComparator} options used to compare keys.<a name="line.903"></a>
+<span class="sourceLineNo">904</span>   * <a name="line.904"></a>
+<span class="sourceLineNo">905</span>   * @param keySpec the key specification of the form -k pos1[,pos2], where,<a name="line.905"></a>
+<span class="sourceLineNo">906</span>   *  pos is of the form f[.c][opts], where f is the number<a name="line.906"></a>
+<span class="sourceLineNo">907</span>   *  of the key field to use, and c is the number of the first character from<a name="line.907"></a>
+<span class="sourceLineNo">908</span>   *  the beginning of the field. Fields and character posns are numbered <a name="line.908"></a>
+<span class="sourceLineNo">909</span>   *  starting with 1; a character position of zero in pos2 indicates the<a name="line.909"></a>
+<span class="sourceLineNo">910</span>   *  field's last character. If '.c' is omitted from pos1, it defaults to 1<a name="line.910"></a>
+<span class="sourceLineNo">911</span>   *  (the beginning of the field); if omitted from pos2, it defaults to 0 <a name="line.911"></a>
+<span class="sourceLineNo">912</span>   *  (the end of the field). opts are ordering options. The supported options<a name="line.912"></a>
+<span class="sourceLineNo">913</span>   *  are:<a name="line.913"></a>
+<span class="sourceLineNo">914</span>   *    -n, (Sort numerically)<a name="line.914"></a>
+<span class="sourceLineNo">915</span>   *    -r, (Reverse the result of comparison)                 <a name="line.915"></a>
+<span class="sourceLineNo">916</span>   */<a name="line.916"></a>
+<span class="sourceLineNo">917</span>  public void setKeyFieldComparatorOptions(String keySpec) {<a name="line.917"></a>
+<span class="sourceLineNo">918</span>    setOutputKeyComparatorClass(KeyFieldBasedComparator.class);<a name="line.918"></a>
+<span class="sourceLineNo">919</span>    set(KeyFieldBasedComparator.COMPARATOR_OPTIONS, keySpec);<a name="line.919"></a>
+<span class="sourceLineNo">920</span>  }<a name="line.920"></a>
+<span class="sourceLineNo">921</span>  <a name="line.921"></a>
+<span class="sourceLineNo">922</span>  /**<a name="line.922"></a>
+<span class="sourceLineNo">923</span>   * Get the {@link KeyFieldBasedComparator} options<a name="line.923"></a>
+<span class="sourceLineNo">924</span>   */<a name="line.924"></a>
+<span class="sourceLineNo">925</span>  public String getKeyFieldComparatorOption() {<a name="line.925"></a>
+<span class="sourceLineNo">926</span>    return get(KeyFieldBasedComparator.COMPARATOR_OPTIONS);<a name="line.926"></a>
+<span class="sourceLineNo">927</span>  }<a name="line.927"></a>
+<span class="sourceLineNo">928</span><a name="line.928"></a>
+<span class="sourceLineNo">929</span>  /**<a name="line.929"></a>
+<span class="sourceLineNo">930</span>   * Set the {@link KeyFieldBasedPartitioner} options used for <a name="line.930"></a>
+<span class="sourceLineNo">931</span>   * {@link Partitioner}<a name="line.931"></a>
+<span class="sourceLineNo">932</span>   * <a name="line.932"></a>
+<span class="sourceLineNo">933</span>   * @param keySpec the key specification of the form -k pos1[,pos2], where,<a name="line.933"></a>
+<span class="sourceLineNo">934</span>   *  pos is of the form f[.c][opts], where f is the number<a name="line.934"></a>
+<span class="sourceLineNo">935</span>   *  of the key field to use, and c is the number of the first character from<a name="line.935"></a>
+<span class="sourceLineNo">936</span>   *  the beginning of the field. Fields and character posns are numbered <a name="line.936"></a>
+<span class="sourceLineNo">937</span>   *  starting with 1; a character position of zero in pos2 indicates the<a name="line.937"></a>
+<span class="sourceLineNo">938</span>   *  field's last character. If '.c' is omitted from pos1, it defaults to 1<a name="line.938"></a>
+<span class="sourceLineNo">939</span>   *  (the beginning of the field); if omitted from pos2, it defaults to 0 <a name="line.939"></a>
+<span class="sourceLineNo">940</span>   *  (the end of the field).<a name="line.940"></a>
+<span class="sourceLineNo">941</span>   */<a name="line.941"></a>
+<span class="sourceLineNo">942</span>  public void setKeyFieldPartitionerOptions(String keySpec) {<a name="line.942"></a>
+<span class="sourceLineNo">943</span>    setPartitionerClass(KeyFieldBasedPartitioner.class);<a name="line.943"></a>
+<span class="sourceLineNo">944</span>    set(KeyFieldBasedPartitioner.PARTITIONER_OPTIONS, keySpec);<a name="line.944"></a>
+<span class="sourceLineNo">945</span>  }<a name="line.945"></a>
+<span class="sourceLineNo">946</span>  <a name="line.946"></a>
+<span class="sourceLineNo">947</span>  /**<a name="line.947"></a>
+<span class="sourceLineNo">948</span>   * Get the {@link KeyFieldBasedPartitioner} options<a name="line.948"></a>
+<span class="sourceLineNo">949</span>   */<a name="line.949"></a>
+<span class="sourceLineNo">950</span>  public String getKeyFieldPartitionerOption() {<a name="line.950"></a>
+<span class="sourceLineNo">951</span>    return get(KeyFieldBasedPartitioner.PARTITIONER_OPTIONS);<a name="line.951"></a>
+<span class="sourceLineNo">952</span>  }<a name="line.952"></a>
+<span class="sourceLineNo">953</span><a name="line.953"></a>
+<span class="sourceLineNo">954</span>  /**<a name="line.954"></a>
+<span class="sourceLineNo">955</span>   * Get the user defined {@link WritableComparable} comparator for<a name="line.955"></a>
+<span class="sourceLineNo">956</span>   * grouping keys of inputs to the combiner.<a name="line.956"></a>
+<span class="sourceLineNo">957</span>   *<a name="line.957"></a>
+<span class="sourceLineNo">958</span>   * @return comparator set by the user for grouping values.<a name="line.958"></a>
+<span class="sourceLineNo">959</span>   * @see #setCombinerKeyGroupingComparator(Class) for details.<a name="line.959"></a>
+<span class="sourceLineNo">960</span>   */<a name="line.960"></a>
+<span class="sourceLineNo">961</span>  public RawComparator getCombinerKeyGroupingComparator() {<a name="line.961"></a>
+<span class="sourceLineNo">962</span>    Class&lt;? extends RawComparator&gt; theClass = getClass(<a name="line.962"></a>
+<span class="sourceLineNo">963</span>        JobContext.COMBINER_GROUP_COMPARATOR_CLASS, null, RawComparator.class);<a name="line.963"></a>
+<span class="sourceLineNo">964</span>    if (theClass == null) {<a name="line.964"></a>
+<span class="sourceLineNo">965</span>      return getOutputKeyComparator();<a name="line.965"></a>
+<span class="sourceLineNo">966</span>    }<a name="line.966"></a>
+<span class="sourceLineNo">967</span><a name="line.967"></a>
+<span class="sourceLineNo">968</span>    return ReflectionUtils.newInstance(theClass, this);<a name="line.968"></a>
+<span class="sourceLineNo">969</span>  }<a name="line.969"></a>
+<span class="sourceLineNo">970</span><a name="line.970"></a>
+<span class="sourceLineNo">971</span>  /** <a name="line.971"></a>
+<span class="sourceLineNo">972</span>   * Get the user defined {@link WritableComparable} comparator for <a name="line.972"></a>
+<span class="sourceLineNo">973</span>   * grouping keys of inputs to the reduce.<a name="line.973"></a>
+<span class="sourceLineNo">974</span>   * <a name="line.974"></a>
+<span class="sourceLineNo">975</span>   * @return comparator set by the user for grouping values.<a name="line.975"></a>
+<span class="sourceLineNo">976</span>   * @see #setOutputValueGroupingComparator(Class) for details.<a name="line.976"></a>
+<span class="sourceLineNo">977</span>   */<a name="line.977"></a>
+<span class="sourceLineNo">978</span>  public RawComparator getOutputValueGroupingComparator() {<a name="line.978"></a>
+<span class="sourceLineNo">979</span>    Class&lt;? extends RawComparator&gt; theClass = getClass(<a name="line.979"></a>
+<span class="sourceLineNo">980</span>      JobContext.GROUP_COMPARATOR_CLASS, null, RawComparator.class);<a name="line.980"></a>
+<span class="sourceLineNo">981</span>    if (theClass == null) {<a name="line.981"></a>
+<span class="sourceLineNo">982</span>      return getOutputKeyComparator();<a name="line.982"></a>
+<span class="sourceLineNo">983</span>    }<a name="line.983"></a>
+<span class="sourceLineNo">984</span>    <a name="line.984"></a>
+<span class="sourceLineNo">985</span>    return ReflectionUtils.newInstance(theClass, this);<a name="line.985"></a>
+<span class="sourceLineNo">986</span>  }<a name="line.986"></a>
+<span class="sourceLineNo">987</span><a name="line.987"></a>
+<span class="sourceLineNo">988</span>  /**<a name="line.988"></a>
+<span class="sourceLineNo">989</span>   * Set the user defined {@link RawComparator} comparator for<a name="line.989"></a>
+<span class="sourceLineNo">990</span>   * grouping keys in the input to the combiner.<a name="line.990"></a>
+<span class="sourceLineNo">991</span>   * &lt;p/&gt;<a name="line.991"></a>
+<span class="sourceLineNo">992</span>   * &lt;p&gt;This comparator should be provided if the equivalence rules for keys<a name="line.992"></a>
+<span class="sourceLineNo">993</span>   * for sorting the intermediates are different from those for grouping keys<a name="line.993"></a>
+<span class="sourceLineNo">994</span>   * before each call to<a name="line.994"></a>
+<span class="sourceLineNo">995</span>   * {@link Reducer#reduce(Object, java.util.Iterator, OutputCollector, Reporter)}.&lt;/p&gt;<a name="line.995"></a>
+<span class="sourceLineNo">996</span>   * &lt;p/&gt;<a name="line.996"></a>
+<span class="sourceLineNo">997</span>   * &lt;p&gt;For key-value pairs (K1,V1) and (K2,V2), the values (V1, V2) are passed<a name="line.997"></a>
+<span class="sourceLineNo">998</span>   * in a single call to the reduce function if K1 and K2 compare as equal.&lt;/p&gt;<a name="line.998"></a>
+<span class="sourceLineNo">999</span>   * &lt;p/&gt;<a name="line.999"></a>
+<span class="sourceLineNo">1000</span>   * &lt;p&gt;Since {@link #setOutputKeyComparatorClass(Class)} can be used to control<a name="line.1000"></a>
+<span class="sourceLineNo">1001</span>   * how keys are sorted, this can be used in conjunction to simulate<a name="line.1001"></a>
+<span class="sourceLineNo">1002</span>   * &lt;i&gt;secondary sort on values&lt;/i&gt;.&lt;/p&gt;<a name="line.1002"></a>
+<span class="sourceLineNo">1003</span>   * &lt;p/&gt;<a name="line.1003"></a>
+<span class="sourceLineNo">1004</span>   * &lt;p&gt;&lt;i&gt;Note&lt;/i&gt;: This is not a guarantee of the combiner sort being<a name="line.1004"></a>
+<span class="sourceLineNo">1005</span>   * &lt;i&gt;stable&lt;/i&gt; in any sense. (In any case, with the order of available<a name="line.1005"></a>
+<span class="sourceLineNo">1006</span>   * map-outputs to the combiner being non-deterministic, it wouldn't make<a name="line.1006"></a>
+<span class="sourceLineNo">1007</span>   * that much sense.)&lt;/p&gt;<a name="line.1007"></a>
+<span class="sourceLineNo">1008</span>   *<a name="line.1008"></a>
+<span class="sourceLineNo">1009</span>   * @param theClass the comparator class to be used for grouping keys for the<a name="line.1009"></a>
+<span class="sourceLineNo">1010</span>   * combiner. It should implement &lt;code&gt;RawComparator&lt;/code&gt;.<a name="line.1010"></a>
+<span class="sourceLineNo">1011</span>   * @see #setOutputKeyComparatorClass(Class)<a name="line.1011"></a>
+<span class="sourceLineNo">1012</span>   */<a name="line.1012"></a>
+<span class="sourceLineNo">1013</span>  public void setCombinerKeyGroupingComparator(<a name="line.1013"></a>
+<span class="sourceLineNo">1014</span>      Class&lt;? extends RawComparator&gt; theClass) {<a name="line.1014"></a>
+<span class="sourceLineNo">1015</span>    setClass(JobContext.COMBINER_GROUP_COMPARATOR_CLASS,<a name="line.1015"></a>
+<span class="sourceLineNo">1016</span>        theClass, RawComparator.class);<a name="line.1016"></a>
+<span class="sourceLineNo">1017</span>  }<a name="line.1017"></a>
+<span class="sourceLineNo">1018</span><a name="line.1018"></a>
+<span class="sourceLineNo">1019</span>  /** <a name="line.1019"></a>
+<span class="sourceLineNo">1020</span>   * Set the user defined {@link RawComparator} comparator for <a name="line.1020"></a>
+<span class="sourceLineNo">1021</span>   * grouping keys in the input to the reduce.<a name="line.1021"></a>
+<span class="sourceLineNo">1022</span>   * <a name="line.1022"></a>
+<span class="sourceLineNo">1023</span>   * &lt;p&gt;This comparator should be provided if the equivalence rules for keys<a name="line.1023"></a>
+<span class="sourceLineNo">1024</span>   * for sorting the intermediates are different from those for grouping keys<a name="line.1024"></a>
+<span class="sourceLineNo">1025</span>   * before each call to <a name="line.1025"></a>
+<span class="sourceLineNo">1026</span>   * {@link Reducer#reduce(Object, java.util.Iterator, OutputCollector, Reporter)}.&lt;/p&gt;<a name="line.1026"></a>
+<span class="sourceLineNo">1027</span>   *  <a name="line.1027"></a>
+<span class="sourceLineNo">1028</span>   * &lt;p&gt;For key-value pairs (K1,V1) and (K2,V2), the values (V1, V2) are passed<a name="line.1028"></a>
+<span class="sourceLineNo">1029</span>   * in a single call to the reduce function if K1 and K2 compare as equal.&lt;/p&gt;<a name="line.1029"></a>
+<span class="sourceLineNo">1030</span>   * <a name="line.1030"></a>
+<span class="sourceLineNo">1031</span>   * &lt;p&gt;Since {@link #setOutputKeyComparatorClass(Class)} can be used to control <a name="line.1031"></a>
+<span class="sourceLineNo">1032</span>   * how keys are sorted, this can be used in conjunction to simulate <a name="line.1032"></a>
+<span class="sourceLineNo">1033</span>   * &lt;i&gt;secondary sort on values&lt;/i&gt;.&lt;/p&gt;<a name="line.1033"></a>
+<span class="sourceLineNo">1034</span>   *  <a name="line.1034"></a>
+<span class="sourceLineNo">1035</span>   * &lt;p&gt;&lt;i&gt;Note&lt;/i&gt;: This is not a guarantee of the reduce sort being <a name="line.1035"></a>
+<span class="sourceLineNo">1036</span>   * &lt;i&gt;stable&lt;/i&gt; in any sense. (In any case, with the order of available <a name="line.1036"></a>
+<span class="sourceLineNo">1037</span>   * map-outputs to the reduce being non-deterministic, it wouldn't make <a name="line.1037"></a>
+<span class="sourceLineNo">1038</span>   * that much sense.)&lt;/p&gt;<a name="line.1038"></a>
+<span class="sourceLineNo">1039</span>   * <a name="line.1039"></a>
+<span class="sourceLineNo">1040</span>   * @param theClass the comparator class to be used for grouping keys. <a name="line.1040"></a>
+<span class="sourceLineNo">1041</span>   *                 It should implement &lt;code&gt;RawComparator&lt;/code&gt;.<a name="line.1041"></a>
+<span class="sourceLineNo">1042</span>   * @see #setOutputKeyComparatorClass(Class)<a name="line.1042"></a>
+<span class="sourceLineNo">1043</span>   * @see #setCombinerKeyGroupingComparator(Class)<a name="line.1043"></a>
+<span class="sourceLineNo">1044</span>   */<a name="line.1044"></a>
+<span class="sourceLineNo">1045</span>  public void setOutputValueGroupingComparator(<a name="line.1045"></a>
+<span class="sourceLineNo">1046</span>      Class&lt;? extends RawComparator&gt; theClass) {<a name="line.1046"></a>
+<span class="sourceLineNo">1047</span>    setClass(JobContext.GROUP_COMPARATOR_CLASS,<a name="line.1047"></a>
+<span class="sourceLineNo">1048</span>             theClass, RawComparator.class);<a name="line.1048"></a>
+<span class="sourceLineNo">1049</span>  }<a name="line.1049"></a>
+<span class="sourceLineNo">1050</span><a name="line.1050"></a>
+<span class="sourceLineNo">1051</span>  /**<a name="line.1051"></a>
+<span class="sourceLineNo">1052</span>   * Should the framework use the new context-object code for running<a name="line.1052"></a>
+<span class="sourceLineNo">1053</span>   * the mapper?<a name="line.1053"></a>
+<span class="sourceLineNo">1054</span>   * @return true, if the new api should be used<a name="line.1054"></a>
+<span class="sourceLineNo">1055</span>   */<a name="line.1055"></a>
+<span class="sourceLineNo">1056</span>  public boolean getUseNewMapper() {<a name="line.1056"></a>
+<span class="sourceLineNo">1057</span>    return getBoolean("mapred.mapper.new-api", false);<a name="line.1057"></a>
+<span class="sourceLineNo">1058</span>  }<a name="line.1058"></a>
+<span class="sourceLineNo">1059</span>  /**<a name="line.1059"></a>
+<span class="sourceLineNo">1060</span>   * Set whether the framework should use the new api for the mapper.<a name="line.1060"></a>
+<span class="sourceLineNo">1061</span>   * This is the default for jobs submitted with the new Job api.<a name="line.1061"></a>
+<span class="sourceLineNo">1062</span>   * @param flag true, if the new api should be used<a name="line.1062"></a>
+<span class="sourceLineNo">1063</span>   */<a name="line.1063"></a>
+<span class="sourceLineNo">1064</span>  public void setUseNewMapper(boolean flag) {<a name="line.1064"></a>
+<span class="sourceLineNo">1065</span>    setBoolean("mapred.mapper.new-api", flag);<a name="line.1065"></a>
+<span class="sourceLineNo">1066</span>  }<a name="line.1066"></a>
+<span class="sourceLineNo">1067</span><a name="line.1067"></a>
+<span class="sourceLineNo">1068</span>  /**<a name="line.1068"></a>
+<span class="sourceLineNo">1069</span>   * Should the framework use the new context-object code for running<a name="line.1069"></a>
+<span class="sourceLineNo">1070</span>   * the reducer?<a name="line.1070"></a>
+<span class="sourceLineNo">1071</span>   * @return true, if the new api should be used<a name="line.1071"></a>
+<span class="sourceLineNo">1072</span>   */<a name="line.1072"></a>
+<span class="sourceLineNo">1073</span>  public boolean getUseNewReducer() {<a name="line.1073"></a>
+<span class="sourceLineNo">1074</span>    return getBoolean("mapred.reducer.new-api", false);<a name="line.1074"></a>
+<span class="sourceLineNo">1075</span>  }<a name="line.1075"></a>
+<span class="sourceLineNo">1076</span>  /**<a name="line.1076"></a>
+<span class="sourceLineNo">1077</span>   * Set whether the framework should use the new api for the reducer. <a name="line.1077"></a>
+<span class="sourceLineNo">1078</span>   * This is the default for jobs submitted with the new Job api.<a name="line.1078"></a>
+<span class="sourceLineNo">1079</span>   * @param flag true, if the new api should be used<a name="line.1079"></a>
+<span class="sourceLineNo">1080</span>   */<a name="line.1080"></a>
+<span class="sourceLineNo">1081</span>  public void setUseNewReducer(boolean flag) {<a name="line.1081"></a>
+<span class="sourceLineNo">1082</span>    setBoolean("mapred.reducer.new-api", flag);<a name="line.1082"></a>
+<span class="sourceLineNo">1083</span>  }<a name="line.1083"></a>
+<span class="sourceLineNo">1084</span><a name="line.1084"></a>
+<span class="sourceLineNo">1085</span>  /**<a name="line.1085"></a>
+<span class="sourceLineNo">1086</span>   * Get the value class for job outputs.<a name="line.1086"></a>
+<span class="sourceLineNo">1087</span>   * <a name="line.1087"></a>
+<span class="sourceLineNo">1088</span>   * @return the value class for job outputs.<a name="line.1088"></a>
+<span class="sourceLineNo">1089</span>   */<a name="line.1089"></a>
+<span class="sourceLineNo">1090</span>  public Class&lt;?&gt; getOutputValueClass() {<a name="line.1090"></a>
+<span class="sourceLineNo">1091</span>    return getClass(JobContext.OUTPUT_VALUE_CLASS, Text.class, Object.class);<a name="line.1091"></a>
+<span class="sourceLineNo">1092</span>  }<a name="line.1092"></a>
+<span class="sourceLineNo">1093</span>  <a name="line.1093"></a>
+<span class="sourceLineNo">1094</span>  /**<a name="line.1094"></a>
+<span class="sourceLineNo">1095</span>   * Set the value class for job outputs.<a name="line.1095"></a>
+<span class="sourceLineNo">1096</span>   * <a name="line.1096"></a>
+<span class="sourceLineNo">1097</span>   * @param theClass the value class for job outputs.<a name="line.1097"></a>
+<span class="sourceLineNo">1098</span>   */<a name="line.1098"></a>
+<span class="sourceLineNo">1099</span>  public void setOutputValueClass(Class&lt;?&gt; theClass) {<a name="line.1099"></a>
+<span class="sourceLineNo">1100</span>    setClass(JobContext.OUTPUT_VALUE_CLASS, theClass, Object.class);<a name="line.1100"></a>
+<span class="sourceLineNo">1101</span>  }<a name="line.1101"></a>
+<span class="sourceLineNo">1102</span><a name="line.1102"></a>
+<span class="sourceLineNo">1103</span>  /**<a name="line.1103"></a>
+<span class="sourceLineNo">1104</span>   * Get the {@link Mapper} class for the job.<a name="line.1104"></a>
+<span class="sourceLineNo">1105</span>   * <a name="line.1105"></a>
+<span class="sourceLineNo">1106</span>   * @return the {@link Mapper} class for the job.<a name="line.1106"></a>
+<span class="sourceLineNo">1107</span>   */<a name="line.1107"></a>
+<span class="sourceLineNo">1108</span>  public Class&lt;? extends Mapper&gt; getMapperClass() {<a name="line.1108"></a>
+<span class="sourceLineNo">1109</span>    return getClass("mapred.mapper.class", IdentityMapper.class, Mapper.class);<a name="line.1109"></a>
+<span class="sourceLineNo">1110</span>  }<a name="line.1110"></a>
+<span class="sourceLineNo">1111</span>  <a name="line.1111"></a>
+<span class="sourceLineNo">1112</span>  /**<a name="line.1112"></a>
+<span class="sourceLineNo">1113</span>   * Set the {@link Mapper} class for the job.<a name="line.1113"></a>
+<span class="sourceLineNo">1114</span>   * <a name="line.1114"></a>
+<span class="sourceLineNo">1115</span>   * @param theClass the {@link Mapper} class for the job.<a name="line.1115"></a>
+<span class="sourceLineNo">1116</span>   */<a name="line.1116"></a>
+<span class="sourceLineNo">1117</span>  public void setMapperClass(Class&lt;? extends Mapper&gt; theClass) {<a name="line.1117"></a>
+<span class="sourceLineNo">1118</span>    setClass("mapred.mapper.class", theClass, Mapper.class);<a name="line.1118"></a>
+<span class="sourceLineNo">1119</span>  }<a name="line.1119"></a>
+<span class="sourceLineNo">1120</span><a name="line.1120"></a>
+<span class="sourceLineNo">1121</span>  /**<a name="line.1121"></a>
+<span class="sourceLineNo">1122</span>   * Get the {@link MapRunnable} class for the job.<a name="line.1122"></a>
+<span class="sourceLineNo">1123</span>   * <a name="line.1123"></a>
+<span class="sourceLineNo">1124</span>   * @return the {@link MapRunnable} class for the job.<a name="line.1124"></a>
+<span class="sourceLineNo">1125</span>   */<a name="line.1125"></a>
+<span class="sourceLineNo">1126</span>  public Class&lt;? extends MapRunnable&gt; getMapRunnerClass() {<a name="line.1126"></a>
+<span class="sourceLineNo">1127</span>    return getClass("mapred.map.runner.class",<a name="line.1127"></a>
+<span class="sourceLineNo">1128</span>                    MapRunner.class, MapRunnable.class);<a name="line.1128"></a>
+<span class="sourceLineNo">1129</span>  }<a name="line.1129"></a>
+<span class="sourceLineNo">1130</span>  <a name="line.1130"></a>
+<span class="sourceLineNo">1131</span>  /**<a name="line.1131"></a>
+<span class="sourceLineNo">1132</span>   * Expert: Set the {@link MapRunnable} class for the job.<a name="line.1132"></a>
+<span class="sourceLineNo">1133</span>   * <a name="line.1133"></a>
+<span class="sourceLineNo">1134</span>   * Typically used to exert greater control on {@link Mapper}s.<a name="line.1134"></a>
+<span class="sourceLineNo">1135</span>   * <a name="line.1135"></a>
+<span class="sourceLineNo">1136</span>   * @param theClass the {@link MapRunnable} class for the job.<a name="line.1136"></a>
+<span class="sourceLineNo">1137</span>   */<a name="line.1137"></a>
+<span class="sourceLineNo">1138</span>  public void setMapRunnerClass(Class&lt;? extends MapRunnable&gt; theClass) {<a name="line.1138"></a>
+<span class="sourceLineNo">1139</span>    setClass("mapred.map.runner.class", theClass, MapRunnable.class);<a name="line.1139"></a>
+<span class="sourceLineNo">1140</span>  }<a name="line.1140"></a>
+<span class="sourceLineNo">1141</span><a name="line.1141"></a>
+<span class="sourceLineNo">1142</span>  /**<a name="line.1142"></a>
+<span class="sourceLineNo">1143</span>   * Get the {@link Partitioner} used to partition {@link Mapper}-outputs <a name="line.1143"></a>
+<span class="sourceLineNo">1144</span>   * to be sent to the {@link Reducer}s.<a name="line.1144"></a>
+<span class="sourceLineNo">1145</span>   * <a name="line.1145"></a>
+<span class="sourceLineNo">1146</span>   * @return the {@link Partitioner} used to partition map-outputs.<a name="line.1146"></a>
+<span class="sourceLineNo">1147</span>   */<a name="line.1147"></a>
+<span class="sourceLineNo">1148</span>  public Class&lt;? extends Partitioner&gt; getPartitionerClass() {<a name="line.1148"></a>
+<span class="sourceLineNo">1149</span>    return getClass("mapred.partitioner.class",<a name="line.1149"></a>
+<span class="sourceLineNo">1150</span>                    HashPartitioner.class, Partitioner.class);<a name="line.1150"></a>
+<span class="sourceLineNo">1151</span>  }<a name="line.1151"></a>
+<span class="sourceLineNo">1152</span>  <a name="line.1152"></a>
+<span class="sourceLineNo">1153</span>  /**<a name="line.1153"></a>
+<span class="sourceLineNo">1154</span>   * Set the {@link Partitioner} class used to partition <a name="line.1154"></a>
+<span class="sourceLineNo">1155</span>   * {@link Mapper}-outputs to be sent to the {@link Reducer}s.<a name="line.1155"></a>
+<span class="sourceLineNo">1156</span>   * <a name="line.1156"></a>
+<span class="sourceLineNo">1157</span>   * @param theClass the {@link Partitioner} used to partition map-outputs.<a name="line.1157"></a>
+<span class="sourceLineNo">1158</span>   */<a name="line.1158"></a>
+<span class="sourceLineNo">1159</span>  public void setPartitionerClass(Class&lt;? extends Partitioner&gt; theClass) {<a name="line.1159"></a>
+<span class="sourceLineNo">1160</span>    setClass("mapred.partitioner.class", theClass, Partitioner.class);<a name="line.1160"></a>
+<span class="sourceLineNo">1161</span>  }<a name="line.1161"></a>
+<span class="sourceLineNo">1162</span><a name="line.1162"></a>
+<span class="sourceLineNo">1163</span>  /**<a name="line.1163"></a>
+<span class="sourceLineNo">1164</span>   * Get the {@link Reducer} class for the job.<a name="line.1164"></a>
+<span class="sourceLineNo">1165</span>   * <a name="line.1165"></a>
+<span class="sourceLineNo">1166</span>   * @return the {@link Reducer} class for the job.<a name="line.1166"></a>
+<span class="sourceLineNo">1167</span>   */<a name="line.1167"></a>
+<span class="sourceLineNo">1168</span>  public Class&lt;? extends Reducer&gt; getReducerClass() {<a name="line.1168"></a>
+<span class="sourceLineNo">1169</span>    return getClass("mapred.reducer.class",<a name="line.1169"></a>
+<span class="sourceLineNo">1170</span>                    IdentityReducer.class, Reducer.class);<a name="line.1170"></a>
+<span class="sourceLineNo">1171</span>  }<a name="line.1171"></a>
+<span class="sourceLineNo">1172</span>  <a name="line.1172"></a>
+<span class="sourceLineNo">1173</span>  /**<a name="line.1173"></a>
+<span class="sourceLineNo">1174</span>   * Set the {@link Reducer} class for the job.<a name="line.1174"></a>
+<span class="sourceLineNo">1175</span>   * <a name="line.1175"></a>
+<span class="sourceLineNo">1176</span>   * @param theClass the {@link Reducer} class for the job.<a name="line.1176"></a>
+<span class="sourceLineNo">1177</span>   */<a name="line.1177"></a>
+<span class="sourceLineNo">1178</span>  public void setReducerClass(Class&lt;? extends Reducer&gt; theClass) {<a name="line.1178"></a>
+<span class="sourceLineNo">1179</span>    setClass("mapred.reducer.class", theClass, Reducer.class);<a name="line.1179"></a>
+<span class="sourceLineNo">1180</span>  }<a name="line.1180"></a>
+<span class="sourceLineNo">1181</span><a name="line.1181"></a>
+<span class="sourceLineNo">1182</span>  /**<a name="line.1182"></a>
+<span class="sourceLineNo">1183</span>   * Get the user-defined &lt;i&gt;combiner&lt;/i&gt; class used to combine map-outputs <a name="line.1183"></a>
+<span class="sourceLineNo">1184</span>   * before being sent to the reducers. Typically the combiner is same as the<a name="line.1184"></a>
+<span class="sourceLineNo">1185</span>   * the {@link Reducer} for the job i.e. {@link #getReducerClass()}.<a name="line.1185"></a>
+<span class="sourceLineNo">1186</span>   * <a name="line.1186"></a>
+<span class="sourceLineNo">1187</span>   * @return the user-defined combiner class used to combine map-outputs.<a name="line.1187"></a>
+<span class="sourceLineNo">1188</span>   */<a name="line.1188"></a>
+<span class="sourceLineNo">1189</span>  public Class&lt;? extends Reducer&gt; getCombinerClass() {<a name="line.1189"></a>
+<span class="sourceLineNo">1190</span>    return getClass("mapred.combiner.class", null, Reducer.class);<a name="line.1190"></a>
+<span class="sourceLineNo">1191</span>  }<a name="line.1191"></a>
+<span class="sourceLineNo">1192</span><a name="line.1192"></a>
+<span class="sourceLineNo">1193</span>  /**<a name="line.1193"></a>
+<span class="sourceLineNo">1194</span>   * Set the user-defined &lt;i&gt;combiner&lt;/i&gt; class used to combine map-outputs <a name="line.1194"></a>
+<span class="sourceLineNo">1195</span>   * before being sent to the reducers. <a name="line.1195"></a>
+<span class="sourceLineNo">1196</span>   * <a name="line.1196"></a>
+<span class="sourceLineNo">1197</span>   * &lt;p&gt;The combiner is an application-specified aggregation operation, which<a name="line.1197"></a>
+<span class="sourceLineNo">1198</span>   * can help cut down the amount of data transferred between the <a name="line.1198"></a>
+<span class="sourceLineNo">1199</span>   * {@link Mapper} and the {@link Reducer}, leading to better performance.&lt;/p&gt;<a name="line.1199"></a>
+<span class="sourceLineNo">1200</span>   * <a name="line.1200"></a>
+<span class="sourceLineNo">1201</span>   * &lt;p&gt;The framework may invoke the combiner 0, 1, or multiple times, in both<a name="line.1201"></a>
+<span class="sourceLineNo">1202</span>   * the mapper and reducer tasks. In general, the combiner is called as the<a name="line.1202"></a>
+<span class="sourceLineNo">1203</span>   * sort/merge result is written to disk. The combiner must:<a name="line.1203"></a>
+<span class="sourceLineNo">1204</span>   * &lt;ul&gt;<a name="line.1204"></a>
+<span class="sourceLineNo">1205</span>   *   &lt;li&gt; be side-effect free&lt;/li&gt;<a name="line.1205"></a>
+<span class="sourceLineNo">1206</span>   *   &lt;li&gt; have the same input and output key types and the same input and <a name="line.1206"></a>
+<span class="sourceLineNo">1207</span>   *        output value types&lt;/li&gt;<a name="line.1207"></a>
+<span class="sourceLineNo">1208</span>   * &lt;/ul&gt;&lt;/p&gt;<a name="line.1208"></a>
+<span class="sourceLineNo">1209</span>   * <a name="line.1209"></a>
+<span class="sourceLineNo">1210</span>   * &lt;p&gt;Typically the combiner is same as the &lt;code&gt;Reducer&lt;/code&gt; for the  <a name="line.1210"></a>
+<span class="sourceLineNo">1211</span>   * job i.e. {@link #setReducerClass(Class)}.&lt;/p&gt;<a name="line.1211"></a>
+<span class="sourceLineNo">1212</span>   * <a name="line.1212"></a>
+<span class="sourceLineNo">1213</span>   * @param theClass the user-defined combiner class used to combine <a name="line.1213"></a>
+<span class="sourceLineNo">1214</span>   *                 map-outputs.<a name="line.1214"></a>
+<span class="sourceLineNo">1215</span>   */<a name="line.1215"></a>
+<span class="sourceLineNo">1216</span>  public void setCombinerClass(Class&lt;? extends Reducer&gt; theClass) {<a name="line.1216"></a>
+<span class="sourceLineNo">1217</span>    setClass("mapred.combiner.class", theClass, Reducer.class);<a name="line.1217"></a>
+<span class="sourceLineNo">1218</span>  }<a name="line.1218"></a>
+<span class="sourceLineNo">1219</span>  <a name="line.1219"></a>
+<span class="sourceLineNo">1220</span>  /**<a name="line.1220"></a>
+<span class="sourceLineNo">1221</span>   * Should speculative execution be used for this job? <a name="line.1221"></a>
+<span class="sourceLineNo">1222</span>   * Defaults to &lt;code&gt;true&lt;/code&gt;.<a name="line.1222"></a>
+<span class="sourceLineNo">1223</span>   * <a name="line.1223"></a>
+<span class="sourceLineNo">1224</span>   * @return &lt;code&gt;true&lt;/code&gt; if speculative execution be used for this job,<a name="line.1224"></a>
+<span class="sourceLineNo">1225</span>   *         &lt;code&gt;false&lt;/code&gt; otherwise.<a name="line.1225"></a>
+<span class="sourceLineNo">1226</span>   */<a name="line.1226"></a>
+<span class="sourceLineNo">1227</span>  public boolean getSpeculativeExecution() { <a name="line.1227"></a>
+<span class="sourceLineNo">1228</span>    return (getMapSpeculativeExecution() || getReduceSpeculativeExecution());<a name="line.1228"></a>
+<span class="sourceLineNo">1229</span>  }<a name="line.1229"></a>
+<span class="sourceLineNo">1230</span>  <a name="line.1230"></a>
+<span class="sourceLineNo">1231</span>  /**<a name="line.1231"></a>
+<span class="sourceLineNo">1232</span>   * Turn speculative execution on or off for this job. <a name="line.1232"></a>
+<span class="sourceLineNo">1233</span>   * <a name="line.1233"></a>
+<span class="sourceLineNo">1234</span>   * @param speculativeExecution &lt;code&gt;true&lt;/code&gt; if speculative execution <a name="line.1234"></a>
+<span class="sourceLineNo">1235</span>   *                             should be turned on, else &lt;code&gt;false&lt;/code&gt;.<a name="line.1235"></a>
+<span class="sourceLineNo">1236</span>   */<a name="line.1236"></a>
+<span class="sourceLineNo">1237</span>  public void setSpeculativeExecution(boolean speculativeExecution) {<a name="line.1237"></a>
+<span class="sourceLineNo">1238</span>    setMapSpeculativeExecution(speculativeExecution);<a name="line.1238"></a>
+<span class="sourceLineNo">1239</span>    setReduceSpeculativeExecution(speculativeExecution);<a name="line.1239"></a>
+<span class="sourceLineNo">1240</span>  }<a name="line.1240"></a>
+<span class="sourceLineNo">1241</span><a name="line.1241"></a>
+<span class="sourceLineNo">1242</span>  /**<a name="line.1242"></a>
+<span class="sourceLineNo">1243</span>   * Should speculative execution be used for this job for map tasks? <a name="line.1243"></a>
+<span class="sourceLineNo">1244</span>   * Defaults to &lt;code&gt;true&lt;/code&gt;.<a name="line.1244"></a>
+<span class="sourceLineNo">1245</span>   * <a name="line.1245"></a>
+<span class="sourceLineNo">1246</span>   * @return &lt;code&gt;true&lt;/code&gt; if speculative execution be <a name="line.1246"></a>
+<span class="sourceLineNo">1247</span>   *                           used for this job for map tasks,<a name="line.1247"></a>
+<span class="sourceLineNo">1248</span>   *         &lt;code&gt;false&lt;/code&gt; otherwise.<a name="line.1248"></a>
+<span class="sourceLineNo">1249</span>   */<a name="line.1249"></a>
+<span class="sourceLineNo">1250</span>  public boolean getMapSpeculativeExecution() { <a name="line.1250"></a>
+<span class="sourceLineNo">1251</span>    return getBoolean(JobContext.MAP_SPECULATIVE, true);<a name="line.1251"></a>
+<span class="sourceLineNo">1252</span>  }<a name="line.1252"></a>
+<span class="sourceLineNo">1253</span>  <a name="line.1253"></a>
+<span class="sourceLineNo">1254</span>  /**<a name="line.1254"></a>
+<span class="sourceLineNo">1255</span>   * Turn speculative execution on or off for this job for map tasks. <a name="line.1255"></a>
+<span class="sourceLineNo">1256</span>   * <a name="line.1256"></a>
+<span class="sourceLineNo">1257</span>   * @param speculativeExecution &lt;code&gt;true&lt;/code&gt; if speculative execution <a name="line.1257"></a>
+<span class="sourceLineNo">1258</span>   *                             should be turned on for map tasks,<a name="line.1258"></a>
+<span class="sourceLineNo">1259</span>   *                             else &lt;code&gt;false&lt;/code&gt;.<a name="line.1259"></a>
+<span class="sourceLineNo">1260</span>   */<a name="line.1260"></a>
+<span class="sourceLineNo">1261</span>  public void setMapSpeculativeExecution(boolean speculativeExecution) {<a name="line.1261"></a>
+<span class="sourceLineNo">1262</span>    setBoolean(JobContext.MAP_SPECULATIVE, speculativeExecution);<a name="line.1262"></a>
+<span class="sourceLineNo">1263</span>  }<a name="line.1263"></a>
+<span class="sourceLineNo">1264</span><a name="line.1264"></a>
+<span class="sourceLineNo">1265</span>  /**<a name="line.1265"></a>
+<span class="sourceLineNo">1266</span>   * Should speculative execution be used for this job for reduce tasks? <a name="line.1266"></a>
+<span class="sourceLineNo">1267</span>   * Defaults to &lt;code&gt;true&lt;/code&gt;.<a name="line.1267"></a>
+<span class="sourceLineNo">1268</span>   * <a name="line.1268"></a>
+<span class="sourceLineNo">1269</span>   * @return &lt;code&gt;true&lt;/code&gt; if speculative execution be used <a name="line.1269"></a>
+<span class="sourceLineNo">1270</span>   *                           for reduce tasks for this job,<a name="line.1270"></a>
+<span class="sourceLineNo">1271</span>   *         &lt;code&gt;false&lt;/code&gt; otherwise.<a name="line.1271"></a>
+<span class="sourceLineNo">1272</span>   */<a name="line.1272"></a>
+<span class="sourceLineNo">1273</span>  public boolean getReduceSpeculativeExecution() { <a name="line.1273"></a>
+<span class="sourceLineNo">1274</span>    return getBoolean(JobContext.REDUCE_SPECULATIVE, true);<a name="line.1274"></a>
+<span class="sourceLineNo">1275</span>  }<a name="line.1275"></a>
+<span class="sourceLineNo">1276</span>  <a name="line.1276"></a>
+<span class="sourceLineNo">1277</span>  /**<a name="line.1277"></a>
+<span class="sourceLineNo">1278</span>   * Turn speculative execution on or off for this job for reduce tasks. <a name="line.1278"></a>
+<span class="sourceLineNo">1279</span>   * <a name="line.1279"></a>
+<span class="sourceLineNo">1280</span>   * @param speculativeExecution &lt;code&gt;true&lt;/code&gt; if speculative execution <a name="line.1280"></a>
+<span class="sourceLineNo">1281</span>   *                             should be turned on for reduce tasks,<a name="line.1281"></a>
+<span class="sourceLineNo">1282</span>   *                             else &lt;code&gt;false&lt;/code&gt;.<a name="line.1282"></a>
+<span class="sourceLineNo">1283</span>   */<a name="line.1283"></a>
+<span class="sourceLineNo">1284</span>  public void setReduceSpeculativeExecution(boolean speculativeExecution) {<a name="line.1284"></a>
+<span class="sourceLineNo">1285</span>    setBoolean(JobContext.REDUCE_SPECULATIVE, <a name="line.1285"></a>
+<span class="sourceLineNo">1286</span>               speculativeExecution);<a name="line.1286"></a>
+<span class="sourceLineNo">1287</span>  }<a name="line.1287"></a>
+<span class="sourceLineNo">1288</span><a name="line.1288"></a>
+<span class="sourceLineNo">1289</span>  /**<a name="line.1289"></a>
+<span class="sourceLineNo">1290</span>   * Get configured the number of reduce tasks for this job.<a name="line.1290"></a>
+<span class="sourceLineNo">1291</span>   * Defaults to &lt;code&gt;1&lt;/code&gt;.<a name="line.1291"></a>
+<span class="sourceLineNo">1292</span>   * <a name="line.1292"></a>
+<span class="sourceLineNo">1293</span>   * @return the number of reduce tasks for this job.<a name="line.1293"></a>
+<span class="sourceLineNo">1294</span>   */<a name="line.1294"></a>
+<span class="sourceLineNo">1295</span>  public int getNumMapTasks() { return getInt(JobContext.NUM_MAPS, 1); }<a name="line.1295"></a>
+<span class="sourceLineNo">1296</span>  <a name="line.1296"></a>
+<span class="sourceLineNo">1297</span>  /**<a name="line.1297"></a>
+<span class="sourceLineNo">1298</span>   * Set the number of map tasks for this job.<a name="line.1298"></a>
+<span class="sourceLineNo">1299</span>   * <a name="line.1299"></a>
+<span class="sourceLineNo">1300</span>   * &lt;p&gt;&lt;i&gt;Note&lt;/i&gt;: This is only a &lt;i&gt;hint&lt;/i&gt; to the framework. The actual <a name="line.1300"></a>
+<span class="sourceLineNo">1301</span>   * number of spawned map tasks depends on the number of {@link InputSplit}s <a name="line.1301"></a>
+<span class="sourceLineNo">1302</span>   * generated by the job's {@link InputFormat#getSplits(JobConf, int)}.<a name="line.1302"></a>
+<span class="sourceLineNo">1303</span>   *  <a name="line.1303"></a>
+<span class="sourceLineNo">1304</span>   * A custom {@link InputFormat} is typically used to accurately control <a name="line.1304"></a>
+<span class="sourceLineNo">1305</span>   * the number of map tasks for the job.&lt;/p&gt;<a name="line.1305"></a>
+<span class="sourceLineNo">1306</span>   * <a name="line.1306"></a>
+<span class="sourceLineNo">1307</span>   * &lt;h4 id="NoOfMaps"&gt;How many maps?&lt;/h4&gt;<a name="line.1307"></a>
+<span class="sourceLineNo">1308</span>   * <a name="line.1308"></a>
+<span class="sourceLineNo">1309</span>   * &lt;p&gt;The number of maps is usually driven by the total size of the inputs <a name="line.1309"></a>
+<span class="sourceLineNo">1310</span>   * i.e. total number of blocks of the input files.&lt;/p&gt;<a name="line.1310"></a>
+<span class="sourceLineNo">1311</span>   *  <a name="line.1311"></a>
+<span class="sourceLineNo">1312</span>   * &lt;p&gt;The right level of parallelism for maps seems to be around 10-100 maps <a name="line.1312"></a>
+<span class="sourceLineNo">1313</span>   * per-node, although it has been set up to 300 or so for very cpu-light map <a name="line.1313"></a>
+<span class="sourceLineNo">1314</span>   * tasks. Task setup takes awhile, so it is best if the maps take at least a <a name="line.1314"></a>
+<span class="sourceLineNo">1315</span>   * minute to execute.&lt;/p&gt;<a name="line.1315"></a>
+<span class="sourceLineNo">1316</span>   * <a name="line.1316"></a>
+<span class="sourceLineNo">1317</span>   * &lt;p&gt;The default behavior of file-based {@link InputFormat}s is to split the <a name="line.1317"></a>
+<span class="sourceLineNo">1318</span>   * input into &lt;i&gt;logical&lt;/i&gt; {@link InputSplit}s based on the total size, in <a name="line.1318"></a>
+<span class="sourceLineNo">1319</span>   * bytes, of input files. However, the {@link FileSystem} blocksize of the <a name="line.1319"></a>
+<span class="sourceLineNo">1320</span>   * input files is treated as an upper bound for input splits. A lower bound <a name="line.1320"></a>
+<span class="sourceLineNo">1321</span>   * on the split size can be set via <a name="line.1321"></a>
+<span class="sourceLineNo">1322</span>   * &lt;a href="{@docRoot}/../mapred-default.html#mapreduce.input.fileinputformat.split.minsize"&gt;<a name="line.1322"></a>
+<span class="sourceLineNo">1323</span>   * mapreduce.input.fileinputformat.split.minsize&lt;/a&gt;.&lt;/p&gt;<a name="line.1323"></a>
+<span class="sourceLineNo">1324</span>   *  <a name="line.1324"></a>
+<span class="sourceLineNo">1325</span>   * &lt;p&gt;Thus, if you expect 10TB of input data and have a blocksize of 128MB, <a name="line.1325"></a>
+<span class="sourceLineNo">1326</span>   * you'll end up with 82,000 maps, unless {@link #setNumMapTasks(int)} is <a name="line.1326"></a>
+<span class="sourceLineNo">1327</span>   * used to set it even higher.&lt;/p&gt;<a name="line.1327"></a>
+<span class="sourceLineNo">1328</span>   * <a name="line.1328"></a>
+<span class="sourceLineNo">1329</span>   * @param n the number of map tasks for this job.<a name="line.1329"></a>
+<span class="sourceLineNo">1330</span>   * @see InputFormat#getSplits(JobConf, int)<a name="line.1330"></a>
+<span class="sourceLineNo">1331</span>   * @see FileInputFormat<a name="line.1331"></a>
+<span class="sourceLineNo">1332</span>   * @see FileSystem#getDefaultBlockSize()<a name="line.1332"></a>
+<span class="sourceLineNo">1333</span>   * @see FileStatus#getBlockSize()<a name="line.1333"></a>
+<span class="sourceLineNo">1334</span>   */<a name="line.1334"></a>
+<span class="sourceLineNo">1335</span>  public void setNumMapTasks(int n) { setInt(JobContext.NUM_MAPS, n); }<a name="line.1335"></a>
+<span class="sourceLineNo">1336</span><a name="line.1336"></a>
+<span class="sourceLineNo">1337</span>  /**<a name="line.1337"></a>
+<span class="sourceLineNo">1338</span>   * Get configured the number of reduce tasks for this job. Defaults to <a name="line.1338"></a>
+<span class="sourceLineNo">1339</span>   * &lt;code&gt;1&lt;/code&gt;.<a name="line.1339"></a>
+<span class="sourceLineNo">1340</span>   * <a name="line.1340"></a>
+<span class="sourceLineNo">1341</span>   * @return the number of reduce tasks for this job.<a name="line.1341"></a>
+<span class="sourceLineNo">1342</span>   */<a name="line.1342"></a>
+<span class="sourceLineNo">1343</span>  public int getNumReduceTasks() { return getInt(JobContext.NUM_REDUCES, 1); }<a name="line.1343"></a>
+<span class="sourceLineNo">1344</span>  <a name="line.1344"></a>
+<span class="sourceLineNo">1345</span>  /**<a name="line.1345"></a>
+<span class="sourceLineNo">1346</span>   * Set the requisite number of reduce tasks for this job.<a name="line.1346"></a>
+<span class="sourceLineNo">1347</span>   * <a name="line.1347"></a>
+<span class="sourceLineNo">1348</span>   * &lt;h4 id="NoOfReduces"&gt;How many reduces?&lt;/h4&gt;<a name="line.1348"></a>
+<span class="sourceLineNo">1349</span>   * <a name="line.1349"></a>
+<span class="sourceLineNo">1350</span>   * &lt;p&gt;The right number of reduces seems to be &lt;code&gt;0.95&lt;/code&gt; or <a name="line.1350"></a>
+<span class="sourceLineNo">1351</span>   * &lt;code&gt;1.75&lt;/code&gt; multiplied by (&amp;lt;&lt;i&gt;no. of nodes&lt;/i&gt;&amp;gt; * <a name="line.1351"></a>
+<span class="sourceLineNo">1352</span>   * &lt;a href="{@docRoot}/../mapred-default.html#mapreduce.tasktracker.reduce.tasks.maximum"&gt;<a name="line.1352"></a>
+<span class="sourceLineNo">1353</span>   * mapreduce.tasktracker.reduce.tasks.maximum&lt;/a&gt;).<a name="line.1353"></a>
+<span class="sourceLineNo">1354</span>   * &lt;/p&gt;<a name="line.1354"></a>
+<span class="sourceLineNo">1355</span>   * <a name="line.1355"></a>
+<span class="sourceLineNo">1356</span>   * &lt;p&gt;With &lt;code&gt;0.95&lt;/code&gt; all of the reduces can launch immediately and <a name="line.1356"></a>
+<span class="sourceLineNo">1357</span>   * start transfering map outputs as the maps finish. With &lt;code&gt;1.75&lt;/code&gt; <a name="line.1357"></a>
+<span class="sourceLineNo">1358</span>   * the faster nodes will finish their first round of reduces and launch a <a name="line.1358"></a>
+<span class="sourceLineNo">1359</span>   * second wave of reduces doing a much better job of load balancing.&lt;/p&gt;<a name="line.1359"></a>
+<span class="sourceLineNo">1360</span>   * <a name="line.1360"></a>
+<span class="sourceLineNo">1361</span>   * &lt;p&gt;Increasing the number of reduces increases the framework overhead, but <a name="line.1361"></a>
+<span class="sourceLineNo">1362</span>   * increases load balancing and lowers the cost of failures.&lt;/p&gt;<a name="line.1362"></a>
+<span class="sourceLineNo">1363</span>   * <a name="line.1363"></a>
+<span class="sourceLineNo">1364</span>   * &lt;p&gt;The scaling factors above are slightly less than whole numbers to <a name="line.1364"></a>
+<span class="sourceLineNo">1365</span>   * reserve a few reduce slots in the framework for speculative-tasks, failures<a name="line.1365"></a>
+<span class="sourceLineNo">1366</span>   * etc.&lt;/p&gt; <a name="line.1366"></a>
+<span class="sourceLineNo">1367</span>   *<a name="line.1367"></a>
+<span class="sourceLineNo">1368</span>   * &lt;h4 id="ReducerNone"&gt;Reducer NONE&lt;/h4&gt;<a name="line.1368"></a>
+<span class="sourceLineNo">1369</span>   * <a name="line.1369"></a>
+<span class="sourceLineNo">1370</span>   * &lt;p&gt;It is legal to set the number of reduce-tasks to &lt;code&gt;zero&lt;/code&gt;.&lt;/p&gt;<a name="line.1370"></a>
+<span class="sourceLineNo">1371</span>   * <a name="line.1371"></a>
+<span class="sourceLineNo">1372</span>   * &lt;p&gt;In this case the output of the map-tasks directly go to distributed <a name="line.1372"></a>
+<span class="sourceLineNo">1373</span>   * file-system, to the path set by <a name="line.1373"></a>
+<span class="sourceLineNo">1374</span>   * {@link FileOutputFormat#setOutputPath(JobConf, Path)}. Also, the <a name="line.1374"></a>
+<span class="sourceLineNo">1375</span>   * framework doesn't sort the map-outputs before writing it out to HDFS.&lt;/p&gt;<a name="line.1375"></a>
+<span class="sourceLineNo">1376</span>   * <a name="line.1376"></a>
+<span class="sourceLineNo">1377</span>   * @param n the number of reduce tasks for this job.<a name="line.1377"></a>
+<span class="sourceLineNo">1378</span>   */<a name="line.1378"></a>
+<span class="sourceLineNo">1379</span>  public void setNumReduceTasks(int n) { setInt(JobContext.NUM_REDUCES, n); }<a name="line.1379"></a>
+<span class="sourceLineNo">1380</span>  <a name="line.1380"></a>
+<span class="sourceLineNo">1381</span>  /** <a name="line.1381"></a>
+<span class="sourceLineNo">1382</span>   * Get the configured number of maximum attempts that will be made to run a<a name="line.1382"></a>
+<span class="sourceLineNo">1383</span>   * map task, as specified by the &lt;code&gt;mapreduce.map.maxattempts&lt;/code&gt;<a name="line.1383"></a>
+<span class="sourceLineNo">1384</span>   * property. If this property is not already set, the default is 4 attempts.<a name="line.1384"></a>
+<span class="sourceLineNo">1385</span>   *  <a name="line.1385"></a>
+<span class="sourceLineNo">1386</span>   * @return the max number of attempts per map task.<a name="line.1386"></a>
+<span class="sourceLineNo">1387</span>   */<a name="line.1387"></a>
+<span class="sourceLineNo">1388</span>  public int getMaxMapAttempts() {<a name="line.1388"></a>
+<span class="sourceLineNo">1389</span>    return getInt(JobContext.MAP_MAX_ATTEMPTS, 4);<a name="line.1389"></a>
+<span class="sourceLineNo">1390</span>  }<a name="line.1390"></a>
+<span class="sourceLineNo">1391</span>  <a name="line.1391"></a>
+<span class="sourceLineNo">1392</span>  /** <a name="line.1392"></a>
+<span class="sourceLineNo">1393</span>   * Expert: Set the number of maximum attempts that will be made to run a<a name="line.1393"></a>
+<span class="sourceLineNo">1394</span>   * map task.<a name="line.1394"></a>
+<span class="sourceLineNo">1395</span>   * <a name="line.1395"></a>
+<span class="sourceLineNo">1396</span>   * @param n the number of attempts per map task.<a name="line.1396"></a>
+<span class="sourceLineNo">1397</span>   */<a name="line.1397"></a>
+<span class="sourceLineNo">1398</span>  public void setMaxMapAttempts(int n) {<a name="line.1398"></a>
+<span class="sourceLineNo">1399</span>    setInt(JobContext.MAP_MAX_ATTEMPTS, n);<a name="line.1399"></a>
+<span class="sourceLineNo">1400</span>  }<a name="line.1400"></a>
+<span class="sourceLineNo">1401</span><a name="line.1401"></a>
+<span class="sourceLineNo">1402</span>  /** <a name="line.1402"></a>
+<span class="sourceLineNo">1403</span>   * Get the configured number of maximum attempts  that will be made to run a<a name="line.1403"></a>
+<span class="sourceLineNo">1404</span>   * reduce task, as specified by the &lt;code&gt;mapreduce.reduce.maxattempts&lt;/code&gt;<a name="line.1404"></a>
+<span class="sourceLineNo">1405</span>   * property. If this property is not already set, the default is 4 attempts.<a name="line.1405"></a>
+<span class="sourceLineNo">1406</span>   * <a name="line.1406"></a>
+<span class="sourceLineNo">1407</span>   * @return the max number of attempts per reduce task.<a name="line.1407"></a>
+<span class="sourceLineNo">1408</span>   */<a name="line.1408"></a>
+<span class="sourceLineNo">1409</span>  public int getMaxReduceAttempts() {<a name="line.1409"></a>
+<span class="sourceLineNo">1410</span>    return getInt(JobContext.REDUCE_MAX_ATTEMPTS, 4);<a name="line.1410"></a>
+<span class="sourceLineNo">1411</span>  }<a name="line.1411"></a>
+<span class="sourceLineNo">1412</span>  /** <a name="line.1412"></a>
+<span class="sourceLineNo">1413</span>   * Expert: Set the number of maximum attempts that will be made to run a<a name="line.1413"></a>
+<span class="sourceLineNo">1414</span>   * reduce task.<a name="line.1414"></a>
+<span class="sourceLineNo">1415</span>   * <a name="line.1415"></a>
+<span class="sourceLineNo">1416</span>   * @param n the number of attempts per reduce task.<a name="line.1416"></a>
+<span class="sourceLineNo">1417</span>   */<a name="line.1417"></a>
+<span class="sourceLineNo">1418</span>  public void setMaxReduceAttempts(int n) {<a name="line.1418"></a>
+<span class="sourceLineNo">1419</span>    setInt(JobContext.REDUCE_MAX_ATTEMPTS, n);<a name="line.1419"></a>
+<span class="sourceLineNo">1420</span>  }<a name="line.1420"></a>
+<span class="sourceLineNo">1421</span>  <a name="line.1421"></a>
+<span class="sourceLineNo">1422</span>  /**<a name="line.1422"></a>
+<span class="sourceLineNo">1423</span>   * Get the user-specified job name. This is only used to identify the <a name="line.1423"></a>
+<span class="sourceLineNo">1424</span>   * job to the user.<a name="line.1424"></a>
+<span class="sourceLineNo">1425</span>   * <a name="line.1425"></a>
+<span class="sourceLineNo">1426</span>   * @return the job's name, defaulting to "".<a name="line.1426"></a>
+<span class="sourceLineNo">1427</span>   */<a name="line.1427"></a>
+<span class="sourceLineNo">1428</span>  public String getJobName() {<a name="line.1428"></a>
+<span class="sourceLineNo">1429</span>    return get(JobContext.JOB_NAME, "");<a name="line.1429"></a>
+<span class="sourceLineNo">1430</span>  }<a name="line.1430"></a>
+<span class="sourceLineNo">1431</span>  <a name="line.1431"></a>
+<span class="sourceLineNo">1432</span>  /**<a name="line.1432"></a>
+<span class="sourceLineNo">1433</span>   * Set the user-specified job name.<a name="line.1433"></a>
+<span class="sourceLineNo">1434</span>   * <a name="line.1434"></a>
+<span class="sourceLineNo">1435</span>   * @param name the job's new name.<a name="line.1435"></a>
+<span class="sourceLineNo">1436</span>   */<a name="line.1436"></a>
+<span class="sourceLineNo">1437</span>  public void setJobName(String name) {<a name="line.1437"></a>
+<span class="sourceLineNo">1438</span>    set(JobContext.JOB_NAME, name);<a name="line.1438"></a>
+<span class="sourceLineNo">1439</span>  }<a name="line.1439"></a>
+<span class="sourceLineNo">1440</span>  <a name="line.1440"></a>
+<span class="sourceLineNo">1441</span>  /**<a name="line.1441"></a>
+<span class="sourceLineNo">1442</span>   * Get the user-specified session identifier. The default is the empty string.<a name="line.1442"></a>
+<span class="sourceLineNo">1443</span>   *<a name="line.1443"></a>
+<span class="sourceLineNo">1444</span>   * The session identifier is used to tag metric data that is reported to some<a name="line.1444"></a>
+<span class="sourceLineNo">1445</span>   * performance metrics system via the org.apache.hadoop.metrics API.  The <a name="line.1445"></a>
+<span class="sourceLineNo">1446</span>   * session identifier is intended, in particular, for use by Hadoop-On-Demand <a name="line.1446"></a>
+<span class="sourceLineNo">1447</span>   * (HOD) which allocates a virtual Hadoop cluster dynamically and transiently. <a name="line.1447"></a>
+<span class="sourceLineNo">1448</span>   * HOD will set the session identifier by modifying the mapred-site.xml file <a name="line.1448"></a>
+<span class="sourceLineNo">1449</span>   * before starting the cluster.<a name="line.1449"></a>
+<span class="sourceLineNo">1450</span>   *<a name="line.1450"></a>
+<span class="sourceLineNo">1451</span>   * When not running under HOD, this identifer is expected to remain set to <a name="line.1451"></a>
+<span class="sourceLineNo">1452</span>   * the empty string.<a name="line.1452"></a>
+<span class="sourceLineNo">1453</span>   *<a name="line.1453"></a>
+<span class="sourceLineNo">1454</span>   * @return the session identifier, defaulting to "".<a name="line.1454"></a>
+<span class="sourceLineNo">1455</span>   */<a name="line.1455"></a>
+<span class="sourceLineNo">1456</span>  @Deprecated<a name="line.1456"></a>
+<span class="sourceLineNo">1457</span>  public String getSessionId() {<a name="line.1457"></a>
+<span class="sourceLineNo">1458</span>      return get("session.id", "");<a name="line.1458"></a>
+<span class="sourceLineNo">1459</span>  }<a name="line.1459"></a>
+<span class="sourceLineNo">1460</span>  <a name="line.1460"></a>
+<span class="sourceLineNo">1461</span>  /**<a name="line.1461"></a>
+<span class="sourceLineNo">1462</span>   * Set the user-specified session identifier.  <a name="line.1462"></a>
+<span class="sourceLineNo">1463</span>   *<a name="line.1463"></a>
+<span class="sourceLineNo">1464</span>   * @param sessionId the new session id.<a name="line.1464"></a>
+<span class="sourceLineNo">1465</span>   */<a name="line.1465"></a>
+<span class="sourceLineNo">1466</span>  @Deprecated<a name="line.1466"></a>
+<span class="sourceLineNo">1467</span>  public void setSessionId(String sessionId) {<a name="line.1467"></a>
+<span class="sourceLineNo">1468</span>      set("session.id", sessionId);<a name="line.1468"></a>
+<span class="sourceLineNo">1469</span>  }<a name="line.1469"></a>
+<span class="sourceLineNo">1470</span>    <a name="line.1470"></a>
+<span class="sourceLineNo">1471</span>  /**<a name="line.1471"></a>
+<span class="sourceLineNo">1472</span>   * Set the maximum no. of failures of a given job per tasktracker.<a name="line.1472"></a>
+<span class="sourceLineNo">1473</span>   * If the no. of task failures exceeds &lt;code&gt;noFailures&lt;/code&gt;, the <a name="line.1473"></a>
+<span class="sourceLineNo">1474</span>   * tasktracker is &lt;i&gt;blacklisted&lt;/i&gt; for this job. <a name="line.1474"></a>
+<span class="sourceLineNo">1475</span>   * <a name="line.1475"></a>
+<span class="sourceLineNo">1476</span>   * @param noFailures maximum no. of failures of a given job per tasktracker.<a name="line.1476"></a>
+<span class="sourceLineNo">1477</span>   */<a name="line.1477"></a>
+<span class="sourceLineNo">1478</span>  public void setMaxTaskFailuresPerTracker(int noFailures) {<a name="line.1478"></a>
+<span class="sourceLineNo">1479</span>    setInt(JobContext.MAX_TASK_FAILURES_PER_TRACKER, noFailures);<a name="line.1479"></a>
+<span class="sourceLineNo">1480</span>  }<a name="line.1480"></a>
+<span class="sourceLineNo">1481</span>  <a name="line.1481"></a>
+<span class="sourceLineNo">1482</span>  /**<a name="line.1482"></a>
+<span class="sourceLineNo">1483</span>   * Expert: Get the maximum no. of failures of a given job per tasktracker.<a name="line.1483"></a>
+<span class="sourceLineNo">1484</span>   * If the no. of task failures exceeds this, the tasktracker is<a name="line.1484"></a>
+<span class="sourceLineNo">1485</span>   * &lt;i&gt;blacklisted&lt;/i&gt; for this job. <a name="line.1485"></a>
+<span class="sourceLineNo">1486</span>   * <a name="line.1486"></a>
+<span class="sourceLineNo">1487</span>   * @return the maximum no. of failures of a given job per tasktracker.<a name="line.1487"></a>
+<span class="sourceLineNo">1488</span>   */<a name="line.1488"></a>
+<span class="sourceLineNo">1489</span>  public int getMaxTaskFailuresPerTracker() {<a name="line.1489"></a>
+<span class="sourceLineNo">1490</span>    return getInt(JobContext.MAX_TASK_FAILURES_PER_TRACKER, 3);<a name="line.1490"></a>
+<span class="sourceLineNo">1491</span>  }<a name="line.1491"></a>
+<span class="sourceLineNo">1492</span><a name="line.1492"></a>
+<span class="sourceLineNo">1493</span>  /**<a name="line.1493"></a>
+<span class="sourceLineNo">1494</span>   * Get the maximum percentage of map tasks that can fail without <a name="line.1494"></a>
+<span class="sourceLineNo">1495</span>   * the job being aborted. <a name="line.1495"></a>
+<span class="sourceLineNo">1496</span>   * <a name="line.1496"></a>
+<span class="sourceLineNo">1497</span>   * Each map task is executed a minimum of {@link #getMaxMapAttempts()} <a name="line.1497"></a>
+<span class="sourceLineNo">1498</span>   * attempts before being declared as &lt;i&gt;failed&lt;/i&gt;.<a name="line.1498"></a>
+<span class="sourceLineNo">1499</span>   *  <a name="line.1499"></a>
+<span class="sourceLineNo">1500</span>   * Defaults to &lt;code&gt;zero&lt;/code&gt;, i.e. &lt;i&gt;any&lt;/i&gt; failed map-task results in<a name="line.1500"></a>
+<span class="sourceLineNo">1501</span>   * the job being declared as {@link JobStatus#FAILED}.<a name="line.1501"></a>
+<span class="sourceLineNo">1502</span>   * <a name="line.1502"></a>
+<span class="sourceLineNo">1503</span>   * @return the maximum percentage of map tasks that can fail without<a name="line.1503"></a>
+<span class="sourceLineNo">1504</span>   *         the job being aborted.<a name="line.1504"></a>
+<span class="sourceLineNo">1505</span>   */<a name="line.1505"></a>
+<span class="sourceLineNo">1506</span>  public int getMaxMapTaskFailuresPercent() {<a name="line.1506"></a>
+<span class="sourceLineNo">1507</span>    return getInt(JobContext.MAP_FAILURES_MAX_PERCENT, 0);<a name="line.1507"></a>
+<span class="sourceLineNo">1508</span>  }<a name="line.1508"></a>
+<span class="sourceLineNo">1509</span><a name="line.1509"></a>
+<span class="sourceLineNo">1510</span>  /**<a name="line.1510"></a>
+<span class="sourceLineNo">1511</span>   * Expert: Set the maximum percentage of map tasks that can fail without the<a name="line.1511"></a>
+<span class="sourceLineNo">1512</span>   * job being aborted. <a name="line.1512"></a>
+<span class="sourceLineNo">1513</span>   * <a name="line.1513"></a>
+<span class="sourceLineNo">1514</span>   * Each map task is executed a minimum of {@link #getMaxMapAttempts} attempts <a name="line.1514"></a>
+<span class="sourceLineNo">1515</span>   * before being declared as &lt;i&gt;failed&lt;/i&gt;.<a name="line.1515"></a>
+<span class="sourceLineNo">1516</span>   * <a name="line.1516"></a>
+<span class="sourceLineNo">1517</span>   * @param percent the maximum percentage of map tasks that can fail without <a name="line.1517"></a>
+<span class="sourceLineNo">1518</span>   *                the job being aborted.<a name="line.1518"></a>
+<span class="sourceLineNo">1519</span>   */<a name="line.1519"></a>
+<span class="sourceLineNo">1520</span>  public void setMaxMapTaskFailuresPercent(int percent) {<a name="line.1520"></a>
+<span class="sourceLineNo">1521</span>    setInt(JobContext.MAP_FAILURES_MAX_PERCENT, percent);<a name="line.1521"></a>
+<span class="sourceLineNo">1522</span>  }<a name="line.1522"></a>
+<span class="sourceLineNo">1523</span>  <a name="line.1523"></a>
+<span class="sourceLineNo">1524</span>  /**<a name="line.1524"></a>
+<span class="sourceLineNo">1525</span>   * Get the maximum percentage of reduce tasks that can fail without <a name="line.1525"></a>
+<span class="sourceLineNo">1526</span>   * the job being aborted. <a name="line.1526"></a>
+<span class="sourceLineNo">1527</span>   * <a name="line.1527"></a>
+<span class="sourceLineNo">1528</span>   * Each reduce task is executed a minimum of {@link #getMaxReduceAttempts()} <a name="line.1528"></a>
+<span class="sourceLineNo">1529</span>   * attempts before being declared as &lt;i&gt;failed&lt;/i&gt;.<a name="line.1529"></a>
+<span class="sourceLineNo">1530</span>   * <a name="line.1530"></a>
+<span class="sourceLineNo">1531</span>   * Defaults to &lt;code&gt;zero&lt;/code&gt;, i.e. &lt;i&gt;any&lt;/i&gt; failed reduce-task results <a name="line.1531"></a>
+<span class="sourceLineNo">1532</span>   * in the job being declared as {@link JobStatus#FAILED}.<a name="line.1532"></a>
+<span class="sourceLineNo">1533</span>   * <a name="line.1533"></a>
+<span class="sourceLineNo">1534</span>   * @return the maximum percentage of reduce tasks that can fail without<a name="line.1534"></a>
+<span class="sourceLineNo">1535</span>   *         the job being aborted.<a name="line.1535"></a>
+<span class="sourceLineNo">1536</span>   */<a name="line.1536"></a>
+<span class="sourceLineNo">1537</span>  public int getMaxReduceTaskFailuresPercent() {<a name="line.1537"></a>
+<span class="sourceLineNo">1538</span>    return getInt(JobContext.REDUCE_FAILURES_MAXPERCENT, 0);<a name="line.1538"></a>
+<span class="sourceLineNo">1539</span>  }<a name="line.1539"></a>
+<span class="sourceLineNo">1540</span>  <a name="line.1540"></a>
+<span class="sourceLineNo">1541</span>  /**<a name="line.1541"></a>
+<span class="sourceLineNo">1542</span>   * Set the maximum percentage of reduce tasks that can fail without the job<a name="line.1542"></a>
+<span class="sourceLineNo">1543</span>   * being aborted.<a name="line.1543"></a>
+<span class="sourceLineNo">1544</span>   * <a name="line.1544"></a>
+<span class="sourceLineNo">1545</span>   * Each reduce task is executed a minimum of {@link #getMaxReduceAttempts()} <a name="line.1545"></a>
+<span class="sourceLineNo">1546</span>   * attempts before being declared as &lt;i&gt;failed&lt;/i&gt;.<a name="line.1546"></a>
+<span class="sourceLineNo">1547</span>   * <a name="line.1547"></a>
+<span class="sourceLineNo">1548</span>   * @param percent the maximum percentage of reduce tasks that can fail without <a name="line.1548"></a>
+<span class="sourceLineNo">1549</span>   *                the job being aborted.<a name="line.1549"></a>
+<span class="sourceLineNo">1550</span>   */<a name="line.1550"></a>
+<span class="sourceLineNo">1551</span>  public void setMaxReduceTaskFailuresPercent(int percent) {<a name="line.1551"></a>
+<span class="sourceLineNo">1552</span>    setInt(JobContext.REDUCE_FAILURES_MAXPERCENT, percent);<a name="line.1552"></a>
+<span class="sourceLineNo">1553</span>  }<a name="line.1553"></a>
+<span class="sourceLineNo">1554</span>  <a name="line.1554"></a>
+<span class="sourceLineNo">1555</span>  /**<a name="line.1555"></a>
+<span class="sourceLineNo">1556</span>   * Set {@link JobPriority} for this job.<a name="line.1556"></a>
+<span class="sourceLineNo">1557</span>   * <a name="line.1557"></a>
+<span class="sourceLineNo">1558</span>   * @param prio the {@link JobPriority} for this job.<a name="line.1558"></a>
+<span class="sourceLineNo">1559</span>   */<a name="line.1559"></a>
+<span class="sourceLineNo">1560</span>  public void setJobPriority(JobPriority prio) {<a name="line.1560"></a>
+<span class="sourceLineNo">1561</span>    set(JobContext.PRIORITY, prio.toString());<a name="line.1561"></a>
+<span class="sourceLineNo">1562</span>  }<a name="line.1562"></a>
+<span class="sourceLineNo">1563</span>  <a name="line.1563"></a>
+<span class="sourceLineNo">1564</span>  /**<a name="line.1564"></a>
+<span class="sourceLineNo">1565</span>   * Get the {@link JobPriority} for this job.<a name="line.1565"></a>
+<span class="sourceLineNo">1566</span>   * <a name="line.1566"></a>
+<span class="sourceLineNo">1567</span>   * @return the {@link JobPriority} for this job.<a name="line.1567"></a>
+<span class="sourceLineNo">1568</span>   */<a name="line.1568"></a>
+<span class="sourceLineNo">1569</span>  public JobPriority getJobPriority() {<a name="line.1569"></a>
+<span class="sourceLineNo">1570</span>    String prio = get(JobContext.PRIORITY);<a name="line.1570"></a>
+<span class="sourceLineNo">1571</span>    if(prio == null) {<a name="line.1571"></a>
+<span class="sourceLineNo">1572</span>      return JobPriority.NORMAL;<a name="line.1572"></a>
+<span class="sourceLineNo">1573</span>    }<a name="line.1573"></a>
+<span class="sourceLineNo">1574</span>    <a name="line.1574"></a>
+<span class="sourceLineNo">1575</span>    return JobPriority.valueOf(prio);<a name="line.1575"></a>
+<span class="sourceLineNo">1576</span>  }<a name="line.1576"></a>
+<span class="sourceLineNo">1577</span><a name="line.1577"></a>
+<span class="sourceLineNo">1578</span>  /**<a name="line.1578"></a>
+<span class="sourceLineNo">1579</span>   * Set JobSubmitHostName for this job.<a name="line.1579"></a>
+<span class="sourceLineNo">1580</span>   * <a name="line.1580"></a>
+<span class="sourceLineNo">1581</span>   * @param hostname the JobSubmitHostName for this job.<a name="line.1581"></a>
+<span class="sourceLineNo">1582</span>   */<a name="line.1582"></a>
+<span class="sourceLineNo">1583</span>  void setJobSubmitHostName(String hostname) {<a name="line.1583"></a>
+<span class="sourceLineNo">1584</span>    set(MRJobConfig.JOB_SUBMITHOST, hostname);<a name="line.1584"></a>
+<span class="sourceLineNo">1585</span>  }<a name="line.1585"></a>
+<span class="sourceLineNo">1586</span>  <a name="line.1586"></a>
+<span class="sourceLineNo">1587</span>  /**<a name="line.1587"></a>
+<span class="sourceLineNo">1588</span>   * Get the  JobSubmitHostName for this job.<a name="line.1588"></a>
+<span class="sourceLineNo">1589</span>   * <a name="line.1589"></a>
+<span class="sourceLineNo">1590</span>   * @return the JobSubmitHostName for this job.<a name="line.1590"></a>
+<span class="sourceLineNo">1591</span>   */<a name="line.1591"></a>
+<span class="sourceLineNo">1592</span>  String getJobSubmitHostName() {<a name="line.1592"></a>
+<span class="sourceLineNo">1593</span>    String hostname = get(MRJobConfig.JOB_SUBMITHOST);<a name="line.1593"></a>
+<span class="sourceLineNo">1594</span>    <a name="line.1594"></a>
+<span class="sourceLineNo">1595</span>    return hostname;<a name="line.1595"></a>
+<span class="sourceLineNo">1596</span>  }<a name="line.1596"></a>
+<span class="sourceLineNo">1597</span><a name="line.1597"></a>
+<span class="sourceLineNo">1598</span>  /**<a name="line.1598"></a>
+<span class="sourceLineNo">1599</span>   * Set JobSubmitHostAddress for this job.<a name="line.1599"></a>
+<span class="sourceLineNo">1600</span>   * <a name="line.1600"></a>
+<span class="sourceLineNo">1601</span>   * @param hostadd the JobSubmitHostAddress for this job.<a name="line.1601"></a>
+<span class="sourceLineNo">1602</span>   */<a name="line.1602"></a>
+<span class="sourceLineNo">1603</span>  void setJobSubmitHostAddress(String hostadd) {<a name="line.1603"></a>
+<span class="sourceLineNo">1604</span>    set(MRJobConfig.JOB_SUBMITHOSTADDR, hostadd);<a name="line.1604"></a>
+<span class="sourceLineNo">1605</span>  }<a name="line.1605"></a>
+<span class="sourceLineNo">1606</span>  <a name="line.1606"></a>
+<span class="sourceLineNo">1607</span>  /**<a name="line.1607"></a>
+<span class="sourceLineNo">1608</span>   * Get JobSubmitHostAddress for this job.<a name="line.1608"></a>
+<span class="sourceLineNo">1609</span>   * <a name="line.1609"></a>
+<span class="sourceLineNo">1610</span>   * @return  JobSubmitHostAddress for this job.<a name="line.1610"></a>
+<span class="sourceLineNo">1611</span>   */<a name="line.1611"></a>
+<span class="sourceLineNo">1612</span>  String getJobSubmitHostAddress() {<a name="line.1612"></a>
+<span class="sourceLineNo">1613</span>    String hostadd = get(MRJobConfig.JOB_SUBMITHOSTADDR);<a name="line.1613"></a>
+<span class="sourceLineNo">1614</span>    <a name="line.1614"></a>
+<span class="sourceLineNo">1615</span>    return hostadd;<a name="line.1615"></a>
+<span class="sourceLineNo">1616</span>  }<a name="line.1616"></a>
+<span class="sourceLineNo">1617</span><a name="line.1617"></a>
+<span class="sourceLineNo">1618</span>  /**<a name="line.1618"></a>
+<span class="sourceLineNo">1619</span>   * Get whether the task profiling is enabled.<a name="line.1619"></a>
+<span class="sourceLineNo">1620</span>   * @return true if some tasks will be profiled<a name="line.1620"></a>
+<span class="sourceLineNo">1621</span>   */<a name="line.1621"></a>
+<span class="sourceLineNo">1622</span>  public boolean getProfileEnabled() {<a name="line.1622"></a>
+<span class="sourceLineNo">1623</span>    return getBoolean(JobContext.TASK_PROFILE, false);<a name="line.1623"></a>
+<span class="sourceLineNo">1624</span>  }<a name="line.1624"></a>
+<span class="sourceLineNo">1625</span><a name="line.1625"></a>
+<span class="sourceLineNo">1626</span>  /**<a name="line.1626"></a>
+<span class="sourceLineNo">1627</span>   * Set whether the system should collect profiler information for some of <a name="line.1627"></a>
+<span class="sourceLineNo">1628</span>   * the tasks in this job? The information is stored in the user log <a name="line.1628"></a>
+<span class="sourceLineNo">1629</span>   * directory.<a name="line.1629"></a>
+<span class="sourceLineNo">1630</span>   * @param newValue true means it should be gathered<a name="line.1630"></a>
+<span class="sourceLineNo">1631</span>   */<a name="line.1631"></a>
+<span class="sourceLineNo">1632</span>  public void setProfileEnabled(boolean newValue) {<a name="line.1632"></a>
+<span class="sourceLineNo">1633</span>    setBoolean(JobContext.TASK_PROFILE, newValue);<a name="line.1633"></a>
+<span class="sourceLineNo">1634</span>  }<a name="line.1634"></a>
+<span class="sourceLineNo">1635</span><a name="line.1635"></a>
+<span class="sourceLineNo">1636</span>  /**<a name="line.1636"></a>
+<span class="sourceLineNo">1637</span>   * Get the profiler configuration arguments.<a name="line.1637"></a>
+<span class="sourceLineNo">1638</span>   *<a name="line.1638"></a>
+<span class="sourceLineNo">1639</span>   * The default value for this property is<a name="line.1639"></a>
+<span class="sourceLineNo">1640</span>   * "-agentlib:hprof=cpu=samples,heap=sites,force=n,thread=y,verbose=n,file=%s"<a name="line.1640"></a>
+<span class="sourceLineNo">1641</span>   * <a name="line.1641"></a>
+<span class="sourceLineNo">1642</span>   * @return the parameters to pass to the task child to configure profiling<a name="line.1642"></a>
+<span class="sourceLineNo">1643</span>   */<a name="line.1643"></a>
+<span class="sourceLineNo">1644</span>  public String getProfileParams() {<a name="line.1644"></a>
+<span class="sourceLineNo">1645</span>    return get(JobContext.TASK_PROFILE_PARAMS,<a name="line.1645"></a>
+<span class="sourceLineNo">1646</span>        MRJobConfig.DEFAULT_TASK_PROFILE_PARAMS);<a name="line.1646"></a>
+<span class="sourceLineNo">1647</span>  }<a name="line.1647"></a>
+<span class="sourceLineNo">1648</span><a name="line.1648"></a>
+<span class="sourceLineNo">1649</span>  /**<a name="line.1649"></a>
+<span class="sourceLineNo">1650</span>   * Set the profiler configuration arguments. If the string contains a '%s' it<a name="line.1650"></a>
+<span class="sourceLineNo">1651</span>   * will be replaced with the name of the profiling output file when the task<a name="line.1651"></a>
+<span class="sourceLineNo">1652</span>   * runs.<a name="line.1652"></a>
+<span class="sourceLineNo">1653</span>   *<a name="line.1653"></a>
+<span class="sourceLineNo">1654</span>   * This value is passed to the task child JVM on the command line.<a name="line.1654"></a>
+<span class="sourceLineNo">1655</span>   *<a name="line.1655"></a>
+<span class="sourceLineNo">1656</span>   * @param value the configuration string<a name="line.1656"></a>
+<span class="sourceLineNo">1657</span>   */<a name="line.1657"></a>
+<span class="sourceLineNo">1658</span>  public void setProfileParams(String value) {<a name="line.1658"></a>
+<span class="sourceLineNo">1659</span>    set(JobContext.TASK_PROFILE_PARAMS, value);<a name="line.1659"></a>
+<span class="sourceLineNo">1660</span>  }<a name="line.1660"></a>
+<span class="sourceLineNo">1661</span><a name="line.1661"></a>
+<span class="sourceLineNo">1662</span>  /**<a name="line.1662"></a>
+<span class="sourceLineNo">1663</span>   * Get the range of maps or reduces to profile.<a name="line.1663"></a>
+<span class="sourceLineNo">1664</span>   * @param isMap is the task a map?<a name="line.1664"></a>
+<span class="sourceLineNo">1665</span>   * @return the task ranges<a name="line.1665"></a>
+<span class="sourceLineNo">1666</span>   */<a name="line.1666"></a>
+<span class="sourceLineNo">1667</span>  public IntegerRanges getProfileTaskRange(boolean isMap) {<a name="line.1667"></a>
+<span class="sourceLineNo">1668</span>    return getRange((isMap ? JobContext.NUM_MAP_PROFILES : <a name="line.1668"></a>
+<span class="sourceLineNo">1669</span>                       JobContext.NUM_REDUCE_PROFILES), "0-2");<a name="line.1669"></a>
+<span class="sourceLineNo">1670</span>  }<a name="line.1670"></a>
+<span class="sourceLineNo">1671</span><a name="line.1671"></a>
+<span class="sourceLineNo">1672</span>  /**<a name="line.1672"></a>
+<span class="sourceLineNo">1673</span>   * Set the ranges of maps or reduces to profile. setProfileEnabled(true) <a name="line.1673"></a>
+<span class="sourceLineNo">1674</span>   * must also be called.<a name="line.1674"></a>
+<span class="sourceLineNo">1675</span>   * @param newValue a set of integer ranges of the map ids<a name="line.1675"></a>
+<span class="sourceLineNo">1676</span>   */<a name="line.1676"></a>
+<span class="sourceLineNo">1677</span>  public void setProfileTaskRange(boolean isMap, String newValue) {<a name="line.1677"></a>
+<span class="sourceLineNo">1678</span>    // parse the value to make sure it is legal<a name="line.1678"></a>
+<span class="sourceLineNo">1679</span>      new Configuration.IntegerRanges(newValue);<a name="line.1679"></a>
+<span class="sourceLineNo">1680</span>    set((isMap ? JobContext.NUM_MAP_PROFILES : JobContext.NUM_REDUCE_PROFILES), <a name="line.1680"></a>
+<span class="sourceLineNo">1681</span>          newValue);<a name="line.1681"></a>
+<span class="sourceLineNo">1682</span>  }<a name="line.1682"></a>
+<span class="sourceLineNo">1683</span><a name="line.1683"></a>
+<span class="sourceLineNo">1684</span>  /**<a name="line.1684"></a>
+<span class="sourceLineNo">1685</span>   * Set the debug script to run when the map tasks fail.<a name="line.1685"></a>
+<span class="sourceLineNo">1686</span>   * <a name="line.1686"></a>
+<span class="sourceLineNo">1687</span>   * &lt;p&gt;The debug script can aid debugging of failed map tasks. The script is <a name="line.1687"></a>
+<span class="sourceLineNo">1688</span>   * given task's stdout, stderr, syslog, jobconf files as arguments.&lt;/p&gt;<a name="line.1688"></a>
+<span class="sourceLineNo">1689</span>   * <a name="line.1689"></a>
+<span class="sourceLineNo">1690</span>   * &lt;p&gt;The debug command, run on the node where the map failed, is:&lt;/p&gt;<a name="line.1690"></a>
+<span class="sourceLineNo">1691</span>   * &lt;p&gt;&lt;pre&gt;&lt;blockquote&gt; <a name="line.1691"></a>
+<span class="sourceLineNo">1692</span>   * $script $stdout $stderr $syslog $jobconf.<a name="line.1692"></a>
+<span class="sourceLineNo">1693</span>   * &lt;/blockquote&gt;&lt;/pre&gt;&lt;/p&gt;<a name="line.1693"></a>
+<span class="sourceLineNo">1694</span>   * <a name="line.1694"></a>
+<span class="sourceLineNo">1695</span>   * &lt;p&gt; The script file is distributed through {@link DistributedCache} <a name="line.1695"></a>
+<span class="sourceLineNo">1696</span>   * APIs. The script needs to be symlinked. &lt;/p&gt;<a name="line.1696"></a>
+<span class="sourceLineNo">1697</span>   * <a name="line.1697"></a>
+<span class="sourceLineNo">1698</span>   * &lt;p&gt;Here is an example on how to submit a script <a name="line.1698"></a>
+<span class="sourceLineNo">1699</span>   * &lt;p&gt;&lt;blockquote&gt;&lt;pre&gt;<a name="line.1699"></a>
+<span class="sourceLineNo">1700</span>   * job.setMapDebugScript("./myscript");<a name="line.1700"></a>
+<span class="sourceLineNo">1701</span>   * DistributedCache.createSymlink(job);<a name="line.1701"></a>
+<span class="sourceLineNo">1702</span>   * DistributedCache.addCacheFile("/debug/scripts/myscript#myscript");<a name="line.1702"></a>
+<span class="sourceLineNo">1703</span>   * &lt;/pre&gt;&lt;/blockquote&gt;&lt;/p&gt;<a name="line.1703"></a>
+<span class="sourceLineNo">1704</span>   * <a name="line.1704"></a>
+<span class="sourceLineNo">1705</span>   * @param mDbgScript the script name<a name="line.1705"></a>
+<span class="sourceLineNo">1706</span>   */<a name="line.1706"></a>
+<span class="sourceLineNo">1707</span>  public void  setMapDebugScript(String mDbgScript) {<a name="line.1707"></a>
+<span class="sourceLineNo">1708</span>    set(JobContext.MAP_DEBUG_SCRIPT, mDbgScript);<a name="line.1708"></a>
+<span class="sourceLineNo">1709</span>  }<a name="line.1709"></a>
+<span class="sourceLineNo">1710</span>  <a name="line.1710"></a>
+<span class="sourceLineNo">1711</span>  /**<a name="line.1711"></a>
+<span class="sourceLineNo">1712</span>   * Get the map task's debug script.<a name="line.1712"></a>
+<span class="sourceLineNo">1713</span>   * <a name="line.1713"></a>
+<span class="sourceLineNo">1714</span>   * @return the debug Script for the mapred job for failed map tasks.<a name="line.1714"></a>
+<span class="sourceLineNo">1715</span>   * @see #setMapDebugScript(String)<a name="line.1715"></a>
+<span class="sourceLineNo">1716</span>   */<a name="line.1716"></a>
+<span class="sourceLineNo">1717</span>  public String getMapDebugScript() {<a name="line.1717"></a>
+<span class="sourceLineNo">1718</span>    return get(JobContext.MAP_DEBUG_SCRIPT);<a name="line.1718"></a>
+<span class="sourceLineNo">1719</span>  }<a name="line.1719"></a>
+<span class="sourceLineNo">1720</span>  <a name="line.1720"></a>
+<span class="sourceLineNo">1721</span>  /**<a name="line.1721"></a>
+<span class="sourceLineNo">1722</span>   * Set the debug script to run when the reduce tasks fail.<a name="line.1722"></a>
+<span class="sourceLineNo">1723</span>   * <a name="line.1723"></a>
+<span class="sourceLineNo">1724</span>   * &lt;p&gt;The debug script can aid debugging of failed reduce tasks. The script<a name="line.1724"></a>
+<span class="sourceLineNo">1725</span>   * is given task's stdout, stderr, syslog, jobconf files as arguments.&lt;/p&gt;<a name="line.1725"></a>
+<span class="sourceLineNo">1726</span>   * <a name="line.1726"></a>
+<span class="sourceLineNo">1727</span>   * &lt;p&gt;The debug command, run on the node where the map failed, is:&lt;/p&gt;<a name="line.1727"></a>
+<span class="sourceLineNo">1728</span>   * &lt;p&gt;&lt;pre&gt;&lt;blockquote&gt; <a name="line.1728"></a>
+<span class="sourceLineNo">1729</span>   * $script $stdout $stderr $syslog $jobconf.<a name="line.1729"></a>
+<span class="sourceLineNo">1730</span>   * &lt;/blockquote&gt;&lt;/pre&gt;&lt;/p&gt;<a name="line.1730"></a>
+<span class="sourceLineNo">1731</span>   * <a name="line.1731"></a>
+<span class="sourceLineNo">1732</span>   * &lt;p&gt; The script file is distributed through {@link DistributedCache} <a name="line.1732"></a>
+<span class="sourceLineNo">1733</span>   * APIs. The script file needs to be symlinked &lt;/p&gt;<a name="line.1733"></a>
+<span class="sourceLineNo">1734</span>   * <a name="line.1734"></a>
+<span class="sourceLineNo">1735</span>   * &lt;p&gt;Here is an example on how to submit a script <a name="line.1735"></a>
+<span class="sourceLineNo">1736</span>   * &lt;p&gt;&lt;blockquote&gt;&lt;pre&gt;<a name="line.1736"></a>
+<span class="sourceLineNo">1737</span>   * job.setReduceDebugScript("./myscript");<a name="line.1737"></a>
+<span class="sourceLineNo">1738</span>   * DistributedCache.createSymlink(job);<a name="line.1738"></a>
+<span class="sourceLineNo">1739</span>   * DistributedCache.addCacheFile("/debug/scripts/myscript#myscript");<a name="line.1739"></a>
+<span class="sourceLineNo">1740</span>   * &lt;/pre&gt;&lt;/blockquote&gt;&lt;/p&gt;<a name="line.1740"></a>
+<span class="sourceLineNo">1741</span>   * <a name="line.1741"></a>
+<span class="sourceLineNo">1742</span>   * @param rDbgScript the script name<a name="line.1742"></a>
+<span class="sourceLineNo">1743</span>   */<a name="line.1743"></a>
+<span class="sourceLineNo">1744</span>  public void  setReduceDebugScript(String rDbgScript) {<a name="line.1744"></a>
+<span class="sourceLineNo">1745</span>    set(JobContext.REDUCE_DEBUG_SCRIPT, rDbgScript);<a name="line.1745"></a>
+<span class="sourceLineNo">1746</span>  }<a name="line.1746"></a>
+<span class="sourceLineNo">1747</span>  <a name="line.1747"></a>
+<span class="sourceLineNo">1748</span>  /**<a name="line.1748"></a>
+<span class="sourceLineNo">1749</span>   * Get the reduce task's debug Script<a name="line.1749"></a>
+<span class="sourceLineNo">1750</span>   * <a name="line.1750"></a>
+<span class="sourceLineNo">1751</span>   * @return the debug script for the mapred job for failed reduce tasks.<a name="line.1751"></a>
+<span class="sourceLineNo">1752</span>   * @see #setReduceDebugScript(String)<a name="line.1752"></a>
+<span class="sourceLineNo">1753</span>   */<a name="line.1753"></a>
+<span class="sourceLineNo">1754</span>  public String getReduceDebugScript() {<a name="line.1754"></a>
+<span class="sourceLineNo">1755</span>    return get(JobContext.REDUCE_DEBUG_SCRIPT);<a name="line.1755"></a>
+<span class="sourceLineNo">1756</span>  }<a name="line.1756"></a>
+<span class="sourceLineNo">1757</span><a name="line.1757"></a>
+<span class="sourceLineNo">1758</span>  /**<a name="line.1758"></a>
+<span class="sourceLineNo">1759</span>   * Get the uri to be invoked in-order to send a notification after the job <a name="line.1759"></a>
+<span class="sourceLineNo">1760</span>   * has completed (success/failure). <a name="line.1760"></a>
+<span class="sourceLineNo">1761</span>   * <a name="line.1761"></a>
+<span class="sourceLineNo">1762</span>   * @return the job end notification uri, &lt;code&gt;null&lt;/code&gt; if it hasn't<a name="line.1762"></a>
+<span class="sourceLineNo">1763</span>   *         been set.<a name="line.1763"></a>
+<span class="sourceLineNo">1764</span>   * @see #setJobEndNotificationURI(String)<a name="line.1764"></a>
+<span class="sourceLineNo">1765</span>   */<a name="line.1765"></a>
+<span class="sourceLineNo">1766</span>  public String getJobEndNotificationURI() {<a name="line.1766"></a>
+<span class="sourceLineNo">1767</span>    return get(JobContext.MR_JOB_END_NOTIFICATION_URL);<a name="line.1767"></a>
+<span class="sourceLineNo">1768</span>  }<a name="line.1768"></a>
+<span class="sourceLineNo">1769</span><a name="line.1769"></a>
+<span class="sourceLineNo">1770</span>  /**<a name="line.1770"></a>
+<span class="sourceLineNo">1771</span>   * Set the uri to be invoked in-order to send a notification after the job<a name="line.1771"></a>
+<span class="sourceLineNo">1772</span>   * has completed (success/failure).<a name="line.1772"></a>
+<span class="sourceLineNo">1773</span>   * <a name="line.1773"></a>
+<span class="sourceLineNo">1774</span>   * &lt;p&gt;The uri can contain 2 special parameters: &lt;tt&gt;$jobId&lt;/tt&gt; and <a name="line.1774"></a>
+<span class="sourceLineNo">1775</span>   * &lt;tt&gt;$jobStatus&lt;/tt&gt;. Those, if present, are replaced by the job's <a name="line.1775"></a>
+<span class="sourceLineNo">1776</span>   * identifier and completion-status respectively.&lt;/p&gt;<a name="line.1776"></a>
+<span class="sourceLineNo">1777</span>   * <a name="line.1777"></a>
+<span class="sourceLineNo">1778</span>   * &lt;p&gt;This is typically used by application-writers to implement chaining of <a name="line.1778"></a>
+<span class="sourceLineNo">1779</span>   * Map-Reduce jobs in an &lt;i&gt;asynchronous manner&lt;/i&gt;.&lt;/p&gt;<a name="line.1779"></a>
+<span class="sourceLineNo">1780</span>   * <a name="line.1780"></a>
+<span class="sourceLineNo">1781</span>   * @param uri the job end notification uri<a name="line.1781"></a>
+<span class="sourceLineNo">1782</span>   * @see JobStatus<a name="line.1782"></a>
+<span class="sourceLineNo">1783</span>   * @see &lt;a href="{@docRoot}/org/apache/hadoop/mapred/JobClient.html#<a name="line.1783"></a>
+<span class="sourceLineNo">1784</span>   *       JobCompletionAndChaining"&gt;Job Completion and Chaining&lt;/a&gt;<a name="line.1784"></a>
+<span class="sourceLineNo">1785</span>   */<a name="line.1785"></a>
+<span class="sourceLineNo">1786</span>  public void setJobEndNotificationURI(String uri) {<a name="line.1786"></a>
+<span class="sourceLineNo">1787</span>    set(JobContext.MR_JOB_END_NOTIFICATION_URL, uri);<a name="line.1787"></a>
+<span class="sourceLineNo">1788</span>  }<a name="line.1788"></a>
+<span class="sourceLineNo">1789</span><a name="line.1789"></a>
+<span class="sourceLineNo">1790</span>  /**<a name="line.1790"></a>
+<span class="sourceLineNo">1791</span>   * Get job-specific shared directory for use as scratch space<a name="line.1791"></a>
+<span class="sourceLineNo">1792</span>   * <a name="line.1792"></a>
+<span class="sourceLineNo">1793</span>   * &lt;p&gt;<a name="line.1793"></a>
+<span class="sourceLineNo">1794</span>   * When a job starts, a shared directory is created at location<a name="line.1794"></a>
+<span class="sourceLineNo">1795</span>   * &lt;code&gt;<a name="line.1795"></a>
+<span class="sourceLineNo">1796</span>   * ${mapreduce.cluster.local.dir}/taskTracker/$user/jobcache/$jobid/work/ &lt;/code&gt;.<a name="line.1796"></a>
+<span class="sourceLineNo">1797</span>   * This directory is exposed to the users through <a name="line.1797"></a>
+<span class="sourceLineNo">1798</span>   * &lt;code&gt;mapreduce.job.local.dir &lt;/code&gt;.<a name="line.1798"></a>
+<span class="sourceLineNo">1799</span>   * So, the tasks can use this space <a name="line.1799"></a>
+<span class="sourceLineNo">1800</span>   * as scratch space and share files among them. &lt;/p&gt;<a name="line.1800"></a>
+<span class="sourceLineNo">1801</span>   * This value is available as System property also.<a name="line.1801"></a>
+<span class="sourceLineNo">1802</span>   * <a name="line.1802"></a>
+<span class="sourceLineNo">1803</span>   * @return The localized job specific shared directory<a name="line.1803"></a>
+<span class="sourceLineNo">1804</span>   */<a name="line.1804"></a>
+<span class="sourceLineNo">1805</span>  public String getJobLocalDir() {<a name="line.1805"></a>
+<span class="sourceLineNo">1806</span>    return get(JobContext.JOB_LOCAL_DIR);<a name="line.1806"></a>
+<span class="sourceLineNo">1807</span>  }<a name="line.1807"></a>
+<span class="sourceLineNo">1808</span><a name="line.1808"></a>
+<span class="sourceLineNo">1809</span>  /**<a name="line.1809"></a>
+<span class="sourceLineNo">1810</span>   * Get memory required to run a map task of the job, in MB.<a name="line.1810"></a>
+<span class="sourceLineNo">1811</span>   * <a name="line.1811"></a>
+<span class="sourceLineNo">1812</span>   * If a value is specified in the configuration, it is returned.<a name="line.1812"></a>
+<span class="sourceLineNo">1813</span>   * Else, it returns {@link JobContext#DEFAULT_MAP_MEMORY_MB}.<a name="line.1813"></a>
+<span class="sourceLineNo">1814</span>   * &lt;p/&gt;<a name="line.1814"></a>
+<span class="sourceLineNo">1815</span>   * For backward compatibility, if the job configuration sets the<a name="line.1815"></a>
+<span class="sourceLineNo">1816</span>   * key {@link #MAPRED_TASK_MAXVMEM_PROPERTY} to a value different<a name="line.1816"></a>
+<span class="sourceLineNo">1817</span>   * from {@link #DISABLED_MEMORY_LIMIT}, that value will be used<a name="line.1817"></a>
+<span class="sourceLineNo">1818</span>   * after converting it from bytes to MB.<a name="line.1818"></a>
+<span class="sourceLineNo">1819</span>   * @return memory required to run a map task of the job, in MB,<a name="line.1819"></a>
+<span class="sourceLineNo">1820</span>   */<a name="line.1820"></a>
+<span class="sourceLineNo">1821</span>  public long getMemoryForMapTask() {<a name="line.1821"></a>
+<span class="sourceLineNo">1822</span>    long value = getDeprecatedMemoryValue();<a name="line.1822"></a>
+<span class="sourceLineNo">1823</span>    if (value &lt; 0) {<a name="line.1823"></a>
+<span class="sourceLineNo">1824</span>      return getLong(JobConf.MAPRED_JOB_MAP_MEMORY_MB_PROPERTY,<a name="line.1824"></a>
+<span class="sourceLineNo">1825</span>          JobContext.DEFAULT_MAP_MEMORY_MB);<a name="line.1825"></a>
+<span class="sourceLineNo">1826</span>    }<a name="line.1826"></a>
+<span class="sourceLineNo">1827</span>    return value;<a name="line.1827"></a>
+<span class="sourceLineNo">1828</span>  }<a name="line.1828"></a>
+<span class="sourceLineNo">1829</span><a name="line.1829"></a>
+<span class="sourceLineNo">1830</span>  public void setMemoryForMapTask(long mem) {<a name="line.1830"></a>
+<span class="sourceLineNo">1831</span>    setLong(JobConf.MAPREDUCE_JOB_MAP_MEMORY_MB_PROPERTY, mem);<a name="line.1831"></a>
+<span class="sourceLineNo">1832</span>    // In case that M/R 1.x applications use the old property name<a name="line.1832"></a>
+<span class="sourceLineNo">1833</span>    setLong(JobConf.MAPRED_JOB_MAP_MEMORY_MB_PROPERTY, mem);<a name="line.1833"></a>
+<span class="sourceLineNo">1834</span>  }<a name="line.1834"></a>
+<span class="sourceLineNo">1835</span><a name="line.1835"></a>
+<span class="sourceLineNo">1836</span>  /**<a name="line.1836"></a>
+<span class="sourceLineNo">1837</span>   * Get memory required to run a reduce task of the job, in MB.<a name="line.1837"></a>
+<span class="sourceLineNo">1838</span>   * <a name="line.1838"></a>
+<span class="sourceLineNo">1839</span>   * If a value is specified in the configuration, it is returned.<a name="line.1839"></a>
+<span class="sourceLineNo">1840</span>   * Else, it returns {@link JobContext#DEFAULT_REDUCE_MEMORY_MB}.<a name="line.1840"></a>
+<span class="sourceLineNo">1841</span>   * &lt;p/&gt;<a name="line.1841"></a>
+<span class="sourceLineNo">1842</span>   * For backward compatibility, if the job configuration sets the<a name="line.1842"></a>
+<span class="sourceLineNo">1843</span>   * key {@link #MAPRED_TASK_MAXVMEM_PROPERTY} to a value different<a name="line.1843"></a>
+<span class="sourceLineNo">1844</span>   * from {@link #DISABLED_MEMORY_LIMIT}, that value will be used<a name="line.1844"></a>
+<span class="sourceLineNo">1845</span>   * after converting it from bytes to MB.<a name="line.1845"></a>
+<span class="sourceLineNo">1846</span>   * @return memory required to run a reduce task of the job, in MB.<a name="line.1846"></a>
+<span class="sourceLineNo">1847</span>   */<a name="line.1847"></a>
+<span class="sourceLineNo">1848</span>  public long getMemoryForReduceTask() {<a name="line.1848"></a>
+<span class="sourceLineNo">1849</span>    long value = getDeprecatedMemoryValue();<a name="line.1849"></a>
+<span class="sourceLineNo">1850</span>    if (value &lt; 0) {<a name="line.1850"></a>
+<span class="sourceLineNo">1851</span>      return getLong(JobConf.MAPRED_JOB_REDUCE_MEMORY_MB_PROPERTY,<a name="line.1851"></a>
+<span class="sourceLineNo">1852</span>          JobContext.DEFAULT_REDUCE_MEMORY_MB);<a name="line.1852"></a>
+<span class="sourceLineNo">1853</span>    }<a name="line.1853"></a>
+<span class="sourceLineNo">1854</span>    return value;<a name="line.1854"></a>
+<span class="sourceLineNo">1855</span>  }<a name="line.1855"></a>
+<span class="sourceLineNo">1856</span>  <a name="line.1856"></a>
+<span class="sourceLineNo">1857</span>  // Return the value set to the key MAPRED_TASK_MAXVMEM_PROPERTY,<a name="line.1857"></a>
+<span class="sourceLineNo">1858</span>  // converted into MBs.<a name="line.1858"></a>
+<span class="sourceLineNo">1859</span>  // Returns DISABLED_MEMORY_LIMIT if unset, or set to a negative<a name="line.1859"></a>
+<span class="sourceLineNo">1860</span>  // value.<a name="line.1860"></a>
+<span class="sourceLineNo">1861</span>  private long getDeprecatedMemoryValue() {<a name="line.1861"></a>
+<span class="sourceLineNo">1862</span>    long oldValue = getLong(MAPRED_TASK_MAXVMEM_PROPERTY, <a name="line.1862"></a>
+<span class="sourceLineNo">1863</span>        DISABLED_MEMORY_LIMIT);<a name="line.1863"></a>
+<span class="sourceLineNo">1864</span>    if (oldValue &gt; 0) {<a name="line.1864"></a>
+<span class="sourceLineNo">1865</span>      oldValue /= (1024*1024);<a name="line.1865"></a>
+<span class="sourceLineNo">1866</span>    }<a name="line.1866"></a>
+<span class="sourceLineNo">1867</span>    return oldValue;<a name="line.1867"></a>
+<span class="sourceLineNo">1868</span>  }<a name="line.1868"></a>
+<span class="sourceLineNo">1869</span><a name="line.1869"></a>
+<span class="sourceLineNo">1870</span>  public void setMemoryForReduceTask(long mem) {<a name="line.1870"></a>
+<span class="sourceLineNo">1871</span>    setLong(JobConf.MAPREDUCE_JOB_REDUCE_MEMORY_MB_PROPERTY, mem);<a name="line.1871"></a>
+<span class="sourceLineNo">1872</span>    // In case that M/R 1.x applications use the old property name<a name="line.1872"></a>
+<span class="sourceLineNo">1873</span>    setLong(JobConf.MAPRED_JOB_REDUCE_MEMORY_MB_PROPERTY, mem);<a name="line.1873"></a>
+<span class="sourceLineNo">1874</span>  }<a name="line.1874"></a>
+<span class="sourceLineNo">1875</span><a name="line.1875"></a>
+<span class="sourceLineNo">1876</span>  /**<a name="line.1876"></a>
+<span class="sourceLineNo">1877</span>   * Return the name of the queue to which this job is submitted.<a name="line.1877"></a>
+<span class="sourceLineNo">1878</span>   * Defaults to 'default'.<a name="line.1878"></a>
+<span class="sourceLineNo">1879</span>   * <a name="line.1879"></a>
+<span class="sourceLineNo">1880</span>   * @return name of the queue<a name="line.1880"></a>
+<span class="sourceLineNo">1881</span>   */<a name="line.1881"></a>
+<span class="sourceLineNo">1882</span>  public String getQueueName() {<a name="line.1882"></a>
+<span class="sourceLineNo">1883</span>    return get(JobContext.QUEUE_NAME, DEFAULT_QUEUE_NAME);<a name="line.1883"></a>
+<span class="sourceLineNo">1884</span>  }<a name="line.1884"></a>
+<span class="sourceLineNo">1885</span>  <a name="line.1885"></a>
+<span class="sourceLineNo">1886</span>  /**<a name="line.1886"></a>
+<span class="sourceLineNo">1887</span>   * Set the name of the queue to which this job should be submitted.<a name="line.1887"></a>
+<span class="sourceLineNo">1888</span>   * <a name="line.1888"></a>
+<span class="sourceLineNo">1889</span>   * @param queueName Name of the queue<a name="line.1889"></a>
+<span class="sourceLineNo">1890</span>   */<a name="line.1890"></a>
+<span class="sourceLineNo">1891</span>  public void setQueueName(String queueName) {<a name="line.1891"></a>
+<span class="sourceLineNo">1892</span>    set(JobContext.QUEUE_NAME, queueName);<a name="line.1892"></a>
+<span class="sourceLineNo">1893</span>  }<a name="line.1893"></a>
+<span class="sourceLineNo">1894</span>  <a name="line.1894"></a>
+<span class="sourceLineNo">1895</span>  /**<a name="line.1895"></a>
+<span class="sourceLineNo">1896</span>   * Normalize the negative values in configuration<a name="line.1896"></a>
+<span class="sourceLineNo">1897</span>   * <a name="line.1897"></a>
+<span class="sourceLineNo">1898</span>   * @param val<a name="line.1898"></a>
+<span class="sourceLineNo">1899</span>   * @return normalized value<a name="line.1899"></a>
+<span class="sourceLineNo">1900</span>   */<a name="line.1900"></a>
+<span class="sourceLineNo">1901</span>  public static long normalizeMemoryConfigValue(long val) {<a name="line.1901"></a>
+<span class="sourceLineNo">1902</span>    if (val &lt; 0) {<a name="line.1902"></a>
+<span class="sourceLineNo">1903</span>      val = DISABLED_MEMORY_LIMIT;<a name="line.1903"></a>
+<span class="sourceLineNo">1904</span>    }<a name="line.1904"></a>
+<span class="sourceLineNo">1905</span>    return val;<a name="line.1905"></a>
+<span class="sourceLineNo">1906</span>  }<a name="line.1906"></a>
+<span class="sourceLineNo">1907</span><a name="line.1907"></a>
+<span class="sourceLineNo">1908</span>  /** <a name="line.1908"></a>
+<span class="sourceLineNo">1909</span>   * Find a jar that contains a class of the same name, if any.<a name="line.1909"></a>
+<span class="sourceLineNo">1910</span>   * It will return a jar file, even if that is not the first thing<a name="line.1910"></a>
+<span class="sourceLineNo">1911</span>   * on the class path that has a class with the same name.<a name="line.1911"></a>
+<span class="sourceLineNo">1912</span>   * <a name="line.1912"></a>
+<span class="sourceLineNo">1913</span>   * @param my_class the class to find.<a name="line.1913"></a>
+<span class="sourceLineNo">1914</span>   * @return a jar file that contains the class, or null.<a name="line.1914"></a>
+<span class="sourceLineNo">1915</span>   * @throws IOException<a name="line.1915"></a>
+<span class="sourceLineNo">1916</span>   */<a name="line.1916"></a>
+<span class="sourceLineNo">1917</span>  public static String findContainingJar(Class my_class) {<a name="line.1917"></a>
+<span class="sourceLineNo">1918</span>    return ClassUtil.findContainingJar(my_class);<a name="line.1918"></a>
+<span class="sourceLineNo">1919</span>  }<a name="line.1919"></a>
+<span class="sourceLineNo">1920</span><a name="line.1920"></a>
+<span class="sourceLineNo">1921</span>  /**<a name="line.1921"></a>
+<span class="sourceLineNo">1922</span>   * Get the memory required to run a task of this job, in bytes. See<a name="line.1922"></a>
+<span class="sourceLineNo">1923</span>   * {@link #MAPRED_TASK_MAXVMEM_PROPERTY}<a name="line.1923"></a>
+<span class="sourceLineNo">1924</span>   * &lt;p/&gt;<a name="line.1924"></a>
+<span class="sourceLineNo">1925</span>   * This method is deprecated. Now, different memory limits can be<a name="line.1925"></a>
+<span class="sourceLineNo">1926</span>   * set for map and reduce tasks of a job, in MB. <a name="line.1926"></a>
+<span class="sourceLineNo">1927</span>   * &lt;p/&gt;<a name="line.1927"></a>
+<span class="sourceLineNo">1928</span>   * For backward compatibility, if the job configuration sets the<a name="line.1928"></a>
+<span class="sourceLineNo">1929</span>   * key {@link #MAPRED_TASK_MAXVMEM_PROPERTY}, that value is returned. <a name="line.1929"></a>
+<span class="sourceLineNo">1930</span>   * Otherwise, this method will return the larger of the values returned by <a name="line.1930"></a>
+<span class="sourceLineNo">1931</span>   * {@link #getMemoryForMapTask()} and {@link #getMemoryForReduceTask()}<a name="line.1931"></a>
+<span class="sourceLineNo">1932</span>   * after converting them into bytes.<a name="line.1932"></a>
+<span class="sourceLineNo">1933</span>   *<a name="line.1933"></a>
+<span class="sourceLineNo">1934</span>   * @return Memory required to run a task of this job, in bytes.<a name="line.1934"></a>
+<span class="sourceLineNo">1935</span>   * @see #setMaxVirtualMemoryForTask(long)<a name="line.1935"></a>
+<span class="sourceLineNo">1936</span>   * @deprecated Use {@link #getMemoryForMapTask()} and<a name="line.1936"></a>
+<span class="sourceLineNo">1937</span>   *             {@link #getMemoryForReduceTask()}<a name="line.1937"></a>
+<span class="sourceLineNo">1938</span>   */<a name="line.1938"></a>
+<span class="sourceLineNo">1939</span>  @Deprecated<a name="line.1939"></a>
+<span class="sourceLineNo">1940</span>  public long getMaxVirtualMemoryForTask() {<a name="line.1940"></a>
+<span class="sourceLineNo">1941</span>    LOG.warn(<a name="line.1941"></a>
+<span class="sourceLineNo">1942</span>      "getMaxVirtualMemoryForTask() is deprecated. " +<a name="line.1942"></a>
+<span class="sourceLineNo">1943</span>      "Instead use getMemoryForMapTask() and getMemoryForReduceTask()");<a name="line.1943"></a>
+<span class="sourceLineNo">1944</span><a name="line.1944"></a>
+<span class="sourceLineNo">1945</span>    long value = getLong(MAPRED_TASK_MAXVMEM_PROPERTY,<a name="line.1945"></a>
+<span class="sourceLineNo">1946</span>        Math.max(getMemoryForMapTask(), getMemoryForReduceTask()) * 1024 * 1024);<a name="line.1946"></a>
+<span class="sourceLineNo">1947</span>    return value;<a name="line.1947"></a>
+<span class="sourceLineNo">1948</span>  }<a name="line.1948"></a>
+<span class="sourceLineNo">1949</span><a name="line.1949"></a>
+<span class="sourceLineNo">1950</span>  /**<a name="line.1950"></a>
+<span class="sourceLineNo">1951</span>   * Set the maximum amount of memory any task of this job can use. See<a name="line.1951"></a>
+<span class="sourceLineNo">1952</span>   * {@link #MAPRED_TASK_MAXVMEM_PROPERTY}<a name="line.1952"></a>
+<span class="sourceLineNo">1953</span>   * &lt;p/&gt;<a name="line.1953"></a>
+<span class="sourceLineNo">1954</span>   * mapred.task.maxvmem is split into<a name="line.1954"></a>
+<span class="sourceLineNo">1955</span>   * mapreduce.map.memory.mb<a name="line.1955"></a>
+<span class="sourceLineNo">1956</span>   * and mapreduce.map.memory.mb,mapred<a name="line.1956"></a>
+<span class="sourceLineNo">1957</span>   * each of the new key are set<a name="line.1957"></a>
+<span class="sourceLineNo">1958</span>   * as mapred.task.maxvmem / 1024<a name="line.1958"></a>
+<span class="sourceLineNo">1959</span>   * as new values are in MB<a name="line.1959"></a>
+<span class="sourceLineNo">1960</span>   *<a name="line.1960"></a>
+<span class="sourceLineNo">1961</span>   * @param vmem Maximum amount of virtual memory in bytes any task of this job<a name="line.1961"></a>
+<span class="sourceLineNo">1962</span>   *             can use.<a name="line.1962"></a>
+<span class="sourceLineNo">1963</span>   * @see #getMaxVirtualMemoryForTask()<a name="line.1963"></a>
+<span class="sourceLineNo">1964</span>   * @deprecated<a name="line.1964"></a>
+<span class="sourceLineNo">1965</span>   *  Use {@link #setMemoryForMapTask(long mem)}  and<a name="line.1965"></a>
+<span class="sourceLineNo">1966</span>   *  Use {@link #setMemoryForReduceTask(long mem)}<a name="line.1966"></a>
+<span class="sourceLineNo">1967</span>   */<a name="line.1967"></a>
+<span class="sourceLineNo">1968</span>  @Deprecated<a name="line.1968"></a>
+<span class="sourceLineNo">1969</span>  public void setMaxVirtualMemoryForTask(long vmem) {<a name="line.1969"></a>
+<span class="sourceLineNo">1970</span>    LOG.warn("setMaxVirtualMemoryForTask() is deprecated."+<a name="line.1970"></a>
+<span class="sourceLineNo">1971</span>      "Instead use setMemoryForMapTask() and setMemoryForReduceTask()");<a name="line.1971"></a>
+<span class="sourceLineNo">1972</span>    if (vmem &lt; 0) {<a name="line.1972"></a>
+<span class="sourceLineNo">1973</span>      throw new IllegalArgumentException("Task memory allocation may not be &lt; 0");<a name="line.1973"></a>
+<span class="sourceLineNo">1974</span>    }<a name="line.1974"></a>
+<span class="sourceLineNo">1975</span><a name="line.1975"></a>
+<span class="sourceLineNo">1976</span>    if(get(JobConf.MAPRED_TASK_MAXVMEM_PROPERTY) == null) {<a name="line.1976"></a>
+<span class="sourceLineNo">1977</span>      setMemoryForMapTask(vmem / (1024 * 1024)); //Changing bytes to mb<a name="line.1977"></a>
+<span class="sourceLineNo">1978</span>      setMemoryForReduceTask(vmem / (1024 * 1024));//Changing bytes to mb<a name="line.1978"></a>
+<span class="sourceLineNo">1979</span>    }else{<a name="line.1979"></a>
+<span class="sourceLineNo">1980</span>      this.setLong(JobConf.MAPRED_TASK_MAXVMEM_PROPERTY,vmem);<a name="line.1980"></a>
+<span class="sourceLineNo">1981</span>    }<a name="line.1981"></a>
+<span class="sourceLineNo">1982</span>  }<a name="line.1982"></a>
+<span class="sourceLineNo">1983</span><a name="line.1983"></a>
+<span class="sourceLineNo">1984</span>  /**<a name="line.1984"></a>
+<span class="sourceLineNo">1985</span>   * @deprecated this variable is deprecated and nolonger in use.<a name="line.1985"></a>
+<span class="sourceLineNo">1986</span>   */<a name="line.1986"></a>
+<span class="sourceLineNo">1987</span>  @Deprecated<a name="line.1987"></a>
+<span class="sourceLineNo">1988</span>  public long getMaxPhysicalMemoryForTask() {<a name="line.1988"></a>
+<span class="sourceLineNo">1989</span>    LOG.warn("The API getMaxPhysicalMemoryForTask() is deprecated."<a name="line.1989"></a>
+<span class="sourceLineNo">1990</span>              + " Refer to the APIs getMemoryForMapTask() and"<a name="line.1990"></a>
+<span class="sourceLineNo">1991</span>              + " getMemoryForReduceTask() for details.");<a name="line.1991"></a>
+<span class="sourceLineNo">1992</span>    return -1;<a name="line.1992"></a>
+<span class="sourceLineNo">1993</span>  }<a name="line.1993"></a>
+<span class="sourceLineNo">1994</span><a name="line.1994"></a>
+<span class="sourceLineNo">1995</span>  /*<a name="line.1995"></a>
+<span class="sourceLineNo">1996</span>   * @deprecated this<a name="line.1996"></a>
+<span class="sourceLineNo">1997</span>   */<a name="line.1997"></a>
+<span class="sourceLineNo">1998</span>  @Deprecated<a name="line.1998"></a>
+<span class="sourceLineNo">1999</span>  public void setMaxPhysicalMemoryForTask(long mem) {<a name="line.1999"></a>
+<span class="sourceLineNo">2000</span>    LOG.warn("The API setMaxPhysicalMemoryForTask() is deprecated."<a name="line.2000"></a>
+<span class="sourceLineNo">2001</span>        + " The value set is ignored. Refer to "<a name="line.2001"></a>
+<span class="sourceLineNo">2002</span>        + " setMemoryForMapTask() and setMemoryForReduceTask() for details.");<a name="line.2002"></a>
+<span class="sourceLineNo">2003</span>  }<a name="line.2003"></a>
+<span class="sourceLineNo">2004</span><a name="line.2004"></a>
+<span class="sourceLineNo">2005</span>  static String deprecatedString(String key) {<a name="line.2005"></a>
+<span class="sourceLineNo">2006</span>    return "The variable " + key + " is no longer used.";<a name="line.2006"></a>
+<span class="sourceLineNo">2007</span>  }<a name="line.2007"></a>
+<span class="sourceLineNo">2008</span><a name="line.2008"></a>
+<span class="sourceLineNo">2009</span>  private void checkAndWarnDeprecation() {<a name="line.2009"></a>
+<span class="sourceLineNo">2010</span>    if(get(JobConf.MAPRED_TASK_MAXVMEM_PROPERTY) != null) {<a name="line.2010"></a>
+<span class="sourceLineNo">2011</span>      LOG.warn(JobConf.deprecatedString(JobConf.MAPRED_TASK_MAXVMEM_PROPERTY)<a name="line.2011"></a>
+<span class="sourceLineNo">2012</span>                + " Instead use " + JobConf.MAPREDUCE_JOB_MAP_MEMORY_MB_PROPERTY<a name="line.2012"></a>
+<span class="sourceLineNo">2013</span>                + " and " + JobConf.MAPREDUCE_JOB_REDUCE_MEMORY_MB_PROPERTY);<a name="line.2013"></a>
+<span class="sourceLineNo">2014</span>    }<a name="line.2014"></a>
+<span class="sourceLineNo">2015</span>    if(get(JobConf.MAPRED_TASK_ULIMIT) != null ) {<a name="line.2015"></a>
+<span class="sourceLineNo">2016</span>      LOG.warn(JobConf.deprecatedString(JobConf.MAPRED_TASK_ULIMIT));<a name="line.2016"></a>
+<span class="sourceLineNo">2017</span>    }<a name="line.2017"></a>
+<span class="sourceLineNo">2018</span>    if(get(JobConf.MAPRED_MAP_TASK_ULIMIT) != null ) {<a name="line.2018"></a>
+<span class="sourceLineNo">2019</span>      LOG.warn(JobConf.deprecatedString(JobConf.MAPRED_MAP_TASK_ULIMIT));<a name="line.2019"></a>
+<span class="sourceLineNo">2020</span>    }<a name="line.2020"></a>
+<span class="sourceLineNo">2021</span>    if(get(JobConf.MAPRED_REDUCE_TASK_ULIMIT) != null ) {<a name="line.2021"></a>
+<span class="sourceLineNo">2022</span>      LOG.warn(JobConf.deprecatedString(JobConf.MAPRED_REDUCE_TASK_ULIMIT));<a name="line.2022"></a>
+<span class="sourceLineNo">2023</span>    }<a name="line.2023"></a>
+<span class="sourceLineNo">2024</span>  }<a name="line.2024"></a>
+<span class="sourceLineNo">2025</span>  <a name="line.2025"></a>
+<span class="sourceLineNo">2026</span><a name="line.2026"></a>
+<span class="sourceLineNo">2027</span>}<a name="line.2027"></a>
+<span class="sourceLineNo">2028</span><a name="line.2028"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

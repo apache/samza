@@ -1,0 +1,345 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/**<a name="line.1"></a>
+<span class="sourceLineNo">002</span>* Licensed to the Apache Software Foundation (ASF) under one<a name="line.2"></a>
+<span class="sourceLineNo">003</span>* or more contributor license agreements.  See the NOTICE file<a name="line.3"></a>
+<span class="sourceLineNo">004</span>* distributed with this work for additional information<a name="line.4"></a>
+<span class="sourceLineNo">005</span>* regarding copyright ownership.  The ASF licenses this file<a name="line.5"></a>
+<span class="sourceLineNo">006</span>* to you under the Apache License, Version 2.0 (the<a name="line.6"></a>
+<span class="sourceLineNo">007</span>* "License"); you may not use this file except in compliance<a name="line.7"></a>
+<span class="sourceLineNo">008</span>* with the License.  You may obtain a copy of the License at<a name="line.8"></a>
+<span class="sourceLineNo">009</span>*<a name="line.9"></a>
+<span class="sourceLineNo">010</span>*     http://www.apache.org/licenses/LICENSE-2.0<a name="line.10"></a>
+<span class="sourceLineNo">011</span>*<a name="line.11"></a>
+<span class="sourceLineNo">012</span>* Unless required by applicable law or agreed to in writing, software<a name="line.12"></a>
+<span class="sourceLineNo">013</span>* distributed under the License is distributed on an "AS IS" BASIS,<a name="line.13"></a>
+<span class="sourceLineNo">014</span>* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.<a name="line.14"></a>
+<span class="sourceLineNo">015</span>* See the License for the specific language governing permissions and<a name="line.15"></a>
+<span class="sourceLineNo">016</span>* limitations under the License.<a name="line.16"></a>
+<span class="sourceLineNo">017</span>*/<a name="line.17"></a>
+<span class="sourceLineNo">018</span><a name="line.18"></a>
+<span class="sourceLineNo">019</span>package org.apache.hadoop.yarn.api;<a name="line.19"></a>
+<span class="sourceLineNo">020</span><a name="line.20"></a>
+<span class="sourceLineNo">021</span>import org.apache.hadoop.classification.InterfaceAudience.Public;<a name="line.21"></a>
+<span class="sourceLineNo">022</span>import org.apache.hadoop.classification.InterfaceStability.Evolving;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import org.apache.hadoop.classification.InterfaceStability.Unstable;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import org.apache.hadoop.security.UserGroupInformation;<a name="line.24"></a>
+<span class="sourceLineNo">025</span>import org.apache.hadoop.util.Shell;<a name="line.25"></a>
+<span class="sourceLineNo">026</span><a name="line.26"></a>
+<span class="sourceLineNo">027</span>/**<a name="line.27"></a>
+<span class="sourceLineNo">028</span> * This is the API for the applications comprising of constants that YARN sets<a name="line.28"></a>
+<span class="sourceLineNo">029</span> * up for the applications and the containers.<a name="line.29"></a>
+<span class="sourceLineNo">030</span> * <a name="line.30"></a>
+<span class="sourceLineNo">031</span> * TODO: Investigate the semantics and security of each cross-boundary refs.<a name="line.31"></a>
+<span class="sourceLineNo">032</span> */<a name="line.32"></a>
+<span class="sourceLineNo">033</span>@Public<a name="line.33"></a>
+<span class="sourceLineNo">034</span>@Evolving<a name="line.34"></a>
+<span class="sourceLineNo">035</span>public interface ApplicationConstants {<a name="line.35"></a>
+<span class="sourceLineNo">036</span>  <a name="line.36"></a>
+<span class="sourceLineNo">037</span>  /**<a name="line.37"></a>
+<span class="sourceLineNo">038</span>   * The environment variable for APP_SUBMIT_TIME. Set in AppMaster environment<a name="line.38"></a>
+<span class="sourceLineNo">039</span>   * only<a name="line.39"></a>
+<span class="sourceLineNo">040</span>   */<a name="line.40"></a>
+<span class="sourceLineNo">041</span>  public static final String APP_SUBMIT_TIME_ENV = "APP_SUBMIT_TIME_ENV";<a name="line.41"></a>
+<span class="sourceLineNo">042</span><a name="line.42"></a>
+<span class="sourceLineNo">043</span>  /**<a name="line.43"></a>
+<span class="sourceLineNo">044</span>   * The cache file into which container token is written<a name="line.44"></a>
+<span class="sourceLineNo">045</span>   */<a name="line.45"></a>
+<span class="sourceLineNo">046</span>  public static final String CONTAINER_TOKEN_FILE_ENV_NAME =<a name="line.46"></a>
+<span class="sourceLineNo">047</span>      UserGroupInformation.HADOOP_TOKEN_FILE_LOCATION;<a name="line.47"></a>
+<span class="sourceLineNo">048</span><a name="line.48"></a>
+<span class="sourceLineNo">049</span>  /**<a name="line.49"></a>
+<span class="sourceLineNo">050</span>   * The environmental variable for APPLICATION_WEB_PROXY_BASE. Set in <a name="line.50"></a>
+<span class="sourceLineNo">051</span>   * ApplicationMaster's environment only. This states that for all non-relative<a name="line.51"></a>
+<span class="sourceLineNo">052</span>   * web URLs in the app masters web UI what base should they have.<a name="line.52"></a>
+<span class="sourceLineNo">053</span>   */<a name="line.53"></a>
+<span class="sourceLineNo">054</span>  public static final String APPLICATION_WEB_PROXY_BASE_ENV = <a name="line.54"></a>
+<span class="sourceLineNo">055</span>    "APPLICATION_WEB_PROXY_BASE";<a name="line.55"></a>
+<span class="sourceLineNo">056</span><a name="line.56"></a>
+<span class="sourceLineNo">057</span>  /**<a name="line.57"></a>
+<span class="sourceLineNo">058</span>   * The temporary environmental variable for container log directory. This<a name="line.58"></a>
+<span class="sourceLineNo">059</span>   * should be replaced by real container log directory on container launch.<a name="line.59"></a>
+<span class="sourceLineNo">060</span>   */<a name="line.60"></a>
+<span class="sourceLineNo">061</span>  public static final String LOG_DIR_EXPANSION_VAR = "&lt;LOG_DIR&gt;";<a name="line.61"></a>
+<span class="sourceLineNo">062</span><a name="line.62"></a>
+<span class="sourceLineNo">063</span>  /**<a name="line.63"></a>
+<span class="sourceLineNo">064</span>   * This constant is used to construct class path and it will be replaced with<a name="line.64"></a>
+<span class="sourceLineNo">065</span>   * real class path separator(':' for Linux and ';' for Windows) by<a name="line.65"></a>
+<span class="sourceLineNo">066</span>   * NodeManager on container launch. User has to use this constant to construct<a name="line.66"></a>
+<span class="sourceLineNo">067</span>   * class path if user wants cross-platform practice i.e. submit an application<a name="line.67"></a>
+<span class="sourceLineNo">068</span>   * from a Windows client to a Linux/Unix server or vice versa.<a name="line.68"></a>
+<span class="sourceLineNo">069</span>   */<a name="line.69"></a>
+<span class="sourceLineNo">070</span>  @Public<a name="line.70"></a>
+<span class="sourceLineNo">071</span>  @Unstable<a name="line.71"></a>
+<span class="sourceLineNo">072</span>  public static final String CLASS_PATH_SEPARATOR= "&lt;CPS&gt;";<a name="line.72"></a>
+<span class="sourceLineNo">073</span><a name="line.73"></a>
+<span class="sourceLineNo">074</span>  /**<a name="line.74"></a>
+<span class="sourceLineNo">075</span>   * The following two constants are used to expand parameter and it will be<a name="line.75"></a>
+<span class="sourceLineNo">076</span>   * replaced with real parameter expansion marker ('%' for Windows and '$' for<a name="line.76"></a>
+<span class="sourceLineNo">077</span>   * Linux) by NodeManager on container launch. For example: {{VAR}} will be<a name="line.77"></a>
+<span class="sourceLineNo">078</span>   * replaced as $VAR on Linux, and %VAR% on Windows. User has to use this<a name="line.78"></a>
+<span class="sourceLineNo">079</span>   * constant to construct class path if user wants cross-platform practice i.e.<a name="line.79"></a>
+<span class="sourceLineNo">080</span>   * submit an application from a Windows client to a Linux/Unix server or vice<a name="line.80"></a>
+<span class="sourceLineNo">081</span>   * versa.<a name="line.81"></a>
+<span class="sourceLineNo">082</span>   */<a name="line.82"></a>
+<span class="sourceLineNo">083</span>  @Public<a name="line.83"></a>
+<span class="sourceLineNo">084</span>  @Unstable<a name="line.84"></a>
+<span class="sourceLineNo">085</span>  public static final String PARAMETER_EXPANSION_LEFT="{{";<a name="line.85"></a>
+<span class="sourceLineNo">086</span><a name="line.86"></a>
+<span class="sourceLineNo">087</span>  /**<a name="line.87"></a>
+<span class="sourceLineNo">088</span>   * User has to use this constant to construct class path if user wants<a name="line.88"></a>
+<span class="sourceLineNo">089</span>   * cross-platform practice i.e. submit an application from a Windows client to<a name="line.89"></a>
+<span class="sourceLineNo">090</span>   * a Linux/Unix server or vice versa.<a name="line.90"></a>
+<span class="sourceLineNo">091</span>   */<a name="line.91"></a>
+<span class="sourceLineNo">092</span>  @Public<a name="line.92"></a>
+<span class="sourceLineNo">093</span>  @Unstable<a name="line.93"></a>
+<span class="sourceLineNo">094</span>  public static final String PARAMETER_EXPANSION_RIGHT="}}";<a name="line.94"></a>
+<span class="sourceLineNo">095</span><a name="line.95"></a>
+<span class="sourceLineNo">096</span>  public static final String STDERR = "stderr";<a name="line.96"></a>
+<span class="sourceLineNo">097</span><a name="line.97"></a>
+<span class="sourceLineNo">098</span>  public static final String STDOUT = "stdout";<a name="line.98"></a>
+<span class="sourceLineNo">099</span><a name="line.99"></a>
+<span class="sourceLineNo">100</span>  /**<a name="line.100"></a>
+<span class="sourceLineNo">101</span>   * The environment variable for MAX_APP_ATTEMPTS. Set in AppMaster environment<a name="line.101"></a>
+<span class="sourceLineNo">102</span>   * only<a name="line.102"></a>
+<span class="sourceLineNo">103</span>   */<a name="line.103"></a>
+<span class="sourceLineNo">104</span>  public static final String MAX_APP_ATTEMPTS_ENV = "MAX_APP_ATTEMPTS";<a name="line.104"></a>
+<span class="sourceLineNo">105</span><a name="line.105"></a>
+<span class="sourceLineNo">106</span>  /**<a name="line.106"></a>
+<span class="sourceLineNo">107</span>   * Environment for Applications.<a name="line.107"></a>
+<span class="sourceLineNo">108</span>   * <a name="line.108"></a>
+<span class="sourceLineNo">109</span>   * Some of the environment variables for applications are &lt;em&gt;final&lt;/em&gt; <a name="line.109"></a>
+<span class="sourceLineNo">110</span>   * i.e. they cannot be modified by the applications.<a name="line.110"></a>
+<span class="sourceLineNo">111</span>   */<a name="line.111"></a>
+<span class="sourceLineNo">112</span>  public enum Environment {<a name="line.112"></a>
+<span class="sourceLineNo">113</span>    /**<a name="line.113"></a>
+<span class="sourceLineNo">114</span>     * $USER<a name="line.114"></a>
+<span class="sourceLineNo">115</span>     * Final, non-modifiable.<a name="line.115"></a>
+<span class="sourceLineNo">116</span>     */<a name="line.116"></a>
+<span class="sourceLineNo">117</span>    USER("USER"),<a name="line.117"></a>
+<span class="sourceLineNo">118</span>    <a name="line.118"></a>
+<span class="sourceLineNo">119</span>    /**<a name="line.119"></a>
+<span class="sourceLineNo">120</span>     * $LOGNAME<a name="line.120"></a>
+<span class="sourceLineNo">121</span>     * Final, non-modifiable.<a name="line.121"></a>
+<span class="sourceLineNo">122</span>     */<a name="line.122"></a>
+<span class="sourceLineNo">123</span>    LOGNAME("LOGNAME"),<a name="line.123"></a>
+<span class="sourceLineNo">124</span>    <a name="line.124"></a>
+<span class="sourceLineNo">125</span>    /**<a name="line.125"></a>
+<span class="sourceLineNo">126</span>     * $HOME<a name="line.126"></a>
+<span class="sourceLineNo">127</span>     * Final, non-modifiable.<a name="line.127"></a>
+<span class="sourceLineNo">128</span>     */<a name="line.128"></a>
+<span class="sourceLineNo">129</span>    HOME("HOME"),<a name="line.129"></a>
+<span class="sourceLineNo">130</span>    <a name="line.130"></a>
+<span class="sourceLineNo">131</span>    /**<a name="line.131"></a>
+<span class="sourceLineNo">132</span>     * $PWD<a name="line.132"></a>
+<span class="sourceLineNo">133</span>     * Final, non-modifiable.<a name="line.133"></a>
+<span class="sourceLineNo">134</span>     */<a name="line.134"></a>
+<span class="sourceLineNo">135</span>    PWD("PWD"),<a name="line.135"></a>
+<span class="sourceLineNo">136</span>    <a name="line.136"></a>
+<span class="sourceLineNo">137</span>    /**<a name="line.137"></a>
+<span class="sourceLineNo">138</span>     * $PATH<a name="line.138"></a>
+<span class="sourceLineNo">139</span>     */<a name="line.139"></a>
+<span class="sourceLineNo">140</span>    PATH("PATH"),<a name="line.140"></a>
+<span class="sourceLineNo">141</span>    <a name="line.141"></a>
+<span class="sourceLineNo">142</span>    /**<a name="line.142"></a>
+<span class="sourceLineNo">143</span>     * $SHELL<a name="line.143"></a>
+<span class="sourceLineNo">144</span>     */<a name="line.144"></a>
+<span class="sourceLineNo">145</span>    SHELL("SHELL"),<a name="line.145"></a>
+<span class="sourceLineNo">146</span>    <a name="line.146"></a>
+<span class="sourceLineNo">147</span>    /**<a name="line.147"></a>
+<span class="sourceLineNo">148</span>     * $JAVA_HOME<a name="line.148"></a>
+<span class="sourceLineNo">149</span>     */<a name="line.149"></a>
+<span class="sourceLineNo">150</span>    JAVA_HOME("JAVA_HOME"),<a name="line.150"></a>
+<span class="sourceLineNo">151</span>    <a name="line.151"></a>
+<span class="sourceLineNo">152</span>    /**<a name="line.152"></a>
+<span class="sourceLineNo">153</span>     * $CLASSPATH<a name="line.153"></a>
+<span class="sourceLineNo">154</span>     */<a name="line.154"></a>
+<span class="sourceLineNo">155</span>    CLASSPATH("CLASSPATH"),<a name="line.155"></a>
+<span class="sourceLineNo">156</span>    <a name="line.156"></a>
+<span class="sourceLineNo">157</span>    /**<a name="line.157"></a>
+<span class="sourceLineNo">158</span>     * $APP_CLASSPATH<a name="line.158"></a>
+<span class="sourceLineNo">159</span>     */<a name="line.159"></a>
+<span class="sourceLineNo">160</span>    APP_CLASSPATH("APP_CLASSPATH"),<a name="line.160"></a>
+<span class="sourceLineNo">161</span>    <a name="line.161"></a>
+<span class="sourceLineNo">162</span>    /**<a name="line.162"></a>
+<span class="sourceLineNo">163</span>     * $LD_LIBRARY_PATH<a name="line.163"></a>
+<span class="sourceLineNo">164</span>     */<a name="line.164"></a>
+<span class="sourceLineNo">165</span>    LD_LIBRARY_PATH("LD_LIBRARY_PATH"),<a name="line.165"></a>
+<span class="sourceLineNo">166</span>    <a name="line.166"></a>
+<span class="sourceLineNo">167</span>    /**<a name="line.167"></a>
+<span class="sourceLineNo">168</span>     * $HADOOP_CONF_DIR<a name="line.168"></a>
+<span class="sourceLineNo">169</span>     * Final, non-modifiable.<a name="line.169"></a>
+<span class="sourceLineNo">170</span>     */<a name="line.170"></a>
+<span class="sourceLineNo">171</span>    HADOOP_CONF_DIR("HADOOP_CONF_DIR"),<a name="line.171"></a>
+<span class="sourceLineNo">172</span>    <a name="line.172"></a>
+<span class="sourceLineNo">173</span>    /**<a name="line.173"></a>
+<span class="sourceLineNo">174</span>     * $HADOOP_COMMON_HOME<a name="line.174"></a>
+<span class="sourceLineNo">175</span>     */<a name="line.175"></a>
+<span class="sourceLineNo">176</span>    HADOOP_COMMON_HOME("HADOOP_COMMON_HOME"),<a name="line.176"></a>
+<span class="sourceLineNo">177</span>    <a name="line.177"></a>
+<span class="sourceLineNo">178</span>    /**<a name="line.178"></a>
+<span class="sourceLineNo">179</span>     * $HADOOP_HDFS_HOME<a name="line.179"></a>
+<span class="sourceLineNo">180</span>     */<a name="line.180"></a>
+<span class="sourceLineNo">181</span>    HADOOP_HDFS_HOME("HADOOP_HDFS_HOME"),<a name="line.181"></a>
+<span class="sourceLineNo">182</span>    <a name="line.182"></a>
+<span class="sourceLineNo">183</span>    /**<a name="line.183"></a>
+<span class="sourceLineNo">184</span>     * $MALLOC_ARENA_MAX<a name="line.184"></a>
+<span class="sourceLineNo">185</span>     */<a name="line.185"></a>
+<span class="sourceLineNo">186</span>    MALLOC_ARENA_MAX("MALLOC_ARENA_MAX"),<a name="line.186"></a>
+<span class="sourceLineNo">187</span>    <a name="line.187"></a>
+<span class="sourceLineNo">188</span>    /**<a name="line.188"></a>
+<span class="sourceLineNo">189</span>     * $HADOOP_YARN_HOME<a name="line.189"></a>
+<span class="sourceLineNo">190</span>     */<a name="line.190"></a>
+<span class="sourceLineNo">191</span>    HADOOP_YARN_HOME("HADOOP_YARN_HOME"),<a name="line.191"></a>
+<span class="sourceLineNo">192</span><a name="line.192"></a>
+<span class="sourceLineNo">193</span>    /**<a name="line.193"></a>
+<span class="sourceLineNo">194</span>     * $CONTAINER_ID<a name="line.194"></a>
+<span class="sourceLineNo">195</span>     * Final, exported by NodeManager and non-modifiable by users.<a name="line.195"></a>
+<span class="sourceLineNo">196</span>     */<a name="line.196"></a>
+<span class="sourceLineNo">197</span>    CONTAINER_ID("CONTAINER_ID"),<a name="line.197"></a>
+<span class="sourceLineNo">198</span><a name="line.198"></a>
+<span class="sourceLineNo">199</span>    /**<a name="line.199"></a>
+<span class="sourceLineNo">200</span>     * $NM_HOST<a name="line.200"></a>
+<span class="sourceLineNo">201</span>     * Final, exported by NodeManager and non-modifiable by users.<a name="line.201"></a>
+<span class="sourceLineNo">202</span>     */<a name="line.202"></a>
+<span class="sourceLineNo">203</span>    NM_HOST("NM_HOST"),<a name="line.203"></a>
+<span class="sourceLineNo">204</span><a name="line.204"></a>
+<span class="sourceLineNo">205</span>    /**<a name="line.205"></a>
+<span class="sourceLineNo">206</span>     * $NM_HTTP_PORT<a name="line.206"></a>
+<span class="sourceLineNo">207</span>     * Final, exported by NodeManager and non-modifiable by users.<a name="line.207"></a>
+<span class="sourceLineNo">208</span>     */<a name="line.208"></a>
+<span class="sourceLineNo">209</span>    NM_HTTP_PORT("NM_HTTP_PORT"),<a name="line.209"></a>
+<span class="sourceLineNo">210</span><a name="line.210"></a>
+<span class="sourceLineNo">211</span>    /**<a name="line.211"></a>
+<span class="sourceLineNo">212</span>     * $NM_PORT<a name="line.212"></a>
+<span class="sourceLineNo">213</span>     * Final, exported by NodeManager and non-modifiable by users.<a name="line.213"></a>
+<span class="sourceLineNo">214</span>     */<a name="line.214"></a>
+<span class="sourceLineNo">215</span>    NM_PORT("NM_PORT"),<a name="line.215"></a>
+<span class="sourceLineNo">216</span><a name="line.216"></a>
+<span class="sourceLineNo">217</span>    /**<a name="line.217"></a>
+<span class="sourceLineNo">218</span>     * $LOCAL_DIRS<a name="line.218"></a>
+<span class="sourceLineNo">219</span>     * Final, exported by NodeManager and non-modifiable by users.<a name="line.219"></a>
+<span class="sourceLineNo">220</span>     */<a name="line.220"></a>
+<span class="sourceLineNo">221</span>    LOCAL_DIRS("LOCAL_DIRS"),<a name="line.221"></a>
+<span class="sourceLineNo">222</span><a name="line.222"></a>
+<span class="sourceLineNo">223</span>    /**<a name="line.223"></a>
+<span class="sourceLineNo">224</span>     * $LOG_DIRS<a name="line.224"></a>
+<span class="sourceLineNo">225</span>     * Final, exported by NodeManager and non-modifiable by users.<a name="line.225"></a>
+<span class="sourceLineNo">226</span>     * Comma separate list of directories that the container should use for<a name="line.226"></a>
+<span class="sourceLineNo">227</span>     * logging.<a name="line.227"></a>
+<span class="sourceLineNo">228</span>     */<a name="line.228"></a>
+<span class="sourceLineNo">229</span>    LOG_DIRS("LOG_DIRS");<a name="line.229"></a>
+<span class="sourceLineNo">230</span><a name="line.230"></a>
+<span class="sourceLineNo">231</span>    private final String variable;<a name="line.231"></a>
+<span class="sourceLineNo">232</span>    private Environment(String variable) {<a name="line.232"></a>
+<span class="sourceLineNo">233</span>      this.variable = variable;<a name="line.233"></a>
+<span class="sourceLineNo">234</span>    }<a name="line.234"></a>
+<span class="sourceLineNo">235</span>    <a name="line.235"></a>
+<span class="sourceLineNo">236</span>    public String key() {<a name="line.236"></a>
+<span class="sourceLineNo">237</span>      return variable;<a name="line.237"></a>
+<span class="sourceLineNo">238</span>    }<a name="line.238"></a>
+<span class="sourceLineNo">239</span>    <a name="line.239"></a>
+<span class="sourceLineNo">240</span>    public String toString() {<a name="line.240"></a>
+<span class="sourceLineNo">241</span>      return variable;<a name="line.241"></a>
+<span class="sourceLineNo">242</span>    }<a name="line.242"></a>
+<span class="sourceLineNo">243</span><a name="line.243"></a>
+<span class="sourceLineNo">244</span>    /**<a name="line.244"></a>
+<span class="sourceLineNo">245</span>     * Expand the environment variable based on client OS environment variable<a name="line.245"></a>
+<span class="sourceLineNo">246</span>     * expansion syntax (e.g. $VAR for Linux and %VAR% for Windows).<a name="line.246"></a>
+<span class="sourceLineNo">247</span>     * &lt;p&gt;<a name="line.247"></a>
+<span class="sourceLineNo">248</span>     * Note: Use $$() method for cross-platform practice i.e. submit an<a name="line.248"></a>
+<span class="sourceLineNo">249</span>     * application from a Windows client to a Linux/Unix server or vice versa.<a name="line.249"></a>
+<span class="sourceLineNo">250</span>     * &lt;/p&gt;<a name="line.250"></a>
+<span class="sourceLineNo">251</span>     */<a name="line.251"></a>
+<span class="sourceLineNo">252</span>    public String $() {<a name="line.252"></a>
+<span class="sourceLineNo">253</span>      if (Shell.WINDOWS) {<a name="line.253"></a>
+<span class="sourceLineNo">254</span>        return "%" + variable + "%";<a name="line.254"></a>
+<span class="sourceLineNo">255</span>      } else {<a name="line.255"></a>
+<span class="sourceLineNo">256</span>        return "$" + variable;<a name="line.256"></a>
+<span class="sourceLineNo">257</span>      }<a name="line.257"></a>
+<span class="sourceLineNo">258</span>    }<a name="line.258"></a>
+<span class="sourceLineNo">259</span><a name="line.259"></a>
+<span class="sourceLineNo">260</span>    /**<a name="line.260"></a>
+<span class="sourceLineNo">261</span>     * Expand the environment variable in platform-agnostic syntax. The<a name="line.261"></a>
+<span class="sourceLineNo">262</span>     * parameter expansion marker "{{VAR}}" will be replaced with real parameter<a name="line.262"></a>
+<span class="sourceLineNo">263</span>     * expansion marker ('%' for Windows and '$' for Linux) by NodeManager on<a name="line.263"></a>
+<span class="sourceLineNo">264</span>     * container launch. For example: {{VAR}} will be replaced as $VAR on Linux,<a name="line.264"></a>
+<span class="sourceLineNo">265</span>     * and %VAR% on Windows.<a name="line.265"></a>
+<span class="sourceLineNo">266</span>     */<a name="line.266"></a>
+<span class="sourceLineNo">267</span>    @Public<a name="line.267"></a>
+<span class="sourceLineNo">268</span>    @Unstable<a name="line.268"></a>
+<span class="sourceLineNo">269</span>    public String $$() {<a name="line.269"></a>
+<span class="sourceLineNo">270</span>      return PARAMETER_EXPANSION_LEFT + variable + PARAMETER_EXPANSION_RIGHT;<a name="line.270"></a>
+<span class="sourceLineNo">271</span>    }<a name="line.271"></a>
+<span class="sourceLineNo">272</span>  }<a name="line.272"></a>
+<span class="sourceLineNo">273</span>}<a name="line.273"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

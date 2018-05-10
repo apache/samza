@@ -1,0 +1,483 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/**<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Licensed to the Apache Software Foundation (ASF) under one<a name="line.2"></a>
+<span class="sourceLineNo">003</span> * or more contributor license agreements.  See the NOTICE file<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * distributed with this work for additional information<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * regarding copyright ownership.  The ASF licenses this file<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * to you under the Apache License, Version 2.0 (the<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * "License"); you may not use this file except in compliance<a name="line.7"></a>
+<span class="sourceLineNo">008</span> * with the License.  You may obtain a copy of the License at<a name="line.8"></a>
+<span class="sourceLineNo">009</span> *<a name="line.9"></a>
+<span class="sourceLineNo">010</span> *     http://www.apache.org/licenses/LICENSE-2.0<a name="line.10"></a>
+<span class="sourceLineNo">011</span> *<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Unless required by applicable law or agreed to in writing, software<a name="line.12"></a>
+<span class="sourceLineNo">013</span> * distributed under the License is distributed on an "AS IS" BASIS,<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * See the License for the specific language governing permissions and<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * limitations under the License.<a name="line.16"></a>
+<span class="sourceLineNo">017</span> */<a name="line.17"></a>
+<span class="sourceLineNo">018</span><a name="line.18"></a>
+<span class="sourceLineNo">019</span>package org.apache.hadoop.mapreduce.lib.partition;<a name="line.19"></a>
+<span class="sourceLineNo">020</span><a name="line.20"></a>
+<span class="sourceLineNo">021</span>import java.io.IOException;<a name="line.21"></a>
+<span class="sourceLineNo">022</span>import java.lang.reflect.Array;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import java.util.ArrayList;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import java.util.Arrays;<a name="line.24"></a>
+<span class="sourceLineNo">025</span><a name="line.25"></a>
+<span class="sourceLineNo">026</span>import org.apache.commons.logging.Log;<a name="line.26"></a>
+<span class="sourceLineNo">027</span>import org.apache.commons.logging.LogFactory;<a name="line.27"></a>
+<span class="sourceLineNo">028</span>import org.apache.hadoop.classification.InterfaceAudience;<a name="line.28"></a>
+<span class="sourceLineNo">029</span>import org.apache.hadoop.classification.InterfaceStability;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import org.apache.hadoop.conf.Configurable;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import org.apache.hadoop.conf.Configuration;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import org.apache.hadoop.fs.FileSystem;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import org.apache.hadoop.fs.Path;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import org.apache.hadoop.io.BinaryComparable;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import org.apache.hadoop.io.IOUtils;<a name="line.35"></a>
+<span class="sourceLineNo">036</span>import org.apache.hadoop.io.NullWritable;<a name="line.36"></a>
+<span class="sourceLineNo">037</span>import org.apache.hadoop.io.SequenceFile;<a name="line.37"></a>
+<span class="sourceLineNo">038</span>import org.apache.hadoop.io.RawComparator;<a name="line.38"></a>
+<span class="sourceLineNo">039</span>import org.apache.hadoop.io.WritableComparable;<a name="line.39"></a>
+<span class="sourceLineNo">040</span>import org.apache.hadoop.mapreduce.Job;<a name="line.40"></a>
+<span class="sourceLineNo">041</span>import org.apache.hadoop.mapreduce.Partitioner;<a name="line.41"></a>
+<span class="sourceLineNo">042</span>import org.apache.hadoop.util.ReflectionUtils;<a name="line.42"></a>
+<span class="sourceLineNo">043</span><a name="line.43"></a>
+<span class="sourceLineNo">044</span>/**<a name="line.44"></a>
+<span class="sourceLineNo">045</span> * Partitioner effecting a total order by reading split points from<a name="line.45"></a>
+<span class="sourceLineNo">046</span> * an externally generated source.<a name="line.46"></a>
+<span class="sourceLineNo">047</span> */<a name="line.47"></a>
+<span class="sourceLineNo">048</span>@InterfaceAudience.Public<a name="line.48"></a>
+<span class="sourceLineNo">049</span>@InterfaceStability.Stable<a name="line.49"></a>
+<span class="sourceLineNo">050</span>public class TotalOrderPartitioner&lt;K extends WritableComparable&lt;?&gt;,V&gt;<a name="line.50"></a>
+<span class="sourceLineNo">051</span>    extends Partitioner&lt;K,V&gt; implements Configurable {<a name="line.51"></a>
+<span class="sourceLineNo">052</span><a name="line.52"></a>
+<span class="sourceLineNo">053</span>  private Node partitions;<a name="line.53"></a>
+<span class="sourceLineNo">054</span>  public static final String DEFAULT_PATH = "_partition.lst";<a name="line.54"></a>
+<span class="sourceLineNo">055</span>  public static final String PARTITIONER_PATH = <a name="line.55"></a>
+<span class="sourceLineNo">056</span>    "mapreduce.totalorderpartitioner.path";<a name="line.56"></a>
+<span class="sourceLineNo">057</span>  public static final String MAX_TRIE_DEPTH = <a name="line.57"></a>
+<span class="sourceLineNo">058</span>    "mapreduce.totalorderpartitioner.trie.maxdepth"; <a name="line.58"></a>
+<span class="sourceLineNo">059</span>  public static final String NATURAL_ORDER = <a name="line.59"></a>
+<span class="sourceLineNo">060</span>    "mapreduce.totalorderpartitioner.naturalorder";<a name="line.60"></a>
+<span class="sourceLineNo">061</span>  Configuration conf;<a name="line.61"></a>
+<span class="sourceLineNo">062</span>  private static final Log LOG = LogFactory.getLog(TotalOrderPartitioner.class);<a name="line.62"></a>
+<span class="sourceLineNo">063</span><a name="line.63"></a>
+<span class="sourceLineNo">064</span>  public TotalOrderPartitioner() { }<a name="line.64"></a>
+<span class="sourceLineNo">065</span><a name="line.65"></a>
+<span class="sourceLineNo">066</span>  /**<a name="line.66"></a>
+<span class="sourceLineNo">067</span>   * Read in the partition file and build indexing data structures.<a name="line.67"></a>
+<span class="sourceLineNo">068</span>   * If the keytype is {@link org.apache.hadoop.io.BinaryComparable} and<a name="line.68"></a>
+<span class="sourceLineNo">069</span>   * &lt;tt&gt;total.order.partitioner.natural.order&lt;/tt&gt; is not false, a trie<a name="line.69"></a>
+<span class="sourceLineNo">070</span>   * of the first &lt;tt&gt;total.order.partitioner.max.trie.depth&lt;/tt&gt;(2) + 1 bytes<a name="line.70"></a>
+<span class="sourceLineNo">071</span>   * will be built. Otherwise, keys will be located using a binary search of<a name="line.71"></a>
+<span class="sourceLineNo">072</span>   * the partition keyset using the {@link org.apache.hadoop.io.RawComparator}<a name="line.72"></a>
+<span class="sourceLineNo">073</span>   * defined for this job. The input file must be sorted with the same<a name="line.73"></a>
+<span class="sourceLineNo">074</span>   * comparator and contain {@link Job#getNumReduceTasks()} - 1 keys.<a name="line.74"></a>
+<span class="sourceLineNo">075</span>   */<a name="line.75"></a>
+<span class="sourceLineNo">076</span>  @SuppressWarnings("unchecked") // keytype from conf not static<a name="line.76"></a>
+<span class="sourceLineNo">077</span>  public void setConf(Configuration conf) {<a name="line.77"></a>
+<span class="sourceLineNo">078</span>    try {<a name="line.78"></a>
+<span class="sourceLineNo">079</span>      this.conf = conf;<a name="line.79"></a>
+<span class="sourceLineNo">080</span>      String parts = getPartitionFile(conf);<a name="line.80"></a>
+<span class="sourceLineNo">081</span>      final Path partFile = new Path(parts);<a name="line.81"></a>
+<span class="sourceLineNo">082</span>      final FileSystem fs = (DEFAULT_PATH.equals(parts))<a name="line.82"></a>
+<span class="sourceLineNo">083</span>        ? FileSystem.getLocal(conf)     // assume in DistributedCache<a name="line.83"></a>
+<span class="sourceLineNo">084</span>        : partFile.getFileSystem(conf);<a name="line.84"></a>
+<span class="sourceLineNo">085</span><a name="line.85"></a>
+<span class="sourceLineNo">086</span>      Job job = new Job(conf);<a name="line.86"></a>
+<span class="sourceLineNo">087</span>      Class&lt;K&gt; keyClass = (Class&lt;K&gt;)job.getMapOutputKeyClass();<a name="line.87"></a>
+<span class="sourceLineNo">088</span>      K[] splitPoints = readPartitions(fs, partFile, keyClass, conf);<a name="line.88"></a>
+<span class="sourceLineNo">089</span>      if (splitPoints.length != job.getNumReduceTasks() - 1) {<a name="line.89"></a>
+<span class="sourceLineNo">090</span>        throw new IOException("Wrong number of partitions in keyset");<a name="line.90"></a>
+<span class="sourceLineNo">091</span>      }<a name="line.91"></a>
+<span class="sourceLineNo">092</span>      RawComparator&lt;K&gt; comparator =<a name="line.92"></a>
+<span class="sourceLineNo">093</span>        (RawComparator&lt;K&gt;) job.getSortComparator();<a name="line.93"></a>
+<span class="sourceLineNo">094</span>      for (int i = 0; i &lt; splitPoints.length - 1; ++i) {<a name="line.94"></a>
+<span class="sourceLineNo">095</span>        if (comparator.compare(splitPoints[i], splitPoints[i+1]) &gt;= 0) {<a name="line.95"></a>
+<span class="sourceLineNo">096</span>          throw new IOException("Split points are out of order");<a name="line.96"></a>
+<span class="sourceLineNo">097</span>        }<a name="line.97"></a>
+<span class="sourceLineNo">098</span>      }<a name="line.98"></a>
+<span class="sourceLineNo">099</span>      boolean natOrder =<a name="line.99"></a>
+<span class="sourceLineNo">100</span>        conf.getBoolean(NATURAL_ORDER, true);<a name="line.100"></a>
+<span class="sourceLineNo">101</span>      if (natOrder &amp;&amp; BinaryComparable.class.isAssignableFrom(keyClass)) {<a name="line.101"></a>
+<span class="sourceLineNo">102</span>        partitions = buildTrie((BinaryComparable[])splitPoints, 0,<a name="line.102"></a>
+<span class="sourceLineNo">103</span>            splitPoints.length, new byte[0],<a name="line.103"></a>
+<span class="sourceLineNo">104</span>            // Now that blocks of identical splitless trie nodes are <a name="line.104"></a>
+<span class="sourceLineNo">105</span>            // represented reentrantly, and we develop a leaf for any trie<a name="line.105"></a>
+<span class="sourceLineNo">106</span>            // node with only one split point, the only reason for a depth<a name="line.106"></a>
+<span class="sourceLineNo">107</span>            // limit is to refute stack overflow or bloat in the pathological<a name="line.107"></a>
+<span class="sourceLineNo">108</span>            // case where the split points are long and mostly look like bytes <a name="line.108"></a>
+<span class="sourceLineNo">109</span>            // iii...iixii...iii   .  Therefore, we make the default depth<a name="line.109"></a>
+<span class="sourceLineNo">110</span>            // limit large but not huge.<a name="line.110"></a>
+<span class="sourceLineNo">111</span>            conf.getInt(MAX_TRIE_DEPTH, 200));<a name="line.111"></a>
+<span class="sourceLineNo">112</span>      } else {<a name="line.112"></a>
+<span class="sourceLineNo">113</span>        partitions = new BinarySearchNode(splitPoints, comparator);<a name="line.113"></a>
+<span class="sourceLineNo">114</span>      }<a name="line.114"></a>
+<span class="sourceLineNo">115</span>    } catch (IOException e) {<a name="line.115"></a>
+<span class="sourceLineNo">116</span>      throw new IllegalArgumentException("Can't read partitions file", e);<a name="line.116"></a>
+<span class="sourceLineNo">117</span>    }<a name="line.117"></a>
+<span class="sourceLineNo">118</span>  }<a name="line.118"></a>
+<span class="sourceLineNo">119</span><a name="line.119"></a>
+<span class="sourceLineNo">120</span>  public Configuration getConf() {<a name="line.120"></a>
+<span class="sourceLineNo">121</span>    return conf;<a name="line.121"></a>
+<span class="sourceLineNo">122</span>  }<a name="line.122"></a>
+<span class="sourceLineNo">123</span>  <a name="line.123"></a>
+<span class="sourceLineNo">124</span>  // by construction, we know if our keytype<a name="line.124"></a>
+<span class="sourceLineNo">125</span>  @SuppressWarnings("unchecked") // is memcmp-able and uses the trie<a name="line.125"></a>
+<span class="sourceLineNo">126</span>  public int getPartition(K key, V value, int numPartitions) {<a name="line.126"></a>
+<span class="sourceLineNo">127</span>    return partitions.findPartition(key);<a name="line.127"></a>
+<span class="sourceLineNo">128</span>  }<a name="line.128"></a>
+<span class="sourceLineNo">129</span><a name="line.129"></a>
+<span class="sourceLineNo">130</span>  /**<a name="line.130"></a>
+<span class="sourceLineNo">131</span>   * Set the path to the SequenceFile storing the sorted partition keyset.<a name="line.131"></a>
+<span class="sourceLineNo">132</span>   * It must be the case that for &lt;tt&gt;R&lt;/tt&gt; reduces, there are &lt;tt&gt;R-1&lt;/tt&gt;<a name="line.132"></a>
+<span class="sourceLineNo">133</span>   * keys in the SequenceFile.<a name="line.133"></a>
+<span class="sourceLineNo">134</span>   */<a name="line.134"></a>
+<span class="sourceLineNo">135</span>  public static void setPartitionFile(Configuration conf, Path p) {<a name="line.135"></a>
+<span class="sourceLineNo">136</span>    conf.set(PARTITIONER_PATH, p.toString());<a name="line.136"></a>
+<span class="sourceLineNo">137</span>  }<a name="line.137"></a>
+<span class="sourceLineNo">138</span><a name="line.138"></a>
+<span class="sourceLineNo">139</span>  /**<a name="line.139"></a>
+<span class="sourceLineNo">140</span>   * Get the path to the SequenceFile storing the sorted partition keyset.<a name="line.140"></a>
+<span class="sourceLineNo">141</span>   * @see #setPartitionFile(Configuration, Path)<a name="line.141"></a>
+<span class="sourceLineNo">142</span>   */<a name="line.142"></a>
+<span class="sourceLineNo">143</span>  public static String getPartitionFile(Configuration conf) {<a name="line.143"></a>
+<span class="sourceLineNo">144</span>    return conf.get(PARTITIONER_PATH, DEFAULT_PATH);<a name="line.144"></a>
+<span class="sourceLineNo">145</span>  }<a name="line.145"></a>
+<span class="sourceLineNo">146</span><a name="line.146"></a>
+<span class="sourceLineNo">147</span>  /**<a name="line.147"></a>
+<span class="sourceLineNo">148</span>   * Interface to the partitioner to locate a key in the partition keyset.<a name="line.148"></a>
+<span class="sourceLineNo">149</span>   */<a name="line.149"></a>
+<span class="sourceLineNo">150</span>  interface Node&lt;T&gt; {<a name="line.150"></a>
+<span class="sourceLineNo">151</span>    /**<a name="line.151"></a>
+<span class="sourceLineNo">152</span>     * Locate partition in keyset K, st [Ki..Ki+1) defines a partition,<a name="line.152"></a>
+<span class="sourceLineNo">153</span>     * with implicit K0 = -inf, Kn = +inf, and |K| = #partitions - 1.<a name="line.153"></a>
+<span class="sourceLineNo">154</span>     */<a name="line.154"></a>
+<span class="sourceLineNo">155</span>    int findPartition(T key);<a name="line.155"></a>
+<span class="sourceLineNo">156</span>  }<a name="line.156"></a>
+<span class="sourceLineNo">157</span><a name="line.157"></a>
+<span class="sourceLineNo">158</span>  /**<a name="line.158"></a>
+<span class="sourceLineNo">159</span>   * Base class for trie nodes. If the keytype is memcomp-able, this builds<a name="line.159"></a>
+<span class="sourceLineNo">160</span>   * tries of the first &lt;tt&gt;total.order.partitioner.max.trie.depth&lt;/tt&gt;<a name="line.160"></a>
+<span class="sourceLineNo">161</span>   * bytes.<a name="line.161"></a>
+<span class="sourceLineNo">162</span>   */<a name="line.162"></a>
+<span class="sourceLineNo">163</span>  static abstract class TrieNode implements Node&lt;BinaryComparable&gt; {<a name="line.163"></a>
+<span class="sourceLineNo">164</span>    private final int level;<a name="line.164"></a>
+<span class="sourceLineNo">165</span>    TrieNode(int level) {<a name="line.165"></a>
+<span class="sourceLineNo">166</span>      this.level = level;<a name="line.166"></a>
+<span class="sourceLineNo">167</span>    }<a name="line.167"></a>
+<span class="sourceLineNo">168</span>    int getLevel() {<a name="line.168"></a>
+<span class="sourceLineNo">169</span>      return level;<a name="line.169"></a>
+<span class="sourceLineNo">170</span>    }<a name="line.170"></a>
+<span class="sourceLineNo">171</span>  }<a name="line.171"></a>
+<span class="sourceLineNo">172</span><a name="line.172"></a>
+<span class="sourceLineNo">173</span>  /**<a name="line.173"></a>
+<span class="sourceLineNo">174</span>   * For types that are not {@link org.apache.hadoop.io.BinaryComparable} or<a name="line.174"></a>
+<span class="sourceLineNo">175</span>   * where disabled by &lt;tt&gt;total.order.partitioner.natural.order&lt;/tt&gt;,<a name="line.175"></a>
+<span class="sourceLineNo">176</span>   * search the partition keyset with a binary search.<a name="line.176"></a>
+<span class="sourceLineNo">177</span>   */<a name="line.177"></a>
+<span class="sourceLineNo">178</span>  class BinarySearchNode implements Node&lt;K&gt; {<a name="line.178"></a>
+<span class="sourceLineNo">179</span>    private final K[] splitPoints;<a name="line.179"></a>
+<span class="sourceLineNo">180</span>    private final RawComparator&lt;K&gt; comparator;<a name="line.180"></a>
+<span class="sourceLineNo">181</span>    BinarySearchNode(K[] splitPoints, RawComparator&lt;K&gt; comparator) {<a name="line.181"></a>
+<span class="sourceLineNo">182</span>      this.splitPoints = splitPoints;<a name="line.182"></a>
+<span class="sourceLineNo">183</span>      this.comparator = comparator;<a name="line.183"></a>
+<span class="sourceLineNo">184</span>    }<a name="line.184"></a>
+<span class="sourceLineNo">185</span>    public int findPartition(K key) {<a name="line.185"></a>
+<span class="sourceLineNo">186</span>      final int pos = Arrays.binarySearch(splitPoints, key, comparator) + 1;<a name="line.186"></a>
+<span class="sourceLineNo">187</span>      return (pos &lt; 0) ? -pos : pos;<a name="line.187"></a>
+<span class="sourceLineNo">188</span>    }<a name="line.188"></a>
+<span class="sourceLineNo">189</span>  }<a name="line.189"></a>
+<span class="sourceLineNo">190</span><a name="line.190"></a>
+<span class="sourceLineNo">191</span>  /**<a name="line.191"></a>
+<span class="sourceLineNo">192</span>   * An inner trie node that contains 256 children based on the next<a name="line.192"></a>
+<span class="sourceLineNo">193</span>   * character.<a name="line.193"></a>
+<span class="sourceLineNo">194</span>   */<a name="line.194"></a>
+<span class="sourceLineNo">195</span>  class InnerTrieNode extends TrieNode {<a name="line.195"></a>
+<span class="sourceLineNo">196</span>    private TrieNode[] child = new TrieNode[256];<a name="line.196"></a>
+<span class="sourceLineNo">197</span><a name="line.197"></a>
+<span class="sourceLineNo">198</span>    InnerTrieNode(int level) {<a name="line.198"></a>
+<span class="sourceLineNo">199</span>      super(level);<a name="line.199"></a>
+<span class="sourceLineNo">200</span>    }<a name="line.200"></a>
+<span class="sourceLineNo">201</span>    public int findPartition(BinaryComparable key) {<a name="line.201"></a>
+<span class="sourceLineNo">202</span>      int level = getLevel();<a name="line.202"></a>
+<span class="sourceLineNo">203</span>      if (key.getLength() &lt;= level) {<a name="line.203"></a>
+<span class="sourceLineNo">204</span>        return child[0].findPartition(key);<a name="line.204"></a>
+<span class="sourceLineNo">205</span>      }<a name="line.205"></a>
+<span class="sourceLineNo">206</span>      return child[0xFF &amp; key.getBytes()[level]].findPartition(key);<a name="line.206"></a>
+<span class="sourceLineNo">207</span>    }<a name="line.207"></a>
+<span class="sourceLineNo">208</span>  }<a name="line.208"></a>
+<span class="sourceLineNo">209</span>  <a name="line.209"></a>
+<span class="sourceLineNo">210</span>  /**<a name="line.210"></a>
+<span class="sourceLineNo">211</span>   * @param level        the tree depth at this node<a name="line.211"></a>
+<span class="sourceLineNo">212</span>   * @param splitPoints  the full split point vector, which holds<a name="line.212"></a>
+<span class="sourceLineNo">213</span>   *                     the split point or points this leaf node<a name="line.213"></a>
+<span class="sourceLineNo">214</span>   *                     should contain<a name="line.214"></a>
+<span class="sourceLineNo">215</span>   * @param lower        first INcluded element of splitPoints<a name="line.215"></a>
+<span class="sourceLineNo">216</span>   * @param upper        first EXcluded element of splitPoints<a name="line.216"></a>
+<span class="sourceLineNo">217</span>   * @return  a leaf node.  They come in three kinds: no split points <a name="line.217"></a>
+<span class="sourceLineNo">218</span>   *          [and the findParttion returns a canned index], one split<a name="line.218"></a>
+<span class="sourceLineNo">219</span>   *          point [and we compare with a single comparand], or more<a name="line.219"></a>
+<span class="sourceLineNo">220</span>   *          than one [and we do a binary search].  The last case is<a name="line.220"></a>
+<span class="sourceLineNo">221</span>   *          rare.<a name="line.221"></a>
+<span class="sourceLineNo">222</span>   */<a name="line.222"></a>
+<span class="sourceLineNo">223</span>  private TrieNode LeafTrieNodeFactory<a name="line.223"></a>
+<span class="sourceLineNo">224</span>             (int level, BinaryComparable[] splitPoints, int lower, int upper) {<a name="line.224"></a>
+<span class="sourceLineNo">225</span>      switch (upper - lower) {<a name="line.225"></a>
+<span class="sourceLineNo">226</span>      case 0:<a name="line.226"></a>
+<span class="sourceLineNo">227</span>          return new UnsplitTrieNode(level, lower);<a name="line.227"></a>
+<span class="sourceLineNo">228</span>          <a name="line.228"></a>
+<span class="sourceLineNo">229</span>      case 1:<a name="line.229"></a>
+<span class="sourceLineNo">230</span>          return new SinglySplitTrieNode(level, splitPoints, lower);<a name="line.230"></a>
+<span class="sourceLineNo">231</span>          <a name="line.231"></a>
+<span class="sourceLineNo">232</span>      default:<a name="line.232"></a>
+<span class="sourceLineNo">233</span>          return new LeafTrieNode(level, splitPoints, lower, upper);<a name="line.233"></a>
+<span class="sourceLineNo">234</span>      }<a name="line.234"></a>
+<span class="sourceLineNo">235</span>  }<a name="line.235"></a>
+<span class="sourceLineNo">236</span><a name="line.236"></a>
+<span class="sourceLineNo">237</span>  /**<a name="line.237"></a>
+<span class="sourceLineNo">238</span>   * A leaf trie node that scans for the key between lower..upper.<a name="line.238"></a>
+<span class="sourceLineNo">239</span>   * <a name="line.239"></a>
+<span class="sourceLineNo">240</span>   * We don't generate many of these now, since we usually continue trie-ing <a name="line.240"></a>
+<span class="sourceLineNo">241</span>   * when more than one split point remains at this level. and we make different<a name="line.241"></a>
+<span class="sourceLineNo">242</span>   * objects for nodes with 0 or 1 split point.<a name="line.242"></a>
+<span class="sourceLineNo">243</span>   */<a name="line.243"></a>
+<span class="sourceLineNo">244</span>  private class LeafTrieNode extends TrieNode {<a name="line.244"></a>
+<span class="sourceLineNo">245</span>    final int lower;<a name="line.245"></a>
+<span class="sourceLineNo">246</span>    final int upper;<a name="line.246"></a>
+<span class="sourceLineNo">247</span>    final BinaryComparable[] splitPoints;<a name="line.247"></a>
+<span class="sourceLineNo">248</span>    LeafTrieNode(int level, BinaryComparable[] splitPoints, int lower, int upper) {<a name="line.248"></a>
+<span class="sourceLineNo">249</span>      super(level);<a name="line.249"></a>
+<span class="sourceLineNo">250</span>      this.lower = lower;<a name="line.250"></a>
+<span class="sourceLineNo">251</span>      this.upper = upper;<a name="line.251"></a>
+<span class="sourceLineNo">252</span>      this.splitPoints = splitPoints;<a name="line.252"></a>
+<span class="sourceLineNo">253</span>    }<a name="line.253"></a>
+<span class="sourceLineNo">254</span>    public int findPartition(BinaryComparable key) {<a name="line.254"></a>
+<span class="sourceLineNo">255</span>      final int pos = Arrays.binarySearch(splitPoints, lower, upper, key) + 1;<a name="line.255"></a>
+<span class="sourceLineNo">256</span>      return (pos &lt; 0) ? -pos : pos;<a name="line.256"></a>
+<span class="sourceLineNo">257</span>    }<a name="line.257"></a>
+<span class="sourceLineNo">258</span>  }<a name="line.258"></a>
+<span class="sourceLineNo">259</span>  <a name="line.259"></a>
+<span class="sourceLineNo">260</span>  private class UnsplitTrieNode extends TrieNode {<a name="line.260"></a>
+<span class="sourceLineNo">261</span>      final int result;<a name="line.261"></a>
+<span class="sourceLineNo">262</span>      <a name="line.262"></a>
+<span class="sourceLineNo">263</span>      UnsplitTrieNode(int level, int value) {<a name="line.263"></a>
+<span class="sourceLineNo">264</span>          super(level);<a name="line.264"></a>
+<span class="sourceLineNo">265</span>          this.result = value;<a name="line.265"></a>
+<span class="sourceLineNo">266</span>      }<a name="line.266"></a>
+<span class="sourceLineNo">267</span>      <a name="line.267"></a>
+<span class="sourceLineNo">268</span>      public int findPartition(BinaryComparable key) {<a name="line.268"></a>
+<span class="sourceLineNo">269</span>          return result;<a name="line.269"></a>
+<span class="sourceLineNo">270</span>      }<a name="line.270"></a>
+<span class="sourceLineNo">271</span>  }<a name="line.271"></a>
+<span class="sourceLineNo">272</span>  <a name="line.272"></a>
+<span class="sourceLineNo">273</span>  private class SinglySplitTrieNode extends TrieNode {<a name="line.273"></a>
+<span class="sourceLineNo">274</span>      final int               lower;<a name="line.274"></a>
+<span class="sourceLineNo">275</span>      final BinaryComparable  mySplitPoint;<a name="line.275"></a>
+<span class="sourceLineNo">276</span>      <a name="line.276"></a>
+<span class="sourceLineNo">277</span>      SinglySplitTrieNode(int level, BinaryComparable[] splitPoints, int lower) {<a name="line.277"></a>
+<span class="sourceLineNo">278</span>          super(level);<a name="line.278"></a>
+<span class="sourceLineNo">279</span>          this.lower = lower;<a name="line.279"></a>
+<span class="sourceLineNo">280</span>          this.mySplitPoint = splitPoints[lower];<a name="line.280"></a>
+<span class="sourceLineNo">281</span>      }<a name="line.281"></a>
+<span class="sourceLineNo">282</span>      <a name="line.282"></a>
+<span class="sourceLineNo">283</span>      public int findPartition(BinaryComparable key) {<a name="line.283"></a>
+<span class="sourceLineNo">284</span>          return lower + (key.compareTo(mySplitPoint) &lt; 0 ? 0 : 1);<a name="line.284"></a>
+<span class="sourceLineNo">285</span>      }<a name="line.285"></a>
+<span class="sourceLineNo">286</span>  }<a name="line.286"></a>
+<span class="sourceLineNo">287</span><a name="line.287"></a>
+<span class="sourceLineNo">288</span><a name="line.288"></a>
+<span class="sourceLineNo">289</span>  /**<a name="line.289"></a>
+<span class="sourceLineNo">290</span>   * Read the cut points from the given IFile.<a name="line.290"></a>
+<span class="sourceLineNo">291</span>   * @param fs The file system<a name="line.291"></a>
+<span class="sourceLineNo">292</span>   * @param p The path to read<a name="line.292"></a>
+<span class="sourceLineNo">293</span>   * @param keyClass The map output key class<a name="line.293"></a>
+<span class="sourceLineNo">294</span>   * @param job The job config<a name="line.294"></a>
+<span class="sourceLineNo">295</span>   * @throws IOException<a name="line.295"></a>
+<span class="sourceLineNo">296</span>   */<a name="line.296"></a>
+<span class="sourceLineNo">297</span>                                 // matching key types enforced by passing in<a name="line.297"></a>
+<span class="sourceLineNo">298</span>  @SuppressWarnings("unchecked") // map output key class<a name="line.298"></a>
+<span class="sourceLineNo">299</span>  private K[] readPartitions(FileSystem fs, Path p, Class&lt;K&gt; keyClass,<a name="line.299"></a>
+<span class="sourceLineNo">300</span>      Configuration conf) throws IOException {<a name="line.300"></a>
+<span class="sourceLineNo">301</span>    SequenceFile.Reader reader = new SequenceFile.Reader(fs, p, conf);<a name="line.301"></a>
+<span class="sourceLineNo">302</span>    ArrayList&lt;K&gt; parts = new ArrayList&lt;K&gt;();<a name="line.302"></a>
+<span class="sourceLineNo">303</span>    K key = ReflectionUtils.newInstance(keyClass, conf);<a name="line.303"></a>
+<span class="sourceLineNo">304</span>    NullWritable value = NullWritable.get();<a name="line.304"></a>
+<span class="sourceLineNo">305</span>    try {<a name="line.305"></a>
+<span class="sourceLineNo">306</span>      while (reader.next(key, value)) {<a name="line.306"></a>
+<span class="sourceLineNo">307</span>        parts.add(key);<a name="line.307"></a>
+<span class="sourceLineNo">308</span>        key = ReflectionUtils.newInstance(keyClass, conf);<a name="line.308"></a>
+<span class="sourceLineNo">309</span>      }<a name="line.309"></a>
+<span class="sourceLineNo">310</span>      reader.close();<a name="line.310"></a>
+<span class="sourceLineNo">311</span>      reader = null;<a name="line.311"></a>
+<span class="sourceLineNo">312</span>    } finally {<a name="line.312"></a>
+<span class="sourceLineNo">313</span>      IOUtils.cleanup(LOG, reader);<a name="line.313"></a>
+<span class="sourceLineNo">314</span>    }<a name="line.314"></a>
+<span class="sourceLineNo">315</span>    return parts.toArray((K[])Array.newInstance(keyClass, parts.size()));<a name="line.315"></a>
+<span class="sourceLineNo">316</span>  }<a name="line.316"></a>
+<span class="sourceLineNo">317</span>  <a name="line.317"></a>
+<span class="sourceLineNo">318</span>  /**<a name="line.318"></a>
+<span class="sourceLineNo">319</span>   * <a name="line.319"></a>
+<span class="sourceLineNo">320</span>   * This object contains a TrieNodeRef if there is such a thing that<a name="line.320"></a>
+<span class="sourceLineNo">321</span>   * can be repeated.  Two adjacent trie node slots that contain no <a name="line.321"></a>
+<span class="sourceLineNo">322</span>   * split points can be filled with the same trie node, even if they<a name="line.322"></a>
+<span class="sourceLineNo">323</span>   * are not on the same level.  See buildTreeRec, below.<a name="line.323"></a>
+<span class="sourceLineNo">324</span>   *<a name="line.324"></a>
+<span class="sourceLineNo">325</span>   */  <a name="line.325"></a>
+<span class="sourceLineNo">326</span>  private class CarriedTrieNodeRef<a name="line.326"></a>
+<span class="sourceLineNo">327</span>  {<a name="line.327"></a>
+<span class="sourceLineNo">328</span>      TrieNode   content;<a name="line.328"></a>
+<span class="sourceLineNo">329</span>      <a name="line.329"></a>
+<span class="sourceLineNo">330</span>      CarriedTrieNodeRef() {<a name="line.330"></a>
+<span class="sourceLineNo">331</span>          content = null;<a name="line.331"></a>
+<span class="sourceLineNo">332</span>      }<a name="line.332"></a>
+<span class="sourceLineNo">333</span>  }<a name="line.333"></a>
+<span class="sourceLineNo">334</span><a name="line.334"></a>
+<span class="sourceLineNo">335</span>  <a name="line.335"></a>
+<span class="sourceLineNo">336</span>  /**<a name="line.336"></a>
+<span class="sourceLineNo">337</span>   * Given a sorted set of cut points, build a trie that will find the correct<a name="line.337"></a>
+<span class="sourceLineNo">338</span>   * partition quickly.<a name="line.338"></a>
+<span class="sourceLineNo">339</span>   * @param splits the list of cut points<a name="line.339"></a>
+<span class="sourceLineNo">340</span>   * @param lower the lower bound of partitions 0..numPartitions-1<a name="line.340"></a>
+<span class="sourceLineNo">341</span>   * @param upper the upper bound of partitions 0..numPartitions-1<a name="line.341"></a>
+<span class="sourceLineNo">342</span>   * @param prefix the prefix that we have already checked against<a name="line.342"></a>
+<span class="sourceLineNo">343</span>   * @param maxDepth the maximum depth we will build a trie for<a name="line.343"></a>
+<span class="sourceLineNo">344</span>   * @return the trie node that will divide the splits correctly<a name="line.344"></a>
+<span class="sourceLineNo">345</span>   */<a name="line.345"></a>
+<span class="sourceLineNo">346</span>  private TrieNode buildTrie(BinaryComparable[] splits, int lower,<a name="line.346"></a>
+<span class="sourceLineNo">347</span>          int upper, byte[] prefix, int maxDepth) {<a name="line.347"></a>
+<span class="sourceLineNo">348</span>      return buildTrieRec<a name="line.348"></a>
+<span class="sourceLineNo">349</span>               (splits, lower, upper, prefix, maxDepth, new CarriedTrieNodeRef());<a name="line.349"></a>
+<span class="sourceLineNo">350</span>  }<a name="line.350"></a>
+<span class="sourceLineNo">351</span>  <a name="line.351"></a>
+<span class="sourceLineNo">352</span>  /**<a name="line.352"></a>
+<span class="sourceLineNo">353</span>   * This is the core of buildTrie.  The interface, and stub, above, just adds<a name="line.353"></a>
+<span class="sourceLineNo">354</span>   * an empty CarriedTrieNodeRef.  <a name="line.354"></a>
+<span class="sourceLineNo">355</span>   * <a name="line.355"></a>
+<span class="sourceLineNo">356</span>   * We build trie nodes in depth first order, which is also in key space<a name="line.356"></a>
+<span class="sourceLineNo">357</span>   * order.  Every leaf node is referenced as a slot in a parent internal<a name="line.357"></a>
+<span class="sourceLineNo">358</span>   * node.  If two adjacent slots [in the DFO] hold leaf nodes that have<a name="line.358"></a>
+<span class="sourceLineNo">359</span>   * no split point, then they are not separated by a split point either, <a name="line.359"></a>
+<span class="sourceLineNo">360</span>   * because there's no place in key space for that split point to exist.<a name="line.360"></a>
+<span class="sourceLineNo">361</span>   * <a name="line.361"></a>
+<span class="sourceLineNo">362</span>   * When that happens, the leaf nodes would be semantically identical, and<a name="line.362"></a>
+<span class="sourceLineNo">363</span>   * we reuse the object.  A single CarriedTrieNodeRef "ref" lives for the <a name="line.363"></a>
+<span class="sourceLineNo">364</span>   * duration of the tree-walk.  ref carries a potentially reusable, unsplit<a name="line.364"></a>
+<span class="sourceLineNo">365</span>   * leaf node for such reuse until a leaf node with a split arises, which <a name="line.365"></a>
+<span class="sourceLineNo">366</span>   * breaks the chain until we need to make a new unsplit leaf node.<a name="line.366"></a>
+<span class="sourceLineNo">367</span>   * <a name="line.367"></a>
+<span class="sourceLineNo">368</span>   * Note that this use of CarriedTrieNodeRef means that for internal nodes, <a name="line.368"></a>
+<span class="sourceLineNo">369</span>   * for internal nodes if this code is modified in any way we still need <a name="line.369"></a>
+<span class="sourceLineNo">370</span>   * to make or fill in the subnodes in key space order.<a name="line.370"></a>
+<span class="sourceLineNo">371</span>   */<a name="line.371"></a>
+<span class="sourceLineNo">372</span>  private TrieNode buildTrieRec(BinaryComparable[] splits, int lower,<a name="line.372"></a>
+<span class="sourceLineNo">373</span>      int upper, byte[] prefix, int maxDepth, CarriedTrieNodeRef ref) {<a name="line.373"></a>
+<span class="sourceLineNo">374</span>    final int depth = prefix.length;<a name="line.374"></a>
+<span class="sourceLineNo">375</span>    // We generate leaves for a single split point as well as for <a name="line.375"></a>
+<span class="sourceLineNo">376</span>    // no split points.<a name="line.376"></a>
+<span class="sourceLineNo">377</span>    if (depth &gt;= maxDepth || lower &gt;= upper - 1) {<a name="line.377"></a>
+<span class="sourceLineNo">378</span>        // If we have two consecutive requests for an unsplit trie node, we<a name="line.378"></a>
+<span class="sourceLineNo">379</span>        // can deliver the same one the second time.<a name="line.379"></a>
+<span class="sourceLineNo">380</span>        if (lower == upper &amp;&amp; ref.content != null) {<a name="line.380"></a>
+<span class="sourceLineNo">381</span>            return ref.content;<a name="line.381"></a>
+<span class="sourceLineNo">382</span>        }<a name="line.382"></a>
+<span class="sourceLineNo">383</span>        TrieNode  result = LeafTrieNodeFactory(depth, splits, lower, upper);<a name="line.383"></a>
+<span class="sourceLineNo">384</span>        ref.content = lower == upper ? result : null;<a name="line.384"></a>
+<span class="sourceLineNo">385</span>        return result;<a name="line.385"></a>
+<span class="sourceLineNo">386</span>    }<a name="line.386"></a>
+<span class="sourceLineNo">387</span>    InnerTrieNode result = new InnerTrieNode(depth);<a name="line.387"></a>
+<span class="sourceLineNo">388</span>    byte[] trial = Arrays.copyOf(prefix, prefix.length + 1);<a name="line.388"></a>
+<span class="sourceLineNo">389</span>    // append an extra byte on to the prefix<a name="line.389"></a>
+<span class="sourceLineNo">390</span>    int         currentBound = lower;<a name="line.390"></a>
+<span class="sourceLineNo">391</span>    for(int ch = 0; ch &lt; 0xFF; ++ch) {<a name="line.391"></a>
+<span class="sourceLineNo">392</span>      trial[depth] = (byte) (ch + 1);<a name="line.392"></a>
+<span class="sourceLineNo">393</span>      lower = currentBound;<a name="line.393"></a>
+<span class="sourceLineNo">394</span>      while (currentBound &lt; upper) {<a name="line.394"></a>
+<span class="sourceLineNo">395</span>        if (splits[currentBound].compareTo(trial, 0, trial.length) &gt;= 0) {<a name="line.395"></a>
+<span class="sourceLineNo">396</span>          break;<a name="line.396"></a>
+<span class="sourceLineNo">397</span>        }<a name="line.397"></a>
+<span class="sourceLineNo">398</span>        currentBound += 1;<a name="line.398"></a>
+<span class="sourceLineNo">399</span>      }<a name="line.399"></a>
+<span class="sourceLineNo">400</span>      trial[depth] = (byte) ch;<a name="line.400"></a>
+<span class="sourceLineNo">401</span>      result.child[0xFF &amp; ch]<a name="line.401"></a>
+<span class="sourceLineNo">402</span>                   = buildTrieRec(splits, lower, currentBound, trial, maxDepth, ref);<a name="line.402"></a>
+<span class="sourceLineNo">403</span>    }<a name="line.403"></a>
+<span class="sourceLineNo">404</span>    // pick up the rest<a name="line.404"></a>
+<span class="sourceLineNo">405</span>    trial[depth] = (byte)0xFF;<a name="line.405"></a>
+<span class="sourceLineNo">406</span>    result.child[0xFF] <a name="line.406"></a>
+<span class="sourceLineNo">407</span>                 = buildTrieRec(splits, lower, currentBound, trial, maxDepth, ref);<a name="line.407"></a>
+<span class="sourceLineNo">408</span>    <a name="line.408"></a>
+<span class="sourceLineNo">409</span>    return result;<a name="line.409"></a>
+<span class="sourceLineNo">410</span>  }<a name="line.410"></a>
+<span class="sourceLineNo">411</span>}<a name="line.411"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>

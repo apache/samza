@@ -1,0 +1,540 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/**<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Licensed to the Apache Software Foundation (ASF) under one<a name="line.2"></a>
+<span class="sourceLineNo">003</span> * or more contributor license agreements.  See the NOTICE file<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * distributed with this work for additional information<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * regarding copyright ownership.  The ASF licenses this file<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * to you under the Apache License, Version 2.0 (the<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * "License"); you may not use this file except in compliance<a name="line.7"></a>
+<span class="sourceLineNo">008</span> * with the License.  You may obtain a copy of the License at<a name="line.8"></a>
+<span class="sourceLineNo">009</span> *<a name="line.9"></a>
+<span class="sourceLineNo">010</span> *     http://www.apache.org/licenses/LICENSE-2.0<a name="line.10"></a>
+<span class="sourceLineNo">011</span> *<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * Unless required by applicable law or agreed to in writing, software<a name="line.12"></a>
+<span class="sourceLineNo">013</span> * distributed under the License is distributed on an "AS IS" BASIS,<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * See the License for the specific language governing permissions and<a name="line.15"></a>
+<span class="sourceLineNo">016</span> * limitations under the License.<a name="line.16"></a>
+<span class="sourceLineNo">017</span> */<a name="line.17"></a>
+<span class="sourceLineNo">018</span><a name="line.18"></a>
+<span class="sourceLineNo">019</span>package org.apache.hadoop.yarn.api.records.timeline;<a name="line.19"></a>
+<span class="sourceLineNo">020</span><a name="line.20"></a>
+<span class="sourceLineNo">021</span>import java.util.ArrayList;<a name="line.21"></a>
+<span class="sourceLineNo">022</span>import java.util.HashMap;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import java.util.HashSet;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import java.util.List;<a name="line.24"></a>
+<span class="sourceLineNo">025</span>import java.util.Map;<a name="line.25"></a>
+<span class="sourceLineNo">026</span>import java.util.Map.Entry;<a name="line.26"></a>
+<span class="sourceLineNo">027</span>import java.util.Set;<a name="line.27"></a>
+<span class="sourceLineNo">028</span><a name="line.28"></a>
+<span class="sourceLineNo">029</span>import javax.xml.bind.annotation.XmlAccessType;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import javax.xml.bind.annotation.XmlAccessorType;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import javax.xml.bind.annotation.XmlElement;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import javax.xml.bind.annotation.XmlRootElement;<a name="line.32"></a>
+<span class="sourceLineNo">033</span><a name="line.33"></a>
+<span class="sourceLineNo">034</span>import org.apache.hadoop.classification.InterfaceAudience.Private;<a name="line.34"></a>
+<span class="sourceLineNo">035</span>import org.apache.hadoop.classification.InterfaceAudience.Public;<a name="line.35"></a>
+<span class="sourceLineNo">036</span>import org.apache.hadoop.classification.InterfaceStability.Unstable;<a name="line.36"></a>
+<span class="sourceLineNo">037</span><a name="line.37"></a>
+<span class="sourceLineNo">038</span>/**<a name="line.38"></a>
+<span class="sourceLineNo">039</span> * &lt;p&gt;<a name="line.39"></a>
+<span class="sourceLineNo">040</span> * The class that contains the the meta information of some conceptual entity<a name="line.40"></a>
+<span class="sourceLineNo">041</span> * and its related events. The entity can be an application, an application<a name="line.41"></a>
+<span class="sourceLineNo">042</span> * attempt, a container or whatever the user-defined object.<a name="line.42"></a>
+<span class="sourceLineNo">043</span> * &lt;/p&gt;<a name="line.43"></a>
+<span class="sourceLineNo">044</span> * <a name="line.44"></a>
+<span class="sourceLineNo">045</span> * &lt;p&gt;<a name="line.45"></a>
+<span class="sourceLineNo">046</span> * Primary filters will be used to index the entities in<a name="line.46"></a>
+<span class="sourceLineNo">047</span> * &lt;code&gt;TimelineStore&lt;/code&gt;, such that users should carefully choose the<a name="line.47"></a>
+<span class="sourceLineNo">048</span> * information they want to store as the primary filters. The remaining can be<a name="line.48"></a>
+<span class="sourceLineNo">049</span> * stored as other information.<a name="line.49"></a>
+<span class="sourceLineNo">050</span> * &lt;/p&gt;<a name="line.50"></a>
+<span class="sourceLineNo">051</span> */<a name="line.51"></a>
+<span class="sourceLineNo">052</span>@XmlRootElement(name = "entity")<a name="line.52"></a>
+<span class="sourceLineNo">053</span>@XmlAccessorType(XmlAccessType.NONE)<a name="line.53"></a>
+<span class="sourceLineNo">054</span>@Public<a name="line.54"></a>
+<span class="sourceLineNo">055</span>@Unstable<a name="line.55"></a>
+<span class="sourceLineNo">056</span>public class TimelineEntity implements Comparable&lt;TimelineEntity&gt; {<a name="line.56"></a>
+<span class="sourceLineNo">057</span><a name="line.57"></a>
+<span class="sourceLineNo">058</span>  private String entityType;<a name="line.58"></a>
+<span class="sourceLineNo">059</span>  private String entityId;<a name="line.59"></a>
+<span class="sourceLineNo">060</span>  private Long startTime;<a name="line.60"></a>
+<span class="sourceLineNo">061</span>  private List&lt;TimelineEvent&gt; events = new ArrayList&lt;TimelineEvent&gt;();<a name="line.61"></a>
+<span class="sourceLineNo">062</span>  private HashMap&lt;String, Set&lt;String&gt;&gt; relatedEntities =<a name="line.62"></a>
+<span class="sourceLineNo">063</span>      new HashMap&lt;String, Set&lt;String&gt;&gt;();<a name="line.63"></a>
+<span class="sourceLineNo">064</span>  private HashMap&lt;String, Set&lt;Object&gt;&gt; primaryFilters =<a name="line.64"></a>
+<span class="sourceLineNo">065</span>      new HashMap&lt;String, Set&lt;Object&gt;&gt;();<a name="line.65"></a>
+<span class="sourceLineNo">066</span>  private HashMap&lt;String, Object&gt; otherInfo =<a name="line.66"></a>
+<span class="sourceLineNo">067</span>      new HashMap&lt;String, Object&gt;();<a name="line.67"></a>
+<span class="sourceLineNo">068</span>  private String domainId;<a name="line.68"></a>
+<span class="sourceLineNo">069</span><a name="line.69"></a>
+<span class="sourceLineNo">070</span>  public TimelineEntity() {<a name="line.70"></a>
+<span class="sourceLineNo">071</span><a name="line.71"></a>
+<span class="sourceLineNo">072</span>  }<a name="line.72"></a>
+<span class="sourceLineNo">073</span><a name="line.73"></a>
+<span class="sourceLineNo">074</span>  /**<a name="line.74"></a>
+<span class="sourceLineNo">075</span>   * Get the entity type<a name="line.75"></a>
+<span class="sourceLineNo">076</span>   * <a name="line.76"></a>
+<span class="sourceLineNo">077</span>   * @return the entity type<a name="line.77"></a>
+<span class="sourceLineNo">078</span>   */<a name="line.78"></a>
+<span class="sourceLineNo">079</span>  @XmlElement(name = "entitytype")<a name="line.79"></a>
+<span class="sourceLineNo">080</span>  public String getEntityType() {<a name="line.80"></a>
+<span class="sourceLineNo">081</span>    return entityType;<a name="line.81"></a>
+<span class="sourceLineNo">082</span>  }<a name="line.82"></a>
+<span class="sourceLineNo">083</span><a name="line.83"></a>
+<span class="sourceLineNo">084</span>  /**<a name="line.84"></a>
+<span class="sourceLineNo">085</span>   * Set the entity type<a name="line.85"></a>
+<span class="sourceLineNo">086</span>   * <a name="line.86"></a>
+<span class="sourceLineNo">087</span>   * @param entityType<a name="line.87"></a>
+<span class="sourceLineNo">088</span>   *          the entity type<a name="line.88"></a>
+<span class="sourceLineNo">089</span>   */<a name="line.89"></a>
+<span class="sourceLineNo">090</span>  public void setEntityType(String entityType) {<a name="line.90"></a>
+<span class="sourceLineNo">091</span>    this.entityType = entityType;<a name="line.91"></a>
+<span class="sourceLineNo">092</span>  }<a name="line.92"></a>
+<span class="sourceLineNo">093</span><a name="line.93"></a>
+<span class="sourceLineNo">094</span>  /**<a name="line.94"></a>
+<span class="sourceLineNo">095</span>   * Get the entity Id<a name="line.95"></a>
+<span class="sourceLineNo">096</span>   * <a name="line.96"></a>
+<span class="sourceLineNo">097</span>   * @return the entity Id<a name="line.97"></a>
+<span class="sourceLineNo">098</span>   */<a name="line.98"></a>
+<span class="sourceLineNo">099</span>  @XmlElement(name = "entity")<a name="line.99"></a>
+<span class="sourceLineNo">100</span>  public String getEntityId() {<a name="line.100"></a>
+<span class="sourceLineNo">101</span>    return entityId;<a name="line.101"></a>
+<span class="sourceLineNo">102</span>  }<a name="line.102"></a>
+<span class="sourceLineNo">103</span><a name="line.103"></a>
+<span class="sourceLineNo">104</span>  /**<a name="line.104"></a>
+<span class="sourceLineNo">105</span>   * Set the entity Id<a name="line.105"></a>
+<span class="sourceLineNo">106</span>   * <a name="line.106"></a>
+<span class="sourceLineNo">107</span>   * @param entityId<a name="line.107"></a>
+<span class="sourceLineNo">108</span>   *          the entity Id<a name="line.108"></a>
+<span class="sourceLineNo">109</span>   */<a name="line.109"></a>
+<span class="sourceLineNo">110</span>  public void setEntityId(String entityId) {<a name="line.110"></a>
+<span class="sourceLineNo">111</span>    this.entityId = entityId;<a name="line.111"></a>
+<span class="sourceLineNo">112</span>  }<a name="line.112"></a>
+<span class="sourceLineNo">113</span><a name="line.113"></a>
+<span class="sourceLineNo">114</span>  /**<a name="line.114"></a>
+<span class="sourceLineNo">115</span>   * Get the start time of the entity<a name="line.115"></a>
+<span class="sourceLineNo">116</span>   * <a name="line.116"></a>
+<span class="sourceLineNo">117</span>   * @return the start time of the entity<a name="line.117"></a>
+<span class="sourceLineNo">118</span>   */<a name="line.118"></a>
+<span class="sourceLineNo">119</span>  @XmlElement(name = "starttime")<a name="line.119"></a>
+<span class="sourceLineNo">120</span>  public Long getStartTime() {<a name="line.120"></a>
+<span class="sourceLineNo">121</span>    return startTime;<a name="line.121"></a>
+<span class="sourceLineNo">122</span>  }<a name="line.122"></a>
+<span class="sourceLineNo">123</span><a name="line.123"></a>
+<span class="sourceLineNo">124</span>  /**<a name="line.124"></a>
+<span class="sourceLineNo">125</span>   * Set the start time of the entity<a name="line.125"></a>
+<span class="sourceLineNo">126</span>   * <a name="line.126"></a>
+<span class="sourceLineNo">127</span>   * @param startTime<a name="line.127"></a>
+<span class="sourceLineNo">128</span>   *          the start time of the entity<a name="line.128"></a>
+<span class="sourceLineNo">129</span>   */<a name="line.129"></a>
+<span class="sourceLineNo">130</span>  public void setStartTime(Long startTime) {<a name="line.130"></a>
+<span class="sourceLineNo">131</span>    this.startTime = startTime;<a name="line.131"></a>
+<span class="sourceLineNo">132</span>  }<a name="line.132"></a>
+<span class="sourceLineNo">133</span><a name="line.133"></a>
+<span class="sourceLineNo">134</span>  /**<a name="line.134"></a>
+<span class="sourceLineNo">135</span>   * Get a list of events related to the entity<a name="line.135"></a>
+<span class="sourceLineNo">136</span>   * <a name="line.136"></a>
+<span class="sourceLineNo">137</span>   * @return a list of events related to the entity<a name="line.137"></a>
+<span class="sourceLineNo">138</span>   */<a name="line.138"></a>
+<span class="sourceLineNo">139</span>  @XmlElement(name = "events")<a name="line.139"></a>
+<span class="sourceLineNo">140</span>  public List&lt;TimelineEvent&gt; getEvents() {<a name="line.140"></a>
+<span class="sourceLineNo">141</span>    return events;<a name="line.141"></a>
+<span class="sourceLineNo">142</span>  }<a name="line.142"></a>
+<span class="sourceLineNo">143</span><a name="line.143"></a>
+<span class="sourceLineNo">144</span>  /**<a name="line.144"></a>
+<span class="sourceLineNo">145</span>   * Add a single event related to the entity to the existing event list<a name="line.145"></a>
+<span class="sourceLineNo">146</span>   * <a name="line.146"></a>
+<span class="sourceLineNo">147</span>   * @param event<a name="line.147"></a>
+<span class="sourceLineNo">148</span>   *          a single event related to the entity<a name="line.148"></a>
+<span class="sourceLineNo">149</span>   */<a name="line.149"></a>
+<span class="sourceLineNo">150</span>  public void addEvent(TimelineEvent event) {<a name="line.150"></a>
+<span class="sourceLineNo">151</span>    events.add(event);<a name="line.151"></a>
+<span class="sourceLineNo">152</span>  }<a name="line.152"></a>
+<span class="sourceLineNo">153</span><a name="line.153"></a>
+<span class="sourceLineNo">154</span>  /**<a name="line.154"></a>
+<span class="sourceLineNo">155</span>   * Add a list of events related to the entity to the existing event list<a name="line.155"></a>
+<span class="sourceLineNo">156</span>   * <a name="line.156"></a>
+<span class="sourceLineNo">157</span>   * @param events<a name="line.157"></a>
+<span class="sourceLineNo">158</span>   *          a list of events related to the entity<a name="line.158"></a>
+<span class="sourceLineNo">159</span>   */<a name="line.159"></a>
+<span class="sourceLineNo">160</span>  public void addEvents(List&lt;TimelineEvent&gt; events) {<a name="line.160"></a>
+<span class="sourceLineNo">161</span>    this.events.addAll(events);<a name="line.161"></a>
+<span class="sourceLineNo">162</span>  }<a name="line.162"></a>
+<span class="sourceLineNo">163</span><a name="line.163"></a>
+<span class="sourceLineNo">164</span>  /**<a name="line.164"></a>
+<span class="sourceLineNo">165</span>   * Set the event list to the given list of events related to the entity<a name="line.165"></a>
+<span class="sourceLineNo">166</span>   * <a name="line.166"></a>
+<span class="sourceLineNo">167</span>   * @param events<a name="line.167"></a>
+<span class="sourceLineNo">168</span>   *          events a list of events related to the entity<a name="line.168"></a>
+<span class="sourceLineNo">169</span>   */<a name="line.169"></a>
+<span class="sourceLineNo">170</span>  public void setEvents(List&lt;TimelineEvent&gt; events) {<a name="line.170"></a>
+<span class="sourceLineNo">171</span>    this.events = events;<a name="line.171"></a>
+<span class="sourceLineNo">172</span>  }<a name="line.172"></a>
+<span class="sourceLineNo">173</span><a name="line.173"></a>
+<span class="sourceLineNo">174</span>  /**<a name="line.174"></a>
+<span class="sourceLineNo">175</span>   * Get the related entities<a name="line.175"></a>
+<span class="sourceLineNo">176</span>   * <a name="line.176"></a>
+<span class="sourceLineNo">177</span>   * @return the related entities<a name="line.177"></a>
+<span class="sourceLineNo">178</span>   */<a name="line.178"></a>
+<span class="sourceLineNo">179</span>  public Map&lt;String, Set&lt;String&gt;&gt; getRelatedEntities() {<a name="line.179"></a>
+<span class="sourceLineNo">180</span>    return relatedEntities;<a name="line.180"></a>
+<span class="sourceLineNo">181</span>  }<a name="line.181"></a>
+<span class="sourceLineNo">182</span><a name="line.182"></a>
+<span class="sourceLineNo">183</span>  // Required by JAXB<a name="line.183"></a>
+<span class="sourceLineNo">184</span>  @Private<a name="line.184"></a>
+<span class="sourceLineNo">185</span>  @XmlElement(name = "relatedentities")<a name="line.185"></a>
+<span class="sourceLineNo">186</span>  public HashMap&lt;String, Set&lt;String&gt;&gt; getRelatedEntitiesJAXB() {<a name="line.186"></a>
+<span class="sourceLineNo">187</span>    return relatedEntities;<a name="line.187"></a>
+<span class="sourceLineNo">188</span>  }<a name="line.188"></a>
+<span class="sourceLineNo">189</span><a name="line.189"></a>
+<span class="sourceLineNo">190</span>  /**<a name="line.190"></a>
+<span class="sourceLineNo">191</span>   * Add an entity to the existing related entity map<a name="line.191"></a>
+<span class="sourceLineNo">192</span>   * <a name="line.192"></a>
+<span class="sourceLineNo">193</span>   * @param entityType<a name="line.193"></a>
+<span class="sourceLineNo">194</span>   *          the entity type<a name="line.194"></a>
+<span class="sourceLineNo">195</span>   * @param entityId<a name="line.195"></a>
+<span class="sourceLineNo">196</span>   *          the entity Id<a name="line.196"></a>
+<span class="sourceLineNo">197</span>   */<a name="line.197"></a>
+<span class="sourceLineNo">198</span>  public void addRelatedEntity(String entityType, String entityId) {<a name="line.198"></a>
+<span class="sourceLineNo">199</span>    Set&lt;String&gt; thisRelatedEntity = relatedEntities.get(entityType);<a name="line.199"></a>
+<span class="sourceLineNo">200</span>    if (thisRelatedEntity == null) {<a name="line.200"></a>
+<span class="sourceLineNo">201</span>      thisRelatedEntity = new HashSet&lt;String&gt;();<a name="line.201"></a>
+<span class="sourceLineNo">202</span>      relatedEntities.put(entityType, thisRelatedEntity);<a name="line.202"></a>
+<span class="sourceLineNo">203</span>    }<a name="line.203"></a>
+<span class="sourceLineNo">204</span>    thisRelatedEntity.add(entityId);<a name="line.204"></a>
+<span class="sourceLineNo">205</span>  }<a name="line.205"></a>
+<span class="sourceLineNo">206</span><a name="line.206"></a>
+<span class="sourceLineNo">207</span>  /**<a name="line.207"></a>
+<span class="sourceLineNo">208</span>   * Add a map of related entities to the existing related entity map<a name="line.208"></a>
+<span class="sourceLineNo">209</span>   * <a name="line.209"></a>
+<span class="sourceLineNo">210</span>   * @param relatedEntities<a name="line.210"></a>
+<span class="sourceLineNo">211</span>   *          a map of related entities<a name="line.211"></a>
+<span class="sourceLineNo">212</span>   */<a name="line.212"></a>
+<span class="sourceLineNo">213</span>  public void addRelatedEntities(Map&lt;String, Set&lt;String&gt;&gt; relatedEntities) {<a name="line.213"></a>
+<span class="sourceLineNo">214</span>    for (Entry&lt;String, Set&lt;String&gt;&gt; relatedEntity : relatedEntities.entrySet()) {<a name="line.214"></a>
+<span class="sourceLineNo">215</span>      Set&lt;String&gt; thisRelatedEntity =<a name="line.215"></a>
+<span class="sourceLineNo">216</span>          this.relatedEntities.get(relatedEntity.getKey());<a name="line.216"></a>
+<span class="sourceLineNo">217</span>      if (thisRelatedEntity == null) {<a name="line.217"></a>
+<span class="sourceLineNo">218</span>        this.relatedEntities.put(<a name="line.218"></a>
+<span class="sourceLineNo">219</span>            relatedEntity.getKey(), relatedEntity.getValue());<a name="line.219"></a>
+<span class="sourceLineNo">220</span>      } else {<a name="line.220"></a>
+<span class="sourceLineNo">221</span>        thisRelatedEntity.addAll(relatedEntity.getValue());<a name="line.221"></a>
+<span class="sourceLineNo">222</span>      }<a name="line.222"></a>
+<span class="sourceLineNo">223</span>    }<a name="line.223"></a>
+<span class="sourceLineNo">224</span>  }<a name="line.224"></a>
+<span class="sourceLineNo">225</span><a name="line.225"></a>
+<span class="sourceLineNo">226</span>  /**<a name="line.226"></a>
+<span class="sourceLineNo">227</span>   * Set the related entity map to the given map of related entities<a name="line.227"></a>
+<span class="sourceLineNo">228</span>   * <a name="line.228"></a>
+<span class="sourceLineNo">229</span>   * @param relatedEntities<a name="line.229"></a>
+<span class="sourceLineNo">230</span>   *          a map of related entities<a name="line.230"></a>
+<span class="sourceLineNo">231</span>   */<a name="line.231"></a>
+<span class="sourceLineNo">232</span>  public void setRelatedEntities(<a name="line.232"></a>
+<span class="sourceLineNo">233</span>      Map&lt;String, Set&lt;String&gt;&gt; relatedEntities) {<a name="line.233"></a>
+<span class="sourceLineNo">234</span>    if (relatedEntities != null &amp;&amp; !(relatedEntities instanceof HashMap)) {<a name="line.234"></a>
+<span class="sourceLineNo">235</span>      this.relatedEntities = new HashMap&lt;String, Set&lt;String&gt;&gt;(relatedEntities);<a name="line.235"></a>
+<span class="sourceLineNo">236</span>    } else {<a name="line.236"></a>
+<span class="sourceLineNo">237</span>      this.relatedEntities = (HashMap&lt;String, Set&lt;String&gt;&gt;) relatedEntities;<a name="line.237"></a>
+<span class="sourceLineNo">238</span>    }<a name="line.238"></a>
+<span class="sourceLineNo">239</span>  }<a name="line.239"></a>
+<span class="sourceLineNo">240</span><a name="line.240"></a>
+<span class="sourceLineNo">241</span>  /**<a name="line.241"></a>
+<span class="sourceLineNo">242</span>   * Get the primary filters<a name="line.242"></a>
+<span class="sourceLineNo">243</span>   * <a name="line.243"></a>
+<span class="sourceLineNo">244</span>   * @return the primary filters<a name="line.244"></a>
+<span class="sourceLineNo">245</span>   */<a name="line.245"></a>
+<span class="sourceLineNo">246</span>  public Map&lt;String, Set&lt;Object&gt;&gt; getPrimaryFilters() {<a name="line.246"></a>
+<span class="sourceLineNo">247</span>    return primaryFilters;<a name="line.247"></a>
+<span class="sourceLineNo">248</span>  }<a name="line.248"></a>
+<span class="sourceLineNo">249</span><a name="line.249"></a>
+<span class="sourceLineNo">250</span>  // Required by JAXB<a name="line.250"></a>
+<span class="sourceLineNo">251</span>  @Private<a name="line.251"></a>
+<span class="sourceLineNo">252</span>  @XmlElement(name = "primaryfilters")<a name="line.252"></a>
+<span class="sourceLineNo">253</span>  public HashMap&lt;String, Set&lt;Object&gt;&gt; getPrimaryFiltersJAXB() {<a name="line.253"></a>
+<span class="sourceLineNo">254</span>    return primaryFilters;<a name="line.254"></a>
+<span class="sourceLineNo">255</span>  }<a name="line.255"></a>
+<span class="sourceLineNo">256</span><a name="line.256"></a>
+<span class="sourceLineNo">257</span>  /**<a name="line.257"></a>
+<span class="sourceLineNo">258</span>   * Add a single piece of primary filter to the existing primary filter map<a name="line.258"></a>
+<span class="sourceLineNo">259</span>   * <a name="line.259"></a>
+<span class="sourceLineNo">260</span>   * @param key<a name="line.260"></a>
+<span class="sourceLineNo">261</span>   *          the primary filter key<a name="line.261"></a>
+<span class="sourceLineNo">262</span>   * @param value<a name="line.262"></a>
+<span class="sourceLineNo">263</span>   *          the primary filter value<a name="line.263"></a>
+<span class="sourceLineNo">264</span>   */<a name="line.264"></a>
+<span class="sourceLineNo">265</span>  public void addPrimaryFilter(String key, Object value) {<a name="line.265"></a>
+<span class="sourceLineNo">266</span>    Set&lt;Object&gt; thisPrimaryFilter = primaryFilters.get(key);<a name="line.266"></a>
+<span class="sourceLineNo">267</span>    if (thisPrimaryFilter == null) {<a name="line.267"></a>
+<span class="sourceLineNo">268</span>      thisPrimaryFilter = new HashSet&lt;Object&gt;();<a name="line.268"></a>
+<span class="sourceLineNo">269</span>      primaryFilters.put(key, thisPrimaryFilter);<a name="line.269"></a>
+<span class="sourceLineNo">270</span>    }<a name="line.270"></a>
+<span class="sourceLineNo">271</span>    thisPrimaryFilter.add(value);<a name="line.271"></a>
+<span class="sourceLineNo">272</span>  }<a name="line.272"></a>
+<span class="sourceLineNo">273</span><a name="line.273"></a>
+<span class="sourceLineNo">274</span>  /**<a name="line.274"></a>
+<span class="sourceLineNo">275</span>   * Add a map of primary filters to the existing primary filter map<a name="line.275"></a>
+<span class="sourceLineNo">276</span>   * <a name="line.276"></a>
+<span class="sourceLineNo">277</span>   * @param primaryFilters<a name="line.277"></a>
+<span class="sourceLineNo">278</span>   *          a map of primary filters<a name="line.278"></a>
+<span class="sourceLineNo">279</span>   */<a name="line.279"></a>
+<span class="sourceLineNo">280</span>  public void addPrimaryFilters(Map&lt;String, Set&lt;Object&gt;&gt; primaryFilters) {<a name="line.280"></a>
+<span class="sourceLineNo">281</span>    for (Entry&lt;String, Set&lt;Object&gt;&gt; primaryFilter : primaryFilters.entrySet()) {<a name="line.281"></a>
+<span class="sourceLineNo">282</span>      Set&lt;Object&gt; thisPrimaryFilter =<a name="line.282"></a>
+<span class="sourceLineNo">283</span>          this.primaryFilters.get(primaryFilter.getKey());<a name="line.283"></a>
+<span class="sourceLineNo">284</span>      if (thisPrimaryFilter == null) {<a name="line.284"></a>
+<span class="sourceLineNo">285</span>        this.primaryFilters.put(<a name="line.285"></a>
+<span class="sourceLineNo">286</span>            primaryFilter.getKey(), primaryFilter.getValue());<a name="line.286"></a>
+<span class="sourceLineNo">287</span>      } else {<a name="line.287"></a>
+<span class="sourceLineNo">288</span>        thisPrimaryFilter.addAll(primaryFilter.getValue());<a name="line.288"></a>
+<span class="sourceLineNo">289</span>      }<a name="line.289"></a>
+<span class="sourceLineNo">290</span>    }<a name="line.290"></a>
+<span class="sourceLineNo">291</span>  }<a name="line.291"></a>
+<span class="sourceLineNo">292</span><a name="line.292"></a>
+<span class="sourceLineNo">293</span>  /**<a name="line.293"></a>
+<span class="sourceLineNo">294</span>   * Set the primary filter map to the given map of primary filters<a name="line.294"></a>
+<span class="sourceLineNo">295</span>   * <a name="line.295"></a>
+<span class="sourceLineNo">296</span>   * @param primaryFilters<a name="line.296"></a>
+<span class="sourceLineNo">297</span>   *          a map of primary filters<a name="line.297"></a>
+<span class="sourceLineNo">298</span>   */<a name="line.298"></a>
+<span class="sourceLineNo">299</span>  public void setPrimaryFilters(Map&lt;String, Set&lt;Object&gt;&gt; primaryFilters) {<a name="line.299"></a>
+<span class="sourceLineNo">300</span>    if (primaryFilters != null &amp;&amp; !(primaryFilters instanceof HashMap)) {<a name="line.300"></a>
+<span class="sourceLineNo">301</span>      this.primaryFilters = new HashMap&lt;String, Set&lt;Object&gt;&gt;(primaryFilters);<a name="line.301"></a>
+<span class="sourceLineNo">302</span>    } else {<a name="line.302"></a>
+<span class="sourceLineNo">303</span>      this.primaryFilters = (HashMap&lt;String, Set&lt;Object&gt;&gt;) primaryFilters;<a name="line.303"></a>
+<span class="sourceLineNo">304</span>    }<a name="line.304"></a>
+<span class="sourceLineNo">305</span>  }<a name="line.305"></a>
+<span class="sourceLineNo">306</span><a name="line.306"></a>
+<span class="sourceLineNo">307</span>  /**<a name="line.307"></a>
+<span class="sourceLineNo">308</span>   * Get the other information of the entity<a name="line.308"></a>
+<span class="sourceLineNo">309</span>   * <a name="line.309"></a>
+<span class="sourceLineNo">310</span>   * @return the other information of the entity<a name="line.310"></a>
+<span class="sourceLineNo">311</span>   */<a name="line.311"></a>
+<span class="sourceLineNo">312</span>  public Map&lt;String, Object&gt; getOtherInfo() {<a name="line.312"></a>
+<span class="sourceLineNo">313</span>    return otherInfo;<a name="line.313"></a>
+<span class="sourceLineNo">314</span>  }<a name="line.314"></a>
+<span class="sourceLineNo">315</span><a name="line.315"></a>
+<span class="sourceLineNo">316</span>  // Required by JAXB<a name="line.316"></a>
+<span class="sourceLineNo">317</span>  @Private<a name="line.317"></a>
+<span class="sourceLineNo">318</span>  @XmlElement(name = "otherinfo")<a name="line.318"></a>
+<span class="sourceLineNo">319</span>  public HashMap&lt;String, Object&gt; getOtherInfoJAXB() {<a name="line.319"></a>
+<span class="sourceLineNo">320</span>    return otherInfo;<a name="line.320"></a>
+<span class="sourceLineNo">321</span>  }<a name="line.321"></a>
+<span class="sourceLineNo">322</span><a name="line.322"></a>
+<span class="sourceLineNo">323</span>  /**<a name="line.323"></a>
+<span class="sourceLineNo">324</span>   * Add one piece of other information of the entity to the existing other info<a name="line.324"></a>
+<span class="sourceLineNo">325</span>   * map<a name="line.325"></a>
+<span class="sourceLineNo">326</span>   * <a name="line.326"></a>
+<span class="sourceLineNo">327</span>   * @param key<a name="line.327"></a>
+<span class="sourceLineNo">328</span>   *          the other information key<a name="line.328"></a>
+<span class="sourceLineNo">329</span>   * @param value<a name="line.329"></a>
+<span class="sourceLineNo">330</span>   *          the other information value<a name="line.330"></a>
+<span class="sourceLineNo">331</span>   */<a name="line.331"></a>
+<span class="sourceLineNo">332</span>  public void addOtherInfo(String key, Object value) {<a name="line.332"></a>
+<span class="sourceLineNo">333</span>    this.otherInfo.put(key, value);<a name="line.333"></a>
+<span class="sourceLineNo">334</span>  }<a name="line.334"></a>
+<span class="sourceLineNo">335</span><a name="line.335"></a>
+<span class="sourceLineNo">336</span>  /**<a name="line.336"></a>
+<span class="sourceLineNo">337</span>   * Add a map of other information of the entity to the existing other info map<a name="line.337"></a>
+<span class="sourceLineNo">338</span>   * <a name="line.338"></a>
+<span class="sourceLineNo">339</span>   * @param otherInfo<a name="line.339"></a>
+<span class="sourceLineNo">340</span>   *          a map of other information<a name="line.340"></a>
+<span class="sourceLineNo">341</span>   */<a name="line.341"></a>
+<span class="sourceLineNo">342</span>  public void addOtherInfo(Map&lt;String, Object&gt; otherInfo) {<a name="line.342"></a>
+<span class="sourceLineNo">343</span>    this.otherInfo.putAll(otherInfo);<a name="line.343"></a>
+<span class="sourceLineNo">344</span>  }<a name="line.344"></a>
+<span class="sourceLineNo">345</span><a name="line.345"></a>
+<span class="sourceLineNo">346</span>  /**<a name="line.346"></a>
+<span class="sourceLineNo">347</span>   * Set the other info map to the given map of other information<a name="line.347"></a>
+<span class="sourceLineNo">348</span>   * <a name="line.348"></a>
+<span class="sourceLineNo">349</span>   * @param otherInfo<a name="line.349"></a>
+<span class="sourceLineNo">350</span>   *          a map of other information<a name="line.350"></a>
+<span class="sourceLineNo">351</span>   */<a name="line.351"></a>
+<span class="sourceLineNo">352</span>  public void setOtherInfo(Map&lt;String, Object&gt; otherInfo) {<a name="line.352"></a>
+<span class="sourceLineNo">353</span>    if (otherInfo != null &amp;&amp; !(otherInfo instanceof HashMap)) {<a name="line.353"></a>
+<span class="sourceLineNo">354</span>      this.otherInfo = new HashMap&lt;String, Object&gt;(otherInfo);<a name="line.354"></a>
+<span class="sourceLineNo">355</span>    } else {<a name="line.355"></a>
+<span class="sourceLineNo">356</span>      this.otherInfo = (HashMap&lt;String, Object&gt;) otherInfo;<a name="line.356"></a>
+<span class="sourceLineNo">357</span>    }<a name="line.357"></a>
+<span class="sourceLineNo">358</span>  }<a name="line.358"></a>
+<span class="sourceLineNo">359</span><a name="line.359"></a>
+<span class="sourceLineNo">360</span>  /**<a name="line.360"></a>
+<span class="sourceLineNo">361</span>   * Get the ID of the domain that the entity is to be put<a name="line.361"></a>
+<span class="sourceLineNo">362</span>   * <a name="line.362"></a>
+<span class="sourceLineNo">363</span>   * @return the domain ID<a name="line.363"></a>
+<span class="sourceLineNo">364</span>   */<a name="line.364"></a>
+<span class="sourceLineNo">365</span>  @XmlElement(name = "domain")<a name="line.365"></a>
+<span class="sourceLineNo">366</span>  public String getDomainId() {<a name="line.366"></a>
+<span class="sourceLineNo">367</span>    return domainId;<a name="line.367"></a>
+<span class="sourceLineNo">368</span>  }<a name="line.368"></a>
+<span class="sourceLineNo">369</span><a name="line.369"></a>
+<span class="sourceLineNo">370</span>  /**<a name="line.370"></a>
+<span class="sourceLineNo">371</span>   * Set the ID of the domain that the entity is to be put<a name="line.371"></a>
+<span class="sourceLineNo">372</span>   * <a name="line.372"></a>
+<span class="sourceLineNo">373</span>   * @param domainId<a name="line.373"></a>
+<span class="sourceLineNo">374</span>   *          the name space ID<a name="line.374"></a>
+<span class="sourceLineNo">375</span>   */<a name="line.375"></a>
+<span class="sourceLineNo">376</span>  public void setDomainId(String domainId) {<a name="line.376"></a>
+<span class="sourceLineNo">377</span>    this.domainId = domainId;<a name="line.377"></a>
+<span class="sourceLineNo">378</span>  }<a name="line.378"></a>
+<span class="sourceLineNo">379</span><a name="line.379"></a>
+<span class="sourceLineNo">380</span>  @Override<a name="line.380"></a>
+<span class="sourceLineNo">381</span>  public int hashCode() {<a name="line.381"></a>
+<span class="sourceLineNo">382</span>    // generated by eclipse<a name="line.382"></a>
+<span class="sourceLineNo">383</span>    final int prime = 31;<a name="line.383"></a>
+<span class="sourceLineNo">384</span>    int result = 1;<a name="line.384"></a>
+<span class="sourceLineNo">385</span>    result = prime * result + ((entityId == null) ? 0 : entityId.hashCode());<a name="line.385"></a>
+<span class="sourceLineNo">386</span>    result =<a name="line.386"></a>
+<span class="sourceLineNo">387</span>        prime * result + ((entityType == null) ? 0 : entityType.hashCode());<a name="line.387"></a>
+<span class="sourceLineNo">388</span>    result = prime * result + ((events == null) ? 0 : events.hashCode());<a name="line.388"></a>
+<span class="sourceLineNo">389</span>    result = prime * result + ((otherInfo == null) ? 0 : otherInfo.hashCode());<a name="line.389"></a>
+<span class="sourceLineNo">390</span>    result =<a name="line.390"></a>
+<span class="sourceLineNo">391</span>        prime * result<a name="line.391"></a>
+<span class="sourceLineNo">392</span>            + ((primaryFilters == null) ? 0 : primaryFilters.hashCode());<a name="line.392"></a>
+<span class="sourceLineNo">393</span>    result =<a name="line.393"></a>
+<span class="sourceLineNo">394</span>        prime * result<a name="line.394"></a>
+<span class="sourceLineNo">395</span>            + ((relatedEntities == null) ? 0 : relatedEntities.hashCode());<a name="line.395"></a>
+<span class="sourceLineNo">396</span>    result = prime * result + ((startTime == null) ? 0 : startTime.hashCode());<a name="line.396"></a>
+<span class="sourceLineNo">397</span>    return result;<a name="line.397"></a>
+<span class="sourceLineNo">398</span>  }<a name="line.398"></a>
+<span class="sourceLineNo">399</span><a name="line.399"></a>
+<span class="sourceLineNo">400</span>  @Override<a name="line.400"></a>
+<span class="sourceLineNo">401</span>  public boolean equals(Object obj) {<a name="line.401"></a>
+<span class="sourceLineNo">402</span>    // generated by eclipse<a name="line.402"></a>
+<span class="sourceLineNo">403</span>    if (this == obj)<a name="line.403"></a>
+<span class="sourceLineNo">404</span>      return true;<a name="line.404"></a>
+<span class="sourceLineNo">405</span>    if (obj == null)<a name="line.405"></a>
+<span class="sourceLineNo">406</span>      return false;<a name="line.406"></a>
+<span class="sourceLineNo">407</span>    if (getClass() != obj.getClass())<a name="line.407"></a>
+<span class="sourceLineNo">408</span>      return false;<a name="line.408"></a>
+<span class="sourceLineNo">409</span>    TimelineEntity other = (TimelineEntity) obj;<a name="line.409"></a>
+<span class="sourceLineNo">410</span>    if (entityId == null) {<a name="line.410"></a>
+<span class="sourceLineNo">411</span>      if (other.entityId != null)<a name="line.411"></a>
+<span class="sourceLineNo">412</span>        return false;<a name="line.412"></a>
+<span class="sourceLineNo">413</span>    } else if (!entityId.equals(other.entityId))<a name="line.413"></a>
+<span class="sourceLineNo">414</span>      return false;<a name="line.414"></a>
+<span class="sourceLineNo">415</span>    if (entityType == null) {<a name="line.415"></a>
+<span class="sourceLineNo">416</span>      if (other.entityType != null)<a name="line.416"></a>
+<span class="sourceLineNo">417</span>        return false;<a name="line.417"></a>
+<span class="sourceLineNo">418</span>    } else if (!entityType.equals(other.entityType))<a name="line.418"></a>
+<span class="sourceLineNo">419</span>      return false;<a name="line.419"></a>
+<span class="sourceLineNo">420</span>    if (events == null) {<a name="line.420"></a>
+<span class="sourceLineNo">421</span>      if (other.events != null)<a name="line.421"></a>
+<span class="sourceLineNo">422</span>        return false;<a name="line.422"></a>
+<span class="sourceLineNo">423</span>    } else if (!events.equals(other.events))<a name="line.423"></a>
+<span class="sourceLineNo">424</span>      return false;<a name="line.424"></a>
+<span class="sourceLineNo">425</span>    if (otherInfo == null) {<a name="line.425"></a>
+<span class="sourceLineNo">426</span>      if (other.otherInfo != null)<a name="line.426"></a>
+<span class="sourceLineNo">427</span>        return false;<a name="line.427"></a>
+<span class="sourceLineNo">428</span>    } else if (!otherInfo.equals(other.otherInfo))<a name="line.428"></a>
+<span class="sourceLineNo">429</span>      return false;<a name="line.429"></a>
+<span class="sourceLineNo">430</span>    if (primaryFilters == null) {<a name="line.430"></a>
+<span class="sourceLineNo">431</span>      if (other.primaryFilters != null)<a name="line.431"></a>
+<span class="sourceLineNo">432</span>        return false;<a name="line.432"></a>
+<span class="sourceLineNo">433</span>    } else if (!primaryFilters.equals(other.primaryFilters))<a name="line.433"></a>
+<span class="sourceLineNo">434</span>      return false;<a name="line.434"></a>
+<span class="sourceLineNo">435</span>    if (relatedEntities == null) {<a name="line.435"></a>
+<span class="sourceLineNo">436</span>      if (other.relatedEntities != null)<a name="line.436"></a>
+<span class="sourceLineNo">437</span>        return false;<a name="line.437"></a>
+<span class="sourceLineNo">438</span>    } else if (!relatedEntities.equals(other.relatedEntities))<a name="line.438"></a>
+<span class="sourceLineNo">439</span>      return false;<a name="line.439"></a>
+<span class="sourceLineNo">440</span>    if (startTime == null) {<a name="line.440"></a>
+<span class="sourceLineNo">441</span>      if (other.startTime != null)<a name="line.441"></a>
+<span class="sourceLineNo">442</span>        return false;<a name="line.442"></a>
+<span class="sourceLineNo">443</span>    } else if (!startTime.equals(other.startTime))<a name="line.443"></a>
+<span class="sourceLineNo">444</span>      return false;<a name="line.444"></a>
+<span class="sourceLineNo">445</span>    return true;<a name="line.445"></a>
+<span class="sourceLineNo">446</span>  }<a name="line.446"></a>
+<span class="sourceLineNo">447</span><a name="line.447"></a>
+<span class="sourceLineNo">448</span>  @Override<a name="line.448"></a>
+<span class="sourceLineNo">449</span>  public int compareTo(TimelineEntity other) {<a name="line.449"></a>
+<span class="sourceLineNo">450</span>    int comparison = entityType.compareTo(other.entityType);<a name="line.450"></a>
+<span class="sourceLineNo">451</span>    if (comparison == 0) {<a name="line.451"></a>
+<span class="sourceLineNo">452</span>      long thisStartTime =<a name="line.452"></a>
+<span class="sourceLineNo">453</span>          startTime == null ? Long.MIN_VALUE : startTime;<a name="line.453"></a>
+<span class="sourceLineNo">454</span>      long otherStartTime =<a name="line.454"></a>
+<span class="sourceLineNo">455</span>          other.startTime == null ? Long.MIN_VALUE : other.startTime;<a name="line.455"></a>
+<span class="sourceLineNo">456</span>      if (thisStartTime &gt; otherStartTime) {<a name="line.456"></a>
+<span class="sourceLineNo">457</span>        return -1;<a name="line.457"></a>
+<span class="sourceLineNo">458</span>      } else if (thisStartTime &lt; otherStartTime) {<a name="line.458"></a>
+<span class="sourceLineNo">459</span>        return 1;<a name="line.459"></a>
+<span class="sourceLineNo">460</span>      } else {<a name="line.460"></a>
+<span class="sourceLineNo">461</span>        return entityId.compareTo(other.entityId);<a name="line.461"></a>
+<span class="sourceLineNo">462</span>      }<a name="line.462"></a>
+<span class="sourceLineNo">463</span>    } else {<a name="line.463"></a>
+<span class="sourceLineNo">464</span>      return comparison;<a name="line.464"></a>
+<span class="sourceLineNo">465</span>    }<a name="line.465"></a>
+<span class="sourceLineNo">466</span>  }<a name="line.466"></a>
+<span class="sourceLineNo">467</span><a name="line.467"></a>
+<span class="sourceLineNo">468</span>}<a name="line.468"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>
