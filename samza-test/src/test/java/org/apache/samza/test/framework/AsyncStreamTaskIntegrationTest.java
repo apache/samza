@@ -35,10 +35,8 @@ public class AsyncStreamTaskIntegrationTest {
     List<Integer> inputList = Arrays.asList(1, 2, 3, 4, 5);
     List<Integer> outputList = Arrays.asList(10, 20, 30, 40, 50);
 
-    CollectionStreamSystem system = CollectionStreamSystem.create("async-test");
-
-    CollectionStream<Integer> input = CollectionStream.of("ints", inputList).from(system);
-    CollectionStream output = CollectionStream.empty("ints-out").from(system);
+    CollectionStream<Integer> input = CollectionStream.of("async-test", "ints", inputList);
+    CollectionStream output = CollectionStream.empty("async-test","ints-out");
 
     TestRunner
         .of(MyAsyncStreamTask.class)
@@ -46,7 +44,7 @@ public class AsyncStreamTaskIntegrationTest {
         .addOutputStream(output)
         .run();
 
-    Assert.assertThat(StreamUtils.getStreamState(output).get(0),
+    Assert.assertThat(TestRunner.consumeStream(output, 1000).get(0),
         IsIterableContainingInOrder.contains(outputList.toArray()));
   }
 }

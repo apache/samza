@@ -21,7 +21,12 @@ package org.apache.samza.test.framework;
 
 import com.google.common.base.Preconditions;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -29,9 +34,20 @@ import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
+import org.apache.samza.operators.KV;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.standalone.PassthroughCoordinationUtilsFactory;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
+import org.apache.samza.system.EndOfStreamMessage;
+import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.StreamSpec;
+import org.apache.samza.system.SystemProducer;
+import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.SystemStreamMetadata;
+import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.system.inmemory.InMemorySystemConsumer;
+import org.apache.samza.system.inmemory.InMemorySystemFactory;
 import org.apache.samza.task.AsyncStreamTask;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.test.framework.stream.CollectionStream;
@@ -62,7 +78,7 @@ public class TestRunner {
   }
 
   private static Map<String, String> configs;
-  private static Map<String, Object> systems;
+  private static Map<String, CollectionStreamSystem> systems;
   private Class taskClass;
   private StreamApplication app;
 
@@ -77,8 +93,7 @@ public class TestRunner {
     this.mode = Mode.SINGLE_CONTAINER;
     configs.put(JobConfig.JOB_NAME(), JOB_NAME);
     configs.putIfAbsent(JobConfig.PROCESSOR_ID(), "1");
-    configs.putIfAbsent(JobCoordinatorConfig.JOB_COORDINATION_UTILS_FACTORY,
-        PassthroughCoordinationUtilsFactory.class.getName());
+    configs.putIfAbsent(JobCoordinatorConfig.JOB_COORDINATION_UTILS_FACTORY, PassthroughCoordinationUtilsFactory.class.getName());
     configs.putIfAbsent(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     configs.putIfAbsent(TaskConfig.GROUPER_FACTORY(), SingleContainerGrouperFactory.class.getName());
   }
@@ -91,6 +106,7 @@ public class TestRunner {
     this();
     Preconditions.checkNotNull(taskClass);
     configs.put(TaskConfig.TASK_CLASS(), taskClass.getName());
+    this.taskClass = taskClass;
   }
 
   /**
@@ -107,10 +123,10 @@ public class TestRunner {
    * Registers a system with TestRunner if not already registered and configures all the system configs to global
    * job configs
    */
-  private void registerSystem(CollectionStreamSystem system) {
-    if (!systems.containsKey(system.getSystemName())) {
-      systems.put(system.getSystemName(), system);
-      configs.putAll(system.getSystemConfigs());
+  private void registerSystem(String systemName) {
+    if (!systems.containsKey(systemName)) {
+      systems.put(systemName, CollectionStreamSystem.create(systemName));
+      configs.putAll(systems.get(systemName).getSystemConfigs());
     }
   }
 
@@ -148,17 +164,6 @@ public class TestRunner {
   }
 
   /**
-   * Only adds the key, value from {@code config} to {@code configs} if they dont exist in it. Ignore if they already.
-   * @param config represents the map of configs supposed to be added to global configs
-   * @return calling instance of {@link TestRunner} with added configs if they don't exist
-   */
-  public TestRunner addConfigs(Map<String, String> config) {
-    Preconditions.checkNotNull(config);
-    config.forEach(this.configs::putIfAbsent);
-    return this;
-  }
-
-  /**
    * Adds a config to {@code configs} if its not already present. Overrides a config value for which key is already
    * exisiting in {@code configs}
    * @param key key of the config
@@ -184,10 +189,9 @@ public class TestRunner {
    */
   public TestRunner addInputStream(CollectionStream stream) {
     Preconditions.checkNotNull(stream);
-    Preconditions.checkNotNull(stream.getCollectionStreamSystem());
-    CollectionStreamSystem system = stream.getCollectionStreamSystem();
-    registerSystem(system);
-    system.addInput(stream.getStreamName(), stream.getInitPartitions());
+    registerSystem(stream.getSystemName());
+    CollectionStreamSystem system = systems.get(stream.getSystemName());
+    initializeInput(stream);
     if (configs.containsKey(TaskConfig.INPUT_STREAMS())) {
       configs.put(TaskConfig.INPUT_STREAMS(),
           configs.get(TaskConfig.INPUT_STREAMS()).concat("," + system.getSystemName() + "." + stream.getStreamName()));
@@ -197,7 +201,42 @@ public class TestRunner {
     stream.getStreamConfig().forEach((key, val) -> {
         configs.putIfAbsent((String) key, (String) val);
       });
+
     return this;
+  }
+
+  /**
+   * Creates an in memory stream with {@link InMemorySystemFactory} and initializes the metadata for the stream.
+   * Initializes each partition of that stream with messages from {@code stream.getInitPartitions}
+   *
+   * @param stream represents the stream to initialize with the in memory system
+   * @param <T> can represent a message or a KV {@link org.apache.samza.operators.KV}, key of which represents key of a
+   *            {@link org.apache.samza.system.IncomingMessageEnvelope} or {@link org.apache.samza.system.OutgoingMessageEnvelope}
+   *            and value represents the message
+   */
+   private <T> void initializeInput(CollectionStream stream) {
+    Preconditions.checkNotNull(stream);
+    Preconditions.checkState(stream.getInitPartitions().size() >= 1);
+    String streamName = stream.getStreamName();
+    String systemName = stream.getSystemName();
+    Map<Integer, Iterable<T>> partitions = stream.getInitPartitions();
+    Map<String,String> systemConfigs = systems.get(systemName).getSystemConfigs();
+    InMemorySystemFactory factory = systems.get(systemName).getFactory();
+    StreamSpec spec = new StreamSpec(streamName, streamName, systemName, partitions.size());
+    factory.getAdmin(systemName, new MapConfig(systemConfigs)).createStream(spec);
+    SystemProducer producer = factory.getProducer(systemName, new MapConfig(systemConfigs), null);
+    partitions.forEach((partitionId, partition) -> {
+      partition.forEach(e -> {
+        Object key = e instanceof KV ? ((KV) e).getKey() : null;
+        Object value = e instanceof KV ? ((KV) e).getValue() : e;
+        producer.send(systemName,
+            new OutgoingMessageEnvelope(new SystemStream(systemName, streamName), Integer.valueOf(partitionId), key,
+                value));
+      });
+      producer.send(systemName,
+          new OutgoingMessageEnvelope(new SystemStream(systemName, streamName), Integer.valueOf(partitionId), null,
+              new EndOfStreamMessage(null)));
+      });
   }
 
   /**
@@ -211,27 +250,95 @@ public class TestRunner {
    */
   public TestRunner addOutputStream(CollectionStream stream) {
     Preconditions.checkNotNull(stream);
-    CollectionStreamSystem system = stream.getCollectionStreamSystem();
-    registerSystem(system);
-    system.addOutput(stream.getStreamName(), stream.getInitPartitions().size());
+    Preconditions.checkState(stream.getInitPartitions().size() >= 1);
+    registerSystem(stream.getSystemName());
+    CollectionStreamSystem system = systems.get(stream.getSystemName());
+    StreamSpec spec = new StreamSpec(stream.getStreamName(), stream.getStreamName(), system.getSystemName(), stream.getInitPartitions().size());
+    system
+        .getFactory()
+        .getAdmin(system.getSystemName(), new MapConfig(system.getSystemConfigs()))
+        .createStream(spec);
     configs.putAll(stream.getStreamConfig());
     return this;
   }
 
   /**
    * Utility to run a test configured using TestRunner
-   * @throws Exception when both {@code app} and {@code taskClass} are null
    */
-  public void run() throws Exception {
+  public void run() {
+    Preconditions.checkState((app == null && taskClass !=null) || (app != null && taskClass == null),
+        "TestRunner should run for Low Level Task api or High Level Application Api");
     final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
     if (app == null) {
       runner.runTask();
       runner.waitForFinish();
-    } else if (app != null) {
+    } else {
       runner.run(app);
       runner.waitForFinish();
-    } else {
-      throw new Exception("TestRunner should use either run for Low Level Task api or High Level Application Api");
     }
+  }
+
+  /**
+   *
+   * @param stream represents {@link CollectionStream} whose current state of partitions is requested to be fetched
+   * @param timeout poll timeout in Ms
+   * @param <T> represents type of message
+   *
+   * @return a map key of which represents the {@code partitionId} and value represents the current state of the partition
+   *         i.e messages in the partition
+   * @throws InterruptedException Thrown when a blocking poll has been interrupted by another thread.
+   */
+  public static <T> Map<Integer, List<T>> consumeStream(CollectionStream stream, Integer timeout) throws InterruptedException {
+    Preconditions.checkNotNull(stream);
+    Preconditions.checkNotNull(stream.getSystemName());
+    Preconditions.checkNotNull(systems.containsKey(stream.getSystemName()));
+    String streamName = stream.getStreamName();
+    String systemName = stream.getSystemName();
+    Set<SystemStreamPartition> ssps = new HashSet<>();
+    Set<String> streamNames = new HashSet<>();
+    streamNames.add(streamName);
+    InMemorySystemFactory factory = systems.get(systemName).getFactory();
+    Map<String, SystemStreamMetadata> metadata =
+        factory.getAdmin(systemName, new MapConfig()).getSystemStreamMetadata(streamNames);
+    InMemorySystemConsumer consumer = (InMemorySystemConsumer) factory.getConsumer(systemName, null, null);
+    metadata.get(stream.getStreamName()).getSystemStreamPartitionMetadata().keySet().forEach(partition -> {
+      SystemStreamPartition temp = new SystemStreamPartition(systemName, streamName, partition);
+      ssps.add(temp);
+      consumer.register(temp, "0");
+    });
+
+    long t = System.currentTimeMillis();
+    Map<SystemStreamPartition, List<IncomingMessageEnvelope>> output = new HashMap<>();
+    HashSet<SystemStreamPartition> didNotReachEndOfStream = new HashSet<>(ssps);
+    while (System.currentTimeMillis() < t + timeout) {
+      Map<SystemStreamPartition, List<IncomingMessageEnvelope>> currentState = consumer.poll(ssps, 10);
+      for (Map.Entry<SystemStreamPartition, List<IncomingMessageEnvelope>> entry : currentState.entrySet()) {
+        SystemStreamPartition ssp = entry.getKey();
+        output.putIfAbsent(ssp, new LinkedList<IncomingMessageEnvelope>());
+        List<IncomingMessageEnvelope> currentBuffer = entry.getValue();
+        Integer totalMessagesToFetch = Integer.valueOf(metadata.get(stream.getStreamName())
+            .getSystemStreamPartitionMetadata()
+            .get(ssp.getPartition())
+            .getNewestOffset());
+        if (output.get(ssp).size() + currentBuffer.size() == totalMessagesToFetch) {
+          didNotReachEndOfStream.remove(entry.getKey());
+          ssps.remove(entry.getKey());
+        }
+        output.get(ssp).addAll(currentBuffer);
+      }
+
+      if (didNotReachEndOfStream.isEmpty()) {
+        break;
+      }
+    }
+
+    if (!didNotReachEndOfStream.isEmpty()) {
+      throw new IllegalStateException("Could not poll for all system stream partitions");
+    }
+
+    return output.entrySet()
+        .stream()
+        .collect(Collectors.toMap(entry -> entry.getKey().getPartition().getPartitionId(),
+            entry -> entry.getValue().stream().map(e -> (T) e.getMessage()).collect(Collectors.toList())));
   }
 }

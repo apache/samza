@@ -34,10 +34,8 @@ public class StreamTaskIntegrationTest {
     List<Integer> inputList = Arrays.asList(1, 2, 3, 4, 5);
     List<Integer> outputList = Arrays.asList(10, 20, 30, 40, 50);
 
-    CollectionStreamSystem system = CollectionStreamSystem.create("test");
-
-    CollectionStream<Integer> input = CollectionStream.of("input", inputList).from(system);
-    CollectionStream output = CollectionStream.empty("output").from(system);
+    CollectionStream<Integer> input = CollectionStream.of("test", "input", inputList);
+    CollectionStream output = CollectionStream.empty("test", "output");
 
     TestRunner
         .of(MyStreamTestTask.class)
@@ -45,7 +43,8 @@ public class StreamTaskIntegrationTest {
         .addOutputStream(output)
         .run();
 
-    Assert.assertThat(StreamUtils.getStreamState(output).get(0),
+    Assert.assertThat(TestRunner.consumeStream(output, 1000).get(0),
         IsIterableContainingInOrder.contains(outputList.toArray()));
   }
+
 }

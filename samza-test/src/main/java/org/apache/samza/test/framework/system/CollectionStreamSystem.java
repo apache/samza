@@ -41,7 +41,7 @@ import org.apache.samza.system.inmemory.InMemorySystemFactory;
  *   <li>"systems.%s.default.stream.samza.offset.default" = "oldest"</li>
  *   <li>"systems.%s.samza.factory" = {@link InMemorySystemFactory}</li>
  * </ol>
- * 
+ *
  */
 public class CollectionStreamSystem {
   private static final String SYSTEM_FACTORY = "systems.%s.samza.factory";
@@ -87,60 +87,6 @@ public class CollectionStreamSystem {
   public static CollectionStreamSystem create(String name) {
     Preconditions.checkState(name != null);
     return new CollectionStreamSystem(name);
-  }
-
-  /**
-   * Creates an in memory stream with {@link InMemorySystemFactory} and initializes the metadata for the stream.
-   * Initializes each partition of that stream with messages supplied from {@code partitions}
-   *
-   * @param streamName represents the name of stream to initialize with the system
-   * @param partitions Key of an entry in {@code partitions} represents a {@code partitionId} of a {@link org.apache.samza.Partition}
-   *                   and value represents the stream of messages the {@link org.apache.samza.system.SystemStreamPartition}
-   *                   will be initialized with
-   * @param <T> can represent a message or a KV {@link org.apache.samza.operators.KV}, key of which represents key of a
-   *            {@link org.apache.samza.system.IncomingMessageEnvelope} or {@link org.apache.samza.system.OutgoingMessageEnvelope}
-   *            and value represents the message
-   * @return the current {@link CollectionStreamSystem} with a new stream {@code streamName} that a Samza job can
-   *         consume from
-   */
-  public <T> CollectionStreamSystem addInput(String streamName, Map<Integer, Iterable<T>> partitions) {
-    Preconditions.checkState(streamName != null);
-    Preconditions.checkState(partitions.size() >= 1);
-    StreamSpec spec = new StreamSpec(streamName, streamName, systemName, partitions.size());
-    factory.getAdmin(systemName, new MapConfig(systemConfigs)).createStream(spec);
-    SystemProducer producer = factory.getProducer(systemName, new MapConfig(systemConfigs), null);
-    partitions.forEach((partitionId, partition) -> {
-        partition.forEach(e -> {
-            Object key = e instanceof KV ? ((KV) e).getKey() : null;
-            Object value = e instanceof KV ? ((KV) e).getValue() : e;
-            producer.send(systemName,
-                new OutgoingMessageEnvelope(new SystemStream(systemName, streamName), Integer.valueOf(partitionId), key,
-                    value));
-          });
-        producer.send(systemName,
-            new OutgoingMessageEnvelope(new SystemStream(systemName, streamName), Integer.valueOf(partitionId), null,
-                new EndOfStreamMessage(null)));
-      });
-    return this;
-  }
-
-  /**
-   * Creates an empty in memory stream with {@link InMemorySystemFactory} and initializes the metadata for the stream.
-   * This stream is supposed used by Samza job to produce/write messages to.
-   *
-   * @param streamName represents the name of the stream
-   * @param partitionCount represents the number of partitions in a stream
-   * @param <T> represents the type of message
-   * @return the current {@link CollectionStreamSystem} with a new stream {@code streamName} that a Samza job can
-   *         produce to
-   */
-  public <T> CollectionStreamSystem addOutput(String streamName, Integer partitionCount) {
-    Preconditions.checkNotNull(streamName);
-    Preconditions.checkNotNull(systemName);
-    Preconditions.checkState(partitionCount >= 1);
-    StreamSpec spec = new StreamSpec(streamName, streamName, systemName, partitionCount);
-    factory.getAdmin(systemName, new MapConfig(systemConfigs)).createStream(spec);
-    return this;
   }
 }
 

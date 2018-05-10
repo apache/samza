@@ -59,10 +59,9 @@ public class StreamApplicationIntegrationTest {
       pageviews.add(new PageView(pagekey, memberId));
     }
 
-    CollectionStreamSystem system = CollectionStreamSystem.create("test");
 
-    CollectionStream<PageView> input = CollectionStream.of("PageView", pageviews).from(system);
-    CollectionStream output = CollectionStream.empty("Output", 10).from(system);
+    CollectionStream<PageView> input = CollectionStream.of("test","PageView", pageviews);
+    CollectionStream output = CollectionStream.empty("test","Output", 10);
 
     TestRunner
         .of(app)
@@ -71,7 +70,7 @@ public class StreamApplicationIntegrationTest {
         .addOverrideConfig("job.default.system", "test")
         .run();
 
-    Assert.assertEquals(StreamUtils.getStreamState(output).get(random.nextInt(count)).size(), 1);
+    Assert.assertEquals(TestRunner.consumeStream(output, 10000).get(random.nextInt(count)).size(), 1);
   }
 
   public static final class Values {

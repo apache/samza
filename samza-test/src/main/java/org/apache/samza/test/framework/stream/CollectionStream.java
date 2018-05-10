@@ -41,22 +41,23 @@ import org.apache.samza.test.framework.system.CollectionStreamSystem;
 public class CollectionStream<T> {
 
   private String streamName;
+  private String systemName;
   private CollectionStreamSystem system;
   private Map<Integer, Iterable<T>> partitions;
   private Map<String, String> streamConfig;
   private static final String STREAM_TO_SYSTEM = "streams.%s.samza.system";
-  private static final String DEFAULT_SYSTEM = "_default_test_system_";
 
   /**
    * Constructs a new CollectionStream with multiple empty partitions from specified components.
    * @param streamName represents name of the stream
    * @param partitionCount represents number of partitions, each of these partitions will be empty
    */
-  private CollectionStream(String streamName, Integer partitionCount) {
+  private CollectionStream(String systemName, String streamName, Integer partitionCount) {
     this.streamName = streamName;
     this.streamConfig = new HashMap<>();
     this.partitions = new HashMap<>();
-    this.system = CollectionStreamSystem.create(DEFAULT_SYSTEM);
+    this.systemName = systemName;
+    streamConfig.put(String.format(STREAM_TO_SYSTEM, this.streamName), systemName);
     for (int i = 0; i < partitionCount; i++) {
       partitions.put(i, new ArrayList<>());
     }
@@ -68,11 +69,12 @@ public class CollectionStream<T> {
    * @param partition represents the messages that the stream will be intialized with, default partitionId for the
    *                  this single partition stream is 0
    */
-  private CollectionStream(String streamName, Iterable<T> partition) {
+  private CollectionStream(String systemName, String streamName, Iterable<T> partition) {
     this.streamName = streamName;
     this.streamConfig = new HashMap<>();
     partitions = new HashMap<>();
-    this.system = CollectionStreamSystem.create(DEFAULT_SYSTEM);
+    this.systemName = systemName;
+    streamConfig.put(String.format(STREAM_TO_SYSTEM, this.streamName), systemName);
     partitions.put(0, partition);
   }
 
@@ -82,17 +84,15 @@ public class CollectionStream<T> {
    * @param partitions represents the partition state, key of the map represents partitionId and value represents
    *                   the messages that partition will be initialized with
    */
-  private CollectionStream(String streamName, Map<Integer, ? extends Iterable<T>> partitions) {
+  private CollectionStream(String systemName, String streamName, Map<Integer, ? extends Iterable<T>> partitions) {
     this.streamName = streamName;
     this.streamConfig = new HashMap<>();
     this.partitions = new HashMap<>();
+    this.systemName = systemName;
+    streamConfig.put(String.format(STREAM_TO_SYSTEM, this.streamName), systemName);
     partitions.entrySet().forEach(entry -> {
         this.partitions.put(entry.getKey(), entry.getValue());
       });
-  }
-
-  public CollectionStreamSystem getCollectionStreamSystem() {
-    return system;
   }
 
   public Map<Integer, Iterable<T>> getInitPartitions() {
@@ -103,21 +103,10 @@ public class CollectionStream<T> {
     return streamName;
   }
 
+  public String getSystemName() {return systemName; }
+
   public Map<String, String> getStreamConfig() {
     return streamConfig;
-  }
-
-  /**
-   * Associates the stream with a {@link CollectionStreamSystem} and generates the configuration for it.
-   *
-   * @param system represents the {@link CollectionStreamSystem} that stream is associated with
-   * @return the {@link CollectionStream} associated with {@link CollectionStreamSystem}
-   */
-  public CollectionStream<T> from(CollectionStreamSystem system) {
-    Preconditions.checkNotNull(system);
-    this.system = system;
-    streamConfig.put(String.format(STREAM_TO_SYSTEM, this.streamName), system.getSystemName());
-    return this;
   }
 
   /**
@@ -127,8 +116,8 @@ public class CollectionStream<T> {
    * @param <T> represents the type of each message in a stream
    * @return an {@link CollectionStream} with only one partition that can contain messages of the type
    */
-  public static <T> CollectionStream<T> empty(String streamName) {
-    return new CollectionStream<>(streamName, 1);
+  public static <T> CollectionStream<T> empty(String systemName, String streamName) {
+    return new CollectionStream<>(systemName, streamName, 1);
   }
 
   /**
@@ -141,8 +130,8 @@ public class CollectionStream<T> {
    * @param <T> represents the type of each message in a stream
    * @return an empty {@link CollectionStream} with multiple partitions that can contain messages of the type {@code T}
    */
-  public static <T> CollectionStream<T> empty(String streamName, Integer partitionCount) {
-    return new CollectionStream<>(streamName, partitionCount);
+  public static <T> CollectionStream<T> empty(String systemName, String streamName, Integer partitionCount) {
+    return new CollectionStream<>(systemName, streamName, partitionCount);
   }
 
   /**
@@ -156,8 +145,8 @@ public class CollectionStream<T> {
    * @return a {@link CollectionStream} with only one partition containing messages of the type {@code T}
    *
    */
-  public static <T> CollectionStream<T> of(String streamName, Iterable<T> partition) {
-    return new CollectionStream<>(streamName, partition);
+  public static <T> CollectionStream<T> of(String systemName, String streamName, Iterable<T> partition) {
+    return new CollectionStream<>(systemName, streamName, partition);
   }
 
   /**
@@ -174,7 +163,7 @@ public class CollectionStream<T> {
    * @return a {@link CollectionStream} with multiple partitions each containing messages of the type {@code T}
    *
    */
-  public static <T> CollectionStream<T> of(String streamName, Map<Integer, ? extends Iterable<T>> partitions) {
-    return new CollectionStream<>(streamName, partitions);
+  public static <T> CollectionStream<T> of(String systemName, String streamName, Map<Integer, ? extends Iterable<T>> partitions) {
+    return new CollectionStream<>(systemName, streamName, partitions);
   }
 }
