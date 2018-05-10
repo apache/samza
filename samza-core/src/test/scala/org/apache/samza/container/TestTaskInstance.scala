@@ -323,8 +323,8 @@ class TestTaskInstance {
     val containerContext = new SamzaContainerContext("0", config, Set(taskName).asJava, new MetricsRegistryMap)
     val offsetManager = new OffsetManager()
     offsetManager.startingOffsets += taskName -> Map(partition0 -> "0", partition1 -> "100")
-    val systemAdmin: SystemAdmin = new MockSystemAdmin
-    val systemAdmins = new SystemAdmins(Map("system" -> systemAdmin).asJava)
+    val systemAdmins = Mockito.mock(classOf[SystemAdmins])
+    when(systemAdmins.getSystemAdmin("system")).thenReturn(new MockSystemAdmin)
     var result = new ListBuffer[IncomingMessageEnvelope]
 
     val task = new StreamTask {

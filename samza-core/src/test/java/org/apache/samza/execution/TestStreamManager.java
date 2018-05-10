@@ -55,11 +55,10 @@ public class TestStreamManager {
 
     SystemAdmin admin1 = mock(SystemAdmin.class);
     SystemAdmin admin2 = mock(SystemAdmin.class);
-    Map<String, SystemAdmin> sysAdmins = new HashMap<>();
-    sysAdmins.put(SYSTEM1, admin1);
-    sysAdmins.put(SYSTEM2, admin2);
-
-    StreamManager manager = new StreamManager(new SystemAdmins(sysAdmins));
+    SystemAdmins systemAdmins = mock(SystemAdmins.class);
+    when(systemAdmins.getSystemAdmin(SYSTEM1)).thenReturn(admin1);
+    when(systemAdmins.getSystemAdmin(SYSTEM2)).thenReturn(admin2);
+    StreamManager manager = new StreamManager(systemAdmins);
     manager.createStreams(specList);
 
     ArgumentCaptor<StreamSpec> captor = ArgumentCaptor.forClass(StreamSpec.class);
@@ -74,8 +73,8 @@ public class TestStreamManager {
   @Test
   public void testGetStreamPartitionCounts() {
     SystemAdmin admin1 = mock(SystemAdmin.class);
-    Map<String, SystemAdmin> sysAdmins = new HashMap<>();
-    sysAdmins.put(SYSTEM1, admin1);
+    SystemAdmins systemAdmins = mock(SystemAdmins.class);
+    when(systemAdmins.getSystemAdmin(SYSTEM1)).thenReturn(admin1);
 
     Map<String, SystemStreamMetadata> map = new HashMap<>();
     SystemStreamMetadata meta1 = mock(SystemStreamMetadata.class);
@@ -96,7 +95,7 @@ public class TestStreamManager {
     Set<String> streams = new HashSet<>();
     streams.add(STREAM1);
     streams.add(STREAM2);
-    StreamManager manager = new StreamManager(new SystemAdmins(sysAdmins));
+    StreamManager manager = new StreamManager(systemAdmins);
     Map<String, Integer> counts = manager.getStreamPartitionCounts(SYSTEM1, streams);
 
     assertTrue(counts.get(STREAM1).equals(1));
@@ -115,9 +114,9 @@ public class TestStreamManager {
   public void testClearStreamsFromPreviousRun() {
     SystemAdmin admin1 = mock(SystemAdmin.class);
     SystemAdmin admin2 = mock(SystemAdmin.class);
-    Map<String, SystemAdmin> sysAdmins = new HashMap<>();
-    sysAdmins.put(SYSTEM1, admin1);
-    sysAdmins.put(SYSTEM2, admin2);
+    SystemAdmins systemAdmins = mock(SystemAdmins.class);
+    when(systemAdmins.getSystemAdmin(SYSTEM1)).thenReturn(admin1);
+    when(systemAdmins.getSystemAdmin(SYSTEM2)).thenReturn(admin2);
 
     String runId = "123";
     Map<String, String> config = new HashMap<>();
@@ -132,7 +131,7 @@ public class TestStreamManager {
     config.put("stores.test-store.factory", "dummyfactory");
     config.put("stores.test-store.changelog", SYSTEM2 + "." + STREAM2);
 
-    StreamManager manager = new StreamManager(new SystemAdmins(sysAdmins));
+    StreamManager manager = new StreamManager(systemAdmins);
     manager.clearStreamsFromPreviousRun(new MapConfig(config));
 
     ArgumentCaptor<StreamSpec> captor = ArgumentCaptor.forClass(StreamSpec.class);
