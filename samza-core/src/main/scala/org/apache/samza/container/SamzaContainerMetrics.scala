@@ -21,7 +21,7 @@ package org.apache.samza.container
 
 import java.util
 
-import org.apache.samza.metrics.{Gauge, ReadableMetricsRegistry, MetricsRegistryMap, MetricsHelper}
+import org.apache.samza.metrics._
 
 class SamzaContainerMetrics(
   val source: String = "unknown",
@@ -47,6 +47,9 @@ class SamzaContainerMetrics(
   val physicalMemoryMb = newGauge[Double]("physical-memory-mb", 0.0F)
 
   val taskStoreRestorationMetrics: util.Map[TaskName, Gauge[Long]] = new util.HashMap[TaskName, Gauge[Long]]()
+
+  // A string-gauge metric to capture exceptions at this container
+  val exception = newListGauge[String]("exception")
 
   def addStoreRestorationGauge(taskName: TaskName, storeName: String) {
     taskStoreRestorationMetrics.put(taskName, newGauge("%s-%s-restore-time" format(taskName.toString, storeName), -1L))

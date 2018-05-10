@@ -23,9 +23,9 @@ import org.apache.samza.util.Logging
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * A class that holds all metrics registered with it. It can be registered
- * with one or more MetricReporters to flush metrics.
- */
+  * A class that holds all metrics registered with it. It can be registered
+  * with one or more MetricReporters to flush metrics.
+  */
 class MetricsRegistryMap(val name: String) extends ReadableMetricsRegistry with Logging {
   var listeners = Set[ReadableMetricsRegistryListener]()
 
@@ -37,7 +37,7 @@ class MetricsRegistryMap(val name: String) extends ReadableMetricsRegistry with 
   def this() = this("unknown")
 
   def newCounter(group: String, counter: Counter) = {
-    debug("Add new counter %s %s %s." format (group, counter.getName, counter))
+    debug("Add new counter %s %s %s." format(group, counter.getName, counter))
     putAndGetGroup(group).putIfAbsent(counter.getName, counter)
     val realCounter = metrics.get(group).get(counter.getName).asInstanceOf[Counter]
     listeners.foreach(_.onCounter(group, realCounter))
@@ -45,25 +45,40 @@ class MetricsRegistryMap(val name: String) extends ReadableMetricsRegistry with 
   }
 
   def newCounter(group: String, name: String) = {
-    debug("Creating new counter %s %s." format (group, name))
+    debug("Creating new counter %s %s." format(group, name))
     newCounter(group, new Counter(name))
   }
 
   def newGauge[T](group: String, gauge: Gauge[T]) = {
-    debug("Adding new gauge %s %s %s." format (group, gauge.getName, gauge))
+    debug("Adding new gauge %s %s %s." format(group, gauge.getName, gauge))
     putAndGetGroup(group).putIfAbsent(gauge.getName, gauge)
     val realGauge = metrics.get(group).get(gauge.getName).asInstanceOf[Gauge[T]]
     listeners.foreach(_.onGauge(group, realGauge))
     realGauge
   }
 
+  /**
+    * Register a {@link org.apache.samza.metrics.ListGauge}
+    *
+    * @param group     Group for this ListGauge
+    * @param listGauge the ListGauge to register
+    * @tparam T the type of the list gauge
+    */
+  def newListGauge[T](group: String, listGauge: ListGauge[T]) = {
+    debug("Adding new listgauge %s %s %s." format(group, listGauge.getName, listGauge))
+    putAndGetGroup(group).putIfAbsent(listGauge.getName, listGauge)
+    val realListGauge = metrics.get(group).get(listGauge.getName).asInstanceOf[ListGauge[T]]
+    listeners.foreach(_.onListGauge(group, realListGauge))
+    realListGauge
+  }
+
   def newGauge[T](group: String, name: String, value: T) = {
-    debug("Creating new gauge %s %s %s." format (group, name, value))
+    debug("Creating new gauge %s %s %s." format(group, name, value))
     newGauge(group, new Gauge[T](name, value))
   }
 
   def newTimer(group: String, timer: Timer) = {
-    debug("Add new timer %s %s %s." format (group, timer.getName, timer))
+    debug("Add new timer %s %s %s." format(group, timer.getName, timer))
     putAndGetGroup(group).putIfAbsent(timer.getName, timer)
     val realTimer = metrics.get(group).get(timer.getName).asInstanceOf[Timer]
     listeners.foreach(_.onTimer(group, realTimer))
@@ -71,7 +86,7 @@ class MetricsRegistryMap(val name: String) extends ReadableMetricsRegistry with 
   }
 
   def newTimer(group: String, name: String) = {
-    debug("Creating new timer %s %s." format (group, name))
+    debug("Creating new timer %s %s." format(group, name))
     newTimer(group, new Timer(name))
   }
 
