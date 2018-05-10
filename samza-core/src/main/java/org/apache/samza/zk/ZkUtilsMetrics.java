@@ -46,10 +46,16 @@ public class ZkUtilsMetrics extends MetricsBase {
    */
   public final Counter zkConnectionError;
 
+  /**
+   * Number of zookeeper data node deletions.
+   */
+  public final Counter deletions;
+
   public ZkUtilsMetrics(MetricsRegistry metricsRegistry) {
     super(metricsRegistry);
     this.reads = newCounter("reads");
     this.writes = newCounter("writes");
+    this.deletions = newCounter("deletions");
     this.subscriptions = newCounter("subscriptions");
     this.zkConnectionError = newCounter("zk-connection-errors");
   }
