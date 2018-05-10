@@ -64,14 +64,18 @@ public class TestRocksDbKeyValueStoreJava {
     KeyValueSnapshot<byte[], byte[]> snapshot = store.snapshot(firstKey, lastKey);
     // Make sure the cached Iterable won't change when new elements are added
     store.put(genKey(outputStream, prefix, 200), genValue());
-    assertTrue(Iterators.size(snapshot.iterator()) == 100);
-
+    KeyValueIterator<byte[], byte[]> iterator = snapshot.iterator();
+    assertTrue(Iterators.size(iterator) == 100);
+    iterator.close();
     List<Integer> keys = new ArrayList<>();
-    for (Entry<byte[], byte[]> entry : snapshot) {
+    KeyValueIterator<byte[], byte[]> iterator2 = snapshot.iterator();
+    while (iterator2.hasNext()) {
+      Entry<byte[], byte[]> entry = iterator2.next();
       int key = Ints.fromByteArray(Arrays.copyOfRange(entry.getKey(), prefix.getBytes().length, entry.getKey().length));
       keys.add(key);
     }
     assertEquals(keys, IntStream.rangeClosed(0, 99).boxed().collect(Collectors.toList()));
+    iterator2.close();
 
     outputStream.close();
     snapshot.close();
