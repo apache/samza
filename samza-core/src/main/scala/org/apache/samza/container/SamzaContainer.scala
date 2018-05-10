@@ -28,6 +28,7 @@ import java.util.Base64
 import java.util.concurrent.{ExecutorService, Executors, ScheduledExecutorService, TimeUnit}
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder
+import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
@@ -751,6 +752,8 @@ class SamzaContainer(
         }
         status = SamzaContainerStatus.FAILED
         exceptionSeen = e
+        metrics.exceptionAtShutdown.set(ExceptionUtils.getStackTrace(e))
+        debug("Updated value of exceptionAtShutdown to %s" format ExceptionUtils.getStackTrace(e))
     }
 
     try {

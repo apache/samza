@@ -83,14 +83,17 @@ class MetricsSnapshotReporter(
   }
 
   def stop = {
-    info("Stopping producer.")
 
-    producer.stop
+    // Scheduling an event with 0 delay to ensure flushing of metrics one last time before shutdown
+    executor.schedule(this,0, TimeUnit.SECONDS)
 
     info("Stopping reporter timer.")
-
+    // Allow the scheduled task above to finish, and block for termination (for max 60 seconds)
     executor.shutdown
     executor.awaitTermination(60, TimeUnit.SECONDS)
+
+    info("Stopping producer.")
+    producer.stop
 
     if (!executor.isTerminated) {
       warn("Unable to shutdown reporter timer.")
@@ -133,10 +136,15 @@ class MetricsSnapshotReporter(
         metricsSnapshot
       }
 
-      producer.send(source, new OutgoingMessageEnvelope(out, host, null, maybeSerialized))
+      try {
 
-      // Always flush, since we don't want metrics to get batched up.
-      producer.flush(source)
+        producer.send(source, new OutgoingMessageEnvelope(out, host, null, maybeSerialized))
+
+        // Always flush, since we don't want metrics to get batched up.
+        producer.flush(source)
+      } catch  {
+        case e: Exception => error("Exception when flushing metrics for source %s " format(source), e)
+      }
     }
 
     debug("Finished flushing metrics.")
