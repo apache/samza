@@ -23,6 +23,7 @@ import com.google.common.collect.Iterators;
 import com.google.common.primitives.Ints;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.storage.kv.Entry;
+import org.apache.samza.storage.kv.KeyValueIterator;
 import org.apache.samza.storage.kv.KeyValueSnapshot;
 import org.apache.samza.storage.kv.KeyValueStoreMetrics;
 import org.junit.Test;
@@ -57,7 +58,9 @@ public class TestInMemoryKeyValueStore {
     assertTrue(Iterators.size(snapshot.iterator()) == 100);
 
     List<Integer> keys = new ArrayList<>();
-    for (Entry<byte[], byte[]> entry : snapshot) {
+    KeyValueIterator<byte[], byte[]> iter = snapshot.iterator();
+    while (iter.hasNext()) {
+      Entry<byte[], byte[]> entry = iter.next();
       int key = Ints.fromByteArray(Arrays.copyOfRange(entry.getKey(), prefix.getBytes().length, entry.getKey().length));
       keys.add(key);
     }
