@@ -22,7 +22,6 @@ package org.apache.samza.test.framework;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.samza.test.framework.stream.CollectionStream;
-import org.apache.samza.test.framework.system.CollectionStreamSystem;
 import org.hamcrest.collection.IsIterableContainingInOrder;
 import org.junit.Assert;
 import org.junit.Test;
@@ -36,7 +35,7 @@ public class AsyncStreamTaskIntegrationTest {
     List<Integer> outputList = Arrays.asList(10, 20, 30, 40, 50);
 
     CollectionStream<Integer> input = CollectionStream.of("async-test", "ints", inputList);
-    CollectionStream output = CollectionStream.empty("async-test","ints-out");
+    CollectionStream output = CollectionStream.empty("async-test", "ints-out");
 
     TestRunner
         .of(MyAsyncStreamTask.class)

@@ -214,28 +214,28 @@ public class TestRunner {
    *            {@link org.apache.samza.system.IncomingMessageEnvelope} or {@link org.apache.samza.system.OutgoingMessageEnvelope}
    *            and value represents the message
    */
-   private <T> void initializeInput(CollectionStream stream) {
+  private <T> void initializeInput(CollectionStream stream) {
     Preconditions.checkNotNull(stream);
     Preconditions.checkState(stream.getInitPartitions().size() >= 1);
     String streamName = stream.getStreamName();
     String systemName = stream.getSystemName();
     Map<Integer, Iterable<T>> partitions = stream.getInitPartitions();
-    Map<String,String> systemConfigs = systems.get(systemName).getSystemConfigs();
+    Map<String, String> systemConfigs = systems.get(systemName).getSystemConfigs();
     InMemorySystemFactory factory = systems.get(systemName).getFactory();
     StreamSpec spec = new StreamSpec(streamName, streamName, systemName, partitions.size());
     factory.getAdmin(systemName, new MapConfig(systemConfigs)).createStream(spec);
     SystemProducer producer = factory.getProducer(systemName, new MapConfig(systemConfigs), null);
     partitions.forEach((partitionId, partition) -> {
-      partition.forEach(e -> {
-        Object key = e instanceof KV ? ((KV) e).getKey() : null;
-        Object value = e instanceof KV ? ((KV) e).getValue() : e;
+        partition.forEach(e -> {
+            Object key = e instanceof KV ? ((KV) e).getKey() : null;
+            Object value = e instanceof KV ? ((KV) e).getValue() : e;
+            producer.send(systemName,
+                new OutgoingMessageEnvelope(new SystemStream(systemName, streamName), Integer.valueOf(partitionId), key,
+                    value));
+          });
         producer.send(systemName,
-            new OutgoingMessageEnvelope(new SystemStream(systemName, streamName), Integer.valueOf(partitionId), key,
-                value));
-      });
-      producer.send(systemName,
-          new OutgoingMessageEnvelope(new SystemStream(systemName, streamName), Integer.valueOf(partitionId), null,
-              new EndOfStreamMessage(null)));
+            new OutgoingMessageEnvelope(new SystemStream(systemName, streamName), Integer.valueOf(partitionId), null,
+                new EndOfStreamMessage(null)));
       });
   }
 
@@ -266,7 +266,7 @@ public class TestRunner {
    * Utility to run a test configured using TestRunner
    */
   public void run() {
-    Preconditions.checkState((app == null && taskClass !=null) || (app != null && taskClass == null),
+    Preconditions.checkState((app == null && taskClass != null) || (app != null && taskClass == null),
         "TestRunner should run for Low Level Task api or High Level Application Api");
     final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
     if (app == null) {
@@ -302,10 +302,10 @@ public class TestRunner {
         factory.getAdmin(systemName, new MapConfig()).getSystemStreamMetadata(streamNames);
     InMemorySystemConsumer consumer = (InMemorySystemConsumer) factory.getConsumer(systemName, null, null);
     metadata.get(stream.getStreamName()).getSystemStreamPartitionMetadata().keySet().forEach(partition -> {
-      SystemStreamPartition temp = new SystemStreamPartition(systemName, streamName, partition);
-      ssps.add(temp);
-      consumer.register(temp, "0");
-    });
+        SystemStreamPartition temp = new SystemStreamPartition(systemName, streamName, partition);
+        ssps.add(temp);
+        consumer.register(temp, "0");
+      });
 
     long t = System.currentTimeMillis();
     Map<SystemStreamPartition, List<IncomingMessageEnvelope>> output = new HashMap<>();
@@ -326,7 +326,6 @@ public class TestRunner {
         }
         output.get(ssp).addAll(currentBuffer);
       }
-
       if (didNotReachEndOfStream.isEmpty()) {
         break;
       }

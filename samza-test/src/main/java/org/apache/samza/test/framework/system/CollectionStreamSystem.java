@@ -22,13 +22,6 @@ package org.apache.samza.test.framework.system;
 import com.google.common.base.Preconditions;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.samza.config.MapConfig;
-import org.apache.samza.operators.KV;
-import org.apache.samza.system.EndOfStreamMessage;
-import org.apache.samza.system.OutgoingMessageEnvelope;
-import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.SystemProducer;
-import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.inmemory.InMemorySystemFactory;
 
 

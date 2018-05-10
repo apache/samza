@@ -49,6 +49,7 @@ public class CollectionStream<T> {
 
   /**
    * Constructs a new CollectionStream with multiple empty partitions from specified components.
+   * @param systemName represents name of the system stream is associated with
    * @param streamName represents name of the stream
    * @param partitionCount represents number of partitions, each of these partitions will be empty
    */
@@ -65,6 +66,7 @@ public class CollectionStream<T> {
 
   /**
    * Constructs a new CollectionStream with single partition from specified components.
+   * @param systemName represents name of the system stream is associated with
    * @param streamName represents name of the stream
    * @param partition represents the messages that the stream will be intialized with, default partitionId for the
    *                  this single partition stream is 0
@@ -80,6 +82,7 @@ public class CollectionStream<T> {
 
   /**
    * Constructs a new CollectionStream with multiple partitions from specified components.
+   * @param systemName represents name of the system stream is associated with
    * @param streamName represents name of the stream
    * @param partitions represents the partition state, key of the map represents partitionId and value represents
    *                   the messages that partition will be initialized with
@@ -103,7 +106,9 @@ public class CollectionStream<T> {
     return streamName;
   }
 
-  public String getSystemName() {return systemName; }
+  public String getSystemName() {
+    return systemName;
+  }
 
   public Map<String, String> getStreamConfig() {
     return streamConfig;
@@ -112,11 +117,14 @@ public class CollectionStream<T> {
   /**
    * Creates an in memory stream with the name {@code streamName} and initializes the stream to only one partition
    *
+   * @param systemName represents name of the system stream is associated with
    * @param streamName represents the name of the Stream
    * @param <T> represents the type of each message in a stream
    * @return an {@link CollectionStream} with only one partition that can contain messages of the type
    */
   public static <T> CollectionStream<T> empty(String systemName, String streamName) {
+    Preconditions.checkNotNull(systemName);
+    Preconditions.checkNotNull(streamName);
     return new CollectionStream<>(systemName, streamName, 1);
   }
 
@@ -125,12 +133,16 @@ public class CollectionStream<T> {
    * as specifed by {@code partitionCount}. These partitions are empty and are supposed to be used by Samza job to produce
    * messages to.
    *
+   * @param systemName represents name of the system stream is associated with
    * @param streamName represents the name of the Stream
    * @param partitionCount represents the number of partitions the stream would have
    * @param <T> represents the type of each message in a stream
    * @return an empty {@link CollectionStream} with multiple partitions that can contain messages of the type {@code T}
    */
   public static <T> CollectionStream<T> empty(String systemName, String streamName, Integer partitionCount) {
+    Preconditions.checkNotNull(systemName);
+    Preconditions.checkNotNull(streamName);
+    Preconditions.checkNotNull(partitionCount);
     return new CollectionStream<>(systemName, streamName, partitionCount);
   }
 
@@ -138,6 +150,7 @@ public class CollectionStream<T> {
    * Creates an in memory stream with the name {@code streamName}. Stream is created with single partition having
    * {@code partitionId} is 0. This partition is intialzied with messages of type T
    *
+   * @param systemName represents name of the system stream is associated with
    * @param streamName represents the name of the Stream
    * @param partition represents the messages that the {@link org.apache.samza.system.SystemStreamPartition} will be
    *                  initialized with
@@ -146,6 +159,9 @@ public class CollectionStream<T> {
    *
    */
   public static <T> CollectionStream<T> of(String systemName, String streamName, Iterable<T> partition) {
+    Preconditions.checkNotNull(systemName);
+    Preconditions.checkNotNull(streamName);
+    Preconditions.checkNotNull(partition);
     return new CollectionStream<>(systemName, streamName, partition);
   }
 
@@ -155,6 +171,7 @@ public class CollectionStream<T> {
    * each {@link org.apache.samza.Partition} for a {@link org.apache.samza.system.SystemStreamPartition} and value is
    * an Iterable of messages that the {@link org.apache.samza.system.SystemStreamPartition} should be initialized with.
    *
+   * @param systemName represents name of the system stream is associated with
    * @param streamName represents the name of the Stream
    * @param partitions Key of an entry in partitions represents a {@code partitionId} of a {@link org.apache.samza.Partition}
    *                   and value represents the stream of messages the {@link org.apache.samza.system.SystemStreamPartition}
@@ -164,6 +181,9 @@ public class CollectionStream<T> {
    *
    */
   public static <T> CollectionStream<T> of(String systemName, String streamName, Map<Integer, ? extends Iterable<T>> partitions) {
+    Preconditions.checkNotNull(systemName);
+    Preconditions.checkNotNull(streamName);
+    Preconditions.checkNotNull(partitions);
     return new CollectionStream<>(systemName, streamName, partitions);
   }
 }

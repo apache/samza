@@ -27,7 +27,6 @@ import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.test.framework.stream.CollectionStream;
-import org.apache.samza.test.framework.system.CollectionStreamSystem;
 import static org.apache.samza.test.controlmessages.TestData.PageView;
 import org.junit.Assert;
 import org.junit.Test;
@@ -59,9 +58,8 @@ public class StreamApplicationIntegrationTest {
       pageviews.add(new PageView(pagekey, memberId));
     }
 
-
-    CollectionStream<PageView> input = CollectionStream.of("test","PageView", pageviews);
-    CollectionStream output = CollectionStream.empty("test","Output", 10);
+    CollectionStream<PageView> input = CollectionStream.of("test", "PageView", pageviews);
+    CollectionStream output = CollectionStream.empty("test", "Output", 10);
 
     TestRunner
         .of(app)

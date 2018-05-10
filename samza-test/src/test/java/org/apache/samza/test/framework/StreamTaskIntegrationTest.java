@@ -22,7 +22,6 @@ package org.apache.samza.test.framework;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.samza.test.framework.stream.CollectionStream;
-import org.apache.samza.test.framework.system.CollectionStreamSystem;
 import org.hamcrest.collection.IsIterableContainingInOrder;
 import org.junit.Assert;
 import org.junit.Test;
