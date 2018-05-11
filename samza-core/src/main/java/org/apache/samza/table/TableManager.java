@@ -113,7 +113,8 @@ public class TableManager {
       throw new SamzaException("Table " + tableSpec.getId() + " already exists");
     }
     TableCtx ctx = new TableCtx();
-    TableProviderFactory tableProviderFactory = Util.getObj(tableSpec.getTableProviderFactoryClassName());
+    TableProviderFactory tableProviderFactory =
+        Util.getObj(tableSpec.getTableProviderFactoryClassName(), TableProviderFactory.class);
     ctx.tableProvider = tableProviderFactory.getTableProvider(tableSpec);
     ctx.tableSpec = tableSpec;
     tables.put(tableSpec.getId(), ctx);

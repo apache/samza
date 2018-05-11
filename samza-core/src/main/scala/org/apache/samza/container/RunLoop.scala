@@ -22,7 +22,7 @@ package org.apache.samza.container
 import org.apache.samza.task.CoordinatorRequests
 import org.apache.samza.system.{IncomingMessageEnvelope, SystemConsumers, SystemStreamPartition}
 import org.apache.samza.task.ReadableCoordinator
-import org.apache.samza.util.{Logging, Throttleable, ThrottlingExecutor, TimerUtils}
+import org.apache.samza.util.{Logging, Throttleable, ThrottlingExecutor, TimerUtil}
 
 import scala.collection.JavaConverters._
 
@@ -42,7 +42,7 @@ class RunLoop (
   val maxThrottlingDelayMs: Long,
   val windowMs: Long = -1,
   val commitMs: Long = 60000,
-  val clock: () => Long = { System.nanoTime }) extends Runnable with Throttleable with TimerUtils with Logging {
+  val clock: () => Long = { System.nanoTime }) extends Runnable with Throttleable with TimerUtil with Logging {
 
   private val metricsMsOffset = 1000000L
   private val executor = new ThrottlingExecutor(maxThrottlingDelayMs)

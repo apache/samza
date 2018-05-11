@@ -20,43 +20,58 @@
 package org.apache.samza.util;
 
 import com.google.common.collect.ImmutableList;
-import junit.framework.Assert;
-import org.apache.samza.operators.util.MathUtils;
-import org.junit.Test;
 
 import java.util.Collections;
+import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
 
 public class TestMathUtils {
 
   @Test(expected = IllegalArgumentException.class)
   public void testGcdWithNullInputs() {
-    MathUtils.gcd(null);
+    MathUtil.gcd(null);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testGcdWithEmptyInputs() {
-    MathUtils.gcd(Collections.emptyList());
+    MathUtil.gcd(Collections.emptyList());
   }
 
   @Test
   public void testGcdWithValidInputs() {
     // gcd(x, x) = x
-    Assert.assertEquals(2, MathUtils.gcd(ImmutableList.of(2L, 2L)));
-    Assert.assertEquals(15, MathUtils.gcd(ImmutableList.of(15L)));
-    Assert.assertEquals(1, MathUtils.gcd(ImmutableList.of(1L)));
+    assertEquals(2, MathUtil.gcd(ImmutableList.of(2L, 2L)));
+    assertEquals(15, MathUtil.gcd(ImmutableList.of(15L)));
+    assertEquals(1, MathUtil.gcd(ImmutableList.of(1L)));
 
     // gcd(0,x) = x
-    Assert.assertEquals(2, MathUtils.gcd(ImmutableList.of(2L, 0L)));
+    assertEquals(2, MathUtil.gcd(ImmutableList.of(2L, 0L)));
 
     // gcd(1,x) = 1
-    Assert.assertEquals(1, MathUtils.gcd(ImmutableList.of(10L, 20L, 30L, 40L, 50L, 1L)));
+    assertEquals(1, MathUtil.gcd(ImmutableList.of(10L, 20L, 30L, 40L, 50L, 1L)));
 
     // other happy path test cases
-    Assert.assertEquals(10, MathUtils.gcd(ImmutableList.of(10L, 20L, 30L, 40L, 50L, 0L)));
-    Assert.assertEquals(10, MathUtils.gcd(ImmutableList.of(10L, 20L, 30L, 40L, 50L)));
-    Assert.assertEquals(5, MathUtils.gcd(ImmutableList.of(25L, 35L, 45L, 55L)));
+    assertEquals(10, MathUtil.gcd(ImmutableList.of(10L, 20L, 30L, 40L, 50L, 0L)));
+    assertEquals(10, MathUtil.gcd(ImmutableList.of(10L, 20L, 30L, 40L, 50L)));
+    assertEquals(5, MathUtil.gcd(ImmutableList.of(25L, 35L, 45L, 55L)));
 
-    Assert.assertEquals(1, MathUtils.gcd(ImmutableList.of(25L, 35L, 45L, 55L, 13L)));
+    assertEquals(1, MathUtil.gcd(ImmutableList.of(25L, 35L, 45L, 55L, 13L)));
   }
 
+  @Test
+  public void testClampAdd() {
+    assertEquals(0, MathUtil.clampAdd(0, 0));
+    assertEquals(2, MathUtil.clampAdd(1, 1));
+    assertEquals(-2, MathUtil.clampAdd(-1, -1));
+    assertEquals(Long.MAX_VALUE, MathUtil.clampAdd(Long.MAX_VALUE, 0));
+    assertEquals(Long.MAX_VALUE - 1, MathUtil.clampAdd(Long.MAX_VALUE, -1));
+    assertEquals(Long.MAX_VALUE, MathUtil.clampAdd(Long.MAX_VALUE, 1));
+    assertEquals(Long.MAX_VALUE, MathUtil.clampAdd(Long.MAX_VALUE, Long.MAX_VALUE));
+    assertEquals(Long.MIN_VALUE, MathUtil.clampAdd(Long.MIN_VALUE, 0));
+    assertEquals(Long.MIN_VALUE, MathUtil.clampAdd(Long.MIN_VALUE, -1));
+    assertEquals(Long.MIN_VALUE + 1, MathUtil.clampAdd(Long.MIN_VALUE, 1));
+    assertEquals(Long.MIN_VALUE, MathUtil.clampAdd(Long.MIN_VALUE, Long.MIN_VALUE));
+    assertEquals(-1, MathUtil.clampAdd(Long.MAX_VALUE, Long.MIN_VALUE));
+  }
 }

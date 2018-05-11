@@ -21,15 +21,17 @@ package org.apache.samza.system.eventhub;
 
 import com.microsoft.azure.eventhubs.EventData;
 
+import com.microsoft.azure.eventhubs.impl.EventDataImpl;
 import java.nio.charset.Charset;
 import java.util.*;
 
-public class MockEventData extends EventData {
+public class MockEventData implements EventData {
+  EventData eventData;
 
   private EventData.SystemProperties overridedSystemProperties;
 
   private MockEventData(byte[] data, String partitionKey, String offset) {
-    super(data);
+    eventData = new EventDataImpl(data);
     HashMap<String, Object> properties = new HashMap<>();
     properties.put("x-opt-offset", offset);
     properties.put("x-opt-partition-key", partitionKey);
@@ -48,6 +50,21 @@ public class MockEventData extends EventData {
       result.add(eventData);
     }
     return result;
+  }
+
+  @Override
+  public Object getObject() {
+    return eventData.getObject();
+  }
+
+  @Override
+  public byte[] getBytes() {
+    return eventData.getBytes();
+  }
+
+  @Override
+  public Map<String, Object> getProperties() {
+    return eventData.getProperties();
   }
 
   @Override

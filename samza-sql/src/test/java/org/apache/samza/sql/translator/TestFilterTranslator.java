@@ -119,14 +119,16 @@ public class TestFilterTranslator extends TranslatorTestBase {
       Object[] retValue = invocation.getArgumentAt(3, Object[].class);
       retValue[0] = new Boolean(true);
       return null;
-    }).when(mockExpr).execute(eq(executionContext), eq(dataContext), eq(mockInputMsg.getFieldValues().toArray()), eq(result));
+    }).when(mockExpr).execute(eq(executionContext), eq(dataContext),
+        eq(mockInputMsg.getSamzaSqlRelRecord().getFieldValues().toArray()), eq(result));
     assertTrue(filterFn.apply(mockInputMsg));
 
     doAnswer( invocation -> {
       Object[] retValue = invocation.getArgumentAt(3, Object[].class);
       retValue[0] = new Boolean(false);
       return null;
-    }).when(mockExpr).execute(eq(executionContext), eq(dataContext), eq(mockInputMsg.getFieldValues().toArray()), eq(result));
+    }).when(mockExpr).execute(eq(executionContext), eq(dataContext),
+        eq(mockInputMsg.getSamzaSqlRelRecord().getFieldValues().toArray()), eq(result));
     assertFalse(filterFn.apply(mockInputMsg));
 
   }

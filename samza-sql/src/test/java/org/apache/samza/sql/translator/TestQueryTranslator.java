@@ -20,8 +20,9 @@
 package org.apache.samza.sql.translator;
 
 import java.util.HashSet;
-import java.util.Map;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
@@ -31,7 +32,8 @@ import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
-import org.apache.samza.sql.impl.ConfigBasedSourceResolverFactory;
+import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.sql.impl.ConfigBasedIOResolverFactory;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
@@ -378,10 +380,10 @@ public class TestQueryTranslator {
   @Test (expected = SamzaException.class)
   public void testTranslateStreamTableInnerJoinWithMissingStream() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 10);
-    String configSourceResolverDomain =
+    String configIOResolverDomain =
         String.format(SamzaSqlApplicationConfig.CFG_FMT_SOURCE_RESOLVER_DOMAIN, "config");
-    config.put(configSourceResolverDomain + SamzaSqlApplicationConfig.CFG_FACTORY,
-        ConfigBasedSourceResolverFactory.class.getName());
+    config.put(configIOResolverDomain + SamzaSqlApplicationConfig.CFG_FACTORY,
+        ConfigBasedIOResolverFactory.class.getName());
     String sql =
         "Insert into testavro.enrichedPageViewTopic"
             + " select p.name as profileName, pv.pageKey"
@@ -547,5 +549,46 @@ public class TestQueryTranslator {
         specGraph.getInputOperators().keySet().stream().skip(2).findFirst().get().getPhysicalName());
 
     validatePerTaskContextInit(graphBuilder, samzaConfig);
+  }
+
+  @Test
+  public void testTranslateGroupBy() {
+    Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 10);
+    String sql =
+        "Insert into testavro.pageViewCountTopic"
+            + " select 'SampleJob' as jobName, pv.pageKey, count(*) as `count`"
+            + " from testavro.PAGEVIEW as pv"
+            + " where pv.pageKey = 'job' or pv.pageKey = 'inbox'"
+            + " group by (pv.pageKey)";
+    config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
+    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
+    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
+    StreamGraphBuilder streamGraph = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    translator.translate(queryInfo, streamGraph);
+    OperatorSpecGraph specGraph = streamGraph.build();
+
+    Assert.assertEquals(1, specGraph.getInputOperators().size());
+    Assert.assertEquals(1, specGraph.getOutputStreams().size());
+    Assert.assertTrue(specGraph.hasWindowOrJoins());
+    Collection<OperatorSpec> operatorSpecs = specGraph.getAllOperatorSpecs();
+  }
+
+  @Test (expected = SamzaException.class)
+  public void testTranslateGroupByWithSumAggregator() {
+    Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 10);
+    String sql =
+        "Insert into testavro.pageViewCountTopic"
+            + " select 'SampleJob' as jobName, pv.pageKey, sum(pv.profileId) as `sum`"
+            + " from testavro.PAGEVIEW as pv" + " where pv.pageKey = 'job' or pv.pageKey = 'inbox'"
+            + " group by (pv.pageKey)";
+    config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
+    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
+    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
+    StreamGraphBuilder streamGraph = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    translator.translate(queryInfo, streamGraph);
   }
 }

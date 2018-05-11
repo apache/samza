@@ -29,7 +29,6 @@ import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
-
 /**
  * A stream operator specification that holds all the information required to transform
  * the input {@link MessageStreamImpl} and produce the output

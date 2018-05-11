@@ -27,7 +27,7 @@ import org.apache.samza.operators.triggers.AnyTrigger;
 import org.apache.samza.operators.triggers.RepeatingTrigger;
 import org.apache.samza.operators.triggers.TimeBasedTrigger;
 import org.apache.samza.operators.triggers.Trigger;
-import org.apache.samza.operators.util.MathUtils;
+import org.apache.samza.util.MathUtil;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.serializers.Serde;
@@ -39,6 +39,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static com.google.common.base.Preconditions.*;
 
 
 /**
@@ -61,6 +63,15 @@ public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK
    */
   WindowOperatorSpec(WindowInternal<M, WK, WV> window, String opId) {
     super(OpCode.WINDOW, opId);
+    checkArgument(window.getInitializer() == null ||
+        !(window.getInitializer() instanceof TimerFunction || window.getInitializer() instanceof WatermarkFunction),
+        "A window does not accepts a user-defined TimerFunction or WatermarkFunction as the initializer.");
+    checkArgument(window.getKeyExtractor() == null ||
+        !(window.getKeyExtractor() instanceof TimerFunction || window.getKeyExtractor() instanceof WatermarkFunction),
+        "A window does not accepts a user-defined TimerFunction or WatermarkFunction as the keyExtractor.");
+    checkArgument(window.getEventTimeExtractor() == null ||
+        !(window.getEventTimeExtractor() instanceof TimerFunction || window.getEventTimeExtractor() instanceof WatermarkFunction),
+        "A window does not accepts a user-defined TimerFunction or WatermarkFunction as the eventTimeExtractor.");
     this.window = window;
   }
 
@@ -95,7 +106,7 @@ public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK
         .map(timeBasedTrigger -> timeBasedTrigger.getDuration().toMillis())
         .collect(Collectors.toList());
 
-    return MathUtils.gcd(candidateDurations);
+    return MathUtil.gcd(candidateDurations);
   }
 
   private List<TimeBasedTrigger> getTimeBasedTriggers(Trigger rootTrigger) {

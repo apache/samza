@@ -44,10 +44,10 @@ public class SamzaSqlRelMessageJoinFunction
 
   private final JoinRelType joinRelType;
   private final boolean isTablePosOnRight;
-  private final List<Integer> streamFieldIds;
+  private final ArrayList<Integer> streamFieldIds;
   // Table field names are used in the outer join when the table record is not found.
-  private final List<String> tableFieldNames;
-  private final List<String> outFieldNames;
+  private final ArrayList<String> tableFieldNames;
+  private final ArrayList<String> outFieldNames;
 
   SamzaSqlRelMessageJoinFunction(JoinRelType joinRelType, boolean isTablePosOnRight,
       List<Integer> streamFieldIds, List<String> streamFieldNames, List<String> tableFieldNames) {
@@ -56,8 +56,8 @@ public class SamzaSqlRelMessageJoinFunction
     Validate.isTrue((joinRelType.compareTo(JoinRelType.LEFT) == 0 && isTablePosOnRight) ||
         (joinRelType.compareTo(JoinRelType.RIGHT) == 0 && !isTablePosOnRight) ||
         joinRelType.compareTo(JoinRelType.INNER) == 0);
-    this.streamFieldIds = streamFieldIds;
-    this.tableFieldNames = tableFieldNames;
+    this.streamFieldIds = new ArrayList<>(streamFieldIds);
+    this.tableFieldNames = new ArrayList<>(tableFieldNames);
     this.outFieldNames = new ArrayList<>();
     if (isTablePosOnRight) {
       outFieldNames.addAll(streamFieldNames);
@@ -85,12 +85,12 @@ public class SamzaSqlRelMessageJoinFunction
 
     // If table position is on the right, add the stream message fields first
     if (isTablePosOnRight) {
-      outFieldValues.addAll(message.getFieldValues());
+      outFieldValues.addAll(message.getSamzaSqlRelRecord().getFieldValues());
     }
 
     // Add the table record fields.
     if (record != null) {
-      outFieldValues.addAll(record.getValue().getFieldValues());
+      outFieldValues.addAll(record.getValue().getSamzaSqlRelRecord().getFieldValues());
     } else {
       // Table record could be null as the record could not be found in the store. This can
       // happen for outer joins. Add nulls to all the field values in the output message.
@@ -99,7 +99,7 @@ public class SamzaSqlRelMessageJoinFunction
 
     // If table position is on the left, add the stream message fields last
     if (!isTablePosOnRight) {
-      outFieldValues.addAll(message.getFieldValues());
+      outFieldValues.addAll(message.getSamzaSqlRelRecord().getFieldValues());
     }
 
     return new SamzaSqlRelMessage(outFieldNames, outFieldValues);

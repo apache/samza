@@ -19,10 +19,6 @@
 
 package org.apache.samza.system.eventhub.producer;
 
-import com.microsoft.azure.eventhubs.EventData;
-import com.microsoft.azure.eventhubs.EventHubClient;
-import com.microsoft.azure.eventhubs.PartitionSender;
-import com.microsoft.azure.servicebus.ServiceBusException;
 import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -35,6 +31,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+
+import org.apache.commons.lang3.Validate;
 import org.apache.samza.SamzaException;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -45,6 +43,14 @@ import org.apache.samza.system.eventhub.EventHubConfig;
 import org.apache.samza.system.eventhub.Interceptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.microsoft.azure.eventhubs.EventData;
+import com.microsoft.azure.eventhubs.EventHubClient;
+import com.microsoft.azure.eventhubs.EventHubException;
+import com.microsoft.azure.eventhubs.PartitionSender;
+import com.microsoft.azure.eventhubs.impl.ClientConstants;
+import com.microsoft.azure.eventhubs.impl.EventDataImpl;
 
 
 /**
@@ -90,10 +96,13 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
   private volatile boolean isStarted = false;
 
   /**
-   * Per stream event hub client
+   * Per partition event hub client. Partitions from the same stream may share the same client,
+   * depends on config PerPartitionConnection. See {@link EventHubConfig}
    */
-  // Map of the system name to the event hub client.
-  private final Map<String, EventHubClientManager> eventHubClients = new HashMap<>();
+  @VisibleForTesting
+  final Map<String, Map<Integer, EventHubClientManager>> perPartitionEventHubClients = new HashMap<>();
+
+  private final Map<String, EventHubClientManager> perStreamEventHubClientManagers = new HashMap<>();
 
   /**
    * PartitionSender for each partition in the stream.
@@ -105,6 +114,8 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
    */
   private final Map<String, Interceptor> interceptors;
 
+  private final EventHubClientManagerFactory eventHubClientManagerFactory;
+
   public EventHubSystemProducer(EventHubConfig config, String systemName,
       EventHubClientManagerFactory eventHubClientManagerFactory, Map<String, Interceptor> interceptors,
       MetricsRegistry registry) {
@@ -115,15 +126,17 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
     this.partitioningMethod = config.getPartitioningMethod(systemName);
     this.interceptors = interceptors;
     this.maxMessageSize = config.getSkipMessagesLargerThan(systemName);
-
+    this.eventHubClientManagerFactory = eventHubClientManagerFactory;
     // Fetches the stream ids
     List<String> streamIds = config.getStreams(systemName);
 
     // Create and initiate connections to Event Hubs
+    // even if PerPartitionConnection == true, we still need a stream level event hub for initial metadata (fetching
+    // partition count)
     for (String streamId : streamIds) {
       EventHubClientManager ehClient =
           eventHubClientManagerFactory.getEventHubClientManager(systemName, streamId, config);
-      eventHubClients.put(streamId, ehClient);
+      perStreamEventHubClientManagers.put(streamId, ehClient);
       ehClient.init();
     }
   }
@@ -137,6 +150,34 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
     }
   }
 
+  private EventHubClientManager createOrGetEventHubClientManagerForPartition(String streamId, int partitionId) {
+    Map<Integer, EventHubClientManager> perStreamMap =
+        perPartitionEventHubClients.computeIfAbsent(streamId, key -> new HashMap<>());
+    EventHubClientManager eventHubClientManager;
+    if (config.getPerPartitionConnection(systemName)) {
+      // will create one EventHub client per partition
+      if (perStreamMap.containsKey(partitionId)) {
+        LOG.warn(String.format("Trying to create new EventHubClientManager for partition=%d. But one already exists",
+            partitionId));
+        eventHubClientManager = perStreamMap.get(partitionId);
+      } else {
+        LOG.info(
+            String.format("Creating EventHub client manager for streamId=%s, partitionId=%d: ", streamId, partitionId));
+        eventHubClientManager = eventHubClientManagerFactory.getEventHubClientManager(systemName, streamId, config);
+        eventHubClientManager.init();
+        perStreamMap.put(partitionId, eventHubClientManager);
+      }
+    } else {
+      // will share one EventHub client per stream
+      eventHubClientManager = perStreamEventHubClientManagers.get(streamId);
+      perStreamMap.put(partitionId, eventHubClientManager);
+    }
+    Validate.notNull(eventHubClientManager,
+        String.format("Fail to create or get EventHubClientManager for streamId=%s, partitionId=%d", streamId,
+            partitionId));
+    return eventHubClientManager;
+  }
+
   @Override
   public synchronized void start() {
     super.start();
@@ -145,7 +186,7 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
     // Create partition senders if required
     if (PartitioningMethod.PARTITION_KEY_AS_PARTITION.equals(partitioningMethod)) {
       // Create all partition senders
-      eventHubClients.forEach((streamId, samzaEventHubClient) -> {
+      perStreamEventHubClientManagers.forEach((streamId, samzaEventHubClient) -> {
           EventHubClient ehClient = samzaEventHubClient.getEventHubClient();
 
           try {
@@ -154,9 +195,12 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
             Integer numPartitions =
                 ehClient.getRuntimeInformation().get(timeoutMs, TimeUnit.MILLISECONDS).getPartitionCount();
 
-            for (int i = 0; i < numPartitions; i++) { // 32 partitions max
+            for (int i = 0; i < numPartitions; i++) {
               String partitionId = String.valueOf(i);
-              PartitionSender partitionSender = ehClient.createPartitionSenderSync(partitionId);
+              EventHubClientManager perPartitionClientManager =
+                  createOrGetEventHubClientManagerForPartition(streamId, i);
+              PartitionSender partitionSender =
+                  perPartitionClientManager.getEventHubClient().createPartitionSenderSync(partitionId);
               partitionSenders.put(i, partitionSender);
             }
 
@@ -164,7 +208,7 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
           } catch (InterruptedException | ExecutionException | TimeoutException e) {
             String msg = "Failed to fetch number of Event Hub partitions for partition sender creation";
             throw new SamzaException(msg, e);
-          } catch (ServiceBusException | IllegalArgumentException e) {
+          } catch (EventHubException | IllegalArgumentException e) {
             String msg = "Creation of partition sender failed with exception";
             throw new SamzaException(msg, e);
           }
@@ -204,12 +248,14 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
 
     String streamId = config.getStreamId(envelope.getSystemStream().getStream());
 
-    if (!eventHubClients.containsKey(streamId)) {
+    if (!perStreamEventHubClientManagers.containsKey(streamId)) {
       String msg = String.format("Trying to send event to a destination {%s} that is not registered.", streamId);
       throw new SamzaException(msg);
     }
 
     EventData eventData = createEventData(streamId, envelope);
+    // SAMZA-1654: waiting for the client library to expose the API to calculate the exact size of the AMQP message
+    // https://github.com/Azure/azure-event-hubs-java/issues/305
     int eventDataLength = eventData.getBytes() == null ? 0 : eventData.getBytes().length;
 
     // If the maxMessageSize is lesser than zero, then it means there is no message size restriction.
@@ -225,13 +271,10 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
     aggEventWriteRate.inc();
     eventByteWriteRate.get(streamId).inc(eventDataLength);
     aggEventByteWriteRate.inc(eventDataLength);
-    EventHubClientManager ehClient = eventHubClients.get(streamId);
+    EventHubClientManager ehClient = perStreamEventHubClientManagers.get(streamId);
 
     // Async send call
-    CompletableFuture<Void> sendResult =
-        sendToEventHub(streamId, eventData, getEnvelopePartitionId(envelope), ehClient.getEventHubClient());
-
-    return sendResult;
+    return sendToEventHub(streamId, eventData, getEnvelopePartitionId(envelope), ehClient.getEventHubClient());
   }
 
   private CompletableFuture<Void> sendToEventHub(String streamId, EventData eventData, Object partitionKey,
@@ -264,15 +307,22 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
   }
 
   private String convertPartitionKeyToString(Object partitionKey) {
+    String partitionKeyStr;
     if (partitionKey instanceof String) {
-      return (String) partitionKey;
+      partitionKeyStr = (String) partitionKey;
     } else if (partitionKey instanceof Integer) {
-      return String.valueOf(partitionKey);
+      partitionKeyStr = String.valueOf(partitionKey);
     } else if (partitionKey instanceof byte[]) {
-      return new String((byte[]) partitionKey, Charset.defaultCharset());
+      partitionKeyStr = new String((byte[]) partitionKey, Charset.defaultCharset());
     } else {
       throw new SamzaException("Unsupported key type: " + partitionKey.getClass().toString());
     }
+    if (partitionKeyStr != null && partitionKeyStr.length() > ClientConstants.MAX_PARTITION_KEY_LENGTH) {
+      LOG.debug("Length of partition key: {} exceeds limit: {}. Truncating.", partitionKeyStr.length(),
+          ClientConstants.MAX_PARTITION_KEY_LENGTH);
+      partitionKeyStr = partitionKeyStr.substring(0, ClientConstants.MAX_PARTITION_KEY_LENGTH);
+    }
+    return partitionKeyStr;
   }
 
   protected EventData createEventData(String streamId, OutgoingMessageEnvelope envelope) {
@@ -282,7 +332,7 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
       eventValue = interceptor.get().intercept(eventValue);
     }
 
-    EventData eventData = new EventData(eventValue);
+    EventData eventData = new EventDataImpl(eventValue);
 
     eventData.getProperties().put(PRODUCE_TIMESTAMP, Long.toString(System.currentTimeMillis()));
 
@@ -310,8 +360,17 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
           LOG.error("Closing the partition sender failed ", e);
         }
       });
-    eventHubClients.values().forEach(ehClient -> ehClient.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS));
-    eventHubClients.clear();
+    perStreamEventHubClientManagers.values()
+        .parallelStream()
+        .forEach(ehClient -> ehClient.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS));
+    perStreamEventHubClientManagers.clear();
+    if (config.getPerPartitionConnection(systemName)) {
+      perPartitionEventHubClients.values()
+          .stream()
+          .flatMap(map -> map.values().stream())
+          .forEach(ehClient -> ehClient.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS));
+      perPartitionEventHubClients.clear();
+    }
   }
 
   /**

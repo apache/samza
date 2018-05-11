@@ -20,6 +20,7 @@
 package org.apache.samza.system.eventhub;
 
 import com.microsoft.azure.eventhubs.EventHubClient;
+import com.microsoft.azure.eventhubs.PartitionReceiver;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
@@ -49,6 +50,15 @@ public class EventHubConfig extends MapConfig {
   public static final String CONFIG_STREAM_CONSUMER_GROUP = "streams.%s.eventhubs.consumer.group";
   public static final String DEFAULT_CONFIG_STREAM_CONSUMER_GROUP = EventHubClient.DEFAULT_CONSUMER_GROUP_NAME;
 
+  public static final String CONFIG_SYSTEM_NUM_CLIENT_THREADS = "streams.%s.eventhubs.numClientThreads";
+  public static final int DEFAULT_CONFIG_SYSTEM_NUM_CLIENT_THREADS = 10;
+
+  public static final String CONFIG_PREFETCH_COUNT = "systems.%s.eventhubs.prefetchCount";
+  public static final int DEFAULT_CONFIG_PREFETCH_COUNT = PartitionReceiver.DEFAULT_PREFETCH_COUNT;
+
+  public static final String CONFIG_MAX_EVENT_COUNT_PER_POLL = "systems.%s.eventhubs.maxEventCountPerPoll";
+  public static final int DEFAULT_CONFIG_MAX_EVENT_COUNT_PER_POLL = 50;
+
   public static final String CONFIG_PRODUCER_PARTITION_METHOD = "systems.%s.eventhubs.partition.method";
   public static final String DEFAULT_CONFIG_PRODUCER_PARTITION_METHOD = EventHubSystemProducer
           .PartitioningMethod.EVENT_HUB_HASHING.name();
@@ -62,8 +72,16 @@ public class EventHubConfig extends MapConfig {
   public static final String CONFIG_CONSUMER_BUFFER_CAPACITY = "systems.%s.eventhubs.receive.queue.size";
   public static final int DEFAULT_CONFIG_CONSUMER_BUFFER_CAPACITY = 100;
 
-  // By default we will skip messages larger than 1MB.
-  private static final int DEFAULT_MAX_MESSAGE_SIZE = 1024 * 1024;
+  // By default we want to skip messages larger than 1MB. Also allow some buffer (24KB) to account for the overhead of
+  // metadata and key. So the default max message size will be 1000 KB (instead of precisely 1MB)
+  private static final int MESSAGE_HEADER_OVERHEAD = 24 * 1024;
+  private static final int DEFAULT_MAX_MESSAGE_SIZE = 1024 * 1024 - MESSAGE_HEADER_OVERHEAD;
+
+  // Each EventHub client maintains single TCP connection. To improve throughput, we will instantiate one
+  // client for each partition. Allow the option to disable the feature in case too many EventHub clients
+  // end up causing unpredictable issues when number of partitions is really high.
+  public static final String CONFIG_PER_PARTITION_CONNECTION = "systems.%s.eventhubs.perPartition.connection";
+  public static final Boolean DEFAULT_CONFIG_PER_PARTITION_CONNECTION = true;
 
   private final Map<String, String> physcialToId = new HashMap<>();
 
@@ -141,6 +159,34 @@ public class EventHubConfig extends MapConfig {
   public String getStreamEntityPath(String systemName, String streamName) {
     return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_ENTITYPATH, streamName),
             "EntityPath", systemName, streamName);
+  }
+
+  /**
+   * Get the number of client threads, This is used to create the ThreadPool executor that is passed to the
+   * {@link EventHubClient#create}
+   * @param systemName Name of the system.
+   * @return Num of client threads to use.
+   */
+  public Integer getNumClientThreads(String systemName) {
+    return getInt(String.format(CONFIG_SYSTEM_NUM_CLIENT_THREADS, systemName), DEFAULT_CONFIG_SYSTEM_NUM_CLIENT_THREADS);
+  }
+
+  /**
+   * Get the max event count returned per poll
+   * @param systemName Name of the system
+   * @return Max number of events returned per poll
+   */
+  public Integer getMaxEventCountPerPoll(String systemName) {
+    return getInt(String.format(CONFIG_MAX_EVENT_COUNT_PER_POLL, systemName), DEFAULT_CONFIG_MAX_EVENT_COUNT_PER_POLL);
+  }
+
+  /**
+   * Get the per partition prefetch count for the event hub client
+   * @param systemName Name of the system.
+   * @return Per partition Prefetch count for the event hub client.
+   */
+  public Integer getPrefetchCount(String systemName) {
+    return getInt(String.format(CONFIG_PREFETCH_COUNT, systemName), DEFAULT_CONFIG_PREFETCH_COUNT);
   }
 
   /**
@@ -240,4 +286,16 @@ public class EventHubConfig extends MapConfig {
     return Integer.parseInt(bufferCapacity);
   }
 
+  /**
+   * Returns whether to create one EventHub client per partition. Each EventHub client maintains
+   * single TCP connection. More EventHub clients will improve throughput in general.
+   * For producer this config is only relevant when partition method is PARTITION_KEY_AS_PARTITION
+   */
+  public Boolean getPerPartitionConnection(String systemName) {
+    String isPerPartitionConnection = get(String.format(CONFIG_PER_PARTITION_CONNECTION, systemName));
+    if (isPerPartitionConnection == null) {
+      return DEFAULT_CONFIG_PER_PARTITION_CONNECTION;
+    }
+    return Boolean.valueOf(isPerPartitionConnection);
+  }
 }

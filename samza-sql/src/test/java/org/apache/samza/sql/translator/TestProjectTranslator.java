@@ -138,13 +138,14 @@ public class TestProjectTranslator extends TranslatorTestBase {
       Object[] retValue = invocation.getArgumentAt(3, Object[].class);
       retValue[0] = mockFieldObj;
       return null;
-    }).when(mockExpr).execute(eq(executionContext), eq(dataContext), eq(mockInputMsg.getFieldValues().toArray()), eq(result));
+    }).when(mockExpr).execute(eq(executionContext), eq(dataContext),
+        eq(mockInputMsg.getSamzaSqlRelRecord().getFieldValues().toArray()), eq(result));
     SamzaSqlRelMessage retMsg = (SamzaSqlRelMessage) mapFn.apply(mockInputMsg);
-    assertEquals(retMsg.getFieldNames(),
+    assertEquals(retMsg.getSamzaSqlRelRecord().getFieldNames(),
         new ArrayList<String>() {{
           this.add("test_field");
         }});
-    assertEquals(retMsg.getFieldValues(), new ArrayList<Object>() {{
+    assertEquals(retMsg.getSamzaSqlRelRecord().getFieldValues(), new ArrayList<Object>() {{
           this.add(mockFieldObj);
         }});
 
@@ -226,7 +227,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
     }});
     Collection<SamzaSqlRelMessage> flattenedMsgs = flattenOp.getTransformFn().apply(mockMsg);
     assertTrue(flattenedMsgs.size() == 1);
-    assertTrue(flattenedMsgs.stream().anyMatch(s -> s.getFieldValues().get(0).equals(testObj)));
+    assertTrue(flattenedMsgs.stream().anyMatch(s -> s.getSamzaSqlRelRecord().getFieldValues().get(0).equals(testObj)));
     List<Integer> testList = new ArrayList<>();
     for (int i = 0; i < 10; i++) {
       testList.add(new Integer(i));
@@ -239,7 +240,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
     flattenedMsgs = flattenOp.getTransformFn().apply(mockMsg);
     assertTrue(flattenedMsgs.size() == 10);
     List<Integer> actualList = flattenedMsgs.stream()
-        .map(m -> ((List<Integer>) m.getFieldValues().get(0)).get(0))
+        .map(m -> ((List<Integer>) m.getSamzaSqlRelRecord().getFieldValues().get(0)).get(0))
         .collect(ArrayList::new, (c, a) -> c.add(a), (c1, c2) -> c1.addAll(c2));
     assertEquals(testList, actualList);
 
@@ -272,13 +273,14 @@ public class TestProjectTranslator extends TranslatorTestBase {
       Object[] retValue = invocation.getArgumentAt(3, Object[].class);
       retValue[0] = mockFieldObj;
       return null;
-    }).when(mockExpr).execute(eq(executionContext), eq(dataContext), eq(mockInputMsg.getFieldValues().toArray()), eq(result));
+    }).when(mockExpr).execute(eq(executionContext), eq(dataContext),
+        eq(mockInputMsg.getSamzaSqlRelRecord().getFieldValues().toArray()), eq(result));
     SamzaSqlRelMessage retMsg = (SamzaSqlRelMessage) mapFn.apply(mockInputMsg);
-    assertEquals(retMsg.getFieldNames(),
+    assertEquals(retMsg.getSamzaSqlRelRecord().getFieldNames(),
         new ArrayList<String>() {{
           this.add("test_field");
         }});
-    assertEquals(retMsg.getFieldValues(), new ArrayList<Object>() {{
+    assertEquals(retMsg.getSamzaSqlRelRecord().getFieldValues(), new ArrayList<Object>() {{
       this.add(mockFieldObj);
     }});
 

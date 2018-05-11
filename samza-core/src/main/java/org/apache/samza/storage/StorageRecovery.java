@@ -47,6 +47,7 @@ import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.CommandLine;
+import org.apache.samza.util.ScalaJavaUtil;
 import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
@@ -151,7 +152,7 @@ public class StorageRecovery extends CommandLine {
 
       String factoryClass = config.getStorageFactoryClassName(storeName);
       if (factoryClass != null) {
-        storageEngineFactories.put(storeName, Util.<StorageEngineFactory<Object, Object>>getObj(factoryClass));
+        storageEngineFactories.put(storeName, Util.getObj(factoryClass, StorageEngineFactory.class));
       } else {
         throw new SamzaException("Missing storage factory for " + storeName + ".");
       }
@@ -229,9 +230,9 @@ public class StorageRecovery extends CommandLine {
         }
         TaskStorageManager taskStorageManager = new TaskStorageManager(
             taskModel.getTaskName(),
-            Util.javaMapAsScalaMap(taskStores),
-            Util.javaMapAsScalaMap(storeConsumers),
-            Util.javaMapAsScalaMap(changeLogSystemStreams),
+            ScalaJavaUtil.toScalaMap(taskStores),
+            ScalaJavaUtil.toScalaMap(storeConsumers),
+            ScalaJavaUtil.toScalaMap(changeLogSystemStreams),
             maxPartitionNumber,
             streamMetadataCache,
             storeBaseDir,

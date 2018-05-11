@@ -23,6 +23,8 @@ import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
+import static com.google.common.base.Preconditions.*;
+
 
 /**
  * The spec for an operator that re-partitions a {@link org.apache.samza.operators.MessageStream} to a
@@ -53,6 +55,10 @@ public class PartitionByOperatorSpec<M, K, V> extends OperatorSpec<M, Void> {
       MapFunction<? super M, ? extends K> keyFunction,
       MapFunction<? super M, ? extends V> valueFunction, String opId) {
     super(OpCode.PARTITION_BY, opId);
+    checkArgument(!(keyFunction instanceof TimerFunction || keyFunction instanceof WatermarkFunction),
+        "A partitionBy operator does not accept a user defined TimerFunction or WatermarkFunction as the keyFunction.");
+    checkArgument(!(valueFunction instanceof TimerFunction || valueFunction instanceof WatermarkFunction),
+        "A partitionBy operator does not accept a user defined TimerFunction or WatermarkFunction as the valueFunction.");
     this.outputStream = outputStream;
     this.keyFunction = keyFunction;
     this.valueFunction = valueFunction;

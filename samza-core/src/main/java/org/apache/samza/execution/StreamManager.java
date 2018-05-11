@@ -42,7 +42,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.JavaConversions;
 
-import static org.apache.samza.util.ScalaToJavaUtils.defaultValue;
+import static org.apache.samza.util.ScalaJavaUtil.defaultValue;
 
 public class StreamManager {
   private static final Logger LOGGER = LoggerFactory.getLogger(StreamManager.class);
@@ -102,7 +102,7 @@ public class StreamManager {
 
       //Find all intermediate streams and clean up
       Set<StreamSpec> intStreams = JavaConversions.asJavaCollection(streamConfig.getStreamIds()).stream()
-          .filter(streamConfig::getIsIntermediate)
+          .filter(streamConfig::getIsIntermediateStream)
           .map(id -> new StreamSpec(id, streamConfig.getPhysicalName(id), streamConfig.getSystem(id)))
           .collect(Collectors.toSet());
       intStreams.forEach(stream -> {
@@ -112,17 +112,20 @@ public class StreamManager {
 
       //Find checkpoint stream and clean up
       TaskConfig taskConfig = new TaskConfig(prevConfig);
-      String checkpointManagerFactoryClass = taskConfig.getCheckpointManagerFactory().getOrElse(defaultValue(null));
-      if (checkpointManagerFactoryClass != null) {
-        CheckpointManager checkpointManager = ((CheckpointManagerFactory) Util.getObj(checkpointManagerFactoryClass))
-            .getCheckpointManager(prevConfig, new MetricsRegistryMap());
+      String checkpointManagerFactoryClassName = taskConfig.getCheckpointManagerFactory()
+          .getOrElse(defaultValue(null));
+      if (checkpointManagerFactoryClassName != null) {
+        CheckpointManager checkpointManager =
+            Util.getObj(checkpointManagerFactoryClassName, CheckpointManagerFactory.class)
+                .getCheckpointManager(prevConfig, new MetricsRegistryMap());
         checkpointManager.clearCheckpoints();
       }
 
       //Find changelog streams and remove them
       StorageConfig storageConfig = new StorageConfig(prevConfig);
       for (String store : JavaConversions.asJavaCollection(storageConfig.getStoreNames())) {
-        String changelog = storageConfig.getChangelogStream(store).getOrElse(defaultValue(null));
+        String changelog = storageConfig.getChangelogStream(store)
+            .getOrElse(defaultValue(null));
         if (changelog != null) {
           LOGGER.info("Clear store {} changelog {}", store, changelog);
           SystemStream systemStream = Util.getSystemStreamFromNames(changelog);

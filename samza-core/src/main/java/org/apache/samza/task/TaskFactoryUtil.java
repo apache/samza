@@ -31,9 +31,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.ExecutorService;
 
-import scala.runtime.AbstractFunction0;
-
-import static org.apache.samza.util.ScalaToJavaUtils.defaultValue;
+import static org.apache.samza.util.ScalaJavaUtil.toScalaFunction;
+import static org.apache.samza.util.ScalaJavaUtil.defaultValue;
 
 /**
  * This class provides utility functions to load task factory classes based on config, and to wrap {@link StreamTaskFactory} in {@link AsyncStreamTaskFactory}
@@ -74,13 +73,10 @@ public class TaskFactoryUtil {
    */
   private static Object fromTaskClassConfig(Config config) {
     // if there is configuration to set the job w/ a specific type of task, instantiate the corresponding task factory
-    String taskClassName = new TaskConfig(config).getTaskClass().getOrElse(
-      new AbstractFunction0<String>() {
-        @Override
-        public String apply() {
-          throw new ConfigException("There is no task class defined in the configuration. Failed to create a valid TaskFactory");
-        }
-      });
+    String taskClassName = new TaskConfig(config).getTaskClass().getOrElse(toScalaFunction(
+      () -> {
+        throw new ConfigException("No task class defined in the configuration.");
+      }));
 
     log.info("Got task class name: {}", taskClassName);
 

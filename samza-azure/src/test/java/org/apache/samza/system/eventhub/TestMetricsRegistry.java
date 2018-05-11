@@ -70,7 +70,12 @@ public class TestMetricsRegistry implements MetricsRegistry {
 
   @Override
   public <T> Gauge<T> newGauge(String group, Gauge<T> value) {
-    return null;
+    if (!gauges.containsKey(group)) {
+      gauges.put(group, new ArrayList<>());
+    }
+
+    gauges.get(group).add(value);
+    return value;
   }
 
   @Override

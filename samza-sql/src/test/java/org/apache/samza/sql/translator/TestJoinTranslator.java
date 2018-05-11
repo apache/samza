@@ -21,6 +21,7 @@ package org.apache.samza.sql.translator;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.apache.calcite.adapter.enumerable.EnumerableTableScan;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelNode;
@@ -35,6 +36,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.StreamGraphBuilder;
+import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -45,7 +47,8 @@ import org.apache.samza.serializers.Serde;
 import org.apache.samza.sql.data.Expression;
 import org.apache.samza.sql.data.RexToJavaCompiler;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
-import org.apache.samza.sql.interfaces.SourceResolver;
+import org.apache.samza.sql.interfaces.SqlIOConfig;
+import org.apache.samza.sql.interfaces.SqlIOResolver;
 import org.apache.samza.storage.kv.RocksDbTableDescriptor;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -149,14 +152,16 @@ public class TestJoinTranslator extends TranslatorTestBase {
 
     doAnswer(this.getRegisteredTableAnswer()).when(mockGraph).getTable(any(RocksDbTableDescriptor.class));
     when(mockJoin.getJoinType()).thenReturn(JoinRelType.INNER);
-    SourceResolver mockResolver = mock(SourceResolver.class);
-    when(mockResolver.isTable(String.join(".", qualifiedTableName))).thenReturn(true);
+    SqlIOResolver mockResolver = mock(SqlIOResolver.class);
+    SqlIOConfig mockIOConfig = mock(SqlIOConfig.class);
+    TableDescriptor mockTableDesc = mock(TableDescriptor.class);
+    when(mockResolver.fetchSourceInfo(String.join(".", qualifiedTableName))).thenReturn(mockIOConfig);
+    when(mockIOConfig.getTableDescriptor()).thenReturn(Optional.of(mockTableDesc));
 
     // Apply translate() method to verify that we are getting the correct map operator constructed
     JoinTranslator joinTranslator = new JoinTranslator(3, mockResolver);
     joinTranslator.translate(mockJoin, mockContext);
     // make sure that context has been registered with LogicFilter and output message streams
-    verify(mockContext, times(1)).registerRelNode(3, mockJoin);
     verify(mockContext, times(1)).registerMessageStream(3, this.getRegisteredMessageStream(3));
     when(mockContext.getRelNode(3)).thenReturn(mockJoin);
     when(mockContext.getMessageStream(3)).thenReturn(this.getRegisteredMessageStream(3));

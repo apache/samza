@@ -31,7 +31,7 @@ import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.task.TaskContext;
-import org.apache.samza.sql.interfaces.SqlSystemSourceConfig;
+import org.apache.samza.sql.interfaces.SqlIOConfig;
 
 
 /**
@@ -41,9 +41,9 @@ import org.apache.samza.sql.interfaces.SqlSystemSourceConfig;
 class ScanTranslator {
 
   private final Map<String, SamzaRelConverter> relMsgConverters;
-  private final Map<String, SqlSystemSourceConfig> systemStreamConfig;
+  private final Map<String, SqlIOConfig> systemStreamConfig;
 
-  ScanTranslator(Map<String, SamzaRelConverter> converters, Map<String, SqlSystemSourceConfig> ssc) {
+  ScanTranslator(Map<String, SamzaRelConverter> converters, Map<String, SqlIOConfig> ssc) {
     relMsgConverters = converters;
     this.systemStreamConfig = ssc;
   }
@@ -71,7 +71,7 @@ class ScanTranslator {
   void translate(final TableScan tableScan, final TranslatorContext context) {
     StreamGraph streamGraph = context.getStreamGraph();
     List<String> tableNameParts = tableScan.getTable().getQualifiedName();
-    String sourceName = SqlSystemSourceConfig.getSourceFromSourceParts(tableNameParts);
+    String sourceName = SqlIOConfig.getSourceFromSourceParts(tableNameParts);
 
     Validate.isTrue(relMsgConverters.containsKey(sourceName), String.format("Unknown source %s", sourceName));
     final String streamName = systemStreamConfig.get(sourceName).getStreamName();
@@ -80,6 +80,5 @@ class ScanTranslator {
     MessageStream<SamzaSqlRelMessage> samzaSqlRelMessageStream = inputStream.map(new ScanMapFunction(sourceName));
 
     context.registerMessageStream(tableScan.getId(), samzaSqlRelMessageStream);
-    context.registerRelNode(tableScan.getId(), tableScan);
   }
 }

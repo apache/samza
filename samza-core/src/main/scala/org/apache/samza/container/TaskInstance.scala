@@ -28,7 +28,6 @@ import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.metrics.MetricsReporter
-import org.apache.samza.operators.functions.TimerFunction
 import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system._
 import org.apache.samza.table.TableManager
@@ -37,6 +36,7 @@ import org.apache.samza.util.Logging
 
 import scala.collection.JavaConverters._
 import scala.collection.JavaConversions._
+import scala.collection.Map
 
 class TaskInstance(
   val task: Any,
@@ -72,7 +72,9 @@ class TaskInstance(
     scala.collection.mutable.Map[SystemStreamPartition, Boolean]()
   systemStreamPartitions.foreach(ssp2CaughtupMapping += _ -> false)
 
-  val hasIntermediateStreams = config.getStreamIds.exists(config.getIsIntermediate(_))
+  val intermediateStreams: Set[String] = config.getStreamIds.filter(config.getIsIntermediateStream).toSet
+
+  val streamsToDeleteCommittedMessages: Set[String] = config.getStreamIds.filter(config.getDeleteCommittedMessages).map(config.getPhysicalName).toSet
 
   def registerMetrics {
     debug("Registering metrics for taskName: %s" format taskName)
@@ -218,6 +220,15 @@ class TaskInstance(
     trace("Checkpointing offsets for taskName: %s" format taskName)
 
     offsetManager.writeCheckpoint(taskName, checkpoint)
+
+    if (checkpoint != null) {
+      checkpoint.getOffsets.asScala
+        .filter { case (ssp, _) => streamsToDeleteCommittedMessages.contains(ssp.getStream) } // Only delete data of intermediate streams
+        .groupBy { case (ssp, _) => ssp.getSystem }
+        .foreach { case (systemName: String, offsets: Map[SystemStreamPartition, String]) =>
+          systemAdmins.getSystemAdmin(systemName).deleteMessages(offsets.asJava)
+        }
+    }
   }
 
   def shutdownTask {
