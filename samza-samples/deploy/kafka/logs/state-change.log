@@ -1,1 +1,0 @@
-[2018-05-09 16:42:02,460] TRACE Controller 0 epoch 2 received response {error_code=0} for a request sent to broker fji-mn1.linkedin.biz:9092 (id: 0 rack: null) (state.change.logger)
