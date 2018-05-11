@@ -599,6 +599,40 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     assertTrue(containerMetrics.taskStoreRestorationMetrics.get(taskName).getValue >= 1)
 
   }
+
+  @Test
+  def testGetChangelogSSPsForContainer() = {
+    val taskName0 = new TaskName("task0")
+    val taskName1 = new TaskName("task1")
+    val taskModel0 = new TaskModel(taskName0,
+      Set(new SystemStreamPartition("input", "stream", new Partition(0))),
+      new Partition(10))
+    val taskModel1 = new TaskModel(taskName1,
+      Set(new SystemStreamPartition("input", "stream", new Partition(1))),
+      new Partition(11))
+    val containerModel = new ContainerModel("processorId", 0, Map(taskName0 -> taskModel0, taskName1 -> taskModel1))
+    val changeLogSystemStreams = Map("store0" -> new SystemStream("changelogSystem0", "store0-changelog"),
+      "store1" -> new SystemStream("changelogSystem1", "store1-changelog"))
+    val expected = Set(new SystemStreamPartition("changelogSystem0", "store0-changelog", new Partition(10)),
+      new SystemStreamPartition("changelogSystem1", "store1-changelog", new Partition(10)),
+      new SystemStreamPartition("changelogSystem0", "store0-changelog", new Partition(11)),
+      new SystemStreamPartition("changelogSystem1", "store1-changelog", new Partition(11)))
+    assertEquals(expected, SamzaContainer.getChangelogSSPsForContainer(containerModel, changeLogSystemStreams))
+  }
+
+  @Test
+  def testGetChangelogSSPsForContainerNoChangelogs() = {
+    val taskName0 = new TaskName("task0")
+    val taskName1 = new TaskName("task1")
+    val taskModel0 = new TaskModel(taskName0,
+      Set(new SystemStreamPartition("input", "stream", new Partition(0))),
+      new Partition(10))
+    val taskModel1 = new TaskModel(taskName1,
+      Set(new SystemStreamPartition("input", "stream", new Partition(1))),
+      new Partition(11))
+    val containerModel = new ContainerModel("processorId", 0, Map(taskName0 -> taskModel0, taskName1 -> taskModel1))
+    assertEquals(Set(), SamzaContainer.getChangelogSSPsForContainer(containerModel, Map()))
+  }
 }
 
 class MockCheckpointManager extends CheckpointManager {
