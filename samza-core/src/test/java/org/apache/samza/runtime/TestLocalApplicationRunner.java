@@ -20,6 +20,7 @@
 package org.apache.samza.runtime;
 
 import com.google.common.collect.ImmutableList;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -52,6 +53,7 @@ import org.powermock.modules.junit4.PowerMockRunner;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.*;
@@ -224,16 +226,13 @@ public class TestLocalApplicationRunner {
     when(plan.getJobConfigs()).thenReturn(Collections.singletonList(new JobConfig(new MapConfig(config))));
     doReturn(plan).when(runner).getExecutionPlan(any());
 
-    Throwable t = new Throwable("test failure");
     StreamProcessor sp = mock(StreamProcessor.class);
     ArgumentCaptor<StreamProcessorLifecycleListener> captor =
         ArgumentCaptor.forClass(StreamProcessorLifecycleListener.class);
 
     doAnswer(i ->
       {
-        StreamProcessorLifecycleListener listener = captor.getValue();
-        listener.onFailure(t);
-        return null;
+        throw new Exception("test failure");
       }).when(sp).start();
 
     doReturn(sp).when(runner).createStreamProcessor(anyObject(), anyObject(), captor.capture());
@@ -306,6 +305,24 @@ public class TestLocalApplicationRunner {
 
     assertFalse("Expected both of the latch ids to be different",
         planIdBeforeShuffle.equals(getExecutionPlanId(updatedStreamSpecs)));
+  }
+
+  @Test
+  public void testWaitForFinishReturnsBeforeTimeout() {
+    LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig());
+    long timeoutInMs = 1000;
+
+    runner.getShutdownLatch().countDown();
+    boolean finished = runner.waitForFinish(Duration.ofMillis(timeoutInMs));
+    assertTrue("Application did not finish before the timeout.", finished);
+  }
+
+  @Test
+  public void testWaitForFinishTimesout() {
+    LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig());
+    long timeoutInMs = 100;
+    boolean finished = runner.waitForFinish(Duration.ofMillis(timeoutInMs));
+    assertFalse("Application finished before the timeout.", finished);
   }
 
   private String getExecutionPlanId(List<StreamSpec> updatedStreamSpecs) {

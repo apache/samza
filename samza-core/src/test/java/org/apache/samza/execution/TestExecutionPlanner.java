@@ -19,6 +19,14 @@
 
 package org.apache.samza.execution;
 
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -26,7 +34,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OperatorSpecGraphBuilder;
+import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.windows.Windows;
@@ -40,20 +48,8 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
 
 public class TestExecutionPlanner {
@@ -61,7 +57,7 @@ public class TestExecutionPlanner {
   private static final String DEFAULT_SYSTEM = "test-system";
   private static final int DEFAULT_PARTITIONS = 10;
 
-  private Map<String, SystemAdmin> systemAdmins;
+  private SystemAdmins systemAdmins;
   private StreamManager streamManager;
   private ApplicationRunner runner;
   private Config config;
@@ -101,24 +97,24 @@ public class TestExecutionPlanner {
     };
   }
 
-  private OperatorSpecGraphBuilder createSimpleGraph() {
+  private StreamGraphSpec createSimpleGraph() {
     /**
      * a simple graph of partitionBy and map
      *
      * input1 -> partitionBy -> map -> output1
      *
      */
-    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(runner, config);
-    MessageStream<KV<Object, Object>> input1 = graphBuilder.getInputStream("input1");
-    OutputStream<KV<Object, Object>> output1 = graphBuilder.getOutputStream("output1");
+    StreamGraphSpec graphSpec = new StreamGraphSpec(runner, config);
+    MessageStream<KV<Object, Object>> input1 = graphSpec.getInputStream("input1");
+    OutputStream<KV<Object, Object>> output1 = graphSpec.getOutputStream("output1");
     input1
         .partitionBy(m -> m.key, m -> m.value, "p1")
         .map(kv -> kv)
         .sendTo(output1);
-    return graphBuilder;
+    return graphSpec;
   }
 
-  private OperatorSpecGraphBuilder createStreamGraphWithJoin() {
+  private StreamGraphSpec createStreamGraphWithJoin() {
 
     /**
      * the graph looks like the following. number of partitions in parentheses. quotes indicate expected value.
@@ -131,21 +127,21 @@ public class TestExecutionPlanner {
      *
      */
 
-    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(runner, config);
+    StreamGraphSpec graphSpec = new StreamGraphSpec(runner, config);
     MessageStream<KV<Object, Object>> messageStream1 =
-        graphBuilder.<KV<Object, Object>>getInputStream("input1")
+        graphSpec.<KV<Object, Object>>getInputStream("input1")
             .map(m -> m);
     MessageStream<KV<Object, Object>> messageStream2 =
-        graphBuilder.<KV<Object, Object>>getInputStream("input2")
+        graphSpec.<KV<Object, Object>>getInputStream("input2")
             .partitionBy(m -> m.key, m -> m.value, "p1")
             .filter(m -> true);
     MessageStream<KV<Object, Object>> messageStream3 =
-        graphBuilder.<KV<Object, Object>>getInputStream("input3")
+        graphSpec.<KV<Object, Object>>getInputStream("input3")
             .filter(m -> true)
             .partitionBy(m -> m.key, m -> m.value, "p2")
             .map(m -> m);
-    OutputStream<KV<Object, Object>> output1 = graphBuilder.getOutputStream("output1");
-    OutputStream<KV<Object, Object>> output2 = graphBuilder.getOutputStream("output2");
+    OutputStream<KV<Object, Object>> output1 = graphSpec.getOutputStream("output1");
+    OutputStream<KV<Object, Object>> output2 = graphSpec.getOutputStream("output2");
 
     messageStream1
         .join(messageStream2,
@@ -158,26 +154,26 @@ public class TestExecutionPlanner {
             mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
         .sendTo(output2);
 
-    return graphBuilder;
+    return graphSpec;
   }
 
-  private OperatorSpecGraphBuilder createStreamGraphWithJoinAndWindow() {
+  private StreamGraphSpec createStreamGraphWithJoinAndWindow() {
 
-    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(runner, config);
+    StreamGraphSpec graphSpec = new StreamGraphSpec(runner, config);
     MessageStream<KV<Object, Object>> messageStream1 =
-        graphBuilder.<KV<Object, Object>>getInputStream("input1")
+        graphSpec.<KV<Object, Object>>getInputStream("input1")
             .map(m -> m);
     MessageStream<KV<Object, Object>> messageStream2 =
-        graphBuilder.<KV<Object, Object>>getInputStream("input2")
+        graphSpec.<KV<Object, Object>>getInputStream("input2")
             .partitionBy(m -> m.key, m -> m.value, "p1")
             .filter(m -> true);
     MessageStream<KV<Object, Object>> messageStream3 =
-        graphBuilder.<KV<Object, Object>>getInputStream("input3")
+        graphSpec.<KV<Object, Object>>getInputStream("input3")
             .filter(m -> true)
             .partitionBy(m -> m.key, m -> m.value, "p2")
             .map(m -> m);
-    OutputStream<KV<Object, Object>> output1 = graphBuilder.getOutputStream("output1");
-    OutputStream<KV<Object, Object>> output2 = graphBuilder.getOutputStream("output2");
+    OutputStream<KV<Object, Object>> output1 = graphSpec.getOutputStream("output1");
+    OutputStream<KV<Object, Object>> output2 = graphSpec.getOutputStream("output2");
 
     messageStream1.map(m -> m)
         .filter(m->true)
@@ -203,7 +199,7 @@ public class TestExecutionPlanner {
             mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(252), "j3")
         .sendTo(output2);
 
-    return graphBuilder;
+    return graphSpec;
   }
 
   @Before
@@ -234,10 +230,10 @@ public class TestExecutionPlanner {
 
     SystemAdmin systemAdmin1 = createSystemAdmin(system1Map);
     SystemAdmin systemAdmin2 = createSystemAdmin(system2Map);
-    systemAdmins = new HashMap<>();
-    systemAdmins.put("system1", systemAdmin1);
-    systemAdmins.put("system2", systemAdmin2);
-    streamManager = new StreamManager(new SystemAdmins(systemAdmins));
+    systemAdmins = mock(SystemAdmins.class);
+    when(systemAdmins.getSystemAdmin("system1")).thenReturn(systemAdmin1);
+    when(systemAdmins.getSystemAdmin("system2")).thenReturn(systemAdmin2);
+    streamManager = new StreamManager(systemAdmins);
 
     runner = mock(ApplicationRunner.class);
     when(runner.getStreamSpec("input1")).thenReturn(input1);
@@ -259,9 +255,9 @@ public class TestExecutionPlanner {
   @Test
   public void testCreateProcessorGraph() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    OperatorSpecGraphBuilder graphBuilder = createStreamGraphWithJoin();
+    StreamGraphSpec graphSpec = createStreamGraphWithJoin();
 
-    JobGraph jobGraph = planner.createJobGraph(graphBuilder.build());
+    JobGraph jobGraph = planner.createJobGraph(graphSpec.getOperatorSpecGraph());
     assertTrue(jobGraph.getSources().size() == 3);
     assertTrue(jobGraph.getSinks().size() == 2);
     assertTrue(jobGraph.getIntermediateStreams().size() == 2); // two streams generated by partitionBy
@@ -270,8 +266,8 @@ public class TestExecutionPlanner {
   @Test
   public void testFetchExistingStreamPartitions() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    OperatorSpecGraphBuilder graphBuilder = createStreamGraphWithJoin();
-    JobGraph jobGraph = planner.createJobGraph(graphBuilder.build());
+    StreamGraphSpec graphSpec = createStreamGraphWithJoin();
+    JobGraph jobGraph = planner.createJobGraph(graphSpec.getOperatorSpecGraph());
 
     ExecutionPlanner.updateExistingPartitions(jobGraph, streamManager);
     assertTrue(jobGraph.getOrCreateStreamEdge(input1).getPartitionCount() == 64);
@@ -288,8 +284,8 @@ public class TestExecutionPlanner {
   @Test
   public void testCalculateJoinInputPartitions() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    OperatorSpecGraphBuilder graphBuilder = createStreamGraphWithJoin();
-    JobGraph jobGraph = planner.createJobGraph(graphBuilder.build());
+    StreamGraphSpec graphSpec = createStreamGraphWithJoin();
+    JobGraph jobGraph = planner.createJobGraph(graphSpec.getOperatorSpecGraph());
 
     ExecutionPlanner.updateExistingPartitions(jobGraph, streamManager);
     ExecutionPlanner.calculateJoinInputPartitions(jobGraph);
@@ -307,8 +303,8 @@ public class TestExecutionPlanner {
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
-    OperatorSpecGraphBuilder graphBuilder = createSimpleGraph();
-    JobGraph jobGraph = planner.createJobGraph(graphBuilder.build());
+    StreamGraphSpec graphSpec = createSimpleGraph();
+    JobGraph jobGraph = planner.createJobGraph(graphSpec.getOperatorSpecGraph());
     planner.calculatePartitions(jobGraph);
 
     // the partitions should be the same as input1
@@ -324,8 +320,8 @@ public class TestExecutionPlanner {
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
-    OperatorSpecGraphBuilder graphBuilder = createStreamGraphWithJoin();
-    ExecutionPlan plan = planner.plan(graphBuilder.build());
+    StreamGraphSpec graphSpec = createStreamGraphWithJoin();
+    ExecutionPlan plan = planner.plan(graphSpec.getOperatorSpecGraph());
     List<JobConfig> jobConfigs = plan.getJobConfigs();
     for (JobConfig config : jobConfigs) {
       System.out.println(config);
@@ -339,8 +335,8 @@ public class TestExecutionPlanner {
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
-    OperatorSpecGraphBuilder graphBuilder = createStreamGraphWithJoinAndWindow();
-    ExecutionPlan plan = planner.plan(graphBuilder.build());
+    StreamGraphSpec graphSpec = createStreamGraphWithJoinAndWindow();
+    ExecutionPlan plan = planner.plan(graphSpec.getOperatorSpecGraph());
     List<JobConfig> jobConfigs = plan.getJobConfigs();
     assertEquals(1, jobConfigs.size());
 
@@ -356,8 +352,8 @@ public class TestExecutionPlanner {
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
-    OperatorSpecGraphBuilder graphBuilder = createStreamGraphWithJoinAndWindow();
-    ExecutionPlan plan = planner.plan(graphBuilder.build());
+    StreamGraphSpec graphSpec = createStreamGraphWithJoinAndWindow();
+    ExecutionPlan plan = planner.plan(graphSpec.getOperatorSpecGraph());
     List<JobConfig> jobConfigs = plan.getJobConfigs();
     assertEquals(1, jobConfigs.size());
 
@@ -373,8 +369,8 @@ public class TestExecutionPlanner {
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
-    OperatorSpecGraphBuilder graphBuilder = createSimpleGraph();
-    ExecutionPlan plan = planner.plan(graphBuilder.build());
+    StreamGraphSpec graphSpec = createSimpleGraph();
+    ExecutionPlan plan = planner.plan(graphSpec.getOperatorSpecGraph());
     List<JobConfig> jobConfigs = plan.getJobConfigs();
     assertEquals(1, jobConfigs.size());
     assertFalse(jobConfigs.get(0).containsKey(TaskConfig.WINDOW_MS()));
@@ -388,8 +384,8 @@ public class TestExecutionPlanner {
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
-    OperatorSpecGraphBuilder graphBuilder = createSimpleGraph();
-    ExecutionPlan plan = planner.plan(graphBuilder.build());
+    StreamGraphSpec graphSpec = createSimpleGraph();
+    ExecutionPlan plan = planner.plan(graphSpec.getOperatorSpecGraph());
     List<JobConfig> jobConfigs = plan.getJobConfigs();
     assertEquals(1, jobConfigs.size());
     assertEquals("2000", jobConfigs.get(0).get(TaskConfig.WINDOW_MS()));
@@ -398,8 +394,8 @@ public class TestExecutionPlanner {
   @Test
   public void testCalculateIntStreamPartitions() throws Exception {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    OperatorSpecGraphBuilder graphBuilder = createSimpleGraph();
-    JobGraph jobGraph = (JobGraph) planner.plan(graphBuilder.build());
+    StreamGraphSpec graphSpec = createSimpleGraph();
+    JobGraph jobGraph = (JobGraph) planner.plan(graphSpec.getOperatorSpecGraph());
 
     // the partitions should be the same as input1
     jobGraph.getIntermediateStreams().forEach(edge -> {
@@ -431,12 +427,12 @@ public class TestExecutionPlanner {
     int partitionLimit = ExecutionPlanner.MAX_INFERRED_PARTITIONS;
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(runner, config);
+    StreamGraphSpec graphSpec = new StreamGraphSpec(runner, config);
 
-    MessageStream<KV<Object, Object>> input1 = graphBuilder.getInputStream("input4");
-    OutputStream<KV<Object, Object>> output1 = graphBuilder.getOutputStream("output1");
+    MessageStream<KV<Object, Object>> input1 = graphSpec.getInputStream("input4");
+    OutputStream<KV<Object, Object>> output1 = graphSpec.getOutputStream("output1");
     input1.partitionBy(m -> m.key, m -> m.value, "p1").map(kv -> kv).sendTo(output1);
-    JobGraph jobGraph = (JobGraph) planner.plan(graphBuilder.build());
+    JobGraph jobGraph = (JobGraph) planner.plan(graphSpec.getOperatorSpecGraph());
 
     // the partitions should be the same as input1
     jobGraph.getIntermediateStreams().forEach(edge -> {

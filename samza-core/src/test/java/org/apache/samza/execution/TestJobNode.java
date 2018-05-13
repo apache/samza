@@ -25,7 +25,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OperatorSpecGraphBuilder;
+import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.impl.store.TimestampedValueSerde;
@@ -71,11 +71,11 @@ public class TestJobNode {
     when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("jobName");
     when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("jobId");
 
-    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mockConfig);
-    graphBuilder.setDefaultSerde(KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
-    MessageStream<KV<String, Object>> input1 = graphBuilder.getInputStream("input1");
-    MessageStream<KV<String, Object>> input2 = graphBuilder.getInputStream("input2");
-    OutputStream<KV<String, Object>> output = graphBuilder.getOutputStream("output");
+    StreamGraphSpec graphSpec = new StreamGraphSpec(mockRunner, mockConfig);
+    graphSpec.setDefaultSerde(KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
+    MessageStream<KV<String, Object>> input1 = graphSpec.getInputStream("input1");
+    MessageStream<KV<String, Object>> input2 = graphSpec.getInputStream("input2");
+    OutputStream<KV<String, Object>> output = graphSpec.getOutputStream("output");
     JoinFunction<String, Object, Object, KV<String, Object>> mockJoinFn = mock(JoinFunction.class);
     input1
         .partitionBy(KV::getKey, KV::getValue, "p1").map(kv -> kv.value)
@@ -84,7 +84,7 @@ public class TestJobNode {
             Duration.ofHours(1), "j1")
         .sendTo(output);
 
-    JobNode jobNode = new JobNode("jobName", "jobId", graphBuilder.build(), mockConfig);
+    JobNode jobNode = new JobNode("jobName", "jobId", graphSpec.getOperatorSpecGraph(), mockConfig);
     Config config = new MapConfig();
     StreamEdge input1Edge = new StreamEdge(input1Spec, config);
     StreamEdge input2Edge = new StreamEdge(input2Spec, config);

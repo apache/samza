@@ -53,8 +53,8 @@ import com.google.common.base.Preconditions;
  * create the DAG of transforms.
  * 2) a builder that creates a serializable {@link OperatorSpecGraph} from user-defined DAG
  */
-public class OperatorSpecGraphBuilder implements StreamGraph {
-  private static final Logger LOGGER = LoggerFactory.getLogger(OperatorSpecGraphBuilder.class);
+public class StreamGraphSpec implements StreamGraph {
+  private static final Logger LOGGER = LoggerFactory.getLogger(StreamGraphSpec.class);
   private static final Pattern USER_DEFINED_ID_PATTERN = Pattern.compile("[\\d\\w-_.]+");
 
   // We use a LHM for deterministic order in initializing and closing operators.
@@ -74,8 +74,8 @@ public class OperatorSpecGraphBuilder implements StreamGraph {
   private Serde<?> defaultSerde = new KVSerde(new NoOpSerde(), new NoOpSerde());
   private ContextManager contextManager = null;
 
-  public OperatorSpecGraphBuilder(ApplicationRunner runner, Config config) {
-    // TODO: SAMZA-1118 - Move StreamSpec and ApplicationRunner out of OperatorSpecGraphBuilder once Systems
+  public StreamGraphSpec(ApplicationRunner runner, Config config) {
+    // TODO: SAMZA-1118 - Move StreamSpec and ApplicationRunner out of StreamGraphSpec once Systems
     // can use streamId to send and receive messages.
     this.runner = runner;
     this.config = config;
@@ -167,7 +167,7 @@ public class OperatorSpecGraphBuilder implements StreamGraph {
   }
 
   /**
-   * See {@link OperatorSpecGraphBuilder#getIntermediateStream(String, Serde, boolean)}.
+   * See {@link StreamGraphSpec#getIntermediateStream(String, Serde, boolean)}.
    *
    * @param <M> type of messages in the intermediate stream
    * @param streamId the id of the stream to be created
@@ -233,7 +233,7 @@ public class OperatorSpecGraphBuilder implements StreamGraph {
     return this.contextManager;
   }
 
-  public OperatorSpecGraph build() {
+  public OperatorSpecGraph getOperatorSpecGraph() {
     return new OperatorSpecGraph(this);
   }
 

@@ -30,7 +30,7 @@ import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.execution.ExecutionPlanner;
 import org.apache.samza.execution.StreamManager;
 import org.apache.samza.operators.OperatorSpecGraph;
-import org.apache.samza.operators.OperatorSpecGraphBuilder;
+import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmins;
 import org.slf4j.Logger;
@@ -45,7 +45,7 @@ import java.util.Set;
 
 
 /**
- * Defines common, core behavior for implementations of the {@link ApplicationRunner} API
+ * Defines common, core behavior for implementations of the {@link ApplicationRunner} API.
  */
 public abstract class AbstractApplicationRunner extends ApplicationRunner {
   private static final Logger log = LoggerFactory.getLogger(AbstractApplicationRunner.class);
@@ -53,11 +53,14 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
   private final StreamManager streamManager;
   private final SystemAdmins systemAdmins;
 
-  protected final OperatorSpecGraphBuilder graphBuilder;
+  /**
+   * The {@link ApplicationRunner} is supposed to run a single {@link StreamApplication} instance in the full life-cycle
+   */
+  protected final StreamGraphSpec graphSpec;
 
   public AbstractApplicationRunner(Config config) {
     super(config);
-    this.graphBuilder = new OperatorSpecGraphBuilder(this, config);
+    this.graphSpec = new StreamGraphSpec(this, config);
     this.systemAdmins = new SystemAdmins(config);
     this.streamManager = new StreamManager(systemAdmins);
   }
@@ -129,10 +132,10 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
 
   /* package private */
   ExecutionPlan getExecutionPlan(StreamApplication app, String runId) throws Exception {
-    // build stream graph
-    app.init(graphBuilder, config);
+    // getOperatorSpecGraph stream graph
+    app.init(graphSpec, config);
 
-    OperatorSpecGraph specGraph = graphBuilder.build();
+    OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
     // create the physical execution plan
     Map<String, String> cfg = new HashMap<>(config);
     if (StringUtils.isNoneEmpty(runId)) {

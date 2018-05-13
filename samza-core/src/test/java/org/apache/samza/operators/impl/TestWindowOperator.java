@@ -31,7 +31,7 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OperatorSpecGraphBuilder;
+import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.impl.store.TestInMemoryStore;
 import org.apache.samza.operators.impl.store.TimeSeriesKeySerde;
@@ -111,7 +111,7 @@ public class TestWindowOperator {
   public void testTumblingWindowsDiscardingMode() throws Exception {
 
     OperatorSpecGraph sgb = this.getKeyedTumblingWindowStreamGraph(AccumulationMode.DISCARDING,
-        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2))).build();
+        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2))).getOperatorSpecGraph();
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
 
     TestClock testClock = new TestClock();
@@ -144,7 +144,7 @@ public class TestWindowOperator {
   public void testNonKeyedTumblingWindowsDiscardingMode() throws Exception {
 
     OperatorSpecGraph sgb = this.getTumblingWindowStreamGraph(AccumulationMode.DISCARDING,
-        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(1000))).build();
+        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(1000))).getOperatorSpecGraph();
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
 
     TestClock testClock = new TestClock();
@@ -173,7 +173,7 @@ public class TestWindowOperator {
         .thenReturn(new TestInMemoryStore<>(new TimeSeriesKeySerde(new IntegerSerde()), new IntegerSerde()));
 
     OperatorSpecGraph sgb = this.getAggregateTumblingWindowStreamGraph(AccumulationMode.DISCARDING,
-        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2))).build();
+        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2))).getOperatorSpecGraph();
     List<WindowPane<Integer, Integer>> windowPanes = new ArrayList<>();
 
     TestClock testClock = new TestClock();
@@ -195,7 +195,7 @@ public class TestWindowOperator {
   @Test
   public void testTumblingWindowsAccumulatingMode() throws Exception {
     OperatorSpecGraph sgb = this.getKeyedTumblingWindowStreamGraph(AccumulationMode.ACCUMULATING,
-        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2))).build();
+        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2))).getOperatorSpecGraph();
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
     TestClock testClock = new TestClock();
     StreamOperatorTask task = new StreamOperatorTask(sgb, null, testClock);
@@ -224,7 +224,7 @@ public class TestWindowOperator {
   @Test
   public void testSessionWindowsDiscardingMode() throws Exception {
     OperatorSpecGraph sgb =
-        this.getKeyedSessionWindowStreamGraph(AccumulationMode.DISCARDING, Duration.ofMillis(500)).build();
+        this.getKeyedSessionWindowStreamGraph(AccumulationMode.DISCARDING, Duration.ofMillis(500)).getOperatorSpecGraph();
     TestClock testClock = new TestClock();
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
     StreamOperatorTask task = new StreamOperatorTask(sgb, null, testClock);
@@ -270,7 +270,7 @@ public class TestWindowOperator {
   @Test
   public void testSessionWindowsAccumulatingMode() throws Exception {
     OperatorSpecGraph sgb = this.getKeyedSessionWindowStreamGraph(AccumulationMode.DISCARDING,
-        Duration.ofMillis(500)).build();
+        Duration.ofMillis(500)).getOperatorSpecGraph();
     TestClock testClock = new TestClock();
     StreamOperatorTask task = new StreamOperatorTask(sgb, null, testClock);
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
@@ -302,7 +302,7 @@ public class TestWindowOperator {
   @Test
   public void testCancellationOfOnceTrigger() throws Exception {
     OperatorSpecGraph sgb = this.getKeyedTumblingWindowStreamGraph(AccumulationMode.ACCUMULATING,
-        Duration.ofSeconds(1), Triggers.count(2)).build();
+        Duration.ofSeconds(1), Triggers.count(2)).getOperatorSpecGraph();
     TestClock testClock = new TestClock();
     StreamOperatorTask task = new StreamOperatorTask(sgb, null, testClock);
     task.init(config, taskContext);
@@ -346,7 +346,7 @@ public class TestWindowOperator {
   @Test
   public void testCancellationOfAnyTrigger() throws Exception {
     OperatorSpecGraph sgb = this.getKeyedTumblingWindowStreamGraph(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1),
-        Triggers.any(Triggers.count(2), Triggers.timeSinceFirstMessage(Duration.ofMillis(500)))).build();
+        Triggers.any(Triggers.count(2), Triggers.timeSinceFirstMessage(Duration.ofMillis(500)))).getOperatorSpecGraph();
     TestClock testClock = new TestClock();
     StreamOperatorTask task = new StreamOperatorTask(sgb, null, testClock);
     task.init(config, taskContext);
@@ -404,7 +404,7 @@ public class TestWindowOperator {
   public void testCancelationOfRepeatingNestedTriggers() throws Exception {
 
     OperatorSpecGraph sgb = this.getKeyedTumblingWindowStreamGraph(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1),
-        Triggers.repeat(Triggers.any(Triggers.count(2), Triggers.timeSinceFirstMessage(Duration.ofMillis(500))))).build();
+        Triggers.repeat(Triggers.any(Triggers.count(2), Triggers.timeSinceFirstMessage(Duration.ofMillis(500))))).getOperatorSpecGraph();
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
 
     MessageCollector messageCollector =
@@ -449,7 +449,7 @@ public class TestWindowOperator {
     when(taskContext.fetchObject(WatermarkStates.class.getName())).thenReturn(mock(WatermarkStates.class));
 
     OperatorSpecGraph sgb = this.getTumblingWindowStreamGraph(AccumulationMode.DISCARDING,
-        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2))).build();
+        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2))).getOperatorSpecGraph();
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
 
     TestClock testClock = new TestClock();
@@ -490,7 +490,7 @@ public class TestWindowOperator {
     when(taskContext.fetchObject(WatermarkStates.class.getName())).thenReturn(mock(WatermarkStates.class));
 
     OperatorSpecGraph sgb =
-        this.getKeyedSessionWindowStreamGraph(AccumulationMode.DISCARDING, Duration.ofMillis(500)).build();
+        this.getKeyedSessionWindowStreamGraph(AccumulationMode.DISCARDING, Duration.ofMillis(500)).getOperatorSpecGraph();
     TestClock testClock = new TestClock();
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
     StreamOperatorTask task = new StreamOperatorTask(sgb, null, testClock);
@@ -527,7 +527,7 @@ public class TestWindowOperator {
     when(taskContext.fetchObject(WatermarkStates.class.getName())).thenReturn(mock(WatermarkStates.class));
 
     OperatorSpecGraph sgb =
-        this.getKeyedSessionWindowStreamGraph(AccumulationMode.DISCARDING, Duration.ofMillis(500)).build();
+        this.getKeyedSessionWindowStreamGraph(AccumulationMode.DISCARDING, Duration.ofMillis(500)).getOperatorSpecGraph();
     TestClock testClock = new TestClock();
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
     StreamOperatorTask task = new StreamOperatorTask(sgb, null, testClock);
@@ -550,9 +550,9 @@ public class TestWindowOperator {
     verify(taskCoordinator, times(1)).shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
   }
 
-  private OperatorSpecGraphBuilder getKeyedTumblingWindowStreamGraph(AccumulationMode mode,
+  private StreamGraphSpec getKeyedTumblingWindowStreamGraph(AccumulationMode mode,
       Duration duration, Trigger<KV<Integer, Integer>> earlyTrigger) throws IOException {
-    OperatorSpecGraphBuilder graph = new OperatorSpecGraphBuilder(runner, config);
+    StreamGraphSpec graph = new StreamGraphSpec(runner, config);
 
     KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
     graph.getInputStream("integers", kvSerde)
@@ -566,9 +566,9 @@ public class TestWindowOperator {
     return graph;
   }
 
-  private OperatorSpecGraphBuilder getTumblingWindowStreamGraph(AccumulationMode mode,
+  private StreamGraphSpec getTumblingWindowStreamGraph(AccumulationMode mode,
       Duration duration, Trigger<KV<Integer, Integer>> earlyTrigger) throws IOException {
-    OperatorSpecGraphBuilder graph = new OperatorSpecGraphBuilder(runner, config);
+    StreamGraphSpec graph = new StreamGraphSpec(runner, config);
 
     KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
     graph.getInputStream("integers", kvSerde)
@@ -581,8 +581,8 @@ public class TestWindowOperator {
     return graph;
   }
 
-  private OperatorSpecGraphBuilder getKeyedSessionWindowStreamGraph(AccumulationMode mode, Duration duration) throws IOException {
-    OperatorSpecGraphBuilder graph = new OperatorSpecGraphBuilder(runner, config);
+  private StreamGraphSpec getKeyedSessionWindowStreamGraph(AccumulationMode mode, Duration duration) throws IOException {
+    StreamGraphSpec graph = new StreamGraphSpec(runner, config);
 
     KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
     graph.getInputStream("integers", kvSerde)
@@ -595,9 +595,9 @@ public class TestWindowOperator {
     return graph;
   }
 
-  private OperatorSpecGraphBuilder getAggregateTumblingWindowStreamGraph(AccumulationMode mode, Duration timeDuration,
+  private StreamGraphSpec getAggregateTumblingWindowStreamGraph(AccumulationMode mode, Duration timeDuration,
         Trigger<IntegerEnvelope> earlyTrigger) throws IOException {
-    OperatorSpecGraphBuilder graph = new OperatorSpecGraphBuilder(runner, config);
+    StreamGraphSpec graph = new StreamGraphSpec(runner, config);
 
     MessageStream<KV<Integer, Integer>> integers = graph.getInputStream("integers",
         KVSerde.of(new IntegerSerde(), new IntegerSerde()));

@@ -24,7 +24,7 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OperatorSpecGraph;
-import org.apache.samza.operators.OperatorSpecGraphBuilder;
+import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.TimerFunction;
@@ -51,7 +51,7 @@ public class TestPartitionByOperatorSpec {
   private final String testJobName = "testJob";
   private final String testJobId = "1";
   private final String testReparStreamName = "parByKey";
-  private OperatorSpecGraphBuilder graphBuilder = null;
+  private StreamGraphSpec graphSpec = null;
 
   class TimerMapFn implements MapFunction<Object, String>, TimerFunction<String, Object> {
 
@@ -98,12 +98,12 @@ public class TestPartitionByOperatorSpec {
     String intermediateStreamName = String.format("%s-%s-partition_by-%s", testJobName, testJobId, testReparStreamName);
     StreamSpec intermediateSpec1 = new StreamSpec(intermediateStreamName, intermediateStreamName, "kafka");
     when(mockRunner.getStreamSpec(intermediateStreamName)).thenReturn(intermediateSpec1);
-    graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mockConfig);
+    graphSpec = new StreamGraphSpec(mockRunner, mockConfig);
   }
 
   @Test
   public void testPartitionBy() {
-    MessageStream inputStream = graphBuilder.getInputStream(testInputId);
+    MessageStream inputStream = graphSpec.getInputStream(testInputId);
     MapFunction<Object, String> keyFn = m -> m.toString();
     MapFunction<Object, Object> valueFn = m -> m;
     MessageStream<KV<String, Object>>
@@ -128,9 +128,9 @@ public class TestPartitionByOperatorSpec {
 
   @Test
   public void testCopy() {
-    MessageStream inputStream = graphBuilder.getInputStream(testInputId);
+    MessageStream inputStream = graphSpec.getInputStream(testInputId);
     inputStream.partitionBy(m -> m.toString(), m -> m, testReparStreamName);
-    OperatorSpecGraph specGraph = graphBuilder.build();
+    OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
     OperatorSpecGraph clonedGraph = specGraph.clone();
     OperatorSpecTestUtils.assertClonedGraph(specGraph, clonedGraph);
   }
@@ -138,28 +138,28 @@ public class TestPartitionByOperatorSpec {
   @Test(expected = IllegalArgumentException.class)
   public void testTimerFunctionAsKeyFn() {
     TimerMapFn keyFn = new TimerMapFn();
-    MessageStream<Object> inputStream = graphBuilder.getInputStream(testInputId);
+    MessageStream<Object> inputStream = graphSpec.getInputStream(testInputId);
     inputStream.partitionBy(keyFn, m -> m, "parByKey");
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testWatermarkFunctionAsKeyFn() {
     WatermarkMapFn keyFn = new WatermarkMapFn();
-    MessageStream<Object> inputStream = graphBuilder.getInputStream(testInputId);
+    MessageStream<Object> inputStream = graphSpec.getInputStream(testInputId);
     inputStream.partitionBy(keyFn, m -> m, "parByKey");
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testTimerFunctionAsValueFn() {
     TimerMapFn valueFn = new TimerMapFn();
-    MessageStream<Object> inputStream = graphBuilder.getInputStream(testInputId);
+    MessageStream<Object> inputStream = graphSpec.getInputStream(testInputId);
     inputStream.partitionBy(m -> m.toString(), valueFn, "parByKey");
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testWatermarkFunctionAsValueFn() {
     WatermarkMapFn valueFn = new WatermarkMapFn();
-    MessageStream<Object> inputStream = graphBuilder.getInputStream(testInputId);
+    MessageStream<Object> inputStream = graphSpec.getInputStream(testInputId);
     inputStream.partitionBy(m -> m.toString(), valueFn, "parByKey");
   }
 }

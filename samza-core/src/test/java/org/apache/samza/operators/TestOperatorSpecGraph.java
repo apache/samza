@@ -58,14 +58,14 @@ import static org.mockito.Mockito.*;
 @PrepareForTest(OperatorSpec.class)
 public class TestOperatorSpecGraph {
 
-  private OperatorSpecGraphBuilder mockGraph;
+  private StreamGraphSpec mockGraph;
   private Map<StreamSpec, InputOperatorSpec> inputOpSpecMap;
   private Map<StreamSpec, OutputStreamImpl> outputStrmMap;
   private Set<OperatorSpec> allOpSpecs;
 
   @Before
   public void setUp() {
-    this.mockGraph = mock(OperatorSpecGraphBuilder.class);
+    this.mockGraph = mock(StreamGraphSpec.class);
 
     /**
      * Setup two linear transformation pipelines:

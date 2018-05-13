@@ -79,7 +79,7 @@ public class KinesisConfig extends MapConfig {
    * @return a set of streams
    */
   public Set<String> getKinesisStreams(String system) {
-    // build stream-level configs
+    // getOperatorSpecGraph stream-level configs
     Config streamsConfig = subset(String.format("systems.%s.streams.", system), true);
     // all properties should now start with stream name
     Set<String> streams = new HashSet<>();
@@ -98,7 +98,7 @@ public class KinesisConfig extends MapConfig {
    * @param system name of the system
    * @param stream name of the stream
    * @param appName name of the application
-   * @return Stream scoped KCL configs required to build
+   * @return Stream scoped KCL configs required to getOperatorSpecGraph
    *         {@link KinesisClientLibConfiguration}
    */
   public KinesisClientLibConfiguration getKinesisClientLibConfig(String system, String stream, String appName) {

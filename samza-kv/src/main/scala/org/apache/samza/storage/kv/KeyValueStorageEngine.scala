@@ -160,4 +160,11 @@ class KeyValueStorageEngine[K, V](
   }
 
   override def getStoreProperties: StoreProperties = storeProperties
+
+  override def snapshot(from: K, to: K): KeyValueSnapshot[K, V] = {
+    updateTimer(metrics.snapshotNs) {
+      metrics.snapshots.inc
+      wrapperStore.snapshot(from, to)
+    }
+  }
 }

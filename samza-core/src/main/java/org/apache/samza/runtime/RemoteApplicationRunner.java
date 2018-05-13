@@ -19,6 +19,7 @@
 
 package org.apache.samza.runtime;
 
+import java.time.Duration;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
@@ -34,6 +35,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.UUID;
 
+import static org.apache.samza.job.ApplicationStatus.*;
+
 
 /**
  * This class implements the {@link ApplicationRunner} that runs the applications in a remote cluster
@@ -41,6 +44,7 @@ import java.util.UUID;
 public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
   private static final Logger LOG = LoggerFactory.getLogger(RemoteApplicationRunner.class);
+  private static final long DEFAULT_SLEEP_DURATION_MS = 2000;
 
   public RemoteApplicationRunner(Config config) {
     super(config);
@@ -110,9 +114,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
       ExecutionPlan plan = getExecutionPlan(app);
       for (JobConfig jobConfig : plan.getJobConfigs()) {
-        JobRunner runner = new JobRunner(jobConfig);
-        ApplicationStatus status = runner.status();
-        LOG.debug("Status is {} for job {}", new Object[]{status, jobConfig.getName()});
+        ApplicationStatus status = getApplicationStatus(jobConfig);
 
         switch (status.getStatusCode()) {
           case New:
@@ -133,20 +135,77 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
       if (hasNewJobs) {
         // There are jobs not started, report as New
-        return ApplicationStatus.New;
+        return New;
       } else if (hasRunningJobs) {
         // All jobs are started, some are running
-        return ApplicationStatus.Running;
+        return Running;
       } else if (unsuccessfulFinishStatus != null) {
         // All jobs are finished, some are not successful
         return unsuccessfulFinishStatus;
       } else {
         // All jobs are finished successfully
-        return ApplicationStatus.SuccessfulFinish;
+        return SuccessfulFinish;
       }
     } catch (Throwable t) {
       throw new SamzaException("Failed to get status for application", t);
     }
+  }
+
+  /* package private */ ApplicationStatus getApplicationStatus(JobConfig jobConfig) {
+    JobRunner runner = new JobRunner(jobConfig);
+    ApplicationStatus status = runner.status();
+    LOG.debug("Status is {} for job {}", new Object[]{status, jobConfig.getName()});
+    return status;
+  }
+
+  /**
+   * Waits until the application finishes.
+   */
+  public void waitForFinish() {
+    waitForFinish(Duration.ofMillis(0));
+  }
+
+  /**
+   * Waits for {@code timeout} duration for the application to finish.
+   * If timeout &lt; 1, blocks the caller indefinitely.
+   *
+   * @param timeout time to wait for the application to finish
+   * @return true - application finished before timeout
+   *         false - otherwise
+   */
+  public boolean waitForFinish(Duration timeout) {
+    JobConfig jobConfig = new JobConfig(config);
+    boolean finished = true;
+    long timeoutInMs = timeout.toMillis();
+    long startTimeInMs = System.currentTimeMillis();
+    long timeElapsed = 0L;
+
+    long sleepDurationInMs = timeoutInMs < 1 ?
+        DEFAULT_SLEEP_DURATION_MS : Math.min(timeoutInMs, DEFAULT_SLEEP_DURATION_MS);
+    ApplicationStatus status;
+
+    try {
+      while (timeoutInMs < 1 || timeElapsed <= timeoutInMs) {
+        status = getApplicationStatus(jobConfig);
+        if (status == SuccessfulFinish || status == UnsuccessfulFinish) {
+          LOG.info("Application finished with status {}", status);
+          break;
+        }
+
+        Thread.sleep(sleepDurationInMs);
+        timeElapsed = System.currentTimeMillis() - startTimeInMs;
+      }
+
+      if (timeElapsed > timeoutInMs) {
+        LOG.warn("Timed out waiting for application to finish.");
+        finished = false;
+      }
+    } catch (Exception e) {
+      LOG.error("Error waiting for application to finish", e);
+      throw new SamzaException(e);
+    }
+
+    return finished;
   }
 
   private Config getConfigFromPrevRun() {

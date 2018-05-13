@@ -323,7 +323,7 @@ object TestTask {
 abstract class TestTask extends StreamTask with InitableTask {
   var received = ArrayBuffer[String]()
   val initFinished = new CountDownLatch(1)
-  var gotMessage = new CountDownLatch(1)
+  @volatile var gotMessage = new CountDownLatch(1)
 
   def init(config: Config, context: TaskContext) {
     TestTask.register(context.getTaskName, this)

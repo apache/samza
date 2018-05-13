@@ -30,7 +30,7 @@ import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.OperatorSpecGraphBuilder;
+import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
@@ -73,7 +73,7 @@ public class TestFilterTranslator extends TranslatorTestBase {
     when(mockFilter.getInput()).thenReturn(mockInput);
     when(mockInput.getId()).thenReturn(1);
     when(mockFilter.getId()).thenReturn(2);
-    OperatorSpecGraphBuilder mockGraph = mock(OperatorSpecGraphBuilder.class);
+    StreamGraphSpec mockGraph = mock(StreamGraphSpec.class);
     OperatorSpec<Object, SamzaSqlRelMessage> mockInputOp = mock(OperatorSpec.class);
     MessageStream<SamzaSqlRelMessage> mockStream = new MessageStreamImpl<>(mockGraph, mockInputOp);
     when(mockContext.getMessageStream(eq(1))).thenReturn(mockStream);

@@ -16,19 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.container.grouper.task;
 
-
-import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
-
+package org.apache.samza.storage.kv;
 
 /**
- * Factory to getOperatorSpecGraph the GroupByContainerCount class.
+ * An immutable view of the {@link KeyValueStore} at a point-in-time.
+ * The snapshot MUST be closed after use.
+ *
+ * @param <K> key type
+ * @param <V> value type
  */
-public class GroupByContainerIdsFactory implements TaskNameGrouperFactory {
-  @Override
-  public TaskNameGrouper build(Config config) {
-    return new GroupByContainerIds(new JobConfig(config).getContainerCount());
-  }
+public interface KeyValueSnapshot<K, V> {
+  /**
+   * Creates a new iterator for this snapshot. The iterator MUST be
+   * closed after its execution by invoking {@link KeyValueIterator#close}.
+   * @return an iterator
+   */
+  KeyValueIterator<K, V> iterator();
+
+  /**
+   * Closes this snapshot releasing any associated resources. Once a
+   * snapshot is closed, no new iterators can be created for it.
+   */
+  void close();
 }

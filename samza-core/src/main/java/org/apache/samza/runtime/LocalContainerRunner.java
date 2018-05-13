@@ -107,8 +107,8 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
 
   private Object getTaskFactory(StreamApplication streamApp) {
     if (streamApp != null) {
-      streamApp.init(graphBuilder, config);
-      return TaskFactoryUtil.createTaskFactory(graphBuilder.build(), graphBuilder.getContextManager());
+      streamApp.init(graphSpec, config);
+      return TaskFactoryUtil.createTaskFactory(graphSpec.getOperatorSpecGraph(), graphSpec.getContextManager());
     }
     return TaskFactoryUtil.createTaskFactory(config);
   }

@@ -34,9 +34,9 @@ import org.apache.samza.table.TableSpec;
 
 
 /**
- * Defines the serialized format of {@link OperatorSpecGraphBuilder}. This class encapsulates all getter methods to get the {@link OperatorSpec}
- * initialized in the {@link OperatorSpecGraphBuilder} and constructsthe corresponding serialized instances of {@link OperatorSpec}.
- * The {@link OperatorSpecGraphBuilder} and {@link OperatorSpec} instances included in this class are considered as immutable and read-only.
+ * Defines the serialized format of {@link StreamGraphSpec}. This class encapsulates all getter methods to get the {@link OperatorSpec}
+ * initialized in the {@link StreamGraphSpec} and constructsthe corresponding serialized instances of {@link OperatorSpec}.
+ * The {@link StreamGraphSpec} and {@link OperatorSpec} instances included in this class are considered as immutable and read-only.
  * The instance of {@link OperatorSpecGraph} should only be used in runtime to construct {@link org.apache.samza.task.StreamOperatorTask}.
  */
 public class OperatorSpecGraph implements Serializable {
@@ -77,10 +77,10 @@ public class OperatorSpecGraph implements Serializable {
     return windowOrJoinSpecs.size() != 0;
   }
 
-  OperatorSpecGraph(OperatorSpecGraphBuilder graphBuilder) {
-    this.inputOperators = graphBuilder.getInputOperators();
-    this.outputStreams = graphBuilder.getOutputStreams();
-    this.tables = graphBuilder.getTables();
+  OperatorSpecGraph(StreamGraphSpec graphSpec) {
+    this.inputOperators = graphSpec.getInputOperators();
+    this.outputStreams = graphSpec.getOutputStreams();
+    this.tables = graphSpec.getTables();
     this.allOpSpecs = Collections.unmodifiableSet(this.findAllOperatorSpecs());
     hasWindowOrJoins = checkWindowOrJoins();
     serializedGraphSpec = graphSpecSerde.toBytes(this);
@@ -99,7 +99,7 @@ public class OperatorSpecGraph implements Serializable {
   }
 
   /**
-   * Get all {@link OperatorSpec}s available in this {@link OperatorSpecGraphBuilder}
+   * Get all {@link OperatorSpec}s available in this {@link StreamGraphSpec}
    *
    * @return all available {@link OperatorSpec}s
    */
@@ -108,9 +108,9 @@ public class OperatorSpecGraph implements Serializable {
   }
 
   /**
-   * Returns <tt>true</tt> iff this {@link OperatorSpecGraphBuilder} contains a join or a window operator
+   * Returns <tt>true</tt> iff this {@link StreamGraphSpec} contains a join or a window operator
    *
-   * @return  <tt>true</tt> iff this {@link OperatorSpecGraphBuilder} contains a join or a window operator
+   * @return  <tt>true</tt> iff this {@link StreamGraphSpec} contains a join or a window operator
    */
   public boolean hasWindowOrJoins() {
     return hasWindowOrJoins;

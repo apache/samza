@@ -69,7 +69,6 @@ public class RepartitionJoinWindowApp implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
-
     String inputTopicName1 = config.get(INPUT_TOPIC_NAME_1_PROP);
     String inputTopicName2 = config.get(INPUT_TOPIC_NAME_2_PROP);
     String outputTopic = config.get(OUTPUT_TOPIC_NAME_PROP);

@@ -96,7 +96,7 @@ public class RexToJavaCompiler {
    */
   public org.apache.samza.sql.data.Expression compile(List<RelNode> inputs, List<RexNode> nodes) {
     /*
-     *  In case there are multiple input relations, we build a single input row type combining types of all the inputs.
+     *  In case there are multiple input relations, we getOperatorSpecGraph a single input row type combining types of all the inputs.
      */
     final RelDataTypeFactory.FieldInfoBuilder fieldBuilder = rexBuilder.getTypeFactory().builder();
     for (RelNode input : inputs) {

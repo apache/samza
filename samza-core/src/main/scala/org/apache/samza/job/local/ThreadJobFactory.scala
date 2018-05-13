@@ -27,7 +27,7 @@ import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap, MetricsReporter}
-import org.apache.samza.operators.OperatorSpecGraphBuilder
+import org.apache.samza.operators.StreamGraphSpec
 import org.apache.samza.runtime.LocalContainerRunner
 import org.apache.samza.storage.ChangelogStreamManager
 import org.apache.samza.task.TaskFactoryUtil
@@ -75,9 +75,9 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     val appRunner = new LocalContainerRunner(jobModel, "0")
 
     val taskFactory = if (streamApp != null) {
-      val graphBuilder = new OperatorSpecGraphBuilder(appRunner, config)
-      streamApp.init(graphBuilder, config)
-      TaskFactoryUtil.createTaskFactory(graphBuilder.build(), graphBuilder.getContextManager)
+      val graphSpec = new StreamGraphSpec(appRunner, config)
+      streamApp.init(graphSpec, config)
+      TaskFactoryUtil.createTaskFactory(graphSpec.getOperatorSpecGraph(), graphSpec.getContextManager)
     } else {
       TaskFactoryUtil.createTaskFactory(config)
     }

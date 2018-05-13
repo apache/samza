@@ -37,7 +37,7 @@ import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.OperatorSpecGraphBuilder;
+import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
@@ -91,7 +91,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
     List<Pair<RexNode, String>> namedProjects = new ArrayList<>();
     namedProjects.add(Pair.of(mockRexField, "test_field"));
     when(mockProject.getNamedProjects()).thenReturn(namedProjects);
-    OperatorSpecGraphBuilder mockGraph = mock(OperatorSpecGraphBuilder.class);
+    StreamGraphSpec mockGraph = mock(StreamGraphSpec.class);
     OperatorSpec<Object, SamzaSqlRelMessage> mockInputOp = mock(OperatorSpec.class);
     MessageStream<SamzaSqlRelMessage> mockStream = new MessageStreamImpl<>(mockGraph, mockInputOp);
     when(mockContext.getMessageStream(eq(1))).thenReturn(mockStream);
@@ -183,7 +183,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
     flattenProjects.add(mockFlattenProject);
     when(mockProject.getProjects()).thenReturn(flattenProjects);
 
-    OperatorSpecGraphBuilder mockGraph = mock(OperatorSpecGraphBuilder.class);
+    StreamGraphSpec mockGraph = mock(StreamGraphSpec.class);
     OperatorSpec<Object, SamzaSqlRelMessage> mockInputOp = new OperatorSpec(OperatorSpec.OpCode.INPUT, "1") {
 
       @Override
