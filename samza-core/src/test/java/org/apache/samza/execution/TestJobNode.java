@@ -25,8 +25,8 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.OperatorSpecGraphBuilder;
 import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.impl.store.TimestampedValueSerde;
 import org.apache.samza.runtime.ApplicationRunner;
@@ -71,7 +71,7 @@ public class TestJobNode {
     when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("jobName");
     when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("jobId");
 
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mockConfig);
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mockConfig);
     graphBuilder.setDefaultSerde(KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
     MessageStream<KV<String, Object>> input1 = graphBuilder.getInputStream("input1");
     MessageStream<KV<String, Object>> input2 = graphBuilder.getInputStream("input2");

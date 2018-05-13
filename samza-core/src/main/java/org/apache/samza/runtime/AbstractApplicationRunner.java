@@ -30,7 +30,7 @@ import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.execution.ExecutionPlanner;
 import org.apache.samza.execution.StreamManager;
 import org.apache.samza.operators.OperatorSpecGraph;
-import org.apache.samza.operators.StreamGraphBuilder;
+import org.apache.samza.operators.OperatorSpecGraphBuilder;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmins;
 import org.slf4j.Logger;
@@ -53,11 +53,11 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
   private final StreamManager streamManager;
   private final SystemAdmins systemAdmins;
 
-  protected final StreamGraphBuilder graphBuilder;
+  protected final OperatorSpecGraphBuilder graphBuilder;
 
   public AbstractApplicationRunner(Config config) {
     super(config);
-    this.graphBuilder = new StreamGraphBuilder(this, config);
+    this.graphBuilder = new OperatorSpecGraphBuilder(this, config);
     this.systemAdmins = new SystemAdmins(config);
     this.streamManager = new StreamManager(systemAdmins);
   }

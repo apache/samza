@@ -26,7 +26,7 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.operators.StreamGraphBuilder;
+import org.apache.samza.operators.OperatorSpecGraphBuilder;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.testUtils.TestAsyncStreamTask;
 import org.apache.samza.testUtils.TestStreamTask;
@@ -81,7 +81,7 @@ public class TestTaskFactoryUtil {
     });
     StreamApplication streamApp = TaskFactoryUtil.createStreamApplication(config);
     assertNotNull(streamApp);
-    StreamGraphBuilder graph = new StreamGraphBuilder(mockRunner, config);
+    OperatorSpecGraphBuilder graph = new OperatorSpecGraphBuilder(mockRunner, config);
     streamApp.init(graph, config);
     Object retFactory = TaskFactoryUtil.createTaskFactory(graph.build(), null);
     assertTrue(retFactory instanceof StreamTaskFactory);

@@ -53,8 +53,8 @@ import com.google.common.base.Preconditions;
  * create the DAG of transforms.
  * 2) a builder that creates a serializable {@link OperatorSpecGraph} from user-defined DAG
  */
-public class StreamGraphBuilder implements StreamGraph {
-  private static final Logger LOGGER = LoggerFactory.getLogger(StreamGraphBuilder.class);
+public class OperatorSpecGraphBuilder implements StreamGraph {
+  private static final Logger LOGGER = LoggerFactory.getLogger(OperatorSpecGraphBuilder.class);
   private static final Pattern USER_DEFINED_ID_PATTERN = Pattern.compile("[\\d\\w-_.]+");
 
   // We use a LHM for deterministic order in initializing and closing operators.
@@ -74,8 +74,8 @@ public class StreamGraphBuilder implements StreamGraph {
   private Serde<?> defaultSerde = new KVSerde(new NoOpSerde(), new NoOpSerde());
   private ContextManager contextManager = null;
 
-  public StreamGraphBuilder(ApplicationRunner runner, Config config) {
-    // TODO: SAMZA-1118 - Move StreamSpec and ApplicationRunner out of StreamGraphBuilder once Systems
+  public OperatorSpecGraphBuilder(ApplicationRunner runner, Config config) {
+    // TODO: SAMZA-1118 - Move StreamSpec and ApplicationRunner out of OperatorSpecGraphBuilder once Systems
     // can use streamId to send and receive messages.
     this.runner = runner;
     this.config = config;
@@ -167,11 +167,12 @@ public class StreamGraphBuilder implements StreamGraph {
   }
 
   /**
-   * See {@link StreamGraphBuilder#getIntermediateStream(String, Serde, boolean)}.
+   * See {@link OperatorSpecGraphBuilder#getIntermediateStream(String, Serde, boolean)}.
    *
    * @param <M> type of messages in the intermediate stream
    * @param streamId the id of the stream to be created
    * @param serde the {@link Serde} to use for messages in the intermediate stream. If null, the default serde is used.
+   * @return  the intermediate {@link MessageStreamImpl}
    */
   @VisibleForTesting
   public <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde) {

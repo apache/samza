@@ -29,7 +29,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.operators.OperatorSpecGraph;
-import org.apache.samza.operators.StreamGraphBuilder;
+import org.apache.samza.operators.OperatorSpecGraphBuilder;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -85,8 +85,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamGraphBuilder
-        graphBuilder = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    OperatorSpecGraphBuilder
+        graphBuilder = new OperatorSpecGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
     translator.translate(queryInfo, graphBuilder);
     OperatorSpecGraph specGraph = graphBuilder.build();
     Assert.assertEquals(1, specGraph.getOutputStreams().size());
@@ -101,7 +101,7 @@ public class TestQueryTranslator {
     validatePerTaskContextInit(graphBuilder, samzaConfig);
   }
 
-  private void validatePerTaskContextInit(StreamGraphBuilder graphBuilder, Config samzaConfig) {
+  private void validatePerTaskContextInit(OperatorSpecGraphBuilder graphBuilder, Config samzaConfig) {
     // make sure that each task context would have a separate instance of cloned TranslatorContext
     TaskContextImpl testContext = new TaskContextImpl(new TaskName("Partition 1"), null, null,
         new HashSet<>(), null, null, null, null, null, null);
@@ -129,8 +129,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamGraphBuilder
-        graphBuilder = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    OperatorSpecGraphBuilder
+        graphBuilder = new OperatorSpecGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
     translator.translate(queryInfo, graphBuilder);
     OperatorSpecGraph specGraph = graphBuilder.build();
     Assert.assertEquals(1, specGraph.getOutputStreams().size());
@@ -154,8 +154,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamGraphBuilder
-        graphBuilder = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    OperatorSpecGraphBuilder
+        graphBuilder = new OperatorSpecGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
     translator.translate(queryInfo, graphBuilder);
     OperatorSpecGraph specGraph = graphBuilder.build();
     Assert.assertEquals(1, specGraph.getOutputStreams().size());
@@ -183,8 +183,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamGraphBuilder
-        graphBuilder = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    OperatorSpecGraphBuilder
+        graphBuilder = new OperatorSpecGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
     translator.translate(queryInfo, graphBuilder);
   }
 
@@ -202,8 +202,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamGraphBuilder
-        graphBuilder = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    OperatorSpecGraphBuilder
+        graphBuilder = new OperatorSpecGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
     translator.translate(queryInfo, graphBuilder);
   }
 
@@ -221,8 +221,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamGraphBuilder
-        graphBuilder = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    OperatorSpecGraphBuilder
+        graphBuilder = new OperatorSpecGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
     translator.translate(queryInfo, graphBuilder);
   }
 
@@ -240,8 +240,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamGraphBuilder
-        graphBuilder = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    OperatorSpecGraphBuilder
+        graphBuilder = new OperatorSpecGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
     translator.translate(queryInfo, graphBuilder);
   }
 
@@ -257,8 +257,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamGraphBuilder
-        graphBuilder = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    OperatorSpecGraphBuilder
+        graphBuilder = new OperatorSpecGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
     translator.translate(queryInfo, graphBuilder);
   }
 
@@ -276,8 +276,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamGraphBuilder
-        graphBuilder = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    OperatorSpecGraphBuilder
+        graphBuilder = new OperatorSpecGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
     translator.translate(queryInfo, graphBuilder);
   }
 
@@ -296,8 +296,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamGraphBuilder
-        graphBuilder = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    OperatorSpecGraphBuilder
+        graphBuilder = new OperatorSpecGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
     translator.translate(queryInfo, graphBuilder);
   }
 
@@ -315,8 +315,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamGraphBuilder
-        graphBuilder = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    OperatorSpecGraphBuilder
+        graphBuilder = new OperatorSpecGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
     translator.translate(queryInfo, graphBuilder);
   }
 
@@ -334,8 +334,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamGraphBuilder
-        graphBuilder = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    OperatorSpecGraphBuilder
+        graphBuilder = new OperatorSpecGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
     translator.translate(queryInfo, graphBuilder);
   }
 
@@ -353,8 +353,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamGraphBuilder
-        graphBuilder = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    OperatorSpecGraphBuilder
+        graphBuilder = new OperatorSpecGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
     translator.translate(queryInfo, graphBuilder);
   }
 
@@ -372,8 +372,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamGraphBuilder
-        graphBuilder = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    OperatorSpecGraphBuilder
+        graphBuilder = new OperatorSpecGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
     translator.translate(queryInfo, graphBuilder);
   }
 
@@ -395,8 +395,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamGraphBuilder
-        graphBuilder = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    OperatorSpecGraphBuilder
+        graphBuilder = new OperatorSpecGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
     translator.translate(queryInfo, graphBuilder);
   }
 
@@ -414,8 +414,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamGraphBuilder
-        graphBuilder = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    OperatorSpecGraphBuilder
+        graphBuilder = new OperatorSpecGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
     translator.translate(queryInfo, graphBuilder);
   }
 
@@ -433,8 +433,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamGraphBuilder
-        graphBuilder = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    OperatorSpecGraphBuilder
+        graphBuilder = new OperatorSpecGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
     translator.translate(queryInfo, graphBuilder);
     OperatorSpecGraph specGraph = graphBuilder.build();
 
@@ -475,8 +475,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamGraphBuilder
-        graphBuilder = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    OperatorSpecGraphBuilder
+        graphBuilder = new OperatorSpecGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
     translator.translate(queryInfo, graphBuilder);
 
     OperatorSpecGraph specGraph = graphBuilder.build();
@@ -520,8 +520,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamGraphBuilder
-        graphBuilder = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    OperatorSpecGraphBuilder
+        graphBuilder = new OperatorSpecGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
     translator.translate(queryInfo, graphBuilder);
 
     OperatorSpecGraph specGraph = graphBuilder.build();
@@ -565,9 +565,10 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamGraphBuilder streamGraph = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
-    translator.translate(queryInfo, streamGraph);
-    OperatorSpecGraph specGraph = streamGraph.build();
+    OperatorSpecGraphBuilder
+        graphBuilder = new OperatorSpecGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    translator.translate(queryInfo, graphBuilder);
+    OperatorSpecGraph specGraph = graphBuilder.build();
 
     Assert.assertEquals(1, specGraph.getInputOperators().size());
     Assert.assertEquals(1, specGraph.getOutputStreams().size());
@@ -588,7 +589,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamGraphBuilder streamGraph = new StreamGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
-    translator.translate(queryInfo, streamGraph);
+    OperatorSpecGraphBuilder
+        graphBuilder = new OperatorSpecGraphBuilder(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    translator.translate(queryInfo, graphBuilder);
   }
 }

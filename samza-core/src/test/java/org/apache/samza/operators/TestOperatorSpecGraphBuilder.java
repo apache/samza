@@ -49,14 +49,14 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class TestStreamGraphBuilder {
+public class TestOperatorSpecGraphBuilder {
 
   @Test
   public void testGetInputStreamWithValueSerde() {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     StreamSpec mockStreamSpec = mock(StreamSpec.class);
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mockStreamSpec);
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mock(Config.class));
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mock(Config.class));
 
     Serde mockValueSerde = mock(Serde.class);
     MessageStream<TestMessageEnvelope> inputStream = graphBuilder.getInputStream("test-stream-1", mockValueSerde);
@@ -75,7 +75,7 @@ public class TestStreamGraphBuilder {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     StreamSpec mockStreamSpec = mock(StreamSpec.class);
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mockStreamSpec);
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mock(Config.class));
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mock(Config.class));
 
     KVSerde mockKVSerde = mock(KVSerde.class);
     Serde mockKeySerde = mock(Serde.class);
@@ -98,7 +98,7 @@ public class TestStreamGraphBuilder {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     StreamSpec mockStreamSpec = mock(StreamSpec.class);
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mockStreamSpec);
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mock(Config.class));
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mock(Config.class));
 
     graphBuilder.getInputStream("test-stream-1", null);
   }
@@ -108,7 +108,7 @@ public class TestStreamGraphBuilder {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     StreamSpec mockStreamSpec = mock(StreamSpec.class);
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mockStreamSpec);
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mock(Config.class));
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mock(Config.class));
 
     Serde mockValueSerde = mock(Serde.class);
     graphBuilder.setDefaultSerde(mockValueSerde);
@@ -128,7 +128,7 @@ public class TestStreamGraphBuilder {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     StreamSpec mockStreamSpec = mock(StreamSpec.class);
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mockStreamSpec);
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mock(Config.class));
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mock(Config.class));
 
     KVSerde mockKVSerde = mock(KVSerde.class);
     Serde mockKeySerde = mock(Serde.class);
@@ -153,7 +153,7 @@ public class TestStreamGraphBuilder {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     StreamSpec mockStreamSpec = mock(StreamSpec.class);
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mockStreamSpec);
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mock(Config.class));
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mock(Config.class));
 
     MessageStream<TestMessageEnvelope> inputStream = graphBuilder.getInputStream("test-stream-1");
 
@@ -171,7 +171,7 @@ public class TestStreamGraphBuilder {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     StreamSpec mockStreamSpec = mock(StreamSpec.class);
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mockStreamSpec);
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mock(Config.class));
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mock(Config.class));
 
     MessageStream<TestMessageEnvelope> inputStream = graphBuilder.getInputStream("test-stream-1");
 
@@ -190,7 +190,7 @@ public class TestStreamGraphBuilder {
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mockStreamSpec1);
     when(mockRunner.getStreamSpec("test-stream-2")).thenReturn(mockStreamSpec2);
 
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mock(Config.class));
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mock(Config.class));
     MessageStream<Object> inputStream1 = graphBuilder.getInputStream("test-stream-1");
     MessageStream<Object> inputStream2 = graphBuilder.getInputStream("test-stream-2");
 
@@ -209,7 +209,7 @@ public class TestStreamGraphBuilder {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mock(StreamSpec.class));
 
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mock(Config.class));
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mock(Config.class));
     graphBuilder.getInputStream("test-stream-1");
     // should throw exception
     graphBuilder.getInputStream("test-stream-1");
@@ -221,7 +221,7 @@ public class TestStreamGraphBuilder {
     StreamSpec mockStreamSpec = mock(StreamSpec.class);
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mockStreamSpec);
 
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mock(Config.class));
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mock(Config.class));
 
     Serde mockValueSerde = mock(Serde.class);
     OutputStream<TestMessageEnvelope> outputStream =
@@ -240,7 +240,7 @@ public class TestStreamGraphBuilder {
     StreamSpec mockStreamSpec = mock(StreamSpec.class);
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mockStreamSpec);
 
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mock(Config.class));
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mock(Config.class));
     KVSerde mockKVSerde = mock(KVSerde.class);
     Serde mockKeySerde = mock(Serde.class);
     Serde mockValueSerde = mock(Serde.class);
@@ -262,7 +262,7 @@ public class TestStreamGraphBuilder {
     StreamSpec mockStreamSpec = mock(StreamSpec.class);
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mockStreamSpec);
 
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mock(Config.class));
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mock(Config.class));
 
     graphBuilder.getOutputStream("test-stream-1", null);
   }
@@ -274,7 +274,7 @@ public class TestStreamGraphBuilder {
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mockStreamSpec);
 
     Serde mockValueSerde = mock(Serde.class);
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mock(Config.class));
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mock(Config.class));
     graphBuilder.setDefaultSerde(mockValueSerde);
     OutputStream<TestMessageEnvelope> outputStream = graphBuilder.getOutputStream("test-stream-1");
 
@@ -291,7 +291,7 @@ public class TestStreamGraphBuilder {
     StreamSpec mockStreamSpec = mock(StreamSpec.class);
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mockStreamSpec);
 
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mock(Config.class));
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mock(Config.class));
     KVSerde mockKVSerde = mock(KVSerde.class);
     Serde mockKeySerde = mock(Serde.class);
     Serde mockValueSerde = mock(Serde.class);
@@ -314,7 +314,7 @@ public class TestStreamGraphBuilder {
     StreamSpec mockStreamSpec = mock(StreamSpec.class);
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mockStreamSpec);
 
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mock(Config.class));
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mock(Config.class));
 
     OutputStream<TestMessageEnvelope> outputStream = graphBuilder.getOutputStream("test-stream-1");
 
@@ -330,7 +330,7 @@ public class TestStreamGraphBuilder {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mock(StreamSpec.class));
 
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mock(Config.class));
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mock(Config.class));
     graphBuilder.getInputStream("test-stream-1");
     graphBuilder.setDefaultSerde(mock(Serde.class)); // should throw exception
   }
@@ -340,7 +340,7 @@ public class TestStreamGraphBuilder {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mock(StreamSpec.class));
 
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mock(Config.class));
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mock(Config.class));
     graphBuilder.getOutputStream("test-stream-1");
     graphBuilder.setDefaultSerde(mock(Serde.class)); // should throw exception
   }
@@ -350,7 +350,7 @@ public class TestStreamGraphBuilder {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mock(StreamSpec.class));
 
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mock(Config.class));
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mock(Config.class));
     graphBuilder.getIntermediateStream("test-stream-1", null);
     graphBuilder.setDefaultSerde(mock(Serde.class)); // should throw exception
   }
@@ -360,7 +360,7 @@ public class TestStreamGraphBuilder {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mock(StreamSpec.class));
 
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mock(Config.class));
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mock(Config.class));
     graphBuilder.getOutputStream("test-stream-1");
     graphBuilder.getOutputStream("test-stream-1"); // should throw exception
   }
@@ -373,7 +373,7 @@ public class TestStreamGraphBuilder {
     String mockStreamName = "mockStreamName";
     when(mockRunner.getStreamSpec(mockStreamName)).thenReturn(mockStreamSpec);
 
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mockConfig);
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mockConfig);
 
     Serde mockValueSerde = mock(Serde.class);
     IntermediateMessageStreamImpl<TestMessageEnvelope> intermediateStreamImpl =
@@ -396,7 +396,7 @@ public class TestStreamGraphBuilder {
     String mockStreamName = "mockStreamName";
     when(mockRunner.getStreamSpec(mockStreamName)).thenReturn(mockStreamSpec);
 
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mockConfig);
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mockConfig);
 
     KVSerde mockKVSerde = mock(KVSerde.class);
     Serde mockKeySerde = mock(Serde.class);
@@ -423,7 +423,7 @@ public class TestStreamGraphBuilder {
     String mockStreamName = "mockStreamName";
     when(mockRunner.getStreamSpec(mockStreamName)).thenReturn(mockStreamSpec);
 
-    StreamGraphBuilder graph = new StreamGraphBuilder(mockRunner, mockConfig);
+    OperatorSpecGraphBuilder graph = new OperatorSpecGraphBuilder(mockRunner, mockConfig);
 
     Serde mockValueSerde = mock(Serde.class);
     graph.setDefaultSerde(mockValueSerde);
@@ -447,7 +447,7 @@ public class TestStreamGraphBuilder {
     String mockStreamName = "mockStreamName";
     when(mockRunner.getStreamSpec(mockStreamName)).thenReturn(mockStreamSpec);
 
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mockConfig);
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mockConfig);
 
     KVSerde mockKVSerde = mock(KVSerde.class);
     Serde mockKeySerde = mock(Serde.class);
@@ -475,7 +475,7 @@ public class TestStreamGraphBuilder {
     String mockStreamName = "mockStreamName";
     when(mockRunner.getStreamSpec(mockStreamName)).thenReturn(mockStreamSpec);
 
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mockConfig);
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mockConfig);
     IntermediateMessageStreamImpl<TestMessageEnvelope> intermediateStreamImpl =
         graphBuilder.getIntermediateStream(mockStreamName, null);
 
@@ -493,7 +493,7 @@ public class TestStreamGraphBuilder {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mock(StreamSpec.class));
 
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mock(Config.class));
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mock(Config.class));
     graphBuilder.getIntermediateStream("test-stream-1", mock(Serde.class));
     graphBuilder.getIntermediateStream("test-stream-1", mock(Serde.class));
   }
@@ -505,7 +505,7 @@ public class TestStreamGraphBuilder {
     when(mockConfig.get(eq(JobConfig.JOB_NAME()))).thenReturn("jobName");
     when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("1234");
 
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mockConfig);
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mockConfig);
     assertEquals("jobName-1234-merge-0", graphBuilder.getNextOpId(OpCode.MERGE, null));
     assertEquals("jobName-1234-join-customName", graphBuilder.getNextOpId(OpCode.JOIN, "customName"));
     assertEquals("jobName-1234-map-2", graphBuilder.getNextOpId(OpCode.MAP, null));
@@ -518,7 +518,7 @@ public class TestStreamGraphBuilder {
     when(mockConfig.get(eq(JobConfig.JOB_NAME()))).thenReturn("jobName");
     when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("1234");
 
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mockConfig);
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mockConfig);
     assertEquals("jobName-1234-join-customName", graphBuilder.getNextOpId(OpCode.JOIN, "customName"));
     graphBuilder.getNextOpId(OpCode.JOIN, "customName"); // should throw
   }
@@ -530,7 +530,7 @@ public class TestStreamGraphBuilder {
     when(mockConfig.get(eq(JobConfig.JOB_NAME()))).thenReturn("jobName");
     when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("1234");
 
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mockConfig);
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mockConfig);
 
     // null and empty userDefinedIDs should fall back to autogenerated IDs.
     try {
@@ -565,7 +565,7 @@ public class TestStreamGraphBuilder {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     Config mockConfig = mock(Config.class);
 
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mockConfig);
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mockConfig);
 
     StreamSpec testStreamSpec1 = new StreamSpec("test-stream-1", "physical-stream-1", "test-system");
     when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(testStreamSpec1);
@@ -591,7 +591,7 @@ public class TestStreamGraphBuilder {
   public void testGetTable() {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     Config mockConfig = mock(Config.class);
-    StreamGraphBuilder graphBuilder = new StreamGraphBuilder(mockRunner, mockConfig);
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(mockRunner, mockConfig);
 
     BaseTableDescriptor mockTableDescriptor = mock(BaseTableDescriptor.class);
     when(mockTableDescriptor.getTableSpec()).thenReturn(

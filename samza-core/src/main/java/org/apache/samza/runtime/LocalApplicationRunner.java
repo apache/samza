@@ -40,7 +40,7 @@ import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.DistributedLockWithState;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.job.ApplicationStatus;
-import org.apache.samza.operators.StreamGraphBuilder;
+import org.apache.samza.operators.OperatorSpecGraphBuilder;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.StreamProcessorLifecycleListener;
 import org.apache.samza.system.StreamSpec;
@@ -267,13 +267,13 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   /**
    * Create {@link StreamProcessor} based on {@link StreamApplication} and the config
    * @param config config
-   * @param graphBuilder {@link StreamGraphBuilder}
+   * @param graphBuilder {@link OperatorSpecGraphBuilder}
    * @return {@link StreamProcessor]}
    */
   /* package private */
   StreamProcessor createStreamProcessor(
       Config config,
-      StreamGraphBuilder graphBuilder,
+      OperatorSpecGraphBuilder graphBuilder,
       StreamProcessorLifecycleListener listener) {
     Object taskFactory = TaskFactoryUtil.createTaskFactory(graphBuilder.build(), graphBuilder.getContextManager());
     return getStreamProcessorInstance(config, taskFactory, listener);

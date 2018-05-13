@@ -63,16 +63,16 @@ import org.apache.samza.table.TableSpec;
  */
 public class MessageStreamImpl<M> implements MessageStream<M> {
   /**
-   * The {@link StreamGraphBuilder} that contains this {@link MessageStreamImpl}
+   * The {@link OperatorSpecGraphBuilder} that contains this {@link MessageStreamImpl}
    */
-  private final StreamGraphBuilder graph;
+  private final OperatorSpecGraphBuilder graph;
 
   /**
    * The {@link OperatorSpec} associated with this {@link MessageStreamImpl}
    */
   private final OperatorSpec operatorSpec;
 
-  public MessageStreamImpl(StreamGraphBuilder graph, OperatorSpec<?, M> operatorSpec) {
+  public MessageStreamImpl(OperatorSpecGraphBuilder graph, OperatorSpec<?, M> operatorSpec) {
     this.graph = graph;
     this.operatorSpec = operatorSpec;
   }

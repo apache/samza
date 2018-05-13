@@ -25,7 +25,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraphBuilder;
+import org.apache.samza.operators.OperatorSpecGraphBuilder;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.ApplicationRunner;
@@ -116,22 +116,22 @@ public class TestJobGraphJsonGenerator {
     systemAdmins.put("system2", systemAdmin2);
     StreamManager streamManager = new StreamManager(new SystemAdmins(systemAdmins));
 
-    StreamGraphBuilder streamGraph = new StreamGraphBuilder(runner, config);
-    streamGraph.setDefaultSerde(KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(runner, config);
+    graphBuilder.setDefaultSerde(KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
     MessageStream<KV<Object, Object>> messageStream1 =
-        streamGraph.<KV<Object, Object>>getInputStream("input1")
+        graphBuilder.<KV<Object, Object>>getInputStream("input1")
             .map(m -> m);
     MessageStream<KV<Object, Object>> messageStream2 =
-        streamGraph.<KV<Object, Object>>getInputStream("input2")
+        graphBuilder.<KV<Object, Object>>getInputStream("input2")
             .partitionBy(m -> m.key, m -> m.value, "p1")
             .filter(m -> true);
     MessageStream<KV<Object, Object>> messageStream3 =
-        streamGraph.<KV<Object, Object>>getInputStream("input3")
+        graphBuilder.<KV<Object, Object>>getInputStream("input3")
             .filter(m -> true)
             .partitionBy(m -> m.key, m -> m.value, "p2")
             .map(m -> m);
-    OutputStream<KV<Object, Object>> outputStream1 = streamGraph.getOutputStream("output1");
-    OutputStream<KV<Object, Object>> outputStream2 = streamGraph.getOutputStream("output2");
+    OutputStream<KV<Object, Object>> outputStream1 = graphBuilder.getOutputStream("output1");
+    OutputStream<KV<Object, Object>> outputStream2 = graphBuilder.getOutputStream("output2");
 
     messageStream1
         .join(messageStream2,
@@ -146,7 +146,7 @@ public class TestJobGraphJsonGenerator {
         .sendTo(outputStream2);
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    ExecutionPlan plan = planner.plan(streamGraph.build());
+    ExecutionPlan plan = planner.plan(graphBuilder.build());
     String json = plan.getPlanAsJson();
     System.out.println(json);
 
@@ -191,8 +191,8 @@ public class TestJobGraphJsonGenerator {
     systemAdmins.put("kafka", systemAdmin2);
     StreamManager streamManager = new StreamManager(new SystemAdmins(systemAdmins));
 
-    StreamGraphBuilder streamGraph = new StreamGraphBuilder(runner, config);
-    MessageStream<KV<String, PageViewEvent>> inputStream = streamGraph.getInputStream("PageView");
+    OperatorSpecGraphBuilder graphBuilder = new OperatorSpecGraphBuilder(runner, config);
+    MessageStream<KV<String, PageViewEvent>> inputStream = graphBuilder.getInputStream("PageView");
     inputStream
         .partitionBy(kv -> kv.getValue().getCountry(), kv -> kv.getValue(), "keyed-by-country")
         .window(Windows.keyedTumblingWindow(kv -> kv.getValue().getCountry(),
@@ -202,10 +202,10 @@ public class TestJobGraphJsonGenerator {
             new StringSerde(),
             new LongSerde()), "count-by-country")
         .map(pane -> new KV<>(pane.getKey().getKey(), pane.getMessage()))
-        .sendTo(streamGraph.getOutputStream("PageViewCount"));
+        .sendTo(graphBuilder.getOutputStream("PageViewCount"));
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    ExecutionPlan plan = planner.plan(streamGraph.build());
+    ExecutionPlan plan = planner.plan(graphBuilder.build());
     String json = plan.getPlanAsJson();
     System.out.println(json);
 

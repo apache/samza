@@ -323,8 +323,8 @@ public class OperatorImplGraph {
     };
   }
 
-  private boolean hasIntermediateStreams(OperatorSpecGraph streamGraph) {
-    return !Collections.disjoint(streamGraph.getInputOperators().keySet(), streamGraph.getOutputStreams().keySet());
+  private boolean hasIntermediateStreams(OperatorSpecGraph specGraph) {
+    return !Collections.disjoint(specGraph.getInputOperators().keySet(), specGraph.getOutputStreams().keySet());
   }
 
   /**
@@ -365,12 +365,12 @@ public class OperatorImplGraph {
 
   /**
    * calculate the mapping from output streams to input streams
-   * @param streamGraph the user {@link OperatorSpecGraph}
+   * @param specGraph the user {@link OperatorSpecGraph}
    * @return mapping from output streams to input streams
    */
-  static Multimap<SystemStream, SystemStream> getIntermediateToInputStreamsMap(OperatorSpecGraph streamGraph) {
+  static Multimap<SystemStream, SystemStream> getIntermediateToInputStreamsMap(OperatorSpecGraph specGraph) {
     Multimap<SystemStream, SystemStream> outputToInputStreams = HashMultimap.create();
-    streamGraph.getInputOperators().entrySet().stream()
+    specGraph.getInputOperators().entrySet().stream()
         .forEach(
             entry -> computeOutputToInput(entry.getKey().toSystemStream(), entry.getValue(), outputToInputStreams));
     return outputToInputStreams;

@@ -31,7 +31,7 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.StreamGraphBuilder;
+import org.apache.samza.operators.OperatorSpecGraphBuilder;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.impl.store.TestInMemoryStore;
 import org.apache.samza.operators.impl.store.TimeSeriesKeySerde;
@@ -550,9 +550,9 @@ public class TestWindowOperator {
     verify(taskCoordinator, times(1)).shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
   }
 
-  private StreamGraphBuilder getKeyedTumblingWindowStreamGraph(AccumulationMode mode,
+  private OperatorSpecGraphBuilder getKeyedTumblingWindowStreamGraph(AccumulationMode mode,
       Duration duration, Trigger<KV<Integer, Integer>> earlyTrigger) throws IOException {
-    StreamGraphBuilder graph = new StreamGraphBuilder(runner, config);
+    OperatorSpecGraphBuilder graph = new OperatorSpecGraphBuilder(runner, config);
 
     KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
     graph.getInputStream("integers", kvSerde)
@@ -566,9 +566,9 @@ public class TestWindowOperator {
     return graph;
   }
 
-  private StreamGraphBuilder getTumblingWindowStreamGraph(AccumulationMode mode,
+  private OperatorSpecGraphBuilder getTumblingWindowStreamGraph(AccumulationMode mode,
       Duration duration, Trigger<KV<Integer, Integer>> earlyTrigger) throws IOException {
-    StreamGraphBuilder graph = new StreamGraphBuilder(runner, config);
+    OperatorSpecGraphBuilder graph = new OperatorSpecGraphBuilder(runner, config);
 
     KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
     graph.getInputStream("integers", kvSerde)
@@ -581,8 +581,8 @@ public class TestWindowOperator {
     return graph;
   }
 
-  private StreamGraphBuilder getKeyedSessionWindowStreamGraph(AccumulationMode mode, Duration duration) throws IOException {
-    StreamGraphBuilder graph = new StreamGraphBuilder(runner, config);
+  private OperatorSpecGraphBuilder getKeyedSessionWindowStreamGraph(AccumulationMode mode, Duration duration) throws IOException {
+    OperatorSpecGraphBuilder graph = new OperatorSpecGraphBuilder(runner, config);
 
     KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
     graph.getInputStream("integers", kvSerde)
@@ -595,9 +595,9 @@ public class TestWindowOperator {
     return graph;
   }
 
-  private StreamGraphBuilder getAggregateTumblingWindowStreamGraph(AccumulationMode mode, Duration timeDuration,
+  private OperatorSpecGraphBuilder getAggregateTumblingWindowStreamGraph(AccumulationMode mode, Duration timeDuration,
         Trigger<IntegerEnvelope> earlyTrigger) throws IOException {
-    StreamGraphBuilder graph = new StreamGraphBuilder(runner, config);
+    OperatorSpecGraphBuilder graph = new OperatorSpecGraphBuilder(runner, config);
 
     MessageStream<KV<Integer, Integer>> integers = graph.getInputStream("integers",
         KVSerde.of(new IntegerSerde(), new IntegerSerde()));
