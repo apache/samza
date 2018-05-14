@@ -21,11 +21,15 @@ package org.apache.samza.test.table;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -37,9 +41,12 @@ import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.table.Table;
+import org.apache.samza.table.caching.CachingTableDescriptor;
+import org.apache.samza.table.caching.guava.GuavaCacheTableDescriptor;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
 import org.apache.samza.table.remote.RemoteReadableTable;
@@ -51,6 +58,8 @@ import org.apache.samza.test.util.Base64Serializer;
 import org.apache.samza.util.RateLimiter;
 import org.junit.Assert;
 import org.junit.Test;
+
+import com.google.common.cache.CacheBuilder;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
@@ -68,17 +77,22 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     return reader;
   }
 
-  static List<TestTableData.EnrichedPageView> writtenRecords = new LinkedList<>();
+  static Map<String, List<TestTableData.EnrichedPageView>> writtenRecords = new HashMap<>();
 
   static class InMemoryWriteFunction implements TableWriteFunction<Integer, TestTableData.EnrichedPageView> {
     private transient List<TestTableData.EnrichedPageView> records;
+    private String testName;
+
+    public InMemoryWriteFunction(String testName) {
+      this.testName = testName;
+    }
 
     // Verify serializable functionality
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
       in.defaultReadObject();
 
       // Write to the global list for verification
-      records = writtenRecords;
+      records = writtenRecords.get(testName);
     }
 
     @Override
@@ -97,10 +111,26 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     }
   }
 
-  @Test
-  public void testStreamTableJoinRemoteTable() throws Exception {
+  private <K, V> Table<KV<K, V>> getCachingTable(Table<KV<K, V>> actualTable, boolean defaultCache, String id, StreamGraph streamGraph) {
+    CachingTableDescriptor<K, V> cachingDesc = new CachingTableDescriptor<>("caching-table-" + id);
+    if (defaultCache) {
+      cachingDesc.withReadTtl(Duration.ofMinutes(5));
+      cachingDesc.withWriteTtl(Duration.ofMinutes(5));
+    } else {
+      GuavaCacheTableDescriptor<K, V> guavaDesc = new GuavaCacheTableDescriptor<>("guava-table-" + id);
+      guavaDesc.withCache(CacheBuilder.newBuilder().expireAfterAccess(5, TimeUnit.MINUTES).build());
+      Table<KV<K, V>> guavaTable = streamGraph.getTable(guavaDesc);
+      cachingDesc.withCache(guavaTable);
+    }
+
+    cachingDesc.withTable(actualTable);
+    return streamGraph.getTable(cachingDesc);
+  }
+
+  private void doTestStreamTableJoinRemoteTable(boolean withCache, boolean defaultCache, String testName) throws Exception {
     List<TestTableData.PageView> received = new LinkedList<>();
-    final InMemoryWriteFunction writer = new InMemoryWriteFunction();
+    final InMemoryWriteFunction writer = new InMemoryWriteFunction(testName);
+    writtenRecords.put(testName, new ArrayList<>());
 
     int count = 10;
     TestTableData.PageView[] pageViews = TestTableData.generatePageViews(count);
@@ -128,8 +158,17 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
           .withWriteFunction(writer)
           .withRateLimiter(writeRateLimiter, null, null);
 
-      Table<KV<Integer, TestTableData.Profile>> inputTable = streamGraph.getTable(inputTableDesc);
       Table<KV<Integer, TestTableData.EnrichedPageView>> outputTable = streamGraph.getTable(outputTableDesc);
+
+      if (withCache) {
+        outputTable = getCachingTable(outputTable, defaultCache, "output", streamGraph);
+      }
+
+      Table<KV<Integer, TestTableData.Profile>> inputTable = streamGraph.getTable(inputTableDesc);
+
+      if (withCache) {
+        inputTable = getCachingTable(inputTable, defaultCache, "input", streamGraph);
+      }
 
       streamGraph.getInputStream("PageView", new NoOpSerde<TestTableData.PageView>())
           .map(pv -> {
@@ -146,8 +185,23 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
 
     int numExpected = count * partitionCount;
     Assert.assertEquals(numExpected, received.size());
-    Assert.assertEquals(numExpected, writtenRecords.size());
-    Assert.assertTrue(writtenRecords.get(0) instanceof TestTableData.EnrichedPageView);
+    Assert.assertEquals(numExpected, writtenRecords.get(testName).size());
+    Assert.assertTrue(writtenRecords.get(testName).get(0) instanceof TestTableData.EnrichedPageView);
+  }
+
+  @Test
+  public void testStreamTableJoinRemoteTable() throws Exception {
+    doTestStreamTableJoinRemoteTable(false, false, "testStreamTableJoinRemoteTable");
+  }
+
+  @Test
+  public void testStreamTableJoinRemoteTableWithCache() throws Exception {
+    doTestStreamTableJoinRemoteTable(true, false, "testStreamTableJoinRemoteTableWithCache");
+  }
+
+  @Test
+  public void testStreamTableJoinRemoteTableWithDefaultCache() throws Exception {
+    doTestStreamTableJoinRemoteTable(true, true, "testStreamTableJoinRemoteTableWithDefaultCache");
   }
 
   private TaskContext createMockTaskContext() {
