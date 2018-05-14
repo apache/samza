@@ -33,6 +33,7 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.config.ZkConfig;
@@ -352,7 +353,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
      * to host mapping) is passed in as null when building the jobModel.
      */
     JobModel model = JobModelManager.readJobModel(this.config, changeLogPartitionMap, null, streamMetadataCache, processors);
-    return model;
+    return new JobModel(new MapConfig(), model.getContainers());
   }
 
   class LeaderElectorListenerImpl implements LeaderElectorListener {
