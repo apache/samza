@@ -281,9 +281,7 @@ public class StreamAppender extends AppenderSkeleton {
       throw new SamzaException("can not read the config", e);
     }
     // Make system producer drop producer errors for StreamAppender
-    if (!config.containsKey(DROP_PRODUCER_ERROR)) {
-      config = new MapConfig(config, ImmutableMap.of(DROP_PRODUCER_ERROR, "true"));
-    }
+    config = new MapConfig(config, ImmutableMap.of(DROP_PRODUCER_ERROR, "true"));
 
     return config;
   }
