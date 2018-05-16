@@ -75,7 +75,7 @@ public class StreamProcessor {
 
   // Latch used to synchronize between the JobCoordinator thread and the container thread, when the container is
   // stopped due to re-balancing
-  CountDownLatch jcContainerShutdownLatch;
+  volatile CountDownLatch jcContainerShutdownLatch;
 
   @VisibleForTesting
   JobCoordinatorListener jobCoordinatorListener = null;

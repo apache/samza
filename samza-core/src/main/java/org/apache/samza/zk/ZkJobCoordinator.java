@@ -59,8 +59,6 @@ import org.apache.zookeeper.Watcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.zookeeper.Watcher.Event.KeeperState.*;
-
 /**
  * JobCoordinator for stand alone processor managed via Zookeeper.
  */
@@ -99,19 +97,13 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private final int debounceTimeMs;
   private final Map<TaskName, Integer> changeLogPartitionMap = new HashMap<>();
 
-  @VisibleForTesting
-  ScheduleAfterDebounceTime debounceTimer = null;
-
   private JobCoordinatorListener coordinatorListener = null;
   private JobModel newJobModel;
   private boolean hasCreatedStreams = false;
   private String cachedJobModelVersion = null;
-<<<<<<< HEAD
-=======
 
   @VisibleForTesting
   ScheduleAfterDebounceTime debounceTimer;
->>>>>>> Minor code cleanup.
 
   ZkJobCoordinator(Config config, MetricsRegistry metricsRegistry, ZkUtils zkUtils) {
     this.config = config;
