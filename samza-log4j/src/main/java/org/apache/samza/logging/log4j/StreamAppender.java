@@ -71,8 +71,6 @@ public class StreamAppender extends AppenderSkeleton {
   // Hidden config for now. Will move to appropriate Config class when ready to.
   private static final String CREATE_STREAM_ENABLED = "task.log4j.create.stream.enabled";
 
-  private static final String DROP_PRODUCER_ERROR = TaskConfig.DROP_PRODUCER_ERROR();
-
   protected static final int DEFAULT_QUEUE_SIZE = 100;
   private static final long DEFAULT_QUEUE_TIMEOUT_S = 2; // Abitrary choice
 
@@ -281,7 +279,7 @@ public class StreamAppender extends AppenderSkeleton {
       throw new SamzaException("can not read the config", e);
     }
     // Make system producer drop producer errors for StreamAppender
-    config = new MapConfig(config, ImmutableMap.of(DROP_PRODUCER_ERROR, "true"));
+    config = new MapConfig(config, ImmutableMap.of(TaskConfig.DROP_PRODUCER_ERROR(), "true"));
 
     return config;
   }
