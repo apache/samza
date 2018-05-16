@@ -101,12 +101,9 @@ public class ZkJobCoordinator implements JobCoordinator {
   private JobModel newJobModel;
   private boolean hasCreatedStreams = false;
   private String cachedJobModelVersion = null;
-<<<<<<< HEAD
-=======
 
   @VisibleForTesting
   ScheduleAfterDebounceTime debounceTimer;
->>>>>>> Minor code cleanup.
 
   @VisibleForTesting
   ScheduleAfterDebounceTime debounceTimer;
