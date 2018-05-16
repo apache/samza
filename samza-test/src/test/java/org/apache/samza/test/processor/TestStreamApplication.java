@@ -129,7 +129,7 @@ public class TestStreamApplication implements StreamApplication, Serializable {
       CountDownLatch processedMessageLatch,
       StreamApplicationCallback callback,
       CountDownLatch kafkaEventsConsumedLatch,
-      Config config) throws IOException {
+      Config config) {
     String appName = String.format("%s-%s", config.get(ApplicationConfig.APP_NAME), config.get(ApplicationConfig.APP_ID));
     String processorName = config.get(JobConfig.PROCESSOR_ID());
     registerLatches(processedMessageLatch, kafkaEventsConsumedLatch, callback, appName, processorName);
