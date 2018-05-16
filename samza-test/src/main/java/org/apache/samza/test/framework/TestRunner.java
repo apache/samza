@@ -42,6 +42,7 @@ import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
+import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
@@ -77,8 +78,8 @@ public class TestRunner {
     SINGLE_CONTAINER, MULTI_CONTAINER
   }
 
-  private static Map<String, String> configs;
-  private static Map<String, CollectionStreamSystem> systems;
+  private Map<String, String> configs;
+  private static ThreadLocal<HashMap<String,CollectionStreamSystem>> systems;
   private Class taskClass;
   private StreamApplication app;
 
@@ -88,8 +89,13 @@ public class TestRunner {
   private Mode mode;
 
   private TestRunner() {
+    this.systems = new ThreadLocal<HashMap<String, CollectionStreamSystem>>(){
+      @Override
+      protected HashMap<String, CollectionStreamSystem> initialValue() {
+        return new HashMap<>();
+      }
+    };
     this.configs = new HashMap<>();
-    this.systems = new HashMap<>();
     this.mode = Mode.SINGLE_CONTAINER;
     configs.put(JobConfig.JOB_NAME(), JOB_NAME);
     configs.putIfAbsent(JobConfig.PROCESSOR_ID(), "1");
@@ -124,9 +130,9 @@ public class TestRunner {
    * job configs
    */
   private void registerSystem(String systemName) {
-    if (!systems.containsKey(systemName)) {
-      systems.put(systemName, CollectionStreamSystem.create(systemName));
-      configs.putAll(systems.get(systemName).getSystemConfigs());
+    if (!systems.get().containsKey(systemName)) {
+      systems.get().put(systemName, CollectionStreamSystem.create(systemName));
+      configs.putAll(systems.get().get(systemName).getSystemConfigs());
     }
   }
 
@@ -190,13 +196,12 @@ public class TestRunner {
   public TestRunner addInputStream(CollectionStream stream) {
     Preconditions.checkNotNull(stream);
     registerSystem(stream.getSystemName());
-    CollectionStreamSystem system = systems.get(stream.getSystemName());
     initializeInput(stream);
     if (configs.containsKey(TaskConfig.INPUT_STREAMS())) {
       configs.put(TaskConfig.INPUT_STREAMS(),
-          configs.get(TaskConfig.INPUT_STREAMS()).concat("," + system.getSystemName() + "." + stream.getStreamName()));
+          configs.get(TaskConfig.INPUT_STREAMS()).concat("," + stream.getSystemName() + "." + stream.getStreamName()));
     } else {
-      configs.put(TaskConfig.INPUT_STREAMS(), system.getSystemName() + "." + stream.getStreamName());
+      configs.put(TaskConfig.INPUT_STREAMS(), stream.getSystemName() + "." + stream.getStreamName());
     }
     stream.getStreamConfig().forEach((key, val) -> {
         configs.putIfAbsent((String) key, (String) val);
@@ -220,8 +225,8 @@ public class TestRunner {
     String streamName = stream.getStreamName();
     String systemName = stream.getSystemName();
     Map<Integer, Iterable<T>> partitions = stream.getInitPartitions();
-    Map<String, String> systemConfigs = systems.get(systemName).getSystemConfigs();
-    InMemorySystemFactory factory = systems.get(systemName).getFactory();
+    Map<String, String> systemConfigs = systems.get().get(systemName).getSystemConfigs();
+    InMemorySystemFactory factory = systems.get().get(systemName).getFactory();
     StreamSpec spec = new StreamSpec(streamName, streamName, systemName, partitions.size());
     factory.getAdmin(systemName, new MapConfig(systemConfigs)).createStream(spec);
     SystemProducer producer = factory.getProducer(systemName, new MapConfig(systemConfigs), null);
@@ -252,7 +257,7 @@ public class TestRunner {
     Preconditions.checkNotNull(stream);
     Preconditions.checkState(stream.getInitPartitions().size() >= 1);
     registerSystem(stream.getSystemName());
-    CollectionStreamSystem system = systems.get(stream.getSystemName());
+    CollectionStreamSystem system = systems.get().get(stream.getSystemName());
     StreamSpec spec = new StreamSpec(stream.getStreamName(), stream.getStreamName(), system.getSystemName(), stream.getInitPartitions().size());
     system
         .getFactory()
@@ -279,6 +284,8 @@ public class TestRunner {
   }
 
   /**
+   * Utility to read the messages from a stream from the beginning, this is supposed to be used after executing the
+   * TestRunner in order to assert over the streams (ex output streams).
    *
    * @param stream represents {@link CollectionStream} whose current state of partitions is requested to be fetched
    * @param timeout poll timeout in Ms
@@ -291,13 +298,13 @@ public class TestRunner {
   public static <T> Map<Integer, List<T>> consumeStream(CollectionStream stream, Integer timeout) throws InterruptedException {
     Preconditions.checkNotNull(stream);
     Preconditions.checkNotNull(stream.getSystemName());
-    Preconditions.checkNotNull(systems.containsKey(stream.getSystemName()));
+    Preconditions.checkNotNull(systems.get().containsKey(stream.getSystemName()));
     String streamName = stream.getStreamName();
     String systemName = stream.getSystemName();
     Set<SystemStreamPartition> ssps = new HashSet<>();
     Set<String> streamNames = new HashSet<>();
     streamNames.add(streamName);
-    InMemorySystemFactory factory = systems.get(systemName).getFactory();
+    SystemFactory factory = systems.get().get(systemName).getFactory();
     Map<String, SystemStreamMetadata> metadata =
         factory.getAdmin(systemName, new MapConfig()).getSystemStreamMetadata(streamNames);
     InMemorySystemConsumer consumer = (InMemorySystemConsumer) factory.getConsumer(systemName, null, null);
@@ -314,7 +321,7 @@ public class TestRunner {
       Map<SystemStreamPartition, List<IncomingMessageEnvelope>> currentState = consumer.poll(ssps, 10);
       for (Map.Entry<SystemStreamPartition, List<IncomingMessageEnvelope>> entry : currentState.entrySet()) {
         SystemStreamPartition ssp = entry.getKey();
-        output.putIfAbsent(ssp, new LinkedList<IncomingMessageEnvelope>());
+        output.computeIfAbsent(ssp, k -> new LinkedList<IncomingMessageEnvelope>());
         List<IncomingMessageEnvelope> currentBuffer = entry.getValue();
         Integer totalMessagesToFetch = Integer.valueOf(metadata.get(stream.getStreamName())
             .getSystemStreamPartitionMetadata()
