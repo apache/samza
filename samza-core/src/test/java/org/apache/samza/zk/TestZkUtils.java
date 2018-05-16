@@ -49,6 +49,7 @@ import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import org.junit.rules.Timeout;
 import org.mockito.Mockito;
 
 public class TestZkUtils {
@@ -62,6 +63,9 @@ public class TestZkUtils {
   @Rule
   // Declared public to honor junit contract.
   public final ExpectedException expectedException = ExpectedException.none();
+
+  @Rule
+  public Timeout testTimeOutInMillis = new Timeout(120000);
 
   @BeforeClass
   public static void setup() throws InterruptedException {
@@ -475,6 +479,7 @@ public class TestZkUtils {
   @Test
   public void testCloseShouldTearDownZkConnectionOnInterruptedException() throws Exception {
     CountDownLatch latch = new CountDownLatch(1);
+    // Establish connection with the zookeeper server.
     ZkClient zkClient = new ZkClient("127.0.0.1:" + zkServer.getPort());
     ZkUtils zkUtils = new ZkUtils(KEY_BUILDER, zkClient, SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
 
@@ -488,11 +493,15 @@ public class TestZkUtils {
       });
 
     threadToInterrupt.start();
-    threadToInterrupt.interrupt();
-    threadToInterrupt.join();
 
     Field field = ZkClient.class.getDeclaredField("_closed");
     field.setAccessible(true);
+
+    Assert.assertFalse(field.getBoolean(zkClient));
+
+    threadToInterrupt.interrupt();
+    threadToInterrupt.join();
+
     Assert.assertTrue(field.getBoolean(zkClient));
   }
 }
