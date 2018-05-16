@@ -19,13 +19,11 @@
 
 package org.apache.samza.logging.log4j;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -40,6 +38,7 @@ import org.apache.samza.config.Log4jSystemConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.ShellCommandConfig;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.logging.log4j.serializers.LoggingEventJsonSerdeFactory;
@@ -72,7 +71,7 @@ public class StreamAppender extends AppenderSkeleton {
   // Hidden config for now. Will move to appropriate Config class when ready to.
   private static final String CREATE_STREAM_ENABLED = "task.log4j.create.stream.enabled";
 
-  private static final String DROP_PRODUCER_ERRORS = "task.drop.producer.errors";
+  private static final String DROP_PRODUCER_ERROR = TaskConfig.DROP_PRODUCER_ERROR();
 
   protected static final int DEFAULT_QUEUE_SIZE = 100;
   private static final long DEFAULT_QUEUE_TIMEOUT_S = 2; // Abitrary choice
@@ -281,21 +280,16 @@ public class StreamAppender extends AppenderSkeleton {
     } catch (IOException e) {
       throw new SamzaException("can not read the config", e);
     }
+    // Make system producer drop producer errors for StreamAppender
+    if (!config.containsKey(DROP_PRODUCER_ERROR)) {
+      config = new MapConfig(config, ImmutableMap.of(DROP_PRODUCER_ERROR, "true"));
+    }
 
     return config;
   }
 
-  private void addDropProducerErrorsConfig() {
-    Map<String, String> newConfig = new HashMap<>();
-    if (config.get(DROP_PRODUCER_ERRORS) == null) {
-      newConfig.put(DROP_PRODUCER_ERRORS, "true");
-      config = new MapConfig(ImmutableList.of(config, newConfig));
-    }
-  }
-
   protected void setupSystem() {
     config = getConfig();
-    addDropProducerErrorsConfig();
     SystemFactory systemFactory = null;
     Log4jSystemConfig log4jSystemConfig = new Log4jSystemConfig(config);
 
