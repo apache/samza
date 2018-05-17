@@ -37,19 +37,16 @@ public interface SamzaContainerListener {
    *  <br>
    *  <b>Note</b>: This will be the last call after completely shutting down the SamzaContainer without any
    *  exceptions/errors.
-   * @param pausedByJm boolean indicating why the container was stopped. It should be {@literal true}, iff the container
-   *                    was stopped as a result of an expired {@link org.apache.samza.job.model.JobModel}. Otherwise,
-   *                    it should be {@literal false}
    */
-  void onContainerStop(boolean pausedByJm);
+  void onContainerStop();
 
   /**
    *  Method invoked when the {@link org.apache.samza.container.SamzaContainer} has  transitioned to
    *  {@link org.apache.samza.SamzaContainerStatus#FAILED} state. Details on state transitions can be found in
    *  {@link org.apache.samza.SamzaContainerStatus}
    *  <br>
-   *  <b>Note</b>: {@link #onContainerFailed(Throwable)} is mutually exclusive to {@link #onContainerStop(boolean)}.
-   * @param t Throwable that caused the container failure.
+   *  <b>Note</b>: {@link #onContainerFailed(Throwable)} is mutually exclusive to {@link #onContainerStop()}.
+   *  @param t Throwable that caused the container failure.
    */
   void onContainerFailed(Throwable t);
 }

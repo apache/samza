@@ -105,9 +105,6 @@ public class ZkJobCoordinator implements JobCoordinator {
   @VisibleForTesting
   ScheduleAfterDebounceTime debounceTimer;
 
-  @VisibleForTesting
-  ScheduleAfterDebounceTime debounceTimer;
-
   ZkJobCoordinator(Config config, MetricsRegistry metricsRegistry, ZkUtils zkUtils) {
     this.config = config;
 
