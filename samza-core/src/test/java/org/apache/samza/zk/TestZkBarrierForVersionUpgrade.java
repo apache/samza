@@ -37,10 +37,10 @@ import org.junit.Test;
 
 import static junit.framework.Assert.*;
 
-
-// TODO: Rename this such that it is clear that it is an integration test and NOT unit test
 public class TestZkBarrierForVersionUpgrade {
   private static final String BARRIER_VERSION = "1";
+
+  private final ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime("TEST_PROCESSOR_ID");
   private static EmbeddedZookeeper zkServer = null;
   private static String testZkConnectionString = null;
   private ZkUtils zkUtils;
@@ -105,8 +105,8 @@ public class TestZkBarrierForVersionUpgrade {
     CountDownLatch latch = new CountDownLatch(2);
     TestZkBarrierListener listener = new TestZkBarrierListener(latch, State.DONE);
 
-    ZkBarrierForVersionUpgrade processor1Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils, listener);
-    ZkBarrierForVersionUpgrade processor2Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils1, listener);
+    ZkBarrierForVersionUpgrade processor1Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils, listener, debounceTimer);
+    ZkBarrierForVersionUpgrade processor2Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils1, listener, debounceTimer);
 
     processor1Barrier.create(BARRIER_VERSION, processors);
 
@@ -140,8 +140,8 @@ public class TestZkBarrierForVersionUpgrade {
     CountDownLatch latch = new CountDownLatch(2);
     TestZkBarrierListener listener = new TestZkBarrierListener(latch, State.TIMED_OUT);
 
-    ZkBarrierForVersionUpgrade processor1Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils, listener);
-    ZkBarrierForVersionUpgrade processor2Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils1, listener);
+    ZkBarrierForVersionUpgrade processor1Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils, listener, debounceTimer);
+    ZkBarrierForVersionUpgrade processor2Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils1, listener, debounceTimer);
 
     processor1Barrier.create(BARRIER_VERSION, processors);
 
@@ -172,8 +172,8 @@ public class TestZkBarrierForVersionUpgrade {
 
     CountDownLatch latch = new CountDownLatch(2);
     TestZkBarrierListener listener = new TestZkBarrierListener(latch, State.DONE);
-    ZkBarrierForVersionUpgrade processor1Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils, listener);
-    ZkBarrierForVersionUpgrade processor2Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils1, listener);
+    ZkBarrierForVersionUpgrade processor1Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils, listener, debounceTimer);
+    ZkBarrierForVersionUpgrade processor2Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils1, listener, debounceTimer);
 
     processor1Barrier.create(BARRIER_VERSION, processors);
 
@@ -201,8 +201,8 @@ public class TestZkBarrierForVersionUpgrade {
 
     CountDownLatch latch = new CountDownLatch(2);
     TestZkBarrierListener listener = new TestZkBarrierListener(latch, State.TIMED_OUT);
-    ZkBarrierForVersionUpgrade processor1Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils, listener);
-    ZkBarrierForVersionUpgrade processor2Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils1, listener);
+    ZkBarrierForVersionUpgrade processor1Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils, listener, debounceTimer);
+    ZkBarrierForVersionUpgrade processor2Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils1, listener, debounceTimer);
 
     processor1Barrier.create(BARRIER_VERSION, processors);
 

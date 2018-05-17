@@ -75,10 +75,11 @@ import java.util.Optional;
  *  |   |   |-  ...
  */
 public class ZkBarrierForVersionUpgrade {
-  private final static Logger LOG = LoggerFactory.getLogger(ZkBarrierForVersionUpgrade.class);
+  private static final Logger LOG = LoggerFactory.getLogger(ZkBarrierForVersionUpgrade.class);
   private final ZkUtils zkUtils;
   private final BarrierKeyBuilder keyBuilder;
   private final Optional<ZkBarrierListener> barrierListenerOptional;
+  private final ScheduleAfterDebounceTime debounceTimer;
 
   public enum State {
     NEW("NEW"), TIMED_OUT("TIMED_OUT"), DONE("DONE");
@@ -95,13 +96,14 @@ public class ZkBarrierForVersionUpgrade {
     }
   }
 
-  public ZkBarrierForVersionUpgrade(String barrierRoot, ZkUtils zkUtils, ZkBarrierListener barrierListener) {
+  public ZkBarrierForVersionUpgrade(String barrierRoot, ZkUtils zkUtils, ZkBarrierListener barrierListener, ScheduleAfterDebounceTime debounceTimer) {
     if (zkUtils == null) {
       throw new RuntimeException("Cannot operate ZkBarrierForVersionUpgrade without ZkUtils.");
     }
     this.zkUtils = zkUtils;
     this.keyBuilder = new BarrierKeyBuilder(barrierRoot);
     this.barrierListenerOptional = Optional.ofNullable(barrierListener);
+    this.debounceTimer = debounceTimer;
   }
 
   /**
@@ -167,11 +169,13 @@ public class ZkBarrierForVersionUpgrade {
    * node. It checks to see when the barrier is ready to be marked as completed.
    */
   class ZkBarrierChangeHandler extends ZkUtils.GenIZkChildListener {
+    private static final String ACTION_NAME = "ZkBarrierChangeHandler";
+
     private final String barrierVersion;
     private final List<String> expectedParticipantIds;
 
     public ZkBarrierChangeHandler(String barrierVersion, List<String> expectedParticipantIds, ZkUtils zkUtils) {
-      super(zkUtils, "ZkBarrierChangeHandler");
+      super(zkUtils, ACTION_NAME);
       this.barrierVersion = barrierVersion;
       this.expectedParticipantIds = expectedParticipantIds;
     }
@@ -190,16 +194,18 @@ public class ZkBarrierForVersionUpgrade {
 
       // check if all the expected participants are in
       if (participantIds.size() == expectedParticipantIds.size() && CollectionUtils.containsAll(participantIds, expectedParticipantIds)) {
-        String barrierStatePath = keyBuilder.getBarrierStatePath(barrierVersion);
-        State barrierState = zkUtils.getZkClient().readData(barrierStatePath);
-        if (Objects.equals(barrierState, State.NEW)) {
-          LOG.info(String.format("Expected participants has joined the barrier version: %s. Marking the barrier state: %s as %s.", barrierVersion, barrierStatePath, State.DONE));
-          zkUtils.writeData(barrierStatePath, State.DONE); // this will trigger notifications
-        } else {
-          LOG.debug(String.format("Barrier version: %s is at: %s state. Not marking barrier as %s.", barrierVersion, barrierState, State.DONE));
-        }
-        LOG.info("Unsubscribing child changes on the path: {} for barrier version: {}.", barrierParticipantPath, barrierVersion);
-        zkUtils.unsubscribeChildChanges(barrierParticipantPath, this);
+        debounceTimer.scheduleAfterDebounceTime(ACTION_NAME, 0, () -> {
+            String barrierStatePath = keyBuilder.getBarrierStatePath(barrierVersion);
+            State barrierState = zkUtils.getZkClient().readData(barrierStatePath);
+            if (Objects.equals(barrierState, State.NEW)) {
+              LOG.info(String.format("Expected participants has joined the barrier version: %s. Marking the barrier state: %s as %s.", barrierVersion, barrierStatePath, State.DONE));
+              zkUtils.writeData(barrierStatePath, State.DONE); // this will trigger notifications
+            } else {
+              LOG.debug(String.format("Barrier version: %s is at: %s state. Not marking barrier as %s.", barrierVersion, barrierState, State.DONE));
+            }
+            LOG.info("Unsubscribing child changes on the path: {} for barrier version: {}.", barrierParticipantPath, barrierVersion);
+            zkUtils.unsubscribeChildChanges(barrierParticipantPath, this);
+          });
       }
     }
   }
