@@ -23,7 +23,8 @@ import com.google.common.collect.Iterators;
 import com.google.common.primitives.Ints;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.storage.kv.Entry;
-import org.apache.samza.storage.kv.KeyValueIterable;
+import org.apache.samza.storage.kv.KeyValueIterator;
+import org.apache.samza.storage.kv.KeyValueSnapshot;
 import org.apache.samza.storage.kv.KeyValueStoreMetrics;
 import org.junit.Test;
 
@@ -40,7 +41,7 @@ import static org.junit.Assert.assertTrue;
 
 public class TestInMemoryKeyValueStore {
   @Test
-  public void testIterate() throws Exception {
+  public void testSnapshot() throws Exception {
     InMemoryKeyValueStore store = new InMemoryKeyValueStore(
         new KeyValueStoreMetrics("testInMemory", new MetricsRegistryMap()));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
@@ -51,13 +52,15 @@ public class TestInMemoryKeyValueStore {
 
     byte[] firstKey = genKey(outputStream, prefix, 0);
     byte[] lastKey = genKey(outputStream, prefix, 100);
-    KeyValueIterable<byte[], byte[]> iterable = store.iterate(firstKey, lastKey);
+    KeyValueSnapshot<byte[], byte[]> snapshot = store.snapshot(firstKey, lastKey);
     // Make sure the cached Iterable won't change when new elements are added
     store.put(genKey(outputStream, prefix, 200), genValue());
-    assertTrue(Iterators.size(iterable.iterator()) == 100);
+    assertTrue(Iterators.size(snapshot.iterator()) == 100);
 
     List<Integer> keys = new ArrayList<>();
-    for (Entry<byte[], byte[]> entry : iterable) {
+    KeyValueIterator<byte[], byte[]> iter = snapshot.iterator();
+    while (iter.hasNext()) {
+      Entry<byte[], byte[]> entry = iter.next();
       int key = Ints.fromByteArray(Arrays.copyOfRange(entry.getKey(), prefix.getBytes().length, entry.getKey().length));
       keys.add(key);
     }

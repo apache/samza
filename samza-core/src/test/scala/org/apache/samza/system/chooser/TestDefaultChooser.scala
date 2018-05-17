@@ -28,6 +28,7 @@ import org.apache.samza.system._
 import org.apache.samza.util.BlockingEnvelopeMap
 import org.junit.Assert._
 import org.junit.Test
+import org.mockito.Mockito.{mock, when}
 
 import scala.collection.JavaConverters._
 
@@ -56,7 +57,8 @@ class TestDefaultChooser {
       envelope5.getSystemStreamPartition().getPartition() -> env5Metadata).asJava)
     val stream3Metadata = new SystemStreamMetadata("stream3", Map(
       envelope8.getSystemStreamPartition().getPartition() -> env8Metadata).asJava)
-    val systemAdmin: SystemAdmin = new MockSystemAdmin()
+    val systemAdmins = mock(classOf[SystemAdmins])
+    when(systemAdmins.getSystemAdmin("kafka")).thenReturn(new MockSystemAdmin)
     val chooser = new DefaultChooser(
       mock0,
       Some(2),
@@ -71,7 +73,7 @@ class TestDefaultChooser {
         envelope1.getSystemStreamPartition.getSystemStream -> streamMetadata,
         envelope8.getSystemStreamPartition.getSystemStream -> stream3Metadata),
       new MetricsRegistryMap(),
-      new SystemAdmins(Map("kafka" -> systemAdmin).asJava))
+      systemAdmins)
 
     chooser.register(envelope1.getSystemStreamPartition, null)
     chooser.register(envelope2.getSystemStreamPartition, null)
