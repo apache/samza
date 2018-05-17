@@ -183,7 +183,6 @@ public class StreamProcessor {
         try {
           LOGGER.info("Shutting down the container: {} of stream processor: {}.", container, processorId);
           container.shutdown();
-          LOGGER.info("Waiting {} milliseconds for the container: {} to shutdown.", taskShutdownMs, container);
           containerShutdownInvoked = true;
         } catch (Exception exception) {
           LOGGER.error(String.format("Ignoring the exception during the shutdown of container: %s.", container), exception);
