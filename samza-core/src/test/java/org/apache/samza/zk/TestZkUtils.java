@@ -140,23 +140,21 @@ public class TestZkUtils {
   public void testZKProtocolVersion() {
     // first time connect, version should be set to ZkUtils.ZK_PROTOCOL_VERSION
     ZkLeaderElector le = new ZkLeaderElector("1", zkUtils);
-    ZkControllerImpl zkController = new ZkControllerImpl("1", zkUtils, null, le);
-    zkController.register();
+    zkUtils.validateZkVersion();
+
     String root = zkUtils.getKeyBuilder().getRootPath();
     String ver = (String) zkUtils.getZkClient().readData(root);
     Assert.assertEquals(ZkUtils.ZK_PROTOCOL_VERSION, ver);
 
     // do it again (in case original value was null
-    zkController = new ZkControllerImpl("1", zkUtils, null, le);
-    zkController.register();
+    zkUtils.validateZkVersion();
     ver = (String) zkUtils.getZkClient().readData(root);
     Assert.assertEquals(ZkUtils.ZK_PROTOCOL_VERSION, ver);
 
     // now negative case
     zkUtils.getZkClient().writeData(root, "2.0");
     try {
-      zkController = new ZkControllerImpl("1", zkUtils, null, le);
-      zkController.register();
+      zkUtils.validateZkVersion();
       Assert.fail("Expected to fail because of version mismatch 2.0 vs 1.0");
     } catch (SamzaException e) {
       // expected
@@ -173,8 +171,7 @@ public class TestZkUtils {
     }
 
     try {
-      zkController = new ZkControllerImpl("1", zkUtils, null, le);
-      zkController.register();
+      zkUtils.validateZkVersion();
       Assert.fail("Expected to fail because of version mismatch 2.0 vs 3.0");
     } catch (SamzaException e) {
       // expected

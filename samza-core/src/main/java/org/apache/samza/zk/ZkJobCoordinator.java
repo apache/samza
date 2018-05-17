@@ -28,6 +28,7 @@ import java.util.Objects;
 import java.util.Set;
 import org.I0Itec.zkclient.IZkStateListener;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
@@ -63,7 +64,7 @@ import static org.apache.zookeeper.Watcher.Event.KeeperState.*;
 /**
  * JobCoordinator for stand alone processor managed via Zookeeper.
  */
-public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
+public class ZkJobCoordinator implements JobCoordinator {
   private static final Logger LOG = LoggerFactory.getLogger(ZkJobCoordinator.class);
   // TODO: MetadataCache timeout has to be 0 for the leader so that it can always have the latest information associated
   // with locality. Since host-affinity is not yet implemented, this can be fixed as part of SAMZA-1197
@@ -85,7 +86,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   private final ZkUtils zkUtils;
   private final String processorId;
-  private final ZkController zkController;
 
   private final Config config;
   private final ZkBarrierForVersionUpgrade barrier;
@@ -118,7 +118,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     zkUtils.getZkClient().subscribeStateChanges(new ZkSessionStateChangedListener());
     leaderElector = new ZkLeaderElector(processorId, zkUtils);
     leaderElector.setLeaderElectorListener(new LeaderElectorListenerImpl());
-    this.zkController = new ZkControllerImpl(processorId, zkUtils, this, leaderElector);
     this.barrier =  new ZkBarrierForVersionUpgrade(
         zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix(),
         zkUtils,
@@ -132,13 +131,18 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
       });
     systemAdmins = new SystemAdmins(config);
     streamMetadataCache = new StreamMetadataCache(systemAdmins, METADATA_CACHE_TTL_MS, SystemClock.instance());
+    ZkKeyBuilder keyBuilder = zkUtils.getKeyBuilder();
+    zkUtils.validatePaths(new String[]{keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder
+        .getJobModelPathPrefix()});
   }
 
   @Override
   public void start() {
     startMetrics();
     systemAdmins.start();
-    zkController.register();
+    zkUtils.validateZkVersion();
+    leaderElector.tryBecomeLeader();
+    zkUtils.subscribeToJobModelVersionChange(new ZkJobModelVersionChangeHandler(zkUtils));
   }
 
   @Override
@@ -165,8 +169,15 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
       debounceTimer.stopScheduler();
 
-      LOG.debug("Shutting down ZkController.");
-      zkController.stop();
+      LOG.debug("Shutting down Zk Client.");
+      if (leaderElector.amILeader()) {
+        leaderElector.resignLeadership();
+      }
+
+      // close zk connection
+      if (zkUtils != null) {
+        zkUtils.close();
+      }
 
       LOG.debug("Shutting down system admins.");
       systemAdmins.stop();
@@ -218,7 +229,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   }
 
   //////////////////////////////////////////////// LEADER stuff ///////////////////////////
-  @Override
   public void onProcessorChange(List<String> processors) {
     if (leaderElector.amILeader()) {
       LOG.info("ZkJobCoordinator::onProcessorChange - list of processors changed! List size=" + processors.size());
@@ -272,7 +282,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     debounceTimer.scheduleAfterDebounceTime(ON_ZK_CLEANUP, 0, () -> zkUtils.cleanupZK(NUM_VERSIONS_TO_LEAVE));
   }
 
-  @Override
   public void onNewJobModelAvailable(final String version) {
     debounceTimer.scheduleAfterDebounceTime(JOB_MODEL_VERSION_CHANGE, 0, () ->
       {
@@ -296,7 +305,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
       });
   }
 
-  @Override
   public void onNewJobModelConfirmed(String version) {
     LOG.info("pid=" + processorId + "new version " + version + " of the job model got confirmed");
     // get the new Model
@@ -321,17 +329,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
       throw new ConfigException(String
           .format("Expected either %s or %s to be configured", ApplicationConfig.PROCESSOR_ID,
               ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS));
-    }
-  }
-
-  private List<String> getActualProcessorIds(List<String> processors) {
-    if (processors.size() > 0) {
-      // we should use this list
-      // but it needs to be converted into PIDs, which is part of the data
-      return zkUtils.getActiveProcessorsIDs(processors);
-    } else {
-      // get the current list of processors
-      return zkUtils.getSortedActiveProcessorsIDs();
     }
   }
 
@@ -361,7 +358,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     public void onBecomingLeader() {
       LOG.info("ZkJobCoordinator::onBecomeLeader - I became the leader!");
       metrics.isLeader.set(true);
-      zkController.subscribeToProcessorChange();
+      zkUtils.subscribeToProcessorChange(new ProcessorChangeHandler(zkUtils));
       debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, debounceTimeMs, () ->
         {
           // actual actions to do are the same as onProcessorChange
@@ -416,6 +413,69 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
       stop();
     }
   }
+
+  class ProcessorChangeHandler extends ZkUtils.GenIZkChildListener {
+
+    public ProcessorChangeHandler(ZkUtils zkUtils) {
+      super(zkUtils, "ProcessorChangeHandler");
+    }
+
+    /**
+     * Called when the children of the given path changed.
+     *
+     * @param parentPath    The parent path
+     * @param currentChildren The children or null if the root node (parent path) was deleted.
+     * @throws Exception
+     */
+    @Override
+    public void handleChildChange(String parentPath, List<String> currentChildren)
+        throws Exception {
+      if (notAValidEvent())
+        return;
+
+      if (currentChildren == null) {
+        // this may happen only in case of exception in ZK. It happens if the zkNode has been deleted.
+        // So the notification will pass 'null' as the list of children. Exception should be visible in the logs.
+        // It makes no sense to pass it further down.
+        LOG.error("handleChildChange on path " + parentPath + " was invoked with NULL list of children");
+        return;
+      }
+      LOG.info(
+          "ZkControllerImpl::ProcessorChangeHandler::handleChildChange - Path: " + parentPath +
+              "  Current Children: " + currentChildren);
+      onProcessorChange(currentChildren);
+
+    }
+  }
+
+  class ZkJobModelVersionChangeHandler extends ZkUtils.GenIZkDataListener {
+
+    public ZkJobModelVersionChangeHandler(ZkUtils zkUtils) {
+      super(zkUtils, "ZkJobModelVersionChangeHandler");
+    }
+    /**
+     * Called when there is a change to the data in JobModel version path
+     * To the subscribers, it signifies that a new version of JobModel is available.
+     */
+    @Override
+    public void handleDataChange(String dataPath, Object data) throws Exception {
+      if (notAValidEvent())
+        return;
+
+      LOG.info("pid=" + processorId + ". Got notification on version update change. path=" + dataPath + "; data="
+          + data);
+      onNewJobModelAvailable((String) data);
+    }
+
+    @Override
+    public void handleDataDeleted(String dataPath) throws Exception {
+      if (notAValidEvent())
+        return;
+
+      throw new SamzaException("version update path has been deleted!");
+    }
+  }
+
 
   /// listener to handle ZK state change events
   @VisibleForTesting
@@ -484,7 +544,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
       LOG.info("Got new session created event for processor=" + processorId);
       debounceTimer.cancelAllScheduledActions();
       LOG.info("register zk controller for the new session");
-      zkController.register();
+      leaderElector.tryBecomeLeader();
+      zkUtils.subscribeToJobModelVersionChange(new ZkJobModelVersionChangeHandler(zkUtils));
     }
 
     @Override
