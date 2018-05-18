@@ -26,6 +26,7 @@ import java.util.Map;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.sql.avro.AvroRelConverter;
 import org.apache.samza.sql.avro.AvroRelSchemaProvider;
@@ -36,8 +37,6 @@ import org.apache.samza.sql.serializers.SamzaSqlRelRecordSerdeFactory;
 import org.apache.samza.system.SystemStream;
 import org.junit.Assert;
 import org.junit.Test;
-
-import javafx.util.Pair;
 
 import static org.apache.samza.sql.serializers.SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde;
 import static org.apache.samza.sql.data.SamzaSqlRelMessage.SamzaSqlRelRecord;
