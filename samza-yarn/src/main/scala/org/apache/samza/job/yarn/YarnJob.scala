@@ -21,6 +21,7 @@ package org.apache.samza.job.yarn
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.yarn.api.ApplicationConstants
 import org.apache.hadoop.yarn.api.records.ApplicationId
+import org.apache.samza.SamzaException
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.{Config, JobConfig, ShellCommandConfig, YarnConfig}
 import org.apache.samza.job.ApplicationStatus.{SuccessfulFinish, UnsuccessfulFinish}
@@ -137,7 +138,8 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
     getAppId match {
       case Some(appId) =>
         logger.info("Getting status for applicationId %s" format appId)
-        client.status(appId).get // Should throw if None
+        client.status(appId).getOrElse(
+          throw new SamzaException("No status was determined for applicationId %s" format appId))
       case None =>
         logger.info("Unable to report status because no applicationId could be found.")
         ApplicationStatus.SuccessfulFinish
