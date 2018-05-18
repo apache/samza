@@ -19,7 +19,6 @@
 
 package org.apache.samza.sql.impl;
 
-import org.apache.commons.lang.NotImplementedException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.TableDescriptor;
@@ -62,7 +61,11 @@ public class ConfigBasedIOResolverFactory implements SqlIOResolverFactory {
 
     @Override
     public SqlIOConfig fetchSourceInfo(String source) {
-      String[] sourceComponents = source.split("\\.");
+      return fetchSystemInfo(source);
+    }
+
+    private SqlIOConfig fetchSystemInfo(String name) {
+      String[] sourceComponents = name.split("\\.");
       boolean isTable = isTable(sourceComponents);
 
       // This source resolver expects sources of format {systemName}.{streamName}[.$table]
@@ -86,7 +89,7 @@ public class ConfigBasedIOResolverFactory implements SqlIOResolverFactory {
       }
 
       if (invalidQuery) {
-        String msg = String.format("Source %s is not of the format {systemName}.{streamName}[.%s]", source,
+        String msg = String.format("Source %s is not of the format {systemName}.{streamName}[.%s]", name,
             SAMZA_SQL_QUERY_TABLE_KEYWORD);
         LOG.error(msg);
         throw new SamzaException(msg);
@@ -97,7 +100,7 @@ public class ConfigBasedIOResolverFactory implements SqlIOResolverFactory {
 
       TableDescriptor tableDescriptor = null;
       if (isTable) {
-        tableDescriptor = new RocksDbTableDescriptor("InputTable-" + source)
+        tableDescriptor = new RocksDbTableDescriptor("InputTable-" + name)
             .withSerde(KVSerde.of(
                 new JsonSerdeV2<>(SamzaSqlCompositeKey.class),
                 new JsonSerdeV2<>(SamzaSqlRelMessage.class)));
@@ -108,7 +111,7 @@ public class ConfigBasedIOResolverFactory implements SqlIOResolverFactory {
 
     @Override
     public SqlIOConfig fetchSinkInfo(String sink) {
-      throw new NotImplementedException("No sink support in ConfigBasedIOResolver.");
+      return fetchSystemInfo(sink);
     }
 
     private boolean isTable(String[] sourceComponents) {
