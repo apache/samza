@@ -19,7 +19,7 @@
 
 package org.apache.samza.system.chooser
 
-import org.apache.samza.SamzaException
+import java.util.HashMap
 import org.apache.samza.metrics.MetricsHelper
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.metrics.MetricsRegistry
@@ -72,7 +72,7 @@ class BootstrappingChooser(
    * A map from system stream name to SystemAdmin that is used for
    * offset comparisons.
    */
-  systemAdmins: Map[String, SystemAdmin] = Map()) extends MessageChooser with Logging {
+  systemAdmins: SystemAdmins = SystemAdmins.empty()) extends MessageChooser with Logging {
 
   /**
    * The number of lagging partitions for each SystemStream that's behind.
@@ -135,7 +135,7 @@ class BootstrappingChooser(
     wrapped.register(systemStreamPartition, offset)
 
     val system = systemStreamPartition.getSystem
-    val systemAdmin = systemAdmins.getOrElse(system, throw new SamzaException("SystemAdmin is undefined for System: %s" format system))
+    val systemAdmin = systemAdmins.getSystemAdmin(system)
     /**
      * SAMZA-1100: When a input SystemStream is consumed as both bootstrap and broadcast
      * BootstrappingChooser should record the lowest offset for each registered SystemStreamPartition.
@@ -198,8 +198,8 @@ class BootstrappingChooser(
           updatedSystemStreams += systemStream -> (updatedSystemStreams.getOrElse(systemStream, 0) - 1)
         }
 
-        // If the offset we just read is the same as the offset for the last 
-        // message (newest) in this system stream partition, then we have read 
+        // If the offset we just read is the same as the offset for the last
+        // message (newest) in this system stream partition, then we have read
         // all messages, and can mark this SSP as bootstrapped.
         checkOffset(systemStreamPartition, offset, OffsetType.NEWEST)
       }
@@ -246,7 +246,7 @@ class BootstrappingChooser(
   private def checkOffset(systemStreamPartition: SystemStreamPartition, offset: String, offsetType: OffsetType) {
     val systemStream = systemStreamPartition.getSystemStream
     val systemStreamMetadata = bootstrapStreamMetadata.getOrElse(systemStreamPartition.getSystemStream, null)
-    // Metadata for system/stream, and system/stream/partition are allowed to 
+    // Metadata for system/stream, and system/stream/partition are allowed to
     // be null since not all streams are bootstrap streams.
     val systemStreamPartitionMetadata = if (systemStreamMetadata != null) {
       systemStreamMetadata
@@ -256,8 +256,8 @@ class BootstrappingChooser(
       null
     }
     val offsetToCheck = if (systemStreamPartitionMetadata == null) {
-      // Use null for offsetToCheck in cases where the partition metadata was 
-      // null. A null partition metadata implies that the stream is not a 
+      // Use null for offsetToCheck in cases where the partition metadata was
+      // null. A null partition metadata implies that the stream is not a
       // bootstrap stream, and therefore, there is no need to check its offset.
       null
     } else {
@@ -266,9 +266,17 @@ class BootstrappingChooser(
 
     trace("Check %s offset %s against %s for %s." format (offsetType, offset, offsetToCheck, systemStreamPartition))
 
-    // The SSP is no longer lagging if the envelope's offset equals the 
-    // latest offset. 
-    if (offset != null && offset.equals(offsetToCheck)) {
+    // Let's compare offset of the chosen message with offsetToCheck.
+    val comparatorResult: Integer = if (offset == null || offsetToCheck == null) {
+      -1
+    } else {
+      val systemAdmin = systemAdmins.getSystemAdmin(systemStreamPartition.getSystem)
+      systemAdmin.offsetComparator(offset, offsetToCheck)
+    }
+
+    // The SSP is no longer lagging if the envelope's offset is greater than or equal to the
+    // latest offset.
+    if (comparatorResult != null && comparatorResult.intValue() >= 0) {
       laggingSystemStreamPartitions -= systemStreamPartition
       systemStreamLagCounts += systemStream -> (systemStreamLagCounts(systemStream) - 1)
 
@@ -277,7 +285,7 @@ class BootstrappingChooser(
       if (systemStreamLagCounts(systemStream) == 0) {
         info("Bootstrap stream is fully caught up: %s" format systemStream)
 
-        // If the lag count is 0, then no partition for this stream is lagging 
+        // If the lag count is 0, then no partition for this stream is lagging
         // (the stream has been fully caught up).
         systemStreamLagCounts -= systemStream
       }

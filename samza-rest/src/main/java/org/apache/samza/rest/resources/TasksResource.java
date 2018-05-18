@@ -31,10 +31,9 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.rest.model.Task;
 import org.apache.samza.rest.proxy.job.JobInstance;
 import org.apache.samza.rest.proxy.task.TaskProxyFactory;
-import org.apache.samza.rest.proxy.task.SamzaTaskProxy;
 import org.apache.samza.rest.proxy.task.TaskProxy;
 import org.apache.samza.rest.proxy.task.TaskResourceConfig;
-import org.apache.samza.util.ClassLoaderHelper;
+import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,11 +55,11 @@ public class TasksResource {
    * @param config  the configuration containing the {@link TaskProxyFactory} class.
    */
   public TasksResource(TaskResourceConfig config) {
-    String taskProxyFactory = config.getTaskProxyFactory();
-    Preconditions.checkArgument(StringUtils.isNotEmpty(taskProxyFactory),
+    String taskProxyFactoryClassName = config.getTaskProxyFactory();
+    Preconditions.checkArgument(StringUtils.isNotEmpty(taskProxyFactoryClassName),
                                 String.format("Missing config: %s", TaskResourceConfig.CONFIG_TASK_PROXY_FACTORY));
     try {
-      TaskProxyFactory factory = ClassLoaderHelper.fromClassName(taskProxyFactory);
+      TaskProxyFactory factory = Util.getObj(taskProxyFactoryClassName, TaskProxyFactory.class);
       taskProxy = factory.getTaskProxy(config);
     } catch (Exception e) {
       LOG.error(String.format("Exception in building TasksResource with config: %s.", config), e);

@@ -26,7 +26,7 @@ import java.util.{Properties, UUID}
 import kafka.admin.AdminUtils
 import org.apache.kafka.common.errors.LeaderNotAvailableException
 import org.apache.kafka.common.protocol.Errors
-import kafka.consumer.{Consumer, ConsumerConfig}
+import kafka.consumer.{Consumer, ConsumerConfig, ConsumerConnector}
 import kafka.integration.KafkaServerTestHarness
 import kafka.server.KafkaConfig
 import kafka.utils.{TestUtils, ZkUtils}
@@ -59,16 +59,16 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
   var producer: KafkaProducer[Array[Byte], Array[Byte]] = null
   var metadataStore: TopicMetadataStore = null
   var producerConfig: KafkaProducerConfig = null
-  var brokers: String = null
+  var systemAdmin: KafkaSystemAdmin = null
 
-  def generateConfigs() = {
+  override def generateConfigs(): Seq[KafkaConfig] = {
     val props = TestUtils.createBrokerConfigs(numBrokers, zkConnect, true)
     props.map(KafkaConfig.fromProps)
   }
 
   @BeforeClass
-  override def setUp {
-    super.setUp
+  override def setUp() {
+    super.setUp()
     val config = new java.util.HashMap[String, String]()
     config.put("bootstrap.servers", brokerList)
     config.put("acks", "all")
@@ -76,14 +76,16 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
     producerConfig = new KafkaProducerConfig("kafka", "i001", config)
     producer = new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
     metadataStore = new ClientUtilTopicMetadataStore(brokerList, "some-job-name")
+    systemAdmin = new KafkaSystemAdmin(SYSTEM, brokerList, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure))
+    systemAdmin.start()
   }
-
 
   @AfterClass
-  override def tearDown {
-    super.tearDown
+  override def tearDown() {
+    systemAdmin.stop()
+    producer.close()
+    super.tearDown()
   }
-
 
   def createTopic(topicName: String, partitionCount: Int) {
     AdminUtils.createTopic(
@@ -119,7 +121,7 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
     }
   }
 
-  def getConsumerConnector = {
+  def getConsumerConnector(): ConsumerConnector = {
     val props = new Properties
 
     props.put("zookeeper.connect", zkConnect)
@@ -130,12 +132,9 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
     Consumer.create(consumerConfig)
   }
 
-  def createSystemAdmin: KafkaSystemAdmin = {
-    new KafkaSystemAdmin(SYSTEM, brokerList, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure))
-  }
-
   def createSystemAdmin(coordinatorStreamProperties: Properties, coordinatorStreamReplicationFactor: Int, topicMetaInformation: Map[String, ChangelogInfo]): KafkaSystemAdmin = {
-    new KafkaSystemAdmin(SYSTEM, brokerList, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure), coordinatorStreamProperties, coordinatorStreamReplicationFactor, 10000, ConsumerConfig.SocketBufferSize, UUID.randomUUID.toString, topicMetaInformation, Map())
+    new KafkaSystemAdmin(SYSTEM, brokerList, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure), coordinatorStreamProperties,
+      coordinatorStreamReplicationFactor, 10000, ConsumerConfig.SocketBufferSize, UUID.randomUUID.toString, topicMetaInformation, Map())
   }
 
 }
@@ -146,9 +145,6 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
  */
 class TestKafkaSystemAdmin {
   import TestKafkaSystemAdmin._
-
-  // Provide a random zkAddress, the system admin tries to connect only when a topic is created/validated
-  val systemAdmin = createSystemAdmin
 
   @Test
   def testShouldAssembleMetadata {

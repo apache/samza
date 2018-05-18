@@ -25,8 +25,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory;
  */
 public class ScheduleAfterDebounceTime {
   private static final Logger LOG = LoggerFactory.getLogger(ScheduleAfterDebounceTime.class);
-  private static final String DEBOUNCE_THREAD_NAME_FORMAT = "debounce-thread-%d";
+  private static final String DEBOUNCE_THREAD_NAME_FORMAT = "Samza Debounce Thread-%s";
 
   // timeout to wait for a task to complete.
   private static final int TIMEOUT_MS = 1000 * 10;
@@ -55,11 +55,15 @@ public class ScheduleAfterDebounceTime {
   /**
    * A map from actionName to {@link ScheduledFuture} of task scheduled for execution.
    */
-  private final Map<String, ScheduledFuture> futureHandles = new HashMap<>();
+  private final Map<String, ScheduledFuture> futureHandles = new ConcurrentHashMap<>();
+  private volatile boolean isShuttingDown;
 
-  public ScheduleAfterDebounceTime() {
-    ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(DEBOUNCE_THREAD_NAME_FORMAT).setDaemon(true).build();
+  public ScheduleAfterDebounceTime(String processorId) {
+    ThreadFactory threadFactory = new ThreadFactoryBuilder()
+        .setNameFormat(String.format(DEBOUNCE_THREAD_NAME_FORMAT, processorId))
+        .setDaemon(true).build();
     this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(threadFactory);
+    isShuttingDown = false;
   }
 
   public void setScheduledTaskCallback(ScheduledTaskCallback scheduledTaskCallback) {
@@ -78,25 +82,54 @@ public class ScheduleAfterDebounceTime {
    * @param runnable the action to execute.
    */
   public synchronized void scheduleAfterDebounceTime(String actionName, long delayInMillis, Runnable runnable) {
-    // 1. Try to cancel any existing scheduled task associated with the action.
-    tryCancelScheduledAction(actionName);
+    if (!isShuttingDown) {
+      // 1. Try to cancel any existing scheduled task associated with the action.
+      tryCancelScheduledAction(actionName);
 
-    // 2. Schedule the action.
-    ScheduledFuture scheduledFuture = scheduledExecutorService.schedule(getScheduleableAction(actionName, runnable), delayInMillis, TimeUnit.MILLISECONDS);
+      // 2. Schedule the action.
+      ScheduledFuture scheduledFuture =
+          scheduledExecutorService.schedule(getScheduleableAction(actionName, runnable), delayInMillis, TimeUnit.MILLISECONDS);
 
-    LOG.info("Scheduled action: {} to run after: {} milliseconds.", actionName, delayInMillis);
-    futureHandles.put(actionName, scheduledFuture);
+      LOG.info("Scheduled action: {} to run after: {} milliseconds.", actionName, delayInMillis);
+      futureHandles.put(actionName, scheduledFuture);
+    } else {
+      LOG.info("Scheduler is stopped. Not scheduling action: {} to run.", actionName);
+    }
   }
+
+
+  public synchronized void cancelAction(String action) {
+    if (!isShuttingDown) {
+      this.tryCancelScheduledAction(action);
+    }
+  }
+
 
   /**
    * Stops the scheduler. After this invocation no further schedule calls will be accepted
    * and all pending enqueued tasks will be cancelled.
    */
   public synchronized void stopScheduler() {
-    scheduledExecutorService.shutdownNow();
+    if (isShuttingDown) {
+      LOG.debug("Debounce timer shutdown is already in progress!");
+      return;
+    }
 
-    // Clear the existing future handles.
-    futureHandles.clear();
+    isShuttingDown = true;
+    LOG.info("Shutting down debounce timer!");
+
+    // changing it back to use shutdown instead to prevent interruptions on the active task
+    scheduledExecutorService.shutdown();
+
+    // should clear out the future handles as well
+    cancelAllScheduledActions();
+  }
+
+  public synchronized void cancelAllScheduledActions() {
+    if (!isShuttingDown) {
+      futureHandles.keySet().forEach(this::tryCancelScheduledAction);
+      futureHandles.clear();
+    }
   }
 
   /**
@@ -105,6 +138,7 @@ public class ScheduleAfterDebounceTime {
    * @param actionName the name of action to cancel.
    */
   private void tryCancelScheduledAction(String actionName) {
+    LOG.info("Trying to cancel the action: {}.", actionName);
     ScheduledFuture scheduledFuture = futureHandles.get(actionName);
     if (scheduledFuture != null && !scheduledFuture.isDone()) {
       LOG.info("Attempting to cancel the future of action: {}", actionName);
@@ -131,20 +165,22 @@ public class ScheduleAfterDebounceTime {
   private Runnable getScheduleableAction(String actionName, Runnable runnable) {
     return () -> {
       try {
-        runnable.run();
-        /*
-         * Expects all run() implementations <b>not to swallow the interrupts.</b>
-         * This thread is interrupted from an external source(mostly executor service) to die.
-         */
-        if (Thread.currentThread().isInterrupted()) {
-          LOG.warn("Action: {} is interrupted.", actionName);
-          doCleanUpOnTaskException(new InterruptedException());
-        } else {
-          LOG.debug("Action: {} completed successfully.", actionName);
+        if (!isShuttingDown) {
+          runnable.run();
+          /*
+           * Expects all run() implementations <b>not to swallow the interrupts.</b>
+           * This thread is interrupted from an external source(mostly executor service) to die.
+           */
+          if (Thread.currentThread().isInterrupted()) {
+            LOG.warn("Action: {} is interrupted.", actionName);
+            doCleanUpOnTaskException(new InterruptedException());
+          } else {
+            LOG.info("Action: {} completed successfully.", actionName);
+          }
         }
-      } catch (Exception exception) {
-        LOG.error("Execution of action: {} failed.", actionName, exception);
-        doCleanUpOnTaskException(exception);
+      } catch (Throwable throwable) {
+        LOG.error("Execution of action: {} failed.", actionName, throwable);
+        doCleanUpOnTaskException(throwable);
       }
     };
   }
@@ -157,12 +193,12 @@ public class ScheduleAfterDebounceTime {
    *   <li> Invokes the onError handler method if taskCallback is defined.</li>
    * </ul>
    *
-   * @param exception the exception happened during task execution.
+   * @param throwable the exception happened during task execution.
    */
-  private void doCleanUpOnTaskException(Exception exception) {
+  private void doCleanUpOnTaskException(Throwable throwable) {
     stopScheduler();
 
-    scheduledTaskCallback.ifPresent(callback -> callback.onError(exception));
+    scheduledTaskCallback.ifPresent(callback -> callback.onError(throwable));
   }
 
   /**

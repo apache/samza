@@ -24,6 +24,8 @@ import java.util.stream.Collectors;
 
 import org.apache.samza.table.ReadableTable;
 
+import com.google.common.base.Preconditions;
+
 
 /**
  * A store backed readable table
@@ -34,12 +36,16 @@ import org.apache.samza.table.ReadableTable;
 public class LocalStoreBackedReadableTable<K, V> implements ReadableTable<K, V> {
 
   protected KeyValueStore<K, V> kvStore;
+  protected String tableId;
 
   /**
    * Constructs an instance of {@link LocalStoreBackedReadableTable}
    * @param kvStore the backing store
    */
-  public LocalStoreBackedReadableTable(KeyValueStore<K, V> kvStore) {
+  public LocalStoreBackedReadableTable(String tableId, KeyValueStore<K, V> kvStore) {
+    Preconditions.checkArgument(tableId != null & !tableId.isEmpty() , "invalid tableId");
+    Preconditions.checkNotNull(kvStore, "null KeyValueStore");
+    this.tableId = tableId;
     this.kvStore = kvStore;
   }
 

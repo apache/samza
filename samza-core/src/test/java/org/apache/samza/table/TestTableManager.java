@@ -27,11 +27,13 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
+import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.storage.StorageEngine;
+import org.apache.samza.task.TaskContext;
 import org.junit.Test;
 
 import junit.framework.Assert;
@@ -49,13 +51,13 @@ public class TestTableManager {
 
   public static class DummyTableProviderFactory implements TableProviderFactory {
 
-    static Table table;
-    static LocalStoreBackedTableProvider tableProvider;
+    static ReadableTable table;
+    static TableProvider tableProvider;
 
     @Override
     public TableProvider getTableProvider(TableSpec tableSpec) {
-      table = mock(Table.class);
-      tableProvider = mock(LocalStoreBackedTableProvider.class);
+      table = mock(ReadableTable.class);
+      tableProvider = mock(TableProvider.class);
       when(tableProvider.getTable()).thenReturn(table);
       return tableProvider;
     }
@@ -120,10 +122,10 @@ public class TestTableManager {
           });
 
     TableManager tableManager = new TableManager(new MapConfig(map), serdeMap);
-    tableManager.initLocalTables(storageEngines);
+    tableManager.init(mock(SamzaContainerContext.class), mock(TaskContext.class));
 
     Table table = tableManager.getTable(TABLE_ID);
-    verify(DummyTableProviderFactory.tableProvider, times(1)).init(anyObject());
+    verify(DummyTableProviderFactory.tableProvider, times(1)).init(anyObject(), anyObject());
     Assert.assertEquals(DummyTableProviderFactory.table, table);
 
     Map<String, TableManager.TableCtx> ctxMap = getFieldValue(tableManager, "tables");

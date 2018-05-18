@@ -18,6 +18,8 @@
  */
 package org.apache.samza.container.disk;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,9 +36,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * An implementation of {@link DiskSpaceMonitor} that polls for disk usage based on a specified
@@ -47,7 +47,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class PollingScanDiskSpaceMonitor implements DiskSpaceMonitor {
   private enum State { INIT, RUNNING, STOPPED }
 
-  private static final ThreadFactory THREAD_FACTORY = new ThreadFactoryImpl();
   private static final Logger log = LoggerFactory.getLogger(PollingScanDiskSpaceMonitor.class);
 
   // Note: we use this as a set where the value is always Boolean.TRUE.
@@ -57,7 +56,11 @@ public class PollingScanDiskSpaceMonitor implements DiskSpaceMonitor {
   private final Object lock = new Object();
 
   private final ScheduledExecutorService schedulerService =
-      Executors.newSingleThreadScheduledExecutor(THREAD_FACTORY);
+      Executors.newSingleThreadScheduledExecutor(
+          new ThreadFactoryBuilder()
+              .setNameFormat("Samza PollingScanDiskSpaceMonitor Thread-%d")
+              .setDaemon(true)
+              .build());
   private final Set<Path> watchPaths;
   private final long pollingIntervalMillis;
 
@@ -195,15 +198,6 @@ public class PollingScanDiskSpaceMonitor implements DiskSpaceMonitor {
         // catch an exception thrown by one listener so that it does not impact other listeners.
         log.error("Exception thrown by a listener ", e);
       }
-    }
-  }
-
-  private static class ThreadFactoryImpl implements ThreadFactory  {
-    private static final String PREFIX = "Samza-" + PollingScanDiskSpaceMonitor.class.getSimpleName() + "-";
-    private static final AtomicInteger INSTANCE_NUM = new AtomicInteger();
-
-    public Thread newThread(Runnable runnable) {
-      return new Thread(runnable, PREFIX + INSTANCE_NUM.getAndIncrement());
     }
   }
 }

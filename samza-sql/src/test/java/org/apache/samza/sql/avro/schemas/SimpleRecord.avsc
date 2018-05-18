@@ -20,7 +20,7 @@
 {
     "name": "SimpleRecord",
     "version" : 1,
-    "namespace": "org.apache.samza.sql.system.avro",
+    "namespace": "org.apache.samza.sql.avro.schemas",
     "type": "record",
     "fields": [
         {

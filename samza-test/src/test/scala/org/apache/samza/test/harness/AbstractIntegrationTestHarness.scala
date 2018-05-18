@@ -20,7 +20,9 @@ package org.apache.samza.test.harness
 import java.util.Properties
 
 import kafka.server.KafkaConfig
-import kafka.utils.TestUtils
+import kafka.utils.{TestUtils, ZkUtils}
+import org.apache.kafka.common.security.JaasUtils
+import org.apache.samza.system.kafka.KafkaSystemAdmin
 
 /**
  * LinkedIn integration test harness for Kafka
@@ -56,5 +58,9 @@ abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHar
    * @return bootstrap servers string.
    */
   def bootstrapServers(): String = super.bootstrapUrl
+
+  def createSystemAdmin(system: String): KafkaSystemAdmin = {
+    new KafkaSystemAdmin(system, bootstrapServers, connectZk = () => ZkUtils(zkConnect, zkSessionTimeout, zkConnectionTimeout, JaasUtils.isZkSecurityEnabled))
+  }
 
 }

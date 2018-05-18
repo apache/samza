@@ -42,11 +42,11 @@ import org.slf4j.LoggerFactory;
  * Translator to translate the Project node in the relational graph to the corresponding StreamGraph
  * implementation.
  */
-public class ProjectTranslator {
+class ProjectTranslator {
 
   private static final Logger LOG = LoggerFactory.getLogger(ProjectTranslator.class);
 
-  public void translate(final Project project, final TranslatorContext context) {
+  void translate(final Project project, final TranslatorContext context) {
     MessageStream<SamzaSqlRelMessage> messageStream = context.getMessageStream(project.getInput().getId());
     List<Integer> flattenProjects =
         project.getProjects().stream().filter(this::isFlatten).map(this::getProjectIndex).collect(Collectors.toList());
@@ -66,13 +66,14 @@ public class ProjectTranslator {
     MessageStream<SamzaSqlRelMessage> outputStream = messageStream.map(m -> {
       RelDataType type = project.getRowType();
       Object[] output = new Object[type.getFieldCount()];
-      expr.execute(context.getExecutionContext(), context.getDataContext(), m.getRelFieldValues().toArray(), output);
+      expr.execute(context.getExecutionContext(), context.getDataContext(),
+          m.getSamzaSqlRelRecord().getFieldValues().toArray(), output);
       List<String> names = new ArrayList<>();
       for (int index = 0; index < output.length; index++) {
         names.add(index, project.getNamedProjects().get(index).getValue());
       }
 
-      return SamzaSqlRelMessage.createRelMessage(Arrays.asList(output), names);
+      return new SamzaSqlRelMessage(names, Arrays.asList(output));
     });
 
     context.registerMessageStream(project.getId(), outputStream);
@@ -81,14 +82,14 @@ public class ProjectTranslator {
   private MessageStream<SamzaSqlRelMessage> translateFlatten(Integer flattenIndex,
       MessageStream<SamzaSqlRelMessage> inputStream) {
     return inputStream.flatMap(message -> {
-      Object field = message.getRelFieldValues().get(flattenIndex);
+      Object field = message.getSamzaSqlRelRecord().getFieldValues().get(flattenIndex);
 
       if (field != null && field instanceof List) {
         List<SamzaSqlRelMessage> outMessages = new ArrayList<>();
         for (Object fieldValue : (List) field) {
-          List<Object> newValues = new ArrayList<>(message.getFieldValues());
+          List<Object> newValues = new ArrayList<>(message.getSamzaSqlRelRecord().getFieldValues());
           newValues.set(flattenIndex, Collections.singletonList(fieldValue));
-          outMessages.add(new SamzaSqlRelMessage(message.getKey(), message.getFieldNames(), newValues));
+          outMessages.add(new SamzaSqlRelMessage(message.getSamzaSqlRelRecord().getFieldNames(), newValues));
         }
         return outMessages;
       } else {

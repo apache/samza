@@ -31,8 +31,8 @@ import org.apache.samza.runtime.AbstractApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.runtime.RemoteApplicationRunner;
-import org.apache.samza.sql.interfaces.SourceResolver;
-import org.apache.samza.sql.interfaces.SqlSystemStreamConfig;
+import org.apache.samza.sql.interfaces.SqlIOResolver;
+import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,7 +70,7 @@ public class SamzaSqlApplicationRunner extends AbstractApplicationRunner {
   public static Config computeSamzaConfigs(Boolean localRunner, Config config) {
     Map<String, String> newConfig = new HashMap<>();
 
-    SourceResolver sourceResolver = SamzaSqlApplicationConfig.createSourceResolver(config);
+    SqlIOResolver ioResolver = SamzaSqlApplicationConfig.createIOResolver(config);
     // Parse the sql and find the input stream streams
     List<String> sqlStmts = SamzaSqlApplicationConfig.fetchSqlFromConfig(config);
 
@@ -81,26 +81,26 @@ public class SamzaSqlApplicationRunner extends AbstractApplicationRunner {
     List<SamzaSqlQueryParser.QueryInfo> queryInfo = SamzaSqlApplicationConfig.fetchQueryInfo(sqlStmts);
     for (SamzaSqlQueryParser.QueryInfo query : queryInfo) {
       // Populate stream to system mapping config for input and output system streams
-      for (String inputSource : query.getInputSources()) {
-        SqlSystemStreamConfig inputSystemStreamConfig = sourceResolver.fetchSourceInfo(inputSource);
+      for (String inputSource : query.getSources()) {
+        SqlIOConfig inputSystemStreamConfig = ioResolver.fetchSourceInfo(inputSource);
         newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, inputSystemStreamConfig.getStreamName()),
             inputSystemStreamConfig.getSystemName());
         newConfig.putAll(inputSystemStreamConfig.getConfig());
       }
 
-      SqlSystemStreamConfig outputSystemStreamConfig = sourceResolver.fetchSourceInfo(query.getOutputSource());
+      SqlIOConfig outputSystemStreamConfig = ioResolver.fetchSinkInfo(query.getSink());
       newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, outputSystemStreamConfig.getStreamName()),
           outputSystemStreamConfig.getSystemName());
       newConfig.putAll(outputSystemStreamConfig.getConfig());
     }
+
+    newConfig.putAll(config);
 
     if (localRunner) {
       newConfig.put(RUNNER_CONFIG, LocalApplicationRunner.class.getName());
     } else {
       newConfig.put(RUNNER_CONFIG, RemoteApplicationRunner.class.getName());
     }
-
-    newConfig.putAll(config);
 
     LOG.info("New Samza configs: " + newConfig);
     return new MapConfig(newConfig);
@@ -110,7 +110,7 @@ public class SamzaSqlApplicationRunner extends AbstractApplicationRunner {
     Validate.isTrue(localRunner, "This method can be called only in standalone mode.");
     SamzaSqlApplication app = new SamzaSqlApplication();
     run(app);
-    ((LocalApplicationRunner) appRunner).waitForFinish();
+    appRunner.waitForFinish();
   }
 
   @Override
@@ -120,6 +120,7 @@ public class SamzaSqlApplicationRunner extends AbstractApplicationRunner {
 
   @Override
   public void run(StreamApplication streamApp) {
+    super.run(streamApp);
     Validate.isInstanceOf(SamzaSqlApplication.class, streamApp);
     appRunner.run(streamApp);
   }
@@ -127,6 +128,7 @@ public class SamzaSqlApplicationRunner extends AbstractApplicationRunner {
   @Override
   public void kill(StreamApplication streamApp) {
     appRunner.kill(streamApp);
+    super.kill(streamApp);
   }
 
   @Override

@@ -40,9 +40,9 @@ import org.apache.samza.sql.interfaces.RelSchemaProvider;
 import org.apache.samza.sql.interfaces.RelSchemaProviderFactory;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.sql.interfaces.SamzaRelConverterFactory;
-import org.apache.samza.sql.interfaces.SourceResolver;
-import org.apache.samza.sql.interfaces.SourceResolverFactory;
-import org.apache.samza.sql.interfaces.SqlSystemStreamConfig;
+import org.apache.samza.sql.interfaces.SqlIOResolver;
+import org.apache.samza.sql.interfaces.SqlIOResolverFactory;
+import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.interfaces.UdfMetadata;
 import org.apache.samza.sql.interfaces.UdfResolver;
 import org.apache.samza.sql.testutil.JsonUtil;
@@ -50,7 +50,6 @@ import org.apache.samza.sql.testutil.ReflectionUtils;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser.QueryInfo;
 import org.apache.samza.sql.testutil.SqlFileParser;
-import org.apache.samza.system.SystemStream;
 import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,25 +72,32 @@ public class SamzaSqlApplicationConfig {
   public static final String CFG_FMT_REL_SCHEMA_PROVIDER_DOMAIN = "samza.sql.relSchemaProvider.%s.";
   public static final String CFG_FMT_SAMZA_REL_CONVERTER_DOMAIN = "samza.sql.relConverter.%s.";
 
-  public static final String CFG_SOURCE_RESOLVER = "samza.sql.sourceResolver";
-  public static final String CFG_FMT_SOURCE_RESOLVER_DOMAIN = "samza.sql.sourceResolver.%s.";
+  public static final String CFG_IO_RESOLVER = "samza.sql.ioResolver";
+  public static final String CFG_FMT_SOURCE_RESOLVER_DOMAIN = "samza.sql.ioResolver.%s.";
 
   public static final String CFG_UDF_RESOLVER = "samza.sql.udfResolver";
   public static final String CFG_FMT_UDF_RESOLVER_DOMAIN = "samza.sql.udfResolver.%s.";
+
+  public static final String CFG_GROUPBY_WINDOW_DURATION_MS = "samza.sql.groupby.window.ms";
+
+  private static final long DEFAULT_GROUPBY_WINDOW_DURATION_MS = 300000; // default groupby window duration is 5 mins.
+
   private final Map<String, RelSchemaProvider> relSchemaProvidersBySource;
   private final Map<String, SamzaRelConverter> samzaRelConvertersBySource;
 
-  private SourceResolver sourceResolver;
+  private SqlIOResolver ioResolver;
   private UdfResolver udfResolver;
 
   private final Collection<UdfMetadata> udfMetadata;
 
-  private final Map<String, SqlSystemStreamConfig> inputSystemStreamConfigBySource;
-  private final Map<String, SqlSystemStreamConfig> outputSystemStreamConfigsBySource;
+  private final Map<String, SqlIOConfig> inputSystemStreamConfigBySource;
+  private final Map<String, SqlIOConfig> outputSystemStreamConfigsBySource;
 
   private final List<String> sql;
 
   private final List<QueryInfo> queryInfo;
+
+  private final long windowDurationMs;
 
   public SamzaSqlApplicationConfig(Config staticConfig) {
 
@@ -99,34 +105,36 @@ public class SamzaSqlApplicationConfig {
 
     queryInfo = fetchQueryInfo(sql);
 
-    sourceResolver = createSourceResolver(staticConfig);
+    ioResolver = createIOResolver(staticConfig);
 
     udfResolver = createUdfResolver(staticConfig);
     udfMetadata = udfResolver.getUdfs();
 
     inputSystemStreamConfigBySource = queryInfo.stream()
-        .map(QueryInfo::getInputSources)
+        .map(QueryInfo::getSources)
         .flatMap(Collection::stream)
-        .collect(Collectors.toMap(Function.identity(), sourceResolver::fetchSourceInfo));
+        .collect(Collectors.toMap(Function.identity(), src -> ioResolver.fetchSourceInfo(src)));
 
-    Set<SqlSystemStreamConfig> systemStreamConfigs = new HashSet<>(inputSystemStreamConfigBySource.values());
+    Set<SqlIOConfig> systemStreamConfigs = new HashSet<>(inputSystemStreamConfigBySource.values());
 
     outputSystemStreamConfigsBySource = queryInfo.stream()
-        .map(QueryInfo::getOutputSource)
-        .collect(Collectors.toMap(Function.identity(), x -> sourceResolver.fetchSourceInfo(x)));
+        .map(QueryInfo::getSink)
+        .collect(Collectors.toMap(Function.identity(), x -> ioResolver.fetchSinkInfo(x)));
     systemStreamConfigs.addAll(outputSystemStreamConfigsBySource.values());
 
     relSchemaProvidersBySource = systemStreamConfigs.stream()
-        .collect(Collectors.toMap(SqlSystemStreamConfig::getSource,
+        .collect(Collectors.toMap(SqlIOConfig::getSource,
             x -> initializePlugin("RelSchemaProvider", x.getRelSchemaProviderName(), staticConfig,
                 CFG_FMT_REL_SCHEMA_PROVIDER_DOMAIN,
                 (o, c) -> ((RelSchemaProviderFactory) o).create(x.getSystemStream(), c))));
 
     samzaRelConvertersBySource = systemStreamConfigs.stream()
-        .collect(Collectors.toMap(SqlSystemStreamConfig::getSource,
+        .collect(Collectors.toMap(SqlIOConfig::getSource,
             x -> initializePlugin("SamzaRelConverter", x.getSamzaRelConverterName(), staticConfig,
                 CFG_FMT_SAMZA_REL_CONVERTER_DOMAIN, (o, c) -> ((SamzaRelConverterFactory) o).create(x.getSystemStream(),
                     relSchemaProvidersBySource.get(x.getSource()), c))));
+
+    windowDurationMs = staticConfig.getLong(CFG_GROUPBY_WINDOW_DURATION_MS, DEFAULT_GROUPBY_WINDOW_DURATION_MS);
   }
 
   private static <T> T initializePlugin(String pluginName, String plugin, Config staticConfig,
@@ -175,11 +183,11 @@ public class SamzaSqlApplicationConfig {
     return JsonUtil.toJson(sqlStmts);
   }
 
-  public static SourceResolver createSourceResolver(Config config) {
-    String sourceResolveValue = config.get(CFG_SOURCE_RESOLVER);
-    Validate.notEmpty(sourceResolveValue, "sourceResolver config is not set or empty");
-    return initializePlugin("SourceResolver", sourceResolveValue, config, CFG_FMT_SOURCE_RESOLVER_DOMAIN,
-        (o, c) -> ((SourceResolverFactory) o).create(c));
+  public static SqlIOResolver createIOResolver(Config config) {
+    String sourceResolveValue = config.get(CFG_IO_RESOLVER);
+    Validate.notEmpty(sourceResolveValue, "ioResolver config is not set or empty");
+    return initializePlugin("SqlIOResolver", sourceResolveValue, config, CFG_FMT_SOURCE_RESOLVER_DOMAIN,
+        (o, c) -> ((SqlIOResolverFactory) o).create(c));
   }
 
   private UdfResolver createUdfResolver(Map<String, String> config) {
@@ -226,11 +234,11 @@ public class SamzaSqlApplicationConfig {
     return udfMetadata;
   }
 
-  public Map<String, SqlSystemStreamConfig> getInputSystemStreamConfigBySource() {
+  public Map<String, SqlIOConfig> getInputSystemStreamConfigBySource() {
     return inputSystemStreamConfigBySource;
   }
 
-  public Map<String, SqlSystemStreamConfig> getOutputSystemStreamConfigsBySource() {
+  public Map<String, SqlIOConfig> getOutputSystemStreamConfigsBySource() {
     return outputSystemStreamConfigsBySource;
   }
 
@@ -240,5 +248,13 @@ public class SamzaSqlApplicationConfig {
 
   public Map<String, RelSchemaProvider> getRelSchemaProviders() {
     return relSchemaProvidersBySource;
+  }
+
+  public SqlIOResolver getIoResolver() {
+    return ioResolver;
+  }
+
+  public long getWindowDurationMs() {
+    return windowDurationMs;
   }
 }

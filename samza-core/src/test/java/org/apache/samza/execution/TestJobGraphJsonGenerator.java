@@ -19,6 +19,9 @@
 
 package org.apache.samza.execution;
 
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -36,17 +39,13 @@ import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemAdmins;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Test;
 
-import java.time.Duration;
-import java.util.HashMap;
-import java.util.Map;
-
-import static org.apache.samza.execution.TestExecutionPlanner.createSystemAdmin;
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.apache.samza.execution.TestExecutionPlanner.*;
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
 
 public class TestJobGraphJsonGenerator {
@@ -108,11 +107,11 @@ public class TestJobGraphJsonGenerator {
     system2Map.put("input3", 32);
     system2Map.put("output2", 16);
 
-    Map<String, SystemAdmin> systemAdmins = new HashMap<>();
     SystemAdmin systemAdmin1 = createSystemAdmin(system1Map);
     SystemAdmin systemAdmin2 = createSystemAdmin(system2Map);
-    systemAdmins.put("system1", systemAdmin1);
-    systemAdmins.put("system2", systemAdmin2);
+    SystemAdmins systemAdmins = mock(SystemAdmins.class);
+    when(systemAdmins.getSystemAdmin("system1")).thenReturn(systemAdmin1);
+    when(systemAdmins.getSystemAdmin("system2")).thenReturn(systemAdmin2);
     StreamManager streamManager = new StreamManager(systemAdmins);
 
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
@@ -181,11 +180,11 @@ public class TestJobGraphJsonGenerator {
     Map<String, Integer> system2Map = new HashMap<>();
     system2Map.put("PageViewCount", 16);
 
-    Map<String, SystemAdmin> systemAdmins = new HashMap<>();
     SystemAdmin systemAdmin1 = createSystemAdmin(system1Map);
     SystemAdmin systemAdmin2 = createSystemAdmin(system2Map);
-    systemAdmins.put("hdfs", systemAdmin1);
-    systemAdmins.put("kafka", systemAdmin2);
+    SystemAdmins systemAdmins = mock(SystemAdmins.class);
+    when(systemAdmins.getSystemAdmin("hdfs")).thenReturn(systemAdmin1);
+    when(systemAdmins.getSystemAdmin("kafka")).thenReturn(systemAdmin2);
     StreamManager streamManager = new StreamManager(systemAdmins);
 
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);

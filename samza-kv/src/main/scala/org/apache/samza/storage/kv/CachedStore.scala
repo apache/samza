@@ -286,6 +286,10 @@ class CachedStore[K, V](
   }
 
   def hasArrayKeys = containsArrayKeys
+
+  override def snapshot(from: K, to: K): KeyValueSnapshot[K, V] = {
+    store.snapshot(from, to)
+  }
 }
 
 private case class CacheEntry[K, V](var value: V, var dirty: mutable.DoubleLinkedList[K])

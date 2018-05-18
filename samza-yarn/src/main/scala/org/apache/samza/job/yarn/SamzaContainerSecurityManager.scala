@@ -19,24 +19,30 @@
 
 package org.apache.samza.job.yarn
 
-import java.util.concurrent.{TimeUnit, Executors}
-
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, Path}
-import org.apache.hadoop.security.{UserGroupInformation, Credentials}
-import org.apache.samza.config.{Config, YarnConfig}
-import org.apache.samza.util.{Logging, DaemonThreadFactory}
+import org.apache.hadoop.fs.FileSystem
+import org.apache.hadoop.fs.Path
+import org.apache.hadoop.security.Credentials
+import org.apache.hadoop.security.UserGroupInformation
+import org.apache.samza.config.Config
+import org.apache.samza.config.YarnConfig
 import org.apache.samza.container.SecurityManager
+import org.apache.samza.util.Logging
 
-object SamzaContainerSecurityManager {
-  val TOKEN_RENEW_THREAD_NAME_PREFIX = "TOKEN-RENEW-PREFIX"
-  val INITIAL_DELAY_IN_SECONDS = 60
-}
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class SamzaContainerSecurityManager(config: Config, hadoopConfig: Configuration) extends SecurityManager with Logging {
-  private val tokenRenewExecutor = Executors.newScheduledThreadPool(1, new DaemonThreadFactory(SamzaContainerSecurityManager.TOKEN_RENEW_THREAD_NAME_PREFIX))
-  private var lastRefreshTimestamp = 0L
+  private val InitialDelayInSeconds = 60
+  
+  private val tokenRenewExecutor = Executors.newSingleThreadScheduledExecutor(
+    new ThreadFactoryBuilder()
+      .setNameFormat("Samza ContainerSecurityManager TokenRenewer Thread-%d")
+      .setDaemon(true)
+      .build())
 
+  private var lastRefreshTimestamp = 0L
 
   def start() = {
     val yarnConfig = new YarnConfig(config)
@@ -75,8 +81,8 @@ class SamzaContainerSecurityManager(config: Config, hadoopConfig: Configuration)
       }
     }
 
-    info(s"Schedule the next fetch in ${renewalInterval + SamzaContainerSecurityManager.INITIAL_DELAY_IN_SECONDS} seconds")
-    tokenRenewExecutor.schedule(tokenRenewRunnable, renewalInterval + SamzaContainerSecurityManager.INITIAL_DELAY_IN_SECONDS, TimeUnit.SECONDS)
+    info(s"Schedule the next fetch in ${renewalInterval + InitialDelayInSeconds} seconds")
+    tokenRenewExecutor.schedule(tokenRenewRunnable, renewalInterval + InitialDelayInSeconds, TimeUnit.SECONDS)
   }
 
   private def getCredentialsFromHDFS(fs: FileSystem, tokenPath: Path): Credentials = {

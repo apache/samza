@@ -47,6 +47,14 @@ The following configurations are required for each of the monitors.
             not defined, it is defaulted to 60 seconds.</td>
           </tr>
           <tr>
+            <td>monitor.monitorName.scheduling.jitter.percent</td>
+            <td></td>
+            <td>
+            Defines the random jitter percentage that should be added to the monitor
+            scheduling interval for a monitor named monitorName. If undefined,
+            it is defaulted to zero.</td>
+          </tr>
+          <tr>
             <td>monitor.monitorName.factory.class</td>
             <td></td>
             <td>

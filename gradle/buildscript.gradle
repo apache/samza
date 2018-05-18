@@ -27,5 +27,5 @@ repositories {
 
 dependencies {
   classpath 'de.obqo.gradle:gradle-lesscss-plugin:1.0-1.3.3'
-  classpath 'org.gradle.api.plugins:gradle-nexus-plugin:0.7.1'
+  classpath 'com.bmuschko:gradle-nexus-plugin:2.3.1'
 }

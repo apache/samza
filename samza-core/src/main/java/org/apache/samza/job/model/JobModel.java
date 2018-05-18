@@ -25,19 +25,21 @@ import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
+import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 
 /**
  * <p>
  * The data model used to represent a Samza job. The model is used in the job
  * coordinator and SamzaContainer to determine how to execute Samza jobs.
  * </p>
- * 
+ *
  * <p>
  * The hierarchy for a Samza's job data model is that jobs have containers, and
  * containers have tasks. Each data model contains relevant information, such as
  * an id, partition information, etc.
  * </p>
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class JobModel {
   private static final String EMPTY_STRING = "";
   private final Config config;

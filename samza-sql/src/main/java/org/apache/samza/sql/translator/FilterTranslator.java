@@ -22,7 +22,10 @@ package org.apache.samza.sql.translator;
 import java.util.Arrays;
 import java.util.Collections;
 
+import java.util.List;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.logical.LogicalFilter;
+import org.apache.calcite.rex.RexNode;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.sql.data.Expression;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
@@ -34,29 +37,36 @@ import org.slf4j.LoggerFactory;
  * Translator to translate the LogicalFilter node in the relational graph to the corresponding StreamGraph
  * implementation
  */
-public class FilterTranslator {
+class FilterTranslator {
 
   private static final Logger log = LoggerFactory.getLogger(FilterTranslator.class);
 
-  public void translate(final LogicalFilter filter, final TranslatorContext context) {
+  void translate(final LogicalFilter filter, final TranslatorContext context) {
     MessageStream<SamzaSqlRelMessage> inputStream = context.getMessageStream(filter.getInput().getId());
-    Expression expr =
-        context.getExpressionCompiler().compile(filter.getInputs(), Collections.singletonList(filter.getCondition()));
+    MessageStream<SamzaSqlRelMessage> outputStream = translateFilter(inputStream, filter.getInputs(),
+        filter.getCondition(), context);
+    context.registerMessageStream(filter.getId(), outputStream);
+  }
 
-    MessageStream<SamzaSqlRelMessage> outputStream = inputStream.filter(message -> {
+  static MessageStream<SamzaSqlRelMessage> translateFilter(MessageStream<SamzaSqlRelMessage> inputStream,
+      List<RelNode> inputs, RexNode condition, final TranslatorContext context) {
+    Expression expr =
+        context.getExpressionCompiler().compile(inputs, Collections.singletonList(condition));
+
+    return inputStream.filter(message -> {
       Object[] result = new Object[1];
-      expr.execute(context.getExecutionContext(), context.getDataContext(), message.getRelFieldValues().toArray(), result);
+      expr.execute(context.getExecutionContext(), context.getDataContext(),
+          message.getSamzaSqlRelRecord().getFieldValues().toArray(), result);
       if (result.length > 0 && result[0] instanceof Boolean) {
         boolean retVal = (Boolean) result[0];
         log.debug(
-            String.format("return value for input %s is %s", Arrays.asList(message.getFieldValues()).toString(), retVal));
+            String.format("return value for input %s is %s",
+                Arrays.asList(message.getSamzaSqlRelRecord().getFieldValues()).toString(), retVal));
         return retVal;
       } else {
         log.error("return value is not boolean");
         return false;
       }
     });
-
-    context.registerMessageStream(filter.getId(), outputStream);
   }
 }

@@ -34,6 +34,7 @@ import org.apache.samza.config.*;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.util.Util;
@@ -41,15 +42,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.JavaConversions;
 
-import static org.apache.samza.util.ScalaToJavaUtils.defaultValue;
+import static org.apache.samza.util.ScalaJavaUtil.defaultValue;
 
 public class StreamManager {
   private static final Logger LOGGER = LoggerFactory.getLogger(StreamManager.class);
 
-  private final Map<String, SystemAdmin> sysAdmins;
+  private final SystemAdmins systemAdmins;
 
-  public StreamManager(Map<String, SystemAdmin> sysAdmins) {
-    this.sysAdmins = sysAdmins;
+  public StreamManager(SystemAdmins systemAdmins) {
+    this.systemAdmins = systemAdmins;
   }
 
   public void createStreams(List<StreamSpec> streams) {
@@ -59,7 +60,7 @@ public class StreamManager {
 
     for (Map.Entry<String, Collection<StreamSpec>> entry : streamsGroupedBySystem.asMap().entrySet()) {
       String systemName = entry.getKey();
-      SystemAdmin systemAdmin = sysAdmins.get(systemName);
+      SystemAdmin systemAdmin = systemAdmins.getSystemAdmin(systemName);
 
       for (StreamSpec stream : entry.getValue()) {
         LOGGER.info("Creating stream {} with partitions {} on system {}",
@@ -72,7 +73,7 @@ public class StreamManager {
   Map<String, Integer> getStreamPartitionCounts(String systemName, Set<String> streamNames) {
     Map<String, Integer> streamToPartitionCount = new HashMap<>();
 
-    SystemAdmin systemAdmin = sysAdmins.get(systemName);
+    SystemAdmin systemAdmin = systemAdmins.getSystemAdmin(systemName);
     if (systemAdmin == null) {
       throw new SamzaException(String.format("System %s does not exist.", systemName));
     }
@@ -101,32 +102,35 @@ public class StreamManager {
 
       //Find all intermediate streams and clean up
       Set<StreamSpec> intStreams = JavaConversions.asJavaCollection(streamConfig.getStreamIds()).stream()
-          .filter(streamConfig::getIsIntermediate)
+          .filter(streamConfig::getIsIntermediateStream)
           .map(id -> new StreamSpec(id, streamConfig.getPhysicalName(id), streamConfig.getSystem(id)))
           .collect(Collectors.toSet());
       intStreams.forEach(stream -> {
           LOGGER.info("Clear intermediate stream {} in system {}", stream.getPhysicalName(), stream.getSystemName());
-          sysAdmins.get(stream.getSystemName()).clearStream(stream);
+          systemAdmins.getSystemAdmin(stream.getSystemName()).clearStream(stream);
         });
 
       //Find checkpoint stream and clean up
       TaskConfig taskConfig = new TaskConfig(prevConfig);
-      String checkpointManagerFactoryClass = taskConfig.getCheckpointManagerFactory().getOrElse(defaultValue(null));
-      if (checkpointManagerFactoryClass != null) {
-        CheckpointManager checkpointManager = ((CheckpointManagerFactory) Util.getObj(checkpointManagerFactoryClass))
-            .getCheckpointManager(prevConfig, new MetricsRegistryMap());
+      String checkpointManagerFactoryClassName = taskConfig.getCheckpointManagerFactory()
+          .getOrElse(defaultValue(null));
+      if (checkpointManagerFactoryClassName != null) {
+        CheckpointManager checkpointManager =
+            Util.getObj(checkpointManagerFactoryClassName, CheckpointManagerFactory.class)
+                .getCheckpointManager(prevConfig, new MetricsRegistryMap());
         checkpointManager.clearCheckpoints();
       }
 
       //Find changelog streams and remove them
       StorageConfig storageConfig = new StorageConfig(prevConfig);
       for (String store : JavaConversions.asJavaCollection(storageConfig.getStoreNames())) {
-        String changelog = storageConfig.getChangelogStream(store).getOrElse(defaultValue(null));
+        String changelog = storageConfig.getChangelogStream(store)
+            .getOrElse(defaultValue(null));
         if (changelog != null) {
           LOGGER.info("Clear store {} changelog {}", store, changelog);
           SystemStream systemStream = Util.getSystemStreamFromNames(changelog);
           StreamSpec spec = StreamSpec.createChangeLogStreamSpec(systemStream.getStream(), systemStream.getSystem(), 1);
-          sysAdmins.get(spec.getSystemName()).clearStream(spec);
+          systemAdmins.getSystemAdmin(spec.getSystemName()).clearStream(spec);
         }
       }
     } catch (Exception e) {

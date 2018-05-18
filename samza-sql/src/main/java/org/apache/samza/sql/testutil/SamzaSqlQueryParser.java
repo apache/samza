@@ -23,7 +23,6 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -53,7 +52,7 @@ import org.apache.samza.SamzaException;
 
 
 /**
- * Utility class that is used to parse the Samza sql query to figure out the inputs, outputs etc..
+ * Utility class that is used to parse the Samza sql query to figure out the sources, sink etc..
  */
 public class SamzaSqlQueryParser {
 
@@ -61,26 +60,26 @@ public class SamzaSqlQueryParser {
   }
 
   public static class QueryInfo {
-    private final List<String> inputSources;
+    private final List<String> sources;
     private String selectQuery;
-    private String outputSource;
+    private String sink;
 
-    public QueryInfo(String selectQuery, List<String> inputSources, String outputSource) {
+    public QueryInfo(String selectQuery, List<String> sources, String sink) {
       this.selectQuery = selectQuery;
-      this.outputSource = outputSource;
-      this.inputSources = inputSources;
+      this.sink = sink;
+      this.sources = sources;
     }
 
-    public List<String> getInputSources() {
-      return inputSources;
+    public List<String> getSources() {
+      return sources;
     }
 
     public String getSelectQuery() {
       return selectQuery;
     }
 
-    public String getOutputSource() {
-      return outputSource;
+    public String getSink() {
+      return sink;
     }
   }
 
@@ -100,16 +99,16 @@ public class SamzaSqlQueryParser {
       throw new SamzaException(e);
     }
 
-    String outputSource;
+    String sink;
     String selectQuery;
-    String inputSource;
+    ArrayList<String> sources;
     if (sqlNode instanceof SqlInsert) {
       SqlInsert sqlInsert = ((SqlInsert) sqlNode);
-      outputSource = sqlInsert.getTargetTable().toString();
+      sink = sqlInsert.getTargetTable().toString();
       if (sqlInsert.getSource() instanceof SqlSelect) {
         SqlSelect sqlSelect = (SqlSelect) sqlInsert.getSource();
         selectQuery = m.group(2);
-        inputSource = getInputFromSelectQuery(sqlSelect);
+        sources = getSourcesFromSelectQuery(sqlSelect);
       } else {
         throw new SamzaException("Sql query is not of the expected format");
       }
@@ -117,7 +116,7 @@ public class SamzaSqlQueryParser {
       throw new SamzaException("Sql query is not of the expected format");
     }
 
-    return new QueryInfo(selectQuery, Collections.singletonList(inputSource), outputSource);
+    return new QueryInfo(selectQuery, sources, sink);
   }
 
   private static Planner createPlanner() {
@@ -147,42 +146,38 @@ public class SamzaSqlQueryParser {
     return Frameworks.getPlanner(frameworkConfig);
   }
 
-  private static String getInputFromSelectQuery(SqlSelect sqlSelect) {
-    ArrayList<String> input = new ArrayList<>();
-    getInput(sqlSelect.getFrom(), input);
-    if (input.size() != 1) {
+  private static ArrayList<String> getSourcesFromSelectQuery(SqlSelect sqlSelect) {
+    ArrayList<String> sources = new ArrayList<>();
+    getSource(sqlSelect.getFrom(), sources);
+    if (sources.size() < 1) {
       throw new SamzaException("Unsupported query " + sqlSelect);
     }
 
-    return input.get(0);
+    return sources;
   }
 
-  private static void getInput(SqlNode node, ArrayList<String> inputSource) {
+  private static void getSource(SqlNode node, ArrayList<String> sourceList) {
     if (node instanceof SqlJoin) {
       SqlJoin joinNode = (SqlJoin) node;
-      ArrayList<String> inputsLeft = new ArrayList<>();
-      ArrayList<String> inputsRight = new ArrayList<>();
-      getInput(joinNode.getLeft(), inputsLeft);
-      getInput(joinNode.getRight(), inputsRight);
+      ArrayList<String> sourcesLeft = new ArrayList<>();
+      ArrayList<String> sourcesRight = new ArrayList<>();
+      getSource(joinNode.getLeft(), sourcesLeft);
+      getSource(joinNode.getRight(), sourcesRight);
 
-      if (!inputsLeft.isEmpty() && !inputsRight.isEmpty()) {
-        throw new SamzaException("Joins on two entities are not supported yet");
-      }
-
-      inputSource.addAll(inputsLeft);
-      inputSource.addAll(inputsRight);
+      sourceList.addAll(sourcesLeft);
+      sourceList.addAll(sourcesRight);
     } else if (node instanceof SqlIdentifier) {
-      inputSource.add(node.toString());
+      sourceList.add(node.toString());
     } else if (node instanceof SqlBasicCall) {
       SqlBasicCall basicCall = ((SqlBasicCall) node);
       if (basicCall.getOperator() instanceof SqlAsOperator) {
-        getInput(basicCall.operand(0), inputSource);
+        getSource(basicCall.operand(0), sourceList);
       } else if (basicCall.getOperator() instanceof SqlUnnestOperator && basicCall.operand(0) instanceof SqlSelect) {
-        inputSource.add(getInputFromSelectQuery(basicCall.operand(0)));
+        sourceList.addAll(getSourcesFromSelectQuery(basicCall.operand(0)));
         return;
       }
     } else if (node instanceof SqlSelect) {
-      getInput(((SqlSelect) node).getFrom(), inputSource);
+      getSource(((SqlSelect) node).getFrom(), sourceList);
     }
   }
 }

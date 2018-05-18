@@ -100,7 +100,7 @@ public class HdfsSystemAdmin implements SystemAdmin {
     directoryPartitioner = new DirectoryPartitioner(hdfsConfig.getPartitionerWhiteList(systemName),
       hdfsConfig.getPartitionerBlackList(systemName), hdfsConfig.getPartitionerGroupPattern(systemName),
       new HdfsFileSystemAdapter());
-    stagingDirectory = hdfsConfig.getStagingDirectory();
+    stagingDirectory = hdfsConfig.getStagingDirectory(systemName);
     readerType = HdfsReaderFactory.getType(hdfsConfig.getFileReaderType(systemName));
   }
 

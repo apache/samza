@@ -27,7 +27,6 @@ import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
-import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.MockSystemFactory;
@@ -72,8 +71,7 @@ public class TestClusterBasedJobCoordinator {
     Config config = new MapConfig(configMap);
 
     // mimic job runner code to write the config to coordinator stream
-    CoordinatorStreamSystemFactory coordinatorFactory = new CoordinatorStreamSystemFactory();
-    CoordinatorStreamSystemProducer producer = coordinatorFactory.getCoordinatorStreamSystemProducer(config, mock(MetricsRegistry.class));
+    CoordinatorStreamSystemProducer producer = new CoordinatorStreamSystemProducer(config, mock(MetricsRegistry.class));
     producer.writeConfig("test-job", config);
 
     ClusterBasedJobCoordinator clusterCoordinator = new ClusterBasedJobCoordinator(config);
@@ -91,8 +89,7 @@ public class TestClusterBasedJobCoordinator {
     Config config = new MapConfig(configMap);
 
     // mimic job runner code to write the config to coordinator stream
-    CoordinatorStreamSystemFactory coordinatorFactory = new CoordinatorStreamSystemFactory();
-    CoordinatorStreamSystemProducer producer = coordinatorFactory.getCoordinatorStreamSystemProducer(config, mock(MetricsRegistry.class));
+    CoordinatorStreamSystemProducer producer = new CoordinatorStreamSystemProducer(config, mock(MetricsRegistry.class));
     producer.writeConfig("test-job", config);
 
     ClusterBasedJobCoordinator clusterCoordinator = new ClusterBasedJobCoordinator(config);

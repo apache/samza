@@ -95,7 +95,7 @@ public class OperatorSpecs {
       public void close() {
         mapFn.close();
       }
-    }, OperatorSpec.OpCode.MAP, opId);
+    }, mapFn, OperatorSpec.OpCode.MAP, opId);
   }
 
   /**
@@ -129,7 +129,7 @@ public class OperatorSpecs {
       public void close() {
         filterFn.close();
       }
-    }, OperatorSpec.OpCode.FILTER, opId);
+    }, filterFn, OperatorSpec.OpCode.FILTER, opId);
   }
 
   /**
@@ -143,7 +143,7 @@ public class OperatorSpecs {
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createFlatMapOperatorSpec(
       FlatMapFunction<? super M, ? extends OM> flatMapFn, String opId) {
-    return new StreamOperatorSpec<>((FlatMapFunction<M, OM>) flatMapFn, OperatorSpec.OpCode.FLAT_MAP, opId);
+    return new StreamOperatorSpec<>((FlatMapFunction<M, OM>) flatMapFn, flatMapFn, OperatorSpec.OpCode.FLAT_MAP, opId);
   }
 
   /**
@@ -242,7 +242,7 @@ public class OperatorSpecs {
             this.add(message);
           }
         },
-        OperatorSpec.OpCode.MERGE, opId);
+        null, OperatorSpec.OpCode.MERGE, opId);
   }
 
   /**
@@ -276,6 +276,18 @@ public class OperatorSpecs {
   public static <K, V> SendToTableOperatorSpec<K, V> createSendToTableOperatorSpec(
       OperatorSpec<?, KV<K, V>> inputOpSpec, TableSpec tableSpec, String opId) {
     return new SendToTableOperatorSpec(inputOpSpec, tableSpec, opId);
+  }
+
+  /**
+   * Creates a {@link BroadcastOperatorSpec} for the Broadcast operator.
+   * @param outputStream the {@link OutputStreamImpl} to send messages to
+   * @param opId the unique ID of the operator
+   * @param <M> the type of input message
+   * @return the {@link BroadcastOperatorSpec}
+   */
+  public static <M> BroadcastOperatorSpec<M> createBroadCastOperatorSpec(
+      OutputStreamImpl<M> outputStream, String opId) {
+    return new BroadcastOperatorSpec<>(outputStream, opId);
   }
 
 }

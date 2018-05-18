@@ -19,30 +19,20 @@
 
 package org.apache.samza.metrics.reporter
 
-import java.util.HashMap
-import java.util.Map
-import scala.collection.JavaConverters._
-import org.apache.samza.util.Logging
-import org.apache.samza.metrics.Counter
-import org.apache.samza.metrics.Gauge
-import org.apache.samza.metrics.Timer
-import org.apache.samza.metrics.MetricsReporter
-import org.apache.samza.metrics.MetricsVisitor
-import org.apache.samza.metrics.ReadableMetricsRegistry
-import java.util.concurrent.Executors
-import org.apache.samza.util.DaemonThreadFactory
-import java.util.concurrent.TimeUnit
+import com.google.common.util.concurrent.ThreadFactoryBuilder
+import org.apache.samza.metrics._
 import org.apache.samza.serializers.Serializer
+import org.apache.samza.system.OutgoingMessageEnvelope
 import org.apache.samza.system.SystemProducer
 import org.apache.samza.system.SystemStream
-import org.apache.samza.system.OutgoingMessageEnvelope
+import org.apache.samza.util.Logging
 
-/**
- *  Companion object for class MetricsSnapshotReporter encapsulating various constants
- */
-object MetricsSnapshotReporter {
-  val METRIC_SNAPSHOT_REPORTER_THREAD_NAME_PREFIX = "METRIC-SNAPSHOT-REPORTER"
-}
+import java.util.HashMap
+import java.util.Map
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+
+import scala.collection.JavaConverters._
 
 /**
  * MetricsSnapshotReporter is a generic metrics reporter that sends metrics to a stream.
@@ -66,7 +56,8 @@ class MetricsSnapshotReporter(
   serializer: Serializer[MetricsSnapshot] = null,
   clock: () => Long = () => { System.currentTimeMillis }) extends MetricsReporter with Runnable with Logging {
 
-  val executor = Executors.newScheduledThreadPool(1, new DaemonThreadFactory(MetricsSnapshotReporter.METRIC_SNAPSHOT_REPORTER_THREAD_NAME_PREFIX))
+  val executor = Executors.newSingleThreadScheduledExecutor(
+    new ThreadFactoryBuilder().setNameFormat("Samza MetricsSnapshotReporter Thread-%d").setDaemon(true).build())
   val resetTime = clock()
   var registries = List[(String, ReadableMetricsRegistry)]()
 

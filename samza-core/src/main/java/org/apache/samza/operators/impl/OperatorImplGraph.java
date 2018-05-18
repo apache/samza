@@ -18,6 +18,36 @@
  */
 package org.apache.samza.operators.impl;
 
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Multimap;
+import org.apache.samza.config.Config;
+import org.apache.samza.container.TaskContextImpl;
+import org.apache.samza.job.model.JobModel;
+import org.apache.samza.operators.KV;
+import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.TimerRegistry;
+import org.apache.samza.operators.functions.JoinFunction;
+import org.apache.samza.operators.functions.PartialJoinFunction;
+import org.apache.samza.operators.impl.store.TimestampedValue;
+import org.apache.samza.operators.spec.BroadcastOperatorSpec;
+import org.apache.samza.operators.spec.InputOperatorSpec;
+import org.apache.samza.operators.spec.JoinOperatorSpec;
+import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.operators.spec.OutputOperatorSpec;
+import org.apache.samza.operators.spec.PartitionByOperatorSpec;
+import org.apache.samza.operators.spec.SendToTableOperatorSpec;
+import org.apache.samza.operators.spec.SinkOperatorSpec;
+import org.apache.samza.operators.spec.StreamOperatorSpec;
+import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
+import org.apache.samza.operators.spec.WindowOperatorSpec;
+import org.apache.samza.storage.kv.KeyValueStore;
+import org.apache.samza.system.SystemStream;
+import org.apache.samza.task.TaskContext;
+import org.apache.samza.util.Clock;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -26,35 +56,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-import org.apache.samza.config.Config;
-import org.apache.samza.container.TaskContextImpl;
-import org.apache.samza.job.model.JobModel;
-import org.apache.samza.operators.KV;
-import org.apache.samza.operators.StreamGraphImpl;
-import org.apache.samza.operators.functions.JoinFunction;
-import org.apache.samza.operators.functions.PartialJoinFunction;
-import org.apache.samza.operators.impl.store.TimestampedValue;
-import org.apache.samza.operators.spec.InputOperatorSpec;
-import org.apache.samza.operators.spec.JoinOperatorSpec;
-import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.spec.OutputOperatorSpec;
-import org.apache.samza.operators.spec.PartitionByOperatorSpec;
-import org.apache.samza.operators.spec.SinkOperatorSpec;
-import org.apache.samza.operators.spec.StreamOperatorSpec;
-import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
-import org.apache.samza.operators.spec.WindowOperatorSpec;
-import org.apache.samza.operators.spec.SendToTableOperatorSpec;
-import org.apache.samza.storage.kv.KeyValueStore;
-import org.apache.samza.system.SystemStream;
-import org.apache.samza.task.TaskContext;
-import org.apache.samza.util.Clock;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Multimap;
 
 /**
  * The DAG of {@link OperatorImpl}s corresponding to the DAG of {@link OperatorSpec}s.
@@ -165,6 +166,11 @@ public class OperatorImplGraph {
       operatorImpl.init(config, context);
       operatorImpl.registerInputStream(inputStream);
 
+      if (operatorSpec.getTimerFn() != null) {
+        final TimerRegistry timerRegistry = operatorImpl.createOperatorTimerRegistry();
+        operatorSpec.getTimerFn().registerTimer(timerRegistry);
+      }
+
       // Note: The key here is opImplId, which may not equal opId for some impls (e.g. PartialJoinOperatorImpl).
       // This is currently OK since we don't need to look up a partial join operator impl again during traversal
       // (a join cannot have a cycle).
@@ -218,6 +224,8 @@ public class OperatorImplGraph {
       return new StreamTableJoinOperatorImpl((StreamTableJoinOperatorSpec) operatorSpec, config, context);
     } else if (operatorSpec instanceof SendToTableOperatorSpec) {
       return new SendToTableOperatorImpl((SendToTableOperatorSpec) operatorSpec, config, context);
+    } else if (operatorSpec instanceof BroadcastOperatorSpec) {
+      return new BroadcastOperatorImpl((BroadcastOperatorSpec) operatorSpec, context);
     }
     throw new IllegalArgumentException(
         String.format("Unsupported OperatorSpec: %s", operatorSpec.getClass().getName()));
@@ -365,6 +373,9 @@ public class OperatorImplGraph {
       Multimap<SystemStream, SystemStream> outputToInputStreams) {
     if (opSpec instanceof PartitionByOperatorSpec) {
       PartitionByOperatorSpec spec = (PartitionByOperatorSpec) opSpec;
+      outputToInputStreams.put(spec.getOutputStream().getStreamSpec().toSystemStream(), input);
+    } else if (opSpec instanceof BroadcastOperatorSpec) {
+      BroadcastOperatorSpec spec = (BroadcastOperatorSpec) opSpec;
       outputToInputStreams.put(spec.getOutputStream().getStreamSpec().toSystemStream(), input);
     } else {
       Collection<OperatorSpec> nextOperators = opSpec.getRegisteredOperatorSpecs();

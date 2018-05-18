@@ -23,7 +23,6 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ApplicationConfig.ApplicationMode;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.StreamConfig;
@@ -32,6 +31,7 @@ import org.apache.samza.execution.ExecutionPlanner;
 import org.apache.samza.execution.StreamManager;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.system.StreamSpec;
+import org.apache.samza.system.SystemAdmins;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,10 +50,12 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
   private static final Logger log = LoggerFactory.getLogger(AbstractApplicationRunner.class);
 
   private final StreamManager streamManager;
+  private final SystemAdmins systemAdmins;
 
   public AbstractApplicationRunner(Config config) {
     super(config);
-    this.streamManager = new StreamManager(new JavaSystemConfig(config).getSystemAdmins());
+    this.systemAdmins = new SystemAdmins(config);
+    this.streamManager = new StreamManager(systemAdmins);
   }
 
   @Override
@@ -61,6 +63,16 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
     StreamConfig streamConfig = new StreamConfig(config);
     String physicalName = streamConfig.getPhysicalName(streamId);
     return getStreamSpec(streamId, physicalName);
+  }
+
+  @Override
+  public void run(StreamApplication streamApp) {
+    systemAdmins.start();
+  }
+
+  @Override
+  public void kill(StreamApplication streamApp) {
+    systemAdmins.stop();
   }
 
   /**
@@ -107,8 +119,7 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
     return new StreamSpec(streamId, physicalName, system, isBounded, properties);
   }
 
-  /* package private */
-  ExecutionPlan getExecutionPlan(StreamApplication app) throws Exception {
+  public ExecutionPlan getExecutionPlan(StreamApplication app) throws Exception {
     return getExecutionPlan(app, null);
   }
 
@@ -159,4 +170,5 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
       log.warn("Failed to write execution plan json to file", e);
     }
   }
+
 }

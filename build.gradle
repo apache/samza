@@ -100,7 +100,7 @@ allprojects {
   // For all scala compilation, add extra compiler options, taken from version-specific
   // dependency-versions-scala file applied above.
   tasks.withType(ScalaCompile) {
-    scalaCompileOptions.additionalParameters = [ scalaOptions ]
+    scalaCompileOptions.additionalParameters = scalaOptions
   }
 }
 
@@ -114,6 +114,11 @@ subprojects {
   apply plugin: 'eclipse'
   apply plugin: 'project-report'
   apply plugin: 'jacoco'
+
+  tasks.withType(ScalaCompile) {
+    // show compile errors in console output
+    logging.setLevel LogLevel.WARN
+  }
 
   tasks.withType(Test) {
     test {
@@ -197,7 +202,7 @@ project(':samza-azure') {
 
   dependencies {
     compile "com.microsoft.azure:azure-storage:5.3.1"
-    compile "com.microsoft.azure:azure-eventhubs:0.14.5"
+    compile "com.microsoft.azure:azure-eventhubs:1.0.1"
     compile "com.fasterxml.jackson.core:jackson-core:2.8.8"
     compile "io.dropwizard.metrics:metrics-core:3.1.2"
     compile project(':samza-api')
@@ -311,11 +316,12 @@ project(':samza-sql') {
   dependencies {
     compile project(':samza-api')
     compile project(":samza-kafka_$scalaVersion")
+    compile project(":samza-kv-inmemory_$scalaVersion")
+    compile project(":samza-kv-rocksdb_$scalaVersion")
     compile "org.apache.avro:avro:$avroVersion"
     compile "org.apache.calcite:calcite-core:$calciteVersion"
     compile "org.slf4j:slf4j-api:$slf4jVersion"
 
-    testCompile project(":samza-test_$scalaVersion")
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
 
@@ -373,6 +379,7 @@ project(":samza-kafka_$scalaVersion") {
   dependencies {
     compile project(':samza-api')
     compile project(":samza-core_$scalaVersion")
+    compile "log4j:log4j:$log4jVersion"
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     compile "com.101tec:zkclient:$zkClientVersion"
     compile "org.apache.zookeeper:zookeeper:$zookeeperVersion"
@@ -748,6 +755,7 @@ project(":samza-test_$scalaVersion") {
     compile project(":samza-kv-inmemory_$scalaVersion")
     compile project(":samza-kv-rocksdb_$scalaVersion")
     compile project(":samza-core_$scalaVersion")
+    compile project(":samza-sql")
     runtime project(":samza-log4j")
     runtime project(":samza-yarn_$scalaVersion")
     runtime project(":samza-kafka_$scalaVersion")
@@ -756,13 +764,15 @@ project(":samza-test_$scalaVersion") {
     compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
     compile "javax.mail:mail:1.4"
     compile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion"
+    compile "junit:junit:$junitVersion"
+    compile "org.hamcrest:hamcrest-all:$hamcrestVersion"
     testCompile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion:test"
     testCompile "com.101tec:zkclient:$zkClientVersion"
-    testCompile "junit:junit:$junitVersion"
     testCompile project(":samza-kafka_$scalaVersion")
     testCompile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion:test"
     testCompile "org.apache.kafka:kafka-clients:$kafkaVersion:test"
     testCompile project(":samza-core_$scalaVersion").sourceSets.test.output
+    testCompile project(":samza-sql").sourceSets.test.output
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
     testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"

@@ -55,9 +55,8 @@ import org.apache.calcite.tools.Planner;
 import org.apache.samza.SamzaException;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.RelSchemaProvider;
-import org.apache.samza.sql.interfaces.SqlSystemStreamConfig;
+import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.interfaces.UdfMetadata;
-import org.apache.samza.system.SystemStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,12 +72,11 @@ public class QueryPlanner {
   // Mapping between the source to the RelSchemaProvider corresponding to the source.
   private final Map<String, RelSchemaProvider> relSchemaProviders;
 
-  // Mapping between the source to the SqlSystemStreamConfig corresponding to the source.
-  private final Map<String, SqlSystemStreamConfig> systemStreamConfigBySource;
-
+  // Mapping between the source to the SqlIOConfig corresponding to the source.
+  private final Map<String, SqlIOConfig> systemStreamConfigBySource;
 
   public QueryPlanner(Map<String, RelSchemaProvider> relSchemaProviders,
-      Map<String, SqlSystemStreamConfig> systemStreamConfigBySource, Collection<UdfMetadata> udfMetadata) {
+      Map<String, SqlIOConfig> systemStreamConfigBySource, Collection<UdfMetadata> udfMetadata) {
     this.relSchemaProviders = relSchemaProviders;
     this.systemStreamConfigBySource = systemStreamConfigBySource;
     this.udfMetadata = udfMetadata;
@@ -90,22 +88,23 @@ public class QueryPlanner {
       CalciteConnection calciteConnection = connection.unwrap(CalciteConnection.class);
       SchemaPlus rootSchema = calciteConnection.getRootSchema();
 
-      for (SqlSystemStreamConfig ssc : systemStreamConfigBySource.values()) {
+      for (SqlIOConfig ssc : systemStreamConfigBySource.values()) {
         SchemaPlus previousLevelSchema = rootSchema;
         List<String> sourceParts = ssc.getSourceParts();
         RelSchemaProvider relSchemaProvider = relSchemaProviders.get(ssc.getSource());
 
-        for (String sourcePart : sourceParts) {
-          if (!sourcePart.equalsIgnoreCase(ssc.getStreamName())) {
-            SchemaPlus sourcePartSchema = rootSchema.getSubSchema(sourcePart);
+        for (int sourcePartIndex = 0; sourcePartIndex < sourceParts.size(); sourcePartIndex++) {
+          String sourcePart = sourceParts.get(sourcePartIndex);
+          if (sourcePartIndex < sourceParts.size() - 1) {
+            SchemaPlus sourcePartSchema = previousLevelSchema.getSubSchema(sourcePart);
             if (sourcePartSchema == null) {
               sourcePartSchema = previousLevelSchema.add(sourcePart, new AbstractSchema());
             }
             previousLevelSchema = sourcePartSchema;
           } else {
-            // If the source part is the streamName, then fetch the schema corresponding to the stream and register.
+            // If the source part is the last one, then fetch the schema corresponding to the stream and register.
             RelDataType relationalSchema = relSchemaProvider.getRelationalSchema();
-            previousLevelSchema.add(ssc.getStreamName(), createTableFromRelSchema(relationalSchema));
+            previousLevelSchema.add(sourcePart, createTableFromRelSchema(relationalSchema));
             break;
           }
         }

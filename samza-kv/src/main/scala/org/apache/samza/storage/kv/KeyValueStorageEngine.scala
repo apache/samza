@@ -22,7 +22,7 @@ package org.apache.samza.storage.kv
 import org.apache.samza.util.Logging
 import org.apache.samza.storage.{StoreProperties, StorageEngine}
 import org.apache.samza.system.IncomingMessageEnvelope
-import org.apache.samza.util.TimerUtils
+import org.apache.samza.util.TimerUtil
 
 import scala.collection.JavaConverters._
 
@@ -37,7 +37,7 @@ class KeyValueStorageEngine[K, V](
   rawStore: KeyValueStore[Array[Byte], Array[Byte]],
   metrics: KeyValueStorageEngineMetrics = new KeyValueStorageEngineMetrics,
   batchSize: Int = 500,
-  val clock: () => Long = { System.nanoTime }) extends StorageEngine with KeyValueStore[K, V] with TimerUtils with Logging {
+  val clock: () => Long = { System.nanoTime }) extends StorageEngine with KeyValueStore[K, V] with TimerUtil with Logging {
 
   var count = 0
 
@@ -160,4 +160,11 @@ class KeyValueStorageEngine[K, V](
   }
 
   override def getStoreProperties: StoreProperties = storeProperties
+
+  override def snapshot(from: K, to: K): KeyValueSnapshot[K, V] = {
+    updateTimer(metrics.snapshotNs) {
+      metrics.snapshots.inc
+      wrapperStore.snapshot(from, to)
+    }
+  }
 }

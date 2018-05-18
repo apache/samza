@@ -20,12 +20,15 @@
 package org.apache.samza.container
 
 
+import java.util.concurrent.ScheduledExecutorService
+
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.metrics.MetricsReporter
+import org.apache.samza.operators.functions.TimerFunction
 import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system._
 import org.apache.samza.table.TableManager
@@ -33,13 +36,15 @@ import org.apache.samza.task._
 import org.apache.samza.util.Logging
 
 import scala.collection.JavaConverters._
+import scala.collection.JavaConversions._
+import scala.collection.Map
 
 class TaskInstance(
   val task: Any,
   val taskName: TaskName,
   config: Config,
   val metrics: TaskInstanceMetrics,
-  systemAdmins: Map[String, SystemAdmin],
+  systemAdmins: SystemAdmins,
   consumerMultiplexer: SystemConsumers,
   collector: TaskInstanceCollector,
   containerContext: SamzaContainerContext,
@@ -50,15 +55,16 @@ class TaskInstance(
   val systemStreamPartitions: Set[SystemStreamPartition] = Set(),
   val exceptionHandler: TaskInstanceExceptionHandler = new TaskInstanceExceptionHandler,
   jobModel: JobModel = null,
-  streamMetadataCache: StreamMetadataCache = null) extends Logging {
+  streamMetadataCache: StreamMetadataCache = null,
+  timerExecutor : ScheduledExecutorService = null) extends Logging {
   val isInitableTask = task.isInstanceOf[InitableTask]
   val isWindowableTask = task.isInstanceOf[WindowableTask]
   val isEndOfStreamListenerTask = task.isInstanceOf[EndOfStreamListenerTask]
   val isClosableTask = task.isInstanceOf[ClosableTask]
   val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
 
-  val context = new TaskContextImpl(taskName,metrics, containerContext, systemStreamPartitions.asJava, offsetManager,
-                                    storageManager, tableManager, jobModel, streamMetadataCache)
+  val context = new TaskContextImpl(taskName, metrics, containerContext, systemStreamPartitions.asJava, offsetManager,
+                                    storageManager, tableManager, jobModel, streamMetadataCache, timerExecutor)
 
   // store the (ssp -> if this ssp is catched up) mapping. "catched up"
   // means the same ssp in other taskInstances have the same offset as
@@ -67,7 +73,9 @@ class TaskInstance(
     scala.collection.mutable.Map[SystemStreamPartition, Boolean]()
   systemStreamPartitions.foreach(ssp2CaughtupMapping += _ -> false)
 
-  val hasIntermediateStreams = config.getStreamIds.exists(config.getIsIntermediate(_))
+  val intermediateStreams: Set[String] = config.getStreamIds.filter(config.getIsIntermediateStream).toSet
+
+  val streamsToDeleteCommittedMessages: Set[String] = config.getStreamIds.filter(config.getDeleteCommittedMessages).map(config.getPhysicalName).toSet
 
   def registerMetrics {
     debug("Registering metrics for taskName: %s" format taskName)
@@ -95,7 +103,7 @@ class TaskInstance(
     if (tableManager != null) {
       debug("Starting table manager for taskName: %s" format taskName)
 
-      tableManager.start
+      tableManager.init(containerContext, context)
     } else {
       debug("Skipping table manager initialization for taskName: %s" format taskName)
     }
@@ -185,6 +193,16 @@ class TaskInstance(
     }
   }
 
+  def timer(coordinator: ReadableCoordinator) {
+    trace("Timer for taskName: %s" format taskName)
+
+    exceptionHandler.maybeHandle {
+      context.getTimerScheduler.removeReadyTimers().entrySet().foreach { entry =>
+        entry.getValue.asInstanceOf[TimerCallback[Any]].onTimer(entry.getKey.getKey, collector, coordinator)
+      }
+    }
+  }
+
   def commit {
     metrics.commits.inc
 
@@ -203,6 +221,15 @@ class TaskInstance(
     trace("Checkpointing offsets for taskName: %s" format taskName)
 
     offsetManager.writeCheckpoint(taskName, checkpoint)
+
+    if (checkpoint != null) {
+      checkpoint.getOffsets.asScala
+        .filter { case (ssp, _) => streamsToDeleteCommittedMessages.contains(ssp.getStream) } // Only delete data of intermediate streams
+        .groupBy { case (ssp, _) => ssp.getSystem }
+        .foreach { case (systemName: String, offsets: Map[SystemStreamPartition, String]) =>
+          systemAdmins.getSystemAdmin(systemName).deleteMessages(offsets.asJava)
+        }
+    }
   }
 
   def shutdownTask {
@@ -229,7 +256,7 @@ class TaskInstance(
     if (tableManager != null) {
       debug("Shutting down table manager for taskName: %s" format taskName)
 
-      tableManager.shutdown
+      tableManager.close
     } else {
       debug("Skipping table manager shutdown for taskName: %s" format taskName)
     }
@@ -258,7 +285,7 @@ class TaskInstance(
           val startingOffset = offsetManager.getStartingOffset(taskName, envelope.getSystemStreamPartition)
               .getOrElse(throw new SamzaException("No offset defined for SystemStreamPartition: %s" format envelope.getSystemStreamPartition))
           val system = envelope.getSystemStreamPartition.getSystem
-          others(system).offsetComparator(envelope.getOffset, startingOffset) match {
+          others.getSystemAdmin(system).offsetComparator(envelope.getOffset, startingOffset) match {
             case null => {
               info("offsets in " + system + " is not comparable. Set all SystemStreamPartitions to catched-up")
               ssp2CaughtupMapping(envelope.getSystemStreamPartition) = true // not comparable

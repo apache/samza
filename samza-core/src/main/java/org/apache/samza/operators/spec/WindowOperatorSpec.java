@@ -20,13 +20,14 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.functions.FoldLeftFunction;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.impl.store.TimeSeriesKeySerde;
 import org.apache.samza.operators.triggers.AnyTrigger;
 import org.apache.samza.operators.triggers.RepeatingTrigger;
 import org.apache.samza.operators.triggers.TimeBasedTrigger;
 import org.apache.samza.operators.triggers.Trigger;
-import org.apache.samza.operators.util.MathUtils;
+import org.apache.samza.util.MathUtil;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.serializers.Serde;
@@ -94,7 +95,7 @@ public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK
         .map(timeBasedTrigger -> timeBasedTrigger.getDuration().toMillis())
         .collect(Collectors.toList());
 
-    return MathUtils.gcd(candidateDurations);
+    return MathUtil.gcd(candidateDurations);
   }
 
   private List<TimeBasedTrigger> getTimeBasedTriggers(Trigger rootTrigger) {
@@ -120,6 +121,12 @@ public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK
   public WatermarkFunction getWatermarkFn() {
     FoldLeftFunction fn = window.getFoldLeftFunction();
     return fn instanceof WatermarkFunction ? (WatermarkFunction) fn : null;
+  }
+
+  @Override
+  public TimerFunction getTimerFn() {
+    FoldLeftFunction fn = window.getFoldLeftFunction();
+    return fn instanceof TimerFunction ? (TimerFunction) fn : null;
   }
 
   @Override

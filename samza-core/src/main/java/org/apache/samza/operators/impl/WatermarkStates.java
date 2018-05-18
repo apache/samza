@@ -63,12 +63,12 @@ class WatermarkStates {
         }
       }
 
-      /**
-       * Check whether we got all the watermarks.
-       * At a sources, the expectedTotal is 0.
-       * For any intermediate streams, the expectedTotal is the upstream task count.
-       */
-      if (timestamps.size() == expectedTotal) {
+      if (taskName == null) {
+        // we get watermark either from the source or from the aggregator task
+        watermarkTime = Math.max(watermarkTime, timestamp);
+      } else if (timestamps.size() == expectedTotal) {
+        // For any intermediate streams, the expectedTotal is the upstream task count.
+        // Check whether we got all the watermarks, and set the watermark to be the min.
         Optional<Long> min = timestamps.values().stream().min(Long::compare);
         watermarkTime = min.orElse(timestamp);
       }
