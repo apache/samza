@@ -26,6 +26,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.function.BooleanSupplier;
 import com.google.common.collect.ImmutableList;
 import org.I0Itec.zkclient.IZkDataListener;
@@ -48,6 +49,7 @@ import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import org.junit.rules.Timeout;
 import org.mockito.Mockito;
 
 public class TestZkUtils {
@@ -61,6 +63,9 @@ public class TestZkUtils {
   @Rule
   // Declared public to honor junit contract.
   public final ExpectedException expectedException = ExpectedException.none();
+
+  @Rule
+  public Timeout testTimeOutInMillis = new Timeout(120000);
 
   @BeforeClass
   public static void setup() throws InterruptedException {
@@ -410,15 +415,6 @@ public class TestZkUtils {
 
   }
 
-  @Test
-  public void testCloseShouldNotThrowZkInterruptedExceptionToCaller() {
-    ZkClient zkClient = Mockito.mock(ZkClient.class);
-    ZkUtils zkUtils = new ZkUtils(KEY_BUILDER, zkClient,
-            SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
-    Mockito.doThrow(new ZkInterruptedException(new InterruptedException())).when(zkClient).close();
-    zkUtils.close();
-  }
-
   public static boolean testWithDelayBackOff(BooleanSupplier cond, long startDelayMs, long maxDelayMs) {
     long delay = startDelayMs;
     while (delay < maxDelayMs) {
@@ -462,5 +458,50 @@ public class TestZkUtils {
 
     // Get on the JobModel version should return 2, taking into account the published version 2.
     Assert.assertEquals("3", zkUtils.getNextJobModelVersion(zkUtils.getJobModelVersion()));
+  }
+
+
+  @Test
+  public void testCloseShouldRetryOnceOnInterruptedException() {
+    ZkClient zkClient = Mockito.mock(ZkClient.class);
+    ZkUtils zkUtils = new ZkUtils(KEY_BUILDER, zkClient,
+        SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
+
+    Mockito.doThrow(new ZkInterruptedException(new InterruptedException()))
+           .doAnswer(invocation -> null)
+           .when(zkClient).close();
+
+    zkUtils.close();
+
+    Mockito.verify(zkClient, Mockito.times(2)).close();
+  }
+
+  @Test
+  public void testCloseShouldTearDownZkConnectionOnInterruptedException() throws Exception {
+    CountDownLatch latch = new CountDownLatch(1);
+    // Establish connection with the zookeeper server.
+    ZkClient zkClient = new ZkClient("127.0.0.1:" + zkServer.getPort());
+    ZkUtils zkUtils = new ZkUtils(KEY_BUILDER, zkClient, SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
+
+    Thread threadToInterrupt = new Thread(() -> {
+        try {
+          latch.await();
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+        }
+        zkUtils.close();
+      });
+
+    threadToInterrupt.start();
+
+    Field field = ZkClient.class.getDeclaredField("_closed");
+    field.setAccessible(true);
+
+    Assert.assertFalse(field.getBoolean(zkClient));
+
+    threadToInterrupt.interrupt();
+    threadToInterrupt.join();
+
+    Assert.assertTrue(field.getBoolean(zkClient));
   }
 }
