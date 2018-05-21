@@ -124,8 +124,13 @@ public class CollectionStream<T> {
     return streamConfig;
   }
 
-  public Integer getTestId() { return testId; }
-  public void setTestId(Integer testId) { this.testId = testId; }
+  public Integer getTestId() {
+    return testId;
+  }
+
+  public void setTestId(Integer testId) {
+    this.testId = testId;
+  }
 
   /**
    * Creates an in memory stream with the name {@code streamName} and initializes the stream to only one partition

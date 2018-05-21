@@ -81,7 +81,7 @@ public class TestRunner {
   }
 
   private Map<String, String> configs;
-  private static ThreadLocal<Map<Integer, Map<String,CollectionStreamSystemSpec>>> systems;
+  private static ThreadLocal<Map<Integer, Map<String, CollectionStreamSystemSpec>>> systems;
   private Class taskClass;
   private StreamApplication app;
   private Integer testId;
