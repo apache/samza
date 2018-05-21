@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.application.StreamApplication;
@@ -52,7 +53,7 @@ import org.apache.samza.system.inmemory.InMemorySystemFactory;
 import org.apache.samza.task.AsyncStreamTask;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.test.framework.stream.CollectionStream;
-import org.apache.samza.test.framework.system.CollectionStreamSystem;
+import org.apache.samza.test.framework.system.CollectionStreamSystemSpec;
 
 
 /**
@@ -73,15 +74,17 @@ import org.apache.samza.test.framework.system.CollectionStreamSystem;
 public class TestRunner {
 
   private static final String JOB_NAME = "test-samza";
+  private static Random random = new Random();
 
   public enum Mode {
     SINGLE_CONTAINER, MULTI_CONTAINER
   }
 
   private Map<String, String> configs;
-  private static ThreadLocal<HashMap<String,CollectionStreamSystem>> systems;
+  private static ThreadLocal<Map<Integer, Map<String,CollectionStreamSystemSpec>>> systems;
   private Class taskClass;
   private StreamApplication app;
+  private Integer testId;
 
   /**
    * Mode defines single or multi container running configuration, by default a single container configuration is assumed
@@ -89,9 +92,10 @@ public class TestRunner {
   private Mode mode;
 
   private TestRunner() {
-    this.systems = new ThreadLocal<HashMap<String, CollectionStreamSystem>>(){
+    this.testId = random.nextInt();
+    this.systems = new ThreadLocal<Map<Integer, Map<String, CollectionStreamSystemSpec>>>() {
       @Override
-      protected HashMap<String, CollectionStreamSystem> initialValue() {
+      protected Map<Integer, Map<String, CollectionStreamSystemSpec>> initialValue() {
         return new HashMap<>();
       }
     };
@@ -130,9 +134,15 @@ public class TestRunner {
    * job configs
    */
   private void registerSystem(String systemName) {
-    if (!systems.get().containsKey(systemName)) {
-      systems.get().put(systemName, CollectionStreamSystem.create(systemName));
-      configs.putAll(systems.get().get(systemName).getSystemConfigs());
+    if (!systems.get().containsKey(testId)) {
+      systems.get().put(testId, new HashMap<String, CollectionStreamSystemSpec>());
+    }
+
+    if (!systems.get().get(testId).containsKey(systemName)) {
+      Map<String, CollectionStreamSystemSpec> testSystems = new HashMap<String, CollectionStreamSystemSpec>();
+      testSystems.put(systemName, CollectionStreamSystemSpec.create(systemName));
+      systems.get().put(testId, testSystems);
+      configs.putAll(testSystems.get(systemName).getSystemConfigs());
     }
   }
 
@@ -186,7 +196,7 @@ public class TestRunner {
   /**
    * Configures {@code stream} with the TestRunner, adds all the stream specific configs to global job configs.
    * <p>
-   * Every stream belongs to a System (here a {@link CollectionStreamSystem}), this utility also registers the system with
+   * Every stream belongs to a System (here a {@link CollectionStreamSystemSpec}), this utility also registers the system with
    * {@link TestRunner} if not registered already. Then it creates and initializes the stream partitions with messages for
    * the registered System
    * <p>
@@ -197,6 +207,7 @@ public class TestRunner {
     Preconditions.checkNotNull(stream);
     registerSystem(stream.getSystemName());
     initializeInput(stream);
+    stream.setTestId(testId);
     if (configs.containsKey(TaskConfig.INPUT_STREAMS())) {
       configs.put(TaskConfig.INPUT_STREAMS(),
           configs.get(TaskConfig.INPUT_STREAMS()).concat("," + stream.getSystemName() + "." + stream.getStreamName()));
@@ -225,8 +236,8 @@ public class TestRunner {
     String streamName = stream.getStreamName();
     String systemName = stream.getSystemName();
     Map<Integer, Iterable<T>> partitions = stream.getInitPartitions();
-    Map<String, String> systemConfigs = systems.get().get(systemName).getSystemConfigs();
-    InMemorySystemFactory factory = systems.get().get(systemName).getFactory();
+    Map<String, String> systemConfigs = systems.get().get(testId).get(systemName).getSystemConfigs();
+    InMemorySystemFactory factory = systems.get().get(testId).get(systemName).getFactory();
     StreamSpec spec = new StreamSpec(streamName, streamName, systemName, partitions.size());
     factory.getAdmin(systemName, new MapConfig(systemConfigs)).createStream(spec);
     SystemProducer producer = factory.getProducer(systemName, new MapConfig(systemConfigs), null);
@@ -247,7 +258,7 @@ public class TestRunner {
   /**
    * Configures {@code stream} with the TestRunner, adds all the stream specific configs to global job configs.
    * <p>
-   * Every stream belongs to a System (here a {@link CollectionStreamSystem}), this utility also registers the system with
+   * Every stream belongs to a System (here a {@link CollectionStreamSystemSpec}), this utility also registers the system with
    * {@link TestRunner} if not registered already. Then it creates the stream partitions with the registered System
    * <p>
    * @param stream represents the stream that is supposed to be configured with {@link TestRunner}
@@ -257,7 +268,8 @@ public class TestRunner {
     Preconditions.checkNotNull(stream);
     Preconditions.checkState(stream.getInitPartitions().size() >= 1);
     registerSystem(stream.getSystemName());
-    CollectionStreamSystem system = systems.get().get(stream.getSystemName());
+    stream.setTestId(testId);
+    CollectionStreamSystemSpec system = systems.get().get(testId).get(stream.getSystemName());
     StreamSpec spec = new StreamSpec(stream.getStreamName(), stream.getStreamName(), system.getSystemName(), stream.getInitPartitions().size());
     system
         .getFactory()
@@ -304,7 +316,7 @@ public class TestRunner {
     Set<SystemStreamPartition> ssps = new HashSet<>();
     Set<String> streamNames = new HashSet<>();
     streamNames.add(streamName);
-    SystemFactory factory = systems.get().get(systemName).getFactory();
+    SystemFactory factory = systems.get().get(stream.getTestId()).get(systemName).getFactory();
     Map<String, SystemStreamMetadata> metadata =
         factory.getAdmin(systemName, new MapConfig()).getSystemStreamMetadata(streamNames);
     InMemorySystemConsumer consumer = (InMemorySystemConsumer) factory.getConsumer(systemName, null, null);

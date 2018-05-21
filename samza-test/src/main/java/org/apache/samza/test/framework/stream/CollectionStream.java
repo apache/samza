@@ -23,12 +23,11 @@ import com.google.common.base.Preconditions;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.samza.test.framework.system.CollectionStreamSystem;
 
 /**
  * A CollectionStream represents an in memory stream of messages that can either have single or multiple partitions.
- * Every CollectionStream is coupled with a {@link CollectionStreamSystem} that
- * contains utilities to create and initialize streams in memory.
+ * Every CollectionStream is coupled with a {@link org.apache.samza.test.framework.system.CollectionStreamSystemSpec} that
+ * contains all the specification for system
  *<p>
  * When sending messages using {@code CollectionStream<KV<K, V>>}, messages use K as key and V as message
  * When sending messages using {@code CollectionStream<T>}, messages use a nullkey.
@@ -39,10 +38,9 @@ import org.apache.samza.test.framework.system.CollectionStreamSystem;
  *        and value represents the message of the same
  */
 public class CollectionStream<T> {
-
+  private Integer testId;
   private final String streamName;
   private final String systemName;
-  private CollectionStreamSystem system;
   private Map<Integer, Iterable<T>> partitions;
   private Map<String, String> streamConfig;
   private static final String STREAM_TO_SYSTEM = "streams.%s.samza.system";
@@ -125,6 +123,9 @@ public class CollectionStream<T> {
   public Map<String, String> getStreamConfig() {
     return streamConfig;
   }
+
+  public Integer getTestId() { return testId; }
+  public void setTestId(Integer testId) { this.testId = testId; }
 
   /**
    * Creates an in memory stream with the name {@code streamName} and initializes the stream to only one partition

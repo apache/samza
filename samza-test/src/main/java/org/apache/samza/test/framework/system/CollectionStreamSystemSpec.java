@@ -36,7 +36,7 @@ import org.apache.samza.system.inmemory.InMemorySystemFactory;
  * </ol>
  *
  */
-public class CollectionStreamSystem {
+public class CollectionStreamSystemSpec {
   private static final String SYSTEM_FACTORY = "systems.%s.samza.factory";
   private static final String SYSTEM_OFFSET = "systems.%s.default.stream.samza.offset.default";
 
@@ -47,12 +47,12 @@ public class CollectionStreamSystem {
   /**
    * Constructs a new CollectionStreamSystem from specified components.
    * <p>
-   * Every {@link CollectionStreamSystem} is assumed to consume from the oldest offset, since stream is in memory and
+   * Every {@link CollectionStreamSystemSpec} is assumed to consume from the oldest offset, since stream is in memory and
    * is used for testing purpose. System uses {@link InMemorySystemFactory} to initialize in memory streams.
    * <p>
    * @param systemName represents unique name of the system
    */
-  private CollectionStreamSystem(String systemName) {
+  private CollectionStreamSystemSpec(String systemName) {
     this.systemName = systemName;
     factory = new InMemorySystemFactory();
     systemConfigs = new HashMap<String, String>();
@@ -73,13 +73,13 @@ public class CollectionStreamSystem {
   }
 
   /**
-   * Creates a {@link CollectionStreamSystem} with name {@code name}
-   * @param name represents name of the {@link CollectionStreamSystem}
-   * @return an instance of {@link CollectionStreamSystem}
+   * Creates a {@link CollectionStreamSystemSpec} with name {@code name}
+   * @param name represents name of the {@link CollectionStreamSystemSpec}
+   * @return an instance of {@link CollectionStreamSystemSpec}
    */
-  public static CollectionStreamSystem create(String name) {
+  public static CollectionStreamSystemSpec create(String name) {
     Preconditions.checkState(name != null);
-    return new CollectionStreamSystem(name);
+    return new CollectionStreamSystemSpec(name);
   }
 }
 
