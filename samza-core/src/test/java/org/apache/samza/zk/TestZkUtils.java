@@ -330,7 +330,7 @@ public class TestZkUtils {
   public void testCleanUpZkBarrierVersion() {
     String root = zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix();
     zkUtils.getZkClient().createPersistent(root, true);
-    ZkBarrierForVersionUpgrade barrier = new ZkBarrierForVersionUpgrade(root, zkUtils, null);
+    ZkBarrierForVersionUpgrade barrier = new ZkBarrierForVersionUpgrade(root, zkUtils, null, null);
     for (int i = 200; i < 210; i++) {
       barrier.create(String.valueOf(i), new ArrayList<>(Arrays.asList(i + "a", i + "b", i + "c")));
     }
