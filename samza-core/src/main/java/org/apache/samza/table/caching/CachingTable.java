@@ -22,6 +22,7 @@ package org.apache.samza.table.caching;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 
 import org.apache.samza.container.SamzaContainerContext;
@@ -37,8 +38,25 @@ import com.google.common.util.concurrent.Striped;
 
 /**
  * A composite table incorporating a cache with a Samza table. The cache is
- * represented as a {@link ReadWriteTable}. Optionally if the table is writable,
- * CachingTable supports both write-through and write-around policy.
+ * represented as a {@link ReadWriteTable}.
+ *
+ * The intented use case is to optimize the latency of accessing the actual table, eg.
+ * remote tables, when eventual consistency between cache and table is acceptable.
+ * The cache is expected to support TTL such that the values can be refreshed at some
+ * point.
+ *
+ * If the actual table is read-write table, CachingTable supports both write-through
+ * and write-around (writes bypassing cache) policies. For write-through policy, it
+ * supports read-after-write semantics because the value is cached after written to
+ * the table.
+ *
+ * Table and cache are updated (put/delete) in an atomic manner as such it is thread
+ * safe for concurrent accesses. Strip locks are used for fine-grained synchronization
+ * and the number of stripes is configurable.
+ *
+ * NOTE: Cache get is not synchronized with put for better parallelism in the read path.
+ * As such, cache table implementation is expected to be thread-safe for concurrent
+ * accesses.
  *
  * @param <K> type of the table key
  * @param <V> type of the table value
@@ -56,8 +74,8 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
   private final Striped<Lock> stripedLocks;
 
   // Common caching stats
-  private volatile long hitCount;
-  private volatile long missCount;
+  private AtomicLong hitCount = new AtomicLong();
+  private AtomicLong missCount = new AtomicLong();
 
   public CachingTable(String tableId, ReadableTable<K, V> table, ReadWriteTable<K, V> cache, int stripes, boolean isWriteAround) {
     this.tableId = tableId;
@@ -73,29 +91,44 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
    */
   @Override
   public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
-    MetricsRegistry metricsReg = taskContext.getMetricsRegistry();
-    metricsReg.newGauge(GROUP_NAME, new SupplierGauge(tableId + "-hit-rate", () -> getRate(hitCount)));
-    metricsReg.newGauge(GROUP_NAME, new SupplierGauge(tableId + "-miss-rate", () -> getRate(missCount)));
-    metricsReg.newGauge(GROUP_NAME, new SupplierGauge(tableId + "-req-count", () -> requestCount()));
+    MetricsRegistry metricsRegistry = taskContext.getMetricsRegistry();
+    metricsRegistry.newGauge(GROUP_NAME, new SupplierGauge(tableId + "-hit-rate", () -> hitRate()));
+    metricsRegistry.newGauge(GROUP_NAME, new SupplierGauge(tableId + "-miss-rate", () -> missRate()));
+    metricsRegistry.newGauge(GROUP_NAME, new SupplierGauge(tableId + "-req-count", () -> requestCount()));
   }
 
   @Override
   public V get(K key) {
     V value = cache.get(key);
     if (value == null) {
-      ++missCount;
-      value = atomicGet(key);
+      missCount.incrementAndGet();
+      Lock lock = stripedLocks.get(key);
+      try {
+        lock.lock();
+        if (cache.get(key) == null) {
+          // Due to the lack of contains() API in ReadableTable, there is
+          // no way to tell whether a null return by cache.get(key) means
+          // cache miss or the value is actually null. As such, we cannot
+          // support negative cache semantics.
+          value = rdTable.get(key);
+          if (value != null) {
+            cache.put(key, value);
+          }
+        }
+      } finally {
+        lock.unlock();
+      }
     } else {
-      ++hitCount;
+      hitCount.incrementAndGet();
     }
     return value;
   }
 
   @Override
   public Map<K, V> getAll(List<K> keys) {
-    Map<K, V> retMap = new HashMap<>();
-    keys.stream().forEach(k -> retMap.put(k, get(k)));
-    return retMap;
+    Map<K, V> getAllResult = new HashMap<>();
+    keys.stream().forEach(k -> getAllResult.put(k, get(k)));
+    return getAllResult;
   }
 
   @Override
@@ -107,7 +140,16 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
   @Override
   public void put(K key, V value) {
     Preconditions.checkNotNull(rwTable, "Cannot write to a read-only table: " + rdTable);
-    atomicPut(key, value);
+    Lock lock = stripedLocks.get(key);
+    try {
+      lock.lock();
+      rwTable.put(key, value);
+      if (!isWriteAround) {
+        cache.put(key, value);
+      }
+    } finally {
+      lock.unlock();
+    }
   }
 
   @Override
@@ -119,7 +161,14 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
   @Override
   public void delete(K key) {
     Preconditions.checkNotNull(rwTable, "Cannot delete from a read-only table: " + rdTable);
-    atomicDelete(key);
+    Lock lock = stripedLocks.get(key);
+    try {
+      lock.lock();
+      rwTable.delete(key);
+      cache.delete(key);
+    } finally {
+      lock.unlock();
+    }
   }
 
   @Override
@@ -134,66 +183,17 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
     rwTable.flush();
   }
 
-  private V atomicGet(K key) {
-    Lock lock = stripedLocks.get(key);
-    V value = null;
-    try {
-      lock.lock();
-      if (cache.get(key) == null) {
-        // Due to the lack of contains() API in ReadableTable, there is
-        // no way to tell whether a null return by cache.get(key) means
-        // cache miss or the value is actually null. As such, we cannot
-        // support negative cache semantics.
-        value = rdTable.get(key);
-        if (value != null) {
-          cache.put(key, value);
-        }
-      }
-    } finally {
-      lock.unlock();
-    }
-
-    return value;
-  }
-
-  private void atomicPut(K key, V value) {
-    Lock lock = stripedLocks.get(key);
-    try {
-      lock.lock();
-      rwTable.put(key, value);
-      if (!isWriteAround) {
-        cache.put(key, value);
-      }
-    } finally {
-      lock.unlock();
-    }
-  }
-
-  private void atomicDelete(K key) {
-    Lock lock = stripedLocks.get(key);
-    try {
-      lock.lock();
-      rwTable.delete(key);
-      cache.delete(key);
-    } finally {
-      lock.unlock();
-    }
-  }
-
-  private double getRate(long count) {
-    long reqs = requestCount();
-    return reqs == 0 ? 1.0 : (double) count / reqs;
-  }
-
   double hitRate() {
-    return getRate(hitCount);
+    long reqs = requestCount();
+    return reqs == 0 ? 1.0 : (double) hitCount.get() / reqs;
   }
 
   double missRate() {
-    return getRate(missCount);
+    long reqs = requestCount();
+    return reqs == 0 ? 1.0 : (double) missCount.get() / reqs;
   }
 
   long requestCount() {
-    return hitCount + missCount;
+    return hitCount.get() + missCount.get();
   }
 }

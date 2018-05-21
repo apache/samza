@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.table.ReadWriteTable;
@@ -55,7 +54,9 @@ public class CachingTableProvider implements TableProvider {
   public static final String WRITE_AROUND = "writeAround";
 
   private final TableSpec cachingTableSpec;
-  private final List<Pair<ReadableTable, ReadWriteTable>> tableCaches = new ArrayList<>();
+
+  // Store the cache instances created by default
+  private final List<ReadWriteTable> defaultCaches = new ArrayList<>();
 
   private SamzaContainerContext containerContext;
   private TaskContext taskContext;
@@ -82,9 +83,8 @@ public class CachingTableProvider implements TableProvider {
       cache = (ReadWriteTable) taskContext.getTable(cacheTableId);
     } else {
       cache = createDefaultCacheTable(realTableId);
+      defaultCaches.add(cache);
     }
-
-    tableCaches.add(Pair.of(table, cache));
 
     int stripes = Integer.parseInt(cachingTableSpec.getConfig().get(LOCK_STRIPES));
     boolean isWriteAround = Boolean.parseBoolean(cachingTableSpec.getConfig().get(WRITE_AROUND));
@@ -108,10 +108,7 @@ public class CachingTableProvider implements TableProvider {
 
   @Override
   public void close() {
-    tableCaches.forEach(p -> {
-        p.getLeft().close();
-        p.getRight().close();
-      });
+    defaultCaches.forEach(c -> c.close());
   }
 
   private ReadWriteTable createDefaultCacheTable(String tableId) {

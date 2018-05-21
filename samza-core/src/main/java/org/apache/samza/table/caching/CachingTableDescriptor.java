@@ -83,6 +83,9 @@ public class CachingTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Cach
 
   /**
    * Specify a cache instance (as Table abstraction) to be used for caching.
+   * Cache get is not synchronized with put for better parallelism in the read path
+   * of {@link CachingTable}. As such, cache table implementation is expected to be
+   * thread-safe for concurrent accesses.
    * @param cache cache instance
    * @return this descriptor
    */

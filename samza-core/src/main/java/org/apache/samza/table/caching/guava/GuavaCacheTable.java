@@ -96,9 +96,9 @@ public class GuavaCacheTable<K, V> implements ReadWriteTable<K, V> {
 
   @Override
   public Map<K, V> getAll(List<K> keys) {
-    Map<K, V> retMap = new HashMap<>();
-    keys.stream().forEach(k -> retMap.put(k, get(k)));
-    return retMap;
+    Map<K, V> getAllResult = new HashMap<>();
+    keys.stream().forEach(k -> getAllResult.put(k, get(k)));
+    return getAllResult;
   }
 
   @Override
