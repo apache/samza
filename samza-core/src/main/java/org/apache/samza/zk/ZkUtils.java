@@ -134,7 +134,7 @@ public class ZkUtils {
    * @return String representing the absolute ephemeralPath of this client in the current session
    */
   public synchronized String registerProcessorAndGetId(final ProcessorData data) {
-    final long startTime = System.currentTimeMillis();
+    final long startTimeMs = System.currentTimeMillis();
     final long retryTimeOutMs = 2 * sessionTimeoutMs;
     String processorId = data.getProcessorId();
     if (ephemeralPath == null) {
@@ -144,10 +144,10 @@ public class ZkUtils {
         ProcessorNode processorNode = new ProcessorNode(data, ephemeralPath);
         // Determine if there are duplicate processors with this.processorId after registration.
         if (!isValidRegisteredProcessor(processorNode)) {
-          long currentTime = System.currentTimeMillis();
-          if ((currentTime - startTime) < retryTimeOutMs) {
+          long currentTimeMs = System.currentTimeMillis();
+          if ((currentTimeMs - startTimeMs) < retryTimeOutMs) {
             LOG.info("Processor: {} is duplicate. Retrying registration again.", processorId);
-            timeDelay(1000);
+            timeDelay(5000);
           } else {
             LOG.info("Processor: {} is duplicate. Deleting zookeeper node at path: {}.", processorId, ephemeralPath);
             zkClient.delete(ephemeralPath);
