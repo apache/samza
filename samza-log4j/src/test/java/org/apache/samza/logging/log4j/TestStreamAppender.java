@@ -55,11 +55,6 @@ public class TestStreamAppender {
   }
 
   @Test
-  public void testDropProducerError() {
-    assertEquals(TaskConfig.DROP_PRODUCER_ERROR(), true);
-  }
-
-  @Test
   public void testDefaultSerde() {
     System.setProperty("samza.container.name", "samza-container-1");
     MockSystemProducerAppender systemProducerAppender = new MockSystemProducerAppender();
