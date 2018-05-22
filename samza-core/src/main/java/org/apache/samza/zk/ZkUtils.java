@@ -84,6 +84,7 @@ public class ZkUtils {
   private final int connectionTimeoutMs;
   private final AtomicInteger currentGeneration;
   private final ZkUtilsMetrics metrics;
+  private final int sessionTimeoutMs;
 
   public void incGeneration() {
     currentGeneration.incrementAndGet();
@@ -93,12 +94,13 @@ public class ZkUtils {
     return currentGeneration.get();
   }
 
-  public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs, MetricsRegistry metricsRegistry) {
+  public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs, int sessionTimeOutMs, MetricsRegistry metricsRegistry) {
     this.keyBuilder = zkKeyBuilder;
     this.connectionTimeoutMs = connectionTimeoutMs;
     this.zkClient = zkClient;
     this.metrics = new ZkUtilsMetrics(metricsRegistry);
     this.currentGeneration = new AtomicInteger(0);
+    this.sessionTimeoutMs = sessionTimeOutMs;
   }
 
   public void connect() throws ZkInterruptedException {
@@ -132,17 +134,29 @@ public class ZkUtils {
    * @return String representing the absolute ephemeralPath of this client in the current session
    */
   public synchronized String registerProcessorAndGetId(final ProcessorData data) {
+    final long startTime = System.currentTimeMillis();
+    final long retryTimeOutMs = 2 * sessionTimeoutMs;
     String processorId = data.getProcessorId();
     if (ephemeralPath == null) {
       ephemeralPath = zkClient.createEphemeralSequential(keyBuilder.getProcessorsPath() + "/", data.toString());
       LOG.info("Created ephemeral path: {} for processor: {} in zookeeper.", ephemeralPath, data);
-      ProcessorNode processorNode = new ProcessorNode(data, ephemeralPath);
-      // Determine if there are duplicate processors with this.processorId after registration.
-      if (!isValidRegisteredProcessor(processorNode)) {
-        LOG.info("Processor: {} is duplicate. Deleting zookeeper node at path: {}.", processorId, ephemeralPath);
-        zkClient.delete(ephemeralPath);
-        metrics.deletions.inc();
-        throw new SamzaException(String.format("Processor: %s is duplicate in the group. Registration failed.", processorId));
+      while (true) {
+        ProcessorNode processorNode = new ProcessorNode(data, ephemeralPath);
+        // Determine if there are duplicate processors with this.processorId after registration.
+        if (!isValidRegisteredProcessor(processorNode)) {
+          long currentTime = System.currentTimeMillis();
+          if ((currentTime - startTime) < retryTimeOutMs) {
+            LOG.info("Processor: {} is duplicate. Retrying registration again.", processorId);
+            timeDelay(1000);
+          } else {
+            LOG.info("Processor: {} is duplicate. Deleting zookeeper node at path: {}.", processorId, ephemeralPath);
+            zkClient.delete(ephemeralPath);
+            metrics.deletions.inc();
+            throw new SamzaException(String.format("Processor: %s is duplicate in the group. Registration failed.", processorId));
+          }
+        } else {
+          break;
+        }
       }
     } else {
       LOG.info("Ephemeral path: {} exists for processor: {} in zookeeper.", ephemeralPath, data);
@@ -150,14 +164,27 @@ public class ZkUtils {
     return ephemeralPath;
   }
 
+  public void timeDelay(int sleepTimeInMillis) {
+    try {
+      Thread.sleep(sleepTimeInMillis);
+    } catch (InterruptedException e) {
+      LOG.error("Interrupted exception on wait.", e);
+      Thread.interrupted();
+    }
+  }
+
   /**
    * Deletes the ephemeral node of a processor in zookeeper.
    * @param processorId uniqueId identifying the stream processor to delete.
    */
   public synchronized void deleteProcessorNode(String processorId) {
-    if (ephemeralPath != null) {
-      LOG.info("Deleting the ephemeral node: {} of the processor: {} in zookeeper.", ephemeralPath, processorId);
-      zkClient.delete(ephemeralPath);
+    try {
+      if (ephemeralPath != null) {
+        LOG.info("Deleting the ephemeral node: {} of the processor: {} in zookeeper.", ephemeralPath, processorId);
+        zkClient.delete(ephemeralPath);
+      }
+    } catch (Exception e) {
+      LOG.error("Exception occurred on deletion of ephemeral node: {}.", ephemeralPath, e);
     }
   }
 
