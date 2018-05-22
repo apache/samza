@@ -101,7 +101,7 @@ public class TestZkUtils {
   }
 
   private ZkUtils getZkUtils() {
-    return new ZkUtils(KEY_BUILDER, zkClient,
+    return new ZkUtils(KEY_BUILDER, zkClient, CONNECTION_TIMEOUT_MS,
                        SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
   }
 
@@ -192,7 +192,7 @@ public class TestZkUtils {
     zkUtils.registerProcessorAndGetId(new ProcessorData("host1", "1"));
     List<String> l = zkUtils.getSortedActiveProcessorsIDs();
     Assert.assertEquals(1, l.size());
-    new ZkUtils(KEY_BUILDER, zkClient, SESSION_TIMEOUT_MS, new NoOpMetricsRegistry()).registerProcessorAndGetId(
+    new ZkUtils(KEY_BUILDER, zkClient, CONNECTION_TIMEOUT_MS, SESSION_TIMEOUT_MS, new NoOpMetricsRegistry()).registerProcessorAndGetId(
         new ProcessorData("host2", "2"));
     l = zkUtils.getSortedActiveProcessorsIDs();
     Assert.assertEquals(2, l.size());
@@ -460,12 +460,29 @@ public class TestZkUtils {
     Assert.assertEquals("3", zkUtils.getNextJobModelVersion(zkUtils.getJobModelVersion()));
   }
 
+  @Test
+  public void testDeleteProcessorNodeShouldDeleteTheCorrectProcessorNode() {
+    String testProcessorId1 = "processorId1";
+    String testProcessorId2 = "processorId2";
+
+    ZkUtils zkUtils = getZkUtils();
+    ZkUtils zkUtils1 = getZkUtils();
+
+    zkUtils.registerProcessorAndGetId(new ProcessorData("host1", testProcessorId1));
+    zkUtils1.registerProcessorAndGetId(new ProcessorData("host2", testProcessorId2));
+
+    zkUtils.deleteProcessorNode(testProcessorId1);
+
+    List<String> expectedProcessors = ImmutableList.of(testProcessorId2);
+    List<String> actualProcessors = zkUtils.getSortedActiveProcessorsIDs();
+
+    Assert.assertEquals(expectedProcessors, actualProcessors);
+  }
 
   @Test
   public void testCloseShouldRetryOnceOnInterruptedException() {
     ZkClient zkClient = Mockito.mock(ZkClient.class);
-    ZkUtils zkUtils = new ZkUtils(KEY_BUILDER, zkClient,
-        SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
+    ZkUtils zkUtils = new ZkUtils(KEY_BUILDER, zkClient, CONNECTION_TIMEOUT_MS, SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
 
     Mockito.doThrow(new ZkInterruptedException(new InterruptedException()))
            .doAnswer(invocation -> null)
@@ -481,7 +498,7 @@ public class TestZkUtils {
     CountDownLatch latch = new CountDownLatch(1);
     // Establish connection with the zookeeper server.
     ZkClient zkClient = new ZkClient("127.0.0.1:" + zkServer.getPort());
-    ZkUtils zkUtils = new ZkUtils(KEY_BUILDER, zkClient, SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
+    ZkUtils zkUtils = new ZkUtils(KEY_BUILDER, zkClient, CONNECTION_TIMEOUT_MS, SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
 
     Thread threadToInterrupt = new Thread(() -> {
         try {

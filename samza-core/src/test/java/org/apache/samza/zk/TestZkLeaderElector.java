@@ -438,6 +438,6 @@ public class TestZkLeaderElector {
     return new ZkUtils(
         KEY_BUILDER,
         zkClient,
-        CONNECTION_TIMEOUT_MS, new NoOpMetricsRegistry());
+        CONNECTION_TIMEOUT_MS, SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
   }
 }
