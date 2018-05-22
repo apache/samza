@@ -310,60 +310,86 @@ public class ZkUtils {
   }
 
   /**
-   * Generation enforcing zk listener abstract class.
-   * It helps listeners, which extend it, to notAValidEvent old generation events.
-   * We cannot use 'sessionId' for this because it is not available through ZkClient (at leaste without reflection)
+   * A generation-aware {@link IZkChildListener} that only responds to events that occur in the current-generation.
+   * Each generation is identified by a generation-id which is scoped to the currently active Zk session and
+   * is incremented each time a session expires. This ensures that events corresponding to the previous generation
+   * are not acted on.
    */
-  public abstract static class GenIZkChildListener implements IZkChildListener {
+  public abstract static class GenerationAwareZkChildListener implements IZkChildListener {
     private final int generation;
     private final ZkUtils zkUtils;
     private final String listenerName;
 
-    public GenIZkChildListener(ZkUtils zkUtils, String listenerName) {
+    public GenerationAwareZkChildListener(ZkUtils zkUtils, String listenerName) {
       generation = zkUtils.getGeneration();
       this.zkUtils = zkUtils;
       this.listenerName = listenerName;
     }
 
-    protected boolean notAValidEvent() {
-      int curGeneration = zkUtils.getGeneration();
-      if (curGeneration != generation) {
-        LOG.warn("SKIPPING handleDataChanged for " + listenerName +
-            " from wrong generation. current generation=" + curGeneration + "; callback generation= " + generation);
-        return true;
+    @Override
+    public void handleChildChange(String barrierParticipantPath, List<String> participantIds) throws Exception {
+      int currentGeneration = zkUtils.getGeneration();
+      if (currentGeneration != generation) {
+        LOG.warn(String.format("Skipping handleChildChange for %s from wrong generation. Current generation: %s; " +
+            "Callback generation: %s", listenerName, currentGeneration, generation));
+        return;
       }
-      return false;
+      doHandleChildChange(barrierParticipantPath, participantIds);
     }
+
+    public abstract void doHandleChildChange(String path, List<String> children) throws Exception;
   }
 
-  public abstract static class GenIZkDataListener implements IZkDataListener {
+  /**
+   * A generation-aware {@link IZkDataListener} that only responds to events that occur in the current-generation.
+   * Each generation is identified by a generation-id which is scoped to the currently active Zk session and
+   * is incremented each time a session expires. This ensures that events corresponding to the previous generation
+   * are not acted on.
+   */
+  public abstract static class GenerationAwareZkDataListener implements IZkDataListener {
     private final int generation;
     private final ZkUtils zkUtils;
     private final String listenerName;
 
-    public GenIZkDataListener(ZkUtils zkUtils, String listenerName) {
+    public GenerationAwareZkDataListener(ZkUtils zkUtils, String listenerName) {
       generation = zkUtils.getGeneration();
       this.zkUtils = zkUtils;
       this.listenerName = listenerName;
     }
 
-    protected boolean notAValidEvent() {
-      int curGeneration = zkUtils.getGeneration();
-      if (curGeneration != generation) {
-        LOG.warn("SKIPPING handleDataChanged for " + listenerName +
-            " from wrong generation. curGen=" + curGeneration + "; cb gen= " + generation);
-        return true;
+    @Override
+    public void handleDataChange(String path, Object data) {
+      if (!isValid()) {
+        LOG.warn(String.format("Skipping handleCDataChange for %s from wrong generation. Current generation: %s; " +
+            "Callback generation: %s", listenerName, zkUtils.getGeneration(), generation));
+      } else {
+        doHandleDataChange(path, data);
       }
-      return false;
     }
 
+    public void handleDataDeleted(String dataPath) throws Exception {
+      if (!isValid()) {
+        LOG.warn(String.format("Skipping handleCDataChange for %s from wrong generation. Current generation: %s; " +
+            "Callback generation: %s", listenerName, zkUtils.getGeneration(), generation));
+      } else {
+        doHandleDataDeleted(dataPath);
+      }
+    }
+
+    public abstract void doHandleDataChange(String path, Object data);
+
+    public abstract void doHandleDataDeleted(String path);
+
+    private boolean isValid() {
+      return generation == zkUtils.getGeneration();
+    }
   }
 
   /**
     * subscribe for changes of JobModel version
     * @param dataListener describe this
     */
-  public void subscribeToJobModelVersionChange(GenIZkDataListener dataListener) {
+  public void subscribeToJobModelVersionChange(GenerationAwareZkDataListener dataListener) {
     LOG.info(" subscribing for jm version change at:" + keyBuilder.getJobModelVersionPath());
     zkClient.subscribeDataChanges(keyBuilder.getJobModelVersionPath(), dataListener);
     if (metrics != null) {

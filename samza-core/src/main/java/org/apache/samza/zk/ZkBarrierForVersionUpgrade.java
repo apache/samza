@@ -166,7 +166,7 @@ public class ZkBarrierForVersionUpgrade {
    * Listener for changes to the list of participants. It is meant to be subscribed only by the creator of the barrier
    * node. It checks to see when the barrier is ready to be marked as completed.
    */
-  class ZkBarrierChangeHandler extends ZkUtils.GenIZkChildListener {
+  class ZkBarrierChangeHandler extends ZkUtils.GenerationAwareZkChildListener {
     private final String barrierVersion;
     private final List<String> expectedParticipantIds;
 
@@ -177,10 +177,7 @@ public class ZkBarrierForVersionUpgrade {
     }
 
     @Override
-    public void handleChildChange(String barrierParticipantPath, List<String> participantIds) {
-      if (notAValidEvent()) {
-        return;
-      }
+    public void doHandleChildChange(String barrierParticipantPath, List<String> participantIds) {
       if (participantIds == null) {
         LOG.info("Received notification with null participants for barrier: {}. Ignoring it.", barrierParticipantPath);
         return;
@@ -210,7 +207,7 @@ public class ZkBarrierForVersionUpgrade {
    * Barrier state values are either DONE or TIMED_OUT. It only registers to receive on valid state change notification.
    * Once a valid state change notification is received, it will un-subscribe from further notifications.
    */
-  class ZkBarrierReachedHandler extends ZkUtils.GenIZkDataListener {
+  class ZkBarrierReachedHandler extends ZkUtils.GenerationAwareZkDataListener {
     private final String barrierStatePath;
     private final String barrierVersion;
 
@@ -221,10 +218,8 @@ public class ZkBarrierForVersionUpgrade {
     }
 
     @Override
-    public void handleDataChange(String dataPath, Object data) {
+    public void doHandleDataChange(String dataPath, Object data) {
       LOG.info(String.format("Received barrierState change notification for barrier version: %s from zkNode: %s with data: %s.", barrierVersion, dataPath, data));
-      if (notAValidEvent())
-        return;
 
       State barrierState = (State) data;
       List<State> expectedBarrierStates = ImmutableList.of(State.DONE, State.TIMED_OUT);
@@ -238,10 +233,8 @@ public class ZkBarrierForVersionUpgrade {
     }
 
     @Override
-    public void handleDataDeleted(String dataPath) {
-      LOG.warn("barrier done node got deleted at " + dataPath);
-      if (notAValidEvent())
-        return;
+    public void doHandleDataDeleted(String path) {
+      LOG.warn("Data deleted in path: " + path);
     }
   }
 

@@ -19,6 +19,7 @@
 package org.apache.samza.zk;
 
 import com.google.common.annotations.VisibleForTesting;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.HashMap;
@@ -26,9 +27,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+
 import org.I0Itec.zkclient.IZkStateListener;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
@@ -58,8 +59,6 @@ import org.apache.samza.util.Util;
 import org.apache.zookeeper.Watcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static org.apache.zookeeper.Watcher.Event.KeeperState.*;
 
 /**
  * JobCoordinator for stand alone processor managed via Zookeeper.
@@ -98,6 +97,9 @@ public class ZkJobCoordinator implements JobCoordinator {
 
   @VisibleForTesting
   ScheduleAfterDebounceTime debounceTimer = null;
+  @VisibleForTesting
+  ZkJobModelVersionChangeHandler jobModelVersionChangeHandler = null;
+
   private JobCoordinatorListener coordinatorListener = null;
   private JobModel newJobModel;
   private int debounceTimeMs;
@@ -118,7 +120,7 @@ public class ZkJobCoordinator implements JobCoordinator {
     zkUtils.getZkClient().subscribeStateChanges(new ZkSessionStateChangedListener());
     leaderElector = new ZkLeaderElector(processorId, zkUtils);
     leaderElector.setLeaderElectorListener(new LeaderElectorListenerImpl());
-    this.barrier =  new ZkBarrierForVersionUpgrade(
+    this.barrier = new ZkBarrierForVersionUpgrade(
         zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix(),
         zkUtils,
         new ZkBarrierListenerImpl());
@@ -131,15 +133,15 @@ public class ZkJobCoordinator implements JobCoordinator {
       });
     systemAdmins = new SystemAdmins(config);
     streamMetadataCache = new StreamMetadataCache(systemAdmins, METADATA_CACHE_TTL_MS, SystemClock.instance());
-    ZkKeyBuilder keyBuilder = zkUtils.getKeyBuilder();
-    zkUtils.validatePaths(new String[]{keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder
-        .getJobModelPathPrefix()});
   }
 
   @Override
   public void start() {
     startMetrics();
     systemAdmins.start();
+    ZkKeyBuilder keyBuilder = zkUtils.getKeyBuilder();
+    zkUtils.validatePaths(new String[]{keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder
+        .getJobModelPathPrefix()});
     zkUtils.validateZkVersion();
     leaderElector.tryBecomeLeader();
     zkUtils.subscribeToJobModelVersionChange(new ZkJobModelVersionChangeHandler(zkUtils));
@@ -169,7 +171,7 @@ public class ZkJobCoordinator implements JobCoordinator {
 
       debounceTimer.stopScheduler();
 
-      LOG.debug("Shutting down Zk Client.");
+      LOG.info("Shutting down Zk Client.");
       if (leaderElector.amILeader()) {
         leaderElector.resignLeadership();
       }
@@ -201,14 +203,14 @@ public class ZkJobCoordinator implements JobCoordinator {
   }
 
   private void startMetrics() {
-    for (MetricsReporter reporter: reporters.values()) {
+    for (MetricsReporter reporter : reporters.values()) {
       reporter.register("job-coordinator-" + processorId, (ReadableMetricsRegistry) metrics.getMetricsRegistry());
       reporter.start();
     }
   }
 
   private void shutdownMetrics() {
-    for (MetricsReporter reporter: reporters.values()) {
+    for (MetricsReporter reporter : reporters.values()) {
       reporter.stop();
     }
   }
@@ -228,7 +230,11 @@ public class ZkJobCoordinator implements JobCoordinator {
     return processorId;
   }
 
-  //////////////////////////////////////////////// LEADER stuff ///////////////////////////
+  /*
+   * The leader handles notifications for two types of events:
+   *   1. Changes to the current set of processors in the group.
+   *   2. Changes to the set of participants who have subscribed the the barrier
+   */
   public void onProcessorChange(List<String> processors) {
     if (leaderElector.amILeader()) {
       LOG.info("ZkJobCoordinator::onProcessorChange - list of processors changed! List size=" + processors.size());
@@ -282,40 +288,6 @@ public class ZkJobCoordinator implements JobCoordinator {
     debounceTimer.scheduleAfterDebounceTime(ON_ZK_CLEANUP, 0, () -> zkUtils.cleanupZK(NUM_VERSIONS_TO_LEAVE));
   }
 
-  public void onNewJobModelAvailable(final String version) {
-    debounceTimer.scheduleAfterDebounceTime(JOB_MODEL_VERSION_CHANGE, 0, () ->
-      {
-        LOG.info("pid=" + processorId + ": new JobModel available");
-        // get the new job model from ZK
-        newJobModel = zkUtils.getJobModel(version);
-        LOG.info("pid=" + processorId + ": new JobModel available. ver=" + version + "; jm = " + newJobModel);
-
-        if (!newJobModel.getContainers().containsKey(processorId)) {
-          LOG.info("New JobModel does not contain pid={}. Stopping this processor. New JobModel: {}",
-              processorId, newJobModel);
-          stop();
-        } else {
-          // stop current work
-          if (coordinatorListener != null) {
-            coordinatorListener.onJobModelExpired();
-          }
-          // update ZK and wait for all the processors to get this new version
-          barrier.join(version, processorId);
-        }
-      });
-  }
-
-  public void onNewJobModelConfirmed(String version) {
-    LOG.info("pid=" + processorId + "new version " + version + " of the job model got confirmed");
-    // get the new Model
-    JobModel jobModel = getJobModel();
-
-    // start the container with the new model
-    if (coordinatorListener != null) {
-      coordinatorListener.onNewJobModel(processorId, jobModel);
-    }
-  }
-
   private String createProcessorId(Config config) {
     // TODO: This check to be removed after 0.13+
     ApplicationConfig appConfig = new ApplicationConfig(config);
@@ -359,8 +331,7 @@ public class ZkJobCoordinator implements JobCoordinator {
       LOG.info("ZkJobCoordinator::onBecomeLeader - I became the leader!");
       metrics.isLeader.set(true);
       zkUtils.subscribeToProcessorChange(new ProcessorChangeHandler(zkUtils));
-      debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, debounceTimeMs, () ->
-        {
+      debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, debounceTimeMs, () -> {
           // actual actions to do are the same as onProcessorChange
           doOnProcessorChange(new ArrayList<>());
         });
@@ -388,7 +359,16 @@ public class ZkJobCoordinator implements JobCoordinator {
       metrics.barrierStateChange.inc();
       metrics.singleBarrierRebalancingTime.update(System.nanoTime() - startTime);
       if (ZkBarrierForVersionUpgrade.State.DONE.equals(state)) {
-        debounceTimer.scheduleAfterDebounceTime(barrierAction, 0, () -> onNewJobModelConfirmed(version));
+        debounceTimer.scheduleAfterDebounceTime(barrierAction, 0, () -> {
+            LOG.info("pid=" + processorId + "new version " + version + " of the job model got confirmed");
+
+          // read the new Model
+            JobModel jobModel = getJobModel();
+            // start the container with the new model
+            if (coordinatorListener != null) {
+              coordinatorListener.onNewJobModel(processorId, jobModel);
+            }
+          });
       } else {
         if (ZkBarrierForVersionUpgrade.State.TIMED_OUT.equals(state)) {
           // no-op for non-leaders
@@ -396,8 +376,7 @@ public class ZkJobCoordinator implements JobCoordinator {
           LOG.warn("Barrier for version " + version + " timed out.");
           if (leaderElector.amILeader()) {
             LOG.info("Leader will schedule a new job model generation");
-            debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, debounceTimeMs, () ->
-              {
+            debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, debounceTimeMs, () -> {
                 // actual actions to do are the same as onProcessorChange
                 doOnProcessorChange(new ArrayList<>());
               });
@@ -414,7 +393,7 @@ public class ZkJobCoordinator implements JobCoordinator {
     }
   }
 
-  class ProcessorChangeHandler extends ZkUtils.GenIZkChildListener {
+  class ProcessorChangeHandler extends ZkUtils.GenerationAwareZkChildListener {
 
     public ProcessorChangeHandler(ZkUtils zkUtils) {
       super(zkUtils, "ProcessorChangeHandler");
@@ -423,56 +402,62 @@ public class ZkJobCoordinator implements JobCoordinator {
     /**
      * Called when the children of the given path changed.
      *
-     * @param parentPath    The parent path
+     * @param parentPath      The parent path
      * @param currentChildren The children or null if the root node (parent path) was deleted.
      * @throws Exception
      */
     @Override
-    public void handleChildChange(String parentPath, List<String> currentChildren)
+    public void doHandleChildChange(String parentPath, List<String> currentChildren)
         throws Exception {
-      if (notAValidEvent())
-        return;
 
       if (currentChildren == null) {
-        // this may happen only in case of exception in ZK. It happens if the zkNode has been deleted.
-        // So the notification will pass 'null' as the list of children. Exception should be visible in the logs.
-        // It makes no sense to pass it further down.
-        LOG.error("handleChildChange on path " + parentPath + " was invoked with NULL list of children");
-        return;
+        LOG.info("handleChildChange on path " + parentPath + " was invoked with NULL list of children");
+      } else {
+        LOG.info("ProcessorChangeHandler::handleChildChange - Path: {} Current Children: {} ", parentPath, currentChildren);
+        onProcessorChange(currentChildren);
       }
-      LOG.info(
-          "ZkControllerImpl::ProcessorChangeHandler::handleChildChange - Path: " + parentPath +
-              "  Current Children: " + currentChildren);
-      onProcessorChange(currentChildren);
 
     }
   }
 
-  class ZkJobModelVersionChangeHandler extends ZkUtils.GenIZkDataListener {
+  class ZkJobModelVersionChangeHandler extends ZkUtils.GenerationAwareZkDataListener {
 
     public ZkJobModelVersionChangeHandler(ZkUtils zkUtils) {
       super(zkUtils, "ZkJobModelVersionChangeHandler");
     }
+
     /**
-     * Called when there is a change to the data in JobModel version path
-     * To the subscribers, it signifies that a new version of JobModel is available.
+     * Invoked when there is a change to the JobModelVersion z-node. It signifies that a new JobModel version is available.
      */
     @Override
-    public void handleDataChange(String dataPath, Object data) throws Exception {
-      if (notAValidEvent())
-        return;
+    public void doHandleDataChange(String dataPath, Object data) {
+      debounceTimer.scheduleAfterDebounceTime(JOB_MODEL_VERSION_CHANGE, 0, () -> {
+          String jobModelVersion = (String) data;
 
-      LOG.info("pid=" + processorId + ". Got notification on version update change. path=" + dataPath + "; data="
-          + data);
-      onNewJobModelAvailable((String) data);
+          LOG.info("Got a notification for new JobModel version. Path = {} Version = {}", dataPath, data);
+
+          newJobModel = zkUtils.getJobModel(jobModelVersion);
+          LOG.info("pid=" + processorId + ": new JobModel is available. Version =" + jobModelVersion + "; JobModel = " + newJobModel);
+
+          if (!newJobModel.getContainers().containsKey(processorId)) {
+            LOG.info("New JobModel does not contain pid={}. Stopping this processor. New JobModel: {}",
+                processorId, newJobModel);
+            stop();
+          } else {
+            // stop current work
+            if (coordinatorListener != null) {
+              coordinatorListener.onJobModelExpired();
+            }
+            // update ZK and wait for all the processors to get this new version
+            barrier.join(jobModelVersion, processorId);
+          }
+        });
     }
 
     @Override
-    public void handleDataDeleted(String dataPath) throws Exception {
-      if (notAValidEvent())
-        return;
-
-      throw new SamzaException("version update path has been deleted!");
+    public void doHandleDataDeleted(String dataPath) {
+      LOG.warn("JobModel version z-node has been deleted. Shutting down the coordinator" + dataPath);
+      debounceTimer.scheduleAfterDebounceTime("JOB_MODEL_VERSION_DELETED", 0,  () -> stop());
     }
   }
 
