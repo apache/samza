@@ -24,7 +24,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import javax.annotation.Nullable;
 import org.apache.samza.util.Clock;
 
 
@@ -106,7 +105,6 @@ public class SSPMetadataCache {
     /**
      * Nullable so that we can cache that there was no metadata for the last fetch.
      */
-    @Nullable
     private final SystemStreamMetadata.SystemStreamPartitionMetadata metadata;
     private final Instant lastUpdatedAt;
 

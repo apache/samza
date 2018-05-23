@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -37,7 +36,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.mockito.stubbing.Answer;
 
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
@@ -242,14 +240,13 @@ public class TestSSPMetadataCache {
         IntStream.range(0, numPartitions).mapToObj(TestSSPMetadataCache::buildSSP).collect(Collectors.toSet());
     SSPMetadataCache cache = buildSSPMetadataCache(ssps);
     ExecutorService executorService = Executors.newFixedThreadPool(10);
-    when(systemAdmin.getSSPMetadata(ssps)).thenAnswer(
-        (Answer<Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata>>) invocation -> {
-          // have the admin call wait so that it forces the threads to overlap on the lock
-          Thread.sleep(500);
-          return IntStream.range(0, numPartitions)
-              .boxed()
-              .collect(Collectors.toMap(TestSSPMetadataCache::buildSSP, i -> sspMetadata((long) i)));
-        });
+    when(systemAdmin.getSSPMetadata(ssps)).thenAnswer(invocation -> {
+        // have the admin call wait so that it forces the threads to overlap on the lock
+        Thread.sleep(500);
+        return IntStream.range(0, numPartitions)
+            .boxed()
+            .collect(Collectors.toMap(TestSSPMetadataCache::buildSSP, i -> sspMetadata((long) i)));
+      });
 
     // send concurrent requests for metadata
     List<Future<SystemStreamMetadata.SystemStreamPartitionMetadata>> getMetadataFutures =
