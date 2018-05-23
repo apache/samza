@@ -19,6 +19,8 @@
 
 package org.apache.samza.runtime;
 
+import com.google.common.annotations.VisibleForTesting;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
@@ -175,8 +177,10 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
       // 4. start the StreamProcessors
       processors.forEach(StreamProcessor::start);
-    } catch (Exception e) {
-      throw new SamzaException("Failed to start application", e);
+    } catch (Throwable throwable) {
+      appStatus = ApplicationStatus.unsuccessfulFinish(throwable);
+      shutdownLatch.countDown();
+      throw new SamzaException(String.format("Failed to start application: %s.", app), throwable);
     }
   }
 
@@ -192,15 +196,42 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   }
 
   /**
-   * Block until the application finishes
+   * Waits until the application finishes.
    */
+  @Override
   public void waitForFinish() {
+    waitForFinish(Duration.ofMillis(0));
+  }
+
+  /**
+   * Waits for {@code timeout} duration for the application to finish.
+   * If timeout &lt; 1, blocks the caller indefinitely.
+   *
+   * @param timeout time to wait for the application to finish
+   * @return true - application finished before timeout
+   *         false - otherwise
+   */
+  @Override
+  public boolean waitForFinish(Duration timeout) {
+    long timeoutInMs = timeout.toMillis();
+    boolean finished = true;
+
     try {
-      shutdownLatch.await();
+      if (timeoutInMs < 1) {
+        shutdownLatch.await();
+      } else {
+        finished = shutdownLatch.await(timeoutInMs, TimeUnit.MILLISECONDS);
+
+        if (!finished) {
+          LOG.warn("Timed out waiting for application to finish.");
+        }
+      }
     } catch (Exception e) {
-      LOG.error("Wait is interrupted by exception", e);
+      LOG.error("Error waiting for application to finish", e);
       throw new SamzaException(e);
     }
+
+    return finished;
   }
 
   /**
@@ -277,5 +308,10 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   /* package private for testing */
   Set<StreamProcessor> getProcessors() {
     return processors;
+  }
+
+  @VisibleForTesting
+  CountDownLatch getShutdownLatch() {
+    return shutdownLatch;
   }
 }

@@ -33,6 +33,7 @@ class KeyValueStorageEngineMetrics(
   val puts = newCounter("puts")
   val deletes = newCounter("deletes")
   val flushes = newCounter("flushes")
+  val snapshots = newCounter("snapshots")
 
   val restoredMessages = newCounter("messages-restored") //Deprecated
   val restoredMessagesGauge = newGauge("restored-messages", 0)
@@ -47,6 +48,7 @@ class KeyValueStorageEngineMetrics(
   val flushNs = newTimer("flush-ns")
   val allNs = newTimer("all-ns")
   val rangeNs = newTimer("range-ns")
+  val snapshotNs = newTimer("snapshot-ns")
 
   override def getPrefix = storeName + "-"
 }

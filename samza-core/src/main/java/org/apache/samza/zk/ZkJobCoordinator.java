@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.I0Itec.zkclient.IZkStateListener;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.checkpoint.CheckpointManager;
@@ -41,7 +42,6 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.coordinator.JobModelManager;
-import org.apache.samza.coordinator.LeaderElector;
 import org.apache.samza.coordinator.LeaderElectorListener;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
@@ -58,8 +58,6 @@ import org.apache.samza.util.Util;
 import org.apache.zookeeper.Watcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static org.apache.zookeeper.Watcher.Event.KeeperState.*;
 
 /**
  * JobCoordinator for stand alone processor managed via Zookeeper.
@@ -92,17 +90,20 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private final ZkBarrierForVersionUpgrade barrier;
   private final ZkJobCoordinatorMetrics metrics;
   private final Map<String, MetricsReporter> reporters;
+  private final ZkLeaderElector leaderElector;
+  private final AtomicBoolean initiatedShutdown = new AtomicBoolean(false);
+  private final StreamMetadataCache streamMetadataCache;
+  private final SystemAdmins systemAdmins;
+  private final int debounceTimeMs;
+  private final Map<TaskName, Integer> changeLogPartitionMap = new HashMap<>();
 
-  private StreamMetadataCache streamMetadataCache = null;
-  private SystemAdmins systemAdmins = null;
-  private ScheduleAfterDebounceTime debounceTimer = null;
   private JobCoordinatorListener coordinatorListener = null;
   private JobModel newJobModel;
-  private int debounceTimeMs;
   private boolean hasCreatedStreams = false;
-  private boolean initiatedShutdown = false;
   private String cachedJobModelVersion = null;
-  private Map<TaskName, Integer> changeLogPartitionMap = new HashMap<>();
+
+  @VisibleForTesting
+  ScheduleAfterDebounceTime debounceTimer;
 
   ZkJobCoordinator(Config config, MetricsRegistry metricsRegistry, ZkUtils zkUtils) {
     this.config = config;
@@ -114,20 +115,17 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     // setup a listener for a session state change
     // we are mostly interested in "session closed" and "new session created" events
     zkUtils.getZkClient().subscribeStateChanges(new ZkSessionStateChangedListener());
-    LeaderElector leaderElector = new ZkLeaderElector(processorId, zkUtils);
+    leaderElector = new ZkLeaderElector(processorId, zkUtils);
     leaderElector.setLeaderElectorListener(new LeaderElectorListenerImpl());
     this.zkController = new ZkControllerImpl(processorId, zkUtils, this, leaderElector);
-    this.barrier =  new ZkBarrierForVersionUpgrade(
-        zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix(),
-        zkUtils,
-        new ZkBarrierListenerImpl());
     this.debounceTimeMs = new JobConfig(config).getDebounceTimeMs();
     this.reporters = MetricsReporterLoader.getMetricsReporters(new MetricsConfig(config), processorId);
-    debounceTimer = new ScheduleAfterDebounceTime();
+    debounceTimer = new ScheduleAfterDebounceTime(processorId);
     debounceTimer.setScheduledTaskCallback(throwable -> {
         LOG.error("Received exception in debounce timer! Stopping the job coordinator", throwable);
         stop();
       });
+    this.barrier =  new ZkBarrierForVersionUpgrade(zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix(), zkUtils, new ZkBarrierListenerImpl(), debounceTimer);
     systemAdmins = new SystemAdmins(config);
     streamMetadataCache = new StreamMetadataCache(systemAdmins, METADATA_CACHE_TTL_MS, SystemClock.instance());
   }
@@ -140,50 +138,49 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   }
 
   @Override
-  public synchronized void stop() {
+  public void stop() {
     // Make the shutdown idempotent
-    if (initiatedShutdown) {
-      LOG.debug("Job Coordinator shutdown is already in progress!");
-      return;
-    }
+    if (initiatedShutdown.compareAndSet(false, true)) {
 
-    LOG.info("Shutting down Job Coordinator...");
-    initiatedShutdown = true;
-    boolean shutdownSuccessful = false;
+      LOG.info("Shutting down JobCoordinator.");
+      boolean shutdownSuccessful = false;
 
-    // Notify the metrics about abandoning the leadership. Moving it up the chain in the shutdown sequence so that
-    // in case of unclean shutdown, we get notified about lack of leader and we can set up some alerts around the absence of leader.
-    metrics.isLeader.set(false);
+      // Notify the metrics about abandoning the leadership. Moving it up the chain in the shutdown sequence so that
+      // in case of unclean shutdown, we get notified about lack of leader and we can set up some alerts around the absence of leader.
+      metrics.isLeader.set(false);
 
-    try {
-      // todo: what does it mean for coordinator listener to be null? why not have it part of constructor?
-      if (coordinatorListener != null) {
-        coordinatorListener.onJobModelExpired();
+      try {
+        // todo: what does it mean for coordinator listener to be null? why not have it part of constructor?
+        if (coordinatorListener != null) {
+          coordinatorListener.onJobModelExpired();
+        }
+
+        debounceTimer.stopScheduler();
+
+        LOG.debug("Shutting down ZkController.");
+        zkController.stop();
+
+        LOG.debug("Shutting down system admins.");
+        systemAdmins.stop();
+
+        LOG.debug("Shutting down metrics.");
+        shutdownMetrics();
+
+        if (coordinatorListener != null) {
+          coordinatorListener.onCoordinatorStop();
+        }
+
+        shutdownSuccessful = true;
+      } catch (Throwable t) {
+        LOG.error("Encountered errors during job coordinator stop.", t);
+        if (coordinatorListener != null) {
+          coordinatorListener.onCoordinatorFailure(t);
+        }
+      } finally {
+        LOG.info("Job Coordinator shutdown finished with ShutdownComplete=" + shutdownSuccessful);
       }
-
-      debounceTimer.stopScheduler();
-
-      LOG.debug("Shutting down ZkController.");
-      zkController.stop();
-
-      LOG.debug("Shutting down system admins.");
-      systemAdmins.stop();
-
-      LOG.debug("Shutting down metrics.");
-      shutdownMetrics();
-
-      if (coordinatorListener != null) {
-        coordinatorListener.onCoordinatorStop();
-      }
-
-      shutdownSuccessful = true;
-    } catch (Throwable t) {
-      LOG.error("Encountered errors during job coordinator stop.", t);
-      if (coordinatorListener != null) {
-        coordinatorListener.onCoordinatorFailure(t);
-      }
-    } finally {
-      LOG.info("Job Coordinator shutdown finished with ShutdownComplete=" + shutdownSuccessful);
+    } else {
+      LOG.info("Job Coordinator shutdown is in progress!");
     }
   }
 
@@ -218,16 +215,17 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   //////////////////////////////////////////////// LEADER stuff ///////////////////////////
   @Override
   public void onProcessorChange(List<String> processors) {
-    LOG.info("ZkJobCoordinator::onProcessorChange - list of processors changed! List size=" + processors.size());
-    debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, debounceTimeMs,
-        () -> doOnProcessorChange(processors));
+    if (leaderElector.amILeader()) {
+      LOG.info("ZkJobCoordinator::onProcessorChange - list of processors changed! List size=" + processors.size());
+      debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, debounceTimeMs, () -> doOnProcessorChange(processors));
+    }
   }
 
   void doOnProcessorChange(List<String> processors) {
     // if list of processors is empty - it means we are called from 'onBecomeLeader'
     // TODO: Handle empty currentProcessorIds.
-    List<String> currentProcessorIds = getActualProcessorIds(processors);
-    Set<String> uniqueProcessorIds = new HashSet<String>(currentProcessorIds);
+    List<String> currentProcessorIds = zkUtils.getSortedActiveProcessorsIDs();
+    Set<String> uniqueProcessorIds = new HashSet<>(currentProcessorIds);
 
     if (currentProcessorIds.size() != uniqueProcessorIds.size()) {
       LOG.info("Processors: {} has duplicates. Not generating JobModel.", currentProcessorIds);
@@ -350,7 +348,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
      * to host mapping) is passed in as null when building the jobModel.
      */
     JobModel model = JobModelManager.readJobModel(this.config, changeLogPartitionMap, null, streamMetadataCache, processors);
-    // Nuke the configuration in JobModel.
     return new JobModel(new MapConfig(), model.getContainers());
   }
 
@@ -379,11 +376,9 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
       startTime = System.nanoTime();
 
       metrics.barrierCreation.inc();
-      debounceTimer.scheduleAfterDebounceTime(
-          barrierAction,
-        (new ZkConfig(config)).getZkBarrierTimeoutMs(),
-        () -> barrier.expire(version)
-      );
+      if (leaderElector.amILeader()) {
+        debounceTimer.scheduleAfterDebounceTime(barrierAction, (new ZkConfig(config)).getZkBarrierTimeoutMs(), () -> barrier.expire(version));
+      }
     }
 
     public void onBarrierStateChanged(final String version, ZkBarrierForVersionUpgrade.State state) {
@@ -397,7 +392,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
           // no-op for non-leaders
           // for leader: make sure we do not stop - so generate a new job model
           LOG.warn("Barrier for version " + version + " timed out.");
-          if (zkController.isLeader()) {
+          if (leaderElector.amILeader()) {
             LOG.info("Leader will schedule a new job model generation");
             debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, debounceTimeMs, () ->
               {
@@ -418,13 +413,14 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   }
 
   /// listener to handle ZK state change events
+  @VisibleForTesting
   class ZkSessionStateChangedListener implements IZkStateListener {
 
     private static final String ZK_SESSION_ERROR = "ZK_SESSION_ERROR";
+    private static final String ZK_SESSION_EXPIRED = "ZK_SESSION_EXPIRED";
 
     @Override
-    public void handleStateChanged(Watcher.Event.KeeperState state)
-        throws Exception {
+    public void handleStateChanged(Watcher.Event.KeeperState state) {
       switch (state) {
         case Expired:
           // if the session has expired it means that all the registration's ephemeral nodes are gone.
@@ -433,12 +429,26 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
           // increase generation of the ZK session. All the callbacks from the previous generation will be ignored.
           zkUtils.incGeneration();
 
-          if (coordinatorListener != null) {
-            coordinatorListener.onJobModelExpired();
-          }
-
           // reset all the values that might have been from the previous session (e.g ephemeral node path)
           zkUtils.unregister();
+          if (leaderElector.amILeader()) {
+            leaderElector.resignLeadership();
+          }
+          /**
+           * After this event, one amongst the following two things could potentially happen:
+           * A. On successful reconnect to another zookeeper server in ensemble, this processor is going to
+           * join the group again as new processor. In this case, retaining buffered events in debounceTimer will be unnecessary.
+           * B. If zookeeper server is unreachable, handleSessionEstablishmentError callback will be triggered indicating
+           * a error scenario. In this case, retaining buffered events in debounceTimer will be unnecessary.
+           */
+          LOG.info("Cancelling all scheduled actions in session expiration for processorId: {}.", processorId);
+          debounceTimer.cancelAllScheduledActions();
+          debounceTimer.scheduleAfterDebounceTime(ZK_SESSION_EXPIRED, 0, () -> {
+              if (coordinatorListener != null) {
+                coordinatorListener.onJobModelExpired();
+              }
+            });
+
           return;
         case Disconnected:
           // if the session has expired it means that all the registration's ephemeral nodes are gone.
@@ -460,21 +470,20 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         default:
           // received SyncConnected, ConnectedReadOnly, and SaslAuthenticated. NoOp
           LOG.info("Got ZK event " + state.toString() + " for processor=" + processorId + ". Continue");
+          return;
       }
     }
 
     @Override
-    public void handleNewSession()
-        throws Exception {
+    public void handleNewSession() {
       LOG.info("Got new session created event for processor=" + processorId);
-
+      debounceTimer.cancelAllScheduledActions();
       LOG.info("register zk controller for the new session");
       zkController.register();
     }
 
     @Override
-    public void handleSessionEstablishmentError(Throwable error)
-        throws Exception {
+    public void handleSessionEstablishmentError(Throwable error) {
       // this means we cannot connect to zookeeper to establish a session
       LOG.info("handleSessionEstablishmentError received for processor=" + processorId, error);
       debounceTimer.scheduleAfterDebounceTime(ZK_SESSION_ERROR, 0, () -> stop());

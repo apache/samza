@@ -662,7 +662,7 @@ class TaskStorageManagerBuilder extends MockitoSugar {
   var changeLogSystemStreams: Map[String, SystemStream] = Map()
   var streamMetadataCache = mock[StreamMetadataCache]
   var partition: Partition = new Partition(0)
-  var systemAdmins: Map[String, SystemAdmin] = Map("kafka" -> mock[SystemAdmin])
+  var systemAdminsMap: Map[String, SystemAdmin] = Map("kafka" -> mock[SystemAdmin])
   var taskName: TaskName = new TaskName("testTask")
   var storeBaseDir: File = TaskStorageManagerBuilder.defaultStoreBaseDir
   var loggedStoreBaseDir: File =  TaskStorageManagerBuilder.defaultLoggedStoreBaseDir
@@ -693,7 +693,7 @@ class TaskStorageManagerBuilder extends MockitoSugar {
   }
 
   def setSystemAdmin(system: String, systemAdmin: SystemAdmin) = {
-    systemAdmins = systemAdmins ++ Map(system -> systemAdmin)
+    systemAdminsMap = systemAdminsMap ++ Map(system -> systemAdmin)
     this
   }
 
@@ -715,12 +715,20 @@ class TaskStorageManagerBuilder extends MockitoSugar {
       changeLogSystemStreams = changeLogSystemStreams,
       changeLogStreamPartitions = changeLogStreamPartitions,
       streamMetadataCache = streamMetadataCache,
-      storeBaseDir = storeBaseDir,
+      nonLoggedStoreBaseDir = storeBaseDir,
       loggedStoreBaseDir = loggedStoreBaseDir,
       partition = partition,
-      systemAdmins = new SystemAdmins(systemAdmins.asJava),
+      systemAdmins = buildSystemAdmins(systemAdminsMap),
       new StorageConfig(new MapConfig()).getChangeLogDeleteRetentionsInMs,
       SystemClock.instance
     )
+  }
+
+  private def buildSystemAdmins(systemAdminsMap: Map[String, SystemAdmin]): SystemAdmins = {
+    val systemAdmins = mock[SystemAdmins]
+    systemAdminsMap.foreach { case (system, systemAdmin) =>
+      when(systemAdmins.getSystemAdmin(system)).thenReturn(systemAdmin)
+    }
+    systemAdmins
   }
 }

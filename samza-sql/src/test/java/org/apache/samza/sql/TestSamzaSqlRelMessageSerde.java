@@ -23,10 +23,10 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import javafx.util.Pair;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.sql.avro.AvroRelConverter;
@@ -96,7 +96,7 @@ public class TestSamzaSqlRelMessageSerde {
     GenericData.Record streetNumRecord = new GenericData.Record(StreetNumRecord.SCHEMA$);
     streetNumRecord.put("number", 1200);
     addressRecord.put("streetnum", streetNumRecord);
-    return new Pair<>(nestedRecordAvroRelConverter.convertToRelMessage(new KV<>("key", record)), record);
+    return Pair.of(nestedRecordAvroRelConverter.convertToRelMessage(new KV<>("key", record)), record);
   }
 
 }

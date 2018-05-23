@@ -712,7 +712,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   private String getPendingSamzaContainerId(ContainerId containerId) {
     for (String samzaContainerId: state.pendingYarnContainers.keySet()) {
       YarnContainer yarnContainer = state.pendingYarnContainers.get(samzaContainerId);
-      if (yarnContainer.id().equals(containerId)) {
+      if (yarnContainer != null && yarnContainer.id().equals(containerId)) {
         return samzaContainerId;
       }
     }

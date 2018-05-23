@@ -19,6 +19,14 @@
 
 package org.apache.samza.execution;
 
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -40,20 +48,8 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
 
 public class TestExecutionPlanner {
@@ -61,7 +57,7 @@ public class TestExecutionPlanner {
   private static final String DEFAULT_SYSTEM = "test-system";
   private static final int DEFAULT_PARTITIONS = 10;
 
-  private Map<String, SystemAdmin> systemAdmins;
+  private SystemAdmins systemAdmins;
   private StreamManager streamManager;
   private ApplicationRunner runner;
   private Config config;
@@ -231,10 +227,10 @@ public class TestExecutionPlanner {
 
     SystemAdmin systemAdmin1 = createSystemAdmin(system1Map);
     SystemAdmin systemAdmin2 = createSystemAdmin(system2Map);
-    systemAdmins = new HashMap<>();
-    systemAdmins.put("system1", systemAdmin1);
-    systemAdmins.put("system2", systemAdmin2);
-    streamManager = new StreamManager(new SystemAdmins(systemAdmins));
+    systemAdmins = mock(SystemAdmins.class);
+    when(systemAdmins.getSystemAdmin("system1")).thenReturn(systemAdmin1);
+    when(systemAdmins.getSystemAdmin("system2")).thenReturn(systemAdmin2);
+    streamManager = new StreamManager(systemAdmins);
 
     runner = mock(ApplicationRunner.class);
     when(runner.getStreamSpec("input1")).thenReturn(input1);

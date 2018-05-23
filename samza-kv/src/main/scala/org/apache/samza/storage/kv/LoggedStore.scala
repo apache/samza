@@ -114,4 +114,7 @@ class LoggedStore[K, V](
     store.close
   }
 
+  override def snapshot(from: K, to: K): KeyValueSnapshot[K, V] = {
+    store.snapshot(from, to)
+  }
 }

@@ -89,4 +89,10 @@ class NullSafeKeyValueStore[K, V](store: KeyValueStore[K, V]) extends KeyValueSt
       throw new NullPointerException(msg)
     }
   }
+
+  override def snapshot(from: K, to: K): KeyValueSnapshot[K, V] = {
+    notNull(from, NullKeyErrorMessage)
+    notNull(to, NullKeyErrorMessage)
+    store.snapshot(from, to)
+  }
 }

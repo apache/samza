@@ -31,6 +31,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
+import org.mockito.Mockito.{mock, when}
 
 import scala.collection.JavaConverters._
 
@@ -181,12 +182,13 @@ class TestBootstrappingChooser(getChooser: (MessageChooser, Map[SystemStream, Sy
 
   @Test
   def testChooserRegisteredCorrectSsps {
-    val mock = new MockMessageChooser
+    val mockMessageChooser = new MockMessageChooser
     val metadata1 = getMetadata(envelope1, "123")
     val metadata2 = getMetadata(envelope2, "321")
-    val systemAdmin: SystemAdmin = new MockSystemAdmin
-    val chooser = new BootstrappingChooser(mock, Map(envelope1.getSystemStreamPartition.getSystemStream -> metadata1,
-      envelope2.getSystemStreamPartition.getSystemStream -> metadata2), new BootstrappingChooserMetrics(), new SystemAdmins(Map("kafka" -> systemAdmin).asJava))
+    val systemAdmins = mock(classOf[SystemAdmins])
+    when(systemAdmins.getSystemAdmin("kafka")).thenReturn(new MockSystemAdmin)
+    val chooser = new BootstrappingChooser(mockMessageChooser, Map(envelope1.getSystemStreamPartition.getSystemStream -> metadata1,
+      envelope2.getSystemStreamPartition.getSystemStream -> metadata2), new BootstrappingChooserMetrics(), systemAdmins)
 
     chooser.register(envelope1.getSystemStreamPartition, "1")
     chooser.register(envelope2.getSystemStreamPartition, "1")
@@ -201,12 +203,13 @@ class TestBootstrappingChooser(getChooser: (MessageChooser, Map[SystemStream, Sy
 
   @Test
   def testChooserRegisterWithStreamUsedAsBootstrapAndBroadcast: Unit = {
-    val mock = new MockMessageChooser
+    val mockMessageChooser = new MockMessageChooser
     val metadata1 = getMetadata(envelope1, "123")
     val metadata2 = getMetadata(envelope2, "321")
-    val systemAdmin: SystemAdmin = new MockSystemAdmin
-    val chooser = new BootstrappingChooser(mock, Map(envelope1.getSystemStreamPartition.getSystemStream -> metadata1,
-      envelope2.getSystemStreamPartition.getSystemStream -> metadata2), new BootstrappingChooserMetrics(), new SystemAdmins(Map("kafka" -> systemAdmin).asJava))
+    val systemAdmins = mock(classOf[SystemAdmins])
+    when(systemAdmins.getSystemAdmin("kafka")).thenReturn(new MockSystemAdmin)
+    val chooser = new BootstrappingChooser(mockMessageChooser, Map(envelope1.getSystemStreamPartition.getSystemStream -> metadata1,
+      envelope2.getSystemStreamPartition.getSystemStream -> metadata2), new BootstrappingChooserMetrics(), systemAdmins)
 
     // Envelope1 is registered by multiple tasks, each one of them having different offsets.
     chooser.register(envelope1.getSystemStreamPartition, "1")
@@ -236,8 +239,8 @@ object TestBootstrappingChooser {
   // chooser.
   @Parameters
   def parameters: java.util.Collection[Array[(MessageChooser, Map[SystemStream, SystemStreamMetadata]) => MessageChooser]] = {
-    val systemAdmin: SystemAdmin = new MockSystemAdmin
-    val systemAdmins = new SystemAdmins(Map("kafka" -> systemAdmin).asJava)
+    val systemAdmins = mock(classOf[SystemAdmins])
+    when(systemAdmins.getSystemAdmin("kafka")).thenReturn(new MockSystemAdmin)
     Arrays.asList(
       Array((wrapped: MessageChooser, bootstrapStreamMetadata: Map[SystemStream, SystemStreamMetadata]) =>
         new BootstrappingChooser(wrapped, bootstrapStreamMetadata, new BootstrappingChooserMetrics(), systemAdmins)),

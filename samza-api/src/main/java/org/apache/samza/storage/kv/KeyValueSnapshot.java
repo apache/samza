@@ -16,33 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
- ext {
-  apacheCommonsCollections4Version = "4.0"
-  avroVersion = "1.7.1"
-  calciteVersion = "1.14.0"
-  commonsCliVersion = "1.2"
-  commonsCodecVersion = "1.9"
-  commonsCollectionVersion = "3.2.1"
-  commonsHttpClientVersion = "3.1"
-  commonsLang3Version = "3.4"
-  elasticsearchVersion = "2.2.0"
-  guavaVersion = "17.0"
-  hamcrestVersion = "1.3"
-  httpClientVersion = "4.4.1"
-  jacksonVersion = "1.9.13"
-  jerseyVersion = "2.22.1"
-  jodaTimeVersion = "2.2"
-  joptSimpleVersion = "3.2"
-  junitVersion = "4.12"
-  kafkaVersion = "0.11.0.2"
-  log4jVersion = "1.2.17"
-  metricsVersion = "2.2.0"
-  mockitoVersion = "1.10.19"
-  powerMockVersion = "1.6.6"
-  rocksdbVersion = "5.7.3"
-  scalaTestVersion = "3.0.1"
-  slf4jVersion = "1.6.2"
-  yarnVersion = "2.6.1"
-  zkClientVersion = "0.8"
-  zookeeperVersion = "3.4.6"
+
+package org.apache.samza.storage.kv;
+
+/**
+ * An immutable view of the {@link KeyValueStore} at a point-in-time.
+ * The snapshot MUST be closed after use.
+ *
+ * @param <K> key type
+ * @param <V> value type
+ */
+public interface KeyValueSnapshot<K, V> {
+  /**
+   * Creates a new iterator for this snapshot. The iterator MUST be
+   * closed after its execution by invoking {@link KeyValueIterator#close}.
+   * @return an iterator
+   */
+  KeyValueIterator<K, V> iterator();
+
+  /**
+   * Closes this snapshot releasing any associated resources. Once a
+   * snapshot is closed, no new iterators can be created for it.
+   */
+  void close();
 }
