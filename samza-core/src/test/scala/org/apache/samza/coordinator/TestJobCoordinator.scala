@@ -21,33 +21,26 @@ package org.apache.samza.coordinator
 
 import java.util
 
-import org.apache.samza.checkpoint.TestCheckpointTool.MockCheckpointManagerFactory
-import org.apache.samza.job.local.ProcessJobFactory
-import org.apache.samza.job.local.ThreadJobFactory
-import org.apache.samza.serializers.model.SamzaObjectMapper
-import org.apache.samza.util.{HttpUtil, Util}
-import org.junit.{After, Before, Test}
-import org.junit.Assert._
-
-import scala.collection.JavaConverters._
-import org.apache.samza.config.MapConfig
-import org.apache.samza.config.TaskConfig
-import org.apache.samza.config.SystemConfig
-import org.apache.samza.container.SamzaContainer
-import org.apache.samza.container.TaskName
-import org.apache.samza.system._
 import org.apache.samza.Partition
-import org.apache.samza.SamzaException
-import org.apache.samza.job.model.JobModel
-import org.apache.samza.job.model.ContainerModel
-import org.apache.samza.job.model.TaskModel
-import org.apache.samza.config.JobConfig
+import org.apache.samza.checkpoint.TestCheckpointTool.MockCheckpointManagerFactory
+import org.apache.samza.config.{JobConfig, MapConfig, SystemConfig, TaskConfig}
+import org.apache.samza.container.{SamzaContainer, TaskName}
 import org.apache.samza.coordinator.stream.{CoordinatorStreamManager, MockCoordinatorStreamSystemFactory, MockCoordinatorStreamWrappedConsumer}
 import org.apache.samza.job.MockJobFactory
+import org.apache.samza.job.local.{ProcessJobFactory, ThreadJobFactory}
+import org.apache.samza.job.model.{ContainerModel, JobModel, TaskModel}
 import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.storage.ChangelogStreamManager
+import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
+import org.apache.samza.system._
+import org.apache.samza.util.HttpUtil
+import org.junit.Assert._
+import org.junit.{After, Before, Test}
+import org.mockito.Mockito.{mock, when}
 import org.scalatest.{FlatSpec, PrivateMethodTester}
 
+import scala.collection.JavaConverters._
 import scala.collection.immutable
 
 
@@ -238,19 +231,14 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
   @Test
   def testWithPartitionAssignmentWithMockJobFactory {
     val config = new SystemConfig(getTestConfig(classOf[MockJobFactory]))
-
-    val systemNames = Set("test")
-
-    // Map the name of each system to the corresponding SystemAdmin
-    val systemAdminMap = systemNames.map(systemName => {
-      val systemFactoryClassName = config
-        .getSystemFactory(systemName)
-        .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemName))
-      val systemFactory = Util.getObj(systemFactoryClassName, classOf[SystemFactory])
-      systemName -> systemFactory.getAdmin(systemName, config)
-    }).toMap
-
-    val streamMetadataCache = new StreamMetadataCache(new SystemAdmins(systemAdminMap.asJava))
+    val systemStream = new SystemStream("test", "stream1")
+    val streamMetadataCache = mock(classOf[StreamMetadataCache])
+    when(streamMetadataCache.getStreamMetadata(Set(systemStream), true)).thenReturn(
+      Map(systemStream -> new SystemStreamMetadata(systemStream.getStream,
+        Map(new Partition(0) -> new SystemStreamPartitionMetadata("", "", ""),
+          new Partition(1) -> new SystemStreamPartitionMetadata("", "", ""),
+          new Partition(2) -> new SystemStreamPartitionMetadata("", "", "")
+        ).asJava)))
     val getInputStreamPartitions = PrivateMethod[immutable.Set[Any]]('getInputStreamPartitions)
     val getMatchedInputStreamPartitions = PrivateMethod[immutable.Set[Any]]('getMatchedInputStreamPartitions)
 

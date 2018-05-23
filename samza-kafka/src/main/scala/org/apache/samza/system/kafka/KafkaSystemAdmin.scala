@@ -583,8 +583,6 @@ class KafkaSystemAdmin(
     * This only works with Kafka cluster 0.11 or later. Otherwise it's a no-op.
     */
   override def deleteMessages(offsets: util.Map[SystemStreamPartition, String]) {
-    deleteMessagesCalled = true
-
     if (!running) {
       throw new SamzaException(s"KafkaSystemAdmin has not started yet for system $systemName")
     }
@@ -593,6 +591,7 @@ class KafkaSystemAdmin(
         (new TopicPartition(systemStreamPartition.getStream, systemStreamPartition.getPartition.getPartitionId), offset.toLong + 1)
       }.toMap
       adminClient.deleteRecordsBefore(nextOffsets)
+      deleteMessagesCalled = true
     }
   }
 

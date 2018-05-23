@@ -234,7 +234,7 @@ class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSug
     }
   }
 
-  class MockStreamMetadataCache extends StreamMetadataCache(new SystemAdmins(new HashMap[String, SystemAdmin])) {
+  class MockStreamMetadataCache extends StreamMetadataCache(SystemAdmins.empty()) {
     /**
      * Returns metadata about each of the given streams (such as first offset, newest
      * offset, etc). If the metadata isn't in the cache, it is retrieved from the systems

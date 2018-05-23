@@ -255,7 +255,7 @@ class DefaultChooser(
    * Defines a mapping from SystemStream name to SystemAdmin.
    * This is useful for determining if a bootstrap SystemStream is caught up.
    */
-  systemAdmins: SystemAdmins = new SystemAdmins(new HashMap[String, SystemAdmin])) extends MessageChooser with Logging {
+  systemAdmins: SystemAdmins = SystemAdmins.empty()) extends MessageChooser with Logging {
 
   val chooser = {
     val useBatching = batchSize.isDefined

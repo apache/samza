@@ -29,14 +29,14 @@ import java.util.List;
 public class ZkControllerImpl implements ZkController {
   private static final Logger LOG = LoggerFactory.getLogger(ZkControllerImpl.class);
 
-  private final String processorIdStr;
+  private final String processorId;
   private final ZkUtils zkUtils;
   private final ZkControllerListener zkControllerListener;
   private final LeaderElector zkLeaderElector;
 
-  public ZkControllerImpl(String processorIdStr, ZkUtils zkUtils,
+  public ZkControllerImpl(String processorId, ZkUtils zkUtils,
       ZkControllerListener zkControllerListener, LeaderElector zkLeaderElector) {
-    this.processorIdStr = processorIdStr;
+    this.processorId = processorId;
     this.zkUtils = zkUtils;
     this.zkControllerListener = zkControllerListener;
     this.zkLeaderElector = zkLeaderElector;
@@ -83,12 +83,12 @@ public class ZkControllerImpl implements ZkController {
 
   @Override
   public void stop() {
-    if (isLeader()) {
-      zkLeaderElector.resignLeadership();
-    }
-
-    // close zk connection
-    if (zkUtils != null) {
+    try {
+      if (isLeader()) {
+        zkLeaderElector.resignLeadership();
+      }
+    } finally {
+      zkUtils.deleteProcessorNode(processorId);
       zkUtils.close();
     }
   }
@@ -147,7 +147,7 @@ public class ZkControllerImpl implements ZkController {
       if (notAValidEvent())
         return;
 
-      LOG.info("pid=" + processorIdStr + ". Got notification on version update change. path=" + dataPath + "; data="
+      LOG.info("pid=" + processorId + ". Got notification on version update change. path=" + dataPath + "; data="
           + data);
       zkControllerListener.onNewJobModelAvailable((String) data);
     }

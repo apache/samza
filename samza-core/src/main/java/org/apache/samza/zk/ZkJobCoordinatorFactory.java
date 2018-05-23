@@ -58,7 +58,7 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
     ZkKeyBuilder keyBuilder = new ZkKeyBuilder(getJobCoordinationZkPath(config));
     ZkClient zkClient = ZkCoordinationUtilsFactory
         .createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
-    return new ZkUtils(keyBuilder, zkClient, zkConfig.getZkConnectionTimeoutMs(), metricsRegistry);
+    return new ZkUtils(keyBuilder, zkClient, zkConfig.getZkConnectionTimeoutMs(), zkConfig.getZkSessionTimeoutMs(), metricsRegistry);
   }
 
   public static String getJobCoordinationZkPath(Config config) {

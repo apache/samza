@@ -64,14 +64,18 @@ public class TestRocksDbKeyValueStoreJava {
     KeyValueSnapshot<byte[], byte[]> snapshot = store.snapshot(firstKey, lastKey);
     // Make sure the cached Iterable won't change when new elements are added
     store.put(genKey(outputStream, prefix, 200), genValue());
-    assertTrue(Iterators.size(snapshot.iterator()) == 100);
-
+    KeyValueIterator<byte[], byte[]> iterator = snapshot.iterator();
+    assertTrue(Iterators.size(iterator) == 100);
+    iterator.close();
     List<Integer> keys = new ArrayList<>();
-    for (Entry<byte[], byte[]> entry : snapshot) {
+    KeyValueIterator<byte[], byte[]> iterator2 = snapshot.iterator();
+    while (iterator2.hasNext()) {
+      Entry<byte[], byte[]> entry = iterator2.next();
       int key = Ints.fromByteArray(Arrays.copyOfRange(entry.getKey(), prefix.getBytes().length, entry.getKey().length));
       keys.add(key);
     }
     assertEquals(keys, IntStream.rangeClosed(0, 99).boxed().collect(Collectors.toList()));
+    iterator2.close();
 
     outputStream.close();
     snapshot.close();
@@ -99,24 +103,27 @@ public class TestRocksDbKeyValueStoreJava {
     byte[] lastKey = genKey(outputStream, prefix, Integer.MAX_VALUE);
 
     long start;
-    KeyValueIterator iter;
 
     start = System.currentTimeMillis();
-    iter = store.range(firstKey, lastKey);
+    KeyValueIterator<byte[], byte[]> iterator1 = store.range(firstKey, lastKey);
     long rangeTime = System.currentTimeMillis() - start;
     start = System.currentTimeMillis();
-    Iterators.size(iter);
+    Iterators.size(iterator1);
     long rangeIterTime = System.currentTimeMillis() - start;
     System.out.println("range iter create time: " + rangeTime + ", iterate time: " + rangeIterTime);
-
+    iterator1.close();
     // Please comment out range query part in order to do an accurate perf test for snapshot
     start = System.currentTimeMillis();
-    iter = store.snapshot(firstKey, lastKey).iterator();
+    KeyValueSnapshot<byte[], byte[]> snapshot = store.snapshot(firstKey, lastKey);
+    KeyValueIterator<byte[], byte[]> iterator2 = snapshot.iterator();
     long snapshotTime = System.currentTimeMillis() - start;
     start = System.currentTimeMillis();
-    Iterators.size(iter);
+    Iterators.size(iterator2);
     long snapshotIterTime = System.currentTimeMillis() - start;
     System.out.println("snapshot iter create time: " + snapshotTime + ", iterate time: " + snapshotIterTime);
+    iterator2.close();
+    snapshot.close();
+    store.close();
   }
 
   private byte[] genKey(ByteArrayOutputStream outputStream, String prefix, int i) throws Exception {
