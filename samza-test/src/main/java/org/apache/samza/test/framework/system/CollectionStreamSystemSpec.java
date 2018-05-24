@@ -42,7 +42,6 @@ public class CollectionStreamSystemSpec {
 
   private String systemName;
   private Map<String, String> systemConfigs;
-  private InMemorySystemFactory factory;
 
   /**
    * Constructs a new CollectionStreamSystem from specified components.
@@ -54,7 +53,6 @@ public class CollectionStreamSystemSpec {
    */
   private CollectionStreamSystemSpec(String systemName) {
     this.systemName = systemName;
-    factory = new InMemorySystemFactory();
     systemConfigs = new HashMap<String, String>();
     systemConfigs.put(String.format(SYSTEM_FACTORY, systemName), InMemorySystemFactory.class.getName());
     systemConfigs.put(String.format(SYSTEM_OFFSET, systemName), "oldest");
@@ -62,10 +60,6 @@ public class CollectionStreamSystemSpec {
 
   public String getSystemName() {
     return systemName;
-  }
-
-  public InMemorySystemFactory getFactory() {
-    return factory;
   }
 
   public Map<String, String> getSystemConfigs() {

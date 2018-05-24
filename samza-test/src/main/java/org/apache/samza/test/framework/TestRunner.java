@@ -43,12 +43,12 @@ import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
+import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.system.inmemory.InMemorySystemConsumer;
 import org.apache.samza.system.inmemory.InMemorySystemFactory;
 import org.apache.samza.task.AsyncStreamTask;
 import org.apache.samza.task.StreamTask;
@@ -74,17 +74,18 @@ import org.apache.samza.test.framework.system.CollectionStreamSystemSpec;
 public class TestRunner {
 
   private static final String JOB_NAME = "test-samza";
-  private static Random random = new Random();
+  private static final Random RANDOM = new Random();
 
   public enum Mode {
     SINGLE_CONTAINER, MULTI_CONTAINER
   }
 
   private Map<String, String> configs;
-  private static ThreadLocal<Map<Integer, Map<String, CollectionStreamSystemSpec>>> systems;
+  private Map<String, CollectionStreamSystemSpec> systems;
   private Class taskClass;
   private StreamApplication app;
   private Integer testId;
+  private SystemFactory factory;
 
   /**
    * Mode defines single or multi container running configuration, by default a single container configuration is assumed
@@ -92,15 +93,12 @@ public class TestRunner {
   private Mode mode;
 
   private TestRunner() {
-    this.testId = random.nextInt();
-    this.systems = new ThreadLocal<Map<Integer, Map<String, CollectionStreamSystemSpec>>>() {
-      @Override
-      protected Map<Integer, Map<String, CollectionStreamSystemSpec>> initialValue() {
-        return new HashMap<>();
-      }
-    };
+    this.testId = RANDOM.nextInt();
+    this.systems = new HashMap<String, CollectionStreamSystemSpec>();
     this.configs = new HashMap<>();
     this.mode = Mode.SINGLE_CONTAINER;
+    this.factory = new InMemorySystemFactory();
+    configs.put(JobConfig.JOB_ID(), Integer.toString(testId));
     configs.put(JobConfig.JOB_NAME(), JOB_NAME);
     configs.putIfAbsent(JobConfig.PROCESSOR_ID(), "1");
     configs.putIfAbsent(JobCoordinatorConfig.JOB_COORDINATION_UTILS_FACTORY, PassthroughCoordinationUtilsFactory.class.getName());
@@ -134,15 +132,9 @@ public class TestRunner {
    * job configs
    */
   private void registerSystem(String systemName) {
-    if (!systems.get().containsKey(testId)) {
-      systems.get().put(testId, new HashMap<String, CollectionStreamSystemSpec>());
-    }
-
-    if (!systems.get().get(testId).containsKey(systemName)) {
-      Map<String, CollectionStreamSystemSpec> testSystems = new HashMap<String, CollectionStreamSystemSpec>();
-      testSystems.put(systemName, CollectionStreamSystemSpec.create(systemName));
-      systems.get().put(testId, testSystems);
-      configs.putAll(testSystems.get(systemName).getSystemConfigs());
+    if (!systems.containsKey(systemName)) {
+      systems.put(systemName, CollectionStreamSystemSpec.create(systemName));
+      configs.putAll(systems.get(systemName).getSystemConfigs());
     }
   }
 
@@ -236,11 +228,9 @@ public class TestRunner {
     String streamName = stream.getStreamName();
     String systemName = stream.getSystemName();
     Map<Integer, Iterable<T>> partitions = stream.getInitPartitions();
-    Map<String, String> systemConfigs = systems.get().get(testId).get(systemName).getSystemConfigs();
-    InMemorySystemFactory factory = systems.get().get(testId).get(systemName).getFactory();
     StreamSpec spec = new StreamSpec(streamName, streamName, systemName, partitions.size());
-    factory.getAdmin(systemName, new MapConfig(systemConfigs)).createStream(spec);
-    SystemProducer producer = factory.getProducer(systemName, new MapConfig(systemConfigs), null);
+    factory.getAdmin(systemName, new MapConfig(configs)).createStream(spec);
+    SystemProducer producer = factory.getProducer(systemName, new MapConfig(configs), null);
     partitions.forEach((partitionId, partition) -> {
         partition.forEach(e -> {
             Object key = e instanceof KV ? ((KV) e).getKey() : null;
@@ -269,11 +259,9 @@ public class TestRunner {
     Preconditions.checkState(stream.getInitPartitions().size() >= 1);
     registerSystem(stream.getSystemName());
     stream.setTestId(testId);
-    CollectionStreamSystemSpec system = systems.get().get(testId).get(stream.getSystemName());
-    StreamSpec spec = new StreamSpec(stream.getStreamName(), stream.getStreamName(), system.getSystemName(), stream.getInitPartitions().size());
-    system
-        .getFactory()
-        .getAdmin(system.getSystemName(), new MapConfig(system.getSystemConfigs()))
+    StreamSpec spec = new StreamSpec(stream.getStreamName(), stream.getStreamName(), stream.getSystemName(), stream.getInitPartitions().size());
+    factory
+        .getAdmin(stream.getSystemName(), new MapConfig(configs))
         .createStream(spec);
     configs.putAll(stream.getStreamConfig());
     return this;
@@ -310,16 +298,17 @@ public class TestRunner {
   public static <T> Map<Integer, List<T>> consumeStream(CollectionStream stream, Integer timeout) throws InterruptedException {
     Preconditions.checkNotNull(stream);
     Preconditions.checkNotNull(stream.getSystemName());
-    Preconditions.checkNotNull(systems.get().containsKey(stream.getSystemName()));
     String streamName = stream.getStreamName();
     String systemName = stream.getSystemName();
     Set<SystemStreamPartition> ssps = new HashSet<>();
     Set<String> streamNames = new HashSet<>();
     streamNames.add(streamName);
-    SystemFactory factory = systems.get().get(stream.getTestId()).get(systemName).getFactory();
+    SystemFactory factory = new InMemorySystemFactory();
+    HashMap<String, String> config = new HashMap<>();
+    config.put(JobConfig.JOB_ID(), Integer.toString(stream.getTestId()));
     Map<String, SystemStreamMetadata> metadata =
-        factory.getAdmin(systemName, new MapConfig()).getSystemStreamMetadata(streamNames);
-    InMemorySystemConsumer consumer = (InMemorySystemConsumer) factory.getConsumer(systemName, null, null);
+        factory.getAdmin(systemName, new MapConfig(config)).getSystemStreamMetadata(streamNames);
+    SystemConsumer consumer = factory.getConsumer(systemName, new MapConfig(config), null);
     metadata.get(stream.getStreamName()).getSystemStreamPartitionMetadata().keySet().forEach(partition -> {
         SystemStreamPartition temp = new SystemStreamPartition(systemName, streamName, partition);
         ssps.add(temp);

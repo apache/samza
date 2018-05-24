@@ -41,7 +41,7 @@ public class CollectionStream<T> {
   private Integer testId;
   private final String streamName;
   private final String systemName;
-  private Map<Integer, Iterable<T>> partitions;
+  private Map<Integer, Iterable<T>> initPartitions;
   private Map<String, String> streamConfig;
   private static final String STREAM_TO_SYSTEM = "streams.%s.samza.system";
 
@@ -70,9 +70,9 @@ public class CollectionStream<T> {
   private CollectionStream(String systemName, String streamName, Integer partitionCount) {
     this(systemName, streamName);
     Preconditions.checkState(partitionCount > 0);
-    partitions = new HashMap<>();
+    initPartitions = new HashMap<>();
     for (int i = 0; i < partitionCount; i++) {
-      partitions.put(i, new ArrayList<>());
+      initPartitions.put(i, new ArrayList<>());
     }
   }
 
@@ -86,8 +86,8 @@ public class CollectionStream<T> {
   private CollectionStream(String systemName, String streamName, Iterable<T> initPartition) {
     this(systemName, streamName);
     Preconditions.checkNotNull(initPartition);
-    partitions = new HashMap<>();
-    partitions.put(0, initPartition);
+    initPartitions = new HashMap<>();
+    initPartitions.put(0, initPartition);
   }
 
   /**
@@ -100,7 +100,7 @@ public class CollectionStream<T> {
   private CollectionStream(String systemName, String streamName, Map<Integer, ? extends Iterable<T>> initPartitions) {
     this(systemName, streamName);
     Preconditions.checkNotNull(initPartitions);
-    partitions = new HashMap<>(initPartitions);
+    initPartitions = new HashMap<>(initPartitions);
   }
 
   /**
@@ -109,7 +109,7 @@ public class CollectionStream<T> {
    * The true state of stream is determined by {@code consmeStream()} of {@link org.apache.samza.test.framework.TestRunner}
    */
   public Map<Integer, Iterable<T>> getInitPartitions() {
-    return partitions;
+    return initPartitions;
   }
 
   public String getStreamName() {
