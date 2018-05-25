@@ -18,7 +18,6 @@
  */
 package org.apache.samza.operators.spec;
 
-import com.google.common.annotations.VisibleForTesting;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -66,7 +65,7 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
    */
   private final LinkedHashSet<OperatorSpec<OM, ?>> nextOperatorSpecs = new LinkedHashSet<>();
 
-  @VisibleForTesting
+  // this method is used in unit tests to verify an {@link OperatorSpec} instance is a deserialized copy of this object.
   final boolean isClone(OperatorSpec other) {
     return this != other && this.getClass().isAssignableFrom(other.getClass())
         && this.opCode.equals(other.opCode) && this.opId.equals(other.opId);
