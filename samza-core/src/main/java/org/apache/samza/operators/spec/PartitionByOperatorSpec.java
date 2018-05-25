@@ -19,10 +19,11 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
-import java.util.function.Function;
+import static com.google.common.base.Preconditions.checkArgument;
 
 
 /**
@@ -39,21 +40,25 @@ import java.util.function.Function;
 public class PartitionByOperatorSpec<M, K, V> extends OperatorSpec<M, Void> {
 
   private final OutputStreamImpl<KV<K, V>> outputStream;
-  private final Function<? super M, ? extends K> keyFunction;
-  private final Function<? super M, ? extends V> valueFunction;
+  private final MapFunction<? super M, ? extends K> keyFunction;
+  private final MapFunction<? super M, ? extends V> valueFunction;
 
   /**
    * Constructs an {@link PartitionByOperatorSpec} to send messages to the provided {@code outputStream}
    *
    * @param outputStream the {@link OutputStreamImpl} to send messages to
-   * @param keyFunction the {@link Function} for extracting the key from the message
-   * @param valueFunction the {@link Function} for extracting the value from the message
+   * @param keyFunction the {@link MapFunction} for extracting the key from the message
+   * @param valueFunction the {@link MapFunction} for extracting the value from the message
    * @param opId the unique ID of this {@link SinkOperatorSpec} in the graph
    */
   PartitionByOperatorSpec(OutputStreamImpl<KV<K, V>> outputStream,
-      Function<? super M, ? extends K> keyFunction,
-      Function<? super M, ? extends V> valueFunction, String opId) {
+      MapFunction<? super M, ? extends K> keyFunction,
+      MapFunction<? super M, ? extends V> valueFunction, String opId) {
     super(OpCode.PARTITION_BY, opId);
+    checkArgument(!(keyFunction instanceof TimerFunction || keyFunction instanceof WatermarkFunction),
+        "keyFunction for partitionBy should not implement TimerFunction or WatermarkFunction.");
+    checkArgument(!(valueFunction instanceof TimerFunction || valueFunction instanceof WatermarkFunction),
+        "valueFunction for partitionBy should not implement TimerFunction or WatermarkFunction.");
     this.outputStream = outputStream;
     this.keyFunction = keyFunction;
     this.valueFunction = valueFunction;
@@ -67,11 +72,11 @@ public class PartitionByOperatorSpec<M, K, V> extends OperatorSpec<M, Void> {
     return this.outputStream;
   }
 
-  public Function<? super M, ? extends K> getKeyFunction() {
+  public MapFunction<? super M, ? extends K> getKeyFunction() {
     return keyFunction;
   }
 
-  public Function<? super M, ? extends V> getValueFunction() {
+  public MapFunction<? super M, ? extends V> getValueFunction() {
     return valueFunction;
   }
 

@@ -18,21 +18,18 @@
  */
 package org.apache.samza.operators;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.spec.InputOperatorSpec;
-import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec.OpCode;
 import org.apache.samza.operators.spec.OperatorSpecs;
 import org.apache.samza.operators.spec.OutputStreamImpl;
@@ -47,14 +44,17 @@ import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 
 /**
- * A {@link StreamGraph} that provides APIs for accessing {@link MessageStream}s to be used to
+ * This class defines:
+ * 1) an implementation of {@link StreamGraph} that provides APIs for accessing {@link MessageStream}s to be used to
  * create the DAG of transforms.
+ * 2) a builder that creates a serializable {@link OperatorSpecGraph} from user-defined DAG
  */
-public class StreamGraphImpl implements StreamGraph {
-  private static final Logger LOGGER = LoggerFactory.getLogger(StreamGraphImpl.class);
+public class StreamGraphSpec implements StreamGraph {
+  private static final Logger LOGGER = LoggerFactory.getLogger(StreamGraphSpec.class);
   private static final Pattern USER_DEFINED_ID_PATTERN = Pattern.compile("[\\d\\w-_.]+");
 
   // We use a LHM for deterministic order in initializing and closing operators.
@@ -63,7 +63,6 @@ public class StreamGraphImpl implements StreamGraph {
   private final Map<TableSpec, TableImpl> tables = new LinkedHashMap<>();
   private final ApplicationRunner runner;
   private final Config config;
-
 
   /**
    * The 0-based position of the next operator in the graph.
@@ -75,8 +74,8 @@ public class StreamGraphImpl implements StreamGraph {
   private Serde<?> defaultSerde = new KVSerde(new NoOpSerde(), new NoOpSerde());
   private ContextManager contextManager = null;
 
-  public StreamGraphImpl(ApplicationRunner runner, Config config) {
-    // TODO: SAMZA-1118 - Move StreamSpec and ApplicationRunner out of StreamGraphImpl once Systems
+  public StreamGraphSpec(ApplicationRunner runner, Config config) {
+    // TODO: SAMZA-1118 - Move StreamSpec and ApplicationRunner out of StreamGraphSpec once Systems
     // can use streamId to send and receive messages.
     this.runner = runner;
     this.config = config;
@@ -167,64 +166,12 @@ public class StreamGraphImpl implements StreamGraph {
     return this;
   }
 
-  /**
-   * See {@link StreamGraphImpl#getIntermediateStream(String, Serde, boolean)}.
-   */
-  <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde) {
-    return getIntermediateStream(streamId, serde, false);
-  }
-
-  /**
-   * Internal helper for {@link MessageStreamImpl} to add an intermediate {@link MessageStream} to the graph.
-   * An intermediate {@link MessageStream} is both an output and an input stream.
-   *
-   * @param streamId the id of the stream to be created.
-   * @param serde the {@link Serde} to use for the message in the intermediate stream. If null, the default serde
-   *              is used.
-   * @param isBroadcast whether the stream is a broadcast stream.
-   * @param <M> the type of messages in the intermediate {@link MessageStream}
-   * @return  the intermediate {@link MessageStreamImpl}
-   *
-   * TODO: once SAMZA-1566 is resolved, we should be able to pass in the StreamSpec directly.
-   */
-  <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde, boolean isBroadcast) {
-    StreamSpec streamSpec = runner.getStreamSpec(streamId);
-    if (isBroadcast) {
-      streamSpec = streamSpec.copyWithBroadCast();
-    }
-
-    Preconditions.checkState(!inputOperators.containsKey(streamSpec) && !outputStreams.containsKey(streamSpec),
-        "getIntermediateStream must not be called multiple times with the same streamId: " + streamId);
-
-    if (serde == null) {
-      LOGGER.info("Using default serde for intermediate stream: " + streamId);
-      serde = (Serde<M>) defaultSerde;
-    }
-
-    boolean isKeyed = serde instanceof KVSerde;
-    KV<Serde, Serde> kvSerdes = getKVSerdes(streamId, serde);
-    InputOperatorSpec inputOperatorSpec =
-        OperatorSpecs.createInputOperatorSpec(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(),
-            isKeyed, this.getNextOpId(OpCode.INPUT, null));
-    inputOperators.put(streamSpec, inputOperatorSpec);
-    outputStreams.put(streamSpec, new OutputStreamImpl(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed));
-    return new IntermediateMessageStreamImpl<>(this, inputOperators.get(streamSpec), outputStreams.get(streamSpec));
-  }
-
-  public Map<StreamSpec, InputOperatorSpec> getInputOperators() {
-    return Collections.unmodifiableMap(inputOperators);
-  }
-
-  public Map<StreamSpec, OutputStreamImpl> getOutputStreams() {
-    return Collections.unmodifiableMap(outputStreams);
-  }
-
-  public Map<TableSpec, TableImpl> getTables() {
-    return Collections.unmodifiableMap(tables);
-  }
-
   public ContextManager getContextManager() {
     return this.contextManager;
+  }
+
+  public OperatorSpecGraph getOperatorSpecGraph() {
+    return new OperatorSpecGraph(this);
   }
 
   /**
@@ -235,7 +182,7 @@ public class StreamGraphImpl implements StreamGraph {
    * @param userDefinedId the optional user-provided name of the next operator or null
    * @return the unique ID for the next operator in the graph
    */
-  /* package private */ String getNextOpId(OpCode opCode, String userDefinedId) {
+  public String getNextOpId(OpCode opCode, String userDefinedId) {
     if (StringUtils.isNotBlank(userDefinedId) && !USER_DEFINED_ID_PATTERN.matcher(userDefinedId).matches()) {
       throw new SamzaException("Operator ID must not contain spaces and special characters: " + userDefinedId);
     }
@@ -260,47 +207,71 @@ public class StreamGraphImpl implements StreamGraph {
    * @param opCode the {@link OpCode} of the next operator
    * @return the unique ID for the next operator in the graph
    */
-  /* package private */ String getNextOpId(OpCode opCode) {
+  public String getNextOpId(OpCode opCode) {
     return getNextOpId(opCode, null);
   }
 
   /**
-   * Get all {@link OperatorSpec}s available in this {@link StreamGraphImpl}
+   * See {@link StreamGraphSpec#getIntermediateStream(String, Serde, boolean)}.
    *
-   * @return  all available {@link OperatorSpec}s
+   * @param <M> type of messages in the intermediate stream
+   * @param streamId the id of the stream to be created
+   * @param serde the {@link Serde} to use for messages in the intermediate stream. If null, the default serde is used.
+   * @return  the intermediate {@link MessageStreamImpl}
    */
-  public Collection<OperatorSpec> getAllOperatorSpecs() {
-    Collection<InputOperatorSpec> inputOperatorSpecs = inputOperators.values();
-    Set<OperatorSpec> operatorSpecs = new HashSet<>();
-    for (InputOperatorSpec inputOperatorSpec: inputOperatorSpecs) {
-      operatorSpecs.add(inputOperatorSpec);
-      doGetOperatorSpecs(inputOperatorSpec, operatorSpecs);
-    }
-    return operatorSpecs;
-  }
-
-  private void doGetOperatorSpecs(OperatorSpec operatorSpec, Set<OperatorSpec> specs) {
-    Collection<OperatorSpec> registeredOperatorSpecs = operatorSpec.getRegisteredOperatorSpecs();
-    for (OperatorSpec registeredOperatorSpec: registeredOperatorSpecs) {
-      specs.add(registeredOperatorSpec);
-      doGetOperatorSpecs(registeredOperatorSpec, specs);
-    }
+  @VisibleForTesting
+  public <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde) {
+    return getIntermediateStream(streamId, serde, false);
   }
 
   /**
-   * Returns <tt>true</tt> iff this {@link StreamGraphImpl} contains a join or a window operator
+   * Internal helper for {@link MessageStreamImpl} to add an intermediate {@link MessageStream} to the graph.
+   * An intermediate {@link MessageStream} is both an output and an input stream.
    *
-   * @return  <tt>true</tt> iff this {@link StreamGraphImpl} contains a join or a window operator
+   * @param streamId the id of the stream to be created.
+   * @param serde the {@link Serde} to use for the message in the intermediate stream. If null, the default serde
+   *              is used.
+   * @param isBroadcast whether the stream is a broadcast stream.
+   * @param <M> the type of messages in the intermediate {@link MessageStream}
+   * @return  the intermediate {@link MessageStreamImpl}
+   *
+   * TODO: once SAMZA-1566 is resolved, we should be able to pass in the StreamSpec directly.
    */
-  public boolean hasWindowOrJoins() {
-    // Obtain the operator specs from the streamGraph
-    Collection<OperatorSpec> operatorSpecs = getAllOperatorSpecs();
+  @VisibleForTesting
+  <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde, boolean isBroadcast) {
+    StreamSpec streamSpec = runner.getStreamSpec(streamId);
+    if (isBroadcast) {
+      streamSpec = streamSpec.copyWithBroadCast();
+    }
 
-    Set<OperatorSpec> windowOrJoinSpecs = operatorSpecs.stream()
-        .filter(spec -> spec.getOpCode() == OperatorSpec.OpCode.WINDOW || spec.getOpCode() == OperatorSpec.OpCode.JOIN)
-        .collect(Collectors.toSet());
+    Preconditions.checkState(!inputOperators.containsKey(streamSpec) && !outputStreams.containsKey(streamSpec),
+        "getIntermediateStream must not be called multiple times with the same streamId: " + streamId);
 
-    return windowOrJoinSpecs.size() != 0;
+    if (serde == null) {
+      LOGGER.info("Using default serde for intermediate stream: " + streamId);
+      serde = (Serde<M>) defaultSerde;
+    }
+
+    boolean isKeyed = serde instanceof KVSerde;
+    KV<Serde, Serde> kvSerdes = getKVSerdes(streamId, serde);
+    InputOperatorSpec inputOperatorSpec =
+        OperatorSpecs.createInputOperatorSpec(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(),
+            isKeyed, this.getNextOpId(OpCode.INPUT, null));
+    inputOperators.put(streamSpec, inputOperatorSpec);
+    outputStreams.put(streamSpec, new OutputStreamImpl(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed));
+    return new IntermediateMessageStreamImpl<>(this, inputOperators.get(streamSpec), outputStreams.get(streamSpec));
+  }
+
+  Map<StreamSpec, InputOperatorSpec> getInputOperators() {
+    return Collections.unmodifiableMap(inputOperators);
+  }
+
+  Map<StreamSpec, OutputStreamImpl> getOutputStreams() {
+    return Collections.unmodifiableMap(outputStreams);
+  }
+
+  Map<TableSpec, TableImpl> getTables() {
+    return Collections.unmodifiableMap(tables);
   }
 
   private KV<Serde, Serde> getKVSerdes(String streamId, Serde serde) {

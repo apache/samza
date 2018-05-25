@@ -19,6 +19,7 @@
 
 package org.apache.samza.sql.translator;
 
+import java.util.Map;
 import java.util.Optional;
 
 import org.apache.calcite.rel.RelNode;
@@ -29,11 +30,14 @@ import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
+import org.apache.samza.config.Config;
+import org.apache.samza.operators.ContextManager;
 import org.apache.samza.SamzaException;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
@@ -43,6 +47,7 @@ import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.planner.QueryPlanner;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
+import org.apache.samza.task.TaskContext;
 import org.apache.samza.table.Table;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,11 +63,33 @@ public class QueryTranslator {
 
   private final ScanTranslator scanTranslator;
   private final SamzaSqlApplicationConfig sqlConfig;
+  private final Map<String, SamzaRelConverter> converters;
+
+  private static class OutputMapFunction implements MapFunction<SamzaSqlRelMessage, KV<Object, Object>> {
+    private transient SamzaRelConverter samzaMsgConverter;
+    private final String outputTopic;
+
+    OutputMapFunction(String outputTopic) {
+      this.outputTopic = outputTopic;
+    }
+
+    @Override
+    public void init(Config config, TaskContext taskContext) {
+      TranslatorContext context = (TranslatorContext) taskContext.getUserContext();
+      this.samzaMsgConverter = context.getMsgConverter(outputTopic);
+    }
+
+    @Override
+    public KV<Object, Object> apply(SamzaSqlRelMessage message) {
+      return this.samzaMsgConverter.convertToSamzaMessage(message);
+    }
+  }
 
   public QueryTranslator(SamzaSqlApplicationConfig sqlConfig) {
     this.sqlConfig = sqlConfig;
     scanTranslator =
         new ScanTranslator(sqlConfig.getSamzaRelConverters(), sqlConfig.getInputSystemStreamConfigBySource());
+    this.converters = sqlConfig.getSamzaRelConverters();
   }
 
   public void translate(SamzaSqlQueryParser.QueryInfo queryInfo, StreamGraph streamGraph) {
@@ -71,7 +98,7 @@ public class QueryTranslator {
             sqlConfig.getUdfMetadata());
     final SamzaSqlExecutionContext executionContext = new SamzaSqlExecutionContext(this.sqlConfig);
     final RelRoot relRoot = planner.plan(queryInfo.getSelectQuery());
-    final TranslatorContext context = new TranslatorContext(streamGraph, relRoot, executionContext);
+    final TranslatorContext context = new TranslatorContext(streamGraph, relRoot, executionContext, this.converters);
     final RelNode node = relRoot.project();
     final SqlIOResolver ioResolver = context.getExecutionContext().getSamzaSqlApplicationConfig().getIoResolver();
 
@@ -119,9 +146,8 @@ public class QueryTranslator {
 
     String sink = queryInfo.getSink();
     SqlIOConfig sinkConfig = sqlConfig.getOutputSystemStreamConfigsBySource().get(sink);
-    SamzaRelConverter samzaMsgConverter = sqlConfig.getSamzaRelConverters().get(queryInfo.getSink());
     MessageStreamImpl<SamzaSqlRelMessage> stream = (MessageStreamImpl<SamzaSqlRelMessage>) context.getMessageStream(node.getId());
-    MessageStream<KV<Object, Object>> outputStream = stream.map(samzaMsgConverter::convertToSamzaMessage);
+    MessageStream<KV<Object, Object>> outputStream = stream.map(new OutputMapFunction(sink));
 
     Optional<TableDescriptor> tableDescriptor = sinkConfig.getTableDescriptor();
     if (!tableDescriptor.isPresent()) {
@@ -135,5 +161,19 @@ public class QueryTranslator {
       }
       outputStream.sendTo(outputTable);
     }
+
+    streamGraph.withContextManager(new ContextManager() {
+      @Override
+      public void init(Config config, TaskContext taskContext) {
+        taskContext.setUserContext(context.clone());
+      }
+
+      @Override
+      public void close() {
+
+      }
+
+    });
+
   }
 }

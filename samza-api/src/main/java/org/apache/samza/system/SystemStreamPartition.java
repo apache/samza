@@ -60,7 +60,7 @@ public class SystemStreamPartition extends SystemStream implements Comparable<Sy
   public Partition getPartition() {
     return partition;
   }
-  
+
   public SystemStream getSystemStream() {
     return new SystemStream(system, stream);
   }
@@ -69,7 +69,7 @@ public class SystemStreamPartition extends SystemStream implements Comparable<Sy
   public int hashCode() {
     return hash;
   }
-  
+
   private int computeHashCode() {
     final int prime = 31;
     int result = super.hashCode();

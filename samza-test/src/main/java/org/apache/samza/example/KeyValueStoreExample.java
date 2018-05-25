@@ -45,7 +45,19 @@ import java.util.concurrent.TimeUnit;
  */
 public class KeyValueStoreExample implements StreamApplication {
 
-  @Override public void init(StreamGraph graph, Config config) {
+  // local execution mode
+  public static void main(String[] args) throws Exception {
+    CommandLine cmdLine = new CommandLine();
+    Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
+    KeyValueStoreExample app = new KeyValueStoreExample();
+    LocalApplicationRunner runner = new LocalApplicationRunner(config);
+
+    runner.run(app);
+    runner.waitForFinish();
+  }
+
+  @Override
+  public void init(StreamGraph graph, Config config) {
     MessageStream<PageViewEvent> pageViewEvents =
         graph.getInputStream("pageViewEventStream", new JsonSerdeV2<>(PageViewEvent.class));
     OutputStream<KV<String, StatsOutput>> pageViewEventPerMember =
@@ -61,15 +73,7 @@ public class KeyValueStoreExample implements StreamApplication {
         .sendTo(pageViewEventPerMember);
   }
 
-  // local execution mode
-  public static void main(String[] args) throws Exception {
-    CommandLine cmdLine = new CommandLine();
-    Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    LocalApplicationRunner localRunner = new LocalApplicationRunner(config);
-    localRunner.run(new KeyValueStoreExample());
-  }
-
-  class MyStatsCounter implements FlatMapFunction<PageViewEvent, StatsOutput> {
+  static class MyStatsCounter implements FlatMapFunction<PageViewEvent, StatsOutput> {
     private final int timeoutMs = 10 * 60 * 1000;
 
     KeyValueStore<String, StatsWindowState> statsStore;
@@ -86,6 +90,9 @@ public class KeyValueStoreExample implements StreamApplication {
       long wndTimestamp = (long) Math.floor(TimeUnit.MILLISECONDS.toMinutes(message.timestamp) / 5) * 5;
       String wndKey = String.format("%s-%d", message.memberId, wndTimestamp);
       StatsWindowState curState = this.statsStore.get(wndKey);
+      if (curState == null) {
+        curState = new StatsWindowState();
+      }
       curState.newCount++;
       long curTimeMs = System.currentTimeMillis();
       if (curState.newCount > 0 && curState.timeAtLastOutput + timeoutMs < curTimeMs) {
@@ -117,7 +124,7 @@ public class KeyValueStoreExample implements StreamApplication {
     }
   }
 
-  class StatsOutput {
+  static class StatsOutput {
     private String memberId;
     private long timestamp;
     private Integer count;

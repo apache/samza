@@ -25,8 +25,9 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.FoldLeftFunction;
-import org.apache.samza.operators.triggers.Triggers;
+import org.apache.samza.operators.functions.SupplierFunction;
 import org.apache.samza.operators.windows.WindowPane;
+import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
@@ -34,7 +35,6 @@ import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
-import java.util.function.Supplier;
 
 
 /**
@@ -43,9 +43,21 @@ import java.util.function.Supplier;
  */
 public class WindowExample implements StreamApplication {
 
+  // local execution mode
+  public static void main(String[] args) throws Exception {
+    CommandLine cmdLine = new CommandLine();
+    Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
+    WindowExample app = new WindowExample();
+    LocalApplicationRunner runner = new LocalApplicationRunner(config);
+
+    runner.run(app);
+    runner.waitForFinish();
+  }
+
   @Override
   public void init(StreamGraph graph, Config config) {
-    Supplier<Integer> initialValue = () -> 0;
+
+    SupplierFunction<Integer> initialValue = () -> 0;
     FoldLeftFunction<PageViewEvent, Integer> counter = (m, c) -> c == null ? 1 : c + 1;
     MessageStream<PageViewEvent> inputStream = graph.getInputStream("inputStream", new JsonSerdeV2<PageViewEvent>());
     OutputStream<Integer> outputStream = graph.getOutputStream("outputStream", new IntegerSerde());
@@ -59,14 +71,7 @@ public class WindowExample implements StreamApplication {
                 Triggers.timeSinceLastMessage(Duration.ofMinutes(1)))), "window")
         .map(WindowPane::getMessage)
         .sendTo(outputStream);
-  }
 
-  // local execution mode
-  public static void main(String[] args) throws Exception {
-    CommandLine cmdLine = new CommandLine();
-    Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    LocalApplicationRunner localRunner = new LocalApplicationRunner(config);
-    localRunner.run(new WindowExample());
   }
 
   class PageViewEvent {
