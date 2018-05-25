@@ -20,7 +20,7 @@ if [ `uname` == 'Linux' ];
 then
   base_dir=$(readlink -f $(dirname $0))
 else
-  base_dir=$(realpath $(dirname $0))
+  base_dir=$(dirname $0)
 fi
 
 if [ "x$LOG4J_OPTS" = "x" ]; then

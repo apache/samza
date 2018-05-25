@@ -52,6 +52,7 @@ rat {
     '**/*.svg',
     '**/*.ttf',
     '**/*.woff',
+    '*.log',
     '**/hs_err_pid*.log',
     '**/.classpath',
     '**/.cache/**',
@@ -451,6 +452,7 @@ project(":samza-yarn_$scalaVersion") {
     compile "org.scala-lang:scala-compiler:$scalaLibVersion"
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     compile "commons-httpclient:commons-httpclient:$commonsHttpClientVersion"
+    compile "org.apache.httpcomponents:httpclient:$httpClientVersion"
     compile("org.apache.hadoop:hadoop-yarn-api:$yarnVersion") {
       exclude module: 'slf4j-log4j12'
     }

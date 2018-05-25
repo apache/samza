@@ -83,6 +83,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 
   private static final int NUM_KAFKA_EVENTS = 300;
   private static final int ZK_CONNECTION_TIMEOUT_MS = 5000;
+  private static final int ZK_SESSION_TIMEOUT_MS = 10000;
   private static final String TEST_SYSTEM = "TestSystemName";
   private static final String TEST_SSP_GROUPER_FACTORY = "org.apache.samza.container.grouper.stream.GroupByPartitionFactory";
   private static final String TEST_TASK_GROUPER_FACTORY = "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory";
@@ -133,7 +134,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 
     ZkClient zkClient = new ZkClient(zkConnect());
     ZkKeyBuilder zkKeyBuilder = new ZkKeyBuilder(ZkJobCoordinatorFactory.getJobCoordinationZkPath(applicationConfig1));
-    zkUtils = new ZkUtils(zkKeyBuilder, zkClient, ZK_CONNECTION_TIMEOUT_MS, new NoOpMetricsRegistry());
+    zkUtils = new ZkUtils(zkKeyBuilder, zkClient, ZK_CONNECTION_TIMEOUT_MS, ZK_SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
     zkUtils.connect();
 
     for (String kafkaTopic : ImmutableList.of(inputKafkaTopic, outputKafkaTopic)) {

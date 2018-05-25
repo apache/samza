@@ -78,13 +78,13 @@ public class ZkUtils {
   private static final Logger LOG = LoggerFactory.getLogger(ZkUtils.class);
   /* package private */static final String ZK_PROTOCOL_VERSION = "1.0";
 
-
   private final ZkClient zkClient;
   private volatile String ephemeralPath = null;
   private final ZkKeyBuilder keyBuilder;
   private final int connectionTimeoutMs;
   private final AtomicInteger currentGeneration;
   private final ZkUtilsMetrics metrics;
+  private final int sessionTimeoutMs;
 
   public void incGeneration() {
     currentGeneration.incrementAndGet();
@@ -94,26 +94,25 @@ public class ZkUtils {
     return currentGeneration.get();
   }
 
-  public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs, MetricsRegistry metricsRegistry) {
+  public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs, int sessionTimeOutMs, MetricsRegistry metricsRegistry) {
     this.keyBuilder = zkKeyBuilder;
     this.connectionTimeoutMs = connectionTimeoutMs;
     this.zkClient = zkClient;
     this.metrics = new ZkUtilsMetrics(metricsRegistry);
     this.currentGeneration = new AtomicInteger(0);
+    this.sessionTimeoutMs = sessionTimeOutMs;
   }
 
   public void connect() throws ZkInterruptedException {
     boolean isConnected = zkClient.waitUntilConnected(connectionTimeoutMs, TimeUnit.MILLISECONDS);
     if (!isConnected) {
-      if (metrics != null) {
-        metrics.zkConnectionError.inc();
-      }
+      metrics.zkConnectionError.inc();
       throw new RuntimeException("Unable to connect to Zookeeper within connectionTimeout " + connectionTimeoutMs + "ms. Shutting down!");
     }
   }
 
   // reset all zk-session specific state
-  public void unregister() {
+  public synchronized void unregister() {
     ephemeralPath = null;
   }
 
@@ -135,21 +134,58 @@ public class ZkUtils {
    * @return String representing the absolute ephemeralPath of this client in the current session
    */
   public synchronized String registerProcessorAndGetId(final ProcessorData data) {
+    final long startTimeMs = System.currentTimeMillis();
+    final long retryTimeOutMs = 2 * sessionTimeoutMs;
     String processorId = data.getProcessorId();
     if (ephemeralPath == null) {
       ephemeralPath = zkClient.createEphemeralSequential(keyBuilder.getProcessorsPath() + "/", data.toString());
       LOG.info("Created ephemeral path: {} for processor: {} in zookeeper.", ephemeralPath, data);
-      ProcessorNode processorNode = new ProcessorNode(data, ephemeralPath);
-      // Determine if there are duplicate processors with this.processorId after registration.
-      if (!isValidRegisteredProcessor(processorNode)) {
-        LOG.info("Processor: {} is duplicate. Deleting zookeeper node at path: {}.", processorId, ephemeralPath);
-        zkClient.delete(ephemeralPath);
-        throw new SamzaException(String.format("Processor: %s is duplicate in the group. Registration failed.", processorId));
+      while (true) {
+        ProcessorNode processorNode = new ProcessorNode(data, ephemeralPath);
+        // Determine if there are duplicate processors with this.processorId after registration.
+        if (!isValidRegisteredProcessor(processorNode)) {
+          long currentTimeMs = System.currentTimeMillis();
+          if ((currentTimeMs - startTimeMs) < retryTimeOutMs) {
+            LOG.info("Processor: {} is duplicate. Retrying registration again.", processorId);
+            timeDelay(5000);
+          } else {
+            LOG.info("Processor: {} is duplicate. Deleting zookeeper node at path: {}.", processorId, ephemeralPath);
+            zkClient.delete(ephemeralPath);
+            metrics.deletions.inc();
+            throw new SamzaException(String.format("Processor: %s is duplicate in the group. Registration failed.", processorId));
+          }
+        } else {
+          break;
+        }
       }
     } else {
       LOG.info("Ephemeral path: {} exists for processor: {} in zookeeper.", ephemeralPath, data);
     }
     return ephemeralPath;
+  }
+
+  public void timeDelay(int sleepTimeInMillis) {
+    try {
+      Thread.sleep(sleepTimeInMillis);
+    } catch (InterruptedException e) {
+      LOG.error("Interrupted exception on wait.", e);
+      Thread.interrupted();
+    }
+  }
+
+  /**
+   * Deletes the ephemeral node of a processor in zookeeper.
+   * @param processorId uniqueId identifying the stream processor to delete.
+   */
+  public synchronized void deleteProcessorNode(String processorId) {
+    try {
+      if (ephemeralPath != null) {
+        LOG.info("Deleting the ephemeral node: {} of the processor: {} in zookeeper.", ephemeralPath, processorId);
+        zkClient.delete(ephemeralPath);
+      }
+    } catch (Exception e) {
+      LOG.error("Exception occurred on deletion of ephemeral node: {}.", ephemeralPath, e);
+    }
   }
 
   /**
@@ -272,16 +308,12 @@ public class ZkUtils {
 
   public void subscribeDataChanges(String path, IZkDataListener dataListener) {
     zkClient.subscribeDataChanges(path, dataListener);
-    if (metrics != null) {
-      metrics.subscriptions.inc();
-    }
+    metrics.subscriptions.inc();
   }
 
   public void subscribeChildChanges(String path, IZkChildListener listener) {
     zkClient.subscribeChildChanges(path, listener);
-    if (metrics != null) {
-      metrics.subscriptions.inc();
-    }
+    metrics.subscriptions.inc();
   }
 
   public void unsubscribeChildChanges(String path, IZkChildListener childListener) {
@@ -290,22 +322,21 @@ public class ZkUtils {
 
   public void writeData(String path, Object object) {
     zkClient.writeData(path, object);
-    if (metrics != null) {
-      metrics.writes.inc();
-    }
+    metrics.writes.inc();
   }
 
   public boolean exists(String path) {
     return zkClient.exists(path);
   }
 
-  public void close() throws ZkInterruptedException {
+  public void close() {
     try {
       zkClient.close();
     } catch (ZkInterruptedException e) {
-      // Swallowing due to occurrence in the last stage of lifecycle (Not actionable) and clear the interrupted status.
+      LOG.warn("Interrupted when closing zkClient. Clearing the interrupted status and retrying.", e);
       Thread.interrupted();
-      LOG.warn("Ignoring the exception when closing the zookeeper client.", e);
+      zkClient.close();
+      Thread.currentThread().interrupt();
     }
   }
 
@@ -366,9 +397,7 @@ public class ZkUtils {
   public void subscribeToJobModelVersionChange(GenIZkDataListener dataListener) {
     LOG.info(" subscribing for jm version change at:" + keyBuilder.getJobModelVersionPath());
     zkClient.subscribeDataChanges(keyBuilder.getJobModelVersionPath(), dataListener);
-    if (metrics != null) {
-      metrics.subscriptions.inc();
-    }
+    metrics.subscriptions.inc();
   }
 
   /**
@@ -397,7 +426,7 @@ public class ZkUtils {
    * @return job model for this version
    */
   public JobModel getJobModel(String jobModelVersion) {
-    LOG.info("read the model ver=" + jobModelVersion + " from " + keyBuilder.getJobModelPath(jobModelVersion));
+    LOG.info("Read the model ver=" + jobModelVersion + " from " + keyBuilder.getJobModelPath(jobModelVersion));
     Object data = zkClient.readData(keyBuilder.getJobModelPath(jobModelVersion));
     metrics.reads.inc();
     ObjectMapper mmapper = SamzaObjectMapper.getObjectMapper();
@@ -450,7 +479,7 @@ public class ZkUtils {
    */
   public void publishJobModelVersion(String oldVersion, String newVersion) {
     Stat stat = new Stat();
-    String currentVersion = zkClient.<String>readData(keyBuilder.getJobModelVersionPath(), stat);
+    String currentVersion = zkClient.readData(keyBuilder.getJobModelVersionPath(), stat);
     metrics.reads.inc();
     LOG.info("publishing new version: " + newVersion + "; oldVersion = " + oldVersion + "(" + stat
         .getVersion() + ")");
@@ -491,7 +520,7 @@ public class ZkUtils {
     }
     // if exists, verify the version
     Stat stat = new Stat();
-    String version = (String) zkClient.readData(rootPath, stat);
+    String version = zkClient.readData(rootPath, stat);
     if (version == null) {
       // for backward compatibility, if no value - assume 1.0
       try {
@@ -500,7 +529,7 @@ public class ZkUtils {
         // if the write failed with ZkBadVersionException it means someone else already wrote a version, so we can ignore it.
       }
       // re-read the updated version
-      version = (String) zkClient.readData(rootPath);
+      version = zkClient.readData(rootPath);
     }
     LOG.info("Current version for zk root node: " + rootPath + " is " + version + ", expected version is " + ZK_PROTOCOL_VERSION);
     if (!version.equals(ZK_PROTOCOL_VERSION)) {
@@ -525,7 +554,7 @@ public class ZkUtils {
    * @param listener - will be called when a processor is added or removed.
    */
   public void subscribeToProcessorChange(IZkChildListener listener) {
-    LOG.info("subscribing for child change at:" + keyBuilder.getProcessorsPath());
+    LOG.info("Subscribing for child change at:" + keyBuilder.getProcessorsPath());
     zkClient.subscribeChildChanges(keyBuilder.getProcessorsPath(), listener);
     metrics.subscriptions.inc();
   }
@@ -542,7 +571,7 @@ public class ZkUtils {
   void deleteOldJobModels(int numVersionsToLeave) {
     // read current list of JMs
     String path = keyBuilder.getJobModelPathPrefix();
-    LOG.info("about to delete jm path=" + path);
+    LOG.info("About to delete jm path=" + path);
     List<String> znodeIds = zkClient.getChildren(path);
     deleteOldVersionPath(path, znodeIds, numVersionsToLeave, new Comparator<String>() {
       @Override
@@ -556,7 +585,7 @@ public class ZkUtils {
   void deleteOldBarrierVersions(int numVersionsToLeave) {
     // read current list of barriers
     String path = keyBuilder.getJobModelVersionBarrierPrefix();
-    LOG.info("about to delete old barrier paths from " + path);
+    LOG.info("About to delete old barrier paths from " + path);
     List<String> znodeIds = zkClient.getChildren(path);
     LOG.info("List of all zkNodes: " + znodeIds);
     deleteOldVersionPath(path, znodeIds, numVersionsToLeave,  new Comparator<String>() {
@@ -584,6 +613,7 @@ public class ZkUtils {
         try {
           LOG.info("deleting " + pathToDelete);
           zkClient.deleteRecursive(pathToDelete);
+          metrics.deletions.inc();
         } catch (Exception e) {
           LOG.warn("delete of node " + pathToDelete + " failed.", e);
         }
