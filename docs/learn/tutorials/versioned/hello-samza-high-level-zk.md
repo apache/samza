@@ -29,7 +29,6 @@ Let's get started by cloning the hello-samza project
 {% highlight bash %}
 git clone https://git.apache.org/samza-hello-samza.git hello-samza
 cd hello-samza
-git checkout latest
 {% endhighlight %}
 
 The project comes up with numerous examples and for this tutorial, we will pick the Wikipedia application.

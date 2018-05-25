@@ -32,7 +32,6 @@ Check out the hello-samza project:
 {% highlight bash %}
 git clone https://git.apache.org/samza-hello-samza.git hello-samza
 cd hello-samza
-git checkout latest
 {% endhighlight %}
 
 This project already contains implementations of the wikipedia application using both the low-level task API and the high-level API. The low-level task implementations are in the `samza.examples.wikipedia.task` package. The high-level application implementation is in the `samza.examples.wikipedia.application` package.
