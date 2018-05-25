@@ -281,11 +281,12 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     // ProcessedMessagesLatch shouldn't have changed. Should retain it's initial value.
     assertEquals(NUM_KAFKA_EVENTS, processedMessagesLatch.getCount());
 
-    localApplicationRunner1.kill(streamApp1);
-    localApplicationRunner2.kill(streamApp2);
+    // TODO: re-enable the following kill and waitForFinish calls after fixing SAMZA-1665
+    // localApplicationRunner1.kill(streamApp1);
+    // localApplicationRunner2.kill(streamApp2);
 
-    localApplicationRunner1.waitForFinish();
-    localApplicationRunner2.waitForFinish();
+    // localApplicationRunner1.waitForFinish();
+    // localApplicationRunner2.waitForFinish();
   }
 
   /**
@@ -455,11 +456,12 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     assertEquals(Sets.newHashSet("0000000001", "0000000002"), jobModel.getContainers().keySet());
     assertEquals(2, jobModel.getContainers().size());
 
-    applicationRunner2.kill(streamApp2);
-    applicationRunner3.kill(streamApp3);
+    // TODO: re-enable the following kill and waitForFinish calls after fixing SAMZA-1665
+    // applicationRunner2.kill(streamApp2);
+    // applicationRunner3.kill(streamApp3);
 
-    applicationRunner2.waitForFinish();
-    applicationRunner3.waitForFinish();
+    // applicationRunner2.waitForFinish();
+    // applicationRunner3.waitForFinish();
   }
 
   @Test
@@ -498,11 +500,12 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     try {
       applicationRunner3.run(streamApp3);
     } finally {
-      applicationRunner1.kill(streamApp1);
-      applicationRunner2.kill(streamApp2);
+      // TODO: re-enable the following kill and waitForFinish calls after fixing SAMZA-1665
+      // applicationRunner1.kill(streamApp1);
+      // applicationRunner2.kill(streamApp2);
 
-      applicationRunner1.waitForFinish();
-      applicationRunner2.waitForFinish();
+      // applicationRunner1.waitForFinish();
+      // applicationRunner2.waitForFinish();
     }
   }
 
@@ -567,11 +570,12 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     assertEquals(Integer.parseInt(jobModelVersion) + 1, Integer.parseInt(newJobModelVersion));
     assertEquals(jobModel.getContainers(), newJobModel.getContainers());
 
-    applicationRunner2.kill(streamApp2);
-    applicationRunner4.kill(streamApp1);
+    // TODO: re-enable the following kill and waitForFinish calls after fixing SAMZA-1665
+    // applicationRunner2.kill(streamApp2);
+    // applicationRunner4.kill(streamApp1);
 
-    applicationRunner2.waitForFinish();
-    applicationRunner4.waitForFinish();
+    // applicationRunner2.waitForFinish();
+    // applicationRunner4.waitForFinish();
   }
 
 }
