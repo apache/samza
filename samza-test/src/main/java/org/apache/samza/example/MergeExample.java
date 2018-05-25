@@ -19,53 +19,44 @@
 
 package org.apache.samza.example;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.KV;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.operators.MessageStream;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.util.CommandLine;
 
-
-/**
- * Example implementation of a task that splits its input into multiple output streams.
- */
-public class BroadcastExample implements StreamApplication {
-
-  @Override
-  public void init(StreamGraph graph, Config config) {
-    graph.setDefaultSerde(KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageViewEvent.class)));
-
-    MessageStream<KV<String, PageViewEvent>> inputStream = graph.getInputStream("inputStream");
-    OutputStream<KV<String, PageViewEvent>> outputStream1 = graph.getOutputStream("outputStream1");
-    OutputStream<KV<String, PageViewEvent>> outputStream2 = graph.getOutputStream("outputStream2");
-    OutputStream<KV<String, PageViewEvent>> outputStream3 = graph.getOutputStream("outputStream3");
-
-    inputStream.filter(m -> m.key.equals("key1")).sendTo(outputStream1);
-    inputStream.filter(m -> m.key.equals("key2")).sendTo(outputStream2);
-    inputStream.filter(m -> m.key.equals("key3")).sendTo(outputStream3);
-  }
+public class MergeExample implements StreamApplication {
 
   // local execution mode
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    LocalApplicationRunner localRunner = new LocalApplicationRunner(config);
-    localRunner.run(new BroadcastExample());
+    MergeExample app = new MergeExample();
+    LocalApplicationRunner runner = new LocalApplicationRunner(config);
+
+    runner.run(app);
+    runner.waitForFinish();
+  }
+
+  @Override
+  public void init(StreamGraph graph, Config config) {
+
+    KVSerde<String, PageViewEvent>
+        pgeMsgSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class));
+
+    MessageStream.mergeAll(ImmutableList.of(graph.getInputStream("viewStream1", pgeMsgSerde),
+        graph.getInputStream("viewStream2", pgeMsgSerde), graph.getInputStream("viewStream3", pgeMsgSerde)))
+        .sendTo(graph.getOutputStream("mergedStream", pgeMsgSerde));
+
   }
 
   class PageViewEvent {
-    String key;
-    long timestamp;
-
-    public PageViewEvent(String key, long timestamp) {
-      this.key = key;
-      this.timestamp = timestamp;
-    }
+    String pageId;
+    long viewTimestamp;
   }
 }

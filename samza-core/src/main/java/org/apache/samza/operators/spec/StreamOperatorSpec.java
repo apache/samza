@@ -19,46 +19,31 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.functions.FlatMapFunction;
-import org.apache.samza.operators.functions.TimerFunction;
-import org.apache.samza.operators.functions.WatermarkFunction;
-
 
 /**
- * The spec for a simple stream operator that outputs 0 or more messages for each input message.
+ * The common spec for a simple stream operator that outputs 0 or more messages for each input message.
  *
  * @param <M>  the type of input message
  * @param <OM>  the type of output message
  */
-public class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
+public abstract class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
 
-  private final FlatMapFunction<M, OM> transformFn;
-  private final Object originalFn;
+  protected final FlatMapFunction<M, OM> transformFn;
 
   /**
    * Constructor for a {@link StreamOperatorSpec}.
    *
    * @param transformFn  the transformation function
-   * @param originalFn the original user function before wrapping to transformFn
    * @param opCode  the {@link OpCode} for this {@link StreamOperatorSpec}
    * @param opId  the unique ID for this {@link StreamOperatorSpec}
    */
-  StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, Object originalFn, OperatorSpec.OpCode opCode, String opId) {
+  protected StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, OperatorSpec.OpCode opCode, String opId) {
     super(opCode, opId);
     this.transformFn = transformFn;
-    this.originalFn = originalFn;
   }
 
   public FlatMapFunction<M, OM> getTransformFn() {
     return this.transformFn;
   }
 
-  @Override
-  public WatermarkFunction getWatermarkFn() {
-    return originalFn instanceof WatermarkFunction ? (WatermarkFunction) originalFn : null;
-  }
-
-  @Override
-  public TimerFunction getTimerFn() {
-    return originalFn instanceof TimerFunction ? (TimerFunction) originalFn : null;
-  }
 }

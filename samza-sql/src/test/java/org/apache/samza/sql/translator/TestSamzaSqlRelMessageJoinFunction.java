@@ -17,7 +17,7 @@
 * under the License.
 */
 
-package org.apache.samza.sql;
+package org.apache.samza.sql.translator;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,7 +27,6 @@ import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.samza.operators.KV;
 import org.apache.samza.sql.data.SamzaSqlCompositeKey;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
-import org.apache.samza.sql.translator.SamzaSqlRelMessageJoinFunction;
 import org.junit.Assert;
 import org.junit.Test;
 

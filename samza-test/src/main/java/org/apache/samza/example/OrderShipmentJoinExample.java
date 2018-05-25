@@ -33,13 +33,26 @@ import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
 
+
 /**
  * Simple 2-way stream-to-stream join example
  */
 public class OrderShipmentJoinExample implements StreamApplication {
 
+  // local execution mode
+  public static void main(String[] args) throws Exception {
+    CommandLine cmdLine = new CommandLine();
+    Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
+    OrderShipmentJoinExample app = new OrderShipmentJoinExample();
+    LocalApplicationRunner runner = new LocalApplicationRunner(config);
+
+    runner.run(app);
+    runner.waitForFinish();
+  }
+
   @Override
   public void init(StreamGraph graph, Config config) {
+
     MessageStream<OrderRecord> orders =
         graph.getInputStream("orders", new JsonSerdeV2<>(OrderRecord.class));
     MessageStream<ShipmentRecord> shipments =
@@ -54,17 +67,10 @@ public class OrderShipmentJoinExample implements StreamApplication {
             Duration.ofMinutes(1), "join")
         .map(fulFilledOrder -> KV.of(fulFilledOrder.orderId, fulFilledOrder))
         .sendTo(fulfilledOrders);
+
   }
 
-  // local execution mode
-  public static void main(String[] args) throws Exception {
-    CommandLine cmdLine = new CommandLine();
-    Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    LocalApplicationRunner localRunner = new LocalApplicationRunner(config);
-    localRunner.run(new OrderShipmentJoinExample());
-  }
-
-  class MyJoinFunction implements JoinFunction<String, OrderRecord, ShipmentRecord, FulfilledOrderRecord> {
+  static class MyJoinFunction implements JoinFunction<String, OrderRecord, ShipmentRecord, FulfilledOrderRecord> {
     @Override
     public FulfilledOrderRecord apply(OrderRecord message, ShipmentRecord otherMessage) {
       return new FulfilledOrderRecord(message.orderId, message.orderTimeMs, otherMessage.shipTimeMs);
@@ -101,7 +107,7 @@ public class OrderShipmentJoinExample implements StreamApplication {
     }
   }
 
-  class FulfilledOrderRecord {
+  static class FulfilledOrderRecord {
     String orderId;
     long orderTimeMs;
     long shipTimeMs;

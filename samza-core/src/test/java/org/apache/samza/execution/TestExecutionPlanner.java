@@ -34,8 +34,8 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.ApplicationRunner;
@@ -97,24 +97,24 @@ public class TestExecutionPlanner {
     };
   }
 
-  private StreamGraphImpl createSimpleGraph() {
+  private StreamGraphSpec createSimpleGraph() {
     /**
      * a simple graph of partitionBy and map
      *
      * input1 -> partitionBy -> map -> output1
      *
      */
-    StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
-    MessageStream<KV<Object, Object>> input1 = streamGraph.getInputStream("input1");
-    OutputStream<KV<Object, Object>> output1 = streamGraph.getOutputStream("output1");
+    StreamGraphSpec graphSpec = new StreamGraphSpec(runner, config);
+    MessageStream<KV<Object, Object>> input1 = graphSpec.getInputStream("input1");
+    OutputStream<KV<Object, Object>> output1 = graphSpec.getOutputStream("output1");
     input1
         .partitionBy(m -> m.key, m -> m.value, "p1")
         .map(kv -> kv)
         .sendTo(output1);
-    return streamGraph;
+    return graphSpec;
   }
 
-  private StreamGraphImpl createStreamGraphWithJoin() {
+  private StreamGraphSpec createStreamGraphWithJoin() {
 
     /**
      * the graph looks like the following. number of partitions in parentheses. quotes indicate expected value.
@@ -127,76 +127,79 @@ public class TestExecutionPlanner {
      *
      */
 
-    StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
+    StreamGraphSpec graphSpec = new StreamGraphSpec(runner, config);
     MessageStream<KV<Object, Object>> messageStream1 =
-        streamGraph.<KV<Object, Object>>getInputStream("input1")
+        graphSpec.<KV<Object, Object>>getInputStream("input1")
             .map(m -> m);
     MessageStream<KV<Object, Object>> messageStream2 =
-        streamGraph.<KV<Object, Object>>getInputStream("input2")
+        graphSpec.<KV<Object, Object>>getInputStream("input2")
             .partitionBy(m -> m.key, m -> m.value, "p1")
             .filter(m -> true);
     MessageStream<KV<Object, Object>> messageStream3 =
-        streamGraph.<KV<Object, Object>>getInputStream("input3")
+        graphSpec.<KV<Object, Object>>getInputStream("input3")
             .filter(m -> true)
             .partitionBy(m -> m.key, m -> m.value, "p2")
             .map(m -> m);
-    OutputStream<KV<Object, Object>> output1 = streamGraph.getOutputStream("output1");
-    OutputStream<KV<Object, Object>> output2 = streamGraph.getOutputStream("output2");
+    OutputStream<KV<Object, Object>> output1 = graphSpec.getOutputStream("output1");
+    OutputStream<KV<Object, Object>> output2 = graphSpec.getOutputStream("output2");
 
     messageStream1
-        .join(messageStream2, mock(JoinFunction.class),
+        .join(messageStream2,
+            (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
             mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
         .sendTo(output1);
     messageStream3
-        .join(messageStream2, mock(JoinFunction.class),
+        .join(messageStream2,
+            (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
             mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
         .sendTo(output2);
 
-    return streamGraph;
+    return graphSpec;
   }
 
-  private StreamGraphImpl createStreamGraphWithJoinAndWindow() {
+  private StreamGraphSpec createStreamGraphWithJoinAndWindow() {
 
-    StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
+    StreamGraphSpec graphSpec = new StreamGraphSpec(runner, config);
     MessageStream<KV<Object, Object>> messageStream1 =
-        streamGraph.<KV<Object, Object>>getInputStream("input1")
+        graphSpec.<KV<Object, Object>>getInputStream("input1")
             .map(m -> m);
     MessageStream<KV<Object, Object>> messageStream2 =
-        streamGraph.<KV<Object, Object>>getInputStream("input2")
+        graphSpec.<KV<Object, Object>>getInputStream("input2")
             .partitionBy(m -> m.key, m -> m.value, "p1")
             .filter(m -> true);
     MessageStream<KV<Object, Object>> messageStream3 =
-        streamGraph.<KV<Object, Object>>getInputStream("input3")
+        graphSpec.<KV<Object, Object>>getInputStream("input3")
             .filter(m -> true)
             .partitionBy(m -> m.key, m -> m.value, "p2")
             .map(m -> m);
-    OutputStream<KV<Object, Object>> output1 = streamGraph.getOutputStream("output1");
-    OutputStream<KV<Object, Object>> output2 = streamGraph.getOutputStream("output2");
+    OutputStream<KV<Object, Object>> output1 = graphSpec.getOutputStream("output1");
+    OutputStream<KV<Object, Object>> output2 = graphSpec.getOutputStream("output2");
 
     messageStream1.map(m -> m)
         .filter(m->true)
-        .window(Windows.<KV<Object, Object>, Object>keyedTumblingWindow(m -> m, Duration.ofMillis(8),
-            mock(Serde.class), mock(Serde.class)), "w1");
+        .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(8), mock(Serde.class), mock(Serde.class)), "w1");
 
     messageStream2.map(m -> m)
         .filter(m->true)
-        .window(Windows.<KV<Object, Object>, Object>keyedTumblingWindow(m -> m, Duration.ofMillis(16),
-            mock(Serde.class), mock(Serde.class)), "w2");
+        .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(16), mock(Serde.class), mock(Serde.class)), "w2");
 
     messageStream1
-        .join(messageStream2, mock(JoinFunction.class),
+        .join(messageStream2,
+            (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
             mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(1600), "j1")
         .sendTo(output1);
     messageStream3
-        .join(messageStream2, mock(JoinFunction.class),
+        .join(messageStream2,
+            (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
             mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(100), "j2")
         .sendTo(output2);
     messageStream3
-        .join(messageStream2, mock(JoinFunction.class),
+        .join(messageStream2,
+            (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
             mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(252), "j3")
         .sendTo(output2);
 
-    return streamGraph;
+    return graphSpec;
   }
 
   @Before
@@ -252,9 +255,9 @@ public class TestExecutionPlanner {
   @Test
   public void testCreateProcessorGraph() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamGraphImpl streamGraph = createStreamGraphWithJoin();
+    StreamGraphSpec graphSpec = createStreamGraphWithJoin();
 
-    JobGraph jobGraph = planner.createJobGraph(streamGraph);
+    JobGraph jobGraph = planner.createJobGraph(graphSpec.getOperatorSpecGraph());
     assertTrue(jobGraph.getSources().size() == 3);
     assertTrue(jobGraph.getSinks().size() == 2);
     assertTrue(jobGraph.getIntermediateStreams().size() == 2); // two streams generated by partitionBy
@@ -263,8 +266,8 @@ public class TestExecutionPlanner {
   @Test
   public void testFetchExistingStreamPartitions() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamGraphImpl streamGraph = createStreamGraphWithJoin();
-    JobGraph jobGraph = planner.createJobGraph(streamGraph);
+    StreamGraphSpec graphSpec = createStreamGraphWithJoin();
+    JobGraph jobGraph = planner.createJobGraph(graphSpec.getOperatorSpecGraph());
 
     ExecutionPlanner.updateExistingPartitions(jobGraph, streamManager);
     assertTrue(jobGraph.getOrCreateStreamEdge(input1).getPartitionCount() == 64);
@@ -281,11 +284,11 @@ public class TestExecutionPlanner {
   @Test
   public void testCalculateJoinInputPartitions() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamGraphImpl streamGraph = createStreamGraphWithJoin();
-    JobGraph jobGraph = planner.createJobGraph(streamGraph);
+    StreamGraphSpec graphSpec = createStreamGraphWithJoin();
+    JobGraph jobGraph = planner.createJobGraph(graphSpec.getOperatorSpecGraph());
 
     ExecutionPlanner.updateExistingPartitions(jobGraph, streamManager);
-    ExecutionPlanner.calculateJoinInputPartitions(streamGraph, jobGraph);
+    ExecutionPlanner.calculateJoinInputPartitions(jobGraph);
 
     // the partitions should be the same as input1
     jobGraph.getIntermediateStreams().forEach(edge -> {
@@ -300,9 +303,9 @@ public class TestExecutionPlanner {
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
-    StreamGraphImpl streamGraph = createSimpleGraph();
-    JobGraph jobGraph = planner.createJobGraph(streamGraph);
-    planner.calculatePartitions(streamGraph, jobGraph);
+    StreamGraphSpec graphSpec = createSimpleGraph();
+    JobGraph jobGraph = planner.createJobGraph(graphSpec.getOperatorSpecGraph());
+    planner.calculatePartitions(jobGraph);
 
     // the partitions should be the same as input1
     jobGraph.getIntermediateStreams().forEach(edge -> {
@@ -317,8 +320,8 @@ public class TestExecutionPlanner {
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
-    StreamGraphImpl streamGraph = createStreamGraphWithJoin();
-    ExecutionPlan plan = planner.plan(streamGraph);
+    StreamGraphSpec graphSpec = createStreamGraphWithJoin();
+    ExecutionPlan plan = planner.plan(graphSpec.getOperatorSpecGraph());
     List<JobConfig> jobConfigs = plan.getJobConfigs();
     for (JobConfig config : jobConfigs) {
       System.out.println(config);
@@ -332,8 +335,8 @@ public class TestExecutionPlanner {
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
-    StreamGraphImpl streamGraph = createStreamGraphWithJoinAndWindow();
-    ExecutionPlan plan = planner.plan(streamGraph);
+    StreamGraphSpec graphSpec = createStreamGraphWithJoinAndWindow();
+    ExecutionPlan plan = planner.plan(graphSpec.getOperatorSpecGraph());
     List<JobConfig> jobConfigs = plan.getJobConfigs();
     assertEquals(1, jobConfigs.size());
 
@@ -349,8 +352,8 @@ public class TestExecutionPlanner {
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
-    StreamGraphImpl streamGraph = createStreamGraphWithJoinAndWindow();
-    ExecutionPlan plan = planner.plan(streamGraph);
+    StreamGraphSpec graphSpec = createStreamGraphWithJoinAndWindow();
+    ExecutionPlan plan = planner.plan(graphSpec.getOperatorSpecGraph());
     List<JobConfig> jobConfigs = plan.getJobConfigs();
     assertEquals(1, jobConfigs.size());
 
@@ -366,8 +369,8 @@ public class TestExecutionPlanner {
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
-    StreamGraphImpl streamGraph = createSimpleGraph();
-    ExecutionPlan plan = planner.plan(streamGraph);
+    StreamGraphSpec graphSpec = createSimpleGraph();
+    ExecutionPlan plan = planner.plan(graphSpec.getOperatorSpecGraph());
     List<JobConfig> jobConfigs = plan.getJobConfigs();
     assertEquals(1, jobConfigs.size());
     assertFalse(jobConfigs.get(0).containsKey(TaskConfig.WINDOW_MS()));
@@ -381,8 +384,8 @@ public class TestExecutionPlanner {
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
-    StreamGraphImpl streamGraph = createSimpleGraph();
-    ExecutionPlan plan = planner.plan(streamGraph);
+    StreamGraphSpec graphSpec = createSimpleGraph();
+    ExecutionPlan plan = planner.plan(graphSpec.getOperatorSpecGraph());
     List<JobConfig> jobConfigs = plan.getJobConfigs();
     assertEquals(1, jobConfigs.size());
     assertEquals("2000", jobConfigs.get(0).get(TaskConfig.WINDOW_MS()));
@@ -391,8 +394,8 @@ public class TestExecutionPlanner {
   @Test
   public void testCalculateIntStreamPartitions() throws Exception {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamGraphImpl streamGraph = createSimpleGraph();
-    JobGraph jobGraph = (JobGraph) planner.plan(streamGraph);
+    StreamGraphSpec graphSpec = createSimpleGraph();
+    JobGraph jobGraph = (JobGraph) planner.plan(graphSpec.getOperatorSpecGraph());
 
     // the partitions should be the same as input1
     jobGraph.getIntermediateStreams().forEach(edge -> {
@@ -424,12 +427,12 @@ public class TestExecutionPlanner {
     int partitionLimit = ExecutionPlanner.MAX_INFERRED_PARTITIONS;
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
+    StreamGraphSpec graphSpec = new StreamGraphSpec(runner, config);
 
-    MessageStream<KV<Object, Object>> input1 = streamGraph.getInputStream("input4");
-    OutputStream<KV<Object, Object>> output1 = streamGraph.getOutputStream("output1");
+    MessageStream<KV<Object, Object>> input1 = graphSpec.getInputStream("input4");
+    OutputStream<KV<Object, Object>> output1 = graphSpec.getOutputStream("output1");
     input1.partitionBy(m -> m.key, m -> m.value, "p1").map(kv -> kv).sendTo(output1);
-    JobGraph jobGraph = (JobGraph) planner.plan(streamGraph);
+    JobGraph jobGraph = (JobGraph) planner.plan(graphSpec.getOperatorSpecGraph());
 
     // the partitions should be the same as input1
     jobGraph.getIntermediateStreams().forEach(edge -> {

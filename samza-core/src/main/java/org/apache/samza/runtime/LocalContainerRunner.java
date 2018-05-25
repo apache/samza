@@ -70,8 +70,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
 
   @Override
   public void run(StreamApplication streamApp) {
-    super.run(streamApp);
-    Object taskFactory = TaskFactoryUtil.createTaskFactory(config, streamApp, this);
+    Object taskFactory = getTaskFactory(streamApp);
 
     container = SamzaContainer$.MODULE$.apply(
         containerId,
@@ -104,6 +103,14 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
       log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
       System.exit(1);
     }
+  }
+
+  private Object getTaskFactory(StreamApplication streamApp) {
+    if (streamApp != null) {
+      streamApp.init(graphSpec, config);
+      return TaskFactoryUtil.createTaskFactory(graphSpec.getOperatorSpecGraph(), graphSpec.getContextManager());
+    }
+    return TaskFactoryUtil.createTaskFactory(config);
   }
 
   @Override
