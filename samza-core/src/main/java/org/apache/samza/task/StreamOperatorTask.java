@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A {@link StreamTask} implementation that brings all the operator API implementation components together and
- * feeds the input messages into the user-defined transformation chains in {@link org.apache.samza.operators.OperatorSpecGraph}.
+ * feeds the input messages into the user-defined transformation chains in {@link OperatorSpecGraph}.
  */
 public class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask {
   private static final Logger LOG = LoggerFactory.getLogger(StreamOperatorTask.class);
@@ -50,8 +50,8 @@ public class StreamOperatorTask implements StreamTask, InitableTask, WindowableT
   private OperatorImplGraph operatorImplGraph;
 
   /**
-   * Constructs an adaptor task to run the user-implemented {@link org.apache.samza.operators.OperatorSpecGraph}.
-   * @param specGraph the serialized version of user-implemented {@link org.apache.samza.operators.OperatorSpecGraph}
+   * Constructs an adaptor task to run the user-implemented {@link OperatorSpecGraph}.
+   * @param specGraph the serialized version of user-implemented {@link OperatorSpecGraph}
    *                  that includes the logical DAG
    * @param contextManager the {@link ContextManager} used to set up the shared context used by operators in the DAG
    * @param clock the {@link Clock} to use for time-keeping

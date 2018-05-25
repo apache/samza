@@ -18,7 +18,7 @@
  */
 package org.apache.samza.example;
 
-import java.io.IOException;
+import java.time.Duration;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
@@ -37,8 +37,6 @@ import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.util.CommandLine;
 
-import java.time.Duration;
-
 
 /**
  * Example code to implement window-based counter
@@ -46,7 +44,7 @@ import java.time.Duration;
 public class PageViewCounterExample implements StreamApplication {
 
   // local execution mode
-  public static void main(String[] args) throws IOException {
+  public static void main(String[] args) {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     PageViewCounterExample app = new PageViewCounterExample();

@@ -24,9 +24,7 @@ import org.apache.samza.operators.functions.WatermarkFunction;
 
 
 /**
- * The spec for an operator that transforms each input message to a collection of output messages. This is a package-private
- * class since the constructor of the class is only accessed via {@link OperatorSpecs} and the runtime reference to the object
- * is always upcast to {@link StreamOperatorSpec},
+ * The spec for an operator that transforms each input message to a collection of output messages.
  *
  * @param <M> type of input message
  * @param <OM> type of output messages

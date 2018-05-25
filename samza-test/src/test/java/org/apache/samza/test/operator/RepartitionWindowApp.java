@@ -19,7 +19,7 @@
 
 package org.apache.samza.test.operator;
 
-import java.io.IOException;
+import java.time.Duration;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
@@ -35,8 +35,6 @@ import org.apache.samza.util.CommandLine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Duration;
-
 /**
  * A {@link StreamApplication} that demonstrates a repartition followed by a windowed count.
  */
@@ -47,7 +45,7 @@ public class RepartitionWindowApp implements StreamApplication {
   static final String INPUT_TOPIC = "page-views";
   static final String OUTPUT_TOPIC = "Result";
 
-  public static void main(String[] args) throws IOException {
+  public static void main(String[] args) {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     RepartitionWindowApp reparApp = new RepartitionWindowApp();

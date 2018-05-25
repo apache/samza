@@ -265,8 +265,8 @@ object SamzaContainer extends Logging {
     val serdes = serdesFromFactories ++ serdesFromSerializedInstances
 
     /*
-     * A Helper function to getOperatorSpecGraph a Map[String, Serde] (systemName -> Serde) for systems defined
-     * in the config. This is useful to getOperatorSpecGraph both key and message serde maps.
+     * A Helper function to build a Map[String, Serde] (systemName -> Serde) for systems defined
+     * in the config. This is useful to build both key and message serde maps.
      */
     val buildSystemSerdeMap = (getSerdeName: (String) => Option[String]) => {
       systemNames
@@ -285,8 +285,8 @@ object SamzaContainer extends Logging {
     }
 
     /*
-     * A Helper function to getOperatorSpecGraph a Map[SystemStream, Serde] for streams defined in the config.
-     * This is useful to getOperatorSpecGraph both key and message serde maps.
+     * A Helper function to build a Map[SystemStream, Serde] for streams defined in the config.
+     * This is useful to build both key and message serde maps.
      */
     val buildSystemStreamSerdeMap = (getSerdeName: (SystemStream) => Option[String]) => {
       (serdeStreams ++ inputSystemStreamPartitions)

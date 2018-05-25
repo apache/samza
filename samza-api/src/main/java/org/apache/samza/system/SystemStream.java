@@ -19,7 +19,6 @@
 
 package org.apache.samza.system;
 
-
 /**
  * Streams in Samza consist of both the stream name and the system to which the stream belongs.
  * Systems are defined through the job config and have corresponding serdes, producers and

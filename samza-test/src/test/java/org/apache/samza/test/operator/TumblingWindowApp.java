@@ -19,7 +19,7 @@
 
 package org.apache.samza.test.operator;
 
-import java.io.IOException;
+import java.time.Duration;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
@@ -33,8 +33,6 @@ import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.test.operator.data.PageView;
-
-import java.time.Duration;
 import org.apache.samza.util.CommandLine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,7 +48,7 @@ public class TumblingWindowApp implements StreamApplication {
   private static final Logger LOG = LoggerFactory.getLogger(TumblingWindowApp.class);
   private static final String FILTER_KEY = "badKey";
 
-  public static void main(String[] args) throws IOException {
+  public static void main(String[] args) {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     TumblingWindowApp app = new TumblingWindowApp();

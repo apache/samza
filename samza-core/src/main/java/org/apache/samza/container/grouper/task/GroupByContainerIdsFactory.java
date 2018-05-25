@@ -24,7 +24,7 @@ import org.apache.samza.config.JobConfig;
 
 
 /**
- * Factory to getOperatorSpecGraph the GroupByContainerCount class.
+ * Factory to build the GroupByContainerCount class.
  */
 public class GroupByContainerIdsFactory implements TaskNameGrouperFactory {
   @Override

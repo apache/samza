@@ -23,7 +23,7 @@ import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
-import static com.google.common.base.Preconditions.*;
+import static com.google.common.base.Preconditions.checkArgument;
 
 
 /**
@@ -56,9 +56,9 @@ public class PartitionByOperatorSpec<M, K, V> extends OperatorSpec<M, Void> {
       MapFunction<? super M, ? extends V> valueFunction, String opId) {
     super(OpCode.PARTITION_BY, opId);
     checkArgument(!(keyFunction instanceof TimerFunction || keyFunction instanceof WatermarkFunction),
-        "A partitionBy operator does not accept a user defined TimerFunction or WatermarkFunction as the keyFunction.");
+        "keyFunction for partitionBy should not implement TimerFunction or WatermarkFunction.");
     checkArgument(!(valueFunction instanceof TimerFunction || valueFunction instanceof WatermarkFunction),
-        "A partitionBy operator does not accept a user defined TimerFunction or WatermarkFunction as the valueFunction.");
+        "valueFunction for partitionBy should not implement TimerFunction or WatermarkFunction.");
     this.outputStream = outputStream;
     this.keyFunction = keyFunction;
     this.valueFunction = valueFunction;

@@ -29,9 +29,7 @@ import org.apache.samza.task.TaskContext;
 
 
 /**
- * The spec for an operator that transforms each input message to a single output message. This is a package-private class since
- * the constructor of the class is only accessed via {@link OperatorSpecs} and the runtime reference to the object
- * is always upcast to {@link StreamOperatorSpec},
+ * The spec for an operator that transforms each input message to a single output message.
  *
  * @param <M> type of input message
  * @param <OM> type of output messages

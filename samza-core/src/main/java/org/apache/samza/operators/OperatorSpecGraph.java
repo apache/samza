@@ -48,42 +48,16 @@ public class OperatorSpecGraph implements Serializable {
   private final boolean hasWindowOrJoins;
 
   // The following objects are transient since they are recreateable.
-  private transient SerializableSerde<OperatorSpecGraph> graphSpecSerde = new SerializableSerde<>();
-  private transient final byte[] serializedGraphSpec;
-
-  private HashSet<OperatorSpec> findAllOperatorSpecs() {
-    Collection<InputOperatorSpec> inputOperatorSpecs = this.inputOperators.values();
-    HashSet<OperatorSpec> operatorSpecs = new HashSet<>();
-    for (InputOperatorSpec inputOperatorSpec : inputOperatorSpecs) {
-      operatorSpecs.add(inputOperatorSpec);
-      doGetOperatorSpecs(inputOperatorSpec, operatorSpecs);
-    }
-    return operatorSpecs;
-  }
-
-  private void doGetOperatorSpecs(OperatorSpec operatorSpec, Set<OperatorSpec> specs) {
-    Collection<OperatorSpec> registeredOperatorSpecs = operatorSpec.getRegisteredOperatorSpecs();
-    for (OperatorSpec registeredOperatorSpec : registeredOperatorSpecs) {
-      specs.add(registeredOperatorSpec);
-      doGetOperatorSpecs(registeredOperatorSpec, specs);
-    }
-  }
-
-  private boolean checkWindowOrJoins() {
-    Set<OperatorSpec> windowOrJoinSpecs = allOpSpecs.stream()
-        .filter(spec -> spec.getOpCode() == OperatorSpec.OpCode.WINDOW || spec.getOpCode() == OperatorSpec.OpCode.JOIN)
-        .collect(Collectors.toSet());
-
-    return windowOrJoinSpecs.size() != 0;
-  }
+  private transient final SerializableSerde<OperatorSpecGraph> opSpecGraphSerde = new SerializableSerde<>();
+  private transient final byte[] serializedOpSpecGraph;
 
   OperatorSpecGraph(StreamGraphSpec graphSpec) {
     this.inputOperators = graphSpec.getInputOperators();
     this.outputStreams = graphSpec.getOutputStreams();
     this.tables = graphSpec.getTables();
     this.allOpSpecs = Collections.unmodifiableSet(this.findAllOperatorSpecs());
-    hasWindowOrJoins = checkWindowOrJoins();
-    serializedGraphSpec = graphSpecSerde.toBytes(this);
+    this.hasWindowOrJoins = checkWindowOrJoins();
+    this.serializedOpSpecGraph = opSpecGraphSerde.toBytes(this);
   }
 
   public Map<StreamSpec, InputOperatorSpec> getInputOperators() {
@@ -116,11 +90,43 @@ public class OperatorSpecGraph implements Serializable {
     return hasWindowOrJoins;
   }
 
+  /**
+   * Returns a deserialized {@link OperatorSpecGraph} as a copy from this instance of {@link OperatorSpecGraph}
+   * This is used to create per-task instance of {@link OperatorSpecGraph} when instantiating task instances.
+   *
+   * @return a copy of this {@link OperatorSpecGraph} object via deserialization
+   */
   public OperatorSpecGraph clone() {
-    if (graphSpecSerde == null) {
+    if (opSpecGraphSerde == null) {
       throw new IllegalStateException("Cannot clone from an already deserialized OperatorSpecGraph.");
     }
-    return graphSpecSerde.fromBytes(serializedGraphSpec);
+    return opSpecGraphSerde.fromBytes(serializedOpSpecGraph);
+  }
+
+  private HashSet<OperatorSpec> findAllOperatorSpecs() {
+    Collection<InputOperatorSpec> inputOperatorSpecs = this.inputOperators.values();
+    HashSet<OperatorSpec> operatorSpecs = new HashSet<>();
+    for (InputOperatorSpec inputOperatorSpec : inputOperatorSpecs) {
+      operatorSpecs.add(inputOperatorSpec);
+      doGetOperatorSpecs(inputOperatorSpec, operatorSpecs);
+    }
+    return operatorSpecs;
+  }
+
+  private void doGetOperatorSpecs(OperatorSpec operatorSpec, Set<OperatorSpec> specs) {
+    Collection<OperatorSpec> registeredOperatorSpecs = operatorSpec.getRegisteredOperatorSpecs();
+    for (OperatorSpec registeredOperatorSpec : registeredOperatorSpecs) {
+      specs.add(registeredOperatorSpec);
+      doGetOperatorSpecs(registeredOperatorSpec, specs);
+    }
+  }
+
+  private boolean checkWindowOrJoins() {
+    Set<OperatorSpec> windowOrJoinSpecs = allOpSpecs.stream()
+        .filter(spec -> spec.getOpCode() == OperatorSpec.OpCode.WINDOW || spec.getOpCode() == OperatorSpec.OpCode.JOIN)
+        .collect(Collectors.toSet());
+
+    return windowOrJoinSpecs.size() != 0;
   }
 
 }

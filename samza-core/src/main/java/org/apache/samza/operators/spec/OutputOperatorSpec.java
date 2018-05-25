@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.spec;
 
+
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 

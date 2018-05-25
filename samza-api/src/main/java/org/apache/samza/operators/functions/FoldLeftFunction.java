@@ -31,10 +31,10 @@ import org.apache.samza.annotation.InterfaceStability;
 public interface FoldLeftFunction<M, WV> extends InitableFunction, ClosableFunction, Serializable {
 
   /**
-   * Incrementally updates the window value as messages are added to the window.
+   * Incrementally updates the aggregated value as messages are added.
    *
-   * @param message the message being added to the window
-   * @param oldValue the previous value associated with the window
+   * @param message the message being added to the aggregated value
+   * @param oldValue the previous value
    * @return the new value
    */
   WV apply(M message, WV oldValue);

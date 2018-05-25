@@ -132,7 +132,7 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
 
   /* package private */
   ExecutionPlan getExecutionPlan(StreamApplication app, String runId) throws Exception {
-    // getOperatorSpecGraph stream graph
+    // build stream graph
     app.init(graphSpec, config);
 
     OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();

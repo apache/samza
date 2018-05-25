@@ -29,9 +29,7 @@ import org.apache.samza.task.TaskContext;
 
 
 /**
- * The spec for an operator that filters input messages based on some conditions. This is a package-private class since
- * the constructor of the class is only accessed via {@link OperatorSpecs} and the runtime reference to the object
- * is always upcast to {@link StreamOperatorSpec},
+ * The spec for an operator that filters input messages based on some conditions.
  *
  * @param <M> type of input message
  */

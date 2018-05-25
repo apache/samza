@@ -291,5 +291,4 @@ class JoinTranslator {
 
     return table;
   }
-
 }
