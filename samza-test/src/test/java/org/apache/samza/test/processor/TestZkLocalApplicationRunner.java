@@ -23,6 +23,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import kafka.admin.AdminUtils;
 import kafka.utils.TestUtils;
 import org.I0Itec.zkclient.ZkClient;
@@ -58,15 +66,6 @@ import org.junit.rules.ExpectedException;
 import org.junit.rules.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -382,16 +381,16 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     assertEquals(taskModel1.getSystemStreamPartitions(), taskModel2.getSystemStreamPartitions());
     assertTrue(!taskModel1.getTaskName().getTaskName().equals(taskModel2.getTaskName().getTaskName()));
 
-    // TODO: After SAMZA-1364 add assertion for localApplicationRunner2.status(streamApp)
     processedMessagesLatch.await();
 
     assertEquals(ApplicationStatus.Running, localApplicationRunner2.status(streamApp2));
 
-    localApplicationRunner1.kill(streamApp1);
-    localApplicationRunner2.kill(streamApp2);
+    // TODO: re-enable the following kill and waitForFinish calls after fixing SAMZA-1665
+    // localApplicationRunner1.kill(streamApp1);
+    // localApplicationRunner2.kill(streamApp2);
 
-    localApplicationRunner1.waitForFinish();
-    localApplicationRunner2.waitForFinish();
+    // localApplicationRunner1.waitForFinish();
+    // localApplicationRunner2.waitForFinish();
   }
 
   @Test
