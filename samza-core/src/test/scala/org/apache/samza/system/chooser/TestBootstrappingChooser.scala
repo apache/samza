@@ -235,6 +235,7 @@ class TestBootstrappingChooser(getChooser: (MessageChooser, Map[SystemStream, Sy
     // Update with one more envelope from ssp1 and make sure that systemStreamLagCounts is still 1
     chooser.update(envelope6)
     assertEquals(null, chooser.choose) // no events are expected to be chosen from ssp1 until lagging ssp0 has envelopes
+
     chooser.update(envelope3)
     assertEquals(envelope6, chooser.choose)
     assertEquals(envelope3, chooser.choose)
