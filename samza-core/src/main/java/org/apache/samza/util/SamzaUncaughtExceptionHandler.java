@@ -17,23 +17,31 @@
  * under the License.
  */
 
-package org.apache.samza.container;
+package org.apache.samza.util;
 
 import java.lang.Thread.UncaughtExceptionHandler;
 
-import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * An UncaughtExceptionHandler for SamzaContainer that simply executes the configured {@link #runnable}
- * when any thread throws an uncaught exception.
+ * An UncaughtExceptionHandler that logs the uncaught exception, logs a thread dump, and then
+ * executes the provided {@code runnable}.
+ * <p>
+ * Example usage: Exit process if any thread throws an uncaught exception:
+ * <pre>
+ * Thread.setDefaultUncaughtExceptionHandler(
+ *   new SamzaUncaughtExceptionHandler(() -&gt; {
+ *     System.exit(1);
+ *   })
+ * );
+ * </pre>
  */
-public class SamzaContainerExceptionHandler implements UncaughtExceptionHandler {
-  private static final Logger LOGGER = LoggerFactory.getLogger(SamzaContainerExceptionHandler.class);
+public class SamzaUncaughtExceptionHandler implements UncaughtExceptionHandler {
+  private static final Logger LOGGER = LoggerFactory.getLogger(SamzaUncaughtExceptionHandler.class);
   private final Runnable runnable;
 
-  public SamzaContainerExceptionHandler(Runnable runnable) {
+  public SamzaUncaughtExceptionHandler(Runnable runnable) {
     this.runnable = runnable;
   }
   /**

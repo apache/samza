@@ -31,7 +31,7 @@ import org.apache.samza.container.ContainerHeartbeatClient;
 import org.apache.samza.container.ContainerHeartbeatMonitor;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainer$;
-import org.apache.samza.container.SamzaContainerExceptionHandler;
+import org.apache.samza.util.SamzaUncaughtExceptionHandler;
 import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.model.JobModel;
@@ -79,6 +79,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
         config,
         ScalaJavaUtil.toScalaMap(new HashMap<>()),
         taskFactory);
+
     container.setContainerListener(
         new SamzaContainerListener() {
           @Override
@@ -97,9 +98,11 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
             containerRunnerException = t;
           }
         });
+
     startContainerHeartbeatMonitor();
     container.run();
     stopContainerHeartbeatMonitor();
+    
     if (containerRunnerException != null) {
       log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
       System.exit(1);
@@ -120,10 +123,11 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
 
   public static void main(String[] args) throws Exception {
     Thread.setDefaultUncaughtExceptionHandler(
-        new SamzaContainerExceptionHandler(() -> {
+        new SamzaUncaughtExceptionHandler(() -> {
           log.info("Exiting process now.");
           System.exit(1);
         }));
+
     String containerId = System.getenv(ShellCommandConfig.ENV_CONTAINER_ID());
     log.info(String.format("Got container ID: %s", containerId));
     System.out.println(String.format("Container ID: %s", containerId));
@@ -146,6 +150,8 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     StreamApplication streamApp = TaskFactoryUtil.createStreamApplication(config);
     LocalContainerRunner localContainerRunner = new LocalContainerRunner(jobModel, containerId);
     localContainerRunner.run(streamApp);
+
+    System.exit(0);
   }
 
   private void startContainerHeartbeatMonitor() {
