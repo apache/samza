@@ -31,6 +31,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.TableConfigRewriter;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.operators.KV;
@@ -144,6 +145,44 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
       assertEquals(count * partitionCount, joined.size());
       assertTrue(joined.get(0) instanceof EnrichedPageView);
     }
+  }
+
+  @Test
+  public void testSendToWithConfigRewriter() throws  Exception {
+
+    int count = 10;
+    Profile[] profiles = TestTableData.generateProfiles(count);
+
+    int partitionCount = 4;
+    Map<String, String> configs = getBaseJobConfig(bootstrapUrl(), zkConnect());
+
+    configs.put("streams.Profile.samza.system", "test");
+    configs.put("streams.Profile.source", Base64Serializer.serialize(profiles));
+    configs.put("streams.Profile.partitionCount", String.valueOf(partitionCount));
+    configs.put("job.config.rewriters", "tableConfigRewriter");
+    configs.put("job.config.rewriter.tableConfigRewriter.class", TableConfigRewriter.class.getName());
+    configs.put("job.config.rewriter.tableConfigRewriter.table-descriptor-factory",
+        SampleTableDescriptorFactory.class.getName());
+
+    MyMapFunction mapFn = new MyMapFunction();
+
+    final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
+    final StreamApplication app = (streamGraph, cfg) -> {
+
+      Table<KV<Integer, Profile>> table = streamGraph.getTable(new InMemoryTableDescriptor("t1")
+          .withSerde(KVSerde.of(new IntegerSerde(), new ProfileJsonSerde())));
+
+      streamGraph.getInputStream("Profile", new NoOpSerde<Profile>())
+          .map(mapFn)
+          .sendTo(table);
+    };
+
+    runner.run(app);
+    runner.waitForFinish();
+
+    assertEquals(count * partitionCount, mapFn.received.size());
+    assertEquals(count, new HashSet(mapFn.received).size());
+    mapFn.received.forEach(p -> Assert.assertTrue(mapFn.table.get(p.getMemberId()) != null));
   }
 
   @Test
