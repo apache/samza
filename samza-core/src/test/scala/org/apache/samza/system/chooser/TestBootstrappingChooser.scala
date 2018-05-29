@@ -208,7 +208,8 @@ class TestBootstrappingChooser(getChooser: (MessageChooser, Map[SystemStream, Sy
   @Test
   def testChooserShouldHaveNoLaggingSspsAfterCaughtUp {
     val mock = new MockMessageChooser
-    val sspMetadataMap = Map(envelope3.getSystemStreamPartition.getPartition -> new SystemStreamPartitionMetadata(null, "123", null),
+    val sspMetadataMap =
+      Map(envelope3.getSystemStreamPartition.getPartition -> new SystemStreamPartitionMetadata(null, "123", null),
       envelope2.getSystemStreamPartition.getPartition -> new SystemStreamPartitionMetadata(null, "123", null))
     val metadata = new SystemStreamMetadata(
       envelope3.getSystemStreamPartition.getStream,
