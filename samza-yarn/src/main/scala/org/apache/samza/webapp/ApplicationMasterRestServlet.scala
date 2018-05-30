@@ -49,6 +49,9 @@ class ApplicationMasterRestServlet(samzaConfig: Config, samzaAppState: SamzaAppl
       registry.getGroup(group).asScala.foreach {
         case (name, metric) =>
           metric.visit(new MetricsVisitor() {
+            def listGauge[T](listGauge: ListGauge) =
+              groupMap.put(name, listGauge.getValue)
+
             def counter(counter: Counter) =
               groupMap.put(counter.getName, counter.getCount: java.lang.Long)
 

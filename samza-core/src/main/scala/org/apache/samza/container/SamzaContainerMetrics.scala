@@ -48,8 +48,8 @@ class SamzaContainerMetrics(
 
   val taskStoreRestorationMetrics: util.Map[TaskName, Gauge[Long]] = new util.HashMap[TaskName, Gauge[Long]]()
 
-  // A string-gauge metric to capture unhandled exceptions at this container that lead to a container shutdown
-  val exceptionAtShutdown = newGauge[String]("exception", "")
+  // A string-gauge metric to capture the last 1000 exceptions at this container
+  val exception = newListGauge[String]("exception", 1000)
 
   def addStoreRestorationGauge(taskName: TaskName, storeName: String) {
     taskStoreRestorationMetrics.put(taskName, newGauge("%s-%s-restore-time" format(taskName.toString, storeName), -1L))

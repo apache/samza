@@ -65,6 +65,15 @@ public interface MetricsRegistry {
   <T> Gauge<T> newGauge(String group, Gauge<T> value);
 
   /**
+   * Register a {@link org.apache.samza.metrics.ListGauge}
+   * @param group Group for this ListGauge
+   * @param listGauge the ListGauge to register
+   * @param <T> Type of the ListGauge
+   * @return ListGauge registered
+   */
+  <T> ListGauge newListGauge(String group, ListGauge listGauge);
+
+  /**
    * Create and Register a new {@link org.apache.samza.metrics.Timer}
    * @param group Group for this Timer
    * @param name Name of to-be-created Timer

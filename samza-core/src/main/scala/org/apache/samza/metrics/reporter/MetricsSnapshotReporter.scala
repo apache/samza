@@ -19,6 +19,8 @@
 
 package org.apache.samza.metrics.reporter
 
+import java.util
+
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.metrics._
 import org.apache.samza.serializers.Serializer
@@ -26,7 +28,6 @@ import org.apache.samza.system.OutgoingMessageEnvelope
 import org.apache.samza.system.SystemProducer
 import org.apache.samza.system.SystemStream
 import org.apache.samza.util.Logging
-
 import java.util.HashMap
 import java.util.Map
 import java.util.concurrent.Executors
@@ -115,6 +116,8 @@ class MetricsSnapshotReporter(
         registry.getGroup(group).asScala.foreach {
           case (name, metric) =>
             metric.visit(new MetricsVisitor {
+              // for listGauge the value is returned as a list, which gets serialized
+              def listGauge[T](listGauge: ListGauge) = {groupMsg.put(name, listGauge.getValue)  }
               def counter(counter: Counter) = groupMsg.put(name, counter.getCount: java.lang.Long)
               def gauge[T](gauge: Gauge[T]) = groupMsg.put(name, gauge.getValue.asInstanceOf[Object])
               def timer(timer: Timer) = groupMsg.put(name, timer.getSnapshot().getAverage(): java.lang.Double)
@@ -146,6 +149,7 @@ class MetricsSnapshotReporter(
         case e: Exception => error("Exception when flushing metrics for source %s " format(source), e)
       }
     }
+
 
     debug("Finished flushing metrics.")
   }
