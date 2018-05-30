@@ -132,12 +132,6 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
   }
 
   @Override
-  public void close() {
-    this.cache.close();
-    this.rdTable.close();
-  }
-
-  @Override
   public void put(K key, V value) {
     Preconditions.checkNotNull(rwTable, "Cannot write to a read-only table: " + rdTable);
     Lock lock = stripedLocks.get(key);
@@ -181,6 +175,12 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
   public synchronized void flush() {
     Preconditions.checkNotNull(rwTable, "Cannot flush a read-only table: " + rdTable);
     rwTable.flush();
+  }
+
+  @Override
+  public void close() {
+    this.cache.close();
+    this.rdTable.close();
   }
 
   double hitRate() {
