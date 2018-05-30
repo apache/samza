@@ -207,17 +207,17 @@ class TestBootstrappingChooser(getChooser: (MessageChooser, Map[SystemStream, Sy
 
   @Test
   def testChooserShouldHaveNoLaggingSspsAfterCaughtUp {
-    val mock = new MockMessageChooser
+    val mockMessageChooser = new MockMessageChooser
     val sspMetadataMap =
       Map(envelope3.getSystemStreamPartition.getPartition -> new SystemStreamPartitionMetadata(null, "123", null),
       envelope2.getSystemStreamPartition.getPartition -> new SystemStreamPartitionMetadata(null, "123", null))
     val metadata = new SystemStreamMetadata(
       envelope3.getSystemStreamPartition.getStream,
       sspMetadataMap.asJava)
-    val systemAdmin: SystemAdmin = new MockSystemAdmin
-    val chooser = new BootstrappingChooser(mock, Map(envelope2.getSystemStreamPartition.getSystemStream -> metadata),
-      new BootstrappingChooserMetrics(),
-      new SystemAdmins(Map("kafka" -> systemAdmin).asJava))
+    val systemAdmins = mock(classOf[SystemAdmins])
+    when(systemAdmins.getSystemAdmin("kafka")).thenReturn(new MockSystemAdmin)
+    val chooser = new BootstrappingChooser(mockMessageChooser, Map(envelope2.getSystemStreamPartition.getSystemStream -> metadata),
+      new BootstrappingChooserMetrics(), systemAdmins)
 
     chooser.register(envelope2.getSystemStreamPartition, "1")
     chooser.register(envelope3.getSystemStreamPartition, "1")
