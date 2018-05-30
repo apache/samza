@@ -101,7 +101,7 @@ public class EventHubConfig extends MapConfig {
             String physicalName = streamConfig.getPhysicalName(streamId);
             LOG.info("Obtained physicalName: {} for streamId: {} ", physicalName, streamId);
             physcialToId.put(physicalName, streamId);
-        });
+          });
   }
 
   private String getFromStreamIdOrName(String configName, String streamName, String defaultString) {
