@@ -52,8 +52,11 @@ class KeyValueStorageEngine[K, V](
   }
 
   override def getAll(keys: java.util.List[K]): java.util.Map[K, V] = {
-    metrics.gets.inc(keys.size)
-    wrapperStore.getAll(keys)
+    updateTimer(metrics.getAllNs) {
+      metrics.getAlls.inc()
+      metrics.gets.inc(keys.size)
+      wrapperStore.getAll(keys)
+    }
   }
 
   def put(key: K, value: V) = {
@@ -64,8 +67,11 @@ class KeyValueStorageEngine[K, V](
   }
 
   def putAll(entries: java.util.List[Entry[K, V]]) = {
-    metrics.puts.inc(entries.size)
-    wrapperStore.putAll(entries)
+    updateTimer(metrics.putAllNs) {
+      metrics.putAlls.inc()
+      metrics.puts.inc(entries.size)
+      wrapperStore.putAll(entries)
+    }
   }
 
   def delete(key: K) = {
@@ -76,8 +82,11 @@ class KeyValueStorageEngine[K, V](
   }
 
   override def deleteAll(keys: java.util.List[K]) = {
-    metrics.deletes.inc(keys.size)
-    wrapperStore.deleteAll(keys)
+    updateTimer(metrics.deleteAllNs) {
+      metrics.deleteAlls.inc()
+      metrics.deletes.inc(keys.size)
+      wrapperStore.deleteAll(keys)
+    }
   }
 
   def range(from: K, to: K) = {
@@ -110,17 +119,21 @@ class KeyValueStorageEngine[K, V](
       batch.add(new Entry(keyBytes, valBytes))
 
       if (batch.size >= batchSize) {
-        rawStore.putAll(batch)
+        updateTimer(metrics.putAllNs) {
+          metrics.putAlls.inc()
+          metrics.puts.inc(batch.size)
+          rawStore.putAll(batch)
+        }
         batch.clear()
       }
 
       if (valBytes != null) {
-        metrics.restoredBytes.inc(valBytes.size)
-        metrics.restoredBytesGauge.set(metrics.restoredBytesGauge.getValue + valBytes.size)
+        metrics.restoredBytes.inc(valBytes.length)
+        metrics.restoredBytesGauge.set(metrics.restoredBytesGauge.getValue + valBytes.length)
       }
 
-      metrics.restoredBytes.inc(keyBytes.size)
-      metrics.restoredBytesGauge.set(metrics.restoredBytesGauge.getValue + keyBytes.size)
+      metrics.restoredBytes.inc(keyBytes.length)
+      metrics.restoredBytesGauge.set(metrics.restoredBytesGauge.getValue + keyBytes.length)
 
       metrics.restoredMessages.inc()
       metrics.restoredMessagesGauge.set(metrics.restoredMessagesGauge.getValue + 1)
@@ -134,7 +147,11 @@ class KeyValueStorageEngine[K, V](
     info(count + " total entries restored.")
 
     if (batch.size > 0) {
-      rawStore.putAll(batch)
+      updateTimer(metrics.putAllNs) {
+        metrics.putAlls.inc()
+        metrics.puts.inc(batch.size)
+        rawStore.putAll(batch)
+      }
     }
   }
 

@@ -166,6 +166,7 @@ class RocksDbKeyValueStore(
 
   // Write batch from RocksDB API is not used currently because of: https://github.com/facebook/rocksdb/issues/262
   def putAll(entries: java.util.List[Entry[Array[Byte], Array[Byte]]]): Unit = ifOpen {
+    metrics.putAlls.inc()
     val iter = entries.iterator
     var wrote = 0
     var deletes = 0
@@ -188,7 +189,7 @@ class RocksDbKeyValueStore(
 
   def delete(key: Array[Byte]): Unit = ifOpen {
     metrics.deletes.inc
-    put(key, null)
+    db.delete(writeOptions, key)
   }
 
   def range(from: Array[Byte], to: Array[Byte]): KeyValueIterator[Array[Byte], Array[Byte]] = ifOpen {
