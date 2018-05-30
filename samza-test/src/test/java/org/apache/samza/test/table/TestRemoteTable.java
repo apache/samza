@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -71,7 +70,6 @@ import static org.mockito.Mockito.mock;
 public class TestRemoteTable extends AbstractIntegrationTestHarness {
 
   static Map<String, List<TestTableData.EnrichedPageView>> writtenRecords = new HashMap<>();
-  static List<TestTableData.PageView> received = new LinkedList<>();
 
   static class InMemoryReadFunction implements TableReadFunction<Integer, TestTableData.Profile> {
     private final String serializedProfiles;
@@ -147,6 +145,7 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
 
   private void doTestStreamTableJoinRemoteTable(boolean withCache, boolean defaultCache, String testName) throws Exception {
     final InMemoryWriteFunction writer = new InMemoryWriteFunction(testName);
+
     writtenRecords.put(testName, new ArrayList<>());
 
     int count = 10;
@@ -189,7 +188,6 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
 
       streamGraph.getInputStream("PageView", new NoOpSerde<TestTableData.PageView>())
           .map(pv -> {
-              received.add(pv);
               return new KV<Integer, TestTableData.PageView>(pv.getMemberId(), pv);
             })
           .join(inputTable, new TestLocalTable.PageViewToProfileJoinFunction())
@@ -201,7 +199,6 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     runner.waitForFinish();
 
     int numExpected = count * partitionCount;
-    Assert.assertEquals(numExpected, received.size());
     Assert.assertEquals(numExpected, writtenRecords.get(testName).size());
     Assert.assertTrue(writtenRecords.get(testName).get(0) instanceof TestTableData.EnrichedPageView);
   }
