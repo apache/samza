@@ -68,7 +68,7 @@ public class SerializableSerde<T extends Serializable> implements Serde<T> {
         ois = new ObjectInputStream(bis);
         return (T) ois.readObject();
       } catch (IOException | ClassNotFoundException e) {
-        throw new SamzaException("Error reading from input stream.");
+        throw new SamzaException("Error reading from input stream.", e);
       } finally {
         try {
           if (ois != null) {

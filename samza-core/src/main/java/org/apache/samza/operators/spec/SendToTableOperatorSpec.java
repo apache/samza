@@ -35,24 +35,17 @@ import org.apache.samza.table.TableSpec;
 @InterfaceStability.Unstable
 public class SendToTableOperatorSpec<K, V> extends OperatorSpec<KV<K, V>, Void> {
 
-  private final OperatorSpec<?, KV<K, V>> inputOpSpec;
   private final TableSpec tableSpec;
 
   /**
    * Constructor for a {@link SendToTableOperatorSpec}.
    *
-   * @param inputOpSpec  the operator spec of the input stream
    * @param tableSpec  the table spec of the table written to
    * @param opId  the unique ID for this operator
    */
-  SendToTableOperatorSpec(OperatorSpec<?, KV<K, V>> inputOpSpec, TableSpec tableSpec, String opId) {
+  SendToTableOperatorSpec(TableSpec tableSpec, String opId) {
     super(OpCode.SEND_TO, opId);
-    this.inputOpSpec = inputOpSpec;
     this.tableSpec = tableSpec;
-  }
-
-  public OperatorSpec<?, KV<K, V>> getInputOpSpec() {
-    return inputOpSpec;
   }
 
   public TableSpec getTableSpec() {

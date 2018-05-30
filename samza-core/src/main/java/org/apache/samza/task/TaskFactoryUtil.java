@@ -24,7 +24,8 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.TaskConfig;
-import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.operators.ContextManager;
+import org.apache.samza.operators.OperatorSpecGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,19 +42,28 @@ public class TaskFactoryUtil {
   private static final Logger log = LoggerFactory.getLogger(TaskFactoryUtil.class);
 
   /**
-   * This method creates a task factory class based on the configuration and {@link StreamApplication}
+   * This method creates a task factory class based on the {@link StreamApplication}
    *
-   * @param config  the {@link Config} for this job
-   * @param streamApp the {@link StreamApplication}
-   * @param runner  the {@link ApplicationRunner} to run this job
+   * @param specGraph the {@link OperatorSpecGraph}
+   * @param contextManager the {@link ContextManager} to set up initial context for {@code specGraph}
    * @return  a task factory object, either a instance of {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory}
    */
-  public static Object createTaskFactory(Config config, StreamApplication streamApp, ApplicationRunner runner) {
-    return (streamApp != null) ? createStreamOperatorTaskFactory(streamApp, runner) : fromTaskClassConfig(config);
+  public static Object createTaskFactory(OperatorSpecGraph specGraph, ContextManager contextManager) {
+    return createStreamOperatorTaskFactory(specGraph, contextManager);
   }
 
-  private static StreamTaskFactory createStreamOperatorTaskFactory(StreamApplication streamApp, ApplicationRunner runner) {
-    return () -> new StreamOperatorTask(streamApp, runner);
+  /**
+   * This method creates a task factory class based on the configuration
+   *
+   * @param config  the {@link Config} for this job
+   * @return  a task factory object, either a instance of {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory}
+   */
+  public static Object createTaskFactory(Config config) {
+    return fromTaskClassConfig(config);
+  }
+
+  private static StreamTaskFactory createStreamOperatorTaskFactory(OperatorSpecGraph specGraph, ContextManager contextManager) {
+    return () -> new StreamOperatorTask(specGraph, contextManager);
   }
 
   /**

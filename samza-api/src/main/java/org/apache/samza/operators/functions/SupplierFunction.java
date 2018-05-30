@@ -16,24 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.operators.functions;
 
-package org.apache.samza.container;
+import java.io.Serializable;
+import org.apache.samza.annotation.InterfaceStability;
 
-import org.apache.samza.SamzaException;
-import org.junit.Test;
 
-import java.util.concurrent.atomic.AtomicBoolean;
+/**
+ * A supplier to return a new value at each invocation
+ */
+@InterfaceStability.Unstable
+@FunctionalInterface
+public interface SupplierFunction<T> extends InitableFunction, ClosableFunction, Serializable {
 
-import static org.junit.Assert.assertTrue;
-
-public class TestSamzaContainerExceptionHandler {
-
-  @Test
-  public void testExceptionHandler() {
-    final AtomicBoolean exitCalled = new AtomicBoolean(false);
-    Thread.UncaughtExceptionHandler exceptionHandler =
-        new SamzaContainerExceptionHandler(() -> exitCalled.getAndSet(true));
-    exceptionHandler.uncaughtException(Thread.currentThread(), new SamzaException());
-    assertTrue(exitCalled.get());
-  }
+  /**
+   * Returns a value of type T
+   *
+   * @return a value for type T
+   */
+  T get();
 }

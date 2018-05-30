@@ -17,7 +17,7 @@
 * under the License.
 */
 
-package org.apache.samza.sql;
+package org.apache.samza.sql.data;
 
 import java.util.Arrays;
 import java.util.List;

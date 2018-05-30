@@ -40,7 +40,20 @@ import java.time.Duration;
  */
 public class RepartitionExample implements StreamApplication {
 
-  @Override public void init(StreamGraph graph, Config config) {
+  // local execution mode
+  public static void main(String[] args) throws Exception {
+    CommandLine cmdLine = new CommandLine();
+    Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
+    RepartitionExample app = new RepartitionExample();
+    LocalApplicationRunner runner = new LocalApplicationRunner(config);
+
+    runner.run(app);
+    runner.waitForFinish();
+  }
+
+  @Override
+  public void init(StreamGraph graph, Config config) {
+
     MessageStream<PageViewEvent> pageViewEvents =
         graph.getInputStream("pageViewEvent", new JsonSerdeV2<>(PageViewEvent.class));
     OutputStream<KV<String, MyStreamOutput>> pageViewEventPerMember =
@@ -54,14 +67,7 @@ public class RepartitionExample implements StreamApplication {
             "window")
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), new MyStreamOutput(windowPane)))
         .sendTo(pageViewEventPerMember);
-  }
 
-  // local execution mode
-  public static void main(String[] args) throws Exception {
-    CommandLine cmdLine = new CommandLine();
-    Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    LocalApplicationRunner localRunner = new LocalApplicationRunner(config);
-    localRunner.run(new RepartitionExample());
   }
 
   class PageViewEvent {
@@ -76,7 +82,7 @@ public class RepartitionExample implements StreamApplication {
     }
   }
 
-  class MyStreamOutput {
+  static class MyStreamOutput {
     String memberId;
     long timestamp;
     int count;
