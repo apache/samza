@@ -16,10 +16,36 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.testUtils;
+package org.apache.samza.operators.spec;
+
+import java.util.ArrayList;
+import org.apache.samza.operators.functions.TimerFunction;
+import org.apache.samza.operators.functions.WatermarkFunction;
+
 
 /**
- * Test class. Invalid class to implement {@link org.apache.samza.application.StreamApplication}
+ * The spec for an operator that combines messages from all input streams into a single output stream.
+ *
+ * @param <M> the type of messages in all input streams
  */
-public class InvalidStreamApplication {
+class MergeOperatorSpec<M> extends StreamOperatorSpec<M, M> {
+
+  MergeOperatorSpec(String opId) {
+    super((M message) ->
+        new ArrayList<M>() {
+        {
+          this.add(message);
+        }
+      }, OperatorSpec.OpCode.MERGE, opId);
+  }
+
+  @Override
+  public WatermarkFunction getWatermarkFn() {
+    return null;
+  }
+
+  @Override
+  public TimerFunction getTimerFn() {
+    return null;
+  }
 }

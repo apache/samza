@@ -18,6 +18,7 @@
  */
 package org.apache.samza.example;
 
+import java.time.Duration;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
@@ -25,6 +26,7 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.FoldLeftFunction;
+import org.apache.samza.operators.functions.SupplierFunction;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.WindowPane;
@@ -35,23 +37,33 @@ import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.util.CommandLine;
 
-import java.time.Duration;
-import java.util.function.Supplier;
-
 
 /**
  * Example code to implement window-based counter
  */
 public class PageViewCounterExample implements StreamApplication {
 
-  @Override public void init(StreamGraph graph, Config config) {
-    MessageStream<PageViewEvent> pageViewEvents =
-        graph.getInputStream("pageViewEventStream", new JsonSerdeV2<>(PageViewEvent.class));
+  // local execution mode
+  public static void main(String[] args) {
+    CommandLine cmdLine = new CommandLine();
+    Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
+    PageViewCounterExample app = new PageViewCounterExample();
+    LocalApplicationRunner runner = new LocalApplicationRunner(config);
+
+    runner.run(app);
+    runner.waitForFinish();
+  }
+
+  @Override
+  public void init(StreamGraph graph, Config config) {
+
+    MessageStream<PageViewEvent> pageViewEvents = null;
+    pageViewEvents = graph.getInputStream("pageViewEventStream", new JsonSerdeV2<>(PageViewEvent.class));
     OutputStream<KV<String, PageViewCount>> pageViewEventPerMemberStream =
         graph.getOutputStream("pageViewEventPerMemberStream",
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageViewCount.class)));
 
-    Supplier<Integer> initialValue = () -> 0;
+    SupplierFunction<Integer> initialValue = () -> 0;
     FoldLeftFunction<PageViewEvent, Integer> foldLeftFn = (m, c) -> c + 1;
     pageViewEvents
         .window(Windows.keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), initialValue, foldLeftFn, null, null)
@@ -59,14 +71,7 @@ public class PageViewCounterExample implements StreamApplication {
             .setAccumulationMode(AccumulationMode.DISCARDING), "tumblingWindow")
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), new PageViewCount(windowPane)))
         .sendTo(pageViewEventPerMemberStream);
-  }
 
-  // local execution mode
-  public static void main(String[] args) {
-    CommandLine cmdLine = new CommandLine();
-    Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    LocalApplicationRunner localRunner = new LocalApplicationRunner(config);
-    localRunner.run(new PageViewCounterExample());
   }
 
   class PageViewEvent {
@@ -81,7 +86,7 @@ public class PageViewCounterExample implements StreamApplication {
     }
   }
 
-  class PageViewCount {
+  static class PageViewCount {
     String memberId;
     long timestamp;
     int count;

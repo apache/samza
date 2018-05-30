@@ -17,10 +17,9 @@
 * under the License.
 */
 
-package org.apache.samza.sql;
+package org.apache.samza.sql.testutil;
 
 import org.apache.samza.SamzaException;
-import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser.QueryInfo;
 import org.junit.Test;
 

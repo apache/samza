@@ -28,7 +28,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.ApplicationRunner;
@@ -114,35 +114,37 @@ public class TestJobGraphJsonGenerator {
     when(systemAdmins.getSystemAdmin("system2")).thenReturn(systemAdmin2);
     StreamManager streamManager = new StreamManager(systemAdmins);
 
-    StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
-    streamGraph.setDefaultSerde(KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+    StreamGraphSpec graphSpec = new StreamGraphSpec(runner, config);
+    graphSpec.setDefaultSerde(KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
     MessageStream<KV<Object, Object>> messageStream1 =
-        streamGraph.<KV<Object, Object>>getInputStream("input1")
+        graphSpec.<KV<Object, Object>>getInputStream("input1")
             .map(m -> m);
     MessageStream<KV<Object, Object>> messageStream2 =
-        streamGraph.<KV<Object, Object>>getInputStream("input2")
+        graphSpec.<KV<Object, Object>>getInputStream("input2")
             .partitionBy(m -> m.key, m -> m.value, "p1")
             .filter(m -> true);
     MessageStream<KV<Object, Object>> messageStream3 =
-        streamGraph.<KV<Object, Object>>getInputStream("input3")
+        graphSpec.<KV<Object, Object>>getInputStream("input3")
             .filter(m -> true)
             .partitionBy(m -> m.key, m -> m.value, "p2")
             .map(m -> m);
-    OutputStream<KV<Object, Object>> outputStream1 = streamGraph.getOutputStream("output1");
-    OutputStream<KV<Object, Object>> outputStream2 = streamGraph.getOutputStream("output2");
+    OutputStream<KV<Object, Object>> outputStream1 = graphSpec.getOutputStream("output1");
+    OutputStream<KV<Object, Object>> outputStream2 = graphSpec.getOutputStream("output2");
 
     messageStream1
-        .join(messageStream2, mock(JoinFunction.class),
+        .join(messageStream2,
+            (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
             mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
         .sendTo(outputStream1);
     messageStream2.sink((message, collector, coordinator) -> { });
     messageStream3
-        .join(messageStream2, mock(JoinFunction.class),
+        .join(messageStream2,
+            (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
             mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
         .sendTo(outputStream2);
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    ExecutionPlan plan = planner.plan(streamGraph);
+    ExecutionPlan plan = planner.plan(graphSpec.getOperatorSpecGraph());
     String json = plan.getPlanAsJson();
     System.out.println(json);
 
@@ -187,8 +189,8 @@ public class TestJobGraphJsonGenerator {
     when(systemAdmins.getSystemAdmin("kafka")).thenReturn(systemAdmin2);
     StreamManager streamManager = new StreamManager(systemAdmins);
 
-    StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
-    MessageStream<KV<String, PageViewEvent>> inputStream = streamGraph.getInputStream("PageView");
+    StreamGraphSpec graphSpec = new StreamGraphSpec(runner, config);
+    MessageStream<KV<String, PageViewEvent>> inputStream = graphSpec.getInputStream("PageView");
     inputStream
         .partitionBy(kv -> kv.getValue().getCountry(), kv -> kv.getValue(), "keyed-by-country")
         .window(Windows.keyedTumblingWindow(kv -> kv.getValue().getCountry(),
@@ -198,10 +200,10 @@ public class TestJobGraphJsonGenerator {
             new StringSerde(),
             new LongSerde()), "count-by-country")
         .map(pane -> new KV<>(pane.getKey().getKey(), pane.getMessage()))
-        .sendTo(streamGraph.getOutputStream("PageViewCount"));
+        .sendTo(graphSpec.getOutputStream("PageViewCount"));
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    ExecutionPlan plan = planner.plan(streamGraph);
+    ExecutionPlan plan = planner.plan(graphSpec.getOperatorSpecGraph());
     String json = plan.getPlanAsJson();
     System.out.println(json);
 

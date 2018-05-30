@@ -69,15 +69,33 @@ import static org.mockito.Mockito.mock;
 
 
 public class TestRemoteTable extends AbstractIntegrationTestHarness {
-  private TableReadFunction<Integer, TestTableData.Profile> getInMemoryReader(TestTableData.Profile[] profiles) {
-    final Map<Integer, TestTableData.Profile> profileMap = Arrays.stream(profiles)
-        .collect(Collectors.toMap(p -> p.getMemberId(), Function.identity()));
-    TableReadFunction<Integer, TestTableData.Profile> reader =
-        (TableReadFunction<Integer, TestTableData.Profile>) key -> profileMap.getOrDefault(key, null);
-    return reader;
-  }
 
   static Map<String, List<TestTableData.EnrichedPageView>> writtenRecords = new HashMap<>();
+  static List<TestTableData.PageView> received = new LinkedList<>();
+
+  static class InMemoryReadFunction implements TableReadFunction<Integer, TestTableData.Profile> {
+    private final String serializedProfiles;
+    private transient Map<Integer, TestTableData.Profile> profileMap;
+
+    private InMemoryReadFunction(String profiles) {
+      this.serializedProfiles = profiles;
+    }
+
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+      in.defaultReadObject();
+      TestTableData.Profile[] profiles = Base64Serializer.deserialize(this.serializedProfiles, TestTableData.Profile[].class);
+      this.profileMap = Arrays.stream(profiles).collect(Collectors.toMap(p -> p.getMemberId(), Function.identity()));
+    }
+
+    @Override
+    public TestTableData.Profile get(Integer key) {
+      return profileMap.getOrDefault(key, null);
+    }
+
+    static InMemoryReadFunction getInMemoryReadFunction(String serializedProfiles) {
+      return new InMemoryReadFunction(serializedProfiles);
+    }
+  }
 
   static class InMemoryWriteFunction implements TableWriteFunction<Integer, TestTableData.EnrichedPageView> {
     private transient List<TestTableData.EnrichedPageView> records;
@@ -128,13 +146,12 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
   }
 
   private void doTestStreamTableJoinRemoteTable(boolean withCache, boolean defaultCache, String testName) throws Exception {
-    List<TestTableData.PageView> received = new LinkedList<>();
     final InMemoryWriteFunction writer = new InMemoryWriteFunction(testName);
     writtenRecords.put(testName, new ArrayList<>());
 
     int count = 10;
     TestTableData.PageView[] pageViews = TestTableData.generatePageViews(count);
-    TestTableData.Profile[] profiles = TestTableData.generateProfiles(count);
+    String profiles = Base64Serializer.serialize(TestTableData.generateProfiles(count));
 
     int partitionCount = 4;
     Map<String, String> configs = TestLocalTable.getBaseJobConfig(bootstrapUrl(), zkConnect());
@@ -149,7 +166,7 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     final StreamApplication app = (streamGraph, cfg) -> {
       RemoteTableDescriptor<Integer, TestTableData.Profile> inputTableDesc = new RemoteTableDescriptor<>("profile-table-1");
       inputTableDesc
-          .withReadFunction(getInMemoryReader(profiles))
+          .withReadFunction(InMemoryReadFunction.getInMemoryReadFunction(profiles))
           .withRateLimiter(readRateLimiter, null, null);
 
       RemoteTableDescriptor<Integer, TestTableData.EnrichedPageView> outputTableDesc = new RemoteTableDescriptor<>("enriched-page-view-table-1");

@@ -21,13 +21,14 @@ package org.apache.samza.system.kafka;
 import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 import java.util.Properties;
+import org.apache.samza.runtime.TestAbstractApplicationRunner;
 import org.apache.samza.system.StreamSpec;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
 
 /**
- * See also the general StreamSpec tests in {@link org.apache.samza.runtime.TestAbstractApplicationRunner}
+ * See also the general StreamSpec tests in {@link TestAbstractApplicationRunner}
  */
 public class TestKafkaStreamSpec {
 

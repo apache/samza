@@ -20,13 +20,14 @@
 package org.apache.samza.sql.translator;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
 import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.samza.SamzaException;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.functions.FoldLeftFunction;
+import org.apache.samza.operators.functions.SupplierFunction;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.serializers.LongSerde;
@@ -55,8 +56,10 @@ class LogicalAggregateTranslator {
     MessageStream<SamzaSqlRelMessage> inputStream = context.getMessageStream(aggregate.getInput().getId());
 
     // At this point, the assumption is that only count function is supported.
-    Supplier<Long> initialValue = () -> (long) 0;
+    SupplierFunction<Long> initialValue = () -> (long) 0;
     FoldLeftFunction<SamzaSqlRelMessage, Long> foldCountFn = (m, c) -> c + 1;
+
+    final ArrayList<String> aggFieldNames = getAggFieldNames(aggregate);
 
     MessageStream<SamzaSqlRelMessage> outputStream =
         inputStream
@@ -68,13 +71,18 @@ class LogicalAggregateTranslator {
                 new LongSerde())
                 .setAccumulationMode(AccumulationMode.DISCARDING), "tumblingWindow_" + windowId)
             .map(windowPane -> {
-              List<String> fieldNames = windowPane.getKey().getKey().getSamzaSqlRelRecord().getFieldNames();
-              List<Object> fieldValues = windowPane.getKey().getKey().getSamzaSqlRelRecord().getFieldValues();
-              fieldNames.add(aggregate.getAggCallList().get(0).getName());
-              fieldValues.add(windowPane.getMessage());
-              return new SamzaSqlRelMessage(fieldNames, fieldValues);
-            });
+                List<String> fieldNames = windowPane.getKey().getKey().getSamzaSqlRelRecord().getFieldNames();
+                List<Object> fieldValues = windowPane.getKey().getKey().getSamzaSqlRelRecord().getFieldValues();
+                fieldNames.add(aggFieldNames.get(0));
+                fieldValues.add(windowPane.getMessage());
+                return new SamzaSqlRelMessage(fieldNames, fieldValues);
+              });
     context.registerMessageStream(aggregate.getId(), outputStream);
+  }
+
+  private ArrayList<String> getAggFieldNames(LogicalAggregate aggregate) {
+    return aggregate.getAggCallList().stream().collect(ArrayList::new, (names, aggCall) -> names.add(aggCall.getName()),
+        (n1, n2) -> n1.addAll(n2));
   }
 
   void validateAggregateFunctions(final LogicalAggregate aggregate) {
