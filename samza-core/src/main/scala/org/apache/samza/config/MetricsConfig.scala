@@ -20,7 +20,7 @@
 package org.apache.samza.config
 
 
-import org.apache.samza.util.HighResolutionClock
+import org.apache.samza.system.SystemStream
 
 
 object MetricsConfig {
@@ -28,8 +28,11 @@ object MetricsConfig {
   val METRICS_REPORTERS = "metrics.reporters"
   val METRICS_REPORTER_FACTORY = "metrics.reporter.%s.class"
   val METRICS_SNAPSHOT_REPORTER_STREAM = "metrics.reporter.%s.stream"
-  val METRICS_SNAPSHOT_REPORTER_INTERVAL= "metrics.reporter.%s.interval"
-  val METRICS_TIMER_ENABLED= "metrics.timer.enabled"
+  val METRICS_SNAPSHOT_REPORTER_INTERVAL = "metrics.reporter.%s.interval"
+  val METRICS_TIMER_ENABLED = "metrics.timer.enabled"
+  val METRICS_SNAPSHOT_REPORTER_PARTITION_KEY = "metrics.reporter.%s.%s.partitionkey"
+  val METRICS_SNAPSHOT_REPORTER_PARTITION_KEY_JOBNAME = "jobname"
+
 
   implicit def Config2Metrics(config: Config) = new MetricsConfig(config)
 }
@@ -44,9 +47,36 @@ class MetricsConfig(config: Config) extends ScalaMapConfig(config) {
   def getMetricsReporterInterval(name: String): Option[String] = getOption(MetricsConfig.METRICS_SNAPSHOT_REPORTER_INTERVAL format name)
 
   /**
-   * Returns a list of all metrics names from the config file. Useful for
-   * getting individual metrics.
-   */
+    * Parses the metric key name specified in config.
+    * Customers can specify
+    * hostname (for partitioning by hostname -- default) or jobname or jobid
+    *
+    * @param systemStream The systemStream for the MetricsSnapshotStream
+    * @return the metric key name (if specified), else None
+    */
+  def getMetricsReporterStreamPartitionKeyName(systemStream: SystemStream): Option[String] = getOption(MetricsConfig.METRICS_SNAPSHOT_REPORTER_PARTITION_KEY format(systemStream.getSystem, systemStream.getStream))
+
+  /**
+    * Returns the actual value of the partition key, based on the keyName.
+    * If specified as "jobname" returns the jobname.
+    * If none is specified or is specified as "hostname", returns the hostname,
+    * else returns the actual value specified.
+    *
+    * @param keyName  the desired key name (hostname, jobname, none, or another custom name)
+    * @param jobName  the current job name
+    * @param hostname the current host name
+    */
+  def getMetricsReporterStreamPartitionKeyValue(keyName: Option[String], jobName: String, hostname: String) = keyName match {
+    case Some(MetricsConfig.METRICS_SNAPSHOT_REPORTER_PARTITION_KEY_JOBNAME) => jobName
+    case None => hostname
+    case _ => keyName.get
+  }
+
+
+  /**
+    * Returns a list of all metrics names from the config file. Useful for
+    * getting individual metrics.
+    */
   def getMetricReporterNames() = {
     getMetricsReporters match {
       case Some(mr) => if (!"".equals(mr)) {
@@ -59,8 +89,9 @@ class MetricsConfig(config: Config) extends ScalaMapConfig(config) {
   }
 
   /**
-   * Returns the flag to turn on/off the timer metrics.
-   * @return Boolean flag to enable the timer metrics
-   */
+    * Returns the flag to turn on/off the timer metrics.
+    *
+    * @return Boolean flag to enable the timer metrics
+    */
   def getMetricsTimerEnabled: Boolean = getBoolean(MetricsConfig.METRICS_TIMER_ENABLED, true)
 }
