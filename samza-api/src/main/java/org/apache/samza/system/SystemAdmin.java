@@ -66,11 +66,11 @@ public interface SystemAdmin {
   /**
    * Fetch metadata from a system for a set of SSPs.
    * Implementors should override this if there is a more efficient implementation than delegating to
-   * getSystemStreamMetadata.
+   * {@link #getSystemStreamMetadata}.
    *
    * @param ssps SSPs for which to get metadata
-   * @return A map from SystemStreamPartition to the SystemStreamPartitionMetadata, with an entry for each SSP in ssps
-   * for which metadata could be found
+   * @return A map from SystemStreamPartition to the SystemStreamPartitionMetadata, with an entry for each SSP in
+   * {@code ssps} for which metadata could be found
    * @throws RuntimeException if there was an error fetching metadata
    */
   default Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> getSSPMetadata(

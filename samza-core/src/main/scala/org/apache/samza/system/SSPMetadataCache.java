@@ -28,8 +28,8 @@ import org.apache.samza.util.Clock;
 
 
 /**
- * Fetches and caches metadata about a set of SSPs. This can prefetch the metadata for a defined set of SSPs when it is
- * fetching metadata for some arbitrary SSP.
+ * Fetches and caches metadata about a set of SSPs. When fetching metadata for a stale SSP, this will also prefetch
+ * metadata for all other SSPs specified for prefetching which are stale and in the same system.
  */
 public class SSPMetadataCache {
   private final SystemAdmins systemAdmins;
@@ -54,30 +54,32 @@ public class SSPMetadataCache {
   /**
    * Gets the metadata for an SSP. This will return a cached value if it is fresh enough. Otherwise, it will fetch the
    * metadata from a source-of-truth.
-   * If the metadata for the SSP needs to be fetched, then this will also prefetch and cache the metadata for any
-   * sspsToPrefetch if they can be included in the same fetch call (e.g. same system) and if the corresponding metadata
-   * entries in the cache are stale.
+   * If the metadata for the SSP needs to be fetched, then this will also prefetch and cache the metadata for any stale
+   * {@link #sspsToPrefetch} that can be included in the same fetch call (e.g. same system).
    *
    * @param ssp SSP for which to get metadata
    * @return metadata for the SSP; null if the source-of-truth returned no metadata
    * @throws RuntimeException if there was an error in fetching metadata
    */
   public SystemStreamMetadata.SystemStreamPartitionMetadata getMetadata(SystemStreamPartition ssp) {
-    refreshMetadataIfNecessary(ssp);
+    maybeRefreshMetadata(ssp);
     CacheEntry cacheEntry = cache.get(ssp);
-    // shouldn't get null cacheEntry once refresh is done, but check anyways to be safe
+    /*
+     * cacheEntry itself should not be null once the refresh is done, but check anyways to be safe.
+     * The metadata inside a non-null cacheEntry might still be null, so this will return null in that case.
+     */
     return cacheEntry == null ? null : cacheEntry.getMetadata();
   }
 
-  private void refreshMetadataIfNecessary(SystemStreamPartition requestedSSP) {
+  private void maybeRefreshMetadata(SystemStreamPartition requestedSSP) {
     synchronized (this.metadataRefreshLock) {
       Instant refreshRequestedAt = Instant.ofEpochMilli(this.clock.currentTimeMillis());
-      if (needToFetch(requestedSSP, refreshRequestedAt)) {
+      if (shouldRefresh(requestedSSP, refreshRequestedAt)) {
         String system = requestedSSP.getSystem();
         Set<SystemStreamPartition> sspsToFetchFor = new HashSet<>();
         sspsToFetchFor.add(requestedSSP);
         for (SystemStreamPartition sspToPrefetch : this.sspsToPrefetch) {
-          if (system.equals(sspToPrefetch.getSystem()) && needToFetch(sspToPrefetch, refreshRequestedAt)) {
+          if (system.equals(sspToPrefetch.getSystem()) && shouldRefresh(sspToPrefetch, refreshRequestedAt)) {
             sspsToFetchFor.add(sspToPrefetch);
           }
         }
@@ -91,7 +93,7 @@ public class SSPMetadataCache {
     }
   }
 
-  private boolean needToFetch(SystemStreamPartition ssp, Instant now) {
+  private boolean shouldRefresh(SystemStreamPartition ssp, Instant now) {
     CacheEntry cacheEntry = cache.get(ssp);
     if (cacheEntry == null) {
       return true;
