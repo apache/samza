@@ -84,7 +84,7 @@ public class SamzaEventHubClientManager implements EventHubClientManager {
           .setSasKeyName(sasKeyName)
           .setSasKey(sasKey);
 
-      ThreadFactoryBuilder threadFactoryBuilder = new ThreadFactoryBuilder().setNameFormat("Samza EventHubClient Thread-%d");
+      ThreadFactoryBuilder threadFactoryBuilder = new ThreadFactoryBuilder().setNameFormat("Samza EventHubClient Thread-%d").setDaemon(true);
       eventHubClientExecutor = Executors.newFixedThreadPool(numClientThreads, threadFactoryBuilder.build());
       eventHubClient = EventHubClient.createSync(connectionStringBuilder.toString(), retryPolicy, eventHubClientExecutor);
     } catch (IOException | EventHubException e) {
