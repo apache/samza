@@ -54,6 +54,7 @@ class MetricsSnapshotReporter(
   samzaVersion: String,
   host: String,
   serializer: Serializer[MetricsSnapshot] = null,
+  partitionKey: Object,
   clock: () => Long = () => { System.currentTimeMillis }) extends MetricsReporter with Runnable with Logging {
 
   val executor = Executors.newSingleThreadScheduledExecutor(
@@ -133,7 +134,7 @@ class MetricsSnapshotReporter(
         metricsSnapshot
       }
 
-      producer.send(source, new OutgoingMessageEnvelope(out, host, null, maybeSerialized))
+      producer.send(source, new OutgoingMessageEnvelope(out, partitionKey, null, maybeSerialized))
 
       // Always flush, since we don't want metrics to get batched up.
       producer.flush(source)
