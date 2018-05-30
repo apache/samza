@@ -20,19 +20,20 @@
 package org.apache.samza.container;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.util.SamzaUncaughtExceptionHandler;
 import org.junit.Test;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.Assert.assertTrue;
 
-public class TestSamzaContainerExceptionHandler {
+public class TestSamzaUncaughtExceptionHandler {
 
   @Test
   public void testExceptionHandler() {
     final AtomicBoolean exitCalled = new AtomicBoolean(false);
     Thread.UncaughtExceptionHandler exceptionHandler =
-        new SamzaContainerExceptionHandler(() -> exitCalled.getAndSet(true));
+        new SamzaUncaughtExceptionHandler(() -> exitCalled.getAndSet(true));
     exceptionHandler.uncaughtException(Thread.currentThread(), new SamzaException());
     assertTrue(exitCalled.get());
   }
