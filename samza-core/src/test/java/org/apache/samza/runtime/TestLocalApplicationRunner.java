@@ -85,7 +85,7 @@ public class TestLocalApplicationRunner {
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.singletonList(new StreamSpec("test-stream", "test-stream", "test-system")));
     when(plan.getPlanAsJson()).thenReturn("");
-    doReturn(plan).when(runner).getExecutionPlan(any());
+    doReturn(plan).when(runner).getExecutionPlan(any(), eq(streamManager));
 
     CoordinationUtilsFactory coordinationUtilsFactory = mock(CoordinationUtilsFactory.class);
     JobCoordinatorConfig mockJcConfig = mock(JobCoordinatorConfig.class);
@@ -121,7 +121,7 @@ public class TestLocalApplicationRunner {
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.singletonList(new StreamSpec("test-stream", "test-stream", "test-system")));
     when(plan.getPlanAsJson()).thenReturn("");
-    doReturn(plan).when(runner).getExecutionPlan(any());
+    doReturn(plan).when(runner).getExecutionPlan(any(), eq(streamManager));
 
     CoordinationUtils coordinationUtils = mock(CoordinationUtils.class);
     CoordinationUtilsFactory coordinationUtilsFactory = mock(CoordinationUtilsFactory.class);
@@ -190,11 +190,13 @@ public class TestLocalApplicationRunner {
     SystemAdmins systemAdmins = mock(SystemAdmins.class);
     // buildAndStartSystemAdmins already includes start, so not going to verify it gets called
     when(runner.buildAndStartSystemAdmins()).thenReturn(systemAdmins);
+    StreamManager streamManager = mock(StreamManager.class);
+    when(runner.buildStreamManager(systemAdmins)).thenReturn(streamManager);
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.emptyList());
     when(plan.getPlanAsJson()).thenReturn("");
     when(plan.getJobConfigs()).thenReturn(Collections.singletonList(new JobConfig(new MapConfig(config))));
-    doReturn(plan).when(runner).getExecutionPlan(any());
+    doReturn(plan).when(runner).getExecutionPlan(any(), eq(streamManager));
 
     StreamProcessor sp = mock(StreamProcessor.class);
     ArgumentCaptor<StreamProcessorLifecycleListener> captor =
@@ -228,11 +230,13 @@ public class TestLocalApplicationRunner {
     SystemAdmins systemAdmins = mock(SystemAdmins.class);
     // buildAndStartSystemAdmins already includes start, so not going to verify it gets called
     when(runner.buildAndStartSystemAdmins()).thenReturn(systemAdmins);
+    StreamManager streamManager = mock(StreamManager.class);
+    when(runner.buildStreamManager(systemAdmins)).thenReturn(streamManager);
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.emptyList());
     when(plan.getPlanAsJson()).thenReturn("");
     when(plan.getJobConfigs()).thenReturn(Collections.singletonList(new JobConfig(new MapConfig(config))));
-    doReturn(plan).when(runner).getExecutionPlan(any());
+    doReturn(plan).when(runner).getExecutionPlan(any(), eq(streamManager));
 
     StreamProcessor sp = mock(StreamProcessor.class);
     ArgumentCaptor<StreamProcessorLifecycleListener> captor =
