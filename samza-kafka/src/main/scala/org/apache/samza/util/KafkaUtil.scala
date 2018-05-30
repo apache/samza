@@ -19,20 +19,16 @@
 
 package org.apache.samza.util
 
-import java.util.Properties
 import java.util.concurrent.atomic.AtomicLong
 import kafka.admin.AdminUtils
 import kafka.utils.ZkUtils
 import org.apache.kafka.common.PartitionInfo
-import org.apache.samza.config.ApplicationConfig.ApplicationMode
-import org.apache.samza.config.{ApplicationConfig, Config, ConfigException}
+import org.apache.samza.config.{Config, ConfigException}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.execution.StreamManager
 import org.apache.samza.system.OutgoingMessageEnvelope
 import org.apache.kafka.common.errors.ReplicaNotAvailableException
 import kafka.common.ErrorMapping
-import org.apache.kafka.common.errors.TopicExistsException
-import org.apache.samza.system.kafka.TopicMetadataCache
 
 object KafkaUtil extends Logging {
   /**

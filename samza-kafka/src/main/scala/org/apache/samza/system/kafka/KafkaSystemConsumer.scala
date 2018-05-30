@@ -33,6 +33,7 @@ import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.system.IncomingMessageEnvelope
 import kafka.consumer.ConsumerConfig
 import org.apache.samza.util.TopicMetadataStore
+import kafka.api.PartitionMetadata
 import kafka.api.TopicMetadata
 import org.apache.samza.util.ExponentialSleepStrategy
 import java.util.concurrent.ConcurrentHashMap
@@ -167,17 +168,19 @@ private[kafka] class KafkaSystemConsumer(
   }
 
   protected def createBrokerProxy(host: String, port: Int): BrokerProxy = {
+    info("Creating new broker proxy for host: %s and port: %s" format(host, port))
     new BrokerProxy(host, port, systemName, clientId, metrics, sink, timeout, bufferSize, fetchSize, consumerMinSize, consumerMaxWait, offsetGetter)
   }
 
-  protected def getHostPort(topicMetadata: TopicMetadata, partition: Int): Option[(String, Int)] = {
+  protected def getPartitionMetadata(topicMetadata: TopicMetadata, partition: Int): Option[PartitionMetadata] = {
+    topicMetadata.partitionsMetadata.find(_.partitionId == partition)
+  }
+
+  protected def getLeaderHostPort(partitionMetadata: Option[PartitionMetadata]): Option[(String, Int)] = {
     // Whatever we do, we can't say Broker, even though we're
     // manipulating it here. Broker is a private type and Scala doesn't seem
     // to care about that as long as you don't explicitly declare its type.
-    val brokerOption = topicMetadata
-      .partitionsMetadata
-      .find(_.partitionId == partition)
-      .flatMap(_.leader)
+    val brokerOption = partitionMetadata.flatMap(_.leader)
 
     brokerOption match {
       case Some(broker) => Some(broker.host, broker.port)
@@ -207,8 +210,10 @@ private[kafka] class KafkaSystemConsumer(
             // critical section. If we don't, then notAValidEvent it.
             topicPartitionsAndOffsets.get(head) match {
               case Some(nextOffset) =>
-                getHostPort(topicMetadata(head.topic), head.partition) match {
+                val partitionMetadata = getPartitionMetadata(topicMetadata(head.topic), head.partition)
+                getLeaderHostPort(partitionMetadata) match {
                   case Some((host, port)) =>
+                    debug("Got partition metadata for %s: %s" format(head, partitionMetadata.get))
                     val brokerProxy = brokerProxies.getOrElseUpdate((host, port), createBrokerProxy(host, port))
                     brokerProxy.addTopicPartition(head, Option(nextOffset))
                     brokerProxy.start

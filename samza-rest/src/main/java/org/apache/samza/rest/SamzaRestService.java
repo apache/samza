@@ -66,9 +66,9 @@ public class SamzaRestService {
   private final Map<String, MetricsReporter> metricsReporters;
 
   public SamzaRestService(Server server,
-                          ReadableMetricsRegistry metricsRegistry,
-                          Map<String, MetricsReporter> metricsReporters,
-                          ServletContextHandler context) {
+      ReadableMetricsRegistry metricsRegistry,
+      Map<String, MetricsReporter> metricsReporters,
+      ServletContextHandler context) {
     this.server = server;
     this.metricsRegistry = metricsRegistry;
     this.metricsReporters = metricsReporters;
@@ -92,9 +92,10 @@ public class SamzaRestService {
       ReadableMetricsRegistry metricsRegistry = new MetricsRegistryMap();
       log.info("Creating new SamzaRestService with config: {}", config);
       MetricsConfig metricsConfig = new MetricsConfig(config);
-      Map<String, MetricsReporter> metricsReporters = MetricsReporterLoader.getMetricsReporters(metricsConfig, Util.getLocalHost().getHostName());
+      Map<String, MetricsReporter> metricsReporters = MetricsReporterLoader.getMetricsReporters(metricsConfig,
+          Util.getLocalHost().getHostName());
       SamzaRestService restService = new SamzaRestService(new Server(config.getPort()), metricsRegistry, metricsReporters,
-                                                          new ServletContextHandler(ServletContextHandler.SESSIONS));
+          new ServletContextHandler(ServletContextHandler.SESSIONS));
 
       // Add applications
       SamzaRestApplication samzaRestApplication = new SamzaRestApplication(config);
@@ -108,8 +109,8 @@ public class SamzaRestService {
       ScheduledExecutorService schedulingService = Executors.newScheduledThreadPool(1, threadFactory);
       schedulingProvider = new ScheduledExecutorSchedulingProvider(schedulingService);
       SamzaMonitorService monitorService = new SamzaMonitorService(config,
-                                                                   metricsRegistry,
-                                                                   schedulingProvider);
+          metricsRegistry,
+          schedulingProvider);
       monitorService.start();
 
       restService.runBlocking();
