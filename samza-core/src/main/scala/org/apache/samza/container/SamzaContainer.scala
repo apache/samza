@@ -43,7 +43,7 @@ import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor
 import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStatistics, SystemStatisticsMonitor}
 import org.apache.samza.coordinator.stream.{CoordinatorStreamManager, CoordinatorStreamSystemProducer}
 import org.apache.samza.job.model.JobModel
-import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
+import org.apache.samza.metrics._
 import org.apache.samza.serializers._
 import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.storage.{StorageEngineFactory, TaskStorageManager}
@@ -752,7 +752,9 @@ class SamzaContainer(
         }
         status = SamzaContainerStatus.FAILED
         exceptionSeen = e
-        metrics.exceptionAtShutdown.set(ExceptionUtils.getStackTrace(e))
+
+        // Adding a shutdownException to the exception ListGauge in SamzaContainerMetrics
+        metrics.exception.add(new Gauge[String]("shutdownException", ExceptionUtils.getStackTrace(e)))
         debug("Updated value of exceptionAtShutdown to %s" format ExceptionUtils.getStackTrace(e))
     }
 
