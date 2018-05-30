@@ -16,10 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.testUtils;
+package org.apache.samza.operators.functions;
+
+import java.io.Serializable;
+import org.apache.samza.annotation.InterfaceStability;
+
 
 /**
- * Test class. Invalid class to implement {@link org.apache.samza.application.StreamApplication}
+ * A supplier to return a new value at each invocation
  */
-public class InvalidStreamApplication {
+@InterfaceStability.Unstable
+@FunctionalInterface
+public interface SupplierFunction<T> extends InitableFunction, ClosableFunction, Serializable {
+
+  /**
+   * Returns a value of type T
+   *
+   * @return a value for type T
+   */
+  T get();
 }

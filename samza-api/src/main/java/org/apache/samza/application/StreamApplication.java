@@ -61,9 +61,10 @@ import org.apache.samza.task.TaskContext;
  *
  * <p>
  * Implementation Notes: Currently StreamApplications are wrapped in a {@link StreamTask} during execution.
- * A new StreamApplication instance will be created and initialized when planning the execution, as well as for each
- * {@link StreamTask} instance used for processing incoming messages. Execution is synchronous and thread-safe within
- * each {@link StreamTask}.
+ * A new StreamApplication instance will be created and initialized with a user-defined {@link StreamGraph}
+ * when planning the execution. The {@link StreamGraph} and the functions implemented for transforms are required to
+ * be serializable. The execution planner will generate a serialized DAG which will be deserialized in each {@link StreamTask}
+ * instance used for processing incoming messages. Execution is synchronous and thread-safe within each {@link StreamTask}.
  *
  * <p>
  * Functions implemented for transforms in StreamApplications ({@link org.apache.samza.operators.functions.MapFunction},

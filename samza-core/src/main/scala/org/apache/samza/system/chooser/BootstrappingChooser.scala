@@ -72,7 +72,7 @@ class BootstrappingChooser(
    * A map from system stream name to SystemAdmin that is used for
    * offset comparisons.
    */
-  systemAdmins: SystemAdmins = new SystemAdmins(new HashMap[String, SystemAdmin])) extends MessageChooser with Logging {
+  systemAdmins: SystemAdmins = SystemAdmins.empty()) extends MessageChooser with Logging {
 
   /**
    * The number of lagging partitions for each SystemStream that's behind.

@@ -24,9 +24,7 @@ import java.util.HashSet;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.samza.Partition;
-import org.apache.samza.execution.StreamManager;
 import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
 import org.apache.samza.system.kafka.KafkaSystemAdmin;
@@ -124,18 +122,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
 
     // Verify that messages in the intermediate stream will be deleted in 10 seconds
     long startTimeMs = System.currentTimeMillis();
-
-    SystemAdmins systemAdmins = new SystemAdmins(runApplicationContext.getConfig());
-    systemAdmins.start();
-    List<StreamSpec> intermediateStreams;
-    try {
-      StreamManager streamManager = new StreamManager(systemAdmins);
-      intermediateStreams =
-          runApplicationContext.getRunner().getExecutionPlan(app, streamManager).getIntermediateStreams();
-    } finally {
-      systemAdmins.stop();
-    }
-    for (StreamSpec spec: intermediateStreams) {
+    for (StreamSpec spec: app.getIntermediateStreams()) {
       long remainingMessageNum = -1;
 
       while (remainingMessageNum != 0 && System.currentTimeMillis() - startTimeMs < 10000) {

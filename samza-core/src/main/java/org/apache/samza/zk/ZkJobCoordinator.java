@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.I0Itec.zkclient.IZkStateListener;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.checkpoint.CheckpointManager;
@@ -33,6 +34,7 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.config.ZkConfig;
@@ -56,8 +58,6 @@ import org.apache.samza.util.Util;
 import org.apache.zookeeper.Watcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static org.apache.zookeeper.Watcher.Event.KeeperState.*;
 
 /**
  * JobCoordinator for stand alone processor managed via Zookeeper.
@@ -91,19 +91,19 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private final ZkJobCoordinatorMetrics metrics;
   private final Map<String, MetricsReporter> reporters;
   private final ZkLeaderElector leaderElector;
+  private final AtomicBoolean initiatedShutdown = new AtomicBoolean(false);
+  private final StreamMetadataCache streamMetadataCache;
+  private final SystemAdmins systemAdmins;
+  private final int debounceTimeMs;
+  private final Map<TaskName, Integer> changeLogPartitionMap = new HashMap<>();
 
-  private StreamMetadataCache streamMetadataCache = null;
-  private SystemAdmins systemAdmins = null;
-
-  @VisibleForTesting
-  ScheduleAfterDebounceTime debounceTimer = null;
   private JobCoordinatorListener coordinatorListener = null;
   private JobModel newJobModel;
-  private int debounceTimeMs;
   private boolean hasCreatedStreams = false;
-  private boolean initiatedShutdown = false;
   private String cachedJobModelVersion = null;
-  private Map<TaskName, Integer> changeLogPartitionMap = new HashMap<>();
+
+  @VisibleForTesting
+  ScheduleAfterDebounceTime debounceTimer;
 
   ZkJobCoordinator(Config config, MetricsRegistry metricsRegistry, ZkUtils zkUtils) {
     this.config = config;
@@ -118,10 +118,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     leaderElector = new ZkLeaderElector(processorId, zkUtils);
     leaderElector.setLeaderElectorListener(new LeaderElectorListenerImpl());
     this.zkController = new ZkControllerImpl(processorId, zkUtils, this, leaderElector);
-    this.barrier =  new ZkBarrierForVersionUpgrade(
-        zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix(),
-        zkUtils,
-        new ZkBarrierListenerImpl());
     this.debounceTimeMs = new JobConfig(config).getDebounceTimeMs();
     this.reporters = MetricsReporterLoader.getMetricsReporters(new MetricsConfig(config), processorId);
     debounceTimer = new ScheduleAfterDebounceTime(processorId);
@@ -129,6 +125,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         LOG.error("Received exception in debounce timer! Stopping the job coordinator", throwable);
         stop();
       });
+    this.barrier =  new ZkBarrierForVersionUpgrade(zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix(), zkUtils, new ZkBarrierListenerImpl(), debounceTimer);
     systemAdmins = new SystemAdmins(config);
     streamMetadataCache = new StreamMetadataCache(systemAdmins, METADATA_CACHE_TTL_MS, SystemClock.instance());
   }
@@ -141,50 +138,49 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   }
 
   @Override
-  public synchronized void stop() {
+  public void stop() {
     // Make the shutdown idempotent
-    if (initiatedShutdown) {
-      LOG.debug("Job Coordinator shutdown is already in progress!");
-      return;
-    }
+    if (initiatedShutdown.compareAndSet(false, true)) {
 
-    LOG.info("Shutting down Job Coordinator...");
-    initiatedShutdown = true;
-    boolean shutdownSuccessful = false;
+      LOG.info("Shutting down JobCoordinator.");
+      boolean shutdownSuccessful = false;
 
-    // Notify the metrics about abandoning the leadership. Moving it up the chain in the shutdown sequence so that
-    // in case of unclean shutdown, we get notified about lack of leader and we can set up some alerts around the absence of leader.
-    metrics.isLeader.set(false);
+      // Notify the metrics about abandoning the leadership. Moving it up the chain in the shutdown sequence so that
+      // in case of unclean shutdown, we get notified about lack of leader and we can set up some alerts around the absence of leader.
+      metrics.isLeader.set(false);
 
-    try {
-      // todo: what does it mean for coordinator listener to be null? why not have it part of constructor?
-      if (coordinatorListener != null) {
-        coordinatorListener.onJobModelExpired();
+      try {
+        // todo: what does it mean for coordinator listener to be null? why not have it part of constructor?
+        if (coordinatorListener != null) {
+          coordinatorListener.onJobModelExpired();
+        }
+
+        debounceTimer.stopScheduler();
+
+        LOG.debug("Shutting down ZkController.");
+        zkController.stop();
+
+        LOG.debug("Shutting down system admins.");
+        systemAdmins.stop();
+
+        LOG.debug("Shutting down metrics.");
+        shutdownMetrics();
+
+        if (coordinatorListener != null) {
+          coordinatorListener.onCoordinatorStop();
+        }
+
+        shutdownSuccessful = true;
+      } catch (Throwable t) {
+        LOG.error("Encountered errors during job coordinator stop.", t);
+        if (coordinatorListener != null) {
+          coordinatorListener.onCoordinatorFailure(t);
+        }
+      } finally {
+        LOG.info("Job Coordinator shutdown finished with ShutdownComplete=" + shutdownSuccessful);
       }
-
-      debounceTimer.stopScheduler();
-
-      LOG.debug("Shutting down ZkController.");
-      zkController.stop();
-
-      LOG.debug("Shutting down system admins.");
-      systemAdmins.stop();
-
-      LOG.debug("Shutting down metrics.");
-      shutdownMetrics();
-
-      if (coordinatorListener != null) {
-        coordinatorListener.onCoordinatorStop();
-      }
-
-      shutdownSuccessful = true;
-    } catch (Throwable t) {
-      LOG.error("Encountered errors during job coordinator stop.", t);
-      if (coordinatorListener != null) {
-        coordinatorListener.onCoordinatorFailure(t);
-      }
-    } finally {
-      LOG.info("Job Coordinator shutdown finished with ShutdownComplete=" + shutdownSuccessful);
+    } else {
+      LOG.info("Job Coordinator shutdown is in progress!");
     }
   }
 
@@ -352,7 +348,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
      * to host mapping) is passed in as null when building the jobModel.
      */
     JobModel model = JobModelManager.readJobModel(this.config, changeLogPartitionMap, null, streamMetadataCache, processors);
-    return model;
+    return new JobModel(new MapConfig(), model.getContainers());
   }
 
   class LeaderElectorListenerImpl implements LeaderElectorListener {

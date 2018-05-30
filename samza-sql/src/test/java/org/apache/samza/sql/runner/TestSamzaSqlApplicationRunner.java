@@ -17,7 +17,7 @@
 * under the License.
 */
 
-package org.apache.samza.sql;
+package org.apache.samza.sql.runner;
 
 import java.util.Map;
 

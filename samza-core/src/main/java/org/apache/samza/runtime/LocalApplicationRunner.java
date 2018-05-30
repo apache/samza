@@ -43,6 +43,7 @@ import org.apache.samza.coordinator.DistributedLockWithState;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.execution.StreamManager;
 import org.apache.samza.job.ApplicationStatus;
+import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.StreamProcessorLifecycleListener;
 import org.apache.samza.system.StreamSpec;
@@ -141,7 +142,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     LOG.info("LocalApplicationRunner will run " + taskName);
     LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
 
-    StreamProcessor processor = createStreamProcessor(jobConfig, null, listener);
+    StreamProcessor processor = createStreamProcessor(jobConfig, listener);
 
     numProcessorsToStart.set(1);
     listener.setProcessor(processor);
@@ -174,7 +175,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       plan.getJobConfigs().forEach(jobConfig -> {
           LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
           LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
-          StreamProcessor processor = createStreamProcessor(jobConfig, app, listener);
+          StreamProcessor processor = createStreamProcessor(jobConfig, graphSpec, listener);
           listener.setProcessor(processor);
           processors.add(processor);
         });
@@ -294,15 +295,32 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   /**
    * Create {@link StreamProcessor} based on {@link StreamApplication} and the config
    * @param config config
-   * @param app {@link StreamApplication}
    * @return {@link StreamProcessor]}
    */
   /* package private */
   StreamProcessor createStreamProcessor(
       Config config,
-      StreamApplication app,
       StreamProcessorLifecycleListener listener) {
-    Object taskFactory = TaskFactoryUtil.createTaskFactory(config, app, new LocalApplicationRunner(config));
+    Object taskFactory = TaskFactoryUtil.createTaskFactory(config);
+    return getStreamProcessorInstance(config, taskFactory, listener);
+  }
+
+  /**
+   * Create {@link StreamProcessor} based on {@link StreamApplication} and the config
+   * @param config config
+   * @param graphBuilder {@link StreamGraphSpec}
+   * @return {@link StreamProcessor]}
+   */
+  /* package private */
+  StreamProcessor createStreamProcessor(
+      Config config,
+      StreamGraphSpec graphBuilder,
+      StreamProcessorLifecycleListener listener) {
+    Object taskFactory = TaskFactoryUtil.createTaskFactory(graphBuilder.getOperatorSpecGraph(), graphBuilder.getContextManager());
+    return getStreamProcessorInstance(config, taskFactory, listener);
+  }
+
+  private StreamProcessor getStreamProcessorInstance(Config config, Object taskFactory, StreamProcessorLifecycleListener listener) {
     if (taskFactory instanceof StreamTaskFactory) {
       return new StreamProcessor(
           config, new HashMap<>(), (StreamTaskFactory) taskFactory, listener);

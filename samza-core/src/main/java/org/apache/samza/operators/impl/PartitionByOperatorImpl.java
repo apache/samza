@@ -21,6 +21,7 @@ package org.apache.samza.operators.impl;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.spec.PartitionByOperatorSpec;
@@ -36,7 +37,6 @@ import org.apache.samza.task.TaskCoordinator;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.function.Function;
 
 
 /**
@@ -46,17 +46,15 @@ class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
 
   private final PartitionByOperatorSpec<M, K, V> partitionByOpSpec;
   private final SystemStream systemStream;
-  private final Function<? super M, ? extends K> keyFunction;
-  private final Function<? super M, ? extends V> valueFunction;
+  private final MapFunction<? super M, ? extends K> keyFunction;
+  private final MapFunction<? super M, ? extends V> valueFunction;
   private final String taskName;
   private final ControlMessageSender controlMessageSender;
 
   PartitionByOperatorImpl(PartitionByOperatorSpec<M, K, V> partitionByOpSpec, Config config, TaskContext context) {
     this.partitionByOpSpec = partitionByOpSpec;
     OutputStreamImpl<KV<K, V>> outputStream = partitionByOpSpec.getOutputStream();
-    this.systemStream = new SystemStream(
-        outputStream.getStreamSpec().getSystemName(),
-        outputStream.getStreamSpec().getPhysicalName());
+    this.systemStream = outputStream.getSystemStream();
     this.keyFunction = partitionByOpSpec.getKeyFunction();
     this.valueFunction = partitionByOpSpec.getValueFunction();
     this.taskName = context.getTaskName().getTaskName();
@@ -66,6 +64,8 @@ class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
 
   @Override
   protected void handleInit(Config config, TaskContext context) {
+    this.keyFunction.init(config, context);
+    this.valueFunction.init(config, context);
   }
 
   @Override
@@ -80,6 +80,8 @@ class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
 
   @Override
   protected void handleClose() {
+    this.keyFunction.close();
+    this.valueFunction.close();
   }
 
   @Override
@@ -100,7 +102,7 @@ class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
   }
 
   private void sendControlMessage(ControlMessage message, MessageCollector collector) {
-    SystemStream outputStream = partitionByOpSpec.getOutputStream().getStreamSpec().toSystemStream();
+    SystemStream outputStream = partitionByOpSpec.getOutputStream().getSystemStream();
     controlMessageSender.send(message, outputStream, collector);
   }
 }
