@@ -46,6 +46,9 @@ object ApplicationMasterRestServlet {
       metricsRegistry.getGroup(group).asScala.foreach {
         case (name, metric) =>
           metric.visit(new MetricsVisitor() {
+            def listGauge[T](listGauge: ListGauge) =
+              groupMap.put(name, listGauge.getValue)
+
             def counter(counter: Counter) =
               groupMap.put(counter.getName, counter.getCount: lang.Long)
 

@@ -28,6 +28,7 @@ import java.util.Base64
 import java.util.concurrent.{ExecutorService, Executors, ScheduledExecutorService, TimeUnit}
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder
+import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
@@ -42,7 +43,7 @@ import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor
 import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStatistics, SystemStatisticsMonitor}
 import org.apache.samza.coordinator.stream.{CoordinatorStreamManager, CoordinatorStreamSystemProducer}
 import org.apache.samza.job.model.JobModel
-import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
+import org.apache.samza.metrics._
 import org.apache.samza.serializers._
 import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.storage.{StorageEngineFactory, TaskStorageManager}
@@ -751,6 +752,10 @@ class SamzaContainer(
         }
         status = SamzaContainerStatus.FAILED
         exceptionSeen = e
+
+        // Adding a shutdownException to the exception ListGauge in SamzaContainerMetrics
+        metrics.exception.add(new Gauge[String]("shutdownException", ExceptionUtils.getStackTrace(e)))
+        debug("Updated value of exceptionAtShutdown to %s" format ExceptionUtils.getStackTrace(e))
     }
 
     try {

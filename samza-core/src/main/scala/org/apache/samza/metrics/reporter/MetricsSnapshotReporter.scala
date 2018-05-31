@@ -19,6 +19,8 @@
 
 package org.apache.samza.metrics.reporter
 
+import java.util
+
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.metrics._
 import org.apache.samza.serializers.Serializer
@@ -26,7 +28,6 @@ import org.apache.samza.system.OutgoingMessageEnvelope
 import org.apache.samza.system.SystemProducer
 import org.apache.samza.system.SystemStream
 import org.apache.samza.util.Logging
-
 import java.util.HashMap
 import java.util.Map
 import java.util.concurrent.Executors
@@ -54,6 +55,7 @@ class MetricsSnapshotReporter(
   samzaVersion: String,
   host: String,
   serializer: Serializer[MetricsSnapshot] = null,
+  partitionKey: Object,
   clock: () => Long = () => { System.currentTimeMillis }) extends MetricsReporter with Runnable with Logging {
 
   val executor = Executors.newSingleThreadScheduledExecutor(
@@ -83,14 +85,17 @@ class MetricsSnapshotReporter(
   }
 
   def stop = {
-    info("Stopping producer.")
 
-    producer.stop
+    // Scheduling an event with 0 delay to ensure flushing of metrics one last time before shutdown
+    executor.schedule(this,0, TimeUnit.SECONDS)
 
     info("Stopping reporter timer.")
-
+    // Allow the scheduled task above to finish, and block for termination (for max 60 seconds)
     executor.shutdown
     executor.awaitTermination(60, TimeUnit.SECONDS)
+
+    info("Stopping producer.")
+    producer.stop
 
     if (!executor.isTerminated) {
       warn("Unable to shutdown reporter timer.")
@@ -112,6 +117,8 @@ class MetricsSnapshotReporter(
         registry.getGroup(group).asScala.foreach {
           case (name, metric) =>
             metric.visit(new MetricsVisitor {
+              // for listGauge the value is returned as a list, which gets serialized
+              def listGauge[T](listGauge: ListGauge) = {groupMsg.put(name, listGauge.getValue)  }
               def counter(counter: Counter) = groupMsg.put(name, counter.getCount: java.lang.Long)
               def gauge[T](gauge: Gauge[T]) = groupMsg.put(name, gauge.getValue.asInstanceOf[Object])
               def timer(timer: Timer) = groupMsg.put(name, timer.getSnapshot().getAverage(): java.lang.Double)
@@ -133,11 +140,17 @@ class MetricsSnapshotReporter(
         metricsSnapshot
       }
 
-      producer.send(source, new OutgoingMessageEnvelope(out, host, null, maybeSerialized))
+      try {
 
-      // Always flush, since we don't want metrics to get batched up.
-      producer.flush(source)
+        producer.send(source, new OutgoingMessageEnvelope(out, partitionKey, null, maybeSerialized))
+
+        // Always flush, since we don't want metrics to get batched up.
+        producer.flush(source)
+      } catch  {
+        case e: Exception => error("Exception when flushing metrics for source %s " format(source), e)
+      }
     }
+
 
     debug("Finished flushing metrics.")
   }
