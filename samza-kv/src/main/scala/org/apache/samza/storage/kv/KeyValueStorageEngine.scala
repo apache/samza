@@ -20,7 +20,7 @@
 package org.apache.samza.storage.kv
 
 import org.apache.samza.util.Logging
-import org.apache.samza.storage.{StoreProperties, StorageEngine}
+import org.apache.samza.storage.{StorageEngine, StoreProperties}
 import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.util.TimerUtil
 
@@ -67,11 +67,7 @@ class KeyValueStorageEngine[K, V](
   }
 
   def putAll(entries: java.util.List[Entry[K, V]]) = {
-    updateTimer(metrics.putAllNs) {
-      metrics.putAlls.inc()
-      metrics.puts.inc(entries.size)
-      wrapperStore.putAll(entries)
-    }
+    doPutAll(wrapperStore, entries)
   }
 
   def delete(key: K) = {
@@ -119,11 +115,7 @@ class KeyValueStorageEngine[K, V](
       batch.add(new Entry(keyBytes, valBytes))
 
       if (batch.size >= batchSize) {
-        updateTimer(metrics.putAllNs) {
-          metrics.putAlls.inc()
-          metrics.puts.inc(batch.size)
-          rawStore.putAll(batch)
-        }
+        doPutAll(rawStore, batch)
         batch.clear()
       }
 
@@ -147,11 +139,7 @@ class KeyValueStorageEngine[K, V](
     info(count + " total entries restored.")
 
     if (batch.size > 0) {
-      updateTimer(metrics.putAllNs) {
-        metrics.putAlls.inc()
-        metrics.puts.inc(batch.size)
-        rawStore.putAll(batch)
-      }
+      doPutAll(rawStore, batch)
     }
   }
 
@@ -174,6 +162,14 @@ class KeyValueStorageEngine[K, V](
 
     flush()
     wrapperStore.close()
+  }
+
+  private def doPutAll[Key, Value](store: KeyValueStore[Key, Value], entries: java.util.List[Entry[Key, Value]]) = {
+    updateTimer(metrics.putAllNs) {
+      metrics.putAlls.inc()
+      metrics.puts.inc(entries.size)
+      store.putAll(entries)
+    }
   }
 
   override def getStoreProperties: StoreProperties = storeProperties

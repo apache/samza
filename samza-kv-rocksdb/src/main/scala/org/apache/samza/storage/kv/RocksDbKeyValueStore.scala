@@ -154,11 +154,12 @@ class RocksDbKeyValueStore(
   }
 
   def put(key: Array[Byte], value: Array[Byte]): Unit = ifOpen {
-    metrics.puts.inc
     require(key != null, "Null key not allowed.")
     if (value == null) {
+      metrics.deletes.inc
       db.delete(writeOptions, key)
     } else {
+      metrics.puts.inc
       metrics.bytesWritten.inc(key.length + value.length)
       db.put(writeOptions, key, value)
     }
@@ -188,8 +189,7 @@ class RocksDbKeyValueStore(
   }
 
   def delete(key: Array[Byte]): Unit = ifOpen {
-    metrics.deletes.inc
-    db.delete(writeOptions, key)
+    put(key, null)
   }
 
   def range(from: Array[Byte], to: Array[Byte]): KeyValueIterator[Array[Byte], Array[Byte]] = ifOpen {

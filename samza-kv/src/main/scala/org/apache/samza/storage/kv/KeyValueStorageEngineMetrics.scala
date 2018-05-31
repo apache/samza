@@ -28,7 +28,7 @@ class KeyValueStorageEngineMetrics(
   val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
 
   val gets = newCounter("gets")
-  val getAlls = newCounter("getAlls")
+  val getAlls = newCounter("get-alls")
   val puts = newCounter("puts")
   val putAlls = newCounter("put-alls")
   val deletes = newCounter("deletes")
