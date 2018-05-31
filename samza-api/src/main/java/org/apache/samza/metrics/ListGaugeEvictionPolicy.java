@@ -16,15 +16,8 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.samza.metrics;
 
-public interface ReadableMetricsRegistryListener {
-  void onCounter(String group, Counter counter);
-
-  void onGauge(String group, Gauge<?> gauge);
-
-  void onListGauge(String group, ListGauge<?> listGauge);
-
-  void onTimer(String group, Timer timer);
+public interface ListGaugeEvictionPolicy<T> {
+  void elementAddedCallback();
 }

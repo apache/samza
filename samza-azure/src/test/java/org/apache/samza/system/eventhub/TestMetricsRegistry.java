@@ -84,7 +84,7 @@ public class TestMetricsRegistry implements MetricsRegistry {
   @Override
   public ListGauge newListGauge(String group, ListGauge listGauge) {
     listGauges.putIfAbsent(group, new ArrayList());
-    ListGauge value = new ListGauge(group, 1000);
+    ListGauge value = new ListGauge(group);
     listGauges.get(group).add(value);
     return value;
   }

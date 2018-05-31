@@ -52,7 +52,7 @@ public class NoOpMetricsRegistry implements MetricsRegistry {
   }
 
   @Override
-  public <T> ListGauge newListGauge(String group, ListGauge listGauge) {
+  public <T> ListGauge<T> newListGauge(String group, ListGauge<T> listGauge) {
     return listGauge;
   }
 

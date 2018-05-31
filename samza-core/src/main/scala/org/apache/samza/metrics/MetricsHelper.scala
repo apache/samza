@@ -40,7 +40,7 @@ trait MetricsHelper {
 
   def newGauge[T](name: String, value: T) = metricGroup.newGauge[T](name,value)
 
-  def newListGauge[T](name: String, listSize: Int) = metricGroup.newListGauge[T](name, listSize)
+  def newListGauge[T](name: String) = metricGroup.newListGauge[T](name)
 
   /**
    * Specify a dynamic gauge that always returns the latest value when polled.

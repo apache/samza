@@ -34,43 +34,42 @@ public class TestListGauge {
 
   @Test
   public void basicTest() {
-    ListGauge listGauge = new ListGauge("listGauge", 10);
-    Gauge<String> sampleGauge = new Gauge<String>("key", "value");
-    listGauge.add(sampleGauge);
-    Assert.assertEquals("Names should be the same", listGauge.getName(), "listGauge");
+    ListGauge<String> listGauge = new ListGauge<String>("sampleListGauge");
+    listGauge.add("sampleValue");
+    Assert.assertEquals("Names should be the same", listGauge.getName(), "sampleListGauge");
     Assert.assertEquals("List sizes should match", listGauge.getValue().size(), 1);
-    Assert.assertEquals("ListGauge should contain sampleGauge", listGauge.getValue().contains(sampleGauge), true);
+    Assert.assertEquals("ListGauge should contain sampleGauge", listGauge.getValue().contains("sampleValue"), true);
   }
 
   @Test
   public void testSizeEnforcement() {
-    ListGauge listGauge = new ListGauge("listGauge", 10);
+    ListGauge listGauge = new ListGauge<String>("listGauge");
+    listGauge.setEvictionPolicy(new RetainLastNPolicy(listGauge, 10));
     for (int i = 15; i > 0; i--) {
-      Gauge<String> sampleGauge = new Gauge<String>("key", "v" + i);
-      listGauge.add(sampleGauge);
+      listGauge.add("v" + i);
     }
     Assert.assertEquals("List sizes should be as configured at creation time", listGauge.getValue().size(), 10);
 
     int valueIndex = 10;
-    Collection<Gauge> currentList = listGauge.getValue();
+    Collection<String> currentList = listGauge.getValue();
     Iterator iterator = currentList.iterator();
     while (iterator.hasNext()) {
-      Gauge<String> gauge = (Gauge<String>) iterator.next();
-      Assert.assertTrue(gauge.getName().equals("key"));
-      Assert.assertTrue(gauge.getValue().equals("v" + valueIndex));
+      String gaugeValue = (String) iterator.next();
+      Assert.assertTrue(gaugeValue.equals("v" + valueIndex));
       valueIndex--;
     }
   }
 
   @Test
   public void testThreadSafety() throws InterruptedException {
-    ListGauge listGauge = new ListGauge("listGauge", 20);
+    ListGauge<Integer> listGauge = new ListGauge<Integer>("listGauge");
+    listGauge.setEvictionPolicy(new RetainLastNPolicy(listGauge, 20));
 
     Thread thread1 = new Thread(new Runnable() {
       @Override
       public void run() {
         for (int i = 1; i <= 100; i++) {
-          listGauge.add(new Gauge<Integer>("thread1", i));
+          listGauge.add(i);
         }
       }
     });
@@ -79,7 +78,7 @@ public class TestListGauge {
       @Override
       public void run() {
         for (int i = 1; i <= 100; i++) {
-          listGauge.add(new Gauge<Integer>("key", i));
+          listGauge.add(i);
         }
       }
     });
@@ -91,9 +90,8 @@ public class TestListGauge {
     thread2.join(THREAD_TEST_TIMEOUT.toMillis());
 
     Assert.assertTrue("ListGauge should have the last 20 values", listGauge.getValue().size() == 20);
-    for (Gauge gauge : listGauge.getValue()) {
-      Assert.assertTrue("Values should have the last 20 range",
-          ((Integer) gauge.getValue()) <= 100 && ((Integer) gauge.getValue()) > 80);
+    for (Integer gaugeValue : listGauge.getValue()) {
+      Assert.assertTrue("Values should have the last 20 range", gaugeValue <= 100 && gaugeValue > 80);
     }
   }
 }

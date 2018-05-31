@@ -16,15 +16,32 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.samza.metrics;
 
-public interface ReadableMetricsRegistryListener {
-  void onCounter(String group, Counter counter);
+import java.util.Collection;
+import java.util.Iterator;
 
-  void onGauge(String group, Gauge<?> gauge);
 
-  void onListGauge(String group, ListGauge<?> listGauge);
+public class RetainLastNPolicy<T> implements ListGaugeEvictionPolicy<T> {
 
-  void onTimer(String group, Timer timer);
+  private final ListGauge<T> listGauge;
+  private final int nItems;
+
+  public RetainLastNPolicy(ListGauge<T> listGauge, int numItems) {
+    this.listGauge = listGauge;
+    this.nItems = numItems;
+  }
+
+  @Override
+  public void elementAddedCallback() {
+    // get a snapshot of the list
+    Collection<T> listGaugeCollection = this.listGauge.getValue();
+    int numToEvict = listGaugeCollection.size() - nItems;
+    Iterator<T> iterator = listGaugeCollection.iterator();
+    while (numToEvict > 0 && iterator.hasNext()) {
+      // Remove in FIFO order to retain the last nItems
+      listGauge.remove(iterator.next());
+      numToEvict--;
+    }
+  }
 }

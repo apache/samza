@@ -752,10 +752,6 @@ class SamzaContainer(
         }
         status = SamzaContainerStatus.FAILED
         exceptionSeen = e
-
-        // Adding a shutdownException to the exception ListGauge in SamzaContainerMetrics
-        metrics.exception.add(new Gauge[String]("shutdownException", ExceptionUtils.getStackTrace(e)))
-        debug("Updated value of exceptionAtShutdown to %s" format ExceptionUtils.getStackTrace(e))
     }
 
     try {

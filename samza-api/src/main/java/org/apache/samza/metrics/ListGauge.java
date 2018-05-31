@@ -18,42 +18,43 @@
  */
 package org.apache.samza.metrics;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedList;
+import java.util.List;
 
 
 /**
- * A ListGauge is a collection of {@link org.apache.samza.metrics.Gauge}. ListGauges are useful for maintaining, recording,
- * or collecting specific Gauge values over time. It is implemented as a {@link org.apache.samza.metrics.Metric}.
- * For example, the set of recent errors that have occurred.
+ * A {@link ListGauge} is a {@link org.apache.samza.metrics.Metric} that buffers multiple instances of a type T in a list.
+ * {@link ListGauge}s are useful for maintaining, recording, or collecting values over time.
+ * For example, a set of specific logging-events (e.g., errors).
  *
- * This current implementation uses a size-bound-policy and holds the N most-recent Gauge objects added to the list.
- * This bound N is configurable at instantiation time.
- * TODO: Support a time-based and size-and-time-based hybrid policy.
- * TODO: Add a derived class to do compaction for errors using hash-based errorIDs and adding timestamp for errors to dedup
- * on the read path.
+ * Eviction from list is either done by consuming-code using the remove APIs or by specifying an eviction policy
+ * at creation time.
  *
  * All public methods are thread-safe.
  *
  */
-public class ListGauge implements Metric {
+public class ListGauge<T> implements Metric {
   private final String name;
-  private final Collection<Gauge> metricList;
-  private int nItems;
+  private final List<T> metricList;
+  private ListGaugeEvictionPolicy<T> listGaugeEvictionPolicy;
+
+  private final static int DEFAULT_POLICY_NUM_RETAIN = 60;
 
   /**
-   * Create a new ListGauge.
+   * Create a new {@link ListGauge} with no auto eviction, callers can add/remove items as desired.
    * @param name Name to be assigned
-   * @param nItems The number of items to hold in the list
    */
-  public ListGauge(String name, int nItems) {
+  public ListGauge(String name) {
     this.name = name;
-    this.metricList = new LinkedList<>();
-    this.nItems = nItems;
+    this.metricList = new ArrayList<T>(DEFAULT_POLICY_NUM_RETAIN);
+    this.listGaugeEvictionPolicy = new RetainLastNPolicy<T>(this, DEFAULT_POLICY_NUM_RETAIN);
   }
 
   /**
-   * Get the name assigned to the ListGauge
+   * Get the name assigned to this {@link ListGauge}
    * @return the assigned name
    */
   public String getName() {
@@ -61,23 +62,37 @@ public class ListGauge implements Metric {
   }
 
   /**
-   * Add a gauge to the list
-   * @param value The Gauge value to be added
+   * Get the Collection of Gauge values currently in the list, used when serializing this Gauge.
+   * @return the collection of gauge values
    */
-  public synchronized void add(Gauge value) {
-    if (this.metricList.size() == nItems) {
-      ((LinkedList<Gauge>) this.metricList).removeFirst();
-    }
-
-    this.metricList.add(value);
+  public synchronized Collection<T> getValue() {
+    return Collections.unmodifiableList(this.metricList);
   }
 
   /**
-   * Get the Collection of Gauge values currently in the list
-   * @return the collection of gauge values
+   * Package-private method to change the eviction policy
+   * @param listGaugeEvictionPolicy
    */
-  public synchronized Collection<Gauge> getValue() {
-    return this.metricList;
+  synchronized void setEvictionPolicy(ListGaugeEvictionPolicy<T> listGaugeEvictionPolicy) {
+    this.listGaugeEvictionPolicy = listGaugeEvictionPolicy;
+  }
+
+  /**
+   * Add a gauge to the list
+   * @param value The Gauge value to be added
+   */
+  public synchronized void add(T value) {
+    this.metricList.add(value);
+
+    // notify the policy object (if one is present), for performing any eviction that may be needed.
+    // note: monitor is being held
+    if (this.listGaugeEvictionPolicy != null) {
+      this.listGaugeEvictionPolicy.elementAddedCallback();
+    }
+  }
+
+  public synchronized boolean remove(T value) {
+    return this.metricList.remove(value);
   }
 
   /**

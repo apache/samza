@@ -48,8 +48,8 @@ public class MetricGroup {
     return registry.newGauge(groupName, new Gauge<T>((prefix + name).toLowerCase(), value));
   }
 
-  public <T> ListGauge newListGauge(String name, int nItems) {
-    return registry.newListGauge(groupName, new ListGauge(name, nItems));
+  public <T> ListGauge newListGauge(String name) {
+    return registry.newListGauge(groupName, new ListGauge(name));
   }
 
   /*
