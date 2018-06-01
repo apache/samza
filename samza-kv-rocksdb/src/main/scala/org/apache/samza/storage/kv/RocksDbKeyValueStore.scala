@@ -172,12 +172,12 @@ class RocksDbKeyValueStore(
     var wrote = 0
     var deletes = 0
     while (iter.hasNext) {
-      wrote += 1
       val curr = iter.next()
       if (curr.getValue == null) {
         deletes += 1
         db.delete(writeOptions, curr.getKey)
       } else {
+        wrote += 1
         val key = curr.getKey
         val value = curr.getValue
         metrics.bytesWritten.inc(key.length + value.length)
