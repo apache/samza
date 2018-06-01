@@ -20,7 +20,7 @@
 package org.apache.samza.storage.kv
 
 import org.apache.samza.util.Logging
-import org.apache.samza.storage.{StoreProperties, StorageEngine}
+import org.apache.samza.storage.{StorageEngine, StoreProperties}
 import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.util.TimerUtil
 
@@ -52,8 +52,11 @@ class KeyValueStorageEngine[K, V](
   }
 
   override def getAll(keys: java.util.List[K]): java.util.Map[K, V] = {
-    metrics.gets.inc(keys.size)
-    wrapperStore.getAll(keys)
+    updateTimer(metrics.getAllNs) {
+      metrics.getAlls.inc()
+      metrics.gets.inc(keys.size)
+      wrapperStore.getAll(keys)
+    }
   }
 
   def put(key: K, value: V) = {
@@ -64,8 +67,7 @@ class KeyValueStorageEngine[K, V](
   }
 
   def putAll(entries: java.util.List[Entry[K, V]]) = {
-    metrics.puts.inc(entries.size)
-    wrapperStore.putAll(entries)
+    doPutAll(wrapperStore, entries)
   }
 
   def delete(key: K) = {
@@ -76,8 +78,11 @@ class KeyValueStorageEngine[K, V](
   }
 
   override def deleteAll(keys: java.util.List[K]) = {
-    metrics.deletes.inc(keys.size)
-    wrapperStore.deleteAll(keys)
+    updateTimer(metrics.deleteAllNs) {
+      metrics.deleteAlls.inc()
+      metrics.deletes.inc(keys.size)
+      wrapperStore.deleteAll(keys)
+    }
   }
 
   def range(from: K, to: K) = {
@@ -110,17 +115,17 @@ class KeyValueStorageEngine[K, V](
       batch.add(new Entry(keyBytes, valBytes))
 
       if (batch.size >= batchSize) {
-        rawStore.putAll(batch)
+        doPutAll(rawStore, batch)
         batch.clear()
       }
 
       if (valBytes != null) {
-        metrics.restoredBytes.inc(valBytes.size)
-        metrics.restoredBytesGauge.set(metrics.restoredBytesGauge.getValue + valBytes.size)
+        metrics.restoredBytes.inc(valBytes.length)
+        metrics.restoredBytesGauge.set(metrics.restoredBytesGauge.getValue + valBytes.length)
       }
 
-      metrics.restoredBytes.inc(keyBytes.size)
-      metrics.restoredBytesGauge.set(metrics.restoredBytesGauge.getValue + keyBytes.size)
+      metrics.restoredBytes.inc(keyBytes.length)
+      metrics.restoredBytesGauge.set(metrics.restoredBytesGauge.getValue + keyBytes.length)
 
       metrics.restoredMessages.inc()
       metrics.restoredMessagesGauge.set(metrics.restoredMessagesGauge.getValue + 1)
@@ -134,7 +139,7 @@ class KeyValueStorageEngine[K, V](
     info(count + " total entries restored.")
 
     if (batch.size > 0) {
-      rawStore.putAll(batch)
+      doPutAll(rawStore, batch)
     }
   }
 
@@ -157,6 +162,14 @@ class KeyValueStorageEngine[K, V](
 
     flush()
     wrapperStore.close()
+  }
+
+  private def doPutAll[Key, Value](store: KeyValueStore[Key, Value], entries: java.util.List[Entry[Key, Value]]) = {
+    updateTimer(metrics.putAllNs) {
+      metrics.putAlls.inc()
+      metrics.puts.inc(entries.size)
+      store.putAll(entries)
+    }
   }
 
   override def getStoreProperties: StoreProperties = storeProperties

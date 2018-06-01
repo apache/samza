@@ -28,27 +28,32 @@ class KeyValueStorageEngineMetrics(
   val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
 
   val gets = newCounter("gets")
-  val ranges = newCounter("ranges")
-  val alls = newCounter("alls")
+  val getAlls = newCounter("get-alls")
   val puts = newCounter("puts")
+  val putAlls = newCounter("put-alls")
   val deletes = newCounter("deletes")
+  val deleteAlls = newCounter("delete-alls")
   val flushes = newCounter("flushes")
+  val alls = newCounter("alls")
+  val ranges = newCounter("ranges")
   val snapshots = newCounter("snapshots")
+
+  val getNs = newTimer("get-ns")
+  val getAllNs = newTimer("get-all-ns")
+  val putNs = newTimer("put-ns")
+  val putAllNs = newTimer("put-all-ns")
+  val deleteNs = newTimer("delete-ns")
+  val deleteAllNs = newTimer("delete-all-ns")
+  val flushNs = newTimer("flush-ns")
+  val allNs = newTimer("all-ns")
+  val rangeNs = newTimer("range-ns")
+  val snapshotNs = newTimer("snapshot-ns")
 
   val restoredMessages = newCounter("messages-restored") //Deprecated
   val restoredMessagesGauge = newGauge("restored-messages", 0)
 
   val restoredBytes = newCounter("messages-bytes") //Deprecated
   val restoredBytesGauge = newGauge("restored-bytes", 0)
-
-
-  val getNs = newTimer("get-ns")
-  val putNs = newTimer("put-ns")
-  val deleteNs = newTimer("delete-ns")
-  val flushNs = newTimer("flush-ns")
-  val allNs = newTimer("all-ns")
-  val rangeNs = newTimer("range-ns")
-  val snapshotNs = newTimer("snapshot-ns")
 
   override def getPrefix = storeName + "-"
 }
