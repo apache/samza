@@ -21,6 +21,7 @@ package org.apache.samza.container
 
 import java.util
 
+import org.apache.samza.diagnostics.DiagnosticsExceptionEvent
 import org.apache.samza.metrics._
 
 class SamzaContainerMetrics(
@@ -49,7 +50,7 @@ class SamzaContainerMetrics(
   val taskStoreRestorationMetrics: util.Map[TaskName, Gauge[Long]] = new util.HashMap[TaskName, Gauge[Long]]()
 
   // A string-gauge metric to capture exceptions at this container
-  val exception = newListGauge[String]("exception")
+  val exception = newListGauge[DiagnosticsExceptionEvent]("exception")
 
   def addStoreRestorationGauge(taskName: TaskName, storeName: String) {
     taskStoreRestorationMetrics.put(taskName, newGauge("%s-%s-restore-time" format(taskName.toString, storeName), -1L))
