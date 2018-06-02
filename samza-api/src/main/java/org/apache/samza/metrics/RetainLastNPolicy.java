@@ -24,8 +24,8 @@ import java.util.Iterator;
 
 public class RetainLastNPolicy<T> implements ListGaugeEvictionPolicy<T> {
 
-  private final ListGauge<T> listGauge;
-  private final int nItems;
+  protected final ListGauge<T> listGauge;
+  protected final int nItems;
 
   public RetainLastNPolicy(ListGauge<T> listGauge, int numItems) {
     this.listGauge = listGauge;

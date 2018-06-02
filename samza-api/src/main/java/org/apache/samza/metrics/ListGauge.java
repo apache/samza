@@ -72,7 +72,7 @@ public class ListGauge<T> implements Metric {
    * Package-private method to change the eviction policy
    * @param listGaugeEvictionPolicy
    */
-  synchronized void setEvictionPolicy(ListGaugeEvictionPolicy<T> listGaugeEvictionPolicy) {
+  public synchronized void setEvictionPolicy(ListGaugeEvictionPolicy<T> listGaugeEvictionPolicy) {
     this.listGaugeEvictionPolicy = listGaugeEvictionPolicy;
   }
 

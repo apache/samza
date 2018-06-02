@@ -19,6 +19,7 @@
 
 package org.apache.samza.diagnostics;
 
+import java.time.Duration;
 import java.util.Arrays;
 import org.apache.log4j.AppenderSkeleton;
 import org.apache.log4j.spi.LoggingEvent;
@@ -39,10 +40,19 @@ import org.slf4j.LoggerFactory;
 public class DiagnosticsAppender extends AppenderSkeleton {
 
   private final Logger logger = LoggerFactory.getLogger(this.getClass().getName());
-  private final SamzaContainerMetrics samzaContainerMetrics;
+  private final ListGauge<DiagnosticsExceptionEvent> samzaContainerExceptionMetric;
+
+  private final static Duration DEFAULT_EVICTION_DURATION = Duration.ofMinutes(60); //one hour
+  private final static Duration DEFAULT_EVICTION_PERIOD = Duration.ofMinutes(1); //one minute
+  private final static int DEFAULT_MAX_NITEMS = 1000; // based on max kafka size of 1 MB
 
   public DiagnosticsAppender(SamzaContainerMetrics samzaContainerMetrics) {
-    this.samzaContainerMetrics = samzaContainerMetrics;
+    this.samzaContainerExceptionMetric = (ListGauge<DiagnosticsExceptionEvent>) samzaContainerMetrics.exception();
+    DiagnosticsExceptionEventEvictionPolicy diagnosticsExceptionEventEvictionPolicy =
+        new DiagnosticsExceptionEventEvictionPolicy(samzaContainerExceptionMetric, DEFAULT_MAX_NITEMS,
+            DEFAULT_EVICTION_DURATION, DEFAULT_EVICTION_PERIOD);
+    ((ListGauge<DiagnosticsExceptionEvent>) samzaContainerMetrics.exception()).setEvictionPolicy(
+        diagnosticsExceptionEventEvictionPolicy);
   }
 
   @Override
@@ -57,7 +67,7 @@ public class DiagnosticsAppender extends AppenderSkeleton {
               Arrays.toString(loggingEvent.getThrowableInformation().getThrowableStrRep()),
               getStackTraceIdentifier(loggingEvent.getThrowableInformation().getThrowable().getStackTrace()));
 
-      ((ListGauge<DiagnosticsExceptionEvent>) samzaContainerMetrics.exception()).add(diagnosticsExceptionEvent);
+      samzaContainerExceptionMetric.add(diagnosticsExceptionEvent);
       logger.debug("Received DiagnosticsExceptionEvent " + diagnosticsExceptionEvent);
     } else {
       logger.debug("Received non-exception event with message " + loggingEvent.getMessage());
