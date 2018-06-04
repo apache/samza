@@ -62,7 +62,7 @@ public class TestTimer {
     assertTrue(snapshot.getValues().containsAll(Arrays.asList(1L, 2L, 3L)));
     assertEquals(3, snapshot.getValues().size());
 
-    // The time is 500 for update(4L) because getValue calls clock once + 3
+    // The time is 500 for update(4L) because getValues calls clock once + 3
     // updates that call clock 3 times
     timer.update(4L);
     Snapshot snapshot2 = timer.getSnapshot();

@@ -41,8 +41,8 @@ public class TestListGauge {
     ListGauge<String> listGauge = getListGaugeForTest();
     listGauge.add("sampleValue");
     Assert.assertEquals("Names should be the same", listGauge.getName(), "sampleListGauge");
-    Assert.assertEquals("List sizes should match", listGauge.getValue().size(), 1);
-    Assert.assertEquals("ListGauge should contain sampleGauge", listGauge.getValue().contains("sampleValue"), true);
+    Assert.assertEquals("List sizes should match", listGauge.getValues().size(), 1);
+    Assert.assertEquals("ListGauge should contain sampleGauge", listGauge.getValues().contains("sampleValue"), true);
   }
 
   @Test
@@ -51,10 +51,10 @@ public class TestListGauge {
     for (int i = 15; i > 0; i--) {
       listGauge.add("v" + i);
     }
-    Assert.assertEquals("List sizes should be as configured at creation time", listGauge.getValue().size(), 10);
+    Assert.assertEquals("List sizes should be as configured at creation time", listGauge.getValues().size(), 10);
 
     int valueIndex = 10;
-    Collection<String> currentList = listGauge.getValue();
+    Collection<String> currentList = listGauge.getValues();
     Iterator iterator = currentList.iterator();
     while (iterator.hasNext()) {
       String gaugeValue = (String) iterator.next();
@@ -91,8 +91,8 @@ public class TestListGauge {
     thread1.join(THREAD_TEST_TIMEOUT.toMillis());
     thread2.join(THREAD_TEST_TIMEOUT.toMillis());
 
-    Assert.assertTrue("ListGauge should have the last 10 values", listGauge.getValue().size() == 10);
-    for (Integer gaugeValue : listGauge.getValue()) {
+    Assert.assertTrue("ListGauge should have the last 10 values", listGauge.getValues().size() == 10);
+    for (Integer gaugeValue : listGauge.getValues()) {
       Assert.assertTrue("Values should have the last 10 range", gaugeValue <= 100 && gaugeValue > 90);
     }
   }

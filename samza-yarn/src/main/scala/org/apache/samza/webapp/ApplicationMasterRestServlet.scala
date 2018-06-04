@@ -50,7 +50,7 @@ class ApplicationMasterRestServlet(samzaConfig: Config, samzaAppState: SamzaAppl
         case (name, metric) =>
           metric.visit(new MetricsVisitor() {
             def listGauge[T](listGauge: ListGauge[T]) =
-              groupMap.put(name, listGauge.getValue)
+              groupMap.put(name, listGauge.getValues)
 
             def counter(counter: Counter) =
               groupMap.put(counter.getName, counter.getCount: java.lang.Long)
