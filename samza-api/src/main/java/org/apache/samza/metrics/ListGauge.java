@@ -18,11 +18,13 @@
  */
 package org.apache.samza.metrics;
 
-import java.util.ArrayList;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.stream.Collectors;
 
 
 /**
@@ -38,19 +40,34 @@ import java.util.List;
  */
 public class ListGauge<T> implements Metric {
   private final String name;
-  private final List<T> metricList;
-  private ListGaugeEvictionPolicy<T> listGaugeEvictionPolicy;
+  private final Queue<ValueInfo<T>> metricList;
+  private final ListGaugeEvictionPolicy<T> listGaugeEvictionPolicy;
 
-  private final static int DEFAULT_POLICY_NUM_RETAIN = 60;
+  private final static int DEFAULT_MAX_NITEMS = 1000;
+  private final static Duration DEFAULT_MAX_STALENESS = Duration.ofMinutes(60);
+  private final static Duration DEFAULT_EVICTION_CHECK_PERIOD = Duration.ofMinutes(1);
 
   /**
-   * Create a new {@link ListGauge} with no auto eviction, callers can add/remove items as desired.
+   * Create a new {@link ListGauge} that auto evicts based on the given maxNumberOfItems, maxStaleness, and period parameters.
+   *
+   * @param name Name to be assigned
+   * @param maxNumberOfItems The max number of items that can remain in the listgauge
+   * @param maxStaleness The max staleness of items permitted in the listgauge
+   * @param period The periodicity with which the listGauge would be checked for stale values.
+   */
+  public ListGauge(String name, int maxNumberOfItems, Duration maxStaleness, Duration period) {
+    this.name = name;
+    this.metricList = new ConcurrentLinkedQueue<ValueInfo<T>>();
+    this.listGaugeEvictionPolicy =
+        new DefaultListGaugeEvictionPolicy<T>(this.metricList, maxNumberOfItems, maxStaleness, period);
+  }
+
+  /**
+   * Create a new {@link ListGauge} that auto evicts upto a max of 100 items and a max-staleness of 60 minutes.
    * @param name Name to be assigned
    */
   public ListGauge(String name) {
-    this.name = name;
-    this.metricList = new ArrayList<T>(DEFAULT_POLICY_NUM_RETAIN);
-    this.listGaugeEvictionPolicy = new RetainLastNPolicy<T>(this, DEFAULT_POLICY_NUM_RETAIN);
+    this(name, DEFAULT_MAX_NITEMS, DEFAULT_MAX_STALENESS, DEFAULT_EVICTION_CHECK_PERIOD);
   }
 
   /**
@@ -65,41 +82,41 @@ public class ListGauge<T> implements Metric {
    * Get the Collection of Gauge values currently in the list, used when serializing this Gauge.
    * @return the collection of gauge values
    */
-  public synchronized Collection<T> getValue() {
-    return Collections.unmodifiableList(this.metricList);
+  public Collection<T> getValue() {
+    return Collections.unmodifiableList(this.metricList.stream().map(x -> x.value).collect(Collectors.toList()));
   }
 
   /**
-   * Package-private method to change the eviction policy
-   * @param listGaugeEvictionPolicy
-   */
-  synchronized void setEvictionPolicy(ListGaugeEvictionPolicy<T> listGaugeEvictionPolicy) {
-    this.listGaugeEvictionPolicy = listGaugeEvictionPolicy;
-  }
-
-  /**
-   * Add a gauge to the list
+   * Add a value to the list.
+   * (Timestamp assigned to this value is the current timestamp.)
    * @param value The Gauge value to be added
    */
-  public synchronized void add(T value) {
-    this.metricList.add(value);
+  public void add(T value) {
+    this.metricList.add(new ValueInfo<T>(Instant.now(), value));
 
-    // notify the policy object (if one is present), for performing any eviction that may be needed.
-    // note: monitor is being held
-    if (this.listGaugeEvictionPolicy != null) {
-      this.listGaugeEvictionPolicy.elementAddedCallback();
-    }
-  }
-
-  public synchronized boolean remove(T value) {
-    return this.metricList.remove(value);
+    // notify the policy object for performing any eviction that may be needed.
+    this.listGaugeEvictionPolicy.elementAddedCallback();
   }
 
   /**
    * {@inheritDoc}
    */
   @Override
-  public synchronized void visit(MetricsVisitor visitor) {
+  public void visit(MetricsVisitor visitor) {
     visitor.listGauge(this);
+  }
+
+  /**
+   * This class is used for bookkeeping of values added to the ListGauge.
+   * @param <T>
+   */
+  public static class ValueInfo<T> {
+    public final Instant insertTimestamp;
+    public final T value;
+
+    public ValueInfo(Instant insertTimestamp, T value) {
+      this.insertTimestamp = insertTimestamp;
+      this.value = value;
+    }
   }
 }
