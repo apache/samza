@@ -27,8 +27,8 @@ import java.util.concurrent.TimeUnit;
 
 
 /**
- * Provides an eviction policy that evicts entries from the valueList if
- * a.) There are more elements in the valueList than the specified maxNumberOfItems (removal in FIFO order), or
+ * Provides an eviction policy that evicts entries from the elements if
+ * a.) There are more elements in the elements than the specified maxNumberOfItems (removal in FIFO order), or
  * b.) There are elements which have timestamps which are stale as compared to currentTime (the staleness bound is
  * specified as maxStaleness).
  *
@@ -36,14 +36,14 @@ import java.util.concurrent.TimeUnit;
  */
 public class DefaultListGaugeEvictionPolicy<T> implements ListGaugeEvictionPolicy<T> {
 
-  private final Queue<ListGauge.ValueInfo<T>> valueList;
+  private final Queue<ListGauge.ValueInfo<T>> elements;
   private final int nItems;
   private final Duration durationThreshold;
   private final ScheduledExecutorService scheduledExecutorService;
 
-  public DefaultListGaugeEvictionPolicy(Queue<ListGauge.ValueInfo<T>> valueList, int maxNumberOfItems,
+  public DefaultListGaugeEvictionPolicy(Queue<ListGauge.ValueInfo<T>> elements, int maxNumberOfItems,
       Duration maxStaleness, Duration period) {
-    this.valueList = valueList;
+    this.elements = elements;
     this.nItems = maxNumberOfItems;
     this.durationThreshold = maxStaleness;
     this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
@@ -55,11 +55,11 @@ public class DefaultListGaugeEvictionPolicy<T> implements ListGaugeEvictionPolic
 
     // need to synchronize here because this thread could be concurrent with the runnable thread and can
     // cause two vals to be removed (wrong eviction) even if a threadsafe queue was used.
-    synchronized (this.valueList) {
-      int numToEvict = this.valueList.size() - nItems;
+    synchronized (this.elements) {
+      int numToEvict = this.elements.size() - nItems;
 
       while (numToEvict > 0) {
-        this.valueList.poll(); // remove head
+        this.elements.poll(); // remove head
         numToEvict--;
       }
     }
@@ -71,14 +71,14 @@ public class DefaultListGaugeEvictionPolicy<T> implements ListGaugeEvictionPolic
     public void run() {
       Instant currentTimestamp = Instant.now();
 
-      synchronized (valueList) {
-        ListGauge.ValueInfo<T> valueInfo = valueList.peek();
+      synchronized (elements) {
+        ListGauge.ValueInfo<T> valueInfo = elements.peek();
 
         // continue remove-head if currenttimestamp - head-element's timestamp > durationThreshold
         while (valueInfo != null
             && Duration.between(valueInfo.insertTimestamp, currentTimestamp).compareTo(durationThreshold) > 0) {
-          valueList.poll();
-          valueInfo = valueList.peek();
+          elements.poll();
+          valueInfo = elements.peek();
         }
       }
     }

@@ -118,7 +118,7 @@ class JmxGauge(g: org.apache.samza.metrics.Gauge[Object], on: ObjectName) extend
 }
 
 class JmxListGauge(g: org.apache.samza.metrics.ListGauge[Object], on: ObjectName) extends JmxGaugeMBean {
-  def getValue = g.getValue
+  def getValue = g.getValues
 
   def objectName = on
 }

@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
  */
 public class ListGauge<T> implements Metric {
   private final String name;
-  private final Queue<ValueInfo<T>> metricList;
+  private final Queue<ValueInfo<T>> elements;
   private final ListGaugeEvictionPolicy<T> listGaugeEvictionPolicy;
 
   private final static int DEFAULT_MAX_NITEMS = 1000;
@@ -57,9 +57,9 @@ public class ListGauge<T> implements Metric {
    */
   public ListGauge(String name, int maxNumberOfItems, Duration maxStaleness, Duration period) {
     this.name = name;
-    this.metricList = new ConcurrentLinkedQueue<ValueInfo<T>>();
+    this.elements = new ConcurrentLinkedQueue<ValueInfo<T>>();
     this.listGaugeEvictionPolicy =
-        new DefaultListGaugeEvictionPolicy<T>(this.metricList, maxNumberOfItems, maxStaleness, period);
+        new DefaultListGaugeEvictionPolicy<T>(this.elements, maxNumberOfItems, maxStaleness, period);
   }
 
   /**
@@ -82,8 +82,8 @@ public class ListGauge<T> implements Metric {
    * Get the Collection of Gauge values currently in the list, used when serializing this Gauge.
    * @return the collection of gauge values
    */
-  public Collection<T> getValue() {
-    return Collections.unmodifiableList(this.metricList.stream().map(x -> x.value).collect(Collectors.toList()));
+  public Collection<T> getValues() {
+    return Collections.unmodifiableList(this.elements.stream().map(x -> x.value).collect(Collectors.toList()));
   }
 
   /**
@@ -92,7 +92,7 @@ public class ListGauge<T> implements Metric {
    * @param value The Gauge value to be added
    */
   public void add(T value) {
-    this.metricList.add(new ValueInfo<T>(Instant.now(), value));
+    this.elements.add(new ValueInfo<T>(Instant.now(), value));
 
     // notify the policy object for performing any eviction that may be needed.
     this.listGaugeEvictionPolicy.elementAddedCallback();
