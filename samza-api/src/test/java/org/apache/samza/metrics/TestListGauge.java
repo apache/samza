@@ -32,9 +32,13 @@ public class TestListGauge {
 
   private final static Duration THREAD_TEST_TIMEOUT = Duration.ofSeconds(10);
 
+  private <T> ListGauge<T> getListGaugeForTest() {
+    return new ListGauge<T>("sampleListGauge", 10, Duration.ofSeconds(60), Duration.ofSeconds(60));
+  }
+
   @Test
   public void basicTest() {
-    ListGauge<String> listGauge = new ListGauge<String>("sampleListGauge");
+    ListGauge<String> listGauge = getListGaugeForTest();
     listGauge.add("sampleValue");
     Assert.assertEquals("Names should be the same", listGauge.getName(), "sampleListGauge");
     Assert.assertEquals("List sizes should match", listGauge.getValue().size(), 1);
@@ -43,8 +47,7 @@ public class TestListGauge {
 
   @Test
   public void testSizeEnforcement() {
-    ListGauge listGauge = new ListGauge<String>("listGauge");
-    listGauge.setEvictionPolicy(new RetainLastNPolicy(listGauge, 10));
+    ListGauge listGauge = getListGaugeForTest();
     for (int i = 15; i > 0; i--) {
       listGauge.add("v" + i);
     }
@@ -62,8 +65,7 @@ public class TestListGauge {
 
   @Test
   public void testThreadSafety() throws InterruptedException {
-    ListGauge<Integer> listGauge = new ListGauge<Integer>("listGauge");
-    listGauge.setEvictionPolicy(new RetainLastNPolicy(listGauge, 20));
+    ListGauge<Integer> listGauge = getListGaugeForTest();
 
     Thread thread1 = new Thread(new Runnable() {
       @Override
@@ -89,9 +91,9 @@ public class TestListGauge {
     thread1.join(THREAD_TEST_TIMEOUT.toMillis());
     thread2.join(THREAD_TEST_TIMEOUT.toMillis());
 
-    Assert.assertTrue("ListGauge should have the last 20 values", listGauge.getValue().size() == 20);
+    Assert.assertTrue("ListGauge should have the last 10 values", listGauge.getValue().size() == 10);
     for (Integer gaugeValue : listGauge.getValue()) {
-      Assert.assertTrue("Values should have the last 20 range", gaugeValue <= 100 && gaugeValue > 80);
+      Assert.assertTrue("Values should have the last 10 range", gaugeValue <= 100 && gaugeValue > 90);
     }
   }
 }
