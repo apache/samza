@@ -25,14 +25,17 @@ import org.apache.samza.serializers.Serializer
 import org.apache.samza.system.OutgoingMessageEnvelope
 import org.apache.samza.system.SystemProducer
 import org.apache.samza.system.SystemStream
-import org.apache.samza.util.Logging
-
+import org.apache.samza.util.{Logging, Util}
 import java.util.HashMap
 import java.util.Map
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 import scala.collection.JavaConverters._
+
+object MetricsSnapshotReporter {
+  val METRICS_SNAPSHOT_REPORTER_PARTITION_KEY_DEFAULT = "jobname"
+}
 
 /**
  * MetricsSnapshotReporter is a generic metrics reporter that sends metrics to a stream.
@@ -54,7 +57,7 @@ class MetricsSnapshotReporter(
   samzaVersion: String,
   host: String,
   serializer: Serializer[MetricsSnapshot] = null,
-  partitionKey: Object,
+  partitionKeyName: Option[String],
   clock: () => Long = () => { System.currentTimeMillis }) extends MetricsReporter with Runnable with Logging {
 
   val executor = Executors.newSingleThreadScheduledExecutor(
@@ -64,6 +67,25 @@ class MetricsSnapshotReporter(
 
   info("got metrics snapshot reporter properties [job name: %s, job id: %s, containerName: %s, version: %s, samzaVersion: %s, host: %s, pollingInterval %s]"
     format (jobName, jobId, containerName, version, samzaVersion, host, pollingInterval))
+
+  val partitionKeyValue = getMetricsReporterStreamPartitionKeyValue(partitionKeyName, jobName, Util.getLocalHost.getHostName)
+  info("Using PartitionKey %s = %s" format(partitionKeyName, partitionKeyValue))
+
+  /**
+    * Returns the actual value of the partition key, based on the keyName.
+    * If specified as "jobname" returns the jobname.
+    * If none is specified or is specified as "hostname", returns the hostname,
+    * else returns the actual value specified.
+    *
+    * @param keyName  the desired key name (hostname, jobname, none, or another custom name)
+    * @param jobName  the current job name
+    * @param hostname the current host name
+    */
+  def getMetricsReporterStreamPartitionKeyValue(keyName: Option[String], jobName: String, hostname: String) = keyName match {
+    case Some(MetricsSnapshotReporter.METRICS_SNAPSHOT_REPORTER_PARTITION_KEY_DEFAULT) => jobName
+    case None => hostname
+    case _ => keyName.get
+  }
 
   def start {
     info("Starting producer.")
@@ -134,7 +156,7 @@ class MetricsSnapshotReporter(
         metricsSnapshot
       }
 
-      producer.send(source, new OutgoingMessageEnvelope(out, partitionKey, null, maybeSerialized))
+      producer.send(source, new OutgoingMessageEnvelope(out, partitionKeyValue, null, maybeSerialized))
 
       // Always flush, since we don't want metrics to get batched up.
       producer.flush(source)

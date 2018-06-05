@@ -105,9 +105,6 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
 
 
     val partitionKeyName = config.getMetricsReporterStreamPartitionKeyName(name)
-    val partitionKeyValue = config.getMetricsReporterStreamPartitionKeyValue(partitionKeyName, jobName, Util.getLocalHost.getHostName)
-    info("Using PartitionKey %s = %s" format (partitionKeyName, partitionKeyValue))
-
     val pollingInterval: Int = config
       .getMetricsReporterInterval(name)
       .getOrElse("60").toInt
@@ -124,7 +121,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
       samzaVersion,
       Util.getLocalHost.getHostName,
       serde,
-      partitionKeyValue)
+      partitionKeyName)
 
     reporter.register(this.getClass.getSimpleName.toString, registry)
 
