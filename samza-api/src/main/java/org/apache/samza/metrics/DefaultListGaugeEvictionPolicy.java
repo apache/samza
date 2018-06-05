@@ -24,6 +24,7 @@ import java.util.Queue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.apache.samza.util.TimestampedValue;
 
 
 /**
@@ -36,12 +37,12 @@ import java.util.concurrent.TimeUnit;
  */
 public class DefaultListGaugeEvictionPolicy<T> {
 
-  private final Queue<ListGauge.ValueInfo<T>> elements;
+  private final Queue<TimestampedValue<T>> elements;
   private final int nItems;
   private final Duration durationThreshold;
   private final ScheduledExecutorService scheduledExecutorService;
 
-  public DefaultListGaugeEvictionPolicy(Queue<ListGauge.ValueInfo<T>> elements, int maxNumberOfItems,
+  public DefaultListGaugeEvictionPolicy(Queue<TimestampedValue<T>> elements, int maxNumberOfItems,
       Duration maxStaleness, Duration period) {
     this.elements = elements;
     this.nItems = maxNumberOfItems;
@@ -71,11 +72,11 @@ public class DefaultListGaugeEvictionPolicy<T> {
       Instant currentTimestamp = Instant.now();
 
       synchronized (elements) {
-        ListGauge.ValueInfo<T> valueInfo = elements.peek();
+        TimestampedValue<T> valueInfo = elements.peek();
 
         // continue remove-head if currenttimestamp - head-element's timestamp > durationThreshold
         while (valueInfo != null
-            && Duration.between(valueInfo.insertTimestamp, currentTimestamp).compareTo(durationThreshold) > 0) {
+            && currentTimestamp.toEpochMilli() - valueInfo.getTimestamp() > durationThreshold.toMillis()) {
           elements.poll();
           valueInfo = elements.peek();
         }

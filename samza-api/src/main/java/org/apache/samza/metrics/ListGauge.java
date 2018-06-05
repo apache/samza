@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
+import org.apache.samza.util.TimestampedValue;
 
 
 /**
@@ -40,7 +41,7 @@ import java.util.stream.Collectors;
  */
 public class ListGauge<T> implements Metric {
   private final String name;
-  private final Queue<ValueInfo<T>> elements;
+  private final Queue<TimestampedValue<T>> elements;
   private final DefaultListGaugeEvictionPolicy<T> listGaugeEvictionPolicy;
 
   private final static int DEFAULT_MAX_NITEMS = 1000;
@@ -57,7 +58,7 @@ public class ListGauge<T> implements Metric {
    */
   public ListGauge(String name, int maxNumberOfItems, Duration maxStaleness, Duration period) {
     this.name = name;
-    this.elements = new ConcurrentLinkedQueue<ValueInfo<T>>();
+    this.elements = new ConcurrentLinkedQueue<TimestampedValue<T>>();
     this.listGaugeEvictionPolicy =
         new DefaultListGaugeEvictionPolicy<T>(this.elements, maxNumberOfItems, maxStaleness, period);
   }
@@ -83,7 +84,7 @@ public class ListGauge<T> implements Metric {
    * @return the collection of gauge values
    */
   public Collection<T> getValues() {
-    return Collections.unmodifiableList(this.elements.stream().map(x -> x.value).collect(Collectors.toList()));
+    return Collections.unmodifiableList(this.elements.stream().map(x -> x.getValue()).collect(Collectors.toList()));
   }
 
   /**
@@ -92,7 +93,7 @@ public class ListGauge<T> implements Metric {
    * @param value The Gauge value to be added
    */
   public void add(T value) {
-    this.elements.add(new ValueInfo<T>(Instant.now(), value));
+    this.elements.add(new TimestampedValue<T>(value, Instant.now().toEpochMilli()));
 
     // notify the policy object for performing any eviction that may be needed.
     this.listGaugeEvictionPolicy.elementAddedCallback();
@@ -106,17 +107,5 @@ public class ListGauge<T> implements Metric {
     visitor.listGauge(this);
   }
 
-  /**
-   * This class is used for bookkeeping of values added to the ListGauge.
-   * @param <T>
-   */
-  public static class ValueInfo<T> {
-    public final Instant insertTimestamp;
-    public final T value;
 
-    public ValueInfo(Instant insertTimestamp, T value) {
-      this.insertTimestamp = insertTimestamp;
-      this.value = value;
-    }
-  }
 }
