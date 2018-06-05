@@ -29,7 +29,7 @@ import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.PartialJoinFunction;
-import org.apache.samza.operators.impl.store.TimestampedValue;
+import org.apache.samza.util.TimestampedValue;
 import org.apache.samza.operators.spec.BroadcastOperatorSpec;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.JoinOperatorSpec;

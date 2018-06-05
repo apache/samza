@@ -23,7 +23,7 @@ import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.impl.store.TimestampedValueSerde;
-import org.apache.samza.operators.impl.store.TimestampedValue;
+import org.apache.samza.util.TimestampedValue;
 import org.apache.samza.serializers.Serde;
 
 import java.util.Arrays;
