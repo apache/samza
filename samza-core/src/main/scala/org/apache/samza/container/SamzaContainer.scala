@@ -874,7 +874,7 @@ class SamzaContainer(
 
   def startDiagnostics {
     // TODO: where should this reside, MetricConfig? Log4jSystemConfig? or a new separate config?
-    val DIAGNOSTICS_APPENDER_ENABLE = "diagnostics.appender.enable"
+    val DIAGNOSTICS_APPENDER_ENABLE = "samza.diagnostics.enabled"
     if (containerContext.config.getBoolean(DIAGNOSTICS_APPENDER_ENABLE, false)) {
       import org.apache.log4j.Logger
       val rootLogger = Logger.getRootLogger
