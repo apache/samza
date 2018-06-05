@@ -34,7 +34,7 @@ import java.util.concurrent.TimeUnit;
  *
  * This naive implementation uses a periodic thread with a configurable period.
  */
-public class DefaultListGaugeEvictionPolicy<T> implements ListGaugeEvictionPolicy<T> {
+public class DefaultListGaugeEvictionPolicy<T> {
 
   private final Queue<ListGauge.ValueInfo<T>> elements;
   private final int nItems;
@@ -50,7 +50,6 @@ public class DefaultListGaugeEvictionPolicy<T> implements ListGaugeEvictionPolic
     this.scheduledExecutorService.schedule(new EvictionRunnable(), period.toMillis(), TimeUnit.MILLISECONDS);
   }
 
-  @Override
   public void elementAddedCallback() {
 
     // need to synchronize here because this thread could be concurrent with the runnable thread and can

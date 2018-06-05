@@ -41,7 +41,7 @@ import java.util.stream.Collectors;
 public class ListGauge<T> implements Metric {
   private final String name;
   private final Queue<ValueInfo<T>> elements;
-  private final ListGaugeEvictionPolicy<T> listGaugeEvictionPolicy;
+  private final DefaultListGaugeEvictionPolicy<T> listGaugeEvictionPolicy;
 
   private final static int DEFAULT_MAX_NITEMS = 1000;
   private final static Duration DEFAULT_MAX_STALENESS = Duration.ofMinutes(60);
