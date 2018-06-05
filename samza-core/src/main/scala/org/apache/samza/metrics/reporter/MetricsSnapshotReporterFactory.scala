@@ -104,7 +104,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
     info("Got serde %s." format serde)
 
 
-    val partitionKeyName = config.getMetricsReporterStreamPartitionKeyName(systemStream)
+    val partitionKeyName = config.getMetricsReporterStreamPartitionKeyName(name)
     val partitionKeyValue = config.getMetricsReporterStreamPartitionKeyValue(partitionKeyName, jobName, Util.getLocalHost.getHostName)
     info("Using PartitionKey %s = %s" format (partitionKeyName, partitionKeyValue))
 

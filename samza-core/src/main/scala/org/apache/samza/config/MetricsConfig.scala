@@ -30,7 +30,7 @@ object MetricsConfig {
   val METRICS_SNAPSHOT_REPORTER_STREAM = "metrics.reporter.%s.stream"
   val METRICS_SNAPSHOT_REPORTER_INTERVAL = "metrics.reporter.%s.interval"
   val METRICS_TIMER_ENABLED = "metrics.timer.enabled"
-  val METRICS_SNAPSHOT_REPORTER_PARTITION_KEY = "metrics.reporter.%s.%s.partitionkey"
+  val METRICS_SNAPSHOT_REPORTER_PARTITION_KEY = "metrics.reporter.%s.partitionkey"
   val METRICS_SNAPSHOT_REPORTER_PARTITION_KEY_JOBNAME = "jobname"
 
 
@@ -51,10 +51,10 @@ class MetricsConfig(config: Config) extends ScalaMapConfig(config) {
     * Customers can specify
     * hostname (for partitioning by hostname -- default) or jobname or jobid
     *
-    * @param systemStream The systemStream for the MetricsSnapshotStream
+    * @param name The name of the reporter
     * @return the metric key name (if specified), else None
     */
-  def getMetricsReporterStreamPartitionKeyName(systemStream: SystemStream): Option[String] = getOption(MetricsConfig.METRICS_SNAPSHOT_REPORTER_PARTITION_KEY format(systemStream.getSystem, systemStream.getStream))
+  def getMetricsReporterStreamPartitionKeyName(name: String): Option[String] = getOption(MetricsConfig.METRICS_SNAPSHOT_REPORTER_PARTITION_KEY format name)
 
   /**
     * Returns the actual value of the partition key, based on the keyName.
