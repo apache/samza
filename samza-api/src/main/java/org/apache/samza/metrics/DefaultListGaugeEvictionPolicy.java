@@ -21,9 +21,6 @@ package org.apache.samza.metrics;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Queue;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import org.apache.samza.util.TimestampedValue;
 
 
@@ -33,54 +30,44 @@ import org.apache.samza.util.TimestampedValue;
  * b.) There are elements which have timestamps which are stale as compared to currentTime (the staleness bound is
  * specified as maxStaleness).
  *
- * This naive implementation uses a periodic thread with a configurable period.
  */
 public class DefaultListGaugeEvictionPolicy<T> {
 
-  private final Queue<TimestampedValue<T>> elements;
-  private final int nItems;
-  private final Duration durationThreshold;
-  private final ScheduledExecutorService scheduledExecutorService;
-
-  public DefaultListGaugeEvictionPolicy(Queue<TimestampedValue<T>> elements, int maxNumberOfItems,
-      Duration maxStaleness, Duration period) {
-    this.elements = elements;
-    this.nItems = maxNumberOfItems;
-    this.durationThreshold = maxStaleness;
-    this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
-    this.scheduledExecutorService.schedule(new EvictionRunnable(), period.toMillis(), TimeUnit.MILLISECONDS);
+  /**
+   * Evicts entries from the elements list, based on the given item-size and durationThreshold.
+   * Callers are responsible for thread-safety.
+   */
+  public void evict(Queue<TimestampedValue<T>> elements, int maxNumberOfItems, Duration maxStaleness) {
+    this.evictBasedOnSize(elements, maxNumberOfItems);
+    this.evictBasedOnTimestamp(elements, maxStaleness);
   }
 
-  public void elementAddedCallback() {
-
-    // need to synchronize here because this thread could be concurrent with the runnable thread and can
-    // cause two vals to be removed (wrong eviction) even if a threadsafe queue was used.
-    synchronized (this.elements) {
-      int numToEvict = this.elements.size() - nItems;
-
-      while (numToEvict > 0) {
-        this.elements.poll(); // remove head
-        numToEvict--;
-      }
+  /**
+   * Evicts entries from elements in FIFO order until it has maxNumberOfItems
+   * @param elements queue to evict elements from
+   * @param maxNumberOfItems max number of items to be left in the queue
+   */
+  private void evictBasedOnSize(Queue<TimestampedValue<T>> elements, int maxNumberOfItems) {
+    int numToEvict = elements.size() - maxNumberOfItems;
+    while (numToEvict > 0) {
+      elements.poll(); // remove head
+      numToEvict--;
     }
   }
 
-  private class EvictionRunnable implements Runnable {
+  /**
+   * Removes entries from elements to ensure no element has a timestamp more than maxStaleness before current timestamp.
+   * @param elements the queue to evict elements from
+   * @param maxStaleness max staleness permitted in elements
+   */
+  private void evictBasedOnTimestamp(Queue<TimestampedValue<T>> elements, Duration maxStaleness) {
+    Instant currentTimestamp = Instant.now();
+    TimestampedValue<T> valueInfo = elements.peek();
 
-    @Override
-    public void run() {
-      Instant currentTimestamp = Instant.now();
-
-      synchronized (elements) {
-        TimestampedValue<T> valueInfo = elements.peek();
-
-        // continue remove-head if currenttimestamp - head-element's timestamp > durationThreshold
-        while (valueInfo != null
-            && currentTimestamp.toEpochMilli() - valueInfo.getTimestamp() > durationThreshold.toMillis()) {
-          elements.poll();
-          valueInfo = elements.peek();
-        }
-      }
+    // continue remove-head if currenttimestamp - head-element's timestamp > durationThreshold
+    while (valueInfo != null && currentTimestamp.toEpochMilli() - valueInfo.getTimestamp() > maxStaleness.toMillis()) {
+      elements.poll();
+      valueInfo = elements.peek();
     }
   }
 }
