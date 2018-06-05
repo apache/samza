@@ -33,7 +33,7 @@ public class TestListGauge {
   private final static Duration THREAD_TEST_TIMEOUT = Duration.ofSeconds(10);
 
   private <T> ListGauge<T> getListGaugeForTest() {
-    return new ListGauge<T>("sampleListGauge", 10, Duration.ofSeconds(60), Duration.ofSeconds(60));
+    return new ListGauge<T>("sampleListGauge", 10, Duration.ofSeconds(60));
   }
 
   @Test

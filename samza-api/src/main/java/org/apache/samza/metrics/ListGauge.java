@@ -44,6 +44,8 @@ public class ListGauge<T> implements Metric {
   private final Queue<TimestampedValue<T>> elements;
   private final DefaultListGaugeEvictionPolicy listGaugeEvictionPolicy;
 
+  private final int maxNumberOfItems;
+  private final Duration maxStaleness;
   private final static int DEFAULT_MAX_NITEMS = 1000;
   private final static Duration DEFAULT_MAX_STALENESS = Duration.ofMinutes(60);
 
@@ -57,6 +59,8 @@ public class ListGauge<T> implements Metric {
   public ListGauge(String name, int maxNumberOfItems, Duration maxStaleness) {
     this.name = name;
     this.elements = new ConcurrentLinkedQueue<TimestampedValue<T>>();
+    this.maxNumberOfItems = maxNumberOfItems;
+    this.maxStaleness = maxStaleness;
     this.listGaugeEvictionPolicy = new DefaultListGaugeEvictionPolicy();
   }
 
@@ -83,7 +87,7 @@ public class ListGauge<T> implements Metric {
    */
   public Collection<T> getValues() {
     // notify the policy object for performing any eviction that may be needed.
-    this.listGaugeEvictionPolicy.evict(this.elements, DEFAULT_MAX_NITEMS, DEFAULT_MAX_STALENESS);
+    this.listGaugeEvictionPolicy.evict(this.elements, this.maxNumberOfItems, this.maxStaleness);
     return Collections.unmodifiableList(this.elements.stream().map(x -> x.getValue()).collect(Collectors.toList()));
   }
 
@@ -96,7 +100,7 @@ public class ListGauge<T> implements Metric {
     this.elements.add(new TimestampedValue<T>(value, Instant.now().toEpochMilli()));
 
     // notify the policy object for performing any eviction that may be needed.
-    this.listGaugeEvictionPolicy.evict(this.elements, DEFAULT_MAX_NITEMS, DEFAULT_MAX_STALENESS);
+    this.listGaugeEvictionPolicy.evict(this.elements, this.maxNumberOfItems, this.maxStaleness);
   }
 
   /**
