@@ -39,7 +39,6 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.samza.sql.serializers.SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde;
-import static org.apache.samza.sql.data.SamzaSqlRelMessage.SamzaSqlRelRecord;
 
 
 public class TestSamzaSqlRelRecordSerde {
