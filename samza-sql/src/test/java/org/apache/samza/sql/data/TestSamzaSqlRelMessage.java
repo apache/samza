@@ -50,6 +50,7 @@ public class TestSamzaSqlRelMessage {
     SamzaSqlRelMessage message2 =
         new SamzaSqlRelMessage(Arrays.asList("field1", "field2"), Arrays.asList("value1", "value2"));
     Assert.assertEquals(message1, message2);
+    Assert.assertEquals(message1.hashCode(), message2.hashCode());
   }
 
   @Test
@@ -58,5 +59,6 @@ public class TestSamzaSqlRelMessage {
     SamzaSqlRelMessage message2 =
         new SamzaSqlRelMessage(Arrays.asList("field1", "field2"), Arrays.asList("value2", "value2"));
     Assert.assertNotEquals(message1, message2);
+    Assert.assertNotEquals(message1.hashCode(), message2.hashCode());
   }
 }

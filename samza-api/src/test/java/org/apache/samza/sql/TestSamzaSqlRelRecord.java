@@ -30,6 +30,7 @@ public class TestSamzaSqlRelRecord {
     SamzaSqlRelRecord relRecord1 = new SamzaSqlRelRecord(Arrays.asList("id", "name"), Arrays.asList(1L, "object"));
     SamzaSqlRelRecord relRecord2 = new SamzaSqlRelRecord(Arrays.asList("id", "name"), Arrays.asList(1L, "object"));
     assertEquals(relRecord1, relRecord2);
+    assertEquals(relRecord1.hashCode(), relRecord2.hashCode());
   }
 
   @Test
@@ -37,5 +38,6 @@ public class TestSamzaSqlRelRecord {
     SamzaSqlRelRecord relRecord1 = new SamzaSqlRelRecord(Arrays.asList("id", "name"), Arrays.asList(1L, "object"));
     SamzaSqlRelRecord relRecord2 = new SamzaSqlRelRecord(Arrays.asList("id", "name"), Arrays.asList(2L, "object"));
     assertNotEquals(relRecord1, relRecord2);
+    assertNotEquals(relRecord1.hashCode(), relRecord2.hashCode());
   }
 }
