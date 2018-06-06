@@ -23,7 +23,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.SamzaContainerContext;
@@ -34,9 +33,9 @@ import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.sql.data.SamzaSqlCompositeKey;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
+import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.interfaces.SqlIOResolver;
 import org.apache.samza.sql.interfaces.SqlIOResolverFactory;
-import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.storage.kv.RocksDbTableDescriptor;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.Table;
@@ -91,8 +90,10 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
     public void put(Object key, Object value) {
       if (key == null) {
         records.put(System.nanoTime(), value);
-      } else {
+      } else if (value != null) {
         records.put(key, value);
+      } else {
+        delete(key);
       }
     }
 

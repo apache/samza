@@ -66,7 +66,11 @@ public class GuavaCacheTable<K, V> implements ReadWriteTable<K, V> {
 
   @Override
   public void put(K key, V value) {
-    cache.put(key, value);
+    if (value != null) {
+      cache.put(key, value);
+    } else {
+      delete(key);
+    }
   }
 
   @Override
