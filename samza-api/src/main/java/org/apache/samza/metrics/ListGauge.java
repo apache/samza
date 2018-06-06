@@ -42,7 +42,6 @@ import org.apache.samza.util.TimestampedValue;
 public class ListGauge<T> implements Metric {
   private final String name;
   private final Queue<TimestampedValue<T>> elements;
-  private final DefaultListGaugeEvictionPolicy listGaugeEvictionPolicy;
 
   private final int maxNumberOfItems;
   private final Duration maxStaleness;
@@ -61,7 +60,6 @@ public class ListGauge<T> implements Metric {
     this.elements = new ConcurrentLinkedQueue<TimestampedValue<T>>();
     this.maxNumberOfItems = maxNumberOfItems;
     this.maxStaleness = maxStaleness;
-    this.listGaugeEvictionPolicy = new DefaultListGaugeEvictionPolicy();
   }
 
   /**
@@ -87,7 +85,7 @@ public class ListGauge<T> implements Metric {
    */
   public Collection<T> getValues() {
     // notify the policy object for performing any eviction that may be needed.
-    this.listGaugeEvictionPolicy.evict(this.elements, this.maxNumberOfItems, this.maxStaleness);
+    this.evict(this.elements, this.maxNumberOfItems, this.maxStaleness);
     return Collections.unmodifiableList(this.elements.stream().map(x -> x.getValue()).collect(Collectors.toList()));
   }
 
@@ -100,7 +98,7 @@ public class ListGauge<T> implements Metric {
     this.elements.add(new TimestampedValue<T>(value, Instant.now().toEpochMilli()));
 
     // notify the policy object for performing any eviction that may be needed.
-    this.listGaugeEvictionPolicy.evict(this.elements, this.maxNumberOfItems, this.maxStaleness);
+    this.evict(this.elements, this.maxNumberOfItems, this.maxStaleness);
   }
 
   /**
@@ -109,5 +107,43 @@ public class ListGauge<T> implements Metric {
   @Override
   public void visit(MetricsVisitor visitor) {
     visitor.listGauge(this);
+  }
+
+  /**
+   * Evicts entries from the elements list, based on the given item-size and durationThreshold.
+   * Callers are responsible for thread-safety.
+   */
+  public void evict(Queue<TimestampedValue<T>> elements, int maxNumberOfItems, Duration maxStaleness) {
+    this.evictBasedOnSize(elements, maxNumberOfItems);
+    this.evictBasedOnTimestamp(elements, maxStaleness);
+  }
+
+  /**
+   * Evicts entries from elements in FIFO order until it has maxNumberOfItems
+   * @param elements queue to evict elements from
+   * @param maxNumberOfItems max number of items to be left in the queue
+   */
+  private void evictBasedOnSize(Queue<TimestampedValue<T>> elements, int maxNumberOfItems) {
+    int numToEvict = elements.size() - maxNumberOfItems;
+    while (numToEvict > 0) {
+      elements.poll(); // remove head
+      numToEvict--;
+    }
+  }
+
+  /**
+   * Removes entries from elements to ensure no element has a timestamp more than maxStaleness before current timestamp.
+   * @param elements the queue to evict elements from
+   * @param maxStaleness max staleness permitted in elements
+   */
+  private void evictBasedOnTimestamp(Queue<TimestampedValue<T>> elements, Duration maxStaleness) {
+    Instant currentTimestamp = Instant.now();
+    TimestampedValue<T> valueInfo = elements.peek();
+
+    // continue remove-head if currenttimestamp - head-element's timestamp > durationThreshold
+    while (valueInfo != null && currentTimestamp.toEpochMilli() - valueInfo.getTimestamp() > maxStaleness.toMillis()) {
+      elements.poll();
+      valueInfo = elements.peek();
+    }
   }
 }
