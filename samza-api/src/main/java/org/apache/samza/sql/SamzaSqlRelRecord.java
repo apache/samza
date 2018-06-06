@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.apache.samza.annotation.InterfaceStability;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 
@@ -32,12 +33,13 @@ import org.codehaus.jackson.annotate.JsonProperty;
  * A column value could be nested, meaning, it could be another SamzaSqlRelRecord.
  * Right now we do not store any metadata (like nullability, etc) other than the column name in the SamzaSqlRelRecord.
  */
+@InterfaceStability.Unstable
 public class SamzaSqlRelRecord implements Serializable {
 
   @JsonProperty("fieldNames")
-  private final List<String> fieldNames;
+  private final ArrayList<String> fieldNames;
   @JsonProperty("fieldValues")
-  private final List<Object> fieldValues;
+  private final ArrayList<Object> fieldValues;
 
   /**
    * Creates a {@link SamzaSqlRelRecord} from the list of relational fields and values.
