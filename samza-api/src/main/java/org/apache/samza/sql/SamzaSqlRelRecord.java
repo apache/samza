@@ -22,6 +22,7 @@ package org.apache.samza.sql;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import org.codehaus.jackson.annotate.JsonProperty;
 
@@ -93,11 +94,7 @@ public class SamzaSqlRelRecord implements Serializable {
 
   @Override
   public int hashCode() {
-    final int prime = 31;
-    int result = 1;
-    result = prime * result + ((fieldNames == null) ? 0 : fieldNames.hashCode());
-    result = prime * result + ((fieldValues == null) ? 0 : fieldValues.hashCode());
-    return result;
+    return Objects.hash(fieldNames, fieldValues);
   }
 
   @Override
@@ -109,16 +106,6 @@ public class SamzaSqlRelRecord implements Serializable {
     if (getClass() != obj.getClass())
       return false;
     SamzaSqlRelRecord other = (SamzaSqlRelRecord) obj;
-    if (fieldNames == null) {
-      if (other.fieldNames != null)
-        return false;
-    } else if (!fieldNames.equals(other.fieldNames))
-      return false;
-    if (fieldValues == null) {
-      if (other.fieldValues != null)
-        return false;
-    } else if (!fieldValues.equals(other.fieldValues))
-      return false;
-    return true;
+    return Objects.equals(fieldNames, other.fieldNames) && Objects.equals(fieldValues, other.fieldValues);
   }
 }
