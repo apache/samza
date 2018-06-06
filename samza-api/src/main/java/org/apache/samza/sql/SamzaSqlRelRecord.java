@@ -90,4 +90,35 @@ public class SamzaSqlRelRecord implements Serializable {
 
     return Optional.empty();
   }
+
+  @Override
+  public int hashCode() {
+    final int prime = 31;
+    int result = 1;
+    result = prime * result + ((fieldNames == null) ? 0 : fieldNames.hashCode());
+    result = prime * result + ((fieldValues == null) ? 0 : fieldValues.hashCode());
+    return result;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj)
+      return true;
+    if (obj == null)
+      return false;
+    if (getClass() != obj.getClass())
+      return false;
+    SamzaSqlRelRecord other = (SamzaSqlRelRecord) obj;
+    if (fieldNames == null) {
+      if (other.fieldNames != null)
+        return false;
+    } else if (!fieldNames.equals(other.fieldNames))
+      return false;
+    if (fieldValues == null) {
+      if (other.fieldValues != null)
+        return false;
+    } else if (!fieldValues.equals(other.fieldValues))
+      return false;
+    return true;
+  }
 }
