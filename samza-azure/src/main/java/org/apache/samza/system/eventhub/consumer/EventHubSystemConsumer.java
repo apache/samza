@@ -28,20 +28,13 @@ import com.microsoft.azure.eventhubs.PartitionReceiver;
 import com.microsoft.azure.eventhubs.impl.ClientConstants;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -60,7 +53,7 @@ import org.apache.samza.system.eventhub.admin.EventHubSystemAdmin;
 import org.apache.samza.system.eventhub.metrics.SamzaHistogram;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer;
 import org.apache.samza.util.BlockingEnvelopeMap;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ShutdownUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -356,31 +349,23 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   @Override
   public void stop() {
     LOG.info("Stopping event hub system consumer...");
-    List<CompletableFuture<Void>> futures = new ArrayList<>();
-    streamPartitionReceivers.values().forEach((receiver) -> futures.add(receiver.close()));
-    CompletableFuture<Void> allFuture = CompletableFuture.allOf(futures.toArray(new CompletableFuture[futures.size()]));
-    try {
-      allFuture.get(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
-    } catch (Exception e) {
-      LOG.warn("Failed to close receivers", e);
-      Util.logThreadDump("Log thread dump as we failed during consumer shutdown");
-    }
-    LOG.info("Receivers are shutdown. Start shutting down EventHubManagers");
-    // There could be potentially many EventHubManagers, so close the managers in parallel
-    ExecutorService shutdownExecutorService = Executors.newCachedThreadPool();
-    List<Future> futureList = new ArrayList<>();
-    perPartitionEventHubManagers.values()
-        .forEach(ehClientManager -> futureList.add(
-            shutdownExecutorService.submit(() -> ehClientManager.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS))));
-    futureList.forEach(future -> {
-      try {
-        future.get(); // ehClientManager.close() already has a timeout
-      } catch (Exception e) {
-        LOG.warn("exception during EventHubManagers shutdown", e);
-      }
-    });
-    shutdownExecutorService.shutdown();
-    LOG.info("EventHubManagers are shutdown");
+
+    // There could be potentially many Receivers and EventHubManagers, so close the managers in parallel
+    LOG.info("Start shutting down eventhubs receivers");
+    ShutdownUtil.boundedShutdown(es -> {
+        streamPartitionReceivers.values()
+            .forEach(receiver -> es.submit(
+                () -> receiver.close().get(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)));
+        return null;
+      }, "EventHubSystemConsumer.Receiver#close", DEFAULT_SHUTDOWN_TIMEOUT_MILLIS);
+
+    LOG.info("Start shutting down eventhubs managers");
+    ShutdownUtil.boundedShutdown(es -> {
+        perPartitionEventHubManagers.values()
+            .forEach(manager -> es.submit(() -> manager.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS)));
+        return null;
+      }, "EventHubSystemConsumer.ClientManager#close", DEFAULT_SHUTDOWN_TIMEOUT_MILLIS);
+
     perPartitionEventHubManagers.clear();
     perStreamEventHubManagers.clear();
     isStarted = false;
