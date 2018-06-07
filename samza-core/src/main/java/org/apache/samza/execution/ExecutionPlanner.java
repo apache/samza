@@ -164,7 +164,7 @@ public class ExecutionPlanner {
       // set the partitions of a stream to its StreamEdge
       streamToPartitionCount.forEach((stream, partitionCount) -> {
           streamToStreamEdge.get(stream).setPartitionCount(partitionCount);
-          log.debug("Partition count is {} for stream {}", partitionCount, stream);
+          log.info("Partition count is {} for stream {}", partitionCount, stream);
         });
     }
   }

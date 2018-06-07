@@ -26,6 +26,8 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import scala.collection.JavaConversions;
 
 import java.time.Duration;
@@ -85,13 +87,21 @@ public class EventHubConfig extends MapConfig {
 
   private final Map<String, String> physcialToId = new HashMap<>();
 
+  private static final Logger LOG = LoggerFactory.getLogger(EventHubConfig.class);
+
   public EventHubConfig(Config config) {
     super(config);
 
     // Build reverse index for streamName -> streamId
     StreamConfig streamConfig = new StreamConfig(config);
+
+    LOG.info("Building mappings from physicalName to streamId");
     JavaConversions.asJavaCollection(streamConfig.getStreamIds())
-            .forEach((streamId) -> physcialToId.put(streamConfig.getPhysicalName(streamId), streamId));
+        .forEach((streamId) -> {
+            String physicalName = streamConfig.getPhysicalName(streamId);
+            LOG.info("Obtained physicalName: {} for streamId: {} ", physicalName, streamId);
+            physcialToId.put(physicalName, streamId);
+          });
   }
 
   private String getFromStreamIdOrName(String configName, String streamName, String defaultString) {
@@ -145,6 +155,7 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs namespace
    */
   public String getStreamNamespace(String systemName, String streamName) {
+    LOG.info("Obtaining name-space for system: {} physical name: {}", systemName, streamName);
     return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_NAMESPACE, streamName),
             "Namespace", systemName, streamName);
   }
@@ -157,6 +168,7 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs entity path
    */
   public String getStreamEntityPath(String systemName, String streamName) {
+    LOG.info("Obtaining entity-path for system: {} physical name: {}", systemName, streamName);
     return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_ENTITYPATH, streamName),
             "EntityPath", systemName, streamName);
   }

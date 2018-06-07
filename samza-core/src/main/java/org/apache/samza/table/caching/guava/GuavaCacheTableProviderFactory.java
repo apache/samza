@@ -17,25 +17,18 @@
  * under the License.
  */
 
-package org.apache.samza.storage.kv
+package org.apache.samza.table.caching.guava;
 
-import org.apache.samza.metrics.{MetricsHelper, MetricsRegistry, MetricsRegistryMap}
+import org.apache.samza.table.TableProvider;
+import org.apache.samza.table.TableProviderFactory;
+import org.apache.samza.table.TableSpec;
 
-class KeyValueStoreMetrics(
-  val storeName: String = "unknown",
-  val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
-
-  val gets = newCounter("gets")
-  val getAlls = newCounter("getAlls")
-  val puts = newCounter("puts")
-  val putAlls = newCounter("putAlls")
-  val deletes = newCounter("deletes")
-  val deleteAlls = newCounter("deleteAlls")
-  val alls = newCounter("alls")
-  val ranges = newCounter("ranges")
-  val flushes = newCounter("flushes")
-  val bytesWritten = newCounter("bytes-written")
-  val bytesRead = newCounter("bytes-read")
-
-  override def getPrefix = storeName + "-"
+/**
+ * Table provider factory for {@link GuavaCacheTable}.
+ */
+public class GuavaCacheTableProviderFactory implements TableProviderFactory {
+  @Override
+  public TableProvider getTableProvider(TableSpec tableSpec) {
+    return new GuavaCacheTableProvider(tableSpec);
+  }
 }

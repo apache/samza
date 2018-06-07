@@ -17,25 +17,30 @@
  * under the License.
  */
 
-package org.apache.samza.storage.kv
+package org.apache.samza.table.caching;
 
-import org.apache.samza.metrics.{MetricsHelper, MetricsRegistry, MetricsRegistryMap}
+import java.util.function.Supplier;
 
-class KeyValueStoreMetrics(
-  val storeName: String = "unknown",
-  val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
+import org.apache.samza.metrics.Gauge;
 
-  val gets = newCounter("gets")
-  val getAlls = newCounter("getAlls")
-  val puts = newCounter("puts")
-  val putAlls = newCounter("putAlls")
-  val deletes = newCounter("deletes")
-  val deleteAlls = newCounter("deleteAlls")
-  val alls = newCounter("alls")
-  val ranges = newCounter("ranges")
-  val flushes = newCounter("flushes")
-  val bytesWritten = newCounter("bytes-written")
-  val bytesRead = newCounter("bytes-read")
+import com.google.common.base.Preconditions;
 
-  override def getPrefix = storeName + "-"
+
+/**
+ * Simple Gauge backed by an external supplier expression.
+ * @param <T> data type of the gauge
+ */
+public class SupplierGauge<T> extends Gauge<T> {
+  private Supplier<T> supplier;
+
+  public SupplierGauge(String name, Supplier<T> supplier) {
+    super(name, null);
+    Preconditions.checkNotNull(supplier);
+    this.supplier = supplier;
+  }
+
+  @Override
+  public T getValue() {
+    return supplier.get();
+  }
 }
