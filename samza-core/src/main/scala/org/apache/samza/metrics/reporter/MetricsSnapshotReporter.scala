@@ -19,8 +19,6 @@
 
 package org.apache.samza.metrics.reporter
 
-import java.util
-
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.metrics._
 import org.apache.samza.serializers.Serializer

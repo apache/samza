@@ -33,8 +33,8 @@ import org.apache.samza.util.TimestampedValue;
  * {@link ListGauge}s are useful for maintaining, recording, or collecting values over time.
  * For example, a set of specific logging-events (e.g., errors).
  *
- * Eviction from list is either done by consuming-code using the remove APIs or by specifying an eviction policy
- * at creation time.
+ * Eviction is controlled by parameters (maxNumberOfItems and maxStaleness), which are set during instantiation.
+ * Eviction happens during element addition or during reads of the ListGauge (getValues).
  *
  * All public methods are thread-safe.
  *
@@ -42,7 +42,6 @@ import org.apache.samza.util.TimestampedValue;
 public class ListGauge<T> implements Metric {
   private final String name;
   private final Queue<TimestampedValue<T>> elements;
-  private final DefaultListGaugeEvictionPolicy listGaugeEvictionPolicy;
 
   private final int maxNumberOfItems;
   private final Duration maxStaleness;
@@ -61,7 +60,6 @@ public class ListGauge<T> implements Metric {
     this.elements = new ConcurrentLinkedQueue<TimestampedValue<T>>();
     this.maxNumberOfItems = maxNumberOfItems;
     this.maxStaleness = maxStaleness;
-    this.listGaugeEvictionPolicy = new DefaultListGaugeEvictionPolicy();
   }
 
   /**
@@ -81,13 +79,11 @@ public class ListGauge<T> implements Metric {
   }
 
   /**
-   * Get the Collection of Gauge values currently in the list, used when serializing this Gauge.
-   * Also evicts values based on the configured maxItems and maxStaleness.
-   * @return the collection of gauge values
+   * Get the Collection of values currently in the list.
+   * @return the collection of values
    */
   public Collection<T> getValues() {
-    // notify the policy object for performing any eviction that may be needed.
-    this.listGaugeEvictionPolicy.evict(this.elements, this.maxNumberOfItems, this.maxStaleness);
+    this.evict();
     return Collections.unmodifiableList(this.elements.stream().map(x -> x.getValue()).collect(Collectors.toList()));
   }
 
@@ -99,8 +95,8 @@ public class ListGauge<T> implements Metric {
   public void add(T value) {
     this.elements.add(new TimestampedValue<T>(value, Instant.now().toEpochMilli()));
 
-    // notify the policy object for performing any eviction that may be needed.
-    this.listGaugeEvictionPolicy.evict(this.elements, this.maxNumberOfItems, this.maxStaleness);
+    // perform any evictions that may be needed.
+    this.evict();
   }
 
   /**
@@ -109,5 +105,39 @@ public class ListGauge<T> implements Metric {
   @Override
   public void visit(MetricsVisitor visitor) {
     visitor.listGauge(this);
+  }
+
+  /**
+   * Evicts entries from the elements list, based on the given item-size and durationThreshold.
+   */
+  private void evict() {
+    this.evictBasedOnSize();
+    this.evictBasedOnTimestamp();
+  }
+
+  /**
+   * Evicts entries from elements in FIFO order until it has maxNumberOfItems
+   */
+  private void evictBasedOnSize() {
+    int numToEvict = this.elements.size() - this.maxNumberOfItems;
+    while (numToEvict > 0) {
+      this.elements.poll(); // remove head
+      numToEvict--;
+    }
+  }
+
+  /**
+   * Removes entries from elements to ensure no element has a timestamp more than maxStaleness before current timestamp.
+   */
+  private void evictBasedOnTimestamp() {
+    Instant currentTimestamp = Instant.now();
+    TimestampedValue<T> valueInfo = this.elements.peek();
+
+    // continue remove-head if currenttimestamp - head-element's timestamp > durationThreshold
+    while (valueInfo != null
+        && currentTimestamp.toEpochMilli() - valueInfo.getTimestamp() > this.maxStaleness.toMillis()) {
+      this.elements.poll();
+      valueInfo = this.elements.peek();
+    }
   }
 }

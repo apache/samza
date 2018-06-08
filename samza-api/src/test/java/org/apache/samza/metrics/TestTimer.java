@@ -19,12 +19,11 @@
 
 package org.apache.samza.metrics;
 
-import static org.junit.Assert.*;
-
 import java.util.Arrays;
-
 import org.apache.samza.util.Clock;
 import org.junit.Test;
+
+import static org.junit.Assert.*;
 
 public class TestTimer {
 
@@ -62,7 +61,7 @@ public class TestTimer {
     assertTrue(snapshot.getValues().containsAll(Arrays.asList(1L, 2L, 3L)));
     assertEquals(3, snapshot.getValues().size());
 
-    // The time is 500 for update(4L) because getValues calls clock once + 3
+    // The time is 500 for update(4L) because getSnapshot calls clock once + 3
     // updates that call clock 3 times
     timer.update(4L);
     Snapshot snapshot2 = timer.getSnapshot();

@@ -22,7 +22,7 @@ package org.apache.samza.container
 import java.util
 
 import org.apache.samza.diagnostics.DiagnosticsExceptionEvent
-import org.apache.samza.metrics._
+import org.apache.samza.metrics.{Gauge, ReadableMetricsRegistry, MetricsRegistryMap, MetricsHelper}
 
 class SamzaContainerMetrics(
   val source: String = "unknown",
