@@ -367,7 +367,11 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
     ShutdownUtil.boundedShutdown(perPartitionEventHubManagers.values().stream().map(manager -> new Runnable() {
       @Override
       public void run() {
-        manager.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS);
+        try {
+          manager.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS);
+        } catch (Exception e) {
+          LOG.error("Failed to shutdown eventhubs manager.", e);
+        }
       }
     }).collect(Collectors.toList()), "EventHubSystemConsumer.ClientManager#close", DEFAULT_SHUTDOWN_TIMEOUT_MILLIS);
 

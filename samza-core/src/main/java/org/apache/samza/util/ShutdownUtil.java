@@ -22,12 +22,12 @@ package org.apache.samza.util;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 
 /**
@@ -51,16 +51,8 @@ public class ShutdownUtil {
    * @return true if all tasks terminate in the end
    */
   public static boolean boundedShutdown(List<Runnable> shutdownTasks, String message, long timeoutMs) {
-    ExecutorService shutdownExecutorService = Executors.newCachedThreadPool(new ThreadFactory() {
-      private final AtomicInteger counter = new AtomicInteger(0);
-      @Override
-      public Thread newThread(Runnable r) {
-        Thread thread = new Thread(r);
-        thread.setDaemon(true);
-        thread.setName(message + "-" + counter.incrementAndGet());
-        return thread;
-      }
-    });
+    ExecutorService shutdownExecutorService = Executors.newCachedThreadPool(
+        new ThreadFactoryBuilder().setNameFormat(message + "-%d").setDaemon(true).build());
     shutdownTasks.forEach(shutdownExecutorService::submit);
     shutdownExecutorService.shutdown();
     try {
