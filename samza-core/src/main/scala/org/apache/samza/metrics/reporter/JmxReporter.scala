@@ -45,13 +45,9 @@ class JmxReporter(server: MBeanServer) extends MetricsReporter with Logging {
         registry.getGroup(group).asScala.foreach {
           case (name, metric) =>
             metric.visit(new MetricsVisitor {
-
               def counter(counter: Counter) = registerBean(new JmxCounter(counter, getObjectName(group, name, sources(registry))))
-
               def gauge[T](gauge: Gauge[T]) = registerBean(new JmxGauge(gauge.asInstanceOf[Gauge[Object]], getObjectName(group, name, sources(registry))))
-
               def timer(timer: Timer) = registerBean(new JmxTimer(timer, getObjectName(group, name, sources(registry))))
-
               def listGauge[T](listGauge: ListGauge[T]) = registerBean(new JmxListGauge(listGauge.asInstanceOf[ListGauge[Object]], getObjectName(group, name, sources(registry))))
 
             })
@@ -67,15 +63,12 @@ class JmxReporter(server: MBeanServer) extends MetricsReporter with Logging {
         def onCounter(group: String, counter: Counter) {
           registerBean(new JmxCounter(counter, getObjectName(group, counter.getName, source)))
         }
-
         def onGauge(group: String, gauge: Gauge[_]) {
           registerBean(new JmxGauge(gauge.asInstanceOf[Gauge[Object]], getObjectName(group, gauge.getName, source)))
         }
-
         def onTimer(group: String, timer: Timer) {
           registerBean(new JmxTimer(timer, getObjectName(group, timer.getName, source)))
         }
-
         def onListGauge(group: String, listGauge: ListGauge[_]) {
           registerBean(new JmxListGauge(listGauge.asInstanceOf[ListGauge[Object]], getObjectName(group, listGauge.getName, source)))
         }
@@ -113,13 +106,11 @@ trait JmxGaugeMBean extends MetricMBean {
 
 class JmxGauge(g: org.apache.samza.metrics.Gauge[Object], on: ObjectName) extends JmxGaugeMBean {
   def getValue = g.getValue
-
   def objectName = on
 }
 
 class JmxListGauge(g: org.apache.samza.metrics.ListGauge[Object], on: ObjectName) extends JmxGaugeMBean {
   def getValue = g.getValues
-
   def objectName = on
 }
 
@@ -129,7 +120,6 @@ trait JmxCounterMBean extends MetricMBean {
 
 class JmxCounter(c: org.apache.samza.metrics.Counter, on: ObjectName) extends JmxCounterMBean {
   def getCount() = c.getCount()
-
   def objectName = on
 }
 
@@ -139,7 +129,6 @@ trait JmxTimerMBean extends MetricMBean {
 
 class JmxTimer(t: org.apache.samza.metrics.Timer, on: ObjectName) extends JmxTimerMBean {
   def getAverageTime() = t.getSnapshot().getAverage()
-
   def objectName = on
 }
 
