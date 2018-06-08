@@ -19,18 +19,16 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.functions.FlatMapFunction;
-import org.apache.samza.operators.functions.WatermarkFunction;
-
 
 /**
- * The spec for a simple stream operator that outputs 0 or more messages for each input message.
+ * The common spec for a simple stream operator that outputs 0 or more messages for each input message.
  *
  * @param <M>  the type of input message
  * @param <OM>  the type of output message
  */
-public class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
+public abstract class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
 
-  private final FlatMapFunction<M, OM> transformFn;
+  protected final FlatMapFunction<M, OM> transformFn;
 
   /**
    * Constructor for a {@link StreamOperatorSpec}.
@@ -39,7 +37,7 @@ public class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
    * @param opCode  the {@link OpCode} for this {@link StreamOperatorSpec}
    * @param opId  the unique ID for this {@link StreamOperatorSpec}
    */
-  StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, OperatorSpec.OpCode opCode, String opId) {
+  protected StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, OperatorSpec.OpCode opCode, String opId) {
     super(opCode, opId);
     this.transformFn = transformFn;
   }
@@ -48,8 +46,4 @@ public class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
     return this.transformFn;
   }
 
-  @Override
-  public WatermarkFunction getWatermarkFn() {
-    return transformFn instanceof WatermarkFunction ? (WatermarkFunction) transformFn : null;
-  }
 }

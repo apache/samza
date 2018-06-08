@@ -148,4 +148,19 @@ class SerializedKeyValueStore[K, V](
     }
     bytes
   }
+
+  override def snapshot(from: K, to: K): KeyValueSnapshot[K, V] = {
+    val fromBytes = toBytesOrNull(from, keySerde)
+    val toBytes = toBytesOrNull(to, keySerde)
+    val snapshot = store.snapshot(fromBytes, toBytes)
+    new KeyValueSnapshot[K, V] {
+      override def iterator(): KeyValueIterator[K, V] = {
+        new DeserializingIterator(snapshot.iterator())
+      }
+
+      override def close() = {
+        snapshot.close()
+      }
+    }
+  }
 }

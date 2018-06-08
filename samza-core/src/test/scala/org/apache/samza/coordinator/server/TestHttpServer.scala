@@ -19,11 +19,10 @@
 
 package org.apache.samza.coordinator.server
 
-import org.apache.samza.util.Util
+import org.apache.samza.util.{HttpUtil, Util}
 import org.junit.Assert._
 import org.junit.Test
 import java.net.URL
-import org.eclipse.jetty.server.Connector
 
 class TestHttpServer {
   @Test
@@ -32,9 +31,9 @@ class TestHttpServer {
     try {
       server.addServlet("/basic", new BasicServlet())
       server.start
-      val body = Util.read(new URL(server.getUrl + "/basic"))
+      val body = HttpUtil.read(new URL(server.getUrl + "/basic"))
       assertEquals("{\"foo\":\"bar\"}", body)
-      val css = Util.read(new URL(server.getUrl + "/css/ropa-sans.css"))
+      val css = HttpUtil.read(new URL(server.getUrl + "/css/ropa-sans.css"))
       assertTrue(css.contains("RopaSans"))
     } finally {
       server.stop

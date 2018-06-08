@@ -19,28 +19,56 @@
 
 package org.apache.samza.job.local
 
-
-import java.io.File
-
+import java.util
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{JobConfig, Config}
+import org.apache.samza.config.{Config, JobConfig, TaskConfigJava}
 import org.apache.samza.config.TaskConfig._
+import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.JobModelManager
+import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.job.{CommandBuilder, ShellCommandBuilder, StreamJob, StreamJobFactory}
+import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.storage.ChangelogStreamManager
 import org.apache.samza.util.{Logging, Util}
+import scala.collection.JavaConversions._
 
 /**
  * Creates a stand alone ProcessJob with the specified config.
  */
 class ProcessJobFactory extends StreamJobFactory with Logging {
-  def  getJob(config: Config): StreamJob = {
+  def getJob(config: Config): StreamJob = {
     val containerCount = JobConfig.Config2Job(config).getContainerCount
 
     if (containerCount > 1) {
       throw new SamzaException("Container count larger than 1 is not supported for ProcessJobFactory")
     }
-    
-    val coordinator = JobModelManager(config)
+
+    val metricsRegistry = new MetricsRegistryMap()
+    val coordinatorStreamManager = new CoordinatorStreamManager(config, metricsRegistry)
+    coordinatorStreamManager.register(getClass.getSimpleName)
+    coordinatorStreamManager.start
+    coordinatorStreamManager.bootstrap
+    val changelogStreamManager = new ChangelogStreamManager(coordinatorStreamManager)
+
+    val coordinator = JobModelManager(coordinatorStreamManager, changelogStreamManager.readPartitionMapping())
+    val jobModel = coordinator.jobModel
+
+    val taskPartitionMappings: util.Map[TaskName, Integer] = new util.HashMap[TaskName, Integer]
+    for (containerModel <- jobModel.getContainers.values) {
+      for (taskModel <- containerModel.getTasks.values) {
+        taskPartitionMappings.put(taskModel.getTaskName, taskModel.getChangelogPartition.getPartitionId)
+      }
+    }
+
+    changelogStreamManager.writePartitionMapping(taskPartitionMappings)
+
+    //create necessary checkpoint and changelog streams
+    val checkpointManager = new TaskConfigJava(jobModel.getConfig).getCheckpointManager(metricsRegistry)
+    if (checkpointManager != null) {
+      checkpointManager.createResources()
+    }
+    ChangelogStreamManager.createChangelogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
+
     val containerModel = coordinator.jobModel.getContainers.get(0)
 
     val fwkPath = JobConfig.getFwkPath(config) // see if split deployment is configured
@@ -51,7 +79,7 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
         case Some(cmdBuilderClassName) => {
           // A command class was specified, so we need to use a process job to
           // execute the command in its own process.
-          Util.getObj[CommandBuilder](cmdBuilderClassName)
+          Util.getObj(cmdBuilderClassName, classOf[CommandBuilder])
         }
         case _ => {
           info("Defaulting to ShellCommandBuilder")

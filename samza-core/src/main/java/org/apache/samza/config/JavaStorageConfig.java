@@ -38,6 +38,10 @@ public class JavaStorageConfig extends MapConfig {
   private static final String MSG_SERDE = "stores.%s.msg.serde";
   private static final String CHANGELOG_STREAM = "stores.%s.changelog";
   private static final String CHANGELOG_SYSTEM = "job.changelog.system";
+  private static final String ACCESSLOG_STREAM_SUFFIX = "access-log";
+  private static final String ACCESSLOG_SAMPLING_RATIO = "stores.%s.accesslog.sampling.ratio";
+  private static final String ACCESSLOG_ENABLED = "stores.%s.accesslog.enabled";
+  private static final int DEFAULT_ACCESSLOG_SAMPLING_RATIO = 50;
 
   public JavaStorageConfig(Config config) {
     super(config);
@@ -80,6 +84,18 @@ public class JavaStorageConfig extends MapConfig {
     return systemStreamRes;
   }
 
+  public boolean getAccessLogEnabled(String storeName) {
+    return getBoolean(String.format(ACCESSLOG_ENABLED, storeName), false);
+  }
+
+  public String getAccessLogStream(String changeLogStream) {
+    return String.format("%s-%s", changeLogStream, ACCESSLOG_STREAM_SUFFIX);
+  }
+
+  public int getAccessLogSamplingRatio(String storeName) {
+    return getInt(String.format(ACCESSLOG_SAMPLING_RATIO, storeName), DEFAULT_ACCESSLOG_SAMPLING_RATIO);
+  }
+
   public String getStorageFactoryClassName(String storeName) {
     return get(String.format(FACTORY, storeName), null);
   }
@@ -105,7 +121,7 @@ public class JavaStorageConfig extends MapConfig {
    *
    * If the former syntax is used, that system name will still be honored. For the latter syntax, this method is used.
    *
-   * @return the name of the system to use by default for all changelogs, if defined. 
+   * @return the name of the system to use by default for all changelogs, if defined.
    */
   public String getChangelogSystem() {
     return get(CHANGELOG_SYSTEM,  get(JobConfig.JOB_DEFAULT_SYSTEM(), null));

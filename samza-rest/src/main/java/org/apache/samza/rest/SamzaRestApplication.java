@@ -24,7 +24,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.rest.resources.DefaultResourceFactory;
 import org.apache.samza.rest.resources.ResourceFactory;
-import org.apache.samza.util.ClassLoaderHelper;
+import org.apache.samza.util.Util;
 import org.codehaus.jackson.jaxrs.JacksonJsonProvider;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.slf4j.Logger;
@@ -84,7 +84,7 @@ public class SamzaRestApplication extends ResourceConfig {
   private Collection<? extends Object> instantiateFactoryResources(String factoryClassName, Config config)
       throws InstantiationException {
     try {
-      ResourceFactory factory = ClassLoaderHelper.<ResourceFactory>fromClassName(factoryClassName);
+      ResourceFactory factory = Util.getObj(factoryClassName, ResourceFactory.class);
       return factory.getResourceInstances(config);
     } catch (Exception e) {
       throw (InstantiationException)

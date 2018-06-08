@@ -19,6 +19,7 @@
 
 package org.apache.samza.system;
 
+import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -33,7 +34,7 @@ import java.util.Map;
  *
  * It is immutable by design.
  */
-public class StreamSpec {
+public class StreamSpec implements Serializable {
 
   private static final int DEFAULT_PARTITION_COUNT = 1;
 
@@ -45,6 +46,9 @@ public class StreamSpec {
 
   // Internal checkpoint stream id. It is used for creating checkpoint StreamSpec.
   private static final String CHECKPOINT_STREAM_ID = "samza-internal-checkpoint-stream-id";
+
+  // Internal stream appender stream id. It is used for creating stream appender StreamSpec.
+  private static final String STREAM_APPENDER_ID = "samza-internal-stream-appender-stream-id";
 
   /**
    * Unique identifier for the stream in a Samza application.
@@ -77,6 +81,11 @@ public class StreamSpec {
   private final boolean isBounded;
 
   /**
+   * broadcast stream to all tasks
+   */
+  private final boolean isBroadcast;
+
+  /**
    * A set of all system-specific configurations for the stream.
    */
   private final Map<String, String> config;
@@ -98,7 +107,7 @@ public class StreamSpec {
    *                      Samza System abstraction. See {@link SystemFactory}
    */
   public StreamSpec(String id, String physicalName, String systemName) {
-    this(id, physicalName, systemName, DEFAULT_PARTITION_COUNT, false, Collections.emptyMap());
+    this(id, physicalName, systemName, DEFAULT_PARTITION_COUNT, false, false, Collections.emptyMap());
   }
 
   /**
@@ -117,7 +126,7 @@ public class StreamSpec {
    * @param partitionCount  The number of partitionts for the stream. A value of {@code 1} indicates unpartitioned.
    */
   public StreamSpec(String id, String physicalName, String systemName, int partitionCount) {
-    this(id, physicalName, systemName, partitionCount, false, Collections.emptyMap());
+    this(id, physicalName, systemName, partitionCount, false, false, Collections.emptyMap());
   }
 
   /**
@@ -137,7 +146,7 @@ public class StreamSpec {
    * @param config        A map of properties for the stream. These may be System-specfic.
    */
   public StreamSpec(String id, String physicalName, String systemName, boolean isBounded, Map<String, String> config) {
-    this(id, physicalName, systemName, DEFAULT_PARTITION_COUNT, isBounded, config);
+    this(id, physicalName, systemName, DEFAULT_PARTITION_COUNT, isBounded, false, config);
   }
 
   /**
@@ -156,9 +165,12 @@ public class StreamSpec {
    *
    * @param isBounded       The stream is bounded or not.
    *
+   * @param isBroadcast     This stream is broadcast or not.
+   *
    * @param config          A map of properties for the stream. These may be System-specfic.
    */
-  public StreamSpec(String id, String physicalName, String systemName, int partitionCount, boolean isBounded, Map<String, String> config) {
+  public StreamSpec(String id, String physicalName, String systemName, int partitionCount,
+                    boolean isBounded, boolean isBroadcast, Map<String, String> config) {
     validateLogicalIdentifier("streamId", id);
     validateLogicalIdentifier("systemName", systemName);
 
@@ -172,6 +184,7 @@ public class StreamSpec {
     this.physicalName = physicalName;
     this.partitionCount = partitionCount;
     this.isBounded = isBounded;
+    this.isBroadcast = isBroadcast;
 
     if (config != null) {
       this.config = Collections.unmodifiableMap(new HashMap<>(config));
@@ -189,11 +202,15 @@ public class StreamSpec {
    * @return                A copy of this StreamSpec with the specified partitionCount.
    */
   public StreamSpec copyWithPartitionCount(int partitionCount) {
-    return new StreamSpec(id, physicalName, systemName, partitionCount, this.isBounded, config);
+    return new StreamSpec(id, physicalName, systemName, partitionCount, this.isBounded, this.isBroadcast, config);
   }
 
   public StreamSpec copyWithPhysicalName(String physicalName) {
-    return new StreamSpec(id, physicalName, systemName, partitionCount, this.isBounded, config);
+    return new StreamSpec(id, physicalName, systemName, partitionCount, this.isBounded, this.isBroadcast, config);
+  }
+
+  public StreamSpec copyWithBroadCast() {
+    return new StreamSpec(id, physicalName, systemName, partitionCount, this.isBounded, true, config);
   }
 
   public String getId() {
@@ -240,6 +257,10 @@ public class StreamSpec {
     return isBounded;
   }
 
+  public boolean isBroadcast() {
+    return isBroadcast;
+  }
+
   private void validateLogicalIdentifier(String identifierName, String identifierValue) {
     if (identifierValue == null || !identifierValue.matches("[A-Za-z0-9_-]+")) {
       throw new IllegalArgumentException(String.format("Identifier '%s' is '%s'. It must match the expression [A-Za-z0-9_-]+", identifierName, identifierValue));
@@ -271,5 +292,9 @@ public class StreamSpec {
 
   public static StreamSpec createCheckpointStreamSpec(String physicalName, String systemName) {
     return new StreamSpec(CHECKPOINT_STREAM_ID, physicalName, systemName, 1);
+  }
+
+  public static StreamSpec createStreamAppenderStreamSpec(String physicalName, String systemName, int partitionCount) {
+    return new StreamSpec(STREAM_APPENDER_ID, physicalName, systemName, partitionCount);
   }
 }

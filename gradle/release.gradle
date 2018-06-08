@@ -55,15 +55,18 @@ task sourceRelease(type: Tar) {
 // Publishing to Apache's Maven repository (Nexus). To test this locally, set
 // repositoryUrl and snapshotRepositoryUrl below to 'file://localhost/tmp/myRepo'
 subprojects {
-  apply plugin: 'nexus'
+  apply plugin: 'com.bmuschko.nexus'
 
   nexus {
-    attachSources = true
-    attachTests = false
-    attachJavadoc = true
     sign = true
     repositoryUrl = 'https://repository.apache.org/service/local/staging/deploy/maven2'
     snapshotRepositoryUrl = 'https://repository.apache.org/content/repositories/snapshots'
+  }
+
+  extraArchive {
+    sources = true
+    tests = false
+    javadoc = true
   }
 
   modifyPom {

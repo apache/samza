@@ -20,6 +20,7 @@ package org.apache.samza.operators.spec;
 
 import com.google.common.collect.ImmutableMap;
 import org.apache.samza.operators.functions.JoinFunction;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.impl.store.TimestampedValueSerde;
 import org.apache.samza.operators.impl.store.TimestampedValue;
@@ -41,13 +42,19 @@ import java.util.Map;
  */
 public class JoinOperatorSpec<K, M, OM, JM> extends OperatorSpec<Object, JM> implements StatefulOperatorSpec { // Object == M | OM
 
+  private final JoinFunction<K, M, OM, JM> joinFn;
+  private final long ttlMs;
+
   private final OperatorSpec<?, M> leftInputOpSpec;
   private final OperatorSpec<?, OM> rightInputOpSpec;
-  private final JoinFunction<K, M, OM, JM> joinFn;
-  private final Serde<K> keySerde;
-  private final Serde<TimestampedValue<M>> messageSerde;
-  private final Serde<TimestampedValue<OM>> otherMessageSerde;
-  private final long ttlMs;
+
+  /**
+   * The following {@link Serde}s are serialized by the ExecutionPlanner when generating the store configs for a join, and
+   * deserialized once during startup in SamzaContainer. They don't need to be deserialized here on a per-task basis
+   */
+  private transient final Serde<K> keySerde;
+  private transient final Serde<TimestampedValue<M>> messageSerde;
+  private transient final Serde<TimestampedValue<OM>> otherMessageSerde;
 
   /**
    * Default constructor for a {@link JoinOperatorSpec}.
@@ -97,6 +104,11 @@ public class JoinOperatorSpec<K, M, OM, JM> extends OperatorSpec<Object, JM> imp
     return joinFn instanceof WatermarkFunction ? (WatermarkFunction) joinFn : null;
   }
 
+  @Override
+  public TimerFunction getTimerFn() {
+    return joinFn instanceof TimerFunction ? (TimerFunction) joinFn : null;
+  }
+
   public OperatorSpec getLeftInputOpSpec() {
     return leftInputOpSpec;
   }
@@ -120,4 +132,5 @@ public class JoinOperatorSpec<K, M, OM, JM> extends OperatorSpec<Object, JM> imp
   public long getTtlMs() {
     return ttlMs;
   }
+
 }

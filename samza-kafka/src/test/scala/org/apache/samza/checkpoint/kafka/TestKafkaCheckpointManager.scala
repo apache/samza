@@ -33,6 +33,7 @@ import org.apache.samza.checkpoint.Checkpoint
 import org.apache.samza.config._
 import org.apache.samza.container.TaskName
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
+import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.serializers.CheckpointSerde
 import org.apache.samza.system._
 import org.apache.samza.system.kafka.{KafkaStreamSpec, KafkaSystemFactory}
@@ -40,6 +41,7 @@ import org.apache.samza.util.{KafkaUtilException, NoOpMetricsRegistry, Util}
 import org.apache.samza.{Partition, SamzaException}
 import org.junit.Assert._
 import org.junit._
+import org.mockito.Mockito
 
 class TestKafkaCheckpointManager extends KafkaServerTestHarness {
 
@@ -52,15 +54,12 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
   val checkpoint1 = new Checkpoint(ImmutableMap.of(ssp, "offset-1"))
   val checkpoint2 = new Checkpoint(ImmutableMap.of(ssp, "offset-2"))
   val taskName = new TaskName("Partition 0")
-
-  var brokers: String = null
   var config: Config = null
 
   @Before
   override def setUp {
     super.setUp
     TestUtils.waitUntilTrue(() => servers.head.metadataCache.getAliveBrokers.size == numBrokers, "Wait for cache to update")
-    brokers = brokerList.split(",").map(p => "localhost" + p).mkString(",")
     config = getConfig()
   }
 
@@ -75,6 +74,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val checkpointTopic = "checkpoint-topic-1"
     val kcm1 = createKafkaCheckpointManager(checkpointTopic)
     kcm1.register(taskName)
+    kcm1.createResources
     kcm1.start
     kcm1.stop
     // check that start actually creates the topic with log compaction enabled
@@ -99,6 +99,29 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     assertEquals(checkpoint2, readCheckpoint(checkpointTopic, taskName))
   }
 
+  @Test(expected = classOf[SamzaException])
+  def testWriteCheckpointShouldRetryFiniteTimesOnFailure: Unit = {
+    val checkpointTopic = "checkpoint-topic-2"
+    val mockKafkaProducer: SystemProducer = Mockito.mock(classOf[SystemProducer])
+
+    class MockSystemFactory extends KafkaSystemFactory {
+      override def getProducer(systemName: String, config: Config, registry: MetricsRegistry): SystemProducer = {
+        mockKafkaProducer
+      }
+    }
+
+    Mockito.doThrow(new RuntimeException()).when(mockKafkaProducer).flush(taskName.getTaskName)
+
+    val props = new org.apache.samza.config.KafkaConfig(config).getCheckpointTopicProperties()
+    val spec = new KafkaStreamSpec("id", checkpointTopic, checkpointSystemName, 1, 1, false, props)
+    val checkPointManager = new KafkaCheckpointManager(spec, new MockSystemFactory, false, config, new NoOpMetricsRegistry)
+    checkPointManager.MaxRetryDurationMs = 1
+
+    checkPointManager.register(taskName)
+    checkPointManager.start
+    checkPointManager.writeCheckpoint(taskName, new Checkpoint(ImmutableMap.of()))
+  }
+
   @Test
   def testFailOnTopicValidation {
     // By default, should fail if there is a topic validation error
@@ -108,6 +131,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     // create topic with the wrong number of partitions
     createTopic(checkpointTopic, 8, new KafkaConfig(config).getCheckpointTopicProperties())
     try {
+      kcm1.createResources
       kcm1.start
       fail("Expected an exception for invalid number of partitions in the checkpoint topic.")
     } catch {
@@ -140,7 +164,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val defaultSerializer = classOf[ByteArraySerializer].getCanonicalName
     val props = new Properties()
     props.putAll(ImmutableMap.of(
-      ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers,
+      ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList,
       ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, defaultSerializer,
       ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, defaultSerializer))
     props
@@ -151,7 +175,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
       .put(JobConfig.JOB_NAME, "some-job-name")
       .put(JobConfig.JOB_ID, "i001")
       .put(s"systems.$checkpointSystemName.samza.factory", classOf[KafkaSystemFactory].getCanonicalName)
-      .put(s"systems.$checkpointSystemName.producer.bootstrap.servers", brokers)
+      .put(s"systems.$checkpointSystemName.producer.bootstrap.servers", brokerList)
       .put(s"systems.$checkpointSystemName.consumer.zookeeper.connect", zkConnect)
       .put("task.checkpoint.system", checkpointSystemName)
       .build())
@@ -167,9 +191,9 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
       .getSystemFactory(systemName)
       .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY format systemName))
 
-    val systemFactory = Util.getObj[SystemFactory](systemFactoryClassName)
+    val systemFactory = Util.getObj(systemFactoryClassName, classOf[SystemFactory])
 
-    val spec = new KafkaStreamSpec("id", cpTopic, checkpointSystemName, 1, 1, props)
+    val spec = new KafkaStreamSpec("id", cpTopic, checkpointSystemName, 1, 1, false, props)
     new KafkaCheckpointManager(spec, systemFactory, failOnTopicValidation, config, new NoOpMetricsRegistry, serde)
   }
 

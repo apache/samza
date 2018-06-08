@@ -36,13 +36,17 @@ public class LocalStoreBackedReadWriteTable<K, V> extends LocalStoreBackedReadab
    * Constructs an instance of {@link LocalStoreBackedReadWriteTable}
    * @param kvStore the backing store
    */
-  public LocalStoreBackedReadWriteTable(KeyValueStore kvStore) {
-    super(kvStore);
+  public LocalStoreBackedReadWriteTable(String tableId, KeyValueStore kvStore) {
+    super(tableId, kvStore);
   }
 
   @Override
   public void put(K key, V value) {
-    kvStore.put(key, value);
+    if (value != null) {
+      kvStore.put(key, value);
+    } else {
+      delete(key);
+    }
   }
 
   @Override

@@ -31,14 +31,12 @@ import org.apache.samza.container.ContainerHeartbeatClient;
 import org.apache.samza.container.ContainerHeartbeatMonitor;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainer$;
-import org.apache.samza.container.SamzaContainerExceptionHandler;
+import org.apache.samza.util.SamzaUncaughtExceptionHandler;
 import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.task.TaskFactoryUtil;
-import org.apache.samza.util.ScalaToJavaUtils;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ScalaJavaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,14 +70,15 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
 
   @Override
   public void run(StreamApplication streamApp) {
-    Object taskFactory = TaskFactoryUtil.createTaskFactory(config, streamApp, this);
+    Object taskFactory = getTaskFactory(streamApp);
 
     container = SamzaContainer$.MODULE$.apply(
         containerId,
         jobModel,
         config,
-        Util.<String, MetricsReporter>javaMapAsScalaMap(new HashMap<>()),
+        ScalaJavaUtil.toScalaMap(new HashMap<>()),
         taskFactory);
+
     container.setContainerListener(
         new SamzaContainerListener() {
           @Override
@@ -98,13 +97,23 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
             containerRunnerException = t;
           }
         });
+
     startContainerHeartbeatMonitor();
     container.run();
     stopContainerHeartbeatMonitor();
+    
     if (containerRunnerException != null) {
       log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
       System.exit(1);
     }
+  }
+
+  private Object getTaskFactory(StreamApplication streamApp) {
+    if (streamApp != null) {
+      streamApp.init(graphSpec, config);
+      return TaskFactoryUtil.createTaskFactory(graphSpec.getOperatorSpecGraph(), graphSpec.getContextManager());
+    }
+    return TaskFactoryUtil.createTaskFactory(config);
   }
 
   @Override
@@ -121,14 +130,17 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
 
   public static void main(String[] args) throws Exception {
     Thread.setDefaultUncaughtExceptionHandler(
-        new SamzaContainerExceptionHandler(() -> {
+        new SamzaUncaughtExceptionHandler(() -> {
           log.info("Exiting process now.");
           System.exit(1);
         }));
+
     String containerId = System.getenv(ShellCommandConfig.ENV_CONTAINER_ID());
     log.info(String.format("Got container ID: %s", containerId));
+    System.out.println(String.format("Container ID: %s", containerId));
     String coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL());
     log.info(String.format("Got coordinator URL: %s", coordinatorUrl));
+    System.out.println(String.format("Coordinator URL: %s", coordinatorUrl));
     int delay = new Random().nextInt(SamzaContainer.DEFAULT_READ_JOBMODEL_DELAY_MS()) + 1;
     JobModel jobModel = SamzaContainer.readJobModel(coordinatorUrl, delay);
     Config config = jobModel.getConfig();
@@ -137,7 +149,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
       throw new SamzaException("can not find the job name");
     }
     String jobName = jobConfig.getName().get();
-    String jobId = jobConfig.getJobId().getOrElse(ScalaToJavaUtils.defaultValue("1"));
+    String jobId = jobConfig.getJobId().getOrElse(ScalaJavaUtil.defaultValue("1"));
     MDC.put("containerName", "samza-container-" + containerId);
     MDC.put("jobName", jobName);
     MDC.put("jobId", jobId);
@@ -145,6 +157,8 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     StreamApplication streamApp = TaskFactoryUtil.createStreamApplication(config);
     LocalContainerRunner localContainerRunner = new LocalContainerRunner(jobModel, containerId);
     localContainerRunner.run(streamApp);
+
+    System.exit(0);
   }
 
   private void startContainerHeartbeatMonitor() {

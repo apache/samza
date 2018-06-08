@@ -19,22 +19,28 @@
 
 package org.apache.samza.operators.impl;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.system.ControlMessage;
 import org.apache.samza.system.MessageType;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
+import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.MessageCollector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 
 /**
- * This is a helper class to broadcast control messages to each partition of an intermediate stream
+ * This is a helper class to send control messages to an intermediate stream
  */
 class ControlMessageSender {
   private static final Logger LOG = LoggerFactory.getLogger(ControlMessageSender.class);
+  private static final Map<SystemStream, Integer> PARTITION_COUNT_CACHE = new ConcurrentHashMap<>();
 
   private final StreamMetadataCache metadataCache;
 
@@ -43,14 +49,37 @@ class ControlMessageSender {
   }
 
   void send(ControlMessage message, SystemStream systemStream, MessageCollector collector) {
-    SystemStreamMetadata metadata = metadataCache.getSystemStreamMetadata(systemStream, true);
-    int partitionCount = metadata.getSystemStreamPartitionMetadata().size();
-    LOG.info(String.format("Broadcast %s message from task %s to %s with %s partition",
-        MessageType.of(message).name(), message.getTaskName(), systemStream, partitionCount));
+    int partitionCount = getPartitionCount(systemStream);
+    // We pick a partition based on topic hashcode to aggregate the control messages from upstream tasks
+    // After aggregation the task will broadcast the results to other partitions
+    int aggregatePartition = systemStream.getStream().hashCode() % partitionCount;
 
+    LOG.debug(String.format("Send %s message from task %s to %s partition %s for aggregation",
+        MessageType.of(message).name(), message.getTaskName(), systemStream, aggregatePartition));
+
+    OutgoingMessageEnvelope envelopeOut = new OutgoingMessageEnvelope(systemStream, aggregatePartition, null, message);
+    collector.send(envelopeOut);
+  }
+
+  void broadcastToOtherPartitions(ControlMessage message, SystemStreamPartition ssp, MessageCollector collector) {
+    SystemStream systemStream = ssp.getSystemStream();
+    int partitionCount = getPartitionCount(systemStream);
+    int currentPartition = ssp.getPartition().getPartitionId();
     for (int i = 0; i < partitionCount; i++) {
-      OutgoingMessageEnvelope envelopeOut = new OutgoingMessageEnvelope(systemStream, i, null, message);
-      collector.send(envelopeOut);
+      if (i != currentPartition) {
+        OutgoingMessageEnvelope envelopeOut = new OutgoingMessageEnvelope(systemStream, i, null, message);
+        collector.send(envelopeOut);
+      }
     }
+  }
+
+  private int getPartitionCount(SystemStream systemStream) {
+    return PARTITION_COUNT_CACHE.computeIfAbsent(systemStream, ss -> {
+        SystemStreamMetadata metadata = metadataCache.getSystemStreamMetadata(ss, true);
+        if (metadata == null) {
+          throw new SamzaException("Unable to find metadata for stream " + systemStream);
+        }
+        return metadata.getSystemStreamPartitionMetadata().size();
+      });
   }
 }

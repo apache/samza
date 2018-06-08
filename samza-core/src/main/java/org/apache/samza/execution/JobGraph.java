@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
@@ -60,13 +60,15 @@ import org.slf4j.LoggerFactory;
   private final Set<TableSpec> tables = new HashSet<>();
   private final Config config;
   private final JobGraphJsonGenerator jsonGenerator = new JobGraphJsonGenerator();
+  private final OperatorSpecGraph specGraph;
 
   /**
    * The JobGraph is only constructed by the {@link ExecutionPlanner}.
    * @param config Config
    */
-  JobGraph(Config config) {
+  JobGraph(Config config, OperatorSpecGraph specGraph) {
     this.config = config;
+    this.specGraph = specGraph;
   }
 
   @Override
@@ -105,6 +107,10 @@ import org.slf4j.LoggerFactory;
    */
   public ApplicationConfig getApplicationConfig() {
     return new ApplicationConfig(config);
+  }
+
+  public OperatorSpecGraph getSpecGraph() {
+    return specGraph;
   }
 
   /**
@@ -152,11 +158,11 @@ import org.slf4j.LoggerFactory;
    * @param jobId id of the job
    * @return
    */
-  JobNode getOrCreateJobNode(String jobName, String jobId, StreamGraphImpl streamGraph) {
+  JobNode getOrCreateJobNode(String jobName, String jobId) {
     String nodeId = JobNode.createId(jobName, jobId);
     JobNode node = nodes.get(nodeId);
     if (node == null) {
-      node = new JobNode(jobName, jobId, streamGraph, config);
+      node = new JobNode(jobName, jobId, specGraph, config);
       nodes.put(nodeId, node);
     }
     return node;
@@ -183,6 +189,9 @@ import org.slf4j.LoggerFactory;
     if (edge == null) {
       edge = new StreamEdge(streamSpec, isIntermediate, config);
       edges.put(streamId, edge);
+    }
+    if (streamSpec.isBroadcast()) {
+      edge.setPartitionCount(1);
     }
     return edge;
   }

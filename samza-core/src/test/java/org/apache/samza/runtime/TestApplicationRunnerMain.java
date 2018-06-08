@@ -93,11 +93,13 @@ public class TestApplicationRunnerMain {
 
     @Override
     public void run(StreamApplication streamApp) {
+      super.run(streamApp);
       runCount++;
     }
 
     @Override
     public void kill(StreamApplication streamApp) {
+      super.kill(streamApp);
       killCount++;
     }
 

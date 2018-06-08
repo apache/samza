@@ -62,6 +62,7 @@ import org.apache.samza.zk.TestZkUtils;
 import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.server.ZooKeeperServer;
 import org.junit.Assert;
+import org.junit.Before;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -90,7 +91,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     return "";
   }
 
-//  @Before
+  @Before
   public void setUp() {
     super.setUp();
     // for each tests - make the common parts unique
@@ -131,9 +132,8 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     map.put(ApplicationConfig.PROCESSOR_ID, pId);
 
     Config config = new MapConfig(map);
-    JobCoordinator jobCoordinator =
-        Util.<JobCoordinatorFactory>getObj(new JobCoordinatorConfig(config).getJobCoordinatorFactoryClassName())
-            .getJobCoordinator(config);
+    String jobCoordinatorFactoryClassName = new JobCoordinatorConfig(config).getJobCoordinatorFactoryClassName();
+    JobCoordinator jobCoordinator = Util.getObj(jobCoordinatorFactoryClassName, JobCoordinatorFactory.class).getJobCoordinator(config);
 
     StreamProcessorLifecycleListener listener = new StreamProcessorLifecycleListener() {
       @Override

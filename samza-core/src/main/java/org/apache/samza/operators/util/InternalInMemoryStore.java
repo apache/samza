@@ -20,6 +20,7 @@
 package org.apache.samza.operators.util;
 
 import org.apache.samza.storage.kv.Entry;
+import org.apache.samza.storage.kv.KeyValueSnapshot;
 import org.apache.samza.storage.kv.KeyValueIterator;
 import org.apache.samza.storage.kv.KeyValueStore;
 
@@ -91,6 +92,11 @@ public class InternalInMemoryStore<K, V> implements KeyValueStore<K, V> {
   @Override
   public KeyValueIterator<K, V> range(K from, K to) {
     throw new RuntimeException("not implemented.");
+  }
+
+  @Override
+  public KeyValueSnapshot<K, V> snapshot(K from, K to) {
+    throw new UnsupportedOperationException("snapshot() is not supported in " + InternalInMemoryStore.class.getName());
   }
 
   @Override

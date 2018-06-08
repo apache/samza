@@ -18,25 +18,26 @@
  */
 package org.apache.samza.operators.spec;
 
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.LinkedHashSet;
-import java.util.Set;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
 /**
  * A stream operator specification that holds all the information required to transform
- * the input {@link org.apache.samza.operators.MessageStreamImpl} and produce the output
- * {@link org.apache.samza.operators.MessageStreamImpl}.
+ * the input {@link MessageStreamImpl} and produce the output
+ * {@link MessageStreamImpl}.
  *
  * @param <M>  the type of input message to the operator
  * @param <OM>  the type of output message from the operator
  */
 @InterfaceStability.Unstable
-public abstract class OperatorSpec<M, OM> {
+public abstract class OperatorSpec<M, OM> implements Serializable {
 
   public enum OpCode {
     INPUT,
@@ -49,7 +50,8 @@ public abstract class OperatorSpec<M, OM> {
     WINDOW,
     MERGE,
     PARTITION_BY,
-    OUTPUT
+    OUTPUT,
+    BROADCAST
   }
 
   private final String opId;
@@ -59,9 +61,15 @@ public abstract class OperatorSpec<M, OM> {
   /**
    * The set of operators that consume the messages produced from this operator.
    * <p>
-   * We use a LinkedHashSet since we need deterministic ordering in initializing/closing operators.
+   * We use a LinkedHashSet since we need both deterministic ordering in initializing/closing operators and serializability.
    */
-  private final Set<OperatorSpec<OM, ?>> nextOperatorSpecs = new LinkedHashSet<>();
+  private final LinkedHashSet<OperatorSpec<OM, ?>> nextOperatorSpecs = new LinkedHashSet<>();
+
+  // this method is used in unit tests to verify an {@link OperatorSpec} instance is a deserialized copy of this object.
+  final boolean isClone(OperatorSpec other) {
+    return this != other && this.getClass().isAssignableFrom(other.getClass())
+        && this.opCode.equals(other.opCode) && this.opId.equals(other.opId);
+  }
 
   public OperatorSpec(OpCode opCode, String opId) {
     this.opCode = opCode;
@@ -77,6 +85,11 @@ public abstract class OperatorSpec<M, OM> {
     nextOperatorSpecs.add(nextOperatorSpec);
   }
 
+  /**
+   * Get the collection of chained {@link OperatorSpec}s that are consuming the output of this node
+   *
+   * @return the collection of chained {@link OperatorSpec}s
+   */
   public Collection<OperatorSpec<OM, ?>> getRegisteredOperatorSpecs() {
     return nextOperatorSpecs;
   }
@@ -129,4 +142,6 @@ public abstract class OperatorSpec<M, OM> {
   }
 
   abstract public WatermarkFunction getWatermarkFn();
+
+  abstract public TimerFunction getTimerFn();
 }

@@ -20,17 +20,19 @@
 package org.apache.samza.job
 
 
+import java.util.concurrent.TimeUnit
+
 import org.apache.samza.SamzaException
 import org.apache.samza.config.Config
 import org.apache.samza.config.JobConfig.Config2Job
-import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
+import org.apache.samza.coordinator.stream.{CoordinatorStreamSystemConsumer, CoordinatorStreamSystemProducer}
 import org.apache.samza.coordinator.stream.messages.{Delete, SetConfig}
 import org.apache.samza.job.ApplicationStatus.{Running, SuccessfulFinish}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.ApplicationRunnerMain.ApplicationRunnerCommandLine
 import org.apache.samza.runtime.ApplicationRunnerOperation
 import org.apache.samza.system.StreamSpec
-import org.apache.samza.util.{Logging, Util}
+import org.apache.samza.util.{CoordinatorStreamUtil, Logging, Util}
 
 import scala.collection.JavaConverters._
 
@@ -78,21 +80,23 @@ class JobRunner(config: Config) extends Logging {
   def run(resetJobConfig: Boolean = true) = {
     debug("config: %s" format (config))
     val jobFactory: StreamJobFactory = getJobFactory
-    val factory = new CoordinatorStreamSystemFactory
-    val coordinatorSystemConsumer = factory.getCoordinatorStreamSystemConsumer(config, new MetricsRegistryMap)
-    val coordinatorSystemProducer = factory.getCoordinatorStreamSystemProducer(config, new MetricsRegistryMap)
+    val coordinatorSystemConsumer = new CoordinatorStreamSystemConsumer(config, new MetricsRegistryMap)
+    val coordinatorSystemProducer = new CoordinatorStreamSystemProducer(config, new MetricsRegistryMap)
 
     // Create the coordinator stream if it doesn't exist
     info("Creating coordinator stream")
-    val (coordinatorSystemStream, systemFactory) = Util.getCoordinatorSystemStreamAndFactory(config)
+    val coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config)
+    val systemFactory = CoordinatorStreamUtil.getCoordinatorSystemFactory(config)
     val systemAdmin = systemFactory.getAdmin(coordinatorSystemStream.getSystem, config)
     val streamName = coordinatorSystemStream.getStream
     val coordinatorSpec = StreamSpec.createCoordinatorStreamSpec(streamName, coordinatorSystemStream.getSystem)
+    systemAdmin.start()
     if (systemAdmin.createStream(coordinatorSpec)) {
       info("Created coordinator stream %s." format streamName)
     } else {
       info("Coordinator stream %s already exists." format streamName)
     }
+    systemAdmin.stop()
 
     if (resetJobConfig) {
       info("Storing config in coordinator stream.")
@@ -115,23 +119,11 @@ class JobRunner(config: Config) extends Logging {
     coordinatorSystemProducer.stop()
 
     // Create the actual job, and submit it.
-    val job = jobFactory.getJob(config).submit
+    val job = jobFactory.getJob(config)
 
-    info("waiting for job to start")
+    job.submit()
 
-    // Wait until the job has started, then exit.
-    Option(job.waitForStatus(Running, 500)) match {
-      case Some(appStatus) => {
-        if (Running.equals(appStatus)) {
-          info("job started successfully - " + appStatus)
-        } else {
-          warn("unable to start job successfully. job has status %s" format (appStatus))
-        }
-      }
-      case _ => warn("unable to start job successfully.")
-    }
-
-    info("exiting")
+    info("Job submitted. Check status to determine when it is running.")
     job
   }
 
@@ -141,21 +133,7 @@ class JobRunner(config: Config) extends Logging {
     // Create the actual job, and kill it.
     val job = jobFactory.getJob(config).kill()
 
-    info("waiting for job to terminate")
-
-    // Wait until the job has terminated, then exit.
-    Option(job.waitForFinish(5000)) match {
-      case Some(appStatus) => {
-        if (SuccessfulFinish.equals(appStatus)) {
-          info("job terminated successfully - " + appStatus)
-        } else {
-          warn("unable to terminate job successfully. job has status %s" format (appStatus))
-        }
-      }
-      case _ => warn("unable to terminate job successfully.")
-    }
-
-    info("exiting")
+    info("Kill command executed. Check status to determine when it is terminated.")
   }
 
   def status(): ApplicationStatus = {

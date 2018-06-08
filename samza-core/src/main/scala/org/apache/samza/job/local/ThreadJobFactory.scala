@@ -19,16 +19,22 @@
 
 package org.apache.samza.job.local
 
-import org.apache.samza.config.Config
+import org.apache.samza.config.{Config, TaskConfigJava}
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
-import org.apache.samza.container.{SamzaContainerListener, SamzaContainer}
+import org.apache.samza.container.{SamzaContainer, SamzaContainerListener, TaskName}
 import org.apache.samza.coordinator.JobModelManager
+import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
-import org.apache.samza.metrics.{JmxServer, MetricsReporter}
+import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap, MetricsReporter}
+import org.apache.samza.operators.StreamGraphSpec
 import org.apache.samza.runtime.LocalContainerRunner
+import org.apache.samza.storage.ChangelogStreamManager
 import org.apache.samza.task.TaskFactoryUtil
 import org.apache.samza.util.Logging
+
+import scala.collection.JavaConversions._
+import scala.collection.mutable
 
 /**
  * Creates a new Thread job with the given config
@@ -36,13 +42,45 @@ import org.apache.samza.util.Logging
 class ThreadJobFactory extends StreamJobFactory with Logging {
   def getJob(config: Config): StreamJob = {
     info("Creating a ThreadJob, which is only meant for debugging.")
-    val coordinator = JobModelManager(config)
+
+    val metricsRegistry = new MetricsRegistryMap()
+    val coordinatorStreamManager = new CoordinatorStreamManager(config, metricsRegistry)
+    coordinatorStreamManager.register(getClass.getSimpleName)
+    coordinatorStreamManager.start
+    coordinatorStreamManager.bootstrap
+    val changelogStreamManager = new ChangelogStreamManager(coordinatorStreamManager)
+
+    val coordinator = JobModelManager(coordinatorStreamManager, changelogStreamManager.readPartitionMapping())
     val jobModel = coordinator.jobModel
+
+    val taskPartitionMappings: mutable.Map[TaskName, Integer] = mutable.Map[TaskName, Integer]()
+    for (containerModel <- jobModel.getContainers.values) {
+      for (taskModel <- containerModel.getTasks.values) {
+        taskPartitionMappings.put(taskModel.getTaskName, taskModel.getChangelogPartition.getPartitionId)
+      }
+    }
+
+    changelogStreamManager.writePartitionMapping(taskPartitionMappings)
+
+    //create necessary checkpoint and changelog streams
+    val checkpointManager = new TaskConfigJava(jobModel.getConfig).getCheckpointManager(metricsRegistry)
+    if (checkpointManager != null) {
+      checkpointManager.createResources()
+    }
+    ChangelogStreamManager.createChangelogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
+
     val containerId = "0"
     val jmxServer = new JmxServer
     val streamApp = TaskFactoryUtil.createStreamApplication(config)
     val appRunner = new LocalContainerRunner(jobModel, "0")
-    val taskFactory = TaskFactoryUtil.createTaskFactory(config, streamApp, appRunner)
+
+    val taskFactory = if (streamApp != null) {
+      val graphSpec = new StreamGraphSpec(appRunner, config)
+      streamApp.init(graphSpec, config)
+      TaskFactoryUtil.createTaskFactory(graphSpec.getOperatorSpecGraph(), graphSpec.getContextManager)
+    } else {
+      TaskFactoryUtil.createTaskFactory(config)
+    }
 
     // Give developers a nice friendly warning if they've specified task.opts and are using a threaded job.
     config.getTaskOpts match {
@@ -63,6 +101,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
 
       }
     }
+
     try {
       coordinator.start
       val container = SamzaContainer(

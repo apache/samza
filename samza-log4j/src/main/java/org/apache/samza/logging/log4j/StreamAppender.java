@@ -19,6 +19,7 @@
 
 package org.apache.samza.logging.log4j;
 
+import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
@@ -32,9 +33,12 @@ import org.apache.log4j.Logger;
 import org.apache.log4j.spi.LoggingEvent;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.Log4jSystemConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.ShellCommandConfig;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.logging.log4j.serializers.LoggingEventJsonSerdeFactory;
@@ -44,9 +48,13 @@ import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeFactory;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.StreamSpec;
+import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.util.ExponentialSleepStrategy;
+import org.apache.samza.util.HttpUtil;
 import org.apache.samza.util.Util;
 
 /**
@@ -60,6 +68,9 @@ public class StreamAppender extends AppenderSkeleton {
   private static final String JOB_COORDINATOR_TAG = "samza-job-coordinator";
   private static final String SOURCE = "log4j-log";
 
+  // Hidden config for now. Will move to appropriate Config class when ready to.
+  private static final String CREATE_STREAM_ENABLED = "task.log4j.create.stream.enabled";
+
   protected static final int DEFAULT_QUEUE_SIZE = 100;
   private static final long DEFAULT_QUEUE_TIMEOUT_S = 2; // Abitrary choice
 
@@ -70,6 +81,7 @@ public class StreamAppender extends AppenderSkeleton {
   private SystemProducer systemProducer = null;
   private String key = null;
   private String streamName = null;
+  private int partitionCount = 0;
   private boolean isApplicationMaster = false;
   private Serde<LoggingEvent> serde = null;
   private Logger log = Logger.getLogger(StreamAppender.class);
@@ -85,14 +97,48 @@ public class StreamAppender extends AppenderSkeleton {
    */
   private final AtomicBoolean recursiveCall = new AtomicBoolean(false);
 
+  /**
+   * Getter for the StreamName parameter. See also {@link #activateOptions()} for when this is called.
+   * Example: {@literal <param name="StreamName" value="ExampleStreamName"/>}
+   * @return The configured stream name.
+   */
   public String getStreamName() {
     return this.streamName;
   }
 
+  /**
+   * Setter for the StreamName parameter. See also {@link #activateOptions()} for when this is called.
+   * Example: {@literal <param name="StreamName" value="ExampleStreamName"/>}
+   * @param streamName The configured stream name.
+   */
   public void setStreamName(String streamName) {
     this.streamName = streamName;
   }
 
+  /**
+   * Getter for the number of partitions to create on a new StreamAppender stream. See also {@link #activateOptions()} for when this is called.
+   * Example: {@literal <param name="PartitionCount" value="4"/>}
+   * @return The configured partition count of the StreamAppender stream. If not set, returns {@link JobConfig#getContainerCount()}.
+   */
+  public int getPartitionCount() {
+    if (partitionCount > 0) {
+      return partitionCount;
+    }
+    return new JobConfig(getConfig()).getContainerCount();
+  }
+
+  /**
+   * Setter for the number of partitions to create on a new StreamAppender stream. See also {@link #activateOptions()} for when this is called.
+   * Example: {@literal <param name="PartitionCount" value="4"/>}
+   * @param partitionCount Configurable partition count.
+   */
+  public void setPartitionCount(int partitionCount) {
+    this.partitionCount = partitionCount;
+  }
+
+  /**
+   * Additional configurations needed before logging to stream. Called once in the container before the first log event is sent.
+   */
   @Override
   public void activateOptions() {
     String containerName = System.getProperty(JAVA_OPTS_CONTAINER_NAME);
@@ -226,13 +272,14 @@ public class StreamAppender extends AppenderSkeleton {
         config = JobModelManager.currentJobModelManager().jobModel().getConfig();
       } else {
         String url = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL());
-        config = SamzaObjectMapper.getObjectMapper()
-            .readValue(Util.read(new URL(url), 30000), JobModel.class)
-            .getConfig();
+        String response = HttpUtil.read(new URL(url), 30000, new ExponentialSleepStrategy());
+        config = SamzaObjectMapper.getObjectMapper().readValue(response, JobModel.class).getConfig();
       }
     } catch (IOException e) {
       throw new SamzaException("can not read the config", e);
     }
+    // Make system producer drop producer errors for StreamAppender
+    config = new MapConfig(config, ImmutableMap.of(TaskConfig.DROP_PRODUCER_ERROR(), "true"));
 
     return config;
   }
@@ -253,12 +300,24 @@ public class StreamAppender extends AppenderSkeleton {
     String systemName = log4jSystemConfig.getSystemName();
     String systemFactoryName = log4jSystemConfig.getSystemFactory(systemName);
     if (systemFactoryName != null) {
-      systemFactory = Util.<SystemFactory>getObj(systemFactoryName);
+      systemFactory = Util.getObj(systemFactoryName, SystemFactory.class);
     } else {
       throw new SamzaException("Could not figure out \"" + systemName + "\" system factory for log4j StreamAppender to use");
     }
 
     setSerde(log4jSystemConfig, systemName, streamName);
+
+    if (config.getBoolean(CREATE_STREAM_ENABLED, false)) {
+      // Explicitly create stream appender stream with the partition count the same as the number of containers.
+      System.out.println("[StreamAppender] creating stream " + streamName + " with partition count " + getPartitionCount());
+      StreamSpec streamSpec = StreamSpec.createStreamAppenderStreamSpec(streamName, systemName, getPartitionCount());
+
+      // SystemAdmin only needed for stream creation here.
+      SystemAdmin systemAdmin = systemFactory.getAdmin(systemName, config);
+      systemAdmin.start();
+      systemAdmin.createStream(streamSpec);
+      systemAdmin.stop();
+    }
 
     systemProducer = systemFactory.getProducer(systemName, config, metricsRegistry);
     systemStream = new SystemStream(systemName, streamName);
@@ -335,7 +394,7 @@ public class StreamAppender extends AppenderSkeleton {
     }
 
     if (serdeClass != null) {
-      SerdeFactory<LoggingEvent> serdeFactory = Util.<SerdeFactory<LoggingEvent>>getObj(serdeClass);
+      SerdeFactory<LoggingEvent> serdeFactory = Util.getObj(serdeClass, SerdeFactory.class);
       serde = serdeFactory.getSerde(systemName, config);
     } else {
       String serdeKey = String.format(SerializerConfig.SERDE_FACTORY_CLASS(), serdeName);

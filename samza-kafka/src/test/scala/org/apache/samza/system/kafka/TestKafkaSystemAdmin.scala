@@ -24,8 +24,9 @@ package org.apache.samza.system.kafka
 import java.util.{Properties, UUID}
 
 import kafka.admin.AdminUtils
-import kafka.common.{ErrorMapping, LeaderNotAvailableException}
-import kafka.consumer.{Consumer, ConsumerConfig}
+import org.apache.kafka.common.errors.LeaderNotAvailableException
+import org.apache.kafka.common.protocol.Errors
+import kafka.consumer.{Consumer, ConsumerConfig, ConsumerConnector}
 import kafka.integration.KafkaServerTestHarness
 import kafka.server.KafkaConfig
 import kafka.utils.{TestUtils, ZkUtils}
@@ -58,37 +59,33 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
   var producer: KafkaProducer[Array[Byte], Array[Byte]] = null
   var metadataStore: TopicMetadataStore = null
   var producerConfig: KafkaProducerConfig = null
-  var brokers: String = null
+  var systemAdmin: KafkaSystemAdmin = null
 
-  def generateConfigs() = {
+  override def generateConfigs(): Seq[KafkaConfig] = {
     val props = TestUtils.createBrokerConfigs(numBrokers, zkConnect, true)
     props.map(KafkaConfig.fromProps)
   }
 
   @BeforeClass
-  override def setUp {
-    super.setUp
-
+  override def setUp() {
+    super.setUp()
     val config = new java.util.HashMap[String, String]()
-
-    brokers = brokerList.split(",").map(p => "localhost" + p).mkString(",")
-
-    config.put("bootstrap.servers", brokers)
+    config.put("bootstrap.servers", brokerList)
     config.put("acks", "all")
     config.put("serializer.class", "kafka.serializer.StringEncoder")
-
     producerConfig = new KafkaProducerConfig("kafka", "i001", config)
-
     producer = new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
-    metadataStore = new ClientUtilTopicMetadataStore(brokers, "some-job-name")
+    metadataStore = new ClientUtilTopicMetadataStore(brokerList, "some-job-name")
+    systemAdmin = new KafkaSystemAdmin(SYSTEM, brokerList, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure))
+    systemAdmin.start()
   }
-
 
   @AfterClass
-  override def tearDown {
-    super.tearDown
+  override def tearDown() {
+    systemAdmin.stop()
+    producer.close()
+    super.tearDown()
   }
-
 
   def createTopic(topicName: String, partitionCount: Int) {
     AdminUtils.createTopic(
@@ -107,9 +104,8 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
       try {
         val topicMetadataMap = TopicMetadataCache.getTopicMetadata(Set(topic), SYSTEM, metadataStore.getTopicInfo)
         val topicMetadata = topicMetadataMap(topic)
-        val errorCode = topicMetadata.errorCode
 
-        KafkaUtil.maybeThrowException(errorCode)
+        KafkaUtil.maybeThrowException(topicMetadata.error.exception())
 
         done = expectedPartitionCount == topicMetadata.partitionsMetadata.size
       } catch {
@@ -125,7 +121,7 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
     }
   }
 
-  def getConsumerConnector = {
+  def getConsumerConnector(): ConsumerConnector = {
     val props = new Properties
 
     props.put("zookeeper.connect", zkConnect)
@@ -136,12 +132,9 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
     Consumer.create(consumerConfig)
   }
 
-  def createSystemAdmin: KafkaSystemAdmin = {
-    new KafkaSystemAdmin(SYSTEM, brokers, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure))
-  }
-
   def createSystemAdmin(coordinatorStreamProperties: Properties, coordinatorStreamReplicationFactor: Int, topicMetaInformation: Map[String, ChangelogInfo]): KafkaSystemAdmin = {
-    new KafkaSystemAdmin(SYSTEM, brokers, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure), coordinatorStreamProperties, coordinatorStreamReplicationFactor, 10000, ConsumerConfig.SocketBufferSize, UUID.randomUUID.toString, topicMetaInformation, Map())
+    new KafkaSystemAdmin(SYSTEM, brokerList, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure), coordinatorStreamProperties,
+      coordinatorStreamReplicationFactor, 10000, ConsumerConfig.SocketBufferSize, UUID.randomUUID.toString, topicMetaInformation, Map())
   }
 
 }
@@ -152,9 +145,6 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
  */
 class TestKafkaSystemAdmin {
   import TestKafkaSystemAdmin._
-
-  // Provide a random zkAddress, the system admin tries to connect only when a topic is created/validated
-  val systemAdmin = createSystemAdmin
 
   @Test
   def testShouldAssembleMetadata {
@@ -281,7 +271,7 @@ class TestKafkaSystemAdmin {
   @Test
   def testShouldCreateCoordinatorStream {
     val topic = "test-coordinator-stream"
-    val systemAdmin = new KafkaSystemAdmin(SYSTEM, brokers, () => ZkUtils(zkConnect, 6000, 6000, zkSecure), coordinatorStreamReplicationFactor = 3)
+    val systemAdmin = new KafkaSystemAdmin(SYSTEM, brokerList, () => ZkUtils(zkConnect, 6000, 6000, zkSecure), coordinatorStreamReplicationFactor = 3)
 
     val spec = StreamSpec.createCoordinatorStreamSpec(topic, "kafka")
     systemAdmin.createStream(spec)
@@ -294,14 +284,14 @@ class TestKafkaSystemAdmin {
     assertEquals(3, partitionMetadata.replicas.size)
   }
 
-  class KafkaSystemAdminWithTopicMetadataError extends KafkaSystemAdmin(SYSTEM, brokers, () => ZkUtils(zkConnect, 6000, 6000, zkSecure)) {
+  class KafkaSystemAdminWithTopicMetadataError extends KafkaSystemAdmin(SYSTEM, brokerList, () => ZkUtils(zkConnect, 6000, 6000, zkSecure)) {
     import kafka.api.TopicMetadata
     var metadataCallCount = 0
 
     // Simulate Kafka telling us that the leader for the topic is not available
     override def getTopicMetadata(topics: Set[String]) = {
       metadataCallCount += 1
-      val topicMetadata = TopicMetadata(topic = "quux", partitionsMetadata = Seq(), errorCode = ErrorMapping.LeaderNotAvailableCode)
+      val topicMetadata = TopicMetadata(topic = "quux", partitionsMetadata = Seq(), error = Errors.LEADER_NOT_AVAILABLE)
       Map("quux" -> topicMetadata)
     }
   }

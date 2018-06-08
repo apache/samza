@@ -20,6 +20,7 @@
 package org.apache.samza.checkpoint.kafka
 
 import java.util.Collections
+import java.util.concurrent.TimeUnit
 
 import com.google.common.base.Preconditions
 import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
@@ -50,7 +51,10 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
                              validateCheckpoint: Boolean,
                              config: Config,
                              metricsRegistry: MetricsRegistry,
-                             checkpointMsgSerde: Serde[Checkpoint] = new CheckpointSerde) extends CheckpointManager with Logging {
+                             checkpointMsgSerde: Serde[Checkpoint] = new CheckpointSerde,
+                             checkpointKeySerde: Serde[KafkaCheckpointLogKey] = new KafkaCheckpointLogKeySerde) extends CheckpointManager with Logging {
+
+  var MaxRetryDurationMs = TimeUnit.MINUTES.toMillis(15);
 
   info(s"Creating KafkaCheckpointManager for checkpointTopic:$checkpointTopic, systemName:$checkpointSystem " +
     s"validateCheckpoints:$validateCheckpoint")
@@ -58,7 +62,6 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   val checkpointSystem: String = checkpointSpec.getSystemName
   val checkpointTopic: String = checkpointSpec.getPhysicalName
   val checkpointSsp = new SystemStreamPartition(checkpointSystem, checkpointTopic, new Partition(0))
-  val checkpointKeySerde = new KafkaCheckpointLogKeySerde
   val expectedGrouperFactory = new JobConfig(config).getSystemStreamPartitionGrouperFactory
 
   val systemProducer = systemFactory.getProducer(checkpointSystem, config, metricsRegistry)
@@ -68,6 +71,23 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   var taskNames = Set[TaskName]()
   var taskNamesToCheckpoints: Map[TaskName, Checkpoint] = null
 
+  /**
+    * Create checkpoint stream prior to start.
+    */
+  override def createResources = {
+    Preconditions.checkNotNull(systemAdmin)
+
+    systemAdmin.start()
+
+    info(s"Creating checkpoint stream: ${checkpointSpec.getPhysicalName} with " +
+      s"partition count: ${checkpointSpec.getPartitionCount}")
+    systemAdmin.createStream(checkpointSpec)
+
+    if (validateCheckpoint) {
+      info(s"Validating checkpoint stream")
+      systemAdmin.validateStream(checkpointSpec)
+    }
+  }
 
   /**
     * @inheritdoc
@@ -75,11 +95,6 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   override def start {
     Preconditions.checkNotNull(systemProducer)
     Preconditions.checkNotNull(systemConsumer)
-    Preconditions.checkNotNull(systemAdmin)
-
-    info(s"Creating checkpoint stream: ${checkpointSpec.getPhysicalName} with " +
-      s"partition count: ${checkpointSpec.getPartitionCount}")
-    systemAdmin.createStream(checkpointSpec)
 
     // register and start a producer for the checkpoint topic
     systemProducer.start
@@ -89,11 +104,6 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     info(s"Starting checkpoint SystemConsumer from oldest offset $oldestOffset")
     systemConsumer.register(checkpointSsp, oldestOffset)
     systemConsumer.start
-
-    if (validateCheckpoint) {
-      info(s"Validating checkpoint stream")
-      systemAdmin.validateStream(checkpointSpec)
-    }
   }
 
   /**
@@ -148,6 +158,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     val envelope = new OutgoingMessageEnvelope(checkpointSsp, keyBytes, msgBytes)
     val retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy
 
+    val startTime = System.currentTimeMillis()
     retryBackoff.run(
       loop => {
         systemProducer.send(taskName.getTaskName, envelope)
@@ -157,7 +168,12 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
       },
 
       (exception, loop) => {
-        warn(s"Retrying failed checkpoint write to key: $key, checkpoint: $checkpoint for task: $taskName", exception)
+        if ((System.currentTimeMillis() - startTime) >= MaxRetryDurationMs) {
+          error(s"Exhausted $MaxRetryDurationMs milliseconds when writing checkpoint: $checkpoint for task: $taskName.")
+          throw new SamzaException(s"Exception when writing checkpoint: $checkpoint for task: $taskName.", exception)
+        } else {
+          warn(s"Retrying failed checkpoint write to key: $key, checkpoint: $checkpoint for task: $taskName", exception)
+        }
       }
     )
   }
@@ -171,6 +187,8 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   }
 
   override def stop = {
+    systemAdmin.stop()
+
     if (systemProducer != null) {
       systemProducer.stop
     } else {
@@ -215,31 +233,38 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
       val checkpointKey = try {
         checkpointKeySerde.fromBytes(keyBytes)
       } catch {
-        case e: Exception => throw new SamzaException(s"Exception while serializing checkpoint-key. " +
-          s"Topic: $checkpointTopic Offset: $offset", e)
-      }
-
-      // If the grouper in the key is not equal to the configured grouper, error out.
-      val actualGrouperFactory = checkpointKey.getGrouperFactoryClassName
-      if (!expectedGrouperFactory.equals(actualGrouperFactory)) {
-        warn(s"Grouper mismatch. Configured: $expectedGrouperFactory Actual: $actualGrouperFactory ")
-        if (validateCheckpoint) {
-          throw new SamzaException("SSPGrouperFactory in the checkpoint topic does not match the configured value" +
-            s"Configured value: $expectedGrouperFactory; Actual value: $actualGrouperFactory Offset: $offset")
-        }
-      }
-
-      // If the type of the key is not KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE, it can safely be ignored.
-      if (KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE.equals(checkpointKey.getType)) {
-        val checkpointBytes = checkpointEnvelope.getMessage.asInstanceOf[Array[Byte]]
-        val checkpoint = try {
-          checkpointMsgSerde.fromBytes(checkpointBytes)
-        } catch {
-          case e: Exception => throw new SamzaException(s"Exception while serializing checkpoint-message. " +
+        case e: Exception => if (validateCheckpoint) {
+          throw new SamzaException(s"Exception while serializing checkpoint-key. " +
             s"Topic: $checkpointTopic Offset: $offset", e)
+        } else {
+          warn(s"Ignoring exception while serializing checkpoint-key. Topic: $checkpointTopic Offset: $offset", e)
+          null
+        }
+      }
+
+      if (checkpointKey != null) {
+        // If the grouper in the key is not equal to the configured grouper, error out.
+        val actualGrouperFactory = checkpointKey.getGrouperFactoryClassName
+        if (!expectedGrouperFactory.equals(actualGrouperFactory)) {
+          warn(s"Grouper mismatch. Configured: $expectedGrouperFactory Actual: $actualGrouperFactory ")
+          if (validateCheckpoint) {
+            throw new SamzaException("SSPGrouperFactory in the checkpoint topic does not match the configured value" +
+              s"Configured value: $expectedGrouperFactory; Actual value: $actualGrouperFactory Offset: $offset")
+          }
         }
 
-        checkpoints.put(checkpointKey.getTaskName, checkpoint)
+        // If the type of the key is not KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE, it can safely be ignored.
+        if (KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE.equals(checkpointKey.getType)) {
+          val checkpointBytes = checkpointEnvelope.getMessage.asInstanceOf[Array[Byte]]
+          val checkpoint = try {
+            checkpointMsgSerde.fromBytes(checkpointBytes)
+          } catch {
+            case e: Exception => throw new SamzaException(s"Exception while serializing checkpoint-message. " +
+              s"Topic: $checkpointTopic Offset: $offset", e)
+          }
+
+          checkpoints.put(checkpointKey.getTaskName, checkpoint)
+        }
       }
     }
     info(s"Read $numMessagesRead messages from system:$checkpointSystem topic:$checkpointTopic")

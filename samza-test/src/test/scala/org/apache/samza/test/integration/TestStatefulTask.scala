@@ -78,7 +78,7 @@ class TestStatefulTask extends StreamTaskTestUtil {
     // since the second part of the test expects to replay the input streams.
     "systems.kafka.streams.input.samza.reset.offset" -> "true"))
 
-  //@Test
+  @Test
   def testShouldStartAndRestore {
     // Have to do this in one test to guarantee ordering.
     testShouldStartTaskForFirstTime
@@ -153,7 +153,7 @@ class StateStoreTestTask extends TestTask {
       .asScala
       .map(_.getValue)
       .toSet
-    System.err.println("StateStoreTestTask.init(): %s" format restored)
+    System.err.println("StateStoreTestTask.createStream(): %s" format restored)
     iter.close
   }
 

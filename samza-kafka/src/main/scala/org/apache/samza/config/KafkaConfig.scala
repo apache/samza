@@ -236,10 +236,11 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
       val matcher = pattern.matcher(changelogConfig)
       val storeName = if (matcher.find()) matcher.group(1) else throw new SamzaException("Unable to find store name in the changelog configuration: " + changelogConfig + " with SystemStream: " + cn)
 
-      val changelogName = storageConfig.getChangelogStream(storeName).getOrElse(throw new SamzaException("unable to get SystemStream for store:" + changelogConfig));
-      val systemStream = Util.getSystemStreamFromNames(changelogName)
-      val factoryName = config.getSystemFactory(systemStream.getSystem).getOrElse(new SamzaException("Unable to determine factory for system: " + systemStream.getSystem))
-      storeToChangelog += storeName -> systemStream.getStream
+      storageConfig.getChangelogStream(storeName).foreach(changelogName => {
+        val systemStream = Util.getSystemStreamFromNames(changelogName)
+        val factoryName = config.getSystemFactory(systemStream.getSystem).getOrElse(new SamzaException("Unable to determine factory for system: " + systemStream.getSystem))
+        storeToChangelog += storeName -> systemStream.getStream
+      })
     }
     storeToChangelog
   }
@@ -250,12 +251,15 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     val kafkaChangeLogProperties = new Properties
 
     val appConfig = new ApplicationConfig(config)
-    if (appConfig.getAppMode == ApplicationMode.STREAM) {
-      kafkaChangeLogProperties.setProperty("cleanup.policy", "compact")
-    } else{
-      kafkaChangeLogProperties.setProperty("cleanup.policy", "compact,delete")
-      kafkaChangeLogProperties.setProperty("retention.ms", String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH))
-    }
+    // SAMZA-1600: do not use the combination of "compact,delete" as cleanup policy until we pick up Kafka broker 0.11.0.3,
+    // 1.0.2, or 1.1.0 (see KAFKA-6568)
+    // if (appConfig.getAppMode == ApplicationMode.STREAM) {
+    //  kafkaChangeLogProperties.setProperty("cleanup.policy", "compact")
+    // } else{
+    //  kafkaChangeLogProperties.setProperty("cleanup.policy", "compact,delete")
+    //  kafkaChangeLogProperties.setProperty("retention.ms", String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH))
+    // }
+    kafkaChangeLogProperties.setProperty("cleanup.policy", "compact")
     kafkaChangeLogProperties.setProperty("segment.bytes", KafkaConfig.CHANGELOG_DEFAULT_SEGMENT_SIZE)
     kafkaChangeLogProperties.setProperty("delete.retention.ms", String.valueOf(new StorageConfig(config).getChangeLogDeleteRetentionInMs(name)))
     filteredConfigs.asScala.foreach { kv => kafkaChangeLogProperties.setProperty(kv._1, kv._2) }

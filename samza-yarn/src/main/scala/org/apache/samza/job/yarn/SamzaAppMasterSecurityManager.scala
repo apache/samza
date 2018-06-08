@@ -19,20 +19,22 @@
 
 package org.apache.samza.job.yarn
 
-import java.security.PrivilegedExceptionAction
-import java.util.concurrent.{TimeUnit, Executors}
-
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{Path, FileSystem}
-import org.apache.hadoop.security.{Credentials, UserGroupInformation}
+import org.apache.hadoop.fs.FileSystem
+import org.apache.hadoop.fs.Path
+import org.apache.hadoop.security.Credentials
+import org.apache.hadoop.security.UserGroupInformation
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{YarnConfig, Config}
-import org.apache.samza.util.{DaemonThreadFactory, Logging}
+import org.apache.samza.config.Config
+import org.apache.samza.config.YarnConfig
 import org.apache.samza.container.SecurityManager
+import org.apache.samza.util.Logging
 
-object SamzaAppMasterSecurityManager {
-  val TOKEN_RENEW_THREAD_NAME_PREFIX = "TOKEN-RENEW-PREFIX"
-}
+import java.security.PrivilegedExceptionAction
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+
 
 /**
   * The SamzaAppMasterSecurityManager is responsible for renewing and distributing HDFS delegation tokens on a secure YARN
@@ -47,8 +49,11 @@ object SamzaAppMasterSecurityManager {
   * @param hadoopConf the hadoop configuration
   */
 class SamzaAppMasterSecurityManager(config: Config, hadoopConf: Configuration) extends SecurityManager with Logging {
-  private val tokenRenewExecutor = Executors.newSingleThreadScheduledExecutor(new DaemonThreadFactory(SamzaAppMasterSecurityManager
-    .TOKEN_RENEW_THREAD_NAME_PREFIX))
+  private val tokenRenewExecutor = Executors.newSingleThreadScheduledExecutor(
+    new ThreadFactoryBuilder()
+      .setNameFormat("Samza AMSecurityManager TokenRenewer Thread-%d")
+      .setDaemon(true)
+      .build())
 
   def start() = {
     val yarnConfig = new YarnConfig(config)
@@ -69,7 +74,7 @@ class SamzaAppMasterSecurityManager(config: Config, hadoopConf: Configuration) e
       }
     }
 
-    tokenRenewExecutor.scheduleAtFixedRate(tokenRenewRunnable, renewalInterval, renewalInterval, TimeUnit.SECONDS)
+    tokenRenewExecutor.scheduleAtFixedRate(tokenRenewRunnable, 0, renewalInterval, TimeUnit.SECONDS)
   }
 
   private def loginFromKeytab(principal: String, keytab: String, credentialsFile: String) = {

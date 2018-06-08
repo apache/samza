@@ -23,7 +23,6 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -56,9 +55,8 @@ import org.apache.calcite.tools.Planner;
 import org.apache.samza.SamzaException;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.RelSchemaProvider;
-import org.apache.samza.sql.interfaces.SqlSystemStreamConfig;
+import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.interfaces.UdfMetadata;
-import org.apache.samza.system.SystemStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,12 +67,16 @@ import org.slf4j.LoggerFactory;
 public class QueryPlanner {
   private static final Logger LOG = LoggerFactory.getLogger(QueryPlanner.class);
 
-  private final Map<String, SqlSystemStreamConfig> systemStreamConfigBySource;
   private final Collection<UdfMetadata> udfMetadata;
-  private final Map<SystemStream, RelSchemaProvider> relSchemaProviders;
 
-  public QueryPlanner(Map<SystemStream, RelSchemaProvider> relSchemaProviders,
-      Map<String, SqlSystemStreamConfig> systemStreamConfigBySource, Collection<UdfMetadata> udfMetadata) {
+  // Mapping between the source to the RelSchemaProvider corresponding to the source.
+  private final Map<String, RelSchemaProvider> relSchemaProviders;
+
+  // Mapping between the source to the SqlIOConfig corresponding to the source.
+  private final Map<String, SqlIOConfig> systemStreamConfigBySource;
+
+  public QueryPlanner(Map<String, RelSchemaProvider> relSchemaProviders,
+      Map<String, SqlIOConfig> systemStreamConfigBySource, Collection<UdfMetadata> udfMetadata) {
     this.relSchemaProviders = relSchemaProviders;
     this.systemStreamConfigBySource = systemStreamConfigBySource;
     this.udfMetadata = udfMetadata;
@@ -85,16 +87,27 @@ public class QueryPlanner {
       Connection connection = DriverManager.getConnection("jdbc:calcite:");
       CalciteConnection calciteConnection = connection.unwrap(CalciteConnection.class);
       SchemaPlus rootSchema = calciteConnection.getRootSchema();
-      Map<String, SchemaPlus> systemSchemas = new HashMap<>();
 
-      for (SqlSystemStreamConfig ssc : systemStreamConfigBySource.values()) {
+      for (SqlIOConfig ssc : systemStreamConfigBySource.values()) {
+        SchemaPlus previousLevelSchema = rootSchema;
+        List<String> sourceParts = ssc.getSourceParts();
+        RelSchemaProvider relSchemaProvider = relSchemaProviders.get(ssc.getSource());
 
-        RelSchemaProvider relSchemaProvider = relSchemaProviders.get(ssc.getSystemStream());
-        SchemaPlus systemSchema =
-            systemSchemas.computeIfAbsent(ssc.getSystemName(), s -> rootSchema.add(s, new AbstractSchema()));
-        RelDataType relationalSchema = relSchemaProvider.getRelationalSchema();
-
-        systemSchema.add(ssc.getStreamName(), createTableFromRelSchema(relationalSchema));
+        for (int sourcePartIndex = 0; sourcePartIndex < sourceParts.size(); sourcePartIndex++) {
+          String sourcePart = sourceParts.get(sourcePartIndex);
+          if (sourcePartIndex < sourceParts.size() - 1) {
+            SchemaPlus sourcePartSchema = previousLevelSchema.getSubSchema(sourcePart);
+            if (sourcePartSchema == null) {
+              sourcePartSchema = previousLevelSchema.add(sourcePart, new AbstractSchema());
+            }
+            previousLevelSchema = sourcePartSchema;
+          } else {
+            // If the source part is the last one, then fetch the schema corresponding to the stream and register.
+            RelDataType relationalSchema = relSchemaProvider.getRelationalSchema();
+            previousLevelSchema.add(sourcePart, createTableFromRelSchema(relationalSchema));
+            break;
+          }
+        }
       }
 
       List<SamzaSqlScalarFunctionImpl> samzaSqlFunctions = udfMetadata.stream()

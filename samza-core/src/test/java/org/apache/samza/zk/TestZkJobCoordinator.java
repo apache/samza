@@ -23,8 +23,13 @@ import org.I0Itec.zkclient.ZkClient;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.util.NoOpMetricsRegistry;
+import org.apache.samza.zk.ZkJobCoordinator.ZkSessionStateChangedListener;
+import org.apache.zookeeper.Watcher;
 import org.junit.Test;
 import org.mockito.Mockito;
+
+import static org.mockito.Mockito.*;
+
 
 public class TestZkJobCoordinator {
   private static final String TEST_BARRIER_ROOT = "/testBarrierRoot";
@@ -34,16 +39,40 @@ public class TestZkJobCoordinator {
   public void testFollowerShouldStopWhenNotPartOfGeneratedJobModel() {
     ZkKeyBuilder keyBuilder = Mockito.mock(ZkKeyBuilder.class);
     ZkClient mockZkClient = Mockito.mock(ZkClient.class);
-    Mockito.when(keyBuilder.getJobModelVersionBarrierPrefix()).thenReturn(TEST_BARRIER_ROOT);
+    when(keyBuilder.getJobModelVersionBarrierPrefix()).thenReturn(TEST_BARRIER_ROOT);
 
     ZkUtils zkUtils = Mockito.mock(ZkUtils.class);
-    Mockito.when(zkUtils.getKeyBuilder()).thenReturn(keyBuilder);
-    Mockito.when(zkUtils.getZkClient()).thenReturn(mockZkClient);
-    Mockito.when(zkUtils.getJobModel(TEST_JOB_MODEL_VERSION)).thenReturn(new JobModel(new MapConfig(), new HashMap<>()));
+    when(zkUtils.getKeyBuilder()).thenReturn(keyBuilder);
+    when(zkUtils.getZkClient()).thenReturn(mockZkClient);
+    when(zkUtils.getJobModel(TEST_JOB_MODEL_VERSION)).thenReturn(new JobModel(new MapConfig(), new HashMap<>()));
 
     ZkJobCoordinator zkJobCoordinator = Mockito.spy(new ZkJobCoordinator(new MapConfig(), new NoOpMetricsRegistry(), zkUtils));
     zkJobCoordinator.onNewJobModelAvailable(TEST_JOB_MODEL_VERSION);
 
-    Mockito.verify(zkJobCoordinator, Mockito.atMost(1)).stop();
+    verify(zkJobCoordinator, Mockito.atMost(1)).stop();
+  }
+
+  @Test
+  public void testShouldRemoveBufferedEventsInDebounceQueueOnSessionExpiration() {
+    ZkKeyBuilder keyBuilder = Mockito.mock(ZkKeyBuilder.class);
+    ZkClient mockZkClient = Mockito.mock(ZkClient.class);
+    when(keyBuilder.getJobModelVersionBarrierPrefix()).thenReturn(TEST_BARRIER_ROOT);
+
+    ZkUtils zkUtils = Mockito.mock(ZkUtils.class);
+    when(zkUtils.getKeyBuilder()).thenReturn(keyBuilder);
+    when(zkUtils.getZkClient()).thenReturn(mockZkClient);
+    when(zkUtils.getJobModel(TEST_JOB_MODEL_VERSION)).thenReturn(new JobModel(new MapConfig(), new HashMap<>()));
+
+    ScheduleAfterDebounceTime mockDebounceTimer = Mockito.mock(ScheduleAfterDebounceTime.class);
+
+    ZkJobCoordinator zkJobCoordinator = Mockito.spy(new ZkJobCoordinator(new MapConfig(), new NoOpMetricsRegistry(), zkUtils));
+    zkJobCoordinator.debounceTimer = mockDebounceTimer;
+    final ZkSessionStateChangedListener zkSessionStateChangedListener = zkJobCoordinator.new ZkSessionStateChangedListener();
+
+    zkSessionStateChangedListener.handleStateChanged(Watcher.Event.KeeperState.Expired);
+
+    verify(zkUtils).incGeneration();
+    verify(mockDebounceTimer).cancelAllScheduledActions();
+    verify(mockDebounceTimer).scheduleAfterDebounceTime(Mockito.eq("ZK_SESSION_EXPIRED"), Mockito.eq(0L), Mockito.any(Runnable.class));
   }
 }

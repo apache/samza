@@ -26,9 +26,12 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
+import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
+
+import static org.apache.samza.system.IncomingMessageEnvelope.*;
 
 
 public class SimpleSystemAdmin implements SystemAdmin {
@@ -46,7 +49,7 @@ public class SimpleSystemAdmin implements SystemAdmin {
     return streamNames.stream()
         .collect(Collectors.toMap(Function.identity(), streamName -> new SystemStreamMetadata(streamName,
             Collections.singletonMap(new Partition(0),
-                new SystemStreamMetadata.SystemStreamPartitionMetadata(null, null, null)))));
+                new SystemStreamMetadata.SystemStreamPartitionMetadata(null, END_OF_STREAM_OFFSET, null)))));
   }
 
   @Override
@@ -57,5 +60,11 @@ public class SimpleSystemAdmin implements SystemAdmin {
       return 1;
     }
     return offset1.compareTo(offset2);
+  }
+
+  @Override
+  public boolean createStream(StreamSpec streamSpec) {
+    // Do nothing.
+    return true;
   }
 }

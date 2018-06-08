@@ -20,12 +20,14 @@
 package org.apache.samza.storage.kv
 
 import java.io.File
+import java.util
+import java.util.Comparator
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantReadWriteLock
 
 import org.apache.samza.SamzaException
 import org.apache.samza.config.Config
-import org.apache.samza.util.{LexicographicComparator, Logging}
+import org.apache.samza.util.Logging
 import org.rocksdb.{TtlDB, _}
 
 object RocksDbKeyValueStore extends Logging {
@@ -72,13 +74,24 @@ object RocksDbKeyValueStore extends Logging {
           RocksDB.open(options, dir.toString)
         }
 
-      if (storeConfig.containsKey("rocksdb.metrics.list")) {
-        storeConfig
-          .get("rocksdb.metrics.list")
-          .split(",")
-          .map(property => property.trim)
-          .foreach(property => metrics.newGauge(property, () => rocksDb.getProperty(property)))
-      }
+      // See https://github.com/facebook/rocksdb/blob/master/include/rocksdb/db.h for available properties
+      val rocksDbMetrics = Set (
+        "rocksdb.estimate-table-readers-mem", // indexes and bloom filters
+        "rocksdb.cur-size-active-mem-table", // approximate active memtable size in bytes
+        "rocksdb.cur-size-all-mem-tables", // approximate active and unflushed memtable size in bytes
+        "rocksdb.size-all-mem-tables", // approximate active, unflushed and pinned memtable size in bytes
+        "rocksdb.estimate-num-keys" // approximate number keys in the active and unflushed memtable and storage
+      )
+
+      val configuredMetrics = storeConfig
+        .get("rocksdb.metrics.list", "")
+        .split(",")
+        .map(property => property.trim)
+        .filter(!_.isEmpty)
+        .toSet
+
+      (configuredMetrics ++ rocksDbMetrics)
+        .foreach(property => metrics.newGauge(property, () => rocksDb.getProperty(property)))
 
       rocksDb
     } catch {
@@ -141,11 +154,12 @@ class RocksDbKeyValueStore(
   }
 
   def put(key: Array[Byte], value: Array[Byte]): Unit = ifOpen {
-    metrics.puts.inc
     require(key != null, "Null key not allowed.")
     if (value == null) {
+      metrics.deletes.inc
       db.delete(writeOptions, key)
     } else {
+      metrics.puts.inc
       metrics.bytesWritten.inc(key.length + value.length)
       db.put(writeOptions, key, value)
     }
@@ -153,16 +167,17 @@ class RocksDbKeyValueStore(
 
   // Write batch from RocksDB API is not used currently because of: https://github.com/facebook/rocksdb/issues/262
   def putAll(entries: java.util.List[Entry[Array[Byte], Array[Byte]]]): Unit = ifOpen {
+    metrics.putAlls.inc()
     val iter = entries.iterator
     var wrote = 0
     var deletes = 0
     while (iter.hasNext) {
-      wrote += 1
       val curr = iter.next()
       if (curr.getValue == null) {
         deletes += 1
         db.delete(writeOptions, curr.getKey)
       } else {
+        wrote += 1
         val key = curr.getKey
         val value = curr.getValue
         metrics.bytesWritten.inc(key.length + value.length)
@@ -174,7 +189,6 @@ class RocksDbKeyValueStore(
   }
 
   def delete(key: Array[Byte]): Unit = ifOpen {
-    metrics.deletes.inc
     put(key, null)
   }
 
@@ -189,6 +203,21 @@ class RocksDbKeyValueStore(
     val iter = db.newIterator()
     iter.seekToFirst()
     new RocksDbIterator(iter)
+  }
+
+  override def snapshot(from: Array[Byte], to: Array[Byte]): KeyValueSnapshot[Array[Byte], Array[Byte]] = {
+    val readOptions = new ReadOptions()
+    readOptions.setSnapshot(db.getSnapshot)
+
+    new KeyValueSnapshot[Array[Byte], Array[Byte]] {
+      def iterator(): KeyValueIterator[Array[Byte], Array[Byte]] = {
+        new RocksDbRangeIterator(db.newIterator(readOptions), from, to)
+      }
+
+      def close() = {
+        db.releaseSnapshot(readOptions.snapshot())
+      }
+    }
   }
 
   def flush(): Unit = ifOpen {
@@ -234,6 +263,10 @@ class RocksDbKeyValueStore(
     override def close() = ifOpen {
       open = false
       iter.close()
+    }
+
+    def isOpen() = ifOpen {
+      open
     }
 
     override def remove() = throw new UnsupportedOperationException("RocksDB iterator doesn't support remove")
@@ -288,6 +321,27 @@ class RocksDbKeyValueStore(
 
     override def hasNext() = ifOpen {
       super.hasNext() && comparator.compare(peekKey(), to) < 0
+    }
+
+    def seek(key: Array[Byte]) = {
+      iter.seek(key)
+    }
+  }
+
+  /**
+    * A comparator that applies a lexicographical comparison on byte arrays.
+    */
+  class LexicographicComparator extends Comparator[Array[Byte]] {
+    def compare(k1: Array[Byte], k2: Array[Byte]): Int = {
+      val l = math.min(k1.length, k2.length)
+      var i = 0
+      while (i < l) {
+        if (k1(i) != k2(i))
+          return (k1(i) & 0xff) - (k2(i) & 0xff)
+        i += 1
+      }
+      // okay prefixes are equal, the shorter array is less
+      k1.length - k2.length
     }
   }
 }

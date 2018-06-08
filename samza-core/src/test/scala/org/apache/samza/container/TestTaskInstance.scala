@@ -49,6 +49,7 @@ import org.scalatest.Assertions.intercept
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
+import scala.collection.JavaConverters._
 
 class TestTaskInstance {
   @Test
@@ -322,7 +323,8 @@ class TestTaskInstance {
     val containerContext = new SamzaContainerContext("0", config, Set(taskName).asJava, new MetricsRegistryMap)
     val offsetManager = new OffsetManager()
     offsetManager.startingOffsets += taskName -> Map(partition0 -> "0", partition1 -> "100")
-    val systemAdmins = Map("system" -> new MockSystemAdmin)
+    val systemAdmins = Mockito.mock(classOf[SystemAdmins])
+    when(systemAdmins.getSystemAdmin("system")).thenReturn(new MockSystemAdmin)
     var result = new ListBuffer[IncomingMessageEnvelope]
 
     val task = new StreamTask {
