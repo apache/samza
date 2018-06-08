@@ -19,12 +19,12 @@
 
 package org.apache.samza.util;
 
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,19 +38,19 @@ public class ShutdownUtil {
 
   /**
    * A helper to facilitate shutting down a set of resources in parallel to enforce a bounded shutdown time.
-   * The helper function instantiates an {@link ExecutorService} to execute the "shutdown function", and will
+   * The helper function instantiates an {@link ExecutorService} to execute a list of shutdown tasks, and will
    * await the termination for given timeout. If shutdown remains unfinished in the end, the whole thread dump
    * will be printed to help debugging.
    *
    * The shutdown is performed with best-effort. Depending on the implementation of the shutdown function, resource
    * leak might be possible.
    *
-   * @param shutdownFunction the shutdown function will be provided with an ExecutorService and is supposed to
-   *                         submit all the shutdown tasks via the given executor
+   * @param shutdownTasks the list of shutdown tasks that need to be executed in parallel
    * @param message message that will show in the thread name and the thread dump
    * @param timeoutMs timeout in ms
+   * @return true if all tasks terminate in the end
    */
-  public static void boundedShutdown(Function<ExecutorService, Void> shutdownFunction, String message, long timeoutMs) {
+  public static boolean boundedShutdown(List<Runnable> shutdownTasks, String message, long timeoutMs) {
     ExecutorService shutdownExecutorService = Executors.newCachedThreadPool(new ThreadFactory() {
       private final AtomicInteger counter = new AtomicInteger(0);
       @Override
@@ -61,7 +61,7 @@ public class ShutdownUtil {
         return thread;
       }
     });
-    shutdownFunction.apply(shutdownExecutorService);
+    shutdownTasks.forEach(shutdownExecutorService::submit);
     shutdownExecutorService.shutdown();
     try {
       shutdownExecutorService.awaitTermination(timeoutMs, TimeUnit.MILLISECONDS);
@@ -69,12 +69,14 @@ public class ShutdownUtil {
       LOG.error("Shutdown was interrupted for " + message, e);
     }
 
-    if (!shutdownExecutorService.isTerminated()) {
+    if (shutdownExecutorService.isTerminated()) {
+      LOG.info("Shutdown complete for {}", message);
+      return true;
+    } else {
       LOG.error("Shutdown function for {} remains unfinished after timeout({}ms) or interruption", message, timeoutMs);
       Util.logThreadDump(message);
       shutdownExecutorService.shutdownNow();
-    } else {
-      LOG.info("Shutdown complete for {}", message);
+      return false;
     }
   }
 }

@@ -20,6 +20,7 @@
 package org.apache.samza.util;
 
 import java.time.Duration;
+import java.util.Collections;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -30,37 +31,32 @@ public class TestShutdownUtil {
   public void testBoundedShutdown() throws Exception {
     long longTimeout = Duration.ofSeconds(60).toMillis();
     long shortTimeout = Duration.ofMillis(100).toMillis();
+
+    Runnable shortRunnable = () -> {
+      try {
+        Thread.sleep(shortTimeout);
+      } catch (Exception e) {
+        Assert.fail(e.getMessage());
+      }
+    };
     long start = System.currentTimeMillis();
-    ShutdownUtil.boundedShutdown(es -> {
-        es.submit(() -> {
-            try {
-              Thread.sleep(shortTimeout);
-            } catch (Exception e) {
-              Assert.fail(e.getMessage());
-            }
-          });
-        return null;
-      }, "testLongTimeout", longTimeout);
+    Assert.assertTrue("expect the shutdown task to terminate",
+        ShutdownUtil.boundedShutdown(Collections.singletonList(shortRunnable), "testLongTimeout", longTimeout));
     long end = System.currentTimeMillis();
-    System.out.print("Time taken: ");
-    System.out.println(end - start);
     Assert.assertTrue("boundedShutdown should complete if the shutdown function completes earlier",
         (end - start) < longTimeout / 2);
 
+    Runnable longRunnable = () -> {
+      try {
+        Thread.sleep(longTimeout);
+      } catch (Exception e) {
+        Assert.fail(e.getMessage());
+      }
+    };
     start = System.currentTimeMillis();
-    ShutdownUtil.boundedShutdown(es -> {
-        es.submit(() -> {
-            try {
-              Thread.sleep(longTimeout);
-            } catch (Exception e) {
-              Assert.fail(e.getMessage());
-            }
-          });
-        return null;
-      }, "testShortTimeout", shortTimeout);
+    Assert.assertFalse("expect the shutdown task to be unfinished",
+        ShutdownUtil.boundedShutdown(Collections.singletonList(longRunnable), "testShortTimeout", shortTimeout));
     end = System.currentTimeMillis();
-    System.out.print("Time taken: ");
-    System.out.println(end - start);
     Assert.assertTrue("boundedShutdown should complete even if the shutdown function takes long time",
         (end - start) < longTimeout / 2);
   }

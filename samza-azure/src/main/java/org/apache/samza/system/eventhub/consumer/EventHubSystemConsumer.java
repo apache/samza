@@ -352,19 +352,24 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
 
     // There could be potentially many Receivers and EventHubManagers, so close the managers in parallel
     LOG.info("Start shutting down eventhubs receivers");
-    ShutdownUtil.boundedShutdown(es -> {
-        streamPartitionReceivers.values()
-            .forEach(receiver -> es.submit(
-                () -> receiver.close().get(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)));
-        return null;
-      }, "EventHubSystemConsumer.Receiver#close", DEFAULT_SHUTDOWN_TIMEOUT_MILLIS);
+    ShutdownUtil.boundedShutdown(streamPartitionReceivers.values().stream().map(receiver -> new Runnable() {
+      @Override
+      public void run() {
+        try {
+          receiver.close().get(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
+          LOG.error("Failed to shutdown receiver.", e);
+        }
+      }
+    }).collect(Collectors.toList()), "EventHubSystemConsumer.Receiver#close", DEFAULT_SHUTDOWN_TIMEOUT_MILLIS);
 
     LOG.info("Start shutting down eventhubs managers");
-    ShutdownUtil.boundedShutdown(es -> {
-        perPartitionEventHubManagers.values()
-            .forEach(manager -> es.submit(() -> manager.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS)));
-        return null;
-      }, "EventHubSystemConsumer.ClientManager#close", DEFAULT_SHUTDOWN_TIMEOUT_MILLIS);
+    ShutdownUtil.boundedShutdown(perPartitionEventHubManagers.values().stream().map(manager -> new Runnable() {
+      @Override
+      public void run() {
+        manager.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS);
+      }
+    }).collect(Collectors.toList()), "EventHubSystemConsumer.ClientManager#close", DEFAULT_SHUTDOWN_TIMEOUT_MILLIS);
 
     perPartitionEventHubManagers.clear();
     perStreamEventHubManagers.clear();
