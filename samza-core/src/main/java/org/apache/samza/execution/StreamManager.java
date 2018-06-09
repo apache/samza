@@ -37,6 +37,7 @@ import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
+import org.apache.samza.util.StreamUtil;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -128,7 +129,7 @@ public class StreamManager {
             .getOrElse(defaultValue(null));
         if (changelog != null) {
           LOGGER.info("Clear store {} changelog {}", store, changelog);
-          SystemStream systemStream = Util.getSystemStreamFromNames(changelog);
+          SystemStream systemStream = StreamUtil.getSystemStreamFromNames(changelog);
           StreamSpec spec = StreamSpec.createChangeLogStreamSpec(systemStream.getStream(), systemStream.getSystem(), 1);
           systemAdmins.getSystemAdmin(spec.getSystemName()).clearStream(spec);
         }

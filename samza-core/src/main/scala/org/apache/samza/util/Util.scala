@@ -67,26 +67,6 @@ object Util extends Logging {
   }
 
   /**
-   * Returns a SystemStream object based on the system stream name given. For
-   * example, kafka.topic would return new SystemStream("kafka", "topic").
-   */
-  def getSystemStreamFromNames(systemStreamNames: String): SystemStream = {
-    val idx = systemStreamNames.indexOf('.')
-    if (idx < 0) {
-      throw new IllegalArgumentException("No '.' in stream name '" + systemStreamNames + "'. Stream names should be in the form 'system.stream'")
-    }
-    new SystemStream(systemStreamNames.substring(0, idx), systemStreamNames.substring(idx + 1, systemStreamNames.length))
-  }
-
-  /**
-   * Returns a SystemStream object based on the system stream name given. For
-   * example, kafka.topic would return new SystemStream("kafka", "topic").
-   */
-  def getNameFromSystemStream(systemStream: SystemStream) = {
-    systemStream.getSystem + "." + systemStream.getStream
-  }
-
-  /**
    * Returns the the first host address which is not the loopback address, or [[java.net.InetAddress#getLocalHost]] as a fallback
    *
    * @return the [[java.net.InetAddress]] which represents the localhost

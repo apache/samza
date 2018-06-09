@@ -49,7 +49,6 @@ import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.util.MathUtil;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerializableSerde;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.TableProvider;
 import org.apache.samza.table.TableProviderFactory;
 import org.apache.samza.table.TableSpec;
@@ -135,8 +134,8 @@ public class JobNode {
     final List<String> inputs = new ArrayList<>();
     final List<String> broadcasts = new ArrayList<>();
     for (StreamEdge inEdge : inEdges) {
-      String formattedSystemStream = inEdge.getFormattedSystemStream();
-      if (inEdge.getStreamSpec().isBroadcast()) {
+      String formattedSystemStream = inEdge.getName();
+      if (inEdge.isBroadcast()) {
         broadcasts.add(formattedSystemStream + "#0");
       } else {
         inputs.add(formattedSystemStream);
@@ -228,17 +227,17 @@ public class JobNode {
     // collect all key and msg serde instances for streams
     Map<String, Serde> streamKeySerdes = new HashMap<>();
     Map<String, Serde> streamMsgSerdes = new HashMap<>();
-    Map<StreamSpec, InputOperatorSpec> inputOperators = specGraph.getInputOperators();
+    Map<String, InputOperatorSpec> inputOperators = specGraph.getInputOperators();
     inEdges.forEach(edge -> {
         String streamId = edge.getStreamSpec().getId();
-        InputOperatorSpec inputOperatorSpec = inputOperators.get(edge.getStreamSpec());
+        InputOperatorSpec inputOperatorSpec = inputOperators.get(streamId);
         streamKeySerdes.put(streamId, inputOperatorSpec.getKeySerde());
         streamMsgSerdes.put(streamId, inputOperatorSpec.getValueSerde());
       });
-    Map<StreamSpec, OutputStreamImpl> outputStreams = specGraph.getOutputStreams();
+    Map<String, OutputStreamImpl> outputStreams = specGraph.getOutputStreams();
     outEdges.forEach(edge -> {
         String streamId = edge.getStreamSpec().getId();
-        OutputStreamImpl outputStream = outputStreams.get(edge.getStreamSpec());
+        OutputStreamImpl outputStream = outputStreams.get(streamId);
         streamKeySerdes.put(streamId, outputStream.getKeySerde());
         streamMsgSerdes.put(streamId, outputStream.getValueSerde());
       });
