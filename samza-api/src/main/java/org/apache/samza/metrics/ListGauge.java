@@ -29,7 +29,7 @@ import org.apache.samza.util.TimestampedValue;
 
 
 /**
- * A {@link ListGauge} is a {@link org.apache.samza.metrics.Metric} that buffers multiple instances of a type T in a list.
+ * A {@link ListGauge} is a {@link Metric} that buffers multiple instances of a type T in a list.
  * {@link ListGauge}s are useful for maintaining, recording, or collecting values over time.
  * For example, a set of specific logging-events (e.g., errors).
  *
