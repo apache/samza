@@ -42,7 +42,7 @@ public class DiagnosticsAppender extends AppenderSkeleton {
   private final ListGauge<DiagnosticsExceptionEvent> samzaContainerExceptionMetric;
 
   public DiagnosticsAppender(SamzaContainerMetrics samzaContainerMetrics) {
-    this.samzaContainerExceptionMetric = (ListGauge<DiagnosticsExceptionEvent>) samzaContainerMetrics.exception();
+    this.samzaContainerExceptionMetric = (ListGauge<DiagnosticsExceptionEvent>) samzaContainerMetrics.exceptions();
   }
 
   @Override
@@ -51,9 +51,16 @@ public class DiagnosticsAppender extends AppenderSkeleton {
     // if an event with a non-null throwable is received => exception event
     if (loggingEvent.getThrowableInformation() != null) {
 
+      Throwable throwable = loggingEvent.getThrowableInformation().getThrowable();
+      Throwable throwableCause = loggingEvent.getThrowableInformation().getThrowable().getCause();
+
+      String throwableClassName = (throwable == null) ? "" : throwable.getClass().getName();
+      String throwableCauseClassName = (throwableCause == null) ? "" : throwableCause.getClass().getName();
+      String throwableCauseMessage = (throwableCause == null) ? "" : throwableCause.getMessage();
+
       DiagnosticsExceptionEvent diagnosticsExceptionEvent =
           new DiagnosticsExceptionEvent(loggingEvent.timeStamp, loggingEvent.getMessage().toString(),
-              loggingEvent.getThreadName(),
+              throwableClassName, throwableCauseMessage, throwableCauseClassName, loggingEvent.getThreadName(),
               Arrays.toString(loggingEvent.getThrowableInformation().getThrowableStrRep()),
               getStackTraceIdentifier(loggingEvent.getThrowableInformation().getThrowable().getStackTrace()));
 
