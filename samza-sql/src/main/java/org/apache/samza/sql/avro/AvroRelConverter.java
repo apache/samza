@@ -32,13 +32,12 @@ import org.apache.avro.generic.IndexedRecord;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
+import org.apache.samza.sql.SamzaSqlRelRecord;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.system.SystemStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static org.apache.samza.sql.data.SamzaSqlRelMessage.SamzaSqlRelRecord;
 
 
 /**
