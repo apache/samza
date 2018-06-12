@@ -42,7 +42,11 @@ public class LocalStoreBackedReadWriteTable<K, V> extends LocalStoreBackedReadab
 
   @Override
   public void put(K key, V value) {
-    kvStore.put(key, value);
+    if (value != null) {
+      kvStore.put(key, value);
+    } else {
+      delete(key);
+    }
   }
 
   @Override
