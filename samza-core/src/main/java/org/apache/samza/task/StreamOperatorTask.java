@@ -31,6 +31,8 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.WatermarkMessage;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.SystemClock;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -38,6 +40,7 @@ import org.apache.samza.util.SystemClock;
  * feeds the input messages into the user-defined transformation chains in {@link OperatorSpecGraph}.
  */
 public class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask {
+  private static final Logger LOG = LoggerFactory.getLogger(StreamOperatorTask.class);
 
   private final OperatorSpecGraph specGraph;
   // TODO: to be replaced by proper scope of shared context factory in SAMZA-1714
@@ -102,7 +105,7 @@ public class StreamOperatorTask implements StreamTask, InitableTask, WindowableT
    * @param coordinator the coordinator to request commits or shutdown
    */
   @Override
-  public void process(IncomingMessageEnvelope ime, MessageCollector collector, TaskCoordinator coordinator) {
+  public final void process(IncomingMessageEnvelope ime, MessageCollector collector, TaskCoordinator coordinator) {
     SystemStream systemStream = ime.getSystemStreamPartition().getSystemStream();
     InputOperatorImpl inputOpImpl = operatorImplGraph.getInputOperator(systemStream);
     if (inputOpImpl != null) {
@@ -131,7 +134,7 @@ public class StreamOperatorTask implements StreamTask, InitableTask, WindowableT
   }
 
   @Override
-  public final void close() throws Exception {
+  public void close() throws Exception {
     if (this.contextManager != null) {
       this.contextManager.close();
     }
