@@ -26,7 +26,7 @@ import org.apache.samza.config.StorageConfig
 import org.apache.samza.{Partition, SamzaException}
 import org.apache.samza.container.TaskName
 import org.apache.samza.system._
-import org.apache.samza.util.{Clock, FileUtil, Logging, Util}
+import org.apache.samza.util.{Clock, FileUtil, Logging}
 
 import scala.collection.JavaConverters._
 
@@ -51,6 +51,7 @@ class TaskStorageManager(
   changeLogSystemStreams: Map[String, SystemStream] = Map(),
   changeLogStreamPartitions: Int,
   streamMetadataCache: StreamMetadataCache,
+  sspMetadataCache: SSPMetadataCache,
   nonLoggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
   loggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
   partition: Partition,
@@ -329,23 +330,11 @@ class TaskStorageManager(
     debug("Persisting logged key value stores")
 
     for ((storeName, systemStream) <- changeLogSystemStreams.filterKeys(storeName => persistedStores.contains(storeName))) {
-      val systemAdmin = systemAdmins.getSystemAdmin(systemStream.getSystem)
-
       debug("Fetching newest offset for store %s" format(storeName))
       try {
-        val newestOffset = if (systemAdmin.isInstanceOf[ExtendedSystemAdmin]) {
-          // This approach is much more efficient because it only fetches the newest offset for 1 SSP
-          // rather than newest and oldest offsets for all SSPs. Use it if we can.
-          systemAdmin.asInstanceOf[ExtendedSystemAdmin].getNewestOffset(new SystemStreamPartition(systemStream.getSystem, systemStream.getStream, partition), 3)
-        } else {
-          val streamToMetadata = systemAdmins.getSystemAdmin(systemStream.getSystem)
-                  .getSystemStreamMetadata(Set(systemStream.getStream).asJava)
-          val sspMetadata = streamToMetadata
-                  .get(systemStream.getStream)
-                  .getSystemStreamPartitionMetadata
-                  .get(partition)
-          sspMetadata.getNewestOffset
-        }
+        val ssp = new SystemStreamPartition(systemStream.getSystem, systemStream.getStream, partition)
+        val sspMetadata = sspMetadataCache.getMetadata(ssp)
+        val newestOffset = if (sspMetadata == null) null else sspMetadata.getNewestOffset
         debug("Got offset %s for store %s" format(newestOffset, storeName))
 
         val loggedStorePartitionDir = TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, storeName, taskName)
