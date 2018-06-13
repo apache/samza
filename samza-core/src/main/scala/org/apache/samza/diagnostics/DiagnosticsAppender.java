@@ -48,26 +48,33 @@ public class DiagnosticsAppender extends AppenderSkeleton {
   @Override
   protected void append(LoggingEvent loggingEvent) {
 
-    // if an event with a non-null throwable is received => exception event
-    if (loggingEvent.getThrowableInformation() != null) {
+    try {
 
-      Throwable throwable = loggingEvent.getThrowableInformation().getThrowable();
-      Throwable throwableCause = loggingEvent.getThrowableInformation().getThrowable().getCause();
+      // if an event with a non-null throwable is received => exception event
+      if (loggingEvent.getThrowableInformation() != null) {
 
-      String throwableClassName = (throwable == null) ? "" : throwable.getClass().getName();
-      String throwableCauseClassName = (throwableCause == null) ? "" : throwableCause.getClass().getName();
-      String throwableCauseMessage = (throwableCause == null) ? "" : throwableCause.getMessage();
+        Throwable throwable = loggingEvent.getThrowableInformation().getThrowable();
+        Throwable throwableCause = loggingEvent.getThrowableInformation().getThrowable().getCause();
 
-      DiagnosticsExceptionEvent diagnosticsExceptionEvent =
-          new DiagnosticsExceptionEvent(loggingEvent.timeStamp, loggingEvent.getMessage().toString(),
-              throwableClassName, throwableCauseMessage, throwableCauseClassName, loggingEvent.getThreadName(),
-              Arrays.toString(loggingEvent.getThrowableInformation().getThrowableStrRep()),
-              getStackTraceIdentifier(loggingEvent.getThrowableInformation().getThrowable().getStackTrace()));
+        String throwableClassName = (throwable == null) ? "" : throwable.getClass().getName();
+        String throwableCauseClassName = (throwableCause == null) ? "" : throwableCause.getClass().getName();
+        String throwableCauseMessage = (throwableCause == null) ? "" : throwableCause.getMessage();
 
-      samzaContainerExceptionMetric.add(diagnosticsExceptionEvent);
-      logger.debug("Received DiagnosticsExceptionEvent " + diagnosticsExceptionEvent);
-    } else {
-      logger.debug("Received non-exception event with message " + loggingEvent.getMessage());
+        DiagnosticsExceptionEvent diagnosticsExceptionEvent =
+            new DiagnosticsExceptionEvent(loggingEvent.timeStamp, throwableClassName,
+                loggingEvent.getMessage().toString(), throwableCauseClassName, throwableCauseMessage,
+                loggingEvent.getThreadName(),
+                Arrays.toString(loggingEvent.getThrowableInformation().getThrowableStrRep()),
+                getStackTraceIdentifier(loggingEvent.getThrowableInformation().getThrowable().getStackTrace()));
+
+        samzaContainerExceptionMetric.add(diagnosticsExceptionEvent);
+        logger.debug("Received DiagnosticsExceptionEvent " + diagnosticsExceptionEvent);
+      } else {
+        logger.debug("Received non-exception event with message " + loggingEvent.getMessage());
+      }
+    } catch (Exception e) {
+      // blanket catch of all exceptions so as to not impact any job
+      logger.error("Exception in logging event parsing", e);
     }
   }
 
