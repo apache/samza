@@ -84,6 +84,12 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
    */
   @Override
   public void put(K key, V value) {
+
+    if (value == null) {
+      delete(key);
+      return;
+    }
+
     try {
       numPuts.inc();
       if (rateLimitWrites) {
