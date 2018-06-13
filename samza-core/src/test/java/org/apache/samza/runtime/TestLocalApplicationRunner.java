@@ -43,7 +43,6 @@ import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.StreamProcessorLifecycleListener;
 import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.SystemAdmins;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -80,7 +79,7 @@ public class TestLocalApplicationRunner {
     StreamApplication app = mock(StreamApplication.class);
 
     StreamManager streamManager = mock(StreamManager.class);
-    doReturn(streamManager).when(runner).buildStreamManager(any());
+    doReturn(streamManager).when(runner).buildAndStartStreamManager();
 
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.singletonList(new StreamSpec("test-stream", "test-stream", "test-system")));
@@ -104,6 +103,7 @@ public class TestLocalApplicationRunner {
     List<StreamSpec> streamSpecs = captor.getValue();
     assertEquals(streamSpecs.size(), 1);
     assertEquals(streamSpecs.get(0).getId(), "test-stream");
+    verify(streamManager).stop();
   }
 
   @Test
@@ -116,7 +116,7 @@ public class TestLocalApplicationRunner {
     StreamApplication app = mock(StreamApplication.class);
 
     StreamManager streamManager = mock(StreamManager.class);
-    doReturn(streamManager).when(runner).buildStreamManager(any());
+    doReturn(streamManager).when(runner).buildAndStartStreamManager();
 
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.singletonList(new StreamSpec("test-stream", "test-stream", "test-system")));
@@ -148,6 +148,7 @@ public class TestLocalApplicationRunner {
     List<StreamSpec> streamSpecs = captor.getValue();
     assertEquals(streamSpecs.size(), 1);
     assertEquals(streamSpecs.get(0).getId(), "test-stream");
+    verify(streamManager).stop();
   }
 
   @Test
@@ -187,11 +188,9 @@ public class TestLocalApplicationRunner {
     LocalApplicationRunner runner = spy(new LocalApplicationRunner(new MapConfig(config)));
     StreamApplication app = mock(StreamApplication.class);
 
-    SystemAdmins systemAdmins = mock(SystemAdmins.class);
-    // buildAndStartSystemAdmins already includes start, so not going to verify it gets called
-    when(runner.buildAndStartSystemAdmins()).thenReturn(systemAdmins);
+    // buildAndStartStreamManager already includes start, so not going to verify it gets called
     StreamManager streamManager = mock(StreamManager.class);
-    when(runner.buildStreamManager(systemAdmins)).thenReturn(streamManager);
+    when(runner.buildAndStartStreamManager()).thenReturn(streamManager);
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.emptyList());
     when(plan.getPlanAsJson()).thenReturn("");
@@ -216,7 +215,7 @@ public class TestLocalApplicationRunner {
     runner.waitForFinish();
 
     assertEquals(runner.status(app), ApplicationStatus.SuccessfulFinish);
-    verify(systemAdmins).stop();
+    verify(streamManager).stop();
   }
 
   @Test
@@ -227,11 +226,9 @@ public class TestLocalApplicationRunner {
     LocalApplicationRunner runner = spy(new LocalApplicationRunner(new MapConfig(config)));
     StreamApplication app = mock(StreamApplication.class);
 
-    SystemAdmins systemAdmins = mock(SystemAdmins.class);
-    // buildAndStartSystemAdmins already includes start, so not going to verify it gets called
-    when(runner.buildAndStartSystemAdmins()).thenReturn(systemAdmins);
+    // buildAndStartStreamManager already includes start, so not going to verify it gets called
     StreamManager streamManager = mock(StreamManager.class);
-    when(runner.buildStreamManager(systemAdmins)).thenReturn(streamManager);
+    when(runner.buildAndStartStreamManager()).thenReturn(streamManager);
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.emptyList());
     when(plan.getPlanAsJson()).thenReturn("");
@@ -257,7 +254,7 @@ public class TestLocalApplicationRunner {
     }
 
     assertEquals(runner.status(app), ApplicationStatus.UnsuccessfulFinish);
-    verify(systemAdmins).stop();
+    verify(streamManager).stop();
   }
 
   public static Set<StreamProcessor> getProcessors(LocalApplicationRunner runner) {

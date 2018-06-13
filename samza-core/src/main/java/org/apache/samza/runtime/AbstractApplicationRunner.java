@@ -39,7 +39,6 @@ import org.apache.samza.execution.StreamManager;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.SystemAdmins;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -159,14 +158,9 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
   }
 
   @VisibleForTesting
-  SystemAdmins buildAndStartSystemAdmins() {
-    SystemAdmins systemAdmins = new SystemAdmins(this.config);
-    systemAdmins.start();
-    return systemAdmins;
-  }
-
-  @VisibleForTesting
-  StreamManager buildStreamManager(SystemAdmins systemAdmins) {
-    return new StreamManager(systemAdmins);
+  StreamManager buildAndStartStreamManager() {
+    StreamManager streamManager = new StreamManager(this.config);
+    streamManager.start();
+    return streamManager;
   }
 }

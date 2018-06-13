@@ -49,7 +49,6 @@ import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.StreamProcessorLifecycleListener;
 import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
@@ -159,10 +158,9 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
   @Override
   public void run(StreamApplication app) {
-    SystemAdmins systemAdmins = null;
+    StreamManager streamManager = null;
     try {
-      systemAdmins = buildAndStartSystemAdmins();
-      StreamManager streamManager = buildStreamManager(systemAdmins);
+      streamManager = buildAndStartStreamManager();
 
       // 1. initialize and plan
       ExecutionPlan plan = getExecutionPlan(app, streamManager);
@@ -196,8 +194,8 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       shutdownLatch.countDown();
       throw new SamzaException(String.format("Failed to start application: %s.", app), throwable);
     } finally {
-      if (systemAdmins != null) {
-        systemAdmins.stop();
+      if (streamManager != null) {
+        streamManager.stop();
       }
     }
   }
