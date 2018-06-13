@@ -74,7 +74,7 @@ class SamzaAppMasterSecurityManager(config: Config, hadoopConf: Configuration) e
       }
     }
 
-    tokenRenewExecutor.scheduleAtFixedRate(tokenRenewRunnable, renewalInterval, renewalInterval, TimeUnit.SECONDS)
+    tokenRenewExecutor.scheduleAtFixedRate(tokenRenewRunnable, 0, renewalInterval, TimeUnit.SECONDS)
   }
 
   private def loginFromKeytab(principal: String, keytab: String, credentialsFile: String) = {

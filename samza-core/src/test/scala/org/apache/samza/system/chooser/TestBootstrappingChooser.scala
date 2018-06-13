@@ -37,10 +37,14 @@ import scala.collection.JavaConverters._
 
 @RunWith(value = classOf[Parameterized])
 class TestBootstrappingChooser(getChooser: (MessageChooser, Map[SystemStream, SystemStreamMetadata]) => MessageChooser) {
-  val envelope1 = new IncomingMessageEnvelope(new SystemStreamPartition("kafka", "stream", new Partition(0)), "120", null, 1);
-  val envelope2 = new IncomingMessageEnvelope(new SystemStreamPartition("kafka", "stream1", new Partition(1)), "121", null, 2);
-  val envelope3 = new IncomingMessageEnvelope(new SystemStreamPartition("kafka", "stream1", new Partition(0)), "122", null, 3);
-  val envelope4 = new IncomingMessageEnvelope(new SystemStreamPartition("kafka", "stream", new Partition(0)), "123", null, 4);
+  val envelope1 = new IncomingMessageEnvelope(new SystemStreamPartition("kafka", "stream", new Partition(0)), "120", null, 1)
+  val envelope2 = new IncomingMessageEnvelope(new SystemStreamPartition("kafka", "stream1", new Partition(1)), "121", null, 2)
+  val envelope3 = new IncomingMessageEnvelope(new SystemStreamPartition("kafka", "stream1", new Partition(0)), "122", null, 3)
+  val envelope4 = new IncomingMessageEnvelope(new SystemStreamPartition("kafka", "stream", new Partition(0)), "123", null, 4)
+  val envelope5 = new IncomingMessageEnvelope(new SystemStreamPartition("kafka", "stream1", new Partition(1)), "124", null, 5)
+  val envelope6 = new IncomingMessageEnvelope(new SystemStreamPartition("kafka", "stream1", new Partition(1)), "125", null, 6)
+  val envelope7 = new IncomingMessageEnvelope(new SystemStreamPartition("kafka", "stream1", new Partition(0)), "124", null, 7)
+  val envelope8 = new IncomingMessageEnvelope(new SystemStreamPartition("kafka", "stream1", new Partition(0)), "125", null, 8)
 
   /**
    * Helper function to create metadata for a single envelope with a single offset.
@@ -199,6 +203,56 @@ class TestBootstrappingChooser(getChooser: (MessageChooser, Map[SystemStream, Sy
     assertEquals(expectedLaggingSsps, chooser.laggingSystemStreamPartitions)
     val expectedSystemStreamLagCounts = Map(envelope1.getSystemStreamPartition.getSystemStream -> 1, envelope2.getSystemStreamPartition.getSystemStream -> 1)
     assertEquals(expectedSystemStreamLagCounts, chooser.systemStreamLagCounts)
+  }
+
+  @Test
+  def testChooserShouldHaveNoLaggingSspsAfterCaughtUp {
+    val mockMessageChooser = new MockMessageChooser
+    val sspMetadataMap =
+      Map(envelope3.getSystemStreamPartition.getPartition -> new SystemStreamPartitionMetadata(null, "123", null),
+      envelope2.getSystemStreamPartition.getPartition -> new SystemStreamPartitionMetadata(null, "123", null))
+    val metadata = new SystemStreamMetadata(
+      envelope3.getSystemStreamPartition.getStream,
+      sspMetadataMap.asJava)
+    val systemAdmins = mock(classOf[SystemAdmins])
+    when(systemAdmins.getSystemAdmin("kafka")).thenReturn(new MockSystemAdmin)
+    val chooser = new BootstrappingChooser(mockMessageChooser, Map(envelope2.getSystemStreamPartition.getSystemStream -> metadata),
+      new BootstrappingChooserMetrics(), systemAdmins)
+
+    chooser.register(envelope2.getSystemStreamPartition, "1")
+    chooser.register(envelope3.getSystemStreamPartition, "1")
+    chooser.start
+
+    // There should be 2 lagging partitions
+    assertEquals(Map(envelope2.getSystemStreamPartition.getSystemStream -> 2), chooser.systemStreamLagCounts)
+
+    assertNull(chooser.choose)
+    chooser.update(envelope5) // ssp1 is now marked as not lagging
+    assertEquals(envelope5, chooser.choose)
+
+    // There should be 1 lagging partition
+    assertEquals(Map(envelope2.getSystemStreamPartition.getSystemStream -> 1), chooser.systemStreamLagCounts)
+
+    // Update with one more envelope from ssp1 and make sure that systemStreamLagCounts is still 1
+    chooser.update(envelope6)
+    assertEquals(null, chooser.choose) // no events are expected to be chosen from ssp1 until lagging ssp0 has envelopes
+
+    chooser.update(envelope3)
+    assertEquals(envelope6, chooser.choose)
+    assertEquals(envelope3, chooser.choose)
+
+    // There should still be 1 lagging partition
+    assertEquals(Map(envelope2.getSystemStreamPartition.getSystemStream -> 1), chooser.systemStreamLagCounts)
+
+    chooser.update(envelope7)
+    assertEquals(envelope7, chooser.choose)  // ssp0 is now marked as not lagging
+
+    // chooser should not have any lagging partitions
+    assertTrue(chooser.laggingSystemStreamPartitions.isEmpty)
+    assertTrue(chooser.systemStreamLagCounts.isEmpty)
+
+    chooser.update(envelope8)
+    assertEquals(envelope8, chooser.choose)
   }
 
   @Test

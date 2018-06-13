@@ -17,7 +17,7 @@
 * under the License.
 */
 
-package org.apache.samza.sql;
+package org.apache.samza.sql.serializers;
 
 import java.util.Arrays;
 import java.util.HashMap;

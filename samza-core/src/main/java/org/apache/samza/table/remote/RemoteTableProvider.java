@@ -19,20 +19,17 @@
 
 package org.apache.samza.table.remote;
 
-import java.io.ByteArrayInputStream;
-import java.io.ObjectInputStream;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.samza.SamzaException;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableProvider;
 import org.apache.samza.table.TableSpec;
+import org.apache.samza.table.utils.SerdeUtils;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.RateLimiter;
 import org.slf4j.Logger;
@@ -101,7 +98,7 @@ public class RemoteTableProvider implements TableProvider {
   public Map<String, String> generateConfig(Map<String, String> config) {
     Map<String, String> tableConfig = new HashMap<>();
 
-    // Insert table_id prefix to config entires
+    // Insert table_id prefix to config entries
     tableSpec.getConfig().forEach((k, v) -> {
         String realKey = String.format(JavaTableConfig.TABLE_ID_PREFIX, tableSpec.getId()) + "." + k;
         tableConfig.put(realKey, v);
@@ -125,14 +122,7 @@ public class RemoteTableProvider implements TableProvider {
     if (entry.isEmpty()) {
       return null;
     }
-
-    try {
-      byte [] bytes = Base64.getDecoder().decode(entry);
-      return (T) new ObjectInputStream(new ByteArrayInputStream(bytes)).readObject();
-    } catch (Exception e) {
-      String errMsg = "Failed to deserialize " + key;
-      throw new SamzaException(errMsg, e);
-    }
+    return SerdeUtils.deserialize(key, entry);
   }
 
   private TableReadFunction<?, ?> getReadFn() {

@@ -17,25 +17,24 @@
  * under the License.
  */
 
-package org.apache.samza.storage.kv
+package org.apache.samza.container;
 
-import org.apache.samza.metrics.{MetricsHelper, MetricsRegistry, MetricsRegistryMap}
+import org.apache.samza.SamzaException;
+import org.apache.samza.util.SamzaUncaughtExceptionHandler;
+import org.junit.Test;
 
-class KeyValueStoreMetrics(
-  val storeName: String = "unknown",
-  val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
+import java.util.concurrent.atomic.AtomicBoolean;
 
-  val gets = newCounter("gets")
-  val getAlls = newCounter("getAlls")
-  val puts = newCounter("puts")
-  val putAlls = newCounter("putAlls")
-  val deletes = newCounter("deletes")
-  val deleteAlls = newCounter("deleteAlls")
-  val alls = newCounter("alls")
-  val ranges = newCounter("ranges")
-  val flushes = newCounter("flushes")
-  val bytesWritten = newCounter("bytes-written")
-  val bytesRead = newCounter("bytes-read")
+import static org.junit.Assert.assertTrue;
 
-  override def getPrefix = storeName + "-"
+public class TestSamzaUncaughtExceptionHandler {
+
+  @Test
+  public void testExceptionHandler() {
+    final AtomicBoolean exitCalled = new AtomicBoolean(false);
+    Thread.UncaughtExceptionHandler exceptionHandler =
+        new SamzaUncaughtExceptionHandler(() -> exitCalled.getAndSet(true));
+    exceptionHandler.uncaughtException(Thread.currentThread(), new SamzaException());
+    assertTrue(exitCalled.get());
+  }
 }

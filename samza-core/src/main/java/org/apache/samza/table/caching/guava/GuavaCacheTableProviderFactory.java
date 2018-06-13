@@ -17,23 +17,18 @@
  * under the License.
  */
 
-package org.apache.samza.container;
+package org.apache.samza.table.caching.guava;
 
-import org.apache.samza.SamzaException;
-import org.junit.Test;
+import org.apache.samza.table.TableProvider;
+import org.apache.samza.table.TableProviderFactory;
+import org.apache.samza.table.TableSpec;
 
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import static org.junit.Assert.assertTrue;
-
-public class TestSamzaContainerExceptionHandler {
-
-  @Test
-  public void testExceptionHandler() {
-    final AtomicBoolean exitCalled = new AtomicBoolean(false);
-    Thread.UncaughtExceptionHandler exceptionHandler =
-        new SamzaContainerExceptionHandler(() -> exitCalled.getAndSet(true));
-    exceptionHandler.uncaughtException(Thread.currentThread(), new SamzaException());
-    assertTrue(exitCalled.get());
+/**
+ * Table provider factory for {@link GuavaCacheTable}.
+ */
+public class GuavaCacheTableProviderFactory implements TableProviderFactory {
+  @Override
+  public TableProvider getTableProvider(TableSpec tableSpec) {
+    return new GuavaCacheTableProvider(tableSpec);
   }
 }
