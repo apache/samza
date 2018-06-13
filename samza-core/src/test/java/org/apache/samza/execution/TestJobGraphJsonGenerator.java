@@ -19,12 +19,9 @@
 
 package org.apache.samza.execution;
 
-import com.google.common.collect.ImmutableList;
-
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -41,7 +38,7 @@ import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
-import org.apache.samza.util.StreamUtil;
+import org.apache.samza.testUtils.StreamTestUtils;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Test;
 
@@ -78,14 +75,11 @@ public class TestJobGraphJsonGenerator {
     Map<String, String> configMap = new HashMap<>();
     configMap.put(JobConfig.JOB_NAME(), "test-app");
     configMap.put(JobConfig.JOB_DEFAULT_SYSTEM(), "test-system");
-    Config streamConfigs = StreamUtil.toStreamConfigs(ImmutableList.of(
-        ImmutableTriple.of("input1", "system1", "input1"),
-        ImmutableTriple.of("input2", "system2", "input2"),
-        ImmutableTriple.of("input3", "system2", "input3"),
-        ImmutableTriple.of("output1", "system1", "output1"),
-        ImmutableTriple.of("output2", "system2", "output2")
-    ));
-    configMap.putAll(streamConfigs);
+    StreamTestUtils.addStreamConfigs(configMap, "input1", "system1", "input1");
+    StreamTestUtils.addStreamConfigs(configMap, "input2", "system2", "input2");
+    StreamTestUtils.addStreamConfigs(configMap, "input3", "system2", "input3");
+    StreamTestUtils.addStreamConfigs(configMap, "output1", "system1", "output1");
+    StreamTestUtils.addStreamConfigs(configMap, "output2", "system2", "output2");
     Config config = new MapConfig(configMap);
 
     // set up external partition count
@@ -153,11 +147,8 @@ public class TestJobGraphJsonGenerator {
     Map<String, String> configMap = new HashMap<>();
     configMap.put(JobConfig.JOB_NAME(), "test-app");
     configMap.put(JobConfig.JOB_DEFAULT_SYSTEM(), "test-system");
-    Config streamConfigs = StreamUtil.toStreamConfigs(ImmutableList.of(
-        ImmutableTriple.of("PageView", "hdfs", "hdfs:/user/dummy/PageViewEvent"),
-        ImmutableTriple.of("PageViewCount", "kafka", "PageViewCount")
-    ));
-    configMap.putAll(streamConfigs);
+    StreamTestUtils.addStreamConfigs(configMap, "PageView", "hdfs", "hdfs:/user/dummy/PageViewEvent");
+    StreamTestUtils.addStreamConfigs(configMap, "PageViewCount", "kafka", "PageViewCount");
     Config config = new MapConfig(configMap);
 
     // set up external partition count

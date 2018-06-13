@@ -18,38 +18,38 @@
  */
 package org.apache.samza.util;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.commons.lang3.tuple.ImmutableTriple;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
-import org.apache.samza.config.StreamConfig$;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
 
 public class StreamUtil {
   /**
    * Returns a SystemStream object based on the system stream name given. For
-   * example, kafka.topic would return new SystemStream("kafka", "topic").
+   * example, kafka.topic would return SystemStream("kafka", "topic").
+   *
+   * @param systemStreamName name of the system stream
+   * @return the {@link SystemStream} for the {@code systemStreamName}
    */
-  public static SystemStream getSystemStreamFromNames(String systemStreamNames) {
-    int idx = systemStreamNames.indexOf('.');
+  public static SystemStream getSystemStreamFromNames(String systemStreamName) {
+    int idx = systemStreamName.indexOf('.');
     if (idx < 0) {
-      throw new IllegalArgumentException("No '.' in stream name '" + systemStreamNames +
+      throw new IllegalArgumentException("No '.' in stream name '" + systemStreamName +
           "'. Stream names should be in the form 'system.stream'");
     }
     return new SystemStream(
-        systemStreamNames.substring(0, idx),
-        systemStreamNames.substring(idx + 1, systemStreamNames.length()));
+        systemStreamName.substring(0, idx),
+        systemStreamName.substring(idx + 1, systemStreamName.length()));
   }
 
   /**
-   * Returns a SystemStream object based on the system stream name given. For
-   * example, kafka.topic would return new SystemStream("kafka", "topic").
+   * Returns the period separated system stream name for the provided {@code systemStream}. For
+   * example, SystemStream("kafka", "topic") would return "kafka.topic".
+   *
+   * @param systemStream the {@link SystemStream} to get the name for
+   * @return the system stream name
    */
   public static String getNameFromSystemStream(SystemStream systemStream) {
     return systemStream.getSystem() + "." + systemStream.getStream();
@@ -64,24 +64,5 @@ public class StreamUtil {
     String system = streamConfig.getSystem(streamId);
     Map<String, String> streamProperties = streamConfig.getStreamProperties(streamId);
     return new StreamSpec(streamId, physicalName, system, streamProperties);
-  }
-
-  /**
-   * Converts the provided list of (streamId, system, physicalName) triplets to their corresponding
-   * stream.stream-id.* configurations.
-   *
-   * @param streams a list of (streamId, system, physicalName) triplets to get the stream configuration for.
-   * @return the configuration for the provided { @code streams}
-   */
-  public static Config toStreamConfigs(List<ImmutableTriple<String, String, String>> streams) {
-    Map<String, String> configsMap = new HashMap<>();
-    streams.stream().forEach(triple -> {
-        String streamId = triple.getLeft();
-        String systemName = triple.getMiddle();
-        String physicalName = triple.getRight();
-        configsMap.put(String.format(StreamConfig$.MODULE$.SYSTEM_FOR_STREAM_ID(), streamId), systemName);
-        configsMap.put(String.format(StreamConfig$.MODULE$.PHYSICAL_NAME_FOR_STREAM_ID(), streamId), physicalName);
-      });
-    return new MapConfig(configsMap);
   }
 }
