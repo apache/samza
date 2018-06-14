@@ -207,6 +207,11 @@ public abstract class AbstractContainerAllocator implements Runnable {
         preferredHost, containerID);
     resourceRequestState.addResourceRequest(request);
     state.containerRequests.incrementAndGet();
+    if (ResourceRequestState.ANY_HOST.equals(preferredHost)) {
+      state.anyHostRequests.incrementAndGet();
+    } else {
+      state.preferredHostRequests.incrementAndGet();
+    }
   }
 
   /**
