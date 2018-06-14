@@ -125,6 +125,14 @@ public class SamzaApplicationState {
 
   public final AtomicInteger matchedResourceRequests = new AtomicInteger(0);
 
+  public final AtomicInteger preferredHostRequests = new AtomicInteger(0);
+
+  public final AtomicInteger anyHostRequests = new AtomicInteger(0);
+
+  public final AtomicInteger expiredPreferredHostRequests = new AtomicInteger(0);
+
+  public final AtomicInteger expiredAnyHostRequests = new AtomicInteger(0);
+
   /**
    * Number of invalid container notifications.
    *
