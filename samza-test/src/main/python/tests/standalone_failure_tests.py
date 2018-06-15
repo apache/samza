@@ -244,7 +244,7 @@ def test_pause_resume_leader():
     """
     Launches three processors. Pauses the leader processor. Wait till group coordination timeout and verifies that the
     JobModel doesn't contain leader processor. Resumes the leader processor and waits till group coordination timeout,
-    verifies that new JobModel contains the leader processor.
+    verifies that new JobModel contains the previously paused leader processor.
     """
     processors = {}
     try:
