@@ -33,7 +33,6 @@ import org.apache.samza.operators.TableDescriptor;
  * NOTE: {@link TableDescriptorsFactory} is instantiated in the config rewriter to get the table descriptors. Hence,
  * please DO NOT access any task instance member variables in the getTableDescriptors API.
  *
- * <p>
  * Typical user code using Samza tables should look like the following:
  *
  * <pre>
@@ -42,7 +41,7 @@ import org.apache.samza.operators.TableDescriptor;
  *   private ReadableTable<String, Long> remoteTable;
  *   private ReadWriteTable<String, String> localTable;
  *
- *   @Override
+ *   {@code @Override}
  *   public List<TableDescriptor> getTableDescriptors() {
  *     List<TableDescriptor> tableDescriptors = new ArrayList<>();
  *     final TableReadFunction readRemoteTable = (TableReadFunction) key -> null;
@@ -57,13 +56,13 @@ import org.apache.samza.operators.TableDescriptor;
  *     return tableDescriptors;
  *   }
  *
- *   @Override
+ *   {@code @Override}
  *   public void init(Config config, TaskContext context) {
  *     remoteTable = (ReadableTable<String, String>) context.getTable(“remote-table-1”);
  *     localTable = (ReadWriteTable<Long, String>) context.getTable(“local-table-1”);
  *   }
  *
- *   @Override
+ *   {@code @Override}
  *   void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator)
  *      throws Exception {
  *     ..
@@ -92,8 +91,6 @@ import org.apache.samza.operators.TableDescriptor;
  *  <property name="job.config.rewriter.tableConfigRewriter.class" value="org.apache.samza.config.TableConfigRewriter"/>
  * }
  * </pre>
- *
- * </p>
  */
 @InterfaceStability.Unstable
 public interface TableDescriptorsFactory {

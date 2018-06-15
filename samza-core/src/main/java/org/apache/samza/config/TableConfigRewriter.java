@@ -53,8 +53,8 @@ public class TableConfigRewriter implements ConfigRewriter {
       TableDescriptorsFactory tableDescriptorsFactory = Util.getObj(taskClassName, TableDescriptorsFactory.class);
       List<TableDescriptor> tableDescs = tableDescriptorsFactory.getTableDescriptors();
       return new MapConfig(Arrays.asList(config, new TableConfigGenerator().generateConfigsForTableDescs(tableDescs)));
-    } catch (Throwable t) {
-      throw new ConfigException(String.format("Invalid configuration for Task class: %s", taskClassName), t);
+    } catch (Exception e) {
+      throw new ConfigException(String.format("Invalid configuration for Task class: %s", taskClassName), e);
     }
   }
 }
