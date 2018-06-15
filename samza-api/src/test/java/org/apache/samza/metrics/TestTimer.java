@@ -19,12 +19,11 @@
 
 package org.apache.samza.metrics;
 
-import static org.junit.Assert.*;
-
 import java.util.Arrays;
-
 import org.apache.samza.util.Clock;
 import org.junit.Test;
+
+import static org.junit.Assert.*;
 
 public class TestTimer {
 

@@ -21,6 +21,8 @@
 package org.apache.samza.operators.impl.store;
 
 import org.apache.samza.storage.kv.ClosableIterator;
+import org.apache.samza.util.TimestampedValue;
+
 
 /**
  * A key-value store that allows entries to be queried and stored based on time ranges.
