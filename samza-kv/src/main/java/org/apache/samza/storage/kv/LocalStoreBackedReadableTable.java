@@ -20,11 +20,14 @@ package org.apache.samza.storage.kv;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
-
-import org.apache.samza.table.ReadableTable;
 
 import com.google.common.base.Preconditions;
+import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.metrics.Counter;
+import org.apache.samza.metrics.Timer;
+import org.apache.samza.table.ReadableTable;
+import org.apache.samza.table.utils.TableMetricsUtil;
+import org.apache.samza.task.TaskContext;
 
 
 /**
@@ -35,8 +38,13 @@ import com.google.common.base.Preconditions;
  */
 public class LocalStoreBackedReadableTable<K, V> implements ReadableTable<K, V> {
 
-  protected KeyValueStore<K, V> kvStore;
-  protected String tableId;
+  protected final KeyValueStore<K, V> kvStore;
+  protected final String tableId;
+
+  protected Timer getNs;
+  protected Timer getAllNs;
+  protected Counter numGets;
+  protected Counter numGetAlls;
 
   /**
    * Constructs an instance of {@link LocalStoreBackedReadableTable}
@@ -49,14 +57,34 @@ public class LocalStoreBackedReadableTable<K, V> implements ReadableTable<K, V> 
     this.kvStore = kvStore;
   }
 
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
+    TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(containerContext, taskContext, this, tableId);
+    getNs = tableMetricsUtil.newTimer("get-ns");
+    getAllNs = tableMetricsUtil.newTimer("getAll-ns");
+    numGets = tableMetricsUtil.newCounter("num-gets");
+    numGetAlls = tableMetricsUtil.newCounter("num-getAlls");
+  }
+
   @Override
   public V get(K key) {
-    return kvStore.get(key);
+    numGets.inc();
+    long startNs = System.nanoTime();
+    V result = kvStore.get(key);
+    getNs.update(System.nanoTime() - startNs);
+    return result;
   }
 
   @Override
   public Map<K, V> getAll(List<K> keys) {
-    return keys.stream().collect(Collectors.toMap(k -> k, k -> kvStore.get(k)));
+    numGetAlls.inc();
+    long startNs = System.nanoTime();
+    Map<K, V> result = kvStore.getAll(keys);
+    getAllNs.update(System.nanoTime() - startNs);
+    return result;
   }
 
   @Override

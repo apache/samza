@@ -29,6 +29,7 @@ import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.KV;
 import org.apache.samza.table.ReadableTable;
+import org.apache.samza.table.utils.TableMetricsUtil;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.RateLimiter;
 import org.slf4j.Logger;
@@ -72,8 +73,10 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
   protected final boolean rateLimitReads;
 
   protected Timer getNs;
+  protected Timer getAllNs;
   protected Timer getThrottleNs;
   protected Counter numGets;
+  protected Counter numGetAlls;
 
   /**
    * Construct a RemoteReadableTable instance
@@ -101,9 +104,12 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
    */
   @Override
   public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
-    getNs = taskContext.getMetricsRegistry().newTimer(groupName, tableId + "-get-ns");
-    getThrottleNs = taskContext.getMetricsRegistry().newTimer(groupName, tableId + "-get-throttle-ns");
-    numGets = taskContext.getMetricsRegistry().newCounter(groupName, tableId + "-num-gets");
+    TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(containerContext, taskContext, this, tableId);
+    getNs = tableMetricsUtil.newTimer("get-ns");
+    getAllNs = tableMetricsUtil.newTimer("getAll-ns");
+    getThrottleNs = tableMetricsUtil.newTimer("get-throttle-ns");
+    numGets = tableMetricsUtil.newCounter("num-gets");
+    numGetAlls = tableMetricsUtil.newCounter("num-getAlls");
   }
 
   /**
@@ -134,7 +140,10 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
   public Map<K, V> getAll(List<K> keys) {
     Map<K, V> result;
     try {
+      numGetAlls.inc();
+      long startNs = System.nanoTime();
       result = readFn.getAll(keys);
+      getAllNs.update(System.nanoTime() - startNs);
     } catch (Exception e) {
       String errMsg = "Failed to get some records";
       logger.error(errMsg, e);

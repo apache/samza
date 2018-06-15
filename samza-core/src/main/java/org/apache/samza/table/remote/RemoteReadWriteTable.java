@@ -27,6 +27,7 @@ import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.utils.TableMetricsUtil;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.RateLimiter;
 
@@ -47,11 +48,15 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
   protected final boolean rateLimitWrites;
 
   protected Timer putNs;
+  protected Timer putAllNs;
   protected Timer deleteNs;
+  protected Timer deleteAllNs;
   protected Timer flushNs;
   protected Timer putThrottleNs; // use single timer for all write operations
   protected Counter numPuts;
+  protected Counter numPutAlls;
   protected Counter numDeletes;
+  protected Counter numDeleteAlls;
   protected Counter numFlushes;
 
   public RemoteReadWriteTable(String tableId, TableReadFunction readFn, TableWriteFunction writeFn,
@@ -70,13 +75,18 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
   @Override
   public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
     super.init(containerContext, taskContext);
-    putNs = taskContext.getMetricsRegistry().newTimer(groupName, tableId + "-put-ns");
-    putThrottleNs = taskContext.getMetricsRegistry().newTimer(groupName, tableId + "-put-throttle-ns");
-    deleteNs = taskContext.getMetricsRegistry().newTimer(groupName, tableId + "-delete-ns");
-    flushNs = taskContext.getMetricsRegistry().newTimer(groupName, tableId + "-flush-ns");
-    numPuts = taskContext.getMetricsRegistry().newCounter(groupName, tableId + "-num-puts");
-    numDeletes = taskContext.getMetricsRegistry().newCounter(groupName, tableId + "-num-deletes");
-    numFlushes = taskContext.getMetricsRegistry().newCounter(groupName, tableId + "-num-flushes");
+    TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(containerContext, taskContext, this, tableId);
+    putNs = tableMetricsUtil.newTimer("put-ns");
+    putAllNs = tableMetricsUtil.newTimer("putAll-ns");
+    putThrottleNs = tableMetricsUtil.newTimer("put-throttle-ns");
+    deleteNs = tableMetricsUtil.newTimer("delete-ns");
+    deleteAllNs = tableMetricsUtil.newTimer("deleteAll-ns");
+    flushNs = tableMetricsUtil.newTimer("flush-ns");
+    numPuts = tableMetricsUtil.newCounter("num-puts");
+    numPutAlls = tableMetricsUtil.newCounter("num-putAlls");
+    numDeletes = tableMetricsUtil.newCounter("num-deletes");
+    numDeleteAlls = tableMetricsUtil.newCounter("num-deleteAlls");
+    numFlushes = tableMetricsUtil.newCounter("num-flushes");
   }
 
   /**
@@ -111,7 +121,10 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
   @Override
   public void putAll(List<Entry<K, V>> entries) {
     try {
+      numPutAlls.inc();
+      long startNs = System.nanoTime();
       writeFn.putAll(entries);
+      putAllNs.update(System.nanoTime() - startNs);
     } catch (Exception e) {
       String errMsg = String.format("Failed to put records: %s", entries);
       logger.error(errMsg, e);
@@ -145,7 +158,10 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
   @Override
   public void deleteAll(List<K> keys) {
     try {
+      numDeleteAlls.inc();
       writeFn.deleteAll(keys);
+      long startNs = System.nanoTime();
+      deleteAllNs.update(System.nanoTime() - startNs);
     } catch (Exception e) {
       String errMsg = String.format("Failed to delete records, keys=%s", keys);
       logger.error(errMsg, e);
