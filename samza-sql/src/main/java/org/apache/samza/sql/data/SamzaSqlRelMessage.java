@@ -22,14 +22,9 @@ package org.apache.samza.sql.data;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
-import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.generic.IndexedRecord;
+import java.util.Objects;
 import org.apache.commons.lang.Validate;
-import org.apache.samza.SamzaException;
+import org.apache.samza.sql.SamzaSqlRelRecord;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 
@@ -96,6 +91,7 @@ public class SamzaSqlRelMessage implements Serializable {
 
   /**
    * Creates the SamzaSqlRelMessage from {@link SamzaSqlRelRecord}.
+   * @param samzaSqlRelRecord represents the rel record.
    */
   public SamzaSqlRelMessage(@JsonProperty("samzaSqlRelRecord") SamzaSqlRelRecord samzaSqlRelRecord) {
     this(samzaSqlRelRecord.getFieldNames(), samzaSqlRelRecord.getFieldValues());
@@ -110,67 +106,20 @@ public class SamzaSqlRelMessage implements Serializable {
     return key;
   }
 
-  /**
-   * Samza sql relational record. A record consists of list of column values and the associated column names.
-   * A column value could be nested, meaning, it could be another SamzaSqlRelRecord.
-   * Right now we do not store any metadata (like nullability, etc) other than the column name in the SamzaSqlRelRecord.
-   */
-  public static class SamzaSqlRelRecord implements Serializable {
+  @Override
+  public int hashCode() {
+    return Objects.hash(key, samzaSqlRelRecord);
+  }
 
-    @JsonProperty("fieldNames")
-    private final List<String> fieldNames;
-    @JsonProperty("fieldValues")
-    private final List<Object> fieldValues;
-
-    /**
-     * Creates a {@link SamzaSqlRelRecord} from the list of relational fields and values.
-     * @param fieldNames Ordered list of field names in the row.
-     * @param fieldValues  Ordered list of all the values in the row. Some of the fields can be null. This could be
-     *                     result of delete change capture event in the stream or because of the result of the outer
-     *                     join or the fields themselves are null in the original stream.
-     */
-    public SamzaSqlRelRecord(@JsonProperty("fieldNames") List<String> fieldNames,
-        @JsonProperty("fieldValues") List<Object> fieldValues) {
-      Validate.isTrue(fieldNames.size() == fieldValues.size(), "Field Names and values are not of same length.");
-
-      this.fieldNames = new ArrayList<>();
-      this.fieldValues = new ArrayList<>();
-
-      this.fieldNames.addAll(fieldNames);
-      this.fieldValues.addAll(fieldValues);
-    }
-
-    /**
-     * Get the field names of all the columns in the relational message.
-     * @return the field names of all columns.
-     */
-    @JsonProperty("fieldNames")
-    public List<String> getFieldNames() {
-      return this.fieldNames;
-    }
-
-    /**
-     * Get the field values of all the columns in the relational message.
-     * @return the field values of all columns.
-     */
-    @JsonProperty("fieldValues")
-    public List<Object> getFieldValues() {
-      return this.fieldValues;
-    }
-
-    /**
-     * Get the value of the field corresponding to the field name.
-     * @param name Name of the field.
-     * @return returns the value of the field.
-     */
-    public Optional<Object> getField(String name) {
-      for (int index = 0; index < fieldNames.size(); index++) {
-        if (fieldNames.get(index).equals(name)) {
-          return Optional.ofNullable(fieldValues.get(index));
-        }
-      }
-
-      return Optional.empty();
-    }
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj)
+      return true;
+    if (obj == null)
+      return false;
+    if (getClass() != obj.getClass())
+      return false;
+    SamzaSqlRelMessage other = (SamzaSqlRelMessage) obj;
+    return Objects.equals(key, other.key) && Objects.equals(samzaSqlRelRecord, other.samzaSqlRelRecord);
   }
 }

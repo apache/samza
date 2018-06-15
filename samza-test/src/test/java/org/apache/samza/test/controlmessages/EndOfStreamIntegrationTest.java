@@ -40,10 +40,9 @@ import org.apache.samza.test.controlmessages.TestData.PageViewJsonSerdeFactory;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.apache.samza.test.util.ArraySystemFactory;
 import org.apache.samza.test.util.Base64Serializer;
+
 import org.junit.Test;
-
 import static org.junit.Assert.assertEquals;
-
 
 /**
  * This test uses an array as a bounded input source, and does a partitionBy() and sink() after reading the input.
@@ -52,6 +51,8 @@ import static org.junit.Assert.assertEquals;
 public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
 
   private static final String[] PAGEKEYS = {"inbox", "home", "search", "pymk", "group", "job"};
+
+  private static List<PageView> received = new ArrayList<>();
 
   @Test
   public void testPipeline() throws  Exception {
@@ -66,6 +67,7 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
 
     int partitionCount = 4;
     Map<String, String> configs = new HashMap<>();
+    configs.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
     configs.put("systems.test.samza.factory", ArraySystemFactory.class.getName());
     configs.put("streams.PageView.samza.system", "test");
     configs.put("streams.PageView.source", Base64Serializer.serialize(pageviews));
@@ -89,7 +91,6 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
     configs.put("serializers.registry.json.class", PageViewJsonSerdeFactory.class.getName());
 
     final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
-    List<PageView> received = new ArrayList<>();
     final StreamApplication app = (streamGraph, cfg) -> {
       streamGraph.<KV<String, PageView>>getInputStream("PageView")
         .map(Values.create())
@@ -98,6 +99,7 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
             received.add(m.getValue());
           });
     };
+
     runner.run(app);
     runner.waitForFinish();
 

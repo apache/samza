@@ -19,6 +19,7 @@
 
 package org.apache.samza.test.operator;
 
+import java.time.Duration;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
@@ -26,13 +27,16 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.windows.Windows;
+import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.test.operator.data.PageView;
+import org.apache.samza.util.CommandLine;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.time.Duration;
 
 /**
  * A {@link StreamApplication} that demonstrates a filter followed by a tumbling window.
@@ -40,10 +44,23 @@ import java.time.Duration;
 public class TumblingWindowApp implements StreamApplication {
   private static final String INPUT_TOPIC = "page-views";
   private static final String OUTPUT_TOPIC = "page-view-counts";
+
+  private static final Logger LOG = LoggerFactory.getLogger(TumblingWindowApp.class);
   private static final String FILTER_KEY = "badKey";
+
+  public static void main(String[] args) {
+    CommandLine cmdLine = new CommandLine();
+    Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
+    TumblingWindowApp app = new TumblingWindowApp();
+    LocalApplicationRunner runner = new LocalApplicationRunner(config);
+
+    runner.run(app);
+    runner.waitForFinish();
+  }
 
   @Override
   public void init(StreamGraph graph, Config config) {
+
     MessageStream<PageView> pageViews =
         graph.getInputStream(INPUT_TOPIC, new JsonSerdeV2<>(PageView.class));
     OutputStream<KV<String, Integer>> outputStream =
@@ -55,5 +72,6 @@ public class TumblingWindowApp implements StreamApplication {
             new StringSerde(), new JsonSerdeV2<>(PageView.class)), "tumblingWindow")
         .map(m -> KV.of(m.getKey().getKey(), m.getMessage().size()))
         .sendTo(outputStream);
+
   }
 }

@@ -21,6 +21,8 @@ package org.apache.samza.operators.windows;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.functions.FoldLeftFunction;
+import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.operators.functions.SupplierFunction;
 import org.apache.samza.operators.triggers.TimeTrigger;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.triggers.Triggers;
@@ -30,8 +32,6 @@ import org.apache.samza.serializers.Serde;
 
 import java.time.Duration;
 import java.util.Collection;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
  * APIs for creating different types of {@link Window}s.
@@ -84,7 +84,7 @@ import java.util.function.Supplier;
  * and triggers are fired and window panes are emitted per-key. It is possible to construct "keyed" variants
  * of the window types above.
  *
- * <p> The value for the window can be updated incrementally by providing an {@code initialValue} {@link Supplier}
+ * <p> The value for the window can be updated incrementally by providing an {@code initialValue} {@link SupplierFunction}
  * and an aggregating {@link FoldLeftFunction}. The initial value supplier is invoked every time a new window is
  * created. The aggregating function is invoked for each incoming message for the window. If these are not provided,
  * the emitted {@link WindowPane} will contain a collection of messages in the window.
@@ -105,8 +105,8 @@ public final class Windows {
    *
    * <pre> {@code
    *    MessageStream<UserClick> stream = ...;
-   *    Function<UserClick, String> keyFn = ...;
-   *    Supplier<Integer> initialValue = () -> 0;
+   *    MapFunction<UserClick, String> keyFn = ...;
+   *    SupplierFunction<Integer> initialValue = () -> 0;
    *    FoldLeftFunction<UserClick, Integer, Integer> maxAggregator = (m, c) -> Math.max(parseInt(m), c);
    *    MessageStream<WindowPane<String, Integer>> windowedStream = stream.window(
    *        Windows.keyedTumblingWindow(keyFn, Duration.ofSeconds(10), maxAggregator));
@@ -125,15 +125,14 @@ public final class Windows {
    * @param <K> the type of the key in the {@link Window}
    * @return the created {@link Window} function.
    */
-  public static <M, K, WV> Window<M, K, WV> keyedTumblingWindow(Function<? super M, ? extends K> keyFn, Duration interval,
-      Supplier<? extends WV> initialValue, FoldLeftFunction<? super M, WV> aggregator, Serde<K> keySerde,
+  public static <M, K, WV> Window<M, K, WV> keyedTumblingWindow(MapFunction<? super M, ? extends K> keyFn, Duration interval,
+      SupplierFunction<? extends WV> initialValue, FoldLeftFunction<? super M, WV> aggregator, Serde<K> keySerde,
       Serde<WV> windowValueSerde) {
 
     Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
-    return new WindowInternal<>(defaultTrigger, (Supplier<WV>) initialValue, (FoldLeftFunction<M, WV>) aggregator,
-        (Function<M, K>) keyFn, null, WindowType.TUMBLING, keySerde, windowValueSerde, null);
+    return new WindowInternal<>(defaultTrigger, (SupplierFunction<WV>) initialValue, (FoldLeftFunction<M, WV>) aggregator,
+        (MapFunction<M, K>) keyFn, null, WindowType.TUMBLING, keySerde, windowValueSerde, null);
   }
-
 
   /**
    * Creates a {@link Window} that groups incoming messages into fixed-size, non-overlapping
@@ -157,12 +156,12 @@ public final class Windows {
    * @param <K> the type of the key in the {@link Window}
    * @return the created {@link Window} function
    */
-  public static <M, K> Window<M, K, Collection<M>> keyedTumblingWindow(Function<M, K> keyFn, Duration interval,
+  public static <M, K> Window<M, K, Collection<M>> keyedTumblingWindow(MapFunction<M, K> keyFn, Duration interval,
       Serde<K> keySerde, Serde<M> msgSerde) {
 
     Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
-    return new WindowInternal<>(defaultTrigger, null, null, keyFn, null,
-        WindowType.TUMBLING, keySerde, null, msgSerde);
+    return new WindowInternal<>(defaultTrigger, null, null, keyFn, null, WindowType.TUMBLING,
+        keySerde, null, msgSerde);
   }
 
   /**
@@ -173,7 +172,7 @@ public final class Windows {
    *
    * <pre> {@code
    *    MessageStream<String> stream = ...;
-   *    Supplier<Integer> initialValue = () -> 0;
+   *    SupplierFunction<Integer> initialValue = () -> 0;
    *    FoldLeftFunction<String, Integer, Integer> maxAggregator = (m, c) -> Math.max(parseInt(m), c);
    *    MessageStream<WindowPane<Void, Integer>> windowedStream = stream.window(
    *        Windows.tumblingWindow(Duration.ofSeconds(10), maxAggregator));
@@ -189,10 +188,10 @@ public final class Windows {
    * @param <WV> the type of the {@link WindowPane} output value
    * @return the created {@link Window} function
    */
-  public static <M, WV> Window<M, Void, WV> tumblingWindow(Duration interval, Supplier<? extends WV> initialValue,
+  public static <M, WV> Window<M, Void, WV> tumblingWindow(Duration interval, SupplierFunction<? extends WV> initialValue,
       FoldLeftFunction<? super M, WV> aggregator, Serde<WV> windowValueSerde) {
     Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
-    return new WindowInternal<>(defaultTrigger, (Supplier<WV>) initialValue, (FoldLeftFunction<M, WV>) aggregator,
+    return new WindowInternal<>(defaultTrigger, (SupplierFunction<WV>) initialValue, (FoldLeftFunction<M, WV>) aggregator,
         null, null, WindowType.TUMBLING, null, windowValueSerde, null);
   }
 
@@ -221,9 +220,8 @@ public final class Windows {
    */
   public static <M> Window<M, Void, Collection<M>> tumblingWindow(Duration duration, Serde<M> msgSerde) {
     Trigger<M> defaultTrigger = new TimeTrigger<>(duration);
-
-    return new WindowInternal<>(defaultTrigger, null, null, null,
-       null, WindowType.TUMBLING, null, null, msgSerde);
+    return new WindowInternal<>(defaultTrigger, null, null, null, null,
+        WindowType.TUMBLING, null, null, msgSerde);
   }
 
   /**
@@ -238,7 +236,7 @@ public final class Windows {
    *
    * <pre> {@code
    *    MessageStream<UserClick> stream = ...;
-   *    Supplier<Integer> initialValue = () -> 0;
+   *    SupplierFunction<Integer> initialValue = () -> 0;
    *    FoldLeftFunction<UserClick, Integer, Integer> maxAggregator = (m, c) -> Math.max(parseInt(m), c);
    *    Function<UserClick, String> userIdExtractor = m -> m.getUserId()..;
    *    MessageStream<WindowPane<String, Integer>> windowedStream = stream.window(
@@ -258,12 +256,12 @@ public final class Windows {
    * @param <WV> the type of the output value in the {@link WindowPane}
    * @return the created {@link Window} function
    */
-  public static <M, K, WV> Window<M, K, WV> keyedSessionWindow(Function<? super M, ? extends K> keyFn,
-      Duration sessionGap, Supplier<? extends WV> initialValue, FoldLeftFunction<? super M, WV> aggregator,
+  public static <M, K, WV> Window<M, K, WV> keyedSessionWindow(MapFunction<? super M, ? extends K> keyFn,
+      Duration sessionGap, SupplierFunction<? extends WV> initialValue, FoldLeftFunction<? super M, WV> aggregator,
       Serde<K> keySerde, Serde<WV> windowValueSerde) {
     Trigger<M> defaultTrigger = Triggers.timeSinceLastMessage(sessionGap);
-    return new WindowInternal<>(defaultTrigger, (Supplier<WV>) initialValue, (FoldLeftFunction<M, WV>) aggregator,
-        (Function<M, K>) keyFn, null, WindowType.SESSION, keySerde, windowValueSerde, null);
+    return new WindowInternal<>(defaultTrigger, (SupplierFunction<WV>) initialValue, (FoldLeftFunction<M, WV>) aggregator,
+        (MapFunction<M, K>) keyFn, null, WindowType.SESSION, keySerde, windowValueSerde, null);
   }
 
   /**
@@ -278,7 +276,7 @@ public final class Windows {
    *
    * <pre> {@code
    *    MessageStream<UserClick> stream = ...;
-   *    Supplier<Integer> initialValue = () -> 0;
+   *    SupplierFunction<Integer> initialValue = () -> 0;
    *    FoldLeftFunction<UserClick, Integer, Integer> maxAggregator = (m, c)-> Math.max(parseIntField(m), c);
    *    Function<UserClick, String> userIdExtractor = m -> m.getUserId()..;
    *    MessageStream<WindowPane<String>, Collection<M>> windowedStream = stream.window(
@@ -294,11 +292,10 @@ public final class Windows {
    * @param <K> the type of the key in the {@link Window}
    * @return the created {@link Window} function
    */
-  public static <M, K> Window<M, K, Collection<M>> keyedSessionWindow(Function<? super M, ? extends K> keyFn,
+  public static <M, K> Window<M, K, Collection<M>> keyedSessionWindow(MapFunction<? super M, ? extends K> keyFn,
       Duration sessionGap, Serde<K> keySerde, Serde<M> msgSerde) {
-
     Trigger<M> defaultTrigger = Triggers.timeSinceLastMessage(sessionGap);
-    return new WindowInternal<>(defaultTrigger, null, null, (Function<M, K>) keyFn,
+    return new WindowInternal<>(defaultTrigger, null, null, (MapFunction<M, K>) keyFn,
         null, WindowType.SESSION, keySerde, null, msgSerde);
   }
 }

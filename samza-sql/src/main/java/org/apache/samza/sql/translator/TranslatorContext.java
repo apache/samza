@@ -25,6 +25,7 @@ import java.util.Map;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.linq4j.QueryProvider;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -35,16 +36,25 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.sql.data.RexToJavaCompiler;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
+import org.apache.samza.sql.interfaces.SamzaRelConverter;
 
 
 /**
  * State that is maintained while translating the Calcite relational graph to Samza {@link StreamGraph}.
  */
-public class TranslatorContext {
+public class TranslatorContext implements Cloneable {
+  /**
+   * The internal variables that are shared among all cloned {@link TranslatorContext}
+   */
   private final StreamGraph streamGraph;
-  private final Map<Integer, MessageStream> messsageStreams = new HashMap<>();
   private final RexToJavaCompiler compiler;
+  private final Map<String, SamzaRelConverter> relSamzaConverters;
+  private final Map<Integer, MessageStream> messsageStreams;
+  private final Map<Integer, RelNode> relNodes;
 
+  /**
+   * The internal variables that are not shared among all cloned {@link TranslatorContext}
+   */
   private final SamzaSqlExecutionContext executionContext;
   private final DataContextImpl dataContext;
 
@@ -90,17 +100,42 @@ public class TranslatorContext {
     }
   }
 
+  private RexToJavaCompiler createExpressionCompiler(RelRoot relRoot) {
+    RelDataTypeFactory dataTypeFactory = relRoot.project().getCluster().getTypeFactory();
+    RexBuilder rexBuilder = new SamzaSqlRexBuilder(dataTypeFactory);
+    return new RexToJavaCompiler(rexBuilder);
+  }
+
+  /**
+   * Private constructor to make a clone of {@link TranslatorContext} object
+   *
+   * @param other the original object to copy from
+   */
+  private TranslatorContext(TranslatorContext other) {
+    this.streamGraph  = other.streamGraph;
+    this.compiler = other.compiler;
+    this.relSamzaConverters = other.relSamzaConverters;
+    this.messsageStreams = other.messsageStreams;
+    this.relNodes = other.relNodes;
+    this.executionContext = other.executionContext.clone();
+    this.dataContext = new DataContextImpl();
+  }
+
   /**
    * Create the instance of TranslatorContext
    * @param streamGraph Samza's streamGraph that is populated during the translation.
    * @param relRoot Root of the relational graph from calcite.
    * @param executionContext the execution context
+   * @param converters the map of schema to RelData converters
    */
-  public TranslatorContext(StreamGraph streamGraph, RelRoot relRoot, SamzaSqlExecutionContext executionContext) {
+  TranslatorContext(StreamGraph streamGraph, RelRoot relRoot, SamzaSqlExecutionContext executionContext, Map<String, SamzaRelConverter> converters) {
     this.streamGraph = streamGraph;
     this.compiler = createExpressionCompiler(relRoot);
     this.executionContext = executionContext;
     this.dataContext = new DataContextImpl();
+    this.relSamzaConverters = converters;
+    this.messsageStreams = new HashMap<>();
+    this.relNodes = new HashMap<>();
   }
 
   /**
@@ -112,22 +147,16 @@ public class TranslatorContext {
     return streamGraph;
   }
 
-  private RexToJavaCompiler createExpressionCompiler(RelRoot relRoot) {
-    RelDataTypeFactory dataTypeFactory = relRoot.project().getCluster().getTypeFactory();
-    RexBuilder rexBuilder = new SamzaSqlRexBuilder(dataTypeFactory);
-    return new RexToJavaCompiler(rexBuilder);
-  }
-
   /**
    * Gets execution context.
    *
    * @return the execution context
    */
-  public SamzaSqlExecutionContext getExecutionContext() {
+  SamzaSqlExecutionContext getExecutionContext() {
     return executionContext;
   }
 
-  public DataContext getDataContext() {
+  DataContext getDataContext() {
     return dataContext;
   }
 
@@ -136,7 +165,7 @@ public class TranslatorContext {
    *
    * @return the expression compiler
    */
-  public RexToJavaCompiler getExpressionCompiler() {
+  RexToJavaCompiler getExpressionCompiler() {
     return compiler;
   }
 
@@ -146,7 +175,7 @@ public class TranslatorContext {
    * @param id the id
    * @param stream the stream
    */
-  public void registerMessageStream(int id, MessageStream stream) {
+  void registerMessageStream(int id, MessageStream stream) {
     messsageStreams.put(id, stream);
   }
 
@@ -156,7 +185,29 @@ public class TranslatorContext {
    * @param id the id
    * @return the message stream
    */
-  public MessageStream getMessageStream(int id) {
+  MessageStream getMessageStream(int id) {
     return messsageStreams.get(id);
+  }
+
+  void registerRelNode(int id, RelNode relNode) {
+    relNodes.put(id, relNode);
+  }
+
+  RelNode getRelNode(int id) {
+    return relNodes.get(id);
+  }
+
+  SamzaRelConverter getMsgConverter(String source) {
+    return this.relSamzaConverters.get(source);
+  }
+
+  /**
+   * This method helps to create a per task instance of translator context
+   *
+   * @return the cloned instance of {@link TranslatorContext}
+   */
+  @Override
+  public TranslatorContext clone() {
+    return new TranslatorContext(this);
   }
 }

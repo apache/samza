@@ -46,14 +46,14 @@ public interface TriggerImpl<M, WK> {
    * @param message the incoming message
    * @param context the {@link TriggerScheduler} to schedule and cancel callbacks
    */
-  public void onMessage(M message, TriggerScheduler<WK> context);
+  void onMessage(M message, TriggerScheduler<WK> context);
 
   /**
    * Returns {@code true} if the current state of the trigger indicates that its condition
    * is satisfied and it is ready to fire.
    * @return if this trigger should fire.
    */
-  public boolean shouldFire();
+  boolean shouldFire();
 
   /**
    * Invoked when the execution of this {@link TriggerImpl} is canceled by an up-stream {@link TriggerImpl}.
@@ -61,6 +61,6 @@ public interface TriggerImpl<M, WK> {
    * No calls to {@link #onMessage(Object, TriggerScheduler)} or {@link #shouldFire()} will be invoked
    * after this invocation.
    */
-  public void cancel();
+  void cancel();
 
 }

@@ -19,16 +19,12 @@
 
 package org.apache.samza.table.remote;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.samza.SamzaException;
 import org.apache.samza.operators.BaseTableDescriptor;
 import org.apache.samza.table.TableSpec;
+import org.apache.samza.table.utils.SerdeUtils;
 import org.apache.samza.util.EmbeddedTaggedRateLimiter;
 import org.apache.samza.util.RateLimiter;
 
@@ -89,10 +85,10 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     generateTableSpecConfig(tableSpecConfig);
 
     // Serialize and store reader/writer functions
-    tableSpecConfig.put(RemoteTableProvider.READ_FN, serializeObject("read function", readFn));
+    tableSpecConfig.put(RemoteTableProvider.READ_FN, SerdeUtils.serialize("read function", readFn));
 
     if (writeFn != null) {
-      tableSpecConfig.put(RemoteTableProvider.WRITE_FN, serializeObject("write function", writeFn));
+      tableSpecConfig.put(RemoteTableProvider.WRITE_FN, SerdeUtils.serialize("write function", writeFn));
     }
 
     // Serialize the rate limiter if specified
@@ -101,17 +97,17 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     }
 
     if (rateLimiter != null) {
-      tableSpecConfig.put(RemoteTableProvider.RATE_LIMITER, serializeObject("rate limiter", rateLimiter));
+      tableSpecConfig.put(RemoteTableProvider.RATE_LIMITER, SerdeUtils.serialize("rate limiter", rateLimiter));
     }
 
     // Serialize the readCredit and writeCredit functions
     if (readCreditFn != null) {
-      tableSpecConfig.put(RemoteTableProvider.READ_CREDIT_FN, serializeObject(
+      tableSpecConfig.put(RemoteTableProvider.READ_CREDIT_FN, SerdeUtils.serialize(
           "read credit function", readCreditFn));
     }
 
     if (writeCreditFn != null) {
-      tableSpecConfig.put(RemoteTableProvider.WRITE_CREDIT_FN, serializeObject(
+      tableSpecConfig.put(RemoteTableProvider.WRITE_CREDIT_FN, SerdeUtils.serialize(
           "write credit function", writeCreditFn));
     }
 
@@ -186,22 +182,6 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     Preconditions.checkArgument(creditsPerSec > 0, "Max write rate must be a positive number.");
     tagCreditsMap.put(RL_WRITE_TAG, creditsPerSec);
     return this;
-  }
-
-  /**
-   * Helper method to serialize Java objects as Base64 strings
-   * @param name name of the object (for error reporting)
-   * @param object object to be serialized
-   * @return Base64 representation of the object
-   */
-  private <T> String serializeObject(String name, T object) {
-    try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ObjectOutputStream oos = new ObjectOutputStream(baos)) {
-      oos.writeObject(object);
-      return Base64.getEncoder().encodeToString(baos.toByteArray());
-    } catch (IOException e) {
-      throw new SamzaException("Failed to serialize " + name, e);
-    }
   }
 
   @Override

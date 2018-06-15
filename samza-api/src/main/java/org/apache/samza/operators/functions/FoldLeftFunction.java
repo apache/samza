@@ -19,16 +19,22 @@
 
 package org.apache.samza.operators.functions;
 
+import java.io.Serializable;
+import org.apache.samza.annotation.InterfaceStability;
+
+
 /**
- * Incrementally updates the window value as messages are added to the window.
+ * Incrementally updates the aggregated value as messages are added. Main usage is in {@link org.apache.samza.operators.windows.Window} operator.
  */
-public interface FoldLeftFunction<M, WV> extends InitableFunction, ClosableFunction {
+@InterfaceStability.Unstable
+@FunctionalInterface
+public interface FoldLeftFunction<M, WV> extends InitableFunction, ClosableFunction, Serializable {
 
   /**
-   * Incrementally updates the window value as messages are added to the window.
+   * Incrementally updates the aggregated value as messages are added.
    *
-   * @param message the message being added to the window
-   * @param oldValue the previous value associated with the window
+   * @param message the message being added to the aggregated value
+   * @param oldValue the previous value
    * @return the new value
    */
   WV apply(M message, WV oldValue);

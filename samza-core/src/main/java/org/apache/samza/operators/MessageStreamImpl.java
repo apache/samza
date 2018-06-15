@@ -21,7 +21,6 @@ package org.apache.samza.operators;
 
 import java.time.Duration;
 import java.util.Collection;
-import java.util.function.Function;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.operators.functions.FilterFunction;
@@ -64,16 +63,16 @@ import org.apache.samza.table.TableSpec;
  */
 public class MessageStreamImpl<M> implements MessageStream<M> {
   /**
-   * The {@link StreamGraphImpl} that contains this {@link MessageStreamImpl}
+   * The {@link StreamGraphSpec} that contains this {@link MessageStreamImpl}
    */
-  private final StreamGraphImpl graph;
+  private final StreamGraphSpec graph;
 
   /**
    * The {@link OperatorSpec} associated with this {@link MessageStreamImpl}
    */
   private final OperatorSpec operatorSpec;
 
-  public MessageStreamImpl(StreamGraphImpl graph, OperatorSpec<?, M> operatorSpec) {
+  public MessageStreamImpl(StreamGraphSpec graph, OperatorSpec<?, M> operatorSpec) {
     this.graph = graph;
     this.operatorSpec = operatorSpec;
   }
@@ -81,7 +80,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   @Override
   public <TM> MessageStream<TM> map(MapFunction<? super M, ? extends TM> mapFn) {
     String opId = this.graph.getNextOpId(OpCode.MAP);
-    OperatorSpec<M, TM> op = OperatorSpecs.createMapOperatorSpec(mapFn, opId);
+    StreamOperatorSpec<M, TM> op = OperatorSpecs.createMapOperatorSpec(mapFn, opId);
     this.operatorSpec.registerNextOperatorSpec(op);
     return new MessageStreamImpl<>(this.graph, op);
   }
@@ -89,7 +88,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   @Override
   public MessageStream<M> filter(FilterFunction<? super M> filterFn) {
     String opId = this.graph.getNextOpId(OpCode.FILTER);
-    OperatorSpec<M, M> op = OperatorSpecs.createFilterOperatorSpec(filterFn, opId);
+    StreamOperatorSpec<M, M> op = OperatorSpecs.createFilterOperatorSpec(filterFn, opId);
     this.operatorSpec.registerNextOperatorSpec(op);
     return new MessageStreamImpl<>(this.graph, op);
   }
@@ -97,7 +96,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   @Override
   public <TM> MessageStream<TM> flatMap(FlatMapFunction<? super M, ? extends TM> flatMapFn) {
     String opId = this.graph.getNextOpId(OpCode.FLAT_MAP);
-    OperatorSpec<M, TM> op = OperatorSpecs.createFlatMapOperatorSpec(flatMapFn, opId);
+    StreamOperatorSpec<M, TM> op = OperatorSpecs.createFlatMapOperatorSpec(flatMapFn, opId);
     this.operatorSpec.registerNextOperatorSpec(op);
     return new MessageStreamImpl<>(this.graph, op);
   }
@@ -112,15 +111,15 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   @Override
   public void sendTo(OutputStream<M> outputStream) {
     String opId = this.graph.getNextOpId(OpCode.SEND_TO);
-    OutputOperatorSpec<M> op = OperatorSpecs.createSendToOperatorSpec((OutputStreamImpl<M>) outputStream, opId);
+    OutputOperatorSpec<M> op = OperatorSpecs.createSendToOperatorSpec(
+        (OutputStreamImpl<M>) outputStream, opId);
     this.operatorSpec.registerNextOperatorSpec(op);
   }
 
   @Override
   public <K, WV> MessageStream<WindowPane<K, WV>> window(Window<M, K, WV> window, String userDefinedId) {
     String opId = this.graph.getNextOpId(OpCode.WINDOW, userDefinedId);
-    OperatorSpec<M, WindowPane<K, WV>> op = OperatorSpecs.createWindowOperatorSpec(
-        (WindowInternal<M, K, WV>) window, opId);
+    OperatorSpec<M, WindowPane<K, WV>> op = OperatorSpecs.createWindowOperatorSpec((WindowInternal<M, K, WV>) window, opId);
     this.operatorSpec.registerNextOperatorSpec(op);
     return new MessageStreamImpl<>(this.graph, op);
   }
@@ -131,24 +130,24 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
       Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde,
       Duration ttl, String userDefinedId) {
     if (otherStream.equals(this)) throw new SamzaException("Cannot join a MessageStream with itself.");
-    OperatorSpec<?, OM> otherOpSpec = ((MessageStreamImpl<OM>) otherStream).getOperatorSpec();
     String opId = this.graph.getNextOpId(OpCode.JOIN, userDefinedId);
-    JoinOperatorSpec<K, M, OM, JM> joinOpSpec =
-        OperatorSpecs.createJoinOperatorSpec(this.operatorSpec, otherOpSpec, (JoinFunction<K, M, OM, JM>) joinFn,
-            keySerde, messageSerde, otherMessageSerde, ttl.toMillis(), opId);
+    OperatorSpec<?, OM> otherOpSpec = ((MessageStreamImpl<OM>) otherStream).getOperatorSpec();
+    JoinOperatorSpec<K, M, OM, JM> op =
+        OperatorSpecs.createJoinOperatorSpec(this.operatorSpec, otherOpSpec, (JoinFunction<K, M, OM, JM>) joinFn, keySerde,
+            messageSerde, otherMessageSerde, ttl.toMillis(), opId);
+    this.operatorSpec.registerNextOperatorSpec(op);
+    otherOpSpec.registerNextOperatorSpec((OperatorSpec<OM, ?>) op);
 
-    this.operatorSpec.registerNextOperatorSpec(joinOpSpec);
-    otherOpSpec.registerNextOperatorSpec((OperatorSpec<OM, ?>) joinOpSpec);
-
-    return new MessageStreamImpl<>(this.graph, joinOpSpec);
+    return new MessageStreamImpl<>(this.graph, op);
   }
 
   @Override
   public <K, R extends KV, JM> MessageStream<JM> join(Table<R> table,
       StreamTableJoinFunction<? extends K, ? super M, ? super R, ? extends JM> joinFn) {
+    String opId = this.graph.getNextOpId(OpCode.JOIN);
     TableSpec tableSpec = ((TableImpl) table).getTableSpec();
     StreamTableJoinOperatorSpec<K, M, R, JM> joinOpSpec = OperatorSpecs.createStreamTableJoinOperatorSpec(
-        tableSpec, (StreamTableJoinFunction<K, M, R, JM>) joinFn, this.graph.getNextOpId(OpCode.JOIN));
+        tableSpec, (StreamTableJoinFunction<K, M, R, JM>) joinFn, opId);
     this.operatorSpec.registerNextOperatorSpec(joinOpSpec);
     return new MessageStreamImpl<>(this.graph, joinOpSpec);
   }
@@ -157,46 +156,38 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   public MessageStream<M> merge(Collection<? extends MessageStream<? extends M>> otherStreams) {
     if (otherStreams.isEmpty()) return this;
     String opId = this.graph.getNextOpId(OpCode.MERGE);
-    StreamOperatorSpec<M, M> opSpec = OperatorSpecs.createMergeOperatorSpec(opId);
-    this.operatorSpec.registerNextOperatorSpec(opSpec);
-    otherStreams.forEach(other -> ((MessageStreamImpl<M>) other).getOperatorSpec().registerNextOperatorSpec(opSpec));
-    return new MessageStreamImpl<>(this.graph, opSpec);
+    StreamOperatorSpec<M, M> op = OperatorSpecs.createMergeOperatorSpec(opId);
+    this.operatorSpec.registerNextOperatorSpec(op);
+    otherStreams.forEach(other -> ((MessageStreamImpl<M>) other).getOperatorSpec().registerNextOperatorSpec(op));
+    return new MessageStreamImpl<>(this.graph, op);
   }
 
   @Override
-  public <K, V> MessageStream<KV<K, V>> partitionBy(Function<? super M, ? extends K> keyExtractor,
-      Function<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde, String userDefinedId) {
+  public <K, V> MessageStream<KV<K, V>> partitionBy(MapFunction<? super M, ? extends K> keyExtractor,
+      MapFunction<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde, String userDefinedId) {
     String opId = this.graph.getNextOpId(OpCode.PARTITION_BY, userDefinedId);
     IntermediateMessageStreamImpl<KV<K, V>> intermediateStream = this.graph.getIntermediateStream(opId, serde);
     if (!intermediateStream.isKeyed()) {
       // this can only happen when the default serde partitionBy variant is being used
       throw new SamzaException("partitionBy can not be used with a default serde that is not a KVSerde.");
     }
-    PartitionByOperatorSpec<M, K, V> partitionByOperatorSpec =
-        OperatorSpecs.createPartitionByOperatorSpec(
-            intermediateStream.getOutputStream(), keyExtractor, valueExtractor, opId);
+    PartitionByOperatorSpec<M, K, V> partitionByOperatorSpec = OperatorSpecs.createPartitionByOperatorSpec(
+        intermediateStream.getOutputStream(), keyExtractor, valueExtractor, opId);
     this.operatorSpec.registerNextOperatorSpec(partitionByOperatorSpec);
     return intermediateStream;
   }
 
   @Override
-  public <K, V> MessageStream<KV<K, V>> partitionBy(Function<? super M, ? extends K> keyExtractor,
-      Function<? super M, ? extends V> valueExtractor, String userDefinedId) {
+  public <K, V> MessageStream<KV<K, V>> partitionBy(MapFunction<? super M, ? extends K> keyExtractor,
+      MapFunction<? super M, ? extends V> valueExtractor, String userDefinedId) {
     return partitionBy(keyExtractor, valueExtractor, null, userDefinedId);
-  }
-
-  /**
-   * Get the {@link OperatorSpec} associated with this {@link MessageStreamImpl}.
-   * @return the {@link OperatorSpec} associated with this {@link MessageStreamImpl}.
-   */
-  protected OperatorSpec<?, M> getOperatorSpec() {
-    return this.operatorSpec;
   }
 
   @Override
   public <K, V> void sendTo(Table<KV<K, V>> table) {
-    SendToTableOperatorSpec<K, V> op = OperatorSpecs.createSendToTableOperatorSpec(
-        this.operatorSpec, ((TableImpl) table).getTableSpec(), this.graph.getNextOpId(OpCode.SEND_TO));
+    String opId = this.graph.getNextOpId(OpCode.SEND_TO);
+    SendToTableOperatorSpec<K, V> op =
+        OperatorSpecs.createSendToTableOperatorSpec(((TableImpl) table).getTableSpec(), opId);
     this.operatorSpec.registerNextOperatorSpec(op);
   }
 
@@ -213,6 +204,14 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   @Override
   public MessageStream<M> broadcast(String userDefinedId) {
     return broadcast(null, userDefinedId);
+  }
+
+  /**
+   * Get the {@link OperatorSpec} associated with this {@link MessageStreamImpl}.
+   * @return the {@link OperatorSpec} associated with this {@link MessageStreamImpl}.
+   */
+  protected OperatorSpec<?, M> getOperatorSpec() {
+    return this.operatorSpec;
   }
 
 }
