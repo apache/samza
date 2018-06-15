@@ -80,6 +80,7 @@ import org.apache.samza.operators.TableDescriptor;
  *     ..
  *   }
  * }
+ * }
  * </pre>
  *
  * For the TableDescriptorsFactory to be picked up by the table config rewriter, please add the below properties to the
@@ -90,6 +91,8 @@ import org.apache.samza.operators.TableDescriptor;
  *  <property name="job.config.rewriters" value="tableConfigRewriter"/>
  *  <property name="job.config.rewriter.tableConfigRewriter.class" value="org.apache.samza.config.TableConfigRewriter"/>
  * }
+ * </pre>
+ *
  * </p>
  */
 @InterfaceStability.Unstable
