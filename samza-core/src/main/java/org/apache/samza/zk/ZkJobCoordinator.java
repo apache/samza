@@ -135,9 +135,9 @@ public class ZkJobCoordinator implements JobCoordinator {
     startMetrics();
     systemAdmins.start();
     ZkKeyBuilder keyBuilder = zkUtils.getKeyBuilder();
+    zkUtils.validateZkVersion();
     zkUtils.validatePaths(new String[]{keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder
         .getJobModelPathPrefix()});
-    zkUtils.validateZkVersion();
     leaderElector.tryBecomeLeader();
     zkUtils.subscribeToJobModelVersionChange(new ZkJobModelVersionChangeHandler(zkUtils));
   }
