@@ -94,14 +94,13 @@ def job_model_watch(event, expected_processors):
     start_time_seconds = time.time()
     elapsed_time_seconds = (int)(time.time() - start_time_seconds)
     while elapsed_time_seconds <= 30:
-	    recent_job_model = zk_client.get_latest_job_model()
-	    if recent_job_model['containers'].keys() == expected_processors:
-        	event.set()
-		return
-	    else:
-		time.sleep(2)
-            elapsed_time_seconds = (int)(time.time() - start_time_seconds)
-        	
+        recent_job_model = zk_client.get_latest_job_model()
+        if recent_job_model['containers'].keys() == expected_processors:
+            event.set()
+        return
+        else:
+        time.sleep(2)
+        elapsed_time_seconds = (int)(time.time() - start_time_seconds)
 
 def test_kill_leader():
     """
