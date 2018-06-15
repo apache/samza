@@ -47,7 +47,7 @@ public class ConfigBasedIOResolverFactory implements SqlIOResolverFactory {
   public static final String CFG_FMT_SAMZA_PREFIX = "systems.%s.";
 
   @Override
-  public SqlIOResolver create(Config config) {
+  public SqlIOResolver create(Config config, Config fullConfig) {
     return new ConfigBasedIOResolver(config);
   }
 
