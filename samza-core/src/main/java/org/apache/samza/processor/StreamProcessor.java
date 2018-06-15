@@ -215,6 +215,8 @@ public class StreamProcessor {
       if (state == State.NEW) {
         state = State.STARTED;
         jobCoordinator.start();
+      } else {
+        LOGGER.info("Start is no-op, since the current state is {} and not {}.", state, State.NEW);
       }
     }
   }
@@ -339,9 +341,10 @@ public class StreamProcessor {
 
       @Override
       public void onCoordinatorStop() {
-        LOGGER.info("Shutting down the executor service of the stream processor: {}.", processorId);
-        executorService.shutdownNow();
         synchronized (lock) {
+          LOGGER.info("Shutting down the executor service of the stream processor: {}.", processorId);
+          stopSamzaContainer();
+          executorService.shutdownNow();
           state = State.STOPPED;
         }
         if (containerException != null)
@@ -353,9 +356,10 @@ public class StreamProcessor {
 
       @Override
       public void onCoordinatorFailure(Throwable throwable) {
-        LOGGER.info(String.format("Coordinator: %s failed with an exception. Stopping the stream processor: %s. Original exception:", jobCoordinator, processorId), throwable);
-        stop();
         synchronized (lock) {
+          LOGGER.info(String.format("Coordinator: %s failed with an exception. Stopping the stream processor: %s. Original exception:", jobCoordinator, processorId), throwable);
+          stopSamzaContainer();
+          executorService.shutdownNow();
           state = State.STOPPED;
         }
         processorListener.onFailure(throwable);
@@ -398,9 +402,9 @@ public class StreamProcessor {
     public void onContainerFailed(Throwable t) {
       containerShutdownLatch.countDown();
       synchronized (lock) {
+        LOGGER.error(String.format("Container: %s failed with an exception. Stopping the stream processor: %s. Original exception:", container, processorId), containerException);
         state = State.STOPPING;
         containerException = t;
-        LOGGER.error(String.format("Container: %s failed with an exception. Stopping the stream processor: %s. Original exception:", container, processorId), containerException);
         jobCoordinator.stop();
       }
     }
