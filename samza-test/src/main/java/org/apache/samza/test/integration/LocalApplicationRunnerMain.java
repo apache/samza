@@ -35,7 +35,7 @@ import static org.apache.samza.runtime.ApplicationRunnerMain.STREAM_APPLICATION_
  * {@link ApplicationRunnerMain} was designed for deploying {@link StreamApplication} in yarn
  * and doesn't work for in standalone.
  *
- * This runner class is for standalone failure tests and not recommended for general use.
+ * This runner class is built for standalone failure tests and not recommended for general use.
  */
 public class LocalApplicationRunnerMain {
 
