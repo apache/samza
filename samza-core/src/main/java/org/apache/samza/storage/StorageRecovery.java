@@ -20,7 +20,9 @@
 package org.apache.samza.storage;
 
 import java.io.File;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,12 +42,14 @@ import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.ByteSerde;
 import org.apache.samza.serializers.Serde;
+import org.apache.samza.system.SSPMetadataCache;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.util.Clock;
 import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.ScalaJavaUtil;
 import org.apache.samza.util.StreamUtil;
@@ -197,7 +201,11 @@ public class StorageRecovery extends CommandLine {
    */
   @SuppressWarnings({ "unchecked", "rawtypes" })
   private void getTaskStorageManagers() {
-    StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, SystemClock.instance());
+    Clock clock = SystemClock.instance();
+    StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, clock);
+    // don't worry about prefetching for this; looks like the tool doesn't flush to offset files anyways
+    SSPMetadataCache sspMetadataCache =
+        new SSPMetadataCache(systemAdmins, Duration.ofSeconds(5), clock, Collections.emptySet());
 
     for (ContainerModel containerModel : containers.values()) {
       HashMap<String, StorageEngine> taskStores = new HashMap<String, StorageEngine>();
@@ -236,6 +244,7 @@ public class StorageRecovery extends CommandLine {
             ScalaJavaUtil.toScalaMap(changeLogSystemStreams),
             maxPartitionNumber,
             streamMetadataCache,
+            sspMetadataCache,
             storeBaseDir,
             storeBaseDir,
             taskModel.getChangelogPartition(),

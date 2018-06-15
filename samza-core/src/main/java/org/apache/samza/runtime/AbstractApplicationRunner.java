@@ -18,6 +18,13 @@
  */
 package org.apache.samza.runtime;
 
+import com.google.common.annotations.VisibleForTesting;
+import java.io.File;
+import java.io.PrintWriter;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
@@ -31,16 +38,8 @@ import org.apache.samza.execution.ExecutionPlanner;
 import org.apache.samza.execution.StreamManager;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.StreamGraphSpec;
-import org.apache.samza.system.SystemAdmins;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.File;
-import java.io.PrintWriter;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 
 
 /**
@@ -48,9 +47,6 @@ import java.util.Set;
  */
 public abstract class AbstractApplicationRunner extends ApplicationRunner {
   private static final Logger log = LoggerFactory.getLogger(AbstractApplicationRunner.class);
-
-  private final StreamManager streamManager;
-  private final SystemAdmins systemAdmins;
 
   /**
    * The {@link ApplicationRunner} is supposed to run a single {@link StreamApplication} instance in the full life-cycle
@@ -60,26 +56,14 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
   public AbstractApplicationRunner(Config config) {
     super(config);
     this.graphSpec = new StreamGraphSpec(config);
-    this.systemAdmins = new SystemAdmins(config);
-    this.streamManager = new StreamManager(systemAdmins);
   }
 
-  @Override
-  public void run(StreamApplication streamApp) {
-    systemAdmins.start();
-  }
-
-  @Override
-  public void kill(StreamApplication streamApp) {
-    systemAdmins.stop();
-  }
-
-  public ExecutionPlan getExecutionPlan(StreamApplication app) throws Exception {
-    return getExecutionPlan(app, null);
+  public ExecutionPlan getExecutionPlan(StreamApplication app, StreamManager streamManager) throws Exception {
+    return getExecutionPlan(app, null, streamManager);
   }
 
   /* package private */
-  ExecutionPlan getExecutionPlan(StreamApplication app, String runId) throws Exception {
+  ExecutionPlan getExecutionPlan(StreamApplication app, String runId, StreamManager streamManager) throws Exception {
     // build stream graph
     app.init(graphSpec, config);
     OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
@@ -100,11 +84,6 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
     // create the physical execution plan
     ExecutionPlanner planner = new ExecutionPlanner(new MapConfig(cfg), streamManager);
     return planner.plan(specGraph);
-  }
-
-  /* package private for testing */
-  StreamManager getStreamManager() {
-    return streamManager;
   }
 
   /**
@@ -128,4 +107,10 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
     }
   }
 
+  @VisibleForTesting
+  StreamManager buildAndStartStreamManager() {
+    StreamManager streamManager = new StreamManager(this.config);
+    streamManager.start();
+    return streamManager;
+  }
 }

@@ -28,6 +28,10 @@ import java.util.Set;
 public interface ExtendedSystemAdmin extends SystemAdmin {
   Map<String, SystemStreamMetadata> getSystemStreamPartitionCounts(Set<String> streamNames, long cacheTTL);
 
-  // Makes fewer offset requests than getSystemStreamMetadata
+  /**
+   * Deprecated: Use {@link SystemAdmin#getSSPMetadata}, ideally combined with caching (i.e. SSPMetadataCache).
+   * Makes fewer offset requests than getSystemStreamMetadata
+   */
+  @Deprecated
   String getNewestOffset(SystemStreamPartition ssp, Integer maxRetries);
 }
