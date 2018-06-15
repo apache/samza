@@ -23,10 +23,8 @@ import java.util.Map;
 
 import com.google.common.base.Preconditions;
 import org.apache.samza.container.SamzaContainerContext;
-import org.apache.samza.metrics.Counter;
-import org.apache.samza.metrics.Timer;
 import org.apache.samza.table.ReadableTable;
-import org.apache.samza.table.utils.TableMetricsUtil;
+import org.apache.samza.table.utils.DefaultTableReadMetrics;
 import org.apache.samza.task.TaskContext;
 
 
@@ -41,10 +39,7 @@ public class LocalStoreBackedReadableTable<K, V> implements ReadableTable<K, V> 
   protected final KeyValueStore<K, V> kvStore;
   protected final String tableId;
 
-  protected Timer getNs;
-  protected Timer getAllNs;
-  protected Counter numGets;
-  protected Counter numGetAlls;
+  protected DefaultTableReadMetrics readMetrics;
 
   /**
    * Constructs an instance of {@link LocalStoreBackedReadableTable}
@@ -62,28 +57,24 @@ public class LocalStoreBackedReadableTable<K, V> implements ReadableTable<K, V> 
    */
   @Override
   public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
-    TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(containerContext, taskContext, this, tableId);
-    getNs = tableMetricsUtil.newTimer("get-ns");
-    getAllNs = tableMetricsUtil.newTimer("getAll-ns");
-    numGets = tableMetricsUtil.newCounter("num-gets");
-    numGetAlls = tableMetricsUtil.newCounter("num-getAlls");
+    readMetrics = new DefaultTableReadMetrics(containerContext, taskContext, this, tableId);
   }
 
   @Override
   public V get(K key) {
-    numGets.inc();
+    readMetrics.numGets.inc();
     long startNs = System.nanoTime();
     V result = kvStore.get(key);
-    getNs.update(System.nanoTime() - startNs);
+    readMetrics.getNs.update(System.nanoTime() - startNs);
     return result;
   }
 
   @Override
   public Map<K, V> getAll(List<K> keys) {
-    numGetAlls.inc();
+    readMetrics.numGetAlls.inc();
     long startNs = System.nanoTime();
     Map<K, V> result = kvStore.getAll(keys);
-    getAllNs.update(System.nanoTime() - startNs);
+    readMetrics.getAllNs.update(System.nanoTime() - startNs);
     return result;
   }
 

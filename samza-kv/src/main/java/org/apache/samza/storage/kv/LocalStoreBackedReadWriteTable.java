@@ -21,10 +21,8 @@ package org.apache.samza.storage.kv;
 import java.util.List;
 
 import org.apache.samza.container.SamzaContainerContext;
-import org.apache.samza.metrics.Counter;
-import org.apache.samza.metrics.Timer;
 import org.apache.samza.table.ReadWriteTable;
-import org.apache.samza.table.utils.TableMetricsUtil;
+import org.apache.samza.table.utils.DefaultTableWriteMetrics;
 import org.apache.samza.task.TaskContext;
 
 
@@ -37,16 +35,7 @@ import org.apache.samza.task.TaskContext;
 public class LocalStoreBackedReadWriteTable<K, V> extends LocalStoreBackedReadableTable<K, V>
     implements ReadWriteTable<K, V> {
 
-  protected Timer putNs;
-  protected Timer putAllNs;
-  protected Timer deleteNs;
-  protected Timer deleteAllNs;
-  protected Timer flushNs;
-  protected Counter numPuts;
-  protected Counter numPutAlls;
-  protected Counter numDeletes;
-  protected Counter numDeleteAlls;
-  protected Counter numFlushes;
+  protected DefaultTableWriteMetrics writeMetrics;
 
   /**
    * Constructs an instance of {@link LocalStoreBackedReadWriteTable}
@@ -62,26 +51,16 @@ public class LocalStoreBackedReadWriteTable<K, V> extends LocalStoreBackedReadab
   @Override
   public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
     super.init(containerContext, taskContext);
-    TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(containerContext, taskContext, this, tableId);
-    putNs = tableMetricsUtil.newTimer("put-ns");
-    putAllNs = tableMetricsUtil.newTimer("putAll-ns");
-    deleteNs = tableMetricsUtil.newTimer("delete-ns");
-    deleteAllNs = tableMetricsUtil.newTimer("deleteAll-ns");
-    flushNs = tableMetricsUtil.newTimer("flush-ns");
-    numPuts = tableMetricsUtil.newCounter("num-puts");
-    numPutAlls = tableMetricsUtil.newCounter("num-putAlls");
-    numDeletes = tableMetricsUtil.newCounter("num-deletes");
-    numDeleteAlls = tableMetricsUtil.newCounter("num-deleteAlls");
-    numFlushes = tableMetricsUtil.newCounter("num-flushes");
+    writeMetrics = new DefaultTableWriteMetrics(containerContext, taskContext, this, tableId);
   }
 
   @Override
   public void put(K key, V value) {
     if (value != null) {
-      numPuts.inc();
+      writeMetrics.numPuts.inc();
       long startNs = System.nanoTime();
       kvStore.put(key, value);
-      putNs.update(System.nanoTime() - startNs);
+      writeMetrics.putNs.update(System.nanoTime() - startNs);
     } else {
       delete(key);
     }
@@ -89,34 +68,34 @@ public class LocalStoreBackedReadWriteTable<K, V> extends LocalStoreBackedReadab
 
   @Override
   public void putAll(List<Entry<K, V>> entries) {
-    numPutAlls.inc();
+    writeMetrics.numPutAlls.inc();
     long startNs = System.nanoTime();
     kvStore.putAll(entries);
-    putAllNs.update(System.nanoTime() - startNs);
+    writeMetrics.putAllNs.update(System.nanoTime() - startNs);
   }
 
   @Override
   public void delete(K key) {
-    numDeletes.inc();
+    writeMetrics.numDeletes.inc();
     long startNs = System.nanoTime();
     kvStore.delete(key);
-    deleteNs.update(System.nanoTime() - startNs);
+    writeMetrics.deleteNs.update(System.nanoTime() - startNs);
   }
 
   @Override
   public void deleteAll(List<K> keys) {
-    numDeleteAlls.inc();
+    writeMetrics.numDeleteAlls.inc();
     long startNs = System.nanoTime();
     kvStore.deleteAll(keys);
-    deleteAllNs.update(System.nanoTime() - startNs);
+    writeMetrics.deleteAllNs.update(System.nanoTime() - startNs);
   }
 
   @Override
   public void flush() {
-    numFlushes.inc();
+    writeMetrics.numFlushes.inc();
     long startNs = System.nanoTime();
     kvStore.flush();
-    flushNs.update(System.nanoTime() - startNs);
+    writeMetrics.flushNs.update(System.nanoTime() - startNs);
   }
 
 }

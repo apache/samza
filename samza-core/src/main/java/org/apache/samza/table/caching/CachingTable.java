@@ -26,11 +26,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 
 import org.apache.samza.container.SamzaContainerContext;
-import org.apache.samza.metrics.Counter;
-import org.apache.samza.metrics.Timer;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.ReadableTable;
+import org.apache.samza.table.utils.DefaultTableReadMetrics;
+import org.apache.samza.table.utils.DefaultTableWriteMetrics;
 import org.apache.samza.table.utils.TableMetricsUtil;
 import org.apache.samza.task.TaskContext;
 
@@ -76,20 +76,8 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
   private final Striped<Lock> stripedLocks;
 
   // Metrics
-  private Timer getNs;
-  private Timer getAllNs;
-  private Timer putNs;
-  private Timer putAllNs;
-  private Timer deleteNs;
-  private Timer deleteAllNs;
-  private Timer flushNs;
-  private Counter numGets;
-  private Counter numGetAlls;
-  private Counter numPuts;
-  private Counter numPutAlls;
-  private Counter numDeletes;
-  private Counter numDeleteAlls;
-  private Counter numFlushes;
+  private DefaultTableReadMetrics readMetrics;
+  private DefaultTableWriteMetrics writeMetrics;
 
   // Common caching stats
   private AtomicLong hitCount = new AtomicLong();
@@ -109,21 +97,9 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
    */
   @Override
   public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
+    readMetrics = new DefaultTableReadMetrics(containerContext, taskContext, this, tableId);
+    writeMetrics = new DefaultTableWriteMetrics(containerContext, taskContext, this, tableId);
     TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(containerContext, taskContext, this, tableId);
-    getNs = tableMetricsUtil.newTimer("get-ns");
-    getAllNs = tableMetricsUtil.newTimer("getAll-ns");
-    putNs = tableMetricsUtil.newTimer("put-ns");
-    putAllNs = tableMetricsUtil.newTimer("putAll-ns");
-    deleteNs = tableMetricsUtil.newTimer("delete-ns");
-    deleteAllNs = tableMetricsUtil.newTimer("deleteAll-ns");
-    flushNs = tableMetricsUtil.newTimer("flush-ns");
-    numGets = tableMetricsUtil.newCounter("num-gets");
-    numGetAlls = tableMetricsUtil.newCounter("num-getAlls");
-    numPuts = tableMetricsUtil.newCounter("num-puts");
-    numPutAlls = tableMetricsUtil.newCounter("num-putAlls");
-    numDeletes = tableMetricsUtil.newCounter("num-deletes");
-    numDeleteAlls = tableMetricsUtil.newCounter("num-deleteAlls");
-    numFlushes = tableMetricsUtil.newCounter("num-flushes");
     tableMetricsUtil.newGauge("hit-rate", () -> hitRate());
     tableMetricsUtil.newGauge("miss-rate", () -> missRate());
     tableMetricsUtil.newGauge("req-count", () -> requestCount());
@@ -131,7 +107,7 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
 
   @Override
   public V get(K key) {
-    numGets.inc();
+    readMetrics.numGets.inc();
     long startNs = System.nanoTime();
     V value = cache.get(key);
     if (value == null) {
@@ -155,23 +131,23 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
     } else {
       hitCount.incrementAndGet();
     }
-    getNs.update(System.nanoTime() - startNs);
+    readMetrics.getNs.update(System.nanoTime() - startNs);
     return value;
   }
 
   @Override
   public Map<K, V> getAll(List<K> keys) {
-    numGetAlls.inc();
+    readMetrics.numGetAlls.inc();
     long startNs = System.nanoTime();
     Map<K, V> getAllResult = new HashMap<>();
     keys.stream().forEach(k -> getAllResult.put(k, get(k)));
-    getAllNs.update(System.nanoTime() - startNs);
+    readMetrics.getAllNs.update(System.nanoTime() - startNs);
     return getAllResult;
   }
 
   @Override
   public void put(K key, V value) {
-    numPuts.inc();
+    writeMetrics.numPuts.inc();
     long startNs = System.nanoTime();
     Preconditions.checkNotNull(rwTable, "Cannot write to a read-only table: " + rdTable);
     Lock lock = stripedLocks.get(key);
@@ -184,21 +160,21 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
     } finally {
       lock.unlock();
     }
-    putNs.update(System.nanoTime() - startNs);
+    writeMetrics.putNs.update(System.nanoTime() - startNs);
   }
 
   @Override
   public void putAll(List<Entry<K, V>> entries) {
-    numPutAlls.inc();
+    writeMetrics.numPutAlls.inc();
     long startNs = System.nanoTime();
     Preconditions.checkNotNull(rwTable, "Cannot write to a read-only table: " + rdTable);
     entries.forEach(e -> put(e.getKey(), e.getValue()));
-    putAllNs.update(System.nanoTime() - startNs);
+    writeMetrics.putAllNs.update(System.nanoTime() - startNs);
   }
 
   @Override
   public void delete(K key) {
-    numDeletes.inc();
+    writeMetrics.numDeletes.inc();
     long startNs = System.nanoTime();
     Preconditions.checkNotNull(rwTable, "Cannot delete from a read-only table: " + rdTable);
     Lock lock = stripedLocks.get(key);
@@ -209,25 +185,25 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
     } finally {
       lock.unlock();
     }
-    deleteNs.update(System.nanoTime() - startNs);
+    writeMetrics.deleteNs.update(System.nanoTime() - startNs);
   }
 
   @Override
   public void deleteAll(List<K> keys) {
-    numDeleteAlls.inc();
+    writeMetrics.numDeleteAlls.inc();
     long startNs = System.nanoTime();
     Preconditions.checkNotNull(rwTable, "Cannot delete from a read-only table: " + rdTable);
     keys.stream().forEach(k -> delete(k));
-    deleteAllNs.update(System.nanoTime() - startNs);
+    writeMetrics.deleteAllNs.update(System.nanoTime() - startNs);
   }
 
   @Override
   public synchronized void flush() {
-    numFlushes.inc();
+    writeMetrics.numFlushes.inc();
     long startNs = System.nanoTime();
     Preconditions.checkNotNull(rwTable, "Cannot flush a read-only table: " + rdTable);
     rwTable.flush();
-    flushNs.update(System.nanoTime() - startNs);
+    writeMetrics.flushNs.update(System.nanoTime() - startNs);
   }
 
   @Override
