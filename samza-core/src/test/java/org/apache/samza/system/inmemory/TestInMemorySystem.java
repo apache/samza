@@ -20,7 +20,6 @@
 package org.apache.samza.system.inmemory;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,7 +28,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.EndOfStreamMessage;
@@ -48,7 +46,6 @@ import static org.mockito.Mockito.*;
 
 
 public class TestInMemorySystem {
-  private static final String JOB_ID = "1";
   private static final String SYSTEM_NAME = "in-memory";
   private static final String STREAM_NAME = "test-stream";
   private static final String SOURCE = "test-in-memory-source";
@@ -64,15 +61,14 @@ public class TestInMemorySystem {
   private static final SystemStream SYSTEM_STREAM = new SystemStream(SYSTEM_NAME, STREAM_NAME);
 
   private MetricsRegistry mockRegistry = mock(MetricsRegistry.class);
-  private Config config;
+  private Config config = new MapConfig();
 
   private InMemorySystemFactory systemFactory;
   private SystemAdmin systemAdmin;
 
   public TestInMemorySystem() {
-    HashMap<String, String> configs = new HashMap<>();
-    configs.put(JobConfig.JOB_ID(), JOB_ID);
-    config = new MapConfig(configs);
+    Config config = new MapConfig();
+
     systemFactory = new InMemorySystemFactory();
     systemAdmin = systemFactory.getAdmin(SYSTEM_NAME, config);
     systemAdmin.createStream(new StreamSpec(STREAM_NAME, STREAM_NAME, SYSTEM_NAME, PARTITION_COUNT));

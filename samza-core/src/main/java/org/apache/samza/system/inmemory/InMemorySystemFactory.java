@@ -35,28 +35,27 @@ import org.apache.samza.system.SystemProducer;
  * Initial draft of in-memory {@link SystemFactory}. It is test only and not meant for production use right now.
  */
 public class InMemorySystemFactory implements SystemFactory {
+  private static final String TEST_ID = "test.id";
   private static Map<Integer, InMemoryManager> jobToManager = new HashMap<>();
+  private static final InMemoryManager defaultManager = new InMemoryManager();
 
   @Override
   public SystemConsumer getConsumer(String systemName, Config config, MetricsRegistry registry) {
-    jobToManager.putIfAbsent(parseJobId(config), new InMemoryManager());
-    return new InMemorySystemConsumer(jobToManager.get(parseJobId(config)));
+    return new InMemorySystemConsumer(getInMemoryManager(config));
   }
 
   @Override
   public SystemProducer getProducer(String systemName, Config config, MetricsRegistry registry) {
-    jobToManager.putIfAbsent(parseJobId(config), new InMemoryManager());
-    return new InMemorySystemProducer(systemName, jobToManager.get(parseJobId(config)));
+    return new InMemorySystemProducer(systemName, getInMemoryManager(config));
   }
 
   @Override
   public SystemAdmin getAdmin(String systemName, Config config) {
-    jobToManager.putIfAbsent(parseJobId(config), new InMemoryManager());
-    return new InMemorySystemAdmin(jobToManager.get(parseJobId(config)));
+    return new InMemorySystemAdmin(getInMemoryManager(config));
   }
 
-  private Integer parseJobId(Config config) {
-    Preconditions.checkNotNull(config.get(JobConfig.JOB_ID()));
-    return Integer.parseInt(config.get(JobConfig.JOB_ID()));
+  private InMemoryManager getInMemoryManager(Config config) {
+    return config.get(TEST_ID) == null ? defaultManager :
+        jobToManager.putIfAbsent(Integer.parseInt(config.get(TEST_ID)), new InMemoryManager());
   }
 }
