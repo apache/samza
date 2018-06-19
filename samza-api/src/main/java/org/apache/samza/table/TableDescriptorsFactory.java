@@ -25,10 +25,12 @@ import org.apache.samza.operators.TableDescriptor;
 
 
 /**
- * Factory to create a list of {@link TableDescriptor} objects to describe one or more Samza tables. Developers writing
- * Samza jobs using Samza table(s) should describe the table(s) by implementing TableDescriptorFactory in their task.
- * Please note that the class that implements this factory should also implement one of
- * {@link org.apache.samza.task.StreamTask} or {@link org.apache.samza.task.AsyncStreamTask}.
+ * Factory to create a list of {@link TableDescriptor} objects to describe one or more Samza tables. This is the
+ * mechanism for providing table support for Samza low level API.
+ *
+ * Developers writing Samza jobs using Samza table(s) should describe the table(s) by implementing
+ * TableDescriptorFactory in their task. Please note that the class that implements this factory should also implement
+ * one of {@link org.apache.samza.task.StreamTask} or {@link org.apache.samza.task.AsyncStreamTask}.
  *
  * NOTE: {@link TableDescriptorsFactory} is instantiated in the config rewriter to get the table descriptors. Hence,
  * please DO NOT access any task instance member variables in the getTableDescriptors API.
