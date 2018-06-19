@@ -40,11 +40,12 @@ import java.util.Map;
 public class CollectionStream<T> {
   private Integer testId;
   private final String streamName;
+  private final String physicalName;
   private final String systemName;
   private Map<Integer, Iterable<T>> initPartitions;
   private Map<String, String> streamConfig;
   private static final String STREAM_TO_SYSTEM = "streams.%s.samza.system";
-
+  private static final String PHYSICAL_NAME = "streams.%s.samza.physical.name";
 
   /**
    * Constructs a new CollectionStream from specified components.
@@ -57,7 +58,10 @@ public class CollectionStream<T> {
     this.systemName = systemName;
     this.streamName = streamName;
     this.streamConfig = new HashMap<>();
+    // TODO: Once SAMZA-1737 is resolved, generate a randomized physical name
+    this.physicalName = streamName;
     streamConfig.put(String.format(STREAM_TO_SYSTEM, this.streamName), systemName);
+    streamConfig.put(String.format(PHYSICAL_NAME, this.streamName), physicalName);
   }
 
 
@@ -132,6 +136,10 @@ public class CollectionStream<T> {
     this.testId = testId;
   }
 
+  public String getPhysicalName() {
+    return physicalName;
+  }
+
   /**
    * Creates an in memory stream with the name {@code streamName} and initializes the stream to only one partition
    *
@@ -146,7 +154,7 @@ public class CollectionStream<T> {
 
   /**
    * Creates an in memory stream with the name {@code streamName} and initializes the stream to have as many partitions
-   * as specifed by {@code partitionCount}. These partitions are empty and are supposed to be used by Samza job to produce
+   * as specified by {@code partitionCount}. These partitions are empty and are supposed to be used by Samza job to produce
    * messages to.
    *
    * @param systemName represents name of the system stream is associated with
