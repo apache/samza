@@ -200,6 +200,7 @@ public class TestRunner {
     Preconditions.checkNotNull(stream);
     registerSystem(stream.getSystemName());
     initializeInput(stream);
+    stream.setTestId(testId);
     if (configs.containsKey(TaskConfig.INPUT_STREAMS())) {
       configs.put(TaskConfig.INPUT_STREAMS(),
           configs.get(TaskConfig.INPUT_STREAMS()).concat("," + stream.getSystemName() + "." + stream.getPhysicalName()));
