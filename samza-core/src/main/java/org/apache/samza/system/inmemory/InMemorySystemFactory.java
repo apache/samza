@@ -30,6 +30,17 @@ import org.apache.samza.system.SystemProducer;
 
 /**
  * Initial draft of in-memory {@link SystemFactory}. It is test only and not meant for production use right now.
+ *
+ * <p>Runtime configuration of InMemorySystem depends on a config "test.id"</p>
+ * <p>
+ * If {@code test.id} param is configured in the configs, it creates an isolated InMemorySystem for that test to run
+ * , all the in memory streams (input/output/intermediate) are created using this isolated InMemorySystem.
+ * </p>
+ * <p>
+ * If {@code test.id} param is not configured for an application, it shares a default InMemorySystem for all the streams
+ * This system is shared between all the applications missing {@code test.id} in their configs running in the same JVM
+ * using InMemorySystem
+ * </p>
  */
 public class InMemorySystemFactory implements SystemFactory {
   private static final String TEST_ID = "test.id";
