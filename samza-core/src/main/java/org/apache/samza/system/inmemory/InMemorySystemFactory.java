@@ -19,11 +19,8 @@
 
 package org.apache.samza.system.inmemory;
 
-import com.google.common.base.Preconditions;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemConsumer;
@@ -36,26 +33,29 @@ import org.apache.samza.system.SystemProducer;
  */
 public class InMemorySystemFactory implements SystemFactory {
   private static final String TEST_ID = "test.id";
-  private static Map<Integer, InMemoryManager> jobToManager = new HashMap<>();
-  private static final InMemoryManager defaultManager = new InMemoryManager();
+  private static final ConcurrentHashMap<Integer, InMemoryManager> IN_MEMORY_MANAGERS = new ConcurrentHashMap<>();
+  private static final InMemoryManager DEFAULT_MANAGER = new InMemoryManager();
 
   @Override
   public SystemConsumer getConsumer(String systemName, Config config, MetricsRegistry registry) {
-    return new InMemorySystemConsumer(getInMemoryManager(config));
+    return new InMemorySystemConsumer(getOrDefaultInMemoryManagerByTestId(config));
   }
 
   @Override
   public SystemProducer getProducer(String systemName, Config config, MetricsRegistry registry) {
-    return new InMemorySystemProducer(systemName, getInMemoryManager(config));
+    return new InMemorySystemProducer(systemName, getOrDefaultInMemoryManagerByTestId(config));
   }
 
   @Override
   public SystemAdmin getAdmin(String systemName, Config config) {
-    return new InMemorySystemAdmin(getInMemoryManager(config));
+    return new InMemorySystemAdmin(getOrDefaultInMemoryManagerByTestId(config));
   }
 
-  private InMemoryManager getInMemoryManager(Config config) {
-    return config.get(TEST_ID) == null ? defaultManager :
-        jobToManager.putIfAbsent(Integer.parseInt(config.get(TEST_ID)), new InMemoryManager());
+  private InMemoryManager getOrDefaultInMemoryManagerByTestId(Config config) {
+    if (!config.containsKey(TEST_ID) || config.get(TEST_ID) == null) {
+      return DEFAULT_MANAGER;
+    }
+    IN_MEMORY_MANAGERS.putIfAbsent(Integer.parseInt(config.get(TEST_ID)), new InMemoryManager());
+    return IN_MEMORY_MANAGERS.get(Integer.parseInt(config.get(TEST_ID)));
   }
 }
