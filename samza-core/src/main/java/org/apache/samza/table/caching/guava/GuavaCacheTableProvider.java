@@ -66,6 +66,7 @@ public class GuavaCacheTableProvider implements TableProvider {
   public Table getTable() {
     Cache guavaCache = SerdeUtils.deserialize(GUAVA_CACHE, guavaCacheTableSpec.getConfig().get(GUAVA_CACHE));
     GuavaCacheTable table = new GuavaCacheTable(guavaCacheTableSpec.getId(), guavaCache);
+    table.init(containerContext, taskContext);
     guavaTables.add(table);
     return table;
   }

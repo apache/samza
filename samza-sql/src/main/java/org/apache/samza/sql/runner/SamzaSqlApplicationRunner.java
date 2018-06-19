@@ -120,7 +120,6 @@ public class SamzaSqlApplicationRunner extends AbstractApplicationRunner {
 
   @Override
   public void run(StreamApplication streamApp) {
-    super.run(streamApp);
     Validate.isInstanceOf(SamzaSqlApplication.class, streamApp);
     appRunner.run(streamApp);
   }
@@ -128,7 +127,6 @@ public class SamzaSqlApplicationRunner extends AbstractApplicationRunner {
   @Override
   public void kill(StreamApplication streamApp) {
     appRunner.kill(streamApp);
-    super.kill(streamApp);
   }
 
   @Override
