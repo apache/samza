@@ -20,6 +20,7 @@
 package org.apache.samza.operators.triggers;
 
 
+import java.io.Serializable;
 import org.apache.samza.annotation.InterfaceStability;
 
 /**
@@ -30,6 +31,6 @@ import org.apache.samza.annotation.InterfaceStability;
  * @param <M> the type of the incoming message
  */
 @InterfaceStability.Unstable
-public interface Trigger<M> {
+public interface Trigger<M> extends Serializable {
 
 }

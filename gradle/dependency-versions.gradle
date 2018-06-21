@@ -18,7 +18,7 @@
  */
  ext {
   apacheCommonsCollections4Version = "4.0"
-  avroVersion = "1.7.0"
+  avroVersion = "1.7.1"
   calciteVersion = "1.14.0"
   commonsCliVersion = "1.2"
   commonsCodecVersion = "1.9"

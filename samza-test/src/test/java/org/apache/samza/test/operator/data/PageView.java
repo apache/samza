@@ -19,9 +19,10 @@
 package org.apache.samza.test.operator.data;
 
 
+import java.io.Serializable;
 import org.codehaus.jackson.annotate.JsonProperty;
 
-public class PageView {
+public class PageView implements Serializable {
   private String viewId;
   private String pageId;
   private String userId;

@@ -48,7 +48,7 @@ class SamzaContainerMetrics(
   val physicalMemoryMb = newGauge[Double]("physical-memory-mb", 0.0F)
 
   val taskStoreRestorationMetrics: util.Map[TaskName, Gauge[Long]] = new util.HashMap[TaskName, Gauge[Long]]()
-
+  
   val exceptions = newListGauge[DiagnosticsExceptionEvent]("exceptions")
 
   def addStoreRestorationGauge(taskName: TaskName, storeName: String) {

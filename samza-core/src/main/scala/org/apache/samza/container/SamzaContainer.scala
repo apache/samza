@@ -23,10 +23,12 @@ import java.io.File
 import java.lang.management.ManagementFactory
 import java.net.{URL, UnknownHostException}
 import java.nio.file.Path
+import java.time.Duration
 import java.util
 import java.util.Base64
 import java.util.concurrent.{ExecutorService, Executors, ScheduledExecutorService, TimeUnit}
 
+import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
@@ -42,7 +44,7 @@ import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
 import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor, NoThrottlingDiskQuotaPolicyFactory, PollingScanDiskSpaceMonitor}
 import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStatistics, SystemStatisticsMonitor}
 import org.apache.samza.coordinator.stream.{CoordinatorStreamManager, CoordinatorStreamSystemProducer}
-import org.apache.samza.job.model.JobModel
+import org.apache.samza.job.model.{ContainerModel, JobModel}
 import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.serializers._
 import org.apache.samza.serializers.model.SamzaObjectMapper
@@ -329,6 +331,23 @@ object SamzaContainer extends Logging {
 
     info("Got change log system streams: %s" format changeLogSystemStreams)
 
+    /*
+     * This keeps track of the changelog SSPs that are associated with the whole container. This is used so that we can
+     * prefetch the metadata about the all of the changelog SSPs associated with the container whenever we need the
+     * metadata about some of the changelog SSPs.
+     * An example use case is when Samza writes offset files for stores ({@link TaskStorageManager}). Each task is
+     * responsible for its own offset file, but if we can do prefetching, then most tasks will already have cached
+     * metadata by the time they need the offset metadata.
+     * Note: By using all changelog streams to build the sspsToPrefetch, any fetches done for persisted stores will
+     * include the ssps for non-persisted stores, so this is slightly suboptimal. However, this does not increase the
+     * actual number of calls to the {@link SystemAdmin}, and we can decouple this logic from the per-task objects (e.g.
+     * {@link TaskStorageManager}).
+     */
+    val changelogSSPMetadataCache = new SSPMetadataCache(systemAdmins,
+      Duration.ofSeconds(5),
+      SystemClock.instance,
+      getChangelogSSPsForContainer(containerModel, changeLogSystemStreams).asJava)
+
     val intermediateStreams = config
       .getStreamIds
       .filter(config.getIsIntermediateStream(_))
@@ -566,6 +585,7 @@ object SamzaContainer extends Logging {
         changeLogSystemStreams = changeLogSystemStreams,
         maxChangeLogStreamPartitions,
         streamMetadataCache = streamMetadataCache,
+        sspMetadataCache = changelogSSPMetadataCache,
         nonLoggedStoreBaseDir = nonLoggedStorageBaseDir,
         loggedStoreBaseDir = loggedStorageBaseDir,
         partition = taskModel.getChangelogPartition,
@@ -674,6 +694,20 @@ object SamzaContainer extends Logging {
       hostStatisticsMonitor = memoryStatisticsMonitor,
       taskThreadPool = taskThreadPool,
       timerExecutor = timerExecutor)
+  }
+
+
+  /**
+    * Builds the set of SSPs for all changelogs on this container.
+    */
+  @VisibleForTesting
+  private[container] def getChangelogSSPsForContainer(containerModel: ContainerModel,
+    changeLogSystemStreams: Map[String, SystemStream]): Set[SystemStreamPartition] = {
+    containerModel.getTasks.values().asScala
+      .map(taskModel => taskModel.getChangelogPartition)
+      .flatMap(changelogPartition => changeLogSystemStreams.map { case (_, systemStream) =>
+        new SystemStreamPartition(systemStream, changelogPartition) })
+      .toSet
   }
 }
 
