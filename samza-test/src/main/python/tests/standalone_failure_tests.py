@@ -27,7 +27,7 @@ import threading
 logger = logging.getLogger(__name__)
 NUM_MESSAGES = 50
 GROUP_COORDINATION_TIMEOUT = 14
-TEST_OUTPUT_TOPIC = 'standaloneIntegrationTestKafkaOutputTopic'
+TEST_OUTPUT_TOPIC = 'standalone_integration_test_kafka_output_topic'
 zk_client = None
 
 ### TODO: In each test add barrier state and processorId validations after fixing data serialization format in zookeeper(SAMZA-1749).
@@ -39,10 +39,10 @@ def __purge_zk_data():
 
 def __pump_messages_into_input_topic():
     """
-    Produce 50 messages into input topic: standaloneIntegrationTestKafkaInputTopic.
+    Produce 50 messages into input topic: standalone_integration_test_kafka_input_topic.
     """
     kafka_client = None
-    input_topic = 'standaloneIntegrationTestKafkaInputTopic'
+    input_topic = 'standalone_integration_test_kafka_input_topic'
     try:
         kafka_client = util.get_kafka_client()
         kafka_client.ensure_topic_exists(input_topic)
@@ -90,17 +90,41 @@ def __teardown_zk_client():
     global zk_client
     zk_client.stop()
 
-def job_model_watch(event, expected_processors):
+def job_model_watcher(event, expected_processors):
     start_time_seconds = time.time()
     elapsed_time_seconds = (int)(time.time() - start_time_seconds)
     while elapsed_time_seconds <= 30:
         recent_job_model = zk_client.get_latest_job_model()
-        if recent_job_model['containers'].keys() == expected_processors:
+        if set(recent_job_model['containers'].keys()) == set(expected_processors):
             event.set()
-        return
+            return
         else:
-        time.sleep(2)
+            time.sleep(2)
         elapsed_time_seconds = (int)(time.time() - start_time_seconds)
+
+def __validate_job_model(job_model, killed_processors=[]):
+    ## Validate the TaskModel. Check if all the partitions are assigned to the containers.
+    expected_ssps = [{u'partition': 0, u'system': u'testSystemName', u'stream': u'standalone_integration_test_kafka_input_topic'},
+                        {u'partition': 1, u'system': u'testSystemName', u'stream': u'standalone_integration_test_kafka_input_topic'},
+                        {u'partition': 2, u'system': u'testSystemName', u'stream': u'standalone_integration_test_kafka_input_topic'}]
+    actual_ssps = []
+    for container_id, tasks in job_model['containers'].iteritems():
+        for partition, ssps in tasks['tasks'].iteritems():
+            actual_ssps.append(ssps['system-stream-partitions'][0])
+    actual_ssps.sort()
+    assert expected_ssps == actual_ssps, 'Expected ssp: {0}, Actual ssp: {1}.'.format(expected_ssps, actual_ssps)
+
+    ## Validate the ContainerModel. Live processors should be present in the JobModel and killed processors should not be in JobModel.
+    active_processors = zk_client.get_active_processors()
+    assert set(active_processors) == set(job_model['containers'].keys()), 'ProcessorIds: {0} does not exist in JobModel: {1}.'.format(active_processors, job_model['containers'].keys())
+    for processor_id in killed_processors:
+        assert processor_id not in job_model['containers'], 'Processor: {0} exists in JobModel: {1}.'.format(processor_id, job_model)
+
+def __get_job_model(expected_processors):
+    event = threading.Event()
+    zk_client.watch_job_model(job_model_watcher(event=event, expected_processors=expected_processors))
+    event.wait(2 * GROUP_COORDINATION_TIMEOUT)
+    return zk_client.get_latest_job_model()
 
 def test_kill_leader():
     """
@@ -113,18 +137,17 @@ def test_kill_leader():
         __pump_messages_into_input_topic()
         processors = __setup_processors()
 
+        ## Validations before killing the leader.
+        job_model = __get_job_model(expected_processors=processors.keys())
+        __validate_job_model(job_model, [])
+
         leader_processor_id = zk_client.get_leader_processor_id()
         processors.pop(leader_processor_id).kill()
 
-        event = threading.Event()
-        zk_client.watch_job_model(job_model_watch(event = event, expected_processors=processors.keys()))
-
-        event.wait(2 * GROUP_COORDINATION_TIMEOUT)
-
-        job_model = zk_client.get_latest_job_model()
-        for processor_id, deployer in processors.iteritems():
-            assert processor_id in job_model['containers'], 'Processor id: {0} does not exist in JobModel: {1}.'.format(processor_id, job_model)
-        assert leader_processor_id not in job_model['containers'], 'Leader processor: {0} exists in JobModel: {1}.'.format(leader_processor_id, job_model)
+        ## Validations after killing the leader.
+        job_model = __get_job_model(expected_processors=processors.keys())
+        assert leader_processor_id != zk_client.get_leader_processor_id(), '{0} is still the leader'.format(leader_processor_id)
+        __validate_job_model(job_model, [leader_processor_id])
     except:
         ## Explicitly logging exception, since zopkio doesn't log complete stacktrace.
         logger.error(traceback.format_exc(sys.exc_info()))
@@ -145,20 +168,23 @@ def test_kill_one_follower():
         __pump_messages_into_input_topic()
         processors = __setup_processors()
 
-        leader_processor_id = zk_client.get_leader_processor_id()
+        leader_processor_id, killed_processors = zk_client.get_leader_processor_id(), []
+
+        ## Validations before killing the follower.
+        job_model = __get_job_model(expected_processors=processors.keys())
+        __validate_job_model(job_model)
+
         for processor_id, deployer in processors.iteritems():
             if processor_id != leader_processor_id:
-                processors.pop(processor_id).kill()
+                follower = processors.pop(processor_id)
+                follower.kill()
+                killed_processors.append(follower)
                 break
 
-        event = threading.Event()
-        zk_client.watch_job_model(job_model_watch(event = event, expected_processors=processors.keys()))
-
-        event.wait(GROUP_COORDINATION_TIMEOUT * 2)
-
-        job_model = zk_client.get_latest_job_model()
-        for processor_id, deployer in processors.iteritems():
-            assert processor_id in job_model['containers'], 'Processor id: {0} does not exist in JobModel: {1}.'.format(processor_id, job_model)
+        ## Validations after killing the follower.
+        job_model = __get_job_model(expected_processors=processors.keys())
+        assert leader_processor_id == zk_client.get_leader_processor_id(), '{0} is not the leader'.format(leader_processor_id)
+        __validate_job_model(job_model, killed_processors)
     except:
         ## Explicitly logging exception, since zopkio doesn't log complete stacktrace.
         logger.error(traceback.format_exc(sys.exc_info()))
@@ -179,21 +205,21 @@ def test_kill_multiple_followers():
         __pump_messages_into_input_topic()
         processors = __setup_processors()
 
-        leader_processor_id = zk_client.get_leader_processor_id()
+        ## Validations before killing the followers.
+        job_model = __get_job_model(expected_processors=processors.keys())
+        __validate_job_model(job_model)
+
+        leader_processor_id, killed_processors = zk_client.get_leader_processor_id(), []
+
         for processor_id in processors.keys():
             if processor_id != leader_processor_id:
                 follower = processors.pop(processor_id)
+                killed_processors.append(follower)
                 follower.kill()
 
-        event = threading.Event()
-        zk_client.watch_job_model(job_model_watch(event = event, expected_processors=[leader_processor_id]))
-
-        event.wait(GROUP_COORDINATION_TIMEOUT * 2)
-
-        ## Verifications after killing the processors.
-        job_model = zk_client.get_latest_job_model()
-
-        assert leader_processor_id in job_model['containers'], 'Leader processor: {0} does not exist in JobModel: {1}.'.format(leader_processor_id, job_model)
+        ## Validations after killing the followers.
+        job_model = __get_job_model(expected_processors=processors.keys())
+        __validate_job_model(job_model, killed_processors)
     except:
         ## Explicitly logging exception, since zopkio doesn't log complete stacktrace.
         logger.error(traceback.format_exc(sys.exc_info()))
@@ -215,22 +241,23 @@ def test_kill_leader_and_a_follower():
         processors = __setup_processors()
 
         leader_processor_id = zk_client.get_leader_processor_id()
+
+        ## Validations before killing the leader and follower.
+        job_model = __get_job_model(expected_processors=processors.keys())
+        __validate_job_model(job_model)
+
+        killed_processors = [leader_processor_id]
         processors.pop(leader_processor_id).kill()
 
         for processor_id in processors.keys():
-            processors.pop(processor_id).kill()
+            follower = processors.pop(processor_id)
+            killed_processors.append(processor_id)
+            follower.kill()
             break
 
-        event = threading.Event()
-        zk_client.watch_job_model(job_model_watch(event = event, expected_processors=processors.keys()))
-
-        event.wait(GROUP_COORDINATION_TIMEOUT * 2)
-
-        ## Verifications after killing the processors.
-        job_model = zk_client.get_latest_job_model()
-        for processor_id in processors.keys():
-            assert processor_id in job_model['containers'], 'Processor id: {0} does not exist in JobModel: {1}.'.format(processor_id, job_model)
-        assert leader_processor_id not in job_model['containers'], 'Leader processor id: {0} exists in JobModel: {1}.'.format(leader_processor_id, job_model)
+        ## Validations after killing the leader and follower.
+        job_model = __get_job_model(expected_processors=processors.keys())
+        __validate_job_model(job_model, killed_processors)
     except:
         ## Explicitly logging exception, since zopkio doesn't log complete stacktrace.
         logger.error(traceback.format_exc(sys.exc_info()))
@@ -252,15 +279,9 @@ def test_pause_resume_leader():
         __pump_messages_into_input_topic()
         processors = __setup_processors()
 
-        event = threading.Event()
-        zk_client.watch_job_model(job_model_watch(event = event, expected_processors=processors.keys()))
-
-        event.wait(GROUP_COORDINATION_TIMEOUT * 2)
-
-        ## First JobModel generation.
-        job_model = zk_client.get_latest_job_model()
-        for processor_id, deployer in processors.iteritems():
-            assert processor_id in job_model['containers'], 'Processor id: {0} does not exist in JobModel: {1}.'.format(processor_id, job_model)
+        ## Validations before pausing the leader.
+        job_model = __get_job_model(expected_processors=processors.keys())
+        __validate_job_model(job_model)
 
         leader_processor_id = zk_client.get_leader_processor_id()
         leader = processors.pop(leader_processor_id)
@@ -268,32 +289,16 @@ def test_pause_resume_leader():
         logger.info("Pausing the leader processor: {0}.".format(leader_processor_id))
         leader.pause()
 
-        event = threading.Event()
-        zk_client.watch_job_model(job_model_watch(event = event, expected_processors=processors.keys()))
-
-        event.wait(GROUP_COORDINATION_TIMEOUT * 2)
-
-        ## Verifications after leader was suspended.
-        job_model = zk_client.get_latest_job_model()
-        for processor_id, deployer in processors.iteritems():
-            assert processor_id in job_model['containers'], 'Processor id: {0} does not exist in containerModel: {1}.'.format(processor_id, job_model['containers'])
+        ## Validations after pausing the leader.
+        job_model = __get_job_model(expected_processors=processors.keys())
+        __validate_job_model(job_model, [leader_processor_id])
 
         logger.info("Resuming the leader processor: {0}.".format(leader_processor_id))
         leader.resume()
 
-        event = threading.Event()
-        expected_processors = processors.keys()
-        expected_processors.append(leader_processor_id)
-        zk_client.watch_job_model(job_model_watch(event = event, expected_processors=expected_processors))
-
-        event.wait(GROUP_COORDINATION_TIMEOUT * 2)
-
-        job_model = zk_client.get_latest_job_model()
-
-        ## Verifications after leader was resumed.
-        assert leader_processor_id in job_model['containers'], 'Processor id: {0} does not exist in containerModel: {1}.'.format(leader_processor_id, job_model['containers'])
-        for processor_id, deployer in processors.iteritems():
-            assert processor_id in job_model['containers'], 'Processor id: {0} does not exist in containerModel: {1}.'.format(processor_id, job_model['containers'])
+        ## Validations after resuming the leader.
+        job_model = __get_job_model(expected_processors=processors.keys())
+        __validate_job_model(job_model)
 
         leader.kill()
     except:

@@ -22,11 +22,27 @@ import time
 import urllib
 import os
 
-TEST_INPUT_TOPIC = 'standaloneIntegrationTestKafkaInputTopic'
-TEST_OUTPUT_TOPIC = 'standaloneIntegrationTestKafkaOutputTopic'
+TEST_INPUT_TOPIC = 'standalone_integration_test_kafka_input_topic'
+TEST_OUTPUT_TOPIC = 'standalone_integration_test_kafka_output_topic'
 
 logger = logging.getLogger(__name__)
 deployers = {}
+
+def setup_suite():
+    """
+    Setup method that will be run once by zopkio test_runner before all the integration tests.
+    """
+    ## Download and deploy zk and kafka. Configuration for kafka, zookeeper are defined in kafka.json and zookeeper.json.
+    _download_components(['zookeeper', 'kafka'])
+
+    _deploy_components(['zookeeper', 'kafka'])
+
+    ## Create input and output topics.
+    for topic in [TEST_INPUT_TOPIC, TEST_OUTPUT_TOPIC]:
+        logger.info("Deleting topic: {0}.".format(topic))
+        _delete_kafka_topic('localhost:2181', topic)
+        logger.info("Creating topic: {0}.".format(topic))
+        _create_kafka_topic('localhost:2181', topic, 3, 1)
 
 def _download_components(components):
     """
@@ -97,21 +113,6 @@ def _delete_kafka_topic(zookeeper_servers, topic_name):
     output, err = p.communicate()
     logger.info("Output from delete kafka topic: {0}\nstdout: {1}\nstderr: {2}".format(topic_name, output, err))
 
-def setup_suite():
-    """
-    Setup method that will be run once by zopkio test_runner before all the integration tests.
-    """
-
-    ## Download and deploy zk and kafka. Configuration for kafka, zookeeper are defined in kafka.json and zookeeper.json.
-    _download_components(['zookeeper', 'kafka'])
-
-    _deploy_components(['zookeeper', 'kafka'])
-
-    ## Create input and output topics.
-    for topic in [TEST_INPUT_TOPIC, TEST_OUTPUT_TOPIC]:
-        logger.info("Creating topic: {0}.".format(topic))
-        _create_kafka_topic('localhost:2181', topic, 3, 1)
-
 def teardown_suite():
     """
     Teardown method that will be run once by zopkio test_runner after all the integration tests.
@@ -120,7 +121,3 @@ def teardown_suite():
         deployer = deployers[component]
         for instance, host in c(component + '_hosts').iteritems():
             deployer.undeploy(instance)
-
-    for topic in [TEST_INPUT_TOPIC, TEST_OUTPUT_TOPIC]:
-        logger.info("Deleting topic: {0}.".format(topic))
-        _delete_kafka_topic('localhost:2181', topic)

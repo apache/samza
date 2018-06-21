@@ -28,9 +28,9 @@ import org.slf4j.LoggerFactory;
 /**
  * Acts as a pass through filter for all the events from a input stream.
  */
-public class PassThroughStreamApplication implements StreamApplication {
+public class TestStandaloneIntegrationApplication implements StreamApplication {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(PassThroughStreamApplication.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(TestStandaloneIntegrationApplication.class);
 
   @Override
   public void init(StreamGraph graph, Config config) {

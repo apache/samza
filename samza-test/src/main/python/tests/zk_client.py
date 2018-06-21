@@ -109,7 +109,7 @@ class ZkClient:
         except:
             logger.error(traceback.format_exc(sys.exc_info()))
 
-    def get_all_ephemeral_processors(self):
+    def get_active_processors(self):
         """
         Determines the processor ids that are active in zookeeper.
         """
@@ -126,5 +126,4 @@ class ZkClient:
                 processor_ids.append(processor_id)
         except:
             logger.error(traceback.format_exc(sys.exc_info()))
-
         return processor_ids
