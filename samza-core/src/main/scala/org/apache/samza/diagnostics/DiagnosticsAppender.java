@@ -63,7 +63,6 @@ public class DiagnosticsAppender extends AppenderSkeleton {
         DiagnosticsExceptionEvent diagnosticsExceptionEvent =
             new DiagnosticsExceptionEvent(loggingEvent.timeStamp, throwableClassName,
                 loggingEvent.getMessage().toString(), throwableCauseClassName, throwableCauseMessage,
-                loggingEvent.getThreadName(),
                 Arrays.toString(loggingEvent.getThrowableInformation().getThrowableStrRep()),
                 getStackTraceIdentifier(loggingEvent.getThrowableInformation().getThrowable().getStackTrace()));
 

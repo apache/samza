@@ -29,7 +29,6 @@ public class DiagnosticsExceptionEvent {
 
   private String className; // the classname of the exception
   private String message;   // the string message associated with this exception
-  private String threadName; // the name of the thread on which this exception occurred
 
   private String causeClassName; // the classname of the causing exception (if any)
   private String causeMessageName; // the message of the causing exception (if any)
@@ -41,10 +40,9 @@ public class DiagnosticsExceptionEvent {
   private Object stackTraceIdentifier;
 
   public DiagnosticsExceptionEvent(long timestampMillis, String className, String message, String causeClassName,
-      String causeMessageName, String threadName, String compactStackTrace, Object stackTraceIdentifier) {
+      String causeMessageName, String compactStackTrace, Object stackTraceIdentifier) {
     this.message = message;
     this.timestamp = timestampMillis;
-    this.threadName = threadName;
     this.compactStackTrace = compactStackTrace;
     this.stackTraceIdentifier = stackTraceIdentifier;
     this.className = className;
@@ -58,10 +56,6 @@ public class DiagnosticsExceptionEvent {
 
   public String getMessage() {
     return message;
-  }
-
-  public String getThreadName() {
-    return threadName;
   }
 
   public String getCompactStackTrace() {
