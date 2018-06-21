@@ -118,6 +118,7 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
   @Test
   public void testWatermark() throws Exception {
     Map<String, String> configs = new HashMap<>();
+    configs.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
     configs.put("systems.test.samza.factory", TestSystemFactory.class.getName());
     configs.put("streams.PageView.samza.system", "test");
     configs.put("streams.PageView.partitionCount", String.valueOf(PARTITION_COUNT));
@@ -140,7 +141,6 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
     configs.put("serializers.registry.string.class", StringSerdeFactory.class.getName());
     configs.put("serializers.registry.json.class", PageViewJsonSerdeFactory.class.getName());
 
-    final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
     List<PageView> received = new ArrayList<>();
     final StreamApplication app = (streamGraph, cfg) -> {
       streamGraph.<KV<String, PageView>>getInputStream("PageView")
@@ -150,11 +150,14 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
               received.add(m.getValue());
             });
     };
+
+    LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
     runner.run(app);
+    // processors are only available when the app is running
     Map<String, StreamOperatorTask> tasks = getTaskOperationGraphs(runner);
 
     runner.waitForFinish();
-
+    // wait for the completion to ensure that all tasks are actually initialized and the OperatorImplGraph is initialized
     StreamOperatorTask task0 = tasks.get("Partition 0");
     OperatorImplGraph graph = TestStreamOperatorTask.getOperatorImplGraph(task0);
     OperatorImpl pb = getOperator(graph, OperatorSpec.OpCode.PARTITION_BY);

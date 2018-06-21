@@ -30,7 +30,7 @@ import org.codehaus.jackson.type.TypeReference;
 
 /**
  * A serializer for {@link SamzaSqlRelMessage}. This serializer preserves the type information as
- * {@link SamzaSqlRelMessage} contains nested {@link org.apache.samza.sql.data.SamzaSqlRelMessage.SamzaSqlRelRecord}
+ * {@link SamzaSqlRelMessage} contains nested {@link org.apache.samza.sql.SamzaSqlRelRecord}
  * records.
  */
 public final class SamzaSqlRelMessageSerdeFactory implements SerdeFactory<SamzaSqlRelMessage> {

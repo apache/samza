@@ -29,6 +29,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
@@ -76,15 +77,14 @@ public class TestLocalApplicationRunner {
     Map<String, String> config = new HashMap<>();
     LocalApplicationRunner runner = spy(new LocalApplicationRunner(new MapConfig(config)));
     StreamApplication app = mock(StreamApplication.class);
-    doNothing().when(app).init(anyObject(), anyObject());
 
     StreamManager streamManager = mock(StreamManager.class);
-    doReturn(streamManager).when(runner).getStreamManager();
+    doReturn(streamManager).when(runner).buildAndStartStreamManager();
 
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.singletonList(new StreamSpec("test-stream", "test-stream", "test-system")));
     when(plan.getPlanAsJson()).thenReturn("");
-    doReturn(plan).when(runner).getExecutionPlan(any(), any());
+    doReturn(plan).when(runner).getExecutionPlan(any(), eq(streamManager));
 
     CoordinationUtilsFactory coordinationUtilsFactory = mock(CoordinationUtilsFactory.class);
     JobCoordinatorConfig mockJcConfig = mock(JobCoordinatorConfig.class);
@@ -93,6 +93,7 @@ public class TestLocalApplicationRunner {
 
     try {
       runner.run(app);
+      runner.waitForFinish();
     } catch (Throwable t) {
       assertNotNull(t); //no jobs exception
     }
@@ -102,6 +103,7 @@ public class TestLocalApplicationRunner {
     List<StreamSpec> streamSpecs = captor.getValue();
     assertEquals(streamSpecs.size(), 1);
     assertEquals(streamSpecs.get(0).getId(), "test-stream");
+    verify(streamManager).stop();
   }
 
   @Test
@@ -112,15 +114,14 @@ public class TestLocalApplicationRunner {
     LocalApplicationRunner runner = spy(localRunner);
 
     StreamApplication app = mock(StreamApplication.class);
-    doNothing().when(app).init(anyObject(), anyObject());
 
     StreamManager streamManager = mock(StreamManager.class);
-    doReturn(streamManager).when(runner).getStreamManager();
+    doReturn(streamManager).when(runner).buildAndStartStreamManager();
 
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.singletonList(new StreamSpec("test-stream", "test-stream", "test-system")));
     when(plan.getPlanAsJson()).thenReturn("");
-    doReturn(plan).when(runner).getExecutionPlan(any(), any());
+    doReturn(plan).when(runner).getExecutionPlan(any(), eq(streamManager));
 
     CoordinationUtils coordinationUtils = mock(CoordinationUtils.class);
     CoordinationUtilsFactory coordinationUtilsFactory = mock(CoordinationUtilsFactory.class);
@@ -136,6 +137,7 @@ public class TestLocalApplicationRunner {
 
     try {
       runner.run(app);
+      runner.waitForFinish();
     } catch (Throwable t) {
       assertNotNull(t); //no jobs exception
     }
@@ -146,6 +148,7 @@ public class TestLocalApplicationRunner {
     List<StreamSpec> streamSpecs = captor.getValue();
     assertEquals(streamSpecs.size(), 1);
     assertEquals(streamSpecs.get(0).getId(), "test-stream");
+    verify(streamManager).stop();
   }
 
   @Test
@@ -153,7 +156,7 @@ public class TestLocalApplicationRunner {
       throws Exception {
     final Map<String, String> config = new HashMap<>();
     config.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
-    config.put(TaskConfig.TASK_CLASS(), "org.apache.samza.test.processor.IdentityStreamTask");
+    config.put(TaskConfig.TASK_CLASS(), "org.apache.samza.task.IdentityStreamTask");
 
     LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(config));
 
@@ -170,7 +173,7 @@ public class TestLocalApplicationRunner {
       }).when(sp).start();
 
     LocalApplicationRunner spy = spy(runner);
-    doReturn(sp).when(spy).createStreamProcessor(anyObject(), anyObject(), captor.capture());
+    doReturn(sp).when(spy).createStreamProcessor(any(Config.class), captor.capture());
 
     spy.runTask();
 
@@ -184,13 +187,15 @@ public class TestLocalApplicationRunner {
     config.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
     LocalApplicationRunner runner = spy(new LocalApplicationRunner(new MapConfig(config)));
     StreamApplication app = mock(StreamApplication.class);
-    doNothing().when(app).init(anyObject(), anyObject());
 
+    // buildAndStartStreamManager already includes start, so not going to verify it gets called
+    StreamManager streamManager = mock(StreamManager.class);
+    when(runner.buildAndStartStreamManager()).thenReturn(streamManager);
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.emptyList());
     when(plan.getPlanAsJson()).thenReturn("");
     when(plan.getJobConfigs()).thenReturn(Collections.singletonList(new JobConfig(new MapConfig(config))));
-    doReturn(plan).when(runner).getExecutionPlan(any(), any());
+    doReturn(plan).when(runner).getExecutionPlan(any(), eq(streamManager));
 
     StreamProcessor sp = mock(StreamProcessor.class);
     ArgumentCaptor<StreamProcessorLifecycleListener> captor =
@@ -207,8 +212,10 @@ public class TestLocalApplicationRunner {
     doReturn(sp).when(runner).createStreamProcessor(anyObject(), anyObject(), captor.capture());
 
     runner.run(app);
+    runner.waitForFinish();
 
     assertEquals(runner.status(app), ApplicationStatus.SuccessfulFinish);
+    verify(streamManager).stop();
   }
 
   @Test
@@ -218,13 +225,15 @@ public class TestLocalApplicationRunner {
     config.put(ApplicationConfig.PROCESSOR_ID, "0");
     LocalApplicationRunner runner = spy(new LocalApplicationRunner(new MapConfig(config)));
     StreamApplication app = mock(StreamApplication.class);
-    doNothing().when(app).init(anyObject(), anyObject());
 
+    // buildAndStartStreamManager already includes start, so not going to verify it gets called
+    StreamManager streamManager = mock(StreamManager.class);
+    when(runner.buildAndStartStreamManager()).thenReturn(streamManager);
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.emptyList());
     when(plan.getPlanAsJson()).thenReturn("");
     when(plan.getJobConfigs()).thenReturn(Collections.singletonList(new JobConfig(new MapConfig(config))));
-    doReturn(plan).when(runner).getExecutionPlan(any(), any());
+    doReturn(plan).when(runner).getExecutionPlan(any(), eq(streamManager));
 
     StreamProcessor sp = mock(StreamProcessor.class);
     ArgumentCaptor<StreamProcessorLifecycleListener> captor =
@@ -239,11 +248,13 @@ public class TestLocalApplicationRunner {
 
     try {
       runner.run(app);
+      runner.waitForFinish();
     } catch (Throwable th) {
       assertNotNull(th);
     }
 
     assertEquals(runner.status(app), ApplicationStatus.UnsuccessfulFinish);
+    verify(streamManager).stop();
   }
 
   public static Set<StreamProcessor> getProcessors(LocalApplicationRunner runner) {

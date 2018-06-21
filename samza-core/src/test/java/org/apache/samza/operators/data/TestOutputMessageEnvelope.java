@@ -35,5 +35,19 @@ public class TestOutputMessageEnvelope {
   public String getKey() {
     return this.key;
   }
+
+  @Override
+  public boolean equals(Object other) {
+    if (!(other instanceof TestOutputMessageEnvelope)) {
+      return false;
+    }
+    TestOutputMessageEnvelope otherMsg = (TestOutputMessageEnvelope) other;
+    return this.key.equals(otherMsg.key) && this.value.equals(otherMsg.value);
+  }
+
+  @Override
+  public int hashCode() {
+    return String.format("%s:%d", key, value).hashCode();
+  }
 }
 

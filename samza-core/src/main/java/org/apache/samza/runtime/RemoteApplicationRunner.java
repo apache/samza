@@ -20,6 +20,7 @@
 package org.apache.samza.runtime;
 
 import java.time.Duration;
+import java.util.UUID;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
@@ -27,13 +28,12 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer;
 import org.apache.samza.execution.ExecutionPlan;
+import org.apache.samza.execution.StreamManager;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.UUID;
 
 import static org.apache.samza.job.ApplicationStatus.*;
 
@@ -61,22 +61,23 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
    */
   @Override
   public void run(StreamApplication app) {
+    StreamManager streamManager = null;
     try {
-      super.run(app);
+      streamManager = buildAndStartStreamManager();
       // TODO: run.id needs to be set for standalone: SAMZA-1531
       // run.id is based on current system time with the most significant bits in UUID (8 digits) to avoid collision
       String runId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
       LOG.info("The run id for this run is {}", runId);
 
       // 1. initialize and plan
-      ExecutionPlan plan = getExecutionPlan(app, runId);
+      ExecutionPlan plan = getExecutionPlan(app, runId, streamManager);
       writePlanJsonFile(plan.getPlanAsJson());
 
       // 2. create the necessary streams
       if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
-        getStreamManager().clearStreamsFromPreviousRun(getConfigFromPrevRun());
+        streamManager.clearStreamsFromPreviousRun(getConfigFromPrevRun());
       }
-      getStreamManager().createStreams(plan.getIntermediateStreams());
+      streamManager.createStreams(plan.getIntermediateStreams());
 
       // 3. submit jobs for remote execution
       plan.getJobConfigs().forEach(jobConfig -> {
@@ -86,33 +87,44 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
         });
     } catch (Throwable t) {
       throw new SamzaException("Failed to run application", t);
+    } finally {
+      if (streamManager != null) {
+        streamManager.stop();
+      }
     }
   }
 
   @Override
   public void kill(StreamApplication app) {
+    StreamManager streamManager = null;
     try {
-      ExecutionPlan plan = getExecutionPlan(app);
+      streamManager = buildAndStartStreamManager();
+      ExecutionPlan plan = getExecutionPlan(app, streamManager);
 
       plan.getJobConfigs().forEach(jobConfig -> {
           LOG.info("Killing job {}", jobConfig.getName());
           JobRunner runner = new JobRunner(jobConfig);
           runner.kill();
         });
-      super.kill(app);
     } catch (Throwable t) {
       throw new SamzaException("Failed to kill application", t);
+    } finally {
+      if (streamManager != null) {
+        streamManager.stop();
+      }
     }
   }
 
   @Override
   public ApplicationStatus status(StreamApplication app) {
+    StreamManager streamManager = null;
     try {
       boolean hasNewJobs = false;
       boolean hasRunningJobs = false;
       ApplicationStatus unsuccessfulFinishStatus = null;
 
-      ExecutionPlan plan = getExecutionPlan(app);
+      streamManager = buildAndStartStreamManager();
+      ExecutionPlan plan = getExecutionPlan(app, streamManager);
       for (JobConfig jobConfig : plan.getJobConfigs()) {
         ApplicationStatus status = getApplicationStatus(jobConfig);
 
@@ -148,6 +160,10 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
       }
     } catch (Throwable t) {
       throw new SamzaException("Failed to get status for application", t);
+    } finally {
+      if (streamManager != null) {
+        streamManager.stop();
+      }
     }
   }
 

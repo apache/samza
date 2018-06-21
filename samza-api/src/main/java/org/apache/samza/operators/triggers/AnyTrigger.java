@@ -18,20 +18,24 @@
 */
 package org.apache.samza.operators.triggers;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+
 
 /**
  * A {@link Trigger} fires as soon as any of its individual triggers has fired.
  */
 public class AnyTrigger<M> implements Trigger<M> {
 
-  private final List<Trigger<M>> triggers;
+  private final ArrayList<Trigger<M>> triggers;
 
   AnyTrigger(List<Trigger<M>> triggers) {
-    this.triggers = triggers;
+    this.triggers = new ArrayList<>();
+    this.triggers.addAll(triggers);
   }
 
   public List<Trigger<M>> getTriggers() {
-    return triggers;
+    return Collections.unmodifiableList(triggers);
   }
 }
