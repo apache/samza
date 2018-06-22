@@ -38,7 +38,7 @@ import java.util.Map;
  *        and value represents the message of the same
  */
 public class CollectionStream<T> {
-  private Integer testId;
+  private String testId;
   private final String streamName;
   private final String physicalName;
   private final String systemName;
@@ -128,11 +128,11 @@ public class CollectionStream<T> {
     return streamConfig;
   }
 
-  public Integer getTestId() {
+  public String getTestId() {
     return testId;
   }
 
-  public void setTestId(Integer testId) {
+  public void setTestId(String testId) {
     this.testId = testId;
   }
 

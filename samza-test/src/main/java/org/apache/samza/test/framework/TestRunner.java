@@ -25,11 +25,12 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.commons.lang.RandomStringUtils;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.InMemorySystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
@@ -68,15 +69,13 @@ import org.apache.samza.test.framework.system.CollectionStreamSystemSpec;
  *    <li>"task.name.grouper.factory" = {@link SingleContainerGrouperFactory}</li>
  *    <li>"job.name" = "test-samza"</li>
  *    <li>"processor.id" = "1"</li>
- *    <li>"test.id = " Random number generated for test</li>
+ *    <li>"inmemory.scope = " Scope id generated to isolate the run for InMemorySystem</li>
  *  </ol>
  *
  */
 public class TestRunner {
 
   private static final String JOB_NAME = "test-samza";
-  private static final Random RANDOM = new Random();
-
   public enum Mode {
     SINGLE_CONTAINER, MULTI_CONTAINER
   }
@@ -85,7 +84,7 @@ public class TestRunner {
   private Map<String, CollectionStreamSystemSpec> systems;
   private Class taskClass;
   private StreamApplication app;
-  private Integer testId;
+  private String testId;
   private SystemFactory factory;
 
   /**
@@ -94,12 +93,12 @@ public class TestRunner {
   private Mode mode;
 
   private TestRunner() {
-    this.testId = RANDOM.nextInt();
+    this.testId = RandomStringUtils.random(10, true, true);
     this.systems = new HashMap<String, CollectionStreamSystemSpec>();
     this.configs = new HashMap<>();
     this.mode = Mode.SINGLE_CONTAINER;
     this.factory = new InMemorySystemFactory();
-    configs.put("test.id", Integer.toString(testId));
+    configs.put(InMemorySystemConfig.INMEMORY_SCOPE, testId);
     configs.put(JobConfig.JOB_NAME(), JOB_NAME);
     configs.putIfAbsent(JobConfig.PROCESSOR_ID(), "1");
     configs.putIfAbsent(JobCoordinatorConfig.JOB_COORDINATION_UTILS_FACTORY, PassthroughCoordinationUtilsFactory.class.getName());
@@ -306,7 +305,7 @@ public class TestRunner {
     streamNames.add(streamName);
     SystemFactory factory = new InMemorySystemFactory();
     HashMap<String, String> config = new HashMap<>();
-    config.put("test.id", Integer.toString(stream.getTestId()));
+    config.put(InMemorySystemConfig.INMEMORY_SCOPE, stream.getTestId());
     Map<String, SystemStreamMetadata> metadata =
         factory.getAdmin(systemName, new MapConfig(config)).getSystemStreamMetadata(streamNames);
     SystemConsumer consumer = factory.getConsumer(systemName, new MapConfig(config), null);
