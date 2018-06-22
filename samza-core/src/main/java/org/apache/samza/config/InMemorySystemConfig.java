@@ -45,4 +45,8 @@ public class InMemorySystemConfig extends MapConfig {
   public InMemorySystemConfig(Config config) {
     super(config);
   }
+
+  public String getInMemoryScope() {
+    return this.get(INMEMORY_SCOPE) == null ? DEFAULT_INMEMORY_SCOPE : this.get(INMEMORY_SCOPE);
+  }
 }

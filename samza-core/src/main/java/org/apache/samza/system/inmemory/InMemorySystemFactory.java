@@ -51,10 +51,7 @@ public class InMemorySystemFactory implements SystemFactory {
   }
 
   private InMemoryManager getOrDefaultInMemoryManagerByTestId(Config config) {
-    String inMemoryScope = config.get(InMemorySystemConfig.INMEMORY_SCOPE);
-    if (inMemoryScope == null) {
-      inMemoryScope = InMemorySystemConfig.DEFAULT_INMEMORY_SCOPE;
-    }
-    return IN_MEMORY_MANAGERS.computeIfAbsent(inMemoryScope, key -> new InMemoryManager());
+    InMemorySystemConfig inMemorySystemConfig = new InMemorySystemConfig(config);
+    return IN_MEMORY_MANAGERS.computeIfAbsent(inMemorySystemConfig.getInMemoryScope(), key -> new InMemoryManager());
   }
 }
