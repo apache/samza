@@ -30,5 +30,5 @@ public interface Cancellable {
    *
    * @return the result of the cancelation
    */
-  public boolean cancel();
+  boolean cancel();
 }

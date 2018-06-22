@@ -22,7 +22,6 @@ package org.apache.samza.table.remote;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
-
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.functions.ClosableFunction;
 import org.apache.samza.operators.functions.InitableFunction;
@@ -44,6 +43,9 @@ import org.apache.samza.storage.kv.Entry;
 public interface TableWriteFunction<K, V> extends Serializable, InitableFunction, ClosableFunction {
   /**
    * Store single table {@code record} with specified {@code key}. This method must be thread-safe.
+   *
+   * The key is deleted if record is {@code null}.
+   *
    * @param key key for the table record
    * @param record table record to be written
    */
@@ -51,6 +53,9 @@ public interface TableWriteFunction<K, V> extends Serializable, InitableFunction
 
   /**
    * Store the table {@code records} with specified {@code keys}. This method must be thread-safe.
+   *
+   * A key is deleted if its corresponding record is {@code null}.
+   *
    * @param records table records to be written
    */
   default void putAll(List<Entry<K, V>> records) {

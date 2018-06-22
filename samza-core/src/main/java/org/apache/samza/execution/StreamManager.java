@@ -18,6 +18,7 @@
  */
 package org.apache.samza.execution;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import java.util.Collection;
@@ -49,7 +50,12 @@ public class StreamManager {
 
   private final SystemAdmins systemAdmins;
 
-  public StreamManager(SystemAdmins systemAdmins) {
+  public StreamManager(Config config) {
+    this(new SystemAdmins(config));
+  }
+
+  @VisibleForTesting
+  StreamManager(SystemAdmins systemAdmins) {
     this.systemAdmins = systemAdmins;
   }
 
@@ -68,6 +74,14 @@ public class StreamManager {
         systemAdmin.createStream(stream);
       }
     }
+  }
+
+  public void start() {
+    this.systemAdmins.start();
+  }
+
+  public void stop() {
+    this.systemAdmins.stop();
   }
 
   Map<String, Integer> getStreamPartitionCounts(String systemName, Set<String> streamNames) {

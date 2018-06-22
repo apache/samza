@@ -19,7 +19,6 @@
 package org.apache.samza.table;
 
 import java.util.List;
-
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.storage.kv.Entry;
 
@@ -36,17 +35,21 @@ public interface ReadWriteTable<K, V> extends ReadableTable<K, V> {
   /**
    * Updates the mapping of the specified key-value pair; Associates the specified {@code key} with the specified {@code value}.
    *
+   * The key is deleted from the table if value is {@code null}.
+   *
    * @param key the key with which the specified {@code value} is to be associated.
    * @param value the value with which the specified {@code key} is to be associated.
-   * @throws NullPointerException if the specified {@code key} or {@code value} is {@code null}.
+   * @throws NullPointerException if the specified {@code key} is {@code null}.
    */
   void put(K key, V value);
 
   /**
    * Updates the mappings of the specified key-value {@code entries}.
    *
+   * A key is deleted from the table if its corresponding value is {@code null}.
+   *
    * @param entries the updated mappings to put into this table.
-   * @throws NullPointerException if any of the specified {@code entries} has {@code null} as key or value.
+   * @throws NullPointerException if any of the specified {@code entries} has {@code null} as key.
    */
   void putAll(List<Entry<K, V>> entries);
 

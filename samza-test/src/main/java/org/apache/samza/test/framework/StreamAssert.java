@@ -20,6 +20,8 @@
 package org.apache.samza.test.framework;
 
 import com.google.common.collect.Iterables;
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.functions.SinkFunction;
@@ -153,6 +155,18 @@ public class StreamAssert<M> {
         timerTask.cancel();
         check();
       }
+    }
+
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+      in.defaultReadObject();
+      timer = new Timer();
+      actual = Collections.synchronizedList(new ArrayList<>());
+      timerTask = new TimerTask() {
+        @Override
+        public void run() {
+          check();
+        }
+      };
     }
 
     private void check() {

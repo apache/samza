@@ -48,7 +48,7 @@ public class TestStreamOperatorImpl {
     Config mockConfig = mock(Config.class);
     TaskContext mockContext = mock(TaskContext.class);
     StreamOperatorImpl<TestMessageEnvelope, TestOutputMessageEnvelope> opImpl =
-        new StreamOperatorImpl<>(mockOp, mockConfig, mockContext);
+        new StreamOperatorImpl<>(mockOp);
     TestMessageEnvelope inMsg = mock(TestMessageEnvelope.class);
     Collection<TestOutputMessageEnvelope> mockOutputs = mock(Collection.class);
     when(txfmFn.apply(inMsg)).thenReturn(mockOutputs);
@@ -69,7 +69,7 @@ public class TestStreamOperatorImpl {
     TaskContext mockContext = mock(TaskContext.class);
 
     StreamOperatorImpl<TestMessageEnvelope, TestOutputMessageEnvelope> opImpl =
-        new StreamOperatorImpl<>(mockOp, mockConfig, mockContext);
+        new StreamOperatorImpl<>(mockOp);
 
     // ensure that close is not called yet
     verify(txfmFn, times(0)).close();

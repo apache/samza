@@ -107,7 +107,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_NAME_2_PROP, inputTopicName2);
     configs.put(RepartitionJoinWindowApp.OUTPUT_TOPIC_NAME_PROP, outputTopicName);
 
-    runApplication(app, appName, configs);
+    RunApplicationContext runApplicationContext = runApplication(app, appName, configs);
 
     // consume and validate result
     List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(outputTopicName), 2);
@@ -122,7 +122,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
 
     // Verify that messages in the intermediate stream will be deleted in 10 seconds
     long startTimeMs = System.currentTimeMillis();
-    for (StreamSpec spec: runner.getExecutionPlan(app).getIntermediateStreams()) {
+    for (StreamSpec spec: app.getIntermediateStreams()) {
       long remainingMessageNum = -1;
 
       while (remainingMessageNum != 0 && System.currentTimeMillis() - startTimeMs < 10000) {
@@ -138,8 +138,6 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
       }
       Assert.assertEquals(0, remainingMessageNum);
     }
-
-
   }
 
   @Test

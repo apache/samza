@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.functions;
 
+import java.io.Serializable;
 import org.apache.samza.annotation.InterfaceStability;
 
 
@@ -30,7 +31,7 @@ import org.apache.samza.annotation.InterfaceStability;
  * @param <JM> type of join results
  */
 @InterfaceStability.Unstable
-public interface StreamTableJoinFunction<K, M, R, JM> extends InitableFunction, ClosableFunction {
+public interface StreamTableJoinFunction<K, M, R, JM> extends InitableFunction, ClosableFunction, Serializable {
 
   /**
    * Joins the provided messages and table record, returns the joined message.

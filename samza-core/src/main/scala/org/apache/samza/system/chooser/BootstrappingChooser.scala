@@ -196,12 +196,12 @@ class BootstrappingChooser(
           val systemStream = systemStreamPartition.getSystemStream
 
           updatedSystemStreams += systemStream -> (updatedSystemStreams.getOrElse(systemStream, 0) - 1)
-        }
 
-        // If the offset we just read is the same as the offset for the last
-        // message (newest) in this system stream partition, then we have read
-        // all messages, and can mark this SSP as bootstrapped.
-        checkOffset(systemStreamPartition, offset, OffsetType.NEWEST)
+          // If the offset we just read is the same as the offset for the last
+          // message (newest) in this system stream partition, then we have read
+          // all messages, and can mark this SSP as bootstrapped.
+          checkOffset(systemStreamPartition, offset, OffsetType.NEWEST)
+        }
       }
 
       envelope

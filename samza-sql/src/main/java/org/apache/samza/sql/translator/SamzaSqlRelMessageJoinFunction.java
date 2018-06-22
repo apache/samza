@@ -44,20 +44,20 @@ public class SamzaSqlRelMessageJoinFunction
 
   private final JoinRelType joinRelType;
   private final boolean isTablePosOnRight;
-  private final List<Integer> streamFieldIds;
+  private final ArrayList<Integer> streamFieldIds;
   // Table field names are used in the outer join when the table record is not found.
-  private final List<String> tableFieldNames;
-  private final List<String> outFieldNames;
+  private final ArrayList<String> tableFieldNames;
+  private final ArrayList<String> outFieldNames;
 
-  public SamzaSqlRelMessageJoinFunction(JoinRelType joinRelType, boolean isTablePosOnRight,
+  SamzaSqlRelMessageJoinFunction(JoinRelType joinRelType, boolean isTablePosOnRight,
       List<Integer> streamFieldIds, List<String> streamFieldNames, List<String> tableFieldNames) {
     this.joinRelType = joinRelType;
     this.isTablePosOnRight = isTablePosOnRight;
     Validate.isTrue((joinRelType.compareTo(JoinRelType.LEFT) == 0 && isTablePosOnRight) ||
         (joinRelType.compareTo(JoinRelType.RIGHT) == 0 && !isTablePosOnRight) ||
         joinRelType.compareTo(JoinRelType.INNER) == 0);
-    this.streamFieldIds = streamFieldIds;
-    this.tableFieldNames = tableFieldNames;
+    this.streamFieldIds = new ArrayList<>(streamFieldIds);
+    this.tableFieldNames = new ArrayList<>(tableFieldNames);
     this.outFieldNames = new ArrayList<>();
     if (isTablePosOnRight) {
       outFieldNames.addAll(streamFieldNames);

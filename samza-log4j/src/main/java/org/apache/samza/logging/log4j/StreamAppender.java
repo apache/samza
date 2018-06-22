@@ -19,6 +19,7 @@
 
 package org.apache.samza.logging.log4j;
 
+import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
@@ -34,8 +35,10 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.Log4jSystemConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.ShellCommandConfig;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.logging.log4j.serializers.LoggingEventJsonSerdeFactory;
@@ -275,6 +278,8 @@ public class StreamAppender extends AppenderSkeleton {
     } catch (IOException e) {
       throw new SamzaException("can not read the config", e);
     }
+    // Make system producer drop producer errors for StreamAppender
+    config = new MapConfig(config, ImmutableMap.of(TaskConfig.DROP_PRODUCER_ERROR(), "true"));
 
     return config;
   }

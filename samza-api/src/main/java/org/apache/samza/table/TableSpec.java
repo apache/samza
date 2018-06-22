@@ -18,6 +18,7 @@
  */
 package org.apache.samza.table;
 
+import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -41,12 +42,17 @@ import org.apache.samza.serializers.KVSerde;
  * It is immutable by design.
  */
 @InterfaceStability.Unstable
-public class TableSpec {
+public class TableSpec implements Serializable {
 
   private final String id;
-  private final KVSerde serde;
   private final String tableProviderFactoryClassName;
-  private final Map<String, String> config = new HashMap<>();
+
+  /**
+   * The following fields are serialized by the ExecutionPlanner when generating the configs for a table, and deserialized
+   * once during startup in SamzaContainer. They don't need to be deserialized here on a per-task basis
+   */
+  private transient final KVSerde serde;
+  private transient final Map<String, String> config = new HashMap<>();
 
   /**
    * Default constructor

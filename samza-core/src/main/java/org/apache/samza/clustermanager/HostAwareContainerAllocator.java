@@ -79,6 +79,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
         boolean resourceAvailableOnAnyHost = hasAllocatedResource(ResourceRequestState.ANY_HOST);
 
         if (expired) {
+          updateExpiryMetrics(request);
           if (resourceAvailableOnAnyHost) {
             log.info("Request for container: {} on {} has expired. Running on ANY_HOST", request.getContainerID(), request.getPreferredHost());
             runStreamProcessor(request, ResourceRequestState.ANY_HOST);
@@ -108,5 +109,14 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
       log.info("Request {} with currTime {} has expired", request, currTime);
     }
     return requestExpired;
+  }
+
+  private void updateExpiryMetrics(SamzaResourceRequest request) {
+    String preferredHost = request.getPreferredHost();
+    if (ResourceRequestState.ANY_HOST.equals(preferredHost)) {
+      state.expiredAnyHostRequests.incrementAndGet();
+    } else {
+      state.expiredPreferredHostRequests.incrementAndGet();
+    }
   }
 }
