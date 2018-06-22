@@ -23,7 +23,6 @@ import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.util.SamzaUncaughtExceptionHandler;
 import org.apache.samza.job.JobRunner$;
 import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.Util;
@@ -53,12 +52,6 @@ public class ApplicationRunnerMain {
   }
 
   public static void main(String[] args) throws Exception {
-    Thread.setDefaultUncaughtExceptionHandler(
-        new SamzaUncaughtExceptionHandler(() -> {
-          System.out.println("Exiting process now.");
-          System.exit(1);
-        }));
-
     ApplicationRunnerCommandLine cmdLine = new ApplicationRunnerCommandLine();
     OptionSet options = cmdLine.parser().parse(args);
     Config orgConfig = cmdLine.loadConfig(options);
@@ -85,8 +78,5 @@ public class ApplicationRunnerMain {
     } else {
       JobRunner$.MODULE$.main(args);
     }
-
-    System.exit(0);
   }
 }
-
