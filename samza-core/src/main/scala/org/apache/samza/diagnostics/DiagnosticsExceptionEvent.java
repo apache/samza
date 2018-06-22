@@ -18,6 +18,9 @@
  */
 package org.apache.samza.diagnostics;
 
+import org.apache.log4j.spi.ThrowableInformation;
+
+
 /**
  * This class encapsulates information related to an exception event that is useful for diagnostics.
  * It used to define container, task, and other metrics as
@@ -26,55 +29,18 @@ package org.apache.samza.diagnostics;
 public class DiagnosticsExceptionEvent {
 
   private long timestamp; // the timestamp associated with this exception
+  private ThrowableInformation throwableInformation;
 
-  private String className; // the classname of the exception
-  private String message;   // the string message associated with this exception
-
-  private String causeClassName; // the classname of the causing exception (if any)
-  private String causeMessageName; // the message of the causing exception (if any)
-
-  // a compact string representation of this exception, to avoid serializing the entire stack trace
-  private String compactStackTrace;
-
-  // a unique identifier computed to identify this stack trace
-  private Object stackTraceIdentifier;
-
-  public DiagnosticsExceptionEvent(long timestampMillis, String className, String message, String causeClassName,
-      String causeMessageName, String compactStackTrace, Object stackTraceIdentifier) {
-    this.message = message;
+  public DiagnosticsExceptionEvent(long timestampMillis, ThrowableInformation throwableInformation) {
+    this.throwableInformation = throwableInformation;
     this.timestamp = timestampMillis;
-    this.compactStackTrace = compactStackTrace;
-    this.stackTraceIdentifier = stackTraceIdentifier;
-    this.className = className;
-    this.causeClassName = causeClassName;
-    this.causeMessageName = causeMessageName;
   }
 
   public long getTimestamp() {
     return timestamp;
   }
 
-  public String getMessage() {
-    return message;
-  }
-
-  public String getCompactStackTrace() {
-    return compactStackTrace;
-  }
-
-  public Object getStackTraceIdentifier() {
-    return stackTraceIdentifier;
-  }
-
-  public String getClassName() {
-    return className;
-  }
-
-  public String getCauseClassName() {
-    return causeClassName;
-  }
-
-  public String getCauseMessageName() {
-    return causeMessageName;
+  public ThrowableInformation getThrowableInformation() {
+    return this.throwableInformation;
   }
 }

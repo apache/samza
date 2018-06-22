@@ -19,7 +19,6 @@
 
 package org.apache.samza.diagnostics;
 
-import java.util.Arrays;
 import org.apache.log4j.AppenderSkeleton;
 import org.apache.log4j.spi.LoggingEvent;
 import org.apache.samza.container.SamzaContainerMetrics;
@@ -34,7 +33,7 @@ import org.slf4j.LoggerFactory;
  * {@link SamzaContainerMetrics}.
  *
  * When used inconjunction with {@link org.apache.samza.metrics.reporter.MetricsSnapshotReporter} provides a
- * stream of diagnostics-related events.s
+ * stream of diagnostics-related events.
  */
 public class DiagnosticsAppender extends AppenderSkeleton {
 
@@ -42,7 +41,7 @@ public class DiagnosticsAppender extends AppenderSkeleton {
   private final ListGauge<DiagnosticsExceptionEvent> samzaContainerExceptionMetric;
 
   public DiagnosticsAppender(SamzaContainerMetrics samzaContainerMetrics) {
-    this.samzaContainerExceptionMetric = (ListGauge<DiagnosticsExceptionEvent>) samzaContainerMetrics.exceptions();
+    this.samzaContainerExceptionMetric = samzaContainerMetrics.exceptions();
   }
 
   @Override
@@ -52,19 +51,8 @@ public class DiagnosticsAppender extends AppenderSkeleton {
 
       // if an event with a non-null throwable is received => exception event
       if (loggingEvent.getThrowableInformation() != null) {
-
-        Throwable throwable = loggingEvent.getThrowableInformation().getThrowable();
-        Throwable throwableCause = loggingEvent.getThrowableInformation().getThrowable().getCause();
-
-        String throwableClassName = (throwable == null) ? "" : throwable.getClass().getName();
-        String throwableCauseClassName = (throwableCause == null) ? "" : throwableCause.getClass().getName();
-        String throwableCauseMessage = (throwableCause == null) ? "" : throwableCause.getMessage();
-
         DiagnosticsExceptionEvent diagnosticsExceptionEvent =
-            new DiagnosticsExceptionEvent(loggingEvent.timeStamp, throwableClassName,
-                loggingEvent.getMessage().toString(), throwableCauseClassName, throwableCauseMessage,
-                Arrays.toString(loggingEvent.getThrowableInformation().getThrowableStrRep()),
-                getStackTraceIdentifier(loggingEvent.getThrowableInformation().getThrowable().getStackTrace()));
+            new DiagnosticsExceptionEvent(loggingEvent.timeStamp, loggingEvent.getThrowableInformation());
 
         samzaContainerExceptionMetric.add(diagnosticsExceptionEvent);
         logger.debug("Received DiagnosticsExceptionEvent " + diagnosticsExceptionEvent);
@@ -75,10 +63,6 @@ public class DiagnosticsAppender extends AppenderSkeleton {
       // blanket catch of all exceptions so as to not impact any job
       logger.error("Exception in logging event parsing", e);
     }
-  }
-
-  private int getStackTraceIdentifier(StackTraceElement[] stackTrace) {
-    return Arrays.hashCode(stackTrace);
   }
 
   @Override
