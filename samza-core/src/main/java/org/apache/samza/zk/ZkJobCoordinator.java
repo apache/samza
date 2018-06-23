@@ -97,7 +97,6 @@ public class ZkJobCoordinator implements JobCoordinator {
   private final int debounceTimeMs;
   private final Map<TaskName, Integer> changeLogPartitionMap = new HashMap<>();
 
-
   private JobCoordinatorListener coordinatorListener = null;
   private JobModel newJobModel;
   private boolean hasCreatedStreams = false;
@@ -132,12 +131,13 @@ public class ZkJobCoordinator implements JobCoordinator {
 
   @Override
   public void start() {
-    startMetrics();
-    systemAdmins.start();
     ZkKeyBuilder keyBuilder = zkUtils.getKeyBuilder();
     zkUtils.validateZkVersion();
     zkUtils.validatePaths(new String[]{keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder
         .getJobModelPathPrefix()});
+
+    startMetrics();
+    systemAdmins.start();
     leaderElector.tryBecomeLeader();
     zkUtils.subscribeToJobModelVersionChange(new ZkJobModelVersionChangeHandler(zkUtils));
   }
@@ -162,11 +162,12 @@ public class ZkJobCoordinator implements JobCoordinator {
 
         debounceTimer.stopScheduler();
 
-        LOG.info("Shutting down Zk Client.");
         if (leaderElector.amILeader()) {
+          LOG.info("Resigning leadership for processorId: " + processorId);
           leaderElector.resignLeadership();
         }
 
+        LOG.info("Shutting down ZkUtils.");
         // close zk connection
         if (zkUtils != null) {
           zkUtils.close();
@@ -197,14 +198,14 @@ public class ZkJobCoordinator implements JobCoordinator {
   }
 
   private void startMetrics() {
-    for (MetricsReporter reporter : reporters.values()) {
+    for (MetricsReporter reporter: reporters.values()) {
       reporter.register("job-coordinator-" + processorId, (ReadableMetricsRegistry) metrics.getMetricsRegistry());
       reporter.start();
     }
   }
 
   private void shutdownMetrics() {
-    for (MetricsReporter reporter : reporters.values()) {
+    for (MetricsReporter reporter: reporters.values()) {
       reporter.stop();
     }
   }
@@ -231,7 +232,7 @@ public class ZkJobCoordinator implements JobCoordinator {
    */
   public void onProcessorChange(List<String> processors) {
     if (leaderElector.amILeader()) {
-      LOG.info("ZkJobCoordinator::onProcessorChange - list of processors changed! List size=" + processors.size());
+      LOG.info("ZkJobCoordinator::onProcessorChange - list of processors changed. List size=" + processors.size());
       debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, debounceTimeMs, () -> doOnProcessorChange(processors));
     }
   }
@@ -322,7 +323,7 @@ public class ZkJobCoordinator implements JobCoordinator {
   class LeaderElectorListenerImpl implements LeaderElectorListener {
     @Override
     public void onBecomingLeader() {
-      LOG.info("ZkJobCoordinator::onBecomeLeader - I became the leader!");
+      LOG.info("ZkJobCoordinator::onBecomeLeader - I became the leader");
       metrics.isLeader.set(true);
       zkUtils.subscribeToProcessorChange(new ProcessorChangeHandler(zkUtils));
       debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, debounceTimeMs, () -> {
@@ -356,7 +357,7 @@ public class ZkJobCoordinator implements JobCoordinator {
         debounceTimer.scheduleAfterDebounceTime(barrierAction, 0, () -> {
             LOG.info("pid=" + processorId + "new version " + version + " of the job model got confirmed");
 
-          // read the new Model
+            // read the new Model
             JobModel jobModel = getJobModel();
             // start the container with the new model
             if (coordinatorListener != null) {
@@ -403,14 +404,12 @@ public class ZkJobCoordinator implements JobCoordinator {
     @Override
     public void doHandleChildChange(String parentPath, List<String> currentChildren)
         throws Exception {
-
       if (currentChildren == null) {
         LOG.info("handleChildChange on path " + parentPath + " was invoked with NULL list of children");
       } else {
         LOG.info("ProcessorChangeHandler::handleChildChange - Path: {} Current Children: {} ", parentPath, currentChildren);
         onProcessorChange(currentChildren);
       }
-
     }
   }
 

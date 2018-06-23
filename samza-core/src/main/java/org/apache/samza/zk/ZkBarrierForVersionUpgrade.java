@@ -240,7 +240,7 @@ public class ZkBarrierForVersionUpgrade {
 
     @Override
     public void doHandleDataDeleted(String path) {
-      LOG.warn("Data deleted in path: " + path);
+      LOG.warn("Data deleted in path: " + path + " barrierVersion: " + barrierVersion);
     }
   }
 

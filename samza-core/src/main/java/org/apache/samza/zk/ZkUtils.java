@@ -391,7 +391,7 @@ public class ZkUtils {
     @Override
     public void handleDataChange(String path, Object data) {
       if (!isValid()) {
-        LOG.warn(String.format("Skipping handleCDataChange for %s from wrong generation. Current generation: %s; " +
+        LOG.warn(String.format("Skipping handleDataChange for %s from wrong generation. Current generation: %s; " +
             "Callback generation: %s", listenerName, zkUtils.getGeneration(), generation));
       } else {
         doHandleDataChange(path, data);
@@ -400,7 +400,7 @@ public class ZkUtils {
 
     public void handleDataDeleted(String dataPath) throws Exception {
       if (!isValid()) {
-        LOG.warn(String.format("Skipping handleCDataChange for %s from wrong generation. Current generation: %s; " +
+        LOG.warn(String.format("Skipping handleDataDeleted for %s from wrong generation. Current generation: %s; " +
             "Callback generation: %s", listenerName, zkUtils.getGeneration(), generation));
       } else {
         doHandleDataDeleted(dataPath);
