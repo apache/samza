@@ -20,8 +20,6 @@
 package org.apache.samza.system.hdfs
 
 
-import java.io.File
-import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -52,7 +50,6 @@ object TestHdfsSystemProducerTestSuite {
   val AVRO_JOB_NAME = "samza-hdfs-test-job-avro" // write some data as Avro
   val TEXT_BATCH_JOB_NAME = "samza-hdfs-test-batch-job-text" // force a file split, understanding that Text does some compressing
   val AVRO_BATCH_JOB_NAME = "samza-hdfs-test-batch-job-avro" // force a file split, understanding that Avro does some compressing
-  val RESOURCE_PATH_FORMAT = "file://%s/src/test/resources/%s.properties"
   val TEST_DATE = (new SimpleDateFormat("yyyy_MM_dd-HH")).format(new Date)
 
   // Test data
@@ -85,7 +82,7 @@ object TestHdfsSystemProducerTestSuite {
     Some(
       hdfsFactory.getProducer(
         name,
-        propsFactory.getConfig(URI.create(RESOURCE_PATH_FORMAT format (new File(".").getCanonicalPath, name))),
+        propsFactory.getConfig(getClass.getResource(String.format("/%s.properties", name)).toURI),
         new HdfsSystemProducerMetrics(name),
         cluster
       )
