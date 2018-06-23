@@ -88,7 +88,9 @@ public class CachingTableProvider implements TableProvider {
 
     int stripes = Integer.parseInt(cachingTableSpec.getConfig().get(LOCK_STRIPES));
     boolean isWriteAround = Boolean.parseBoolean(cachingTableSpec.getConfig().get(WRITE_AROUND));
-    return new CachingTable(cachingTableSpec.getId(), table, cache, stripes, isWriteAround);
+    CachingTable cachingTable = new CachingTable(cachingTableSpec.getId(), table, cache, stripes, isWriteAround);
+    cachingTable.init(containerContext, taskContext);
+    return cachingTable;
   }
 
   @Override
