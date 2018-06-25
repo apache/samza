@@ -66,7 +66,7 @@ public class StreamApplicationIntegrationTest {
         .addInputStream(input)
         .addOutputStream(output)
         .addOverrideConfig("job.default.system", "test")
-        .run();
+        .run(1000);
 
     Assert.assertEquals(TestRunner.consumeStream(output, 10000).get(random.nextInt(count)).size(), 1);
   }

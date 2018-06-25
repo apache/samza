@@ -36,7 +36,7 @@ public class StreamTaskIntegrationTest {
     CollectionStream<Integer> input = CollectionStream.of("test", "input", inputList);
     CollectionStream output = CollectionStream.empty("test", "output");
 
-    TestRunner.of(MyStreamTestTask.class).addInputStream(input).addOutputStream(output).run();
+    TestRunner.of(MyStreamTestTask.class).addInputStream(input).addOutputStream(output).run(1000);
 
     Assert.assertThat(TestRunner.consumeStream(output, 1000).get(0),
         IsIterableContainingInOrder.contains(outputList.toArray()));

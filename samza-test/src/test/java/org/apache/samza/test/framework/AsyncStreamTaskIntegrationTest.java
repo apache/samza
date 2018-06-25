@@ -41,7 +41,7 @@ public class AsyncStreamTaskIntegrationTest {
         .of(MyAsyncStreamTask.class)
         .addInputStream(input)
         .addOutputStream(output)
-        .run();
+        .run(1500);
 
     Assert.assertThat(TestRunner.consumeStream(output, 1000).get(0),
         IsIterableContainingInOrder.contains(outputList.toArray()));

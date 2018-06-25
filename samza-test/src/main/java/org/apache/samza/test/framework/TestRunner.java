@@ -26,6 +26,12 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.samza.application.StreamApplication;
@@ -267,20 +273,41 @@ public class TestRunner {
     return this;
   }
 
+
   /**
    * Utility to run a test configured using TestRunner
+   *
+   * @param timeout in ms for the Test to Run
+   * @throws InterruptedException if the current thread was interrupted
+   * @throws ExecutionException if the samza job threw an exception
+   * @throws TimeoutException if the wait timed out while running Samza job
    */
-  public void run() {
+  public void run(int timeout) throws InterruptedException, ExecutionException, TimeoutException {
     Preconditions.checkState((app == null && taskClass != null) || (app != null && taskClass == null),
         "TestRunner should run for Low Level Task api or High Level Application Api");
     final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
-    if (app == null) {
-      runner.runTask();
-      runner.waitForFinish();
-    } else {
-      runner.run(app);
-      runner.waitForFinish();
+
+    final Runnable runSamzaJob = new Thread() {
+      @Override
+      public void run() {
+        if (app == null) {
+          runner.runTask();
+          runner.waitForFinish();
+        } else {
+          runner.run(app);
+          runner.waitForFinish();
+        }
+      }
+    };
+
+    final ExecutorService executor = Executors.newSingleThreadExecutor();
+    final Future future = executor.submit(runSamzaJob);
+    executor.shutdown();
+    future.get(timeout, TimeUnit.MILLISECONDS);
+    if (!executor.isTerminated()) {
+      executor.shutdownNow();
     }
+
   }
 
   /**
