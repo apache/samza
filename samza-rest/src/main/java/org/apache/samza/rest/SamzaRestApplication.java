@@ -19,7 +19,6 @@
 package org.apache.samza.rest;
 
 import java.util.Collection;
-import java.util.List;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.rest.resources.DefaultResourceFactory;
