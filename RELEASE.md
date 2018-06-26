@@ -57,6 +57,10 @@ Then sign it:
 
     gpg --sign --armor --detach-sig build/distribution/source/apache-samza-*.tgz
 
+Create SHA1 signature:
+
+    gpg --print-md SHA1 ./build/distribution/source/apache-samza-*.tgz > ./build/distribution/source/apache-samza-*.tgz.sha1
+
 Make a signed git tag for the release candidate:
 
     git tag -s release-$VERSION-rc0 -m "Apache Samza $VERSION release candidate 0"
@@ -64,6 +68,22 @@ Make a signed git tag for the release candidate:
 Push the release tag to remote repository:
 
     git push origin release-$VERSION-rc0
+
+Build the tarball for samza-tool:
+
+    ./gradlew releaseToolsTarGz
+
+Then sign it:
+
+    gpg --sign --armor --detach-sig ./samza-tools/build/distributions/samza-tools-*.tgz
+
+Create MD5 signature:
+
+    gpg --print-md MD5 ./samza-tools/build/distributions/samza-tools-*.tgz > ./samza-tools/build/distributions/samza-tools-*.tgz.md5
+
+Create SHA1 signature:
+
+    gpg --print-md SHA1 ./build/distribution/source/apache-samza-*.tgz > ./build/distribution/source/apache-samza-*.tgz.sha1
 
 Edit `$HOME/.gradle/gradle.properties` and add your GPG key information:
 
