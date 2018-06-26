@@ -284,9 +284,13 @@ private[kafka] class KafkaSystemConsumer(
       }
 
       if(fetchLimitByBytesEnabled ) {
-        put(systemStreamPartition, new IncomingMessageEnvelope(systemStreamPartition, offset, key, message, getMessageSize(msg.message)))
+        val ime = new IncomingMessageEnvelope(systemStreamPartition, offset, key, message, getMessageSize(msg.message))
+        ime.setTimestamp(if (!msg.message.isNull) msg.message.timestamp else 0L)
+        put(systemStreamPartition, ime)
       } else {
-        put(systemStreamPartition, new IncomingMessageEnvelope(systemStreamPartition, offset, key, message))
+        val ime = new IncomingMessageEnvelope(systemStreamPartition, offset, key, message)
+        ime.setTimestamp(if (!msg.message.isNull) msg.message.timestamp else 0L)
+        put(systemStreamPartition, ime)
       }
 
       setIsAtHead(systemStreamPartition, isAtHead)

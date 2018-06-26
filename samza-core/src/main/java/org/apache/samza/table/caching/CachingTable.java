@@ -26,10 +26,12 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 
 import org.apache.samza.container.SamzaContainerContext;
-import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.ReadableTable;
+import org.apache.samza.table.utils.DefaultTableReadMetrics;
+import org.apache.samza.table.utils.DefaultTableWriteMetrics;
+import org.apache.samza.table.utils.TableMetricsUtil;
 import org.apache.samza.task.TaskContext;
 
 import com.google.common.base.Preconditions;
@@ -73,6 +75,10 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
   // Use stripe based locking to allow parallelism of disjoint keys.
   private final Striped<Lock> stripedLocks;
 
+  // Metrics
+  private DefaultTableReadMetrics readMetrics;
+  private DefaultTableWriteMetrics writeMetrics;
+
   // Common caching stats
   private AtomicLong hitCount = new AtomicLong();
   private AtomicLong missCount = new AtomicLong();
@@ -91,14 +97,18 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
    */
   @Override
   public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
-    MetricsRegistry metricsRegistry = taskContext.getMetricsRegistry();
-    metricsRegistry.newGauge(GROUP_NAME, new SupplierGauge(tableId + "-hit-rate", () -> hitRate()));
-    metricsRegistry.newGauge(GROUP_NAME, new SupplierGauge(tableId + "-miss-rate", () -> missRate()));
-    metricsRegistry.newGauge(GROUP_NAME, new SupplierGauge(tableId + "-req-count", () -> requestCount()));
+    readMetrics = new DefaultTableReadMetrics(containerContext, taskContext, this, tableId);
+    writeMetrics = new DefaultTableWriteMetrics(containerContext, taskContext, this, tableId);
+    TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(containerContext, taskContext, this, tableId);
+    tableMetricsUtil.newGauge("hit-rate", () -> hitRate());
+    tableMetricsUtil.newGauge("miss-rate", () -> missRate());
+    tableMetricsUtil.newGauge("req-count", () -> requestCount());
   }
 
   @Override
   public V get(K key) {
+    readMetrics.numGets.inc();
+    long startNs = System.nanoTime();
     V value = cache.get(key);
     if (value == null) {
       missCount.incrementAndGet();
@@ -121,18 +131,24 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
     } else {
       hitCount.incrementAndGet();
     }
+    readMetrics.getNs.update(System.nanoTime() - startNs);
     return value;
   }
 
   @Override
   public Map<K, V> getAll(List<K> keys) {
+    readMetrics.numGetAlls.inc();
+    long startNs = System.nanoTime();
     Map<K, V> getAllResult = new HashMap<>();
     keys.stream().forEach(k -> getAllResult.put(k, get(k)));
+    readMetrics.getAllNs.update(System.nanoTime() - startNs);
     return getAllResult;
   }
 
   @Override
   public void put(K key, V value) {
+    writeMetrics.numPuts.inc();
+    long startNs = System.nanoTime();
     Preconditions.checkNotNull(rwTable, "Cannot write to a read-only table: " + rdTable);
     Lock lock = stripedLocks.get(key);
     try {
@@ -144,16 +160,22 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
     } finally {
       lock.unlock();
     }
+    writeMetrics.putNs.update(System.nanoTime() - startNs);
   }
 
   @Override
   public void putAll(List<Entry<K, V>> entries) {
+    writeMetrics.numPutAlls.inc();
+    long startNs = System.nanoTime();
     Preconditions.checkNotNull(rwTable, "Cannot write to a read-only table: " + rdTable);
     entries.forEach(e -> put(e.getKey(), e.getValue()));
+    writeMetrics.putAllNs.update(System.nanoTime() - startNs);
   }
 
   @Override
   public void delete(K key) {
+    writeMetrics.numDeletes.inc();
+    long startNs = System.nanoTime();
     Preconditions.checkNotNull(rwTable, "Cannot delete from a read-only table: " + rdTable);
     Lock lock = stripedLocks.get(key);
     try {
@@ -163,18 +185,25 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
     } finally {
       lock.unlock();
     }
+    writeMetrics.deleteNs.update(System.nanoTime() - startNs);
   }
 
   @Override
   public void deleteAll(List<K> keys) {
+    writeMetrics.numDeleteAlls.inc();
+    long startNs = System.nanoTime();
     Preconditions.checkNotNull(rwTable, "Cannot delete from a read-only table: " + rdTable);
     keys.stream().forEach(k -> delete(k));
+    writeMetrics.deleteAllNs.update(System.nanoTime() - startNs);
   }
 
   @Override
   public synchronized void flush() {
+    writeMetrics.numFlushes.inc();
+    long startNs = System.nanoTime();
     Preconditions.checkNotNull(rwTable, "Cannot flush a read-only table: " + rdTable);
     rwTable.flush();
+    writeMetrics.flushNs.update(System.nanoTime() - startNs);
   }
 
   @Override

@@ -20,19 +20,15 @@
 package org.apache.samza.metrics.reporter
 
 import java.lang.management.ManagementFactory
+
 import org.apache.samza.util.Logging
 import javax.management.MBeanServer
 import javax.management.ObjectName
+
 import org.apache.samza.config.Config
-import org.apache.samza.metrics.Counter
-import org.apache.samza.metrics.Gauge
-import org.apache.samza.metrics.Timer
-import org.apache.samza.metrics.MetricsReporter
-import org.apache.samza.metrics.MetricsReporterFactory
-import org.apache.samza.metrics.ReadableMetricsRegistry
-import org.apache.samza.metrics.ReadableMetricsRegistryListener
+import org.apache.samza.metrics._
+
 import scala.collection.JavaConverters._
-import org.apache.samza.metrics.MetricsVisitor
 import org.apache.samza.metrics.JmxUtil._
 
 class JmxReporter(server: MBeanServer) extends MetricsReporter with Logging {
@@ -52,6 +48,8 @@ class JmxReporter(server: MBeanServer) extends MetricsReporter with Logging {
               def counter(counter: Counter) = registerBean(new JmxCounter(counter, getObjectName(group, name, sources(registry))))
               def gauge[T](gauge: Gauge[T]) = registerBean(new JmxGauge(gauge.asInstanceOf[Gauge[Object]], getObjectName(group, name, sources(registry))))
               def timer(timer: Timer) = registerBean(new JmxTimer(timer, getObjectName(group, name, sources(registry))))
+              def listGauge[T](listGauge: ListGauge[T]) = registerBean(new JmxListGauge(listGauge.asInstanceOf[ListGauge[Object]], getObjectName(group, name, sources(registry))))
+
             })
         }
       })
@@ -65,13 +63,14 @@ class JmxReporter(server: MBeanServer) extends MetricsReporter with Logging {
         def onCounter(group: String, counter: Counter) {
           registerBean(new JmxCounter(counter, getObjectName(group, counter.getName, source)))
         }
-
         def onGauge(group: String, gauge: Gauge[_]) {
           registerBean(new JmxGauge(gauge.asInstanceOf[Gauge[Object]], getObjectName(group, gauge.getName, source)))
         }
-
         def onTimer(group: String, timer: Timer) {
           registerBean(new JmxTimer(timer, getObjectName(group, timer.getName, source)))
+        }
+        def onListGauge(group: String, listGauge: ListGauge[_]) {
+          registerBean(new JmxListGauge(listGauge.asInstanceOf[ListGauge[Object]], getObjectName(group, listGauge.getName, source)))
         }
       }
     } else {
@@ -107,6 +106,11 @@ trait JmxGaugeMBean extends MetricMBean {
 
 class JmxGauge(g: org.apache.samza.metrics.Gauge[Object], on: ObjectName) extends JmxGaugeMBean {
   def getValue = g.getValue
+  def objectName = on
+}
+
+class JmxListGauge(g: org.apache.samza.metrics.ListGauge[Object], on: ObjectName) extends JmxGaugeMBean {
+  def getValue = g.getValues
   def objectName = on
 }
 
