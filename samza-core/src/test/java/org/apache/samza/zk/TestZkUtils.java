@@ -148,12 +148,12 @@ public class TestZkUtils {
     zkUtils.validateZkVersion();
 
     String root = zkUtils.getKeyBuilder().getRootPath();
-    String ver = (String) zkUtils.getZkClient().readData(root);
+    String ver = zkUtils.getZkClient().readData(root);
     Assert.assertEquals(ZkUtils.ZK_PROTOCOL_VERSION, ver);
 
     // do it again (in case original value was null
     zkUtils.validateZkVersion();
-    ver = (String) zkUtils.getZkClient().readData(root);
+    ver = zkUtils.getZkClient().readData(root);
     Assert.assertEquals(ZkUtils.ZK_PROTOCOL_VERSION, ver);
 
     // now negative case
@@ -265,7 +265,7 @@ public class TestZkUtils {
     // Register processor 1 which is not duplicate, this registration should succeed.
     zkUtils.registerProcessorAndGetId(processorData1);
 
-    ZkUtils zkUtils1 = getZkUtils();
+    ZkUtils zkUtils1 = new ZkUtils(KEY_BUILDER, zkClient, 1000, 500, new NoOpMetricsRegistry());
     zkUtils1.connect();
     ProcessorData duplicateProcessorData = new ProcessorData(testHostName, testProcessId);
     // Registration of the duplicate processor should fail.
