@@ -19,6 +19,7 @@
 
 package org.apache.samza.test.framework;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.samza.test.framework.stream.CollectionStream;
@@ -41,7 +42,7 @@ public class AsyncStreamTaskIntegrationTest {
         .of(MyAsyncStreamTask.class)
         .addInputStream(input)
         .addOutputStream(output)
-        .run(1500);
+        .run(Duration.ofSeconds(2));
 
     Assert.assertThat(TestRunner.consumeStream(output, 1000).get(0),
         IsIterableContainingInOrder.contains(outputList.toArray()));

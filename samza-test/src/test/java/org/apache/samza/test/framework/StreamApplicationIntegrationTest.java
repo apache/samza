@@ -18,6 +18,7 @@
  */
 package org.apache.samza.test.framework;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -66,7 +67,7 @@ public class StreamApplicationIntegrationTest {
         .addInputStream(input)
         .addOutputStream(output)
         .addOverrideConfig("job.default.system", "test")
-        .run(1000);
+        .run(Duration.ofMillis(1500));
 
     Assert.assertEquals(TestRunner.consumeStream(output, 10000).get(random.nextInt(count)).size(), 1);
   }

@@ -20,20 +20,17 @@
 package org.apache.samza.test.framework;
 
 import com.google.common.base.Preconditions;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.commons.lang.RandomStringUtils;
+import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.InMemorySystemConfig;
@@ -42,6 +39,7 @@ import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
+import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.operators.KV;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.standalone.PassthroughCoordinationUtilsFactory;
@@ -277,39 +275,30 @@ public class TestRunner {
   /**
    * Utility to run a test configured using TestRunner
    *
-   * @param timeout in ms for the Test to Run
-   * @throws InterruptedException if the current thread was interrupted
-   * @throws ExecutionException if the samza job threw an exception
-   * @throws TimeoutException if the wait timed out while running Samza job
+   * @param timeout time to wait for the high level application or low level task to finish. This timeout does not
+   *                include input stream initialization time or the assertion time over output streams.
+   *                This timeout just accounts for time that samza job takes run
    */
-  public void run(int timeout) throws InterruptedException, ExecutionException, TimeoutException {
+  public void run(Duration timeout) throws SamzaException, TimeoutException {
     Preconditions.checkState((app == null && taskClass != null) || (app != null && taskClass == null),
         "TestRunner should run for Low Level Task api or High Level Application Api");
     final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
-
-    final Runnable runSamzaJob = new Thread() {
-      @Override
-      public void run() {
-        if (app == null) {
-          runner.runTask();
-          runner.waitForFinish();
-        } else {
-          runner.run(app);
-          runner.waitForFinish();
-        }
-      }
-    };
-
-    final ExecutorService executor = Executors.newSingleThreadExecutor();
-    final Future future = executor.submit(runSamzaJob);
-    executor.shutdown();
-    future.get(timeout, TimeUnit.MILLISECONDS);
-    if (!executor.isTerminated()) {
-      executor.shutdownNow();
+    boolean timedOut = false;
+    if (app == null) {
+      runner.runTask();
+      timedOut = !runner.waitForFinish(timeout);
+    } else {
+      runner.run(app);
+      timedOut = !runner.waitForFinish(timeout);
     }
-
+    if (timedOut) {
+      throw new TimeoutException("Timed out waiting for application to finish");
+    }
+    ApplicationStatus status = runner.status(app);
+    if (status.getStatusCode() == ApplicationStatus.StatusCode.UnsuccessfulFinish) {
+      throw new SamzaException(status.getThrowable());
+    }
   }
-
   /**
    * Utility to read the messages from a stream from the beginning, this is supposed to be used after executing the
    * TestRunner in order to assert over the streams (ex output streams).
