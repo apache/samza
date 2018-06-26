@@ -55,8 +55,10 @@ public class SystemConsumerBench extends AbstractSamzaBench {
   public void start() throws IOException, InterruptedException {
     super.start();
     SystemAdmin systemAdmin = factory.getAdmin(systemName, config);
+    systemAdmin.start();
     SystemStreamMetadata ssm =
         systemAdmin.getSystemStreamMetadata(Collections.singleton(physicalStreamName)).get(physicalStreamName);
+    systemAdmin.stop();
 
     NoOpMetricsRegistry metricsRegistry = new NoOpMetricsRegistry();
     Set<SystemStreamPartition> ssps = createSSPs(systemName, physicalStreamName, startPartition, endPartition);

@@ -44,6 +44,7 @@ import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
+import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
@@ -225,11 +226,9 @@ public class TestRunner {
   private <T> void initializeInput(CollectionStream stream) {
     Preconditions.checkNotNull(stream);
     Preconditions.checkState(stream.getInitPartitions().size() >= 1);
-    String streamName = stream.getStreamName();
     String systemName = stream.getSystemName();
     Map<Integer, Iterable<T>> partitions = stream.getInitPartitions();
-    StreamSpec spec = new StreamSpec(streamName, stream.getPhysicalName(), systemName, partitions.size());
-    factory.getAdmin(systemName, new MapConfig(configs)).createStream(spec);
+    createStream(stream);
     SystemProducer producer = factory.getProducer(systemName, new MapConfig(configs), null);
     partitions.forEach((partitionId, partition) -> {
         partition.forEach(e -> {
@@ -259,10 +258,7 @@ public class TestRunner {
     Preconditions.checkState(stream.getInitPartitions().size() >= 1);
     registerSystem(stream.getSystemName());
     stream.setTestId(testId);
-    StreamSpec spec = new StreamSpec(stream.getStreamName(), stream.getPhysicalName(), stream.getSystemName(), stream.getInitPartitions().size());
-    factory
-        .getAdmin(stream.getSystemName(), new MapConfig(configs))
-        .createStream(spec);
+    createStream(stream);
     configs.putAll(stream.getStreamConfig());
     return this;
   }
@@ -306,8 +302,10 @@ public class TestRunner {
     SystemFactory factory = new InMemorySystemFactory();
     HashMap<String, String> config = new HashMap<>();
     config.put(InMemorySystemConfig.INMEMORY_SCOPE, stream.getTestId());
-    Map<String, SystemStreamMetadata> metadata =
-        factory.getAdmin(systemName, new MapConfig(config)).getSystemStreamMetadata(streamNames);
+    SystemAdmin systemAdmin = factory.getAdmin(systemName, new MapConfig(config));
+    systemAdmin.start();
+    Map<String, SystemStreamMetadata> metadata = systemAdmin.getSystemStreamMetadata(streamNames);
+    systemAdmin.stop();
     SystemConsumer consumer = factory.getConsumer(systemName, new MapConfig(config), null);
     metadata.get(stream.getPhysicalName()).getSystemStreamPartitionMetadata().keySet().forEach(partition -> {
         SystemStreamPartition temp = new SystemStreamPartition(systemName, streamName, partition);
@@ -347,5 +345,14 @@ public class TestRunner {
         .stream()
         .collect(Collectors.toMap(entry -> entry.getKey().getPartition().getPartitionId(),
             entry -> entry.getValue().stream().map(e -> (T) e.getMessage()).collect(Collectors.toList())));
+  }
+
+  private void createStream(CollectionStream stream) {
+    StreamSpec spec = new StreamSpec(stream.getStreamName(), stream.getPhysicalName(), stream.getSystemName(),
+        stream.getInitPartitions().size());
+    SystemAdmin systemAdmin = factory.getAdmin(stream.getSystemName(), new MapConfig(configs));
+    systemAdmin.start();
+    systemAdmin.createStream(spec);
+    systemAdmin.stop();
   }
 }

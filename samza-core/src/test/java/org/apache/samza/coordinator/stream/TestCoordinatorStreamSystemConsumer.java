@@ -19,6 +19,8 @@
 
 package org.apache.samza.coordinator.stream;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -33,8 +35,10 @@ import org.apache.samza.coordinator.stream.messages.Delete;
 import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin;
 import org.junit.Test;
@@ -43,10 +47,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import static org.mockito.Mockito.anyLong;
-import static org.mockito.Mockito.anySet;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
+
 
 public class TestCoordinatorStreamSystemConsumer {
   @Test
@@ -55,9 +57,15 @@ public class TestCoordinatorStreamSystemConsumer {
     expectedConfig.put("job.id", "1234");
     SystemStream systemStream = new SystemStream("system", "stream");
     MockSystemConsumer systemConsumer = new MockSystemConsumer(new SystemStreamPartition(systemStream, new Partition(0)));
-    CoordinatorStreamSystemConsumer consumer = new CoordinatorStreamSystemConsumer(systemStream, systemConsumer, new SinglePartitionWithoutOffsetsSystemAdmin());
+    SystemAdmin systemAdmin = mock(SystemAdmin.class);
+    when(systemAdmin.getSystemStreamMetadata(ImmutableSet.of("stream"))).thenReturn(ImmutableMap.of("stream",
+        new SystemStreamMetadata("stream", ImmutableMap.of(new Partition(0),
+            new SystemStreamMetadata.SystemStreamPartitionMetadata(null, null, null)))));
+    CoordinatorStreamSystemConsumer consumer = new CoordinatorStreamSystemConsumer(systemStream, systemConsumer, systemAdmin);
     assertEquals(0, systemConsumer.getRegisterCount());
     consumer.register();
+    verify(systemAdmin).start();
+    verify(systemAdmin).getSystemStreamMetadata(ImmutableSet.of("stream"));
     assertEquals(1, systemConsumer.getRegisterCount());
     assertFalse(systemConsumer.isStarted());
     consumer.start();
@@ -73,6 +81,7 @@ public class TestCoordinatorStreamSystemConsumer {
     assertFalse(systemConsumer.isStopped());
     consumer.stop();
     assertTrue(systemConsumer.isStopped());
+    verify(systemAdmin).stop();
   }
 
   @Test

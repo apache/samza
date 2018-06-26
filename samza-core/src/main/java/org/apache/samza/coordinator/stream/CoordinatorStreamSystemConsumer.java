@@ -106,6 +106,8 @@ public class CoordinatorStreamSystemConsumer {
     Set<String> streamNames = new HashSet<String>();
     String streamName = coordinatorSystemStreamPartition.getStream();
     streamNames.add(streamName);
+    // need to start this here, because metadata is needed in register
+    systemAdmin.start();
     Map<String, SystemStreamMetadata> systemStreamMetadataMap = systemAdmin.getSystemStreamMetadata(streamNames);
     log.info(String.format("Got metadata %s", systemStreamMetadataMap.toString()));
 
@@ -140,7 +142,7 @@ public class CoordinatorStreamSystemConsumer {
     }
     log.info("Starting coordinator stream system consumer.");
     systemConsumer.start();
-    systemAdmin.start();
+    // systemAdmin already gets started in "register"
     isStarted = true;
   }
 
