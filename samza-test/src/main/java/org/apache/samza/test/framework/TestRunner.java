@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.commons.lang.RandomStringUtils;
+import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
@@ -275,9 +276,9 @@ public class TestRunner {
   /**
    * Utility to run a test configured using TestRunner
    *
-   * @param timeout time to wait for the high level application or low level task to finish. This timeout does not
-   *                include input stream initialization time or the assertion time over output streams.
-   *                This timeout just accounts for time that samza job takes run
+   * @param timeout time to wait for the high level application or low level task to finish. This timeout does not include
+   *                input stream initialization time or the assertion time over output streams. This timeout just accounts
+   *                for time that samza job takes run. When job times out a TimeoutException is thrown to the callee
    */
   public void run(Duration timeout) throws SamzaException, TimeoutException {
     Preconditions.checkState((app == null && taskClass != null) || (app != null && taskClass == null),
@@ -296,7 +297,7 @@ public class TestRunner {
     }
     ApplicationStatus status = runner.status(app);
     if (status.getStatusCode() == ApplicationStatus.StatusCode.UnsuccessfulFinish) {
-      throw new SamzaException(status.getThrowable());
+      throw new SamzaException(ExceptionUtils.getStackTrace(status.getThrowable()));
     }
   }
   /**
