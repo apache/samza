@@ -19,9 +19,9 @@
 package org.apache.samza.processor;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -144,19 +144,19 @@ public class StreamProcessor {
   JobCoordinatorListener jobCoordinatorListener = null;
 
   /**
-   * Create an instance of StreamProcessor that encapsulates a JobCoordinator and Samza Container
-   * <p>
-   * JobCoordinator controls how the various StreamProcessor instances belonging to a job coordinate. It is also
-   * responsible generating and updating JobModel.
-   * When StreamProcessor starts, it starts the JobCoordinator and brings up a SamzaContainer based on the JobModel.
-   * SamzaContainer is executed using an ExecutorService.
-   * <p>
-   * <b>Note:</b> Lifecycle of the ExecutorService is fully managed by the StreamProcessor, and NOT exposed to the user
+   * StreamProcessor encapsulates and manages the lifecycle of {@link JobCoordinator} and {@link SamzaContainer}.
    *
-   * @param config                 Instance of config object - contains all configuration required for processing
-   * @param customMetricsReporters Map of custom MetricReporter instances that are to be injected in the Samza job
+   * <p>
+   * On startup, StreamProcessor starts the JobCoordinator. Schedules the SamzaContainer to run in a ExecutorService
+   * when it receives new {@link JobModel} from JobCoordinator.
+   * <p>
+   *
+   * <b>Note:</b> Lifecycle of the ExecutorService is fully managed by the StreamProcessor.
+   *
+   * @param config                 configuration required to launch {@link JobCoordinator} and {@link SamzaContainer}.
+   * @param customMetricsReporters metricReporter instances that will be used by SamzaContainer and JobCoordinator to report metrics.
    * @param asyncStreamTaskFactory The {@link AsyncStreamTaskFactory} to be used for creating task instances.
-   * @param processorListener         listener to the StreamProcessor life cycle
+   * @param processorListener      listener to the StreamProcessor life cycle.
    */
   public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
                          AsyncStreamTaskFactory asyncStreamTaskFactory, StreamProcessorLifecycleListener processorListener) {
@@ -164,7 +164,7 @@ public class StreamProcessor {
   }
 
   /**
-   *Same as {@link #StreamProcessor(Config, Map, AsyncStreamTaskFactory, StreamProcessorLifecycleListener)}, except task
+   * Same as {@link StreamProcessor(Config, Map, AsyncStreamTaskFactory, StreamProcessorLifecycleListener)}, except task
    * instances are created using the provided {@link StreamTaskFactory}.
    * @param config - config
    * @param customMetricsReporters metric Reporter
@@ -189,6 +189,7 @@ public class StreamProcessor {
 
   StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, Object taskFactory,
                   StreamProcessorLifecycleListener processorListener, JobCoordinator jobCoordinator) {
+    Preconditions.checkNotNull(processorListener, "ProcessorListener cannot be null.");
     this.taskFactory = taskFactory;
     this.config = config;
     this.taskShutdownMs = new TaskConfigJava(config).getShutdownMs();
@@ -248,8 +249,7 @@ public class StreamProcessor {
    */
   public void stop() {
     synchronized (lock) {
-      List<State> expectedStates = ImmutableList.of(State.NEW, State.RUNNING, State.STARTED, State.IN_REBALANCE);
-      if (expectedStates.contains(state)) {
+      if (state != State.STOPPING && state != State.STOPPED) {
         state = State.STOPPING;
         try {
           LOGGER.info("Shutting down the container: {} of stream processor: {}.", container, processorId);
@@ -319,7 +319,7 @@ public class StreamProcessor {
               LOGGER.info("Container: {} shutdown completed for stream processor: {}.", container, processorId);
             }
           } else {
-            LOGGER.info("Container: {} of the stream processor: {} is not running.", container, processorId);
+            LOGGER.info("Ignoring onJobModelExpired invocation since the current state is {} and not in {}.", state, ImmutableList.of(State.RUNNING, State.STARTED));
           }
         }
       }
