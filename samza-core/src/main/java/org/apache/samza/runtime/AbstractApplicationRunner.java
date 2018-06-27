@@ -29,7 +29,9 @@ import org.apache.samza.config.StreamConfig;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.execution.ExecutionPlanner;
 import org.apache.samza.execution.StreamManager;
+import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.operators.OperatorSpecGraph;
+import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmins;
@@ -47,19 +49,23 @@ import java.util.Set;
 /**
  * Defines common, core behavior for implementations of the {@link ApplicationRunner} API.
  */
-public abstract class AbstractApplicationRunner extends ApplicationRunner {
+public abstract class AbstractApplicationRunner implements ApplicationRunner {
   private static final Logger log = LoggerFactory.getLogger(AbstractApplicationRunner.class);
 
   private final StreamManager streamManager;
   private final SystemAdmins systemAdmins;
 
+  protected final Config config;
+  protected final Map<String, MetricsReporter> metricsReporters = new HashMap<>();
+
   /**
    * The {@link ApplicationRunner} is supposed to run a single {@link StreamApplication} instance in the full life-cycle
    */
+  // TODO: need to revisit after refactory and merge the supported application instances
   protected final StreamGraphSpec graphSpec;
 
   public AbstractApplicationRunner(Config config) {
-    super(config);
+    this.config = config;
     this.graphSpec = new StreamGraphSpec(this, config);
     this.systemAdmins = new SystemAdmins(config);
     this.streamManager = new StreamManager(systemAdmins);
@@ -132,9 +138,8 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
 
   /* package private */
   ExecutionPlan getExecutionPlan(StreamApplication app, String runId) throws Exception {
-    // build stream graph
-    app.init(graphSpec, config);
-
+    // get the already initialized operatorSpec
+    // TODO: revisit later to see where to get the graphSpec
     OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
     // create the physical execution plan
     Map<String, String> cfg = new HashMap<>(config);
@@ -157,6 +162,11 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
     return streamManager;
   }
 
+  @Override
+  public final StreamGraph createGraph() {
+    return this.graphSpec;
+  }
+
   /**
    * Write the execution plan JSON to a file
    * @param planJson JSON representation of the plan
@@ -176,6 +186,11 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
     } catch (Exception e) {
       log.warn("Failed to write execution plan json to file", e);
     }
+  }
+
+  @Override
+  public final void addMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
+    this.metricsReporters.putAll(metricsReporters);
   }
 
 }

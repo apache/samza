@@ -22,14 +22,13 @@ package org.apache.samza.test.operator;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
@@ -48,33 +47,26 @@ import org.apache.samza.util.CommandLine;
 /**
  * A {@link StreamApplication} that demonstrates a partitionBy, stream-stream join and a windowed count.
  */
-public class RepartitionJoinWindowApp implements StreamApplication {
+public class RepartitionJoinWindowApp {
 
   public static final String INPUT_TOPIC_NAME_1_PROP = "inputTopicName1";
   public static final String INPUT_TOPIC_NAME_2_PROP = "inputTopicName2";
   public static final String OUTPUT_TOPIC_NAME_PROP = "outputTopicName";
 
-  private final List<StreamSpec> intermediateStreams = new ArrayList<>();
+  private static final List<StreamSpec> intermediateStreams = new ArrayList<>();
 
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
 
-    RepartitionJoinWindowApp application = new RepartitionJoinWindowApp();
-    LocalApplicationRunner runner = new LocalApplicationRunner(config);
-
-    runner.run(application);
-    runner.waitForFinish();
-  }
-
-  @Override
-  public void init(StreamGraph graph, Config config) {
     String inputTopicName1 = config.get(INPUT_TOPIC_NAME_1_PROP);
     String inputTopicName2 = config.get(INPUT_TOPIC_NAME_2_PROP);
     String outputTopic = config.get(OUTPUT_TOPIC_NAME_PROP);
 
-    MessageStream<PageView> pageViews = graph.getInputStream(inputTopicName1, new JsonSerdeV2<>(PageView.class));
-    MessageStream<AdClick> adClicks = graph.getInputStream(inputTopicName2, new JsonSerdeV2<>(AdClick.class));
+    StreamApplication app = StreamApplications.createStreamApp(config);
+
+    MessageStream<PageView> pageViews = app.openInput(inputTopicName1, new JsonSerdeV2<>(PageView.class));
+    MessageStream<AdClick> adClicks = app.openInput(inputTopicName2, new JsonSerdeV2<>(AdClick.class));
 
     MessageStream<KV<String, PageView>> pageViewsRepartitionedByViewId = pageViews
         .partitionBy(PageView::getViewId, pv -> pv,
@@ -105,11 +97,13 @@ public class RepartitionJoinWindowApp implements StreamApplication {
             messageCollector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", outputTopic), null, message.getKey(), message.getValue()));
           });
 
-
+    intermediateStreams.clear();
     intermediateStreams.add(((IntermediateMessageStreamImpl) pageViewsRepartitionedByViewId).getStreamSpec());
     intermediateStreams.add(((IntermediateMessageStreamImpl) adClicksRepartitionedByViewId).getStreamSpec());
     intermediateStreams.add(((IntermediateMessageStreamImpl) userPageAdClicksByUserId).getStreamSpec());
 
+    app.run();
+    app.waitForFinish();
   }
 
   public List<StreamSpec> getIntermediateStreams() {

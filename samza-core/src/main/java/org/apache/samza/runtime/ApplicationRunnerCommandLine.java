@@ -16,18 +16,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.testUtils;
+package org.apache.samza.runtime;
 
-import org.apache.samza.config.Config;
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.application.StreamApplication;
+import joptsimple.OptionSet;
+import joptsimple.OptionSpec;
+import org.apache.samza.util.CommandLine;
+
 
 /**
- * Test implementation class for {@link StreamApplication}
+ * The class defines the basic command line arguments for Samza command line scripts.
  */
-public class TestStreamApplication implements StreamApplication {
-  @Override
-  public void init(StreamGraph graph, Config config) {
+public class ApplicationRunnerCommandLine extends CommandLine {
+  public OptionSpec operationOpt = parser().accepts("operation", "The operation to perform; run, status, kill.")
+      .withRequiredArg()
+      .ofType(String.class)
+      .describedAs("operation=run")
+      .defaultsTo("run");
 
+  public ApplicationRunnerOperation getOperation(OptionSet options) {
+    String rawOp = options.valueOf(operationOpt).toString();
+    return ApplicationRunnerOperation.fromString(rawOp);
   }
 }

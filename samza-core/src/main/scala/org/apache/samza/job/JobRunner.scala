@@ -27,10 +27,8 @@ import org.apache.samza.config.Config
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.coordinator.stream.{CoordinatorStreamSystemConsumer, CoordinatorStreamSystemProducer}
 import org.apache.samza.coordinator.stream.messages.{Delete, SetConfig}
-import org.apache.samza.job.ApplicationStatus.{Running, SuccessfulFinish}
 import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.runtime.ApplicationRunnerMain.ApplicationRunnerCommandLine
-import org.apache.samza.runtime.ApplicationRunnerOperation
+import org.apache.samza.runtime.{ApplicationRunnerCommandLine, ApplicationRunnerOperation}
 import org.apache.samza.system.StreamSpec
 import org.apache.samza.util.{CoordinatorStreamUtil, Logging, Util}
 

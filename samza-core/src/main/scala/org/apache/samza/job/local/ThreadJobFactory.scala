@@ -22,12 +22,12 @@ package org.apache.samza.job.local
 import org.apache.samza.config.{Config, TaskConfigJava}
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
-import org.apache.samza.container.{SamzaContainer, SamzaContainerListener, TaskName}
+import org.apache.samza.container.TaskName
+import org.apache.samza.container.{SamzaContainer, SamzaContainerListener}
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap, MetricsReporter}
-import org.apache.samza.operators.StreamGraphSpec
 import org.apache.samza.runtime.LocalContainerRunner
 import org.apache.samza.storage.ChangelogStreamManager
 import org.apache.samza.task.TaskFactoryUtil
@@ -71,16 +71,11 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
 
     val containerId = "0"
     val jmxServer = new JmxServer
-    val streamApp = TaskFactoryUtil.createStreamApplication(config)
-    val appRunner = new LocalContainerRunner(jobModel, "0")
 
-    val taskFactory = if (streamApp != null) {
-      val graphSpec = new StreamGraphSpec(appRunner, config)
-      streamApp.init(graphSpec, config)
-      TaskFactoryUtil.createTaskFactory(graphSpec.getOperatorSpecGraph(), graphSpec.getContextManager)
-    } else {
-      TaskFactoryUtil.createTaskFactory(config)
-    }
+    // TODO: ThreadJobFactory does not support launch StreamApplication. Launching user-defined StreamApplication is via new
+    // user program w/ main().
+    val appRunner = new LocalContainerRunner(jobModel, "0")
+    val taskFactory = TaskFactoryUtil.createTaskFactory(config)
 
     // Give developers a nice friendly warning if they've specified task.opts and are using a threaded job.
     config.getTaskOpts match {

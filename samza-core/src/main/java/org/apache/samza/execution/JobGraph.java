@@ -197,12 +197,6 @@ import org.slf4j.LoggerFactory;
   }
 
   /**
-   * Get the {@link StreamEdge} for a {@link StreamSpec}. Create one if it does not exist.
-   * @param streamSpec spec of the StreamEdge
-   * @return stream edge
-   */
-
-  /**
    * Returns the job nodes to be executed in the topological order
    * @return unmodifiable list of {@link JobNode}
    */

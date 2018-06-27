@@ -20,13 +20,19 @@ package org.apache.samza.application;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.ContextManager;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.job.ApplicationStatus;
+import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.functions.InitableFunction;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.TaskContext;
+
+import java.util.Map;
+
 
 /**
  * Describes and initializes the transforms for processing message streams and generating results.
@@ -73,25 +79,157 @@ import org.apache.samza.task.TaskContext;
  * See {@link InitableFunction} and {@link org.apache.samza.operators.functions.ClosableFunction}.
  */
 @InterfaceStability.Unstable
-public interface StreamApplication {
+public class StreamApplication implements ApplicationRunnable {
+
+  /*package private*/
+  final ApplicationRunner runner;
+  final Config config;
+  final StreamGraph graph;
+
+  StreamApplication(ApplicationRunner runner, Config config) {
+    this.runner = runner;
+    this.config = config;
+    this.graph = runner.createGraph();
+  }
+
+  @Override
+  public final void run() {
+    this.runner.run(this);
+  }
+
+  @Override
+  public final void kill() {
+    this.runner.kill(this);
+  }
+
+  @Override
+  public final ApplicationStatus status() {
+    return this.runner.status(this);
+  }
+
+  @Override
+  public final void waitForFinish() {
+    this.runner.waitForFinish(this);
+  }
+
+  public static class AppConfig extends MapConfig {
+
+    public static final String APP_NAME = "app.name";
+    public static final String APP_ID = "app.id";
+    public static final String APP_CLASS = "app.class";
+    public static final String RUNNER_CONFIG = "app.runner.class";
+    private static final String DEFAULT_RUNNER_CLASS = "org.apache.samza.runtime.RemoteApplicationRunner";
+
+    public static final String JOB_NAME = "job.name";
+    public static final String JOB_ID = "job.id";
+
+    public AppConfig(Config config) {
+      super(config);
+    }
+
+    public String getAppName() {
+      return get(APP_NAME, get(JOB_NAME));
+    }
+
+    public String getAppId() {
+      return get(APP_ID, get(JOB_ID, "1"));
+    }
+
+    public String getAppClass() {
+      return get(APP_CLASS, null);
+    }
+
+    public String getApplicationRunnerClass() {
+      return get(RUNNER_CONFIG, DEFAULT_RUNNER_CLASS);
+    }
+
+    /**
+     * Returns full application id
+     *
+     * @return full app id
+     */
+    public String getGlobalAppId() {
+      return String.format("app-%s-%s", getAppName(), getAppId());
+    }
+
+  }
 
   /**
-   * Describes and initializes the transforms for processing message streams and generating results.
-   * <p>
-   * The {@link StreamGraph} provides access to input and output streams. Input {@link MessageStream}s can be
-   * transformed into other {@link MessageStream}s or sent to an {@link OutputStream} using the {@link MessageStream}
-   * operators.
-   * <p>
-   * Most operators accept custom functions for doing the transformations. These functions are {@link InitableFunction}s
-   * and are provided the {@link Config} and {@link TaskContext} during their own initialization. The config and the
-   * context can be used, for example, to create custom metrics or access durable state stores.
-   * <p>
-   * A shared context between {@link InitableFunction}s for different operators within a task instance can be set
-   * up by providing a {@link ContextManager} using {@link StreamGraph#withContextManager}.
+   * Set {@link MetricsReporter}s for this {@link StreamApplication}
    *
-   * @param graph the {@link StreamGraph} to get input/output streams from
-   * @param config the configuration for the application
+   * @param metricsReporters the map of {@link MetricsReporter}s to be added
+   * @return this {@link StreamApplication} instance
    */
-  void init(StreamGraph graph, Config config);
+  public StreamApplication withMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
+    this.runner.addMetricsReporters(metricsReporters);
+    return this;
+  }
+
+  /**
+   * Return the globally unique application ID for this {@link StreamApplication}
+   *
+   * @return the globally unique appplication ID
+   */
+  public String getGlobalAppId() {
+    return new AppConfig(config).getGlobalAppId();
+  }
+
+  /**
+   * Gets the input {@link MessageStream} corresponding to the {@code streamId}.
+   * <p>
+   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
+   *
+   * @param <M> the type of input messages
+   * @param streamId the input stream name
+   * @param serde the {@link Serde} object used to deserialize input messages
+   * @return the input {@link MessageStream}
+   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
+   */
+  public final <M> MessageStream<M> openInput(String streamId, Serde<M> serde) {
+    return this.graph.getInputStream(streamId, serde);
+  }
+
+  /**
+   * Gets the input {@link MessageStream} corresponding to the {@code streamId}.
+   * <p>
+   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
+   *
+   * @param <M> the type of message in the input {@link MessageStream}
+   * @param streamId the input stream name
+   * @return the input {@link MessageStream}
+   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
+   */
+  public final <M> MessageStream<M> openInput(String streamId) {
+    return this.graph.getInputStream(streamId);
+  }
+
+  /**
+   * Gets the {@link OutputStream} corresponding to the {@code streamId}.
+   * <p>
+   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
+   *
+   * @param <M> the type of message in the {@link OutputStream}
+   * @param output the output stream name
+   * @param serde the {@link Serde} object used to serialize output messages
+   * @return the output {@link OutputStream}
+   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
+   */
+  public final <M> OutputStream<M> openOutput(String output, Serde<M> serde) {
+    return this.graph.getOutputStream(output, serde);
+  }
+
+  /**
+   * Gets the {@link OutputStream} corresponding to the {@code streamId}.
+   * <p>
+   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
+   *
+   * @param <M> the type of message in the {@link OutputStream}
+   * @param output the output stream name
+   * @return the output {@link OutputStream}
+   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
+   */
+  public final <M> OutputStream<M> openOutput(String output) {
+    return this.graph.getOutputStream(output);
+  }
 
 }

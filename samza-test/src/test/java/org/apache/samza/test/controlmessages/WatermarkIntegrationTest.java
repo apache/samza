@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
+import org.apache.samza.application.StreamApplications;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -142,22 +143,18 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
     configs.put("serializers.registry.json.class", PageViewJsonSerdeFactory.class.getName());
 
     List<PageView> received = new ArrayList<>();
-    final StreamApplication app = (streamGraph, cfg) -> {
-      streamGraph.<KV<String, PageView>>getInputStream("PageView")
+    final StreamApplication app = StreamApplications.createStreamApp(new MapConfig(configs));
+    app.<KV<String, PageView>>openInput("PageView")
           .map(EndOfStreamIntegrationTest.Values.create())
           .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
           .sink((m, collector, coordinator) -> {
               received.add(m.getValue());
             });
-    };
+    app.run();
+    Map<String, StreamOperatorTask> tasks = getTaskOperationGraphs(app);
 
-    LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
-    runner.run(app);
-    // processors are only available when the app is running
-    Map<String, StreamOperatorTask> tasks = getTaskOperationGraphs(runner);
+    app.waitForFinish();
 
-    runner.waitForFinish();
-    // wait for the completion to ensure that all tasks are actually initialized and the OperatorImplGraph is initialized
     StreamOperatorTask task0 = tasks.get("Partition 0");
     OperatorImplGraph graph = TestStreamOperatorTask.getOperatorImplGraph(task0);
     OperatorImpl pb = getOperator(graph, OperatorSpec.OpCode.PARTITION_BY);
@@ -177,7 +174,10 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
     assertEquals(TestOperatorImpl.getOutputWatermark(sink), 3);
   }
 
-  Map<String, StreamOperatorTask> getTaskOperationGraphs(LocalApplicationRunner runner) throws Exception {
+  Map<String, StreamOperatorTask> getTaskOperationGraphs(StreamApplication app) throws Exception {
+    Field appRunnerField = StreamApplication.class.getDeclaredField("runner");
+    appRunnerField.setAccessible(true);
+    LocalApplicationRunner runner = (LocalApplicationRunner) appRunnerField.get(app);
     StreamProcessor processor = TestLocalApplicationRunner.getProcessors(runner).iterator().next();
     SamzaContainer container = TestStreamProcessorUtil.getContainer(processor);
     Map<TaskName, TaskInstance> taskInstances = JavaConverters.mapAsJavaMapConverter(container.getTaskInstances()).asJava();

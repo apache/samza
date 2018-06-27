@@ -29,12 +29,15 @@ import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
 import org.apache.samza.system.kafka.KafkaSystemAdmin;
 import org.apache.samza.util.ExponentialSleepStrategy;
+import org.apache.samza.SamzaException;
+import org.apache.samza.config.JobCoordinatorConfig;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.TaskConfig;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.Collections;
 import java.util.List;
-
 
 /**
  * Test driver for {@link RepartitionJoinWindowApp}.
@@ -81,13 +84,26 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_NAME_2_PROP, inputTopicName2);
     configs.put(RepartitionJoinWindowApp.OUTPUT_TOPIC_NAME_PROP, outputTopicName);
 
-    runApplication(app, appName, configs);
+    Thread runThread = new Thread(() -> {
+      try {
+        // run the application
+        runApplication(app.getClass().getName(), appName, new MapConfig(configs));
+      } catch (Exception e) {
+        throw new SamzaException("Exception in running RepartitionJoinWindowApp", e);
+      }
+    });
+
+    runThread.start();
 
     // consume and validate result
     List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(outputTopicName), 2);
     Assert.assertEquals(2, messages.size());
 
     Assert.assertFalse(KafkaSystemAdmin.deleteMessagesCalled());
+
+    runThread.interrupt();
+    runThread.join();
+
   }
 
   @Test
@@ -102,12 +118,24 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     RepartitionJoinWindowApp app = new RepartitionJoinWindowApp();
     final String appName = "UserPageAdClickCounter2";
     Map<String, String> configs = new HashMap<>();
+    configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
+    configs.put(JobCoordinatorConfig.JOB_COORDINATION_UTILS_FACTORY, "org.apache.samza.standalone.PassthroughCoordinationUtilsFactory");
+    configs.put(TaskConfig.GROUPER_FACTORY(), "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
     configs.put("systems.kafka.samza.delete.committed.messages", "true");
     configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_NAME_1_PROP, inputTopicName1);
     configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_NAME_2_PROP, inputTopicName2);
     configs.put(RepartitionJoinWindowApp.OUTPUT_TOPIC_NAME_PROP, outputTopicName);
 
-    runApplication(app, appName, configs);
+    Thread runThread = new Thread(() -> {
+        try {
+          // run the application
+          runApplication(app.getClass().getName(), appName, new MapConfig(configs));
+        } catch (Exception e) {
+          throw new SamzaException("Exception in running RepartitionJoinWindowApp", e);
+        }
+      });
+
+    runThread.start();
 
     // consume and validate result
     List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(outputTopicName), 2);
@@ -139,11 +167,13 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
       Assert.assertEquals(0, remainingMessageNum);
     }
 
+    runThread.interrupt();
+    runThread.join();
 
   }
 
   @Test
-  public void testBroadcastApp() {
+  public void testBroadcastApp() throws InterruptedException {
     String inputTopicName1 = "page-views";
     String inputTopicName2 = "ad-clicks";
     String outputTopicName = "user-ad-click-counts";
@@ -151,6 +181,18 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     configs.put(BroadcastAssertApp.INPUT_TOPIC_NAME_PROP, inputTopicName1);
 
     initializeTopics(inputTopicName1, inputTopicName2, outputTopicName);
-    runApplication(new BroadcastAssertApp(), "BroadcastTest", configs);
+    Thread runThread = new Thread(() -> {
+      try {
+        // run the application
+        runApplication(BroadcastAssertApp.class.getName(), "BroadcastTest", new MapConfig(configs));
+      } catch (Exception e) {
+        throw new SamzaException("Exception in running RepartitionJoinWindowApp", e);
+      }
+    });
+
+    runThread.start();
+
+    runThread.interrupt();
+    runThread.join();
   }
 }

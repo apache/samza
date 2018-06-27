@@ -16,27 +16,21 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.application;
 
-package org.apache.samza.runtime;
+import org.apache.samza.operators.StreamGraphSpec;
 
-/**
- * Operation to perform in the {@link RemoteApplicationRunner}
- */
-public enum ApplicationRunnerOperation {
-  RUN("run"), KILL("kill"), STATUS("status");
 
-  private final String str;
+public class StreamApplicationInternal {
 
-  public static ApplicationRunnerOperation fromString(String string) {
-    return ApplicationRunnerOperation.valueOf(string.toUpperCase());
+  private final StreamApplication app;
+
+  public StreamApplicationInternal(StreamApplication app) {
+    this.app = app;
   }
 
-  ApplicationRunnerOperation(String str) {
-    this.str = str;
+  public StreamGraphSpec getStreamGraphSpec() {
+    return (StreamGraphSpec) this.app.graph;
   }
 
-  @Override
-  public String toString() {
-    return str;
-  }
 }

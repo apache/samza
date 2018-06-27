@@ -16,27 +16,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.samza.runtime;
 
 /**
- * Operation to perform in the {@link RemoteApplicationRunner}
+ * TODO: adding tests to unit test {@link LocalContainerRunner}
  */
-public enum ApplicationRunnerOperation {
-  RUN("run"), KILL("kill"), STATUS("status");
-
-  private final String str;
-
-  public static ApplicationRunnerOperation fromString(String string) {
-    return ApplicationRunnerOperation.valueOf(string.toUpperCase());
-  }
-
-  ApplicationRunnerOperation(String str) {
-    this.str = str;
-  }
-
-  @Override
-  public String toString() {
-    return str;
-  }
+public class TestLocalContainerRunner {
 }

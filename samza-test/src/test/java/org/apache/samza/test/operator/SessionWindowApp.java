@@ -21,13 +21,12 @@ package org.apache.samza.test.operator;
 
 import java.time.Duration;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
@@ -40,7 +39,7 @@ import org.slf4j.LoggerFactory;
 /**
  * A {@link StreamApplication} that demonstrates a filter followed by a session window.
  */
-public class SessionWindowApp implements StreamApplication {
+public class SessionWindowApp {
   private static final String INPUT_TOPIC = "page-views";
   private static final String OUTPUT_TOPIC = "page-view-counts";
 
@@ -50,19 +49,11 @@ public class SessionWindowApp implements StreamApplication {
   public static void main(String[] args) {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    SessionWindowApp app = new SessionWindowApp();
-    LocalApplicationRunner runner = new LocalApplicationRunner(config);
+    StreamApplication app = StreamApplications.createStreamApp(config);
 
-    runner.run(app);
-    runner.waitForFinish();
-  }
-
-  @Override
-  public void init(StreamGraph graph, Config config) {
-
-    MessageStream<PageView> pageViews = graph.getInputStream(INPUT_TOPIC, new JsonSerdeV2<>(PageView.class));
+    MessageStream<PageView> pageViews = app.openInput(INPUT_TOPIC, new JsonSerdeV2<>(PageView.class));
     OutputStream<KV<String, Integer>> outputStream =
-        graph.getOutputStream(OUTPUT_TOPIC, new KVSerde<>(new StringSerde(), new IntegerSerde()));
+        app.openOutput(OUTPUT_TOPIC, new KVSerde<>(new StringSerde(), new IntegerSerde()));
 
     pageViews
         .filter(m -> !FILTER_KEY.equals(m.getUserId()))
@@ -71,5 +62,7 @@ public class SessionWindowApp implements StreamApplication {
         .map(m -> KV.of(m.getKey().getKey(), m.getMessage().size()))
         .sendTo(outputStream);
 
+    app.run();
+    app.waitForFinish();
   }
 }

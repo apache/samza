@@ -19,6 +19,11 @@
 
 package org.apache.samza.runtime;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.lang.reflect.Method;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Random;
 import org.apache.log4j.MDC;
@@ -37,8 +42,11 @@ import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.task.TaskFactoryUtil;
 import org.apache.samza.util.ScalaJavaUtil;
+import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.apache.samza.util.ScalaJavaUtil.defaultValue;
 
 /**
  * LocalContainerRunner is the local runner for Yarn {@link SamzaContainer}s. It is an intermediate step to
@@ -101,7 +109,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     startContainerHeartbeatMonitor();
     container.run();
     stopContainerHeartbeatMonitor();
-    
+
     if (containerRunnerException != null) {
       log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
       System.exit(1);
@@ -110,24 +118,53 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
 
   private Object getTaskFactory(StreamApplication streamApp) {
     if (streamApp != null) {
-      streamApp.init(graphSpec, config);
+      // TODO: should already be initialized.
+      // streamApp.init(graphSpec, config);
       return TaskFactoryUtil.createTaskFactory(graphSpec.getOperatorSpecGraph(), graphSpec.getContextManager());
     }
     return TaskFactoryUtil.createTaskFactory(config);
   }
 
   @Override
-  public void kill(StreamApplication streamApp) {
+  public void kill(StreamApplication userApp) {
     // Ultimately this class probably won't end up extending ApplicationRunner, so this will be deleted
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public ApplicationStatus status(StreamApplication streamApp) {
+  public ApplicationStatus status(StreamApplication userApp) {
     // Ultimately this class probably won't end up extending ApplicationRunner, so this will be deleted
     throw new UnsupportedOperationException();
   }
 
+  @Override
+  public void waitForFinish(StreamApplication userApp) {
+
+  }
+
+  @Override
+  public boolean waitForFinish(StreamApplication app, Duration timeout) {
+    return false;
+  }
+
+  private static File writeConfigToTmpFile(Config config) throws IOException {
+    File tmpFile = File.createTempFile("config", "");
+    FileWriter fileWriter = new FileWriter(tmpFile);
+    try {
+      config.forEach((k, v) -> {
+          try {
+            fileWriter.write(String.format("%s=%s\n", k, v));
+          } catch (IOException e) {
+            throw new SamzaException("Failed to create a temporary config file for user application", e);
+          }
+        });
+    } finally {
+      fileWriter.close();
+    }
+    return tmpFile;
+  }
+
+  // only invoked by legacy applications w/o user-defined main
   public static void main(String[] args) throws Exception {
     Thread.setDefaultUncaughtExceptionHandler(
         new SamzaUncaughtExceptionHandler(() -> {
@@ -149,16 +186,27 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
       throw new SamzaException("can not find the job name");
     }
     String jobName = jobConfig.getName().get();
-    String jobId = jobConfig.getJobId().getOrElse(ScalaJavaUtil.defaultValue("1"));
+    String jobId = jobConfig.getJobId().getOrElse(defaultValue("1"));
     MDC.put("containerName", "samza-container-" + containerId);
     MDC.put("jobName", jobName);
     MDC.put("jobId", jobId);
 
-    StreamApplication streamApp = TaskFactoryUtil.createStreamApplication(config);
-    LocalContainerRunner localContainerRunner = new LocalContainerRunner(jobModel, containerId);
-    localContainerRunner.run(streamApp);
+    StreamApplication.AppConfig appConfig = new StreamApplication.AppConfig(config);
 
-    System.exit(0);
+    if (appConfig.getAppClass() != null && !appConfig.getAppClass().isEmpty()) {
+      // add configuration-factory and configuration-path to the command line options and invoke the user defined main class
+      // write the complete configuration to a local file in property file format
+      config.put(StreamApplication.AppConfig.RUNNER_CONFIG, LocalContainerRunner.class.getName());
+      File tmpFile = writeConfigToTmpFile(config);
+      Class<?> cls = Class.forName(appConfig.getAppClass());
+      Method mainMethod = cls.getMethod("main", String[].class);
+      String[] params = new String[] {"--configuration-path", String.format("%s", tmpFile.getAbsoluteFile())};
+      mainMethod.invoke(null, (Object) params);
+    } else {
+      LocalContainerRunner localContainerRunner = new LocalContainerRunner(jobModel, containerId);
+      // run with app = null force to load the task class from configuration
+      localContainerRunner.run(null);
+    }
   }
 
   private void startContainerHeartbeatMonitor() {
@@ -187,4 +235,5 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
       containerHeartbeatMonitor.stop();
     }
   }
+
 }

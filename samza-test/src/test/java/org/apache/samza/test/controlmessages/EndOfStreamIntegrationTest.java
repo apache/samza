@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
@@ -32,7 +33,6 @@ import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.MapFunction;
-import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.standalone.PassthroughCoordinationUtilsFactory;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.test.controlmessages.TestData.PageView;
@@ -43,6 +43,7 @@ import org.apache.samza.test.util.Base64Serializer;
 
 import org.junit.Test;
 import static org.junit.Assert.assertEquals;
+import static junit.framework.Assert.*;
 
 /**
  * This test uses an array as a bounded input source, and does a partitionBy() and sink() after reading the input.
@@ -90,18 +91,16 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
     configs.put("serializers.registry.int.class", "org.apache.samza.serializers.IntegerSerdeFactory");
     configs.put("serializers.registry.json.class", PageViewJsonSerdeFactory.class.getName());
 
-    final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
-    final StreamApplication app = (streamGraph, cfg) -> {
-      streamGraph.<KV<String, PageView>>getInputStream("PageView")
+    final StreamApplication app = StreamApplications.createStreamApp(new MapConfig(configs));
+
+    app.<KV<String, PageView>>openInput("PageView")
         .map(Values.create())
         .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
         .sink((m, collector, coordinator) -> {
             received.add(m.getValue());
           });
-    };
-
-    runner.run(app);
-    runner.waitForFinish();
+    app.run();
+    app.waitForFinish();
 
     assertEquals(received.size(), count * partitionCount);
   }
