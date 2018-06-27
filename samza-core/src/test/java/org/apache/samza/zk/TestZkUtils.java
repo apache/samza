@@ -56,8 +56,8 @@ public class TestZkUtils {
   private static EmbeddedZookeeper zkServer = null;
   private static final ZkKeyBuilder KEY_BUILDER = new ZkKeyBuilder("test");
   private ZkClient zkClient = null;
-  private static final int SESSION_TIMEOUT_MS = 20000;
-  private static final int CONNECTION_TIMEOUT_MS = 10000;
+  private static final int SESSION_TIMEOUT_MS = 500;
+  private static final int CONNECTION_TIMEOUT_MS = 1000;
   private ZkUtils zkUtils;
 
   @Rule
@@ -265,7 +265,7 @@ public class TestZkUtils {
     // Register processor 1 which is not duplicate, this registration should succeed.
     zkUtils.registerProcessorAndGetId(processorData1);
 
-    ZkUtils zkUtils1 = new ZkUtils(KEY_BUILDER, zkClient, 1000, 500, new NoOpMetricsRegistry());
+    ZkUtils zkUtils1 = getZkUtils();
     zkUtils1.connect();
     ProcessorData duplicateProcessorData = new ProcessorData(testHostName, testProcessId);
     // Registration of the duplicate processor should fail.
