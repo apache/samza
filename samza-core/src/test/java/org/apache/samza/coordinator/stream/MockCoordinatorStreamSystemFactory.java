@@ -48,6 +48,10 @@ public class MockCoordinatorStreamSystemFactory implements SystemFactory {
   private static SystemConsumer mockConsumer = null;
   private static boolean useCachedConsumer = false;
 
+  public MockCoordinatorStreamSystemFactory() {
+    disableMockConsumerCache();
+  }
+
   public static void enableMockConsumerCache() {
     mockConsumer = null;
     useCachedConsumer = true;
@@ -74,8 +78,8 @@ public class MockCoordinatorStreamSystemFactory implements SystemFactory {
    *               ch:source:taskname -> changelogPartition for changelog
    *               Everything else is processed as normal config
    */
+  @Override
   public SystemConsumer getConsumer(String systemName, Config config, MetricsRegistry registry) {
-
     if (useCachedConsumer && mockConsumer != null) {
       return mockConsumer;
     }
@@ -104,6 +108,7 @@ public class MockCoordinatorStreamSystemFactory implements SystemFactory {
   /**
    * Returns a MockCoordinatorSystemProducer.
    */
+  @Override
   public SystemProducer getProducer(String systemName, Config config, MetricsRegistry registry) {
     return new MockSystemProducer(null);
   }
@@ -124,6 +129,7 @@ public class MockCoordinatorStreamSystemFactory implements SystemFactory {
    * Returns a single partition admin that pretends to create a coordinator
    * stream.
    */
+  @Override
   public SystemAdmin getAdmin(String systemName, Config config) {
     return new MockSystemAdmin();
   }
