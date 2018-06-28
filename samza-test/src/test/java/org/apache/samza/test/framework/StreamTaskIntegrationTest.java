@@ -22,6 +22,8 @@ package org.apache.samza.test.framework;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
+import org.apache.samza.SamzaException;
 import org.apache.samza.test.framework.stream.CollectionStream;
 import org.hamcrest.collection.IsIterableContainingInOrder;
 import org.junit.Assert;
@@ -42,4 +44,22 @@ public class StreamTaskIntegrationTest {
     Assert.assertThat(TestRunner.consumeStream(output, 1000).get(0),
         IsIterableContainingInOrder.contains(outputList.toArray()));
   }
+
+  /**
+   * Samza job logic expects integers, but doubles are passed here which results in failure
+   */
+  @Test(expected = SamzaException.class)
+  public void testSamzaJobFailureForSyncTask() throws TimeoutException {
+    List<Double> inputList = Arrays.asList(1.2, 2.3, 3.33, 4.5);
+
+    CollectionStream<Double> input = CollectionStream.of("test", "doubles", inputList);
+    CollectionStream output = CollectionStream.empty("test", "output");
+
+    TestRunner
+        .of(MyStreamTestTask.class)
+        .addInputStream(input)
+        .addOutputStream(output)
+        .run(Duration.ofSeconds(1));
+  }
+
 }

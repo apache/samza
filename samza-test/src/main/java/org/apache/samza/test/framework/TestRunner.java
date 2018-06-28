@@ -278,11 +278,15 @@ public class TestRunner {
    *
    * @param timeout time to wait for the high level application or low level task to finish. This timeout does not include
    *                input stream initialization time or the assertion time over output streams. This timeout just accounts
-   *                for time that samza job takes run. When job times out a TimeoutException is thrown to the callee
+   *                for time that samza job takes run
+   * @throws SamzaException if Samza job fails with exception and returns UnsuccessfulFinish as the statuscode
+   * @throws TimeoutException if Samza job times out as configured by timeout param
    */
-  public void run(Duration timeout) throws SamzaException, TimeoutException {
+  public void run(Duration timeout) throws TimeoutException {
     Preconditions.checkState((app == null && taskClass != null) || (app != null && taskClass == null),
         "TestRunner should run for Low Level Task api or High Level Application Api");
+    Preconditions.checkState(!timeout.isZero() && !timeout.isNegative(),
+        "Timeouts should be positive");
     final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
     boolean timedOut = false;
     if (app == null) {
