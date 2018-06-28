@@ -284,7 +284,7 @@ public class TestRunner {
   public void run(Duration timeout) {
     Preconditions.checkState((app == null && taskClass != null) || (app != null && taskClass == null),
         "TestRunner should run for Low Level Task api or High Level Application Api");
-    Preconditions.checkState(!timeout.isZero() && !timeout.isNegative(),
+    Preconditions.checkState(!timeout.isZero() || !timeout.isNegative(),
         "Timeouts should be positive");
     final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
     if (app == null) {
