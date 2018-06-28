@@ -20,6 +20,7 @@
 package org.apache.samza.test.framework;
 
 import com.google.common.base.Preconditions;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -28,6 +29,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.lang.RandomStringUtils;
+import org.apache.commons.lang.exception.ExceptionUtils;
+import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.InMemorySystemConfig;
@@ -36,6 +39,7 @@ import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
+import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.operators.KV;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.standalone.PassthroughCoordinationUtilsFactory;
@@ -55,6 +59,7 @@ import org.apache.samza.task.AsyncStreamTask;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.test.framework.stream.CollectionStream;
 import org.apache.samza.test.framework.system.CollectionStreamSystemSpec;
+import org.junit.Assert;
 
 
 /**
@@ -267,22 +272,33 @@ public class TestRunner {
     return this;
   }
 
+
   /**
    * Utility to run a test configured using TestRunner
+   *
+   * @param timeout time to wait for the high level application or low level task to finish. This timeout does not include
+   *                input stream initialization time or the assertion time over output streams. This timeout just accounts
+   *                for time that samza job takes run. Samza job won't be invoked with negative or zero timeout
+   * @throws SamzaException if Samza job fails with exception and returns UnsuccessfulFinish as the statuscode
    */
-  public void run() {
+  public void run(Duration timeout) {
     Preconditions.checkState((app == null && taskClass != null) || (app != null && taskClass == null),
         "TestRunner should run for Low Level Task api or High Level Application Api");
+    Preconditions.checkState(!timeout.isZero() || !timeout.isNegative(),
+        "Timeouts should be positive");
     final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
     if (app == null) {
       runner.runTask();
-      runner.waitForFinish();
     } else {
       runner.run(app);
-      runner.waitForFinish();
+    }
+    boolean timedOut = !runner.waitForFinish(timeout);
+    Assert.assertFalse("Timed out waiting for application to finish", timedOut);
+    ApplicationStatus status = runner.status(app);
+    if (status.getStatusCode() == ApplicationStatus.StatusCode.UnsuccessfulFinish) {
+      throw new SamzaException(ExceptionUtils.getStackTrace(status.getThrowable()));
     }
   }
-
   /**
    * Utility to read the messages from a stream from the beginning, this is supposed to be used after executing the
    * TestRunner in order to assert over the streams (ex output streams).
