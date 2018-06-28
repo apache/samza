@@ -287,14 +287,12 @@ public class TestRunner {
     Preconditions.checkState(!timeout.isZero() && !timeout.isNegative(),
         "Timeouts should be positive");
     final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
-    boolean timedOut = false;
     if (app == null) {
       runner.runTask();
-      timedOut = !runner.waitForFinish(timeout);
     } else {
       runner.run(app);
-      timedOut = !runner.waitForFinish(timeout);
     }
+    boolean timedOut = !runner.waitForFinish(timeout);
     Assert.assertFalse("Timed out waiting for application to finish", timedOut);
     ApplicationStatus status = runner.status(app);
     if (status.getStatusCode() == ApplicationStatus.StatusCode.UnsuccessfulFinish) {
