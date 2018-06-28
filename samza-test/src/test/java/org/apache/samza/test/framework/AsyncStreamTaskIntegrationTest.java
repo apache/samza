@@ -22,7 +22,6 @@ package org.apache.samza.test.framework;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.TimeoutException;
 import org.apache.samza.test.framework.stream.CollectionStream;
 import org.hamcrest.collection.IsIterableContainingInOrder;
 import org.junit.Assert;
@@ -52,8 +51,8 @@ public class AsyncStreamTaskIntegrationTest {
   /**
    * Job should fail because it times out too soon
    */
-  @Test(expected = TimeoutException.class)
-  public void testSamzaJobTimeoutFailureForAsyncTask() throws TimeoutException {
+  @Test(expected = AssertionError.class)
+  public void testSamzaJobTimeoutFailureForAsyncTask() {
     List<Integer> inputList = Arrays.asList(1, 2, 3, 4);
 
     CollectionStream<Integer> input = CollectionStream.of("async-test", "ints", inputList);

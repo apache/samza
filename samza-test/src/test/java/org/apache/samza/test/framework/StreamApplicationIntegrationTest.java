@@ -22,7 +22,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.TimeoutException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.operators.KV;
@@ -90,7 +89,7 @@ public class StreamApplicationIntegrationTest {
    * Job should fail since it is missing config "job.default.system" for partitionBy Operator
    */
   @Test(expected = SamzaException.class)
-  public void testSamzaJobStartMissingConfigFailureForStreamApplication() throws TimeoutException {
+  public void testSamzaJobStartMissingConfigFailureForStreamApplication() {
 
     CollectionStream<TestData.PageView> input = CollectionStream.of("test", "PageView", new ArrayList<>());
     CollectionStream output = CollectionStream.empty("test", "Output", 10);
@@ -106,7 +105,7 @@ public class StreamApplicationIntegrationTest {
    * Null page key is passed in input data which should fail filter logic
    */
   @Test(expected = SamzaException.class)
-  public void testSamzaJobFailureForStreamApplication() throws TimeoutException {
+  public void testSamzaJobFailureForStreamApplication() {
     Random random = new Random();
     int count = 10;
     List<TestData.PageView> pageviews = new ArrayList<>(count);

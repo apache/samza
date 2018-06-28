@@ -27,7 +27,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang.exception.ExceptionUtils;
@@ -60,6 +59,7 @@ import org.apache.samza.task.AsyncStreamTask;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.test.framework.stream.CollectionStream;
 import org.apache.samza.test.framework.system.CollectionStreamSystemSpec;
+import org.junit.Assert;
 
 
 /**
@@ -278,11 +278,10 @@ public class TestRunner {
    *
    * @param timeout time to wait for the high level application or low level task to finish. This timeout does not include
    *                input stream initialization time or the assertion time over output streams. This timeout just accounts
-   *                for time that samza job takes run
+   *                for time that samza job takes run. Samza job won't be invoked with negative or zero timeout
    * @throws SamzaException if Samza job fails with exception and returns UnsuccessfulFinish as the statuscode
-   * @throws TimeoutException if Samza job times out as configured by timeout param
    */
-  public void run(Duration timeout) throws TimeoutException {
+  public void run(Duration timeout) {
     Preconditions.checkState((app == null && taskClass != null) || (app != null && taskClass == null),
         "TestRunner should run for Low Level Task api or High Level Application Api");
     Preconditions.checkState(!timeout.isZero() && !timeout.isNegative(),
@@ -296,9 +295,7 @@ public class TestRunner {
       runner.run(app);
       timedOut = !runner.waitForFinish(timeout);
     }
-    if (timedOut) {
-      throw new TimeoutException("Timed out waiting for application to finish");
-    }
+    Assert.assertFalse("Timed out waiting for application to finish", timedOut);
     ApplicationStatus status = runner.status(app);
     if (status.getStatusCode() == ApplicationStatus.StatusCode.UnsuccessfulFinish) {
       throw new SamzaException(ExceptionUtils.getStackTrace(status.getThrowable()));
