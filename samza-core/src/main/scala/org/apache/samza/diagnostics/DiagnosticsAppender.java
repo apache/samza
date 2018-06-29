@@ -37,11 +37,12 @@ import org.slf4j.LoggerFactory;
  */
 public class DiagnosticsAppender extends AppenderSkeleton {
 
-  private final Logger logger = LoggerFactory.getLogger(this.getClass().getName());
+  private static final Logger LOG = LoggerFactory.getLogger(DiagnosticsAppender.class);
   private final ListGauge<DiagnosticsExceptionEvent> samzaContainerExceptionMetric;
 
   public DiagnosticsAppender(SamzaContainerMetrics samzaContainerMetrics) {
     this.samzaContainerExceptionMetric = samzaContainerMetrics.exceptions();
+    this.setName(DiagnosticsAppender.class.getName());
   }
 
   @Override
@@ -51,17 +52,17 @@ public class DiagnosticsAppender extends AppenderSkeleton {
 
       // if an event with a non-null throwable is received => exception event
       if (loggingEvent.getThrowableInformation() != null) {
-        DiagnosticsExceptionEvent diagnosticsExceptionEvent =
-            new DiagnosticsExceptionEvent(loggingEvent.timeStamp, loggingEvent.getThrowableInformation());
+        DiagnosticsExceptionEvent diagnosticsExceptionEvent = new DiagnosticsExceptionEvent(loggingEvent.timeStamp,
+            loggingEvent.getThrowableInformation().getThrowable());
 
         samzaContainerExceptionMetric.add(diagnosticsExceptionEvent);
-        logger.debug("Received DiagnosticsExceptionEvent " + diagnosticsExceptionEvent);
+        LOG.debug("Received DiagnosticsExceptionEvent " + diagnosticsExceptionEvent);
       } else {
-        logger.debug("Received non-exception event with message " + loggingEvent.getMessage());
+        LOG.debug("Received non-exception event with message " + loggingEvent.getMessage());
       }
     } catch (Exception e) {
       // blanket catch of all exceptions so as to not impact any job
-      logger.error("Exception in logging event parsing", e);
+      LOG.error("Exception in logging event parsing", e);
     }
   }
 

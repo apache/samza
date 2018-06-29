@@ -57,6 +57,7 @@ import org.apache.samza.util.Util
 import org.apache.samza.util._
 import org.apache.samza.{SamzaContainerStatus, SamzaException}
 import org.apache.samza.diagnostics.DiagnosticsAppender;
+import org.apache.log4j.Logger
 
 import scala.collection.JavaConverters._
 
@@ -907,15 +908,13 @@ class SamzaContainer(
   }
 
   def startDiagnostics {
-    // TODO: where should this reside, MetricConfig? Log4jSystemConfig? or a new separate config?
-    val DIAGNOSTICS_APPENDER_ENABLE = "samza.diagnostics.enabled"
-    if (containerContext.config.getBoolean(DIAGNOSTICS_APPENDER_ENABLE, false)) {
-      import org.apache.log4j.Logger
+    if (containerContext.config.getDiagnosticsEnabled) {
       val rootLogger = Logger.getRootLogger
 
-      info("Starting Diagnostics Appender.")
-      val diagnosticsAppender = new DiagnosticsAppender(this.metrics)
-      rootLogger.addAppender(diagnosticsAppender)
+      if (rootLogger.getAppender(classOf[DiagnosticsAppender].getName) == null) {
+        info("Starting diagnostics appender.")
+        rootLogger.addAppender(new DiagnosticsAppender(this.metrics))
+      }
     }
   }
 

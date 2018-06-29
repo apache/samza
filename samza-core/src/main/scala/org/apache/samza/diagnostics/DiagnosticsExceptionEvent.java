@@ -18,9 +18,6 @@
  */
 package org.apache.samza.diagnostics;
 
-import org.apache.log4j.spi.ThrowableInformation;
-
-
 /**
  * This class encapsulates information related to an exception event that is useful for diagnostics.
  * It used to define container, task, and other metrics as
@@ -29,10 +26,10 @@ import org.apache.log4j.spi.ThrowableInformation;
 public class DiagnosticsExceptionEvent {
 
   private long timestamp; // the timestamp associated with this exception
-  private ThrowableInformation throwableInformation;
+  private Throwable throwable;
 
-  public DiagnosticsExceptionEvent(long timestampMillis, ThrowableInformation throwableInformation) {
-    this.throwableInformation = throwableInformation;
+  public DiagnosticsExceptionEvent(long timestampMillis, Throwable throwable) {
+    this.throwable = throwable;
     this.timestamp = timestampMillis;
   }
 
@@ -40,7 +37,7 @@ public class DiagnosticsExceptionEvent {
     return timestamp;
   }
 
-  public ThrowableInformation getThrowableInformation() {
-    return this.throwableInformation;
+  public Throwable getThrowable() {
+    return this.throwable;
   }
 }
