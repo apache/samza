@@ -19,9 +19,12 @@
 
 package org.apache.samza.test.framework;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.time.Duration;
+import java.util.stream.Collectors;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.functions.SinkFunction;
@@ -32,6 +35,7 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
+import org.apache.samza.test.framework.stream.CollectionStream;
 import org.hamcrest.Matchers;
 
 import java.util.ArrayList;
@@ -45,6 +49,8 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import org.hamcrest.collection.IsIterableContainingInAnyOrder;
+import org.hamcrest.collection.IsIterableContainingInOrder;
 
 import static org.junit.Assert.assertThat;
 
@@ -64,6 +70,7 @@ public class StreamAssert<M> {
 
   private final String id;
   private final MessageStream<M> messageStream;
+  private final CollectionStream<M> collectionStream;
   private final Serde<M> serde;
   private boolean checkEachTask = false;
 
@@ -71,10 +78,22 @@ public class StreamAssert<M> {
     return new StreamAssert<>(id, messageStream, serde);
   }
 
+  public static <M> StreamAssert<M> that(CollectionStream<M> collectionStream) {
+    return new StreamAssert<>(collectionStream);
+  }
+
   private StreamAssert(String id, MessageStream<M> messageStream, Serde<M> serde) {
     this.id = id;
     this.messageStream = messageStream;
     this.serde = serde;
+    this.collectionStream = null;
+  }
+
+  private StreamAssert(CollectionStream<M> collectionStream) {
+    this.id = null;
+    this.messageStream = null;
+    this.serde = null;
+    this.collectionStream = collectionStream;
   }
 
   public StreamAssert forEachTask() {
@@ -90,7 +109,18 @@ public class StreamAssert<M> {
           .partitionBy(m -> null, m -> m, KVSerde.of(new StringSerde(), serde), null)
           .map(kv -> kv.value);
 
-    streamToCheck.sink(new CheckAgainstExpected<M>(id, expected, checkEachTask));
+    streamToCheck.sink(new CheckAgainstExpected<M>(id, expected, checkEachTask, Matcher.CONTAINS_IN_ANY_ORDER));
+  }
+
+  public void contains(final Collection<M> expected) {
+    LATCHES.putIfAbsent(id, PLACE_HOLDER);
+    final MessageStream<M> streamToCheck = checkEachTask
+        ? messageStream
+        : messageStream
+            .partitionBy(m -> null, m -> m, KVSerde.of(new StringSerde(), serde), null)
+            .map(kv -> kv.value);
+
+    streamToCheck.sink(new CheckAgainstExpected<M>(id, expected, checkEachTask, Matcher.CONTAINS_IN_ORDER));
   }
 
   public static void waitForComplete() {
@@ -114,15 +144,19 @@ public class StreamAssert<M> {
     }
   }
 
+  private enum Matcher {
+    CONTAINS_IN_ANY_ORDER,
+    CONTAINS_IN_ORDER
+  }
+
   private static final class CheckAgainstExpected<M> implements SinkFunction<M> {
     private static final long TIMEOUT = 5000L;
 
     private final String id;
     private final boolean checkEachTask;
     private final Collection<M> expected;
-
-
     private transient Timer timer = new Timer();
+    private Matcher matcher;
     private transient List<M> actual = Collections.synchronizedList(new ArrayList<>());
     private transient TimerTask timerTask = new TimerTask() {
       @Override
@@ -131,10 +165,11 @@ public class StreamAssert<M> {
       }
     };
 
-    CheckAgainstExpected(String id, Collection<M> expected, boolean checkEachTask) {
+    CheckAgainstExpected(String id, Collection<M> expected, boolean checkEachTask, Matcher matcher) {
       this.id = id;
       this.expected = expected;
       this.checkEachTask = checkEachTask;
+      this.matcher = matcher;
     }
 
     @Override
@@ -172,10 +207,48 @@ public class StreamAssert<M> {
     private void check() {
       final CountDownLatch latch = LATCHES.get(id);
       try {
-        assertThat(actual, Matchers.containsInAnyOrder((M[]) expected.toArray()));
+        if (matcher == Matcher.CONTAINS_IN_ANY_ORDER) {
+          assertThat(actual, Matchers.containsInAnyOrder((M[]) expected.toArray()));
+        } else if (matcher == Matcher.CONTAINS_IN_ORDER) {
+          assertThat(actual, Matchers.contains((M[]) expected.toArray()));
+        }
       } finally {
         latch.countDown();
       }
+    }
+  }
+
+  public void containsInAnyOrder(final List<M> expected, Duration timeout) throws InterruptedException {
+    Preconditions.checkNotNull(collectionStream,
+        "Please use StreamAssert.that(CollectionStream<M> collectionStream, Serde<M> serde)");
+    assertThat(TestRunner.consumeStream(collectionStream, timeout)
+        .entrySet()
+        .stream()
+        .flatMap(entry -> entry.getValue().stream())
+        .collect(Collectors.toList()), IsIterableContainingInAnyOrder.containsInAnyOrder(expected.toArray()));
+  }
+
+  public void containsInAnyOrder(Map<Integer, ? extends List> expected,Duration timeout) throws InterruptedException {
+    Map<Integer, List<M>> actual = TestRunner.consumeStream(collectionStream, timeout);
+    for(Integer paritionId: expected.keySet()){
+      assertThat(actual.get(paritionId), IsIterableContainingInAnyOrder.containsInAnyOrder(expected.get(paritionId).toArray()));
+    }
+  }
+
+  public void contains(final List<M> expected, Duration timeout) throws InterruptedException {
+    Preconditions.checkNotNull(collectionStream,
+        "Please use StreamAssert.that(CollectionStream<M> collectionStream, Serde<M> serde)");
+    assertThat(TestRunner.consumeStream(collectionStream, timeout)
+        .entrySet()
+        .stream()
+        .flatMap(entry -> entry.getValue().stream())
+        .collect(Collectors.toList()), IsIterableContainingInOrder.contains(expected.toArray()));
+  }
+
+  public void contains(Map<Integer, ? extends List> expected,Duration timeout) throws InterruptedException {
+    Map<Integer, List<M>> actual = TestRunner.consumeStream(collectionStream, timeout);
+    for(Integer paritionId: expected.keySet()){
+      assertThat(actual.get(paritionId), IsIterableContainingInOrder.contains(expected.get(paritionId).toArray()));
     }
   }
 }

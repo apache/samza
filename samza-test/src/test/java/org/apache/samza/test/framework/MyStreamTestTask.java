@@ -32,6 +32,7 @@ public class MyStreamTestTask implements StreamTask {
   public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator)
       throws Exception {
     Integer obj = (Integer) envelope.getMessage();
-    collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "output"), obj * 10));
+    collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "output"),
+        envelope.getKey(), envelope.getKey(),obj * 10));
   }
 }
