@@ -19,9 +19,12 @@
 
 package org.apache.samza.test.framework;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.time.Duration;
+import java.util.stream.Collectors;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.functions.SinkFunction;
@@ -32,6 +35,7 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
+import org.apache.samza.test.framework.stream.CollectionStream;
 import org.hamcrest.Matchers;
 
 import java.util.ArrayList;
@@ -45,6 +49,8 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import org.hamcrest.collection.IsIterableContainingInAnyOrder;
+import org.hamcrest.collection.IsIterableContainingInOrder;
 
 import static org.junit.Assert.assertThat;
 
@@ -64,6 +70,7 @@ public class StreamAssert<M> {
 
   private final String id;
   private final MessageStream<M> messageStream;
+  private final CollectionStream<M> collectionStream;
   private final Serde<M> serde;
   private boolean checkEachTask = false;
 
@@ -71,10 +78,22 @@ public class StreamAssert<M> {
     return new StreamAssert<>(id, messageStream, serde);
   }
 
+  public static <M> StreamAssert<M> that(CollectionStream<M> collectionStream) {
+    return new StreamAssert<>(collectionStream);
+  }
+
   private StreamAssert(String id, MessageStream<M> messageStream, Serde<M> serde) {
     this.id = id;
     this.messageStream = messageStream;
     this.serde = serde;
+    this.collectionStream = null;
+  }
+
+  private StreamAssert(CollectionStream<M> collectionStream) {
+    this.id = null;
+    this.messageStream = null;
+    this.serde = null;
+    this.collectionStream = collectionStream;
   }
 
   public StreamAssert forEachTask() {
@@ -83,6 +102,7 @@ public class StreamAssert<M> {
   }
 
   public void containsInAnyOrder(final Collection<M> expected) {
+    Preconditions.checkNotNull(messageStream, "This util is intended to use only on MessageStream");
     LATCHES.putIfAbsent(id, PLACE_HOLDER);
     final MessageStream<M> streamToCheck = checkEachTask
         ? messageStream
@@ -120,7 +140,6 @@ public class StreamAssert<M> {
     private final String id;
     private final boolean checkEachTask;
     private final Collection<M> expected;
-
 
     private transient Timer timer = new Timer();
     private transient List<M> actual = Collections.synchronizedList(new ArrayList<>());
@@ -176,6 +195,74 @@ public class StreamAssert<M> {
       } finally {
         latch.countDown();
       }
+    }
+  }
+
+  /**
+   * Util to assert  presence of messages in a stream with single partition in any order
+   *
+   * @param expected represents the expected stream of messages
+   * @param timeout maximum time to wait for consuming the stream
+   * @throws InterruptedException when {@code consumeStream} is interrupted by another thread during polling messages
+   *
+   */
+  public void containsInAnyOrder(final List<M> expected, Duration timeout) throws InterruptedException {
+    Preconditions.checkNotNull(collectionStream,
+        "This util is intended to use only on CollectionStream)");
+    assertThat(TestRunner.consumeStream(collectionStream, timeout)
+        .entrySet()
+        .stream()
+        .flatMap(entry -> entry.getValue().stream())
+        .collect(Collectors.toList()), IsIterableContainingInAnyOrder.containsInAnyOrder(expected.toArray()));
+  }
+
+  /**
+   * Util to assert presence of messages in a stream with multiple partition in any order
+   *
+   * @param expected represents a map of partitionId as key and list of messages in stream as value
+   * @param timeout maximum time to wait for consuming the stream
+   * @throws InterruptedException when {@code consumeStream} is interrupted by another thread during polling messages
+   *
+   */
+  public void containsInAnyOrder(final Map<Integer, List<M>> expected, Duration timeout) throws InterruptedException {
+    Preconditions.checkNotNull(collectionStream,
+        "This util is intended to use only on CollectionStream)");
+    Map<Integer, List<M>> actual = TestRunner.consumeStream(collectionStream, timeout);
+    for (Integer paritionId: expected.keySet()) {
+      assertThat(actual.get(paritionId), IsIterableContainingInAnyOrder.containsInAnyOrder(expected.get(paritionId).toArray()));
+    }
+  }
+
+  /**
+   * Util to assert ordering of messages in a stream with single partition
+   *
+   * @param expected represents the expected stream of messages
+   * @param timeout maximum time to wait for consuming the stream
+   * @throws InterruptedException when {@code consumeStream} is interrupted by another thread during polling messages
+   */
+  public void contains(final List<M> expected, Duration timeout) throws InterruptedException {
+    Preconditions.checkNotNull(collectionStream,
+        "This util is intended to use only on CollectionStream)");
+    assertThat(TestRunner.consumeStream(collectionStream, timeout)
+        .entrySet()
+        .stream()
+        .flatMap(entry -> entry.getValue().stream())
+        .collect(Collectors.toList()), IsIterableContainingInOrder.contains(expected.toArray()));
+  }
+
+  /**
+   * Util to assert ordering of messages in a multi-partitioned stream
+   *
+   * @param expected represents a map of partitionId as key and list of messages as value
+   * @param timeout maximum time to wait for consuming the stream
+   * @throws InterruptedException when {@code consumeStream} is interrupted by another thread during polling messages
+   */
+  public void contains(final Map<Integer, List<M>> expected, Duration timeout) throws InterruptedException {
+    Preconditions.checkNotNull(collectionStream,
+        "This util is intended to use only on CollectionStream)");
+    Map<Integer, List<M>> actual = TestRunner.consumeStream(collectionStream, timeout);
+    for (Integer paritionId: expected.keySet()) {
+      assertThat(actual.get(paritionId), IsIterableContainingInOrder.contains(expected.get(paritionId).toArray()));
     }
   }
 }
