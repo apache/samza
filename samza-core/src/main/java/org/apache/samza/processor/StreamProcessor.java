@@ -257,8 +257,6 @@ public class StreamProcessor {
           if (!hasContainerShutdown) {
             LOGGER.info("Interrupting the container: {} thread to die.", container);
             executorService.shutdownNow();
-            LOGGER.info("Waiting {} ms for the container:{} thread to die.", taskShutdownMs, container);
-            executorService.awaitTermination(taskShutdownMs, TimeUnit.MILLISECONDS);
           }
         } catch (Throwable throwable) {
           LOGGER.error(String.format("Exception occurred on container: %s shutdown of stream processor: %s.", container, processorId), throwable);
