@@ -203,7 +203,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
         onContainerFailedThrowable = t
       }
 
-      override def onContainerStop(invokedExternally: Boolean): Unit = {
+      override def onContainerStop(): Unit = {
         onContainerStopCalled = true
       }
 
@@ -284,7 +284,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
         onContainerFailedThrowable = t
       }
 
-      override def onContainerStop(invokedExternally: Boolean): Unit = {
+      override def onContainerStop(): Unit = {
         onContainerStopCalled = true
       }
 
@@ -367,7 +367,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
         onContainerFailedThrowable = t
       }
 
-      override def onContainerStop(invokedExternally: Boolean): Unit = {
+      override def onContainerStop(): Unit = {
         onContainerStopCalled = true
       }
 
@@ -451,7 +451,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
           onContainerFailedThrowable = t
         }
 
-        override def onContainerStop(invokedExternally: Boolean): Unit = {
+        override def onContainerStop(): Unit = {
           onContainerStopCalled = true
         }
 
@@ -530,7 +530,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
           onContainerFailedThrowable = t
         }
 
-        override def onContainerStop(invokedExternally: Boolean): Unit = {
+        override def onContainerStop(): Unit = {
           onContainerStopCalled = true
         }
 
