@@ -25,10 +25,11 @@ import java.util.Map;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.SamzaContainerContext;
-import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.KV;
 import org.apache.samza.table.ReadableTable;
+import org.apache.samza.table.utils.DefaultTableReadMetrics;
+import org.apache.samza.table.utils.TableMetricsUtil;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.RateLimiter;
 import org.slf4j.Logger;
@@ -63,6 +64,7 @@ import static org.apache.samza.table.remote.RemoteTableDescriptor.RL_READ_TAG;
  * @param <V> the type of the value in this table
  */
 public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
+
   protected final String tableId;
   protected final Logger logger;
   protected final TableReadFunction<K, V> readFn;
@@ -71,9 +73,8 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
   protected final CreditFunction<K, V> readCreditFn;
   protected final boolean rateLimitReads;
 
-  protected Timer getNs;
+  protected DefaultTableReadMetrics readMetrics;
   protected Timer getThrottleNs;
-  protected Counter numGets;
 
   /**
    * Construct a RemoteReadableTable instance
@@ -101,9 +102,9 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
    */
   @Override
   public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
-    getNs = taskContext.getMetricsRegistry().newTimer(groupName, tableId + "-get-ns");
-    getThrottleNs = taskContext.getMetricsRegistry().newTimer(groupName, tableId + "-get-throttle-ns");
-    numGets = taskContext.getMetricsRegistry().newCounter(groupName, tableId + "-num-gets");
+    readMetrics = new DefaultTableReadMetrics(containerContext, taskContext, this, tableId);
+    TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(containerContext, taskContext, this, tableId);
+    getThrottleNs = tableMetricsUtil.newTimer("get-throttle-ns");
   }
 
   /**
@@ -112,13 +113,13 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
   @Override
   public V get(K key) {
     try {
-      numGets.inc();
+      readMetrics.numGets.inc();
       if (rateLimitReads) {
         throttle(key, null, RL_READ_TAG, readCreditFn, getThrottleNs);
       }
       long startNs = System.nanoTime();
       V result = readFn.get(key);
-      getNs.update(System.nanoTime() - startNs);
+      readMetrics.getNs.update(System.nanoTime() - startNs);
       return result;
     } catch (Exception e) {
       String errMsg = String.format("Failed to get a record, key=%s", key);
@@ -134,7 +135,10 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
   public Map<K, V> getAll(List<K> keys) {
     Map<K, V> result;
     try {
+      readMetrics.numGetAlls.inc();
+      long startNs = System.nanoTime();
       result = readFn.getAll(keys);
+      readMetrics.getAllNs.update(System.nanoTime() - startNs);
     } catch (Exception e) {
       String errMsg = "Failed to get some records";
       logger.error(errMsg, e);

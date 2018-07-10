@@ -84,16 +84,8 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_NAME_2_PROP, inputTopicName2);
     configs.put(RepartitionJoinWindowApp.OUTPUT_TOPIC_NAME_PROP, outputTopicName);
 
-    Thread runThread = new Thread(() -> {
-      try {
-        // run the application
-        runApplication(app.getClass().getName(), appName, new MapConfig(configs));
-      } catch (Exception e) {
-        throw new SamzaException("Exception in running RepartitionJoinWindowApp", e);
-      }
-    });
-
-    runThread.start();
+    // run the application
+    Thread runThread = runApplication(app.getClass().getName(), appName, new MapConfig(configs)).getRunThread();
 
     // consume and validate result
     List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(outputTopicName), 2);
@@ -126,16 +118,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_NAME_2_PROP, inputTopicName2);
     configs.put(RepartitionJoinWindowApp.OUTPUT_TOPIC_NAME_PROP, outputTopicName);
 
-    Thread runThread = new Thread(() -> {
-        try {
-          // run the application
-          runApplication(app.getClass().getName(), appName, new MapConfig(configs));
-        } catch (Exception e) {
-          throw new SamzaException("Exception in running RepartitionJoinWindowApp", e);
-        }
-      });
-
-    runThread.start();
+    Thread runThread = runApplication(app.getClass().getName(), appName, new MapConfig(configs)).getRunThread();
 
     // consume and validate result
     List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(outputTopicName), 2);
@@ -169,7 +152,6 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
 
     runThread.interrupt();
     runThread.join();
-
   }
 
   @Test
@@ -181,16 +163,8 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     configs.put(BroadcastAssertApp.INPUT_TOPIC_NAME_PROP, inputTopicName1);
 
     initializeTopics(inputTopicName1, inputTopicName2, outputTopicName);
-    Thread runThread = new Thread(() -> {
-      try {
-        // run the application
-        runApplication(BroadcastAssertApp.class.getName(), "BroadcastTest", new MapConfig(configs));
-      } catch (Exception e) {
-        throw new SamzaException("Exception in running RepartitionJoinWindowApp", e);
-      }
-    });
-
-    runThread.start();
+    // run the application
+    Thread runThread = runApplication(BroadcastAssertApp.class.getName(), "BroadcastTest", new MapConfig(configs)).getRunThread();
 
     runThread.interrupt();
     runThread.join();

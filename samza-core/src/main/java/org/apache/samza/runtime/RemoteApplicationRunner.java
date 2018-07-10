@@ -20,20 +20,19 @@
 package org.apache.samza.runtime;
 
 import java.time.Duration;
+import java.util.UUID;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplicationInternal;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer;
 import org.apache.samza.execution.ExecutionPlan;
-import org.apache.samza.execution.ExecutionPlanner;
 import org.apache.samza.execution.StreamManager;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
 import org.apache.samza.metrics.MetricsRegistryMap;
-import org.apache.samza.operators.OperatorSpecGraph;
-import org.apache.samza.system.SystemAdmins;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,13 +47,8 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   private static final Logger LOG = LoggerFactory.getLogger(RemoteApplicationRunner.class);
   private static final long DEFAULT_SLEEP_DURATION_MS = 2000;
 
-  private final StreamManager streamManager;
-  private final ExecutionPlanner planner;
-
   public RemoteApplicationRunner(Config config) {
     super(config);
-    this.streamManager = new StreamManager(new SystemAdmins(config));
-    this.planner = new ExecutionPlanner(config, this.streamManager);
   }
 
   @Deprecated
@@ -62,27 +56,30 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     throw new UnsupportedOperationException("Running StreamTask is not implemented for RemoteReplicationRunner");
   }
 
-  @Override
-  public void waitForFinish(StreamApplication app) {
-    throw new UnsupportedOperationException("waitForFinish is not supported in RemoteApplicationRunner");
-  }
-
-  @Override
-  public boolean waitForFinish(StreamApplication app, Duration timeout) {
-    throw new UnsupportedOperationException("waitForFinish is not supported in RemoteApplicationRunner");
-  }
-
+  /**
+   * Run the {@link StreamApplication} on the remote cluster
+   * @param userApp a StreamApplication
+   */
   @Override
   public void run(StreamApplication userApp) {
     StreamApplicationInternal app = new StreamApplicationInternal(userApp);
+    StreamManager streamManager = null;
     try {
+      streamManager = buildAndStartStreamManager();
+      // TODO: run.id needs to be set for standalone: SAMZA-1531
+      // run.id is based on current system time with the most significant bits in UUID (8 digits) to avoid collision
+      String runId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
+      LOG.info("The run id for this run is {}", runId);
+
       // 1. initialize and plan
-      OperatorSpecGraph specGraph = app.getStreamGraphSpec().getOperatorSpecGraph();
-      ExecutionPlan plan = getExecutionPlan(specGraph);
+      ExecutionPlan plan = getExecutionPlan(userApp, runId, streamManager);
       writePlanJsonFile(plan.getPlanAsJson());
 
       // 2. create the necessary streams
-      this.streamManager.createStreams(plan.getIntermediateStreams());
+      if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
+        streamManager.clearStreamsFromPreviousRun(getConfigFromPrevRun());
+      }
+      streamManager.createStreams(plan.getIntermediateStreams());
 
       // 3. submit jobs for remote execution
       plan.getJobConfigs().forEach(jobConfig -> {
@@ -92,41 +89,44 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
         });
     } catch (Throwable t) {
       throw new SamzaException("Failed to run application", t);
+    } finally {
+      if (streamManager != null) {
+        streamManager.stop();
+      }
     }
   }
 
-  private ExecutionPlan getExecutionPlan(OperatorSpecGraph specGraph) throws Exception {
-    return this.planner.plan(specGraph);
-  }
-
   @Override
-  public void kill(StreamApplication userApp) {
-    StreamApplicationInternal app = new StreamApplicationInternal(userApp);
+  public void kill(StreamApplication app) {
+    StreamManager streamManager = null;
     try {
-      OperatorSpecGraph specGraph = app.getStreamGraphSpec().getOperatorSpecGraph();
-      ExecutionPlan plan = getExecutionPlan(specGraph);
+      streamManager = buildAndStartStreamManager();
+      ExecutionPlan plan = getExecutionPlan(app, streamManager);
 
       plan.getJobConfigs().forEach(jobConfig -> {
           LOG.info("Killing job {}", jobConfig.getName());
           JobRunner runner = new JobRunner(jobConfig);
           runner.kill();
         });
-      super.kill(userApp);
     } catch (Throwable t) {
       throw new SamzaException("Failed to kill application", t);
+    } finally {
+      if (streamManager != null) {
+        streamManager.stop();
+      }
     }
   }
 
   @Override
-  public ApplicationStatus status(StreamApplication userApp) {
-    StreamApplicationInternal app = new StreamApplicationInternal(userApp);
+  public ApplicationStatus status(StreamApplication app) {
+    StreamManager streamManager = null;
     try {
       boolean hasNewJobs = false;
       boolean hasRunningJobs = false;
       ApplicationStatus unsuccessfulFinishStatus = null;
 
-      OperatorSpecGraph specGraph = app.getStreamGraphSpec().getOperatorSpecGraph();
-      ExecutionPlan plan = getExecutionPlan(specGraph);
+      streamManager = buildAndStartStreamManager();
+      ExecutionPlan plan = getExecutionPlan(app, streamManager);
       for (JobConfig jobConfig : plan.getJobConfigs()) {
         ApplicationStatus status = getApplicationStatus(jobConfig);
 
@@ -162,6 +162,10 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
       }
     } catch (Throwable t) {
       throw new SamzaException("Failed to get status for application", t);
+    } finally {
+      if (streamManager != null) {
+        streamManager.stop();
+      }
     }
   }
 
@@ -175,8 +179,8 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   /**
    * Waits until the application finishes.
    */
-  public void waitForFinish() {
-    waitForFinish(Duration.ofMillis(0));
+  public void waitForFinish(StreamApplication app) {
+    waitForFinish(app, Duration.ofMillis(0));
   }
 
   /**
@@ -187,7 +191,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
    * @return true - application finished before timeout
    *         false - otherwise
    */
-  public boolean waitForFinish(Duration timeout) {
+  public boolean waitForFinish(StreamApplication app, Duration timeout) {
     JobConfig jobConfig = new JobConfig(config);
     boolean finished = true;
     long timeoutInMs = timeout.toMillis();

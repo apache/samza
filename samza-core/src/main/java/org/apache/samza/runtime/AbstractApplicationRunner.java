@@ -18,6 +18,13 @@
  */
 package org.apache.samza.runtime;
 
+import com.google.common.annotations.VisibleForTesting;
+import java.io.File;
+import java.io.PrintWriter;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
@@ -34,16 +41,8 @@ import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.SystemAdmins;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.File;
-import java.io.PrintWriter;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 
 
 /**
@@ -51,9 +50,6 @@ import java.util.Set;
  */
 public abstract class AbstractApplicationRunner implements ApplicationRunner {
   private static final Logger log = LoggerFactory.getLogger(AbstractApplicationRunner.class);
-
-  private final StreamManager streamManager;
-  private final SystemAdmins systemAdmins;
 
   protected final Config config;
   protected final Map<String, MetricsReporter> metricsReporters = new HashMap<>();
@@ -67,8 +63,6 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
   public AbstractApplicationRunner(Config config) {
     this.config = config;
     this.graphSpec = new StreamGraphSpec(this, config);
-    this.systemAdmins = new SystemAdmins(config);
-    this.streamManager = new StreamManager(systemAdmins);
   }
 
   @Override
@@ -76,16 +70,6 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
     StreamConfig streamConfig = new StreamConfig(config);
     String physicalName = streamConfig.getPhysicalName(streamId);
     return getStreamSpec(streamId, physicalName);
-  }
-
-  @Override
-  public void run(StreamApplication streamApp) {
-    systemAdmins.start();
-  }
-
-  @Override
-  public void kill(StreamApplication streamApp) {
-    systemAdmins.stop();
   }
 
   /**
@@ -132,14 +116,13 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
     return new StreamSpec(streamId, physicalName, system, isBounded, properties);
   }
 
-  public ExecutionPlan getExecutionPlan(StreamApplication app) throws Exception {
-    return getExecutionPlan(app, null);
+  public ExecutionPlan getExecutionPlan(StreamApplication app, StreamManager streamManager) throws Exception {
+    return getExecutionPlan(app, null, streamManager);
   }
 
   /* package private */
-  ExecutionPlan getExecutionPlan(StreamApplication app, String runId) throws Exception {
-    // get the already initialized operatorSpec
-    // TODO: revisit later to see where to get the graphSpec
+  ExecutionPlan getExecutionPlan(StreamApplication app, String runId, StreamManager streamManager) throws Exception {
+    // build stream graph
     OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
     // create the physical execution plan
     Map<String, String> cfg = new HashMap<>(config);
@@ -155,11 +138,6 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
 
     ExecutionPlanner planner = new ExecutionPlanner(new MapConfig(cfg), streamManager);
     return planner.plan(specGraph);
-  }
-
-  /* package private for testing */
-  StreamManager getStreamManager() {
-    return streamManager;
   }
 
   @Override
@@ -193,4 +171,9 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
     this.metricsReporters.putAll(metricsReporters);
   }
 
+  StreamManager buildAndStartStreamManager() {
+    StreamManager streamManager = new StreamManager(this.config);
+    streamManager.start();
+    return streamManager;
+  }
 }

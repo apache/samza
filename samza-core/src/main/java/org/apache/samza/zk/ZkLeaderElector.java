@@ -170,26 +170,19 @@ public class ZkLeaderElector implements LeaderElector {
     return String.format("[Processor-%s] %s", processorIdStr, logMessage);
   }
 
-  // Only by non-leaders
-  class PreviousProcessorChangeListener extends ZkUtils.GenIZkDataListener {
+  class PreviousProcessorChangeListener extends ZkUtils.GenerationAwareZkDataListener {
 
     public PreviousProcessorChangeListener(ZkUtils zkUtils) {
       super(zkUtils, "PreviousProcessorChangeListener");
     }
     @Override
-    public void handleDataChange(String dataPath, Object data) throws Exception {
-      LOG.debug("Data change on path: " + dataPath + " Data: " + data);
-      if (notAValidEvent())
-        return;
+    public void doHandleDataChange(String dataPath, Object data) {
+      LOG.info("Data change on path: {} for data: {}", dataPath, data);
     }
 
     @Override
-    public void handleDataDeleted(String dataPath)
-        throws Exception {
-      LOG.info(zLog("Data deleted on path " + dataPath + ". Predecessor went away. So, trying to become leader again..."));
-      if (notAValidEvent()) {
-        return;
-      }
+    public void doHandleDataDeleted(String dataPath) {
+      LOG.info(zLog("Data deleted on path " + dataPath + ". Predecessor went away. So, trying to become leader."));
       tryBecomeLeader();
     }
   }

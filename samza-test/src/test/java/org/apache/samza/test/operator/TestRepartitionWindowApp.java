@@ -23,7 +23,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.samza.SamzaException;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
@@ -67,16 +66,8 @@ public class TestRepartitionWindowApp extends StreamApplicationIntegrationTestHa
     configs.put(String.format("streams.%s.samza.msg.serde", INPUT_TOPIC), "string");
     configs.put(String.format("streams.%s.samza.key.serde", INPUT_TOPIC), "string");
 
-    Thread runThread = new Thread(() -> {
-        try {
-          // run the application
-          runApplication(RepartitionWindowApp.class.getName(), APP_NAME, new MapConfig(configs));
-        } catch (Exception e) {
-          throw new SamzaException("Exception in running RepatitionWindowApp", e);
-        }
-      });
-
-    runThread.start();
+    // run the application
+    Thread runThread = runApplication(RepartitionWindowApp.class.getName(), APP_NAME, new MapConfig(configs)).getRunThread();
 
     // consume and validate result
     List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(OUTPUT_TOPIC), 2);

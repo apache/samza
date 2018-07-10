@@ -46,9 +46,13 @@ To run key-value performance tests:
 
     ./gradlew samza-shell:kvPerformanceTest -PconfigPath=file://$PWD/samza-test/src/main/config/perf/kv-perf.properties
 
-To run all integration tests:
+To run yarn integration tests:
 
-    ./bin/integration-tests.sh <dir>
+    ./bin/integration-tests.sh <dir> yarn-integration-tests
+
+To run standalone integration tests:
+
+    ./bin/integration-tests.sh <dir> standalone-integration-tests
 
 ### Running checkstyle on the java code ###
 

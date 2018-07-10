@@ -45,7 +45,9 @@ public class TimerTest extends StreamApplicationIntegrationTestHarness {
   }
 
   @Test
-  public void testJob() {
-    runApplication(new TestTimerApp(), "TimerTest", null);
+  public void testJob() throws InterruptedException {
+    Thread runThread = runApplication(TestTimerApp.class.getName(), "TimerTest", null).getRunThread();
+    runThread.interrupt();
+    runThread.join();
   }
 }

@@ -19,8 +19,6 @@
 package org.apache.samza.test.operator;
 
 import java.io.File;
-import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -41,15 +39,16 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.execution.TestStreamManager;
-import org.apache.samza.runtime.AbstractApplicationRunner;
 import org.apache.samza.system.kafka.KafkaSystemAdmin;
+import org.apache.samza.test.framework.StreamAssert;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import scala.Option;
 import scala.Option$;
 
 /**
- * Harness for writing integration tests for {@link org.apache.samza.application.StreamApplication}s.
+ * Harness for writing integration tests for {@link StreamApplication}s.
  *
  * <p> This provides the following features for its sub-classes:
  * <ul>
@@ -75,7 +74,7 @@ import scala.Option$;
  * State persistence: {@link #tearDown()} clears all associated state (including topics and metadata) in Kafka and
  * Zookeeper. Hence, the state is not durable across invocations of {@link #tearDown()} <br/>
  *
- * Execution model: {@link org.apache.samza.application.StreamApplication}s are run as their own {@link org.apache.samza.job.local.ThreadJob}s.
+ * Execution model: {@link StreamApplication}s are run as their own {@link org.apache.samza.job.local.ThreadJob}s.
  * Similarly, embedded Kafka servers and Zookeeper servers are run as their own threads.
  * {@link #produceMessage(String, int, String, String)} and {@link #consumeMessages(Collection, int)} are blocking calls.
  *
@@ -101,8 +100,6 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
   private KafkaProducer producer;
   private KafkaConsumer consumer;
   protected KafkaSystemAdmin systemAdmin;
-  private StreamApplication app;
-  protected AbstractApplicationRunner runner;
 
   private int numEmptyPolls = 3;
   private static final Duration POLL_TIMEOUT_MS = Duration.ofSeconds(20);
@@ -217,30 +214,32 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
    *
    * @param appName the name of the application
    * @param overriddenConfigs configs to override
+   * @return RunApplicationContext which contains objects created within runApplication, to be used for verification
+   * if necessary
    */
-  public void runApplication(String userAppClass, String appName, Config overriddenConfigs)
-      throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException,
-             IOException {
-    Map<String, String> configs = new HashMap<>();
-    configs.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
-//    configs.put("job.factory.class", "org.apache.samza.job.local.ThreadJobFactory");
-    configs.put("job.name", appName);
-    configs.put("serializers.registry.json.class", "org.apache.samza.serializers.JsonSerdeFactory");
-    configs.put("serializers.registry.string.class", "org.apache.samza.serializers.StringSerdeFactory");
-    configs.put("systems.kafka.samza.factory", "org.apache.samza.system.kafka.KafkaSystemFactory");
-    configs.put("systems.kafka.consumer.zookeeper.connect", zkConnect());
-    configs.put("systems.kafka.producer.bootstrap.servers", bootstrapUrl());
-    configs.put("systems.kafka.samza.key.serde", "string");
-    configs.put("systems.kafka.samza.msg.serde", "json");
-    configs.put("systems.kafka.samza.offset.default", "oldest");
-    configs.put("systems.kafka.default.stream.replication.factor", "1");
-    configs.put("job.coordinator.system", "kafka");
-    configs.put("job.default.system", "kafka");
-    configs.put("job.coordinator.replication.factor", "1");
-//    configs.put("job.coordinator.factory", "org.apache.samza.zk.ZkJobCoordinatorFactory");
-//    configs.put("job.coordinator.zk.connect", zkConnect());
-    configs.put("task.window.ms", "1000");
-    configs.put("task.checkpoint.factory", TestStreamManager.MockCheckpointManagerFactory.class.getName());
+  protected RunApplicationContext runApplication(String userAppClass,
+      String appName,
+      Config overriddenConfigs) {
+    Map<String, String> configMap = new HashMap<>();
+    configMap.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
+//    configMap.put("job.factory.class", "org.apache.samza.job.local.ThreadJobFactory");
+    configMap.put("job.name", appName);
+    configMap.put("serializers.registry.json.class", "org.apache.samza.serializers.JsonSerdeFactory");
+    configMap.put("serializers.registry.string.class", "org.apache.samza.serializers.StringSerdeFactory");
+    configMap.put("systems.kafka.samza.factory", "org.apache.samza.system.kafka.KafkaSystemFactory");
+    configMap.put("systems.kafka.consumer.zookeeper.connect", zkConnect());
+    configMap.put("systems.kafka.producer.bootstrap.servers", bootstrapUrl());
+    configMap.put("systems.kafka.samza.key.serde", "string");
+    configMap.put("systems.kafka.samza.msg.serde", "json");
+    configMap.put("systems.kafka.samza.offset.default", "oldest");
+    configMap.put("systems.kafka.default.stream.replication.factor", "1");
+    configMap.put("job.coordinator.system", "kafka");
+    configMap.put("job.default.system", "kafka");
+    configMap.put("job.coordinator.replication.factor", "1");
+//    configMap.put("job.coordinator.factory", "org.apache.samza.zk.ZkJobCoordinatorFactory");
+//    configMap.put("job.coordinator.zk.connect", zkConnect());
+    configMap.put("task.window.ms", "1000");
+    configMap.put("task.checkpoint.factory", TestStreamManager.MockCheckpointManagerFactory.class.getName());
 
     // This is to prevent tests from taking a long time to stop after they're done. The issue is that
     // tearDown currently doesn't call runner.kill(app), and shuts down the Kafka and ZK servers immediately.
@@ -251,16 +250,26 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     // changelog streams. Hence we just force an unclean shutdown here to. This _should be_ OK
     // since the test method has already executed by the time the shutdown hook is called. The side effect is
     // that buffered state (e.g. changelog contents) might not be flushed correctly after the test run.
-    configs.put("task.shutdown.ms", "1");
+    configMap.put("task.shutdown.ms", "1");
 
     if (overriddenConfigs != null) {
-      configs.putAll(overriddenConfigs);
+      configMap.putAll(overriddenConfigs);
     }
 
-    Class<?> cls = Class.forName(userAppClass);
-    Method mainMethod = cls.getMethod("main", String[].class);
-    String[] params = getCommandLineConfigs(configs);
-    mainMethod.invoke(null, (Object) params);
+    Thread runThread = new Thread(() -> {
+        try {
+          Class<?> cls = Class.forName(userAppClass);
+          Method mainMethod = cls.getMethod("main", String[].class);
+          String[] params = getCommandLineConfigs(configMap);
+          mainMethod.invoke(null, (Object) params);
+        } catch (Exception e) {
+          throw new RuntimeException("Stream application main() failed with exception.", e);
+        }
+      });
+    runThread.start();
+
+    StreamAssert.waitForComplete();
+    return new RunApplicationContext(runThread, new MapConfig(configMap));
   }
 
   private String[] getCommandLineConfigs(Map<String, String> configs) {
@@ -287,5 +296,27 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     producer.close();
     consumer.close();
     super.tearDown();
+  }
+
+  /**
+   * Container for any necessary context created during runApplication. Allows tests to access objects created within
+   * runApplication in order to do verification.
+   */
+  protected static class RunApplicationContext {
+    private final Thread runThread;
+    private final Config config;
+
+    private RunApplicationContext(Thread runThread, Config config) {
+      this.config = config;
+      this.runThread = runThread;
+    }
+
+    public Thread getRunThread() {
+      return this.runThread;
+    }
+
+    public Config getConfig() {
+      return this.config;
+    }
   }
 }

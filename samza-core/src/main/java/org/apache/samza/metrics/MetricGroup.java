@@ -44,6 +44,10 @@ public class MetricGroup {
     return registry.newCounter(groupName, (prefix + name).toLowerCase());
   }
 
+  public <T> ListGauge<T> newListGauge(String name) {
+    return registry.newListGauge(groupName, new ListGauge(name));
+  }
+
   public <T> Gauge<T> newGauge(String name, T value) {
     return registry.newGauge(groupName, new Gauge<T>((prefix + name).toLowerCase(), value));
   }
