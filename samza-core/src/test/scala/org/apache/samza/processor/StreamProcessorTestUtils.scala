@@ -23,6 +23,7 @@ import java.util.Collections
 import org.apache.samza.config.MapConfig
 import org.apache.samza.container._
 import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.processors.SideInputProcessor
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.system.chooser.RoundRobinChooser
 import org.apache.samza.system._

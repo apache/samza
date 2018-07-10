@@ -109,6 +109,8 @@ class TaskConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
   def getCheckpointManagerFactory() = Option(javaTaskConfig.getCheckpointManagerFactoryName)
 
+  def getSideInputProcessorFactory() = Option(javaTaskConfig.getSideInputProcessorFactory)
+
   def getCheckpointManager(metricsRegistry: MetricsRegistry): Option[CheckpointManager] = {
     Option(javaTaskConfig.getCheckpointManager(metricsRegistry))
   }

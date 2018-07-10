@@ -20,7 +20,11 @@
 package org.apache.samza.config;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.execution.StreamManager;
@@ -36,6 +40,7 @@ public class JavaStorageConfig extends MapConfig {
   private static final String FACTORY = "stores.%s.factory";
   private static final String KEY_SERDE = "stores.%s.key.serde";
   private static final String MSG_SERDE = "stores.%s.msg.serde";
+  private static final String SIDE_INPUTS = "stores.%s.side.inputs";
   private static final String CHANGELOG_STREAM = "stores.%s.changelog";
   private static final String CHANGELOG_SYSTEM = "job.changelog.system";
   private static final String ACCESSLOG_STREAM_SUFFIX = "access-log";
@@ -125,5 +130,20 @@ public class JavaStorageConfig extends MapConfig {
    */
   public String getChangelogSystem() {
     return get(CHANGELOG_SYSTEM,  get(JobConfig.JOB_DEFAULT_SYSTEM(), null));
+  }
+
+  /**
+   * Gets the side inputs for store. A store can have multiple side input streams and the format is expected to be
+   * <pre>,</pre> separated.
+   *
+   * @param storeName name of the store
+   *
+   * @return a {@link List} of {@link String}
+   */
+  public List<String> getSideInputs(String storeName) {
+    return Optional.ofNullable(get(String.format(SIDE_INPUTS, storeName), null))
+        .map(inputs -> Stream.of(inputs.split(",")).collect(Collectors.toList()))
+        .orElse(Collections.emptyList());
+
   }
 }
