@@ -18,6 +18,9 @@
  */
 package org.apache.samza.diagnostics;
 
+import java.util.Map;
+
+
 /**
  * This class encapsulates information related to an exception event that is useful for diagnostics.
  * It used to define container, task, and other metrics as
@@ -27,10 +30,13 @@ public class DiagnosticsExceptionEvent {
 
   private long timestamp; // the timestamp associated with this exception
   private Throwable throwable;
+  private Map mdcMap;
+      // the MDC map associated with this exception, used to store/obtain any context associated with the throwable
 
-  public DiagnosticsExceptionEvent(long timestampMillis, Throwable throwable) {
+  public DiagnosticsExceptionEvent(long timestampMillis, Throwable throwable, Map mdcMap) {
     this.throwable = throwable;
     this.timestamp = timestampMillis;
+    this.mdcMap = mdcMap;
   }
 
   public long getTimestamp() {
@@ -39,5 +45,9 @@ public class DiagnosticsExceptionEvent {
 
   public Throwable getThrowable() {
     return this.throwable;
+  }
+
+  public Map getMdcMap() {
+    return mdcMap;
   }
 }

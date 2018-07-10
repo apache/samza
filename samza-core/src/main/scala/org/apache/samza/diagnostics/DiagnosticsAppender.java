@@ -49,11 +49,11 @@ public class DiagnosticsAppender extends AppenderSkeleton {
   protected void append(LoggingEvent loggingEvent) {
 
     try {
-
       // if an event with a non-null throwable is received => exception event
       if (loggingEvent.getThrowableInformation() != null) {
-        DiagnosticsExceptionEvent diagnosticsExceptionEvent = new DiagnosticsExceptionEvent(loggingEvent.timeStamp,
-            loggingEvent.getThrowableInformation().getThrowable());
+        DiagnosticsExceptionEvent diagnosticsExceptionEvent =
+            new DiagnosticsExceptionEvent(loggingEvent.timeStamp, loggingEvent.getThrowableInformation().getThrowable(),
+                loggingEvent.getProperties());
 
         samzaContainerExceptionMetric.add(diagnosticsExceptionEvent);
         LOG.debug("Received DiagnosticsExceptionEvent " + diagnosticsExceptionEvent);
