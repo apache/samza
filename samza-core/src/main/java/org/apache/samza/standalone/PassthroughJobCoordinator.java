@@ -89,6 +89,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     }
     if (jobModel != null && jobModel.getContainers().containsKey(processorId)) {
       if (coordinatorListener != null) {
+        coordinatorListener.onJobModelExpired();
         coordinatorListener.onNewJobModel(processorId, jobModel);
       }
     } else {

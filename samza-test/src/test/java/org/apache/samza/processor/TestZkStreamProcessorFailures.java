@@ -108,8 +108,8 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
 
     // make sure they consume all the messages
     waitUntilMessagesLeftN(totalEventsToBeConsumed - messageCount);
-    CountDownLatch containerStopped1 = sp1.jcContainerShutdownLatch;
-    CountDownLatch containerStopped2 = sp2.jcContainerShutdownLatch;
+    CountDownLatch containerStopped1 = sp1.containerShutdownLatch;
+    CountDownLatch containerStopped2 = sp2.containerShutdownLatch;
 
     // produce the bad messages
     produceMessages(BAD_MESSAGE_KEY, inputTopic, 4);
