@@ -26,6 +26,7 @@ import org.apache.samza.Partition
 import org.apache.samza.checkpoint.{Checkpoint, OffsetManager}
 import org.apache.samza.config.{Config, MapConfig}
 import org.apache.samza.metrics.{Counter, Metric, MetricsRegistryMap}
+import org.apache.samza.processors.SideInputProcessor
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.system.SystemAdmin
@@ -377,7 +378,7 @@ class TestTaskInstance {
     val mockOrder = inOrder(offsetManager, collector, storageManager)
 
     val taskInstance: TaskInstance = new TaskInstance(
-      Mockito.mock(classOf[StreamTask]).asInstanceOf[StreamTask],
+      Mockito.mock(classOf[StreamTask]),
       taskName,
       new MapConfig,
       new TaskInstanceMetrics,
@@ -418,7 +419,7 @@ class TestTaskInstance {
     val offsetManager = Mockito.mock(classOf[OffsetManager])
 
     val taskInstance: TaskInstance = new TaskInstance(
-      Mockito.mock(classOf[StreamTask]).asInstanceOf[StreamTask],
+      Mockito.mock(classOf[StreamTask]),
       taskName,
       new MapConfig,
       new TaskInstanceMetrics,
