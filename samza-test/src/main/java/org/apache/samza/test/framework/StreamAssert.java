@@ -110,18 +110,7 @@ public class StreamAssert<M> {
           .partitionBy(m -> null, m -> m, KVSerde.of(new StringSerde(), serde), null)
           .map(kv -> kv.value);
 
-    streamToCheck.sink(new CheckAgainstExpected<M>(id, expected, checkEachTask, Matcher.CONTAINS_IN_ANY_ORDER));
-  }
-
-  public void contains(final Collection<M> expected) {
-    LATCHES.putIfAbsent(id, PLACE_HOLDER);
-    final MessageStream<M> streamToCheck = checkEachTask
-        ? messageStream
-        : messageStream
-            .partitionBy(m -> null, m -> m, KVSerde.of(new StringSerde(), serde), null)
-            .map(kv -> kv.value);
-
-    streamToCheck.sink(new CheckAgainstExpected<M>(id, expected, checkEachTask, Matcher.CONTAINS_IN_ORDER));
+    streamToCheck.sink(new CheckAgainstExpected<M>(id, expected, checkEachTask));
   }
 
   public static void waitForComplete() {
@@ -145,11 +134,6 @@ public class StreamAssert<M> {
     }
   }
 
-  private enum Matcher {
-    CONTAINS_IN_ANY_ORDER,
-    CONTAINS_IN_ORDER
-  }
-
   private static final class CheckAgainstExpected<M> implements SinkFunction<M> {
     private static final long TIMEOUT = 5000L;
 
@@ -158,7 +142,6 @@ public class StreamAssert<M> {
     private final Collection<M> expected;
 
     private transient Timer timer = new Timer();
-    private Matcher matcher;
     private transient List<M> actual = Collections.synchronizedList(new ArrayList<>());
     private transient TimerTask timerTask = new TimerTask() {
       @Override
@@ -167,11 +150,10 @@ public class StreamAssert<M> {
       }
     };
 
-    CheckAgainstExpected(String id, Collection<M> expected, boolean checkEachTask, Matcher matcher) {
+    CheckAgainstExpected(String id, Collection<M> expected, boolean checkEachTask) {
       this.id = id;
       this.expected = expected;
       this.checkEachTask = checkEachTask;
-      this.matcher = matcher;
     }
 
     @Override
@@ -209,11 +191,7 @@ public class StreamAssert<M> {
     private void check() {
       final CountDownLatch latch = LATCHES.get(id);
       try {
-        if (matcher == Matcher.CONTAINS_IN_ANY_ORDER) {
-          assertThat(actual, Matchers.containsInAnyOrder((M[]) expected.toArray()));
-        } else if (matcher == Matcher.CONTAINS_IN_ORDER) {
-          assertThat(actual, Matchers.contains((M[]) expected.toArray()));
-        }
+        assertThat(actual, Matchers.containsInAnyOrder((M[]) expected.toArray()));
       } finally {
         latch.countDown();
       }
