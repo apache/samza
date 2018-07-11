@@ -18,6 +18,8 @@
  */
 package org.apache.samza.diagnostics;
 
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 
 
@@ -31,12 +33,15 @@ public class DiagnosticsExceptionEvent {
   private long timestamp; // the timestamp associated with this exception
   private Throwable throwable;
   private Map mdcMap;
-      // the MDC map associated with this exception, used to store/obtain any context associated with the throwable
+  // the MDC map associated with this exception, used to store/obtain any context associated with the throwable
+
+  public DiagnosticsExceptionEvent() {
+  }
 
   public DiagnosticsExceptionEvent(long timestampMillis, Throwable throwable, Map mdcMap) {
     this.throwable = throwable;
     this.timestamp = timestampMillis;
-    this.mdcMap = mdcMap;
+    this.mdcMap = new HashMap(mdcMap);
   }
 
   public long getTimestamp() {
@@ -49,5 +54,21 @@ public class DiagnosticsExceptionEvent {
 
   public Map getMdcMap() {
     return mdcMap;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    DiagnosticsExceptionEvent that = (DiagnosticsExceptionEvent) o;
+
+    // Throwable provides no equals impl, so we assume, Class, Message & stacktrace equality suffices
+    return timestamp == that.timestamp && mdcMap.equals(that.mdcMap) && this.throwable.getClass()
+        .equals(that.throwable.getClass()) && this.throwable.getMessage().equals(that.throwable.getMessage())
+        && Arrays.equals(this.throwable.getStackTrace(), that.throwable.getStackTrace());
   }
 }
