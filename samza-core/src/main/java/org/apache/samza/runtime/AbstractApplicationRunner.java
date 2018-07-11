@@ -18,15 +18,18 @@
  */
 package org.apache.samza.runtime;
 
-import com.google.common.annotations.VisibleForTesting;
 import java.io.File;
 import java.io.PrintWriter;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.ApplicationRunnable;
+import org.apache.samza.application.internal.ApplicationSpec;
+import org.apache.samza.application.internal.StreamApplicationSpec;
+import org.apache.samza.application.internal.TaskApplicationSpec;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ApplicationConfig.ApplicationMode;
 import org.apache.samza.config.Config;
@@ -36,10 +39,11 @@ import org.apache.samza.config.StreamConfig;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.execution.ExecutionPlanner;
 import org.apache.samza.execution.StreamManager;
+import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.operators.OperatorSpecGraph;
-import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.StreamGraphSpec;
+import org.apache.samza.runtime.internal.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,15 +58,8 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
   protected final Config config;
   protected final Map<String, MetricsReporter> metricsReporters = new HashMap<>();
 
-  /**
-   * The {@link ApplicationRunner} is supposed to run a single {@link StreamApplication} instance in the full life-cycle
-   */
-  // TODO: need to revisit after refactory and merge the supported application instances
-  protected final StreamGraphSpec graphSpec;
-
   public AbstractApplicationRunner(Config config) {
     this.config = config;
-    this.graphSpec = new StreamGraphSpec(this, config);
   }
 
   @Override
@@ -116,12 +113,12 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
     return new StreamSpec(streamId, physicalName, system, isBounded, properties);
   }
 
-  public ExecutionPlan getExecutionPlan(StreamApplication app, StreamManager streamManager) throws Exception {
-    return getExecutionPlan(app, null, streamManager);
+  public ExecutionPlan getExecutionPlan(StreamGraphSpec graphSpec, StreamManager streamManager) throws Exception {
+    return getExecutionPlan(graphSpec, null, streamManager);
   }
 
   /* package private */
-  ExecutionPlan getExecutionPlan(StreamApplication app, String runId, StreamManager streamManager) throws Exception {
+  ExecutionPlan getExecutionPlan(StreamGraphSpec graphSpec, String runId, StreamManager streamManager) throws Exception {
     // build stream graph
     OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
     // create the physical execution plan
@@ -138,11 +135,6 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
 
     ExecutionPlanner planner = new ExecutionPlanner(new MapConfig(cfg), streamManager);
     return planner.plan(specGraph);
-  }
-
-  @Override
-  public final StreamGraph createGraph() {
-    return this.graphSpec;
   }
 
   /**
@@ -175,5 +167,44 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
     StreamManager streamManager = new StreamManager(this.config);
     streamManager.start();
     return streamManager;
+  }
+
+  private ApplicationRunnable getRunnable(ApplicationSpec appSpec) {
+    if (appSpec instanceof StreamApplicationSpec) {
+      return getStreamAppRunnable((StreamApplicationSpec) appSpec);
+    }
+    if (appSpec instanceof TaskApplicationSpec) {
+      return getTaskAppRunnable((TaskApplicationSpec) appSpec);
+    }
+    throw new IllegalArgumentException(String.format("The specified application %s is not valid. Only StreamApplication and Task applications are supported.", appSpec.getClass().getName());
+  }
+
+  protected abstract ApplicationRunnable getTaskAppRunnable(TaskApplicationSpec appSpec);
+
+  protected abstract ApplicationRunnable getStreamAppRunnable(StreamApplicationSpec appSpec);
+
+  @Override
+  public final void run(ApplicationSpec appSpec) {
+    getRunnable(appSpec).run();
+  }
+
+  @Override
+  public final ApplicationStatus status(ApplicationSpec appSpec) {
+    return getRunnable(appSpec).status();
+  }
+
+  @Override
+  public final void kill(ApplicationSpec appSpec) {
+    getRunnable(appSpec).kill();
+  }
+
+  @Override
+  public final void waitForFinish(ApplicationSpec appSpec) {
+    getRunnable(appSpec).waitForFinish();
+  }
+
+  @Override
+  public final boolean waitForFinish(ApplicationSpec appSpec, Duration timeout) {
+    return getRunnable(appSpec).waitForFinish(timeout);
   }
 }

@@ -16,21 +16,21 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.application;
+package org.apache.samza.application.internal;
 
 import org.apache.samza.operators.StreamGraphSpec;
 
 
-public class StreamApplicationInternal {
+public class StreamApplicationRuntime {
 
-  private final StreamApplication app;
+  private final StreamApplicationSpec appSpec;
 
-  public StreamApplicationInternal(StreamApplication app) {
-    this.app = app;
+  public StreamApplicationRuntime(StreamApplicationSpec app) {
+    this.appSpec = app;
   }
 
   public StreamGraphSpec getStreamGraphSpec() {
-    return (StreamGraphSpec) this.app.graph;
+    return (StreamGraphSpec) this.appSpec.graph;
   }
 
 }

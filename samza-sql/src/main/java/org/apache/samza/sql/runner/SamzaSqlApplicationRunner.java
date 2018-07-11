@@ -19,20 +19,21 @@
 
 package org.apache.samza.sql.runner;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.Validate;
-import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.ApplicationRunnable;
+import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.ApplicationStatus;
-import org.apache.samza.runtime.AbstractApplicationRunner;
-import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.runtime.RemoteApplicationRunner;
-import org.apache.samza.sql.interfaces.SqlIOResolver;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
+import org.apache.samza.sql.interfaces.SqlIOResolver;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,26 +46,21 @@ import org.slf4j.LoggerFactory;
  * This runner invokes the SamzaSqlConfig re-writer if it is invoked on a standalone mode (i.e. localRunner == true)
  * otherwise directly calls the RemoteApplicationRunner which automatically performs the config rewriting .
  */
-public class SamzaSqlApplicationRunner extends AbstractApplicationRunner {
+public class SamzaSqlApplicationRunner implements ApplicationRunnable {
 
   private static final Logger LOG = LoggerFactory.getLogger(SamzaSqlApplicationRunner.class);
 
   private final Config sqlConfig;
-  private final ApplicationRunner appRunner;
+  private final ApplicationRunnable appRunnable;
   private final Boolean localRunner;
 
   public static final String RUNNER_CONFIG = "app.runner.class";
   public static final String CFG_FMT_SAMZA_STREAM_SYSTEM = "streams.%s.samza.system";
 
-  public SamzaSqlApplicationRunner(Config config) {
-    this(false, config);
-  }
-
   public SamzaSqlApplicationRunner(Boolean localRunner, Config config) {
-    super(config);
     this.localRunner = localRunner;
     sqlConfig = computeSamzaConfigs(localRunner, config);
-    appRunner = ApplicationRunner.fromConfig(sqlConfig);
+    appRunnable = StreamApplications.createRunnable(new SamzaSqlApplication(), sqlConfig);
   }
 
   public static Config computeSamzaConfigs(Boolean localRunner, Config config) {
@@ -108,29 +104,37 @@ public class SamzaSqlApplicationRunner extends AbstractApplicationRunner {
 
   public void runAndWaitForFinish() {
     Validate.isTrue(localRunner, "This method can be called only in standalone mode.");
-    SamzaSqlApplication app = new SamzaSqlApplication();
-    run(app);
-    appRunner.waitForFinish();
+    appRunnable.run();
+    appRunnable.waitForFinish();
   }
 
   @Override
-  public void runTask() {
-    appRunner.runTask();
+  public void run() {
+    appRunnable.run();
   }
 
   @Override
-  public void run(StreamApplication streamApp) {
-    Validate.isInstanceOf(SamzaSqlApplication.class, streamApp);
-    appRunner.run(streamApp);
+  public void kill() {
+    appRunnable.kill();
   }
 
   @Override
-  public void kill(StreamApplication streamApp) {
-    appRunner.kill(streamApp);
+  public ApplicationStatus status() {
+    return appRunnable.status();
   }
 
   @Override
-  public ApplicationStatus status(StreamApplication streamApp) {
-    return appRunner.status(streamApp);
+  public void waitForFinish() {
+    appRunnable.waitForFinish();
+  }
+
+  @Override
+  public boolean waitForFinish(Duration timeout) {
+    return appRunnable.waitForFinish(timeout);
+  }
+
+  @Override
+  public ApplicationRunnable withMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
+    return appRunnable.withMetricsReporters(metricsReporters);
   }
 }

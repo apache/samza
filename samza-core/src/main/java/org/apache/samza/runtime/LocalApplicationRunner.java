@@ -33,13 +33,14 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.ApplicationRunnable;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationInternal;
+import org.apache.samza.application.internal.StreamApplicationRuntime;
+import org.apache.samza.application.internal.StreamApplicationSpec;
+import org.apache.samza.application.internal.TaskApplicationSpec;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
-import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.DistributedLockWithState;
 import org.apache.samza.execution.ExecutionPlan;
@@ -49,14 +50,13 @@ import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.StreamProcessorLifecycleListener;
+import org.apache.samza.runtime.internal.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static org.apache.samza.util.ScalaJavaUtil.*;
 
 /**
  * This class implements the {@link ApplicationRunner} that runs the applications in standalone environment
@@ -134,124 +134,180 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     this(config, new HashMap<>());
   }
 
+  @Override
+  protected ApplicationRunnable getTaskAppRunnable(TaskApplicationSpec appSpec) {
+    return new TaskAppRunnable(appSpec);
+  }
+
+  @Override
+  protected ApplicationRunnable getStreamAppRunnable(StreamApplicationSpec appSpec) {
+    return new StreamAppRunnable(appSpec);
+  }
+
   public LocalApplicationRunner(Config config, Map<String, MetricsReporter> customMetricsReporters) {
     super(config);
     this.uid = UUID.randomUUID().toString();
     this.customMetricsReporters = customMetricsReporters;
   }
 
-  @Override
-  @Deprecated
-  public void runTask() {
-    JobConfig jobConfig = new JobConfig(config);
+  class StreamAppRunnable implements ApplicationRunnable {
+    final StreamApplicationSpec streamApp;
 
-    // validation
-    String taskName = new TaskConfig(config).getTaskClass().getOrElse(defaultValue(null));
-    if (taskName == null) {
-      throw new SamzaException("Neither APP nor task.class are defined defined");
+    StreamAppRunnable(StreamApplicationSpec streamApp) {
+      this.streamApp = streamApp;
     }
-    LOG.info("LocalApplicationRunner will run " + taskName);
-    LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
 
-    StreamProcessor processor = createStreamProcessor(jobConfig, listener);
+    @Override
+    public void run() {
+      StreamApplicationRuntime app = new StreamApplicationRuntime(streamApp);
+      StreamManager streamManager = null;
+      try {
+        streamManager = buildAndStartStreamManager();
 
-    numProcessorsToStart.set(1);
-    listener.setProcessor(processor);
-    processor.start();
-  }
+        // 1. initialize and plan
+        ExecutionPlan plan = getExecutionPlan(app.getStreamGraphSpec(), streamManager);
 
-  @Override
-  public void run(StreamApplication userApp) {
-    StreamApplicationInternal app = new StreamApplicationInternal(userApp);
-    StreamManager streamManager = null;
-    try {
-      streamManager = buildAndStartStreamManager();
+        String executionPlanJson = plan.getPlanAsJson();
+        writePlanJsonFile(executionPlanJson);
+        LOG.info("Execution Plan: \n" + executionPlanJson);
 
-      // 1. initialize and plan
-      ExecutionPlan plan = getExecutionPlan(userApp, streamManager);
+        // 2. create the necessary streams
+        // TODO: System generated intermediate streams should have robust naming scheme. See SAMZA-1391
+        String planId = String.valueOf(executionPlanJson.hashCode());
+        createStreams(planId, plan.getIntermediateStreams(), streamManager);
 
-      String executionPlanJson = plan.getPlanAsJson();
-      writePlanJsonFile(executionPlanJson);
-      LOG.info("Execution Plan: \n" + executionPlanJson);
-
-      // 2. create the necessary streams
-      // TODO: System generated intermediate streams should have robust naming scheme. See SAMZA-1391
-      String planId = String.valueOf(executionPlanJson.hashCode());
-      createStreams(planId, plan.getIntermediateStreams(), streamManager);
-
-      // 3. create the StreamProcessors
-      if (plan.getJobConfigs().isEmpty()) {
-        throw new SamzaException("No jobs to run.");
-      }
-      plan.getJobConfigs().forEach(jobConfig -> {
+        // 3. create the StreamProcessors
+        if (plan.getJobConfigs().isEmpty()) {
+          throw new SamzaException("No jobs to run.");
+        }
+        plan.getJobConfigs().forEach(jobConfig -> {
           LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
           LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
-          StreamProcessor processor = createStreamProcessor(jobConfig, graphSpec, listener);
+          StreamProcessor processor = createStreamProcessor(jobConfig, app.getStreamGraphSpec(), listener);
           listener.setProcessor(processor);
           processors.add(processor);
         });
-      numProcessorsToStart.set(processors.size());
+        numProcessorsToStart.set(processors.size());
 
-      // 4. start the StreamProcessors
-      processors.forEach(StreamProcessor::start);
-    } catch (Throwable throwable) {
-      appStatus = ApplicationStatus.unsuccessfulFinish(throwable);
-      shutdownLatch.countDown();
-      throw new SamzaException(String.format("Failed to start application: %s.", app), throwable);
-    } finally {
-      if (streamManager != null) {
-        streamManager.stop();
-      }
-    }
-  }
-
-  @Override
-  public void kill(StreamApplication streamApp) {
-    processors.forEach(StreamProcessor::stop);
-  }
-
-  @Override
-  public ApplicationStatus status(StreamApplication streamApp) {
-    return appStatus;
-  }
-
-  /**
-   * Waits until the application finishes.
-   */
-  @Override
-  public void waitForFinish(StreamApplication app) {
-    waitForFinish(app, Duration.ofMillis(0));
-  }
-
-  /**
-   * Waits for {@code timeout} duration for the application to finish.
-   * If timeout &lt; 1, blocks the caller indefinitely.
-   *
-   * @param timeout time to wait for the application to finish
-   * @return true - application finished before timeout
-   *         false - otherwise
-   */
-  @Override
-  public boolean waitForFinish(StreamApplication app, Duration timeout) {
-    long timeoutInMs = timeout.toMillis();
-    boolean finished = true;
-
-    try {
-      if (timeoutInMs < 1) {
-        shutdownLatch.await();
-      } else {
-        finished = shutdownLatch.await(timeoutInMs, TimeUnit.MILLISECONDS);
-
-        if (!finished) {
-          LOG.warn("Timed out waiting for application to finish.");
+        // 4. start the StreamProcessors
+        processors.forEach(StreamProcessor::start);
+      } catch (Throwable throwable) {
+        appStatus = ApplicationStatus.unsuccessfulFinish(throwable);
+        shutdownLatch.countDown();
+        throw new SamzaException(String.format("Failed to start application: %s.", app), throwable);
+      } finally {
+        if (streamManager != null) {
+          streamManager.stop();
         }
       }
-    } catch (Exception e) {
-      LOG.error("Error waiting for application to finish", e);
-      throw new SamzaException(e);
     }
 
-    return finished;
+    @Override
+    public void kill() {
+      processors.forEach(StreamProcessor::stop);
+    }
+
+    @Override
+    public ApplicationStatus status() {
+      return appStatus;
+    }
+
+    @Override
+    public void waitForFinish() {
+      waitForFinish(Duration.ofMillis(0));
+    }
+
+    @Override
+    public boolean waitForFinish(Duration timeout) {
+      long timeoutInMs = timeout.toMillis();
+      boolean finished = true;
+
+      try {
+        if (timeoutInMs < 1) {
+          shutdownLatch.await();
+        } else {
+          finished = shutdownLatch.await(timeoutInMs, TimeUnit.MILLISECONDS);
+
+          if (!finished) {
+            LOG.warn("Timed out waiting for application to finish.");
+          }
+        }
+      } catch (Exception e) {
+        LOG.error("Error waiting for application to finish", e);
+        throw new SamzaException(e);
+      }
+
+      return finished;
+    }
+
+    @Override
+    public ApplicationRunnable withMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
+      throw new UnsupportedOperationException("MetricsReporters should be set to the ApplicationRunner");
+    }
+  }
+
+  class TaskAppRunnable implements ApplicationRunnable {
+    final TaskApplicationSpec appSpec;
+    StreamProcessor sp;
+
+    TaskAppRunnable(TaskApplicationSpec appSpec) {
+      this.appSpec = appSpec;
+    }
+
+    @Override
+    public void run() {
+      LOG.info("LocalApplicationRunner will run task " + appSpec.getGlobalAppId());
+      LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
+
+      sp = getStreamProcessorInstance(config, appSpec.getTaskFactory(), listener);
+
+      numProcessorsToStart.set(1);
+      listener.setProcessor(sp);
+      sp.start();
+    }
+
+    @Override
+    public void kill() {
+      sp.stop();
+    }
+
+    @Override
+    public ApplicationStatus status() {
+      return appStatus;
+    }
+
+    @Override
+    public void waitForFinish() {
+      waitForFinish(Duration.ofMillis(0));
+    }
+
+    @Override
+    public boolean waitForFinish(Duration timeout) {
+      long timeoutInMs = timeout.toMillis();
+      boolean finished = true;
+
+      try {
+        if (timeoutInMs < 1) {
+          shutdownLatch.await();
+        } else {
+          finished = shutdownLatch.await(timeoutInMs, TimeUnit.MILLISECONDS);
+
+          if (!finished) {
+            LOG.warn("Timed out waiting for application to finish.");
+          }
+        }
+      } catch (Exception e) {
+        LOG.error("Error waiting for application to finish", e);
+        throw new SamzaException(e);
+      }
+
+      return finished;
+    }
+
+    @Override
+    public ApplicationRunnable withMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
+      throw new UnsupportedOperationException("MetricsReporters should be set to the ApplicationRunner");
+    }
   }
 
   /**

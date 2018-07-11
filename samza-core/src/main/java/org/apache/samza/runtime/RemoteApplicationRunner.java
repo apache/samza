@@ -20,10 +20,14 @@
 package org.apache.samza.runtime;
 
 import java.time.Duration;
+import java.util.Map;
 import java.util.UUID;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationInternal;
+import org.apache.samza.application.ApplicationRunnable;
+import org.apache.samza.application.internal.StreamApplicationRuntime;
+import org.apache.samza.application.internal.StreamApplicationSpec;
+import org.apache.samza.application.internal.TaskApplicationRuntime;
+import org.apache.samza.application.internal.TaskApplicationSpec;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -33,6 +37,8 @@ import org.apache.samza.execution.StreamManager;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
 import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.runtime.internal.ApplicationRunner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,121 +57,214 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     super(config);
   }
 
-  @Deprecated
-  public void runTask() {
-    throw new UnsupportedOperationException("Running StreamTask is not implemented for RemoteReplicationRunner");
+  @Override
+  protected ApplicationRunnable getTaskAppRunnable(TaskApplicationSpec appSpec) {
+    return new TaskAppRunnable(appSpec);
   }
 
-  /**
-   * Run the {@link StreamApplication} on the remote cluster
-   * @param userApp a StreamApplication
-   */
   @Override
-  public void run(StreamApplication userApp) {
-    StreamApplicationInternal app = new StreamApplicationInternal(userApp);
-    StreamManager streamManager = null;
-    try {
-      streamManager = buildAndStartStreamManager();
-      // TODO: run.id needs to be set for standalone: SAMZA-1531
-      // run.id is based on current system time with the most significant bits in UUID (8 digits) to avoid collision
-      String runId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
-      LOG.info("The run id for this run is {}", runId);
+  protected ApplicationRunnable getStreamAppRunnable(StreamApplicationSpec appSpec) {
+    return new StreamAppRunnable(appSpec);
+  }
 
-      // 1. initialize and plan
-      ExecutionPlan plan = getExecutionPlan(userApp, runId, streamManager);
-      writePlanJsonFile(plan.getPlanAsJson());
+  class TaskAppRunnable implements ApplicationRunnable {
+    final TaskApplicationRuntime taskApp;
+    final JobRunner jobRunner;
 
-      // 2. create the necessary streams
-      if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
-        streamManager.clearStreamsFromPreviousRun(getConfigFromPrevRun());
-      }
-      streamManager.createStreams(plan.getIntermediateStreams());
+    TaskAppRunnable(TaskApplicationSpec appSpec) {
+      this.taskApp = new TaskApplicationRuntime(appSpec);
+      this.jobRunner = new JobRunner(config);
+    }
 
-      // 3. submit jobs for remote execution
-      plan.getJobConfigs().forEach(jobConfig -> {
+    @Override
+    public void run() {
+      jobRunner.run(true);
+    }
+
+    @Override
+    public void kill() {
+      jobRunner.kill();
+    }
+
+    @Override
+    public ApplicationStatus status() {
+      return jobRunner.status();
+    }
+
+    @Override
+    public void waitForFinish() {
+    }
+
+    @Override
+    public boolean waitForFinish(Duration timeout) {
+      return false;
+    }
+
+    @Override
+    public ApplicationRunnable withMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  class StreamAppRunnable implements ApplicationRunnable {
+    final StreamApplicationRuntime streamApp;
+
+    StreamAppRunnable(StreamApplicationSpec appSpec) {
+      this.streamApp = new StreamApplicationRuntime(appSpec);
+    }
+
+    @Override
+    public void run() {
+      StreamManager streamManager = null;
+      try {
+        streamManager = buildAndStartStreamManager();
+        // TODO: run.id needs to be set for standalone: SAMZA-1531
+        // run.id is based on current system time with the most significant bits in UUID (8 digits) to avoid collision
+        String runId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
+        LOG.info("The run id for this run is {}", runId);
+
+        // 1. initialize and plan
+        ExecutionPlan plan = getExecutionPlan(streamApp.getStreamGraphSpec(), runId, streamManager);
+        writePlanJsonFile(plan.getPlanAsJson());
+
+        // 2. create the necessary streams
+        if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
+          streamManager.clearStreamsFromPreviousRun(getConfigFromPrevRun());
+        }
+        streamManager.createStreams(plan.getIntermediateStreams());
+
+        // 3. submit jobs for remote execution
+        plan.getJobConfigs().forEach(jobConfig -> {
           LOG.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
           JobRunner runner = new JobRunner(jobConfig);
           runner.run(true);
         });
-    } catch (Throwable t) {
-      throw new SamzaException("Failed to run application", t);
-    } finally {
-      if (streamManager != null) {
-        streamManager.stop();
+      } catch (Throwable t) {
+        throw new SamzaException("Failed to run application", t);
+      } finally {
+        if (streamManager != null) {
+          streamManager.stop();
+        }
       }
     }
-  }
 
-  @Override
-  public void kill(StreamApplication app) {
-    StreamManager streamManager = null;
-    try {
-      streamManager = buildAndStartStreamManager();
-      ExecutionPlan plan = getExecutionPlan(app, streamManager);
+    @Override
+    public void kill() {
+      StreamManager streamManager = null;
+      try {
+        streamManager = buildAndStartStreamManager();
+        ExecutionPlan plan = getExecutionPlan(streamApp.getStreamGraphSpec(), streamManager);
 
-      plan.getJobConfigs().forEach(jobConfig -> {
+        plan.getJobConfigs().forEach(jobConfig -> {
           LOG.info("Killing job {}", jobConfig.getName());
           JobRunner runner = new JobRunner(jobConfig);
           runner.kill();
         });
-    } catch (Throwable t) {
-      throw new SamzaException("Failed to kill application", t);
-    } finally {
-      if (streamManager != null) {
-        streamManager.stop();
-      }
-    }
-  }
-
-  @Override
-  public ApplicationStatus status(StreamApplication app) {
-    StreamManager streamManager = null;
-    try {
-      boolean hasNewJobs = false;
-      boolean hasRunningJobs = false;
-      ApplicationStatus unsuccessfulFinishStatus = null;
-
-      streamManager = buildAndStartStreamManager();
-      ExecutionPlan plan = getExecutionPlan(app, streamManager);
-      for (JobConfig jobConfig : plan.getJobConfigs()) {
-        ApplicationStatus status = getApplicationStatus(jobConfig);
-
-        switch (status.getStatusCode()) {
-          case New:
-            hasNewJobs = true;
-            break;
-          case Running:
-            hasRunningJobs = true;
-            break;
-          case UnsuccessfulFinish:
-            unsuccessfulFinishStatus = status;
-            break;
-          case SuccessfulFinish:
-            break;
-          default:
-            // Do nothing
+      } catch (Throwable t) {
+        throw new SamzaException("Failed to kill application", t);
+      } finally {
+        if (streamManager != null) {
+          streamManager.stop();
         }
       }
+    }
 
-      if (hasNewJobs) {
-        // There are jobs not started, report as New
-        return New;
-      } else if (hasRunningJobs) {
-        // All jobs are started, some are running
-        return Running;
-      } else if (unsuccessfulFinishStatus != null) {
-        // All jobs are finished, some are not successful
-        return unsuccessfulFinishStatus;
-      } else {
-        // All jobs are finished successfully
-        return SuccessfulFinish;
+    @Override
+    public ApplicationStatus status() {
+      StreamManager streamManager = null;
+      try {
+        boolean hasNewJobs = false;
+        boolean hasRunningJobs = false;
+        ApplicationStatus unsuccessfulFinishStatus = null;
+
+        streamManager = buildAndStartStreamManager();
+        ExecutionPlan plan = getExecutionPlan(streamApp.getStreamGraphSpec(), streamManager);
+        for (JobConfig jobConfig : plan.getJobConfigs()) {
+          ApplicationStatus status = getApplicationStatus(jobConfig);
+
+          switch (status.getStatusCode()) {
+            case New:
+              hasNewJobs = true;
+              break;
+            case Running:
+              hasRunningJobs = true;
+              break;
+            case UnsuccessfulFinish:
+              unsuccessfulFinishStatus = status;
+              break;
+            case SuccessfulFinish:
+              break;
+            default:
+              // Do nothing
+          }
+        }
+
+        if (hasNewJobs) {
+          // There are jobs not started, report as New
+          return New;
+        } else if (hasRunningJobs) {
+          // All jobs are started, some are running
+          return Running;
+        } else if (unsuccessfulFinishStatus != null) {
+          // All jobs are finished, some are not successful
+          return unsuccessfulFinishStatus;
+        } else {
+          // All jobs are finished successfully
+          return SuccessfulFinish;
+        }
+      } catch (Throwable t) {
+        throw new SamzaException("Failed to get status for application", t);
+      } finally {
+        if (streamManager != null) {
+          streamManager.stop();
+        }
       }
-    } catch (Throwable t) {
-      throw new SamzaException("Failed to get status for application", t);
-    } finally {
-      if (streamManager != null) {
-        streamManager.stop();
+    }
+
+    @Override
+    public void waitForFinish() {
+      waitForFinish(Duration.ofMillis(0));
+    }
+
+    @Override
+    public boolean waitForFinish(Duration timeout) {
+      JobConfig jobConfig = new JobConfig(config);
+      boolean finished = true;
+      long timeoutInMs = timeout.toMillis();
+      long startTimeInMs = System.currentTimeMillis();
+      long timeElapsed = 0L;
+
+      long sleepDurationInMs = timeoutInMs < 1 ?
+          DEFAULT_SLEEP_DURATION_MS : Math.min(timeoutInMs, DEFAULT_SLEEP_DURATION_MS);
+      ApplicationStatus status;
+
+      try {
+        while (timeoutInMs < 1 || timeElapsed <= timeoutInMs) {
+          status = getApplicationStatus(jobConfig);
+          if (status == SuccessfulFinish || status == UnsuccessfulFinish) {
+            LOG.info("Application finished with status {}", status);
+            break;
+          }
+
+          Thread.sleep(sleepDurationInMs);
+          timeElapsed = System.currentTimeMillis() - startTimeInMs;
+        }
+
+        if (timeElapsed > timeoutInMs) {
+          LOG.warn("Timed out waiting for application to finish.");
+          finished = false;
+        }
+      } catch (Exception e) {
+        LOG.error("Error waiting for application to finish", e);
+        throw new SamzaException(e);
       }
+
+      return finished;
+    }
+
+    @Override
+    public ApplicationRunnable withMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
+      throw new UnsupportedOperationException();
     }
   }
 
@@ -174,56 +273,6 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     ApplicationStatus status = runner.status();
     LOG.debug("Status is {} for job {}", new Object[]{status, jobConfig.getName()});
     return status;
-  }
-
-  /**
-   * Waits until the application finishes.
-   */
-  public void waitForFinish(StreamApplication app) {
-    waitForFinish(app, Duration.ofMillis(0));
-  }
-
-  /**
-   * Waits for {@code timeout} duration for the application to finish.
-   * If timeout &lt; 1, blocks the caller indefinitely.
-   *
-   * @param timeout time to wait for the application to finish
-   * @return true - application finished before timeout
-   *         false - otherwise
-   */
-  public boolean waitForFinish(StreamApplication app, Duration timeout) {
-    JobConfig jobConfig = new JobConfig(config);
-    boolean finished = true;
-    long timeoutInMs = timeout.toMillis();
-    long startTimeInMs = System.currentTimeMillis();
-    long timeElapsed = 0L;
-
-    long sleepDurationInMs = timeoutInMs < 1 ?
-        DEFAULT_SLEEP_DURATION_MS : Math.min(timeoutInMs, DEFAULT_SLEEP_DURATION_MS);
-    ApplicationStatus status;
-
-    try {
-      while (timeoutInMs < 1 || timeElapsed <= timeoutInMs) {
-        status = getApplicationStatus(jobConfig);
-        if (status == SuccessfulFinish || status == UnsuccessfulFinish) {
-          LOG.info("Application finished with status {}", status);
-          break;
-        }
-
-        Thread.sleep(sleepDurationInMs);
-        timeElapsed = System.currentTimeMillis() - startTimeInMs;
-      }
-
-      if (timeElapsed > timeoutInMs) {
-        LOG.warn("Timed out waiting for application to finish.");
-        finished = false;
-      }
-    } catch (Exception e) {
-      LOG.error("Error waiting for application to finish", e);
-      throw new SamzaException(e);
-    }
-
-    return finished;
   }
 
   private Config getConfigFromPrevRun() {

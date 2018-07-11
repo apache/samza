@@ -43,7 +43,6 @@ import org.apache.samza.test.util.Base64Serializer;
 
 import org.junit.Test;
 import static org.junit.Assert.assertEquals;
-import static junit.framework.Assert.*;
 
 /**
  * This test uses an array as a bounded input source, and does a partitionBy() and sink() after reading the input.

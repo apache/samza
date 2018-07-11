@@ -21,9 +21,13 @@ package org.apache.samza.runtime;
 
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
+import org.apache.samza.application.ApplicationRunnable;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
-import org.apache.samza.job.JobRunner$;
+import org.apache.samza.runtime.internal.ApplicationRunner;
+import org.apache.samza.task.TaskFactory;
+import org.apache.samza.task.TaskFactoryUtil;
 import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.Util;
 
@@ -58,25 +62,22 @@ public class ApplicationRunnerMain {
     Config config = Util.rewriteConfig(orgConfig);
     ApplicationRunnerOperation op = cmdLine.getOperation(options);
 
-    if (config.containsKey(STREAM_APPLICATION_CLASS_CONFIG)) {
-      ApplicationRunner runner = ApplicationRunner.fromConfig(config);
-      StreamApplication app =
-          (StreamApplication) Class.forName(config.get(STREAM_APPLICATION_CLASS_CONFIG)).newInstance();
-      switch (op) {
-        case RUN:
-          runner.run(app);
-          break;
-        case KILL:
-          runner.kill(app);
-          break;
-        case STATUS:
-          System.out.println(runner.status(app));
-          break;
-        default:
-          throw new IllegalArgumentException("Unrecognized operation: " + op);
-      }
-    } else {
-      JobRunner$.MODULE$.main(args);
+    ApplicationRunnable appRunnable = config.containsKey(STREAM_APPLICATION_CLASS_CONFIG) ?
+        StreamApplications.createRunnable((StreamApplication) Class.forName(config.get(STREAM_APPLICATION_CLASS_CONFIG)).newInstance(), config) :
+        StreamApplications.createRunnable((TaskFactory) TaskFactoryUtil.createTaskFactory(config), config);
+
+    switch (op) {
+      case RUN:
+        appRunnable.run();
+        break;
+      case KILL:
+        appRunnable.kill();
+        break;
+      case STATUS:
+        System.out.println(appRunnable.status());
+        break;
+      default:
+        throw new IllegalArgumentException("Unrecognized operation: " + op);
     }
   }
 }

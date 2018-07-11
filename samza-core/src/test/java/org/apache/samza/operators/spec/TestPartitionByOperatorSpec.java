@@ -29,7 +29,7 @@ import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
-import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.internal.ApplicationRunner;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.system.StreamSpec;
 import org.junit.Before;

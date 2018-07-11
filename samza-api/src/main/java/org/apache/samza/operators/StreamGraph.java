@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.table.Table;
@@ -146,4 +147,11 @@ public interface StreamGraph {
    */
   StreamGraph withContextManager(ContextManager contextManager);
 
+  static StreamGraph createInstance() {
+    try {
+      return (StreamGraph) Class.forName("org.apache.samza.operators.StreamGraphSpec").newInstance();
+    } catch (ClassNotFoundException | IllegalAccessException | InstantiationException e) {
+      throw new SamzaException("Cannot instantiate an empty StreamGraph to start user application.", e);
+    }
+  }
 }

@@ -26,6 +26,5 @@ import org.apache.samza.annotation.InterfaceStability;
  * Implementations should return a new instance for each {@link #createInstance()} invocation.
  */
 @InterfaceStability.Stable
-public interface StreamTaskFactory {
-  StreamTask createInstance();
+public interface StreamTaskFactory extends TaskFactory<StreamTask> {
 }
