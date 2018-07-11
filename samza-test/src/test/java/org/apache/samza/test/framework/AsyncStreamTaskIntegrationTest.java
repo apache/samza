@@ -31,6 +31,7 @@ import org.apache.samza.test.framework.stream.CollectionStream;
 import org.hamcrest.collection.IsIterableContainingInOrder;
 import org.junit.Assert;
 import org.junit.Test;
+import scala.Int;
 
 
 public class AsyncStreamTaskIntegrationTest {
