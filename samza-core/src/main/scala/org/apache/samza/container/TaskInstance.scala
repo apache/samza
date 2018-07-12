@@ -28,7 +28,7 @@ import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.metrics.MetricsReporter
-import org.apache.samza.storage.{SideInputStorageManager, TaskStorageManager}
+import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system._
 import org.apache.samza.table.TableManager
 import org.apache.samza.task._
@@ -56,7 +56,6 @@ class TaskInstance(
   jobModel: JobModel = null,
   streamMetadataCache: StreamMetadataCache = null,
   timerExecutor : ScheduledExecutorService = null,
-  sideInputStorageManager: SideInputStorageManager = null,
   val sideInputSSPs: Set[SystemStreamPartition] = Set()) extends Logging {
   val isInitableTask = task.isInstanceOf[InitableTask]
   val isWindowableTask = task.isInstanceOf[WindowableTask]
@@ -99,11 +98,6 @@ class TaskInstance(
     } else {
       debug("Skipping storage manager initialization for task name: %s" format taskName)
     }
-
-    if (sideInputStorageManager != null) {
-      debug("Starting side input storage manager for task name: %s" format taskName)
-      sideInputStorageManager.init()
-    }
   }
 
   def startTableManager {
@@ -137,22 +131,20 @@ class TaskInstance(
 
     systemStreamPartitions.foreach(systemStreamPartition => {
       var metricsValueGetter: () => String = null
-      var offset:String = null
-
+      var offset: Option[String] = None
 
       if (sideInputSSPs.contains(systemStreamPartition)) {
-        offset = sideInputStorageManager.getStartingOffset(systemStreamPartition)
-        metricsValueGetter = () => sideInputStorageManager.getLastProcessedOffset(systemStreamPartition)
+        offset = storageManager.getStartingOffset(systemStreamPartition)
+        metricsValueGetter = () => storageManager.getLastProcessedOffset(systemStreamPartition).orNull
       } else {
-        offset = offsetManager.getStartingOffset(taskName, systemStreamPartition).orNull
+        offset = offsetManager.getStartingOffset(taskName, systemStreamPartition)
         metricsValueGetter = () => offsetManager.getLastProcessedOffset(taskName, systemStreamPartition).orNull
       }
 
-//      if (offset == null) {
-//        throw new SamzaException("No offset defined for SystemStreamPartition: %s" format systemStreamPartition)
-//      }
+      val startingOffset = offset
+        .getOrElse(throw new SamzaException("No offset defined for SystemStreamPartition: %s" format systemStreamPartition))
 
-      consumerMultiplexer.register(systemStreamPartition, offset)
+      consumerMultiplexer.register(systemStreamPartition, startingOffset)
       metrics.addOffsetGauge(systemStreamPartition, metricsValueGetter)
     })
   }
@@ -175,7 +167,7 @@ class TaskInstance(
         format (taskName, incomingMessageSsp))
 
       if (sideInputSSPs.contains(incomingMessageSsp)) {
-        sideInputStorageManager.process(envelope)
+        storageManager.process(envelope)
       } else {
         if (isAsyncTask) {
           exceptionHandler.maybeHandle {
@@ -239,11 +231,6 @@ class TaskInstance(
       storageManager.flush
     }
 
-    trace ("Flushing side input stores for task name %s" format taskName)
-    if (sideInputStorageManager != null) {
-      sideInputStorageManager.flush
-    }
-
     trace("Checkpointing offsets for task name %s" format taskName)
     offsetManager.writeCheckpoint(taskName, checkpoint)
 
@@ -274,11 +261,6 @@ class TaskInstance(
       storageManager.stop
     } else {
       debug("Skipping storage manager shutdown for task name: %s" format taskName)
-    }
-
-    if (sideInputStorageManager != null) {
-      debug("Shutting down side input storage manager for task name: %s" format taskName)
-      sideInputStorageManager.stop
     }
   }
 
@@ -314,17 +296,16 @@ class TaskInstance(
           ssp2CaughtupMapping(incomingMessageSsp) = true
         }
         case others => {
-          var startingOffset:String = null
+          var offset:Option[String] = None
 
           if (sideInputSSPs.contains(incomingMessageSsp)) {
-            startingOffset = sideInputStorageManager.getStartingOffset(incomingMessageSsp)
+            offset = storageManager.getStartingOffset(incomingMessageSsp)
           } else {
-            startingOffset = offsetManager.getStartingOffset(taskName, incomingMessageSsp).orNull
+            offset = offsetManager.getStartingOffset(taskName, incomingMessageSsp)
           }
 
-//          if (startingOffset == null) {
-//            throw new SamzaException("No offset defined for SystemStreamPartition: %s" format incomingMessageSsp)
-//          }
+          val startingOffset: String = offset
+            .getOrElse(throw new SamzaException("No offset defined for SystemStreamPartition: %s" format incomingMessageSsp))
 
           val system = incomingMessageSsp.getSystem
           others.getSystemAdmin(system).offsetComparator(envelope.getOffset, startingOffset) match {
