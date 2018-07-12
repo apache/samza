@@ -17,7 +17,7 @@ public interface SideInputProcessor {
    * @param messageEnvelope incoming message envelope
    * @param store key value store associated with the incoming message envelope
    *
-   * @return a
+   * @return a {@link Collection} of {@link Entry}s that needs to be written to {@code store}
    */
   Collection<Entry<?, ?>> process(IncomingMessageEnvelope messageEnvelope, KeyValueStore store);
 }

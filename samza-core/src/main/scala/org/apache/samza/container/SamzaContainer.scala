@@ -30,7 +30,6 @@ import java.util.concurrent.{ExecutorService, Executors, ScheduledExecutorServic
 
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
-import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
@@ -48,7 +47,7 @@ import org.apache.samza.job.model.{ContainerModel, JobModel}
 import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.serializers._
 import org.apache.samza.serializers.model.SamzaObjectMapper
-import org.apache.samza.storage.{SideInputStorageManager, StorageEngineFactory, TaskStorageManager}
+import org.apache.samza.storage.{StorageEngineFactory, TaskStorageManager}
 import org.apache.samza.system._
 import org.apache.samza.system.chooser.{DefaultChooser, MessageChooserFactory, RoundRobinChooserFactory}
 import org.apache.samza.table.TableManager
@@ -539,8 +538,11 @@ object SamzaContainer extends Logging {
       val nonLoggedStorageBaseDir = getNonLoggedStorageBaseDir(config, defaultStoreBaseDir)
       info("Got base directory for non logged data stores: %s" format nonLoggedStorageBaseDir)
 
-      var loggedStorageBaseDir = getLoggedStorageBaseDir(config, defaultStoreBaseDir)
+      val loggedStorageBaseDir = getLoggedStorageBaseDir(config, defaultStoreBaseDir)
       info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
+
+      val sideInputStorageBaseDir = loggedStorageBaseDir
+      info("Got base directory for side input stores: %s" format sideInputStorageBaseDir)
 
       val taskStores = storageEngineFactories
         .map {
@@ -565,6 +567,8 @@ object SamzaContainer extends Logging {
 
             val storeDir = if (changeLogSystemStreamPartition != null) {
               TaskStorageManager.getStorePartitionDir(loggedStorageBaseDir, storeName, taskName)
+            } else if (sideInputSystemStreams.contains(storeName)){
+              TaskStorageManager.getStorePartitionDir(sideInputStorageBaseDir, storeName, taskName)
             } else {
               TaskStorageManager.getStorePartitionDir(nonLoggedStorageBaseDir, storeName, taskName)
             }
@@ -593,9 +597,9 @@ object SamzaContainer extends Logging {
       info("Retrieved SystemStreamPartitions " + systemStreamPartitions + " for " + taskName)
 
       val storesToSSPs = sideInputSystemStreams.mapValues(
-          sideInputs => systemStreamPartitions.filter(ssp => sideInputs.contains(ssp.getSystemStream)).asJava)
+          sideInputs => systemStreamPartitions.filter(ssp => sideInputs.contains(ssp.getSystemStream)))
 
-      val sideInputSSPs = storesToSSPs.values.flatMap(_.asScala).toSet
+      val sideInputSSPs = storesToSSPs.values.flatMap(_.toStream).toSet
 
       val storageManager = new TaskStorageManager(
         taskName = taskName,
@@ -610,21 +614,10 @@ object SamzaContainer extends Logging {
         partition = taskModel.getChangelogPartition,
         systemAdmins = systemAdmins,
         new StorageConfig(config).getChangeLogDeleteRetentionsInMs,
-        new SystemClock)
-
-      var sideInputStorageManager:SideInputStorageManager = null
-
-      if (sideInputSSPs.nonEmpty) {
-        sideInputStorageManager = new SideInputStorageManager(
-          taskName,
-          taskInstanceMetrics.registry,
-          streamMetadataCache,
-          taskStores.asJava,
-          storesToSSPs.asJava,
-          systemAdmins,
-          config,
-          new SystemClock)
-      }
+        new SystemClock,
+        storesToSSPs = storesToSSPs,
+        config = config,
+        metricsRegistry = taskInstanceMetrics.registry)
 
       val tableManager = new TableManager(config, serdes.asJava)
 
@@ -648,7 +641,6 @@ object SamzaContainer extends Logging {
           jobModel = jobModel,
           streamMetadataCache = streamMetadataCache,
           timerExecutor = timerExecutor,
-          sideInputStorageManager = sideInputStorageManager,
           sideInputSSPs = sideInputSSPs)
 
       val taskInstance = createTaskInstance(task)

@@ -26,7 +26,6 @@ import org.apache.samza.Partition
 import org.apache.samza.checkpoint.{Checkpoint, OffsetManager}
 import org.apache.samza.config.{Config, MapConfig}
 import org.apache.samza.metrics.{Counter, Metric, MetricsRegistryMap}
-import org.apache.samza.processors.SideInputProcessor
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.system.SystemAdmin
@@ -48,7 +47,6 @@ import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.Assertions.intercept
 
-import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 import scala.collection.JavaConverters._
 
