@@ -68,8 +68,6 @@ public class StreamApplicationIntegrationTest {
       int memberId = i;
       PageView pv = new PageView(pagekey, memberId);
       pageviews.add(pv);
-      expectedOutput.put(i, new ArrayList<PageView>());
-      expectedOutput.get(i).add(pv);
     }
 
     CollectionStream<PageView> input = CollectionStream.of("test", "PageView", pageviews);

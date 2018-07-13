@@ -67,13 +67,13 @@ public class AsyncStreamTaskIntegrationTest {
         .addOutputStream(output)
         .run(Duration.ofSeconds(2));
 
-    StreamAssert.that(output).containsInAnyOrder(outputList, Duration.ofMillis(1000));
+    StreamAssert.containsInAnyOrder(output, outputList, Duration.ofMillis(1000));
   }
 
   @Test
   public void testAsyncTaskWithMultiplePartition() throws Exception {
-    Map<Integer, List<KV>> input = new HashMap<>();
-    Map<Integer, List<Integer>> output = new HashMap<>();
+    Map<Integer, List<KV>> inputPartitionData = new HashMap<>();
+    Map<Integer, List<Integer>> expectedOutputPartitionData = new HashMap<>();
     List<Integer> partition = Arrays.asList(1, 2, 3, 4, 5);
     List<Integer> outputPartition = partition.stream().map(x -> x * 10).collect(Collectors.toList());
     for (int i = 0; i < 5; i++) {
@@ -81,11 +81,11 @@ public class AsyncStreamTaskIntegrationTest {
       for (Integer val : partition) {
         keyedPartition.add(KV.of(i, val));
       }
-      input.put(i, keyedPartition);
-      output.put(i, new ArrayList<Integer>(outputPartition));
+      inputPartitionData.put(i, keyedPartition);
+      expectedOutputPartitionData.put(i, new ArrayList<Integer>(outputPartition));
     }
 
-    CollectionStream<KV> inputStream = CollectionStream.of("async-test", "ints", input);
+    CollectionStream<KV> inputStream = CollectionStream.of("async-test", "ints", inputPartitionData);
     CollectionStream outputStream = CollectionStream.empty("async-test", "ints-out", 5);
 
     TestRunner
@@ -94,13 +94,13 @@ public class AsyncStreamTaskIntegrationTest {
         .addOutputStream(outputStream)
         .run(Duration.ofSeconds(2));
 
-    StreamAssert.that(outputStream).contains(output, Duration.ofMillis(1000));
+    StreamAssert.containsInOrder(outputStream, expectedOutputPartitionData, Duration.ofMillis(1000));
   }
 
   @Test
   public void testAsyncTaskWithMultiplePartitionMultithreaded() throws Exception {
-    Map<Integer, List<KV>> input = new HashMap<>();
-    Map<Integer, List<Integer>> output = new HashMap<>();
+    Map<Integer, List<KV>> inputPartitionData = new HashMap<>();
+    Map<Integer, List<Integer>> expectedOutputPartitionData = new HashMap<>();
     List<Integer> partition = Arrays.asList(1, 2, 3, 4, 5);
     List<Integer> outputPartition = partition.stream().map(x -> x * 10).collect(Collectors.toList());
     for (int i = 0; i < 5; i++) {
@@ -108,11 +108,11 @@ public class AsyncStreamTaskIntegrationTest {
       for (Integer val : partition) {
         keyedPartition.add(KV.of(i, val));
       }
-      input.put(i, keyedPartition);
-      output.put(i, new ArrayList<Integer>(outputPartition));
+      inputPartitionData.put(i, keyedPartition);
+      expectedOutputPartitionData.put(i, new ArrayList<Integer>(outputPartition));
     }
 
-    CollectionStream<KV> inputStream = CollectionStream.of("async-test", "ints", input);
+    CollectionStream<KV> inputStream = CollectionStream.of("async-test", "ints", inputPartitionData);
     CollectionStream outputStream = CollectionStream.empty("async-test", "ints-out", 5);
 
     TestRunner
@@ -122,7 +122,7 @@ public class AsyncStreamTaskIntegrationTest {
         .addOverrideConfig("task.max.concurrency", "4")
         .run(Duration.ofSeconds(2));
 
-    StreamAssert.that(outputStream).containsInAnyOrder(output, Duration.ofMillis(1000));
+    StreamAssert.containsInAnyOrder(outputStream, expectedOutputPartitionData, Duration.ofMillis(1000));
   }
 
   /**
