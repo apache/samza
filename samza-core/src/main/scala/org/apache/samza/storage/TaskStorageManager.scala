@@ -113,6 +113,7 @@ class TaskStorageManager(
     setupBaseDirs()
     validateChangelogStreams()
     initializeOldestOffset()
+    initializeStartingOffsetsForSideInputStores()
     startConsumers()
     restoreStores()
     stopConsumers()
@@ -353,6 +354,10 @@ class TaskStorageManager(
     }
   }
 
+  /**
+    * Initializes the oldest offsets for all the [[SystemStreamPartition]] associated with the stores. It includes
+    * [[SystemStreamPartition]]s that belong to side input stores and the logged stores.
+    */
   private def initializeOldestOffset() = {
 
     // Load the oldest offset for logged stores
@@ -370,6 +375,22 @@ class TaskStorageManager(
 
     oldestOffsets ++= oldestOffsetForLoggedStores
     oldestOffsets ++= oldestOffsetForSideInputStores
+  }
+
+  /**
+    * Initializes the starting offset for the [[SystemStreamPartition]] associated with the side input stores.
+    */
+  private def initializeStartingOffsetsForSideInputStores() = {
+    for(ssp <- sspsToStore.keys) {
+      val startingOffset: String = getSideInputStoreStartingOffset(ssp)
+
+      if (startingOffset != null && !startingOffset.isEmpty) {
+        startingOffsetForSideInputSSPs.put(ssp, startingOffset)
+      } else {
+        debug("Failed to fetch the starting offset for ssp %s." format ssp)
+        // should we throw exception here?
+      }
+    }
   }
 
   private def startConsumers() {
@@ -393,7 +414,7 @@ class TaskStorageManager(
   }
 
   /**
-    * Returns the offset with which the changelog consumer should be initialized for the given SystemStreamPartition.
+    * Returns the offset with which the changelog consumer should be initialized for the given [[SystemStreamPartition]].
     *
     * If a file offset exists, it represents the last changelog offset which is also reflected in the on-disk state.
     * In that case, we use the next offset after the file offset, as long as it is newer than the oldest offset
@@ -407,7 +428,26 @@ class TaskStorageManager(
   private def getLoggedStoreStartingOffset(systemStreamPartition: SystemStreamPartition) = {
     val admin = systemAdmins.getSystemAdmin(systemStreamPartition.getSystem)
     val oldestOffset = oldestOffsets.getOrElse(systemStreamPartition,
-        throw new SamzaException("Missing a change log offset for %s." format systemStreamPartition))
+      throw new SamzaException("Missing a change log offset for %s." format systemStreamPartition))
+
+    getStartingOffset(systemStreamPartition, admin, oldestOffset)
+  }
+
+  /**
+    * Returns the offset with which the side input store consumer should be initialized for the given [[SystemStreamPartition]].
+    *
+    * If a file offset exists, it represents the last checkpointed local offset which is also reflected in the on-disk state.
+    * In that case, we use the next offset after the file offset, as long as it is newer than the oldest offset
+    * currently available in the stream.
+    *
+    * @param systemStreamPartition the source partition for which the offset is needed
+    *
+    * @return the offset to from which the side input store consumer should start
+    */
+  private def getSideInputStoreStartingOffset(systemStreamPartition: SystemStreamPartition) = {
+    val admin = systemAdmins.getSystemAdmin(systemStreamPartition.getSystem)
+    val oldestOffset = oldestOffsets.getOrElse(systemStreamPartition,
+      throw new SamzaException("Missing side input store oldest offset for %s" format systemStreamPartition))
 
     getStartingOffset(systemStreamPartition, admin, oldestOffset)
   }
