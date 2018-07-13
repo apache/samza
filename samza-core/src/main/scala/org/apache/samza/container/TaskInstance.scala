@@ -134,23 +134,39 @@ class TaskInstance(
     collector.register
   }
 
+  def getStartingOffset(systemStreamPartition: SystemStreamPartition) = {
+    var offset: Option[String] = None
+
+    if (sideInputSSPs.contains(systemStreamPartition)) {
+      offset = Option(sideInputStorageManager.getStartingOffset(systemStreamPartition))
+    } else {
+      offset = offsetManager.getStartingOffset(taskName, systemStreamPartition)
+    }
+
+    val startingOffset = offset
+      .getOrElse(throw new SamzaException("No offset defined for SystemStreamPartition: %s" format systemStreamPartition))
+
+    startingOffset
+  }
+
+  def getMetricsValueGetter(systemStreamPartition: SystemStreamPartition) = {
+    var metricsValueGetter: () => String = null
+
+    if (sideInputSSPs.contains(systemStreamPartition)) {
+      metricsValueGetter = () => sideInputStorageManager.getLastProcessedOffset(systemStreamPartition)
+    } else {
+      metricsValueGetter = () => offsetManager.getLastProcessedOffset(taskName, systemStreamPartition).orNull
+    }
+
+    metricsValueGetter
+  }
+
   def registerConsumers {
     debug("Registering consumers for task name %s" format taskName)
 
     systemStreamPartitions.foreach(systemStreamPartition => {
-      var metricsValueGetter: () => String = null
-      var offset: Option[String] = None
-
-      if (sideInputSSPs.contains(systemStreamPartition)) {
-        offset = Option(sideInputStorageManager.getStartingOffset(systemStreamPartition))
-        metricsValueGetter = () => sideInputStorageManager.getLastProcessedOffset(systemStreamPartition)
-      } else {
-        offset = offsetManager.getStartingOffset(taskName, systemStreamPartition)
-        metricsValueGetter = () => offsetManager.getLastProcessedOffset(taskName, systemStreamPartition).orNull
-      }
-
-      val startingOffset = offset
-        .getOrElse(throw new SamzaException("No offset defined for SystemStreamPartition: %s" format systemStreamPartition))
+      val startingOffset = getStartingOffset(systemStreamPartition)
+      val metricsValueGetter = getMetricsValueGetter(systemStreamPartition)
 
       consumerMultiplexer.register(systemStreamPartition, startingOffset)
       metrics.addOffsetGauge(systemStreamPartition, metricsValueGetter)
@@ -309,16 +325,7 @@ class TaskInstance(
           ssp2CaughtupMapping(incomingMessageSsp) = true
         }
         case others => {
-          var offset:Option[String] = None
-
-          if (sideInputSSPs.contains(incomingMessageSsp)) {
-            offset = Option(sideInputStorageManager.getStartingOffset(incomingMessageSsp))
-          } else {
-            offset = offsetManager.getStartingOffset(taskName, incomingMessageSsp)
-          }
-
-          val startingOffset: String = offset
-            .getOrElse(throw new SamzaException("No offset defined for SystemStreamPartition: %s" format incomingMessageSsp))
+          val startingOffset = getStartingOffset(incomingMessageSsp)
 
           val system = incomingMessageSsp.getSystem
           others.getSystemAdmin(system).offsetComparator(envelope.getOffset, startingOffset) match {
