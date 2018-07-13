@@ -52,7 +52,7 @@ object FileUtil {
     * Reads from a file that has a checksum prepended to the data
     * @param file The file handle to read from
     * */
-  def readWithChecksum(file: File) = {
+  def readWithChecksum(file: File): String = {
     var fis: FileInputStream = null
     var ois: ObjectInputStream = null
     try {

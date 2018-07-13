@@ -47,7 +47,7 @@ import org.apache.samza.job.model.{ContainerModel, JobModel}
 import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.serializers._
 import org.apache.samza.serializers.model.SamzaObjectMapper
-import org.apache.samza.storage.{StorageEngineFactory, TaskStorageManager}
+import org.apache.samza.storage.{SideInputStorageManager, StorageEngineFactory, TaskStorageManager}
 import org.apache.samza.system._
 import org.apache.samza.system.chooser.{DefaultChooser, MessageChooserFactory, RoundRobinChooserFactory}
 import org.apache.samza.table.TableManager
@@ -597,13 +597,16 @@ object SamzaContainer extends Logging {
       info("Retrieved SystemStreamPartitions " + systemStreamPartitions + " for " + taskName)
 
       val storesToSSPs = sideInputSystemStreams.mapValues(
-          sideInputs => systemStreamPartitions.filter(ssp => sideInputs.contains(ssp.getSystemStream)))
+          sideInputs => systemStreamPartitions.filter(ssp => sideInputs.contains(ssp.getSystemStream)).asJava)
 
-      val sideInputSSPs = storesToSSPs.values.flatMap(_.toStream).toSet
+      val sideInputSSPs = storesToSSPs.values.flatMap(_.asScala).toSet
+
+      val sideInputStores = taskStores.filterKeys(storesToSSPs.contains).asJava
+      val nonSideInputStores = taskStores.filterKeys(storeName => !storesToSSPs.contains(storeName))
 
       val storageManager = new TaskStorageManager(
         taskName = taskName,
-        taskStores = taskStores,
+        taskStores = nonSideInputStores,
         storeConsumers = storeConsumers,
         changeLogSystemStreams = changeLogSystemStreams,
         maxChangeLogStreamPartitions,
@@ -614,10 +617,21 @@ object SamzaContainer extends Logging {
         partition = taskModel.getChangelogPartition,
         systemAdmins = systemAdmins,
         new StorageConfig(config).getChangeLogDeleteRetentionsInMs,
-        new SystemClock,
-        storesToSSPs = storesToSSPs,
-        config = config,
-        metricsRegistry = taskInstanceMetrics.registry)
+        new SystemClock)
+
+      var sideInputStorageManager: SideInputStorageManager = null
+
+      if (sideInputStores.size() > 0) {
+        sideInputStorageManager = new SideInputStorageManager(
+          taskName,
+          taskInstanceMetrics.registry,
+          streamMetadataCache,
+          taskStores.asJava,
+          storesToSSPs.asJava,
+          systemAdmins,
+          config,
+          new SystemClock)
+      }
 
       val tableManager = new TableManager(config, serdes.asJava)
 
@@ -641,7 +655,8 @@ object SamzaContainer extends Logging {
           jobModel = jobModel,
           streamMetadataCache = streamMetadataCache,
           timerExecutor = timerExecutor,
-          sideInputSSPs = sideInputSSPs)
+          sideInputSSPs = sideInputSSPs,
+          sideInputStorageManager = sideInputStorageManager)
 
       val taskInstance = createTaskInstance(task)
 

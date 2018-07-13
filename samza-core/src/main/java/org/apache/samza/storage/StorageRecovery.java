@@ -249,10 +249,7 @@ public class StorageRecovery extends CommandLine {
             taskModel.getChangelogPartition(),
             systemAdmins,
             new StorageConfig(jobConfig).getChangeLogDeleteRetentionsInMs(),
-            new SystemClock(),
-            ScalaJavaUtil.toScalaMap(new HashMap<>()),
-            jobConfig,
-            new MetricsRegistryMap());
+            new SystemClock());
 
         taskStorageManagers.add(taskStorageManager);
       }
