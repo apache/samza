@@ -23,9 +23,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.metrics.reporter.MetricsSnapshot;
-import org.codehaus.jackson.annotate.JsonAutoDetect;
-import org.codehaus.jackson.annotate.JsonMethod;
-import org.codehaus.jackson.map.DeserializationConfig;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,21 +31,18 @@ import org.slf4j.LoggerFactory;
 public class MetricsSnapshotSerdeV2 implements Serde<MetricsSnapshot> {
 
   private static final Logger LOG = LoggerFactory.getLogger(MetricsSnapshotSerdeV2.class);
-  private final ObjectMapper jsonMapper;
+  private final ObjectMapper objectMapper;
 
   public MetricsSnapshotSerdeV2() {
-    jsonMapper = new ObjectMapper();
-    jsonMapper.configure(DeserializationConfig.Feature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-    jsonMapper.setVisibility(JsonMethod.ALL, JsonAutoDetect.Visibility.ANY);
-    jsonMapper.enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL);
-    // required to serialize Throwable with type and other info
+    objectMapper = new ObjectMapper();
+    objectMapper.enableDefaultTyping(ObjectMapper.DefaultTyping.OBJECT_AND_NON_CONCRETE);
   }
 
   @Override
   public MetricsSnapshot fromBytes(byte[] bytes) {
     try {
       return MetricsSnapshot.fromMap(
-          jsonMapper.readValue(bytes, new HashMap<String, Map<String, Object>>().getClass()));
+          objectMapper.readValue(bytes, new HashMap<String, Map<String, Object>>().getClass()));
     } catch (IOException e) {
       LOG.info("Exception while deserializing", e);
     }
@@ -58,15 +52,16 @@ public class MetricsSnapshotSerdeV2 implements Serde<MetricsSnapshot> {
   @Override
   public byte[] toBytes(MetricsSnapshot metricsSnapshot) {
     try {
-      return jsonMapper.writeValueAsString(convertMap(metricsSnapshot.getAsMap())).getBytes("UTF-8");
+      return objectMapper.writeValueAsString(convertMap(metricsSnapshot.getAsMap())).getBytes("UTF-8");
     } catch (IOException e) {
       LOG.info("Exception while serializing", e);
     }
     return null;
   }
 
-  /** Unmodifiable maps should not be serialized with type, because UnmodifiableMap cannot be deserialized.
-   * So we convert to HashMap. This is a Jackson limitation.
+  /** Metrics returns an UnmodifiableMap.
+   * Unmodifiable maps should not be serialized with type, because UnmodifiableMap cannot be deserialized.
+   * So we convert to HashMap.
    */
   private HashMap convertMap(Map<String, Object> map) {
     HashMap retVal = new HashMap(map);
