@@ -19,11 +19,8 @@
 
 package org.apache.samza.serializers.model.serializers;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.kafka.common.errors.RecordTooLargeException;
-import org.apache.kafka.common.errors.TopicAuthorizationException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.diagnostics.DiagnosticsExceptionEvent;
 import org.apache.samza.metrics.ListGauge;
@@ -47,16 +44,7 @@ public class TestMetricsSnapshotSerdeV2 {
         new DiagnosticsExceptionEvent(1, new SamzaException("this is a samza exception", new RuntimeException("cause")),
             new HashMap());
 
-    DiagnosticsExceptionEvent diagnosticsExceptionEvent2 = new DiagnosticsExceptionEvent(2,
-        new SamzaException("this is a samza exception", new TopicAuthorizationException(Collections.singleton("foo"))),
-        new HashMap());
-
-    DiagnosticsExceptionEvent diagnosticsExceptionEvent3 =
-        new DiagnosticsExceptionEvent(2, new RecordTooLargeException("this record is too large"), new HashMap());
-
     listGauge.add(diagnosticsExceptionEvent1);
-    listGauge.add(diagnosticsExceptionEvent2);
-    listGauge.add(diagnosticsExceptionEvent3);
 
     String samzaContainerMetricsGroupName = "org.apache.samza.container.SamzaContainerMetrics";
     Map<String, Map<String, Object>> metricMessage = new HashMap<>();
