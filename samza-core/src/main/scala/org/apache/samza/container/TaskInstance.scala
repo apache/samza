@@ -28,6 +28,7 @@ import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.metrics.MetricsReporter
+import org.apache.samza.storage.kv.KeyValueStore
 import org.apache.samza.storage.{SideInputStorageManager, TaskStorageManager}
 import org.apache.samza.system._
 import org.apache.samza.table.TableManager
@@ -64,8 +65,31 @@ class TaskInstance(
   val isClosableTask = task.isInstanceOf[ClosableTask]
   val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
 
+  val storageGetter = new java.util.function.Function[String, KeyValueStore[_,_]]() {
+    override def apply(storeName: String): KeyValueStore[_,_] = {
+      var store: KeyValueStore[_,_] = null
+      if(storageManager != null) {
+        try {
+          store = storageManager.apply(storeName).asInstanceOf[KeyValueStore[Object, Object]]
+        } catch {
+          case e: NoSuchElementException => {
+            if (sideInputStorageManager != null) {
+              store = sideInputStorageManager.getStore(storeName).asInstanceOf[KeyValueStore[Object, Object]]
+            }
+          }
+        }
+      }
+
+      if (store == null) {
+        warn("No store was found for %s" format storeName)
+      }
+
+      store
+    }
+  }
+
   val context = new TaskContextImpl(taskName, metrics, containerContext, systemStreamPartitions.asJava, offsetManager,
-                                    storageManager, tableManager, jobModel, streamMetadataCache, timerExecutor)
+                                    storageGetter, tableManager, jobModel, streamMetadataCache, timerExecutor)
 
   // store the (ssp -> if this ssp is catched up) mapping. "catched up"
   // means the same ssp in other taskInstances have the same offset as

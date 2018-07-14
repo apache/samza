@@ -46,7 +46,6 @@ import scala.collection.JavaConverters;
  * and is responsible for handling directory management, offset tracking and local checkpointing for the side input stores.
  */
 public class SideInputStorageManager {
-  private static final String DEFAULT_STORE_DIR = "/tmp";
   private static final String OFFSET_FILE = "side-input-offset";
   private static final long STORE_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1); // same as changelog store delete retention
   private static final Logger LOG = LoggerFactory.getLogger(SideInputStorageManager.class);
@@ -71,13 +70,12 @@ public class SideInputStorageManager {
       TaskName taskName,
       MetricsRegistry metricsRegistry,
       StreamMetadataCache streamMetadataCache,
+      String storeBaseDir,
       Map<String, StorageEngine> stores,
       Map<String, Set<SystemStreamPartition>> storeToSSPs,
       SystemAdmins systemAdmins,
       Config config,
       Clock clock) {
-    validateStoreProperties();
-
     this.systemAdmins = systemAdmins;
     this.stores = stores;
     this.storeToSSps = storeToSSPs;
@@ -85,7 +83,9 @@ public class SideInputStorageManager {
     this.taskName = taskName;
     this.clock = clock;
 
-    this.storeBaseDir = config.get("", DEFAULT_STORE_DIR);
+    validateStoreProperties();
+
+    this.storeBaseDir = storeBaseDir;
     this.sideInputProcessor = Optional.ofNullable(new TaskConfigJava(config).getSideInputProcessorFactory())
         .map(sideInputFactoryName -> Util.getObj(sideInputFactoryName, SideInputProcessorFactory.class))
         .map(factory -> factory.createInstance(config, metricsRegistry))
@@ -147,6 +147,17 @@ public class SideInputStorageManager {
         .forEach(StorageEngine::stop);
 
     flushOffsets();
+  }
+
+  /**
+   * Fetch the {@link KeyValueStore} associated with the input {@code storeName}.
+   *
+   * @param storeName store name
+   *
+   * @return a {@link StorageEngine} associated with {@code storeName}
+   */
+  public StorageEngine getStore(String storeName) {
+    return stores.get(storeName);
   }
 
   /**
@@ -284,7 +295,7 @@ public class SideInputStorageManager {
   }
 
   private File getStoreLocation(String storeName) {
-    return new File(storeBaseDir, (taskName.toString() + File.separator + storeName).replace(' ', '_'));
+    return new File(storeBaseDir, (storeName + File.separator + taskName.toString()).replace(' ', '_'));
   }
 
   /**

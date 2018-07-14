@@ -20,10 +20,10 @@
 package org.apache.samza.container;
 
 import com.google.common.collect.ImmutableSet;
+import java.util.function.Function;
 import org.apache.samza.checkpoint.OffsetManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
-import org.apache.samza.storage.TaskStorageManager;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStreamPartition;
@@ -48,7 +48,7 @@ public class TaskContextImpl implements TaskContext {
   private final SamzaContainerContext containerContext;
   private final Set<SystemStreamPartition> systemStreamPartitions;
   private final OffsetManager offsetManager;
-  private final TaskStorageManager storageManager;
+  private final Function<String, KeyValueStore> storageGetter;
   private final TableManager tableManager;
   private final JobModel jobModel;
   private final StreamMetadataCache streamMetadataCache;
@@ -62,7 +62,7 @@ public class TaskContextImpl implements TaskContext {
                          SamzaContainerContext containerContext,
                          Set<SystemStreamPartition> systemStreamPartitions,
                          OffsetManager offsetManager,
-                         TaskStorageManager storageManager,
+                         Function<String, KeyValueStore> storageGetter,
                          TableManager tableManager,
                          JobModel jobModel,
                          StreamMetadataCache streamMetadataCache,
@@ -72,7 +72,7 @@ public class TaskContextImpl implements TaskContext {
     this.containerContext = containerContext;
     this.systemStreamPartitions = ImmutableSet.copyOf(systemStreamPartitions);
     this.offsetManager = offsetManager;
-    this.storageManager = storageManager;
+    this.storageGetter = storageGetter;
     this.tableManager = tableManager;
     this.jobModel = jobModel;
     this.streamMetadataCache = streamMetadataCache;
@@ -91,12 +91,7 @@ public class TaskContextImpl implements TaskContext {
 
   @Override
   public KeyValueStore getStore(String storeName) {
-    if (storageManager != null) {
-      return (KeyValueStore) storageManager.apply(storeName);
-    } else {
-      LOG.warn("No store found for name: {}", storeName);
-      return null;
-    }
+    return storageGetter.apply(storeName);
   }
 
   @Override
