@@ -58,7 +58,7 @@ class TaskInstance(
   streamMetadataCache: StreamMetadataCache = null,
   timerExecutor : ScheduledExecutorService = null,
   val sideInputSSPs: Set[SystemStreamPartition] = Set(),
-  val sideInputStorageManager: SideInputStorageManager) extends Logging {
+  val sideInputStorageManager: SideInputStorageManager = null) extends Logging {
   val isInitableTask = task.isInstanceOf[InitableTask]
   val isWindowableTask = task.isInstanceOf[WindowableTask]
   val isEndOfStreamListenerTask = task.isInstanceOf[EndOfStreamListenerTask]

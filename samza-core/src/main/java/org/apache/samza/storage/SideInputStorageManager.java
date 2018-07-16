@@ -243,21 +243,24 @@ public class SideInputStorageManager {
    *
    */
   void flushOffsets() {
-    storeToSSps.forEach((storeName, ssps) -> {
-        Map<SystemStreamPartition, String> offsets = ssps
-          .stream()
-          .filter(lastProcessedOffsets::containsKey)
-          .collect(Collectors.toMap(Function.identity(), lastProcessedOffsets::get));
+    storeToSSps.entrySet().stream()
+        .filter(entry -> isPersistedStore(entry.getKey())) // filter out in-memory side input stores
+        .forEach((entry) -> {
+            String storeName = entry.getKey();
+            Map<SystemStreamPartition, String> offsets = entry.getValue()
+              .stream()
+              .filter(lastProcessedOffsets::containsKey)
+              .collect(Collectors.toMap(Function.identity(), lastProcessedOffsets::get));
 
-        try {
-          String checkpoint = checkpointSerde.writeValueAsString(offsets);
-          File offsetFile = new File(getStoreLocation(storeName), OFFSET_FILE);
-          FileUtil.writeWithChecksum(offsetFile, checkpoint);
-        } catch (Exception e) {
-          LOG.error("Encountered error while checkpointing to the file due to", e);
-          throw new SamzaException("Failed to checkpoint for side input store " + storeName, e);
-        }
-      });
+            try {
+              String checkpoint = checkpointSerde.writeValueAsString(offsets);
+              File offsetFile = new File(getStoreLocation(storeName), OFFSET_FILE);
+              FileUtil.writeWithChecksum(offsetFile, checkpoint);
+            } catch (Exception e) {
+              LOG.error("Encountered error while checkpointing to the file due to", e);
+              throw new SamzaException("Failed to checkpoint for side input store " + storeName, e);
+            }
+          });
   }
 
   /**
@@ -280,7 +283,7 @@ public class SideInputStorageManager {
         LOG.debug("Reading local offsets for store {}", storeName);
 
         File storeLocation = getStoreLocation(storeName);
-        if (!isStaleStore(storeLocation)) {
+        if (!isValidSideInputStore(storeName)) {
           try {
             String checkpoint = storageManagerHelper.readOffsetFile(storeLocation, OFFSET_FILE);
             Map<SystemStreamPartition, String> offsets = checkpointSerde.readValue(checkpoint, Map.class);
@@ -301,7 +304,7 @@ public class SideInputStorageManager {
   private void validateStoreProperties() {
     Set<String> invalidStores = stores.entrySet()
         .stream()
-        .filter(entry -> !isValidSideInputStore(entry.getValue()))
+        .filter(entry -> !hasValidStoreConfiguration(entry.getValue()))
         .map(Map.Entry::getKey)
         .collect(Collectors.toSet());
 
@@ -346,7 +349,7 @@ public class SideInputStorageManager {
 
   /**
    * Initializes the store directories for all the stores.
-   *  1. It cleans up the directories for stores that are stale defined by {@link #isStaleStore(File)}
+   *  1. It cleans up the directories for stores that are stale defined by {@link #isValidSideInputStore(String)}
    *  2. It checks for existence of directories and creates them if necessary
    */
   private void initializeStoreDirectories() {
@@ -354,7 +357,7 @@ public class SideInputStorageManager {
 
     stores.keySet().forEach(storeName -> {
         File storeLocation = getStoreLocation(storeName);
-        if (isStaleStore(storeLocation) || !storageManagerHelper.isOffsetFileValid(storeLocation, OFFSET_FILE)) {
+        if (!isValidSideInputStore(storeName)) {
           LOG.info("Cleaning up the store directory for {}", storeName);
           FileUtil.rm(storeLocation);
         }
@@ -415,7 +418,7 @@ public class SideInputStorageManager {
    *
    * @return true - valid side input store; false - otherwise
    */
-  private boolean isValidSideInputStore(StorageEngine storageEngine) {
+  private boolean hasValidStoreConfiguration(StorageEngine storageEngine) {
     StoreProperties storeProperties = storageEngine.getStoreProperties();
     return storeProperties.hasSideInputs() && !storeProperties.isLoggedStore();
   }
@@ -425,11 +428,29 @@ public class SideInputStorageManager {
    * {@link #STORE_DELETE_RETENTION_MS}, then the store is considered stale. For stale stores, we ignore the locally
    * checkpointed offsets and go with the oldest offset from the source.
    *
-   * @param storeLocation store location
+   * @param storeName store name
    *
    * @return true if the store is stale, false otherwise
    */
-  private boolean isStaleStore(File storeLocation) {
-    return storageManagerHelper.isStaleStore(storeLocation, OFFSET_FILE, STORE_DELETE_RETENTION_MS);
+  private boolean isValidSideInputStore(String storeName) {
+    File storeLocation = getStoreLocation(storeName);
+
+    return isPersistedStore(storeName)
+        && storageManagerHelper.isStaleStore(storeLocation, OFFSET_FILE, STORE_DELETE_RETENTION_MS)
+        && storageManagerHelper.isOffsetFileValid(storeLocation, OFFSET_FILE);
+  }
+
+  /**
+   * Checks if the store is persisted to disk or not.
+   *
+   * @param storeName store name
+   *
+   * @return true if the store is persisted to the disk, false otherwise
+   */
+  private boolean isPersistedStore(String storeName) {
+    return Optional.ofNullable(stores.get(storeName))
+        .map(StorageEngine::getStoreProperties)
+        .map(StoreProperties::isPersistedToDisk)
+        .orElse(false);
   }
 }
