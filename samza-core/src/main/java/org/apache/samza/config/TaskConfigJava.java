@@ -68,7 +68,9 @@ public class TaskConfigJava extends MapConfig {
     return get(CHECKPOINT_MANAGER_FACTORY, null);
   }
 
-  public String getSideInputProcessorFactory() {return get(SIDE_INPUT_PROCESSOR_FACTORY, null); }
+  public String getSideInputProcessorFactory() {
+    return get(SIDE_INPUT_PROCESSOR_FACTORY, null);
+  }
 
   /**
    * Create the checkpoint manager

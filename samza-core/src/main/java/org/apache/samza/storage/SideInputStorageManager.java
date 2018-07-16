@@ -1,3 +1,22 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 package org.apache.samza.storage;
 
 import com.google.common.base.Preconditions;
@@ -17,7 +36,6 @@ import java.util.stream.Collectors;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -90,13 +108,13 @@ public class SideInputStorageManager {
         .map(sideInputFactoryName -> Util.getObj(sideInputFactoryName, SideInputProcessorFactory.class))
         .map(factory -> factory.createInstance(config, metricsRegistry))
         .orElseGet(() -> {
-          if (stores.size() > 0) {
-            throw new SamzaException("Missing side input processor. Make sure "
+            if (stores.size() > 0) {
+              throw new SamzaException("Missing side input processor. Make sure "
                 + TaskConfigJava.SIDE_INPUT_PROCESSOR_FACTORY + " is configured correctly.");
-          }
+            }
 
-          return null;
-        });
+            return null;
+          });
 
     sspsToStore = storeToSSPs.entrySet()
         .stream()
@@ -163,8 +181,8 @@ public class SideInputStorageManager {
   /**
    * Fetch the starting offset of the given {@link SystemStreamPartition}.
    *
-   * Note: The method doesn't respect {@link StreamConfig#CONSUMER_OFFSET_DEFAULT()} and
-   * {@link StreamConfig#CONSUMER_RESET_OFFSET()} configurations and will use the locally
+   * Note: The method doesn't respect {@link org.apache.samza.config.StreamConfig#CONSUMER_OFFSET_DEFAULT()} and
+   * {@link org.apache.samza.config.StreamConfig#CONSUMER_RESET_OFFSET()} configurations and will use the locally
    * checkpointed offset if its valid or fallback to oldest offset of the stream.
    *
    * @param ssp system stream partition for which the starting offset is requested
@@ -226,20 +244,20 @@ public class SideInputStorageManager {
    */
   void flushOffsets() {
     storeToSSps.forEach((storeName, ssps) -> {
-      Map<SystemStreamPartition, String> offsets = ssps
+        Map<SystemStreamPartition, String> offsets = ssps
           .stream()
           .filter(lastProcessedOffsets::containsKey)
           .collect(Collectors.toMap(Function.identity(), lastProcessedOffsets::get));
 
-      try {
-        String checkpoint = checkpointSerde.writeValueAsString(offsets);
-        File offsetFile = new File(getStoreLocation(storeName), OFFSET_FILE);
-        FileUtil.writeWithChecksum(offsetFile, checkpoint);
-      } catch(Exception e) {
-        LOG.error("Encountered error while checkpointing to the file due to", e);
-        throw new SamzaException("Failed to checkpoint for side input store " + storeName, e);
-      }
-    });
+        try {
+          String checkpoint = checkpointSerde.writeValueAsString(offsets);
+          File offsetFile = new File(getStoreLocation(storeName), OFFSET_FILE);
+          FileUtil.writeWithChecksum(offsetFile, checkpoint);
+        } catch (Exception e) {
+          LOG.error("Encountered error while checkpointing to the file due to", e);
+          throw new SamzaException("Failed to checkpoint for side input store " + storeName, e);
+        }
+      });
   }
 
   /**
@@ -259,19 +277,19 @@ public class SideInputStorageManager {
     Map<SystemStreamPartition, String> fileOffsets = new HashMap<>();
 
     stores.keySet().forEach(storeName -> {
-      LOG.debug("Reading local offsets for store {}", storeName);
+        LOG.debug("Reading local offsets for store {}", storeName);
 
-      File storeLocation = getStoreLocation(storeName);
-      if (!isStaleStore(storeLocation)) {
-        try {
-          String checkpoint = storageManagerHelper.readOffsetFile(storeLocation, OFFSET_FILE);
-          Map<SystemStreamPartition, String> offsets = checkpointSerde.readValue(checkpoint, Map.class);
-          fileOffsets.putAll(offsets);
-        } catch (Exception e) {
-          LOG.warn("Failed to load the checkpoints for store " + storeName, e);
+        File storeLocation = getStoreLocation(storeName);
+        if (!isStaleStore(storeLocation)) {
+          try {
+            String checkpoint = storageManagerHelper.readOffsetFile(storeLocation, OFFSET_FILE);
+            Map<SystemStreamPartition, String> offsets = checkpointSerde.readValue(checkpoint, Map.class);
+            fileOffsets.putAll(offsets);
+          } catch (Exception e) {
+            LOG.warn("Failed to load the checkpoints for store " + storeName, e);
+          }
         }
-      }
-    });
+      });
 
     return fileOffsets;
   }
@@ -315,13 +333,13 @@ public class SideInputStorageManager {
     Map<SystemStreamPartition, String> startingOffsets = new HashMap<>();
 
     sspsToStore.keySet().forEach(ssp -> {
-      String fileOffset = fileOffsets.get(ssp);
-      String oldestOffset = oldestOffsets.get(ssp);
+        String fileOffset = fileOffsets.get(ssp);
+        String oldestOffset = oldestOffsets.get(ssp);
 
-      startingOffsets.put(ssp,
+        startingOffsets.put(ssp,
           storageManagerHelper.getStartingOffset(
-              ssp, systemAdmins.getSystemAdmin(ssp.getSystem()), fileOffset, oldestOffset));
-    });
+            ssp, systemAdmins.getSystemAdmin(ssp.getSystem()), fileOffset, oldestOffset));
+      });
 
     return startingOffsets;
   }
@@ -335,17 +353,17 @@ public class SideInputStorageManager {
     LOG.info("Initializing the store directories.");
 
     stores.keySet().forEach(storeName -> {
-      File storeLocation = getStoreLocation(storeName);
-      if (isStaleStore(storeLocation) || !storageManagerHelper.isOffsetFileValid(storeLocation, OFFSET_FILE)) {
-        LOG.info("Cleaning up the store directory for {}", storeName);
-        FileUtil.rm(storeLocation);
-      }
+        File storeLocation = getStoreLocation(storeName);
+        if (isStaleStore(storeLocation) || !storageManagerHelper.isOffsetFileValid(storeLocation, OFFSET_FILE)) {
+          LOG.info("Cleaning up the store directory for {}", storeName);
+          FileUtil.rm(storeLocation);
+        }
 
-      if (!storeLocation.exists()) {
-        LOG.info("Creating {} as the store directory for the side input store {}", storeLocation.toPath().toString(), storeName);
-        storeLocation.mkdirs();
-      }
-    });
+        if (!storeLocation.exists()) {
+          LOG.info("Creating {} as the store directory for the side input store {}", storeLocation.toPath().toString(), storeName);
+          storeLocation.mkdirs();
+        }
+      });
   }
 
   /**
@@ -362,7 +380,7 @@ public class SideInputStorageManager {
     Map<SystemStreamPartition, String> oldestOffsets = new HashMap<>();
 
     // Step 1
-    Map<SystemStream, List<SystemStreamPartition>> systemStreamToSsp= storeToSSps.values()
+    Map<SystemStream, List<SystemStreamPartition>> systemStreamToSsp = storeToSSps.values()
         .stream()
         .flatMap(Collection::stream)
         .collect(Collectors.groupingBy(SystemStreamPartition::getSystemStream));
@@ -374,18 +392,18 @@ public class SideInputStorageManager {
 
     // Step 3
     metadata.forEach((systemStream, systemStreamMetadata) -> {
-      // get the partition metadata for each system stream
-      Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata =
+        // get the partition metadata for each system stream
+        Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata =
           systemStreamMetadata.getSystemStreamPartitionMetadata();
 
-      // For SSPs belonging to the system stream, use the partition metadata to get the oldest offset
-      Map<SystemStreamPartition, String> offsets = systemStreamToSsp.get(systemStream)
+        // For SSPs belonging to the system stream, use the partition metadata to get the oldest offset
+        Map<SystemStreamPartition, String> offsets = systemStreamToSsp.get(systemStream)
           .stream()
           .collect(
               Collectors.toMap(Function.identity(), ssp -> partitionMetadata.get(ssp.getPartition()).getOldestOffset()));
 
-      oldestOffsets.putAll(offsets);
-    });
+        oldestOffsets.putAll(offsets);
+      });
 
     return oldestOffsets;
   }
