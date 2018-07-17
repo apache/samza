@@ -42,13 +42,11 @@ import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.runtime.internal.ApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.MessageCollector;
@@ -80,7 +78,6 @@ public class TestWindowOperator {
   private final List<Integer> integers = ImmutableList.of(1, 2, 1, 2, 1, 2, 1, 2, 3);
   private Config config;
   private TaskContextImpl taskContext;
-  private ApplicationRunner runner;
 
   @Before
   public void setup() throws Exception {
@@ -88,19 +85,16 @@ public class TestWindowOperator {
     when(config.get(JobConfig.JOB_NAME())).thenReturn("jobName");
     when(config.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("jobId");
     taskContext = mock(TaskContextImpl.class);
-    runner = mock(ApplicationRunner.class);
     Serde storeKeySerde = new TimeSeriesKeySerde(new IntegerSerde());
     Serde storeValSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
 
     when(taskContext.getSystemStreamPartitions()).thenReturn(ImmutableSet
-        .of(new SystemStreamPartition("kafka", "integers", new Partition(0))));
+        .of(new SystemStreamPartition("kafka", "integTestExecutionPlannerers", new Partition(0))));
     when(taskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     when(taskContext.getStore("jobName-jobId-window-w1"))
         .thenReturn(new TestInMemoryStore<>(storeKeySerde, storeValSerde));
-    when(runner.getStreamSpec("integers")).thenReturn(new StreamSpec("integers", "integers", "kafka"));
 
     Map<String, String> mapConfig = new HashMap<>();
-    mapConfig.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
     mapConfig.put("job.default.system", "kafka");
     mapConfig.put("job.name", "jobName");
     mapConfig.put("job.id", "jobId");
@@ -552,7 +546,7 @@ public class TestWindowOperator {
 
   private StreamGraphSpec getKeyedTumblingWindowStreamGraph(AccumulationMode mode,
       Duration duration, Trigger<KV<Integer, Integer>> earlyTrigger) throws IOException {
-    StreamGraphSpec graph = new StreamGraphSpec(runner, config);
+    StreamGraphSpec graph = new StreamGraphSpec(config);
 
     KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
     graph.getInputStream("integers", kvSerde)
@@ -568,7 +562,7 @@ public class TestWindowOperator {
 
   private StreamGraphSpec getTumblingWindowStreamGraph(AccumulationMode mode,
       Duration duration, Trigger<KV<Integer, Integer>> earlyTrigger) throws IOException {
-    StreamGraphSpec graph = new StreamGraphSpec(runner, config);
+    StreamGraphSpec graph = new StreamGraphSpec(config);
 
     KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
     graph.getInputStream("integers", kvSerde)
@@ -582,7 +576,7 @@ public class TestWindowOperator {
   }
 
   private StreamGraphSpec getKeyedSessionWindowStreamGraph(AccumulationMode mode, Duration duration) throws IOException {
-    StreamGraphSpec graph = new StreamGraphSpec(runner, config);
+    StreamGraphSpec graph = new StreamGraphSpec(config);
 
     KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
     graph.getInputStream("integers", kvSerde)
@@ -597,7 +591,7 @@ public class TestWindowOperator {
 
   private StreamGraphSpec getAggregateTumblingWindowStreamGraph(AccumulationMode mode, Duration timeDuration,
         Trigger<IntegerEnvelope> earlyTrigger) throws IOException {
-    StreamGraphSpec graph = new StreamGraphSpec(runner, config);
+    StreamGraphSpec graph = new StreamGraphSpec(config);
 
     MessageStream<KV<Integer, Integer>> integers = graph.getInputStream("integers",
         KVSerde.of(new IntegerSerde(), new IntegerSerde()));

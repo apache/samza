@@ -44,7 +44,6 @@ import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.runtime.internal.ApplicationRunner;
-import org.apache.samza.system.StreamSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,77 +61,28 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
     this.config = config;
   }
 
-  @Override
-  public StreamSpec getStreamSpec(String streamId) {
-    StreamConfig streamConfig = new StreamConfig(config);
-    String physicalName = streamConfig.getPhysicalName(streamId);
-    return getStreamSpec(streamId, physicalName);
-  }
-
-  /**
-   * Constructs a {@link StreamSpec} from the configuration for the specified streamId.
-   *
-   * The stream configurations are read from the following properties in the config:
-   * {@code streams.{$streamId}.*}
-   * <br>
-   * All properties matching this pattern are assumed to be system-specific with one exception. The following
-   * property is a Samza property which is used to bind the stream to a system.
-   *
-   * <ul>
-   *   <li>samza.system - The name of the System on which this stream will be used. If this property isn't defined
-   *                      the stream will be associated with the System defined in {@code job.default.system}</li>
-   * </ul>
-   *
-   * @param streamId      The logical identifier for the stream in Samza.
-   * @param physicalName  The system-specific name for this stream. It could be a file URN, topic name, or other identifer.
-   * @return              The {@link StreamSpec} instance.
-   */
-  /*package private*/ StreamSpec getStreamSpec(String streamId, String physicalName) {
-    StreamConfig streamConfig = new StreamConfig(config);
-    String system = streamConfig.getSystem(streamId);
-
-    return getStreamSpec(streamId, physicalName, system);
-  }
-
-  /**
-   * Constructs a {@link StreamSpec} from the configuration for the specified streamId.
-   *
-   * The stream configurations are read from the following properties in the config:
-   * {@code streams.{$streamId}.*}
-   *
-   * @param streamId      The logical identifier for the stream in Samza.
-   * @param physicalName  The system-specific name for this stream. It could be a file URN, topic name, or other identifer.
-   * @param system        The name of the System on which this stream will be used.
-   * @return              The {@link StreamSpec} instance.
-   */
-  /*package private*/ StreamSpec getStreamSpec(String streamId, String physicalName, String system) {
-    StreamConfig streamConfig = new StreamConfig(config);
-    Map<String, String> properties = streamConfig.getStreamProperties(streamId);
-    boolean isBounded = streamConfig.getIsBounded(streamId);
-
-    return new StreamSpec(streamId, physicalName, system, isBounded, properties);
-  }
-
   public ExecutionPlan getExecutionPlan(StreamGraphSpec graphSpec, StreamManager streamManager) throws Exception {
     return getExecutionPlan(graphSpec, null, streamManager);
   }
 
   /* package private */
   ExecutionPlan getExecutionPlan(StreamGraphSpec graphSpec, String runId, StreamManager streamManager) throws Exception {
-    // build stream graph
     OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
-    // create the physical execution plan
+
+    // update application configs
     Map<String, String> cfg = new HashMap<>(config);
     if (StringUtils.isNoneEmpty(runId)) {
       cfg.put(ApplicationConfig.APP_RUN_ID, runId);
     }
 
-    Set<StreamSpec> inputStreams = new HashSet<>(specGraph.getInputOperators().keySet());
+    StreamConfig streamConfig = new StreamConfig(config);
+    Set<String> inputStreams = new HashSet<>(specGraph.getInputOperators().keySet());
     inputStreams.removeAll(specGraph.getOutputStreams().keySet());
-    ApplicationMode mode = inputStreams.stream().allMatch(StreamSpec::isBounded)
+    ApplicationMode mode = inputStreams.stream().allMatch(streamConfig::getIsBounded)
         ? ApplicationMode.BATCH : ApplicationMode.STREAM;
     cfg.put(ApplicationConfig.APP_MODE, mode.name());
 
+    // create the physical execution plan
     ExecutionPlanner planner = new ExecutionPlanner(new MapConfig(cfg), streamManager);
     return planner.plan(specGraph);
   }
@@ -176,7 +126,7 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
     if (appSpec instanceof TaskApplicationSpec) {
       return getTaskAppRunnable((TaskApplicationSpec) appSpec);
     }
-    throw new IllegalArgumentException(String.format("The specified application %s is not valid. Only StreamApplication and Task applications are supported.", appSpec.getClass().getName());
+    throw new IllegalArgumentException(String.format("The specified application %s is not valid. Only StreamApplication and Task applications are supported.", appSpec.getClass().getName()));
   }
 
   protected abstract ApplicationRunnable getTaskAppRunnable(TaskApplicationSpec appSpec);

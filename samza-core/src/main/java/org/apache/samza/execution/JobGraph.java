@@ -87,7 +87,7 @@ import org.slf4j.LoggerFactory;
   @Override
   public List<StreamSpec> getIntermediateStreams() {
     return getIntermediateStreamEdges().stream()
-        .map(streamEdge -> streamEdge.getStreamSpec())
+        .map(StreamEdge::getStreamSpec)
         .collect(Collectors.toList());
   }
 
@@ -187,11 +187,9 @@ import org.slf4j.LoggerFactory;
     String streamId = streamSpec.getId();
     StreamEdge edge = edges.get(streamId);
     if (edge == null) {
-      edge = new StreamEdge(streamSpec, isIntermediate, config);
+      boolean isBroadcast = specGraph.getBroadcastStreams().contains(streamId);
+      edge = new StreamEdge(streamSpec, isIntermediate, isBroadcast, config);
       edges.put(streamId, edge);
-    }
-    if (streamSpec.isBroadcast()) {
-      edge.setPartitionCount(1);
     }
     return edge;
   }
@@ -256,11 +254,11 @@ import org.slf4j.LoggerFactory;
     sources.forEach(edge -> {
         if (!edge.getSourceNodes().isEmpty()) {
           throw new IllegalArgumentException(
-              String.format("Source stream %s should not have producers.", edge.getFormattedSystemStream()));
+              String.format("Source stream %s should not have producers.", edge.getName()));
         }
         if (edge.getTargetNodes().isEmpty()) {
           throw new IllegalArgumentException(
-              String.format("Source stream %s should have consumers.", edge.getFormattedSystemStream()));
+              String.format("Source stream %s should have consumers.", edge.getName()));
         }
       });
   }
@@ -272,11 +270,11 @@ import org.slf4j.LoggerFactory;
     sinks.forEach(edge -> {
         if (!edge.getTargetNodes().isEmpty()) {
           throw new IllegalArgumentException(
-              String.format("Sink stream %s should not have consumers", edge.getFormattedSystemStream()));
+              String.format("Sink stream %s should not have consumers", edge.getName()));
         }
         if (edge.getSourceNodes().isEmpty()) {
           throw new IllegalArgumentException(
-              String.format("Sink stream %s should have producers", edge.getFormattedSystemStream()));
+              String.format("Sink stream %s should have producers", edge.getName()));
         }
       });
   }
@@ -292,7 +290,7 @@ import org.slf4j.LoggerFactory;
     internalEdges.forEach(edge -> {
         if (edge.getSourceNodes().isEmpty() || edge.getTargetNodes().isEmpty()) {
           throw new IllegalArgumentException(
-              String.format("Internal stream %s should have both producers and consumers", edge.getFormattedSystemStream()));
+              String.format("Internal stream %s should have both producers and consumers", edge.getName()));
         }
       });
   }

@@ -24,7 +24,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.runtime.internal.ApplicationRunner;
+import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.testUtils.TestAsyncStreamTask;
 import org.apache.samza.testUtils.TestStreamTask;
 import org.junit.Test;
@@ -42,8 +42,6 @@ import static org.mockito.Mockito.mock;
  * Test methods to create {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory} based on task class configuration
  */
 public class TestTaskFactoryUtil {
-
-  private final ApplicationRunner mockRunner = mock(ApplicationRunner.class);
 
   @Test
   public void testStreamTaskClass() {

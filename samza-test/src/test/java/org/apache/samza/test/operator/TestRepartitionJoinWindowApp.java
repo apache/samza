@@ -19,25 +19,22 @@
 package org.apache.samza.test.operator;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.samza.Partition;
-import org.apache.samza.system.StreamSpec;
+import org.apache.samza.config.JobCoordinatorConfig;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
 import org.apache.samza.system.kafka.KafkaSystemAdmin;
 import org.apache.samza.util.ExponentialSleepStrategy;
-import org.apache.samza.SamzaException;
-import org.apache.samza.config.JobCoordinatorConfig;
-import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.TaskConfig;
 import org.junit.Assert;
 import org.junit.Test;
-
-import java.util.Collections;
-import java.util.List;
 
 /**
  * Test driver for {@link RepartitionJoinWindowApp}.
@@ -133,14 +130,14 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
 
     // Verify that messages in the intermediate stream will be deleted in 10 seconds
     long startTimeMs = System.currentTimeMillis();
-    for (StreamSpec spec: app.getIntermediateStreams()) {
+    for (String streamId: app.getIntermediateStreamIds()) {
       long remainingMessageNum = -1;
 
       while (remainingMessageNum != 0 && System.currentTimeMillis() - startTimeMs < 10000) {
         remainingMessageNum = 0;
         SystemStreamMetadata metadatas = systemAdmin.getSystemStreamMetadata(
-            new HashSet<>(Arrays.asList(spec.getPhysicalName())), new ExponentialSleepStrategy.Mock(3)
-        ).get(spec.getPhysicalName()).get();
+            new HashSet<>(Arrays.asList(streamId)), new ExponentialSleepStrategy.Mock(3)
+        ).get(streamId).get();
 
         for (Map.Entry<Partition, SystemStreamPartitionMetadata> entry : metadatas.getSystemStreamPartitionMetadata().entrySet()) {
           SystemStreamPartitionMetadata metadata = entry.getValue();

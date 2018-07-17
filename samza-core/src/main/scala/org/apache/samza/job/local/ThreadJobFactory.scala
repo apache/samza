@@ -28,7 +28,7 @@ import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap, MetricsReporter}
-import org.apache.samza.runtime.LocalContainerRunner
+import org.apache.samza.operators.StreamGraphSpec
 import org.apache.samza.storage.ChangelogStreamManager
 import org.apache.samza.task.TaskFactoryUtil
 import org.apache.samza.util.Logging
@@ -74,7 +74,6 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
 
     // TODO: ThreadJobFactory does not support launch StreamApplication. Launching user-defined StreamApplication is via new
     // user program w/ main().
-    val appRunner = new LocalContainerRunner(jobModel, "0")
     val taskFactory = TaskFactoryUtil.createTaskFactory(config)
 
     // Give developers a nice friendly warning if they've specified task.opts and are using a threaded job.
