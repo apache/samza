@@ -33,10 +33,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.processors.SideInputProcessor;
@@ -60,7 +61,7 @@ import scala.collection.JavaConverters;
 
 
 /**
- * A storage mananger for all side input stores. It is associated with each {@link org.apache.samza.container.TaskInstance}
+ * A storage manager for all side input stores. It is associated with each {@link org.apache.samza.container.TaskInstance}
  * and is responsible for handling directory management, offset tracking and local checkpointing for the side input stores.
  */
 public class SideInputStorageManager {
@@ -69,7 +70,7 @@ public class SideInputStorageManager {
   private static final Logger LOG = LoggerFactory.getLogger(SideInputStorageManager.class);
 
   private final Clock clock;
-  private final SideInputProcessor sideInputProcessor;
+  private final Map<String, SideInputProcessor> storeToProcessors;
   private final Map<String, StorageEngine> stores;
   private final String storeBaseDir;
   private final Map<String, Set<SystemStreamPartition>> storeToSSps;
@@ -77,6 +78,7 @@ public class SideInputStorageManager {
   private final StreamMetadataCache streamMetadataCache;
   private final SystemAdmins systemAdmins;
   private final TaskName taskName;
+  private final JavaStorageConfig storageConfig;
 
   private final ObjectMapper checkpointSerde = new ObjectMapper();
   private final StorageManagerHelper storageManagerHelper = new StorageManagerHelper();
@@ -94,27 +96,24 @@ public class SideInputStorageManager {
       SystemAdmins systemAdmins,
       Config config,
       Clock clock) {
-    this.systemAdmins = systemAdmins;
+    this.clock = clock;
+    this.storageConfig = new JavaStorageConfig(config);
     this.stores = stores;
+    this.storeBaseDir = storeBaseDir;
     this.storeToSSps = storeToSSPs;
     this.streamMetadataCache = streamMetadataCache;
+    this.systemAdmins = systemAdmins;
     this.taskName = taskName;
-    this.clock = clock;
 
     validateStoreProperties();
 
-    this.storeBaseDir = storeBaseDir;
-    this.sideInputProcessor = Optional.ofNullable(new TaskConfigJava(config).getSideInputProcessorFactory())
-        .map(sideInputFactoryName -> Util.getObj(sideInputFactoryName, SideInputProcessorFactory.class))
-        .map(factory -> factory.createInstance(config, metricsRegistry))
-        .orElseGet(() -> {
-            if (stores.size() > 0) {
-              throw new SamzaException("Missing side input processor. Make sure "
-                + TaskConfigJava.SIDE_INPUT_PROCESSOR_FACTORY + " is configured correctly.");
-            }
-
-            return null;
-          });
+    storeToProcessors = stores.keySet().stream()
+        .collect(Collectors.toMap(Function.identity(),
+            storeName -> {
+                SideInputProcessorFactory processorFactory =
+                    Util.getObj(storageConfig.getSideInputProcessorFactory(storeName), SideInputProcessorFactory.class);
+                return processorFactory.createInstance(config, metricsRegistry);
+              }));
 
     sspsToStore = storeToSSPs.entrySet()
         .stream()
@@ -216,6 +215,7 @@ public class SideInputStorageManager {
   public void process(IncomingMessageEnvelope messageEnvelope) {
     SystemStreamPartition ssp = messageEnvelope.getSystemStreamPartition();
     String storeName = sspsToStore.get(ssp);
+    SideInputProcessor sideInputProcessor = storeToProcessors.get(storeName);
 
     KeyValueStore keyValueStore = (KeyValueStore) stores.get(storeName);
     Collection<Entry<?, ?>> entriesToBeWritten = sideInputProcessor.process(messageEnvelope, keyValueStore);
@@ -297,24 +297,6 @@ public class SideInputStorageManager {
     return fileOffsets;
   }
 
-  /**
-   * Validates the store properties for all side input stores and throws a {@link IllegalStateException} if even a single
-   * side input store is configured with changelog.
-   */
-  private void validateStoreProperties() {
-    Set<String> invalidStores = stores.entrySet()
-        .stream()
-        .filter(entry -> !hasValidStoreConfiguration(entry.getValue()))
-        .map(Map.Entry::getKey)
-        .collect(Collectors.toSet());
-
-    for (String invalidStore : invalidStores) {
-      LOG.debug("Invalid store configuration. Cannot configure the side input store {} with changelog", invalidStore);
-    }
-
-    Preconditions.checkState(invalidStores.isEmpty(), "Side input stores cannot be configured with changelog");
-  }
-
   private File getStoreLocation(String storeName) {
     return new File(storeBaseDir, (storeName + File.separator + taskName.toString()).replace(' ', '_'));
   }
@@ -322,7 +304,7 @@ public class SideInputStorageManager {
   /**
    * Initializes the starting offsets for the {@link SystemStreamPartition}s belonging to all the side input stores.
    * The logic to compute the starting offset is as follows...
-   *   1. Loads the store offsets & filter out the offests for stale stores
+   *   1. Loads the store offsets & filter out the offsets for stale stores
    *   2. Loads the oldest store offsets from the source; e.g. Kafka
    *   3. If locally checkpointed offset is available and is greater than the oldest available offset from source, pick it
    *      Otherwise, fallback to oldest offset in the source.
@@ -345,28 +327,6 @@ public class SideInputStorageManager {
       });
 
     return startingOffsets;
-  }
-
-  /**
-   * Initializes the store directories for all the stores.
-   *  1. It cleans up the directories for stores that are stale defined by {@link #isValidSideInputStore(String)}
-   *  2. It checks for existence of directories and creates them if necessary
-   */
-  private void initializeStoreDirectories() {
-    LOG.info("Initializing the store directories.");
-
-    stores.keySet().forEach(storeName -> {
-        File storeLocation = getStoreLocation(storeName);
-        if (!isValidSideInputStore(storeName)) {
-          LOG.info("Cleaning up the store directory for {}", storeName);
-          FileUtil.rm(storeLocation);
-        }
-
-        if (!storeLocation.exists()) {
-          LOG.info("Creating {} as the store directory for the side input store {}", storeLocation.toPath().toString(), storeName);
-          storeLocation.mkdirs();
-        }
-      });
   }
 
   /**
@@ -412,15 +372,25 @@ public class SideInputStorageManager {
   }
 
   /**
-   * Validates the side input store to make sure its not configured to have changelog enabled.
-   *
-   * @param storageEngine storage engine
-   *
-   * @return true - valid side input store; false - otherwise
+   * Initializes the store directories for all the stores.
+   *  1. It cleans up the directories for stores that are stale defined by {@link #isValidSideInputStore(String)}
+   *  2. It checks for existence of directories and creates them if necessary
    */
-  private boolean hasValidStoreConfiguration(StorageEngine storageEngine) {
-    StoreProperties storeProperties = storageEngine.getStoreProperties();
-    return storeProperties.hasSideInputs() && !storeProperties.isLoggedStore();
+  private void initializeStoreDirectories() {
+    LOG.info("Initializing the store directories.");
+
+    stores.keySet().forEach(storeName -> {
+      File storeLocation = getStoreLocation(storeName);
+      if (!isValidSideInputStore(storeName)) {
+        LOG.info("Cleaning up the store directory for {}", storeName);
+        FileUtil.rm(storeLocation);
+      }
+
+      if (!storeLocation.exists()) {
+        LOG.info("Creating {} as the store directory for the side input store {}", storeLocation.toPath().toString(), storeName);
+        storeLocation.mkdirs();
+      }
+    });
   }
 
   /**
@@ -436,7 +406,7 @@ public class SideInputStorageManager {
     File storeLocation = getStoreLocation(storeName);
 
     return isPersistedStore(storeName)
-        && storageManagerHelper.isStaleStore(storeLocation, OFFSET_FILE, STORE_DELETE_RETENTION_MS)
+        && storageManagerHelper.isStaleStore(storeLocation, OFFSET_FILE, STORE_DELETE_RETENTION_MS, clock.currentTimeMillis())
         && storageManagerHelper.isOffsetFileValid(storeLocation, OFFSET_FILE);
   }
 
@@ -452,5 +422,37 @@ public class SideInputStorageManager {
         .map(StorageEngine::getStoreProperties)
         .map(StoreProperties::isPersistedToDisk)
         .orElse(false);
+  }
+
+  /**
+   * Validates the store properties for all side input stores and throws a {@link IllegalStateException} if even a single
+   * side input store is configured with changelog.
+   */
+  private void validateStoreProperties() {
+    boolean hasInvalidStores = stores.entrySet()
+        .stream()
+        .anyMatch(entry -> {
+            String storeName = entry.getKey();
+            StoreProperties storeProperties = entry.getValue().getStoreProperties();
+            String processorFactory = storageConfig.getSideInputProcessorFactory(storeName);
+            boolean isValidConfiguration = true;
+
+            if (StringUtils.isEmpty(processorFactory)) {
+              isValidConfiguration = false;
+              LOG.error(
+                  "Invalid store configuration for store {}. Make sure {} is configured correctly.",
+                  storeName,
+                  String.format(JavaStorageConfig.SIDE_INPUT_PROCESSOR_FACTORY, storeName));
+            }
+
+            if (storeProperties.isLoggedStore()) {
+              isValidConfiguration = false;
+              LOG.error("Invalid store configuration for store {}. Cannot configure the store with changelog.", storeName);
+            }
+
+            return isValidConfiguration;
+          });
+
+    Preconditions.checkState(hasInvalidStores, "Validation failed for side input stores");
   }
 }

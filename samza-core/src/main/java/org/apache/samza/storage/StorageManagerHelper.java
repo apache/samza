@@ -23,16 +23,13 @@ import com.google.common.collect.ImmutableMap;
 import java.io.File;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.util.Clock;
 import org.apache.samza.util.FileUtil;
-import org.apache.samza.util.SystemClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
 public final class StorageManagerHelper {
   private static final Logger LOG = LoggerFactory.getLogger(StorageManagerHelper.class);
-  private static final Clock CLOCK = new SystemClock();
 
   /**
    * Fetch the starting offset for the input {@link SystemStreamPartition}
@@ -75,16 +72,17 @@ public final class StorageManagerHelper {
    * @param storeDir the base directory of the store
    * @param offsetFileName the offset file name
    * @param storeDeleteRetentionInMs store delete retention in millis
+   * @param currentTimeInMs current time in millis
    *
    * @return true if the store is stale, false otherwise
    */
-  public boolean isStaleStore(File storeDir, String offsetFileName, long storeDeleteRetentionInMs) {
+  public boolean isStaleStore(File storeDir, String offsetFileName, long storeDeleteRetentionInMs, long currentTimeInMs) {
     boolean isStaleStore = false;
     String storePath = storeDir.toPath().toString();
     if (storeDir.exists()) {
       File offsetFileRef = new File(storeDir, offsetFileName);
       long offsetFileLastModifiedTime = offsetFileRef.lastModified();
-      if ((CLOCK.currentTimeMillis() - offsetFileLastModifiedTime) >= storeDeleteRetentionInMs) {
+      if ((currentTimeInMs - offsetFileLastModifiedTime) >= storeDeleteRetentionInMs) {
         LOG.info(
             String.format("Store: %s is stale since lastModifiedTime of offset file: %d, is older than store deleteRetentionMs: %d.",
             storePath, offsetFileLastModifiedTime, storeDeleteRetentionInMs));

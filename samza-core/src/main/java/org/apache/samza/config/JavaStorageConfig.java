@@ -48,6 +48,8 @@ public class JavaStorageConfig extends MapConfig {
   private static final String ACCESSLOG_ENABLED = "stores.%s.accesslog.enabled";
   private static final int DEFAULT_ACCESSLOG_SAMPLING_RATIO = 50;
 
+  public static final String SIDE_INPUT_PROCESSOR_FACTORY = "stores.%s.side.inputs.processor.factory.class";
+
   public JavaStorageConfig(Config config) {
     super(config);
   }
@@ -145,5 +147,16 @@ public class JavaStorageConfig extends MapConfig {
         .map(inputs -> Stream.of(inputs.split(",")).collect(Collectors.toList()))
         .orElse(Collections.emptyList());
 
+  }
+
+  /**
+   * Gets the {@link org.apache.samza.processors.SideInputProcessorFactory} associated with the {@code storeName}.
+   *
+   * @param storeName store name for which the processor factory is requested
+   *
+   * @return a {@link org.apache.samza.processors.SideInputProcessorFactory}
+   */
+  public String getSideInputProcessorFactory(String storeName) {
+    return get(String.format(SIDE_INPUT_PROCESSOR_FACTORY, storeName), null);
   }
 }

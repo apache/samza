@@ -136,7 +136,11 @@ class TaskStorageManager(
     *
     */
   private def isStaleLoggedStore(loggedStoreDir: File, changeLogDeleteRetentionInMs: Long): Boolean =
-    storageManagerHelper.isStaleStore(loggedStoreDir, loggedStoreOffsetFileName, changeLogDeleteRetentionInMs)
+    storageManagerHelper.isStaleStore(
+      loggedStoreDir,
+      loggedStoreOffsetFileName,
+      changeLogDeleteRetentionInMs,
+      clock.currentTimeMillis())
 
   private def setupBaseDirs() {
     debug("Setting up base directories for stores.")
