@@ -1,9 +1,8 @@
-package org.apache.samza.runtime;
+package org.apache.samza.runtime.internal;
 
 import java.lang.reflect.Constructor;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
-import org.apache.samza.runtime.internal.ApplicationRunner;
 
 
 /**
@@ -35,7 +34,7 @@ public class ApplicationRunners {
    * Static method to load the {@link ApplicationRunner}
    *
    * @param config  configuration passed in to initialize the Samza processes
-   * @return  the configure-driven {@link ApplicationRunner} to run the user-defined stream applications
+   * @return  the configure-driven {@link ApplicationRunner} to start the user-defined stream applications
    */
   public static ApplicationRunner fromConfig(Config config) {
     AppRunnerConfig appRunnerCfg = new AppRunnerConfig(config);

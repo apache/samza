@@ -18,15 +18,19 @@
  */
 package org.apache.samza.operators;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
-
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationInitializer;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.spec.InputOperatorSpec;
@@ -34,6 +38,7 @@ import org.apache.samza.operators.spec.OperatorSpec.OpCode;
 import org.apache.samza.operators.spec.OperatorSpecs;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
+import org.apache.samza.runtime.internal.StreamApplicationSpec;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
@@ -42,16 +47,13 @@ import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-
 /**
  * This class defines:
  * 1) an implementation of {@link StreamGraph} that provides APIs for accessing {@link MessageStream}s to be used to
  * create the DAG of transforms.
  * 2) a builder that creates a serializable {@link OperatorSpecGraph} from user-defined DAG
  */
-public class StreamGraphSpec implements StreamGraph {
+public class StreamGraphSpec implements StreamApplicationInitializer, StreamApplicationSpec {
   private static final Logger LOGGER = LoggerFactory.getLogger(StreamGraphSpec.class);
   private static final Pattern ID_PATTERN = Pattern.compile("[\\d\\w-_.]+");
 
@@ -156,13 +158,33 @@ public class StreamGraphSpec implements StreamGraph {
   }
 
   @Override
-  public StreamGraph withContextManager(ContextManager contextManager) {
+  public StreamApplicationInitializer withContextManager(ContextManager contextManager) {
     this.contextManager = contextManager;
     return this;
   }
 
   public ContextManager getContextManager() {
     return this.contextManager;
+  }
+
+  @Override
+  public Collection<String> getInputStreams() {
+    return Collections.unmodifiableCollection(this.inputOperators.keySet());
+  }
+
+  @Override
+  public Collection<String> getOutputStreams() {
+    return Collections.unmodifiableCollection(this.outputStreams.keySet());
+  }
+
+  @Override
+  public Collection<String> getBroadcastStreams() {
+    return Collections.unmodifiableCollection(this.broadcastStreams);
+  }
+
+  @Override
+  public Collection<String> getTables() {
+    return Collections.unmodifiableCollection(this.tables.keySet().stream().collect(HashSet<String>::new, (s1, td) -> s1.add(td.getId()), (s1, s2) -> s1.addAll(s2)));
   }
 
   public OperatorSpecGraph getOperatorSpecGraph() {
@@ -255,15 +277,11 @@ public class StreamGraphSpec implements StreamGraph {
     return Collections.unmodifiableMap(inputOperators);
   }
 
-  Map<String, OutputStreamImpl> getOutputStreams() {
+  Map<String, OutputStreamImpl> getOutputStreamImpls() {
     return Collections.unmodifiableMap(outputStreams);
   }
 
-  Set<String> getBroadcastStreams() {
-    return Collections.unmodifiableSet(broadcastStreams);
-  }
-
-  Map<TableSpec, TableImpl> getTables() {
+  Map<TableSpec, TableImpl> getTableImpls() {
     return Collections.unmodifiableMap(tables);
   }
 
@@ -292,5 +310,20 @@ public class StreamGraphSpec implements StreamGraph {
     }
 
     return KV.of(keySerde, valueSerde);
+  }
+
+  @Override
+  public Config getConfig() {
+    return this.config;
+  }
+
+  @Override
+  public StreamApplication getUserApp() {
+    throw new SamzaException("shouldn't be called here");
+  }
+
+  @Override
+  public String getGlobalAppId() {
+    throw new SamzaException("shouldn't be called here");
   }
 }

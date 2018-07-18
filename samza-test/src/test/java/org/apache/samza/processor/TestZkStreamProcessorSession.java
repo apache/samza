@@ -79,7 +79,7 @@ public class TestZkStreamProcessorSession extends TestZkStreamProcessorBase {
       jobCoordinators[i] = (ZkJobCoordinator) streamProcessors[i].getCurrentJobCoordinator();
     }
 
-    // run the processors in separate threads
+    // start the processors in separate threads
     for (int i = 0; i < processorIds.length; i++) {
       threadStopLatches[i] = new CountDownLatch(1); // is used int stopProcessor
       threads[i] = runInThread(streamProcessors[i], threadStopLatches[i]);

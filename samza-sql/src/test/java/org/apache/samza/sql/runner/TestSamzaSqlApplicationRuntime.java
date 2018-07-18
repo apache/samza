@@ -25,30 +25,28 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.runtime.RemoteApplicationRunner;
-import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
 import org.apache.samza.sql.testutil.SamzaSqlTestConfig;
 import org.junit.Assert;
 
-import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.junit.Test;
 
 
-public class TestSamzaSqlApplicationRunner {
+public class TestSamzaSqlApplicationRuntime {
 
   @Test
   public void testComputeSamzaConfigs() {
     Map<String, String> configs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(10);
     String sql1 = "Insert into testavro.outputTopic select id, MyTest(id) as long_value from testavro.SIMPLE1";
     configs.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql1);
-    configs.put(SamzaSqlApplicationRunner.RUNNER_CONFIG, SamzaSqlApplicationRunner.class.getName());
+    configs.put(SamzaSqlApplicationRuntime.RUNNER_CONFIG, SamzaSqlApplicationRuntime.class.getName());
     MapConfig samzaConfig = new MapConfig(configs);
-    Config newConfigs = SamzaSqlApplicationRunner.computeSamzaConfigs(true, samzaConfig);
-    Assert.assertEquals(newConfigs.get(SamzaSqlApplicationRunner.RUNNER_CONFIG), LocalApplicationRunner.class.getName());
+    Config newConfigs = SamzaSqlApplicationRuntime.computeSamzaConfigs(true, samzaConfig);
+    Assert.assertEquals(newConfigs.get(SamzaSqlApplicationRuntime.RUNNER_CONFIG), LocalApplicationRunner.class.getName());
     // Check whether three new configs added.
     Assert.assertEquals(newConfigs.size(), configs.size() + 3);
 
-    newConfigs = SamzaSqlApplicationRunner.computeSamzaConfigs(false, samzaConfig);
-    Assert.assertEquals(newConfigs.get(SamzaSqlApplicationRunner.RUNNER_CONFIG), RemoteApplicationRunner.class.getName());
+    newConfigs = SamzaSqlApplicationRuntime.computeSamzaConfigs(false, samzaConfig);
+    Assert.assertEquals(newConfigs.get(SamzaSqlApplicationRuntime.RUNNER_CONFIG), RemoteApplicationRunner.class.getName());
 
     // Check whether three new configs added.
     Assert.assertEquals(newConfigs.size(), configs.size() + 3);

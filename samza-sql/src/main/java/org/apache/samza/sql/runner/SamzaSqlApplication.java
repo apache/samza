@@ -23,6 +23,7 @@ import java.util.List;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationInitializer;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.sql.translator.QueryTranslator;
@@ -39,14 +40,14 @@ public class SamzaSqlApplication implements StreamApplication {
   private static final Logger LOG = LoggerFactory.getLogger(SamzaSqlApplication.class);
 
   @Override
-  public void init(StreamGraph streamGraph, Config config) {
+  public void init(StreamApplicationInitializer appBuilder, Config config) {
     try {
       SamzaSqlApplicationConfig sqlConfig = new SamzaSqlApplicationConfig(config);
       QueryTranslator queryTranslator = new QueryTranslator(sqlConfig);
       List<SamzaSqlQueryParser.QueryInfo> queries = sqlConfig.getQueryInfo();
       for (SamzaSqlQueryParser.QueryInfo query : queries) {
         LOG.info("Translating the query {} to samza stream graph", query.getSelectQuery());
-        queryTranslator.translate(query, streamGraph);
+        queryTranslator.translate(query, appBuilder);
       }
     } catch (RuntimeException e) {
       LOG.error("SamzaSqlApplication threw exception.", e);

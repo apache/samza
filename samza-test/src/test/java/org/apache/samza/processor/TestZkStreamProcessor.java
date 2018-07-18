@@ -66,7 +66,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     }
 
 
-    // run the processors in separate threads
+    // start the processors in separate threads
     Thread[] threads = new Thread[processorIds.length];
     CountDownLatch[] stopLatches = new CountDownLatch[processorIds.length];
     for (int i = 0; i < processorIds.length; i++) {

@@ -1,17 +1,22 @@
 package org.apache.samza.application.internal;
 
+import org.apache.samza.application.ApplicationInitializer;
+import org.apache.samza.application.UserApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.runtime.internal.ApplicationSpec;
 
 
 /**
  * Created by yipan on 7/10/18.
  */
-public abstract class ApplicationSpec {
+public abstract class ApplicationBuilder<T extends UserApplication> implements ApplicationInitializer<T>, ApplicationSpec<T> {
   final Config config;
+  final T userApp;
 
-  protected ApplicationSpec(Config config) {
+  protected ApplicationBuilder(T userApp, Config config) {
     this.config = config;
+    this.userApp = userApp;
   }
 
   public static class AppConfig extends MapConfig {
@@ -50,8 +55,19 @@ public abstract class ApplicationSpec {
 
   }
 
+  @Override
   public String getGlobalAppId() {
     return new AppConfig(config).getGlobalAppId();
+  }
+
+  @Override
+  public Config getConfig() {
+    return config;
+  }
+
+  @Override
+  public T getUserApp() {
+    return userApp;
   }
 
 }

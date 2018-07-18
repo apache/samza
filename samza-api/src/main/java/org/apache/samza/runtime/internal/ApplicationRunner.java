@@ -22,10 +22,8 @@ import java.time.Duration;
 import java.util.Map;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.internal.ApplicationSpec;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.metrics.MetricsReporter;
-import org.apache.samza.system.StreamSpec;
 
 
 /**
@@ -34,13 +32,14 @@ import org.apache.samza.system.StreamSpec;
 @InterfaceStability.Evolving
 public interface ApplicationRunner {
 
-  void run(ApplicationSpec appRunnable);
+  void run(ApplicationSpec appSpec);
 
-  void kill(ApplicationSpec appRunnable);
+  void kill(ApplicationSpec appSpec);
 
-  ApplicationStatus status(ApplicationSpec appRunnable);
+  ApplicationStatus status(ApplicationSpec appSpec);
 
-  void waitForFinish(ApplicationSpec appRunnable);
+  @Deprecated
+  void waitForFinish(ApplicationSpec appSpec);
 
   /**
    * Waits for {@code timeout} duration for the application to finish.
@@ -49,7 +48,7 @@ public interface ApplicationRunner {
    * @return true - application finished before timeout
    *         false - otherwise
    */
-  boolean waitForFinish(ApplicationSpec appRunnable, Duration timeout);
+  boolean waitForFinish(ApplicationSpec appSpec, Duration timeout);
 
   /**
    * Method to add a set of customized {@link MetricsReporter}s in the application
@@ -58,14 +57,4 @@ public interface ApplicationRunner {
    */
   void addMetricsReporters(Map<String, MetricsReporter> metricsReporters);
 
-  /**
-   * Constructs a {@link StreamSpec} from the configuration for the specified streamId.
-   *
-   * The stream configurations are read from the following properties in the config:
-   * {@code streams.{$streamId}.*}
-   * <br>
-   * All properties matching this pattern are assumed to be system-specific with two exceptions. The following two
-   * properties are Samza properties which are used to bind the stream to a system and a physical resource on that system.
-   */
-  StreamSpec getStreamSpec(String streamId);
 }

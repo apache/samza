@@ -21,9 +21,7 @@ package org.apache.samza.runtime;
 
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
-import org.apache.samza.application.ApplicationRunnable;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplications;
 import org.apache.samza.config.Config;
 import org.apache.samza.runtime.internal.ApplicationRunner;
 import org.apache.samza.task.TaskFactory;
@@ -33,9 +31,9 @@ import org.apache.samza.util.Util;
 
 
 /**
- * This class contains the main() method used by run-app.sh.
- * For a StreamApplication, it creates the {@link ApplicationRunner} based on the config, and then run the application.
- * For a Samza job using low level task API, it will create the JobRunner to run it.
+ * This class contains the main() method used by start-app.sh.
+ * For a StreamApplication, it creates the {@link ApplicationRunner} based on the config, and then start the application.
+ * For a Samza job using low level task API, it will create the JobRunner to start it.
  */
 public class ApplicationRunnerMain {
   // TODO: have the app configs consolidated in one place
@@ -43,11 +41,11 @@ public class ApplicationRunnerMain {
 
   public static class ApplicationRunnerCommandLine extends CommandLine {
     public OptionSpec operationOpt =
-        parser().accepts("operation", "The operation to perform; run, status, kill.")
+        parser().accepts("operation", "The operation to perform; start, status, stop.")
             .withRequiredArg()
             .ofType(String.class)
-            .describedAs("operation=run")
-            .defaultsTo("run");
+            .describedAs("operation=start")
+            .defaultsTo("start");
 
     public ApplicationRunnerOperation getOperation(OptionSet options) {
       String rawOp = options.valueOf(operationOpt).toString();
@@ -62,19 +60,23 @@ public class ApplicationRunnerMain {
     Config config = Util.rewriteConfig(orgConfig);
     ApplicationRunnerOperation op = cmdLine.getOperation(options);
 
-    ApplicationRunnable appRunnable = config.containsKey(STREAM_APPLICATION_CLASS_CONFIG) ?
-        StreamApplications.createRunnable((StreamApplication) Class.forName(config.get(STREAM_APPLICATION_CLASS_CONFIG)).newInstance(), config) :
-        StreamApplications.createRunnable((TaskFactory) TaskFactoryUtil.createTaskFactory(config), config);
+    ApplicationRuntime appRuntime =
+        config.containsKey(STREAM_APPLICATION_CLASS_CONFIG) ? ApplicationRuntimes.createStreamApp(
+            (StreamApplication) Class.forName(config.get(STREAM_APPLICATION_CLASS_CONFIG)).newInstance(), config) :
+            // TODO: Need to deal with 1) new TaskApplication implemention that populates inputStreams and outputStreams by the user;
+            // 2) legacy task application that only has input streams specified in config
+            ApplicationRuntimes.createTaskApp(
+                (appBuilder, cfg) -> appBuilder.setTaskFactory((TaskFactory) TaskFactoryUtil.createTaskFactory(cfg)), config);
 
     switch (op) {
       case RUN:
-        appRunnable.run();
+        appRuntime.start();
         break;
       case KILL:
-        appRunnable.kill();
+        appRuntime.stop();
         break;
       case STATUS:
-        System.out.println(appRunnable.status());
+        System.out.println(appRuntime.status());
         break;
       default:
         throw new IllegalArgumentException("Unrecognized operation: " + op);

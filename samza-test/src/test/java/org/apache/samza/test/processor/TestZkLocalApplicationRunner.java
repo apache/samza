@@ -347,7 +347,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
       }
     };
 
-    // This is the latch for the messages received by streamApp1. Since streamApp1 is run first, it gets one event
+    // This is the latch for the messages received by streamApp1. Since streamApp1 is start first, it gets one event
     // redelivered due to re-balancing done by Zk after the streamApp2 joins (See the callback above).
     CountDownLatch kafkaEventsConsumedLatch = new CountDownLatch(NUM_KAFKA_EVENTS * 2 + 1);
 
@@ -390,9 +390,9 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 
     assertEquals(ApplicationStatus.Running, localApplicationRunner2.status(streamApp2));
 
-    // TODO: re-enable the following kill and waitForFinish calls after fixing SAMZA-1665
-    // localApplicationRunner1.kill(streamApp1);
-    // localApplicationRunner2.kill(streamApp2);
+    // TODO: re-enable the following stop and waitForFinish calls after fixing SAMZA-1665
+    // localApplicationRunner1.stop(streamApp1);
+    // localApplicationRunner2.stop(streamApp2);
 
     // localApplicationRunner1.waitForFinish();
     // localApplicationRunner2.waitForFinish();
@@ -485,7 +485,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     processedMessagesLatch1.await();
     processedMessagesLatch2.await();
 
-    // Create a stream app with same processor id as SP2 and run it. It should fail.
+    // Create a stream app with same processor id as SP2 and start it. It should fail.
     publishKafkaEvents(inputKafkaTopic, NUM_KAFKA_EVENTS, 2 * NUM_KAFKA_EVENTS, PROCESSOR_IDS[2]);
     kafkaEventsConsumedLatch = new CountDownLatch(NUM_KAFKA_EVENTS);
     StreamApplication

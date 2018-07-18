@@ -74,8 +74,8 @@ import scala.Option$;
  * State persistence: {@link #tearDown()} clears all associated state (including topics and metadata) in Kafka and
  * Zookeeper. Hence, the state is not durable across invocations of {@link #tearDown()} <br/>
  *
- * Execution model: {@link StreamApplication}s are run as their own {@link org.apache.samza.job.local.ThreadJob}s.
- * Similarly, embedded Kafka servers and Zookeeper servers are run as their own threads.
+ * Execution model: {@link StreamApplication}s are start as their own {@link org.apache.samza.job.local.ThreadJob}s.
+ * Similarly, embedded Kafka servers and Zookeeper servers are start as their own threads.
  * {@link #produceMessage(String, int, String, String)} and {@link #consumeMessages(Collection, int)} are blocking calls.
  *
  * <h3>Usage Example</h3>
@@ -242,14 +242,14 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     configMap.put("task.checkpoint.factory", TestStreamManager.MockCheckpointManagerFactory.class.getName());
 
     // This is to prevent tests from taking a long time to stop after they're done. The issue is that
-    // tearDown currently doesn't call runner.kill(app), and shuts down the Kafka and ZK servers immediately.
+    // tearDown currently doesn't call runner.stop(app), and shuts down the Kafka and ZK servers immediately.
     // The test process then exits, triggering the SamzaContainer shutdown hook, which in turn tries to flush any
     // store changelogs, which then get stuck trying to produce to the stopped Kafka server.
-    // Calling runner.kill doesn't work since RemoteApplicationRunner creates a new ThreadJob instance when
-    // kill is called. We can't use LocalApplicationRunner since ZkJobCoordinator doesn't currently create
+    // Calling runner.stop doesn't work since RemoteApplicationRunner creates a new ThreadJob instance when
+    // stop is called. We can't use LocalApplicationRunner since ZkJobCoordinator doesn't currently create
     // changelog streams. Hence we just force an unclean shutdown here to. This _should be_ OK
     // since the test method has already executed by the time the shutdown hook is called. The side effect is
-    // that buffered state (e.g. changelog contents) might not be flushed correctly after the test run.
+    // that buffered state (e.g. changelog contents) might not be flushed correctly after the test start.
     configMap.put("task.shutdown.ms", "1");
 
     if (overriddenConfigs != null) {

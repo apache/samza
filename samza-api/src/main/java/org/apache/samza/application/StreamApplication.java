@@ -19,14 +19,11 @@
 package org.apache.samza.application;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
-import org.apache.samza.operators.ContextManager;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OutputStream;
+import org.apache.samza.application.internal.StreamApplicationBuilder;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.InitableFunction;
+import org.apache.samza.runtime.internal.StreamApplicationSpec;
 import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.TaskContext;
 
 /**
  * Describes and initializes the transforms for processing message streams and generating results.
@@ -47,14 +44,14 @@ import org.apache.samza.task.TaskContext;
  * }
  * }</pre>
  *<p>
- * The example above can be run using an ApplicationRunner:
+ * The example above can be start using an ApplicationRunner:
  * <pre>{@code
  *   public static void main(String[] args) {
  *     CommandLine cmdLine = new CommandLine();
  *     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
  *     PageViewCounter app = new PageViewCounter();
  *     LocalApplicationRunner runner = new LocalApplicationRunner(config);
- *     runner.run(app);
+ *     runner.start(app);
  *     runner.waitForFinish();
  *   }
  * }</pre>
@@ -73,25 +70,5 @@ import org.apache.samza.task.TaskContext;
  * See {@link InitableFunction} and {@link org.apache.samza.operators.functions.ClosableFunction}.
  */
 @InterfaceStability.Evolving
-public interface StreamApplication {
-
-  /**
-   * Describes and initializes the transforms for processing message streams and generating results.
-   * <p>
-   * The {@link StreamGraph} provides access to input and output streams. Input {@link MessageStream}s can be
-   * transformed into other {@link MessageStream}s or sent to an {@link OutputStream} using the {@link MessageStream}
-   * operators.
-   * <p>
-   * Most operators accept custom functions for doing the transformations. These functions are {@link InitableFunction}s
-   * and are provided the {@link Config} and {@link TaskContext} during their own initialization. The config and the
-   * context can be used, for example, to create custom metrics or access durable state stores.
-   * <p>
-   * A shared context between {@link InitableFunction}s for different operators within a task instance can be set
-   * up by providing a {@link ContextManager} using {@link StreamGraph#withContextManager}.
-   *
-   * @param graph the {@link StreamGraph} to get input/output streams from
-   * @param config the configuration for the application
-   */
-  void init(StreamGraph graph, Config config);
-
+public interface StreamApplication extends UserApplication<StreamApplication, StreamApplicationBuilder, StreamApplicationSpec> {
 }

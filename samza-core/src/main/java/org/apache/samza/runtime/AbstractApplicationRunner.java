@@ -26,10 +26,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.samza.application.ApplicationRunnable;
-import org.apache.samza.application.internal.ApplicationSpec;
-import org.apache.samza.application.internal.StreamApplicationSpec;
-import org.apache.samza.application.internal.TaskApplicationSpec;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ApplicationConfig.ApplicationMode;
 import org.apache.samza.config.Config;
@@ -44,6 +40,9 @@ import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.runtime.internal.ApplicationRunner;
+import org.apache.samza.runtime.internal.ApplicationSpec;
+import org.apache.samza.runtime.internal.StreamApplicationSpec;
+import org.apache.samza.runtime.internal.TaskApplicationSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -119,42 +118,66 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
     return streamManager;
   }
 
-  private ApplicationRunnable getRunnable(ApplicationSpec appSpec) {
+  private ApplicationLifecycle getLifecycleMethods(ApplicationSpec appSpec) {
     if (appSpec instanceof StreamApplicationSpec) {
-      return getStreamAppRunnable((StreamApplicationSpec) appSpec);
+      return getStreamAppLifecycle((StreamApplicationSpec) appSpec);
     }
     if (appSpec instanceof TaskApplicationSpec) {
-      return getTaskAppRunnable((TaskApplicationSpec) appSpec);
+      return getTaskAppLifecycle((TaskApplicationSpec) appSpec);
     }
-    throw new IllegalArgumentException(String.format("The specified application %s is not valid. Only StreamApplication and Task applications are supported.", appSpec.getClass().getName()));
+    throw new IllegalArgumentException(String.format("The specified application %s is not valid. "
+        + "Only StreamApplicationSpec and TaskApplicationSpec are supported.", appSpec.getClass().getName()));
   }
 
-  protected abstract ApplicationRunnable getTaskAppRunnable(TaskApplicationSpec appSpec);
+  protected abstract ApplicationLifecycle getTaskAppLifecycle(TaskApplicationSpec appSpec);
 
-  protected abstract ApplicationRunnable getStreamAppRunnable(StreamApplicationSpec appSpec);
+  protected abstract ApplicationLifecycle getStreamAppLifecycle(StreamApplicationSpec appSpec);
+
+  interface ApplicationLifecycle {
+
+    void run();
+
+    void kill();
+
+    ApplicationStatus status();
+
+    /**
+     * Waits for {@code timeout} duration for the application to finish.
+     *
+     * @param timeout time to wait for the application to finish
+     * @return true - application finished before timeout
+     *         false - otherwise
+     */
+    boolean waitForFinish(Duration timeout);
+
+  }
 
   @Override
   public final void run(ApplicationSpec appSpec) {
-    getRunnable(appSpec).run();
+    appSpec.getUserApp().beforeStart(appSpec);
+    getLifecycleMethods(appSpec).run();
+    appSpec.getUserApp().afterStart(appSpec);
   }
 
   @Override
   public final ApplicationStatus status(ApplicationSpec appSpec) {
-    return getRunnable(appSpec).status();
+    return getLifecycleMethods(appSpec).status();
   }
 
   @Override
   public final void kill(ApplicationSpec appSpec) {
-    getRunnable(appSpec).kill();
+    appSpec.getUserApp().beforeStop(appSpec);
+    getLifecycleMethods(appSpec).kill();
+    appSpec.getUserApp().afterStop(appSpec);
   }
 
   @Override
   public final void waitForFinish(ApplicationSpec appSpec) {
-    getRunnable(appSpec).waitForFinish();
+    getLifecycleMethods(appSpec).waitForFinish(Duration.ofSeconds(0));
   }
 
   @Override
   public final boolean waitForFinish(ApplicationSpec appSpec, Duration timeout) {
-    return getRunnable(appSpec).waitForFinish(timeout);
+    return getLifecycleMethods(appSpec).waitForFinish(timeout);
   }
 }

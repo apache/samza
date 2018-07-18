@@ -42,7 +42,7 @@ import org.apache.samza.sql.impl.ConfigBasedIOResolverFactory;
 import org.apache.samza.sql.impl.ConfigBasedUdfResolver;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
-import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
+import org.apache.samza.sql.runner.SamzaSqlApplicationRuntime;
 import org.apache.samza.sql.testutil.JsonUtil;
 import org.apache.samza.sql.testutil.SqlFileParser;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
@@ -107,8 +107,8 @@ public class SamzaSqlConsole {
   public static void executeSql(List<String> sqlStmts) {
     Map<String, String> staticConfigs = fetchSamzaSqlConfig();
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
-    runner.runAndWaitForFinish();
+    SamzaSqlApplicationRuntime appRunnable = new SamzaSqlApplicationRuntime(true, new MapConfig(staticConfigs));
+    appRunnable.runAndWaitForFinish();
   }
 
   public static Map<String, String> fetchSamzaSqlConfig() {

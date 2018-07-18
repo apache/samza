@@ -22,10 +22,9 @@ package org.apache.samza.test.integration;
 import joptsimple.OptionSet;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.runtime.internal.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunnerMain;
-import org.apache.samza.runtime.ApplicationRunnerOperation;
-import org.apache.samza.runtime.ApplicationRunners;
+import org.apache.samza.runtime.ApplicationRuntime;
+import org.apache.samza.runtime.ApplicationRuntimes;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,17 +47,14 @@ public class LocalApplicationRunnerMain {
     Config orgConfig = cmdLine.loadConfig(options);
     Config config = Util.rewriteConfig(orgConfig);
 
-    ApplicationRunner runner = ApplicationRunners.fromConfig(config);
-    StreamApplication app = (StreamApplication) Class.forName(config.get(STREAM_APPLICATION_CLASS_CONFIG)).newInstance();
-
-    ApplicationRunnerOperation op = cmdLine.getOperation(options);
+    ApplicationRuntime appRuntime = ApplicationRuntimes.createStreamApp((StreamApplication) Class.forName(config.get(STREAM_APPLICATION_CLASS_CONFIG)).newInstance(), config);
 
     try {
-      LOGGER.info("Launching stream application: {} to run.", app);
-      runner.run(app);
-      runner.waitForFinish();
+      LOGGER.info("Launching stream application: {} to start.", appRuntime);
+      appRuntime.start();
+      appRuntime.waitForFinish();
     } catch (Exception e) {
-      LOGGER.error("Exception occurred when invoking: {} on application: {}.", op, app, e);
+      LOGGER.error("Exception occurred when running application: {}.", appRuntime, e);
     }
   }
 }

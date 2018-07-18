@@ -19,22 +19,15 @@
 
 package org.apache.samza.runtime;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.time.Duration;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Random;
 import org.apache.log4j.MDC;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.ApplicationRunnable;
+import org.apache.samza.application.internal.ApplicationBuilder;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.internal.ApplicationSpec;
-import org.apache.samza.application.internal.StreamApplicationRuntime;
-import org.apache.samza.application.internal.StreamApplicationSpec;
-import org.apache.samza.application.internal.TaskApplicationRuntime;
-import org.apache.samza.application.internal.TaskApplicationSpec;
+import org.apache.samza.application.internal.StreamApplicationBuilder;
+import org.apache.samza.application.internal.TaskApplicationBuilder;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
@@ -45,8 +38,9 @@ import org.apache.samza.container.SamzaContainer$;
 import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.operators.StreamGraphSpec;
+import org.apache.samza.runtime.internal.StreamApplicationSpec;
+import org.apache.samza.runtime.internal.TaskApplicationSpec;
 import org.apache.samza.task.TaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
 import org.apache.samza.util.SamzaUncaughtExceptionHandler;
@@ -80,20 +74,20 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
   }
 
   @Override
-  protected ApplicationRunnable getTaskAppRunnable(TaskApplicationSpec appSpec) {
-    return new TaskAppRunnable(appSpec);
+  protected ApplicationLifecycle getTaskAppLifecycle(TaskApplicationSpec appSpec) {
+    return new TaskAppLifecycle(appSpec);
   }
 
   @Override
-  protected ApplicationRunnable getStreamAppRunnable(StreamApplicationSpec appSpec) {
-    return new StreamAppRunnable(appSpec);
+  protected ApplicationLifecycle getStreamAppLifecycle(StreamApplicationSpec appSpec) {
+    return new StreamAppLifecycle(appSpec);
   }
 
-  class TaskAppRunnable implements ApplicationRunnable {
-    final TaskApplicationRuntime taskApp;
+  class TaskAppLifecycle implements ApplicationLifecycle {
+    final TaskApplicationSpec taskApp;
 
-    TaskAppRunnable(TaskApplicationSpec taskApp) {
-      this.taskApp = new TaskApplicationRuntime(taskApp);
+    TaskAppLifecycle(TaskApplicationSpec taskApp) {
+      this.taskApp = taskApp;
     }
 
     @Override
@@ -149,33 +143,23 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     }
 
     @Override
-    public void waitForFinish() {
-
-    }
-
-    @Override
     public boolean waitForFinish(Duration timeout) {
       return false;
     }
 
-    @Override
-    public ApplicationRunnable withMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
-      // Ultimately this class probably won't end up extending ApplicationRunner, so this will be deleted
-      throw new UnsupportedOperationException();
-    }
   }
 
-  class StreamAppRunnable implements ApplicationRunnable {
-    final StreamApplicationRuntime streamApp;
+  class StreamAppLifecycle implements ApplicationLifecycle {
+    final StreamApplicationSpec streamApp;
 
-    StreamAppRunnable(StreamApplicationSpec streamApp) {
-      this.streamApp = new StreamApplicationRuntime(streamApp);
+    StreamAppLifecycle(StreamApplicationSpec streamApp) {
+      this.streamApp = streamApp;
     }
 
     @Override
     public void run() {
-      Object taskFactory = TaskFactoryUtil.createTaskFactory(streamApp.getStreamGraphSpec().getOperatorSpecGraph(),
-          streamApp.getStreamGraphSpec().getContextManager());
+      Object taskFactory = TaskFactoryUtil.createTaskFactory(((StreamGraphSpec) streamApp.getGraph()).getOperatorSpecGraph(),
+          ((StreamGraphSpec) streamApp.getGraph()).getContextManager());
 
       container = SamzaContainer$.MODULE$.apply(
           containerId,
@@ -226,19 +210,10 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     }
 
     @Override
-    public void waitForFinish() {
-
-    }
-
-    @Override
     public boolean waitForFinish(Duration timeout) {
       return false;
     }
 
-    @Override
-    public ApplicationRunnable withMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
-      throw new UnsupportedOperationException();
-    }
   }
 
   // only invoked by legacy applications w/o user-defined main
@@ -268,20 +243,15 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     MDC.put("jobName", jobName);
     MDC.put("jobId", jobId);
 
-    ApplicationSpec.AppConfig appConfig = new ApplicationSpec.AppConfig(config);
+    ApplicationBuilder.AppConfig appConfig = new ApplicationBuilder.AppConfig(config);
 
     LocalContainerRunner runner = new LocalContainerRunner(jobModel, containerId);
-    ApplicationSpec appSpec = null;
-    if (appConfig.getAppClass() != null && !appConfig.getAppClass().isEmpty()) {
-      // add configuration-factory and configuration-path to the command line options and invoke the user defined main class
-      // write the complete configuration to a local file in property file format
-      StreamGraphSpec streamGraph = new StreamGraphSpec(runner, config);
-      StreamApplication userApp = (StreamApplication) Class.forName(appConfig.getAppClass()).newInstance();
-      userApp.init(streamGraph, config);
-      appSpec = new StreamApplicationSpec(streamGraph, config);
-    } else {
-      appSpec = new TaskApplicationSpec((TaskFactory) TaskFactoryUtil.createTaskFactory(config), config);
-    }
+
+    ApplicationBuilder appSpec = appConfig.getAppClass() != null && !appConfig.getAppClass().isEmpty() ?
+        new StreamApplicationBuilder((StreamApplication) Class.forName(appConfig.getAppClass()).newInstance(), config) :
+        // TODO: Need to deal with 1) new TaskApplication implemention that populates inputStreams and outputStreams by the user;
+        // 2) legacy task application that only has input streams specified in config
+        new TaskApplicationBuilder((appBuilder, cfg) -> appBuilder.setTaskFactory((TaskFactory) TaskFactoryUtil.createTaskFactory(cfg)), config);
 
     runner.run(appSpec);
     runner.waitForFinish(appSpec);

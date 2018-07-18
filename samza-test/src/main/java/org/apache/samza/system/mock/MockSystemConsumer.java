@@ -34,7 +34,7 @@ import org.apache.samza.util.Clock;
  * MockSystemConsumer is a class that simulates a multi-threaded consumer that
  * uses BlockingEnvelopeMap. The primary use for this class is to do performance
  * testing.
- * 
+ *
  * This class works by starting up (threadCount) threads. Each thread adds
  * (messagesPerBatch) to the BlockingEnvelopeMap, then sleeps for
  * (brokerSleepMs). The sleep is important to simulate network latency when
@@ -57,12 +57,12 @@ public class MockSystemConsumer extends BlockingEnvelopeMap {
   private List<Thread> threads;
 
   /**
-   * 
+   *
    * @param messagesPerBatch
    *          The number of messages to add to the BlockingEnvelopeMap before
    *          sleeping.
    * @param threadCount
-   *          How many threads to run.
+   *          How many threads to start.
    * @param brokerSleepMs
    *          How long each thread should sleep between batch writes.
    */
