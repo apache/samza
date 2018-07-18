@@ -20,15 +20,16 @@
 package org.apache.samza.test.table;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigException;
+import org.apache.samza.config.ConfigRewriter;
 import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.TableConfigRewriter;
-import org.apache.samza.config.TaskConfig;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.LongSerde;
@@ -36,15 +37,14 @@ import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory;
 import org.apache.samza.storage.kv.RocksDbTableDescriptor;
 import org.apache.samza.storage.kv.RocksDbTableProviderFactory;
-import org.apache.samza.system.IncomingMessageEnvelope;
-import org.apache.samza.table.TableDescriptorsFactory;
+import org.apache.samza.table.TableConfigGenerator;
+import org.apache.samza.table.TableDescriptorsProvider;
 import org.apache.samza.table.remote.RemoteTableDescriptor;
 import org.apache.samza.table.remote.RemoteTableProviderFactory;
 import org.apache.samza.table.remote.TableReadFunction;
-import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.TaskCoordinator;
+
 import org.apache.samza.util.RateLimiter;
+import org.apache.samza.util.Util;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -52,35 +52,35 @@ import static org.mockito.Mockito.*;
 
 
 /**
- * Table config rewriter tests for both remote and local tables
+ * Table descriptors provider tests for both remote and local tables
  */
-public class TestTableConfigRewriter {
+public class TestTableDescriptorsProvider {
 
   @Test
-  public void testTableConfigRewriterWithNoConfiguredTaskClass() throws Exception {
+  public void testWithNoConfiguredTableDescriptorProviderClass() throws Exception {
     Map<String, String> configs = new HashMap<>();
     String tableRewriterName = "tableRewriter";
-    Config resultConfig = new TableConfigRewriter().rewrite(tableRewriterName, new MapConfig(configs));
+    Config resultConfig = new MySampleTableConfigRewriter().rewrite(tableRewriterName, new MapConfig(configs));
     Assert.assertTrue(resultConfig.size() == 0);
   }
 
   @Test
-  public void testTableConfigRewriterWithNonTableDescriptorsFactoryTask() throws Exception {
+  public void testWithNonTableDescriptorsProviderClass() throws Exception {
     Map<String, String> configs = new HashMap<>();
     String tableRewriterName = "tableRewriter";
-    configs.put(TaskConfig.TASK_CLASS(), SampleNonTableAwareTask.class.getName());
-    Config resultConfig = new TableConfigRewriter().rewrite(tableRewriterName, new MapConfig(configs));
+    configs.put("tables.descriptors.provider.class", MySampleNonTableDescriptorsProvider.class.getName());
+    Config resultConfig = new MySampleTableConfigRewriter().rewrite(tableRewriterName, new MapConfig(configs));
     Assert.assertTrue(resultConfig.size() == 1);
     JavaTableConfig tableConfig = new JavaTableConfig(resultConfig);
     Assert.assertTrue(tableConfig.getTableIds().size() == 0);
   }
 
   @Test
-  public void testTableConfigRewriterWithTableDescriptorsFactoryTask() throws Exception {
+  public void testWithTableDescriptorsProviderClass() throws Exception {
     Map<String, String> configs = new HashMap<>();
     String tableRewriterName = "tableRewriter";
-    configs.put(TaskConfig.TASK_CLASS(), SampleTableAwareTask.class.getName());
-    Config resultConfig = new TableConfigRewriter().rewrite(tableRewriterName, new MapConfig(configs));
+    configs.put("tables.descriptors.provider.class", MySampleTableDescriptorsProvider.class.getName());
+    Config resultConfig = new MySampleTableConfigRewriter().rewrite(tableRewriterName, new MapConfig(configs));
     Assert.assertTrue(resultConfig.size() == 17);
 
     String localTableId = "local-table-1";
@@ -110,16 +110,12 @@ public class TestTableConfigRewriter {
     Assert.assertEquals(tableConfig.getTableProviderFactory(remoteTableId), RemoteTableProviderFactory.class.getName());
   }
 
-  public static class SampleNonTableAwareTask implements StreamTask {
-    @Override
-    public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator)
-        throws Exception {
-    }
+  public static class MySampleNonTableDescriptorsProvider {
   }
 
-  public static class SampleTableAwareTask implements TableDescriptorsFactory, StreamTask {
+  public static class MySampleTableDescriptorsProvider implements TableDescriptorsProvider {
     @Override
-    public List<TableDescriptor> getTableDescriptors() {
+    public List<TableDescriptor> getTableDescriptors(Config config) {
       List<TableDescriptor> tableDescriptors = new ArrayList<>();
       final RateLimiter readRateLimiter = mock(RateLimiter.class);
       final TableReadFunction readRemoteTable = (TableReadFunction) key -> null;
@@ -133,10 +129,36 @@ public class TestTableConfigRewriter {
           .withSerde(KVSerde.of(new StringSerde(), new StringSerde())));
       return tableDescriptors;
     }
+  }
+
+  /**
+   * A sample config rewriter to generate table configs. It instantiates the configured tableDescriptorsProvider class
+   * which implements {@link TableDescriptorsProvider} and generates the table configs.
+   */
+  public static class MySampleTableConfigRewriter implements ConfigRewriter {
 
     @Override
-    public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator)
-        throws Exception {
+    public Config rewrite(String name, Config config) {
+      String tableDescriptorsProviderClassName = config.get("tables.descriptors.provider.class");
+      if (tableDescriptorsProviderClassName == null || tableDescriptorsProviderClassName.isEmpty()) {
+        // tableDescriptorsProviderClass is not configured
+        return config;
+      }
+
+      try {
+        if (!TableDescriptorsProvider.class.isAssignableFrom(Class.forName(tableDescriptorsProviderClassName))) {
+          // The configured class does not implement TableDescriptorsProvider.
+          return config;
+        }
+
+        TableDescriptorsProvider tableDescriptorsProvider =
+            Util.getObj(tableDescriptorsProviderClassName, TableDescriptorsProvider.class);
+        List<TableDescriptor> tableDescs = tableDescriptorsProvider.getTableDescriptors(config);
+        return new MapConfig(Arrays.asList(config, new TableConfigGenerator().generateConfigsForTableDescs(tableDescs)));
+      } catch (Exception e) {
+        throw new ConfigException(String.format("Invalid configuration for TableDescriptorsProvider class: %s",
+            tableDescriptorsProviderClassName), e);
+      }
     }
   }
 }

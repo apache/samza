@@ -21,25 +21,22 @@ package org.apache.samza.table;
 import java.util.List;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.config.Config;
 import org.apache.samza.operators.TableDescriptor;
 
 
 /**
- * Factory to create a list of {@link TableDescriptor} objects to describe one or more Samza tables. This is the
+ * Provider to create a list of {@link TableDescriptor} objects to describe one or more Samza tables. This is the
  * mechanism for providing table support for Samza low level API.
  *
  * Developers writing Samza jobs using Samza table(s) should describe the table(s) by implementing
- * TableDescriptorFactory in their task. Please note that the class that implements this factory should also implement
- * one of {@link org.apache.samza.task.StreamTask} or {@link org.apache.samza.task.AsyncStreamTask}.
- *
- * NOTE: {@link TableDescriptorsFactory} is instantiated in the config rewriter to get the table descriptors. Hence,
- * please DO NOT access any task instance member variables in the getTableDescriptors API.
+ * TableDescriptorsProvider.
  *
  * Typical user code using Samza tables should look like the following:
  *
  * <pre>
  * {@code
- * public class SampleTask implements TableDescriptorsFactory, InitableTask, StreamTask {
+ * public class SampleTableDescriptorsProvider implements TableDescriptorsProvider {
  *   private ReadableTable<String, Long> remoteTable;
  *   private ReadWriteTable<String, String> localTable;
  *
@@ -57,49 +54,18 @@ import org.apache.samza.operators.TableDescriptor;
  *       .withConfig("some-key", "some-value");
  *     return tableDescriptors;
  *   }
- *
- *   {@code @Override}
- *   public void init(Config config, TaskContext context) {
- *     remoteTable = (ReadableTable<String, String>) context.getTable(“remote-table-1”);
- *     localTable = (ReadWriteTable<Long, String>) context.getTable(“local-table-1”);
- *   }
- *
- *   {@code @Override}
- *   void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator)
- *      throws Exception {
- *     ..
- *     GenericRecord record = (GenericRecord) envelope.getMessage();
- *     Long memberId = (Long) record.get("memberId");
- *     String memberName = (String) localTable.get(memberId);
- *     // If the local table does not contain memberId, fetch the corresponding memberName from remote table and cache
- *     // it in the local table.
- *     if (company == null) {
- *       localTable.put(memberId, remoteTable.get(memberId));
- *     } else {
- *       // other logic goes here.
- *     }
- *     ..
- *   }
  * }
  * }
- * </pre>
  *
- * For the TableDescriptorsFactory to be picked up by the table config rewriter, please add the below properties to the
- * job config:
- *
- * <pre>
- * {@code
- *  <property name="job.config.rewriters" value="tableConfigRewriter"/>
- *  <property name="job.config.rewriter.tableConfigRewriter.class" value="org.apache.samza.config.TableConfigRewriter"/>
- * }
+ * [TODO: SAMZA-1772] will complete the work of introducing low-level Table API. Until then Table API will not be
+ * supported with low-level tasks.
  * </pre>
  */
 @InterfaceStability.Unstable
-public interface TableDescriptorsFactory {
+public interface TableDescriptorsProvider {
   /**
-   * Called by TableConfigRewriter to generate table configs.
    * Constructs instances of the table descriptors
    * @return list of table descriptors
    */
-  List<TableDescriptor> getTableDescriptors();
+  List<TableDescriptor> getTableDescriptors(Config config);
 }
