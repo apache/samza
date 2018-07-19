@@ -43,9 +43,9 @@ import org.apache.samza.operators.TableDescriptor;
  *   {@code @Override}
  *   public List<TableDescriptor> getTableDescriptors() {
  *     List<TableDescriptor> tableDescriptors = new ArrayList<>();
- *     final TableReadFunction readRemoteTable = (TableReadFunction) key -> null;
+ *     final TableReadFunction readRemoteTableFn = new MyStoreReadFunction();
  *     tableDescriptors.add(new RemoteTableDescriptor<>("remote-table-1")
- *       .withReadFunction(readRemoteTable)
+ *       .withReadFunction(readRemoteTableFn)
  *       .withSerde(KVSerde.of(new StringSerde(), new StringSerde())));
  *
  *     tableDescriptors.add(new RocksDbTableDescriptor("local-table-1")
@@ -79,7 +79,7 @@ import org.apache.samza.operators.TableDescriptor;
  *      TableDescriptorsProvider tableDescriptorsProvider =
  *          Util.getObj(tableDescriptorsProviderClassName, TableDescriptorsProvider.class);
  *      List<TableDescriptor> tableDescs = tableDescriptorsProvider.getTableDescriptors(config);
- *      return new TableConfigGenerator().generateConfigsForTableDescs(tableDescs);
+ *      return TableConfigGenerator.generateConfigsForTableDescs(tableDescs);
  *   } catch (Exception e) {
  *      throw new ConfigException(String.format("Invalid configuration for TableDescriptorsProvider class: %s",
  *          tableDescriptorsProviderClassName), e);

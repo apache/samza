@@ -51,7 +51,7 @@ public class TableConfigGenerator {
    * @param tableDescriptors the list of tableDescriptors
    * @return configuration for the tables
    */
-  public Map<String, String> generateConfigsForTableDescs(List<TableDescriptor> tableDescriptors) {
+  static public Map<String, String> generateConfigsForTableDescs(List<TableDescriptor> tableDescriptors) {
     return generateConfigsForTableSpecs(getTableSpecs(tableDescriptors));
   }
 
@@ -60,7 +60,7 @@ public class TableConfigGenerator {
    * @param tableSpecs the list of tableSpecs
    * @return configuration for the tables
    */
-  public Map<String, String> generateConfigsForTableSpecs(List<TableSpec> tableSpecs) {
+  static public Map<String, String> generateConfigsForTableSpecs(List<TableSpec> tableSpecs) {
     Map<String, String> tableConfigs = new HashMap<>();
 
     tableConfigs.putAll(generateTableKVSerdeConfigs(tableSpecs));
@@ -81,7 +81,7 @@ public class TableConfigGenerator {
     return tableConfigs;
   }
 
-  private Map<String, String> generateTableKVSerdeConfigs(List<TableSpec> tableSpecs) {
+  static private Map<String, String> generateTableKVSerdeConfigs(List<TableSpec> tableSpecs) {
     Map<String, String> serdeConfigs = new HashMap<>();
 
     // Collect key and msg serde instances for all the tables
@@ -121,7 +121,7 @@ public class TableConfigGenerator {
     return serdeConfigs;
   }
 
-  private List<TableSpec> getTableSpecs(List<TableDescriptor> tableDescs) {
+  static private List<TableSpec> getTableSpecs(List<TableDescriptor> tableDescs) {
     Map<TableSpec, TableImpl> tableSpecs = new LinkedHashMap<>();
 
     tableDescs.forEach(tableDesc -> {

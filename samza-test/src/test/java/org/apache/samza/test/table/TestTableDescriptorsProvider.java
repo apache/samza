@@ -154,7 +154,7 @@ public class TestTableDescriptorsProvider {
         TableDescriptorsProvider tableDescriptorsProvider =
             Util.getObj(tableDescriptorsProviderClassName, TableDescriptorsProvider.class);
         List<TableDescriptor> tableDescs = tableDescriptorsProvider.getTableDescriptors(config);
-        return new MapConfig(Arrays.asList(config, new TableConfigGenerator().generateConfigsForTableDescs(tableDescs)));
+        return new MapConfig(Arrays.asList(config, TableConfigGenerator.generateConfigsForTableDescs(tableDescs)));
       } catch (Exception e) {
         throw new ConfigException(String.format("Invalid configuration for TableDescriptorsProvider class: %s",
             tableDescriptorsProviderClassName), e);

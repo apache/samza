@@ -177,7 +177,7 @@ public class JobNode {
     // write serialized serde instances and stream serde configs to configs
     addSerdeConfigs(configs);
 
-    configs.putAll(new TableConfigGenerator().generateConfigsForTableSpecs(tables));
+    configs.putAll(TableConfigGenerator.generateConfigsForTableSpecs(tables));
 
     String configPrefix = String.format(CONFIG_JOB_PREFIX, jobName);
 
