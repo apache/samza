@@ -101,7 +101,7 @@ public class RemoteTableProvider implements TableProvider {
   public Map<String, String> generateConfig(Map<String, String> config) {
     Map<String, String> tableConfig = new HashMap<>();
 
-    // Insert table_id prefix to config entries
+    // Insert table_id prefix to config entires
     tableSpec.getConfig().forEach((k, v) -> {
         String realKey = String.format(JavaTableConfig.TABLE_ID_PREFIX, tableSpec.getId()) + "." + k;
         tableConfig.put(realKey, v);

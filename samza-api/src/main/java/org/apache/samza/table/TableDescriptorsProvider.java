@@ -57,8 +57,36 @@ import org.apache.samza.operators.TableDescriptor;
  * }
  * }
  *
- * [TODO: SAMZA-1772] will complete the work of introducing low-level Table API. Until then Table API will not be
- * supported with low-level tasks.
+ * [TODO: SAMZA-1772] will complete the work of introducing low-level Table API. Until then, Table API in low-level
+ * could be used by generating configs from TableDescriptorsProvider (sample code below) through config rewriter.
+ *
+ * <pre>
+ * {@code
+ * private Map<String, String> generateTableConfigs(Config config) {
+ *   String tableDescriptorsProviderClassName = config.get("tables.descriptors.provider.class");
+ *   if (tableDescriptorsProviderClassName == null || tableDescriptorsProviderClassName.isEmpty()) {
+ *      // tableDescriptorsProviderClass is not configured
+ *      return config;
+ *   }
+ *
+ *   try {
+ *      if (!TableDescriptorsProvider.class.isAssignableFrom(Class.forName(tableDescriptorsProviderClassName))) {
+ *         LOG.warn("TableDescriptorsProvider class {} does not implement TableDescriptosProvider.",
+ *            tableDescriptorsProviderClassName);
+ *         return config;
+ *      }
+ *
+ *      TableDescriptorsProvider tableDescriptorsProvider =
+ *          Util.getObj(tableDescriptorsProviderClassName, TableDescriptorsProvider.class);
+ *      List<TableDescriptor> tableDescs = tableDescriptorsProvider.getTableDescriptors(config);
+ *      return new TableConfigGenerator().generateConfigsForTableDescs(tableDescs);
+ *   } catch (Exception e) {
+ *      throw new ConfigException(String.format("Invalid configuration for TableDescriptorsProvider class: %s",
+ *          tableDescriptorsProviderClassName), e);
+ *   }
+ * }
+ * }
+ * </pre>
  * </pre>
  */
 @InterfaceStability.Unstable
