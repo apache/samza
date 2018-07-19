@@ -58,7 +58,7 @@ import org.apache.samza.operators.TableDescriptor;
  * }
  * </pre>
  *
- * [TODO: SAMZA-1772] will complete the work of introducing low-level Table API. Until then, Table API in low-level
+ * [TODO:SAMZA-1772] will complete the work of introducing low-level Table API. Until then, Table API in low-level
  * could be used by generating configs from TableDescriptorsProvider (sample code below) through config rewriter.
  *
  * <pre>
