@@ -31,7 +31,6 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
@@ -46,12 +45,11 @@ import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.spec.StatefulOperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
+import org.apache.samza.table.TableConfigGenerator;
 import org.apache.samza.util.MathUtil;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.system.StreamSpec;
-import org.apache.samza.table.TableProvider;
-import org.apache.samza.table.TableProviderFactory;
 import org.apache.samza.table.TableSpec;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
@@ -179,21 +177,7 @@ public class JobNode {
     // write serialized serde instances and stream serde configs to configs
     addSerdeConfigs(configs);
 
-    tables.forEach(tableSpec -> {
-        // Table provider factory
-        configs.put(String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, tableSpec.getId()),
-            tableSpec.getTableProviderFactoryClassName());
-
-        // Note: no need to generate config for Serde's, as they are already produced by addSerdeConfigs()
-
-        // Generate additional configuration
-        TableProviderFactory tableProviderFactory =
-            Util.getObj(tableSpec.getTableProviderFactoryClassName(), TableProviderFactory.class);
-        TableProvider tableProvider = tableProviderFactory.getTableProvider(tableSpec);
-        configs.putAll(tableProvider.generateConfig(configs));
-      });
-
-    log.info("Job {} has generated configs {}", jobName, configs);
+    configs.putAll(TableConfigGenerator.generateConfigsForTableSpecs(tables));
 
     String configPrefix = String.format(CONFIG_JOB_PREFIX, jobName);
 
@@ -255,21 +239,11 @@ public class JobNode {
         }
       });
 
-    // collect all key and msg serde instances for tables
-    Map<String, Serde> tableKeySerdes = new HashMap<>();
-    Map<String, Serde> tableValueSerdes = new HashMap<>();
-    tables.forEach(tableSpec -> {
-        tableKeySerdes.put(tableSpec.getId(), tableSpec.getSerde().getKeySerde());
-        tableValueSerdes.put(tableSpec.getId(), tableSpec.getSerde().getValueSerde());
-      });
-
     // for each unique stream or store serde instance, generate a unique name and serialize to config
     HashSet<Serde> serdes = new HashSet<>(streamKeySerdes.values());
     serdes.addAll(streamMsgSerdes.values());
     serdes.addAll(storeKeySerdes.values());
     serdes.addAll(storeMsgSerdes.values());
-    serdes.addAll(tableKeySerdes.values());
-    serdes.addAll(tableValueSerdes.values());
     SerializableSerde<Serde> serializableSerde = new SerializableSerde<>();
     Base64.Encoder base64Encoder = Base64.getEncoder();
     Map<Serde, String> serdeUUIDs = new HashMap<>();
@@ -302,17 +276,6 @@ public class JobNode {
     storeMsgSerdes.forEach((storeName, serde) -> {
         String msgSerdeConfigKey = String.format(StorageConfig.MSG_SERDE(), storeName);
         configs.put(msgSerdeConfigKey, serdeUUIDs.get(serde));
-      });
-
-    // set key and msg serdes for tables to the serde names generated above
-    tableKeySerdes.forEach((tableId, serde) -> {
-        String keySerdeConfigKey = String.format(JavaTableConfig.TABLE_KEY_SERDE, tableId);
-        configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
-      });
-
-    tableValueSerdes.forEach((tableId, serde) -> {
-        String valueSerdeConfigKey = String.format(JavaTableConfig.TABLE_VALUE_SERDE, tableId);
-        configs.put(valueSerdeConfigKey, serdeUUIDs.get(serde));
       });
   }
 
