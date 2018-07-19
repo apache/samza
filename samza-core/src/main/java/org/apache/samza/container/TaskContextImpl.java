@@ -91,7 +91,12 @@ public class TaskContextImpl implements TaskContext {
 
   @Override
   public KeyValueStore getStore(String storeName) {
-    return storageGetter.apply(storeName);
+    KeyValueStore store = storageGetter.apply(storeName);
+    if (store == null) {
+      LOG.warn("No store was found for name: " + storeName);
+    }
+
+    return store;
   }
 
   @Override

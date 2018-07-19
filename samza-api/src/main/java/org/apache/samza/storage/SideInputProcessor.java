@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.processors;
+package org.apache.samza.storage;
 
 import java.util.Collection;
 import org.apache.samza.storage.kv.Entry;
@@ -26,17 +26,18 @@ import org.apache.samza.system.IncomingMessageEnvelope;
 
 
 /**
- * A processor for side input store which consumes from the side input streams and populates/updates the underlying
- * store.
+ * The processing logic for store side inputs. Accepts incoming messages from side input streams
+ * and the current store contents, and returns the new key-value entries to be written to the store.
  */
 public interface SideInputProcessor {
 
   /**
+   * Process the incoming side input message for the {@code store}.
    *
-   * @param messageEnvelope incoming message envelope
+   * @param message incoming message envelope
    * @param store key value store associated with the incoming message envelope
    *
-   * @return a {@link Collection} of {@link Entry}s that needs to be written to {@code store}
+   * @return a {@link Collection} of {@link Entry}s that will be written to the {@code store}.
    */
-  Collection<Entry<?, ?>> process(IncomingMessageEnvelope messageEnvelope, KeyValueStore store);
+  Collection<Entry<?, ?>> process(IncomingMessageEnvelope message, KeyValueStore store);
 }

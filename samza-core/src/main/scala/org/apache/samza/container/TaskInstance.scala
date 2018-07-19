@@ -33,7 +33,7 @@ import org.apache.samza.storage.{SideInputStorageManager, TaskStorageManager}
 import org.apache.samza.system._
 import org.apache.samza.table.TableManager
 import org.apache.samza.task._
-import org.apache.samza.util.Logging
+import org.apache.samza.util.{Logging, ScalaJavaUtil}
 
 import scala.collection.JavaConverters._
 import scala.collection.JavaConversions._
@@ -57,36 +57,25 @@ class TaskInstance(
   jobModel: JobModel = null,
   streamMetadataCache: StreamMetadataCache = null,
   timerExecutor : ScheduledExecutorService = null,
-  val sideInputSSPs: Set[SystemStreamPartition] = Set(),
-  val sideInputStorageManager: SideInputStorageManager = null) extends Logging {
+  sideInputSSPs: Set[SystemStreamPartition] = Set(),
+  sideInputStorageManager: SideInputStorageManager = null) extends Logging {
+
   val isInitableTask = task.isInstanceOf[InitableTask]
   val isWindowableTask = task.isInstanceOf[WindowableTask]
   val isEndOfStreamListenerTask = task.isInstanceOf[EndOfStreamListenerTask]
   val isClosableTask = task.isInstanceOf[ClosableTask]
   val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
 
-  val storageGetter = new java.util.function.Function[String, KeyValueStore[_,_]]() {
-    override def apply(storeName: String): KeyValueStore[_,_] = {
-      var store: KeyValueStore[_,_] = null
-      if(storageManager != null) {
-        try {
-          store = storageManager.apply(storeName).asInstanceOf[KeyValueStore[Object, Object]]
-        } catch {
-          case e: NoSuchElementException => {
-            if (sideInputStorageManager != null) {
-              store = sideInputStorageManager.getStore(storeName).asInstanceOf[KeyValueStore[Object, Object]]
-            }
-          }
-        }
+  val storageGetter = ScalaJavaUtil.toJavaFunction(
+    (storeName: String) => {
+      if (storageManager != null && storageManager.getStore(storeName).isDefined) {
+        storageManager.getStore(storeName).get.asInstanceOf[KeyValueStore[_, _]]
+      } else if (sideInputStorageManager != null && sideInputStorageManager.getStore(storeName) != null) {
+        sideInputStorageManager.getStore(storeName).asInstanceOf[KeyValueStore[_, _]]
+      } else {
+        null
       }
-
-      if (store == null) {
-        warn("No store was found for %s" format storeName)
-      }
-
-      store
-    }
-  }
+    })
 
   val context = new TaskContextImpl(taskName, metrics, containerContext, systemStreamPartitions.asJava, offsetManager,
                                     storageGetter, tableManager, jobModel, streamMetadataCache, timerExecutor)
@@ -103,13 +92,13 @@ class TaskInstance(
   val streamsToDeleteCommittedMessages: Set[String] = config.getStreamIds.filter(config.getDeleteCommittedMessages).map(config.getPhysicalName).toSet
 
   def registerMetrics {
-    debug("Registering metrics for task name: %s" format taskName)
+    debug("Registering metrics for taskName: %s" format taskName)
 
     reporters.values.foreach(_.register(metrics.source, metrics.registry))
   }
 
   def registerOffsets {
-    debug("Registering offsets for task name: %s" format taskName)
+    debug("Registering offsets for taskName: %s" format taskName)
 
     val sspsToRegister = systemStreamPartitions -- sideInputSSPs
     offsetManager.register(taskName, sspsToRegister)
@@ -117,83 +106,59 @@ class TaskInstance(
 
   def startStores {
     if (storageManager != null) {
-      debug("Starting storage manager for task name: %s" format taskName)
+      debug("Starting storage manager for taskName: %s" format taskName)
 
       storageManager.init
     } else {
-      debug("Skipping storage manager initialization for task name: %s" format taskName)
+      debug("Skipping storage manager initialization for taskName: %s" format taskName)
     }
 
     if (sideInputStorageManager != null) {
-      debug("Starting side input manager for task name: %s" format taskName)
+      debug("Starting side input storage manager for taskName: %s" format taskName)
       sideInputStorageManager.init()
     } else {
-      debug("Skipping side input manager initialization for task name: %s" format taskName)
+      debug("Skipping side input storage manager initialization for taskName: %s" format taskName)
     }
   }
 
   def startTableManager {
     if (tableManager != null) {
-      debug("Starting table manager for task name: %s" format taskName)
+      debug("Starting table manager for taskName: %s" format taskName)
 
       tableManager.init(containerContext, context)
     } else {
-      debug("Skipping table manager initialization for task name %s" format taskName)
+      debug("Skipping table manager initialization for taskName: %s" format taskName)
     }
   }
 
   def initTask {
     if (isInitableTask) {
-      debug("Initializing task for task name %s" format taskName)
+      debug("Initializing task for taskName: %s" format taskName)
 
       task.asInstanceOf[InitableTask].init(config, context)
     } else {
-      debug("Skipping task initialization for task name %s" format taskName)
+      debug("Skipping task initialization for taskName: %s" format taskName)
     }
   }
 
   def registerProducers {
-    debug("Registering producers for task name %s" format taskName)
+    debug("Registering producers for taskName: %s" format taskName)
 
     collector.register
   }
 
-  def getStartingOffset(systemStreamPartition: SystemStreamPartition) = {
-    var offset: Option[String] = None
-
-    if (sideInputSSPs.contains(systemStreamPartition)) {
-      offset = Option(sideInputStorageManager.getStartingOffset(systemStreamPartition))
-    } else {
-      offset = offsetManager.getStartingOffset(taskName, systemStreamPartition)
-    }
-
-    val startingOffset = offset
-      .getOrElse(throw new SamzaException("No offset defined for SystemStreamPartition: %s" format systemStreamPartition))
-
-    startingOffset
-  }
-
-  def getMetricsValueGetter(systemStreamPartition: SystemStreamPartition) = {
-    var metricsValueGetter: () => String = null
-
-    if (sideInputSSPs.contains(systemStreamPartition)) {
-      metricsValueGetter = () => sideInputStorageManager.getLastProcessedOffset(systemStreamPartition)
-    } else {
-      metricsValueGetter = () => offsetManager.getLastProcessedOffset(taskName, systemStreamPartition).orNull
-    }
-
-    metricsValueGetter
-  }
-
   def registerConsumers {
-    debug("Registering consumers for task name %s" format taskName)
+    debug("Registering consumers for taskName: %s" format taskName)
 
     systemStreamPartitions.foreach(systemStreamPartition => {
       val startingOffset = getStartingOffset(systemStreamPartition)
-      val metricsValueGetter = getMetricsValueGetter(systemStreamPartition)
-
       consumerMultiplexer.register(systemStreamPartition, startingOffset)
-      metrics.addOffsetGauge(systemStreamPartition, metricsValueGetter)
+      metrics.addOffsetGauge(systemStreamPartition, () =>
+        if (sideInputSSPs.contains(systemStreamPartition)) {
+          sideInputStorageManager.getLastProcessedOffset(systemStreamPartition)
+        } else {
+          offsetManager.getLastProcessedOffset(taskName, systemStreamPartition).orNull
+        })
     })
   }
 
@@ -211,7 +176,7 @@ class TaskInstance(
     if (ssp2CaughtupMapping(incomingMessageSsp)) {
       metrics.messagesActuallyProcessed.inc
 
-      trace("Processing incoming message envelope for task name and SSP: %s, %s"
+      trace("Processing incoming message envelope for taskName and SSP: %s, %s"
         format (taskName, incomingMessageSsp))
 
       if (sideInputSSPs.contains(incomingMessageSsp)) {
@@ -227,7 +192,7 @@ class TaskInstance(
             task.asInstanceOf[StreamTask].process(envelope, collector, coordinator)
           }
 
-          trace("Updating offset map for task name, SSP and offset: %s, %s, %s"
+          trace("Updating offset map for taskName, SSP and offset: %s, %s, %s"
             format (taskName, incomingMessageSsp, envelope.getOffset))
 
           offsetManager.update(taskName, incomingMessageSsp, envelope.getOffset)
@@ -246,7 +211,7 @@ class TaskInstance(
 
   def window(coordinator: ReadableCoordinator) {
     if (isWindowableTask) {
-      trace("Windowing for task name %s" format taskName)
+      trace("Windowing for taskName: %s" format taskName)
 
       metrics.windows.inc
 
@@ -257,7 +222,7 @@ class TaskInstance(
   }
 
   def timer(coordinator: ReadableCoordinator) {
-    trace("Timer for task name %s" format taskName)
+    trace("Timer for taskName: %s" format taskName)
 
     exceptionHandler.maybeHandle {
       context.getTimerScheduler.removeReadyTimers().entrySet().foreach { entry =>
@@ -271,20 +236,22 @@ class TaskInstance(
 
     val checkpoint = offsetManager.buildCheckpoint(taskName)
 
-    trace("Flushing producers for task name %s" format taskName)
+    trace("Flushing producers for taskName: %s" format taskName)
+
     collector.flush
 
-    trace("Flushing state stores for task name %s" format taskName)
+    trace("Flushing state stores for taskName: %s" format taskName)
+
     if (storageManager != null) {
       storageManager.flush
     }
 
-    trace("Flushing side input stores for task name %s" format taskName)
+    trace("Flushing side input stores for taskName: %s" format taskName)
     if (sideInputStorageManager != null) {
       sideInputStorageManager.flush()
     }
 
-    trace("Checkpointing offsets for task name %s" format taskName)
+    trace("Checkpointing offsets for taskName: %s" format taskName)
     offsetManager.writeCheckpoint(taskName, checkpoint)
 
     if (checkpoint != null) {
@@ -299,37 +266,37 @@ class TaskInstance(
 
   def shutdownTask {
     if (task.isInstanceOf[ClosableTask]) {
-      debug("Shutting down stream task for task name %s" format taskName)
+      debug("Shutting down stream task for taskName: %s" format taskName)
 
       task.asInstanceOf[ClosableTask].close
     } else {
-      debug("Skipping stream task shutdown for task name %s" format taskName)
+      debug("Skipping stream task shutdown for taskName: %s" format taskName)
     }
   }
 
   def shutdownStores {
     if (storageManager != null) {
-      debug("Shutting down storage manager for task name: %s" format taskName)
+      debug("Shutting down storage manager for taskName: %s" format taskName)
 
       storageManager.stop
     } else {
-      debug("Skipping storage manager shutdown for task name: %s" format taskName)
+      debug("Skipping storage manager shutdown for taskName: %s" format taskName)
     }
   }
 
   def shutdownTableManager {
     if (tableManager != null) {
-      debug("Shutting down table manager for task name %s" format taskName)
+      debug("Shutting down table manager for taskName: %s" format taskName)
 
       tableManager.close
     } else {
-      debug("Skipping table manager shutdown for task name %s" format taskName)
+      debug("Skipping table manager shutdown for taskName: %s" format taskName)
     }
   }
 
-  override def toString() = "TaskInstance for class %s and task name %s." format (task.getClass.getName, taskName)
+  override def toString() = "TaskInstance for class %s and taskName %s." format (task.getClass.getName, taskName)
 
-  def toDetailedString() = "TaskInstance [task name = %s, windowable=%s, closable=%s endofstreamlistener=%s]" format
+  def toDetailedString() = "TaskInstance [taskName = %s, windowable=%s, closable=%s endofstreamlistener=%s]" format
     (taskName, isWindowableTask, isClosableTask, isEndOfStreamListenerTask)
 
   /**
@@ -367,5 +334,19 @@ class TaskInstance(
         }
       }
     }
+  }
+
+  private def getStartingOffset(systemStreamPartition: SystemStreamPartition) = {
+    val offset =
+      if (sideInputSSPs.contains(systemStreamPartition)) {
+        Option(sideInputStorageManager.getStartingOffset(systemStreamPartition))
+      } else {
+        offsetManager.getStartingOffset(taskName, systemStreamPartition)
+      }
+
+    val startingOffset = offset.getOrElse(
+      throw new SamzaException("No offset defined for SystemStreamPartition: %s" format systemStreamPartition))
+
+    startingOffset
   }
 }

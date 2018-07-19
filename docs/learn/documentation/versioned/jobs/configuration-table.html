@@ -1701,6 +1701,28 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="stores-side-inputs">stores.<span class="store">store-name</span>.side.inputs</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        A comma-separated list of streams that are side inputs to the store. Each stream is of the format
+                        <span class="system">system-name</span>.<span class="stream">stream-name</span>. Applications are
+                        required to add the side inputs to <a href="#task-inputs" class="property">task.inputs</a> as well.
+                        Stores with side inputs additionally, are required to configure a
+                        <a href="#stores-side-inputs-processor-factory">side input processor factory</a>.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="stores-side-inputs-processor-factory">stores.<span class="store">store-name</span>.side.inputs.processor.factory</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        The value is a fully-qualified name of a Java class that implements
+                        <a href="../api/javadocs/org/apache/samza/storage/SideInputProcessorFactory.html">SideInputProcessorFactory</a>. It is a required
+                        configuration for stores with<a href="#stores-side-inputs">side inputs</a>.
+                    </td>
+                </tr>
+
+                <tr>
                     <th colspan="3" class="section" id="keyvalue-rocksdb">
                         Using RocksDB for key-value storage<br>
                         <span class="subtitle">

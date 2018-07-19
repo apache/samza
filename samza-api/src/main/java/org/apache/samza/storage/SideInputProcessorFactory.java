@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.processors;
+package org.apache.samza.storage;
 
 import java.io.Serializable;
 import org.apache.samza.config.Config;
@@ -26,16 +26,17 @@ import org.apache.samza.metrics.MetricsRegistry;
 
 /**
  * A factory to build {@link SideInputProcessor}s.
- * Implementation needs to return a new instance for every invocation of {@link #createInstance(Config, MetricsRegistry)}
+ *
+ * Implementations should return a new instance for every invocation of {@link #createInstance(Config, MetricsRegistry)}
  */
 public interface SideInputProcessorFactory extends Serializable {
   /**
    * Creates a new instance of {@link SideInputProcessor}.
    *
-   * @param config a config object
-   * @param metrics a metrics registry
+   * @param config the config object
+   * @param metrics the metrics registry
    *
-   * @return An instance of {@link SideInputProcessor}
+   * @return an instance of {@link SideInputProcessor}
    */
   SideInputProcessor createInstance(Config config, MetricsRegistry metrics);
 }

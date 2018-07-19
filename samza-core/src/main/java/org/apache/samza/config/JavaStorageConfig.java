@@ -28,6 +28,7 @@ import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.execution.StreamManager;
+import org.apache.samza.storage.SideInputProcessorFactory;
 
 
 /**
@@ -41,14 +42,13 @@ public class JavaStorageConfig extends MapConfig {
   private static final String KEY_SERDE = "stores.%s.key.serde";
   private static final String MSG_SERDE = "stores.%s.msg.serde";
   private static final String SIDE_INPUTS = "stores.%s.side.inputs";
+  private static final String SIDE_INPUTS_PROCESSOR_FACTORY = "stores.%s.side.inputs.processor.factory";
   private static final String CHANGELOG_STREAM = "stores.%s.changelog";
   private static final String CHANGELOG_SYSTEM = "job.changelog.system";
   private static final String ACCESSLOG_STREAM_SUFFIX = "access-log";
   private static final String ACCESSLOG_SAMPLING_RATIO = "stores.%s.accesslog.sampling.ratio";
   private static final String ACCESSLOG_ENABLED = "stores.%s.accesslog.enabled";
   private static final int DEFAULT_ACCESSLOG_SAMPLING_RATIO = 50;
-
-  public static final String SIDE_INPUT_PROCESSOR_FACTORY = "stores.%s.side.inputs.processor.factory.class";
 
   public JavaStorageConfig(Config config) {
     super(config);
@@ -135,28 +135,28 @@ public class JavaStorageConfig extends MapConfig {
   }
 
   /**
-   * Gets the side inputs for store. A store can have multiple side input streams and the format is expected to be
-   * <pre>,</pre> separated.
+   * Gets the side inputs for the store. A store can have multiple side input streams which can be
+   * provided as a comma separated list.
    *
    * @param storeName name of the store
-   *
-   * @return a {@link List} of {@link String}
+   * @return a list of side input streams for the store, or an empty list if it has none.
    */
   public List<String> getSideInputs(String storeName) {
     return Optional.ofNullable(get(String.format(SIDE_INPUTS, storeName), null))
-        .map(inputs -> Stream.of(inputs.split(",")).collect(Collectors.toList()))
+        .map(inputs -> Stream.of(inputs.split(","))
+            .map(String::trim)
+            .filter(input -> !input.isEmpty())
+            .collect(Collectors.toList()))
         .orElse(Collections.emptyList());
-
   }
 
   /**
-   * Gets the {@link org.apache.samza.processors.SideInputProcessorFactory} associated with the {@code storeName}.
+   * Gets the {@link SideInputProcessorFactory} associated with the {@code storeName}.
    *
-   * @param storeName store name for which the processor factory is requested
-   *
-   * @return a {@link org.apache.samza.processors.SideInputProcessorFactory}
+   * @param storeName store name for to get the {@link SideInputProcessorFactory} for
+   * @return the {@link SideInputProcessorFactory}
    */
   public String getSideInputProcessorFactory(String storeName) {
-    return get(String.format(SIDE_INPUT_PROCESSOR_FACTORY, storeName), null);
+    return get(String.format(SIDE_INPUTS_PROCESSOR_FACTORY, storeName), null);
   }
 }

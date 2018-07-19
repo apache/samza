@@ -22,11 +22,11 @@ package org.apache.samza.storage
 import java.io._
 import java.util
 
-import org.apache.samza.config.{StorageConfig}
+import org.apache.samza.config.StorageConfig
 import org.apache.samza.{Partition, SamzaException}
 import org.apache.samza.container.TaskName
 import org.apache.samza.system._
-import org.apache.samza.util.{Clock, FileUtil, Logging, Util}
+import org.apache.samza.util.{Clock, FileUtil, Logging}
 
 object TaskStorageManager {
   def getStoreDir(storeBaseDir: File, storeName: String) = {
@@ -40,39 +40,40 @@ object TaskStorageManager {
 }
 
 /**
- * Manage all the storage engines for a given task
- */
+  * Manage all the storage engines for a given task
+  */
 class TaskStorageManager(
-  taskName: TaskName,
-  taskStores: Map[String, StorageEngine] = Map(),
-  storeConsumers: Map[String, SystemConsumer] = Map(),
-  changeLogSystemStreams: Map[String, SystemStream] = Map(),
-  changeLogStreamPartitions: Int,
-  streamMetadataCache: StreamMetadataCache,
-  sspMetadataCache: SSPMetadataCache,
-  nonLoggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
-  loggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
-  partition: Partition,
-  systemAdmins: SystemAdmins,
-  changeLogDeleteRetentionsInMs: Map[String, Long],
-  clock: Clock) extends Logging {
+                          taskName: TaskName,
+                          taskStores: Map[String, StorageEngine] = Map(),
+                          storeConsumers: Map[String, SystemConsumer] = Map(),
+                          changeLogSystemStreams: Map[String, SystemStream] = Map(),
+                          changeLogStreamPartitions: Int,
+                          streamMetadataCache: StreamMetadataCache,
+                          sspMetadataCache: SSPMetadataCache,
+                          nonLoggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
+                          loggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
+                          partition: Partition,
+                          systemAdmins: SystemAdmins,
+                          changeLogDeleteRetentionsInMs: Map[String, Long],
+                          clock: Clock) extends Logging {
 
-  val loggedStoreOffsetFileName = "OFFSET"
-  val persistedStores = taskStores.filter(_._2.getStoreProperties.isPersistedToDisk)
-  val storageManagerHelper = new StorageManagerHelper()
+  var taskStoresToRestore = taskStores.filter{
+    case (storeName, storageEngine) => storageEngine.getStoreProperties.isLoggedStore
+  }
+  val persistedStores = taskStores.filter{
+    case (storeName, storageEngine) => storageEngine.getStoreProperties.isPersistedToDisk
+  }
 
-  var oldestOffsets: Map[SystemStreamPartition, String] = Map()
-  var fileOffsets: util.Map[SystemStreamPartition, String] = new util.HashMap[SystemStreamPartition, String]()
+  var changeLogOldestOffsets: Map[SystemStream, String] = Map()
+  val fileOffsets: util.Map[SystemStreamPartition, String] = new util.HashMap[SystemStreamPartition, String]()
+  val offsetFileName = "OFFSET"
 
-  var taskStoresToRestore = taskStores.filter(_._2.getStoreProperties.isLoggedStore)
-
-  def apply(storageEngineName: String) = taskStores(storageEngineName)
+  def getStore(storeName: String): Option[StorageEngine] = taskStores.get(storeName)
 
   def init {
     cleanBaseDirs()
     setupBaseDirs()
     validateChangelogStreams()
-    initializeOldestOffset()
     startConsumers()
     restoreStores()
     stopConsumers()
@@ -81,36 +82,34 @@ class TaskStorageManager(
   private def cleanBaseDirs() {
     debug("Cleaning base directories for stores.")
 
-    for((storeName, storageEngine) <- taskStores) {
-      if (storageEngine.getStoreProperties.isLoggedStore) { // clean up base directories for logged stores
-        val loggedStorePartitionDir = TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, storeName, taskName)
-        info("Got logged storage partition directory as %s" format loggedStorePartitionDir.toPath.toString)
+    taskStores.keys.foreach(storeName => {
+      val nonLoggedStorePartitionDir = TaskStorageManager.getStorePartitionDir(nonLoggedStoreBaseDir, storeName, taskName)
+      info("Got non logged storage partition directory as %s" format nonLoggedStorePartitionDir.toPath.toString)
 
-        // Delete the logged store if it is not valid.
-        if (!isLoggedStoreValid(storeName, loggedStorePartitionDir)) {
-          info("Deleting logged storage partition directory %s." format loggedStorePartitionDir.toPath.toString)
-          FileUtil.rm(loggedStorePartitionDir)
-        } else {
-          val offset = readLoggedStoreOffset(loggedStorePartitionDir)
-          info("Read offset %s for the store %s from logged storage partition directory %s." format(offset, storeName, loggedStorePartitionDir))
-          if (offset != null) {
-            fileOffsets.put(new SystemStreamPartition(changeLogSystemStreams(storeName), partition), offset)
-          }
-        }
-      } else { // handle clean up of base directories for non-logged stores
-        val nonLoggedStorePartitionDir = TaskStorageManager.getStorePartitionDir(nonLoggedStoreBaseDir, storeName, taskName)
-        info("Got non logged storage partition directory as %s" format nonLoggedStorePartitionDir.toPath.toString)
+      if(nonLoggedStorePartitionDir.exists()) {
+        info("Deleting non logged storage partition directory %s" format nonLoggedStorePartitionDir.toPath.toString)
+        FileUtil.rm(nonLoggedStorePartitionDir)
+      }
 
-        if(nonLoggedStorePartitionDir.exists()) {
-          info("Deleting non logged storage partition directory %s" format nonLoggedStorePartitionDir.toPath.toString)
-          FileUtil.rm(nonLoggedStorePartitionDir)
+      val loggedStorePartitionDir = TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, storeName, taskName)
+      info("Got logged storage partition directory as %s" format loggedStorePartitionDir.toPath.toString)
+
+      // Delete the logged store if it is not valid.
+      if (!isLoggedStoreValid(storeName, loggedStorePartitionDir)) {
+        info("Deleting logged storage partition directory %s." format loggedStorePartitionDir.toPath.toString)
+        FileUtil.rm(loggedStorePartitionDir)
+      } else {
+        val offset = StorageManagerUtil.readOffsetFile(loggedStorePartitionDir, offsetFileName)
+        info("Read offset %s for the store %s from logged storage partition directory %s." format(offset, storeName, loggedStorePartitionDir))
+        if (offset != null) {
+          fileOffsets.put(new SystemStreamPartition(changeLogSystemStreams(storeName), partition), offset)
         }
       }
-    }
+    })
   }
 
   /**
-    * Directory {@code loggedStoreDir} associated with the logged store {@code storeName} is valid,
+    * Directory loggedStoreDir associated with the logged store storeName is valid
     * if all of the following conditions are true.
     * a) If the store has to be persisted to disk.
     * b) If there is a valid offset file associated with the logged store.
@@ -121,26 +120,11 @@ class TaskStorageManager(
   private def isLoggedStoreValid(storeName: String, loggedStoreDir: File): Boolean = {
     val changeLogDeleteRetentionInMs = changeLogDeleteRetentionsInMs
       .getOrElse(storeName, StorageConfig.DEFAULT_CHANGELOG_DELETE_RETENTION_MS)
-    persistedStores.contains(storeName) && storageManagerHelper.isOffsetFileValid(loggedStoreDir, loggedStoreOffsetFileName) &&
-      !isStaleLoggedStore(loggedStoreDir, changeLogDeleteRetentionInMs)
-  }
 
-  /**
-    * Determines if the logged store directory {@code loggedStoreDir} is stale. A store is stale if the following condition is true.
-    *
-    *  ((CurrentTime) - (LastModifiedTime of the Offset file) is greater than the changelog's tombstone retention).
-    *
-    * @param loggedStoreDir the base directory of the local change-logged store.
-    * @param changeLogDeleteRetentionInMs the delete retention of the changelog in milli seconds.
-    * @return true if the store is stale, false otherwise.
-    *
-    */
-  private def isStaleLoggedStore(loggedStoreDir: File, changeLogDeleteRetentionInMs: Long): Boolean =
-    storageManagerHelper.isStaleStore(
-      loggedStoreDir,
-      loggedStoreOffsetFileName,
-      changeLogDeleteRetentionInMs,
-      clock.currentTimeMillis())
+    persistedStores.contains(storeName) &&
+      StorageManagerUtil.isOffsetFileValid(loggedStoreDir, offsetFileName) &&
+      !StorageManagerUtil.isStaleStore(loggedStoreDir, offsetFileName, changeLogDeleteRetentionInMs, clock.currentTimeMillis())
+  }
 
   private def setupBaseDirs() {
     debug("Setting up base directories for stores.")
@@ -158,17 +142,6 @@ class TaskStorageManager(
     }
   }
 
-  /**
-    * Reads and return the offset for the logged store
-    *
-    * @param loggedStoragePartitionDir the base directory of the logged store
-    *
-    * @return offset for the store if exists, null otherwise
-    */
-  private def readLoggedStoreOffset(loggedStoragePartitionDir: File): String = {
-    storageManagerHelper.readOffsetFile(loggedStoragePartitionDir, loggedStoreOffsetFileName)
-  }
-
   private def validateChangelogStreams() = {
     info("Validating change log streams: " + changeLogSystemStreams)
 
@@ -178,23 +151,12 @@ class TaskStorageManager(
 
       systemAdmin.validateStream(changelogSpec)
     }
-  }
 
-  /**
-    * Initializes the oldest offsets for all the [[SystemStreamPartition]] associated with the stores. It includes
-    * [[SystemStreamPartition]]s that belong to side input stores and the logged stores.
-    */
-  private def initializeOldestOffset() = {
-
-    // Load the oldest offset for logged stores
     val changeLogMetadata = streamMetadataCache.getStreamMetadata(changeLogSystemStreams.values.toSet)
     info("Got change log stream metadata: %s" format changeLogMetadata)
 
-    val changeLogOldestOffsets: Map[SystemStream, String] = getChangeLogOldestOffsetsForPartition(partition, changeLogMetadata)
+    changeLogOldestOffsets = getChangeLogOldestOffsetsForPartition(partition, changeLogMetadata)
     info("Assigning oldest change log offsets for taskName %s: %s" format (taskName, changeLogOldestOffsets))
-
-    oldestOffsets = changeLogOldestOffsets
-      .map(entry => (new SystemStreamPartition(entry._1, partition), entry._2))
   }
 
   private def startConsumers() {
@@ -202,9 +164,10 @@ class TaskStorageManager(
 
     for ((storeName, systemStream) <- changeLogSystemStreams) {
       val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
+      val admin = systemAdmins.getSystemAdmin(systemStream.getSystem)
       val consumer = storeConsumers(storeName)
 
-      val offset = getLoggedStoreStartingOffset(systemStreamPartition)
+      val offset = getStartingOffset(systemStreamPartition, admin)
       if (offset != null) {
         info("Registering change log consumer with offset %s for %s." format (offset, systemStreamPartition))
         consumer.register(systemStreamPartition, offset)
@@ -218,7 +181,7 @@ class TaskStorageManager(
   }
 
   /**
-    * Returns the offset with which the changelog consumer should be initialized for the given [[SystemStreamPartition]].
+    * Returns the offset with which the changelog consumer should be initialized for the given SystemStreamPartition.
     *
     * If a file offset exists, it represents the last changelog offset which is also reflected in the on-disk state.
     * In that case, we use the next offset after the file offset, as long as it is newer than the oldest offset
@@ -227,15 +190,16 @@ class TaskStorageManager(
     * If there isn't a file offset or it's older than the oldest available offset, we simply start with the oldest.
     *
     * @param systemStreamPartition  the changelog partition for which the offset is needed.
+    * @param admin                  the [[SystemAdmin]] for the changelog.
     * @return                       the offset to from which the changelog consumer should be initialized.
     */
-  private def getLoggedStoreStartingOffset(systemStreamPartition: SystemStreamPartition): String = {
-    val admin = systemAdmins.getSystemAdmin(systemStreamPartition.getSystem)
-    val oldestOffset = oldestOffsets.getOrElse(systemStreamPartition,
-      throw new SamzaException("Missing a change log offset for %s." format systemStreamPartition))
+  private def getStartingOffset(systemStreamPartition: SystemStreamPartition, admin: SystemAdmin) = {
     val fileOffset = fileOffsets.get(systemStreamPartition)
+    val oldestOffset = changeLogOldestOffsets
+      .getOrElse(systemStreamPartition.getSystemStream,
+        throw new SamzaException("Missing a change log offset for %s." format systemStreamPartition))
 
-    storageManagerHelper.getStartingOffset(systemStreamPartition, admin, fileOffset, oldestOffset)
+    StorageManagerUtil.getStartingOffset(systemStreamPartition, admin, fileOffset, oldestOffset)
   }
 
   private def restoreStores() {
@@ -296,7 +260,7 @@ class TaskStorageManager(
         debug("Got offset %s for store %s" format(newestOffset, storeName))
 
         val loggedStorePartitionDir = TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, storeName, taskName)
-        val offsetFile = new File(loggedStorePartitionDir, loggedStoreOffsetFileName)
+        val offsetFile = new File(loggedStorePartitionDir, offsetFileName)
         if (newestOffset != null) {
           debug("Storing offset for store in OFFSET file ")
           FileUtil.writeWithChecksum(offsetFile, newestOffset)
@@ -318,8 +282,8 @@ class TaskStorageManager(
   }
 
   /**
-   * Builds a map from SystemStreamPartition to oldest offset for changelogs.
-   */
+    * Builds a map from SystemStreamPartition to oldest offset for changelogs.
+    */
   private def getChangeLogOldestOffsetsForPartition(partition: Partition, inputStreamMetadata: Map[SystemStream, SystemStreamMetadata]): Map[SystemStream, String] = {
     inputStreamMetadata
       .mapValues(_.getSystemStreamPartitionMetadata.get(partition))
