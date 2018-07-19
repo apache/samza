@@ -104,18 +104,18 @@ public class SideInputStorageManager {
 
     storeToProcessor = stores.keySet().stream()
         .collect(Collectors.toMap(Function.identity(),
-            storeName -> {
-                SideInputProcessorFactory processorFactory =
-                    Util.getObj(storageConfig.getSideInputProcessorFactory(storeName), SideInputProcessorFactory.class);
-                return processorFactory.createInstance(config, metricsRegistry);
-              }));
+          storeName -> {
+            SideInputProcessorFactory processorFactory =
+                Util.getObj(storageConfig.getSideInputProcessorFactory(storeName), SideInputProcessorFactory.class);
+            return processorFactory.createInstance(config, metricsRegistry);
+          }));
 
     this.sspsToStore = new HashMap<>();
     storeToSSPs.forEach((store, ssps) -> {
-      for (SystemStreamPartition ssp: ssps) {
-        sspsToStore.put(ssp, store);
-      }
-    });
+        for (SystemStreamPartition ssp: ssps) {
+          sspsToStore.put(ssp, store);
+        }
+      });
   }
 
   /**
@@ -327,24 +327,23 @@ public class SideInputStorageManager {
     LOG.info("Initializing side input store directories.");
 
     stores.keySet().forEach(storeName -> {
-      File storeLocation = getStoreLocation(storeName);
-      String storePath = storeLocation.toPath().toString();
-      if (!isValidSideInputStore(storeName)) {
-        LOG.info("Cleaning up the store directory at {} for {}", storePath, storeName);
-        FileUtil.rm(storeLocation);
-      }
+        File storeLocation = getStoreLocation(storeName);
+        String storePath = storeLocation.toPath().toString();
+        if (!isValidSideInputStore(storeName)) {
+          LOG.info("Cleaning up the store directory at {} for {}", storePath, storeName);
+          FileUtil.rm(storeLocation);
+        }
 
-      if (!storeLocation.exists()) {
-        LOG.info("Creating {} as the store directory for the side input store {}", storePath, storeName);
-        storeLocation.mkdirs();
-      }
-    });
+        if (!storeLocation.exists()) {
+          LOG.info("Creating {} as the store directory for the side input store {}", storePath, storeName);
+          storeLocation.mkdirs();
+        }
+      });
   }
 
   private boolean isValidSideInputStore(String storeName) {
     File storeLocation = getStoreLocation(storeName);
 
-    // TODO HIGH bkumaras: Do we allow or disallow non-persisted side input stores?
     return isPersistedStore(storeName)
         && StorageManagerUtil.isStaleStore(storeLocation, OFFSET_FILE, STORE_DELETE_RETENTION_MS, clock.currentTimeMillis())
         && StorageManagerUtil.isOffsetFileValid(storeLocation, OFFSET_FILE);
@@ -359,16 +358,15 @@ public class SideInputStorageManager {
 
   private void validateStoreConfiguration() {
     stores.forEach((storeName, storageEngine) -> {
+        if (StringUtils.isBlank(storageConfig.getSideInputProcessorFactory(storeName))) {
+          throw new SamzaException(
+              String.format("Side inputs processor factory configuration missing for store: %s.", storeName));
+        }
 
-      if (StringUtils.isBlank(storageConfig.getSideInputProcessorFactory(storeName))) {
-        throw new SamzaException(
-            String.format("Side inputs processor factory configuration missing for store: %s.", storeName));
-      }
-
-      if (storageEngine.getStoreProperties().isLoggedStore()) {
-        throw new SamzaException(
-            String.format("Cannot configure both side inputs and a changelog for store: %s.", storeName));
-      }
-    });
+        if (storageEngine.getStoreProperties().isLoggedStore()) {
+          throw new SamzaException(
+              String.format("Cannot configure both side inputs and a changelog for store: %s.", storeName));
+        }
+      });
   }
 }

@@ -51,8 +51,6 @@ public class TaskConfigJava extends MapConfig {
   // class name to use when sending offset checkpoints
   public static final String CHECKPOINT_MANAGER_FACTORY = "task.checkpoint.factory";
 
-  public static final String SIDE_INPUT_PROCESSOR_FACTORY = "task.side.input.processor.factory";
-
   public static final Logger LOGGER = LoggerFactory.getLogger(TaskConfigJava.class);
 
   public TaskConfigJava(Config config) {
@@ -66,10 +64,6 @@ public class TaskConfigJava extends MapConfig {
    */
   public String getCheckpointManagerFactoryName() {
     return get(CHECKPOINT_MANAGER_FACTORY, null);
-  }
-
-  public String getSideInputProcessorFactory() {
-    return get(SIDE_INPUT_PROCESSOR_FACTORY, null);
   }
 
   /**

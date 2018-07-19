@@ -28,7 +28,6 @@ import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.execution.StreamManager;
-import org.apache.samza.storage.SideInputProcessorFactory;
 
 
 /**
@@ -151,10 +150,10 @@ public class JavaStorageConfig extends MapConfig {
   }
 
   /**
-   * Gets the {@link SideInputProcessorFactory} associated with the {@code storeName}.
+   * Gets the {@link org.apache.samza.storage.SideInputProcessorFactory} associated with the {@code storeName}.
    *
-   * @param storeName store name for to get the {@link SideInputProcessorFactory} for
-   * @return the {@link SideInputProcessorFactory}
+   * @param storeName store name for to get the {@link org.apache.samza.storage.SideInputProcessorFactory} for
+   * @return the {@link org.apache.samza.storage.SideInputProcessorFactory}
    */
   public String getSideInputProcessorFactory(String storeName) {
     return get(String.format(SIDE_INPUTS_PROCESSOR_FACTORY, storeName), null);
