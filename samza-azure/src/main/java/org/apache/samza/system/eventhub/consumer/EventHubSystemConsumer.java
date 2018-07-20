@@ -479,8 +479,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
               String.format("Received transient exception from EH client. Renew partition receiver for ssp: %s", ssp),
               throwable);
           try {
-            // Even though these are transient exceptions, we don't want to retry too frequently which sometimes
-            // would spam the log
+            // Add a fixed delay so that we don't keep retrying when there are long-lasting failures
             Thread.sleep(Duration.ofSeconds(2).toMillis());
           } catch (InterruptedException e) {
             LOG.warn("Interrupted during sleep before renew", e);
