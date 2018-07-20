@@ -65,7 +65,7 @@ class TaskInstance(
   val context = new TaskContextImpl(taskName, metrics, containerContext, systemStreamPartitions.asJava, offsetManager,
                                     storageManager, tableManager, jobModel, streamMetadataCache, timerExecutor)
 
-  // store the (ssp -> if this ssp is catched up) mapping. "catched up"
+  // store the (ssp -> if this ssp has caught up) mapping. "caught up"
   // means the same ssp in other taskInstances have the same offset as
   // the one here.
   var ssp2CaughtupMapping: scala.collection.mutable.Map[SystemStreamPartition, Boolean] =
@@ -267,9 +267,9 @@ class TaskInstance(
     (taskName, isWindowableTask, isClosableTask, isEndOfStreamListenerTask)
 
   /**
-   * From the envelope, check if this SSP has catched up with the starting offset of the SSP
+   * From the envelope, check if this SSP has caught up with the starting offset of the SSP
    * in this TaskInstance. If the offsets are not comparable, default to true, which means
-   * it's already catched-up.
+   * it's already caught up.
    */
   private def checkCaughtUp(envelope: IncomingMessageEnvelope) = {
     if (IncomingMessageEnvelope.END_OF_STREAM_OFFSET.equals(envelope.getOffset)) {
@@ -277,7 +277,7 @@ class TaskInstance(
     } else {
       systemAdmins match {
         case null => {
-          warn("systemAdmin is null. Set all SystemStreamPartitions to catched-up")
+          warn("systemAdmin is null. Set all SystemStreamPartitions to caught-up")
           ssp2CaughtupMapping(envelope.getSystemStreamPartition) = true
         }
         case others => {
@@ -286,12 +286,12 @@ class TaskInstance(
           val system = envelope.getSystemStreamPartition.getSystem
           others.getSystemAdmin(system).offsetComparator(envelope.getOffset, startingOffset) match {
             case null => {
-              info("offsets in " + system + " is not comparable. Set all SystemStreamPartitions to catched-up")
+              info("offsets in " + system + " is not comparable. Set all SystemStreamPartitions to caught-up")
               ssp2CaughtupMapping(envelope.getSystemStreamPartition) = true // not comparable
             }
             case result => {
               if (result >= 0) {
-                info(envelope.getSystemStreamPartition.toString + " is catched up.")
+                info(envelope.getSystemStreamPartition.toString + " has caught up.")
                 ssp2CaughtupMapping(envelope.getSystemStreamPartition) = true
               }
             }
