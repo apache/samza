@@ -31,6 +31,8 @@ import java.util.Map
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
+import org.apache.samza.config.ShellCommandConfig
+
 import scala.collection.JavaConverters._
 
 /**
@@ -54,6 +56,8 @@ class MetricsSnapshotReporter(
   host: String,
   serializer: Serializer[MetricsSnapshot] = null,
   clock: () => Long = () => { System.currentTimeMillis }) extends MetricsReporter with Runnable with Logging {
+
+  val execEnvironmentContainerId = Option[String](System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID)).getOrElse("")
 
   val executor = Executors.newSingleThreadScheduledExecutor(
     new ThreadFactoryBuilder().setNameFormat("Samza MetricsSnapshotReporter Thread-%d").setDaemon(true).build())
@@ -125,7 +129,7 @@ class MetricsSnapshotReporter(
         metricsMsg.put(group, groupMsg)
       })
 
-      val header = new MetricsHeader(jobName, jobId, containerName, source, version, samzaVersion, host, clock(), resetTime)
+      val header = new MetricsHeader(jobName, jobId, containerName, execEnvironmentContainerId, source, version, samzaVersion, host, clock(), resetTime)
       val metrics = new Metrics(metricsMsg)
 
       debug("Flushing metrics for %s to %s with header and map: header=%s, map=%s." format (source, out, header.getAsMap, metrics.getAsMap))
