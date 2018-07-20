@@ -22,6 +22,7 @@ package org.apache.samza.serializers
 import java.util.HashMap
 import java.util.Map
 
+import org.apache.samza.config.ShellCommandConfig
 import org.apache.samza.metrics.reporter.MetricsSnapshot
 import org.apache.samza.metrics.reporter.MetricsHeader
 import org.apache.samza.metrics.reporter.Metrics
@@ -33,7 +34,7 @@ class TestMetricsSnapshotSerde {
   @Ignore
   @Test
   def testMetricsSerdeShouldSerializeAndDeserializeAMetric {
-    val header = new MetricsHeader("test", "testjobid", "task", "test", "version", "samzaversion", "host", 1L, 2L)
+    val header = new MetricsHeader("test", "testjobid", "task", "test", "test", "version", "samzaversion", "host", 1L, 2L)
     val metricsMap = new HashMap[String, Object]()
     metricsMap.put("test2", "foo")
     val metricsGroupMap = new HashMap[String, Map[String, Object]]()
