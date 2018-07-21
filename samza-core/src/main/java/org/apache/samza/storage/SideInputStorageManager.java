@@ -72,7 +72,7 @@ public class SideInputStorageManager {
   private final Map<String, StorageEngine> stores;
   private final String storeBaseDir;
   private final Map<String, Set<SystemStreamPartition>> storeToSSps;
-  private final Map<SystemStreamPartition, Set<String>> sspsToStore;
+  private final Map<SystemStreamPartition, Set<String>> sspToStores;
   private final StreamMetadataCache streamMetadataCache;
   private final SystemAdmins systemAdmins;
   private final TaskName taskName;
@@ -103,11 +103,11 @@ public class SideInputStorageManager {
 
     validateStoreConfiguration();
 
-    this.sspsToStore = new HashMap<>();
+    this.sspToStores = new HashMap<>();
     storeToSSPs.forEach((store, ssps) -> {
         for (SystemStreamPartition ssp: ssps) {
-          sspsToStore.computeIfAbsent(ssp, key -> new HashSet<>());
-          sspsToStore.computeIfPresent(ssp, (key, value) -> {
+          sspToStores.computeIfAbsent(ssp, key -> new HashSet<>());
+          sspToStores.computeIfPresent(ssp, (key, value) -> {
               value.add(store);
               return value;
             });
@@ -190,7 +190,7 @@ public class SideInputStorageManager {
    */
   public void process(IncomingMessageEnvelope message) {
     SystemStreamPartition ssp = message.getSystemStreamPartition();
-    Set<String> storeNames = sspsToStore.get(ssp);
+    Set<String> storeNames = sspToStores.get(ssp);
 
     for (String storeName : storeNames) {
       SideInputProcessor sideInputProcessor = storeToProcessor.get(storeName);
@@ -298,7 +298,7 @@ public class SideInputStorageManager {
 
     Map<SystemStreamPartition, String> startingOffsets = new HashMap<>();
 
-    sspsToStore.keySet().forEach(ssp -> {
+    sspToStores.keySet().forEach(ssp -> {
         String fileOffset = fileOffsets.get(ssp);
         String oldestOffset = oldestOffsets.get(ssp);
 
@@ -323,7 +323,7 @@ public class SideInputStorageManager {
     Map<SystemStreamPartition, String> oldestOffsets = new HashMap<>();
 
     // Step 1
-    Map<SystemStream, List<SystemStreamPartition>> systemStreamToSsp = sspsToStore.keySet().stream()
+    Map<SystemStream, List<SystemStreamPartition>> systemStreamToSsp = sspToStores.keySet().stream()
         .collect(Collectors.groupingBy(SystemStreamPartition::getSystemStream));
 
     // Step 2
