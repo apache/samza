@@ -42,7 +42,9 @@ object StreamConfig {
 
   // We don't want any external dependencies on these patterns while both exist. Use getProperty to ensure proper values.
   private val STREAMS_PREFIX = "streams."
-  private val STREAM_PREFIX = "systems.%s.streams.%s."
+  // TODO: Exposing it to config generation phase in JobNode for side input feature. Revert the changes once StreamDescriptors
+  // are used in high level API to denote side inputs
+  val STREAM_PREFIX = "systems.%s.streams.%s."
 
   val STREAM_ID_PREFIX = STREAMS_PREFIX + "%s."
   val SYSTEM_FOR_STREAM_ID = STREAM_ID_PREFIX + SYSTEM

@@ -30,6 +30,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.JobConfig;
@@ -46,6 +47,7 @@ import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.spec.StatefulOperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.MathUtil;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerializableSerde;
@@ -142,6 +144,34 @@ public class JobNode {
         inputs.add(formattedSystemStream);
       }
     }
+
+    tables.forEach(tableSpec -> {
+        // Table provider factory
+        configs.put(String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, tableSpec.getId()),
+            tableSpec.getTableProviderFactoryClassName());
+
+        // Note: no need to generate config for Serde's, as they are already produced by addSerdeConfigs()
+
+        // add side inputs to the inputs and mark the stream as bootstrap
+        if (!tableSpec.getSideInputs().isEmpty()) {
+          tableSpec.getSideInputs().stream()
+              .map(this::getSystemStreamForStream)
+              .forEach(systemStream -> {
+                  inputs.add(Util.getNameFromSystemStream(systemStream));
+                  configs.put(String.format(StreamConfig.STREAM_PREFIX() + StreamConfig.BOOTSTRAP(),
+                      systemStream.getSystem(), systemStream.getStream()), "true");
+                });
+        }
+
+        // Generate additional configuration
+        TableProviderFactory tableProviderFactory =
+            Util.getObj(tableSpec.getTableProviderFactoryClassName(), TableProviderFactory.class);
+
+        TableProvider tableProvider = tableProviderFactory.getTableProvider(tableSpec);
+        // Note: side inputs and serialized side input processor are configured as part of provider generateConfig method
+        configs.putAll(tableProvider.generateConfig(configs));
+      });
+
     configs.put(TaskConfig.INPUT_STREAMS(), Joiner.on(',').join(inputs));
     if (!broadcasts.isEmpty()) {
       // TODO: remove this once we support defining broadcast input stream in high-level
@@ -178,20 +208,6 @@ public class JobNode {
 
     // write serialized serde instances and stream serde configs to configs
     addSerdeConfigs(configs);
-
-    tables.forEach(tableSpec -> {
-        // Table provider factory
-        configs.put(String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, tableSpec.getId()),
-            tableSpec.getTableProviderFactoryClassName());
-
-        // Note: no need to generate config for Serde's, as they are already produced by addSerdeConfigs()
-
-        // Generate additional configuration
-        TableProviderFactory tableProviderFactory =
-            Util.getObj(tableSpec.getTableProviderFactoryClassName(), TableProviderFactory.class);
-        TableProvider tableProvider = tableProviderFactory.getTableProvider(tableSpec);
-        configs.putAll(tableProvider.generateConfig(configs));
-      });
 
     log.info("Job {} has generated configs {}", jobName, configs);
 
@@ -373,6 +389,27 @@ public class JobNode {
     log.debug("Prefix '{}' has merged config {}", configPrefix, scopedConfig);
 
     return scopedConfig;
+  }
+
+  /**
+   * Gets the {@link SystemStream} corresponding to the input {@code stream}.
+   * It expects the format of the stream as {@code streamId} or {@code systemName.streamName}
+   *
+   * @param stream stream name
+   *
+   * @return a {@code SystemStream}
+   */
+  private SystemStream getSystemStreamForStream(String stream) {
+    String[] parts = stream.split(".");
+
+    if (parts.length == 0 || parts.length > 2) {
+      log.error("Invalid stream {}. Expected to be of the format streamId or systemName.streamName", stream);
+      throw new SamzaException("Invalid");
+    }
+
+    return parts.length == 1 ?
+        new StreamConfig(config).streamIdToSystemStream(stream) :
+        new SystemStream(parts[0], parts[1]);
   }
 
   static String createId(String jobName, String jobId) {

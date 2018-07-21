@@ -19,9 +19,12 @@
 package org.apache.samza.storage.kv;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StorageConfig;
@@ -30,6 +33,7 @@ import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableProvider;
 import org.apache.samza.table.TableSpec;
+import org.apache.samza.table.utils.SerdeUtils;
 import org.apache.samza.task.TaskContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -101,6 +105,19 @@ abstract public class BaseLocalStoreBackedTableProvider implements TableProvider
 
     String valueSerde = tableConfig.getValueSerde(tableSpec.getId());
     storeConfig.put(String.format(StorageConfig.MSG_SERDE(), tableSpec.getId()), valueSerde);
+
+    List<String> sideInputs = tableSpec.getSideInputs();
+
+    // We already validate up the chain on the invariant that the side input processor is present in the case of
+    // side inputs
+    if (!sideInputs.isEmpty()) {
+      String formattedSideInputs = sideInputs.stream()
+          .collect(Collectors.joining(","));
+
+      storeConfig.put(String.format(JavaStorageConfig.SIDE_INPUTS, tableSpec.getId()), formattedSideInputs);
+      storeConfig.put(String.format(JavaStorageConfig.SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE, tableSpec.getId()),
+          SerdeUtils.serialize("side input processor", tableSpec.getSideInputProcessor()));
+    }
 
     return storeConfig;
   }

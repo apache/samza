@@ -80,6 +80,14 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
     new JavaStorageConfig(config).getSideInputs(storeName).asScala
   }
 
+  def getSideInputProcessorFactory(storeName: String) = {
+    Option(new JavaStorageConfig(config).getSideInputProcessorFactory(storeName))
+  }
+
+  def getSerializedSideInputProcessor(storeName: String) = {
+    Option(new JavaStorageConfig(config).getSideInputsProcessorSerializedInstance(storeName))
+  }
+
   /**
     * Build a map of storeName to changeLogDeleteRetention for all of the stores.
     * @return a map from storeName to the changeLogDeleteRetention of the store in ms.

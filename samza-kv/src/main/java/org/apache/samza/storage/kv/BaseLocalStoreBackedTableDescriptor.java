@@ -18,9 +18,12 @@
  */
 package org.apache.samza.storage.kv;
 
+import java.util.List;
 import java.util.Map;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.operators.BaseTableDescriptor;
+import org.apache.samza.storage.SideInputProcessor;
 
 
 /**
@@ -32,6 +35,8 @@ import org.apache.samza.operators.BaseTableDescriptor;
  */
 abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLocalStoreBackedTableDescriptor<K, V, D>>
     extends BaseTableDescriptor<K, V, D> {
+  protected List<String> sideInputs;
+  protected SideInputProcessor sideInputProcessor;
 
   /**
    * Constructs a table descriptor instance
@@ -46,11 +51,28 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
     super.generateTableSpecConfig(tableSpecConfig);
   }
 
+  @Override
+  public D withSideInputs(List<String> sideInputs) {
+    this.sideInputs = sideInputs;
+
+    return (D) this;
+  }
+
+  @Override
+  public D withSideInputProcessor(SideInputProcessor sideInputProcessor) {
+    this.sideInputProcessor = sideInputProcessor;
+
+    return (D) this;
+  }
+
   /**
    * Validate that this table descriptor is constructed properly
    */
   protected void validate() {
     super.validate();
+    if (sideInputs != null && !sideInputs.isEmpty() && sideInputProcessor == null) {
+      throw new SamzaException("Invalid table configuration. Missing side input processor for table " + tableId);
+    }
   }
 
 }

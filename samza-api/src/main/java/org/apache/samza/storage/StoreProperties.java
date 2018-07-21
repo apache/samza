@@ -24,12 +24,10 @@ package org.apache.samza.storage;
 public class StoreProperties {
   private final boolean persistedToDisk;
   private final boolean loggedStore;
-  private final boolean hasSideInputs;
 
-  private StoreProperties(final boolean persistedToDisk, final boolean loggedStore, final boolean hasSideInputs) {
+  private StoreProperties(final boolean persistedToDisk, final boolean loggedStore) {
     this.persistedToDisk = persistedToDisk;
     this.loggedStore = loggedStore;
-    this.hasSideInputs = hasSideInputs;
   }
 
   /**
@@ -50,15 +48,6 @@ public class StoreProperties {
     return loggedStore;
   }
 
-  /**
-   * Flag to indicate whether the store has a side input stream or not
-   *
-   * @return True, if store has side input. False, otherwise
-   */
-  public boolean hasSideInputs() {
-    return hasSideInputs;
-  }
-
   public static class StorePropertiesBuilder {
     private boolean persistedToDisk = false;
     private boolean loggedStore = false;
@@ -74,13 +63,8 @@ public class StoreProperties {
       return this;
     }
 
-    public StorePropertiesBuilder setHasSideInputs(boolean hasSideInputs) {
-      this.hasSideInputs = hasSideInputs;
-      return this;
-    }
-
     public StoreProperties build() {
-      return new StoreProperties(persistedToDisk, loggedStore, hasSideInputs);
+      return new StoreProperties(persistedToDisk, loggedStore);
     }
   }
 }

@@ -47,10 +47,11 @@ import org.apache.samza.job.model.{ContainerModel, JobModel}
 import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.serializers._
 import org.apache.samza.serializers.model.SamzaObjectMapper
-import org.apache.samza.storage.{SideInputStorageManager, StorageEngineFactory, TaskStorageManager}
+import org.apache.samza.storage._
 import org.apache.samza.system._
 import org.apache.samza.system.chooser.{DefaultChooser, MessageChooserFactory, RoundRobinChooserFactory}
 import org.apache.samza.table.TableManager
+import org.apache.samza.table.utils.SerdeUtils
 import org.apache.samza.task._
 import org.apache.samza.util.Util
 import org.apache.samza.util._
@@ -599,6 +600,20 @@ object SamzaContainer extends Logging {
       val (sideInputStores, nonSideInputStores) =
         taskStores.partition { case (storeName, storageEngine) => sideInputStoresToSSPs.contains(storeName)}
 
+      val sideInputStoreToProcessor = sideInputStores.keys
+        .map(storeName => {
+          // serialized instances takes precedence over the instance creation from factory configuration.
+          config.getSerializedSideInputProcessor(storeName) match {
+            case Some(serializedInstance) =>
+              (storeName, SerdeUtils.deserialize("side input processor", serializedInstance).asInstanceOf[SideInputProcessor])
+            case _ => config.getSideInputProcessorFactory(storeName) match {
+              case Some(factory) => val processorFactory = Util.getObj(factory, classOf[SideInputProcessorFactory])
+                (storeName, processorFactory.getSideInputProcessor(config, taskInstanceMetrics.registry))
+              case _ => throw new SamzaException("Failed to create a side input processor for store " + storeName)
+            }
+          }
+        }).toMap
+
       val storageManager = new TaskStorageManager(
         taskName = taskName,
         taskStores = nonSideInputStores,
@@ -619,10 +634,10 @@ object SamzaContainer extends Logging {
       if (sideInputStores.nonEmpty) {
         sideInputStorageManager = new SideInputStorageManager(
           taskName,
-          taskInstanceMetrics.registry,
           streamMetadataCache,
           loggedStorageBaseDir.getPath,
           sideInputStores.asJava,
+          sideInputStoreToProcessor.asJava,
           sideInputStoresToSSPs.asJava,
           systemAdmins,
           config,

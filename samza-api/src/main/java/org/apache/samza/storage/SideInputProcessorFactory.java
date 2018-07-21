@@ -20,6 +20,7 @@
 package org.apache.samza.storage;
 
 import java.io.Serializable;
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.metrics.MetricsRegistry;
 
@@ -27,16 +28,18 @@ import org.apache.samza.metrics.MetricsRegistry;
 /**
  * A factory to build {@link SideInputProcessor}s.
  *
- * Implementations should return a new instance for every invocation of {@link #createInstance(Config, MetricsRegistry)}
+ * Implementations should return a new instance for every invocation of {@link #getSideInputProcessor(Config, MetricsRegistry)}
  */
+@FunctionalInterface
+@InterfaceStability.Unstable
 public interface SideInputProcessorFactory extends Serializable {
   /**
    * Creates a new instance of {@link SideInputProcessor}.
    *
    * @param config the config object
-   * @param metrics the metrics registry
+   * @param metricsRegistry the metrics registry
    *
    * @return an instance of {@link SideInputProcessor}
    */
-  SideInputProcessor createInstance(Config config, MetricsRegistry metrics);
+  SideInputProcessor getSideInputProcessor(Config config, MetricsRegistry metricsRegistry);
 }

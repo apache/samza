@@ -19,7 +19,9 @@
 
 package org.apache.samza.storage;
 
+import java.io.Serializable;
 import java.util.Collection;
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -29,7 +31,9 @@ import org.apache.samza.system.IncomingMessageEnvelope;
  * The processing logic for store side inputs. Accepts incoming messages from side input streams
  * and the current store contents, and returns the new key-value entries to be written to the store.
  */
-public interface SideInputProcessor {
+@FunctionalInterface
+@InterfaceStability.Unstable
+public interface SideInputProcessor extends Serializable {
 
   /**
    * Process the incoming side input message for the {@code store}.

@@ -40,7 +40,6 @@ public class JavaStorageConfig extends MapConfig {
   private static final String FACTORY = "stores.%s.factory";
   private static final String KEY_SERDE = "stores.%s.key.serde";
   private static final String MSG_SERDE = "stores.%s.msg.serde";
-  private static final String SIDE_INPUTS = "stores.%s.side.inputs";
   private static final String SIDE_INPUTS_PROCESSOR_FACTORY = "stores.%s.side.inputs.processor.factory";
   private static final String CHANGELOG_STREAM = "stores.%s.changelog";
   private static final String CHANGELOG_SYSTEM = "job.changelog.system";
@@ -48,6 +47,9 @@ public class JavaStorageConfig extends MapConfig {
   private static final String ACCESSLOG_SAMPLING_RATIO = "stores.%s.accesslog.sampling.ratio";
   private static final String ACCESSLOG_ENABLED = "stores.%s.accesslog.enabled";
   private static final int DEFAULT_ACCESSLOG_SAMPLING_RATIO = 50;
+
+  public static final String SIDE_INPUTS = "stores.%s.side.inputs";
+  public static final String SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE = "stores.%s.side.inputs.processor.serialized.instance";
 
   public JavaStorageConfig(Config config) {
     super(config);
@@ -137,6 +139,9 @@ public class JavaStorageConfig extends MapConfig {
    * Gets the side inputs for the store. A store can have multiple side input streams which can be
    * provided as a comma separated list.
    *
+   * Each value in the side input is of the format {@code systemName}.{@code streamName}.
+   * E.g. stores.storeName.side.inputs=kafka.topicA,mySystem.topicB
+   *
    * @param storeName name of the store
    * @return a list of side input streams for the store, or an empty list if it has none.
    */
@@ -152,10 +157,20 @@ public class JavaStorageConfig extends MapConfig {
   /**
    * Gets the {@link org.apache.samza.storage.SideInputProcessorFactory} associated with the {@code storeName}.
    *
-   * @param storeName store name for to get the {@link org.apache.samza.storage.SideInputProcessorFactory} for
-   * @return the {@link org.apache.samza.storage.SideInputProcessorFactory}
+   * @param storeName name of the store
+   * @return the class name of {@link org.apache.samza.storage.SideInputProcessorFactory} if present, null otherwise
    */
   public String getSideInputProcessorFactory(String storeName) {
     return get(String.format(SIDE_INPUTS_PROCESSOR_FACTORY, storeName), null);
+  }
+
+  /**
+   * Gets the serialized instance of {@link org.apache.samza.storage.SideInputProcessor} associated with the {@code storeName}.
+   *
+   * @param storeName name of the store
+   * @return the serialized instance of {@link org.apache.samza.storage.SideInputProcessor} if present, null otherwise
+   */
+  public String getSideInputsProcessorSerializedInstance(String storeName) {
+    return get(String.format(SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE, storeName), null);
   }
 }

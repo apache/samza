@@ -66,7 +66,7 @@ class TaskInstance(
   val isClosableTask = task.isInstanceOf[ClosableTask]
   val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
 
-  val storageGetter = ScalaJavaUtil.toJavaFunction(
+  val storeSupplier = ScalaJavaUtil.toJavaFunction(
     (storeName: String) => {
       if (storageManager != null && storageManager.getStore(storeName).isDefined) {
         storageManager.getStore(storeName).get.asInstanceOf[KeyValueStore[_, _]]
@@ -78,7 +78,7 @@ class TaskInstance(
     })
 
   val context = new TaskContextImpl(taskName, metrics, containerContext, systemStreamPartitions.asJava, offsetManager,
-                                    storageGetter, tableManager, jobModel, streamMetadataCache, timerExecutor)
+                                    storeSupplier, tableManager, jobModel, streamMetadataCache, timerExecutor)
 
   // store the (ssp -> if this ssp is catched up) mapping. "catched up"
   // means the same ssp in other taskInstances have the same offset as
@@ -281,6 +281,13 @@ class TaskInstance(
       storageManager.stop
     } else {
       debug("Skipping storage manager shutdown for taskName: %s" format taskName)
+    }
+
+    if (sideInputStorageManager != null) {
+      debug("Shutting down side input storage manager for taskName: %s" format taskName)
+      sideInputStorageManager.stop()
+    } else {
+      debug("Skipping side input storage manager shutdown for taskName: %s" format taskName)
     }
   }
 

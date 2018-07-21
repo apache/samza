@@ -24,10 +24,12 @@ import com.google.common.collect.ImmutableList;
 import java.io.File;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -38,7 +40,6 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -49,7 +50,6 @@ import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.FileUtil;
-import org.apache.samza.util.Util;
 
 import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
@@ -72,21 +72,21 @@ public class SideInputStorageManager {
   private final Map<String, StorageEngine> stores;
   private final String storeBaseDir;
   private final Map<String, Set<SystemStreamPartition>> storeToSSps;
-  private final Map<SystemStreamPartition, String> sspsToStore;
+  private final Map<SystemStreamPartition, Set<String>> sspsToStore;
   private final StreamMetadataCache streamMetadataCache;
   private final SystemAdmins systemAdmins;
   private final TaskName taskName;
   private final JavaStorageConfig storageConfig;
-  private final Map<SystemStreamPartition, String> lastProcessedOffsets = new HashMap<>();
+  private final Map<SystemStreamPartition, String> lastProcessedOffsets = new ConcurrentHashMap<>();
 
   private Map<SystemStreamPartition, String> startingOffsets;
 
   public SideInputStorageManager(
       TaskName taskName,
-      MetricsRegistry metricsRegistry,
       StreamMetadataCache streamMetadataCache,
       String storeBaseDir,
       Map<String, StorageEngine> stores,
+      Map<String, SideInputProcessor> storeToProcessor,
       Map<String, Set<SystemStreamPartition>> storeToSSPs,
       SystemAdmins systemAdmins,
       Config config,
@@ -99,21 +99,18 @@ public class SideInputStorageManager {
     this.streamMetadataCache = streamMetadataCache;
     this.systemAdmins = systemAdmins;
     this.taskName = taskName;
+    this.storeToProcessor = storeToProcessor;
 
     validateStoreConfiguration();
-
-    storeToProcessor = stores.keySet().stream()
-        .collect(Collectors.toMap(Function.identity(),
-          storeName -> {
-            SideInputProcessorFactory processorFactory =
-                Util.getObj(storageConfig.getSideInputProcessorFactory(storeName), SideInputProcessorFactory.class);
-            return processorFactory.createInstance(config, metricsRegistry);
-          }));
 
     this.sspsToStore = new HashMap<>();
     storeToSSPs.forEach((store, ssps) -> {
         for (SystemStreamPartition ssp: ssps) {
-          sspsToStore.put(ssp, store);
+          sspsToStore.computeIfAbsent(ssp, key -> new HashSet<>());
+          sspsToStore.computeIfPresent(ssp, (key, value) -> {
+              value.add(store);
+              return value;
+            });
         }
       });
   }
@@ -123,7 +120,14 @@ public class SideInputStorageManager {
    */
   public void init() {
     LOG.info("Initializing side input stores.");
-    startingOffsets = getStartingOffsets();
+    Map<SystemStreamPartition, String> fileOffsets = getFileOffsets();
+
+    startingOffsets = getStartingOffsets(fileOffsets);
+    lastProcessedOffsets.putAll(fileOffsets);
+
+    LOG.info("Starting offsets for the task {}: {}", taskName, startingOffsets);
+    LOG.info("Last processed offsets for the task {}: {}", taskName, lastProcessedOffsets);
+
     initializeStoreDirectories();
   }
 
@@ -186,15 +190,41 @@ public class SideInputStorageManager {
    */
   public void process(IncomingMessageEnvelope message) {
     SystemStreamPartition ssp = message.getSystemStreamPartition();
-    String storeName = sspsToStore.get(ssp);
-    SideInputProcessor sideInputProcessor = storeToProcessor.get(storeName);
+    Set<String> storeNames = sspsToStore.get(ssp);
 
-    KeyValueStore keyValueStore = (KeyValueStore) stores.get(storeName);
-    Collection<Entry<?, ?>> entriesToBeWritten = sideInputProcessor.process(message, keyValueStore);
-    keyValueStore.putAll(ImmutableList.copyOf(entriesToBeWritten));
+    for (String storeName : storeNames) {
+      SideInputProcessor sideInputProcessor = storeToProcessor.get(storeName);
+
+      KeyValueStore keyValueStore = (KeyValueStore) stores.get(storeName);
+      Collection<Entry<?, ?>> entriesToBeWritten = sideInputProcessor.process(message, keyValueStore);
+      keyValueStore.putAll(ImmutableList.copyOf(entriesToBeWritten));
+    }
 
     // update the last processed offset
     lastProcessedOffsets.put(ssp, message.getOffset());
+  }
+
+  /**
+   * Initializes the store directories for all the stores:
+   *  1. Cleans up the directories for invalid stores.
+   *  2. Ensures that the directories exist.
+   */
+  private void initializeStoreDirectories() {
+    LOG.info("Initializing side input store directories.");
+
+    stores.keySet().forEach(storeName -> {
+        File storeLocation = getStoreLocation(storeName);
+        String storePath = storeLocation.toPath().toString();
+        if (!isValidSideInputStore(storeName, storeLocation)) {
+          LOG.info("Cleaning up the store directory at {} for {}", storePath, storeName);
+          FileUtil.rm(storeLocation);
+        }
+
+        if (!storeLocation.exists()) {
+          LOG.info("Creating {} as the store directory for the side input store {}", storePath, storeName);
+          storeLocation.mkdirs();
+        }
+      });
   }
 
   /**
@@ -235,7 +265,7 @@ public class SideInputStorageManager {
         LOG.debug("Reading local offsets for store {}", storeName);
 
         File storeLocation = getStoreLocation(storeName);
-        if (!isValidSideInputStore(storeName)) {
+        if (isValidSideInputStore(storeName, storeLocation)) {
           try {
             String checkpoint = StorageManagerUtil.readOffsetFile(storeLocation, OFFSET_FILE);
             Map<SystemStreamPartition, String> offsets = OBJECT_MAPPER.readValue(checkpoint, Map.class);
@@ -255,15 +285,15 @@ public class SideInputStorageManager {
 
   /**
    * Initializes the starting offsets for the {@link SystemStreamPartition}s belonging to all the side input stores:
-   *   1. Gets the store offsets & filters out the offsets for stale stores
+   *   1. Gets the store offsets and filters out the offsets for stale stores
    *   2. Gets the oldest SSP offsets from the source; e.g. Kafka
    *   3. If locally checkpointed offset is available and is greater than the oldest available offset from source, pick it
    *      Otherwise, fallback to oldest offset in the source.
    *
+   * @param fileOffsets offsets from the local checkpointed file
    * @return a {@link Map} of {@link SystemStreamPartition} to offset
    */
-  private Map<SystemStreamPartition, String> getStartingOffsets() {
-    Map<SystemStreamPartition, String> fileOffsets = getFileOffsets();
+  private Map<SystemStreamPartition, String> getStartingOffsets(Map<SystemStreamPartition, String> fileOffsets) {
     Map<SystemStreamPartition, String> oldestOffsets = getOldestOffsets();
 
     Map<SystemStreamPartition, String> startingOffsets = new HashMap<>();
@@ -318,34 +348,9 @@ public class SideInputStorageManager {
     return oldestOffsets;
   }
 
-  /**
-   * Initializes the store directories for all the stores:
-   *  1. Cleans up the directories for invalid stores.
-   *  2. Ensures that the directories exist.
-   */
-  private void initializeStoreDirectories() {
-    LOG.info("Initializing side input store directories.");
-
-    stores.keySet().forEach(storeName -> {
-        File storeLocation = getStoreLocation(storeName);
-        String storePath = storeLocation.toPath().toString();
-        if (!isValidSideInputStore(storeName)) {
-          LOG.info("Cleaning up the store directory at {} for {}", storePath, storeName);
-          FileUtil.rm(storeLocation);
-        }
-
-        if (!storeLocation.exists()) {
-          LOG.info("Creating {} as the store directory for the side input store {}", storePath, storeName);
-          storeLocation.mkdirs();
-        }
-      });
-  }
-
-  private boolean isValidSideInputStore(String storeName) {
-    File storeLocation = getStoreLocation(storeName);
-
+  private boolean isValidSideInputStore(String storeName, File storeLocation) {
     return isPersistedStore(storeName)
-        && StorageManagerUtil.isStaleStore(storeLocation, OFFSET_FILE, STORE_DELETE_RETENTION_MS, clock.currentTimeMillis())
+        && !StorageManagerUtil.isStaleStore(storeLocation, OFFSET_FILE, STORE_DELETE_RETENTION_MS, clock.currentTimeMillis())
         && StorageManagerUtil.isOffsetFileValid(storeLocation, OFFSET_FILE);
   }
 

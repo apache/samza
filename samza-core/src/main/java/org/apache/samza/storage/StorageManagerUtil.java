@@ -91,7 +91,6 @@ public class StorageManagerUtil {
       }
     } else {
       LOG.info("Storage partition directory: {} does not exist.", storePath);
-      LOG.info("{}", storePath, storePath);
     }
     return isStaleStore;
   }
