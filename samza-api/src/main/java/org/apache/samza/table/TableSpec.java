@@ -19,7 +19,6 @@
 package org.apache.samza.table;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -55,7 +54,7 @@ public class TableSpec implements Serializable {
    * once during startup in SamzaContainer. They don't need to be deserialized here on a per-task basis
    */
   private transient final KVSerde serde;
-  private transient final List<String> sideInputs = new ArrayList<>();
+  private transient final List<String> sideInputs;
   private transient final SideInputProcessor sideInputProcessor;
   private transient final Map<String, String> config = new HashMap<>();
 
@@ -66,6 +65,7 @@ public class TableSpec implements Serializable {
     this.id = null;
     this.serde = null;
     this.tableProviderFactoryClassName = null;
+    this.sideInputs = null;
     this.sideInputProcessor = null;
   }
 
@@ -97,7 +97,7 @@ public class TableSpec implements Serializable {
     this.serde = serde;
     this.tableProviderFactoryClassName = tableProviderFactoryClassName;
     this.config.putAll(config);
-    this.sideInputs.addAll(sideInputs);
+    this.sideInputs = sideInputs;
     this.sideInputProcessor = sideInputProcessor;
   }
 

@@ -110,7 +110,7 @@ abstract public class BaseLocalStoreBackedTableProvider implements TableProvider
 
     // We already validate up the chain on the invariant that the side input processor is present in the case of
     // side inputs
-    if (!sideInputs.isEmpty()) {
+    if (sideInputs != null && !sideInputs.isEmpty()) {
       String formattedSideInputs = sideInputs.stream()
           .collect(Collectors.joining(","));
 
