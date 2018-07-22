@@ -18,10 +18,8 @@
  */
 package org.apache.samza.operators;
 
-import java.util.List;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.storage.SideInputProcessor;
 
 
 /**
@@ -73,25 +71,4 @@ public interface TableDescriptor<K, V, D extends TableDescriptor<K, V, D>> {
    */
   D withConfig(String key, String value);
 
-  /**
-   * Add side inputs to this table.
-   *
-   * @param sideInputs list of side inputs
-   *
-   * @return this table descriptor instance
-   */
-  default D withSideInputs(List<String> sideInputs) {
-    return (D) this;
-  }
-
-  /**
-   * Adds a {@link SideInputProcessor} to this table.
-   *
-   * @param sideInputProcessor side input processor
-   *
-   * @return this table descriptor instance
-   */
-  default D withSideInputProcessor(SideInputProcessor sideInputProcessor) {
-    return (D) this;
-  }
 }

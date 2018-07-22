@@ -25,7 +25,9 @@ public class StoreProperties {
   private final boolean persistedToDisk;
   private final boolean loggedStore;
 
-  private StoreProperties(final boolean persistedToDisk, final boolean loggedStore) {
+  private StoreProperties(
+      final boolean persistedToDisk,
+      final boolean loggedStore) {
     this.persistedToDisk = persistedToDisk;
     this.loggedStore = loggedStore;
   }
@@ -51,7 +53,6 @@ public class StoreProperties {
   public static class StorePropertiesBuilder {
     private boolean persistedToDisk = false;
     private boolean loggedStore = false;
-    private boolean hasSideInputs = false;
 
     public StorePropertiesBuilder setPersistedToDisk(boolean persistedToDisk) {
       this.persistedToDisk = persistedToDisk;

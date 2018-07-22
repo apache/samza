@@ -79,14 +79,13 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
                         changeLogSystemStreamPartition: SystemStreamPartition,
                         containerContext: SamzaContainerContext): StorageEngine = {
     val storageConfig = containerContext.config.subset("stores." + storeName + ".", true)
-    val storeFactory = storageConfig.get("factory", null)
+    val storeFactory = storageConfig.get("factory")
     var storePropertiesBuilder = new StoreProperties.StorePropertiesBuilder()
     val accessLog = storageConfig.getBoolean("accesslog.enabled", false)
 
     if (storeFactory == null) {
       throw new SamzaException("Store factory not defined. Cannot proceed with KV store creation!")
     }
-
     if (!storeFactory.equals(INMEMORY_KV_STORAGE_ENGINE_FACTORY)) {
       storePropertiesBuilder = storePropertiesBuilder.setPersistedToDisk(true)
     }

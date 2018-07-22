@@ -202,9 +202,7 @@ public class JobNode {
         // Generate additional configuration
         TableProviderFactory tableProviderFactory =
             Util.getObj(tableSpec.getTableProviderFactoryClassName(), TableProviderFactory.class);
-
         TableProvider tableProvider = tableProviderFactory.getTableProvider(tableSpec);
-        // Note: side inputs and serialized side input processor are configured as part of provider generateConfig method
         configs.putAll(tableProvider.generateConfig(configs));
       });
 
