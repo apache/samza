@@ -21,7 +21,6 @@ package org.apache.samza.operators;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.serializers.KVSerde;
 
-
 /**
  * User facing class to collect metadata that fully describes a
  * Samza table. This interface should be implemented by concrete table implementations.

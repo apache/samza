@@ -40,7 +40,6 @@ public interface SideInputsProcessor extends Serializable {
    *
    * @param message incoming message envelope
    * @param store the store associated with the incoming message envelope
-   *
    * @return a {@link Collection} of {@link Entry}s that will be written to the {@code store}.
    */
   Collection<Entry<?, ?>> process(IncomingMessageEnvelope message, KeyValueStore store);
