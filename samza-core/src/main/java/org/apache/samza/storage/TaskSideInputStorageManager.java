@@ -61,18 +61,18 @@ import scala.collection.JavaConverters;
  * A storage manager for all side input stores. It is associated with each {@link org.apache.samza.container.TaskInstance}
  * and is responsible for handling directory management, offset tracking and offset file management for the side input stores.
  */
-public class SideInputStorageManager {
-  private static final Logger LOG = LoggerFactory.getLogger(SideInputStorageManager.class);
+public class TaskSideInputStorageManager {
+  private static final Logger LOG = LoggerFactory.getLogger(TaskSideInputStorageManager.class);
   private static final String OFFSET_FILE = "SIDE-INPUT-OFFSETS";
   private static final long STORE_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1); // same as changelog delete retention
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   private final Clock clock;
-  private final Map<String, SideInputProcessor> storeToProcessor;
+  private final Map<String, SideInputsProcessor> storeToProcessor;
   private final Map<String, StorageEngine> stores;
   private final String storeBaseDir;
   private final Map<String, Set<SystemStreamPartition>> storeToSSps;
-  private final Map<SystemStreamPartition, Set<String>> sspToStores;
+  private final Map<SystemStreamPartition, Set<String>> sspsToStores;
   private final StreamMetadataCache streamMetadataCache;
   private final SystemAdmins systemAdmins;
   private final TaskName taskName;
@@ -81,33 +81,33 @@ public class SideInputStorageManager {
 
   private Map<SystemStreamPartition, String> startingOffsets;
 
-  public SideInputStorageManager(
+  public TaskSideInputStorageManager(
       TaskName taskName,
       StreamMetadataCache streamMetadataCache,
       String storeBaseDir,
-      Map<String, StorageEngine> stores,
-      Map<String, SideInputProcessor> storeToProcessor,
-      Map<String, Set<SystemStreamPartition>> storeToSSPs,
+      Map<String, StorageEngine> sideInputStores,
+      Map<String, SideInputsProcessor> storesToProcessor,
+      Map<String, Set<SystemStreamPartition>> storesToSSPs,
       SystemAdmins systemAdmins,
       Config config,
       Clock clock) {
     this.clock = clock;
     this.storageConfig = new JavaStorageConfig(config);
-    this.stores = stores;
+    this.stores = sideInputStores;
     this.storeBaseDir = storeBaseDir;
-    this.storeToSSps = storeToSSPs;
+    this.storeToSSps = storesToSSPs;
     this.streamMetadataCache = streamMetadataCache;
     this.systemAdmins = systemAdmins;
     this.taskName = taskName;
-    this.storeToProcessor = storeToProcessor;
+    this.storeToProcessor = storesToProcessor;
 
     validateStoreConfiguration();
 
-    this.sspToStores = new HashMap<>();
-    storeToSSPs.forEach((store, ssps) -> {
+    this.sspsToStores = new HashMap<>();
+    storesToSSPs.forEach((store, ssps) -> {
         for (SystemStreamPartition ssp: ssps) {
-          sspToStores.computeIfAbsent(ssp, key -> new HashSet<>());
-          sspToStores.computeIfPresent(ssp, (key, value) -> {
+          sspsToStores.computeIfAbsent(ssp, key -> new HashSet<>());
+          sspsToStores.computeIfPresent(ssp, (key, value) -> {
               value.add(store);
               return value;
             });
@@ -190,13 +190,13 @@ public class SideInputStorageManager {
    */
   public void process(IncomingMessageEnvelope message) {
     SystemStreamPartition ssp = message.getSystemStreamPartition();
-    Set<String> storeNames = sspToStores.get(ssp);
+    Set<String> storeNames = sspsToStores.get(ssp);
 
     for (String storeName : storeNames) {
-      SideInputProcessor sideInputProcessor = storeToProcessor.get(storeName);
+      SideInputsProcessor sideInputsProcessor = storeToProcessor.get(storeName);
 
       KeyValueStore keyValueStore = (KeyValueStore) stores.get(storeName);
-      Collection<Entry<?, ?>> entriesToBeWritten = sideInputProcessor.process(message, keyValueStore);
+      Collection<Entry<?, ?>> entriesToBeWritten = sideInputsProcessor.process(message, keyValueStore);
       keyValueStore.putAll(ImmutableList.copyOf(entriesToBeWritten));
     }
 
@@ -241,12 +241,11 @@ public class SideInputStorageManager {
               .collect(Collectors.toMap(Function.identity(), lastProcessedOffsets::get));
 
             try {
-              String checkpoint = OBJECT_MAPPER.writeValueAsString(offsets);
+              String fileContents = OBJECT_MAPPER.writeValueAsString(offsets);
               File offsetFile = new File(getStoreLocation(storeName), OFFSET_FILE);
-              FileUtil.writeWithChecksum(offsetFile, checkpoint);
+              FileUtil.writeWithChecksum(offsetFile, fileContents);
             } catch (Exception e) {
-              LOG.error("Encountered error while checkpointing to the file due to", e);
-              throw new SamzaException("Failed to checkpoint for side input store " + storeName, e);
+              throw new SamzaException("Failed to write offset file for side input store: " + storeName, e);
             }
           });
   }
@@ -267,11 +266,11 @@ public class SideInputStorageManager {
         File storeLocation = getStoreLocation(storeName);
         if (isValidSideInputStore(storeName, storeLocation)) {
           try {
-            String checkpoint = StorageManagerUtil.readOffsetFile(storeLocation, OFFSET_FILE);
-            Map<SystemStreamPartition, String> offsets = OBJECT_MAPPER.readValue(checkpoint, Map.class);
+            String fileContents = StorageManagerUtil.readOffsetFile(storeLocation, OFFSET_FILE);
+            Map<SystemStreamPartition, String> offsets = OBJECT_MAPPER.readValue(fileContents, Map.class);
             fileOffsets.putAll(offsets);
           } catch (Exception e) {
-            LOG.warn("Failed to load the checkpoints for store " + storeName, e);
+            LOG.warn("Failed to load the offset file for side input store:" + storeName, e);
           }
         }
       });
@@ -287,10 +286,10 @@ public class SideInputStorageManager {
    * Initializes the starting offsets for the {@link SystemStreamPartition}s belonging to all the side input stores:
    *   1. Gets the store offsets and filters out the offsets for stale stores
    *   2. Gets the oldest SSP offsets from the source; e.g. Kafka
-   *   3. If locally checkpointed offset is available and is greater than the oldest available offset from source, pick it
+   *   3. If local offset is available and is greater than the oldest available offset from source, pick it
    *      Otherwise, fallback to oldest offset in the source.
    *
-   * @param fileOffsets offsets from the local checkpointed file
+   * @param fileOffsets offsets from the local offset file
    * @return a {@link Map} of {@link SystemStreamPartition} to offset
    */
   private Map<SystemStreamPartition, String> getStartingOffsets(Map<SystemStreamPartition, String> fileOffsets) {
@@ -298,7 +297,7 @@ public class SideInputStorageManager {
 
     Map<SystemStreamPartition, String> startingOffsets = new HashMap<>();
 
-    sspToStores.keySet().forEach(ssp -> {
+    sspsToStores.keySet().forEach(ssp -> {
         String fileOffset = fileOffsets.get(ssp);
         String oldestOffset = oldestOffsets.get(ssp);
 
@@ -323,7 +322,7 @@ public class SideInputStorageManager {
     Map<SystemStreamPartition, String> oldestOffsets = new HashMap<>();
 
     // Step 1
-    Map<SystemStream, List<SystemStreamPartition>> systemStreamToSsp = sspToStores.keySet().stream()
+    Map<SystemStream, List<SystemStreamPartition>> systemStreamToSsp = sspsToStores.keySet().stream()
         .collect(Collectors.groupingBy(SystemStreamPartition::getSystemStream));
 
     // Step 2
@@ -363,7 +362,7 @@ public class SideInputStorageManager {
 
   private void validateStoreConfiguration() {
     stores.forEach((storeName, storageEngine) -> {
-        if (StringUtils.isBlank(storageConfig.getSideInputProcessorFactory(storeName))) {
+        if (StringUtils.isBlank(storageConfig.getSideInputsProcessorFactory(storeName))) {
           throw new SamzaException(
               String.format("Side inputs processor factory configuration missing for store: %s.", storeName));
         }

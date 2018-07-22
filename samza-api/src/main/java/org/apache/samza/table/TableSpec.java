@@ -26,7 +26,7 @@ import java.util.Map;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.storage.SideInputProcessor;
+import org.apache.samza.storage.SideInputsProcessor;
 
 
 /**
@@ -55,7 +55,7 @@ public class TableSpec implements Serializable {
    */
   private transient final KVSerde serde;
   private transient final List<String> sideInputs;
-  private transient final SideInputProcessor sideInputProcessor;
+  private transient final SideInputsProcessor sideInputsProcessor;
   private transient final Map<String, String> config = new HashMap<>();
 
   /**
@@ -66,7 +66,7 @@ public class TableSpec implements Serializable {
     this.serde = null;
     this.tableProviderFactoryClassName = null;
     this.sideInputs = null;
-    this.sideInputProcessor = null;
+    this.sideInputsProcessor = null;
   }
 
   /**
@@ -89,16 +89,16 @@ public class TableSpec implements Serializable {
    * @param serde the serde
    * @param config implementation specific configuration
    * @param sideInputs list of side inputs for the table
-   * @param sideInputProcessor side input processor for the table
+   * @param sideInputsProcessor side input processor for the table
    */
   public TableSpec(String tableId, KVSerde serde, String tableProviderFactoryClassName, Map<String, String> config,
-      List<String> sideInputs, SideInputProcessor sideInputProcessor) {
+      List<String> sideInputs, SideInputsProcessor sideInputsProcessor) {
     this.id = tableId;
     this.serde = serde;
     this.tableProviderFactoryClassName = tableProviderFactoryClassName;
     this.config.putAll(config);
     this.sideInputs = sideInputs;
-    this.sideInputProcessor = sideInputProcessor;
+    this.sideInputsProcessor = sideInputsProcessor;
   }
 
   /**
@@ -145,12 +145,12 @@ public class TableSpec implements Serializable {
   }
 
   /**
-   * Get the {@link SideInputProcessor} associated with the table.
+   * Get the {@link SideInputsProcessor} associated with the table.
    *
-   * @return a {@link SideInputProcessor}
+   * @return a {@link SideInputsProcessor}
    */
-  public SideInputProcessor getSideInputProcessor() {
-    return sideInputProcessor;
+  public SideInputsProcessor getSideInputsProcessor() {
+    return sideInputsProcessor;
   }
 
   @Override

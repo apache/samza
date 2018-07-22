@@ -35,14 +35,13 @@ public class StorageManagerUtil {
    * Fetch the starting offset for the input {@link SystemStreamPartition}
    *
    * Note: The method doesn't respect {@link org.apache.samza.config.StreamConfig#CONSUMER_OFFSET_DEFAULT()} and
-   * {@link org.apache.samza.config.StreamConfig#CONSUMER_RESET_OFFSET()} configurations and will use the locally
-   * checkpointed offset if its valid or fallback to oldest offset of the stream.
+   * {@link org.apache.samza.config.StreamConfig#CONSUMER_RESET_OFFSET()} configurations. It will use the locally
+   * checkpointed offset if it is valid, or fall back to oldest offset of the stream.
    *
    * @param ssp system stream partition for which starting offset is requested
    * @param admin system admin associated with the ssp
    * @param fileOffset local file offset for the ssp
    * @param oldestOffset oldest offset for the ssp from the source
-   *
    * @return starting offset for the incoming {@link SystemStreamPartition}
    */
   public static String getStartingOffset(
@@ -73,7 +72,6 @@ public class StorageManagerUtil {
    * @param offsetFileName the offset file name
    * @param storeDeleteRetentionInMs store delete retention in millis
    * @param currentTimeMs current time in ms
-   *
    * @return true if the store is stale, false otherwise
    */
   public static boolean isStaleStore(
@@ -100,7 +98,6 @@ public class StorageManagerUtil {
    *
    * @param storeDir the base directory of the store
    * @param offsetFileName name of the offset file
-   *
    * @return true if the offset file is valid. false otherwise.
    */
   public static boolean isOffsetFileValid(File storeDir, String offsetFileName) {
@@ -122,7 +119,6 @@ public class StorageManagerUtil {
    *
    * @param storagePartitionDir the base directory of the store
    * @param offsetFileName name of the offset file
-   *
    * @return the content of the offset file if it exists for the store, null otherwise.
    */
   public static String readOffsetFile(File storagePartitionDir, String offsetFileName) {

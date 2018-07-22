@@ -29,7 +29,7 @@ import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.storage.kv.KeyValueStore
-import org.apache.samza.storage.{SideInputStorageManager, TaskStorageManager}
+import org.apache.samza.storage.{TaskSideInputStorageManager, TaskStorageManager}
 import org.apache.samza.system._
 import org.apache.samza.table.TableManager
 import org.apache.samza.task._
@@ -58,7 +58,7 @@ class TaskInstance(
   streamMetadataCache: StreamMetadataCache = null,
   timerExecutor : ScheduledExecutorService = null,
   sideInputSSPs: Set[SystemStreamPartition] = Set(),
-  sideInputStorageManager: SideInputStorageManager = null) extends Logging {
+  sideInputStorageManager: TaskSideInputStorageManager = null) extends Logging {
 
   val isInitableTask = task.isInstanceOf[InitableTask]
   val isWindowableTask = task.isInstanceOf[WindowableTask]
@@ -66,7 +66,7 @@ class TaskInstance(
   val isClosableTask = task.isInstanceOf[ClosableTask]
   val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
 
-  val storeSupplier = ScalaJavaUtil.toJavaFunction(
+  val kvStoreSupplier = ScalaJavaUtil.toJavaFunction(
     (storeName: String) => {
       if (storageManager != null && storageManager.getStore(storeName).isDefined) {
         storageManager.getStore(storeName).get.asInstanceOf[KeyValueStore[_, _]]
@@ -78,7 +78,7 @@ class TaskInstance(
     })
 
   val context = new TaskContextImpl(taskName, metrics, containerContext, systemStreamPartitions.asJava, offsetManager,
-                                    storeSupplier, tableManager, jobModel, streamMetadataCache, timerExecutor)
+                                    kvStoreSupplier, tableManager, jobModel, streamMetadataCache, timerExecutor)
 
   // store the (ssp -> if this ssp is catched up) mapping. "catched up"
   // means the same ssp in other taskInstances have the same offset as

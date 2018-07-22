@@ -87,6 +87,26 @@ object Util extends Logging {
   }
 
   /**
+    * Gets the [[SystemStream]] corresponding to the provided stream, which may be
+    * a streamId, or stream name of the format systemName.streamName.
+    *
+    * @param stream the stream name or id to get the { @link SystemStream} for.
+    * @return the [[SystemStream]] for the stream
+    */
+  def getSystemStreamFromNameOrId(config: Config, stream: String): SystemStream = {
+    val parts = stream.split(".")
+    if (parts.length == 0 || parts.length > 2) {
+      throw new SamzaException(
+        String.format("Invalid stream %s. Expected to be of the format streamId or systemName.streamName", stream))
+    }
+    if (parts.length == 1) {
+      new StreamConfig(config).streamIdToSystemStream(stream)
+    } else {
+      new SystemStream(parts(0), parts(1))
+    }
+  }
+
+  /**
    * Returns the the first host address which is not the loopback address, or [[java.net.InetAddress#getLocalHost]] as a fallback
    *
    * @return the [[java.net.InetAddress]] which represents the localhost

@@ -48,7 +48,7 @@ public class TaskContextImpl implements TaskContext {
   private final SamzaContainerContext containerContext;
   private final Set<SystemStreamPartition> systemStreamPartitions;
   private final OffsetManager offsetManager;
-  private final Function<String, KeyValueStore> storageGetter;
+  private final Function<String, KeyValueStore> kvStoreSupplier;
   private final TableManager tableManager;
   private final JobModel jobModel;
   private final StreamMetadataCache streamMetadataCache;
@@ -62,7 +62,7 @@ public class TaskContextImpl implements TaskContext {
                          SamzaContainerContext containerContext,
                          Set<SystemStreamPartition> systemStreamPartitions,
                          OffsetManager offsetManager,
-                         Function<String, KeyValueStore> storageGetter,
+                         Function<String, KeyValueStore> kvStoreSupplier,
                          TableManager tableManager,
                          JobModel jobModel,
                          StreamMetadataCache streamMetadataCache,
@@ -72,7 +72,7 @@ public class TaskContextImpl implements TaskContext {
     this.containerContext = containerContext;
     this.systemStreamPartitions = ImmutableSet.copyOf(systemStreamPartitions);
     this.offsetManager = offsetManager;
-    this.storageGetter = storageGetter;
+    this.kvStoreSupplier = kvStoreSupplier;
     this.tableManager = tableManager;
     this.jobModel = jobModel;
     this.streamMetadataCache = streamMetadataCache;
@@ -91,11 +91,10 @@ public class TaskContextImpl implements TaskContext {
 
   @Override
   public KeyValueStore getStore(String storeName) {
-    KeyValueStore store = storageGetter.apply(storeName);
+    KeyValueStore store = kvStoreSupplier.apply(storeName);
     if (store == null) {
-      LOG.warn("No store was found for name: " + storeName);
+      LOG.warn("No store found for name: {}", storeName);
     }
-
     return store;
   }
 

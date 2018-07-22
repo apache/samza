@@ -18,12 +18,13 @@
  */
 package org.apache.samza.storage.kv;
 
+import com.google.common.base.Preconditions;
+
 import java.util.List;
 import java.util.Map;
 
-import org.apache.samza.SamzaException;
 import org.apache.samza.operators.BaseTableDescriptor;
-import org.apache.samza.storage.SideInputProcessor;
+import org.apache.samza.storage.SideInputsProcessor;
 
 
 /**
@@ -36,7 +37,7 @@ import org.apache.samza.storage.SideInputProcessor;
 abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLocalStoreBackedTableDescriptor<K, V, D>>
     extends BaseTableDescriptor<K, V, D> {
   protected List<String> sideInputs;
-  protected SideInputProcessor sideInputProcessor;
+  protected SideInputsProcessor sideInputsProcessor;
 
   /**
    * Constructs a table descriptor instance
@@ -46,23 +47,19 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
     super(tableId);
   }
 
+  public D withSideInputs(List<String> sideInputs) {
+    this.sideInputs = sideInputs;
+    return (D) this;
+  }
+
+  public D withSideInputsProcessor(SideInputsProcessor sideInputsProcessor) {
+    this.sideInputsProcessor = sideInputsProcessor;
+    return (D) this;
+  }
+
   @Override
   protected void generateTableSpecConfig(Map<String, String> tableSpecConfig) {
     super.generateTableSpecConfig(tableSpecConfig);
-  }
-
-  @Override
-  public D withSideInputs(List<String> sideInputs) {
-    this.sideInputs = sideInputs;
-
-    return (D) this;
-  }
-
-  @Override
-  public D withSideInputProcessor(SideInputProcessor sideInputProcessor) {
-    this.sideInputProcessor = sideInputProcessor;
-
-    return (D) this;
   }
 
   /**
@@ -70,8 +67,10 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
    */
   protected void validate() {
     super.validate();
-    if (sideInputs != null && !sideInputs.isEmpty() && sideInputProcessor == null) {
-      throw new SamzaException("Invalid table configuration. Missing side input processor for table " + tableId);
+    if (sideInputs != null || sideInputsProcessor != null) {
+      Preconditions.checkArgument(sideInputs != null && !sideInputs.isEmpty() && sideInputsProcessor != null,
+          String.format("Invalid side input configuration for table: %s. " +
+              "Both side inputs and the processor must be provided", tableId));
     }
   }
 

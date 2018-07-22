@@ -80,11 +80,11 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
     new JavaStorageConfig(config).getSideInputs(storeName).asScala
   }
 
-  def getSideInputProcessorFactory(storeName: String) = {
-    Option(new JavaStorageConfig(config).getSideInputProcessorFactory(storeName))
+  def getSideInputsProcessorFactory(storeName: String): Option[String] = {
+    Option(new JavaStorageConfig(config).getSideInputsProcessorFactory(storeName))
   }
 
-  def getSerializedSideInputProcessor(storeName: String) = {
+  def getSideInputsProcessorSerializedInstance(storeName: String): Option[String] = {
     Option(new JavaStorageConfig(config).getSideInputsProcessorSerializedInstance(storeName))
   }
 

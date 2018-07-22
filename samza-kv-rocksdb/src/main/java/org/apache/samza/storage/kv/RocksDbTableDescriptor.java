@@ -183,7 +183,7 @@ public class RocksDbTableDescriptor<K, V> extends BaseLocalStoreBackedTableDescr
     generateTableSpecConfig(tableSpecConfig);
 
     return new TableSpec(tableId, serde, RocksDbTableProviderFactory.class.getName(), tableSpecConfig,
-        sideInputs, sideInputProcessor);
+        sideInputs, sideInputsProcessor);
   }
 
   @Override

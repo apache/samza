@@ -326,7 +326,7 @@ object SamzaContainer extends Logging {
       .getStoreNames
       .filter(config.getChangelogStream(_).isDefined)
       .map(name => (name, config.getChangelogStream(name).get)).toMap
-      .mapValues(Util.getSystemStreamFromNames)
+      .mapValues(Util.getSystemStreamFromNames(_))
 
     info("Got change log system streams: %s" format changeLogSystemStreams)
 
@@ -357,10 +357,10 @@ object SamzaContainer extends Logging {
     val sideInputStoresToSystemStreams = config.getStoreNames
       .map { storeName => (storeName, config.getSideInputs(storeName)) }
       .filter { case (storeName, sideInputs) => sideInputs.nonEmpty }
-      .map { case (storeName, sideInputs) => (storeName, sideInputs.map(Util.getSystemStreamFromNames)) }
+      .map { case (storeName, sideInputs) => (storeName, sideInputs.map(Util.getSystemStreamFromNameOrId(config, _))) }
       .toMap
 
-    info("Got side input store streams: %s" format sideInputStoresToSystemStreams)
+    info("Got side input store system streams: %s" format sideInputStoresToSystemStreams)
 
     val controlMessageKeySerdes = intermediateStreams
       .flatMap(streamId => {
@@ -585,33 +585,27 @@ object SamzaContainer extends Logging {
 
       info("Got task stores: %s" format taskStores)
 
-      val systemStreamPartitions = taskModel
-        .getSystemStreamPartitions
-        .asScala
-        .toSet
-
-      info("Retrieved SystemStreamPartitions " + systemStreamPartitions + " for " + taskName)
-
-      val sideInputStoresToSSPs = sideInputStoresToSystemStreams.mapValues(
-          sideInputs => systemStreamPartitions.filter(ssp => sideInputs.contains(ssp.getSystemStream)).asJava)
-
-      val allSideInputSSPs = sideInputStoresToSSPs.values.flatMap(_.asScala).toSet
+      val taskSSPs = taskModel.getSystemStreamPartitions.asScala.toSet
+      info("Got task SSPs: %s" format taskSSPs)
 
       val (sideInputStores, nonSideInputStores) =
-        taskStores.partition { case (storeName, storageEngine) => sideInputStoresToSSPs.contains(storeName)}
+        taskStores.partition { case (storeName, _) => sideInputStoresToSystemStreams.contains(storeName)}
 
-      val sideInputStoreToProcessor = sideInputStores.keys
-        .map(storeName => {
-          // serialized instances takes precedence over the instance creation from factory configuration.
-          config.getSerializedSideInputProcessor(storeName) match {
-            case Some(serializedInstance) =>
-              (storeName, SerdeUtils.deserialize("side input processor", serializedInstance).asInstanceOf[SideInputProcessor])
-            case _ => config.getSideInputProcessorFactory(storeName) match {
-              case Some(factory) => val processorFactory = Util.getObj(factory, classOf[SideInputProcessorFactory])
-                (storeName, processorFactory.getSideInputProcessor(config, taskInstanceMetrics.registry))
-              case _ => throw new SamzaException("Failed to create a side input processor for store " + storeName)
-            }
-          }
+      val sideInputStoresToSSPs = sideInputStoresToSystemStreams.mapValues(sideInputSystemStreams =>
+        taskSSPs.filter(ssp => sideInputSystemStreams.contains(ssp.getSystemStream)).asJava)
+
+      val taskSideInputSSPs = sideInputStoresToSSPs.values.flatMap(_.asScala).toSet
+
+      info ("Got task side input SSPs: %s" format taskSideInputSSPs)
+
+      val sideInputStoresToProcessor = sideInputStores.keys.map(storeName => {
+          // serialized instances takes precedence over the factory configuration.
+          config.getSideInputsProcessorSerializedInstance(storeName).map(serializedInstance =>
+              (storeName, SerdeUtils.deserialize("Side Inputs Processor", serializedInstance)))
+            .orElse(config.getSideInputsProcessorFactory(storeName).map(factoryClassName =>
+              (storeName, Util.getObj(factoryClassName, classOf[SideInputsProcessorFactory])
+                .getSideInputsProcessor(config, taskInstanceMetrics.registry))))
+            .get
         }).toMap
 
       val storageManager = new TaskStorageManager(
@@ -629,15 +623,14 @@ object SamzaContainer extends Logging {
         new StorageConfig(config).getChangeLogDeleteRetentionsInMs,
         new SystemClock)
 
-      var sideInputStorageManager: SideInputStorageManager = null
-
+      var sideInputStorageManager: TaskSideInputStorageManager = null
       if (sideInputStores.nonEmpty) {
-        sideInputStorageManager = new SideInputStorageManager(
+        sideInputStorageManager = new TaskSideInputStorageManager(
           taskName,
           streamMetadataCache,
           loggedStorageBaseDir.getPath,
           sideInputStores.asJava,
-          sideInputStoreToProcessor.asJava,
+          sideInputStoresToProcessor.asJava,
           sideInputStoresToSSPs.asJava,
           systemAdmins,
           config,
@@ -661,12 +654,12 @@ object SamzaContainer extends Logging {
           storageManager = storageManager,
           tableManager = tableManager,
           reporters = reporters,
-          systemStreamPartitions = systemStreamPartitions,
+          systemStreamPartitions = taskSSPs,
           exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics, config),
           jobModel = jobModel,
           streamMetadataCache = streamMetadataCache,
           timerExecutor = timerExecutor,
-          sideInputSSPs = allSideInputSSPs,
+          sideInputSSPs = taskSideInputSSPs,
           sideInputStorageManager = sideInputStorageManager)
 
       val taskInstance = createTaskInstance(task)

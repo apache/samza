@@ -51,7 +51,7 @@ public class InMemoryTableDescriptor<K, V> extends BaseLocalStoreBackedTableDesc
     generateTableSpecConfig(tableSpecConfig);
 
     return new TableSpec(tableId, serde, InMemoryTableProviderFactory.class.getName(), tableSpecConfig,
-        sideInputs, sideInputProcessor);
+        sideInputs, sideInputsProcessor);
   }
 
   private void addInMemoryConfig(Map<String, String> map, String key, String value) {
