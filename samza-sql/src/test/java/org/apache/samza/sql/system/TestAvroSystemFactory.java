@@ -292,7 +292,7 @@ public class TestAvroSystemFactory implements SystemFactory {
       GenericRecord record = new GenericData.Record(ComplexRecord.SCHEMA$);
       record.put("id", index);
       record.put("string_value", "Name" + index);
-      record.put("bytes_value", java.nio.ByteBuffer.wrap(("sample bytes").getBytes()));
+      record.put("bytes_value", ByteBuffer.wrap(("sample bytes").getBytes()));
       GenericData.Array<String> arrayValues =
           new GenericData.Array<>(index, ComplexRecord.SCHEMA$.getField("array_values").schema().getTypes().get(1));
       arrayValues.addAll(IntStream.range(0, index).mapToObj(String::valueOf).collect(Collectors.toList()));
