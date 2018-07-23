@@ -19,6 +19,7 @@
 
 package org.apache.samza.sql.avro;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,6 +30,7 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.IndexedRecord;
+import org.apache.calcite.avatica.util.ByteString;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
@@ -218,8 +220,10 @@ public class AvroRelConverter implements SamzaRelConverter {
       case UNION:
         return convertToJavaObject(avroObj, getNonNullUnionSchema(schema));
       case ENUM:
-      case FIXED:
         return avroObj.toString();
+      case BYTES:
+      case FIXED:
+        return new ByteString(((ByteBuffer) avroObj).array());
 
       default:
         return avroObj;
