@@ -162,12 +162,12 @@ public class JobNode {
     }
 
     specGraph.getAllOperatorSpecs().forEach(opSpec -> {
-      if (opSpec instanceof StatefulOperatorSpec) {
-        ((StatefulOperatorSpec) opSpec).getStoreDescriptors()
-            .forEach(sd -> configs.putAll(sd.getStorageConfigs()));
-        // store key and message serdes are configured separately in #addSerdeConfigs
-      }
-    });
+        if (opSpec instanceof StatefulOperatorSpec) {
+          ((StatefulOperatorSpec) opSpec).getStoreDescriptors()
+              .forEach(sd -> configs.putAll(sd.getStorageConfigs()));
+          // store key and message serdes are configured separately in #addSerdeConfigs
+        }
+      });
 
     configs.put(CONFIG_INTERNAL_EXECUTION_PLAN, executionPlanJson);
 
@@ -181,17 +181,17 @@ public class JobNode {
 
     // Add side inputs to the inputs and mark the stream as bootstrap
     tables.forEach(tableSpec -> {
-      List<String> sideInputs = tableSpec.getSideInputs();
-      if (sideInputs != null && !sideInputs.isEmpty()) {
-        sideInputs.stream()
-            .map(sideInput -> Util.getSystemStreamFromNameOrId(config, sideInput))
-            .forEach(systemStream -> {
-              inputs.add(Util.getNameFromSystemStream(systemStream));
-              configs.put(String.format(StreamConfig.STREAM_PREFIX() + StreamConfig.BOOTSTRAP(),
-                  systemStream.getSystem(), systemStream.getStream()), "true");
-            });
-      }
-    });
+        List<String> sideInputs = tableSpec.getSideInputs();
+        if (sideInputs != null && !sideInputs.isEmpty()) {
+          sideInputs.stream()
+              .map(sideInput -> Util.getSystemStreamFromNameOrId(config, sideInput))
+              .forEach(systemStream -> {
+                  inputs.add(Util.getNameFromSystemStream(systemStream));
+                  configs.put(String.format(StreamConfig.STREAM_PREFIX() + StreamConfig.BOOTSTRAP(),
+                      systemStream.getSystem(), systemStream.getStream()), "true");
+                });
+        }
+      });
 
     configs.put(TaskConfig.INPUT_STREAMS(), Joiner.on(',').join(inputs));
 
@@ -232,30 +232,30 @@ public class JobNode {
     Map<String, Serde> streamMsgSerdes = new HashMap<>();
     Map<StreamSpec, InputOperatorSpec> inputOperators = specGraph.getInputOperators();
     inEdges.forEach(edge -> {
-      String streamId = edge.getStreamSpec().getId();
-      InputOperatorSpec inputOperatorSpec = inputOperators.get(edge.getStreamSpec());
-      streamKeySerdes.put(streamId, inputOperatorSpec.getKeySerde());
-      streamMsgSerdes.put(streamId, inputOperatorSpec.getValueSerde());
-    });
+        String streamId = edge.getStreamSpec().getId();
+        InputOperatorSpec inputOperatorSpec = inputOperators.get(edge.getStreamSpec());
+        streamKeySerdes.put(streamId, inputOperatorSpec.getKeySerde());
+        streamMsgSerdes.put(streamId, inputOperatorSpec.getValueSerde());
+      });
     Map<StreamSpec, OutputStreamImpl> outputStreams = specGraph.getOutputStreams();
     outEdges.forEach(edge -> {
-      String streamId = edge.getStreamSpec().getId();
-      OutputStreamImpl outputStream = outputStreams.get(edge.getStreamSpec());
-      streamKeySerdes.put(streamId, outputStream.getKeySerde());
-      streamMsgSerdes.put(streamId, outputStream.getValueSerde());
-    });
+        String streamId = edge.getStreamSpec().getId();
+        OutputStreamImpl outputStream = outputStreams.get(edge.getStreamSpec());
+        streamKeySerdes.put(streamId, outputStream.getKeySerde());
+        streamMsgSerdes.put(streamId, outputStream.getValueSerde());
+      });
 
     // collect all key and msg serde instances for stores
     Map<String, Serde> storeKeySerdes = new HashMap<>();
     Map<String, Serde> storeMsgSerdes = new HashMap<>();
     specGraph.getAllOperatorSpecs().forEach(opSpec -> {
-      if (opSpec instanceof StatefulOperatorSpec) {
-        ((StatefulOperatorSpec) opSpec).getStoreDescriptors().forEach(storeDescriptor -> {
-          storeKeySerdes.put(storeDescriptor.getStoreName(), storeDescriptor.getKeySerde());
-          storeMsgSerdes.put(storeDescriptor.getStoreName(), storeDescriptor.getMsgSerde());
-        });
-      }
-    });
+        if (opSpec instanceof StatefulOperatorSpec) {
+          ((StatefulOperatorSpec) opSpec).getStoreDescriptors().forEach(storeDescriptor -> {
+              storeKeySerdes.put(storeDescriptor.getStoreName(), storeDescriptor.getKeySerde());
+              storeMsgSerdes.put(storeDescriptor.getStoreName(), storeDescriptor.getMsgSerde());
+            });
+        }
+      });
 
     // for each unique stream or store serde instance, generate a unique name and serialize to config
     HashSet<Serde> serdes = new HashSet<>(streamKeySerdes.values());
@@ -266,35 +266,35 @@ public class JobNode {
     Base64.Encoder base64Encoder = Base64.getEncoder();
     Map<Serde, String> serdeUUIDs = new HashMap<>();
     serdes.forEach(serde -> {
-      String serdeName = serdeUUIDs.computeIfAbsent(serde,
-          s -> serde.getClass().getSimpleName() + "-" + UUID.randomUUID().toString());
-      configs.putIfAbsent(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE(), serdeName),
-          base64Encoder.encodeToString(serializableSerde.toBytes(serde)));
-    });
+        String serdeName = serdeUUIDs.computeIfAbsent(serde,
+            s -> serde.getClass().getSimpleName() + "-" + UUID.randomUUID().toString());
+        configs.putIfAbsent(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE(), serdeName),
+            base64Encoder.encodeToString(serializableSerde.toBytes(serde)));
+      });
 
     // set key and msg serdes for streams to the serde names generated above
     streamKeySerdes.forEach((streamId, serde) -> {
-      String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX(), streamId);
-      String keySerdeConfigKey = streamIdPrefix + StreamConfig.KEY_SERDE();
-      configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
-    });
+        String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX(), streamId);
+        String keySerdeConfigKey = streamIdPrefix + StreamConfig.KEY_SERDE();
+        configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
+      });
 
     streamMsgSerdes.forEach((streamId, serde) -> {
-      String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX(), streamId);
-      String valueSerdeConfigKey = streamIdPrefix + StreamConfig.MSG_SERDE();
-      configs.put(valueSerdeConfigKey, serdeUUIDs.get(serde));
-    });
+        String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX(), streamId);
+        String valueSerdeConfigKey = streamIdPrefix + StreamConfig.MSG_SERDE();
+        configs.put(valueSerdeConfigKey, serdeUUIDs.get(serde));
+      });
 
     // set key and msg serdes for stores to the serde names generated above
     storeKeySerdes.forEach((storeName, serde) -> {
-      String keySerdeConfigKey = String.format(StorageConfig.KEY_SERDE(), storeName);
-      configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
-    });
+        String keySerdeConfigKey = String.format(StorageConfig.KEY_SERDE(), storeName);
+        configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
+      });
 
     storeMsgSerdes.forEach((storeName, serde) -> {
-      String msgSerdeConfigKey = String.format(StorageConfig.MSG_SERDE(), storeName);
-      configs.put(msgSerdeConfigKey, serdeUUIDs.get(serde));
-    });
+        String msgSerdeConfigKey = String.format(StorageConfig.MSG_SERDE(), storeName);
+        configs.put(msgSerdeConfigKey, serdeUUIDs.get(serde));
+      });
   }
 
   /**

@@ -120,12 +120,17 @@ public class TaskSideInputStorageManager {
    */
   public void init() {
     LOG.info("Initializing side input stores.");
+
     Map<SystemStreamPartition, String> fileOffsets = getFileOffsets();
+    LOG.info("File offsets for the task {}: ", taskName, fileOffsets);
 
-    startingOffsets = getStartingOffsets(fileOffsets);
-    lastProcessedOffsets.putAll(fileOffsets);
+    Map<SystemStreamPartition, String> oldestOffsets = getOldestOffsets();
+    LOG.info("Oldest offsets for the task {}: ", taskName, fileOffsets);
 
+    startingOffsets = getStartingOffsets(fileOffsets, oldestOffsets);
     LOG.info("Starting offsets for the task {}: {}", taskName, startingOffsets);
+
+    lastProcessedOffsets.putAll(fileOffsets);
     LOG.info("Last processed offsets for the task {}: {}", taskName, lastProcessedOffsets);
 
     initializeStoreDirectories();
@@ -261,7 +266,7 @@ public class TaskSideInputStorageManager {
     Map<SystemStreamPartition, String> fileOffsets = new HashMap<>();
 
     stores.keySet().forEach(storeName -> {
-        LOG.debug("Reading local offsets for store {}", storeName);
+        LOG.debug("Reading local offsets for store: {}", storeName);
 
         File storeLocation = getStoreLocation(storeName);
         if (isValidSideInputStore(storeName, storeLocation)) {
@@ -283,18 +288,16 @@ public class TaskSideInputStorageManager {
   }
 
   /**
-   * Initializes the starting offsets for the {@link SystemStreamPartition}s belonging to all the side input stores:
-   *   1. Gets the store offsets and filters out the offsets for stale stores
-   *   2. Gets the oldest SSP offsets from the source; e.g. Kafka
-   *   3. If local offset is available and is greater than the oldest available offset from source, pick it
-   *      Otherwise, fallback to oldest offset in the source.
+   * Gets the starting offsets for the {@link SystemStreamPartition}s belonging to all the side input stores.
+   * If the local file offset is available and is greater than the oldest available offset from source, uses it,
+   * else falls back to oldest offset in the source.
    *
    * @param fileOffsets offsets from the local offset file
+   * @param oldestOffsets oldest offsets from the source
    * @return a {@link Map} of {@link SystemStreamPartition} to offset
    */
-  private Map<SystemStreamPartition, String> getStartingOffsets(Map<SystemStreamPartition, String> fileOffsets) {
-    Map<SystemStreamPartition, String> oldestOffsets = getOldestOffsets();
-
+  private Map<SystemStreamPartition, String> getStartingOffsets(
+      Map<SystemStreamPartition, String> fileOffsets, Map<SystemStreamPartition, String> oldestOffsets) {
     Map<SystemStreamPartition, String> startingOffsets = new HashMap<>();
 
     sspsToStores.keySet().forEach(ssp -> {
