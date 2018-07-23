@@ -19,11 +19,7 @@
 
 package org.apache.samza.metrics.reporter
 
-import java.util
-import java.util.Collections
-import java.util.HashMap
-import java.util.Map
-
+import java.util.{Collections, HashMap, Map}
 import scala.collection.JavaConverters._
 
 object Metrics {
@@ -55,7 +51,8 @@ class Metrics(metrics: Map[String, Map[String, Object]]) {
 
   def getAsMap(): Map[String, Map[String, Object]] = Collections.unmodifiableMap(immutableMetrics)
 
+  // default constructor to enable deserialization by MetricsSnapshotSerdeV2
   def this() {
-    this(new util.HashMap[String, Map[String, Object]]())
+    this(new HashMap[String, Map[String, Object]]())
   }
 }
