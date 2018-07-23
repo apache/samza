@@ -23,11 +23,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationSpec;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.runtime.ApplicationRuntime;
 import org.apache.samza.runtime.ApplicationRuntimes;
@@ -48,14 +48,14 @@ public class KeyValueStoreExample implements StreamApplication {
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    ApplicationRuntime app = ApplicationRuntimes.createStreamApp(new KeyValueStoreExample(), config);
+    ApplicationRuntime app = ApplicationRuntimes.getApplicationRuntime(new KeyValueStoreExample(), config);
 
     app.start();
     app.waitForFinish();
   }
 
   @Override
-  public void init(StreamGraph graph, Config config) {
+  public void describe(StreamApplicationSpec graph) {
     MessageStream<PageViewEvent> pageViewEvents =
         graph.getInputStream("pageViewEventStream", new JsonSerdeV2<>(PageViewEvent.class));
     OutputStream<KV<String, StatsOutput>> pageViewEventPerMember =

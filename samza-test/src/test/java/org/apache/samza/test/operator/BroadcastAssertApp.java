@@ -19,23 +19,21 @@
 
 package org.apache.samza.test.operator;
 
-import org.apache.samza.application.StreamApplication;
+import java.util.Arrays;
+import org.apache.samza.application.internal.StreamAppSpecImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.serializers.JsonSerdeV2;
-import org.apache.samza.test.operator.data.PageView;
 import org.apache.samza.test.framework.StreamAssert;
+import org.apache.samza.test.operator.data.PageView;
 
-import java.util.Arrays;
-
-public class BroadcastAssertApp implements StreamApplication {
+public class BroadcastAssertApp {
 
   public static final String INPUT_TOPIC_NAME_PROP = "inputTopicName";
 
 
   @Override
-  public void init(StreamGraph graph, Config config) {
+  public void init(StreamAppSpecImpl graph, Config config) {
     String inputTopic = config.get(INPUT_TOPIC_NAME_PROP);
 
     final JsonSerdeV2<PageView> serde = new JsonSerdeV2<>(PageView.class);

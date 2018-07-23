@@ -21,11 +21,9 @@ package org.apache.samza.runtime;
 
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
-import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.ApplicationClassUtils;
 import org.apache.samza.config.Config;
 import org.apache.samza.runtime.internal.ApplicationRunner;
-import org.apache.samza.task.TaskFactory;
-import org.apache.samza.task.TaskFactoryUtil;
 import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.Util;
 
@@ -36,8 +34,6 @@ import org.apache.samza.util.Util;
  * For a Samza job using low level task API, it will create the JobRunner to start it.
  */
 public class ApplicationRunnerMain {
-  // TODO: have the app configs consolidated in one place
-  public static final String STREAM_APPLICATION_CLASS_CONFIG = "app.class";
 
   public static class ApplicationRunnerCommandLine extends CommandLine {
     public OptionSpec operationOpt =
@@ -60,13 +56,7 @@ public class ApplicationRunnerMain {
     Config config = Util.rewriteConfig(orgConfig);
     ApplicationRunnerOperation op = cmdLine.getOperation(options);
 
-    ApplicationRuntime appRuntime =
-        config.containsKey(STREAM_APPLICATION_CLASS_CONFIG) ? ApplicationRuntimes.createStreamApp(
-            (StreamApplication) Class.forName(config.get(STREAM_APPLICATION_CLASS_CONFIG)).newInstance(), config) :
-            // TODO: Need to deal with 1) new TaskApplication implemention that populates inputStreams and outputStreams by the user;
-            // 2) legacy task application that only has input streams specified in config
-            ApplicationRuntimes.createTaskApp(
-                (appBuilder, cfg) -> appBuilder.setTaskFactory((TaskFactory) TaskFactoryUtil.createTaskFactory(cfg)), config);
+    ApplicationRuntime appRuntime = ApplicationRuntimes.getApplicationRuntime(ApplicationClassUtils.fromConfig(config), config);
 
     switch (op) {
       case RUN:

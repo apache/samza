@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.application.StreamApplicationSpec;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
@@ -39,7 +40,7 @@ import org.apache.samza.table.Table;
 /**
  * A stream of messages that can be transformed into another {@link MessageStream}.
  * <p>
- * A {@link MessageStream} corresponding to an input stream can be obtained using {@link StreamGraph#getInputStream}.
+ * A {@link MessageStream} corresponding to an input stream can be obtained using {@link StreamApplicationSpec#getInputStream}.
  *
  * @param <M> the type of messages in this stream
  */
@@ -217,7 +218,7 @@ public interface MessageStream<M> {
    * input to the job.
    * <p>
    * Uses the provided {@link KVSerde} for serialization of keys and values. If the provided {@code serde} is null,
-   * uses the default serde provided via {@link StreamGraph#setDefaultSerde}, which must be a KVSerde. If the default
+   * uses the default serde provided via {@link StreamApplicationSpec#setDefaultSerde}, which must be a KVSerde. If the default
    * serde is not a {@link KVSerde}, a runtime exception will be thrown. If no default serde has been provided
    * <b>before</b> calling this method, a {@code KVSerde<NoOpSerde, NoOpSerde>} is used.
    * <p>
@@ -251,7 +252,7 @@ public interface MessageStream<M> {
   /**
    * Same as calling {@link #partitionBy(MapFunction, MapFunction, KVSerde, String)} with a null KVSerde.
    * <p>
-   * Uses the default serde provided via {@link StreamGraph#setDefaultSerde}, which must be a KVSerde. If the default
+   * Uses the default serde provided via {@link StreamApplicationSpec#setDefaultSerde}, which must be a KVSerde. If the default
    * serde is not a {@link KVSerde}, a runtime exception will be thrown. If no default serde has been provided
    * <b>before</b> calling this method, a {@code KVSerde<NoOpSerde, NoOpSerde>} is used.
    *

@@ -24,15 +24,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.Validate;
-import org.apache.samza.application.internal.ApplicationBuilder;
-import org.apache.samza.application.internal.StreamApplicationBuilder;
+import org.apache.samza.application.ApplicationSpec;
+import org.apache.samza.application.internal.StreamAppSpecImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.runtime.ApplicationRuntime;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.runtime.RemoteApplicationRunner;
-import org.apache.samza.runtime.ApplicationRuntime;
 import org.apache.samza.runtime.internal.ApplicationRunner;
 import org.apache.samza.runtime.internal.ApplicationRunners;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
@@ -54,7 +54,7 @@ public class SamzaSqlApplicationRuntime implements ApplicationRuntime {
   private static final Logger LOG = LoggerFactory.getLogger(SamzaSqlApplicationRuntime.class);
 
   private final Config sqlConfig;
-  private final ApplicationBuilder appSpec;
+  private final ApplicationSpec appSpec;
   private final ApplicationRunner runner;
   private final Boolean localRunner;
 
@@ -64,7 +64,7 @@ public class SamzaSqlApplicationRuntime implements ApplicationRuntime {
   public SamzaSqlApplicationRuntime(Boolean localRunner, Config config) {
     this.localRunner = localRunner;
     sqlConfig = computeSamzaConfigs(localRunner, config);
-    appSpec = new StreamApplicationBuilder(new SamzaSqlApplication(), sqlConfig);
+    appSpec = new StreamAppSpecImpl(new SamzaSqlApplication(), sqlConfig);
     runner = ApplicationRunners.fromConfig(sqlConfig);
   }
 

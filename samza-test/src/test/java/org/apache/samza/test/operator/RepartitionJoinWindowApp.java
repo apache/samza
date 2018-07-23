@@ -21,7 +21,7 @@ package org.apache.samza.test.operator;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.internal.StreamAppSpecImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
@@ -57,14 +57,22 @@ public class RepartitionJoinWindowApp {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
 
+    app.run();
+    app.waitForFinish();
+  }
+
+  List<String> getIntermediateStreamIds() {
+    return intermediateStreamIds;
+  }
+
+  @Override
+  public void init(StreamAppSpecImpl appSpec, Config config) {
     String inputTopicName1 = config.get(INPUT_TOPIC_NAME_1_PROP);
     String inputTopicName2 = config.get(INPUT_TOPIC_NAME_2_PROP);
     String outputTopic = config.get(OUTPUT_TOPIC_NAME_PROP);
 
-    StreamApplication app = StreamApplications.createStreamApp(config);
-
-    MessageStream<PageView> pageViews = app.openInput(inputTopicName1, new JsonSerdeV2<>(PageView.class));
-    MessageStream<AdClick> adClicks = app.openInput(inputTopicName2, new JsonSerdeV2<>(AdClick.class));
+    MessageStream<PageView> pageViews = appSpec.getInputStream(inputTopicName1, new JsonSerdeV2<>(PageView.class));
+    MessageStream<AdClick> adClicks = appSpec.getInputStream(inputTopicName2, new JsonSerdeV2<>(AdClick.class));
 
     MessageStream<KV<String, PageView>> pageViewsRepartitionedByViewId = pageViews
         .partitionBy(PageView::getViewId, pv -> pv,
@@ -91,21 +99,15 @@ public class RepartitionJoinWindowApp {
             new StringSerde(), new JsonSerdeV2<>(UserPageAdClick.class)), "userAdClickWindow")
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), String.valueOf(windowPane.getMessage().size())))
         .sink((message, messageCollector, taskCoordinator) -> {
-            taskCoordinator.commit(TaskCoordinator.RequestScope.ALL_TASKS_IN_CONTAINER);
-            messageCollector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", outputTopic), null, message.getKey(), message.getValue()));
-          });
+          taskCoordinator.commit(TaskCoordinator.RequestScope.ALL_TASKS_IN_CONTAINER);
+          messageCollector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", outputTopic), null, message.getKey(), message.getValue()));
+        });
 
     intermediateStreamIds.clear();
     intermediateStreamIds.add(((IntermediateMessageStreamImpl) pageViewsRepartitionedByViewId).getStreamId());
     intermediateStreamIds.add(((IntermediateMessageStreamImpl) adClicksRepartitionedByViewId).getStreamId());
     intermediateStreamIds.add(((IntermediateMessageStreamImpl) userPageAdClicksByUserId).getStreamId());
 
-    app.run();
-    app.waitForFinish();
-  }
-
-  List<String> getIntermediateStreamIds() {
-    return intermediateStreamIds;
   }
 
   private static class UserPageViewAdClicksJoiner implements JoinFunction<String, PageView, AdClick, UserPageAdClick> {

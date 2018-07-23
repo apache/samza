@@ -113,7 +113,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
     assertNotNull(projectSpec);
     assertEquals(projectSpec.getOpCode(), OperatorSpec.OpCode.MAP);
 
-    // Verify that the init() method will establish the context for the map function
+    // Verify that the bootstrap() method will establish the context for the map function
     Config mockConfig = mock(Config.class);
     TaskContextImpl taskContext = new TaskContextImpl(new TaskName("Partition-1"), null, null,
         new HashSet<>(), null, null, null, null, null, null);
@@ -248,7 +248,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
     assertNotNull(projectSpec);
     assertEquals(projectSpec.getOpCode(), OperatorSpec.OpCode.MAP);
 
-    // Verify that the init() method will establish the context for the map function
+    // Verify that the bootstrap() method will establish the context for the map function
     Config mockConfig = mock(Config.class);
     TaskContextImpl taskContext = new TaskContextImpl(new TaskName("Partition-1"), null, null,
         new HashSet<>(), null, null, null, null, null, null);

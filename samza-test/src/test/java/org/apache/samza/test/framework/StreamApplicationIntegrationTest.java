@@ -21,7 +21,6 @@ package org.apache.samza.test.framework;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.system.OutgoingMessageEnvelope;

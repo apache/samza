@@ -33,7 +33,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.internal.StreamAppSpecImpl;
+import org.apache.samza.application.internal.TaskAppSpecImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -43,15 +44,14 @@ import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.execution.StreamManager;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.operators.ContextManager;
+import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.StreamProcessorLifecycleListener;
 import org.apache.samza.runtime.internal.ApplicationRunner;
-import org.apache.samza.runtime.internal.StreamApplicationSpec;
-import org.apache.samza.runtime.internal.TaskApplicationSpec;
 import org.apache.samza.system.StreamSpec;
-import org.apache.samza.task.AsyncStreamTaskFactory;
-import org.apache.samza.task.StreamTaskFactory;
+import org.apache.samza.task.TaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -133,12 +133,12 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   }
 
   @Override
-  protected ApplicationLifecycle getTaskAppLifecycle(TaskApplicationSpec appSpec) {
+  protected ApplicationLifecycle getTaskAppLifecycle(TaskAppSpecImpl appSpec) {
     return new TaskAppLifecycle(appSpec);
   }
 
   @Override
-  protected ApplicationLifecycle getStreamAppLifecycle(StreamApplicationSpec appSpec) {
+  protected ApplicationLifecycle getStreamAppLifecycle(StreamAppSpecImpl appSpec) {
     return new StreamAppLifecycle(appSpec);
   }
 
@@ -149,9 +149,9 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   }
 
   class StreamAppLifecycle implements ApplicationLifecycle {
-    final StreamApplicationSpec streamApp;
+    final StreamAppSpecImpl streamApp;
 
-    StreamAppLifecycle(StreamApplicationSpec streamApp) {
+    StreamAppLifecycle(StreamAppSpecImpl streamApp) {
       this.streamApp = streamApp;
     }
 
@@ -162,7 +162,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
         streamManager = buildAndStartStreamManager();
 
         // 1. initialize and plan
-        ExecutionPlan plan = getExecutionPlan((StreamGraphSpec) streamApp.getGraph(), streamManager);
+        ExecutionPlan plan = getExecutionPlan(((StreamGraphSpec)streamApp.getGraph()).getOperatorSpecGraph(), streamManager);
 
         String executionPlanJson = plan.getPlanAsJson();
         writePlanJsonFile(executionPlanJson);
@@ -180,7 +180,8 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
         plan.getJobConfigs().forEach(jobConfig -> {
           LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
           LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
-          StreamProcessor processor = createStreamProcessor(jobConfig, (StreamGraphSpec) streamApp.getGraph(), listener);
+          StreamProcessor processor = createStreamProcessor(jobConfig, ((StreamGraphSpec)streamApp.getGraph()).getOperatorSpecGraph(),
+              streamApp.getContextManager(), listener);
           listener.setProcessor(processor);
           processors.add(processor);
         });
@@ -217,10 +218,10 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   }
 
   class TaskAppLifecycle implements ApplicationLifecycle {
-    final TaskApplicationSpec appSpec;
+    final TaskAppSpecImpl appSpec;
     StreamProcessor sp;
 
-    TaskAppLifecycle(TaskApplicationSpec appSpec) {
+    TaskAppLifecycle(TaskAppSpecImpl appSpec) {
       this.appSpec = appSpec;
     }
 
@@ -229,7 +230,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       LOG.info("LocalApplicationRunner will start task " + appSpec.getGlobalAppId());
       LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
 
-      sp = getStreamProcessorInstance(config, appSpec.getTaskFactory(), listener);
+      sp = createStreamProcessor(config, appSpec.getTaskFactory(), listener);
 
       numProcessorsToStart.set(1);
       listener.setProcessor(sp);
@@ -325,44 +326,33 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   }
 
   /**
-   * Create {@link StreamProcessor} based on {@link StreamApplication} and the config
+   * Create {@link StreamProcessor} based on the config
    * @param config config
    * @return {@link StreamProcessor]}
    */
   /* package private */
   StreamProcessor createStreamProcessor(
       Config config,
+      TaskFactory taskFactory,
       StreamProcessorLifecycleListener listener) {
-    Object taskFactory = TaskFactoryUtil.createTaskFactory(config);
-    return getStreamProcessorInstance(config, taskFactory, listener);
+    return new StreamProcessor(config, customMetricsReporters, taskFactory, listener, null);
   }
 
   /**
-   * Create {@link StreamProcessor} based on {@link StreamApplication} and the config
+   * Create {@link StreamProcessor} based on {@link OperatorSpecGraph}, {@link ContextManager} and the config
    * @param config config
-   * @param graphBuilder {@link StreamGraphSpec}
+   * @param graph {@link OperatorSpecGraph}
+   * @param contextManager {@link ContextManager}
    * @return {@link StreamProcessor]}
    */
   /* package private */
   StreamProcessor createStreamProcessor(
       Config config,
-      StreamGraphSpec graphBuilder,
+      OperatorSpecGraph graph,
+      ContextManager contextManager,
       StreamProcessorLifecycleListener listener) {
-    Object taskFactory = TaskFactoryUtil.createTaskFactory(graphBuilder.getOperatorSpecGraph(), graphBuilder.getContextManager());
-    return getStreamProcessorInstance(config, taskFactory, listener);
-  }
-
-  private StreamProcessor getStreamProcessorInstance(Config config, Object taskFactory, StreamProcessorLifecycleListener listener) {
-    if (taskFactory instanceof StreamTaskFactory) {
-      return new StreamProcessor(
-          config, customMetricsReporters, (StreamTaskFactory) taskFactory, listener);
-    } else if (taskFactory instanceof AsyncStreamTaskFactory) {
-      return new StreamProcessor(
-          config, customMetricsReporters, (AsyncStreamTaskFactory) taskFactory, listener);
-    } else {
-      throw new SamzaException(String.format("%s is not a valid task factory",
-          taskFactory.getClass().getCanonicalName()));
-    }
+    TaskFactory taskFactory = TaskFactoryUtil.createTaskFactory(graph, contextManager);
+    return new StreamProcessor(config, customMetricsReporters, taskFactory, listener, null);
   }
 
   /* package private for testing */

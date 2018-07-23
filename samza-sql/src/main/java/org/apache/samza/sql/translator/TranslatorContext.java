@@ -21,7 +21,6 @@ package org.apache.samza.sql.translator;
 
 import java.util.HashMap;
 import java.util.Map;
-
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.linq4j.QueryProvider;
@@ -32,6 +31,7 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.samza.application.StreamApplicationSpec;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.sql.data.RexToJavaCompiler;
@@ -40,7 +40,7 @@ import org.apache.samza.sql.interfaces.SamzaRelConverter;
 
 
 /**
- * State that is maintained while translating the Calcite relational graph to Samza {@link StreamGraph}.
+ * State that is maintained while translating the Calcite relational graph to Samza {@link StreamApplicationSpec}.
  */
 public class TranslatorContext implements Cloneable {
   /**

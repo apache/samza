@@ -16,27 +16,17 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
-package org.apache.samza.operators.functions;
+package org.apache.samza.application;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.application.StreamApplicationSpec;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.OutputStream;
+import org.apache.samza.operators.StreamGraph;
 
 
 /**
- * A function that can be closed after its execution.
- *
- * <p> Implement {@link #close()} to free resources used during the execution of the function, clean up state etc.
- *
- * <p> Order of finalization: {@link ClosableFunction}s are closed in the reverse topological order of operators in the
- * {@link StreamApplicationSpec}. For any two operators A and B in the graph, if operator B consumes results
- * from operator A, then operator B is guaranteed to be closed before operator A.
- *
+ * Provides access to {@link MessageStream}s and {@link OutputStream}s used to describe application logic.
  */
-@InterfaceStability.Unstable
-public interface ClosableFunction {
-  /**
-   * Frees any resource acquired by the operators in {@link InitableFunction}
-   */
-  default void close() {}
+@InterfaceStability.Evolving
+public interface StreamApplicationSpec extends ApplicationSpec<StreamApplication>, StreamGraph {
 }

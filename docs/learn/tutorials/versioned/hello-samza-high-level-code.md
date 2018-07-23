@@ -176,7 +176,7 @@ package samza.examples.wikipedia.application;
 
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.application.StreamApplicationSpec;
 
 public class MyWikipediaApplication implements StreamApplication{
   @Override
@@ -188,12 +188,12 @@ public class MyWikipediaApplication implements StreamApplication{
 
 Be sure to include the Apache header. The project will not compile without it.
 
-The [init](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html#init-org.apache.samza.operators.StreamGraph-org.apache.samza.config.Config-) method is where the application logic is defined. The [Config](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/config/Config.html) argument is the runtime configuration loaded from the properties file we defined earlier. The [StreamGraph](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/StreamGraph.html) argument provides methods to declare input streams. You can then invoke a number of flexible operations on those streams. The result of each operation is another stream, so you can keep chaining more operations or direct the result to an output stream.
+The [init](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html#init-org.apache.samza.application.StreamApplicationSpec-org.apache.samza.config.Config-) method is where the application logic is defined. The [Config](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/config/Config.html) argument is the runtime configuration loaded from the properties file we defined earlier. The [StreamGraph](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/StreamGraph.html) argument provides methods to declare input streams. You can then invoke a number of flexible operations on those streams. The result of each operation is another stream, so you can keep chaining more operations or direct the result to an output stream.
 
 Next, we will declare the input streams for the Wikipedia application.
 
 #### Inputs
-The Wikipedia application consumes events from three channels. Let's declare each of those channels as an input streams via the [StreamGraph](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/StreamGraph.html) in the [init](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html#init-org.apache.samza.operators.StreamGraph-org.apache.samza.config.Config-) method.
+The Wikipedia application consumes events from three channels. Let's declare each of those channels as an input streams via the [StreamGraph](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/StreamGraph.html) in the [init](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html#init-org.apache.samza.application.StreamApplicationSpec-org.apache.samza.config.Config-) method.
 {% highlight java %}
 MessageStream<WikipediaFeedEvent> wikipediaEvents = streamGraph.getInputStream("en-wikipedia", new NoOpSerde<>());
 MessageStream<WikipediaFeedEvent> wiktionaryEvents = streamGraph.getInputStream("en-wiktionary", new NoOpSerde<>());
@@ -208,7 +208,7 @@ Note the streams are all MessageStreams of type WikipediaFeedEvent. [MessageStre
 #### Merge
 We'd like to use the same processing logic for all three input streams, so we will use the [mergeAll](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html#mergeAll-java.util.Collection-) operator to merge them together. Note: this is not the same as a [join](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html#join-org.apache.samza.operators.MessageStream-org.apache.samza.operators.functions.JoinFunction-java.time.Duration-) because we are not associating events by key. We are simply combining three streams into one, like a union.
 
-Add the following snippet to the [init](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html#init-org.apache.samza.operators.StreamGraph-org.apache.samza.config.Config-) method. It merges all the input streams into a new one called _allWikipediaEvents_
+Add the following snippet to the [init](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html#init-org.apache.samza.application.StreamApplicationSpec-org.apache.samza.config.Config-) method. It merges all the input streams into a new one called _allWikipediaEvents_
 {% highlight java %}
 MessageStream<WikipediaFeed.WikipediaFeedEvent> allWikipediaEvents = MessageStream.mergeAll(ImmutableList.of(wikipediaEvents, wiktionaryEvents, wikiNewsEvents));
 {% endhighlight %}
@@ -218,7 +218,7 @@ Note there is a [merge](/learn/documentation/{{site.version}}/api/javadocs/org/a
 #### Parse
 The next step is to parse the events and extract some information. We will use the pre-existing `WikipediaParser.parseEvent()' method to do this. The parser extracts some flags we want to monitor as well as some metadata about the event. Inspect the method signature. The input is a WikipediaFeedEvents and the output is a Map<String, Object>. These types will be reflected in the types of the streams before and after the operation.
 
-In the [init](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html#init-org.apache.samza.operators.StreamGraph-org.apache.samza.config.Config-) method, invoke the [map](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html#map-org.apache.samza.operators.functions.MapFunction-) operation on `allWikipediaEvents`, passing the `WikipediaParser::parseEvent` method reference as follows:
+In the [init](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html#init-org.apache.samza.application.StreamApplicationSpec-org.apache.samza.config.Config-) method, invoke the [map](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html#map-org.apache.samza.operators.functions.MapFunction-) operation on `allWikipediaEvents`, passing the `WikipediaParser::parseEvent` method reference as follows:
 
 {% highlight java %}
 allWikipediaEvents.map(WikipediaParser::parseEvent);
@@ -227,7 +227,7 @@ allWikipediaEvents.map(WikipediaParser::parseEvent);
 #### Window
 Now that we have the relevant information extracted, let's perform some aggregations over a 10-second [window](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/windows/Window.html).
 
-First, we need a container class for statistics we want to track. Add the following static class after the [init](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html#init-org.apache.samza.operators.StreamGraph-org.apache.samza.config.Config-) method.
+First, we need a container class for statistics we want to track. Add the following static class after the [init](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html#init-org.apache.samza.application.StreamApplicationSpec-org.apache.samza.config.Config-) method.
 {% highlight java %}
 private static class WikipediaStats {
   int edits = 0;
@@ -262,7 +262,7 @@ private class WikipediaStatsAggregator implements FoldLeftFunction<Map<String, O
 
 Note: the type parameters for [FoldLeftFunction](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/functions/FoldLeftFunction.html) reflect the upstream data type and the window value type, respectively. In our case, the upstream type is the output of the parser and the window value is our `WikipediaStats` class.
 
-Finally, we can define our [window](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/windows/Window.html) back in the [init](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html#init-org.apache.samza.operators.StreamGraph-org.apache.samza.config.Config-) method by chaining the result of the parser:
+Finally, we can define our [window](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/windows/Window.html) back in the [init](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html#init-org.apache.samza.application.StreamApplicationSpec-org.apache.samza.config.Config-) method by chaining the result of the parser:
 {% highlight java %}
 allWikipediaEvents.map(WikipediaParser::parseEvent)
         .window(Windows.tumblingWindow(Duration.ofSeconds(10), WikipediaStats::new, new WikipediaStatsAggregator(), new JsonSerdeV2<>(WikipediaStats.class)));
@@ -301,7 +301,7 @@ Paste the following after the aggregator class:
   }
 {% endhighlight %}
 
-Now, we can invoke the method by adding another [map](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html#map-org.apache.samza.operators.functions.MapFunction-) operation to the chain in [init](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html#init-org.apache.samza.operators.StreamGraph-org.apache.samza.config.Config-). The operator chain should now look like this:
+Now, we can invoke the method by adding another [map](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html#map-org.apache.samza.operators.functions.MapFunction-) operation to the chain in [init](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html#init-org.apache.samza.application.StreamApplicationSpec-org.apache.samza.config.Config-). The operator chain should now look like this:
 {% highlight java %}
 allWikipediaEvents.map(WikipediaParser::parseEvent)
         .window(Windows.tumblingWindow(Duration.ofSeconds(10), WikipediaStats::new, new WikipediaStatsAggregator()))

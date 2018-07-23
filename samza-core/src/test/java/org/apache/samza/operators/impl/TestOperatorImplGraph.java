@@ -175,10 +175,10 @@ public class TestOperatorImplGraph {
     @Override
     public void close() {
       if (this.taskName == null) {
-        throw new IllegalStateException("Close called before init");
+        throw new IllegalStateException("Close called before bootstrap");
       }
       if (perTaskFunctionMap.get(this.taskName) == null || !perTaskFunctionMap.get(this.taskName).containsKey(opId)) {
-        throw new IllegalStateException("Close called before init");
+        throw new IllegalStateException("Close called before bootstrap");
       }
 
       if (perTaskCloseList.get(this.taskName) == null) {
@@ -196,7 +196,7 @@ public class TestOperatorImplGraph {
         perTaskFunctionMap.put(context.getTaskName(), new HashMap<String, BaseTestFunction>() { { this.put(opId, BaseTestFunction.this); } });
       } else {
         if (perTaskFunctionMap.get(context.getTaskName()).containsKey(opId)) {
-          throw new IllegalStateException(String.format("Multiple init called for op %s in the same task instance %s", opId, this.taskName.getTaskName()));
+          throw new IllegalStateException(String.format("Multiple bootstrap called for op %s in the same task instance %s", opId, this.taskName.getTaskName()));
         }
         perTaskFunctionMap.get(context.getTaskName()).put(opId, this);
       }

@@ -20,14 +20,10 @@
 package org.apache.samza.sql.runner;
 
 import java.util.List;
-
-import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationInitializer;
-import org.apache.samza.config.Config;
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.sql.translator.QueryTranslator;
+import org.apache.samza.application.StreamApplicationSpec;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
+import org.apache.samza.sql.translator.QueryTranslator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,14 +36,14 @@ public class SamzaSqlApplication implements StreamApplication {
   private static final Logger LOG = LoggerFactory.getLogger(SamzaSqlApplication.class);
 
   @Override
-  public void init(StreamApplicationInitializer appBuilder, Config config) {
+  public void setup(StreamApplicationSpec appSpec) {
     try {
-      SamzaSqlApplicationConfig sqlConfig = new SamzaSqlApplicationConfig(config);
+      SamzaSqlApplicationConfig sqlConfig = new SamzaSqlApplicationConfig(appSpec.getConfig());
       QueryTranslator queryTranslator = new QueryTranslator(sqlConfig);
       List<SamzaSqlQueryParser.QueryInfo> queries = sqlConfig.getQueryInfo();
       for (SamzaSqlQueryParser.QueryInfo query : queries) {
         LOG.info("Translating the query {} to samza stream graph", query.getSelectQuery());
-        queryTranslator.translate(query, appBuilder);
+        queryTranslator.translate(query, appSpec);
       }
     } catch (RuntimeException e) {
       LOG.error("SamzaSqlApplication threw exception.", e);

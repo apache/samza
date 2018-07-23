@@ -3,25 +3,26 @@ package org.apache.samza.application.internal;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.samza.application.TaskApplication;
-import org.apache.samza.application.TaskApplicationInitializer;
+import org.apache.samza.application.TaskApplicationSpec;
 import org.apache.samza.config.Config;
-import org.apache.samza.runtime.internal.TaskApplicationSpec;
+import org.apache.samza.operators.ContextManager;
+import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.task.TaskFactory;
 
 
 /**
  * Created by yipan on 7/10/18.
  */
-public class TaskApplicationBuilder extends ApplicationBuilder<TaskApplication> implements TaskApplicationInitializer, TaskApplicationSpec {
+public class TaskAppSpecImpl extends AppSpecImpl<TaskApplication> implements TaskApplicationSpec {
 
   TaskFactory taskFactory;
   final List<String> inputStreams = new ArrayList<>();
   final List<String> outputStreams = new ArrayList<>();
-  final List<String> tables = new ArrayList<>();
+  final List<TableDescriptor> tables = new ArrayList<>();
 
-  public TaskApplicationBuilder(TaskApplication userApp, Config config) {
+  public TaskAppSpecImpl(TaskApplication userApp, Config config) {
     super(userApp, config);
-    userApp.init(this, config);
+    userApp.describe(this);
   }
 
   @Override
@@ -40,27 +41,17 @@ public class TaskApplicationBuilder extends ApplicationBuilder<TaskApplication> 
   }
 
   @Override
-  public void addTables(List<String> tables) {
+  public void addTables(List<TableDescriptor> tables) {
     this.tables.addAll(tables);
   }
 
   @Override
+  public TaskApplicationSpec withContextManager(ContextManager contextManager) {
+    super.setContextManager(contextManager);
+    return this;
+  }
+
   public TaskFactory getTaskFactory() {
-    return this.taskFactory;
-  }
-
-  @Override
-  public List<String> getInputStreams() {
-    return this.inputStreams;
-  }
-
-  @Override
-  public List<String> getOutputStreams() {
-    return this.outputStreams;
-  }
-
-  @Override
-  public List<String> getTables() {
-    return this.tables;
+    return taskFactory;
   }
 }

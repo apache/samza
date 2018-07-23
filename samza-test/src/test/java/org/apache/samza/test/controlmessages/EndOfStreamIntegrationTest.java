@@ -24,7 +24,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.internal.StreamAppSpecImpl;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
@@ -32,6 +33,8 @@ import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.runtime.ApplicationRuntime;
+import org.apache.samza.runtime.ApplicationRuntimes;
 import org.apache.samza.standalone.PassthroughCoordinationUtilsFactory;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.test.controlmessages.TestData.PageView;
@@ -39,9 +42,9 @@ import org.apache.samza.test.controlmessages.TestData.PageViewJsonSerdeFactory;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.apache.samza.test.util.ArraySystemFactory;
 import org.apache.samza.test.util.Base64Serializer;
-
 import org.junit.Test;
-import static org.junit.Assert.assertEquals;
+
+import static org.junit.Assert.*;
 
 /**
  * This test uses an array as a bounded input source, and does a partitionBy() and sink() after reading the input.
@@ -89,19 +92,28 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
     configs.put("serializers.registry.int.class", "org.apache.samza.serializers.IntegerSerdeFactory");
     configs.put("serializers.registry.json.class", PageViewJsonSerdeFactory.class.getName());
 
-    final StreamApplication app = StreamApplications.createStreamApp(new MapConfig(configs));
+    class PipelineApplication {
 
-    app.<KV<String, PageView>>openInput("PageView")
-        .map(Values.create())
-        .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
-        .sink((m, collector, coordinator) -> {
-            received.add(m.getValue());
-          });
-    app.run();
+      @Override
+      public void init(StreamAppSpecImpl appSpec, Config config) {
+        appSpec.<KV<String, PageView>>getInputStream("PageView")
+            .map(Values.create())
+            .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
+            .sink((m, collector, coordinator) -> {
+              received.add(m.getValue());
+            });
+      }
+    }
+
+    final ApplicationRuntime app = ApplicationRuntimes.createStreamApp(new PipelineApplication(), new MapConfig(configs));
+
+    app.start();
     app.waitForFinish();
 
     assertEquals(received.size(), count * partitionCount);
   }
+
+
 
   public static final class Values {
     public static <K, V, M extends KV<K, V>> MapFunction<M, V> create() {

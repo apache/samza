@@ -21,7 +21,7 @@ package org.apache.samza.example;
 import java.time.Duration;
 import java.util.HashMap;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.internal.StreamApplicationBuilder;
+import org.apache.samza.application.StreamApplicationSpec;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.triggers.Triggers;
@@ -45,7 +45,7 @@ public class AppWithGlobalConfigExample implements StreamApplication {
   public static void main(String[] args) {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    ApplicationRuntime app = ApplicationRuntimes.createStreamApp(new AppWithGlobalConfigExample(), config);
+    ApplicationRuntime app = ApplicationRuntimes.getApplicationRuntime(new AppWithGlobalConfigExample(), config);
     app.addMetricsReporters(new HashMap<>());
 
     app.start();
@@ -53,15 +53,15 @@ public class AppWithGlobalConfigExample implements StreamApplication {
   }
 
   @Override
-  public void init(StreamApplicationBuilder appBuilder, Config config) {
+  public void describe(StreamApplicationSpec appSpec) {
 
-    appBuilder.getInputStream("myPageViewEevent", KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class)))
+    appSpec.getInputStream("myPageViewEevent", KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class)))
         .map(KV::getValue)
         .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), () -> 0, (m, c) -> c + 1, null, null)
             .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
             .setAccumulationMode(AccumulationMode.DISCARDING), "window1")
         .map(m -> KV.of(m.getKey().getKey(), new PageViewCount(m)))
-        .sendTo(appBuilder.getOutputStream("pageViewEventPerMemberStream", KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewCount.class))));
+        .sendTo(appSpec.getOutputStream("pageViewEventPerMemberStream", KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewCount.class))));
   }
 
   class PageViewEvent {

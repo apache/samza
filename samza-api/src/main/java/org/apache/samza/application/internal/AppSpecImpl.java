@@ -1,20 +1,21 @@
 package org.apache.samza.application.internal;
 
-import org.apache.samza.application.ApplicationInitializer;
-import org.apache.samza.application.UserApplication;
+import org.apache.samza.application.ApplicationSpec;
+import org.apache.samza.application.LifecycleAwareApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.runtime.internal.ApplicationSpec;
+import org.apache.samza.operators.ContextManager;
 
 
 /**
  * Created by yipan on 7/10/18.
  */
-public abstract class ApplicationBuilder<T extends UserApplication> implements ApplicationInitializer<T>, ApplicationSpec<T> {
+abstract class AppSpecImpl<T extends LifecycleAwareApplication> implements ApplicationSpec<T> {
   final Config config;
   final T userApp;
+  ContextManager contextManager;
 
-  protected ApplicationBuilder(T userApp, Config config) {
+  protected AppSpecImpl(T userApp, Config config) {
     this.config = config;
     this.userApp = userApp;
   }
@@ -65,9 +66,16 @@ public abstract class ApplicationBuilder<T extends UserApplication> implements A
     return config;
   }
 
-  @Override
   public T getUserApp() {
     return userApp;
+  }
+
+  public ContextManager getContextManager() {
+    return contextManager;
+  }
+
+  protected void setContextManager(ContextManager contextManager) {
+    this.contextManager = contextManager;
   }
 
 }

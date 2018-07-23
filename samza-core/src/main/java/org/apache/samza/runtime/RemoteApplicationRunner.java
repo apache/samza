@@ -22,6 +22,8 @@ package org.apache.samza.runtime;
 import java.time.Duration;
 import java.util.UUID;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.internal.StreamAppSpecImpl;
+import org.apache.samza.application.internal.TaskAppSpecImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -33,8 +35,6 @@ import org.apache.samza.job.JobRunner;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.runtime.internal.ApplicationRunner;
-import org.apache.samza.runtime.internal.StreamApplicationSpec;
-import org.apache.samza.runtime.internal.TaskApplicationSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,20 +54,20 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   }
 
   @Override
-  protected ApplicationLifecycle getTaskAppLifecycle(TaskApplicationSpec appSpec) {
+  protected ApplicationLifecycle getTaskAppLifecycle(TaskAppSpecImpl appSpec) {
     return new TaskAppLifecycle(appSpec);
   }
 
   @Override
-  protected ApplicationLifecycle getStreamAppLifecycle(StreamApplicationSpec appSpec) {
+  protected ApplicationLifecycle getStreamAppLifecycle(StreamAppSpecImpl appSpec) {
     return new StreamAppLifecycle(appSpec);
   }
 
   class TaskAppLifecycle implements ApplicationLifecycle {
-    final TaskApplicationSpec taskApp;
+    final TaskAppSpecImpl taskApp;
     final JobRunner jobRunner;
 
-    TaskAppLifecycle(TaskApplicationSpec appSpec) {
+    TaskAppLifecycle(TaskAppSpecImpl appSpec) {
       this.taskApp = appSpec;
       this.jobRunner = new JobRunner(config);
     }
@@ -95,9 +95,9 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   }
 
   class StreamAppLifecycle implements ApplicationLifecycle {
-    final StreamApplicationSpec streamApp;
+    final StreamAppSpecImpl streamApp;
 
-    StreamAppLifecycle(StreamApplicationSpec appSpec) {
+    StreamAppLifecycle(StreamAppSpecImpl appSpec) {
       this.streamApp = appSpec;
     }
 
@@ -112,7 +112,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
         LOG.info("The start id for this start is {}", runId);
 
         // 1. initialize and plan
-        ExecutionPlan plan = getExecutionPlan((StreamGraphSpec) streamApp.getGraph(), runId, streamManager);
+        ExecutionPlan plan = getExecutionPlan(((StreamGraphSpec) streamApp.getGraph()).getOperatorSpecGraph(), runId, streamManager);
         writePlanJsonFile(plan.getPlanAsJson());
 
         // 2. create the necessary streams
@@ -141,7 +141,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
       StreamManager streamManager = null;
       try {
         streamManager = buildAndStartStreamManager();
-        ExecutionPlan plan = getExecutionPlan((StreamGraphSpec) streamApp.getGraph(), streamManager);
+        ExecutionPlan plan = getExecutionPlan(((StreamGraphSpec) streamApp.getGraph()).getOperatorSpecGraph(), streamManager);
 
         plan.getJobConfigs().forEach(jobConfig -> {
           LOG.info("Killing job {}", jobConfig.getName());
@@ -166,7 +166,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
         ApplicationStatus unsuccessfulFinishStatus = null;
 
         streamManager = buildAndStartStreamManager();
-        ExecutionPlan plan = getExecutionPlan((StreamGraphSpec) streamApp.getGraph(), streamManager);
+        ExecutionPlan plan = getExecutionPlan(((StreamGraphSpec) streamApp.getGraph()).getOperatorSpecGraph(), streamManager);
         for (JobConfig jobConfig : plan.getJobConfigs()) {
           ApplicationStatus status = getApplicationStatus(jobConfig);
 

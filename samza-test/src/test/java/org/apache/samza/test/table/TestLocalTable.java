@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;

@@ -21,13 +21,13 @@ package org.apache.samza.runtime.internal;
 import java.time.Duration;
 import java.util.Map;
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.ApplicationSpec;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.metrics.MetricsReporter;
 
 
 /**
- * The primary means of managing execution of the {@link StreamApplication} at runtime.
+ * The primary means of managing execution of user applications defined in {@link ApplicationSpec} at runtime.
  */
 @InterfaceStability.Evolving
 public interface ApplicationRunner {

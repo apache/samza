@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.application.StreamApplicationSpec;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.TimerFunction;
@@ -103,7 +104,7 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
   }
 
   /**
-   * Get the unique ID of this operator in the {@link org.apache.samza.operators.StreamGraph}.
+   * Get the unique ID of this operator in the {@link StreamApplicationSpec}.
    * @return  the unique operator ID
    */
   public final String getOpId() {

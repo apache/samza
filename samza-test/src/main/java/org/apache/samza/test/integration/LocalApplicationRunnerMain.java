@@ -21,6 +21,7 @@ package org.apache.samza.test.integration;
 
 import joptsimple.OptionSet;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.runtime.ApplicationRunnerMain;
 import org.apache.samza.runtime.ApplicationRuntime;
@@ -28,8 +29,6 @@ import org.apache.samza.runtime.ApplicationRuntimes;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static org.apache.samza.runtime.ApplicationRunnerMain.*;
 
 /**
  * {@link ApplicationRunnerMain} was designed for deploying {@link StreamApplication} in yarn
@@ -47,7 +46,8 @@ public class LocalApplicationRunnerMain {
     Config orgConfig = cmdLine.loadConfig(options);
     Config config = Util.rewriteConfig(orgConfig);
 
-    ApplicationRuntime appRuntime = ApplicationRuntimes.createStreamApp((StreamApplication) Class.forName(config.get(STREAM_APPLICATION_CLASS_CONFIG)).newInstance(), config);
+    ApplicationRuntime appRuntime = ApplicationRuntimes.getApplicationRuntime(
+        (StreamApplication) Class.forName(new ApplicationConfig(config).getAppClass()).newInstance(), config);
 
     try {
       LOGGER.info("Launching stream application: {} to start.", appRuntime);

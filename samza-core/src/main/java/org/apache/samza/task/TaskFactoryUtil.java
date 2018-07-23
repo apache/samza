@@ -45,7 +45,7 @@ public class TaskFactoryUtil {
    * @param contextManager the {@link ContextManager} to set up initial context for {@code specGraph}
    * @return  a task factory object, either a instance of {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory}
    */
-  public static Object createTaskFactory(OperatorSpecGraph specGraph, ContextManager contextManager) {
+  public static TaskFactory createTaskFactory(OperatorSpecGraph specGraph, ContextManager contextManager) {
     return createStreamOperatorTaskFactory(specGraph, contextManager);
   }
 
@@ -55,7 +55,7 @@ public class TaskFactoryUtil {
    * @param config  the {@link Config} for this job
    * @return  a task factory object, either a instance of {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory}
    */
-  public static Object createTaskFactory(Config config) {
+  public static TaskFactory createTaskFactory(Config config) {
     return fromTaskClassConfig(config);
   }
 
@@ -68,7 +68,7 @@ public class TaskFactoryUtil {
    * @param config the {@link Config}
    * @return task factory instance
    */
-  private static Object fromTaskClassConfig(Config config) {
+  private static TaskFactory fromTaskClassConfig(Config config) {
     // if there is configuration to set the job w/ a specific type of task, instantiate the corresponding task factory
     String taskClassName = new TaskConfig(config).getTaskClass().getOrElse(toScalaFunction(
       () -> {
@@ -120,7 +120,7 @@ public class TaskFactoryUtil {
    * @param taskThreadPool  the thread pool to run the {@link AsyncStreamTaskAdapter} tasks
    * @return  the finalized task factory object
    */
-  public static Object finalizeTaskFactory(Object factory, boolean singleThreadMode, ExecutorService taskThreadPool) {
+  public static TaskFactory finalizeTaskFactory(TaskFactory factory, boolean singleThreadMode, ExecutorService taskThreadPool) {
 
     validateFactory(factory);
 
@@ -146,7 +146,7 @@ public class TaskFactoryUtil {
     return factory;
   }
 
-  private static void validateFactory(Object factory) {
+  private static void validateFactory(TaskFactory factory) {
     if (factory == null) {
       throw new SamzaException("Either the task class name or the task factory instance is required.");
     }

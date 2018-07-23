@@ -20,7 +20,7 @@
 package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.internal.StreamApplicationBuilder;
+import org.apache.samza.application.StreamApplicationSpec;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
@@ -41,13 +41,13 @@ public class BroadcastExample implements StreamApplication {
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    ApplicationRuntime app = ApplicationRuntimes.createStreamApp(new BroadcastExample(), config);
+    ApplicationRuntime app = ApplicationRuntimes.getApplicationRuntime(new BroadcastExample(), config);
     app.start();
     app.waitForFinish();
   }
 
   @Override
-  public void init(StreamApplicationBuilder appBuilder, Config config) {
+  public void describe(StreamApplicationSpec appBuilder) {
     KVSerde<String, PageViewEvent> pgeMsgSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class));
     MessageStream<KV<String, PageViewEvent>> inputStream = appBuilder.getInputStream("pageViewEventStream", pgeMsgSerde);
 

@@ -21,9 +21,9 @@ package org.apache.samza.example;
 
 import com.google.common.collect.ImmutableList;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationSpec;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.runtime.ApplicationRuntime;
 import org.apache.samza.runtime.ApplicationRuntimes;
 import org.apache.samza.serializers.JsonSerdeV2;
@@ -37,14 +37,14 @@ public class MergeExample implements StreamApplication {
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    ApplicationRuntime app = ApplicationRuntimes.createStreamApp(new MergeExample(), config);
+    ApplicationRuntime app = ApplicationRuntimes.getApplicationRuntime(new MergeExample(), config);
 
     app.start();
     app.waitForFinish();
   }
 
   @Override
-  public void init(StreamGraph graph, Config config) {
+  public void describe(StreamApplicationSpec graph) {
     KVSerde<String, PageViewEvent>
         pgeMsgSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class));
 

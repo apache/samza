@@ -95,7 +95,7 @@ public class TestFilterTranslator extends TranslatorTestBase {
     assertNotNull(filterSpec);
     assertEquals(filterSpec.getOpCode(), OperatorSpec.OpCode.FILTER);
 
-    // Verify that the init() method will establish the context for the filter function
+    // Verify that the bootstrap() method will establish the context for the filter function
     Config mockConfig = mock(Config.class);
     TaskContextImpl taskContext = new TaskContextImpl(new TaskName("Partition-1"), null, null,
         new HashSet<>(), null, null, null, null, null, null);

@@ -20,7 +20,6 @@ package org.apache.samza.operators;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -29,8 +28,6 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationInitializer;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.spec.InputOperatorSpec;
@@ -38,7 +35,6 @@ import org.apache.samza.operators.spec.OperatorSpec.OpCode;
 import org.apache.samza.operators.spec.OperatorSpecs;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
-import org.apache.samza.runtime.internal.StreamApplicationSpec;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
@@ -53,7 +49,7 @@ import org.slf4j.LoggerFactory;
  * create the DAG of transforms.
  * 2) a builder that creates a serializable {@link OperatorSpecGraph} from user-defined DAG
  */
-public class StreamGraphSpec implements StreamApplicationInitializer, StreamApplicationSpec {
+public class StreamGraphSpec implements StreamGraph {
   private static final Logger LOGGER = LoggerFactory.getLogger(StreamGraphSpec.class);
   private static final Pattern ID_PATTERN = Pattern.compile("[\\d\\w-_.]+");
 
@@ -72,7 +68,7 @@ public class StreamGraphSpec implements StreamApplicationInitializer, StreamAppl
   private int nextOpNum = 0;
   private final Set<String> operatorIds = new HashSet<>();
   private Serde<?> defaultSerde = new KVSerde(new NoOpSerde(), new NoOpSerde());
-  private ContextManager contextManager = null;
+//  private ContextManager contextManager = null;
 
   public StreamGraphSpec(Config config) {
     this.config = config;
@@ -157,35 +153,15 @@ public class StreamGraphSpec implements StreamApplicationInitializer, StreamAppl
     return tables.get(tableSpec);
   }
 
-  @Override
-  public StreamApplicationInitializer withContextManager(ContextManager contextManager) {
-    this.contextManager = contextManager;
-    return this;
-  }
-
-  public ContextManager getContextManager() {
-    return this.contextManager;
-  }
-
-  @Override
-  public Collection<String> getInputStreams() {
-    return Collections.unmodifiableCollection(this.inputOperators.keySet());
-  }
-
-  @Override
-  public Collection<String> getOutputStreams() {
-    return Collections.unmodifiableCollection(this.outputStreams.keySet());
-  }
-
-  @Override
-  public Collection<String> getBroadcastStreams() {
-    return Collections.unmodifiableCollection(this.broadcastStreams);
-  }
-
-  @Override
-  public Collection<String> getTables() {
-    return Collections.unmodifiableCollection(this.tables.keySet().stream().collect(HashSet<String>::new, (s1, td) -> s1.add(td.getId()), (s1, s2) -> s1.addAll(s2)));
-  }
+//  @Override
+//  public StreamApplicationSpec withContextManager(ContextManager contextManager) {
+//    this.contextManager = contextManager;
+//    return this;
+//  }
+//
+//  public ContextManager getContextManager() {
+//    return this.contextManager;
+//  }
 
   public OperatorSpecGraph getOperatorSpecGraph() {
     return new OperatorSpecGraph(this);
@@ -277,11 +253,15 @@ public class StreamGraphSpec implements StreamApplicationInitializer, StreamAppl
     return Collections.unmodifiableMap(inputOperators);
   }
 
-  Map<String, OutputStreamImpl> getOutputStreamImpls() {
+  Map<String, OutputStreamImpl> getOutputStreams() {
     return Collections.unmodifiableMap(outputStreams);
   }
 
-  Map<TableSpec, TableImpl> getTableImpls() {
+  Set<String> getBroadcastStreams() {
+    return Collections.unmodifiableSet(broadcastStreams);
+  }
+
+  Map<TableSpec, TableImpl> getTables() {
     return Collections.unmodifiableMap(tables);
   }
 
@@ -312,18 +292,4 @@ public class StreamGraphSpec implements StreamApplicationInitializer, StreamAppl
     return KV.of(keySerde, valueSerde);
   }
 
-  @Override
-  public Config getConfig() {
-    return this.config;
-  }
-
-  @Override
-  public StreamApplication getUserApp() {
-    throw new SamzaException("shouldn't be called here");
-  }
-
-  @Override
-  public String getGlobalAppId() {
-    throw new SamzaException("shouldn't be called here");
-  }
 }

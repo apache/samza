@@ -20,11 +20,11 @@ package org.apache.samza.example;
 
 import java.time.Duration;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationSpec;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.ApplicationRuntime;
@@ -44,14 +44,14 @@ public class RepartitionExample implements StreamApplication {
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    ApplicationRuntime app = ApplicationRuntimes.createStreamApp(new RepartitionExample(), config);
+    ApplicationRuntime app = ApplicationRuntimes.getApplicationRuntime(new RepartitionExample(), config);
 
     app.start();
     app.waitForFinish();
   }
 
   @Override
-  public void init(StreamGraph graph, Config config) {
+  public void describe(StreamApplicationSpec graph) {
     MessageStream<PageViewEvent> pageViewEvents =
         graph.getInputStream("pageViewEvent", new JsonSerdeV2<>(PageViewEvent.class));
     OutputStream<KV<String, MyStreamOutput>> pageViewEventPerMember =

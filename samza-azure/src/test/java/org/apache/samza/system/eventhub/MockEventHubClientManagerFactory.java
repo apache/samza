@@ -169,7 +169,7 @@ public class MockEventHubClientManagerFactory extends EventHubClientManagerFacto
     @Override
     public EventHubClient getEventHubClient() {
       if (!initiated) {
-        Assert.fail("Should have called init() on EventHubClient before getEventHubClient()");
+        Assert.fail("Should have called bootstrap() on EventHubClient before getEventHubClient()");
       }
       return mockEventHubClient;
     }
@@ -177,7 +177,7 @@ public class MockEventHubClientManagerFactory extends EventHubClientManagerFacto
     @Override
     public void close(long timeoutMS) {
       if (!initiated) {
-        Assert.fail("Should have called init() on EventHubClient before close()");
+        Assert.fail("Should have called bootstrap() on EventHubClient before close()");
       }
       initiated = false;
     }

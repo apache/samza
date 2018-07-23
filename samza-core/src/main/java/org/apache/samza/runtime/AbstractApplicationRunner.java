@@ -26,6 +26,10 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.application.ApplicationSpec;
+import org.apache.samza.application.LifecycleAwareApplication;
+import org.apache.samza.application.internal.StreamAppSpecImpl;
+import org.apache.samza.application.internal.TaskAppSpecImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ApplicationConfig.ApplicationMode;
 import org.apache.samza.config.Config;
@@ -38,11 +42,7 @@ import org.apache.samza.execution.StreamManager;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.operators.OperatorSpecGraph;
-import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.runtime.internal.ApplicationRunner;
-import org.apache.samza.runtime.internal.ApplicationSpec;
-import org.apache.samza.runtime.internal.StreamApplicationSpec;
-import org.apache.samza.runtime.internal.TaskApplicationSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,17 +56,58 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
   protected final Config config;
   protected final Map<String, MetricsReporter> metricsReporters = new HashMap<>();
 
-  public AbstractApplicationRunner(Config config) {
+  AbstractApplicationRunner(Config config) {
     this.config = config;
   }
 
-  public ExecutionPlan getExecutionPlan(StreamGraphSpec graphSpec, StreamManager streamManager) throws Exception {
+  @Override
+  public final void addMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
+    this.metricsReporters.putAll(metricsReporters);
+  }
+
+  @Override
+  public final void run(ApplicationSpec appSpec) {
+    LifecycleAwareApplication userApp = getUserApp(appSpec);
+    userApp.beforeStart();
+    getLifecycleMethods(appSpec).run();
+    userApp.afterStart();
+  }
+
+  @Override
+  public final ApplicationStatus status(ApplicationSpec appSpec) {
+    return getLifecycleMethods(appSpec).status();
+  }
+
+  @Override
+  public final void kill(ApplicationSpec appSpec) {
+    LifecycleAwareApplication userApp = getUserApp(appSpec);
+    userApp.beforeStop();
+    getLifecycleMethods(appSpec).kill();
+    userApp.afterStop();
+  }
+
+  @Override
+  public final void waitForFinish(ApplicationSpec appSpec) {
+    getLifecycleMethods(appSpec).waitForFinish(Duration.ofSeconds(0));
+  }
+
+  @Override
+  public final boolean waitForFinish(ApplicationSpec appSpec, Duration timeout) {
+    return getLifecycleMethods(appSpec).waitForFinish(timeout);
+  }
+
+  final StreamManager buildAndStartStreamManager() {
+    StreamManager streamManager = new StreamManager(this.config);
+    streamManager.start();
+    return streamManager;
+  }
+
+  final ExecutionPlan getExecutionPlan(OperatorSpecGraph graphSpec, StreamManager streamManager) throws Exception {
     return getExecutionPlan(graphSpec, null, streamManager);
   }
 
   /* package private */
-  ExecutionPlan getExecutionPlan(StreamGraphSpec graphSpec, String runId, StreamManager streamManager) throws Exception {
-    OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
+  final ExecutionPlan getExecutionPlan(OperatorSpecGraph graphSpec, String runId, StreamManager streamManager) throws Exception {
 
     // update application configs
     Map<String, String> cfg = new HashMap<>(config);
@@ -75,15 +116,15 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
     }
 
     StreamConfig streamConfig = new StreamConfig(config);
-    Set<String> inputStreams = new HashSet<>(specGraph.getInputOperators().keySet());
-    inputStreams.removeAll(specGraph.getOutputStreams().keySet());
+    Set<String> inputStreams = new HashSet<>(graphSpec.getInputOperators().keySet());
+    inputStreams.removeAll(graphSpec.getOutputStreams().keySet());
     ApplicationMode mode = inputStreams.stream().allMatch(streamConfig::getIsBounded)
         ? ApplicationMode.BATCH : ApplicationMode.STREAM;
     cfg.put(ApplicationConfig.APP_MODE, mode.name());
 
     // create the physical execution plan
     ExecutionPlanner planner = new ExecutionPlanner(new MapConfig(cfg), streamManager);
-    return planner.plan(specGraph);
+    return planner.plan(graphSpec);
   }
 
   /**
@@ -107,33 +148,11 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
     }
   }
 
-  @Override
-  public final void addMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
-    this.metricsReporters.putAll(metricsReporters);
-  }
+  protected abstract ApplicationLifecycle getTaskAppLifecycle(TaskAppSpecImpl appSpec);
 
-  StreamManager buildAndStartStreamManager() {
-    StreamManager streamManager = new StreamManager(this.config);
-    streamManager.start();
-    return streamManager;
-  }
+  protected abstract ApplicationLifecycle getStreamAppLifecycle(StreamAppSpecImpl appSpec);
 
-  private ApplicationLifecycle getLifecycleMethods(ApplicationSpec appSpec) {
-    if (appSpec instanceof StreamApplicationSpec) {
-      return getStreamAppLifecycle((StreamApplicationSpec) appSpec);
-    }
-    if (appSpec instanceof TaskApplicationSpec) {
-      return getTaskAppLifecycle((TaskApplicationSpec) appSpec);
-    }
-    throw new IllegalArgumentException(String.format("The specified application %s is not valid. "
-        + "Only StreamApplicationSpec and TaskApplicationSpec are supported.", appSpec.getClass().getName()));
-  }
-
-  protected abstract ApplicationLifecycle getTaskAppLifecycle(TaskApplicationSpec appSpec);
-
-  protected abstract ApplicationLifecycle getStreamAppLifecycle(StreamApplicationSpec appSpec);
-
-  interface ApplicationLifecycle {
+  protected interface ApplicationLifecycle {
 
     void run();
 
@@ -152,32 +171,25 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
 
   }
 
-  @Override
-  public final void run(ApplicationSpec appSpec) {
-    appSpec.getUserApp().beforeStart(appSpec);
-    getLifecycleMethods(appSpec).run();
-    appSpec.getUserApp().afterStart(appSpec);
+  private ApplicationLifecycle getLifecycleMethods(ApplicationSpec appSpec) {
+    if (appSpec instanceof StreamAppSpecImpl) {
+      return getStreamAppLifecycle((StreamAppSpecImpl) appSpec);
+    }
+    if (appSpec instanceof TaskAppSpecImpl) {
+      return getTaskAppLifecycle((TaskAppSpecImpl) appSpec);
+    }
+    throw new IllegalArgumentException(String.format("The specified application %s is not valid. "
+        + "Only StreamApplicationSpec and TaskApplicationSpec are supported.", appSpec.getClass().getName()));
   }
 
-  @Override
-  public final ApplicationStatus status(ApplicationSpec appSpec) {
-    return getLifecycleMethods(appSpec).status();
+  private LifecycleAwareApplication getUserApp(ApplicationSpec appSpec) {
+    if (appSpec instanceof StreamAppSpecImpl) {
+      return ((StreamAppSpecImpl) appSpec).getUserApp();
+    }
+    if (appSpec instanceof TaskAppSpecImpl) {
+      return ((TaskAppSpecImpl) appSpec).getUserApp();
+    }
+    throw new IllegalArgumentException();
   }
 
-  @Override
-  public final void kill(ApplicationSpec appSpec) {
-    appSpec.getUserApp().beforeStop(appSpec);
-    getLifecycleMethods(appSpec).kill();
-    appSpec.getUserApp().afterStop(appSpec);
-  }
-
-  @Override
-  public final void waitForFinish(ApplicationSpec appSpec) {
-    getLifecycleMethods(appSpec).waitForFinish(Duration.ofSeconds(0));
-  }
-
-  @Override
-  public final boolean waitForFinish(ApplicationSpec appSpec, Duration timeout) {
-    return getLifecycleMethods(appSpec).waitForFinish(timeout);
-  }
 }

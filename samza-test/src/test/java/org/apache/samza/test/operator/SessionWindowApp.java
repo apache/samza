@@ -20,7 +20,6 @@
 package org.apache.samza.test.operator;
 
 import java.time.Duration;
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;

@@ -19,10 +19,9 @@
 
 package org.apache.samza.test.timer;
 
-import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationSpec;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.TimerFunction;
@@ -36,11 +35,11 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
-public class TestTimerApp implements StreamApplication {
+public class TestTimerApp {
   public static final String PAGE_VIEWS = "page-views";
 
   @Override
-  public void init(StreamGraph graph, Config config) {
+  public void init(StreamApplicationSpec graph, Config config) {
     final JsonSerdeV2<PageView> serde = new JsonSerdeV2<>(PageView.class);
     final MessageStream<PageView> pageViews = graph.getInputStream(PAGE_VIEWS, serde);
     final MessageStream<PageView> output = pageViews.flatMap(new FlatmapTimerFn());
