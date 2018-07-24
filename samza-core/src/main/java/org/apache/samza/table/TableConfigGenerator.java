@@ -90,14 +90,14 @@ public class TableConfigGenerator {
     Map<TableSpec, TableImpl> tableSpecs = new LinkedHashMap<>();
 
     tableDescs.forEach(tableDesc -> {
-      TableSpec tableSpec = ((BaseTableDescriptor) tableDesc).getTableSpec();
+        TableSpec tableSpec = ((BaseTableDescriptor) tableDesc).getTableSpec();
 
-      if (tableSpecs.containsKey(tableSpec)) {
-        throw new IllegalStateException(
-            String.format("getTable() invoked multiple times with the same tableId: %s", tableDesc.getTableId()));
-      }
-      tableSpecs.put(tableSpec, new TableImpl(tableSpec));
-    });
+        if (tableSpecs.containsKey(tableSpec)) {
+          throw new IllegalStateException(
+              String.format("getTable() invoked multiple times with the same tableId: %s", tableDesc.getTableId()));
+        }
+        tableSpecs.put(tableSpec, new TableImpl(tableSpec));
+      });
     return new ArrayList<>(tableSpecs.keySet());
   }
 
