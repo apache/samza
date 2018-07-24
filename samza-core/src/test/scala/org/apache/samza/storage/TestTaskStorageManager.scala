@@ -151,7 +151,7 @@ class TestTaskStorageManager extends MockitoSugar {
     val ss = new SystemStream("kafka", "testStream")
     val partition = new Partition(0)
     val ssp = new SystemStreamPartition(ss, partition)
-    val storeDirectory = TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultStoreBaseDir, store, taskName)
+    val storeDirectory = TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, store, taskName)
 
     val mockStorageEngine: StorageEngine = createMockStorageEngine(isLoggedStore = true, isPersistedStore = false, null)
 
@@ -182,12 +182,12 @@ class TestTaskStorageManager extends MockitoSugar {
     taskManager.init
 
     // Verify that the store directory doesn't have ANY files
-    assertNull(storeDirectory.listFiles())
+    assertTrue(storeDirectory.list().isEmpty)
     verify(mockSystemConsumer).register(ssp, "0")
 
     // Test 2: flush should NOT create/update the offset file. Store directory has no files
     taskManager.flush()
-    assertNull(storeDirectory.listFiles())
+    assertTrue(storeDirectory.list().isEmpty)
 
     // Test 3: Update sspMetadata before shutdown and verify that offset file is NOT created
     metadata = new SystemStreamMetadata("testStream", new java.util.HashMap[Partition, SystemStreamPartitionMetadata]() {
@@ -197,7 +197,7 @@ class TestTaskStorageManager extends MockitoSugar {
     })
     when(mockStreamMetadataCache.getStreamMetadata(any(), any())).thenReturn(Map(ss -> metadata))
     taskManager.stop()
-    assertNull(storeDirectory.listFiles())
+    assertTrue(storeDirectory.list().isEmpty)
 
     // Test 4: Initialize again with an updated sspMetadata; Verify that it restores from the earliest offset
     metadata = new SystemStreamMetadata("testStream", new java.util.HashMap[Partition, SystemStreamPartitionMetadata]() {
@@ -209,7 +209,7 @@ class TestTaskStorageManager extends MockitoSugar {
 
     taskManager.init
 
-    assertNull(storeDirectory.listFiles())
+    assertTrue(storeDirectory.list().isEmpty)
     // second time to register; make sure it starts from beginning
     verify(mockSystemConsumer, times(2)).register(ssp, "0")
   }
@@ -223,7 +223,7 @@ class TestTaskStorageManager extends MockitoSugar {
 
     val taskStorageManager = new TaskStorageManagerBuilder()
       .addStore(store, false)
-      .addStore(loggedStore, true)
+      .addLoggedStore(loggedStore, true)
       .build
 
     //Invoke test method
@@ -244,7 +244,7 @@ class TestTaskStorageManager extends MockitoSugar {
     FileUtil.writeWithChecksum(offsetFilePath, "100")
 
     val taskStorageManager = new TaskStorageManagerBuilder()
-      .addStore(loggedStore, true)
+      .addLoggedStore(loggedStore, true)
       .build
 
     val cleanDirMethod = taskStorageManager.getClass.getDeclaredMethod("cleanBaseDirs",
@@ -266,7 +266,7 @@ class TestTaskStorageManager extends MockitoSugar {
     FileUtil.writeWithChecksum(offsetFile, "Test Offset Data")
     offsetFile.setLastModified(0)
     val taskStorageManager = new TaskStorageManagerBuilder().addStore(store, false)
-      .addStore(loggedStore, true)
+      .addLoggedStore(loggedStore, true)
       .build
 
     val cleanDirMethod = taskStorageManager.getClass
@@ -285,7 +285,7 @@ class TestTaskStorageManager extends MockitoSugar {
     FileUtil.writeWithChecksum(offsetFilePath, "100")
 
     val taskStorageManager = new TaskStorageManagerBuilder()
-      .addStore(loggedStore, false)
+      .addLoggedStore(loggedStore, false)
       .build
 
     val cleanDirMethod = taskStorageManager.getClass.getDeclaredMethod("cleanBaseDirs",
@@ -644,6 +644,13 @@ class TaskStorageManagerBuilder extends MockitoSugar {
     val mockStorageEngine = mock[StorageEngine]
     when(mockStorageEngine.getStoreProperties)
       .thenReturn(new StorePropertiesBuilder().setPersistedToDisk(isPersistedToDisk).setLoggedStore(false).build())
+    addStore(storeName, mockStorageEngine, mock[SystemConsumer])
+  }
+
+  def addLoggedStore(storeName: String, isPersistedToDisk: Boolean): TaskStorageManagerBuilder = {
+    val mockStorageEngine = mock[StorageEngine]
+    when(mockStorageEngine.getStoreProperties)
+    .thenReturn(new StorePropertiesBuilder().setPersistedToDisk(isPersistedToDisk).setLoggedStore(true).build())
     addStore(storeName, mockStorageEngine, mock[SystemConsumer])
   }
 
