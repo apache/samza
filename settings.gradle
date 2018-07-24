@@ -23,6 +23,7 @@ include \
   'samza-azure',
   'samza-elasticsearch',
   'samza-log4j',
+  'samza-log4j2',
   'samza-rest',
   'samza-shell',
   'samza-sql',

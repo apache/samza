@@ -21,7 +21,7 @@ package org.apache.samza.runtime;
 
 import java.util.HashMap;
 import java.util.Random;
-import org.apache.log4j.MDC;
+import org.slf4j.MDC;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
@@ -101,7 +101,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     startContainerHeartbeatMonitor();
     container.run();
     stopContainerHeartbeatMonitor();
-    
+
     if (containerRunnerException != null) {
       log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
       System.exit(1);

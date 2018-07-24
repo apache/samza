@@ -41,6 +41,7 @@ HADOOP_CONF_DIR="${HADOOP_CONF_DIR:-$HADOOP_YARN_HOME/conf}"
 CLASSPATH=$HADOOP_CONF_DIR
 GC_LOG_ROTATION_OPTS="-XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10241024"
 DEFAULT_LOG4J_FILE=$base_dir/lib/log4j.xml
+DEFAULT_LOG4J2_FILE=$base_dir/lib/log4j2.xml
 BASE_LIB_DIR="$base_dir/lib"
 # JOB_LIB_DIR will be set for yarn container in ContainerUtil.java
 # for others we set it to home_dir/lib
@@ -107,8 +108,15 @@ function check_and_enable_64_bit_mode {
 
 ### Inherit JVM_OPTS from task.opts configuration, and initialize defaults ###
 
+# Make the MDC inheritable to child threads by setting the system property to true if config not explicitly specified
+[[ $JAVA_OPTS != *-DisThreadContextMapInheritable* ]] && JAVA_OPTS="$JAVA_OPTS -DisThreadContextMapInheritable=true"
+
 # Check if log4j configuration is specified. If not - set to lib/log4j.xml
-[[ $JAVA_OPTS != *-Dlog4j.configuration* && -f $DEFAULT_LOG4J_FILE ]] && JAVA_OPTS="$JAVA_OPTS -Dlog4j.configuration=file:$DEFAULT_LOG4J_FILE"
+if [[ -n $(find "$base_dir/lib" -regex ".*samza-log4j2.*.jar*") ]]; then
+    [[ $JAVA_OPTS != *-Dlog4j.configurationFile* ]] && export JAVA_OPTS="$JAVA_OPTS -Dlog4j.configurationFile=file:$DEFAULT_LOG4J2_FILE"
+elif [[ -n $(find "$base_dir/lib" -regex ".*samza-log4j.*.jar*") ]]; then
+    [[ $JAVA_OPTS != *-Dlog4j.configuration* ]] && export JAVA_OPTS="$JAVA_OPTS -Dlog4j.configuration=file:$DEFAULT_LOG4J_FILE"
+fi
 
 # Check if samza.log.dir is specified. If not - set to environment variable if it is set
 [[ $JAVA_OPTS != *-Dsamza.log.dir* && ! -z "$SAMZA_LOG_DIR" ]] && JAVA_OPTS="$JAVA_OPTS -Dsamza.log.dir=$SAMZA_LOG_DIR"

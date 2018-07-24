@@ -276,10 +276,12 @@ project(":samza-autoscaling_$scalaVersion") {
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     compile "org.eclipse.jetty:jetty-webapp:$jettyVersion"
     compile("org.apache.hadoop:hadoop-yarn-client:$yarnVersion") {
+      exclude module: 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
       exclude module: 'slf4j-log4j12'
       exclude module: 'servlet-api'
     }
     compile("org.apache.hadoop:hadoop-common:$yarnVersion") {
+      exclude module: 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
       exclude module: 'slf4j-log4j12'
       exclude module: 'servlet-api'
     }
@@ -340,9 +342,7 @@ project(':samza-tools') {
     compile project(':samza-sql')
     compile project(':samza-api')
     compile project(':samza-azure')
-    compile "log4j:log4j:$log4jVersion"
     compile "org.slf4j:slf4j-api:$slf4jVersion"
-    compile "org.slf4j:slf4j-log4j12:$slf4jVersion"
     compile "commons-cli:commons-cli:$commonsCliVersion"
     compile "org.apache.avro:avro:$avroVersion"
     compile "org.apache.commons:commons-lang3:$commonsLang3Version"
@@ -383,7 +383,6 @@ project(":samza-kafka_$scalaVersion") {
   dependencies {
     compile project(':samza-api')
     compile project(":samza-core_$scalaVersion")
-    compile "log4j:log4j:$log4jVersion"
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     compile "com.101tec:zkclient:$zkClientVersion"
     compile "org.apache.zookeeper:zookeeper:$zookeeperVersion"
@@ -432,6 +431,26 @@ project(':samza-log4j') {
   }
 }
 
+project(':samza-log4j2') {
+  apply plugin: 'java'
+  apply plugin: 'checkstyle'
+
+  dependencies {
+    compile group: 'org.apache.logging.log4j', name: 'log4j-1.2-api', version: '2.11.0'
+    compile group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.11.0'
+    compile group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.11.0'
+    compile project(':samza-api')
+    compile project(":samza-core_$scalaVersion")
+    compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
+    testCompile "junit:junit:$junitVersion"
+  }
+
+  checkstyle {
+    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+    toolVersion = "$checkstyleVersion"
+  }
+}
+
 project(":samza-yarn_$scalaVersion") {
   apply plugin: 'scala'
   apply plugin: 'lesscss'
@@ -455,23 +474,28 @@ project(":samza-yarn_$scalaVersion") {
     compile "org.apache.httpcomponents:httpclient:$httpClientVersion"
     compile("org.apache.hadoop:hadoop-yarn-api:$yarnVersion") {
       exclude module: 'slf4j-log4j12'
+      exclude module: 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
     }
     compile("org.apache.hadoop:hadoop-yarn-common:$yarnVersion") {
       exclude module: 'slf4j-log4j12'
+      exclude module: 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
       exclude module: 'servlet-api'
     }
     compile("org.apache.hadoop:hadoop-yarn-client:$yarnVersion") {
       exclude module: 'slf4j-log4j12'
+      exclude module: 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
       exclude module: 'servlet-api'
     }
     compile("org.apache.hadoop:hadoop-common:$yarnVersion") {
       exclude module: 'slf4j-log4j12'
+      exclude module: 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
       exclude module: 'servlet-api'
       // Exclude because YARN's 3.4.5 ZK version is incompatbile with Kafka's 3.3.4.
       exclude module: 'zookeeper'
     }
     compile("org.apache.hadoop:hadoop-hdfs:$yarnVersion") {
       exclude module: 'slf4j-log4j12'
+      exclude module: 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
       exclude module: 'servlet-api'
     }
     compile("org.scalatra:scalatra_$scalaVersion:$scalatraVersion") {
@@ -518,8 +542,8 @@ project(":samza-shell") {
     gradleShell project(":samza-kafka_$scalaVersion")
     gradleShell project(":samza-test_$scalaVersion")
     gradleShell project(":samza-yarn_$scalaVersion")
-    gradleShell "org.slf4j:slf4j-log4j12:$slf4jVersion"
-    gradleShell "log4j:log4j:1.2.16"
+//    gradleShell "org.slf4j:slf4j-log4j12:$slf4jVersion"
+//    gradleShell "log4j:log4j:1.2.16"
   }
 
   task shellTarGz(type: Tar) {
@@ -544,7 +568,7 @@ project(":samza-shell") {
     main = 'org.apache.samza.job.JobRunner'
     classpath = configurations.gradleShell
     if (project.hasProperty('configPath')) args += ['--config-path', configPath]
-    jvmArgs = ["-Dlog4j.configuration=file:src/main/resources/log4j-console.xml"]
+    jvmArgs = ["-Dlog4j.configurationFile=file:src/main/resources/log4j2-console.xml"]
   }
 
   // Usage: ./gradlew samza-shell:checkpointTool \
@@ -555,7 +579,7 @@ project(":samza-shell") {
     classpath = configurations.gradleShell
     if (project.hasProperty('configPath')) args += ['--config-path', configPath]
     if (project.hasProperty('newOffsets')) args += ['--new-offsets', newOffsets]
-    jvmArgs = ["-Dlog4j.configuration=file:src/main/resources/log4j-console.xml"]
+    jvmArgs = ["-Dlog4j.configurationFile=file:src/main/resources/log4j2-console.xml"]
   }
 
   // Usage: ./gradlew samza-shell:kvPerformanceTest
@@ -565,7 +589,7 @@ project(":samza-shell") {
     main = 'org.apache.samza.test.performance.TestKeyValuePerformance'
     classpath = configurations.gradleShell
     if (project.hasProperty('configPath')) args += ['--config-path', configPath]
-    jvmArgs = ["-Dlog4j.configuration=file:src/main/resources/log4j-console.xml"]
+    jvmArgs = ["-Dlog4j.configurationFile=file:src/main/resources/log4j2-console.xml"]
   }
 }
 
@@ -660,10 +684,12 @@ project(":samza-hdfs_$scalaVersion") {
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     compile("org.apache.hadoop:hadoop-hdfs:$yarnVersion") {
       exclude module: 'slf4j-log4j12'
+      exclude module: 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
       exclude module: 'servlet-api'
     }
     compile("org.apache.hadoop:hadoop-common:$yarnVersion") {
       exclude module: 'slf4j-log4j12'
+      exclude module: 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
       exclude module: 'servlet-api'
       exclude module: 'zookeeper'
     }
@@ -691,11 +717,13 @@ project(":samza-rest") {
     compile "commons-httpclient:commons-httpclient:$commonsHttpClientVersion"
     compile("org.apache.hadoop:hadoop-yarn-client:$yarnVersion") {
       exclude module: 'slf4j-log4j12'
+      exclude module: 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
       exclude module: 'servlet-api'
       exclude group: 'com.sun.jersey'
     }
     runtime("org.apache.hadoop:hadoop-yarn-api:$yarnVersion") {
       exclude module: 'slf4j-log4j12'
+      exclude module: 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
       exclude module: 'servlet-api'
       exclude group: 'com.sun.jersey'
     }
@@ -709,7 +737,7 @@ project(":samza-rest") {
     description 'Build a tarball containing the samza-rest component and its dependencies'
     compression = Compression.GZIP
     from(file("$projectDir/src/main/config")) { into "config/" }
-    from(file("$projectDir/src/main/resources/log4j.xml")) { into "bin/" }
+    from(file("$projectDir/src/main/resources/log4j2.xml")) { into "bin/" }
     from(file("$projectDir/src/main/bash/run-samza-rest-service.sh")) { into "bin/" }
     from(project(':samza-shell').file("src/main/bash/run-class.sh")) { into "bin/" }
     from '../LICENSE'
@@ -762,6 +790,7 @@ project(":samza-test_$scalaVersion") {
     compile project(":samza-kafka_$scalaVersion")
     compile project(":samza-sql")
     runtime project(":samza-log4j")
+    runtime project(":samza-log4j2")
     runtime project(":samza-yarn_$scalaVersion")
     runtime project(":samza-hdfs_$scalaVersion")
     compile "org.scala-lang:scala-library:$scalaLibVersion"
@@ -802,7 +831,7 @@ project(":samza-test_$scalaVersion") {
     from(project(':samza-shell').file("src/main/bash")) { into "bin/" }
     from(file("$projectDir/src/main/python/ghostface_killah.py")) { into "bin/"}
     from(project(':samza-shell').file("src/main/resources")) { into "lib/" }
-    from(project(':samza-shell').file("src/main/resources/log4j-console.xml")) { into "bin/" }
+    from(project(':samza-shell').file("src/main/resources/log4j2-console.xml")) { into "bin/" }
     from '../LICENSE'
     from '../NOTICE'
     from(configurations.runtime) { into("lib/") }
