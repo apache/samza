@@ -21,32 +21,72 @@ package org.apache.samza.container.grouper.task;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.samza.coordinator.stream.CoordinatorStreamManager;
-import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
-import org.apache.samza.coordinator.stream.messages.Delete;
+
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.coordinator.stream.CoordinatorStreamKeySerde;
+import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping;
+import org.apache.samza.metadatastore.MetadataStore;
+import org.apache.samza.metadatastore.MetadataStoreFactory;
+import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.serializers.Serde;
+import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 /**
  * Task assignment Manager is used to persist and read the task-to-container
- * assignment information from the coordinator stream
+ * assignment information from the coordinator stream.
  * */
 public class TaskAssignmentManager {
-  private static final Logger log = LoggerFactory.getLogger(TaskAssignmentManager.class);
-  private final Map<String, String> taskNameToContainerId = new HashMap<>();
-  private final CoordinatorStreamManager coordinatorStreamManager;
-  private static final String SOURCE = "SamzaTaskAssignmentManager";
+  private static final Logger LOG = LoggerFactory.getLogger(TaskAssignmentManager.class);
+
+  private final Config config;
+  private SamzaContainerContext containerContext;
+  private final Serde<String> keySerde;
+  private final Serde<String> valueSerde;
+  private MetadataStore metadataStore;
+  private Map<String, String> taskNameToContainerId = new HashMap<>();
 
   /**
-   * Default constructor that creates a read-write manager
+   * Builds the TaskAssignmentManager based upon {@link Config} and {@link MetricsRegistry}.
+   * Uses {@link CoordinatorStreamKeySerde} and {@link CoordinatorStreamValueSerde} to
+   * serialize messages before reading/writing into coordinator stream.
    *
-   * @param coordinatorStreamManager coordinator stream manager.
+   * @param config denotes the configuration required for setting up metadata store.
+   * @param metricsRegistry the registry for reporting metrics in metadata store.
    */
-  public TaskAssignmentManager(CoordinatorStreamManager coordinatorStreamManager) {
-    this.coordinatorStreamManager = coordinatorStreamManager;
-    coordinatorStreamManager.register(SOURCE);
+  public TaskAssignmentManager(Config config, MetricsRegistry metricsRegistry) {
+    this(config, metricsRegistry, new CoordinatorStreamKeySerde(SetTaskContainerMapping.TYPE),
+         new CoordinatorStreamValueSerde(config, SetTaskContainerMapping.TYPE));
+  }
+
+  /**
+   * Builds the LocalityManager based upon {@link Config} and {@link MetricsRegistry}.
+   *
+   * Uses keySerde, valueSerde to serialize/deserialize (key, value) pairs before reading/writing
+   * into metadata store.
+   *
+   * Key and value serializer are different for yarn(uses CoordinatorStreamMessage) and standalone(uses native
+   * ObjectOutputStream for serialization) modes.
+   * @param config denotes the configuration required for setting up metadata store.
+   * @param metricsRegistry denotes the registry for reporting metrics in metadata store.
+   * @param keySerde denotes the key serializer.
+   * @param valueSerde denotes the value serializer.
+   */
+  public TaskAssignmentManager(Config config, MetricsRegistry metricsRegistry, Serde<String> keySerde, Serde<String> valueSerde) {
+    this.config = config;
+    this.keySerde = keySerde;
+    this.valueSerde = valueSerde;
+    MetadataStoreFactory metadataStoreFactory = Util.getObj(new JobConfig(config).getMetadataStoreFactory(), MetadataStoreFactory.class);
+    this.metadataStore = metadataStoreFactory.getMetadataStore(SetTaskContainerMapping.TYPE, config, metricsRegistry);
+  }
+
+  public void init(SamzaContainerContext containerContext) {
+    this.containerContext = containerContext;
+    this.metadataStore.init(containerContext);
   }
 
   /**
@@ -57,21 +97,14 @@ public class TaskAssignmentManager {
    */
   public Map<String, String> readTaskAssignment() {
     taskNameToContainerId.clear();
-    for (CoordinatorStreamMessage message: coordinatorStreamManager.getBootstrappedStream(SetTaskContainerMapping.TYPE)) {
-      if (message.isDelete()) {
-        taskNameToContainerId.remove(message.getKey());
-        log.debug("Got TaskContainerMapping delete message: {}", message);
-      } else {
-        SetTaskContainerMapping mapping = new SetTaskContainerMapping(message);
-        taskNameToContainerId.put(mapping.getKey(), mapping.getTaskAssignment());
-        log.debug("Got TaskContainerMapping message: {}", mapping);
-      }
-    }
-
-    for (Map.Entry<String, String> entry : taskNameToContainerId.entrySet()) {
-      log.debug("Assignment for task \"{}\": {}", entry.getKey(), entry.getValue());
-    }
-
+    metadataStore.all().forEach((keyBytes, valueBytes) -> {
+        String taskName = keySerde.fromBytes(keyBytes);
+        String containerId = valueSerde.fromBytes(valueBytes);
+        if (containerId != null) {
+          taskNameToContainerId.put(taskName, containerId);
+        }
+        LOG.debug("Assignment for task {}: {}", taskName, containerId);
+      });
     return Collections.unmodifiableMap(new HashMap<>(taskNameToContainerId));
   }
 
@@ -84,16 +117,16 @@ public class TaskAssignmentManager {
   public void writeTaskContainerMapping(String taskName, String containerId) {
     String existingContainerId = taskNameToContainerId.get(taskName);
     if (existingContainerId != null && !existingContainerId.equals(containerId)) {
-      log.info("Task \"{}\" moved from container {} to container {}", new Object[]{taskName, existingContainerId, containerId});
+      LOG.info("Task \"{}\" moved from container {} to container {}", new Object[]{taskName, existingContainerId, containerId});
     } else {
-      log.debug("Task \"{}\" assigned to container {}", taskName, containerId);
+      LOG.debug("Task \"{}\" assigned to container {}", taskName, containerId);
     }
 
     if (containerId == null) {
-      coordinatorStreamManager.send(new Delete(SOURCE, taskName, SetTaskContainerMapping.TYPE));
+      metadataStore.remove(keySerde.toBytes(taskName));
       taskNameToContainerId.remove(taskName);
     } else {
-      coordinatorStreamManager.send(new SetTaskContainerMapping(SOURCE, taskName, String.valueOf(containerId)));
+      metadataStore.put(keySerde.toBytes(taskName), valueSerde.toBytes(containerId));
       taskNameToContainerId.put(taskName, containerId);
     }
   }
@@ -105,7 +138,11 @@ public class TaskAssignmentManager {
    */
   public void deleteTaskContainerMappings(Iterable<String> taskNames) {
     for (String taskName : taskNames) {
-      writeTaskContainerMapping(taskName, null);
+      metadataStore.remove(keySerde.toBytes(taskName));
     }
+  }
+
+  public void close() {
+    metadataStore.close();
   }
 }

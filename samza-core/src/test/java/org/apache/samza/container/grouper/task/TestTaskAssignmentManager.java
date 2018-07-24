@@ -19,33 +19,47 @@
 
 package org.apache.samza.container.grouper.task;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+
+import com.google.common.collect.ImmutableMap;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.coordinator.stream.CoordinatorStreamManager;
+import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
-import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory.MockCoordinatorStreamSystemConsumer;
-import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory.MockCoordinatorStreamSystemProducer;
+import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.system.*;
+import org.apache.samza.util.CoordinatorStreamUtil;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.PowerMockRunner;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.anyObject;
+import static org.mockito.Mockito.when;
 
+@RunWith(PowerMockRunner.class)
+@PrepareForTest(CoordinatorStreamUtil.class)
 public class TestTaskAssignmentManager {
-  private final Config config = new MapConfig(
-      new HashMap<String, String>() {
-        {
-          this.put("job.name", "test-job");
-          this.put("job.coordinator.system", "test-kafka");
-        }
-      });
+
+  private MockCoordinatorStreamSystemFactory mockCoordinatorStreamSystemFactory;
+
+  private final Config config = new MapConfig(ImmutableMap.of("job.name", "test-job", "job.coordinator.system", "test-kafka"));
 
   @Before
   public void setup() {
     MockCoordinatorStreamSystemFactory.enableMockConsumerCache();
+    mockCoordinatorStreamSystemFactory = new MockCoordinatorStreamSystemFactory();
+    PowerMockito.mockStatic(CoordinatorStreamUtil.class);
+    when(CoordinatorStreamUtil.getCoordinatorSystemFactory(anyObject())).thenReturn(mockCoordinatorStreamSystemFactory);
+    when(CoordinatorStreamUtil.getCoordinatorSystemStream(anyObject())).thenReturn(new SystemStream("test-kafka", "test"));
+    when(CoordinatorStreamUtil.getCoordinatorStreamName(anyObject(), anyObject())).thenReturn("test");
   }
 
   @After
@@ -53,35 +67,12 @@ public class TestTaskAssignmentManager {
     MockCoordinatorStreamSystemFactory.disableMockConsumerCache();
   }
 
-  @Test public void testTaskAssignmentManager() throws Exception {
-    MockCoordinatorStreamSystemFactory mockCoordinatorStreamSystemFactory =
-        new MockCoordinatorStreamSystemFactory();
-    MockCoordinatorStreamSystemProducer producer =
-        mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);
-    MockCoordinatorStreamSystemConsumer consumer =
-        mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(config, null);
-    consumer.register();
-    CoordinatorStreamManager
-        coordinatorStreamManager = new CoordinatorStreamManager(producer, consumer);
-    TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(coordinatorStreamManager);
+  @Test
+  public void testTaskAssignmentManager() {
+    TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(config, new MetricsRegistryMap());
+    taskAssignmentManager.init(new SamzaContainerContext("1", config, new ArrayList<>(), new MetricsRegistryMap()));
 
-    assertTrue(producer.isRegistered());
-    assertEquals(producer.getRegisteredSource(), "SamzaTaskAssignmentManager");
-
-    coordinatorStreamManager.start();
-    assertTrue(producer.isStarted());
-    assertTrue(consumer.isStarted());
-
-    Map<String, String> expectedMap =
-      new HashMap<String, String>() {
-        {
-          this.put("Task0", "0");
-          this.put("Task1", "1");
-          this.put("Task2", "2");
-          this.put("Task3", "0");
-          this.put("Task4", "1");
-        }
-      };
+    Map<String, String> expectedMap = ImmutableMap.of("Task0", "0", "Task1", "1", "Task2", "2", "Task3", "0", "Task4", "1");
 
     for (Map.Entry<String, String> entry : expectedMap.entrySet()) {
       taskAssignmentManager.writeTaskContainerMapping(entry.getKey(), entry.getValue());
@@ -91,37 +82,14 @@ public class TestTaskAssignmentManager {
 
     assertEquals(expectedMap, localMap);
 
-    coordinatorStreamManager.stop();
-    assertTrue(producer.isStopped());
-    assertTrue(consumer.isStopped());
+    taskAssignmentManager.close();
   }
 
-  @Test public void testDeleteMappings() throws Exception {
-    MockCoordinatorStreamSystemFactory mockCoordinatorStreamSystemFactory =
-        new MockCoordinatorStreamSystemFactory();
-    MockCoordinatorStreamSystemProducer producer =
-        mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);
-    MockCoordinatorStreamSystemConsumer consumer =
-        mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(config, null);
-    consumer.register();
-    CoordinatorStreamManager
-        coordinatorStreamManager = new CoordinatorStreamManager(producer, consumer);
-    TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(coordinatorStreamManager);
+  @Test public void testDeleteMappings() {
+    TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(config, new MetricsRegistryMap());
+    taskAssignmentManager.init(new SamzaContainerContext("1", config, new ArrayList<>(), new MetricsRegistryMap()));
 
-    assertTrue(producer.isRegistered());
-    assertEquals(producer.getRegisteredSource(), "SamzaTaskAssignmentManager");
-
-    coordinatorStreamManager.start();
-    assertTrue(producer.isStarted());
-    assertTrue(consumer.isStarted());
-
-    Map<String, String> expectedMap =
-      new HashMap<String, String>() {
-        {
-          this.put("Task0", "0");
-          this.put("Task1", "1");
-        }
-      };
+    Map<String, String> expectedMap = ImmutableMap.of("Task0", "0", "Task1", "1");
 
     for (Map.Entry<String, String> entry : expectedMap.entrySet()) {
       taskAssignmentManager.writeTaskContainerMapping(entry.getKey(), entry.getValue());
@@ -131,40 +99,22 @@ public class TestTaskAssignmentManager {
     assertEquals(expectedMap, localMap);
 
     taskAssignmentManager.deleteTaskContainerMappings(localMap.keySet());
+
     Map<String, String> deletedMap = taskAssignmentManager.readTaskAssignment();
     assertTrue(deletedMap.isEmpty());
 
-    coordinatorStreamManager.stop();
-    assertTrue(producer.isStopped());
-    assertTrue(consumer.isStopped());
+    taskAssignmentManager.close();
   }
 
-  @Test public void testTaskAssignmentManagerEmptyCoordinatorStream() throws Exception {
-    MockCoordinatorStreamSystemFactory mockCoordinatorStreamSystemFactory =
-        new MockCoordinatorStreamSystemFactory();
-    MockCoordinatorStreamSystemProducer producer =
-        mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);
-    MockCoordinatorStreamSystemConsumer consumer =
-        mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(config, null);
-    consumer.register();
-    CoordinatorStreamManager
-        coordinatorStreamManager = new CoordinatorStreamManager(producer, consumer);
-    TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(coordinatorStreamManager);
-
-    assertTrue(producer.isRegistered());
-    assertEquals(producer.getRegisteredSource(), "SamzaTaskAssignmentManager");
-
-    coordinatorStreamManager.start();
-    assertTrue(producer.isStarted());
-    assertTrue(consumer.isStarted());
+  @Test public void testTaskAssignmentManagerEmptyCoordinatorStream() {
+    TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(config, new MetricsRegistryMap());
+    taskAssignmentManager.init(new SamzaContainerContext("1", config, new ArrayList<>(), new MetricsRegistryMap()));
 
     Map<String, String> expectedMap = new HashMap<>();
     Map<String, String> localMap = taskAssignmentManager.readTaskAssignment();
 
     assertEquals(expectedMap, localMap);
 
-    coordinatorStreamManager.stop();
-    assertTrue(producer.isStopped());
-    assertTrue(consumer.isStopped());
+    taskAssignmentManager.close();
   }
 }

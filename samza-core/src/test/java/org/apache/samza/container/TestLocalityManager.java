@@ -19,42 +19,48 @@
 
 package org.apache.samza.container;
 
+import com.google.common.collect.ImmutableMap;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.coordinator.stream.CoordinatorStreamManager;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory.MockCoordinatorStreamSystemConsumer;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory.MockCoordinatorStreamSystemProducer;
-import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
+import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.system.SystemStream;
+import org.apache.samza.util.CoordinatorStreamUtil;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.runner.RunWith;
 import org.junit.Test;
-
-import java.util.HashMap;
-import java.util.Map;
-
+import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.PowerMockRunner;
 import static org.junit.Assert.*;
-
+import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for {@link LocalityManager}
  */
+
+@RunWith(PowerMockRunner.class)
+@PrepareForTest(CoordinatorStreamUtil.class)
 public class TestLocalityManager {
 
-  private final MockCoordinatorStreamSystemFactory mockCoordinatorStreamSystemFactory =
-      new MockCoordinatorStreamSystemFactory();
-  private final Config config = new MapConfig(
-      new HashMap<String, String>() {
-        {
-          this.put("job.name", "test-job");
-          this.put("job.coordinator.system", "test-kafka");
-        }
-      });
+  private MockCoordinatorStreamSystemFactory mockCoordinatorStreamSystemFactory;
+  private final Config config = new MapConfig(ImmutableMap.of("job.name", "test-job", "job.coordinator.system", "test-kafka"));
 
   @Before
   public void setup() {
+    mockCoordinatorStreamSystemFactory = new MockCoordinatorStreamSystemFactory();
     MockCoordinatorStreamSystemFactory.enableMockConsumerCache();
+    PowerMockito.mockStatic(CoordinatorStreamUtil.class);
+    when(CoordinatorStreamUtil.getCoordinatorSystemFactory(anyObject())).thenReturn(mockCoordinatorStreamSystemFactory);
+    when(CoordinatorStreamUtil.getCoordinatorSystemStream(anyObject())).thenReturn(new SystemStream("test-kafka", "test"));
+    when(CoordinatorStreamUtil.getCoordinatorStreamName(anyObject(), anyObject())).thenReturn("test");
   }
 
   @After
@@ -62,23 +68,10 @@ public class TestLocalityManager {
     MockCoordinatorStreamSystemFactory.disableMockConsumerCache();
   }
 
-  @Test public void testLocalityManager() throws Exception {
-    MockCoordinatorStreamSystemProducer producer =
-        mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);
-    MockCoordinatorStreamSystemConsumer consumer =
-        mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(config, null);
-    CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(producer, consumer);
-    LocalityManager localityManager = new LocalityManager(coordinatorStreamManager);
+  @Test public void testLocalityManager() {
+    LocalityManager localityManager = new LocalityManager(config, new MetricsRegistryMap());
 
-    coordinatorStreamManager.register("SamzaContainer-containerId-0");
-    assertTrue(producer.isRegistered());
-    assertEquals(producer.getRegisteredSource(), "SamzaContainer-containerId-0");
-    assertTrue(consumer.isRegistered());
-
-    coordinatorStreamManager.start();
-    assertTrue(producer.isStarted());
-    assertTrue(consumer.isStarted());
-
+    localityManager.init(new SamzaContainerContext("0", config, new ArrayList<>(), new MetricsRegistryMap()));
     localityManager.writeContainerToHostMapping("0", "localhost", "jmx:localhost:8080", "jmx:tunnel:localhost:9090");
     Map<String, Map<String, String>> localMap = localityManager.readContainerLocality();
     Map<String, Map<String, String>> expectedMap =
@@ -88,49 +81,39 @@ public class TestLocalityManager {
             new HashMap<String, String>() {
               {
                 this.put(SetContainerHostMapping.HOST_KEY, "localhost");
-                this.put(SetContainerHostMapping.JMX_URL_KEY, "jmx:localhost:8080");
-                this.put(SetContainerHostMapping.JMX_TUNNELING_URL_KEY, "jmx:tunnel:localhost:9090");
+                this.put(SetContainerHostMapping.JMX_URL_KEY, "");
+                this.put(SetContainerHostMapping.JMX_TUNNELING_URL_KEY, "");
               }
             });
         }
       };
     assertEquals(expectedMap, localMap);
 
-    coordinatorStreamManager.stop();
+    localityManager.close();
+
+    MockCoordinatorStreamSystemProducer producer = mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);
+    MockCoordinatorStreamSystemConsumer consumer = mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(config, null);
     assertTrue(producer.isStopped());
     assertTrue(consumer.isStopped());
   }
 
   @Test public void testWriteOnlyLocalityManager() {
-    MockCoordinatorStreamSystemProducer producer =
-        mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);
-    CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(producer);
-    LocalityManager localityManager = new LocalityManager(coordinatorStreamManager);
-
-    coordinatorStreamManager.register("SamzaContainer-containerId-1");
-    assertTrue(producer.isRegistered());
-    assertEquals(producer.getRegisteredSource(), "SamzaContainer-containerId-1");
-
-    coordinatorStreamManager.start();
-    assertTrue(producer.isStarted());
+    LocalityManager localityManager = new LocalityManager(config, new MetricsRegistryMap());
 
     localityManager.writeContainerToHostMapping("1", "localhost", "jmx:localhost:8181", "jmx:tunnel:localhost:9191");
-    try {
-      localityManager.readContainerLocality();
-      fail("Should have thrown UnsupportedOperationException");
-    } catch (UnsupportedOperationException uoe) {
-      // expected
-    }
-    assertEquals(producer.getEnvelopes().size(), 1);
-    CoordinatorStreamMessage coordinatorStreamMessage =
-        MockCoordinatorStreamSystemFactory.deserializeCoordinatorStreamMessage(producer.getEnvelopes().get(0));
 
-    SetContainerHostMapping expectedContainerMap =
-        new SetContainerHostMapping("SamzaContainer-1", "1", "localhost", "jmx:localhost:8181",
-            "jmx:tunnel:localhost:9191");
-    assertEquals(expectedContainerMap, coordinatorStreamMessage);
+    localityManager.init(new SamzaContainerContext("0", config, new ArrayList<>(), new MetricsRegistryMap()));
 
-    coordinatorStreamManager.stop();
+    assertEquals(localityManager.readContainerLocality().size(), 1);
+
+    SetContainerHostMapping expectedContainerMap = new SetContainerHostMapping("SamzaContainer-1", "1", "localhost", "", "");
+    assertEquals(ImmutableMap.of("1", expectedContainerMap.getMessageMap().get("values")), localityManager.readContainerLocality());
+
+    localityManager.close();
+
+    MockCoordinatorStreamSystemProducer producer = mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);
+    MockCoordinatorStreamSystemConsumer consumer = mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(config, null);
     assertTrue(producer.isStopped());
+    assertTrue(consumer.isStopped());
   }
 }
