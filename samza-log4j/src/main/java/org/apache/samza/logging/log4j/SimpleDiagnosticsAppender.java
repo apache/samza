@@ -17,11 +17,12 @@
  * under the License.
  */
 
-package org.apache.samza.diagnostics;
+package org.apache.samza.logging.log4j;
 
 import org.apache.log4j.AppenderSkeleton;
 import org.apache.log4j.spi.LoggingEvent;
 import org.apache.samza.container.SamzaContainerMetrics;
+import org.apache.samza.diagnostics.DiagnosticsExceptionEvent;
 import org.apache.samza.metrics.ListGauge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,14 +36,20 @@ import org.slf4j.LoggerFactory;
  * When used inconjunction with {@link org.apache.samza.metrics.reporter.MetricsSnapshotReporter} provides a
  * stream of diagnostics-related events.
  */
-public class DiagnosticsAppender extends AppenderSkeleton {
+public class SimpleDiagnosticsAppender extends AppenderSkeleton {
 
-  private static final Logger LOG = LoggerFactory.getLogger(DiagnosticsAppender.class);
+  private static final Logger LOG = LoggerFactory.getLogger(SimpleDiagnosticsAppender.class);
   private final ListGauge<DiagnosticsExceptionEvent> samzaContainerExceptionMetric;
 
-  public DiagnosticsAppender(SamzaContainerMetrics samzaContainerMetrics) {
+  public SimpleDiagnosticsAppender(SamzaContainerMetrics samzaContainerMetrics) {
     this.samzaContainerExceptionMetric = samzaContainerMetrics.exceptions();
-    this.setName(DiagnosticsAppender.class.getName());
+    this.setName(SimpleDiagnosticsAppender.class.getName());
+
+    // ensure appender is attached only once per JVM (regardless of #containers)
+    if (org.apache.log4j.Logger.getRootLogger().getAppender(SimpleDiagnosticsAppender.class.getName()) == null) {
+      LOG.info("Attaching diagnostics appender to root logger");
+      org.apache.log4j.Logger.getRootLogger().addAppender(this);
+    }
   }
 
   @Override
@@ -78,5 +85,14 @@ public class DiagnosticsAppender extends AppenderSkeleton {
   @Override
   public boolean requiresLayout() {
     return false;
+  }
+
+  public static void attach(SamzaContainerMetrics metrics) {
+    org.apache.log4j.Logger rootLogger = org.apache.log4j.Logger.getRootLogger();
+
+    if (rootLogger.getAppender(SimpleDiagnosticsAppender.class.getName()) == null) {
+      LOG.info("Starting diagnostics appender.");
+      rootLogger.addAppender(new SimpleDiagnosticsAppender(metrics));
+    }
   }
 }

@@ -30,7 +30,6 @@ import java.util.concurrent.{ExecutorService, Executors, ScheduledExecutorServic
 
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
-import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
@@ -53,11 +52,8 @@ import org.apache.samza.system._
 import org.apache.samza.system.chooser.{DefaultChooser, MessageChooserFactory, RoundRobinChooserFactory}
 import org.apache.samza.table.TableManager
 import org.apache.samza.task._
-import org.apache.samza.util.Util
-import org.apache.samza.util._
+import org.apache.samza.util.{Util, _}
 import org.apache.samza.{SamzaContainerStatus, SamzaException}
-import org.apache.samza.diagnostics.DiagnosticsAppender;
-import org.apache.log4j.Logger
 
 import scala.collection.JavaConverters._
 
@@ -909,12 +905,9 @@ class SamzaContainer(
 
   def startDiagnostics {
     if (containerContext.config.getDiagnosticsEnabled) {
-      val rootLogger = Logger.getRootLogger
-
-      if (rootLogger.getAppender(classOf[DiagnosticsAppender].getName) == null) {
-        info("Starting diagnostics appender.")
-        rootLogger.addAppender(new DiagnosticsAppender(this.metrics))
-      }
+      info("Starting diagnostics.")
+      val diagnosticsAppender = Class.forName(containerContext.config.getDiagnosticsAppenderClass.get).
+        getDeclaredConstructor(classOf[SamzaContainerMetrics]).newInstance(this.metrics);
     }
   }
 
