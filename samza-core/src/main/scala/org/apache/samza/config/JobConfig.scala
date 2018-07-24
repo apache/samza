@@ -93,8 +93,7 @@ object JobConfig {
 
   // Specify DiagnosticAppender class
   val DIAGNOSTICS_APPENDER_CLASS = "job.diagnostics.appender.class"
-
-
+  
   implicit def Config2Job(config: Config) = new JobConfig(config)
 
   /**

@@ -39,7 +39,7 @@ import org.slf4j.LoggerFactory;
 public class SimpleDiagnosticsAppender extends AppenderSkeleton {
 
   private static final Logger LOG = LoggerFactory.getLogger(SimpleDiagnosticsAppender.class);
-  private final ListGauge<DiagnosticsExceptionEvent> samzaContainerExceptionMetric;
+  protected final ListGauge<DiagnosticsExceptionEvent> samzaContainerExceptionMetric;
 
   public SimpleDiagnosticsAppender(SamzaContainerMetrics samzaContainerMetrics) {
     this.samzaContainerExceptionMetric = samzaContainerMetrics.exceptions();
@@ -85,14 +85,5 @@ public class SimpleDiagnosticsAppender extends AppenderSkeleton {
   @Override
   public boolean requiresLayout() {
     return false;
-  }
-
-  public static void attach(SamzaContainerMetrics metrics) {
-    org.apache.log4j.Logger rootLogger = org.apache.log4j.Logger.getRootLogger();
-
-    if (rootLogger.getAppender(SimpleDiagnosticsAppender.class.getName()) == null) {
-      LOG.info("Starting diagnostics appender.");
-      rootLogger.addAppender(new SimpleDiagnosticsAppender(metrics));
-    }
   }
 }
