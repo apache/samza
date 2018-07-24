@@ -17,21 +17,21 @@
  * under the License.
  */
 
-package org.apache.samza.zk;
+package org.apache.samza.test.framework;
 
-import java.util.List;
+import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.SystemStream;
+import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.StreamTask;
+import org.apache.samza.task.TaskCoordinator;
 
-/**
- * Interface to listen for notifications from the {@link ZkController}
- */
-public interface ZkControllerListener {
-  /**
-   * ZkController observes the ZkTree for changes to group membership of processors and notifies the listener
-   *
-   * @param processorIds List of current znodes that are in the processing group
-   */
-  void onProcessorChange(List<String> processorIds);
 
-  void onNewJobModelAvailable(String version); // start job model update (stop current work)
-  void onNewJobModelConfirmed(String version); // start new work according to the new model
+public class MyStreamTestTask implements StreamTask {
+  @Override
+  public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator)
+      throws Exception {
+    Integer obj = (Integer) envelope.getMessage();
+    collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "output"), obj * 10));
+  }
 }

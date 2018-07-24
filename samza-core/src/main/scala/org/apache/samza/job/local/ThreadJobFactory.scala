@@ -94,7 +94,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         throw t
       }
 
-      override def onContainerStop(pausedOrNot: Boolean): Unit = {
+      override def onContainerStop(): Unit = {
       }
 
       override def onContainerStart(): Unit = {

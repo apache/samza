@@ -736,7 +736,6 @@ class SamzaContainer(
 
   @volatile private var status = SamzaContainerStatus.NOT_STARTED
   private var exceptionSeen: Throwable = null
-  private var paused: Boolean = false
   private var containerListener: SamzaContainerListener = null
 
   def getStatus(): SamzaContainerStatus = status
@@ -746,6 +745,8 @@ class SamzaContainer(
   def setContainerListener(listener: SamzaContainerListener): Unit = {
     containerListener = listener
   }
+
+  def hasStopped(): Boolean = status == SamzaContainerStatus.STOPPED || status == SamzaContainerStatus.FAILED
 
   def run {
     try {
@@ -824,24 +825,13 @@ class SamzaContainer(
     status match {
       case SamzaContainerStatus.STOPPED =>
         if (containerListener != null) {
-          containerListener.onContainerStop(paused)
+          containerListener.onContainerStop()
         }
       case SamzaContainerStatus.FAILED =>
         if (containerListener != null) {
           containerListener.onContainerFailed(exceptionSeen)
         }
     }
-  }
-
-  // TODO: We want to introduce a "PAUSED" state for SamzaContainer in the future so that StreamProcessor can pause and
-  // unpause the container when the jobmodel changes.
-  /**
-   * Marks the [[SamzaContainer]] as being paused by the called due to a change in [[JobModel]] and then, asynchronously
-   * shuts down this [[SamzaContainer]]
-   */
-  def pause(): Unit = {
-    paused = true
-    shutdown()
   }
 
   /**

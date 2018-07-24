@@ -72,7 +72,7 @@ class TestKafkaSystemConsumer {
     var hosts = List[String]()
     var getHostPortCount = 0
     val consumer = new KafkaSystemConsumer(systemName, systemAdmin, metrics, metadataStore, clientId) {
-      override def getHostPort(topicMetadata: TopicMetadata, partition: Int): Option[(String, Int)] = {
+      override def getLeaderHostPort(partitionMetadata: Option[PartitionMetadata]): Option[(String, Int)] = {
         // Generate a unique host every time getHostPort is called.
         getHostPortCount += 1
         Some("localhost-%s" format getHostPortCount, 0)
