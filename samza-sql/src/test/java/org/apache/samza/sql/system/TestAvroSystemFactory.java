@@ -70,6 +70,8 @@ public class TestAvroSystemFactory implements SystemFactory {
       "444-444-4444", "555-555-5555"};
   public static final String[] companies = {"MSFT", "LKND", "GOOG", "FB", "AMZN", "CSCO"};
   public static final String[] pageKeys = {"inbox", "home", "search", "pymk", "group", "job"};
+  public static final byte[] DEFAULT_TRACKING_ID_BYTES =
+      {76, 75, -24, 10, 33, -117, 24, -52, -110, -39, -5, 102, 65, 57, -62, -1};
 
   public static List<OutgoingMessageEnvelope> messages = new ArrayList<>();
 
@@ -295,7 +297,6 @@ public class TestAvroSystemFactory implements SystemFactory {
       record.put("id", index);
       record.put("string_value", "Name" + index);
       record.put("bytes_value", ByteBuffer.wrap(("sample bytes").getBytes()));
-      final byte[] DEFAULT_TRACKING_ID_BYTES = {76, 75, -24, 10, 33, -117, 24, -52, -110, -39, -5, 102, 65, 57, -62, -1};
       MyFixed myFixedVar = new MyFixed();
       myFixedVar.bytes(DEFAULT_TRACKING_ID_BYTES);
       record.put("fixed_value", myFixedVar);
