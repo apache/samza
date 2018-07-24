@@ -334,7 +334,7 @@ public class TestHostAwareContainerAllocator {
     Assert.assertEquals(clusterResourceManager.cancelledRequests.size(), 3);
   }
 
-  @Test
+  //@Test
   public void testExpiryWithNonResponsiveClusterManager() throws Exception {
 
     final SamzaResource resource0 = new SamzaResource(1, 1000, "host-3", "id1");
@@ -394,9 +394,17 @@ public class TestHostAwareContainerAllocator {
       Assert.fail("Timed out waiting for container-0 to launch");
     }
     // verify that the second preferred host request should expire and should trigger ANY_HOST requests
+    // wait for 4 requests to be made (2 preferred-host requests - one each on host-1 & host-2;  2 any-host requests)
     if (!clusterResourceManager.awaitResourceRequests(4, 20, TimeUnit.SECONDS)) {
       Assert.fail("Timed out waiting for resource requests");
     }
+    // verify 2 preferred host requests should have been made for host-1 and host-2
+    Assert.assertEquals(2, state.preferredHostRequests.get());
+    // verify both of them should have expired.
+    Assert.assertEquals(2, state.expiredPreferredHostRequests.get());
+    // verify there were at-least 2 any-host requests
+    Assert.assertTrue(state.anyHostRequests.get() >= 2);
+    Assert.assertTrue(state.expiredAnyHostRequests.get() <= state.anyHostRequests.get());
     // finally, provide a container from YARN after multiple requests
     containerAllocator.addResource(resource1);
     // verify all the test assertions

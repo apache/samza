@@ -47,7 +47,6 @@ import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.Assertions.intercept
 
-import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 import scala.collection.JavaConverters._
 
@@ -377,7 +376,7 @@ class TestTaskInstance {
     val mockOrder = inOrder(offsetManager, collector, storageManager)
 
     val taskInstance: TaskInstance = new TaskInstance(
-      Mockito.mock(classOf[StreamTask]).asInstanceOf[StreamTask],
+      Mockito.mock(classOf[StreamTask]),
       taskName,
       new MapConfig,
       new TaskInstanceMetrics,
@@ -418,7 +417,7 @@ class TestTaskInstance {
     val offsetManager = Mockito.mock(classOf[OffsetManager])
 
     val taskInstance: TaskInstance = new TaskInstance(
-      Mockito.mock(classOf[StreamTask]).asInstanceOf[StreamTask],
+      Mockito.mock(classOf[StreamTask]),
       taskName,
       new MapConfig,
       new TaskInstanceMetrics,

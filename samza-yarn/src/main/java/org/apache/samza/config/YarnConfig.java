@@ -90,12 +90,6 @@ public class YarnConfig extends MapConfig {
   private static final int DEFAULT_CONTAINER_REQUEST_TIMEOUT_MS = 5000;
 
   /**
-   * Flag to indicate if host-affinity is enabled for the job or not
-   */
-  public static final String HOST_AFFINITY_ENABLED = "yarn.samza.host-affinity.enabled";
-  private static final boolean DEFAULT_HOST_AFFINITY_ENABLED = false;
-
-  /**
    * Principal used to log in on a Kerberized secure cluster
    */
   public static final String YARN_KERBEROS_PRINCIPAL = "yarn.kerberos.principal";
@@ -175,10 +169,6 @@ public class YarnConfig extends MapConfig {
 
   public int getContainerRequestTimeout() {
     return getInt(CONTAINER_REQUEST_TIMEOUT_MS, DEFAULT_CONTAINER_REQUEST_TIMEOUT_MS);
-  }
-
-  public boolean getHostAffinityEnabled() {
-    return getBoolean(HOST_AFFINITY_ENABLED, DEFAULT_HOST_AFFINITY_ENABLED);
   }
 
   public String getYarnKerberosPrincipal() {

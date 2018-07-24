@@ -24,10 +24,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.samza.container.SamzaContainerContext;
-import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.ReadWriteTable;
-import org.apache.samza.table.caching.SupplierGauge;
+import org.apache.samza.table.utils.TableMetricsUtil;
 import org.apache.samza.task.TaskContext;
 
 import com.google.common.cache.Cache;
@@ -51,22 +50,23 @@ public class GuavaCacheTable<K, V> implements ReadWriteTable<K, V> {
     this.cache = cache;
   }
 
-  private void registerMetrics(String tableId, Cache cache, MetricsRegistry metricsReg) {
-    // hit- and miss-rate are provided by CachingTable.
-    metricsReg.newGauge(GROUP_NAME, new SupplierGauge(tableId + "-evict-count", () -> cache.stats().evictionCount()));
-  }
-
   /**
    * {@inheritDoc}
    */
   @Override
   public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
-    registerMetrics(tableId, cache, taskContext.getMetricsRegistry());
+    TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(containerContext, taskContext, this, tableId);
+    // hit- and miss-rate are provided by CachingTable.
+    tableMetricsUtil.newGauge("evict-count", () -> cache.stats().evictionCount());
   }
 
   @Override
   public void put(K key, V value) {
-    cache.put(key, value);
+    if (value != null) {
+      cache.put(key, value);
+    } else {
+      delete(key);
+    }
   }
 
   @Override

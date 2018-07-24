@@ -30,6 +30,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.operators.TableImpl;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.ReadableTable;
@@ -38,6 +39,7 @@ import org.apache.samza.table.TableSpec;
 import org.apache.samza.table.caching.guava.GuavaCacheTableDescriptor;
 import org.apache.samza.table.caching.guava.GuavaCacheTableProvider;
 import org.apache.samza.task.TaskContext;
+import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -50,6 +52,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 
 public class TestCachingTable {
@@ -125,6 +128,13 @@ public class TestCachingTable {
     return Pair.of(tableCache, cacheStore);
   }
 
+  private void initTable(CachingTable cachingTable) {
+    SamzaContainerContext containerContext = mock(SamzaContainerContext.class);
+    TaskContext taskContext = mock(TaskContext.class);
+    when(taskContext.getMetricsRegistry()).thenReturn(new NoOpMetricsRegistry());
+    cachingTable.init(containerContext, taskContext);
+  }
+
   private void doTestCacheOps(boolean isWriteAround) {
     CachingTableDescriptor desc = new CachingTableDescriptor("1");
     desc.withTable(new TableImpl(new TableSpec("realTable", null, null, new HashMap<>())));
@@ -133,6 +143,8 @@ public class TestCachingTable {
       desc.withWriteAround();
     }
     CachingTableProvider tableProvider = new CachingTableProvider(desc.getTableSpec());
+
+    SamzaContainerContext containerContext = mock(SamzaContainerContext.class);
 
     TaskContext taskContext = mock(TaskContext.class);
     final ReadWriteTable tableCache = getMockCache().getLeft();
@@ -157,7 +169,9 @@ public class TestCachingTable {
         return null;
       }).when(taskContext).getTable(anyString());
 
-    tableProvider.init(null, taskContext);
+    when(taskContext.getMetricsRegistry()).thenReturn(new NoOpMetricsRegistry());
+
+    tableProvider.init(containerContext, taskContext);
 
     CachingTable cacheTable = (CachingTable) tableProvider.getTable();
 
@@ -206,6 +220,7 @@ public class TestCachingTable {
     doReturn(null).when(table).get(any());
     ReadWriteTable<String, String> cache = getMockCache().getLeft();
     CachingTable<String, String> cachingTable = new CachingTable<>("myTable", table, cache, 16, false);
+    initTable(cachingTable);
     Assert.assertNull(cachingTable.get("abc"));
     verify(cache, times(2)).get(any());
     Assert.assertNull(cache.get("abc"));
@@ -220,6 +235,7 @@ public class TestCachingTable {
 
     // no handler added to mock cache so get/put are noop, this can simulate eviction
     CachingTable<String, String> cachingTable = new CachingTable<>("myTable", table, cache, 16, false);
+    initTable(cachingTable);
     cachingTable.get("abc");
     verify(table, times(1)).get(any());
 
