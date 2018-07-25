@@ -141,6 +141,8 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   private final EventHubConfig config;
   private final String systemName;
   private final EventHubClientManagerFactory eventHubClientManagerFactory;
+  private volatile Instant lastThreadDumpLogTime = Instant.ofEpochMilli(0);
+  private final static Duration MIN_THREAD_DUMP_LOG_INTERVAL = Duration.ofMinutes(15);
 
   // Partition receiver error propagation
   private final AtomicReference<Throwable> eventHubHandlerError = new AtomicReference<>(null);
@@ -330,11 +332,15 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
 
     try {
       try {
-        // Close current receiver
+        LOG.info("Closing the old receiver for ssp {} before renewing a new one.", ssp);
         streamPartitionReceivers.get(ssp).close().get(RENEW_SHUTDOWN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
       } catch (TimeoutException te) {
         LOG.warn("Timeout closing existing receiver. Moving on renewing a new one", te);
-        Util.logThreadDump("EventHubSystemConsumer.Receiver#Renew");
+        // avoid excessive logging given that we may have a lot of failed partitions in a short period of time
+        if (Duration.between(lastThreadDumpLogTime, Instant.now()).compareTo(MIN_THREAD_DUMP_LOG_INTERVAL) > 0) {
+          Util.logThreadDump("EventHubSystemConsumer.Receiver#Renew");
+          lastThreadDumpLogTime = Instant.now();
+        }
       }
 
       // Recreate receiver
