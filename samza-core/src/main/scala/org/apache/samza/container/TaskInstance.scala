@@ -179,7 +179,7 @@ class TaskInstance(
       trace("Processing incoming message envelope for taskName and SSP: %s, %s"
         format (taskName, incomingMessageSsp))
 
-      if (sideInputSSPs.contains(incomingMessageSsp)) {
+      if (sideInputSSPs.contains(incomingMessageSsp) && !envelope.isEndOfStream) {
         sideInputStorageManager.process(envelope)
       } else {
         if (isAsyncTask) {
