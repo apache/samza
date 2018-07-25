@@ -81,6 +81,26 @@ public class TableConfigGenerator {
     return tableConfigs;
   }
 
+  /**
+   * Get list of table specs given a list of table descriptors.
+   * @param tableDescs the list of tableDescriptors
+   * @return list of tableSpecs
+   */
+  static public List<TableSpec> getTableSpecs(List<TableDescriptor> tableDescs) {
+    Map<TableSpec, TableImpl> tableSpecs = new LinkedHashMap<>();
+
+    tableDescs.forEach(tableDesc -> {
+        TableSpec tableSpec = ((BaseTableDescriptor) tableDesc).getTableSpec();
+
+        if (tableSpecs.containsKey(tableSpec)) {
+          throw new IllegalStateException(
+              String.format("getTable() invoked multiple times with the same tableId: %s", tableDesc.getTableId()));
+        }
+        tableSpecs.put(tableSpec, new TableImpl(tableSpec));
+      });
+    return new ArrayList<>(tableSpecs.keySet());
+  }
+
   static private Map<String, String> generateTableKVSerdeConfigs(List<TableSpec> tableSpecs) {
     Map<String, String> serdeConfigs = new HashMap<>();
 
@@ -119,20 +139,5 @@ public class TableConfigGenerator {
       });
 
     return serdeConfigs;
-  }
-
-  static private List<TableSpec> getTableSpecs(List<TableDescriptor> tableDescs) {
-    Map<TableSpec, TableImpl> tableSpecs = new LinkedHashMap<>();
-
-    tableDescs.forEach(tableDesc -> {
-        TableSpec tableSpec = ((BaseTableDescriptor) tableDesc).getTableSpec();
-
-        if (tableSpecs.containsKey(tableSpec)) {
-          throw new IllegalStateException(
-              String.format("getTable() invoked multiple times with the same tableId: %s", tableDesc.getTableId()));
-        }
-        tableSpecs.put(tableSpec, new TableImpl(tableSpec));
-      });
-    return new ArrayList<>(tableSpecs.keySet());
   }
 }
