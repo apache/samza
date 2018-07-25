@@ -37,10 +37,12 @@ public class StreamUtil {
    */
   public static SystemStream getSystemStreamFromNameOrId(Config config, String stream) {
     String[] parts = stream.split("\\.");
+
     if (parts.length == 0 || parts.length > 2) {
       throw new SamzaException(
           String.format("Invalid stream %s. Expected to be of the format streamId or systemName.streamName", stream));
     }
+    
     if (parts.length == 1) {
       return new StreamConfig(config).streamIdToSystemStream(stream);
     } else {
