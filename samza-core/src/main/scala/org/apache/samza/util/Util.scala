@@ -94,7 +94,7 @@ object Util extends Logging {
     * @return the [[SystemStream]] for the stream
     */
   def getSystemStreamFromNameOrId(config: Config, stream: String): SystemStream = {
-    val parts = stream.split(".")
+    val parts = stream.split("\\.")
     if (parts.length == 0 || parts.length > 2) {
       throw new SamzaException(
         String.format("Invalid stream %s. Expected to be of the format streamId or systemName.streamName", stream))
