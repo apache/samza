@@ -87,7 +87,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
           }
 
           @Override
-          public void onContainerStop(boolean invokedExternally) {
+          public void onContainerStop() {
             log.info("Container Stopped");
           }
 

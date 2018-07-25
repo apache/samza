@@ -64,7 +64,6 @@ public class TestStreamEdge {
     assertEquals(streamConfig.getSystem(spec.getId()), "system-1");
     assertEquals(streamConfig.getPhysicalName(spec.getId()), "physical-stream-1");
     assertEquals(streamConfig.getIsIntermediateStream(spec.getId()), false);
-    assertEquals(streamConfig.getIsBounded(spec.getId()), false);
     assertEquals(streamConfig.getStreamProperties(spec.getId()).get("property1"), "haha");
 
     // bounded stream
@@ -72,7 +71,6 @@ public class TestStreamEdge {
     edge = new StreamEdge(spec, false, false, new MapConfig());
     config = edge.generateConfig();
     streamConfig = new StreamConfig(config);
-    assertEquals(streamConfig.getIsBounded(spec.getId()), true);
 
     // intermediate stream
     edge = new StreamEdge(spec, true, false, new MapConfig());

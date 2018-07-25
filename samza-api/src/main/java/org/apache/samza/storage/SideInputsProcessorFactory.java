@@ -17,23 +17,29 @@
  * under the License.
  */
 
+package org.apache.samza.storage;
 
-package org.apache.samza.zk;
+import java.io.Serializable;
+import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.config.Config;
+import org.apache.samza.metrics.MetricsRegistry;
+
 
 /**
- * Api to the functionality provided by ZK
+ * A factory to build {@link SideInputsProcessor}s.
  *
- * Api for JC to ZK communication
+ * Implementations should return a new instance for every invocation of
+ * {@link #getSideInputsProcessor(Config, MetricsRegistry)}
  */
-public interface ZkController {
-  void register();
-  boolean isLeader();
-  void stop();
-
-  // Leader
+@FunctionalInterface
+@InterfaceStability.Unstable
+public interface SideInputsProcessorFactory extends Serializable {
   /**
-   * Allows the {@link ZkJobCoordinator} to subscribe to changes to Zk nodes in the processors subtree
-   * Typically, the leader is interested in such notifications.
+   * Creates a new instance of a {@link SideInputsProcessor}.
+   *
+   * @param config the configuration
+   * @param metricsRegistry the metrics registry
+   * @return an instance of {@link SideInputsProcessor}
    */
-  void subscribeToProcessorChange();
+  SideInputsProcessor getSideInputsProcessor(Config config, MetricsRegistry metricsRegistry);
 }

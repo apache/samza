@@ -20,6 +20,7 @@
 package org.apache.samza.metrics.reporter
 
 import java.lang.management.ManagementFactory
+import java.util
 
 import org.apache.samza.util.Logging
 import javax.management.MBeanServer
@@ -104,12 +105,16 @@ trait JmxGaugeMBean extends MetricMBean {
   def getValue(): Object
 }
 
+trait JmxListGaugeMBean extends MetricMBean {
+  def getValue(): util.Collection[Object]
+}
+
 class JmxGauge(g: org.apache.samza.metrics.Gauge[Object], on: ObjectName) extends JmxGaugeMBean {
   def getValue = g.getValue
   def objectName = on
 }
 
-class JmxListGauge(g: org.apache.samza.metrics.ListGauge[Object], on: ObjectName) extends JmxGaugeMBean {
+class JmxListGauge(g: org.apache.samza.metrics.ListGauge[Object], on: ObjectName) extends JmxListGaugeMBean {
   def getValue = g.getValues
   def objectName = on
 }

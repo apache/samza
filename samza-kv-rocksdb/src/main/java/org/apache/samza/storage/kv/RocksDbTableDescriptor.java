@@ -182,7 +182,8 @@ public class RocksDbTableDescriptor<K, V> extends BaseLocalStoreBackedTableDescr
     Map<String, String> tableSpecConfig = new HashMap<>();
     generateTableSpecConfig(tableSpecConfig);
 
-    return new TableSpec(tableId, serde, RocksDbTableProviderFactory.class.getName(), tableSpecConfig);
+    return new TableSpec(tableId, serde, RocksDbTableProviderFactory.class.getName(), tableSpecConfig,
+        sideInputs, sideInputsProcessor);
   }
 
   @Override

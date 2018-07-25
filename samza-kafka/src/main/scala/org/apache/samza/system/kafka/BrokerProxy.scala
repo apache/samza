@@ -207,6 +207,7 @@ class BrokerProxy(
    * TopicAndPartition.
    */
   def abdicateAll {
+    info("Abdicating all topic partitions.")
     val immutableNextOffsetsCopy = nextOffsets.toMap
     immutableNextOffsetsCopy.keySet.foreach(abdicate(_))
   }
@@ -234,7 +235,10 @@ class BrokerProxy(
       warn("Got non-recoverable error codes during multifetch. Throwing an exception to trigger reconnect. Errors: %s" format remainingErrors.mkString(","))
       KafkaUtil.maybeThrowException(e.exception) })
 
-    notLeaderOrUnknownTopic.foreach(e => abdicate(e.tp))
+    notLeaderOrUnknownTopic.foreach(e => {
+      warn("Received (UnknownTopicOr|NotLeaderFor)Partition exception %s for %s. Abdicating" format(e.code, e.tp))
+      abdicate(e.tp)
+    })
 
     offsetOutOfRangeErrors.foreach(e => {
       warn("Received OffsetOutOfRange exception for %s. Current offset = %s" format (e.tp, nextOffsets.getOrElse(e.tp, "not found in map, likely removed in the interim")))
@@ -245,7 +249,7 @@ class BrokerProxy(
         nextOffsets.replace(e.tp, newOffset)
       } catch {
         // UnknownTopic or NotLeader are routine events and handled via abdication.  All others, bail.
-        case _ @ (_:UnknownTopicOrPartitionException | _: NotLeaderForPartitionException) => warn("Received (UnknownTopicOr|NotLeaderFor)Partition exception. Abdicating")
+        case _ @ (_:UnknownTopicOrPartitionException | _: NotLeaderForPartitionException) => warn("Received (UnknownTopicOr|NotLeaderFor)Partition exception %s for %s. Abdicating" format(e.code, e.tp))
                                                                                              abdicate(e.tp)
       }
     })

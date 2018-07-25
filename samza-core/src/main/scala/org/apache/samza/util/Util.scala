@@ -22,7 +22,6 @@ package org.apache.samza.util
 
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config._
-import org.apache.samza.system.SystemStream
 import org.apache.samza.SamzaException
 
 import java.lang.management.ManagementFactory

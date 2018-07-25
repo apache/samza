@@ -18,9 +18,13 @@
  */
 package org.apache.samza.storage.kv;
 
+import com.google.common.base.Preconditions;
+
+import java.util.List;
 import java.util.Map;
 
 import org.apache.samza.operators.BaseTableDescriptor;
+import org.apache.samza.storage.SideInputsProcessor;
 
 
 /**
@@ -32,6 +36,8 @@ import org.apache.samza.operators.BaseTableDescriptor;
  */
 abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLocalStoreBackedTableDescriptor<K, V, D>>
     extends BaseTableDescriptor<K, V, D> {
+  protected List<String> sideInputs;
+  protected SideInputsProcessor sideInputsProcessor;
 
   /**
    * Constructs a table descriptor instance
@@ -39,6 +45,16 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
    */
   public BaseLocalStoreBackedTableDescriptor(String tableId) {
     super(tableId);
+  }
+
+  public D withSideInputs(List<String> sideInputs) {
+    this.sideInputs = sideInputs;
+    return (D) this;
+  }
+
+  public D withSideInputsProcessor(SideInputsProcessor sideInputsProcessor) {
+    this.sideInputsProcessor = sideInputsProcessor;
+    return (D) this;
   }
 
   @Override
@@ -51,6 +67,11 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
    */
   protected void validate() {
     super.validate();
+    if (sideInputs != null || sideInputsProcessor != null) {
+      Preconditions.checkArgument(sideInputs != null && !sideInputs.isEmpty() && sideInputsProcessor != null,
+          String.format("Invalid side input configuration for table: %s. " +
+              "Both side inputs and the processor must be provided", tableId));
+    }
   }
 
 }
