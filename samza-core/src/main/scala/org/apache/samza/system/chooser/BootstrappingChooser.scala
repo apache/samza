@@ -19,6 +19,7 @@
 
 package org.apache.samza.system.chooser
 
+import java.util.HashMap
 import org.apache.samza.metrics.MetricsHelper
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.metrics.MetricsRegistry
