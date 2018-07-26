@@ -614,7 +614,6 @@ object SamzaContainer extends Logging {
         storeConsumers = storeConsumers,
         changeLogSystemStreams = changeLogSystemStreams,
         maxChangeLogStreamPartitions,
-        streamMetadataCache = streamMetadataCache,
         sspMetadataCache = changelogSSPMetadataCache,
         nonLoggedStoreBaseDir = nonLoggedStorageBaseDir,
         loggedStoreBaseDir = loggedStorageBaseDir,

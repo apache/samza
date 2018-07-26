@@ -23,10 +23,10 @@ import java.io._
 import java.util
 
 import org.apache.samza.config.StorageConfig
-import org.apache.samza.{Partition, SamzaException}
 import org.apache.samza.container.TaskName
 import org.apache.samza.system._
 import org.apache.samza.util.{Clock, FileUtil, Logging}
+import org.apache.samza.{Partition, SamzaException}
 
 object TaskStorageManager {
   def getStoreDir(storeBaseDir: File, storeName: String) = {
@@ -48,7 +48,6 @@ class TaskStorageManager(
   storeConsumers: Map[String, SystemConsumer] = Map(),
   changeLogSystemStreams: Map[String, SystemStream] = Map(),
   changeLogStreamPartitions: Int,
-  streamMetadataCache: StreamMetadataCache,
   sspMetadataCache: SSPMetadataCache,
   nonLoggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
   loggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
@@ -152,10 +151,7 @@ class TaskStorageManager(
       systemAdmin.validateStream(changelogSpec)
     }
 
-    val changeLogMetadata = streamMetadataCache.getStreamMetadata(changeLogSystemStreams.values.toSet)
-    info("Got change log stream metadata: %s" format changeLogMetadata)
-
-    changeLogOldestOffsets = getChangeLogOldestOffsetsForPartition(partition, changeLogMetadata)
+    changeLogOldestOffsets = buildOldestOffsetsMap()
     info("Assigning oldest change log offsets for taskName %s: %s" format (taskName, changeLogOldestOffsets))
   }
 
@@ -284,10 +280,14 @@ class TaskStorageManager(
   /**
    * Builds a map from SystemStreamPartition to oldest offset for changelogs.
    */
-  private def getChangeLogOldestOffsetsForPartition(partition: Partition, inputStreamMetadata: Map[SystemStream, SystemStreamMetadata]): Map[SystemStream, String] = {
-    inputStreamMetadata
-      .mapValues(_.getSystemStreamPartitionMetadata.get(partition))
+  private def buildOldestOffsetsMap(): Map[SystemStream, String] = {
+    changeLogSystemStreams.values.toSet
+      .map((changeLogSystemStream: SystemStream) => (changeLogSystemStream,
+        sspMetadataCache.getMetadata(new SystemStreamPartition(changeLogSystemStream.getSystem,
+          changeLogSystemStream.getStream,
+          partition))))
       .filter(_._2 != null)
+      .toMap
       .mapValues(_.getOldestOffset)
   }
 }

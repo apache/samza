@@ -43,7 +43,6 @@ import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.ByteSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.SSPMetadataCache;
-import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
@@ -201,7 +200,6 @@ public class StorageRecovery extends CommandLine {
   @SuppressWarnings({ "unchecked", "rawtypes" })
   private void getTaskStorageManagers() {
     Clock clock = SystemClock.instance();
-    StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, clock);
     // don't worry about prefetching for this; looks like the tool doesn't flush to offset files anyways
     SSPMetadataCache sspMetadataCache =
         new SSPMetadataCache(systemAdmins, Duration.ofSeconds(5), clock, Collections.emptySet());
@@ -242,7 +240,6 @@ public class StorageRecovery extends CommandLine {
             ScalaJavaUtil.toScalaMap(storeConsumers),
             ScalaJavaUtil.toScalaMap(changeLogSystemStreams),
             maxPartitionNumber,
-            streamMetadataCache,
             sspMetadataCache,
             storeBaseDir,
             storeBaseDir,
