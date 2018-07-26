@@ -915,7 +915,8 @@ class SamzaContainer(
       catch {
         case e@(_: ClassNotFoundException | _: InstantiationException | _: InvocationTargetException) => {
           error("Failed to instantiate diagnostic appender", e)
-          throw new ConfigException("Failed to instantiate diagnostic appender class specified in config", e)
+          throw new ConfigException("Failed to instantiate diagnostic appender class " +
+            containerContext.config.getDiagnosticsAppenderClass, e)
         }
       }
     }
