@@ -35,6 +35,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -54,6 +55,7 @@ import org.apache.samza.system.eventhub.metrics.SamzaHistogram;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer;
 import org.apache.samza.util.BlockingEnvelopeMap;
 import org.apache.samza.util.ShutdownUtil;
+import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -99,7 +101,10 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
 
   // Overall timeout for EventHubClient exponential backoff policy
   private static final Duration DEFAULT_EVENTHUB_RECEIVER_TIMEOUT = Duration.ofMinutes(10L);
-  private static final long DEFAULT_SHUTDOWN_TIMEOUT_MILLIS = Duration.ofSeconds(15).toMillis();
+  private static final long RENEW_SHUTDOWN_TIMEOUT_MILLIS = Duration.ofMinutes(1).toMillis();
+  // use a shorter shutdown timeout during the consumer shutdown; otherwise the rebalance
+  // in standalone may fail
+  private static final long SHUTDOWN_TIMEOUT_MILLIS = Duration.ofSeconds(15).toMillis();
 
   public static final String START_OF_STREAM = ClientConstants.START_OF_STREAM; // -1
   public static final String END_OF_STREAM = "-2";
@@ -136,6 +141,8 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   private final EventHubConfig config;
   private final String systemName;
   private final EventHubClientManagerFactory eventHubClientManagerFactory;
+  private volatile Instant lastThreadDumpLogTime = Instant.ofEpochMilli(0);
+  private final static Duration MIN_THREAD_DUMP_LOG_INTERVAL = Duration.ofMinutes(15);
 
   // Partition receiver error propagation
   private final AtomicReference<Throwable> eventHubHandlerError = new AtomicReference<>(null);
@@ -324,8 +331,17 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
     String consumerGroup = config.getStreamConsumerGroup(ssp.getSystem(), streamId);
 
     try {
-      // Close current receiver
-      streamPartitionReceivers.get(ssp).close().get(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+      try {
+        LOG.info("Closing the old receiver for ssp {} before renewing a new one.", ssp);
+        streamPartitionReceivers.get(ssp).close().get(RENEW_SHUTDOWN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+      } catch (TimeoutException te) {
+        LOG.warn("Timeout closing existing receiver. Moving on renewing a new one", te);
+        // avoid excessive logging given that we may have a lot of failed partitions in a short period of time
+        if (Duration.between(lastThreadDumpLogTime, Instant.now()).compareTo(MIN_THREAD_DUMP_LOG_INTERVAL) > 0) {
+          Util.logThreadDump("EventHubSystemConsumer.Receiver#Renew");
+          lastThreadDumpLogTime = Instant.now();
+        }
+      }
 
       // Recreate receiver
       PartitionReceiver receiver = eventHubClientManager.getEventHubClient()
@@ -356,24 +372,24 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
       @Override
       public void run() {
         try {
-          receiver.close().get(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+          receiver.close().get(SHUTDOWN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
           LOG.error("Failed to shutdown receiver.", e);
         }
       }
-    }).collect(Collectors.toList()), "EventHubSystemConsumer.Receiver#close", DEFAULT_SHUTDOWN_TIMEOUT_MILLIS);
+    }).collect(Collectors.toList()), "EventHubSystemConsumer.Receiver#close", SHUTDOWN_TIMEOUT_MILLIS);
 
     LOG.info("Start shutting down eventhubs managers");
     ShutdownUtil.boundedShutdown(perPartitionEventHubManagers.values().stream().map(manager -> new Runnable() {
       @Override
       public void run() {
         try {
-          manager.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS);
+          manager.close(SHUTDOWN_TIMEOUT_MILLIS);
         } catch (Exception e) {
           LOG.error("Failed to shutdown eventhubs manager.", e);
         }
       }
-    }).collect(Collectors.toList()), "EventHubSystemConsumer.ClientManager#close", DEFAULT_SHUTDOWN_TIMEOUT_MILLIS);
+    }).collect(Collectors.toList()), "EventHubSystemConsumer.ClientManager#close", SHUTDOWN_TIMEOUT_MILLIS);
 
     perPartitionEventHubManagers.clear();
     perStreamEventHubManagers.clear();
