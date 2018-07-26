@@ -91,7 +91,13 @@ object RocksDbKeyValueStore extends Logging {
         .toSet
 
       (configuredMetrics ++ rocksDbMetrics)
-        .foreach(property => metrics.newGauge(property, () => rocksDb.getProperty(property)))
+        .foreach(property => metrics.newGauge(property, () =>
+          if (rocksDb.isOwningHandle) {
+            rocksDb.getProperty(property)
+          } else {
+            "0"
+          }
+        ))
 
       rocksDb
     } catch {
