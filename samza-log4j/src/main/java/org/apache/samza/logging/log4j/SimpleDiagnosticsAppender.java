@@ -37,14 +37,26 @@ import org.slf4j.LoggerFactory;
  * stream of diagnostics-related events.
  */
 public class SimpleDiagnosticsAppender extends AppenderSkeleton {
-
   private static final Logger LOG = LoggerFactory.getLogger(SimpleDiagnosticsAppender.class);
+
+  // simple object to synchronize root logger attachment
+  private static final Object SYNCHRONIZATION_OBJECT = new Object();
   protected final ListGauge<DiagnosticsExceptionEvent> samzaContainerExceptionMetric;
 
+  /**
+   * A simple log4j1.2.* appender, which attaches itself to the root logger.
+   * Attachment to the root logger is thread safe.
+   */
   public SimpleDiagnosticsAppender(SamzaContainerMetrics samzaContainerMetrics) {
     this.samzaContainerExceptionMetric = samzaContainerMetrics.exceptions();
     this.setName(SimpleDiagnosticsAppender.class.getName());
 
+    synchronized (SYNCHRONIZATION_OBJECT) {
+      this.attachAppenderToRootLogger();
+    }
+  }
+
+  private void attachAppenderToRootLogger() {
     // ensure appender is attached only once per JVM (regardless of #containers)
     if (org.apache.log4j.Logger.getRootLogger().getAppender(SimpleDiagnosticsAppender.class.getName()) == null) {
       LOG.info("Attaching diagnostics appender to root logger");

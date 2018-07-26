@@ -21,6 +21,7 @@ package org.apache.samza.container
 
 import java.io.File
 import java.lang.management.ManagementFactory
+import java.lang.reflect.InvocationTargetException
 import java.net.{URL, UnknownHostException}
 import java.nio.file.Path
 import java.time.Duration
@@ -906,8 +907,17 @@ class SamzaContainer(
   def startDiagnostics {
     if (containerContext.config.getDiagnosticsEnabled) {
       info("Starting diagnostics.")
-      val diagnosticsAppender = Class.forName(containerContext.config.getDiagnosticsAppenderClass.get).
-        getDeclaredConstructor(classOf[SamzaContainerMetrics]).newInstance(this.metrics);
+
+      try {
+        val diagnosticsAppender = Class.forName(containerContext.config.getDiagnosticsAppenderClass).
+          getDeclaredConstructor(classOf[SamzaContainerMetrics]).newInstance(this.metrics);
+      }
+      catch {
+        case e@(_: ClassNotFoundException | _: InstantiationException | _: InvocationTargetException) => {
+          error("Failed to instantiate diagnostic appender", e)
+          throw new ConfigException("Failed to instantiate diagnostic appender class specified in config", e)
+        }
+      }
     }
   }
 
