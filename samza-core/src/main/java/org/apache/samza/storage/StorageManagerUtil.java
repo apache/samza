@@ -131,7 +131,7 @@ public class StorageManagerUtil {
       try {
         offset = FileUtil.readWithChecksum(offsetFileRef);
       } catch (Exception e) {
-        LOG.warn("Fail to read offset file of " + storePath);
+        LOG.warn("Fail to read offset file of " + storePath, e);
       }
     } else {
       LOG.info("No offset file found in storage partition directory: {}", storePath);

@@ -36,7 +36,6 @@ object FileUtil {
     * */
   def writeWithChecksum(file: File, data: String): Unit = {
     val checksum = getChecksum(data)
-
     val tmpFilePath = file.getAbsolutePath + ".tmp"
     val tmpFile = new File(tmpFilePath)
     var oos: ObjectOutputStream = null
