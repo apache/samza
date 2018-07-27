@@ -78,4 +78,10 @@ public class DiagnosticsExceptionEvent {
         mdcMap, that.mdcMap) && Objects.equals(this.throwable.getMessage(), that.throwable.getMessage())
         && Arrays.equals(this.throwable.getStackTrace(), that.throwable.getStackTrace());
   }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(timestamp, exceptionType, throwable.getMessage(), Arrays.hashCode(throwable.getStackTrace()),
+        mdcMap);
+  }
 }
