@@ -74,13 +74,8 @@ public class DiagnosticsExceptionEvent {
     DiagnosticsExceptionEvent that = (DiagnosticsExceptionEvent) o;
 
     // Throwable provides no equals impl, so we assume message & stacktrace equality suffices
-    return timestamp == that.timestamp && this.exceptionType.equals(that.exceptionType) && mdcMap.equals(that.mdcMap)
-        && this.throwable.getMessage().equals(that.throwable.getMessage()) && Arrays.equals(
-        this.throwable.getStackTrace(), that.throwable.getStackTrace());
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(timestamp, exceptionType, throwable, mdcMap);
+    return timestamp == that.timestamp && Objects.equals(this.exceptionType, that.exceptionType) && Objects.equals(
+        mdcMap, that.mdcMap) && Objects.equals(this.throwable.getMessage(), that.throwable.getMessage())
+        && Arrays.equals(this.throwable.getStackTrace(), that.throwable.getStackTrace());
   }
 }

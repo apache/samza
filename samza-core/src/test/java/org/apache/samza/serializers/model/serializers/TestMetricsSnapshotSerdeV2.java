@@ -37,7 +37,8 @@ public class TestMetricsSnapshotSerdeV2 {
   @Test
   public void testSerde() {
     MetricsHeader metricsHeader =
-        new MetricsHeader("jobName", "i001", "container 0", "source", "300.14.25.1", "1", "1", 1, 1);
+        new MetricsHeader("jobName", "i001", "container 0", "test container id", "source", "300.14.25.1", "1", "1", 1,
+            1);
 
     ListGauge listGauge = new ListGauge<DiagnosticsExceptionEvent>("exceptions");
     DiagnosticsExceptionEvent diagnosticsExceptionEvent1 =
@@ -53,16 +54,11 @@ public class TestMetricsSnapshotSerdeV2 {
     metricMessage.get(samzaContainerMetricsGroupName).put("commit-calls", 0);
 
     MetricsSnapshot metricsSnapshot = new MetricsSnapshot(metricsHeader, new Metrics(metricMessage));
+    byte[] serializedBytes = new MetricsSnapshotSerdeV2().toBytes(metricsSnapshot);
 
-    MetricsSnapshotSerdeV2 metricsSnapshotSerde = new MetricsSnapshotSerdeV2();
-    byte[] serializedBytes = metricsSnapshotSerde.toBytes(metricsSnapshot);
-
-    MetricsSnapshot deserializedMetricsSnapshot = metricsSnapshotSerde.fromBytes(serializedBytes);
+    MetricsSnapshot deserializedMetricsSnapshot = new MetricsSnapshotSerdeV2().fromBytes(serializedBytes);
 
     Assert.assertTrue("Headers map should be equal",
         metricsSnapshot.getHeader().getAsMap().equals(deserializedMetricsSnapshot.getHeader().getAsMap()));
-
-    Assert.assertTrue("Metrics map should be equal",
-        metricsSnapshot.getMetrics().getAsMap().equals(deserializedMetricsSnapshot.getMetrics().getAsMap()));
   }
 }
