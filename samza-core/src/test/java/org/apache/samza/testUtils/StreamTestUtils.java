@@ -16,28 +16,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.functions;
+package org.apache.samza.testUtils;
 
-import java.io.Serializable;
-import org.apache.samza.annotation.InterfaceStability;
+import java.util.Map;
+import org.apache.samza.config.StreamConfig$;
 
-
-/**
- * Transforms an input message into another message, possibly of a different type.
- *
- * @param <M>  type of the input message
- * @param <OM>  type of the transformed message
- */
-@InterfaceStability.Unstable
-@FunctionalInterface
-public interface MapFunction<M, OM> extends InitableFunction, ClosableFunction, Serializable {
+public class StreamTestUtils {
 
   /**
-   * Transforms the provided message into another message.
+   * Adds the stream.stream-id.* configurations for the provided {@code streamId} to the provided {@code configs} Map.
    *
-   * @param message  the input message to be transformed
-   * @return  the transformed message
+   * @param configs the configs Map to add the stream configurations to
+   * @param streamId the id of the stream
+   * @param systemName the system for the stream
+   * @param physicalName the physical name for the stream
    */
-  OM apply(M message);
-
+  public static void addStreamConfigs(Map<String, String> configs,
+      String streamId, String systemName, String physicalName) {
+    configs.put(String.format(StreamConfig$.MODULE$.SYSTEM_FOR_STREAM_ID(), streamId), systemName);
+    configs.put(String.format(StreamConfig$.MODULE$.PHYSICAL_NAME_FOR_STREAM_ID(), streamId), physicalName);
+  }
 }

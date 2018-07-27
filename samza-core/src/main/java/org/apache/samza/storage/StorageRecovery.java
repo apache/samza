@@ -52,6 +52,7 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.ScalaJavaUtil;
+import org.apache.samza.util.StreamUtil;
 import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
@@ -151,7 +152,7 @@ public class StorageRecovery extends CommandLine {
       log.info("stream name for " + storeName + " is " + streamName);
 
       if (streamName != null) {
-        changeLogSystemStreams.put(storeName, Util.getSystemStreamFromNames(streamName));
+        changeLogSystemStreams.put(storeName, StreamUtil.getSystemStreamFromNames(streamName));
       }
 
       String factoryClass = config.getStorageFactoryClassName(storeName);

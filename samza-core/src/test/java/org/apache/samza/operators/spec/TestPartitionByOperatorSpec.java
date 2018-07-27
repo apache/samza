@@ -29,9 +29,7 @@ import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
-import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.serializers.NoOpSerde;
-import org.apache.samza.system.StreamSpec;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.internal.util.reflection.Whitebox;
@@ -45,7 +43,6 @@ import static org.mockito.Mockito.*;
  */
 public class TestPartitionByOperatorSpec {
 
-  private final ApplicationRunner mockRunner = mock(ApplicationRunner.class);
   private final Config mockConfig = mock(Config.class);
   private final String testInputId = "test-input-1";
   private final String testJobName = "testJob";
@@ -93,12 +90,7 @@ public class TestPartitionByOperatorSpec {
   public void setup() {
     when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn(testJobName);
     when(mockConfig.get(JobConfig.JOB_ID(), "1")).thenReturn(testJobId);
-    StreamSpec inputSpec1 = new StreamSpec(testInputId, testInputId, "kafka");
-    when(mockRunner.getStreamSpec(testInputId)).thenReturn(inputSpec1);
-    String intermediateStreamName = String.format("%s-%s-partition_by-%s", testJobName, testJobId, testReparStreamName);
-    StreamSpec intermediateSpec1 = new StreamSpec(intermediateStreamName, intermediateStreamName, "kafka");
-    when(mockRunner.getStreamSpec(intermediateStreamName)).thenReturn(intermediateSpec1);
-    graphSpec = new StreamGraphSpec(mockRunner, mockConfig);
+    graphSpec = new StreamGraphSpec(mockConfig);
   }
 
   @Test
@@ -109,7 +101,7 @@ public class TestPartitionByOperatorSpec {
     MessageStream<KV<String, Object>>
         reparStream = inputStream.partitionBy(keyFn, valueFn, testReparStreamName);
     InputOperatorSpec inputOpSpec = (InputOperatorSpec) Whitebox.getInternalState(reparStream, "operatorSpec");
-    assertEquals(inputOpSpec.getStreamSpec().getId(), String.format("%s-%s-partition_by-%s", testJobName, testJobId, testReparStreamName));
+    assertEquals(inputOpSpec.getStreamId(), String.format("%s-%s-partition_by-%s", testJobName, testJobId, testReparStreamName));
     assertTrue(inputOpSpec.getKeySerde() instanceof NoOpSerde);
     assertTrue(inputOpSpec.getValueSerde() instanceof NoOpSerde);
     assertTrue(inputOpSpec.isKeyed());
@@ -121,7 +113,7 @@ public class TestPartitionByOperatorSpec {
     assertEquals(reparOpSpec.getOpId(), String.format("%s-%s-partition_by-%s", testJobName, testJobId, testReparStreamName));
     assertEquals(reparOpSpec.getKeyFunction(), keyFn);
     assertEquals(reparOpSpec.getValueFunction(), valueFn);
-    assertEquals(reparOpSpec.getOutputStream().getStreamSpec(), new StreamSpec(reparOpSpec.getOpId(), reparOpSpec.getOpId(), "kafka"));
+    assertEquals(reparOpSpec.getOutputStream().getStreamId(), reparOpSpec.getOpId());
     assertNull(reparOpSpec.getTimerFn());
     assertNull(reparOpSpec.getWatermarkFn());
   }
