@@ -19,7 +19,7 @@
 
 package org.apache.samza.metrics.reporter
 
-import org.apache.samza.util.Logging
+import org.apache.samza.util.{Logging, StreamUtil, Util}
 import org.apache.samza.SamzaException
 import org.apache.samza.config.{ApplicationConfig, Config}
 import org.apache.samza.config.JobConfig.Config2Job
@@ -30,7 +30,6 @@ import org.apache.samza.config.SerializerConfig.Config2Serializer
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.metrics.MetricsReporterFactory
-import org.apache.samza.util.Util
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.serializers.SerdeFactory
 import org.apache.samza.system.SystemFactory
@@ -68,7 +67,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
       .getMetricsReporterStream(name)
       .getOrElse(throw new SamzaException("No metrics stream defined in config."))
 
-    val systemStream = Util.getSystemStreamFromNames(metricsSystemStreamName)
+    val systemStream = StreamUtil.getSystemStreamFromNames(metricsSystemStreamName)
 
     info("Got system stream %s." format systemStream)
 

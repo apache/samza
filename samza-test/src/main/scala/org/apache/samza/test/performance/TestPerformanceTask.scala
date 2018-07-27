@@ -27,7 +27,7 @@ import org.apache.samza.task.StreamTask
 import org.apache.samza.task.TaskCoordinator
 import org.apache.samza.task.TaskCoordinator.RequestScope
 import org.apache.samza.config.Config
-import org.apache.samza.util.{Util, Logging}
+import org.apache.samza.util.{Logging, StreamUtil}
 import org.apache.samza.system.SystemStream
 import org.apache.samza.system.OutgoingMessageEnvelope
 
@@ -85,7 +85,7 @@ class TestPerformanceTask extends StreamTask with InitableTask with Logging {
   def init(config: Config, context: TaskContext) {
     logInterval = config.getInt("task.log.interval", 10000)
     maxMessages = config.getInt("task.max.messages", 10000000)
-    outputSystemStream = Option(config.get("task.outputs", null)).map(Util.getSystemStreamFromNames(_))
+    outputSystemStream = Option(config.get("task.outputs", null)).map(StreamUtil.getSystemStreamFromNames)
   }
 
   def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator) {
