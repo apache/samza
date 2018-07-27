@@ -398,7 +398,7 @@ public class TestEventHubSystemConsumer {
     Assert.assertNotNull("reconnect task should have been submitted", consumer.reconnectTaskStatus);
     Future lastReconnectTask = consumer.reconnectTaskStatus;
     lastReconnectTask.get(10000, TimeUnit.MILLISECONDS); // should return instantaneously
-    Assert.assertEquals(consumer.retryCountWithinWindow.size(), 1);
+    Assert.assertEquals(consumer.recentRetryAttempts.size(), 1);
 
     // after retry should receive events normally
     testClock.advanceTime(1);
@@ -413,14 +413,14 @@ public class TestEventHubSystemConsumer {
 
     // 2nd error: advance into next window, the older retry should have been evicted so this error should cause retry
     testClock.advanceTime(EventHubConfig.DEFAULT_CONFIG_RETRY_WINDOW_MS + 1);
-    Assert.assertEquals(consumer.retryCountWithinWindow.size(), 0);
+    Assert.assertEquals(consumer.recentRetryAttempts.size(), 0);
     eventHubClientWrapperFactory.triggerError(consumer.streamPartitionHandlers,
         new EventHubException(false /* is transient */, "test"));
     consumer.poll(Collections.singleton(ssp), 0).get(ssp);
     Assert.assertNotNull("reconnect task should have been submitted", consumer.reconnectTaskStatus);
     lastReconnectTask = consumer.reconnectTaskStatus;
     lastReconnectTask.get(10000, TimeUnit.MILLISECONDS); // should return instantaneously
-    Assert.assertEquals(consumer.retryCountWithinWindow.size(), 1);
+    Assert.assertEquals(consumer.recentRetryAttempts.size(), 1);
 
     // 3rd error: 1 ms is within the min retry interval; so poll should do nothing
     testClock.advanceTime(1);

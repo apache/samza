@@ -146,13 +146,13 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   // Partition receiver non transient error propagation
   private final AtomicReference<Throwable> eventHubNonTransientError = new AtomicReference<>(null);
 
-  private final ExecutorService reconnectTaskRunner =
-      Executors.newSingleThreadExecutor(new ThreadFactoryBuilder().setNameFormat("reconnectTask").build());
+  private final ExecutorService reconnectTaskRunner = Executors.newSingleThreadExecutor(
+      new ThreadFactoryBuilder().setNameFormat("EventHubs-Reconnect-Task").setDaemon(true).build());
   private long lastRetryTs = 0;
 
   private final Clock clock;
   @VisibleForTesting
-  final SlidingTimeWindowReservoir retryCountWithinWindow;
+  final SlidingTimeWindowReservoir recentRetryAttempts;
   @VisibleForTesting
   volatile Future reconnectTaskStatus = null;
 
@@ -175,7 +175,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
     List<String> streamIds = config.getStreams(systemName);
     prefetchCount = config.getPrefetchCount(systemName);
 
-    retryCountWithinWindow = new SlidingTimeWindowReservoir(config.getRetryWindowMs(systemName), clock);
+    recentRetryAttempts = new SlidingTimeWindowReservoir(config.getRetryWindowMs(systemName), clock);
 
     // Initiate metrics
     eventReadRates =
@@ -331,18 +331,18 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
      *    Otherwise we throw
      */
     if (handlerError != null && clock.currentTimeMillis() - lastRetryTs > config.getMinRetryIntervalMs(systemName)) {
-      int currentRetryCount = retryCountWithinWindow.size();
+      int currentRetryCount = recentRetryAttempts.size();
       long maxRetryCount = config.getMaxRetryCount(systemName);
       if (currentRetryCount < maxRetryCount) {
         LOG.warn("Received non transient error. Will retry.", handlerError);
         LOG.info("Current retry count within window: {}. max retry count allowed: {}. window size: {} ms",
             currentRetryCount, maxRetryCount, config.getRetryWindowMs(systemName));
         long now = clock.currentTimeMillis();
-        retryCountWithinWindow.update(now);
+        recentRetryAttempts.update(now);
         lastRetryTs = now;
         reconnectTaskStatus = reconnectTaskRunner.submit(this::renewEventHubsClient);
       } else {
-        LOG.error("Retry exhaustion: reach max retry count allowed ({}) within window ({}ms)", currentRetryCount,
+        LOG.error("Retries exhausted. Reached max allowed retries: ({}) within window {} ms", currentRetryCount,
             config.getRetryWindowMs(systemName));
         String msg = "Received a non transient error from event hub partition receiver";
         throw new SamzaException(msg, handlerError);
@@ -353,9 +353,14 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   }
 
   private synchronized void renewEventHubsClient() {
-    LOG.info("Start to renew eventhubs client");
-    shutdownEventHubsManagers(); // The shutdown is in parallel and time bounded
-    initializeEventHubsManagers();
+    try {
+      LOG.info("Start to renew eventhubs client");
+      shutdownEventHubsManagers(); // The shutdown is in parallel and time bounded
+      initializeEventHubsManagers();
+    } catch (Exception e) {
+      LOG.error("Failed to renew eventhubs client", e);
+      eventHubNonTransientError.set(e);
+    }
   }
 
   private void renewPartitionReceiver(SystemStreamPartition ssp) {
@@ -421,9 +426,13 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   @Override
   public void stop() {
     LOG.info("Stopping event hub system consumer...");
-    reconnectTaskRunner.shutdown();
-    shutdownEventHubsManagers();
-    isStarted = false;
+    try {
+      reconnectTaskRunner.shutdown();
+      shutdownEventHubsManagers();
+      isStarted = false;
+    } catch (Exception e) {
+      LOG.warn("Exception during stop.", e);
+    }
     LOG.info("Event hub system consumer stopped.");
   }
 
