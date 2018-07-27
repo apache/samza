@@ -32,7 +32,7 @@ import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.samza.SamzaException
 import org.apache.samza.config.ApplicationConfig.ApplicationMode
 import org.apache.samza.config.SystemConfig.Config2System
-import org.apache.samza.util.{Logging, Util}
+import org.apache.samza.util.{Logging, StreamUtil}
 
 import scala.collection.JavaConverters._
 
@@ -237,7 +237,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
       val storeName = if (matcher.find()) matcher.group(1) else throw new SamzaException("Unable to find store name in the changelog configuration: " + changelogConfig + " with SystemStream: " + cn)
 
       storageConfig.getChangelogStream(storeName).foreach(changelogName => {
-        val systemStream = Util.getSystemStreamFromNames(changelogName)
+        val systemStream = StreamUtil.getSystemStreamFromNames(changelogName)
         val factoryName = config.getSystemFactory(systemStream.getSystem).getOrElse(new SamzaException("Unable to determine factory for system: " + systemStream.getSystem))
         storeToChangelog += storeName -> systemStream.getStream
       })

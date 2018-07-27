@@ -25,6 +25,7 @@ import org.apache.commons.lang.NotImplementedException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
+import org.apache.samza.sql.SamzaSqlRelRecord;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.RelSchemaProvider;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
@@ -55,12 +56,16 @@ public class JsonRelConverterFactory implements SamzaRelConverterFactory {
 
     @Override
     public KV<Object, Object> convertToSamzaMessage(SamzaSqlRelMessage relMessage) {
+      String jsonValue = convertToSamzaMessage(relMessage.getSamzaSqlRelRecord());
+      return new KV<>(relMessage.getKey(), jsonValue.getBytes());
+    }
 
+    private String convertToSamzaMessage(SamzaSqlRelRecord relRecord) {
       String jsonValue;
       ObjectNode node = mapper.createObjectNode();
 
-      List<String> fieldNames = relMessage.getSamzaSqlRelRecord().getFieldNames();
-      List<Object> values = relMessage.getSamzaSqlRelRecord().getFieldValues();
+      List<String> fieldNames = relRecord.getFieldNames();
+      List<Object> values = relRecord.getFieldValues();
 
       for (int index = 0; index < fieldNames.size(); index++) {
         Object value = values.get(index);
@@ -77,6 +82,9 @@ public class JsonRelConverterFactory implements SamzaRelConverterFactory {
           node.put(fieldNames.get(index), (Double) value);
         } else if (String.class.isAssignableFrom(value.getClass())) {
           node.put(fieldNames.get(index), (String) value);
+        } else if (SamzaSqlRelRecord.class.isAssignableFrom(value.getClass())) {
+          // If the value is a SamzaSqlRelRecord, call convertToSamzaMessage to convert the record to json string.
+          node.put(fieldNames.get(index), convertToSamzaMessage((SamzaSqlRelRecord) value));
         } else {
           node.put(fieldNames.get(index), value.toString());
         }
@@ -87,7 +95,7 @@ public class JsonRelConverterFactory implements SamzaRelConverterFactory {
         throw new SamzaException("Error json serializing object", e);
       }
 
-      return new KV<>(relMessage.getKey(), jsonValue.getBytes());
+      return jsonValue;
     }
   }
 }

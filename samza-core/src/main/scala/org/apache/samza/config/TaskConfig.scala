@@ -22,7 +22,7 @@ package org.apache.samza.config
 import org.apache.samza.checkpoint.CheckpointManager
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system.SystemStream
-import org.apache.samza.util.{Logging, Util}
+import org.apache.samza.util.{Logging, StreamUtil}
 
 object TaskConfig {
   // task config constants
@@ -78,7 +78,7 @@ class TaskConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getInputStreams = getOption(TaskConfig.INPUT_STREAMS) match {
     case Some(streams) => if (streams.length > 0) {
       streams.split(",").map(systemStreamNames => {
-        Util.getSystemStreamFromNames(systemStreamNames.trim)
+        StreamUtil.getSystemStreamFromNames(systemStreamNames.trim)
       }).toSet
     } else {
       Set[SystemStream]()
@@ -100,10 +100,6 @@ class TaskConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     case Some(ms) => Some(ms.toLong)
     case _ => None
   }
-
-  def getLifecycleListeners(): Option[String] = getOption(TaskConfig.LIFECYCLE_LISTENERS)
-
-  def getLifecycleListenerClass(name: String): Option[String] = getOption(TaskConfig.LIFECYCLE_LISTENER format name)
 
   def getTaskClass = getOption(TaskConfig.TASK_CLASS)
 

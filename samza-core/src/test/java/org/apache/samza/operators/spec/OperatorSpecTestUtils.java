@@ -31,7 +31,6 @@ import org.apache.samza.operators.TableImpl;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.serializers.SerializableSerde;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.TableSpec;
 
 import static org.junit.Assert.*;
@@ -105,8 +104,8 @@ public class OperatorSpecTestUtils {
     assertEquals(oTable.getTableSpec(), nTable.getTableSpec());
   }
 
-  private static void assertClonedOutputs(Map<StreamSpec, OutputStreamImpl> originalOutputs,
-      Map<StreamSpec, OutputStreamImpl> clonedOutputs) {
+  private static void assertClonedOutputs(Map<String, OutputStreamImpl> originalOutputs,
+      Map<String, OutputStreamImpl> clonedOutputs) {
     assertEquals(originalOutputs.size(), clonedOutputs.size());
     assertEquals(originalOutputs.keySet(), clonedOutputs.keySet());
     Iterator<OutputStreamImpl> oIter = originalOutputs.values().iterator();
@@ -117,12 +116,11 @@ public class OperatorSpecTestUtils {
   private static void assertClonedOutputImpl(OutputStreamImpl oOutput, OutputStreamImpl nOutput) {
     assertNotEquals(oOutput, nOutput);
     assertEquals(oOutput.isKeyed(), nOutput.isKeyed());
-    assertEquals(oOutput.getSystemStream(), nOutput.getSystemStream());
-    assertEquals(oOutput.getStreamSpec(), nOutput.getStreamSpec());
+    assertEquals(oOutput.getStreamId(), nOutput.getStreamId());
   }
 
-  private static void assertClonedInputs(Map<StreamSpec, InputOperatorSpec> originalInputs,
-      Map<StreamSpec, InputOperatorSpec> clonedInputs) {
+  private static void assertClonedInputs(Map<String, InputOperatorSpec> originalInputs,
+      Map<String, InputOperatorSpec> clonedInputs) {
     assertEquals(originalInputs.size(), clonedInputs.size());
     assertEquals(originalInputs.keySet(), clonedInputs.keySet());
     Iterator<InputOperatorSpec> oIter = originalInputs.values().iterator();
@@ -134,7 +132,7 @@ public class OperatorSpecTestUtils {
     assertNotEquals(originalInput, clonedInput);
     assertEquals(originalInput.getOpId(), clonedInput.getOpId());
     assertEquals(originalInput.getOpCode(), clonedInput.getOpCode());
-    assertEquals(originalInput.getStreamSpec(), clonedInput.getStreamSpec());
+    assertEquals(originalInput.getStreamId(), clonedInput.getStreamId());
     assertEquals(originalInput.isKeyed(), clonedInput.isKeyed());
   }
 

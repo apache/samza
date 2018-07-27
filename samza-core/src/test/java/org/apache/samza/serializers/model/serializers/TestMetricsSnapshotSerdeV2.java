@@ -60,5 +60,6 @@ public class TestMetricsSnapshotSerdeV2 {
 
     Assert.assertTrue("Headers map should be equal",
         metricsSnapshot.getHeader().getAsMap().equals(deserializedMetricsSnapshot.getHeader().getAsMap()));
+
   }
 }

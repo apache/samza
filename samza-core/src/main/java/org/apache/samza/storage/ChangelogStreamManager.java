@@ -34,7 +34,7 @@ import org.apache.samza.coordinator.stream.CoordinatorStreamManager;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.StreamUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -113,7 +113,7 @@ public class ChangelogStreamManager {
         .stream()
         .filter(name -> StringUtils.isNotBlank(storageConfig.getChangelogStream(name)))
         .collect(Collectors.toMap(name -> name,
-            name -> Util.getSystemStreamFromNames(storageConfig.getChangelogStream(name))));
+            name -> StreamUtil.getSystemStreamFromNames(storageConfig.getChangelogStream(name))));
 
     // Get SystemAdmin for changelog store's system and attempt to create the stream
     JavaSystemConfig systemConfig = new JavaSystemConfig(config);

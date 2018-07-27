@@ -96,3 +96,8 @@ Committer<br/>
 **Prateek Maheshwari**<br/>
 Committer<br/>
 <a href="https://www.linkedin.com/in/mprateek" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
+
+**Wei Song**<br/>
+Committer<br/>
+<a href="https://www.linkedin.com/in/weisong44" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
+
