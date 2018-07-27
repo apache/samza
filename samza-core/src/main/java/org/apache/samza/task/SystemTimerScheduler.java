@@ -63,6 +63,7 @@ public class SystemTimerScheduler {
 
     final long delay = timestamp - System.currentTimeMillis();
     final ScheduledFuture<?> scheduledFuture = executor.schedule(() -> {
+        scheduledFutures.remove(key);
         readyTimers.put(TimerKey.of(key, timestamp), callback);
 
         if (timerListener != null) {

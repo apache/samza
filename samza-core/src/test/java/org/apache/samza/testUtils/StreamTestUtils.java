@@ -16,22 +16,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.testUtils;
 
-package org.apache.samza.zk;
+import java.util.Map;
+import org.apache.samza.config.StreamConfig$;
 
-import java.util.List;
+public class StreamTestUtils {
 
-/**
- * Interface to listen for notifications from the {@link ZkController}
- */
-public interface ZkControllerListener {
   /**
-   * ZkController observes the ZkTree for changes to group membership of processors and notifies the listener
+   * Adds the stream.stream-id.* configurations for the provided {@code streamId} to the provided {@code configs} Map.
    *
-   * @param processorIds List of current znodes that are in the processing group
+   * @param configs the configs Map to add the stream configurations to
+   * @param streamId the id of the stream
+   * @param systemName the system for the stream
+   * @param physicalName the physical name for the stream
    */
-  void onProcessorChange(List<String> processorIds);
-
-  void onNewJobModelAvailable(String version); // start job model update (stop current work)
-  void onNewJobModelConfirmed(String version); // start new work according to the new model
+  public static void addStreamConfigs(Map<String, String> configs,
+      String streamId, String systemName, String physicalName) {
+    configs.put(String.format(StreamConfig$.MODULE$.SYSTEM_FOR_STREAM_ID(), streamId), systemName);
+    configs.put(String.format(StreamConfig$.MODULE$.PHYSICAL_NAME_FOR_STREAM_ID(), streamId), physicalName);
+  }
 }

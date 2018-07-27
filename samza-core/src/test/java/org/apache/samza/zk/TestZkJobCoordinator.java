@@ -19,6 +19,9 @@
 package org.apache.samza.zk;
 
 import java.util.HashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.model.JobModel;
@@ -27,7 +30,10 @@ import org.apache.samza.zk.ZkJobCoordinator.ZkSessionStateChangedListener;
 import org.apache.zookeeper.Watcher;
 import org.junit.Test;
 import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
+import static junit.framework.Assert.assertTrue;
 import static org.mockito.Mockito.*;
 
 
@@ -36,9 +42,10 @@ public class TestZkJobCoordinator {
   private static final String TEST_JOB_MODEL_VERSION = "1";
 
   @Test
-  public void testFollowerShouldStopWhenNotPartOfGeneratedJobModel() {
+  public void testFollowerShouldStopWhenNotPartOfGeneratedJobModel() throws Exception {
     ZkKeyBuilder keyBuilder = Mockito.mock(ZkKeyBuilder.class);
     ZkClient mockZkClient = Mockito.mock(ZkClient.class);
+    CountDownLatch jcShutdownLatch = new CountDownLatch(1);
     when(keyBuilder.getJobModelVersionBarrierPrefix()).thenReturn(TEST_BARRIER_ROOT);
 
     ZkUtils zkUtils = Mockito.mock(ZkUtils.class);
@@ -47,9 +54,17 @@ public class TestZkJobCoordinator {
     when(zkUtils.getJobModel(TEST_JOB_MODEL_VERSION)).thenReturn(new JobModel(new MapConfig(), new HashMap<>()));
 
     ZkJobCoordinator zkJobCoordinator = Mockito.spy(new ZkJobCoordinator(new MapConfig(), new NoOpMetricsRegistry(), zkUtils));
-    zkJobCoordinator.onNewJobModelAvailable(TEST_JOB_MODEL_VERSION);
+    doAnswer(new Answer<Void>() {
+      public Void answer(InvocationOnMock invocation) {
+        jcShutdownLatch.countDown();
+        return null;
+      }
+    }).when(zkJobCoordinator).stop();
 
+    final ZkJobCoordinator.ZkJobModelVersionChangeHandler zkJobModelVersionChangeHandler = zkJobCoordinator.new ZkJobModelVersionChangeHandler(zkUtils);
+    zkJobModelVersionChangeHandler.doHandleDataChange("path", TEST_JOB_MODEL_VERSION);
     verify(zkJobCoordinator, Mockito.atMost(1)).stop();
+    assertTrue("Timed out waiting for JobCoordinator to stop", jcShutdownLatch.await(1, TimeUnit.MINUTES));
   }
 
   @Test

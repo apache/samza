@@ -334,7 +334,7 @@ public class TestHostAwareContainerAllocator {
     Assert.assertEquals(clusterResourceManager.cancelledRequests.size(), 3);
   }
 
-  @Test
+  //@Test
   public void testExpiryWithNonResponsiveClusterManager() throws Exception {
 
     final SamzaResource resource0 = new SamzaResource(1, 1000, "host-3", "id1");

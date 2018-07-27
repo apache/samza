@@ -18,14 +18,13 @@
  */
 package org.apache.samza.runtime;
 
-import java.io.File;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.operators.StreamGraph;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 
 
 public class TestApplicationRunnerMain {
@@ -37,7 +36,7 @@ public class TestApplicationRunnerMain {
         "--config-factory",
         "org.apache.samza.config.factories.PropertiesConfigFactory",
         "--config-path",
-        String.format("file://%s/src/test/resources/test.properties", new File(".").getCanonicalPath()),
+        getClass().getResource("/test.properties").getPath(),
         "-config", ApplicationRunnerMain.STREAM_APPLICATION_CLASS_CONFIG + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
         "-config", "app.runner.class=org.apache.samza.runtime.TestApplicationRunnerMain$TestApplicationRunnerInvocationCounts"
     });
@@ -52,7 +51,7 @@ public class TestApplicationRunnerMain {
         "--config-factory",
         "org.apache.samza.config.factories.PropertiesConfigFactory",
         "--config-path",
-        String.format("file://%s/src/test/resources/test.properties", new File(".").getCanonicalPath()),
+        getClass().getResource("/test.properties").getPath(),
         "-config", ApplicationRunnerMain.STREAM_APPLICATION_CLASS_CONFIG + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
         "-config", "app.runner.class=org.apache.samza.runtime.TestApplicationRunnerMain$TestApplicationRunnerInvocationCounts",
         "--operation=kill"
@@ -68,7 +67,7 @@ public class TestApplicationRunnerMain {
         "--config-factory",
         "org.apache.samza.config.factories.PropertiesConfigFactory",
         "--config-path",
-        String.format("file://%s/src/test/resources/test.properties", new File(".").getCanonicalPath()),
+        getClass().getResource("/test.properties").getPath(),
         "-config", ApplicationRunnerMain.STREAM_APPLICATION_CLASS_CONFIG + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
         "-config", "app.runner.class=org.apache.samza.runtime.TestApplicationRunnerMain$TestApplicationRunnerInvocationCounts",
         "--operation=status"
