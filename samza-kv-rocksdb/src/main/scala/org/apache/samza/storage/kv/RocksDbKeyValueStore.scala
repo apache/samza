@@ -92,6 +92,7 @@ object RocksDbKeyValueStore extends Logging {
 
       (configuredMetrics ++ rocksDbMetrics)
         .foreach(property => metrics.newGauge(property, () =>
+          // Check isOwningHandle flag. The db is open iff the flag is true.
           if (rocksDb.isOwningHandle) {
             rocksDb.getProperty(property)
           } else {
