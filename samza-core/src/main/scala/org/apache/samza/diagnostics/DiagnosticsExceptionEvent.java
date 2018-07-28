@@ -18,10 +18,10 @@
  */
 package org.apache.samza.diagnostics;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 
 
 /**
@@ -33,7 +33,8 @@ public class DiagnosticsExceptionEvent {
 
   private long timestamp; // the timestamp associated with this exception
   private Class exceptionType; // store the exception type separately
-  private Throwable throwable;
+  private String exceptionMessage; // the exception message
+  private String compactExceptionStackTrace; // a compact representation of the exception's stacktrace
   private Map mdcMap;
   // the MDC map associated with this exception, used to store/obtain any context associated with the throwable
 
@@ -41,8 +42,9 @@ public class DiagnosticsExceptionEvent {
   }
 
   public DiagnosticsExceptionEvent(long timestampMillis, Throwable throwable, Map mdcMap) {
-    this.throwable = throwable;
     this.exceptionType = throwable.getClass();
+    this.exceptionMessage = throwable.getMessage();
+    this.compactExceptionStackTrace = ExceptionUtils.getStackTrace(throwable);
     this.timestamp = timestampMillis;
     this.mdcMap = new HashMap(mdcMap);
   }
@@ -51,16 +53,20 @@ public class DiagnosticsExceptionEvent {
     return timestamp;
   }
 
-  public Throwable getThrowable() {
-    return this.throwable;
-  }
-
   public Class getExceptionType() {
     return this.exceptionType;
   }
 
   public Map getMdcMap() {
     return mdcMap;
+  }
+
+  public String getExceptionMessage() {
+    return exceptionMessage;
+  }
+
+  public String getCompactExceptionStackTrace() {
+    return compactExceptionStackTrace;
   }
 
   @Override
@@ -72,15 +78,13 @@ public class DiagnosticsExceptionEvent {
       return false;
     }
     DiagnosticsExceptionEvent that = (DiagnosticsExceptionEvent) o;
-
-    // Throwable provides no equals impl, so we assume message & stacktrace equality suffices
-    return timestamp == that.timestamp && this.exceptionType.equals(that.exceptionType) && mdcMap.equals(that.mdcMap)
-        && this.throwable.getMessage().equals(that.throwable.getMessage()) && Arrays.equals(
-        this.throwable.getStackTrace(), that.throwable.getStackTrace());
+    return timestamp == that.timestamp && Objects.equals(exceptionType, that.exceptionType) && Objects.equals(
+        exceptionMessage, that.exceptionMessage) && Objects.equals(compactExceptionStackTrace,
+        that.compactExceptionStackTrace) && Objects.equals(mdcMap, that.mdcMap);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(timestamp, exceptionType, throwable, mdcMap);
+    return Objects.hash(timestamp, exceptionType, exceptionMessage, compactExceptionStackTrace, mdcMap);
   }
 }
