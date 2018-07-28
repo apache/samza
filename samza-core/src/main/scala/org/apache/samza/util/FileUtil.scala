@@ -22,7 +22,7 @@
 package org.apache.samza.util
 
 import java.io.{File, FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
-import java.nio.file.{StandardCopyOption, CopyOption, Path, Files}
+import java.nio.file._
 import java.util.zip.CRC32
 
 import org.apache.samza.util.Util.info
@@ -47,7 +47,12 @@ object FileUtil {
       oos.writeUTF(data)
 
       //atomic swap of tmp and real offset file
-      Files.move(tmpFile.toPath, file.toPath, StandardCopyOption.ATOMIC_MOVE)
+      try {
+        Files.move(tmpFile.toPath, file.toPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+      } catch {
+        case e: AtomicMoveNotSupportedException =>
+          Files.move(tmpFile.toPath, file.toPath, StandardCopyOption.REPLACE_EXISTING)
+      }
     } finally {
       oos.close()
       fos.close()
