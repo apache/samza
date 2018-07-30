@@ -19,7 +19,6 @@
 
 package org.apache.samza.test.framework;
 
-import org.apache.samza.test.operator.StreamApplicationIntegrationTestHarness;
 import org.junit.Before;
 import org.junit.Test;
 

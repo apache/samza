@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.test.operator;
+package org.apache.samza.test.framework;
 
 import kafka.utils.TestUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -34,7 +34,6 @@ import org.apache.samza.execution.TestStreamManager;
 import org.apache.samza.runtime.AbstractApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.kafka.KafkaSystemAdmin;
-import org.apache.samza.test.framework.MessageStreamAssert;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import scala.Option;
 import scala.Option$;
