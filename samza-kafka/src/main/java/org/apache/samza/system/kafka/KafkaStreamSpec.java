@@ -110,7 +110,6 @@ public class KafkaStreamSpec extends StreamSpec {
                                 originalSpec.getSystemName(),
                                 originalSpec.getPartitionCount(),
                                 replicationFactor,
-                                originalSpec.isBroadcast(),
                                 mapToProperties(filterUnsupportedProperties(originalSpec.getConfig())));
   }
 
@@ -125,7 +124,7 @@ public class KafkaStreamSpec extends StreamSpec {
    * @param partitionCount  The number of partitions.
    */
   public KafkaStreamSpec(String id, String topicName, String systemName, int partitionCount) {
-    this(id, topicName, systemName, partitionCount, DEFAULT_REPLICATION_FACTOR, false, new Properties());
+    this(id, topicName, systemName, partitionCount, DEFAULT_REPLICATION_FACTOR, new Properties());
   }
 
   /**
@@ -146,13 +145,11 @@ public class KafkaStreamSpec extends StreamSpec {
    *
    * @param replicationFactor The number of topic replicas in the Kafka cluster for durability.
    *
-   * @param isBroadcast       The stream is broadcast or not.
-   *
    * @param properties        A set of properties for the stream. These may be System-specfic.
    */
   public KafkaStreamSpec(String id, String topicName, String systemName, int partitionCount, int replicationFactor,
-      Boolean isBroadcast, Properties properties) {
-    super(id, topicName, systemName, partitionCount, false, isBroadcast, propertiesToMap(properties));
+      Properties properties) {
+    super(id, topicName, systemName, partitionCount, propertiesToMap(properties));
 
     if (partitionCount < 1) {
       throw new IllegalArgumentException("Parameter 'partitionCount' must be > 0");
@@ -168,12 +165,12 @@ public class KafkaStreamSpec extends StreamSpec {
   @Override
   public StreamSpec copyWithPartitionCount(int partitionCount) {
     return new KafkaStreamSpec(getId(), getPhysicalName(), getSystemName(), partitionCount, getReplicationFactor(),
-        isBroadcast(), getProperties());
+        getProperties());
   }
 
   public KafkaStreamSpec copyWithReplicationFactor(int replicationFactor) {
     return new KafkaStreamSpec(getId(), getPhysicalName(), getSystemName(), getPartitionCount(), replicationFactor,
-        isBroadcast(), getProperties());
+        getProperties());
   }
 
   /**
@@ -183,7 +180,7 @@ public class KafkaStreamSpec extends StreamSpec {
    */
   public KafkaStreamSpec copyWithProperties(Properties properties) {
     return new KafkaStreamSpec(getId(), getPhysicalName(), getSystemName(), getPartitionCount(), getReplicationFactor(),
-        isBroadcast(), properties);
+        properties);
   }
 
   public int getReplicationFactor() {

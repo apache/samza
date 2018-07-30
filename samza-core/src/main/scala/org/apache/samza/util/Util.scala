@@ -22,9 +22,7 @@ package org.apache.samza.util
 
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config._
-import org.apache.samza.system.SystemStream
 import org.apache.samza.SamzaException
-
 import java.lang.management.ManagementFactory
 import java.net.Inet4Address
 import java.net.InetAddress
@@ -64,26 +62,6 @@ object Util extends Logging {
         throw e
       }
     }
-  }
-
-  /**
-   * Returns a SystemStream object based on the system stream name given. For
-   * example, kafka.topic would return new SystemStream("kafka", "topic").
-   */
-  def getSystemStreamFromNames(systemStreamNames: String): SystemStream = {
-    val idx = systemStreamNames.indexOf('.')
-    if (idx < 0) {
-      throw new IllegalArgumentException("No '.' in stream name '" + systemStreamNames + "'. Stream names should be in the form 'system.stream'")
-    }
-    new SystemStream(systemStreamNames.substring(0, idx), systemStreamNames.substring(idx + 1, systemStreamNames.length))
-  }
-
-  /**
-   * Returns a SystemStream object based on the system stream name given. For
-   * example, kafka.topic would return new SystemStream("kafka", "topic").
-   */
-  def getNameFromSystemStream(systemStream: SystemStream) = {
-    systemStream.getSystem + "." + systemStream.getStream
   }
 
   /**

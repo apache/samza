@@ -29,7 +29,6 @@ import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.impl.store.TimestampedValueSerde;
-import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
@@ -48,7 +47,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -56,22 +54,17 @@ public class TestJobNode {
 
   @Test
   public void testAddSerdeConfigs() {
-    ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     StreamSpec input1Spec = new StreamSpec("input1", "input1", "input-system");
     StreamSpec input2Spec = new StreamSpec("input2", "input2", "input-system");
     StreamSpec outputSpec = new StreamSpec("output", "output", "output-system");
     StreamSpec partitionBySpec =
         new StreamSpec("jobName-jobId-partition_by-p1", "partition_by-p1", "intermediate-system");
-    doReturn(input1Spec).when(mockRunner).getStreamSpec("input1");
-    doReturn(input2Spec).when(mockRunner).getStreamSpec("input2");
-    doReturn(outputSpec).when(mockRunner).getStreamSpec("output");
-    doReturn(partitionBySpec).when(mockRunner).getStreamSpec("jobName-jobId-partition_by-p1");
 
     Config mockConfig = mock(Config.class);
     when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("jobName");
     when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("jobId");
 
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mockRunner, mockConfig);
+    StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
     graphSpec.setDefaultSerde(KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
     MessageStream<KV<String, Object>> input1 = graphSpec.getInputStream("input1");
     MessageStream<KV<String, Object>> input2 = graphSpec.getInputStream("input2");
@@ -86,10 +79,10 @@ public class TestJobNode {
 
     JobNode jobNode = new JobNode("jobName", "jobId", graphSpec.getOperatorSpecGraph(), mockConfig);
     Config config = new MapConfig();
-    StreamEdge input1Edge = new StreamEdge(input1Spec, config);
-    StreamEdge input2Edge = new StreamEdge(input2Spec, config);
-    StreamEdge outputEdge = new StreamEdge(outputSpec, config);
-    StreamEdge repartitionEdge = new StreamEdge(partitionBySpec, true, config);
+    StreamEdge input1Edge = new StreamEdge(input1Spec, false, false, config);
+    StreamEdge input2Edge = new StreamEdge(input2Spec, false, false, config);
+    StreamEdge outputEdge = new StreamEdge(outputSpec, false, false, config);
+    StreamEdge repartitionEdge = new StreamEdge(partitionBySpec, true, false, config);
     jobNode.addInEdge(input1Edge);
     jobNode.addInEdge(input2Edge);
     jobNode.addOutEdge(outputEdge);
