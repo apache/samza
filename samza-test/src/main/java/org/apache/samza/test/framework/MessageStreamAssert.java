@@ -129,7 +129,7 @@ public class MessageStreamAssert<M> {
 
     private final String id;
     private final boolean checkEachTask;
-    private final Collection<M> expected;
+    private final transient Collection<M> expected;
 
 
     private transient Timer timer = new Timer();
