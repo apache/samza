@@ -45,17 +45,17 @@ object FileUtil {
       oos = new ObjectOutputStream(fos)
       oos.writeLong(checksum)
       oos.writeUTF(data)
-
-      //atomic swap of tmp and real offset file
-      try {
-        Files.move(tmpFile.toPath, file.toPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-      } catch {
-        case e: AtomicMoveNotSupportedException =>
-          Files.move(tmpFile.toPath, file.toPath, StandardCopyOption.REPLACE_EXISTING)
-      }
     } finally {
       oos.close()
       fos.close()
+    }
+
+    //atomic swap of tmp and real offset file
+    try {
+      Files.move(tmpFile.toPath, file.toPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+    } catch {
+      case e: AtomicMoveNotSupportedException =>
+        Files.move(tmpFile.toPath, file.toPath, StandardCopyOption.REPLACE_EXISTING)
     }
   }
 
