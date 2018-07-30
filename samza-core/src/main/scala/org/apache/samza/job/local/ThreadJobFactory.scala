@@ -28,7 +28,6 @@ import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.operators.StreamGraphSpec
-import org.apache.samza.runtime.LocalContainerRunner
 import org.apache.samza.storage.ChangelogStreamManager
 import org.apache.samza.task.TaskFactoryUtil
 import org.apache.samza.util.Logging
@@ -72,10 +71,9 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     val containerId = "0"
     val jmxServer = new JmxServer
     val streamApp = TaskFactoryUtil.createStreamApplication(config)
-    val appRunner = new LocalContainerRunner(jobModel, "0")
 
     val taskFactory = if (streamApp != null) {
-      val graphSpec = new StreamGraphSpec(appRunner, config)
+      val graphSpec = new StreamGraphSpec(config)
       streamApp.init(graphSpec, config)
       TaskFactoryUtil.createTaskFactory(graphSpec.getOperatorSpecGraph(), graphSpec.getContextManager)
     } else {
@@ -94,7 +92,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         throw t
       }
 
-      override def onContainerStop(pausedOrNot: Boolean): Unit = {
+      override def onContainerStop(): Unit = {
       }
 
       override def onContainerStart(): Unit = {

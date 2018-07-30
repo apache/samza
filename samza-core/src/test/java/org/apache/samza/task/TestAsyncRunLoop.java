@@ -82,7 +82,7 @@ public class TestAsyncRunLoop {
     return new TaskInstance(task, taskName, mock(Config.class), taskInstanceMetrics,
         null, consumers, mock(TaskInstanceCollector.class), mock(SamzaContainerContext.class),
         manager, null, null, null, sspSet, new TaskInstanceExceptionHandler(taskInstanceMetrics,
-        new scala.collection.immutable.HashSet<String>()), null, null, null);
+        new scala.collection.immutable.HashSet<String>()), null, null, null, new scala.collection.immutable.HashSet<>(), null);
   }
 
   interface TestCode {

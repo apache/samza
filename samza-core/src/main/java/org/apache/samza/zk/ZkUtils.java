@@ -147,7 +147,7 @@ public class ZkUtils {
           long currentTimeMs = System.currentTimeMillis();
           if ((currentTimeMs - startTimeMs) < retryTimeOutMs) {
             LOG.info("Processor: {} is duplicate. Retrying registration again.", processorId);
-            timeDelay(5000);
+            timeDelay(1000);
           } else {
             LOG.info("Processor: {} is duplicate. Deleting zookeeper node at path: {}.", processorId, ephemeralPath);
             zkClient.delete(ephemeralPath);

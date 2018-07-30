@@ -26,4 +26,7 @@ package org.apache.samza.sql.avro.schemas;
 
 @SuppressWarnings("all")
 @org.apache.avro.specific.FixedSize(16)
-public class MyFixed extends org.apache.avro.specific.SpecificFixed {}
+public class MyFixed extends org.apache.avro.specific.SpecificFixed {
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"fixed\",\"name\":\"MyFixed\",\"namespace\":\"org.apache.samza.sql.avro.schemas\",\"size\":16}");
+  public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
+}

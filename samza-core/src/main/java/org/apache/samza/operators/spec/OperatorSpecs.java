@@ -28,7 +28,6 @@ import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.TableSpec;
 
 
@@ -42,7 +41,7 @@ public class OperatorSpecs {
   /**
    * Creates an {@link InputOperatorSpec} for consuming input.
    *
-   * @param streamSpec  the stream spec for the input stream
+   * @param streamId  the stream id for the input stream
    * @param keySerde  the serde for the input key
    * @param valueSerde  the serde for the input value
    * @param isKeyed  whether the input stream is keyed
@@ -52,8 +51,8 @@ public class OperatorSpecs {
    * @return  the {@link InputOperatorSpec}
    */
   public static <K, V> InputOperatorSpec<K, V> createInputOperatorSpec(
-    StreamSpec streamSpec, Serde<K> keySerde, Serde<V> valueSerde, boolean isKeyed, String opId) {
-    return new InputOperatorSpec<>(streamSpec, keySerde, valueSerde, isKeyed, opId);
+    String streamId, Serde<K> keySerde, Serde<V> valueSerde, boolean isKeyed, String opId) {
+    return new InputOperatorSpec<>(streamId, keySerde, valueSerde, isKeyed, opId);
   }
 
   /**

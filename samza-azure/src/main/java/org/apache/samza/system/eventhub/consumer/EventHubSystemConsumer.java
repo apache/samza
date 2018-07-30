@@ -20,6 +20,7 @@
 package org.apache.samza.system.eventhub.consumer;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.microsoft.azure.eventhubs.EventData;
 import com.microsoft.azure.eventhubs.EventHubException;
 import com.microsoft.azure.eventhubs.EventPosition;
@@ -33,6 +34,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -43,6 +47,7 @@ import org.apache.commons.lang3.Validate;
 import org.apache.samza.SamzaException;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.metrics.SlidingTimeWindowReservoir;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.eventhub.EventHubClientManager;
@@ -53,6 +58,7 @@ import org.apache.samza.system.eventhub.admin.EventHubSystemAdmin;
 import org.apache.samza.system.eventhub.metrics.SamzaHistogram;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer;
 import org.apache.samza.util.BlockingEnvelopeMap;
+import org.apache.samza.util.Clock;
 import org.apache.samza.util.ShutdownUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -137,22 +143,39 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   private final String systemName;
   private final EventHubClientManagerFactory eventHubClientManagerFactory;
 
-  // Partition receiver error propagation
-  private final AtomicReference<Throwable> eventHubHandlerError = new AtomicReference<>(null);
+  // Partition receiver non transient error propagation
+  private final AtomicReference<Throwable> eventHubNonTransientError = new AtomicReference<>(null);
+
+  private final ExecutorService reconnectTaskRunner = Executors.newSingleThreadExecutor(
+      new ThreadFactoryBuilder().setNameFormat("EventHubs-Reconnect-Task").setDaemon(true).build());
+  private long lastRetryTs = 0;
+
+  private final Clock clock;
+  @VisibleForTesting
+  final SlidingTimeWindowReservoir recentRetryAttempts;
+  @VisibleForTesting
+  volatile Future reconnectTaskStatus = null;
 
   public EventHubSystemConsumer(EventHubConfig config, String systemName,
       EventHubClientManagerFactory eventHubClientManagerFactory, Map<String, Interceptor> interceptors,
       MetricsRegistry registry) {
-    super(registry, System::currentTimeMillis);
+    this(config, systemName, eventHubClientManagerFactory, interceptors, registry, System::currentTimeMillis);
+  }
+
+  EventHubSystemConsumer(EventHubConfig config, String systemName,
+      EventHubClientManagerFactory eventHubClientManagerFactory, Map<String, Interceptor> interceptors,
+      MetricsRegistry registry, Clock clock) {
+    super(registry, clock);
 
     this.config = config;
+    this.clock = clock;
     this.systemName = systemName;
     this.interceptors = interceptors;
     this.eventHubClientManagerFactory = eventHubClientManagerFactory;
     List<String> streamIds = config.getStreams(systemName);
     prefetchCount = config.getPrefetchCount(systemName);
 
-
+    recentRetryAttempts = new SlidingTimeWindowReservoir(config.getRetryWindowMs(systemName), clock);
 
     // Initiate metrics
     eventReadRates =
@@ -231,14 +254,9 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
     return eventHubClientManager;
   }
 
-  @Override
-  public void start() {
-    if (isStarted) {
-      LOG.warn("Trying to start EventHubSystemConsumer while it's already started. Ignore the request.");
-      return;
-    }
-    isStarted = true;
+  private synchronized void initializeEventHubsManagers() {
     LOG.info("Starting EventHubSystemConsumer. Count of SSPs registered: " + streamPartitionOffsets.entrySet().size());
+    eventHubNonTransientError.set(null);
     // Create receivers for Event Hubs
     for (Map.Entry<SystemStreamPartition, String> entry : streamPartitionOffsets.entrySet()) {
       SystemStreamPartition ssp = entry.getKey();
@@ -289,31 +307,60 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
       }
       LOG.info(String.format("Connection successfully started for namespace=%s, entity=%s ", namespace, entityPath));
     }
+  }
+
+  @Override
+  public void start() {
+    if (isStarted) {
+      LOG.warn("Trying to start EventHubSystemConsumer while it's already started. Ignore the request.");
+      return;
+    }
+    isStarted = true;
+    initializeEventHubsManagers();
     LOG.info("EventHubSystemConsumer started");
   }
 
   @Override
   public Map<SystemStreamPartition, List<IncomingMessageEnvelope>> poll(
       Set<SystemStreamPartition> systemStreamPartitions, long timeout) throws InterruptedException {
-    Throwable handlerError = eventHubHandlerError.get();
-
-    if (handlerError != null) {
-      if (isErrorTransient(handlerError)) {
-        // Log a warning if the error is transient
-        // Partition receiver handler OnError should have handled it by recreating the receiver
-        LOG.warn("Received a transient error from event hub partition receiver, restarted receiver", handlerError);
+    Throwable handlerError = eventHubNonTransientError.get();
+    /*
+     * We will retry for non transient error by instantiating a new EventHubs client if
+     * 1. Last retry happened more than CONFIG_MIN_RETRY_INTERVAL_MS ms ago. Otherwise we ignore
+     * 2. We haven't reached CONFIG_MAX_RETRY_COUNT allowed within the CONFIG_RETRY_WINDOW_MS window.
+     *    Otherwise we throw
+     */
+    if (handlerError != null && clock.currentTimeMillis() - lastRetryTs > config.getMinRetryIntervalMs(systemName)) {
+      int currentRetryCount = recentRetryAttempts.size();
+      long maxRetryCount = config.getMaxRetryCount(systemName);
+      if (currentRetryCount < maxRetryCount) {
+        LOG.warn("Received non transient error. Will retry.", handlerError);
+        LOG.info("Current retry count within window: {}. max retry count allowed: {}. window size: {} ms",
+            currentRetryCount, maxRetryCount, config.getRetryWindowMs(systemName));
+        long now = clock.currentTimeMillis();
+        recentRetryAttempts.update(now);
+        lastRetryTs = now;
+        reconnectTaskStatus = reconnectTaskRunner.submit(this::renewEventHubsClient);
       } else {
-        // Propagate the error to user if the throwable is either
-        // 1. permanent ServiceBusException error from client
-        // 2. SamzaException thrown bu the EventHubConsumer
-        //   2a. Interrupted during put operation to BEM
-        //   2b. Failure in renewing the Partititon Receiver
+        LOG.error("Retries exhausted. Reached max allowed retries: ({}) within window {} ms", currentRetryCount,
+            config.getRetryWindowMs(systemName));
         String msg = "Received a non transient error from event hub partition receiver";
         throw new SamzaException(msg, handlerError);
       }
     }
 
     return super.poll(systemStreamPartitions, timeout);
+  }
+
+  private synchronized void renewEventHubsClient() {
+    try {
+      LOG.info("Start to renew eventhubs client");
+      shutdownEventHubsManagers(); // The shutdown is in parallel and time bounded
+      initializeEventHubsManagers();
+    } catch (Exception e) {
+      LOG.error("Failed to renew eventhubs client", e);
+      eventHubNonTransientError.set(e);
+    }
   }
 
   private void renewPartitionReceiver(SystemStreamPartition ssp) {
@@ -341,15 +388,12 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
       receiver.setReceiveHandler(streamPartitionHandlers.get(ssp));
       streamPartitionReceivers.put(ssp, receiver);
     } catch (Exception e) {
-      eventHubHandlerError.set(new SamzaException(
+      eventHubNonTransientError.set(new SamzaException(
           String.format("Failed to recreate receiver for EventHubs after ReceiverHandlerError (ssp=%s)", ssp), e));
     }
   }
 
-  @Override
-  public void stop() {
-    LOG.info("Stopping event hub system consumer...");
-
+  private synchronized void shutdownEventHubsManagers() {
     // There could be potentially many Receivers and EventHubManagers, so close the managers in parallel
     LOG.info("Start shutting down eventhubs receivers");
     ShutdownUtil.boundedShutdown(streamPartitionReceivers.values().stream().map(receiver -> new Runnable() {
@@ -377,16 +421,19 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
 
     perPartitionEventHubManagers.clear();
     perStreamEventHubManagers.clear();
-    isStarted = false;
-    LOG.info("Event hub system consumer stopped.");
   }
 
-  private boolean isErrorTransient(Throwable throwable) {
-    if (throwable instanceof EventHubException) {
-      EventHubException eventHubException = (EventHubException) throwable;
-      return eventHubException.getIsTransient();
+  @Override
+  public void stop() {
+    LOG.info("Stopping event hub system consumer...");
+    try {
+      reconnectTaskRunner.shutdown();
+      shutdownEventHubsManagers();
+      isStarted = false;
+    } catch (Exception e) {
+      LOG.warn("Exception during stop.", e);
     }
-    return false;
+    LOG.info("Event hub system consumer stopped.");
   }
 
   @Override
@@ -471,13 +518,15 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
         EventHubException busException = (EventHubException) throwable;
 
         if (busException.getIsTransient()) {
-
-          // Only set to transient throwable if there has been no previous errors
-          eventHubHandlerError.compareAndSet(null, throwable);
-
           LOG.warn(
               String.format("Received transient exception from EH client. Renew partition receiver for ssp: %s", ssp),
               throwable);
+          try {
+            // Add a fixed delay so that we don't keep retrying when there are long-lasting failures
+            Thread.sleep(Duration.ofSeconds(2).toMillis());
+          } catch (InterruptedException e) {
+            LOG.warn("Interrupted during sleep before renew", e);
+          }
           // Retry creating a receiver since error likely due to timeout
           renewPartitionReceiver(ssp);
           return;
@@ -486,7 +535,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
 
       LOG.error(String.format("Received non transient exception from EH client for ssp: %s", ssp), throwable);
       // Propagate non transient or unknown errors
-      eventHubHandlerError.set(throwable);
+      eventHubNonTransientError.set(throwable);
     }
   }
 }
