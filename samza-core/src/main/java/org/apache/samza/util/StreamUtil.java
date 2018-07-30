@@ -21,11 +21,33 @@ package org.apache.samza.util;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.samza.SamzaException;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
 
 public class StreamUtil {
+  /**
+   * Gets the {@link SystemStream} corresponding to the provided stream, which may be
+   * a streamId, or stream name of the format systemName.streamName.
+   *
+   * @param stream the stream name or id to get the {@link SystemStream} for.
+   * @return the {@link SystemStream} for the stream
+   */
+  public static SystemStream getSystemStreamFromNameOrId(Config config, String stream) {
+    String[] parts = stream.split("\\.");
+    if (parts.length == 0 || parts.length > 2) {
+      throw new SamzaException(
+          String.format("Invalid stream %s. Expected to be of the format streamId or systemName.streamName", stream));
+    }
+    if (parts.length == 1) {
+      return new StreamConfig(config).streamIdToSystemStream(stream);
+    } else {
+      return new SystemStream(parts[0], parts[1]);
+    }
+  }
+
   /**
    * Returns a SystemStream object based on the system stream name given. For
    * example, kafka.topic would return SystemStream("kafka", "topic").

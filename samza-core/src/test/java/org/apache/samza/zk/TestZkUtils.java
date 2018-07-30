@@ -56,8 +56,8 @@ public class TestZkUtils {
   private static EmbeddedZookeeper zkServer = null;
   private static final ZkKeyBuilder KEY_BUILDER = new ZkKeyBuilder("test");
   private ZkClient zkClient = null;
-  private static final int SESSION_TIMEOUT_MS = 20000;
-  private static final int CONNECTION_TIMEOUT_MS = 10000;
+  private static final int SESSION_TIMEOUT_MS = 500;
+  private static final int CONNECTION_TIMEOUT_MS = 1000;
   private ZkUtils zkUtils;
 
   @Rule
@@ -148,12 +148,12 @@ public class TestZkUtils {
     zkUtils.validateZkVersion();
 
     String root = zkUtils.getKeyBuilder().getRootPath();
-    String ver = (String) zkUtils.getZkClient().readData(root);
+    String ver = zkUtils.getZkClient().readData(root);
     Assert.assertEquals(ZkUtils.ZK_PROTOCOL_VERSION, ver);
 
     // do it again (in case original value was null
     zkUtils.validateZkVersion();
-    ver = (String) zkUtils.getZkClient().readData(root);
+    ver = zkUtils.getZkClient().readData(root);
     Assert.assertEquals(ZkUtils.ZK_PROTOCOL_VERSION, ver);
 
     // now negative case

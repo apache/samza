@@ -18,13 +18,17 @@
  */
 package org.apache.samza.test.framework;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import org.apache.samza.SamzaException;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.test.controlmessages.TestData;
 import org.apache.samza.test.framework.stream.CollectionStream;
 import static org.apache.samza.test.controlmessages.TestData.PageView;
 import org.junit.Assert;
@@ -33,8 +37,13 @@ import org.junit.Test;
 
 public class StreamApplicationIntegrationTest {
 
-  final StreamApplication app = (streamGraph, cfg) -> {
-    streamGraph.<KV<String, PageView>>getInputStream("PageView")
+  final StreamApplication pageViewFilter = (streamAppSpec) -> {
+    streamAppSpec.<KV<String, TestData.PageView>>getInputStream("PageView").map(
+        StreamApplicationIntegrationTest.Values.create()).filter(pv -> pv.getPageKey().equals("inbox"));
+  };
+
+  final StreamApplication pageViewParition = (streamAppSpec) -> {
+    streamAppSpec.<KV<String, PageView>>getInputStream("PageView")
         .map(Values.create())
         .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
         .sink((m, collector, coordinator) -> {
@@ -61,11 +70,11 @@ public class StreamApplicationIntegrationTest {
     CollectionStream output = CollectionStream.empty("test", "Output", 10);
 
     TestRunner
-        .of(app)
+        .of(pageViewParition)
         .addInputStream(input)
         .addOutputStream(output)
         .addOverrideConfig("job.default.system", "test")
-        .run();
+        .run(Duration.ofMillis(1500));
 
     Assert.assertEquals(TestRunner.consumeStream(output, 10000).get(random.nextInt(count)).size(), 1);
   }
@@ -74,5 +83,45 @@ public class StreamApplicationIntegrationTest {
     public static <K, V, M extends KV<K, V>> MapFunction<M, V> create() {
       return (M m) -> m.getValue();
     }
+  }
+
+  /**
+   * Job should fail since it is missing config "job.default.system" for partitionBy Operator
+   */
+  @Test(expected = SamzaException.class)
+  public void testSamzaJobStartMissingConfigFailureForStreamApplication() {
+
+    CollectionStream<TestData.PageView> input = CollectionStream.of("test", "PageView", new ArrayList<>());
+    CollectionStream output = CollectionStream.empty("test", "Output", 10);
+
+    TestRunner
+        .of(pageViewParition)
+        .addInputStream(input)
+        .addOutputStream(output)
+        .run(Duration.ofMillis(1000));
+  }
+
+  /**
+   * Null page key is passed in input data which should fail filter logic
+   */
+  @Test(expected = SamzaException.class)
+  public void testSamzaJobFailureForStreamApplication() {
+    Random random = new Random();
+    int count = 10;
+    List<TestData.PageView> pageviews = new ArrayList<>(count);
+    for (int i = 0; i < count; i++) {
+      String pagekey = PAGEKEYS[random.nextInt(PAGEKEYS.length - 1)];
+      int memberId = i;
+      pageviews.add(new TestData.PageView(null, memberId));
+    }
+
+    CollectionStream<TestData.PageView> input = CollectionStream.of("test", "PageView", pageviews);
+    CollectionStream output = CollectionStream.empty("test", "Output", 1);
+
+    TestRunner.of(pageViewFilter)
+        .addInputStream(input)
+        .addOutputStream(output)
+        .addOverrideConfig("job.default.system", "test")
+        .run(Duration.ofMillis(1000));
   }
 }

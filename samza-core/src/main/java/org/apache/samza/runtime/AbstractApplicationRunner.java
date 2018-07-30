@@ -107,7 +107,7 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
   }
 
   /* package private */
-  final ExecutionPlan getExecutionPlan(OperatorSpecGraph graphSpec, String runId, StreamManager streamManager) throws Exception {
+  final ExecutionPlan getExecutionPlan(OperatorSpecGraph specGraph, String runId, StreamManager streamManager) throws Exception {
 
     // update application configs
     Map<String, String> cfg = new HashMap<>(config);
@@ -116,15 +116,15 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
     }
 
     StreamConfig streamConfig = new StreamConfig(config);
-    Set<String> inputStreams = new HashSet<>(graphSpec.getInputOperators().keySet());
-    inputStreams.removeAll(graphSpec.getOutputStreams().keySet());
+    Set<String> inputStreams = new HashSet<>(specGraph.getInputOperators().keySet());
+    inputStreams.removeAll(specGraph.getOutputStreams().keySet());
     ApplicationMode mode = inputStreams.stream().allMatch(streamConfig::getIsBounded)
         ? ApplicationMode.BATCH : ApplicationMode.STREAM;
     cfg.put(ApplicationConfig.APP_MODE, mode.name());
 
     // create the physical execution plan
     ExecutionPlanner planner = new ExecutionPlanner(new MapConfig(cfg), streamManager);
-    return planner.plan(graphSpec);
+    return planner.plan(specGraph);
   }
 
   /**

@@ -33,7 +33,7 @@ object FileUtil {
     * @param file The file handle to write to
     * @param data The data to be written to the file
     * */
-  def writeWithChecksum(file: File, data: String) = {
+  def writeWithChecksum(file: File, data: String): Unit = {
     val checksum = getChecksum(data)
     var oos: ObjectOutputStream = null
     var fos: FileOutputStream = null
@@ -52,7 +52,7 @@ object FileUtil {
     * Reads from a file that has a checksum prepended to the data
     * @param file The file handle to read from
     * */
-  def readWithChecksum(file: File) = {
+  def readWithChecksum(file: File): String = {
     var fis: FileInputStream = null
     var ois: ObjectInputStream = null
     try {
@@ -76,7 +76,7 @@ object FileUtil {
     * Recursively remove a directory (or file), and all sub-directories. Equivalent
     * to rm -rf.
     */
-  def rm(file: File) {
+  def rm(file: File): Unit = {
     if (file == null) {
       return
     } else if (file.isDirectory) {
@@ -96,7 +96,7 @@ object FileUtil {
     * @param data The string for which checksum has to be generated
     * @return long type value representing the checksum
     * */
-  def getChecksum(data: String) = {
+  def getChecksum(data: String): Long = {
     val crc = new CRC32
     crc.update(data.getBytes)
     crc.getValue

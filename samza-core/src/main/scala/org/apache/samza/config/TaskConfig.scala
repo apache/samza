@@ -101,10 +101,6 @@ class TaskConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     case _ => None
   }
 
-  def getLifecycleListeners(): Option[String] = getOption(TaskConfig.LIFECYCLE_LISTENERS)
-
-  def getLifecycleListenerClass(name: String): Option[String] = getOption(TaskConfig.LIFECYCLE_LISTENER format name)
-
   def getTaskClass = getOption(TaskConfig.TASK_CLASS)
 
   def getCommandClass = getOption(TaskConfig.COMMAND_BUILDER)

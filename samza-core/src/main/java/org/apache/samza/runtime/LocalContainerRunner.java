@@ -31,9 +31,7 @@ import org.apache.samza.application.TaskApplication;
 import org.apache.samza.application.ApplicationSpec;
 import org.apache.samza.application.LifecycleAwareApplication;
 import org.apache.samza.application.internal.StreamAppSpecImpl;
-import org.apache.samza.application.internal.StreamApplicationSpecRuntime;
 import org.apache.samza.application.internal.TaskAppSpecImpl;
-import org.apache.samza.application.internal.TaskApplicationSpecRuntime;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
@@ -113,7 +111,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
             }
 
             @Override
-            public void onContainerStop(boolean invokedExternally) {
+            public void onContainerStop() {
               log.info("Container Stopped");
             }
 
@@ -180,7 +178,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
             }
 
             @Override
-            public void onContainerStop(boolean invokedExternally) {
+            public void onContainerStop() {
               log.info("Container Stopped");
             }
 
