@@ -19,6 +19,7 @@
 
 package org.apache.samza.test.framework;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -54,10 +55,11 @@ import static org.junit.Assert.assertThat;
  * <pre>Example: {@code
  * MessageStream<String> stream = streamGraph.getInputStream("input", serde).map(some_function)...;
  * ...
- * StreamAssert.that(id, stream, stringSerde).containsInAnyOrder(Arrays.asList("a", "b", "c"));
+ * MessageStreamAssert.that(id, stream, stringSerde).containsInAnyOrder(Arrays.asList("a", "b", "c"));
  * }</pre>
  *
  */
+@VisibleForTesting
 public class MessageStreamAssert<M> {
   private final static Map<String, CountDownLatch> LATCHES = new ConcurrentHashMap<>();
   private final static CountDownLatch PLACE_HOLDER = new CountDownLatch(0);
@@ -67,6 +69,14 @@ public class MessageStreamAssert<M> {
   private final Serde<M> serde;
   private boolean checkEachTask = false;
 
+  /**
+   * Constructors a MessageStreamAssert with an id and serde
+   * @param id unique id
+   * @param messageStream represents messageStream that you want to assert on
+   * @param serde serde used to desialize messageStream
+   * @param <M> represents type of Message
+   * @return MessageStreamAssert that returns the the messages in the stream
+   */
   public static <M> MessageStreamAssert<M> that(String id, MessageStream<M> messageStream, Serde<M> serde) {
     return new MessageStreamAssert<>(id, messageStream, serde);
   }
@@ -140,7 +150,7 @@ public class MessageStreamAssert<M> {
     @Override
     public void init(Config config, TaskContext context) {
       final SystemStreamPartition ssp = Iterables.getFirst(context.getSystemStreamPartitions(), null);
-      if (ssp == null ? false : ssp.getPartition().getPartitionId() == 0) {
+      if (ssp != null || ssp.getPartition().getPartitionId() == 0) {
         final int count = checkEachTask ? context.getSamzaContainerContext().taskNames.size() : 1;
         LATCHES.put(id, new CountDownLatch(count));
         timer.schedule(timerTask, TIMEOUT);
@@ -173,6 +183,7 @@ public class MessageStreamAssert<M> {
       final CountDownLatch latch = LATCHES.get(id);
       try {
         assertThat(actual, Matchers.containsInAnyOrder((M[]) expected.toArray()));
+        throw new IllegalArgumentException("asdas");
       } finally {
         latch.countDown();
       }
