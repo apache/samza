@@ -60,7 +60,7 @@ import static org.junit.Assert.assertThat;
  *
  */
 @VisibleForTesting
-public class MessageStreamAssert<M> {
+class MessageStreamAssert<M> {
   private final static Map<String, CountDownLatch> LATCHES = new ConcurrentHashMap<>();
   private final static CountDownLatch PLACE_HOLDER = new CountDownLatch(0);
 

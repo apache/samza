@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.test.timer;
+package org.apache.samza.test.framework;
 
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
@@ -27,7 +27,6 @@ import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.serializers.JsonSerdeV2;
-import org.apache.samza.test.framework.MessageStreamAssert;
 import org.apache.samza.test.operator.data.PageView;
 
 import java.util.ArrayList;
