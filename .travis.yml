@@ -31,7 +31,7 @@ jdk:
 
 script:
   ## travis_wait increases build idle-wait time from 10 minutes to 20 minutes.
-  - travis_wait 40 ./gradlew clean build
+  - travis_wait 20 ./gradlew clean build
   - type sonar-scanner &>/dev/null; if [ $? -eq 0 ]; then sonar-scanner; else echo "Not running sonar"; fi
 
 before_cache:
