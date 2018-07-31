@@ -52,11 +52,13 @@ import org.apache.samza.job.ApplicationStatus.New
 import org.apache.samza.job.ApplicationStatus.Running
 import org.apache.samza.job.ApplicationStatus.SuccessfulFinish
 import org.apache.samza.job.ApplicationStatus.UnsuccessfulFinish
-import org.apache.samza.util.Logging
+import org.apache.samza.util.{Logging, Util}
 import java.io.IOException
 import java.nio.ByteBuffer
 
 import org.apache.http.impl.client.HttpClientBuilder
+import org.apache.samza.container.SamzaContainer.info
+import org.apache.samza.container.SecurityManagerFactory
 import org.apache.samza.webapp.ApplicationMasterRestClient
 
 object ClientHelper {
@@ -191,11 +193,14 @@ class ClientHelper(conf: Configuration) extends Logging {
       }
     }
 
-    if (UserGroupInformation.isSecurityEnabled()) {
+    if (UserGroupInformation.isSecurityEnabled) {
       validateJobConfig(config)
 
       setupSecurityToken(fs, containerCtx)
       info("set security token for %s" format appId.get)
+
+      val securityManager = new SamzaContainerSecurityManager(config, new YarnConfiguration())
+      securityManager.setApplicationAcl(containerCtx)
 
       val amLocalResources = setupAMLocalResources(fs, Option(yarnConfig.getYarnKerberosPrincipal), Option(yarnConfig.getYarnKerberosKeytab))
       localResources ++= amLocalResources

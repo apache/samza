@@ -651,6 +651,11 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     context.setCommands(new ArrayList<String>() {{add(cmd);}});
     context.setLocalResources(localResourceMap);
 
+    if (UserGroupInformation.isSecurityEnabled()) {
+      SamzaContainerSecurityManager securityManager = new SamzaContainerSecurityManager(config, new YarnConfiguration());
+      securityManager.setApplicationAcl(context);
+    }
+
     log.debug("Setting localResourceMap to {}", localResourceMap);
     log.debug("Setting context to {}", context);
 

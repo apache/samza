@@ -115,6 +115,22 @@ public class YarnConfig extends MapConfig {
    */
   public static final String YARN_JOB_STAGING_DIRECTORY = "yarn.job.staging.directory";
 
+  /**
+   * For secured YARN cluster only.
+   * The 'viewing' acl of the YARN application. This controls who can view the application,
+   * for example, application status, logs.
+   * {@link org.apache.hadoop.yarn.api.records.ApplicationAccessType} for more details
+   */
+  public static final String YARN_APPLICATION_VIEW_ACL = "yarn.job.view.acl";
+
+  /**
+   * For secured YARN cluster only.
+   * The 'modify' acl of the YARN application. This controls who can modify the application,
+   * for example, killing the job.
+   * {@link org.apache.hadoop.yarn.api.records.ApplicationAccessType} for more details
+   */
+  public static final String YARN_APPLICATION_MODIFY_ACL = "yarn.job.modify.acl";
+
   public YarnConfig(Config config) {
     super(config);
   }
@@ -190,4 +206,13 @@ public class YarnConfig extends MapConfig {
   public String getYarnJobStagingDirectory() {
     return get(YARN_JOB_STAGING_DIRECTORY, null);
   }
+
+  public String getYarnApplicationViewAcl() {
+    return get(YARN_APPLICATION_VIEW_ACL, null);
+  }
+
+  public String getYarnApplicationModifyAcl() {
+    return get(YARN_APPLICATION_MODIFY_ACL, null);
+  }
+
 }
