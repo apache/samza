@@ -400,7 +400,7 @@ public class StreamProcessor {
     public void onContainerFailed(Throwable t) {
       containerShutdownLatch.countDown();
       synchronized (lock) {
-        LOGGER.error(String.format("Container: %s failed with an exception. Stopping the stream processor: %s. Original exception:", container, processorId), containerException);
+        LOGGER.error(String.format("Container: %s failed with an exception. Stopping the stream processor: %s. Original exception:", container, processorId), t);
         state = State.STOPPING;
         containerException = t;
         jobCoordinator.stop();
