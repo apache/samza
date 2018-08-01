@@ -19,6 +19,10 @@
 
 package org.apache.samza.config;
 
+import java.util.HashMap;
+import java.util.Map;
+
+import org.apache.hadoop.yarn.api.records.ApplicationAccessType;
 import org.apache.samza.SamzaException;
 
 public class YarnConfig extends MapConfig {
@@ -213,6 +217,23 @@ public class YarnConfig extends MapConfig {
 
   public String getYarnApplicationModifyAcl() {
     return get(YARN_APPLICATION_MODIFY_ACL, null);
+  }
+
+  /**
+   * Helper function to get all application acls
+   * @return a map of {@link ApplicationAccessType} to {@link String} for all the acls defined
+   */
+  public Map<ApplicationAccessType, String> getYarnApplicationAcls() {
+    Map<ApplicationAccessType, String> acls = new HashMap<>();
+    String viewAcl = getYarnApplicationViewAcl();
+    String modifyAcl = getYarnApplicationModifyAcl();
+    if (viewAcl != null) {
+      acls.put(ApplicationAccessType.VIEW_APP, viewAcl);
+    }
+    if (modifyAcl != null) {
+      acls.put(ApplicationAccessType.MODIFY_APP, modifyAcl);
+    }
+    return acls;
   }
 
 }

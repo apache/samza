@@ -652,8 +652,10 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     context.setLocalResources(localResourceMap);
 
     if (UserGroupInformation.isSecurityEnabled()) {
-      SamzaContainerSecurityManager securityManager = new SamzaContainerSecurityManager(config, yarnConfiguration);
-      securityManager.setApplicationAcl(context);
+      Map<ApplicationAccessType, String> acls = yarnConfig.getYarnApplicationAcls();
+      if (!acls.isEmpty()) {
+        context.setApplicationACLs(acls);
+      }
     }
 
     log.debug("Setting localResourceMap to {}", localResourceMap);

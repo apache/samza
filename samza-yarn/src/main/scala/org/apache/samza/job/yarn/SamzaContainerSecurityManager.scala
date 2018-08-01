@@ -19,23 +19,19 @@
 
 package org.apache.samza.job.yarn
 
-import java.io.IOException
-import java.nio.ByteBuffer
-import java.util.concurrent.{Executors, TimeUnit}
-
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, Path}
-import org.apache.hadoop.io.DataOutputBuffer
-import org.apache.hadoop.security.{Credentials, UserGroupInformation}
-import org.apache.hadoop.yarn.api.records.{ApplicationAccessType, ContainerLaunchContext}
-import org.apache.hadoop.yarn.conf.YarnConfiguration
-import org.apache.samza.config.{Config, YarnConfig}
+import org.apache.hadoop.fs.FileSystem
+import org.apache.hadoop.fs.Path
+import org.apache.hadoop.security.Credentials
+import org.apache.hadoop.security.UserGroupInformation
+import org.apache.samza.config.Config
+import org.apache.samza.config.YarnConfig
 import org.apache.samza.container.SecurityManager
 import org.apache.samza.util.Logging
 
-import scala.collection.JavaConverters._
-import scala.collection.mutable.HashMap
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class SamzaContainerSecurityManager(config: Config, hadoopConfig: Configuration) extends SecurityManager with Logging {
   private val InitialDelayInSeconds = 60
@@ -47,39 +43,6 @@ class SamzaContainerSecurityManager(config: Config, hadoopConfig: Configuration)
       .build())
 
   private var lastRefreshTimestamp = 0L
-
-  def setApplicationAcl(ctx: ContainerLaunchContext) = {
-    val yarnConfig = new YarnConfig(config)
-    val viewAcl = yarnConfig.getYarnApplicationViewAcl
-    val modifyAcl = yarnConfig.getYarnApplicationModifyAcl
-    val acls: HashMap[ApplicationAccessType, String] = HashMap[ApplicationAccessType, String]()
-    if (viewAcl != null) {
-      acls += ApplicationAccessType.VIEW_APP -> viewAcl
-    }
-    if (modifyAcl != null) {
-      acls += ApplicationAccessType.MODIFY_APP -> modifyAcl
-    }
-    if (acls.nonEmpty) {
-      info("setting application acls in launch context: %s" format acls)
-      ctx.setApplicationACLs(acls.asJava)
-    }
-  }
-
-  def setupSecurityToken(fs: FileSystem, amContainer: ContainerLaunchContext): Unit = {
-    val credentials = UserGroupInformation.getCurrentUser.getCredentials
-    val tokenRenewer = hadoopConfig.get(YarnConfiguration.RM_PRINCIPAL);
-    if (tokenRenewer == null || tokenRenewer.length() == 0) {
-      throw new IOException(
-        "Can't get Master Kerberos principal for the RM to use as renewer");
-    }
-
-    val tokens =
-      fs.addDelegationTokens(tokenRenewer, credentials)
-    tokens.foreach { token => info("Got dt for " + fs.getUri() + "; " + token) }
-    val dob = new DataOutputBuffer
-    credentials.writeTokenStorageToStream(dob)
-    amContainer.setTokens(ByteBuffer.wrap(dob.getData))
-  }
 
   def start() = {
     val yarnConfig = new YarnConfig(config)

@@ -44,6 +44,7 @@ import org.apache.hadoop.yarn.client.api.YarnClient
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.hadoop.yarn.util.ConverterUtils
 import org.apache.hadoop.yarn.util.Records
+import org.apache.hadoop.io.DataOutputBuffer
 import org.apache.hadoop.fs.FileSystem
 import org.apache.samza.SamzaException
 import org.apache.samza.job.ApplicationStatus
@@ -52,6 +53,8 @@ import org.apache.samza.job.ApplicationStatus.Running
 import org.apache.samza.job.ApplicationStatus.SuccessfulFinish
 import org.apache.samza.job.ApplicationStatus.UnsuccessfulFinish
 import org.apache.samza.util.Logging
+import java.io.IOException
+import java.nio.ByteBuffer
 
 import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.samza.webapp.ApplicationMasterRestClient
@@ -191,10 +194,13 @@ class ClientHelper(conf: Configuration) extends Logging {
     if (UserGroupInformation.isSecurityEnabled) {
       validateJobConfig(config)
 
-      val securityManager = new SamzaContainerSecurityManager(config, conf)
-      securityManager.setApplicationAcl(containerCtx)
-      securityManager.setupSecurityToken(fs, containerCtx)
+      setupSecurityToken(fs, containerCtx)
       info("set security token for %s" format appId.get)
+
+      val acls = yarnConfig.getYarnApplicationAcls
+      if (!acls.isEmpty) {
+        containerCtx.setApplicationACLs(acls)
+      }
 
       val amLocalResources = setupAMLocalResources(fs, Option(yarnConfig.getYarnKerberosPrincipal), Option(yarnConfig.getYarnKerberosKeytab))
       localResources ++= amLocalResources
@@ -355,6 +361,23 @@ class ClientHelper(conf: Configuration) extends Logging {
     if (config.getSecurityManagerFactory.isEmpty) {
       throw new SamzaException(s"Job config ${JobConfig.JOB_SECURITY_MANAGER_FACTORY} not found. This config must be set for a secure cluster")
     }
+  }
+
+  private def setupSecurityToken(fs: FileSystem, amContainer: ContainerLaunchContext): Unit = {
+    info("security is enabled")
+    val credentials = UserGroupInformation.getCurrentUser.getCredentials
+    val tokenRenewer = conf.get(YarnConfiguration.RM_PRINCIPAL);
+    if (tokenRenewer == null || tokenRenewer.length() == 0) {
+      throw new IOException(
+        "Can't get Master Kerberos principal for the RM to use as renewer");
+    }
+
+    val tokens =
+      fs.addDelegationTokens(tokenRenewer, credentials)
+    tokens.foreach { token => info("Got dt for " + fs.getUri() + "; " + token) }
+    val dob = new DataOutputBuffer
+    credentials.writeTokenStorageToStream(dob)
+    amContainer.setTokens(ByteBuffer.wrap(dob.getData))
   }
 
   private[yarn] def setupAMLocalResources(fs: FileSystem, principal: Option[String], keytab: Option[String]) = {
