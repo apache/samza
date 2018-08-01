@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit
 
 class SamzaContainerSecurityManager(config: Config, hadoopConfig: Configuration) extends SecurityManager with Logging {
   private val InitialDelayInSeconds = 60
-
+  
   private val tokenRenewExecutor = Executors.newSingleThreadScheduledExecutor(
     new ThreadFactoryBuilder()
       .setNameFormat("Samza ContainerSecurityManager TokenRenewer Thread-%d")
