@@ -191,7 +191,7 @@ class ClientHelper(conf: Configuration) extends Logging {
     if (UserGroupInformation.isSecurityEnabled) {
       validateJobConfig(config)
 
-      val securityManager = new SamzaContainerSecurityManager(config, new YarnConfiguration())
+      val securityManager = new SamzaContainerSecurityManager(config, conf)
       securityManager.setApplicationAcl(containerCtx)
       securityManager.setupSecurityToken(fs, containerCtx)
       info("set security token for %s" format appId.get)

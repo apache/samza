@@ -67,7 +67,7 @@ class SamzaContainerSecurityManager(config: Config, hadoopConfig: Configuration)
 
   def setupSecurityToken(fs: FileSystem, amContainer: ContainerLaunchContext): Unit = {
     val credentials = UserGroupInformation.getCurrentUser.getCredentials
-    val tokenRenewer = config.get(YarnConfiguration.RM_PRINCIPAL);
+    val tokenRenewer = hadoopConfig.get(YarnConfiguration.RM_PRINCIPAL);
     if (tokenRenewer == null || tokenRenewer.length() == 0) {
       throw new IOException(
         "Can't get Master Kerberos principal for the RM to use as renewer");
