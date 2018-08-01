@@ -285,7 +285,7 @@ public class TaskSideInputStorageManager {
           try {
             String fileContents = StorageManagerUtil.readOffsetFile(storeLocation, OFFSET_FILE);
             TypeReference<HashMap<SystemStreamPartition, String>> ref =
-                new TypeReference<HashMap<SystemStreamPartition, String>>() {};
+                new TypeReference<HashMap<SystemStreamPartition, String>>() { };
             Map<SystemStreamPartition, String> offsets = OBJECT_MAPPER.readValue(fileContents, ref);
             fileOffsets.putAll(offsets);
           } catch (Exception e) {

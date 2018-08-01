@@ -25,7 +25,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
@@ -47,6 +46,8 @@ import org.apache.samza.test.framework.stream.CollectionStream;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.junit.Test;
 
+import static org.junit.Assert.*;
+
 
 public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness {
   private static final String PAGEVIEW_STREAM = "pageview";
@@ -59,8 +60,7 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
         "side-input-join",
         new PageViewProfileJoin(),
         Arrays.asList(TestTableData.generatePageViews(10)),
-        Arrays.asList(TestTableData.generateProfiles(10)),
-        x -> {});
+        Arrays.asList(TestTableData.generateProfiles(10)));
   }
 
   @Test
@@ -68,13 +68,12 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
     runTest(
         "durable-side-input",
         new DurablePageViewProfileJoin(),
-        Arrays.asList(TestTableData.generatePageViews(10)),
-        Arrays.asList(TestTableData.generateProfiles(10)),
-        x -> {});
+        Arrays.asList(TestTableData.generatePageViews(5)),
+        Arrays.asList(TestTableData.generateProfiles(5)));
   }
 
   private void runTest(String systemName, StreamApplication app, List<TestTableData.PageView> pageViews,
-      List<TestTableData.Profile> profiles, Consumer<List<TestTableData.EnrichedPageView>> assertFunction) {
+      List<TestTableData.Profile> profiles) {
     Map<String, String> configs = new HashMap<>();
     configs.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), PAGEVIEW_STREAM), systemName);
     configs.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), PROFILE_STREAM), systemName);
@@ -103,7 +102,16 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
           .flatMap(List::stream)
           .collect(Collectors.toList());
 
-      assertFunction.accept(results);
+      List<TestTableData.EnrichedPageView> expectedEnrichedPageviews = pageViews.stream()
+          .flatMap(pv -> profiles.stream()
+              .filter(profile -> pv.memberId == profile.memberId)
+              .map(profile -> new TestTableData.EnrichedPageView(pv.pageKey, profile.memberId, profile.company)))
+          .collect(Collectors.toList());
+
+      boolean successfulJoin = results.stream().allMatch(expectedEnrichedPageviews::contains);
+      assertEquals("Mismatch between the expected and actual join count", results.size(),
+          expectedEnrichedPageviews.size());
+      assertTrue("Pageview profile join did not succeed for all inputs", successfulJoin);
 
     } catch (InterruptedException e) {
       e.printStackTrace();
