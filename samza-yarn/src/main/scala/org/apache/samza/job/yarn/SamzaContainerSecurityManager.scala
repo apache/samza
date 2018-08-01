@@ -19,13 +19,17 @@
 
 package org.apache.samza.job.yarn
 
+import java.io.IOException
+import java.nio.ByteBuffer
 import java.util.concurrent.{Executors, TimeUnit}
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.hadoop.io.DataOutputBuffer
 import org.apache.hadoop.security.{Credentials, UserGroupInformation}
 import org.apache.hadoop.yarn.api.records.{ApplicationAccessType, ContainerLaunchContext}
+import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.samza.config.{Config, YarnConfig}
 import org.apache.samza.container.SecurityManager
 import org.apache.samza.util.Logging
@@ -59,6 +63,22 @@ class SamzaContainerSecurityManager(config: Config, hadoopConfig: Configuration)
       info("setting application acls in launch context: %s" format acls)
       ctx.setApplicationACLs(acls.asJava)
     }
+  }
+
+  def setupSecurityToken(fs: FileSystem, amContainer: ContainerLaunchContext): Unit = {
+    val credentials = UserGroupInformation.getCurrentUser.getCredentials
+    val tokenRenewer = config.get(YarnConfiguration.RM_PRINCIPAL);
+    if (tokenRenewer == null || tokenRenewer.length() == 0) {
+      throw new IOException(
+        "Can't get Master Kerberos principal for the RM to use as renewer");
+    }
+
+    val tokens =
+      fs.addDelegationTokens(tokenRenewer, credentials)
+    tokens.foreach { token => info("Got dt for " + fs.getUri() + "; " + token) }
+    val dob = new DataOutputBuffer
+    credentials.writeTokenStorageToStream(dob)
+    amContainer.setTokens(ByteBuffer.wrap(dob.getData))
   }
 
   def start() = {
