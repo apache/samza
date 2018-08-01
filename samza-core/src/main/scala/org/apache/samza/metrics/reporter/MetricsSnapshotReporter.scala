@@ -106,22 +106,6 @@ class MetricsSnapshotReporter(
     }
   }
 
-  def shouldIgnore(group: String, metricName: String) = {
-    var isBlacklisted = blacklist.isDefined
-    val fullMetricName = group + "." + metricName
-
-    if (isBlacklisted && !blacklistedMetrics.contains(fullMetricName)) {
-      if (fullMetricName.matches(blacklist.get)) {
-        blacklistedMetrics += fullMetricName
-        info("Blacklisted metric %s because it matched blacklist: %s" format(fullMetricName, blacklist.get))
-      } else {
-        isBlacklisted = false
-      }
-    }
-
-    isBlacklisted
-  }
-
   def run {
     debug("Begin flushing metrics.")
 
@@ -178,5 +162,22 @@ class MetricsSnapshotReporter(
 
 
     debug("Finished flushing metrics.")
+  }
+
+
+  def shouldIgnore(group: String, metricName: String) = {
+    var isBlacklisted = blacklist.isDefined
+    val fullMetricName = group + "." + metricName
+
+    if (isBlacklisted && !blacklistedMetrics.contains(fullMetricName)) {
+      if (fullMetricName.matches(blacklist.get)) {
+        blacklistedMetrics += fullMetricName
+        info("Blacklisted metric %s because it matched blacklist regex: %s" format(fullMetricName, blacklist.get))
+      } else {
+        isBlacklisted = false
+      }
+    }
+
+    isBlacklisted
   }
 }
