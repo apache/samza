@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.test.operator;
+package org.apache.samza.test.framework;
 
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
@@ -26,7 +26,6 @@ import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.test.operator.data.PageView;
-import org.apache.samza.test.framework.StreamAssert;
 
 import java.util.Arrays;
 
@@ -48,7 +47,7 @@ public class BroadcastAssertApp implements StreamApplication {
     /**
      * Each task will see all the pageview events
      */
-    StreamAssert.that("Each task contains all broadcast PageView events", broadcastPageViews, serde)
+    MessageStreamAssert.that("Each task contains all broadcast PageView events", broadcastPageViews, serde)
         .forEachTask()
         .containsInAnyOrder(
             Arrays.asList(

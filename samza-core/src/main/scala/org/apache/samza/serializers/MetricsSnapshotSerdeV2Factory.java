@@ -17,22 +17,15 @@
  * under the License.
  */
 
-package org.apache.samza.test.framework;
+package org.apache.samza.serializers;
 
-import org.apache.samza.system.IncomingMessageEnvelope;
-import org.apache.samza.system.OutgoingMessageEnvelope;
-import org.apache.samza.system.SystemStream;
-import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.TaskCoordinator;
+import org.apache.samza.config.Config;
+import org.apache.samza.metrics.reporter.MetricsSnapshot;
 
 
-public class MyStreamTestTask implements StreamTask {
+public class MetricsSnapshotSerdeV2Factory implements SerdeFactory<MetricsSnapshot> {
   @Override
-  public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator)
-      throws Exception {
-    Integer obj = (Integer) envelope.getMessage();
-    collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "output"),
-        envelope.getKey(), envelope.getKey(), obj * 10));
+  public Serde<MetricsSnapshot> getSerde(String name, Config config) {
+    return new MetricsSnapshotSerdeV2();
   }
 }

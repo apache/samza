@@ -268,7 +268,6 @@ public class StreamGraphSpec implements StreamGraph {
 
     if (isBroadcast) broadcastStreams.add(streamId);
 
-
     boolean isKeyed;
     KV<Serde, Serde> kvSerdes;
     if (streamSerde == null) { // if no explicit or default system descriptor serde available
