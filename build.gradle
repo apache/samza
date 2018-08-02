@@ -143,6 +143,7 @@ project(':samza-api') {
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
+    testCompile "com.google.guava:guava:$guavaVersion"
   }
   checkstyle {
     configFile = new File(rootDir, "checkstyle/checkstyle.xml")
@@ -236,7 +237,6 @@ project(':samza-aws') {
     compile project(":samza-core_$scalaVersion")
     compile "org.slf4j:slf4j-api:$slf4jVersion"
     runtime "org.apache.httpcomponents:httpclient:4.5.2"
-    runtime "org.apache.httpcomponents:httpcore:4.4.5"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-all:$mockitoVersion"
   }

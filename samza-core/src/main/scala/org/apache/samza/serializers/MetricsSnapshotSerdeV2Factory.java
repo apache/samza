@@ -17,21 +17,15 @@
  * under the License.
  */
 
-package org.apache.samza.zk;
+package org.apache.samza.serializers;
 
-import java.util.List;
+import org.apache.samza.config.Config;
+import org.apache.samza.metrics.reporter.MetricsSnapshot;
 
-/**
- * Interface to listen for notifications from the {@link ZkController}
- */
-public interface ZkControllerListener {
-  /**
-   * ZkController observes the ZkTree for changes to group membership of processors and notifies the listener
-   *
-   * @param processorIds List of current znodes that are in the processing group
-   */
-  void onProcessorChange(List<String> processorIds);
 
-  void onNewJobModelAvailable(String version); // start job model update (stop current work)
-  void onNewJobModelConfirmed(String version); // start new work according to the new model
+public class MetricsSnapshotSerdeV2Factory implements SerdeFactory<MetricsSnapshot> {
+  @Override
+  public Serde<MetricsSnapshot> getSerde(String name, Config config) {
+    return new MetricsSnapshotSerdeV2();
+  }
 }

@@ -17,7 +17,7 @@
  * under the License.
  *
  */
-package org.apache.samza.operators.impl.store;
+package org.apache.samza.util;
 
 /**
  * An immutable pair of a value, and its corresponding timestamp.

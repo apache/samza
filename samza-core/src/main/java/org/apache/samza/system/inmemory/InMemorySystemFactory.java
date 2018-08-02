@@ -19,7 +19,9 @@
 
 package org.apache.samza.system.inmemory;
 
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.InMemorySystemConfig;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemConsumer;
@@ -31,20 +33,25 @@ import org.apache.samza.system.SystemProducer;
  * Initial draft of in-memory {@link SystemFactory}. It is test only and not meant for production use right now.
  */
 public class InMemorySystemFactory implements SystemFactory {
-  private static final InMemoryManager MEMORY_MANAGER = new InMemoryManager();
+  private static final ConcurrentHashMap<String, InMemoryManager> IN_MEMORY_MANAGERS = new ConcurrentHashMap<>();
 
   @Override
   public SystemConsumer getConsumer(String systemName, Config config, MetricsRegistry registry) {
-    return new InMemorySystemConsumer(MEMORY_MANAGER);
+    return new InMemorySystemConsumer(getOrDefaultInMemoryManagerByTestId(config));
   }
 
   @Override
   public SystemProducer getProducer(String systemName, Config config, MetricsRegistry registry) {
-    return new InMemorySystemProducer(systemName, MEMORY_MANAGER);
+    return new InMemorySystemProducer(systemName, getOrDefaultInMemoryManagerByTestId(config));
   }
 
   @Override
   public SystemAdmin getAdmin(String systemName, Config config) {
-    return new InMemorySystemAdmin(MEMORY_MANAGER);
+    return new InMemorySystemAdmin(getOrDefaultInMemoryManagerByTestId(config));
+  }
+
+  private InMemoryManager getOrDefaultInMemoryManagerByTestId(Config config) {
+    InMemorySystemConfig inMemorySystemConfig = new InMemorySystemConfig(config);
+    return IN_MEMORY_MANAGERS.computeIfAbsent(inMemorySystemConfig.getInMemoryScope(), key -> new InMemoryManager());
   }
 }

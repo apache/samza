@@ -79,48 +79,36 @@ class TestTaskStorageManager extends MockitoSugar {
 
     // Mock for StreamMetadataCache, SystemConsumer, SystemAdmin
     val mockStreamMetadataCache = mock[StreamMetadataCache]
+    val mockSSPMetadataCache = mock[SSPMetadataCache]
     val mockSystemConsumer = mock[SystemConsumer]
     val mockSystemAdmin = mock[SystemAdmin]
     val changelogSpec = StreamSpec.createChangeLogStreamSpec("testStream", "kafka", 1)
     doNothing().when(mockSystemAdmin).validateStream(changelogSpec)
-    var registerOffset = "0"
-    when(mockSystemConsumer.register(any(), any())).thenAnswer(new Answer[Unit] {
-      override def answer(invocation: InvocationOnMock): Unit = {
-        val args = invocation.getArguments
-        if (ssp.equals(args.apply(0).asInstanceOf[SystemStreamPartition])) {
-          val offset = args.apply(1).asInstanceOf[String]
-          assertNotNull(offset)
-          assertEquals(registerOffset, offset)
-        }
-      }
-    })
     doNothing().when(mockSystemConsumer).stop()
 
     // Test 1: Initial invocation - No store on disk (only changelog has data)
     // Setup initial sspMetadata
-    val sspMetadata = new SystemStreamPartitionMetadata("0", "50", "51")
+    var sspMetadata = new SystemStreamPartitionMetadata("0", "50", "51")
     var metadata = new SystemStreamMetadata("testStream", new java.util.HashMap[Partition, SystemStreamPartitionMetadata]() {
       {
         put(partition, sspMetadata)
       }
     })
     when(mockStreamMetadataCache.getStreamMetadata(any(), any())).thenReturn(Map(ss -> metadata))
-    when(mockSystemAdmin.getSystemStreamMetadata(any())).thenReturn(new util.HashMap[String, SystemStreamMetadata](){
-      {
-        put("testStream", metadata)
-      }
-    })
+    when(mockSSPMetadataCache.getMetadata(ssp)).thenReturn(sspMetadata)
+
     val taskManager = new TaskStorageManagerBuilder()
       .addStore(loggedStore, mockStorageEngine, mockSystemConsumer)
       .setStreamMetadataCache(mockStreamMetadataCache)
+      .setSSPMetadataCache(mockSSPMetadataCache)
       .setSystemAdmin("kafka", mockSystemAdmin)
       .build
-
 
     taskManager.init
 
     assertTrue(storeFile.exists())
     assertFalse(offsetFile.exists())
+    verify(mockSystemConsumer).register(ssp, "0")
 
     // Test 2: flush should update the offset file
     taskManager.flush()
@@ -128,41 +116,28 @@ class TestTaskStorageManager extends MockitoSugar {
     assertEquals("50", FileUtil.readWithChecksum(offsetFile))
 
     // Test 3: Update sspMetadata before shutdown and verify that offset file is updated correctly
-    metadata = new SystemStreamMetadata("testStream", new java.util.HashMap[Partition, SystemStreamPartitionMetadata]() {
-      {
-        put(partition, new SystemStreamPartitionMetadata("0", "100", "101"))
-      }
-    })
-    when(mockStreamMetadataCache.getStreamMetadata(any(), any())).thenReturn(Map(ss -> metadata))
-    when(mockSystemAdmin.getSystemStreamMetadata(any())).thenReturn(new util.HashMap[String, SystemStreamMetadata](){
-      {
-        put("testStream", metadata)
-      }
-    })
+    when(mockSSPMetadataCache.getMetadata(ssp)).thenReturn(new SystemStreamPartitionMetadata("0", "100", "101"))
     taskManager.stop()
     assertTrue(storeFile.exists())
     assertTrue(offsetFile.exists())
     assertEquals("100", FileUtil.readWithChecksum(offsetFile))
 
-
     // Test 4: Initialize again with an updated sspMetadata; Verify that it restores from the correct offset
+    sspMetadata = new SystemStreamPartitionMetadata("0", "150", "151")
     metadata = new SystemStreamMetadata("testStream", new java.util.HashMap[Partition, SystemStreamPartitionMetadata]() {
       {
-        put(partition, new SystemStreamPartitionMetadata("0", "150", "151"))
+        put(partition, sspMetadata)
       }
     })
     when(mockStreamMetadataCache.getStreamMetadata(any(), any())).thenReturn(Map(ss -> metadata))
-    when(mockSystemAdmin.getSystemStreamMetadata(any())).thenReturn(new util.HashMap[String, SystemStreamMetadata](){
-      {
-        put("testStream", metadata)
-      }
-    })
-    registerOffset = "100"
+    when(mockSSPMetadataCache.getMetadata(ssp)).thenReturn(sspMetadata)
+    when(mockSystemAdmin.getOffsetsAfter(Map(ssp -> "100").asJava)).thenReturn(Map(ssp -> "101").asJava)
 
     taskManager.init
 
     assertTrue(storeFile.exists())
     assertTrue(offsetFile.exists())
+    verify(mockSystemConsumer).register(ssp, "101")
   }
 
   /**
@@ -176,7 +151,7 @@ class TestTaskStorageManager extends MockitoSugar {
     val ss = new SystemStream("kafka", "testStream")
     val partition = new Partition(0)
     val ssp = new SystemStreamPartition(ss, partition)
-    val storeDirectory = TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultStoreBaseDir, store, taskName)
+    val storeDirectory = TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, store, taskName)
 
     val mockStorageEngine: StorageEngine = createMockStorageEngine(isLoggedStore = true, isPersistedStore = false, null)
 
@@ -187,16 +162,6 @@ class TestTaskStorageManager extends MockitoSugar {
     doNothing().when(mockSystemAdmin).validateStream(changelogSpec)
 
     val mockSystemConsumer = mock[SystemConsumer]
-    when(mockSystemConsumer.register(any(), any())).thenAnswer(new Answer[Unit] {
-      override def answer(invocation: InvocationOnMock): Unit = {
-        val args = invocation.getArguments
-        if (ssp.equals(args.apply(0).asInstanceOf[SystemStreamPartition])) {
-          val offset = args.apply(1).asInstanceOf[String]
-          assertNotNull(offset)
-          assertEquals("0", offset) // Should always restore from earliest offset
-        }
-      }
-    })
     doNothing().when(mockSystemConsumer).stop()
 
     // Test 1: Initial invocation - No store data (only changelog has data)
@@ -214,15 +179,15 @@ class TestTaskStorageManager extends MockitoSugar {
       .setSystemAdmin("kafka", mockSystemAdmin)
       .build
 
-
     taskManager.init
 
     // Verify that the store directory doesn't have ANY files
-    assertNull(storeDirectory.listFiles())
+    assertTrue(storeDirectory.list().isEmpty)
+    verify(mockSystemConsumer).register(ssp, "0")
 
     // Test 2: flush should NOT create/update the offset file. Store directory has no files
     taskManager.flush()
-    assertNull(storeDirectory.listFiles())
+    assertTrue(storeDirectory.list().isEmpty)
 
     // Test 3: Update sspMetadata before shutdown and verify that offset file is NOT created
     metadata = new SystemStreamMetadata("testStream", new java.util.HashMap[Partition, SystemStreamPartitionMetadata]() {
@@ -232,7 +197,7 @@ class TestTaskStorageManager extends MockitoSugar {
     })
     when(mockStreamMetadataCache.getStreamMetadata(any(), any())).thenReturn(Map(ss -> metadata))
     taskManager.stop()
-    assertNull(storeDirectory.listFiles())
+    assertTrue(storeDirectory.list().isEmpty)
 
     // Test 4: Initialize again with an updated sspMetadata; Verify that it restores from the earliest offset
     metadata = new SystemStreamMetadata("testStream", new java.util.HashMap[Partition, SystemStreamPartitionMetadata]() {
@@ -244,7 +209,9 @@ class TestTaskStorageManager extends MockitoSugar {
 
     taskManager.init
 
-    assertNull(storeDirectory.listFiles())
+    assertTrue(storeDirectory.list().isEmpty)
+    // second time to register; make sure it starts from beginning
+    verify(mockSystemConsumer, times(2)).register(ssp, "0")
   }
 
   @Test
@@ -256,7 +223,7 @@ class TestTaskStorageManager extends MockitoSugar {
 
     val taskStorageManager = new TaskStorageManagerBuilder()
       .addStore(store, false)
-      .addStore(loggedStore, true)
+      .addLoggedStore(loggedStore, true)
       .build
 
     //Invoke test method
@@ -277,7 +244,7 @@ class TestTaskStorageManager extends MockitoSugar {
     FileUtil.writeWithChecksum(offsetFilePath, "100")
 
     val taskStorageManager = new TaskStorageManagerBuilder()
-      .addStore(loggedStore, true)
+      .addLoggedStore(loggedStore, true)
       .build
 
     val cleanDirMethod = taskStorageManager.getClass.getDeclaredMethod("cleanBaseDirs",
@@ -299,7 +266,7 @@ class TestTaskStorageManager extends MockitoSugar {
     FileUtil.writeWithChecksum(offsetFile, "Test Offset Data")
     offsetFile.setLastModified(0)
     val taskStorageManager = new TaskStorageManagerBuilder().addStore(store, false)
-      .addStore(loggedStore, true)
+      .addLoggedStore(loggedStore, true)
       .build
 
     val cleanDirMethod = taskStorageManager.getClass
@@ -318,7 +285,7 @@ class TestTaskStorageManager extends MockitoSugar {
     FileUtil.writeWithChecksum(offsetFilePath, "100")
 
     val taskStorageManager = new TaskStorageManagerBuilder()
-      .addStore(loggedStore, false)
+      .addLoggedStore(loggedStore, false)
       .build
 
     val cleanDirMethod = taskStorageManager.getClass.getDeclaredMethod("cleanBaseDirs",
@@ -335,15 +302,15 @@ class TestTaskStorageManager extends MockitoSugar {
 
     val offsetFilePath = new File(TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName) + File.separator + "OFFSET")
 
-    val mockSystemAdmin = mock[SystemAdmin]
-    val mockSspMetadata = Map("testStream" -> new SystemStreamMetadata("testStream" , Map(partition -> new SystemStreamPartitionMetadata("20", "100", "101")).asJava))
-    val myMap = mockSspMetadata.asJava
-    when(mockSystemAdmin.getSystemStreamMetadata(any(Set("").asJava.getClass))).thenReturn(myMap)
+    val sspMetadataCache = mock[SSPMetadataCache]
+    val sspMetadata = new SystemStreamPartitionMetadata("20", "100", "101")
+    when(sspMetadataCache.getMetadata(new SystemStreamPartition("kafka", "testStream", partition)))
+      .thenReturn(sspMetadata)
 
     //Build TaskStorageManager
     val taskStorageManager = new TaskStorageManagerBuilder()
       .addStore(loggedStore, true)
-      .setSystemAdmin("kafka", mockSystemAdmin)
+      .setSSPMetadataCache(sspMetadataCache)
       .setPartition(partition)
       .build
 
@@ -356,8 +323,7 @@ class TestTaskStorageManager extends MockitoSugar {
   }
 
   /**
-    * For instances of SystemAdmin, the store manager should call the slow getSystemStreamMetadata() method
-    * which gets offsets for ALL n partitions of the changelog, regardless of how many we need for the current task.
+    * Given that the SSPMetadataCache returns metadata, flush should create the offset files.
     */
   @Test
   def testFlushCreatesOffsetFileForLoggedStore() {
@@ -368,16 +334,16 @@ class TestTaskStorageManager extends MockitoSugar {
       TaskStorageManager.getStorePartitionDir(
         TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, store, taskName) + File.separator + "OFFSET")
 
-    val mockSystemAdmin = mock[SystemAdmin]
-    val mockSspMetadata = Map("testStream" -> new SystemStreamMetadata("testStream" , Map(partition -> new SystemStreamPartitionMetadata("20", "100", "101")).asJava))
-    val myMap = mockSspMetadata.asJava
-    when(mockSystemAdmin.getSystemStreamMetadata(any(Set("").asJava.getClass))).thenReturn(myMap)
+    val sspMetadataCache = mock[SSPMetadataCache]
+    val sspMetadata = new SystemStreamPartitionMetadata("20", "100", "101")
+    when(sspMetadataCache.getMetadata(new SystemStreamPartition("kafka", "testStream", partition)))
+      .thenReturn(sspMetadata)
 
     //Build TaskStorageManager
     val taskStorageManager = new TaskStorageManagerBuilder()
             .addStore(loggedStore, true)
             .addStore(store, false)
-            .setSystemAdmin("kafka", mockSystemAdmin)
+            .setSSPMetadataCache(sspMetadataCache)
             .setPartition(partition)
             .build
 
@@ -392,22 +358,25 @@ class TestTaskStorageManager extends MockitoSugar {
   }
 
   /**
-    * For instances of ExtendedSystemAdmin, the store manager should call the optimized getNewestOffset() method.
-    * Flush should also delete the existing OFFSET file if the changelog partition (for some reason) becomes empty
+    * Flush should delete the existing OFFSET file if the changelog partition (for some reason) becomes empty
     */
   @Test
-  def testFlushCreatesOffsetFileForLoggedStoreExtendedSystemAdmin() {
+  def testFlushDeletesOffsetFileForLoggedStoreForEmptyPartition() {
     val partition = new Partition(0)
 
     val offsetFilePath = new File(TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName) + File.separator + "OFFSET")
 
-    val mockSystemAdmin = mock[ExtendedSystemAdmin]
-    when(mockSystemAdmin.getNewestOffset(any(classOf[SystemStreamPartition]), anyInt())).thenReturn("100").thenReturn(null)
+    val sspMetadataCache = mock[SSPMetadataCache]
+    when(sspMetadataCache.getMetadata(new SystemStreamPartition("kafka", "testStream", partition)))
+      // first return some metadata
+      .thenReturn(new SystemStreamPartitionMetadata("0", "100", "101"))
+      // then return no metadata to trigger the delete
+      .thenReturn(null)
 
     //Build TaskStorageManager
     val taskStorageManager = new TaskStorageManagerBuilder()
             .addStore(loggedStore, true)
-            .setSystemAdmin("kafka", mockSystemAdmin)
+            .setSSPMetadataCache(sspMetadataCache)
             .setPartition(partition)
             .build
 
@@ -428,19 +397,18 @@ class TestTaskStorageManager extends MockitoSugar {
   @Test
   def testFlushOverwritesOffsetFileForLoggedStore() {
     val partition = new Partition(0)
+    val ssp = new SystemStreamPartition("kafka", "testStream", partition)
 
     val offsetFilePath = new File(TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName) + File.separator + "OFFSET")
     FileUtil.writeWithChecksum(offsetFilePath, "100")
 
-    val mockSystemAdmin = mock[SystemAdmin]
-    var mockSspMetadata = Map("testStream" -> new SystemStreamMetadata("testStream" , Map(partition -> new SystemStreamPartitionMetadata("20", "139", "140")).asJava))
-    var myMap = mockSspMetadata.asJava
-    when(mockSystemAdmin.getSystemStreamMetadata(any(Set("").asJava.getClass))).thenReturn(myMap)
+    val sspMetadataCache = mock[SSPMetadataCache]
+    when(sspMetadataCache.getMetadata(ssp)).thenReturn(new SystemStreamPartitionMetadata("20", "139", "140"))
 
     //Build TaskStorageManager
     val taskStorageManager = new TaskStorageManagerBuilder()
             .addStore(loggedStore, true)
-            .setSystemAdmin("kafka", mockSystemAdmin)
+            .setSSPMetadataCache(sspMetadataCache)
             .setPartition(partition)
             .build
 
@@ -452,9 +420,7 @@ class TestTaskStorageManager extends MockitoSugar {
     assertEquals("Found incorrect value in offset file!", "139", FileUtil.readWithChecksum(offsetFilePath))
 
     // Flush again
-    mockSspMetadata = Map("testStream" -> new SystemStreamMetadata("testStream" , Map(partition -> new SystemStreamPartitionMetadata("20", "193", "194")).asJava))
-    myMap = mockSspMetadata.asJava
-    when(mockSystemAdmin.getSystemStreamMetadata(any(Set("").asJava.getClass))).thenReturn(myMap)
+    when(sspMetadataCache.getMetadata(ssp)).thenReturn(new SystemStreamPartitionMetadata("20", "193", "194"))
 
     //Invoke test method
     taskStorageManager.flush()
@@ -470,15 +436,13 @@ class TestTaskStorageManager extends MockitoSugar {
 
     val offsetFilePath = new File(TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName) + File.separator + "OFFSET")
 
-    val mockSystemAdmin = mock[SystemAdmin]
-    val mockSspMetadata = Map("testStream" -> new SystemStreamMetadata("testStream" , Map(partition -> new SystemStreamPartitionMetadata("20", null, null)).asJava))
-    val myMap = mockSspMetadata.asJava
-    when(mockSystemAdmin.getSystemStreamMetadata(any(Set("").asJava.getClass))).thenReturn(myMap)
+    val sspMetadataCache = mock[SSPMetadataCache]
+    when(sspMetadataCache.getMetadata(new SystemStreamPartition("kafka", "testStream", partition))).thenReturn(null)
 
     //Build TaskStorageManager
     val taskStorageManager = new TaskStorageManagerBuilder()
       .addStore(loggedStore, true)
-      .setSystemAdmin("kafka", mockSystemAdmin)
+      .setSSPMetadataCache(sspMetadataCache)
       .setPartition(partition)
       .build
 
@@ -661,6 +625,7 @@ class TaskStorageManagerBuilder extends MockitoSugar {
   var storeConsumers: Map[String, SystemConsumer] = Map()
   var changeLogSystemStreams: Map[String, SystemStream] = Map()
   var streamMetadataCache = mock[StreamMetadataCache]
+  var sspMetadataCache = mock[SSPMetadataCache]
   var partition: Partition = new Partition(0)
   var systemAdminsMap: Map[String, SystemAdmin] = Map("kafka" -> mock[SystemAdmin])
   var taskName: TaskName = new TaskName("testTask")
@@ -679,6 +644,13 @@ class TaskStorageManagerBuilder extends MockitoSugar {
     val mockStorageEngine = mock[StorageEngine]
     when(mockStorageEngine.getStoreProperties)
       .thenReturn(new StorePropertiesBuilder().setPersistedToDisk(isPersistedToDisk).setLoggedStore(false).build())
+    addStore(storeName, mockStorageEngine, mock[SystemConsumer])
+  }
+
+  def addLoggedStore(storeName: String, isPersistedToDisk: Boolean): TaskStorageManagerBuilder = {
+    val mockStorageEngine = mock[StorageEngine]
+    when(mockStorageEngine.getStoreProperties)
+    .thenReturn(new StorePropertiesBuilder().setPersistedToDisk(isPersistedToDisk).setLoggedStore(true).build())
     addStore(storeName, mockStorageEngine, mock[SystemConsumer])
   }
 
@@ -707,6 +679,11 @@ class TaskStorageManagerBuilder extends MockitoSugar {
     this
   }
 
+  def setSSPMetadataCache(cache: SSPMetadataCache) = {
+    sspMetadataCache = cache
+    this
+  }
+
   def build: TaskStorageManager = {
     new TaskStorageManager(
       taskName = taskName,
@@ -715,6 +692,7 @@ class TaskStorageManagerBuilder extends MockitoSugar {
       changeLogSystemStreams = changeLogSystemStreams,
       changeLogStreamPartitions = changeLogStreamPartitions,
       streamMetadataCache = streamMetadataCache,
+      sspMetadataCache = sspMetadataCache,
       nonLoggedStoreBaseDir = storeBaseDir,
       loggedStoreBaseDir = loggedStoreBaseDir,
       partition = partition,

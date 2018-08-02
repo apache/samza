@@ -34,6 +34,7 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.StreamConfig;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -42,6 +43,8 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.apache.samza.util.StreamUtil.*;
 
 
 /**
@@ -93,8 +96,9 @@ public class ExecutionPlanner {
    */
   /* package private */ JobGraph createJobGraph(OperatorSpecGraph specGraph) {
     JobGraph jobGraph = new JobGraph(config, specGraph);
-    Set<StreamSpec> sourceStreams = new HashSet<>(specGraph.getInputOperators().keySet());
-    Set<StreamSpec> sinkStreams = new HashSet<>(specGraph.getOutputStreams().keySet());
+    StreamConfig streamConfig = new StreamConfig(config);
+    Set<StreamSpec> sourceStreams = getStreamSpecs(specGraph.getInputOperators().keySet(), streamConfig);
+    Set<StreamSpec> sinkStreams = getStreamSpecs(specGraph.getOutputStreams().keySet(), streamConfig);
     Set<StreamSpec> intStreams = new HashSet<>(sourceStreams);
     Set<TableSpec> tables = new HashSet<>(specGraph.getTables().keySet());
     intStreams.retainAll(sinkStreams);
@@ -128,7 +132,7 @@ public class ExecutionPlanner {
    */
   /* package private */ void calculatePartitions(JobGraph jobGraph) {
     // calculate the partitions for the input streams of join operators
-    calculateJoinInputPartitions(jobGraph);
+    calculateJoinInputPartitions(jobGraph, config);
 
     // calculate the partitions for the rest of intermediate streams
     calculateIntStreamPartitions(jobGraph, config);
@@ -172,7 +176,7 @@ public class ExecutionPlanner {
   /**
    * Calculate the partitions for the input streams of join operators
    */
-  /* package private */ static void calculateJoinInputPartitions(JobGraph jobGraph) {
+  /* package private */ static void calculateJoinInputPartitions(JobGraph jobGraph, Config config) {
     // mapping from a source stream to all join specs reachable from it
     Multimap<OperatorSpec, StreamEdge> joinSpecToStreamEdges = HashMultimap.create();
     // reverse mapping of the above
@@ -183,10 +187,10 @@ public class ExecutionPlanner {
     Set<OperatorSpec> visited = new HashSet<>();
 
     jobGraph.getSpecGraph().getInputOperators().entrySet().forEach(entry -> {
-        StreamEdge streamEdge = jobGraph.getOrCreateStreamEdge(entry.getKey());
+        StreamConfig streamConfig = new StreamConfig(config);
+        StreamEdge streamEdge = jobGraph.getOrCreateStreamEdge(getStreamSpec(entry.getKey(), streamConfig));
         // Traverses the StreamGraph to find and update mappings for all Joins reachable from this input StreamEdge
-        findReachableJoins(entry.getValue(), streamEdge, joinSpecToStreamEdges, streamEdgeToJoinSpecs,
-            joinQ, visited);
+        findReachableJoins(entry.getValue(), streamEdge, joinSpecToStreamEdges, streamEdgeToJoinSpecs, joinQ, visited);
       });
 
     // At this point, joinQ contains joinSpecs where at least one of the input stream edge partitions is known.
@@ -203,7 +207,7 @@ public class ExecutionPlanner {
           } else if (partitions != edgePartitions) {
             throw  new SamzaException(String.format(
                 "Unable to resolve input partitions of stream %s for join. Expected: %d, Actual: %d",
-                edge.getFormattedSystemStream(), partitions, edgePartitions));
+                edge.getName(), partitions, edgePartitions));
           }
         }
       }
@@ -282,7 +286,7 @@ public class ExecutionPlanner {
   private static void validatePartitions(JobGraph jobGraph) {
     for (StreamEdge edge : jobGraph.getIntermediateStreamEdges()) {
       if (edge.getPartitionCount() <= 0) {
-        throw new SamzaException(String.format("Failure to assign the partitions to Stream %s", edge.getFormattedSystemStream()));
+        throw new SamzaException(String.format("Failure to assign the partitions to Stream %s", edge.getName()));
       }
     }
   }

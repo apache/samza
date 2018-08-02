@@ -88,6 +88,13 @@ object JobConfig {
   // across application restarts
   val JOB_LOGGED_STORE_BASE_DIR = "job.logged.store.base.dir"
 
+  // Enables diagnostic appender for logging exception events
+  val JOB_DIAGNOSTICS_ENABLED = "job.diagnostics.enabled"
+
+  // Specify DiagnosticAppender class
+  val DIAGNOSTICS_APPENDER_CLASS = "job.diagnostics.appender.class"
+  val DEFAULT_DIAGNOSTICS_APPENDER_CLASS = "org.apache.samza.logging.log4j.SimpleDiagnosticsAppender"
+
   implicit def Config2Job(config: Config) = new JobConfig(config)
 
   /**
@@ -186,4 +193,10 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getNonLoggedStorePath = getOption(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR)
 
   def getLoggedStorePath = getOption(JobConfig.JOB_LOGGED_STORE_BASE_DIR)
+
+  def getDiagnosticsEnabled = { getBoolean(JobConfig.JOB_DIAGNOSTICS_ENABLED, false) }
+
+  def getDiagnosticsAppenderClass = {
+    getOrDefault(JobConfig.DIAGNOSTICS_APPENDER_CLASS, JobConfig.DEFAULT_DIAGNOSTICS_APPENDER_CLASS)
+  }
 }

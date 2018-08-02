@@ -17,23 +17,22 @@
  * under the License.
  */
 
+package org.apache.samza.test.framework;
 
-package org.apache.samza.zk;
+import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.SystemStream;
+import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.StreamTask;
+import org.apache.samza.task.TaskCoordinator;
 
-/**
- * Api to the functionality provided by ZK
- *
- * Api for JC to ZK communication
- */
-public interface ZkController {
-  void register();
-  boolean isLeader();
-  void stop();
 
-  // Leader
-  /**
-   * Allows the {@link ZkJobCoordinator} to subscribe to changes to Zk nodes in the processors subtree
-   * Typically, the leader is interested in such notifications.
-   */
-  void subscribeToProcessorChange();
+public class MyStreamTestTask implements StreamTask {
+  @Override
+  public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator)
+      throws Exception {
+    Integer obj = (Integer) envelope.getMessage();
+    collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "output"),
+        envelope.getKey(), envelope.getKey(), obj * 10));
+  }
 }

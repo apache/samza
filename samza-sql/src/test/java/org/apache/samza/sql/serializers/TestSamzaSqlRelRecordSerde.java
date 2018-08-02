@@ -17,7 +17,7 @@
 * under the License.
 */
 
-package org.apache.samza.sql;
+package org.apache.samza.sql.serializers;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -28,18 +28,17 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.sql.SamzaSqlRelRecord;
 import org.apache.samza.sql.avro.AvroRelConverter;
 import org.apache.samza.sql.avro.AvroRelSchemaProvider;
 import org.apache.samza.sql.avro.ConfigBasedAvroRelSchemaProviderFactory;
 import org.apache.samza.sql.avro.schemas.Profile;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
-import org.apache.samza.sql.serializers.SamzaSqlRelRecordSerdeFactory;
 import org.apache.samza.system.SystemStream;
 import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.samza.sql.serializers.SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde;
-import static org.apache.samza.sql.data.SamzaSqlRelMessage.SamzaSqlRelRecord;
 
 
 public class TestSamzaSqlRelRecordSerde {
