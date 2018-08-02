@@ -26,13 +26,10 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.ApplicationStatus;
-import org.apache.samza.job.JobRunner;
 import org.apache.samza.job.StreamJob;
 import org.apache.samza.job.StreamJobFactory;
 import org.junit.Assert;
 import org.junit.Test;
-import scala.App;
-import sun.java2d.pipe.AlphaPaintPipe;
 
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
@@ -84,7 +81,8 @@ public class TestRemoteApplicationRunner {
     public StreamJob getJob(final Config config) {
 
       StreamJob streamJob = new StreamJob() {
-        JobConfig c = (JobConfig)config;
+        JobConfig c = (JobConfig) config;
+
         @Override
         public StreamJob submit() {
           return null;
@@ -108,8 +106,8 @@ public class TestRemoteApplicationRunner {
         @Override
         public ApplicationStatus getStatus() {
           String jobId = c.getJobId().get();
-          switch(jobId) {
-            case "newJob" :
+          switch (jobId) {
+            case "newJob":
               return ApplicationStatus.New;
             case "runningJob":
               return ApplicationStatus.Running;
