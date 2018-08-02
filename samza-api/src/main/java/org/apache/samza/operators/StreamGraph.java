@@ -19,7 +19,9 @@
 package org.apache.samza.operators;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.serializers.Serde;
+import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
+import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
+import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.table.Table;
 
 
@@ -30,96 +32,68 @@ import org.apache.samza.table.Table;
 public interface StreamGraph {
 
   /**
-   * Sets the default {@link Serde} to use for (de)serializing messages.
-   * <p>.
-   * If the default serde is set, it must be set <b>before</b> creating any input or output streams.
+   * Sets the default SystemDescriptor to use for intermediate streams. This is equivalent to setting
+   * {@code job.default.system} and its properties in configuration.
    * <p>
-   * If no explicit or default serdes are provided, a {@code KVSerde<NoOpSerde, NoOpSerde>} is used. This means that
-   * any streams created without explicit or default serdes should be cast to {@code MessageStream<KV<Object, Object>>}.
+   * If the default system descriptor is set, it must be set <b>before</b> creating any intermediate streams.
    * <p>
-   * Providing an incompatible message type for the input/output streams that use the default serde will result in
+   * Serde for intermediate streams:
+   * If the intermediate stream is configured to use a stream-level Serde, it will be used. Else, if the default system
+   * descriptor provides an explicit system level serde, it will be used. Else, the default system descriptors default
+   * system-level serde, which is a {@code KVSerde<NoOpSerde, NoOpSerde>} is used. If no default system descriptor is
+   * provided before creating intermediate streams, the serde configured for the {@code job.default.system} is used.
+   * <p>
+   * Providing an incompatible message type for the intermediate streams that use the default serde will result in
    * {@link ClassCastException}s at runtime.
    *
-   * @param serde the default message {@link Serde} to use
+   * @param defaultSystemDescriptor the default system descriptor to use
    */
-  void setDefaultSerde(Serde<?> serde);
+  void setDefaultSystem(SystemDescriptor<?, ?> defaultSystemDescriptor);
 
   /**
-   * Gets the input {@link MessageStream} corresponding to the {@code streamId}.
+   * Gets the input {@link MessageStream} corresponding to the {@code inputDescriptor}.
    * <p>
-   * An input {@code MessageStream<KV<K, V>}, which can be obtained by calling this method with a {@code KVSerde<K, V>},
-   * can receive messages of type {@code KV<K, V>}. An input {@code MessageStream<M>} with any other {@code Serde<M>}
-   * can receive messages of type M - the key in the incoming message is ignored.
+   * An {@code MessageStream<KV<K, V>}, obtained by calling this method with a descriptor with a {@code KVSerde<K, V>},
+   * can receive messages of type {@code KV<K, V>}. An input {@code MessageStream<M>}, obtained using a descriptor with
+   * any other {@code Serde<M>} can receive messages of type M - the key in the incoming message is ignored.
    * <p>
-   * A {@code KVSerde<NoOpSerde, NoOpSerde>} or {@code NoOpSerde} may be used if the {@code SystemConsumer}
-   * deserializes the incoming messages itself, and no further deserialization is required from the framework.
+   * A {@code KVSerde<NoOpSerde, NoOpSerde>} or {@code NoOpSerde} may be used for the descriptor if the
+   * {@code SystemConsumer} deserializes the incoming messages itself, and no further deserialization is required from
+   * the framework.
    * <p>
-   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
+   * Multiple invocations of this method with the same {@code inputDescriptor} will throw an
+   * {@link IllegalStateException}.
    *
-   * @param streamId the unique ID for the stream
-   * @param serde the {@link Serde} to use for deserializing incoming messages
+   * @param inputDescriptor the descriptor for the stream
    * @param <M> the type of messages in the input {@link MessageStream}
    * @return the input {@link MessageStream}
-   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
+   * @throws IllegalStateException when invoked multiple times with the same {@code inputDescriptor}
    */
-  <M> MessageStream<M> getInputStream(String streamId, Serde<M> serde);
+  <M> MessageStream<M> getInputStream(InputDescriptor<M, ?> inputDescriptor);
 
   /**
-   * Same as {@link #getInputStream(String, Serde)}, but uses the default {@link Serde} provided via
-   * {@link #setDefaultSerde(Serde)} for deserializing input messages.
+   * Gets the {@link OutputStream} corresponding to the {@code outputDescriptor}.
    * <p>
-   * If no default serde has been provided <b>before</b> calling this method, a {@code KVSerde<NoOpSerde, NoOpSerde>}
-   * is used. Providing a message type {@code M} that is incompatible with the default Serde will result in
-   * {@link ClassCastException}s at runtime.
+   * An {@code OutputStream<KV<K, V>>}, obtained by calling this method with a descriptor with a {@code KVSerde<K, V>},
+   * can send messages of type {@code KV<K, V>}. An {@code OutputStream<M>}, obtained using a descriptor with any
+   * other {@code Serde<M>}, can send messages of type M without a key.
    * <p>
-   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
-   *
-   * @param streamId the unique ID for the stream
-   * @param <M> the type of message in the input {@link MessageStream}
-   * @return the input {@link MessageStream}
-   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
-   */
-  <M> MessageStream<M> getInputStream(String streamId);
-
-  /**
-   * Gets the {@link OutputStream} corresponding to the {@code streamId}.
-   * <p>
-   * An {@code OutputStream<KV<K, V>>}, which can be obtained by calling this method with a {@code KVSerde<K, V>},
-   * can send messages of type {@code KV<K, V>}. An {@code OutputStream<M>} with any other {@code Serde<M>} can
-   * send messages of type M without a key.
-   * <p>
-   * A {@code KVSerde<NoOpSerde, NoOpSerde>} or {@code NoOpSerde} may be used if the {@code SystemProducer}
-   * serializes the outgoing messages itself, and no prior serialization is required from the framework.
+   * A {@code KVSerde<NoOpSerde, NoOpSerde>} or {@code NoOpSerde} may be used for the descriptor if the
+   * {@code SystemProducer} serializes the outgoing messages itself, and no prior serialization is required from
+   * the framework.
    * <p>
    * When sending messages to an {@code OutputStream<KV<K, V>>}, messages are partitioned using their serialized key.
    * When sending messages to any other {@code OutputStream<M>}, messages are partitioned using a null partition key.
    * <p>
-   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
+   * Multiple invocations of this method with the same {@code outputDescriptor} will throw an
+   * {@link IllegalStateException}.
    *
-   * @param streamId the unique ID for the stream
-   * @param serde the {@link Serde} to use for serializing outgoing messages
+   * @param outputDescriptor the descriptor for the stream
    * @param <M> the type of messages in the {@link OutputStream}
-   * @return the output {@link MessageStream}
-   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
+   * @return the {@link OutputStream}
+   * @throws IllegalStateException when invoked multiple times with the same {@code outputDescriptor}
    */
-  <M> OutputStream<M> getOutputStream(String streamId, Serde<M> serde);
-
-  /**
-   * Same as {@link #getOutputStream(String, Serde)}, but uses the default {@link Serde} provided via
-   * {@link #setDefaultSerde(Serde)} for serializing output messages.
-   * <p>
-   * If no default serde has been provided <b>before</b> calling this method, a {@code KVSerde<NoOpSerde, NoOpSerde>}
-   * is used. Providing a message type {@code M} that is incompatible with the default Serde will result in
-   * {@link ClassCastException}s at runtime.
-   * <p>
-   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
-   *
-   * @param streamId the unique ID for the stream
-   * @param <M> the type of messages in the {@link OutputStream}
-   * @return the output {@link MessageStream}
-   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
-   */
-  <M> OutputStream<M> getOutputStream(String streamId);
+  <M> OutputStream<M> getOutputStream(OutputDescriptor<M, ?> outputDescriptor);
 
   /**
    * Gets the {@link Table} corresponding to the {@link TableDescriptor}.

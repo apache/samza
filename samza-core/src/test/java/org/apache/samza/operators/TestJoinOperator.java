@@ -19,31 +19,31 @@
 package org.apache.samza.operators;
 
 import com.google.common.collect.ImmutableSet;
+
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.impl.store.TestInMemoryStore;
 import org.apache.samza.operators.impl.store.TimestampedValueSerde;
-import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamOperatorTask;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
+import org.apache.samza.testUtils.StreamTestUtils;
 import org.apache.samza.testUtils.TestClock;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.SystemClock;
-import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -69,18 +69,6 @@ public class TestJoinOperator {
   private final TaskCoordinator taskCoordinator = mock(TaskCoordinator.class);
   private final Set<Integer> numbers = ImmutableSet.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 
-  private Config config;
-
-  @Before
-  public void setUp() {
-    Map<String, String> mapConfig = new HashMap<>();
-    mapConfig.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
-    mapConfig.put("job.default.system", "insystem");
-    mapConfig.put("job.name", "jobName");
-    mapConfig.put("job.id", "jobId");
-    config = new MapConfig(mapConfig);
-  }
-
   @Test
   public void join() throws Exception {
     StreamGraphSpec graphSpec = this.getTestJoinStreamGraph(new TestJoinFunction());
@@ -99,12 +87,19 @@ public class TestJoinOperator {
 
   @Test(expected = SamzaException.class)
   public void joinWithSelfThrowsException() throws Exception {
-    config.put("streams.instream.system", "insystem");
+    Map<String, String> mapConfig = new HashMap<>();
+    mapConfig.put("job.name", "jobName");
+    mapConfig.put("job.id", "jobId");
+    StreamTestUtils.addStreamConfigs(mapConfig, "inStream", "insystem", "instream");
+    Config config = new MapConfig(mapConfig);
+    StreamGraphSpec graphSpec = new StreamGraphSpec(config);
 
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(ApplicationRunner.class), config);
     IntegerSerde integerSerde = new IntegerSerde();
     KVSerde<Integer, Integer> kvSerde = KVSerde.of(integerSerde, integerSerde);
-    MessageStream<KV<Integer, Integer>> inStream = graphSpec.getInputStream("instream", kvSerde);
+    GenericInputDescriptor<KV<Integer, Integer>> inputDescriptor =
+        GenericInputDescriptor.from("inStream", "insystem", kvSerde);
+
+    MessageStream<KV<Integer, Integer>> inStream = graphSpec.getInputStream(inputDescriptor);
 
     inStream.join(inStream, new TestJoinFunction(), integerSerde, kvSerde, kvSerde, JOIN_TTL, "join");
 
@@ -300,7 +295,12 @@ public class TestJoinOperator {
   }
 
   private StreamOperatorTask createStreamOperatorTask(Clock clock, StreamGraphSpec graphSpec) throws Exception {
-
+    Map<String, String> mapConfig = new HashMap<>();
+    mapConfig.put("job.name", "jobName");
+    mapConfig.put("job.id", "jobId");
+    StreamTestUtils.addStreamConfigs(mapConfig, "inStream", "insystem", "instream");
+    StreamTestUtils.addStreamConfigs(mapConfig, "inStream2", "insystem", "instream2");
+    Config config = new MapConfig(mapConfig);
     TaskContextImpl taskContext = mock(TaskContextImpl.class);
     when(taskContext.getSystemStreamPartitions()).thenReturn(ImmutableSet
         .of(new SystemStreamPartition("insystem", "instream", new Partition(0)),
@@ -320,15 +320,22 @@ public class TestJoinOperator {
   }
 
   private StreamGraphSpec getTestJoinStreamGraph(TestJoinFunction joinFn) throws IOException {
-    ApplicationRunner runner = mock(ApplicationRunner.class);
-    when(runner.getStreamSpec("instream")).thenReturn(new StreamSpec("instream", "instream", "insystem"));
-    when(runner.getStreamSpec("instream2")).thenReturn(new StreamSpec("instream2", "instream2", "insystem"));
-
-    StreamGraphSpec graphSpec = new StreamGraphSpec(runner, config);
+    Map<String, String> mapConfig = new HashMap<>();
+    mapConfig.put("job.name", "jobName");
+    mapConfig.put("job.id", "jobId");
+    StreamTestUtils.addStreamConfigs(mapConfig, "inStream", "insystem", "instream");
+    StreamTestUtils.addStreamConfigs(mapConfig, "inStream2", "insystem", "instream2");
+    Config config = new MapConfig(mapConfig);
+    StreamGraphSpec graphSpec = new StreamGraphSpec(config);
     IntegerSerde integerSerde = new IntegerSerde();
     KVSerde<Integer, Integer> kvSerde = KVSerde.of(integerSerde, integerSerde);
-    MessageStream<KV<Integer, Integer>> inStream = graphSpec.getInputStream("instream", kvSerde);
-    MessageStream<KV<Integer, Integer>> inStream2 = graphSpec.getInputStream("instream2", kvSerde);
+    GenericInputDescriptor<KV<Integer, Integer>> inputDescriptor1 =
+        GenericInputDescriptor.from("inStream", "insystem", kvSerde);
+    GenericInputDescriptor<KV<Integer, Integer>> inputDescriptor2 =
+        GenericInputDescriptor.from("inStream2", "insystem", kvSerde);
+
+    MessageStream<KV<Integer, Integer>> inStream = graphSpec.getInputStream(inputDescriptor1);
+    MessageStream<KV<Integer, Integer>> inStream2 = graphSpec.getInputStream(inputDescriptor2);
 
     inStream
         .join(inStream2, joinFn, integerSerde, kvSerde, kvSerde, JOIN_TTL, "j1")

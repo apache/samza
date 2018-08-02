@@ -27,7 +27,10 @@ import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.task.TaskContext;
@@ -74,9 +77,14 @@ class ScanTranslator {
     String sourceName = SqlIOConfig.getSourceFromSourceParts(tableNameParts);
 
     Validate.isTrue(relMsgConverters.containsKey(sourceName), String.format("Unknown source %s", sourceName));
-    final String streamName = systemStreamConfig.get(sourceName).getStreamName();
+    SqlIOConfig sqlIOConfig = systemStreamConfig.get(sourceName);
+    final String systemName = sqlIOConfig.getSystemName();
+    final String streamName = sqlIOConfig.getStreamName();
 
-    MessageStream<KV<Object, Object>> inputStream = streamGraph.getInputStream(streamName);
+    KVSerde<Object, Object> noOpKVSerde = KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>());
+    GenericInputDescriptor<KV<Object, Object>> inputStreamDescriptor =
+        GenericInputDescriptor.from(streamName, systemName, noOpKVSerde);
+    MessageStream<KV<Object, Object>> inputStream = streamGraph.getInputStream(inputStreamDescriptor);
     MessageStream<SamzaSqlRelMessage> samzaSqlRelMessageStream = inputStream.map(new ScanMapFunction(sourceName));
 
     context.registerMessageStream(tableScan.getId(), samzaSqlRelMessageStream);

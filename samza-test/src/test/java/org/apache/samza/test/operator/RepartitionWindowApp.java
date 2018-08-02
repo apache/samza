@@ -24,6 +24,8 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
+import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
@@ -41,7 +43,7 @@ import org.slf4j.LoggerFactory;
 public class RepartitionWindowApp implements StreamApplication {
 
   private static final Logger LOG = LoggerFactory.getLogger(RepartitionWindowApp.class);
-
+  static final String SYSTEM = "kafka";
   static final String INPUT_TOPIC = "page-views";
   static final String OUTPUT_TOPIC = "Result";
 
@@ -58,15 +60,17 @@ public class RepartitionWindowApp implements StreamApplication {
   @Override
   public void init(StreamGraph graph, Config config) {
 
-    KVSerde<String, PageView>
-        pgeMsgSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageView.class));
-
-    graph.getInputStream(INPUT_TOPIC, pgeMsgSerde)
+    KVSerde<String, PageView> pgeMsgSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageView.class));
+    GenericInputDescriptor<KV<String, PageView>> isd =
+        GenericInputDescriptor.from(INPUT_TOPIC, SYSTEM, pgeMsgSerde);
+    GenericOutputDescriptor<KV<String, String>> osd =
+        GenericOutputDescriptor.from(OUTPUT_TOPIC, SYSTEM, KVSerde.of(new StringSerde(), new StringSerde()));
+    graph.getInputStream(isd)
         .map(KV::getValue)
         .partitionBy(PageView::getUserId, m -> m, pgeMsgSerde, "p1")
         .window(Windows.keyedSessionWindow(m -> m.getKey(), Duration.ofSeconds(3), () -> 0, (m, c) -> c + 1, new StringSerde("UTF-8"), new IntegerSerde()), "w1")
         .map(wp -> KV.of(wp.getKey().getKey().toString(), String.valueOf(wp.getMessage())))
-        .sendTo(graph.getOutputStream(OUTPUT_TOPIC));
+        .sendTo(graph.getOutputStream(osd));
 
   }
 }

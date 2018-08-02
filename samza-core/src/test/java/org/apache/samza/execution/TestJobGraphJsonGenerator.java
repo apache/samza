@@ -29,17 +29,19 @@ import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraphSpec;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
+import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.LongSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
+import org.apache.samza.testUtils.StreamTestUtils;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Test;
 
@@ -76,27 +78,12 @@ public class TestJobGraphJsonGenerator {
     Map<String, String> configMap = new HashMap<>();
     configMap.put(JobConfig.JOB_NAME(), "test-app");
     configMap.put(JobConfig.JOB_DEFAULT_SYSTEM(), "test-system");
+    StreamTestUtils.addStreamConfigs(configMap, "input1", "system1", "input1");
+    StreamTestUtils.addStreamConfigs(configMap, "input2", "system2", "input2");
+    StreamTestUtils.addStreamConfigs(configMap, "input3", "system2", "input3");
+    StreamTestUtils.addStreamConfigs(configMap, "output1", "system1", "output1");
+    StreamTestUtils.addStreamConfigs(configMap, "output2", "system2", "output2");
     Config config = new MapConfig(configMap);
-
-    StreamSpec input1 = new StreamSpec("input1", "input1", "system1");
-    StreamSpec input2 = new StreamSpec("input2", "input2", "system2");
-    StreamSpec input3 = new StreamSpec("input3", "input3", "system2");
-
-    StreamSpec output1 = new StreamSpec("output1", "output1", "system1");
-    StreamSpec output2 = new StreamSpec("output2", "output2", "system2");
-
-    ApplicationRunner runner = mock(ApplicationRunner.class);
-    when(runner.getStreamSpec("input1")).thenReturn(input1);
-    when(runner.getStreamSpec("input2")).thenReturn(input2);
-    when(runner.getStreamSpec("input3")).thenReturn(input3);
-    when(runner.getStreamSpec("output1")).thenReturn(output1);
-    when(runner.getStreamSpec("output2")).thenReturn(output2);
-
-    // intermediate streams used in tests
-    when(runner.getStreamSpec("test-app-1-partition_by-p1"))
-        .thenReturn(new StreamSpec("test-app-1-partition_by-p1", "test-app-1-partition_by-p1", "default-system"));
-    when(runner.getStreamSpec("test-app-1-partition_by-p2"))
-        .thenReturn(new StreamSpec("test-app-1-partition_by-p2", "test-app-1-partition_by-p2", "default-system"));
 
     // set up external partition count
     Map<String, Integer> system1Map = new HashMap<>();
@@ -114,22 +101,28 @@ public class TestJobGraphJsonGenerator {
     when(systemAdmins.getSystemAdmin("system2")).thenReturn(systemAdmin2);
     StreamManager streamManager = new StreamManager(systemAdmins);
 
-    StreamGraphSpec graphSpec = new StreamGraphSpec(runner, config);
-    graphSpec.setDefaultSerde(KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+    StreamGraphSpec graphSpec = new StreamGraphSpec(config);
+    KVSerde<Object, Object> kvSerde = new KVSerde<>(new NoOpSerde(), new NoOpSerde());
+    GenericInputDescriptor<KV<Object, Object>> input1Descriptor = GenericInputDescriptor.from("input1", "system1", kvSerde);
+    GenericInputDescriptor<KV<Object, Object>> input2Descriptor = GenericInputDescriptor.from("input2", "system2", kvSerde);
+    GenericInputDescriptor<KV<Object, Object>> input3Descriptor = GenericInputDescriptor.from("input3", "system2", kvSerde);
+    GenericOutputDescriptor<KV<Object, Object>> output1Descriptor = GenericOutputDescriptor.from("output1", "system1", kvSerde);
+    GenericOutputDescriptor<KV<Object, Object>> output2Descriptor = GenericOutputDescriptor.from("output2", "system2", kvSerde);
+
     MessageStream<KV<Object, Object>> messageStream1 =
-        graphSpec.<KV<Object, Object>>getInputStream("input1")
+        graphSpec.getInputStream(input1Descriptor)
             .map(m -> m);
     MessageStream<KV<Object, Object>> messageStream2 =
-        graphSpec.<KV<Object, Object>>getInputStream("input2")
+        graphSpec.getInputStream(input2Descriptor)
             .partitionBy(m -> m.key, m -> m.value, "p1")
             .filter(m -> true);
     MessageStream<KV<Object, Object>> messageStream3 =
-        graphSpec.<KV<Object, Object>>getInputStream("input3")
+        graphSpec.getInputStream(input3Descriptor)
             .filter(m -> true)
             .partitionBy(m -> m.key, m -> m.value, "p2")
             .map(m -> m);
-    OutputStream<KV<Object, Object>> outputStream1 = graphSpec.getOutputStream("output1");
-    OutputStream<KV<Object, Object>> outputStream2 = graphSpec.getOutputStream("output2");
+    OutputStream<KV<Object, Object>> outputStream1 = graphSpec.getOutputStream(output1Descriptor);
+    OutputStream<KV<Object, Object>> outputStream2 = graphSpec.getOutputStream(output2Descriptor);
 
     messageStream1
         .join(messageStream2,
@@ -163,18 +156,9 @@ public class TestJobGraphJsonGenerator {
     Map<String, String> configMap = new HashMap<>();
     configMap.put(JobConfig.JOB_NAME(), "test-app");
     configMap.put(JobConfig.JOB_DEFAULT_SYSTEM(), "test-system");
+    StreamTestUtils.addStreamConfigs(configMap, "PageView", "hdfs", "hdfs:/user/dummy/PageViewEvent");
+    StreamTestUtils.addStreamConfigs(configMap, "PageViewCount", "kafka", "PageViewCount");
     Config config = new MapConfig(configMap);
-
-    StreamSpec input = new StreamSpec("PageView", "hdfs:/user/dummy/PageViewEvent", "hdfs");
-    StreamSpec output = new StreamSpec("PageViewCount", "PageViewCount", "kafka");
-
-    ApplicationRunner runner = mock(ApplicationRunner.class);
-    when(runner.getStreamSpec("PageView")).thenReturn(input);
-    when(runner.getStreamSpec("PageViewCount")).thenReturn(output);
-
-    // intermediate streams used in tests
-    when(runner.getStreamSpec("test-app-1-partition_by-keyed-by-country"))
-        .thenReturn(new StreamSpec("test-app-1-partition_by-keyed-by-country", "test-app-1-partition_by-keyed-by-country", "kafka"));
 
     // set up external partition count
     Map<String, Integer> system1Map = new HashMap<>();
@@ -189,8 +173,18 @@ public class TestJobGraphJsonGenerator {
     when(systemAdmins.getSystemAdmin("kafka")).thenReturn(systemAdmin2);
     StreamManager streamManager = new StreamManager(systemAdmins);
 
-    StreamGraphSpec graphSpec = new StreamGraphSpec(runner, config);
-    MessageStream<KV<String, PageViewEvent>> inputStream = graphSpec.getInputStream("PageView");
+    StreamGraphSpec graphSpec = new StreamGraphSpec(config);
+    KVSerde<String, PageViewEvent> pvSerde = KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageViewEvent.class));
+
+    GenericInputDescriptor<KV<String, PageViewEvent>> pageView =
+        GenericInputDescriptor.from("PageView", "hdfs", pvSerde);
+
+    KVSerde<String, Long> pvcSerde = KVSerde.of(new StringSerde(), new LongSerde());
+    GenericOutputDescriptor<KV<String, Long>> pageViewCount =
+        GenericOutputDescriptor.from("PageViewCount", "kafka", pvcSerde);
+
+    MessageStream<KV<String, PageViewEvent>> inputStream = graphSpec.getInputStream(pageView);
+    OutputStream<KV<String, Long>> outputStream = graphSpec.getOutputStream(pageViewCount);
     inputStream
         .partitionBy(kv -> kv.getValue().getCountry(), kv -> kv.getValue(), "keyed-by-country")
         .window(Windows.keyedTumblingWindow(kv -> kv.getValue().getCountry(),
@@ -200,7 +194,7 @@ public class TestJobGraphJsonGenerator {
             new StringSerde(),
             new LongSerde()), "count-by-country")
         .map(pane -> new KV<>(pane.getKey().getKey(), pane.getMessage()))
-        .sendTo(graphSpec.getOutputStream("PageViewCount"));
+        .sendTo(outputStream);
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
     ExecutionPlan plan = planner.plan(graphSpec.getOperatorSpecGraph());

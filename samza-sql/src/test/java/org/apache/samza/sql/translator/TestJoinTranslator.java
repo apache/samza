@@ -147,7 +147,7 @@ public class TestJoinTranslator extends TranslatorTestBase {
     when(mockOutputStream.isKeyed()).thenReturn(true);
     IntermediateMessageStreamImpl
         mockPartitionedStream = new IntermediateMessageStreamImpl(mockGraph, mockInputOp, mockOutputStream);
-    when(mockGraph.getIntermediateStream(any(String.class), any(Serde.class))).thenReturn(mockPartitionedStream);
+    when(mockGraph.getIntermediateStream(any(String.class), any(Serde.class), eq(false))).thenReturn(mockPartitionedStream);
 
     doAnswer(this.getRegisterMessageStreamAnswer()).when(mockContext).registerMessageStream(eq(3), any(MessageStream.class));
     RexToJavaCompiler mockCompiler = mock(RexToJavaCompiler.class);

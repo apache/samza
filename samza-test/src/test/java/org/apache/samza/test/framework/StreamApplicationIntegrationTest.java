@@ -25,7 +25,11 @@ import java.util.Random;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.test.controlmessages.TestData;
@@ -38,14 +42,19 @@ import org.junit.Test;
 public class StreamApplicationIntegrationTest {
 
   final StreamApplication pageViewFilter = (streamGraph, cfg) -> {
-    streamGraph.<KV<String, TestData.PageView>>getInputStream("PageView").map(
-        StreamApplicationIntegrationTest.Values.create()).filter(pv -> pv.getPageKey().equals("inbox"));
+    GenericInputDescriptor<KV<String, PageView>> isd =
+        GenericInputDescriptor.from("PageView", "test", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+    MessageStream<KV<String, TestData.PageView>> inputStream = streamGraph.getInputStream(isd);
+    inputStream.map(StreamApplicationIntegrationTest.Values.create()).filter(pv -> pv.getPageKey().equals("inbox"));
   };
 
-  final StreamApplication pageViewParition = (streamGraph, cfg) -> {
-    streamGraph.<KV<String, PageView>>getInputStream("PageView")
+  final StreamApplication pageViewRepartition = (streamGraph, cfg) -> {
+    GenericInputDescriptor<KV<String, PageView>> isd =
+        GenericInputDescriptor.from("PageView", "test", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+    MessageStream<KV<String, TestData.PageView>> inputStream = streamGraph.getInputStream(isd);
+    inputStream
         .map(Values.create())
-        .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
+        .partitionBy(PageView::getMemberId, pv -> pv, "p1")
         .sink((m, collector, coordinator) -> {
             collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "Output"),
                 m.getKey(), m.getKey(),
@@ -70,7 +79,7 @@ public class StreamApplicationIntegrationTest {
     CollectionStream output = CollectionStream.empty("test", "Output", 10);
 
     TestRunner
-        .of(pageViewParition)
+        .of(pageViewRepartition)
         .addInputStream(input)
         .addOutputStream(output)
         .addOverrideConfig("job.default.system", "test")
@@ -95,7 +104,7 @@ public class StreamApplicationIntegrationTest {
     CollectionStream output = CollectionStream.empty("test", "Output", 10);
 
     TestRunner
-        .of(pageViewParition)
+        .of(pageViewRepartition)
         .addInputStream(input)
         .addOutputStream(output)
         .run(Duration.ofMillis(1000));

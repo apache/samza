@@ -19,46 +19,41 @@
 package org.apache.samza.operators.spec;
 
 import java.io.Serializable;
+import java.util.Optional;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.SystemStream;
-
 
 public class OutputStreamImpl<M> implements OutputStream<M>, Serializable {
 
-  private final StreamSpec streamSpec;
+  private final String streamId;
   private final boolean isKeyed;
 
   /**
    * The following fields are serialized by the ExecutionPlanner when generating the configs for the output stream, and
    * deserialized once during startup in SamzaContainer. They don't need to be deserialized here on a per-task basis
+   *
+   * Serdes are optional for intermediate streams and may be specified for job.default.system in configuration instead.
    */
-  private transient final Serde keySerde;
-  private transient final Serde valueSerde;
+  private transient final Optional<Serde> keySerdeOptional;
+  private transient final Optional<Serde> valueSerdeOptional;
 
-  public OutputStreamImpl(StreamSpec streamSpec,
-      Serde keySerde, Serde valueSerde, boolean isKeyed) {
-    this.streamSpec = streamSpec;
-    this.keySerde = keySerde;
-    this.valueSerde = valueSerde;
+  public OutputStreamImpl(String streamId, Serde keySerde, Serde valueSerde, boolean isKeyed) {
+    this.streamId = streamId;
+    this.keySerdeOptional = Optional.ofNullable(keySerde);
+    this.valueSerdeOptional = Optional.ofNullable(valueSerde);
     this.isKeyed = isKeyed;
   }
 
-  public StreamSpec getStreamSpec() {
-    return streamSpec;
+  public String getStreamId() {
+    return streamId;
   }
 
-  public Serde getKeySerde() {
-    return keySerde;
+  public Optional<Serde> getKeySerde() {
+    return keySerdeOptional;
   }
 
-  public Serde getValueSerde() {
-    return valueSerde;
-  }
-
-  public SystemStream getSystemStream() {
-    return this.streamSpec.toSystemStream();
+  public Optional<Serde> getValueSerde() {
+    return valueSerdeOptional;
   }
 
   public boolean isKeyed() {

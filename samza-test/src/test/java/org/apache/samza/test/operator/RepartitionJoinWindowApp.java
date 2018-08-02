@@ -26,6 +26,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
 import org.apache.samza.operators.windows.Windows;
@@ -34,7 +35,6 @@ import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.OutgoingMessageEnvelope;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.test.operator.data.AdClick;
@@ -49,12 +49,12 @@ import org.apache.samza.util.CommandLine;
  * A {@link StreamApplication} that demonstrates a partitionBy, stream-stream join and a windowed count.
  */
 public class RepartitionJoinWindowApp implements StreamApplication {
-
+  public static final String SYSTEM = "kafka";
   public static final String INPUT_TOPIC_NAME_1_PROP = "inputTopicName1";
   public static final String INPUT_TOPIC_NAME_2_PROP = "inputTopicName2";
   public static final String OUTPUT_TOPIC_NAME_PROP = "outputTopicName";
 
-  private final List<StreamSpec> intermediateStreams = new ArrayList<>();
+  private final List<String> intermediateStreamIds = new ArrayList<>();
 
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
@@ -73,8 +73,14 @@ public class RepartitionJoinWindowApp implements StreamApplication {
     String inputTopicName2 = config.get(INPUT_TOPIC_NAME_2_PROP);
     String outputTopic = config.get(OUTPUT_TOPIC_NAME_PROP);
 
-    MessageStream<PageView> pageViews = graph.getInputStream(inputTopicName1, new JsonSerdeV2<>(PageView.class));
-    MessageStream<AdClick> adClicks = graph.getInputStream(inputTopicName2, new JsonSerdeV2<>(AdClick.class));
+    // offset.default = oldest required for tests since checkpoint topic is empty on start and messages are published
+    // before the application is run
+    GenericInputDescriptor<PageView> pageViewIsd =
+        GenericInputDescriptor.from(inputTopicName1, SYSTEM, new JsonSerdeV2<>(PageView.class));
+    GenericInputDescriptor<AdClick> adClickIsd =
+        GenericInputDescriptor.from(inputTopicName2, SYSTEM, new JsonSerdeV2<>(AdClick.class));
+    MessageStream<PageView> pageViews = graph.getInputStream(pageViewIsd);
+    MessageStream<AdClick> adClicks = graph.getInputStream(adClickIsd);
 
     MessageStream<KV<String, PageView>> pageViewsRepartitionedByViewId = pageViews
         .partitionBy(PageView::getViewId, pv -> pv,
@@ -102,18 +108,20 @@ public class RepartitionJoinWindowApp implements StreamApplication {
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), String.valueOf(windowPane.getMessage().size())))
         .sink((message, messageCollector, taskCoordinator) -> {
             taskCoordinator.commit(TaskCoordinator.RequestScope.ALL_TASKS_IN_CONTAINER);
-            messageCollector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", outputTopic), null, message.getKey(), message.getValue()));
+            messageCollector.send(
+                new OutgoingMessageEnvelope(
+                    new SystemStream("kafka", outputTopic), null, message.getKey(), message.getValue()));
           });
 
 
-    intermediateStreams.add(((IntermediateMessageStreamImpl) pageViewsRepartitionedByViewId).getStreamSpec());
-    intermediateStreams.add(((IntermediateMessageStreamImpl) adClicksRepartitionedByViewId).getStreamSpec());
-    intermediateStreams.add(((IntermediateMessageStreamImpl) userPageAdClicksByUserId).getStreamSpec());
+    intermediateStreamIds.add(((IntermediateMessageStreamImpl) pageViewsRepartitionedByViewId).getStreamId());
+    intermediateStreamIds.add(((IntermediateMessageStreamImpl) adClicksRepartitionedByViewId).getStreamId());
+    intermediateStreamIds.add(((IntermediateMessageStreamImpl) userPageAdClicksByUserId).getStreamId());
 
   }
 
-  public List<StreamSpec> getIntermediateStreams() {
-    return intermediateStreams;
+  List<String> getIntermediateStreamIds() {
+    return intermediateStreamIds;
   }
 
   private static class UserPageViewAdClicksJoiner implements JoinFunction<String, PageView, AdClick, UserPageAdClick> {

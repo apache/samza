@@ -170,20 +170,20 @@ import org.codehaus.jackson.map.ObjectMapper;
   private OperatorGraphJson buildOperatorGraphJson(JobNode jobNode) {
     OperatorGraphJson opGraph = new OperatorGraphJson();
     opGraph.inputStreams = new ArrayList<>();
-    jobNode.getSpecGraph().getInputOperators().forEach((streamSpec, operatorSpec) -> {
+    jobNode.getSpecGraph().getInputOperators().forEach((streamId, operatorSpec) -> {
         StreamJson inputJson = new StreamJson();
         opGraph.inputStreams.add(inputJson);
-        inputJson.streamId = streamSpec.getId();
-        Collection<OperatorSpec> specs = operatorSpec.getRegisteredOperatorSpecs();
-        inputJson.nextOperatorIds = specs.stream().map(OperatorSpec::getOpId).collect(Collectors.toSet());
+        inputJson.streamId = streamId;
+        inputJson.nextOperatorIds = operatorSpec.getRegisteredOperatorSpecs().stream()
+            .map(OperatorSpec::getOpId).collect(Collectors.toSet());
 
         updateOperatorGraphJson(operatorSpec, opGraph);
       });
 
     opGraph.outputStreams = new ArrayList<>();
-    jobNode.getSpecGraph().getOutputStreams().keySet().forEach(streamSpec -> {
+    jobNode.getSpecGraph().getOutputStreams().keySet().forEach(streamId -> {
         StreamJson outputJson = new StreamJson();
-        outputJson.streamId = streamSpec.getId();
+        outputJson.streamId = streamId;
         opGraph.outputStreams.add(outputJson);
       });
     return opGraph;
@@ -219,10 +219,10 @@ import org.codehaus.jackson.map.ObjectMapper;
 
     if (spec instanceof OutputOperatorSpec) {
       OutputStreamImpl outputStream = ((OutputOperatorSpec) spec).getOutputStream();
-      map.put("outputStreamId", outputStream.getStreamSpec().getId());
+      map.put("outputStreamId", outputStream.getStreamId());
     } else if (spec instanceof PartitionByOperatorSpec) {
       OutputStreamImpl outputStream = ((PartitionByOperatorSpec) spec).getOutputStream();
-      map.put("outputStreamId", outputStream.getStreamSpec().getId());
+      map.put("outputStreamId", outputStream.getStreamId());
     }
 
     if (spec instanceof StreamTableJoinOperatorSpec) {

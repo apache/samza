@@ -34,7 +34,11 @@ import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.StringSerde;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaOutputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.util.CommandLine;
 
 
@@ -56,12 +60,18 @@ public class PageViewCounterExample implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
+    KafkaSystemDescriptor<KV<Object, Object>> trackingSystem =
+        new KafkaSystemDescriptor<>("tracking", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
 
-    MessageStream<PageViewEvent> pageViewEvents = null;
-    pageViewEvents = graph.getInputStream("pageViewEventStream", new JsonSerdeV2<>(PageViewEvent.class));
-    OutputStream<KV<String, PageViewCount>> pageViewEventPerMemberStream =
-        graph.getOutputStream("pageViewEventPerMemberStream",
+    KafkaInputDescriptor<PageViewEvent> inputStreamDescriptor =
+        trackingSystem.getInputDescriptor("pageViewEvent", new JsonSerdeV2<>(PageViewEvent.class));
+
+    KafkaOutputDescriptor<KV<String, PageViewCount>> outputStreamDescriptor =
+        trackingSystem.getOutputDescriptor("pageViewEventPerMember",
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageViewCount.class)));
+
+    MessageStream<PageViewEvent> pageViewEvents = graph.getInputStream(inputStreamDescriptor);
+    OutputStream<KV<String, PageViewCount>> pageViewEventPerMemberStream = graph.getOutputStream(outputStreamDescriptor);
 
     SupplierFunction<Integer> initialValue = () -> 0;
     FoldLeftFunction<PageViewEvent, Integer> foldLeftFn = (m, c) -> c + 1;
@@ -71,7 +81,6 @@ public class PageViewCounterExample implements StreamApplication {
             .setAccumulationMode(AccumulationMode.DISCARDING), "tumblingWindow")
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), new PageViewCount(windowPane)))
         .sendTo(pageViewEventPerMemberStream);
-
   }
 
   class PageViewEvent {

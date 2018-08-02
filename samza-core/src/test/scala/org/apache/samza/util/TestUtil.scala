@@ -22,8 +22,6 @@ package org.apache.samza.util
 import org.junit.Assert._
 import org.junit.Test
 import org.apache.samza.config.MapConfig
-import org.apache.samza.serializers._
-import org.apache.samza.SamzaException
 
 class TestUtil {
   @Test

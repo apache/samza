@@ -37,8 +37,11 @@ import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.TableDescriptor;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
@@ -151,7 +154,10 @@ public class QueryTranslator {
 
     Optional<TableDescriptor> tableDescriptor = sinkConfig.getTableDescriptor();
     if (!tableDescriptor.isPresent()) {
-      outputStream.sendTo(streamGraph.getOutputStream(sinkConfig.getStreamName()));
+      KVSerde<Object, Object> noOpKVSerde = KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>());
+      GenericOutputDescriptor<KV<Object, Object>> outputStreamDescriptor =
+          GenericOutputDescriptor.from(sinkConfig.getStreamName(), sinkConfig.getSystemName(), noOpKVSerde);
+      outputStream.sendTo(streamGraph.getOutputStream(outputStreamDescriptor));
     } else {
       Table outputTable = streamGraph.getTable(tableDescriptor.get());
       if (outputTable == null) {

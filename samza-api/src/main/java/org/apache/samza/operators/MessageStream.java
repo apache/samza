@@ -217,9 +217,10 @@ public interface MessageStream<M> {
    * input to the job.
    * <p>
    * Uses the provided {@link KVSerde} for serialization of keys and values. If the provided {@code serde} is null,
-   * uses the default serde provided via {@link StreamGraph#setDefaultSerde}, which must be a KVSerde. If the default
-   * serde is not a {@link KVSerde}, a runtime exception will be thrown. If no default serde has been provided
-   * <b>before</b> calling this method, a {@code KVSerde<NoOpSerde, NoOpSerde>} is used.
+   * uses the default serde provided via {@link StreamGraph#setDefaultSystem}, which must be a KVSerde.
+   * If the default serde is not a {@link KVSerde}, a runtime exception will be thrown.
+   * If no default serde has been provided <b>before</b> calling this method,
+   * a {@code KVSerde<NoOpSerde, NoOpSerde>} is used.
    * <p>
    * The number of partitions for this intermediate stream is determined as follows:
    * If the stream is an eventual input to a {@link #join}, and the number of partitions for the other stream is known,
@@ -251,9 +252,10 @@ public interface MessageStream<M> {
   /**
    * Same as calling {@link #partitionBy(MapFunction, MapFunction, KVSerde, String)} with a null KVSerde.
    * <p>
-   * Uses the default serde provided via {@link StreamGraph#setDefaultSerde}, which must be a KVSerde. If the default
-   * serde is not a {@link KVSerde}, a runtime exception will be thrown. If no default serde has been provided
-   * <b>before</b> calling this method, a {@code KVSerde<NoOpSerde, NoOpSerde>} is used.
+   * Uses the default serde provided via {@link StreamGraph#setDefaultSystem}, which must be a KVSerde.
+   * If the default serde is not a {@link KVSerde}, a runtime exception will be thrown.
+   * If no default serde has been provided <b>before</b> calling this method,
+   * a {@code KVSerde<NoOpSerde, NoOpSerde>} is used.
    *
    * @param keyExtractor the {@link MapFunction} to extract the message and partition key from the input message
    * @param valueExtractor the {@link MapFunction} to extract the value from the input message

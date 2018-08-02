@@ -24,7 +24,6 @@ import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
-import org.apache.samza.system.StreamSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,19 +44,19 @@ public class IntermediateMessageStreamImpl<M> extends MessageStreamImpl<M> imple
   private final OutputStreamImpl<M> outputStream;
   private final boolean isKeyed;
 
-  public IntermediateMessageStreamImpl(StreamGraphSpec graph, InputOperatorSpec<?, M> inputOperatorSpec,
+  public IntermediateMessageStreamImpl(StreamGraphSpec graph, InputOperatorSpec inputOperatorSpec,
       OutputStreamImpl<M> outputStream) {
     super(graph, (OperatorSpec<?, M>) inputOperatorSpec);
     this.outputStream = outputStream;
     if (inputOperatorSpec.isKeyed() != outputStream.isKeyed()) {
       LOGGER.error("Input and output streams for intermediate stream {} aren't keyed consistently. Input: {}, Output: {}",
-          new Object[]{inputOperatorSpec.getStreamSpec().getId(), inputOperatorSpec.isKeyed(), outputStream.isKeyed()});
+          new Object[]{inputOperatorSpec.getStreamId(), inputOperatorSpec.isKeyed(), outputStream.isKeyed()});
     }
     this.isKeyed = inputOperatorSpec.isKeyed() && outputStream.isKeyed();
   }
 
-  public StreamSpec getStreamSpec() {
-    return this.outputStream.getStreamSpec();
+  public String getStreamId() {
+    return this.outputStream.getStreamId();
   }
 
   public OutputStreamImpl<M> getOutputStream() {

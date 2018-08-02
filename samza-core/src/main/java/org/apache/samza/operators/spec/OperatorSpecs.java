@@ -22,13 +22,13 @@ package org.apache.samza.operators.spec;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
+import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.TableSpec;
 
 
@@ -42,18 +42,18 @@ public class OperatorSpecs {
   /**
    * Creates an {@link InputOperatorSpec} for consuming input.
    *
-   * @param streamSpec  the stream spec for the input stream
+   * @param streamId  the stream id for the input stream
    * @param keySerde  the serde for the input key
    * @param valueSerde  the serde for the input value
+   * @param transformer the input stream transformer
    * @param isKeyed  whether the input stream is keyed
    * @param opId  the unique ID of the operator
-   * @param <K>  type of input key
-   * @param <V>  type of input value
    * @return  the {@link InputOperatorSpec}
    */
-  public static <K, V> InputOperatorSpec<K, V> createInputOperatorSpec(
-    StreamSpec streamSpec, Serde<K> keySerde, Serde<V> valueSerde, boolean isKeyed, String opId) {
-    return new InputOperatorSpec<>(streamSpec, keySerde, valueSerde, isKeyed, opId);
+  public static InputOperatorSpec createInputOperatorSpec(
+      String streamId, Serde keySerde, Serde valueSerde,
+      InputTransformer<?> transformer, boolean isKeyed, String opId) {
+    return new InputOperatorSpec(streamId, keySerde, valueSerde, transformer, isKeyed, opId);
   }
 
   /**

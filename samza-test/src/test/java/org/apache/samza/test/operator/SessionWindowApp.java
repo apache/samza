@@ -26,6 +26,8 @@ import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
+import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
@@ -41,6 +43,7 @@ import org.slf4j.LoggerFactory;
  * A {@link StreamApplication} that demonstrates a filter followed by a session window.
  */
 public class SessionWindowApp implements StreamApplication {
+  private static final String SYSTEM = "kafka";
   private static final String INPUT_TOPIC = "page-views";
   private static final String OUTPUT_TOPIC = "page-view-counts";
 
@@ -59,10 +62,12 @@ public class SessionWindowApp implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
-
-    MessageStream<PageView> pageViews = graph.getInputStream(INPUT_TOPIC, new JsonSerdeV2<>(PageView.class));
-    OutputStream<KV<String, Integer>> outputStream =
-        graph.getOutputStream(OUTPUT_TOPIC, new KVSerde<>(new StringSerde(), new IntegerSerde()));
+    GenericInputDescriptor<PageView> isd =
+        GenericInputDescriptor.from(INPUT_TOPIC, SYSTEM, new JsonSerdeV2<>(PageView.class));
+    GenericOutputDescriptor<KV<String, Integer>> osd =
+        GenericOutputDescriptor.from(OUTPUT_TOPIC, SYSTEM, new KVSerde<>(new StringSerde(), new IntegerSerde()));
+    MessageStream<PageView> pageViews = graph.getInputStream(isd);
+    OutputStream<KV<String, Integer>> outputStream = graph.getOutputStream(osd);
 
     pageViews
         .filter(m -> !FILTER_KEY.equals(m.getUserId()))

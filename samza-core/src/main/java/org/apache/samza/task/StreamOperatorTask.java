@@ -23,7 +23,6 @@ import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.MessageType;
 import org.apache.samza.operators.ContextManager;
-import org.apache.samza.operators.KV;
 import org.apache.samza.operators.impl.InputOperatorImpl;
 import org.apache.samza.operators.impl.OperatorImplGraph;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -111,7 +110,7 @@ public class StreamOperatorTask implements StreamTask, InitableTask, WindowableT
     if (inputOpImpl != null) {
       switch (MessageType.of(ime.getMessage())) {
         case USER_MESSAGE:
-          inputOpImpl.onMessage(KV.of(ime.getKey(), ime.getMessage()), collector, coordinator);
+          inputOpImpl.onMessage(ime, collector, coordinator);
           break;
 
         case END_OF_STREAM:

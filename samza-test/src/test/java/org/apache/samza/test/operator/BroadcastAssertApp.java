@@ -23,6 +23,7 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.test.operator.data.PageView;
 import org.apache.samza.test.framework.StreamAssert;
@@ -30,7 +31,7 @@ import org.apache.samza.test.framework.StreamAssert;
 import java.util.Arrays;
 
 public class BroadcastAssertApp implements StreamApplication {
-
+  public static final String SYSTEM = "kafka";
   public static final String INPUT_TOPIC_NAME_PROP = "inputTopicName";
 
 
@@ -39,8 +40,9 @@ public class BroadcastAssertApp implements StreamApplication {
     String inputTopic = config.get(INPUT_TOPIC_NAME_PROP);
 
     final JsonSerdeV2<PageView> serde = new JsonSerdeV2<>(PageView.class);
+    GenericInputDescriptor<PageView> isd = GenericInputDescriptor.from(inputTopic, SYSTEM, serde);
     final MessageStream<PageView> broadcastPageViews = graph
-        .getInputStream(inputTopic, serde)
+        .getInputStream(isd)
         .broadcast(serde, "pv");
 
     /**

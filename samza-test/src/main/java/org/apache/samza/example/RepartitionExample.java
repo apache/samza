@@ -29,7 +29,11 @@ import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.StringSerde;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaOutputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
@@ -53,18 +57,25 @@ public class RepartitionExample implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
+    KafkaSystemDescriptor<KV<Object, Object>> trackingSystem =
+        new KafkaSystemDescriptor<>("tracking", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
 
-    MessageStream<PageViewEvent> pageViewEvents =
-        graph.getInputStream("pageViewEvent", new JsonSerdeV2<>(PageViewEvent.class));
-    OutputStream<KV<String, MyStreamOutput>> pageViewEventPerMember =
-        graph.getOutputStream("pageViewEventPerMember",
+    KafkaInputDescriptor<PageViewEvent> inputStreamDescriptor =
+        trackingSystem.getInputDescriptor("pageViewEvent", new JsonSerdeV2<>(PageViewEvent.class));
+
+    KafkaOutputDescriptor<KV<String, MyStreamOutput>> outputStreamDescriptor =
+        trackingSystem.getOutputDescriptor("pageViewEventPerMember",
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(MyStreamOutput.class)));
+
+    graph.setDefaultSystem(trackingSystem);
+    MessageStream<PageViewEvent> pageViewEvents = graph.getInputStream(inputStreamDescriptor);
+    OutputStream<KV<String, MyStreamOutput>> pageViewEventPerMember = graph.getOutputStream(outputStreamDescriptor);
 
     pageViewEvents
         .partitionBy(pve -> pve.memberId, pve -> pve,
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageViewEvent.class)), "partitionBy")
-        .window(Windows.keyedTumblingWindow(KV::getKey, Duration.ofMinutes(5), () -> 0, (m, c) -> c + 1, null, null),
-            "window")
+        .window(Windows.keyedTumblingWindow(
+            KV::getKey, Duration.ofMinutes(5), () -> 0, (m, c) -> c + 1, null, null), "window")
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), new MyStreamOutput(windowPane)))
         .sendTo(pageViewEventPerMember);
 

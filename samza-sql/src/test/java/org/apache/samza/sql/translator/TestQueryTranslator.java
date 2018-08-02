@@ -26,11 +26,11 @@ import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.StreamConfig;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.StreamGraphSpec;
-import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.sql.impl.ConfigBasedIOResolverFactory;
@@ -86,17 +86,25 @@ public class TestQueryTranslator {
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
-        graphSpec = new StreamGraphSpec(new LocalApplicationRunner(samzaConfig), samzaConfig);
+        graphSpec = new StreamGraphSpec(samzaConfig);
     translator.translate(queryInfo, graphSpec);
     OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
+
+    StreamConfig streamConfig = new StreamConfig(samzaConfig);
+    String inputStreamId = specGraph.getInputOperators().keySet().stream().findFirst().get();
+    String inputSystem = streamConfig.getSystem(inputStreamId);
+    String inputPhysicalName = streamConfig.getPhysicalName(inputStreamId);
+    String outputStreamId = specGraph.getOutputStreams().keySet().stream().findFirst().get();
+    String outputSystem = streamConfig.getSystem(outputStreamId);
+    String outputPhysicalName = streamConfig.getPhysicalName(outputStreamId);
+    
     Assert.assertEquals(1, specGraph.getOutputStreams().size());
-    Assert.assertEquals("testavro", specGraph.getOutputStreams().keySet().stream().findFirst().get().getSystemName());
-    Assert.assertEquals("outputTopic", specGraph.getOutputStreams().keySet().stream().findFirst().get().getPhysicalName());
+    Assert.assertEquals("testavro", outputSystem);
+    Assert.assertEquals("outputTopic", outputPhysicalName);
     Assert.assertEquals(1, specGraph.getInputOperators().size());
-    Assert.assertEquals("testavro",
-        specGraph.getInputOperators().keySet().stream().findFirst().get().getSystemName());
-    Assert.assertEquals("SIMPLE1",
-        specGraph.getInputOperators().keySet().stream().findFirst().get().getPhysicalName());
+    
+    Assert.assertEquals("testavro", inputSystem);
+    Assert.assertEquals("SIMPLE1", inputPhysicalName);
 
     validatePerTaskContextInit(graphSpec, samzaConfig);
   }
@@ -129,18 +137,24 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamGraphSpec
-        graphSpec = new StreamGraphSpec(new LocalApplicationRunner(samzaConfig), samzaConfig);
+    StreamGraphSpec graphSpec = new StreamGraphSpec(samzaConfig);
     translator.translate(queryInfo, graphSpec);
     OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
+
+    StreamConfig streamConfig = new StreamConfig(samzaConfig);
+    String inputStreamId = specGraph.getInputOperators().keySet().stream().findFirst().get();
+    String inputSystem = streamConfig.getSystem(inputStreamId);
+    String inputPhysicalName = streamConfig.getPhysicalName(inputStreamId);
+    String outputStreamId = specGraph.getOutputStreams().keySet().stream().findFirst().get();
+    String outputSystem = streamConfig.getSystem(outputStreamId);
+    String outputPhysicalName = streamConfig.getPhysicalName(outputStreamId);
+
     Assert.assertEquals(1, specGraph.getOutputStreams().size());
-    Assert.assertEquals("testavro", specGraph.getOutputStreams().keySet().stream().findFirst().get().getSystemName());
-    Assert.assertEquals("outputTopic", specGraph.getOutputStreams().keySet().stream().findFirst().get().getPhysicalName());
+    Assert.assertEquals("testavro", outputSystem);
+    Assert.assertEquals("outputTopic", outputPhysicalName);
     Assert.assertEquals(1, specGraph.getInputOperators().size());
-    Assert.assertEquals("testavro",
-        specGraph.getInputOperators().keySet().stream().findFirst().get().getSystemName());
-    Assert.assertEquals("COMPLEX1",
-        specGraph.getInputOperators().keySet().stream().findFirst().get().getPhysicalName());
+    Assert.assertEquals("testavro", inputSystem);
+    Assert.assertEquals("COMPLEX1", inputPhysicalName);
 
     validatePerTaskContextInit(graphSpec, samzaConfig);
   }
@@ -155,17 +169,24 @@ public class TestQueryTranslator {
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
-        graphSpec = new StreamGraphSpec(new LocalApplicationRunner(samzaConfig), samzaConfig);
+        graphSpec = new StreamGraphSpec(samzaConfig);
     translator.translate(queryInfo, graphSpec);
     OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
+
+    StreamConfig streamConfig = new StreamConfig(samzaConfig);
+    String inputStreamId = specGraph.getInputOperators().keySet().stream().findFirst().get();
+    String inputSystem = streamConfig.getSystem(inputStreamId);
+    String inputPhysicalName = streamConfig.getPhysicalName(inputStreamId);
+    String outputStreamId = specGraph.getOutputStreams().keySet().stream().findFirst().get();
+    String outputSystem = streamConfig.getSystem(outputStreamId);
+    String outputPhysicalName = streamConfig.getPhysicalName(outputStreamId);
+
     Assert.assertEquals(1, specGraph.getOutputStreams().size());
-    Assert.assertEquals("testavro", specGraph.getOutputStreams().keySet().stream().findFirst().get().getSystemName());
-    Assert.assertEquals("outputTopic", specGraph.getOutputStreams().keySet().stream().findFirst().get().getPhysicalName());
+    Assert.assertEquals("testavro", outputSystem);
+    Assert.assertEquals("outputTopic", outputPhysicalName);
     Assert.assertEquals(1, specGraph.getInputOperators().size());
-    Assert.assertEquals("testavro",
-        specGraph.getInputOperators().keySet().stream().findFirst().get().getSystemName());
-    Assert.assertEquals("COMPLEX1",
-        specGraph.getInputOperators().keySet().stream().findFirst().get().getPhysicalName());
+    Assert.assertEquals("testavro", inputSystem);
+    Assert.assertEquals("COMPLEX1", inputPhysicalName);
 
     validatePerTaskContextInit(graphSpec, samzaConfig);
   }
@@ -184,7 +205,7 @@ public class TestQueryTranslator {
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
-        graphSpec = new StreamGraphSpec(new LocalApplicationRunner(samzaConfig), samzaConfig);
+        graphSpec = new StreamGraphSpec(samzaConfig);
     translator.translate(queryInfo, graphSpec);
   }
 
@@ -203,7 +224,7 @@ public class TestQueryTranslator {
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
-        graphSpec = new StreamGraphSpec(new LocalApplicationRunner(samzaConfig), samzaConfig);
+        graphSpec = new StreamGraphSpec(samzaConfig);
     translator.translate(queryInfo, graphSpec);
   }
 
@@ -222,7 +243,7 @@ public class TestQueryTranslator {
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
-        graphSpec = new StreamGraphSpec(new LocalApplicationRunner(samzaConfig), samzaConfig);
+        graphSpec = new StreamGraphSpec(samzaConfig);
     translator.translate(queryInfo, graphSpec);
   }
 
@@ -241,7 +262,7 @@ public class TestQueryTranslator {
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
-        graphSpec = new StreamGraphSpec(new LocalApplicationRunner(samzaConfig), samzaConfig);
+        graphSpec = new StreamGraphSpec(samzaConfig);
     translator.translate(queryInfo, graphSpec);
   }
 
@@ -258,7 +279,7 @@ public class TestQueryTranslator {
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
-        graphSpec = new StreamGraphSpec(new LocalApplicationRunner(samzaConfig), samzaConfig);
+        graphSpec = new StreamGraphSpec(samzaConfig);
     translator.translate(queryInfo, graphSpec);
   }
 
@@ -277,7 +298,7 @@ public class TestQueryTranslator {
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
-        graphSpec = new StreamGraphSpec(new LocalApplicationRunner(samzaConfig), samzaConfig);
+        graphSpec = new StreamGraphSpec(samzaConfig);
     translator.translate(queryInfo, graphSpec);
   }
 
@@ -297,7 +318,7 @@ public class TestQueryTranslator {
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
-        graphSpec = new StreamGraphSpec(new LocalApplicationRunner(samzaConfig), samzaConfig);
+        graphSpec = new StreamGraphSpec(samzaConfig);
     translator.translate(queryInfo, graphSpec);
   }
 
@@ -316,7 +337,7 @@ public class TestQueryTranslator {
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
-        graphSpec = new StreamGraphSpec(new LocalApplicationRunner(samzaConfig), samzaConfig);
+        graphSpec = new StreamGraphSpec(samzaConfig);
     translator.translate(queryInfo, graphSpec);
   }
 
@@ -335,7 +356,7 @@ public class TestQueryTranslator {
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
-        graphSpec = new StreamGraphSpec(new LocalApplicationRunner(samzaConfig), samzaConfig);
+        graphSpec = new StreamGraphSpec(samzaConfig);
     translator.translate(queryInfo, graphSpec);
   }
 
@@ -354,7 +375,7 @@ public class TestQueryTranslator {
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
-        graphSpec = new StreamGraphSpec(new LocalApplicationRunner(samzaConfig), samzaConfig);
+        graphSpec = new StreamGraphSpec(samzaConfig);
     translator.translate(queryInfo, graphSpec);
   }
 
@@ -373,7 +394,7 @@ public class TestQueryTranslator {
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
-        graphSpec = new StreamGraphSpec(new LocalApplicationRunner(samzaConfig), samzaConfig);
+        graphSpec = new StreamGraphSpec(samzaConfig);
     translator.translate(queryInfo, graphSpec);
   }
 
@@ -396,7 +417,7 @@ public class TestQueryTranslator {
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
-        graphSpec = new StreamGraphSpec(new LocalApplicationRunner(samzaConfig), samzaConfig);
+        graphSpec = new StreamGraphSpec(samzaConfig);
     translator.translate(queryInfo, graphSpec);
   }
 
@@ -415,7 +436,7 @@ public class TestQueryTranslator {
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
-        graphSpec = new StreamGraphSpec(new LocalApplicationRunner(samzaConfig), samzaConfig);
+        graphSpec = new StreamGraphSpec(samzaConfig);
     translator.translate(queryInfo, graphSpec);
   }
 
@@ -434,29 +455,40 @@ public class TestQueryTranslator {
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
-        graphSpec = new StreamGraphSpec(new LocalApplicationRunner(samzaConfig), samzaConfig);
+        graphSpec = new StreamGraphSpec(samzaConfig);
     translator.translate(queryInfo, graphSpec);
     OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
 
+    StreamConfig streamConfig = new StreamConfig(samzaConfig);
+    String input1StreamId = specGraph.getInputOperators().keySet().stream().findFirst().get();
+    String input1System = streamConfig.getSystem(input1StreamId);
+    String input1PhysicalName = streamConfig.getPhysicalName(input1StreamId);
+    String input2StreamId = specGraph.getInputOperators().keySet().stream().skip(1).findFirst().get();
+    String input2System = streamConfig.getSystem(input2StreamId);
+    String input2PhysicalName = streamConfig.getPhysicalName(input2StreamId);
+    String input3StreamId = specGraph.getInputOperators().keySet().stream().skip(2).findFirst().get();
+    String input3System = streamConfig.getSystem(input3StreamId);
+    String input3PhysicalName = streamConfig.getPhysicalName(input3StreamId);
+    String output1StreamId = specGraph.getOutputStreams().keySet().stream().findFirst().get();
+    String output1System = streamConfig.getSystem(output1StreamId);
+    String output1PhysicalName = streamConfig.getPhysicalName(output1StreamId);
+    String output2StreamId = specGraph.getOutputStreams().keySet().stream().skip(1).findFirst().get();
+    String output2System = streamConfig.getSystem(output2StreamId);
+    String output2PhysicalName = streamConfig.getPhysicalName(output2StreamId);
+
     Assert.assertEquals(2, specGraph.getOutputStreams().size());
-    Assert.assertEquals("kafka", specGraph.getOutputStreams().keySet().stream().findFirst().get().getSystemName());
-    Assert.assertEquals("sql-job-1-partition_by-stream_1", specGraph.getOutputStreams().keySet().stream().findFirst().get().getPhysicalName());
-    Assert.assertEquals("testavro", specGraph.getOutputStreams().keySet().stream().skip(1).findFirst().get().getSystemName());
-    Assert.assertEquals("enrichedPageViewTopic", specGraph.getOutputStreams().keySet().stream().skip(1).findFirst().get().getPhysicalName());
+    Assert.assertEquals("kafka", output1System);
+    Assert.assertEquals("sql-job-1-partition_by-stream_1", output1PhysicalName);
+    Assert.assertEquals("testavro", output2System);
+    Assert.assertEquals("enrichedPageViewTopic", output2PhysicalName);
 
     Assert.assertEquals(3, specGraph.getInputOperators().size());
-    Assert.assertEquals("testavro",
-        specGraph.getInputOperators().keySet().stream().findFirst().get().getSystemName());
-    Assert.assertEquals("PAGEVIEW",
-        specGraph.getInputOperators().keySet().stream().findFirst().get().getPhysicalName());
-    Assert.assertEquals("testavro",
-        specGraph.getInputOperators().keySet().stream().skip(1).findFirst().get().getSystemName());
-    Assert.assertEquals("PROFILE",
-        specGraph.getInputOperators().keySet().stream().skip(1).findFirst().get().getPhysicalName());
-    Assert.assertEquals("kafka",
-        specGraph.getInputOperators().keySet().stream().skip(2).findFirst().get().getSystemName());
-    Assert.assertEquals("sql-job-1-partition_by-stream_1",
-        specGraph.getInputOperators().keySet().stream().skip(2).findFirst().get().getPhysicalName());
+    Assert.assertEquals("testavro", input1System);
+    Assert.assertEquals("PAGEVIEW", input1PhysicalName);
+    Assert.assertEquals("testavro", input2System);
+    Assert.assertEquals("PROFILE", input2PhysicalName);
+    Assert.assertEquals("kafka", input3System);
+    Assert.assertEquals("sql-job-1-partition_by-stream_1", input3PhysicalName);
 
     validatePerTaskContextInit(graphSpec, samzaConfig);
   }
@@ -476,32 +508,41 @@ public class TestQueryTranslator {
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
-        graphSpec = new StreamGraphSpec(new LocalApplicationRunner(samzaConfig), samzaConfig);
+        graphSpec = new StreamGraphSpec(samzaConfig);
     translator.translate(queryInfo, graphSpec);
 
     OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
 
+    StreamConfig streamConfig = new StreamConfig(samzaConfig);
+    String input1StreamId = specGraph.getInputOperators().keySet().stream().findFirst().get();
+    String input1System = streamConfig.getSystem(input1StreamId);
+    String input1PhysicalName = streamConfig.getPhysicalName(input1StreamId);
+    String input2StreamId = specGraph.getInputOperators().keySet().stream().skip(1).findFirst().get();
+    String input2System = streamConfig.getSystem(input2StreamId);
+    String input2PhysicalName = streamConfig.getPhysicalName(input2StreamId);
+    String input3StreamId = specGraph.getInputOperators().keySet().stream().skip(2).findFirst().get();
+    String input3System = streamConfig.getSystem(input3StreamId);
+    String input3PhysicalName = streamConfig.getPhysicalName(input3StreamId);
+    String output1StreamId = specGraph.getOutputStreams().keySet().stream().findFirst().get();
+    String output1System = streamConfig.getSystem(output1StreamId);
+    String output1PhysicalName = streamConfig.getPhysicalName(output1StreamId);
+    String output2StreamId = specGraph.getOutputStreams().keySet().stream().skip(1).findFirst().get();
+    String output2System = streamConfig.getSystem(output2StreamId);
+    String output2PhysicalName = streamConfig.getPhysicalName(output2StreamId);
+
     Assert.assertEquals(2, specGraph.getOutputStreams().size());
-    Assert.assertEquals("kafka", specGraph.getOutputStreams().keySet().stream().findFirst().get().getSystemName());
-    Assert.assertEquals("sql-job-1-partition_by-stream_1",
-        specGraph.getOutputStreams().keySet().stream().findFirst().get().getPhysicalName());
-    Assert.assertEquals("testavro", specGraph.getOutputStreams().keySet().stream().skip(1).findFirst().get().getSystemName());
-    Assert.assertEquals("enrichedPageViewTopic",
-        specGraph.getOutputStreams().keySet().stream().skip(1).findFirst().get().getPhysicalName());
+    Assert.assertEquals("kafka", output1System);
+    Assert.assertEquals("sql-job-1-partition_by-stream_1", output1PhysicalName);
+    Assert.assertEquals("testavro", output2System);
+    Assert.assertEquals("enrichedPageViewTopic", output2PhysicalName);
 
     Assert.assertEquals(3, specGraph.getInputOperators().size());
-    Assert.assertEquals("testavro",
-        specGraph.getInputOperators().keySet().stream().findFirst().get().getSystemName());
-    Assert.assertEquals("PAGEVIEW",
-        specGraph.getInputOperators().keySet().stream().findFirst().get().getPhysicalName());
-    Assert.assertEquals("testavro",
-        specGraph.getInputOperators().keySet().stream().skip(1).findFirst().get().getSystemName());
-    Assert.assertEquals("PROFILE",
-        specGraph.getInputOperators().keySet().stream().skip(1).findFirst().get().getPhysicalName());
-    Assert.assertEquals("kafka",
-        specGraph.getInputOperators().keySet().stream().skip(2).findFirst().get().getSystemName());
-    Assert.assertEquals("sql-job-1-partition_by-stream_1",
-        specGraph.getInputOperators().keySet().stream().skip(2).findFirst().get().getPhysicalName());
+    Assert.assertEquals("testavro", input1System);
+    Assert.assertEquals("PAGEVIEW", input1PhysicalName);
+    Assert.assertEquals("testavro", input2System);
+    Assert.assertEquals("PROFILE", input2PhysicalName);
+    Assert.assertEquals("kafka", input3System);
+    Assert.assertEquals("sql-job-1-partition_by-stream_1", input3PhysicalName);
 
     validatePerTaskContextInit(graphSpec, samzaConfig);
   }
@@ -521,32 +562,41 @@ public class TestQueryTranslator {
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
-        graphSpec = new StreamGraphSpec(new LocalApplicationRunner(samzaConfig), samzaConfig);
+        graphSpec = new StreamGraphSpec(samzaConfig);
     translator.translate(queryInfo, graphSpec);
 
     OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
 
+    StreamConfig streamConfig = new StreamConfig(samzaConfig);
+    String input1StreamId = specGraph.getInputOperators().keySet().stream().findFirst().get();
+    String input1System = streamConfig.getSystem(input1StreamId);
+    String input1PhysicalName = streamConfig.getPhysicalName(input1StreamId);
+    String input2StreamId = specGraph.getInputOperators().keySet().stream().skip(1).findFirst().get();
+    String input2System = streamConfig.getSystem(input2StreamId);
+    String input2PhysicalName = streamConfig.getPhysicalName(input2StreamId);
+    String input3StreamId = specGraph.getInputOperators().keySet().stream().skip(2).findFirst().get();
+    String input3System = streamConfig.getSystem(input3StreamId);
+    String input3PhysicalName = streamConfig.getPhysicalName(input3StreamId);
+    String output1StreamId = specGraph.getOutputStreams().keySet().stream().findFirst().get();
+    String output1System = streamConfig.getSystem(output1StreamId);
+    String output1PhysicalName = streamConfig.getPhysicalName(output1StreamId);
+    String output2StreamId = specGraph.getOutputStreams().keySet().stream().skip(1).findFirst().get();
+    String output2System = streamConfig.getSystem(output2StreamId);
+    String output2PhysicalName = streamConfig.getPhysicalName(output2StreamId);
+
     Assert.assertEquals(2, specGraph.getOutputStreams().size());
-    Assert.assertEquals("kafka", specGraph.getOutputStreams().keySet().stream().findFirst().get().getSystemName());
-    Assert.assertEquals("sql-job-1-partition_by-stream_1",
-        specGraph.getOutputStreams().keySet().stream().findFirst().get().getPhysicalName());
-    Assert.assertEquals("testavro", specGraph.getOutputStreams().keySet().stream().skip(1).findFirst().get().getSystemName());
-    Assert.assertEquals("enrichedPageViewTopic",
-        specGraph.getOutputStreams().keySet().stream().skip(1).findFirst().get().getPhysicalName());
+    Assert.assertEquals("kafka", output1System);
+    Assert.assertEquals("sql-job-1-partition_by-stream_1", output1PhysicalName);
+    Assert.assertEquals("testavro", output2System);
+    Assert.assertEquals("enrichedPageViewTopic", output2PhysicalName);
 
     Assert.assertEquals(3, specGraph.getInputOperators().size());
-    Assert.assertEquals("testavro",
-        specGraph.getInputOperators().keySet().stream().findFirst().get().getSystemName());
-    Assert.assertEquals("PROFILE",
-        specGraph.getInputOperators().keySet().stream().findFirst().get().getPhysicalName());
-    Assert.assertEquals("testavro",
-        specGraph.getInputOperators().keySet().stream().skip(1).findFirst().get().getSystemName());
-    Assert.assertEquals("PAGEVIEW",
-        specGraph.getInputOperators().keySet().stream().skip(1).findFirst().get().getPhysicalName());
-    Assert.assertEquals("kafka",
-        specGraph.getInputOperators().keySet().stream().skip(2).findFirst().get().getSystemName());
-    Assert.assertEquals("sql-job-1-partition_by-stream_1",
-        specGraph.getInputOperators().keySet().stream().skip(2).findFirst().get().getPhysicalName());
+    Assert.assertEquals("testavro", input1System);
+    Assert.assertEquals("PROFILE", input1PhysicalName);
+    Assert.assertEquals("testavro", input2System);
+    Assert.assertEquals("PAGEVIEW", input2PhysicalName);
+    Assert.assertEquals("kafka", input3System);
+    Assert.assertEquals("sql-job-1-partition_by-stream_1", input3PhysicalName);
 
     validatePerTaskContextInit(graphSpec, samzaConfig);
   }
@@ -566,7 +616,7 @@ public class TestQueryTranslator {
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
-        graphSpec = new StreamGraphSpec(new LocalApplicationRunner(samzaConfig), samzaConfig);
+        graphSpec = new StreamGraphSpec(samzaConfig);
     translator.translate(queryInfo, graphSpec);
     OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
 
@@ -590,7 +640,7 @@ public class TestQueryTranslator {
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
-        graphSpec = new StreamGraphSpec(new LocalApplicationRunner(samzaConfig), samzaConfig);
+        graphSpec = new StreamGraphSpec(samzaConfig);
     translator.translate(queryInfo, graphSpec);
   }
 }

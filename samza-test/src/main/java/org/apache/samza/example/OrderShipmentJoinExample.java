@@ -21,14 +21,16 @@ package org.apache.samza.example;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.StringSerde;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaOutputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
@@ -52,21 +54,23 @@ public class OrderShipmentJoinExample implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
+    KafkaSystemDescriptor<KV<Object, Object>> trackingSystem =
+        new KafkaSystemDescriptor<>("tracking", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
 
-    MessageStream<OrderRecord> orders =
-        graph.getInputStream("orders", new JsonSerdeV2<>(OrderRecord.class));
-    MessageStream<ShipmentRecord> shipments =
-        graph.getInputStream("shipments", new JsonSerdeV2<>(ShipmentRecord.class));
-    OutputStream<KV<String, FulfilledOrderRecord>> fulfilledOrders =
-        graph.getOutputStream("fulfilledOrders",
+    KafkaInputDescriptor<OrderRecord> orderStreamDescriptor =
+        trackingSystem.getInputDescriptor("orders", new JsonSerdeV2<>(OrderRecord.class));
+    KafkaInputDescriptor<ShipmentRecord> shipmentStreamDescriptor =
+        trackingSystem.getInputDescriptor("shipments", new JsonSerdeV2<>(ShipmentRecord.class));
+    KafkaOutputDescriptor<KV<String, FulfilledOrderRecord>> fulfilledOrdersStreamDescriptor =
+        trackingSystem.getOutputDescriptor("fulfilledOrders",
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(FulfilledOrderRecord.class)));
 
-    orders
-        .join(shipments, new MyJoinFunction(),
+    graph.getInputStream(orderStreamDescriptor)
+        .join(graph.getInputStream(shipmentStreamDescriptor), new MyJoinFunction(),
             new StringSerde(), new JsonSerdeV2<>(OrderRecord.class), new JsonSerdeV2<>(ShipmentRecord.class),
             Duration.ofMinutes(1), "join")
         .map(fulFilledOrder -> KV.of(fulFilledOrder.orderId, fulFilledOrder))
-        .sendTo(fulfilledOrders);
+        .sendTo(graph.getOutputStream(fulfilledOrdersStreamDescriptor));
 
   }
 

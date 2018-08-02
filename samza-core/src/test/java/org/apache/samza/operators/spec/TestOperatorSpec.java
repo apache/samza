@@ -40,7 +40,6 @@ import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.TableSpec;
 import org.junit.Test;
 import org.mockito.internal.util.reflection.Whitebox;
@@ -50,7 +49,6 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.mock;
 
 
 /**
@@ -230,10 +228,9 @@ public class TestOperatorSpec {
       }
     };
 
-    StreamSpec mockStreamSpec = mock(StreamSpec.class);
-    InputOperatorSpec<String, Object> inputOperatorSpec = new InputOperatorSpec<>(
-        mockStreamSpec, new StringSerde("UTF-8"), objSerde, true, "op0");
-    InputOperatorSpec<String, Object> inputOpCopy = (InputOperatorSpec<String, Object>) OperatorSpecTestUtils.copyOpSpec(inputOperatorSpec);
+    InputOperatorSpec inputOperatorSpec = new InputOperatorSpec(
+        "mockStreamId", new StringSerde("UTF-8"), objSerde, null, true, "op0");
+    InputOperatorSpec inputOpCopy = (InputOperatorSpec) OperatorSpecTestUtils.copyOpSpec(inputOperatorSpec);
 
     assertNotEquals("Expected deserialized copy of operator spec should not be the same as the original operator spec", inputOperatorSpec, inputOpCopy);
     assertTrue(inputOperatorSpec.isClone(inputOpCopy));
@@ -254,9 +251,8 @@ public class TestOperatorSpec {
         return new byte[0];
       }
     };
-    StreamSpec mockStreamSpec = mock(StreamSpec.class);
-    OutputStreamImpl<KV<String, Object>> outputStrmImpl = new OutputStreamImpl<>(mockStreamSpec, new StringSerde("UTF-8"), objSerde, true);
-    OutputOperatorSpec<KV<String, Object>> outputOperatorSpec = new OutputOperatorSpec<KV<String, Object>>(outputStrmImpl, "op0");
+    OutputStreamImpl<KV<String, Object>> outputStrmImpl = new OutputStreamImpl<>("mockStreamId", new StringSerde("UTF-8"), objSerde, true);
+    OutputOperatorSpec<KV<String, Object>> outputOperatorSpec = new OutputOperatorSpec<>(outputStrmImpl, "op0");
     OutputOperatorSpec<KV<String, Object>> outputOpCopy = (OutputOperatorSpec<KV<String, Object>>) OperatorSpecTestUtils
         .copyOpSpec(outputOperatorSpec);
     assertNotEquals("Expected deserialized copy of operator spec should not be the same as the original operator spec", outputOperatorSpec, outputOpCopy);
@@ -275,12 +271,10 @@ public class TestOperatorSpec {
   @Test
   public void testJoinOperatorSpec() {
 
-    InputOperatorSpec<TestMessageEnvelope, Object> leftOpSpec = new InputOperatorSpec<>(
-        new StreamSpec("test-input-1", "test-input-1", "kafka"), new NoOpSerde<>(),
-        new NoOpSerde<>(), false, "op0");
-    InputOperatorSpec<TestMessageEnvelope, Object> rightOpSpec = new InputOperatorSpec<>(
-        new StreamSpec("test-input-2", "test-input-2", "kafka"), new NoOpSerde<>(),
-        new NoOpSerde<>(), false, "op1");
+    InputOperatorSpec leftOpSpec = new InputOperatorSpec(
+        "test-input-1", new NoOpSerde<>(), new NoOpSerde<>(), null, false, "op0");
+    InputOperatorSpec rightOpSpec = new InputOperatorSpec(
+        "test-input-2", new NoOpSerde<>(), new NoOpSerde<>(), null, false, "op1");
 
     Serde<Object> objSerde = new Serde<Object>() {
 
@@ -341,14 +335,14 @@ public class TestOperatorSpec {
   @Test
   public void testBroadcastOperatorSpec() {
     OutputStreamImpl<TestOutputMessageEnvelope> outputStream =
-        new OutputStreamImpl<>(new StreamSpec("output-0", "outputStream-0", "kafka"), new StringSerde("UTF-8"), new JsonSerdeV2<TestOutputMessageEnvelope>(), true);
+        new OutputStreamImpl<>("output-0", new StringSerde("UTF-8"), new JsonSerdeV2<TestOutputMessageEnvelope>(), true);
     BroadcastOperatorSpec<TestOutputMessageEnvelope> broadcastOpSpec = new BroadcastOperatorSpec<>(outputStream, "broadcast-1");
     BroadcastOperatorSpec<TestOutputMessageEnvelope> broadcastOpCopy = (BroadcastOperatorSpec<TestOutputMessageEnvelope>) OperatorSpecTestUtils
         .copyOpSpec(broadcastOpSpec);
     assertNotEquals(broadcastOpCopy, broadcastOpSpec);
     assertEquals(broadcastOpCopy.getOpId(), broadcastOpSpec.getOpId());
     assertTrue(broadcastOpCopy.getOutputStream() != broadcastOpSpec.getOutputStream());
-    assertEquals(broadcastOpCopy.getOutputStream().getSystemStream(), broadcastOpSpec.getOutputStream().getSystemStream());
+    assertEquals(broadcastOpCopy.getOutputStream().getStreamId(), broadcastOpSpec.getOutputStream().getStreamId());
     assertEquals(broadcastOpCopy.getOutputStream().isKeyed(), broadcastOpSpec.getOutputStream().isKeyed());
   }
 

@@ -34,8 +34,10 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 
 
@@ -69,7 +71,7 @@ public class SystemConsumerWithSamzaBench extends AbstractSamzaBench {
     super.start();
     MessageConsumer consumeFn = new MessageConsumer();
     StreamApplication app = (graph, config) -> {
-      MessageStream<Object> stream = graph.getInputStream(streamId);
+      MessageStream<Object> stream = graph.getInputStream(GenericInputDescriptor.from(streamId, systemName, new NoOpSerde<>()));
       stream.map(consumeFn);
     };
 
