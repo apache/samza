@@ -74,7 +74,7 @@ public class TestTaskSideInputStorageManager {
     Map<String, StorageEngine> stores = new HashMap<>();
 
     initializeSideInputStorageManager(testSideInputStorageManager);
-    testSideInputStorageManager.updatelastProcessedOffset(ssp, offset);
+    testSideInputStorageManager.updateLastProcessedOffset(ssp, offset);
     testSideInputStorageManager.flush();
 
     for (StorageEngine storageEngine : stores.values()) {
@@ -139,8 +139,8 @@ public class TestTaskSideInputStorageManager {
         .build();
 
     initializeSideInputStorageManager(testSideInputStorageManager);
-    testSideInputStorageManager.updatelastProcessedOffset(ssp, offset);
-    testSideInputStorageManager.updatelastProcessedOffset(ssp2, offset);
+    testSideInputStorageManager.updateLastProcessedOffset(ssp, offset);
+    testSideInputStorageManager.updateLastProcessedOffset(ssp2, offset);
     testSideInputStorageManager.writeOffsetFiles();
     File storeDir = testSideInputStorageManager.getStoreLocation(storeName);
 
@@ -170,7 +170,7 @@ public class TestTaskSideInputStorageManager {
         .build();
 
     initializeSideInputStorageManager(testSideInputStorageManager);
-    ssps.forEach(ssp -> testSideInputStorageManager.updatelastProcessedOffset(ssp, offset));
+    ssps.forEach(ssp -> testSideInputStorageManager.updateLastProcessedOffset(ssp, offset));
     testSideInputStorageManager.writeOffsetFiles();
 
     Map<SystemStreamPartition, String> fileOffsets = testSideInputStorageManager.getFileOffsets();
