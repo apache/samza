@@ -88,7 +88,7 @@ public class TestTaskSideInputStorageManager {
 
     Map<SystemStreamPartition, String> fileOffsets = testSideInputStorageManager.getFileOffsets();
     assertTrue("Failed to get offset for ssp: " + ssp.toString() + " from file.", fileOffsets.containsKey(ssp));
-    assertEquals("Mismatch in between last processed offset and file offset.", fileOffsets.get(ssp), offset);
+    assertEquals("Mismatch between last processed offset and file offset.", fileOffsets.get(ssp), offset);
   }
 
   @Test
@@ -149,10 +149,10 @@ public class TestTaskSideInputStorageManager {
     Map<SystemStreamPartition, String> fileOffsets = testSideInputStorageManager.getFileOffsets();
 
     assertTrue("Failed to get offset for ssp: " + ssp.toString() + " from file.", fileOffsets.containsKey(ssp));
-    assertEquals("Mismatch in between last processed offset and file offset.", fileOffsets.get(ssp), offset);
+    assertEquals("Mismatch between last processed offset and file offset.", fileOffsets.get(ssp), offset);
 
     assertTrue("Failed to get offset for ssp: " + ssp2.toString() + " from file.", fileOffsets.containsKey(ssp2));
-    assertEquals("Mismatch in between last processed offset and file offset.", fileOffsets.get(ssp2), offset);
+    assertEquals("Mismatch between last processed offset and file offset.", fileOffsets.get(ssp2), offset);
   }
 
   @Test
@@ -177,7 +177,7 @@ public class TestTaskSideInputStorageManager {
 
     ssps.forEach(ssp -> {
         assertTrue("Failed to get offset for ssp: " + ssp.toString() + " from file.", fileOffsets.containsKey(ssp));
-        assertEquals("Mismatch in between last processed offset and file offset.", fileOffsets.get(ssp), offset);
+        assertEquals("Mismatch between last processed offset and file offset.", fileOffsets.get(ssp), offset);
       });
   }
 
