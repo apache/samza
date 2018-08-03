@@ -98,7 +98,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   public void kill(StreamApplication app) {
 
     // since currently we only support single actual remote job, we can get its status without
-    // building the execution plan
+    // building the execution plan.
     try {
       JobConfig jc = new JobConfig(config);
       LOG.info("Killing job {}", jc.getName());
