@@ -21,6 +21,7 @@ package org.apache.samza.container
 
 import java.io.File
 import java.lang.management.ManagementFactory
+import java.lang.reflect.InvocationTargetException
 import java.net.{URL, UnknownHostException}
 import java.nio.file.Path
 import java.time.Duration
@@ -53,8 +54,7 @@ import org.apache.samza.system.chooser.{DefaultChooser, MessageChooserFactory, R
 import org.apache.samza.table.TableManager
 import org.apache.samza.table.utils.SerdeUtils
 import org.apache.samza.task._
-import org.apache.samza.util.Util
-import org.apache.samza.util._
+import org.apache.samza.util.{Util, _}
 import org.apache.samza.{SamzaContainerStatus, SamzaException}
 
 import scala.collection.JavaConverters._
@@ -326,7 +326,7 @@ object SamzaContainer extends Logging {
       .getStoreNames
       .filter(config.getChangelogStream(_).isDefined)
       .map(name => (name, config.getChangelogStream(name).get)).toMap
-      .mapValues(Util.getSystemStreamFromNames(_))
+      .mapValues(StreamUtil.getSystemStreamFromNames(_))
 
     info("Got change log system streams: %s" format changeLogSystemStreams)
 
@@ -357,7 +357,7 @@ object SamzaContainer extends Logging {
     val sideInputStoresToSystemStreams = config.getStoreNames
       .map { storeName => (storeName, config.getSideInputs(storeName)) }
       .filter { case (storeName, sideInputs) => sideInputs.nonEmpty }
-      .map { case (storeName, sideInputs) => (storeName, sideInputs.map(Util.getSystemStreamFromNameOrId(config, _))) }
+      .map { case (storeName, sideInputs) => (storeName, sideInputs.map(StreamUtil.getSystemStreamFromNameOrId(config, _))) }
       .toMap
 
     info("Got side input store system streams: %s" format sideInputStoresToSystemStreams)
@@ -798,6 +798,7 @@ class SamzaContainer(
       jmxServer = new JmxServer()
 
       startMetrics
+      startDiagnostics
       startAdmins
       startOffsetManager
       startLocalityManager
@@ -932,6 +933,24 @@ class SamzaContainer(
       reporter.register(metrics.source, metrics.registry)
       reporter.start
     })
+  }
+
+  def startDiagnostics {
+    if (containerContext.config.getDiagnosticsEnabled) {
+      info("Starting diagnostics.")
+
+      try {
+        val diagnosticsAppender = Class.forName(containerContext.config.getDiagnosticsAppenderClass).
+          getDeclaredConstructor(classOf[SamzaContainerMetrics]).newInstance(this.metrics);
+      }
+      catch {
+        case e@(_: ClassNotFoundException | _: InstantiationException | _: InvocationTargetException) => {
+          error("Failed to instantiate diagnostic appender", e)
+          throw new ConfigException("Failed to instantiate diagnostic appender class " +
+            containerContext.config.getDiagnosticsAppenderClass, e)
+        }
+      }
+    }
   }
 
   def startOffsetManager {

@@ -34,11 +34,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueStore;
@@ -76,7 +74,6 @@ public class TaskSideInputStorageManager {
   private final StreamMetadataCache streamMetadataCache;
   private final SystemAdmins systemAdmins;
   private final TaskName taskName;
-  private final JavaStorageConfig storageConfig;
   private final Map<SystemStreamPartition, String> lastProcessedOffsets = new ConcurrentHashMap<>();
 
   private Map<SystemStreamPartition, String> startingOffsets;
@@ -92,7 +89,6 @@ public class TaskSideInputStorageManager {
       Config config,
       Clock clock) {
     this.clock = clock;
-    this.storageConfig = new JavaStorageConfig(config);
     this.stores = sideInputStores;
     this.storeBaseDir = storeBaseDir;
     this.storeToSSps = storesToSSPs;
@@ -365,9 +361,9 @@ public class TaskSideInputStorageManager {
 
   private void validateStoreConfiguration() {
     stores.forEach((storeName, storageEngine) -> {
-        if (StringUtils.isBlank(storageConfig.getSideInputsProcessorFactory(storeName))) {
+        if (!storeToProcessor.containsKey(storeName)) {
           throw new SamzaException(
-              String.format("Side inputs processor factory configuration missing for store: %s.", storeName));
+              String.format("Side inputs processor missing for store: %s.", storeName));
         }
 
         if (storageEngine.getStoreProperties().isLoggedStore()) {

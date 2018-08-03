@@ -29,6 +29,7 @@ object MetricsHeader {
       map.get("job-name").toString,
       map.get("job-id").toString,
       map.get("container-name").toString,
+      map.get("exec-env-container-id").toString,
       map.get("source").toString,
       map.get("version").toString,
       map.get("samza-version").toString,
@@ -45,6 +46,7 @@ class MetricsHeader(
   @BeanProperty val jobName: String,
   @BeanProperty val jobId: String,
   @BeanProperty val containerName: String,
+  @BeanProperty val execEnvironmentContainerId: String,
   @BeanProperty val source: String,
   @BeanProperty val version: String,
   @BeanProperty val samzaVersion: String,
@@ -57,6 +59,7 @@ class MetricsHeader(
     map.put("job-name", jobName)
     map.put("job-id", jobId)
     map.put("container-name", containerName)
+    map.put("exec-env-container-id", execEnvironmentContainerId)
     map.put("source", source)
     map.put("version", version)
     map.put("samza-version", samzaVersion)

@@ -22,8 +22,7 @@ package org.apache.samza.config
 
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
-import org.apache.samza.util.Logging
-import org.apache.samza.util.Util
+import org.apache.samza.util.{Logging, StreamUtil}
 
 object StorageConfig {
   // stream config constants
@@ -106,7 +105,7 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
       .map(getChangelogStream(_))
       .filter(_.isDefined)
       // Convert "system.stream" to systemName
-      .map(systemStreamName => Util.getSystemStreamFromNames(systemStreamName.get).getSystem)
+      .map(systemStreamName => StreamUtil.getSystemStreamFromNames(systemStreamName.get).getSystem)
       .contains(systemName)
   }
 
