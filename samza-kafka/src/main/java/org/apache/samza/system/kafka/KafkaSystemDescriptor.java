@@ -29,7 +29,6 @@ import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SimpleSystemDescriptor;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.system.SystemStreamMetadata;
 
 public class KafkaSystemDescriptor<SystemMessageType>
     extends SimpleSystemDescriptor<SystemMessageType, KafkaSystemDescriptor<SystemMessageType>> {
@@ -80,7 +79,7 @@ public class KafkaSystemDescriptor<SystemMessageType>
    */
   @Override
   public KafkaInputDescriptor<SystemMessageType> getInputDescriptor(String streamId) {
-    return new KafkaInputDescriptor<>(streamId, this, null, getSerde());
+    return new KafkaInputDescriptor<>(streamId, this, getSerde(), null);
   }
 
   /**
@@ -88,7 +87,7 @@ public class KafkaSystemDescriptor<SystemMessageType>
    */
   @Override
   public <StreamMessageType> KafkaInputDescriptor<StreamMessageType> getInputDescriptor(String streamId, Serde<StreamMessageType> serde) {
-    return new KafkaInputDescriptor<>(streamId, this, null, serde);
+    return new KafkaInputDescriptor<>(streamId, this, serde, null);
   }
 
   /**
@@ -96,7 +95,7 @@ public class KafkaSystemDescriptor<SystemMessageType>
    */
   @Override
   public <StreamMessageType> KafkaInputDescriptor<StreamMessageType> getInputDescriptor(String streamId, InputTransformer<StreamMessageType> transformer) {
-    return new KafkaInputDescriptor<>(streamId, this, transformer, getSerde());
+    return new KafkaInputDescriptor<>(streamId, this, getSerde(), transformer);
   }
 
   /**
@@ -104,7 +103,7 @@ public class KafkaSystemDescriptor<SystemMessageType>
    */
   @Override
   public <StreamMessageType> InputDescriptor<StreamMessageType, ? extends InputDescriptor> getInputDescriptor(String streamId, InputTransformer<StreamMessageType> transformer, Serde serde) {
-    return new KafkaInputDescriptor<>(streamId, this, transformer, serde);
+    return new KafkaInputDescriptor<>(streamId, this, serde, transformer);
   }
 
   /**

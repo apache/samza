@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.operators.functions.InputTransformer;
@@ -35,8 +36,17 @@ public class KafkaInputDescriptor<StreamMessageType>
   private Optional<String> consumerAutoOffsetResetOptional = Optional.empty();
   private Optional<Long> consumerFetchMessageMaxBytesOptional = Optional.empty();
 
-  public KafkaInputDescriptor(String streamId, SystemDescriptor systemDescriptor, InputTransformer<StreamMessageType> transformer, Serde serde) {
+  KafkaInputDescriptor(String streamId, String systemName, Serde<StreamMessageType> serde) {
+    super(streamId, systemName, serde, null, null);
+  }
+
+  KafkaInputDescriptor(String streamId, SystemDescriptor systemDescriptor, Serde serde, InputTransformer<StreamMessageType> transformer) {
     super(streamId, systemDescriptor.getSystemName(), serde, systemDescriptor, transformer);
+  }
+
+  public static <StreamMessageType> KafkaInputDescriptor<StreamMessageType> from(
+      String streamId, String systemName, Serde<StreamMessageType> serde) {
+    return new KafkaInputDescriptor<>(streamId, systemName, serde);
   }
 
   /**
