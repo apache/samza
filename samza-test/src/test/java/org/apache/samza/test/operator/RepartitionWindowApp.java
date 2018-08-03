@@ -62,7 +62,7 @@ public class RepartitionWindowApp implements StreamApplication {
   public void init(StreamGraph graph, Config config) {
     KVSerde<String, PageView> inputSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageView.class));
     KVSerde<String, String> outputSerde = KVSerde.of(new StringSerde(), new StringSerde());
-    KafkaSystemDescriptor<Object> ksd = new KafkaSystemDescriptor<>(SYSTEM, null);
+    KafkaSystemDescriptor<Object> ksd = new KafkaSystemDescriptor<>(SYSTEM);
     KafkaInputDescriptor<KV<String, PageView>> id = ksd.getInputDescriptor(INPUT_TOPIC, inputSerde);
     KafkaOutputDescriptor<KV<String, String>> od = ksd.getOutputDescriptor(OUTPUT_TOPIC, outputSerde);
 

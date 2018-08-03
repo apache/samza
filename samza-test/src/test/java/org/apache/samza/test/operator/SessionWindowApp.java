@@ -61,7 +61,7 @@ public class SessionWindowApp implements StreamApplication {
   public void init(StreamGraph graph, Config config) {
     JsonSerdeV2<PageView> inputSerde = new JsonSerdeV2<>(PageView.class);
     KVSerde<String, Integer> outputSerde = KVSerde.of(new StringSerde(), new IntegerSerde());
-    KafkaSystemDescriptor<Object> ksd = new KafkaSystemDescriptor<>(SYSTEM, null);
+    KafkaSystemDescriptor<Object> ksd = new KafkaSystemDescriptor<>(SYSTEM);
     KafkaInputDescriptor<PageView> id = ksd.getInputDescriptor(INPUT_TOPIC, inputSerde);
     KafkaOutputDescriptor<KV<String, Integer>> od = ksd.getOutputDescriptor(OUTPUT_TOPIC, outputSerde);
 

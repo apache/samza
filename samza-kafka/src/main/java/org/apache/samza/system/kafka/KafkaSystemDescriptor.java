@@ -53,7 +53,16 @@ public class KafkaSystemDescriptor<SystemMessageType>
   private Map<String, String> producerConfigs = Collections.emptyMap();
 
   /**
-   * Constructs a {@link KafkaSystemDescriptor} instance.
+   * Constructs a {@link KafkaSystemDescriptor} instance with no system level serde.
+   *
+   * @param systemName name of this kafka system
+   */
+  public KafkaSystemDescriptor(String systemName) {
+    super(systemName, FACTORY_CLASS_NAME, null);
+  }
+
+  /**
+   * Constructs a {@link KafkaSystemDescriptor} instance with {@code serde} as the system level serde.
    *
    * @param systemName name of this kafka system
    * @param serde default serde for the system, or null.
