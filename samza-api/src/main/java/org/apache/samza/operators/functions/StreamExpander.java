@@ -25,11 +25,12 @@ import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 
 /**
  * Expands the provided {@link InputDescriptor} to a sub-DAG of one or more operators on the {@link StreamGraph},
- * and returns a new {@link MessageStream} with the combined results. Called when the {@link InputDescriptor} is being
- * used to get an {@link MessageStream} using {@link StreamGraph#getInputStream}
+ * and returns a new {@link MessageStream} with the combined results. Called when {@link StreamGraph#getInputStream}
+ * is being used to get a {@link MessageStream} using an {@link InputDescriptor} from an
+ * {@link org.apache.samza.operators.descriptors.base.system.ExpandingSystemDescriptor}
  * <p>
  * This is provided by default by {@link org.apache.samza.operators.descriptors.base.system.ExpandingSystemDescriptor}
- * implementations and may not be overridden or set on a per stream level by users.
+ * implementations and can not be overridden or set on a per stream level.
  *
  * @param <OM> type of the messages in the resultant {@link MessageStream}
  */
@@ -38,9 +39,11 @@ public interface StreamExpander<OM> extends Serializable {
   /**
    * Expands the provided {@link InputDescriptor} to a sub-DAG of one or more operators on the {@link StreamGraph},
    * and returns a new {@link MessageStream} with the combined results. Called when the {@link InputDescriptor}
-   * is being used to get an {@link MessageStream} using {@link StreamGraph#getInputStream}
+   * is being used to get an {@link MessageStream} using {@link StreamGraph#getInputStream}.
    * <p>
-   * Note: Do not call {@link StreamGraph#getInputStream} with {@code inputDescriptor} again to avoid infinite recursion.
+   * Note: Take care to avoid infinite recursion in the implementation; e.g., by ensuring that it doesn't call
+   * {@link StreamGraph#getInputStream} with an {@link InputDescriptor} from the an
+   * {@link org.apache.samza.operators.descriptors.base.system.ExpandingSystemDescriptor} (like this one) again.
    *
    * @param streamGraph the {@link StreamGraph} to register the expanded sub-DAG of operators on
    * @param inputDescriptor the {@link InputDescriptor} to be expanded
