@@ -52,7 +52,7 @@ import org.apache.samza.util.Clock;
 import org.apache.samza.util.FileUtil;
 
 import org.codehaus.jackson.map.ObjectMapper;
-import org.codehaus.jackson.map.type.TypeFactory;
+import org.codehaus.jackson.map.ObjectWriter;
 import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,6 +68,9 @@ public class TaskSideInputStorageManager {
   private static final String OFFSET_FILE = "SIDE-INPUT-OFFSETS";
   private static final long STORE_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1); // same as changelog delete retention
   private static final ObjectMapper OBJECT_MAPPER = SamzaObjectMapper.getObjectMapper();
+  private static final TypeReference<HashMap<SystemStreamPartition, String>> OFFSET_TYPE_REFERENCE =
+      new TypeReference<HashMap<SystemStreamPartition, String>>() { };
+  private static final ObjectWriter OBJECT_WRITER = OBJECT_MAPPER.writerWithType(OFFSET_TYPE_REFERENCE);
 
   private final Clock clock;
   private final Map<String, SideInputsProcessor> storeToProcessor;
@@ -189,7 +192,7 @@ public class TaskSideInputStorageManager {
   }
 
   /**
-   * For unit testing
+   * For unit testing only
    */
   @VisibleForTesting
   void updatelastProcessedOffset(SystemStreamPartition ssp, String offset) {
@@ -255,9 +258,7 @@ public class TaskSideInputStorageManager {
               .collect(Collectors.toMap(Function.identity(), lastProcessedOffsets::get));
 
             try {
-              String fileContents = OBJECT_MAPPER.writerWithType(
-                  TypeFactory.defaultInstance().constructMapType(
-                      HashMap.class, SystemStreamPartition.class, String.class)).writeValueAsString(offsets);
+              String fileContents = OBJECT_WRITER.writeValueAsString(offsets);
               File offsetFile = new File(getStoreLocation(storeName), OFFSET_FILE);
               FileUtil.writeWithChecksum(offsetFile, fileContents);
             } catch (Exception e) {
@@ -284,9 +285,7 @@ public class TaskSideInputStorageManager {
         if (isValidSideInputStore(storeName, storeLocation)) {
           try {
             String fileContents = StorageManagerUtil.readOffsetFile(storeLocation, OFFSET_FILE);
-            TypeReference<HashMap<SystemStreamPartition, String>> ref =
-                new TypeReference<HashMap<SystemStreamPartition, String>>() { };
-            Map<SystemStreamPartition, String> offsets = OBJECT_MAPPER.readValue(fileContents, ref);
+            Map<SystemStreamPartition, String> offsets = OBJECT_MAPPER.readValue(fileContents, OFFSET_TYPE_REFERENCE);
             fileOffsets.putAll(offsets);
           } catch (Exception e) {
             LOG.warn("Failed to load the offset file for side input store:" + storeName, e);
