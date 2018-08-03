@@ -52,8 +52,18 @@ public class KafkaSystemDescriptor<SystemMessageType>
   private List<String> producerBootstrapServers = Collections.emptyList();
   private Map<String, String> producerConfigs = Collections.emptyMap();
 
-  public KafkaSystemDescriptor(String systemName, Serde<SystemMessageType> systemSerde) {
-    super(systemName, FACTORY_CLASS_NAME, systemSerde);
+  /**
+   * Constructs a {@link KafkaSystemDescriptor} instance.
+   *
+   * @param systemName name of this kafka system
+   * @param serde default serde for the system, or null.
+   *              If null, the default system serde is a {@code KVSerde<NoOpSerde, NoOpSerde>}
+   *              A {@code KVSerde<NoOpSerde, NoOpSerde>} or {@code NoOpSerde} may be provided if the
+   *              System's consumer deserializes the incoming messages itself, and no further deserialization
+   *              is required from the framework.
+   */
+  public KafkaSystemDescriptor(String systemName, Serde<SystemMessageType> serde) {
+    super(systemName, FACTORY_CLASS_NAME, serde);
   }
 
   /**

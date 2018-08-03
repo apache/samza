@@ -78,9 +78,9 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     String appName = "UserPageAdClickCounter";
     Map<String, String> configs = new HashMap<>();
     configs.put("systems.kafka.samza.delete.committed.messages", "false");
-    configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_NAME_1_PROP, inputTopicName1);
-    configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_NAME_2_PROP, inputTopicName2);
-    configs.put(RepartitionJoinWindowApp.OUTPUT_TOPIC_NAME_PROP, outputTopicName);
+    configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_1_CONFIG_KEY, inputTopicName1);
+    configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_2_CONFIG_KEY, inputTopicName2);
+    configs.put(RepartitionJoinWindowApp.OUTPUT_TOPIC_CONFIG_KEY, outputTopicName);
 
     runApplication(app, appName, configs);
 
@@ -104,9 +104,9 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     final String appName = "UserPageAdClickCounter2";
     Map<String, String> configs = new HashMap<>();
     configs.put("systems.kafka.samza.delete.committed.messages", "true");
-    configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_NAME_1_PROP, inputTopicName1);
-    configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_NAME_2_PROP, inputTopicName2);
-    configs.put(RepartitionJoinWindowApp.OUTPUT_TOPIC_NAME_PROP, outputTopicName);
+    configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_1_CONFIG_KEY, inputTopicName1);
+    configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_2_CONFIG_KEY, inputTopicName2);
+    configs.put(RepartitionJoinWindowApp.OUTPUT_TOPIC_CONFIG_KEY, outputTopicName);
 
     RunApplicationContext runApplicationContext = runApplication(app, appName, configs);
 

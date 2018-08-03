@@ -26,7 +26,6 @@ import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
 import org.apache.samza.operators.windows.Windows;
@@ -36,6 +35,8 @@ import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.test.operator.data.AdClick;
 import org.apache.samza.test.operator.data.PageView;
@@ -50,9 +51,9 @@ import org.apache.samza.util.CommandLine;
  */
 public class RepartitionJoinWindowApp implements StreamApplication {
   public static final String SYSTEM = "kafka";
-  public static final String INPUT_TOPIC_NAME_1_PROP = "inputTopicName1";
-  public static final String INPUT_TOPIC_NAME_2_PROP = "inputTopicName2";
-  public static final String OUTPUT_TOPIC_NAME_PROP = "outputTopicName";
+  public static final String INPUT_TOPIC_1_CONFIG_KEY = "inputTopic1";
+  public static final String INPUT_TOPIC_2_CONFIG_KEY = "inputTopic2";
+  public static final String OUTPUT_TOPIC_CONFIG_KEY = "outputTopic";
 
   private final List<String> intermediateStreamIds = new ArrayList<>();
 
@@ -69,18 +70,17 @@ public class RepartitionJoinWindowApp implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    String inputTopicName1 = config.get(INPUT_TOPIC_NAME_1_PROP);
-    String inputTopicName2 = config.get(INPUT_TOPIC_NAME_2_PROP);
-    String outputTopic = config.get(OUTPUT_TOPIC_NAME_PROP);
-
     // offset.default = oldest required for tests since checkpoint topic is empty on start and messages are published
     // before the application is run
-    GenericInputDescriptor<PageView> pageViewIsd =
-        GenericInputDescriptor.from(inputTopicName1, SYSTEM, new JsonSerdeV2<>(PageView.class));
-    GenericInputDescriptor<AdClick> adClickIsd =
-        GenericInputDescriptor.from(inputTopicName2, SYSTEM, new JsonSerdeV2<>(AdClick.class));
-    MessageStream<PageView> pageViews = graph.getInputStream(pageViewIsd);
-    MessageStream<AdClick> adClicks = graph.getInputStream(adClickIsd);
+    String inputTopic1 = config.get(INPUT_TOPIC_1_CONFIG_KEY);
+    String inputTopic2 = config.get(INPUT_TOPIC_2_CONFIG_KEY);
+    String outputTopic = config.get(OUTPUT_TOPIC_CONFIG_KEY);
+    KafkaSystemDescriptor<Object> ksd = new KafkaSystemDescriptor<>(SYSTEM, null);
+    KafkaInputDescriptor<PageView> id1 = ksd.getInputDescriptor(inputTopic1, new JsonSerdeV2<>(PageView.class));
+    KafkaInputDescriptor<AdClick> id2 = ksd.getInputDescriptor(inputTopic2, new JsonSerdeV2<>(AdClick.class));
+
+    MessageStream<PageView> pageViews = graph.getInputStream(id1);
+    MessageStream<AdClick> adClicks = graph.getInputStream(id2);
 
     MessageStream<KV<String, PageView>> pageViewsRepartitionedByViewId = pageViews
         .partitionBy(PageView::getViewId, pv -> pv,
@@ -117,7 +117,6 @@ public class RepartitionJoinWindowApp implements StreamApplication {
     intermediateStreamIds.add(((IntermediateMessageStreamImpl) pageViewsRepartitionedByViewId).getStreamId());
     intermediateStreamIds.add(((IntermediateMessageStreamImpl) adClicksRepartitionedByViewId).getStreamId());
     intermediateStreamIds.add(((IntermediateMessageStreamImpl) userPageAdClicksByUserId).getStreamId());
-
   }
 
   List<String> getIntermediateStreamIds() {

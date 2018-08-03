@@ -26,18 +26,17 @@ import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.descriptors.GenericInputDescriptor;
-import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaOutputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.test.operator.data.PageView;
 import org.apache.samza.util.CommandLine;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A {@link StreamApplication} that demonstrates a filter followed by a session window.
@@ -46,8 +45,6 @@ public class SessionWindowApp implements StreamApplication {
   private static final String SYSTEM = "kafka";
   private static final String INPUT_TOPIC = "page-views";
   private static final String OUTPUT_TOPIC = "page-view-counts";
-
-  private static final Logger LOG = LoggerFactory.getLogger(SessionWindowApp.class);
   private static final String FILTER_KEY = "badKey";
 
   public static void main(String[] args) {
@@ -62,12 +59,14 @@ public class SessionWindowApp implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    GenericInputDescriptor<PageView> isd =
-        GenericInputDescriptor.from(INPUT_TOPIC, SYSTEM, new JsonSerdeV2<>(PageView.class));
-    GenericOutputDescriptor<KV<String, Integer>> osd =
-        GenericOutputDescriptor.from(OUTPUT_TOPIC, SYSTEM, new KVSerde<>(new StringSerde(), new IntegerSerde()));
-    MessageStream<PageView> pageViews = graph.getInputStream(isd);
-    OutputStream<KV<String, Integer>> outputStream = graph.getOutputStream(osd);
+    JsonSerdeV2<PageView> inputSerde = new JsonSerdeV2<>(PageView.class);
+    KVSerde<String, Integer> outputSerde = KVSerde.of(new StringSerde(), new IntegerSerde());
+    KafkaSystemDescriptor<Object> ksd = new KafkaSystemDescriptor<>(SYSTEM, null);
+    KafkaInputDescriptor<PageView> id = ksd.getInputDescriptor(INPUT_TOPIC, inputSerde);
+    KafkaOutputDescriptor<KV<String, Integer>> od = ksd.getOutputDescriptor(OUTPUT_TOPIC, outputSerde);
+
+    MessageStream<PageView> pageViews = graph.getInputStream(id);
+    OutputStream<KV<String, Integer>> outputStream = graph.getOutputStream(od);
 
     pageViews
         .filter(m -> !FILTER_KEY.equals(m.getUserId()))
@@ -75,6 +74,5 @@ public class SessionWindowApp implements StreamApplication {
             new StringSerde(), new JsonSerdeV2<>(PageView.class)), "sessionWindow")
         .map(m -> KV.of(m.getKey().getKey(), m.getMessage().size()))
         .sendTo(outputStream);
-
   }
 }
