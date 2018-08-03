@@ -97,7 +97,7 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
         .run(Duration.ofMillis(100000));
 
     try {
-      Map<Integer, List<TestTableData.EnrichedPageView>> result = TestRunner.consumeStream(outputStream, 1000);
+      Map<Integer, List<TestTableData.EnrichedPageView>> result = TestRunner.consumeStream(outputStream, Duration.ofMillis(1000));
       List<TestTableData.EnrichedPageView> results = result.values().stream()
           .flatMap(List::stream)
           .collect(Collectors.toList());
