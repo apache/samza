@@ -53,21 +53,11 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     super(config);
   }
 
-  @Override
-  protected ApplicationLifecycle getTaskAppLifecycle(TaskAppSpecImpl appSpec) {
-    return new TaskAppLifecycle(appSpec);
-  }
-
-  @Override
-  protected ApplicationLifecycle getStreamAppLifecycle(StreamAppSpecImpl appSpec) {
-    return new StreamAppLifecycle(appSpec);
-  }
-
-  class TaskAppLifecycle implements ApplicationLifecycle {
+  class TaskAppExecutable implements AppRuntimeExecutable {
     final TaskAppSpecImpl taskApp;
     final JobRunner jobRunner;
 
-    TaskAppLifecycle(TaskAppSpecImpl appSpec) {
+    TaskAppExecutable(TaskAppSpecImpl appSpec) {
       this.taskApp = appSpec;
       this.jobRunner = new JobRunner(config);
     }
@@ -94,10 +84,10 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
   }
 
-  class StreamAppLifecycle implements ApplicationLifecycle {
+  class StreamAppExecutable implements AppRuntimeExecutable {
     final StreamAppSpecImpl streamApp;
 
-    StreamAppLifecycle(StreamAppSpecImpl appSpec) {
+    StreamAppExecutable(StreamAppSpecImpl appSpec) {
       this.streamApp = appSpec;
     }
 
@@ -149,7 +139,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
           runner.kill();
         });
       } catch (Throwable t) {
-        throw new SamzaException("Failed to stop application", t);
+        throw new SamzaException("Failed to kill application", t);
       } finally {
         if (streamManager != null) {
           streamManager.stop();
@@ -214,6 +204,16 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
       return RemoteApplicationRunner.this.waitForFinish(timeout);
     }
 
+  }
+
+  @Override
+  protected AppRuntimeExecutable getTaskAppRuntimeExecutable(TaskAppSpecImpl appSpec) {
+    return new TaskAppExecutable(appSpec);
+  }
+
+  @Override
+  protected AppRuntimeExecutable getStreamAppRuntimeExecutable(StreamAppSpecImpl appSpec) {
+    return new StreamAppExecutable(appSpec);
   }
 
   /* package private */ ApplicationStatus getApplicationStatus(JobConfig jobConfig) {

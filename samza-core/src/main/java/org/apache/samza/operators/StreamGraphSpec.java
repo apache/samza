@@ -68,7 +68,6 @@ public class StreamGraphSpec implements StreamGraph {
   private int nextOpNum = 0;
   private final Set<String> operatorIds = new HashSet<>();
   private Serde<?> defaultSerde = new KVSerde(new NoOpSerde(), new NoOpSerde());
-//  private ContextManager contextManager = null;
 
   public StreamGraphSpec(Config config) {
     this.config = config;
@@ -152,16 +151,6 @@ public class StreamGraphSpec implements StreamGraph {
     tables.put(tableSpec, new TableImpl(tableSpec));
     return tables.get(tableSpec);
   }
-
-//  @Override
-//  public StreamApplicationSpec withContextManager(ContextManager contextManager) {
-//    this.contextManager = contextManager;
-//    return this;
-//  }
-//
-//  public ContextManager getContextManager() {
-//    return this.contextManager;
-//  }
 
   public OperatorSpecGraph getOperatorSpecGraph() {
     return new OperatorSpecGraph(this);

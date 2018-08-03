@@ -21,9 +21,7 @@ package org.apache.samza.runtime;
 
 import com.google.common.annotations.VisibleForTesting;
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -43,7 +41,6 @@ import org.apache.samza.coordinator.DistributedLockWithState;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.execution.StreamManager;
 import org.apache.samza.job.ApplicationStatus;
-import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.StreamGraphSpec;
@@ -51,8 +48,8 @@ import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.StreamProcessorLifecycleListener;
 import org.apache.samza.runtime.internal.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
+import org.apache.samza.task.StreamOperatorTask;
 import org.apache.samza.task.TaskFactory;
-import org.apache.samza.task.TaskFactoryUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,12 +66,16 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   private final CountDownLatch shutdownLatch = new CountDownLatch(1);
   private final AtomicInteger numProcessorsToStart = new AtomicInteger();
   private final AtomicReference<Throwable> failure = new AtomicReference<>();
-  private final Map<String, MetricsReporter> customMetricsReporters;
 
   private ApplicationStatus appStatus = ApplicationStatus.New;
 
-  final class LocalStreamProcessorLifeCycleListener implements StreamProcessorLifecycleListener {
-    StreamProcessor processor;
+  public LocalApplicationRunner(Config config) {
+    super(config);
+    this.uid = UUID.randomUUID().toString();
+  }
+
+  private final class LocalStreamProcessorLifeCycleListener implements StreamProcessorLifecycleListener {
+    private StreamProcessor processor;
 
     void setProcessor(StreamProcessor processor) {
       this.processor = processor;
@@ -128,30 +129,10 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     }
   }
 
-  public LocalApplicationRunner(Config config) {
-    this(config, new HashMap<>());
-  }
+  private class StreamAppExecutable implements AppRuntimeExecutable {
+    private final StreamAppSpecImpl streamApp;
 
-  @Override
-  protected ApplicationLifecycle getTaskAppLifecycle(TaskAppSpecImpl appSpec) {
-    return new TaskAppLifecycle(appSpec);
-  }
-
-  @Override
-  protected ApplicationLifecycle getStreamAppLifecycle(StreamAppSpecImpl appSpec) {
-    return new StreamAppLifecycle(appSpec);
-  }
-
-  public LocalApplicationRunner(Config config, Map<String, MetricsReporter> customMetricsReporters) {
-    super(config);
-    this.uid = UUID.randomUUID().toString();
-    this.customMetricsReporters = customMetricsReporters;
-  }
-
-  class StreamAppLifecycle implements ApplicationLifecycle {
-    final StreamAppSpecImpl streamApp;
-
-    StreamAppLifecycle(StreamAppSpecImpl streamApp) {
+    private StreamAppExecutable(StreamAppSpecImpl streamApp) {
       this.streamApp = streamApp;
     }
 
@@ -188,7 +169,9 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
         numProcessorsToStart.set(processors.size());
 
         // 4. start the StreamProcessors
+        streamApp.getProcessorLifecycleListner().beforeStart();
         processors.forEach(StreamProcessor::start);
+        streamApp.getProcessorLifecycleListner().afterStart();
       } catch (Throwable throwable) {
         appStatus = ApplicationStatus.unsuccessfulFinish(throwable);
         shutdownLatch.countDown();
@@ -202,7 +185,9 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
     @Override
     public void kill() {
+      streamApp.getProcessorLifecycleListner().beforeStop();
       processors.forEach(StreamProcessor::stop);
+      streamApp.getProcessorLifecycleListner().afterStop();
     }
 
     @Override
@@ -217,11 +202,11 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
   }
 
-  class TaskAppLifecycle implements ApplicationLifecycle {
-    final TaskAppSpecImpl appSpec;
-    StreamProcessor sp;
+  private class TaskAppExecutable implements AppRuntimeExecutable {
+    private final TaskAppSpecImpl appSpec;
+    private StreamProcessor sp;
 
-    TaskAppLifecycle(TaskAppSpecImpl appSpec) {
+    private TaskAppExecutable(TaskAppSpecImpl appSpec) {
       this.appSpec = appSpec;
     }
 
@@ -234,12 +219,16 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
       numProcessorsToStart.set(1);
       listener.setProcessor(sp);
+      appSpec.getProcessorLifecycleListner().beforeStart();
       sp.start();
+      appSpec.getProcessorLifecycleListner().afterStart();
     }
 
     @Override
     public void kill() {
+      appSpec.getProcessorLifecycleListner().beforeStop();
       sp.stop();
+      appSpec.getProcessorLifecycleListner().afterStop();
     }
 
     @Override
@@ -335,7 +324,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       Config config,
       TaskFactory taskFactory,
       StreamProcessorLifecycleListener listener) {
-    return new StreamProcessor(config, customMetricsReporters, taskFactory, listener, null);
+    return new StreamProcessor(config, this.metricsReporters, taskFactory, listener, null);
   }
 
   /**
@@ -351,8 +340,8 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       OperatorSpecGraph graph,
       ContextManager contextManager,
       StreamProcessorLifecycleListener listener) {
-    TaskFactory taskFactory = TaskFactoryUtil.createTaskFactory(graph, contextManager);
-    return new StreamProcessor(config, customMetricsReporters, taskFactory, listener, null);
+    TaskFactory taskFactory = () -> new StreamOperatorTask(graph, contextManager);
+    return new StreamProcessor(config, this.metricsReporters, taskFactory, listener, null);
   }
 
   /* package private for testing */
@@ -364,4 +353,15 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   CountDownLatch getShutdownLatch() {
     return shutdownLatch;
   }
+
+  @Override
+  protected AppRuntimeExecutable getTaskAppRuntimeExecutable(TaskAppSpecImpl appSpec) {
+    return new TaskAppExecutable(appSpec);
+  }
+
+  @Override
+  protected AppRuntimeExecutable getStreamAppRuntimeExecutable(StreamAppSpecImpl appSpec) {
+    return new StreamAppExecutable(appSpec);
+  }
+
 }

@@ -19,24 +19,18 @@
 package org.apache.samza.task;
 
 import java.lang.reflect.Field;
+import java.util.HashMap;
 import java.util.concurrent.ExecutorService;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.testUtils.TestAsyncStreamTask;
 import org.apache.samza.testUtils.TestStreamTask;
 import org.junit.Test;
 
-import java.util.HashMap;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import static org.mockito.Mockito.mock;
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
 /**
  * Test methods to create {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory} based on task class configuration
@@ -93,7 +87,7 @@ public class TestTaskFactoryUtil {
 
   @Test
   public void testFinalizeTaskFactory() throws NoSuchFieldException, IllegalAccessException {
-    Object mockFactory = mock(Object.class);
+    TaskFactory mockFactory = mock(TaskFactory.class);
     try {
       TaskFactoryUtil.finalizeTaskFactory(mockFactory, true, null);
       fail("Should have failed with validation");

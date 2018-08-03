@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.application.ApplicationSpec;
-import org.apache.samza.application.LifecycleAwareApplication;
 import org.apache.samza.application.internal.StreamAppSpecImpl;
 import org.apache.samza.application.internal.TaskAppSpecImpl;
 import org.apache.samza.config.ApplicationConfig;
@@ -67,34 +66,52 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
 
   @Override
   public final void run(ApplicationSpec appSpec) {
-    LifecycleAwareApplication userApp = getUserApp(appSpec);
-    userApp.beforeStart();
-    getLifecycleMethods(appSpec).run();
-    userApp.afterStart();
+    getAppRuntimeExecutable(appSpec).run();
   }
 
   @Override
   public final ApplicationStatus status(ApplicationSpec appSpec) {
-    return getLifecycleMethods(appSpec).status();
+    return getAppRuntimeExecutable(appSpec).status();
   }
 
   @Override
   public final void kill(ApplicationSpec appSpec) {
-    LifecycleAwareApplication userApp = getUserApp(appSpec);
-    userApp.beforeStop();
-    getLifecycleMethods(appSpec).kill();
-    userApp.afterStop();
+    getAppRuntimeExecutable(appSpec).kill();
   }
 
+  @Deprecated
   @Override
   public final void waitForFinish(ApplicationSpec appSpec) {
-    getLifecycleMethods(appSpec).waitForFinish(Duration.ofSeconds(0));
+    getAppRuntimeExecutable(appSpec).waitForFinish(Duration.ofSeconds(0));
   }
 
   @Override
   public final boolean waitForFinish(ApplicationSpec appSpec, Duration timeout) {
-    return getLifecycleMethods(appSpec).waitForFinish(timeout);
+    return getAppRuntimeExecutable(appSpec).waitForFinish(timeout);
   }
+
+  interface AppRuntimeExecutable {
+
+    void run();
+
+    void kill();
+
+    ApplicationStatus status();
+
+    /**
+     * Waits for {@code timeout} duration for the application to finish.
+     *
+     * @param timeout time to wait for the application to finish
+     * @return true - application finished before timeout
+     *         false - otherwise
+     */
+    boolean waitForFinish(Duration timeout);
+
+  }
+
+  abstract AppRuntimeExecutable getTaskAppRuntimeExecutable(TaskAppSpecImpl appSpec);
+
+  abstract AppRuntimeExecutable getStreamAppRuntimeExecutable(StreamAppSpecImpl appSpec);
 
   final StreamManager buildAndStartStreamManager() {
     StreamManager streamManager = new StreamManager(this.config);
@@ -148,48 +165,15 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
     }
   }
 
-  protected abstract ApplicationLifecycle getTaskAppLifecycle(TaskAppSpecImpl appSpec);
-
-  protected abstract ApplicationLifecycle getStreamAppLifecycle(StreamAppSpecImpl appSpec);
-
-  protected interface ApplicationLifecycle {
-
-    void run();
-
-    void kill();
-
-    ApplicationStatus status();
-
-    /**
-     * Waits for {@code timeout} duration for the application to finish.
-     *
-     * @param timeout time to wait for the application to finish
-     * @return true - application finished before timeout
-     *         false - otherwise
-     */
-    boolean waitForFinish(Duration timeout);
-
-  }
-
-  private ApplicationLifecycle getLifecycleMethods(ApplicationSpec appSpec) {
+  private AppRuntimeExecutable getAppRuntimeExecutable(ApplicationSpec appSpec) {
     if (appSpec instanceof StreamAppSpecImpl) {
-      return getStreamAppLifecycle((StreamAppSpecImpl) appSpec);
+      return getStreamAppRuntimeExecutable((StreamAppSpecImpl) appSpec);
     }
     if (appSpec instanceof TaskAppSpecImpl) {
-      return getTaskAppLifecycle((TaskAppSpecImpl) appSpec);
+      return getTaskAppRuntimeExecutable((TaskAppSpecImpl) appSpec);
     }
     throw new IllegalArgumentException(String.format("The specified application %s is not valid. "
         + "Only StreamApplicationSpec and TaskApplicationSpec are supported.", appSpec.getClass().getName()));
-  }
-
-  private LifecycleAwareApplication getUserApp(ApplicationSpec appSpec) {
-    if (appSpec instanceof StreamAppSpecImpl) {
-      return ((StreamAppSpecImpl) appSpec).getUserApp();
-    }
-    if (appSpec instanceof TaskAppSpecImpl) {
-      return ((TaskAppSpecImpl) appSpec).getUserApp();
-    }
-    throw new IllegalArgumentException();
   }
 
 }

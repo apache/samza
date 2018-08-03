@@ -27,7 +27,7 @@ import org.apache.samza.util.CommandLine;
  * The class defines the basic command line arguments for Samza command line scripts.
  */
 public class ApplicationRunnerCommandLine extends CommandLine {
-  public OptionSpec operationOpt = parser().accepts("operation", "The operation to perform; start, status, stop.")
+  public OptionSpec operationOpt = parser().accepts("operation", "The operation to perform; start, status, kill.")
       .withRequiredArg()
       .ofType(String.class)
       .describedAs("operation=start")

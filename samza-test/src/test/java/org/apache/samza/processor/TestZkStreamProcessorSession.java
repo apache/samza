@@ -97,7 +97,7 @@ public class TestZkStreamProcessorSession extends TestZkStreamProcessorBase {
     // make sure it consumes all the messages from the first batch
     waitUntilMessagesLeftN(totalEventsToGenerate - messageCount);
 
-    // Get the container stop latch to be able to check when a container is stopped.
+    // Get the container kill latch to be able to check when a container is stopped.
     // New containerShutdownLatch is created after each onNewJobModel,
     // so we need to get the current one, before it changed..
     for (int i = 0; i < processorIds.length; i++) {

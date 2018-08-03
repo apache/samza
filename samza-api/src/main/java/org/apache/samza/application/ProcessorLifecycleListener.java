@@ -1,10 +1,12 @@
 package org.apache.samza.application;
 
+import java.io.Serializable;
+
+
 /**
- * Created by yipan on 7/11/18.
+ * Created by yipan on 8/1/18.
  */
-public interface LifecycleAwareApplication<S extends ApplicationSpec> {
-  void describe(S appSpec);
+public interface ProcessorLifecycleListener extends Serializable {
   default void beforeStart() {}
   default void afterStart() {}
   default void beforeStop() {}

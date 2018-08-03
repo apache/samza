@@ -48,7 +48,7 @@ public class AppWithGlobalConfigExample implements StreamApplication {
     ApplicationRuntime app = ApplicationRuntimes.getApplicationRuntime(new AppWithGlobalConfigExample(), config);
     app.addMetricsReporters(new HashMap<>());
 
-    app.start();
+    app.run();
     app.waitForFinish();
   }
 

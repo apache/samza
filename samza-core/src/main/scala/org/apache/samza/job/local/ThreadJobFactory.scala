@@ -19,6 +19,8 @@
 
 package org.apache.samza.job.local
 
+import org.apache.samza.application.internal.{StreamAppSpecImpl, TaskAppSpecImpl}
+import org.apache.samza.application.{ApplicationClassUtils, StreamApplication, TaskApplication}
 import org.apache.samza.config.{Config, TaskConfigJava}
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
@@ -30,7 +32,7 @@ import org.apache.samza.job.{StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.operators.StreamGraphSpec
 import org.apache.samza.storage.ChangelogStreamManager
-import org.apache.samza.task.TaskFactoryUtil
+import org.apache.samza.task._
 import org.apache.samza.util.Logging
 
 import scala.collection.JavaConversions._
@@ -72,13 +74,24 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     val containerId = "0"
     val jmxServer = new JmxServer
 
-    // TODO: ThreadJobFactory does not support launch StreamApplication. Launching user-defined StreamApplication is via new
-    // user program w/ main().
-    val taskFactory = TaskFactoryUtil.createTaskFactory(config)
+    val taskFactory : TaskFactory[_] = ApplicationClassUtils.fromConfig(config) match {
+        case app if (app.isInstanceOf[TaskApplication]) => {
+          val appSpec = new TaskAppSpecImpl(app.asInstanceOf[TaskApplication], config)
+          appSpec.getTaskFactory
+        }
+        case app if (app.isInstanceOf[StreamApplication]) => {
+          val appSpec = new StreamAppSpecImpl(app.asInstanceOf[StreamApplication], config)
+          new StreamTaskFactory {
+            override def createInstance(): StreamTask =
+              new StreamOperatorTask(appSpec.getGraph.asInstanceOf[StreamGraphSpec].getOperatorSpecGraph, appSpec.getContextManager)
+          }
+        }
+      }
 
     // Give developers a nice friendly warning if they've specified task.opts and are using a threaded job.
     config.getTaskOpts match {
-      case Some(taskOpts) => warn("%s was specified in config, but is not being used because job is being executed with ThreadJob. You probably want to run %s=%s." format (TASK_JVM_OPTS, STREAM_JOB_FACTORY_CLASS, classOf[ProcessJobFactory].getName))
+      case Some(taskOpts) => warn("%s was specified in config, but is not being used because job is being executed with ThreadJob. " +
+        "You probably want to run %s=%s." format (TASK_JVM_OPTS, STREAM_JOB_FACTORY_CLASS, classOf[ProcessJobFactory].getName))
       case _ => None
     }
 

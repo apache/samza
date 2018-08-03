@@ -49,7 +49,7 @@ public class WindowExample implements StreamApplication {
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     ApplicationRuntime app = ApplicationRuntimes.getApplicationRuntime(new WindowExample(), config);
 
-    app.start();
+    app.run();
     app.waitForFinish();
   }
 

@@ -25,11 +25,11 @@ import java.util.Map;
 import java.util.Random;
 import org.apache.log4j.MDC;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.ApplicationBase;
 import org.apache.samza.application.ApplicationClassUtils;
+import org.apache.samza.application.ApplicationSpec;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.TaskApplication;
-import org.apache.samza.application.ApplicationSpec;
-import org.apache.samza.application.LifecycleAwareApplication;
 import org.apache.samza.application.internal.StreamAppSpecImpl;
 import org.apache.samza.application.internal.TaskAppSpecImpl;
 import org.apache.samza.config.Config;
@@ -44,7 +44,8 @@ import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.operators.StreamGraphSpec;
-import org.apache.samza.task.TaskFactoryUtil;
+import org.apache.samza.task.StreamOperatorTask;
+import org.apache.samza.task.TaskFactory;
 import org.apache.samza.util.SamzaUncaughtExceptionHandler;
 import org.apache.samza.util.ScalaJavaUtil;
 import org.slf4j.Logger;
@@ -69,32 +70,22 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
   private ContainerHeartbeatMonitor containerHeartbeatMonitor;
   private SamzaContainer container;
 
-  public LocalContainerRunner(JobModel jobModel, String containerId) {
+  LocalContainerRunner(JobModel jobModel, String containerId) {
     super(jobModel.getConfig());
     this.jobModel = jobModel;
     this.containerId = containerId;
   }
 
-  @Override
-  protected ApplicationLifecycle getTaskAppLifecycle(TaskAppSpecImpl appSpec) {
-    return new TaskAppLifecycle(appSpec);
-  }
+  private class TaskAppExecutable implements AppRuntimeExecutable {
+    private final TaskAppSpecImpl taskApp;
 
-  @Override
-  protected ApplicationLifecycle getStreamAppLifecycle(StreamAppSpecImpl appSpec) {
-    return new StreamAppLifecycle(appSpec);
-  }
-
-  class TaskAppLifecycle implements ApplicationLifecycle {
-    final TaskAppSpecImpl taskApp;
-
-    TaskAppLifecycle(TaskAppSpecImpl taskApp) {
+    private TaskAppExecutable(TaskAppSpecImpl taskApp) {
       this.taskApp = taskApp;
     }
 
     @Override
     public void run() {
-      Object taskFactory = this.taskApp.getTaskFactory();
+      TaskFactory taskFactory = this.taskApp.getTaskFactory();
 
       container = SamzaContainer$.MODULE$.apply(
           containerId,
@@ -122,9 +113,13 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
             }
           });
 
+      taskApp.getProcessorLifecycleListner().beforeStart();
+      taskApp.getProcessorLifecycleListner().afterStart();
       startContainerHeartbeatMonitor();
       container.run();
       stopContainerHeartbeatMonitor();
+      taskApp.getProcessorLifecycleListner().beforeStop();
+      taskApp.getProcessorLifecycleListner().afterStop();
 
       if (containerRunnerException != null) {
         log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
@@ -151,16 +146,16 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
 
   }
 
-  class StreamAppLifecycle implements ApplicationLifecycle {
-    final StreamAppSpecImpl streamApp;
+  private class StreamAppExecutable implements AppRuntimeExecutable {
+    private final StreamAppSpecImpl streamApp;
 
-    StreamAppLifecycle(StreamAppSpecImpl streamApp) {
+    private StreamAppExecutable(StreamAppSpecImpl streamApp) {
       this.streamApp = streamApp;
     }
 
     @Override
     public void run() {
-      Object taskFactory = TaskFactoryUtil.createTaskFactory(((StreamGraphSpec) streamApp.getGraph()).getOperatorSpecGraph(),
+      TaskFactory taskFactory = () -> new StreamOperatorTask(((StreamGraphSpec) streamApp.getGraph()).getOperatorSpecGraph(),
           streamApp.getContextManager());
 
       container = SamzaContainer$.MODULE$.apply(
@@ -189,9 +184,13 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
             }
           });
 
+      streamApp.getProcessorLifecycleListner().beforeStart();
+      streamApp.getProcessorLifecycleListner().afterStart();
       startContainerHeartbeatMonitor();
       container.run();
       stopContainerHeartbeatMonitor();
+      streamApp.getProcessorLifecycleListner().beforeStop();
+      streamApp.getProcessorLifecycleListner().afterStop();
 
       if (containerRunnerException != null) {
         log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
@@ -216,6 +215,46 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
       return false;
     }
 
+  }
+
+  private static class ContainerAppRuntimeImpl implements ApplicationRuntime {
+    private final ApplicationSpec appSpec;
+    private final LocalContainerRunner runner;
+
+    public ContainerAppRuntimeImpl(ApplicationSpec appSpec, LocalContainerRunner runner) {
+      this.appSpec = appSpec;
+      this.runner = runner;
+    }
+
+    @Override
+    public void run() {
+      this.runner.run(appSpec);
+    }
+
+    @Override
+    public void kill() {
+      this.runner.kill(appSpec);
+    }
+
+    @Override
+    public ApplicationStatus status() {
+      return this.runner.status(appSpec);
+    }
+
+    @Override
+    public void waitForFinish() {
+      this.runner.waitForFinish(appSpec, Duration.ofSeconds(0));
+    }
+
+    @Override
+    public boolean waitForFinish(Duration timeout) {
+      return this.runner.waitForFinish(appSpec, timeout);
+    }
+
+    @Override
+    public void addMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
+      this.runner.addMetricsReporters(metricsReporters);
+    }
   }
 
   // only invoked by legacy applications w/o user-defined main
@@ -247,8 +286,18 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
 
     ApplicationRuntime appSpec = createAppRuntime(ApplicationClassUtils.fromConfig(config),
         new LocalContainerRunner(jobModel, containerId), config);
-    appSpec.start();
+    appSpec.run();
     appSpec.waitForFinish();
+  }
+
+  @Override
+  protected AppRuntimeExecutable getTaskAppRuntimeExecutable(TaskAppSpecImpl appSpec) {
+    return new TaskAppExecutable(appSpec);
+  }
+
+  @Override
+  protected AppRuntimeExecutable getStreamAppRuntimeExecutable(StreamAppSpecImpl appSpec) {
+    return new StreamAppExecutable(appSpec);
   }
 
   private void startContainerHeartbeatMonitor() {
@@ -278,7 +327,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     }
   }
 
-  private static ApplicationRuntime createAppRuntime(LifecycleAwareApplication userApp, LocalContainerRunner runner, Config config) {
+  private static ApplicationRuntime createAppRuntime(ApplicationBase userApp, LocalContainerRunner runner, Config config) {
     if (userApp instanceof StreamApplication) {
       return new ContainerAppRuntimeImpl(new StreamAppSpecImpl((StreamApplication) userApp, config), runner);
     }
@@ -288,46 +337,6 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
 
     throw new IllegalArgumentException(String.format("Invalid user application class %s. Only StreamApplication and TaskApplication "
         + "are supported", userApp.getClass().getName()));
-  }
-
-  private static class ContainerAppRuntimeImpl implements ApplicationRuntime {
-    private final ApplicationSpec appSpec;
-    private final LocalContainerRunner runner;
-
-    public ContainerAppRuntimeImpl(ApplicationSpec appSpec, LocalContainerRunner runner) {
-      this.appSpec = appSpec;
-      this.runner = runner;
-    }
-
-    @Override
-    public void start() {
-      this.runner.run(appSpec);
-    }
-
-    @Override
-    public void stop() {
-      this.runner.kill(appSpec);
-    }
-
-    @Override
-    public ApplicationStatus status() {
-      return this.runner.status(appSpec);
-    }
-
-    @Override
-    public void waitForFinish() {
-      this.runner.waitForFinish(appSpec, Duration.ofSeconds(0));
-    }
-
-    @Override
-    public boolean waitForFinish(Duration timeout) {
-      return this.runner.waitForFinish(appSpec, timeout);
-    }
-
-    @Override
-    public void addMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
-      this.runner.addMetricsReporters(metricsReporters);
-    }
   }
 
 }

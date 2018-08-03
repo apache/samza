@@ -50,7 +50,7 @@ public class KeyValueStoreExample implements StreamApplication {
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     ApplicationRuntime app = ApplicationRuntimes.getApplicationRuntime(new KeyValueStoreExample(), config);
 
-    app.start();
+    app.run();
     app.waitForFinish();
   }
 

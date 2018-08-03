@@ -32,7 +32,7 @@ public class TestStandaloneIntegrationApplication implements StreamApplication {
   private static final Logger LOGGER = LoggerFactory.getLogger(TestStandaloneIntegrationApplication.class);
 
   @Override
-  public void setup(StreamApplicationSpec graph) {
+  public void describe(StreamApplicationSpec graph) {
     String inputStream = graph.getConfig().get("input.stream.name");
     String outputStreamName = "standaloneIntegrationTestKafkaOutputTopic";
     LOGGER.info("Publishing message to: {}.", outputStreamName);

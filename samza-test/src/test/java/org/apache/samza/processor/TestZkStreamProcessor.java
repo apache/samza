@@ -213,14 +213,14 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     waitUntilMessagesLeftN(totalEventsToGenerate - messageCount);
     CountDownLatch containerStopped2 = sp2.containerShutdownLatch;
 
-    // stop the first processor
+    // kill the first processor
     stopProcessor(stopLatch1);
 
     // wait until it's really down
     waitForProcessorToStartStop(waitStop1);
 
-    // processor2 will stop it container and start again.
-    // We wait for the container's stop to make sure we can count EXACTLY how many messages it reads.
+    // processor2 will kill it container and start again.
+    // We wait for the container's kill to make sure we can count EXACTLY how many messages it reads.
 
     LOG.info("containerStopped latch = " + containerStopped2);
     waitForProcessorToStartStop(containerStopped2);

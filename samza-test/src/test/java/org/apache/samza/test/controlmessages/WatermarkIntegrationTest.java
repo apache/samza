@@ -159,7 +159,7 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
     }
 
     final ApplicationRuntime app = ApplicationRuntimes.createStreamApp(new TestStreamApp(), new MapConfig(configs));
-    app.start();
+    app.run();
     Map<String, StreamOperatorTask> tasks = getTaskOperationGraphs(app);
 
     app.waitForFinish();

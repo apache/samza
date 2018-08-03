@@ -66,7 +66,7 @@ public class TestRepartitionWindowApp extends StreamApplicationIntegrationTestHa
     configs.put(String.format("streams.%s.samza.msg.serde", INPUT_TOPIC), "string");
     configs.put(String.format("streams.%s.samza.key.serde", INPUT_TOPIC), "string");
 
-    // start the application
+    // run the application
     Thread runThread = runApplication(RepartitionWindowApp.class.getName(), APP_NAME, new MapConfig(configs)).getRunThread();
 
     // consume and validate result

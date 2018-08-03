@@ -50,7 +50,7 @@ public class PageViewCounterExample implements StreamApplication {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     ApplicationRuntime appRuntime = ApplicationRuntimes.getApplicationRuntime(ApplicationClassUtils.fromConfig(config), config);
-    appRuntime.start();
+    appRuntime.run();
     appRuntime.waitForFinish();
   }
 

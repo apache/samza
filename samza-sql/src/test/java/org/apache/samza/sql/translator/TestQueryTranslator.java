@@ -24,20 +24,19 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.StreamApplicationSpec;
 import org.apache.samza.application.internal.StreamAppSpecImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.StreamGraphSpec;
-import org.apache.samza.sql.data.SamzaSqlExecutionContext;
+import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.impl.ConfigBasedIOResolverFactory;
-import org.apache.samza.sql.runner.SamzaSqlApplication;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationRuntime;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
@@ -45,7 +44,11 @@ import org.apache.samza.sql.testutil.SamzaSqlTestConfig;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.internal.util.reflection.Whitebox;
+
+import static org.mockito.Mockito.*;
+
 
 public class TestQueryTranslator {
 
@@ -89,12 +92,24 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    // FIXME: construction of QueryTranslator and other variables within SamzaSqlApplication is now coupled within
-    // the constructor of StreamApplicationSpec.
-    StreamAppSpecImpl
-        graphSpec = new StreamAppSpecImpl(new SamzaSqlApplication(), new MapConfig(config));
-    translator.translate(queryInfo, graphSpec);
-    OperatorSpecGraph specGraph = ((StreamGraphSpec) graphSpec.getGraph()).getOperatorSpecGraph();
+    StreamGraphSpec graphSpec = new StreamGraphSpec(samzaConfig);
+    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    // The following steps are used to simulate the actual logic in the constructor
+    when(mockSpec.getConfig()).thenReturn(samzaConfig);
+    when(mockSpec.getGraph()).thenReturn(graphSpec);
+    ArgumentCaptor<String> streamCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockSpec.getOutputStream(streamCaptor.capture())).then(
+        invocation -> graphSpec.getOutputStream(streamCaptor.getValue()));
+    ArgumentCaptor<TableDescriptor> tableCaptor = ArgumentCaptor.forClass(TableDescriptor.class);
+    when(mockSpec.getTable(tableCaptor.capture())).then(invocation -> graphSpec.getTable(tableCaptor.getValue()));
+    ArgumentCaptor<ContextManager> contextManagerCaptor = ArgumentCaptor.forClass(ContextManager.class);
+    when(mockSpec.withContextManager(contextManagerCaptor.capture())).then(invocation -> {
+      when(mockSpec.getContextManager()).thenReturn(contextManagerCaptor.getValue());
+      return null;
+    });
+
+    translator.translate(queryInfo, mockSpec);
+    OperatorSpecGraph specGraph = ((StreamGraphSpec) mockSpec.getGraph()).getOperatorSpecGraph();
 
     StreamConfig streamConfig = new StreamConfig(samzaConfig);
     String inputStreamId = specGraph.getInputOperators().keySet().stream().findFirst().get();
@@ -112,7 +127,7 @@ public class TestQueryTranslator {
     Assert.assertEquals("testavro", inputSystem);
     Assert.assertEquals("SIMPLE1", inputPhysicalName);
 
-    validatePerTaskContextInit(graphSpec, samzaConfig);
+    validatePerTaskContextInit(mockSpec, samzaConfig);
   }
 
   private void validatePerTaskContextInit(StreamAppSpecImpl graphSpec, Config samzaConfig) {
@@ -145,7 +160,22 @@ public class TestQueryTranslator {
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    translator.translate(queryInfo, graphSpec);
+    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    // The following steps are used to simulate the actual logic in the constructor
+    when(mockSpec.getConfig()).thenReturn(samzaConfig);
+    when(mockSpec.getGraph()).thenReturn(graphSpec);
+    ArgumentCaptor<String> streamCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockSpec.getOutputStream(streamCaptor.capture())).then(
+        invocation -> graphSpec.getOutputStream(streamCaptor.getValue()));
+    ArgumentCaptor<TableDescriptor> tableCaptor = ArgumentCaptor.forClass(TableDescriptor.class);
+    when(mockSpec.getTable(tableCaptor.capture())).then(invocation -> graphSpec.getTable(tableCaptor.getValue()));
+    ArgumentCaptor<ContextManager> contextManagerCaptor = ArgumentCaptor.forClass(ContextManager.class);
+    when(mockSpec.withContextManager(contextManagerCaptor.capture())).then(invocation -> {
+      when(mockSpec.getContextManager()).thenReturn(contextManagerCaptor.getValue());
+      return null;
+    });
+
+    translator.translate(queryInfo, mockSpec);
     OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
 
     StreamConfig streamConfig = new StreamConfig(samzaConfig);
@@ -163,7 +193,7 @@ public class TestQueryTranslator {
     Assert.assertEquals("testavro", inputSystem);
     Assert.assertEquals("COMPLEX1", inputPhysicalName);
 
-    validatePerTaskContextInit(graphSpec, samzaConfig);
+    validatePerTaskContextInit(mockSpec, samzaConfig);
   }
 
   @Test
@@ -177,7 +207,22 @@ public class TestQueryTranslator {
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    translator.translate(queryInfo, graphSpec);
+    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    // The following steps are used to simulate the actual logic in the constructor
+    when(mockSpec.getConfig()).thenReturn(samzaConfig);
+    when(mockSpec.getGraph()).thenReturn(graphSpec);
+    ArgumentCaptor<String> streamCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockSpec.getOutputStream(streamCaptor.capture())).then(
+        invocation -> graphSpec.getOutputStream(streamCaptor.getValue()));
+    ArgumentCaptor<TableDescriptor> tableCaptor = ArgumentCaptor.forClass(TableDescriptor.class);
+    when(mockSpec.getTable(tableCaptor.capture())).then(invocation -> graphSpec.getTable(tableCaptor.getValue()));
+    ArgumentCaptor<ContextManager> contextManagerCaptor = ArgumentCaptor.forClass(ContextManager.class);
+    when(mockSpec.withContextManager(contextManagerCaptor.capture())).then(invocation -> {
+      when(mockSpec.getContextManager()).thenReturn(contextManagerCaptor.getValue());
+      return null;
+    });
+
+    translator.translate(queryInfo, mockSpec);
     OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
 
     StreamConfig streamConfig = new StreamConfig(samzaConfig);
@@ -195,7 +240,7 @@ public class TestQueryTranslator {
     Assert.assertEquals("testavro", inputSystem);
     Assert.assertEquals("COMPLEX1", inputPhysicalName);
 
-    validatePerTaskContextInit(graphSpec, samzaConfig);
+    validatePerTaskContextInit(mockSpec, samzaConfig);
   }
 
   @Test (expected = SamzaException.class)
@@ -213,7 +258,22 @@ public class TestQueryTranslator {
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    translator.translate(queryInfo, graphSpec);
+    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    // The following steps are used to simulate the actual logic in the constructor
+    when(mockSpec.getConfig()).thenReturn(samzaConfig);
+    when(mockSpec.getGraph()).thenReturn(graphSpec);
+    ArgumentCaptor<String> streamCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockSpec.getOutputStream(streamCaptor.capture())).then(
+        invocation -> graphSpec.getOutputStream(streamCaptor.getValue()));
+    ArgumentCaptor<TableDescriptor> tableCaptor = ArgumentCaptor.forClass(TableDescriptor.class);
+    when(mockSpec.getTable(tableCaptor.capture())).then(invocation -> graphSpec.getTable(tableCaptor.getValue()));
+    ArgumentCaptor<ContextManager> contextManagerCaptor = ArgumentCaptor.forClass(ContextManager.class);
+    when(mockSpec.withContextManager(contextManagerCaptor.capture())).then(invocation -> {
+      when(mockSpec.getContextManager()).thenReturn(contextManagerCaptor.getValue());
+      return null;
+    });
+
+    translator.translate(queryInfo, mockSpec);
   }
 
   @Test (expected = SamzaException.class)
@@ -232,7 +292,22 @@ public class TestQueryTranslator {
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    translator.translate(queryInfo, graphSpec);
+    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    // The following steps are used to simulate the actual logic in the constructor
+    when(mockSpec.getConfig()).thenReturn(samzaConfig);
+    when(mockSpec.getGraph()).thenReturn(graphSpec);
+    ArgumentCaptor<String> streamCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockSpec.getOutputStream(streamCaptor.capture())).then(
+        invocation -> graphSpec.getOutputStream(streamCaptor.getValue()));
+    ArgumentCaptor<TableDescriptor> tableCaptor = ArgumentCaptor.forClass(TableDescriptor.class);
+    when(mockSpec.getTable(tableCaptor.capture())).then(invocation -> graphSpec.getTable(tableCaptor.getValue()));
+    ArgumentCaptor<ContextManager> contextManagerCaptor = ArgumentCaptor.forClass(ContextManager.class);
+    when(mockSpec.withContextManager(contextManagerCaptor.capture())).then(invocation -> {
+      when(mockSpec.getContextManager()).thenReturn(contextManagerCaptor.getValue());
+      return null;
+    });
+
+    translator.translate(queryInfo, mockSpec);
   }
 
   @Test (expected = IllegalStateException.class)
@@ -251,7 +326,22 @@ public class TestQueryTranslator {
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    translator.translate(queryInfo, graphSpec);
+    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    // The following steps are used to simulate the actual logic in the constructor
+    when(mockSpec.getConfig()).thenReturn(samzaConfig);
+    when(mockSpec.getGraph()).thenReturn(graphSpec);
+    ArgumentCaptor<String> streamCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockSpec.getOutputStream(streamCaptor.capture())).then(
+        invocation -> graphSpec.getOutputStream(streamCaptor.getValue()));
+    ArgumentCaptor<TableDescriptor> tableCaptor = ArgumentCaptor.forClass(TableDescriptor.class);
+    when(mockSpec.getTable(tableCaptor.capture())).then(invocation -> graphSpec.getTable(tableCaptor.getValue()));
+    ArgumentCaptor<ContextManager> contextManagerCaptor = ArgumentCaptor.forClass(ContextManager.class);
+    when(mockSpec.withContextManager(contextManagerCaptor.capture())).then(invocation -> {
+      when(mockSpec.getContextManager()).thenReturn(contextManagerCaptor.getValue());
+      return null;
+    });
+
+    translator.translate(queryInfo, mockSpec);
   }
 
   @Test (expected = SamzaException.class)
@@ -270,7 +360,21 @@ public class TestQueryTranslator {
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    translator.translate(queryInfo, graphSpec);
+    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    // The following steps are used to simulate the actual logic in the constructor
+    when(mockSpec.getConfig()).thenReturn(samzaConfig);
+    when(mockSpec.getGraph()).thenReturn(graphSpec);
+    ArgumentCaptor<String> streamCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockSpec.getOutputStream(streamCaptor.capture())).then(
+        invocation -> graphSpec.getOutputStream(streamCaptor.getValue()));
+    ArgumentCaptor<TableDescriptor> tableCaptor = ArgumentCaptor.forClass(TableDescriptor.class);
+    when(mockSpec.getTable(tableCaptor.capture())).then(invocation -> graphSpec.getTable(tableCaptor.getValue()));
+    ArgumentCaptor<ContextManager> contextManagerCaptor = ArgumentCaptor.forClass(ContextManager.class);
+    when(mockSpec.withContextManager(contextManagerCaptor.capture())).then(invocation -> {
+      when(mockSpec.getContextManager()).thenReturn(contextManagerCaptor.getValue());
+      return null;
+    });
+    translator.translate(queryInfo, mockSpec);
   }
 
   @Test (expected = SamzaException.class)
@@ -287,7 +391,21 @@ public class TestQueryTranslator {
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    translator.translate(queryInfo, graphSpec);
+    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    // The following steps are used to simulate the actual logic in the constructor
+    when(mockSpec.getConfig()).thenReturn(samzaConfig);
+    when(mockSpec.getGraph()).thenReturn(graphSpec);
+    ArgumentCaptor<String> streamCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockSpec.getOutputStream(streamCaptor.capture())).then(
+        invocation -> graphSpec.getOutputStream(streamCaptor.getValue()));
+    ArgumentCaptor<TableDescriptor> tableCaptor = ArgumentCaptor.forClass(TableDescriptor.class);
+    when(mockSpec.getTable(tableCaptor.capture())).then(invocation -> graphSpec.getTable(tableCaptor.getValue()));
+    ArgumentCaptor<ContextManager> contextManagerCaptor = ArgumentCaptor.forClass(ContextManager.class);
+    when(mockSpec.withContextManager(contextManagerCaptor.capture())).then(invocation -> {
+      when(mockSpec.getContextManager()).thenReturn(contextManagerCaptor.getValue());
+      return null;
+    });
+    translator.translate(queryInfo, mockSpec);
   }
 
   @Test (expected = SamzaException.class)
@@ -306,7 +424,21 @@ public class TestQueryTranslator {
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    translator.translate(queryInfo, graphSpec);
+    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    // The following steps are used to simulate the actual logic in the constructor
+    when(mockSpec.getConfig()).thenReturn(samzaConfig);
+    when(mockSpec.getGraph()).thenReturn(graphSpec);
+    ArgumentCaptor<String> streamCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockSpec.getOutputStream(streamCaptor.capture())).then(
+        invocation -> graphSpec.getOutputStream(streamCaptor.getValue()));
+    ArgumentCaptor<TableDescriptor> tableCaptor = ArgumentCaptor.forClass(TableDescriptor.class);
+    when(mockSpec.getTable(tableCaptor.capture())).then(invocation -> graphSpec.getTable(tableCaptor.getValue()));
+    ArgumentCaptor<ContextManager> contextManagerCaptor = ArgumentCaptor.forClass(ContextManager.class);
+    when(mockSpec.withContextManager(contextManagerCaptor.capture())).then(invocation -> {
+      when(mockSpec.getContextManager()).thenReturn(contextManagerCaptor.getValue());
+      return null;
+    });
+    translator.translate(queryInfo, mockSpec);
   }
 
   @Test (expected = SamzaException.class)
@@ -326,7 +458,21 @@ public class TestQueryTranslator {
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    translator.translate(queryInfo, graphSpec);
+    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    // The following steps are used to simulate the actual logic in the constructor
+    when(mockSpec.getConfig()).thenReturn(samzaConfig);
+    when(mockSpec.getGraph()).thenReturn(graphSpec);
+    ArgumentCaptor<String> streamCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockSpec.getOutputStream(streamCaptor.capture())).then(
+        invocation -> graphSpec.getOutputStream(streamCaptor.getValue()));
+    ArgumentCaptor<TableDescriptor> tableCaptor = ArgumentCaptor.forClass(TableDescriptor.class);
+    when(mockSpec.getTable(tableCaptor.capture())).then(invocation -> graphSpec.getTable(tableCaptor.getValue()));
+    ArgumentCaptor<ContextManager> contextManagerCaptor = ArgumentCaptor.forClass(ContextManager.class);
+    when(mockSpec.withContextManager(contextManagerCaptor.capture())).then(invocation -> {
+      when(mockSpec.getContextManager()).thenReturn(contextManagerCaptor.getValue());
+      return null;
+    });
+    translator.translate(queryInfo, mockSpec);
   }
 
   @Test (expected = SamzaException.class)
@@ -345,7 +491,21 @@ public class TestQueryTranslator {
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    translator.translate(queryInfo, graphSpec);
+    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    // The following steps are used to simulate the actual logic in the constructor
+    when(mockSpec.getConfig()).thenReturn(samzaConfig);
+    when(mockSpec.getGraph()).thenReturn(graphSpec);
+    ArgumentCaptor<String> streamCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockSpec.getOutputStream(streamCaptor.capture())).then(
+        invocation -> graphSpec.getOutputStream(streamCaptor.getValue()));
+    ArgumentCaptor<TableDescriptor> tableCaptor = ArgumentCaptor.forClass(TableDescriptor.class);
+    when(mockSpec.getTable(tableCaptor.capture())).then(invocation -> graphSpec.getTable(tableCaptor.getValue()));
+    ArgumentCaptor<ContextManager> contextManagerCaptor = ArgumentCaptor.forClass(ContextManager.class);
+    when(mockSpec.withContextManager(contextManagerCaptor.capture())).then(invocation -> {
+      when(mockSpec.getContextManager()).thenReturn(contextManagerCaptor.getValue());
+      return null;
+    });
+    translator.translate(queryInfo, mockSpec);
   }
 
   @Test (expected = SamzaException.class)
@@ -364,7 +524,21 @@ public class TestQueryTranslator {
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    translator.translate(queryInfo, graphSpec);
+    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    // The following steps are used to simulate the actual logic in the constructor
+    when(mockSpec.getConfig()).thenReturn(samzaConfig);
+    when(mockSpec.getGraph()).thenReturn(graphSpec);
+    ArgumentCaptor<String> streamCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockSpec.getOutputStream(streamCaptor.capture())).then(
+        invocation -> graphSpec.getOutputStream(streamCaptor.getValue()));
+    ArgumentCaptor<TableDescriptor> tableCaptor = ArgumentCaptor.forClass(TableDescriptor.class);
+    when(mockSpec.getTable(tableCaptor.capture())).then(invocation -> graphSpec.getTable(tableCaptor.getValue()));
+    ArgumentCaptor<ContextManager> contextManagerCaptor = ArgumentCaptor.forClass(ContextManager.class);
+    when(mockSpec.withContextManager(contextManagerCaptor.capture())).then(invocation -> {
+      when(mockSpec.getContextManager()).thenReturn(contextManagerCaptor.getValue());
+      return null;
+    });
+    translator.translate(queryInfo, mockSpec);
   }
 
   @Test (expected = SamzaException.class)
@@ -383,7 +557,21 @@ public class TestQueryTranslator {
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    translator.translate(queryInfo, graphSpec);
+    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    // The following steps are used to simulate the actual logic in the constructor
+    when(mockSpec.getConfig()).thenReturn(samzaConfig);
+    when(mockSpec.getGraph()).thenReturn(graphSpec);
+    ArgumentCaptor<String> streamCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockSpec.getOutputStream(streamCaptor.capture())).then(
+        invocation -> graphSpec.getOutputStream(streamCaptor.getValue()));
+    ArgumentCaptor<TableDescriptor> tableCaptor = ArgumentCaptor.forClass(TableDescriptor.class);
+    when(mockSpec.getTable(tableCaptor.capture())).then(invocation -> graphSpec.getTable(tableCaptor.getValue()));
+    ArgumentCaptor<ContextManager> contextManagerCaptor = ArgumentCaptor.forClass(ContextManager.class);
+    when(mockSpec.withContextManager(contextManagerCaptor.capture())).then(invocation -> {
+      when(mockSpec.getContextManager()).thenReturn(contextManagerCaptor.getValue());
+      return null;
+    });
+    translator.translate(queryInfo, mockSpec);
   }
 
   @Test (expected = SamzaException.class)
@@ -402,7 +590,21 @@ public class TestQueryTranslator {
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    translator.translate(queryInfo, graphSpec);
+    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    // The following steps are used to simulate the actual logic in the constructor
+    when(mockSpec.getConfig()).thenReturn(samzaConfig);
+    when(mockSpec.getGraph()).thenReturn(graphSpec);
+    ArgumentCaptor<String> streamCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockSpec.getOutputStream(streamCaptor.capture())).then(
+        invocation -> graphSpec.getOutputStream(streamCaptor.getValue()));
+    ArgumentCaptor<TableDescriptor> tableCaptor = ArgumentCaptor.forClass(TableDescriptor.class);
+    when(mockSpec.getTable(tableCaptor.capture())).then(invocation -> graphSpec.getTable(tableCaptor.getValue()));
+    ArgumentCaptor<ContextManager> contextManagerCaptor = ArgumentCaptor.forClass(ContextManager.class);
+    when(mockSpec.withContextManager(contextManagerCaptor.capture())).then(invocation -> {
+      when(mockSpec.getContextManager()).thenReturn(contextManagerCaptor.getValue());
+      return null;
+    });
+    translator.translate(queryInfo, mockSpec);
   }
 
   @Test (expected = SamzaException.class)
@@ -425,7 +627,21 @@ public class TestQueryTranslator {
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    translator.translate(queryInfo, graphSpec);
+    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    // The following steps are used to simulate the actual logic in the constructor
+    when(mockSpec.getConfig()).thenReturn(samzaConfig);
+    when(mockSpec.getGraph()).thenReturn(graphSpec);
+    ArgumentCaptor<String> streamCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockSpec.getOutputStream(streamCaptor.capture())).then(
+        invocation -> graphSpec.getOutputStream(streamCaptor.getValue()));
+    ArgumentCaptor<TableDescriptor> tableCaptor = ArgumentCaptor.forClass(TableDescriptor.class);
+    when(mockSpec.getTable(tableCaptor.capture())).then(invocation -> graphSpec.getTable(tableCaptor.getValue()));
+    ArgumentCaptor<ContextManager> contextManagerCaptor = ArgumentCaptor.forClass(ContextManager.class);
+    when(mockSpec.withContextManager(contextManagerCaptor.capture())).then(invocation -> {
+      when(mockSpec.getContextManager()).thenReturn(contextManagerCaptor.getValue());
+      return null;
+    });
+    translator.translate(queryInfo, mockSpec);
   }
 
   @Test (expected = SamzaException.class)
@@ -444,7 +660,21 @@ public class TestQueryTranslator {
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    translator.translate(queryInfo, graphSpec);
+    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    // The following steps are used to simulate the actual logic in the constructor
+    when(mockSpec.getConfig()).thenReturn(samzaConfig);
+    when(mockSpec.getGraph()).thenReturn(graphSpec);
+    ArgumentCaptor<String> streamCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockSpec.getOutputStream(streamCaptor.capture())).then(
+        invocation -> graphSpec.getOutputStream(streamCaptor.getValue()));
+    ArgumentCaptor<TableDescriptor> tableCaptor = ArgumentCaptor.forClass(TableDescriptor.class);
+    when(mockSpec.getTable(tableCaptor.capture())).then(invocation -> graphSpec.getTable(tableCaptor.getValue()));
+    ArgumentCaptor<ContextManager> contextManagerCaptor = ArgumentCaptor.forClass(ContextManager.class);
+    when(mockSpec.withContextManager(contextManagerCaptor.capture())).then(invocation -> {
+      when(mockSpec.getContextManager()).thenReturn(contextManagerCaptor.getValue());
+      return null;
+    });
+    translator.translate(queryInfo, mockSpec);
   }
 
   @Test
@@ -463,7 +693,22 @@ public class TestQueryTranslator {
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    translator.translate(queryInfo, graphSpec);
+    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    // The following steps are used to simulate the actual logic in the constructor
+    when(mockSpec.getConfig()).thenReturn(samzaConfig);
+    when(mockSpec.getGraph()).thenReturn(graphSpec);
+    ArgumentCaptor<String> streamCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockSpec.getOutputStream(streamCaptor.capture())).then(
+        invocation -> graphSpec.getOutputStream(streamCaptor.getValue()));
+    ArgumentCaptor<TableDescriptor> tableCaptor = ArgumentCaptor.forClass(TableDescriptor.class);
+    when(mockSpec.getTable(tableCaptor.capture())).then(invocation -> graphSpec.getTable(tableCaptor.getValue()));
+    ArgumentCaptor<ContextManager> contextManagerCaptor = ArgumentCaptor.forClass(ContextManager.class);
+    when(mockSpec.withContextManager(contextManagerCaptor.capture())).then(invocation -> {
+      when(mockSpec.getContextManager()).thenReturn(contextManagerCaptor.getValue());
+      return null;
+    });
+
+    translator.translate(queryInfo, mockSpec);
     OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
 
     StreamConfig streamConfig = new StreamConfig(samzaConfig);
@@ -497,7 +742,7 @@ public class TestQueryTranslator {
     Assert.assertEquals("kafka", input3System);
     Assert.assertEquals("sql-job-1-partition_by-stream_1", input3PhysicalName);
 
-    validatePerTaskContextInit(graphSpec, samzaConfig);
+    validatePerTaskContextInit(mockSpec, samzaConfig);
   }
 
   @Test
@@ -516,7 +761,22 @@ public class TestQueryTranslator {
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    translator.translate(queryInfo, graphSpec);
+    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    // The following steps are used to simulate the actual logic in the constructor
+    when(mockSpec.getConfig()).thenReturn(samzaConfig);
+    when(mockSpec.getGraph()).thenReturn(graphSpec);
+    ArgumentCaptor<String> streamCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockSpec.getOutputStream(streamCaptor.capture())).then(
+        invocation -> graphSpec.getOutputStream(streamCaptor.getValue()));
+    ArgumentCaptor<TableDescriptor> tableCaptor = ArgumentCaptor.forClass(TableDescriptor.class);
+    when(mockSpec.getTable(tableCaptor.capture())).then(invocation -> graphSpec.getTable(tableCaptor.getValue()));
+    ArgumentCaptor<ContextManager> contextManagerCaptor = ArgumentCaptor.forClass(ContextManager.class);
+    when(mockSpec.withContextManager(contextManagerCaptor.capture())).then(invocation -> {
+      when(mockSpec.getContextManager()).thenReturn(contextManagerCaptor.getValue());
+      return null;
+    });
+
+    translator.translate(queryInfo, mockSpec);
 
     OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
 
@@ -551,7 +811,7 @@ public class TestQueryTranslator {
     Assert.assertEquals("kafka", input3System);
     Assert.assertEquals("sql-job-1-partition_by-stream_1", input3PhysicalName);
 
-    validatePerTaskContextInit(graphSpec, samzaConfig);
+    validatePerTaskContextInit(mockSpec, samzaConfig);
   }
 
   @Test
@@ -570,7 +830,22 @@ public class TestQueryTranslator {
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    translator.translate(queryInfo, graphSpec);
+    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+
+    // The following steps are used to simulate the actual logic in the constructor
+    when(mockSpec.getConfig()).thenReturn(samzaConfig);
+    when(mockSpec.getGraph()).thenReturn(graphSpec);
+    ArgumentCaptor<String> streamCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockSpec.getOutputStream(streamCaptor.capture())).then(
+        invocation -> graphSpec.getOutputStream(streamCaptor.getValue()));
+    ArgumentCaptor<TableDescriptor> tableCaptor = ArgumentCaptor.forClass(TableDescriptor.class);
+    when(mockSpec.getTable(tableCaptor.capture())).then(invocation -> graphSpec.getTable(tableCaptor.getValue()));
+    ArgumentCaptor<ContextManager> contextManagerCaptor = ArgumentCaptor.forClass(ContextManager.class);
+    when(mockSpec.withContextManager(contextManagerCaptor.capture())).then(invocation -> {
+      when(mockSpec.getContextManager()).thenReturn(contextManagerCaptor.getValue());
+      return null;
+    });
+    translator.translate(queryInfo, mockSpec);
 
     OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
 
@@ -605,7 +880,7 @@ public class TestQueryTranslator {
     Assert.assertEquals("kafka", input3System);
     Assert.assertEquals("sql-job-1-partition_by-stream_1", input3PhysicalName);
 
-    validatePerTaskContextInit(graphSpec, samzaConfig);
+    validatePerTaskContextInit(mockSpec, samzaConfig);
   }
 
   @Test
@@ -624,7 +899,22 @@ public class TestQueryTranslator {
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    translator.translate(queryInfo, graphSpec);
+    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    // The following steps are used to simulate the actual logic in the constructor
+    when(mockSpec.getConfig()).thenReturn(samzaConfig);
+    when(mockSpec.getGraph()).thenReturn(graphSpec);
+    ArgumentCaptor<String> streamCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockSpec.getOutputStream(streamCaptor.capture())).then(
+        invocation -> graphSpec.getOutputStream(streamCaptor.getValue()));
+    ArgumentCaptor<TableDescriptor> tableCaptor = ArgumentCaptor.forClass(TableDescriptor.class);
+    when(mockSpec.getTable(tableCaptor.capture())).then(invocation -> graphSpec.getTable(tableCaptor.getValue()));
+    ArgumentCaptor<ContextManager> contextManagerCaptor = ArgumentCaptor.forClass(ContextManager.class);
+    when(mockSpec.withContextManager(contextManagerCaptor.capture())).then(invocation -> {
+      when(mockSpec.getContextManager()).thenReturn(contextManagerCaptor.getValue());
+      return null;
+    });
+
+    translator.translate(queryInfo, mockSpec);
     OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
 
     Assert.assertEquals(1, specGraph.getInputOperators().size());
@@ -648,6 +938,20 @@ public class TestQueryTranslator {
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    translator.translate(queryInfo, graphSpec);
+    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    // The following steps are used to simulate the actual logic in the constructor
+    when(mockSpec.getConfig()).thenReturn(samzaConfig);
+    when(mockSpec.getGraph()).thenReturn(graphSpec);
+    ArgumentCaptor<String> streamCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockSpec.getOutputStream(streamCaptor.capture())).then(
+        invocation -> graphSpec.getOutputStream(streamCaptor.getValue()));
+    ArgumentCaptor<TableDescriptor> tableCaptor = ArgumentCaptor.forClass(TableDescriptor.class);
+    when(mockSpec.getTable(tableCaptor.capture())).then(invocation -> graphSpec.getTable(tableCaptor.getValue()));
+    ArgumentCaptor<ContextManager> contextManagerCaptor = ArgumentCaptor.forClass(ContextManager.class);
+    when(mockSpec.withContextManager(contextManagerCaptor.capture())).then(invocation -> {
+      when(mockSpec.getContextManager()).thenReturn(contextManagerCaptor.getValue());
+      return null;
+    });
+    translator.translate(queryInfo, mockSpec);
   }
 }

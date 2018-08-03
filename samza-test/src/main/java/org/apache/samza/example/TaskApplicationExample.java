@@ -21,7 +21,7 @@ public class TaskApplicationExample implements TaskApplication {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     ApplicationRuntime appRuntime = ApplicationRuntimes.getApplicationRuntime(new TaskApplicationExample(), config);
-    appRuntime.start();
+    appRuntime.run();
     appRuntime.waitForFinish();
   }
 

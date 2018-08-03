@@ -13,12 +13,12 @@ public interface ApplicationRuntime {
   /**
    * Start an application
    */
-  void start();
+  void run();
 
   /**
    * Stop an application
    */
-  void stop();
+  void kill();
 
   /**
    * Get the {@link ApplicationStatus} of an application

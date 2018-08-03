@@ -125,7 +125,7 @@ object SamzaContainer extends Logging {
     jobModel: JobModel,
     config: Config,
     customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter](),
-    taskFactory: Object) = {
+    taskFactory: TaskFactory[_]) = {
     val containerModel = jobModel.getContainers.get(containerId)
     val containerName = "samza-container-%s" format containerId
     val maxChangeLogStreamPartitions = jobModel.maxChangeLogStreamPartitions

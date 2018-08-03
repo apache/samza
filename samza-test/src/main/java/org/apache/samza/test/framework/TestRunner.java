@@ -31,8 +31,12 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.ApplicationSpec;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.internal.StreamAppSpecImpl;
+import org.apache.samza.application.internal.TaskAppSpecImpl;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.InMemorySystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -287,14 +291,18 @@ public class TestRunner {
     Preconditions.checkState(!timeout.isZero() || !timeout.isNegative(),
         "Timeouts should be positive");
     final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
-    if (app == null) {
-      runner.runTask();
-    } else {
-      runner.run(app);
-    }
-    boolean timedOut = !runner.waitForFinish(timeout);
+    ApplicationSpec appSpec = app == null ? new TaskAppSpecImpl(spec -> spec.setTaskFactory(() -> {
+      try {
+        return taskClass.newInstance();
+      } catch (InstantiationException | IllegalAccessException e) {
+        throw new ConfigException(e);
+      }
+    }), new MapConfig(configs)) :
+        new StreamAppSpecImpl(app, new MapConfig(configs));
+    runner.run(appSpec);
+    boolean timedOut = !runner.waitForFinish(appSpec, timeout);
     Assert.assertFalse("Timed out waiting for application to finish", timedOut);
-    ApplicationStatus status = runner.status(app);
+    ApplicationStatus status = runner.status(appSpec);
     if (status.getStatusCode() == ApplicationStatus.StatusCode.UnsuccessfulFinish) {
       throw new SamzaException(ExceptionUtils.getStackTrace(status.getThrowable()));
     }

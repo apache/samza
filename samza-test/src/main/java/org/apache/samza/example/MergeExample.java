@@ -39,7 +39,7 @@ public class MergeExample implements StreamApplication {
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     ApplicationRuntime app = ApplicationRuntimes.getApplicationRuntime(new MergeExample(), config);
 
-    app.start();
+    app.run();
     app.waitForFinish();
   }
 

@@ -72,7 +72,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
 
     initializeTopics(inputTopicName1, inputTopicName2, outputTopicName);
 
-    // start the application
+    // run the application
     RepartitionJoinWindowApp app = new RepartitionJoinWindowApp();
     String appName = "UserPageAdClickCounter";
     Map<String, String> configs = new HashMap<>();
@@ -81,7 +81,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_NAME_2_PROP, inputTopicName2);
     configs.put(RepartitionJoinWindowApp.OUTPUT_TOPIC_NAME_PROP, outputTopicName);
 
-    // start the application
+    // run the application
     Thread runThread = runApplication(app.getClass().getName(), appName, new MapConfig(configs)).getRunThread();
 
     // consume and validate result
@@ -103,7 +103,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
 
     initializeTopics(inputTopicName1, inputTopicName2, outputTopicName);
 
-    // start the application
+    // run the application
     RepartitionJoinWindowApp app = new RepartitionJoinWindowApp();
     final String appName = "UserPageAdClickCounter2";
     Map<String, String> configs = new HashMap<>();
@@ -160,7 +160,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     configs.put(BroadcastAssertApp.INPUT_TOPIC_NAME_PROP, inputTopicName1);
 
     initializeTopics(inputTopicName1, inputTopicName2, outputTopicName);
-    // start the application
+    // run the application
     Thread runThread = runApplication(BroadcastAssertApp.class.getName(), "BroadcastTest", new MapConfig(configs)).getRunThread();
 
     runThread.interrupt();

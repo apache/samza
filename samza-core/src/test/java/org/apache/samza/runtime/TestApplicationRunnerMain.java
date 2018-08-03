@@ -19,8 +19,9 @@
 package org.apache.samza.runtime;
 
 import java.time.Duration;
-import org.apache.samza.application.internal.StreamApplicationSpecRuntime;
-import org.apache.samza.application.internal.TaskApplicationSpecRuntime;
+import org.apache.samza.application.internal.StreamAppSpecImpl;
+import org.apache.samza.application.internal.TaskAppSpecImpl;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.job.ApplicationStatus;
 import org.junit.Test;
@@ -38,7 +39,7 @@ public class TestApplicationRunnerMain {
         "org.apache.samza.config.factories.PropertiesConfigFactory",
         "--config-path",
         getClass().getResource("/test.properties").getPath(),
-        "-config", ApplicationRunnerMain.APP_CLASS_CFG + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
+        "-config", ApplicationConfig.APP_CLASS + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
         "-config", "app.runner.class=org.apache.samza.runtime.TestApplicationRunnerMain$TestApplicationRunnerInvocationCounts"
     });
 
@@ -53,7 +54,7 @@ public class TestApplicationRunnerMain {
         "org.apache.samza.config.factories.PropertiesConfigFactory",
         "--config-path",
         getClass().getResource("/test.properties").getPath(),
-        "-config", ApplicationRunnerMain.APP_CLASS_CFG + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
+        "-config", ApplicationConfig.APP_CLASS + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
         "-config", "app.runner.class=org.apache.samza.runtime.TestApplicationRunnerMain$TestApplicationRunnerInvocationCounts",
         "--operation=kill"
     });
@@ -69,7 +70,7 @@ public class TestApplicationRunnerMain {
         "org.apache.samza.config.factories.PropertiesConfigFactory",
         "--config-path",
         getClass().getResource("/test.properties").getPath(),
-        "-config", ApplicationRunnerMain.APP_CLASS_CFG + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
+        "-config", ApplicationConfig.APP_CLASS + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
         "-config", "app.runner.class=org.apache.samza.runtime.TestApplicationRunnerMain$TestApplicationRunnerInvocationCounts",
         "--operation=status"
     });
@@ -99,7 +100,7 @@ public class TestApplicationRunnerMain {
       return ApplicationStatus.Running;
     }
 
-    class TestAppLifecycle implements ApplicationLifecycle {
+    class TestAppExecutable implements AppRuntimeExecutable {
 
       @Override
       public void run() {
@@ -123,14 +124,15 @@ public class TestApplicationRunnerMain {
     }
 
     @Override
-    protected ApplicationLifecycle getTaskAppLifecycle(TaskApplicationSpecRuntime appSpec) {
-      return new TestAppLifecycle();
+    AppRuntimeExecutable getTaskAppRuntimeExecutable(TaskAppSpecImpl appSpec) {
+      return new TestAppExecutable();
     }
 
     @Override
-    protected ApplicationLifecycle getStreamAppLifecycle(StreamApplicationSpecRuntime appSpec) {
-      return new TestAppLifecycle();
+    AppRuntimeExecutable getStreamAppRuntimeExecutable(StreamAppSpecImpl appSpec) {
+      return new TestAppExecutable();
     }
+
   }
 
 }

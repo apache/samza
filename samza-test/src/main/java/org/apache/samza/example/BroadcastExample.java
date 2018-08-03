@@ -42,7 +42,7 @@ public class BroadcastExample implements StreamApplication {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     ApplicationRuntime app = ApplicationRuntimes.getApplicationRuntime(new BroadcastExample(), config);
-    app.start();
+    app.run();
     app.waitForFinish();
   }
 

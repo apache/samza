@@ -109,17 +109,17 @@ public class SamzaSqlApplicationRuntime implements ApplicationRuntime {
 
   public void runAndWaitForFinish() {
     Validate.isTrue(localRunner, "This method can be called only in standalone mode.");
-    start();
+    run();
     waitForFinish();
   }
 
   @Override
-  public void start() {
+  public void run() {
     runner.run(appSpec);
   }
 
   @Override
-  public void stop() {
+  public void kill() {
     runner.kill(appSpec);
   }
 

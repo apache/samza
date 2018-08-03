@@ -194,7 +194,7 @@ object StreamTaskTestUtil {
 }
 
 /* This class implement the base utility to implement an integration test for StreamTask
- * It implements helper functions to start/stop the job, send messages to a task, and read all messages from a topic
+ * It implements helper functions to start/kill the job, send messages to a task, and read all messages from a topic
  */
 class StreamTaskTestUtil {
   import StreamTaskTestUtil._

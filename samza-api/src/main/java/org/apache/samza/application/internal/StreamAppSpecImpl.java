@@ -5,7 +5,6 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplicationSpec;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
@@ -18,11 +17,11 @@ import org.apache.samza.table.Table;
 /**
  * Created by yipan on 7/10/18.
  */
-public class StreamAppSpecImpl extends AppSpecImpl<StreamApplication> implements StreamApplicationSpec {
+public class StreamAppSpecImpl extends AppSpecImpl<StreamApplication, StreamApplicationSpec> implements StreamApplicationSpec {
   final StreamGraph graph;
 
   public StreamAppSpecImpl(StreamApplication userApp, Config config) {
-    super(userApp, config);
+    super(config);
     this.graph = createDefaultGraph(config);
     userApp.describe(this);
   }
@@ -64,12 +63,6 @@ public class StreamAppSpecImpl extends AppSpecImpl<StreamApplication> implements
   @Override
   public <K, V> Table<KV<K, V>> getTable(TableDescriptor<K, V, ?> tableDesc) {
     return this.graph.getTable(tableDesc);
-  }
-
-  @Override
-  public StreamApplicationSpec withContextManager(ContextManager contextManager) {
-    super.setContextManager(contextManager);
-    return this;
   }
 
   public StreamGraph getGraph() {

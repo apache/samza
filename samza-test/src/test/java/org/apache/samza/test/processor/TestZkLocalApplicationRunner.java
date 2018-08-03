@@ -233,7 +233,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 //    CountDownLatch secondProcessorRegistered = new CountDownLatch(1);
 //
 //    zkUtils.subscribeToProcessorChange((parentPath, currentChilds) -> {
-//        // When streamApp2 with id: PROCESSOR_IDS[1] is registered, start processing message in streamApp1.
+//        // When streamApp2 with id: PROCESSOR_IDS[1] is registered, run processing message in streamApp1.
 //        if (currentChilds.contains(PROCESSOR_IDS[1])) {
 //          secondProcessorRegistered.countDown();
 //        }
@@ -279,9 +279,9 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 //    assertEquals(previousJobModel[0], updatedJobModel);
 //    assertEquals(new MapConfig(), updatedJobModel.getConfig());
 //    assertEquals(NUM_KAFKA_EVENTS, processedMessagesLatch.getCount());
-//    streamApp1.stop();
+//    streamApp1.kill();
 //    streamApp1.waitForFinish();
-//    streamApp2.stop();
+//    streamApp2.kill();
 //    streamApp2.waitForFinish();
 //    assertEquals(streamApp1.status(), ApplicationStatus.SuccessfulFinish);
 //    assertEquals(streamApp2.status(), ApplicationStatus.UnsuccessfulFinish);
@@ -315,7 +315,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 //    final CountDownLatch secondProcessorRegistered = new CountDownLatch(1);
 //
 //    zkUtils.subscribeToProcessorChange((parentPath, currentChilds) -> {
-//        // When streamApp2 with id: PROCESSOR_IDS[1] is registered, start processing message in streamApp1.
+//        // When streamApp2 with id: PROCESSOR_IDS[1] is registered, run processing message in streamApp1.
 //        if (currentChilds.contains(PROCESSOR_IDS[1])) {
 //          secondProcessorRegistered.countDown();
 //        }
@@ -341,7 +341,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 //      }
 //    };
 //
-//    // This is the latch for the messages received by streamApp1. Since streamApp1 is start first, it gets one event
+//    // This is the latch for the messages received by streamApp1. Since streamApp1 is run first, it gets one event
 //    // redelivered due to re-balancing done by Zk after the streamApp2 joins (See the callback above).
 //    CountDownLatch kafkaEventsConsumedLatch = new CountDownLatch(NUM_KAFKA_EVENTS * 2 + 1);
 //
@@ -383,9 +383,9 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 //    processedMessagesLatch.await();
 //
 //    assertEquals(ApplicationStatus.Running, localApplicationRunner2.status(streamApp2));
-//    streamApp1.stop();
+//    streamApp1.kill();
 //    streamApp1.waitForFinish();
-//    streamApp2.stop();
+//    streamApp2.kill();
 //    streamApp2.waitForFinish();
 //    assertEquals(streamApp1.status(), ApplicationStatus.SuccessfulFinish);
 //  }
@@ -429,7 +429,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 //    assertEquals(PROCESSOR_IDS[0], processorIdsFromZK.get(0));
 //
 //    // Kill the leader. Since streamApp1 is the first to join the cluster, it's the leader.
-//    streamApp1.stop();
+//    streamApp1.kill();
 //    streamApp1.waitForFinish();
 //
 //    assertEquals(streamApp1.status(), ApplicationStatus.SuccessfulFinish);
@@ -449,10 +449,10 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 //    assertEquals(Sets.newHashSet("0000000001", "0000000002"), jobModel.getContainers().keySet());
 //    assertEquals(2, jobModel.getContainers().size());
 //
-//    streamApp2.stop();
+//    streamApp2.kill();
 //    streamApp2.waitForFinish();
 //    assertEquals(streamApp2.status(), ApplicationStatus.SuccessfulFinish);
-//    streamApp3.stop();
+//    streamApp3.kill();
 //    streamApp3.waitForFinish();
 //    assertEquals(streamApp3.status(), ApplicationStatus.SuccessfulFinish);
 //  }
@@ -476,11 +476,11 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 //    streamApp1.run();
 //    streamApp2.run();
 //
-//    // Wait for message processing to start in both the processors.
+//    // Wait for message processing to run in both the processors.
 //    processedMessagesLatch1.await();
 //    processedMessagesLatch2.await();
 //
-//    // Create a stream app with same processor id as SP2 and start it. It should fail.
+//    // Create a stream app with same processor id as SP2 and run it. It should fail.
 //    publishKafkaEvents(inputKafkaTopic, NUM_KAFKA_EVENTS, 2 * NUM_KAFKA_EVENTS, PROCESSOR_IDS[2]);
 //    kafkaEventsConsumedLatch = new CountDownLatch(NUM_KAFKA_EVENTS);
 //    StreamApplication
@@ -488,10 +488,10 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 //    // Fail when the duplicate processor joins.
 //    expectedException.expect(SamzaException.class);
 //    try {
-//      streamApp3.start();
+//      streamApp3.run();
 //    } finally {
-//      streamApp1.stop();
-//      streamApp2.stop();
+//      streamApp1.kill();
+//      streamApp2.kill();
 //
 //      streamApp1.waitForFinish();
 //      streamApp2.waitForFinish();
@@ -548,7 +548,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 //    processedMessagesLatch1 = new CountDownLatch(1);
 //    publishKafkaEvents(inputKafkaTopic, NUM_KAFKA_EVENTS, 2 * NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
 //    streamApp1 = TestStreamApplication.getInstance(inputKafkaTopic, outputKafkaTopic, processedMessagesLatch1, streamApplicationCallback, kafkaEventsConsumedLatch, applicationConfig1);
-//    streamApp1.start();
+//    streamApp1.run();
 //
 //    processedMessagesLatch1.await();
 //
@@ -559,10 +559,10 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 //    assertEquals(Integer.parseInt(jobModelVersion) + 1, Integer.parseInt(newJobModelVersion));
 //    assertEquals(jobModel.getContainers(), newJobModel.getContainers());
 //
-//    streamApp2.stop();
+//    streamApp2.kill();
 //    streamApp2.waitForFinish();
 //    assertEquals(streamApp2.status(), ApplicationStatus.SuccessfulFinish);
-//    streamApp1.stop();
+//    streamApp1.kill();
 //    streamApp1.waitForFinish();
 //    assertEquals(streamApp1.status(), ApplicationStatus.SuccessfulFinish);
 //  }

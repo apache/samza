@@ -3,7 +3,7 @@ package org.apache.samza.runtime;
 import java.time.Duration;
 import java.util.Map;
 import org.apache.samza.application.ApplicationSpec;
-import org.apache.samza.application.LifecycleAwareApplication;
+import org.apache.samza.application.ApplicationBase;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.application.internal.StreamAppSpecImpl;
@@ -24,7 +24,7 @@ public class ApplicationRuntimes {
 
   }
 
-  public static final ApplicationRuntime getApplicationRuntime(LifecycleAwareApplication userApp, Config config) {
+  public static final ApplicationRuntime getApplicationRuntime(ApplicationBase userApp, Config config) {
     if (userApp instanceof StreamApplication) {
       return new AppRuntimeImpl(new StreamAppSpecImpl((StreamApplication) userApp, config));
     }
@@ -45,12 +45,12 @@ public class ApplicationRuntimes {
     }
 
     @Override
-    public void start() {
+    public void run() {
       this.runner.run(appSpec);
     }
 
     @Override
-    public void stop() {
+    public void kill() {
       this.runner.kill(appSpec);
     }
 

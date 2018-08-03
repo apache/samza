@@ -37,7 +37,7 @@ public class ApplicationRunnerMain {
 
   public static class ApplicationRunnerCommandLine extends CommandLine {
     public OptionSpec operationOpt =
-        parser().accepts("operation", "The operation to perform; start, status, stop.")
+        parser().accepts("operation", "The operation to perform; start, status, kill.")
             .withRequiredArg()
             .ofType(String.class)
             .describedAs("operation=start")
@@ -60,10 +60,10 @@ public class ApplicationRunnerMain {
 
     switch (op) {
       case RUN:
-        appRuntime.start();
+        appRuntime.run();
         break;
       case KILL:
-        appRuntime.stop();
+        appRuntime.kill();
         break;
       case STATUS:
         System.out.println(appRuntime.status());

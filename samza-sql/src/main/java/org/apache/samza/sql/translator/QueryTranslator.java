@@ -31,6 +31,7 @@ import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplicationSpec;
+import org.apache.samza.application.internal.StreamAppSpecImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.KV;
@@ -97,7 +98,7 @@ public class QueryTranslator {
             sqlConfig.getUdfMetadata());
     final SamzaSqlExecutionContext executionContext = new SamzaSqlExecutionContext(this.sqlConfig);
     final RelRoot relRoot = planner.plan(queryInfo.getSelectQuery());
-    final TranslatorContext context = new TranslatorContext(appSpec, relRoot, executionContext, this.converters);
+    final TranslatorContext context = new TranslatorContext(((StreamAppSpecImpl)appSpec).getGraph(), relRoot, executionContext, this.converters);
     final RelNode node = relRoot.project();
     final SqlIOResolver ioResolver = context.getExecutionContext().getSamzaSqlApplicationConfig().getIoResolver();
 

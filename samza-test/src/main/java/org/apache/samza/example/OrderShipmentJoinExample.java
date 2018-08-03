@@ -44,7 +44,7 @@ public class OrderShipmentJoinExample implements StreamApplication {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     ApplicationRuntime app = ApplicationRuntimes.getApplicationRuntime(new OrderShipmentJoinExample(), config);
-    app.start();
+    app.run();
     app.waitForFinish();
   }
 

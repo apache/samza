@@ -46,7 +46,7 @@ public class RepartitionExample implements StreamApplication {
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     ApplicationRuntime app = ApplicationRuntimes.getApplicationRuntime(new RepartitionExample(), config);
 
-    app.start();
+    app.run();
     app.waitForFinish();
   }
 

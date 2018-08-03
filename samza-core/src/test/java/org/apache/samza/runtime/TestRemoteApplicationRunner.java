@@ -20,6 +20,7 @@
 package org.apache.samza.runtime;
 
 import java.time.Duration;
+import org.apache.samza.application.StreamApplicationSpec;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.ApplicationStatus;
@@ -36,18 +37,20 @@ public class TestRemoteApplicationRunner {
   @Test
   public void testWaitForFinishReturnsBeforeTimeout() {
     RemoteApplicationRunner runner = spy(new RemoteApplicationRunner(new MapConfig()));
+    StreamApplicationSpec mockSpec = mock(StreamApplicationSpec.class);
     doReturn(ApplicationStatus.SuccessfulFinish).when(runner).getApplicationStatus(any(JobConfig.class));
 
-    boolean finished = runner.waitForFinish(Duration.ofMillis(5000));
+    boolean finished = runner.waitForFinish(mockSpec, Duration.ofMillis(5000));
     assertTrue("Application did not finish before the timeout.", finished);
   }
 
   @Test
   public void testWaitForFinishTimesout() {
     RemoteApplicationRunner runner = spy(new RemoteApplicationRunner(new MapConfig()));
+    StreamApplicationSpec mockSpec = mock(StreamApplicationSpec.class);
     doReturn(ApplicationStatus.Running).when(runner).getApplicationStatus(any(JobConfig.class));
 
-    boolean finished = runner.waitForFinish(Duration.ofMillis(1000));
+    boolean finished = runner.waitForFinish(mockSpec, Duration.ofMillis(1000));
     assertFalse("Application finished before the timeout.", finished);
   }
 }

@@ -11,11 +11,11 @@ import org.apache.samza.task.TaskFactoryUtil;
  * Created by yipan on 7/22/18.
  */
 public class ApplicationClassUtils {
-  public static LifecycleAwareApplication fromConfig(Config config) {
+  public static ApplicationBase fromConfig(Config config) {
     ApplicationConfig appConfig = new ApplicationConfig(config);
     if (appConfig.getAppClass() != null && !appConfig.getAppClass().isEmpty()) {
       try {
-        Class<LifecycleAwareApplication> appClass = (Class<LifecycleAwareApplication>) Class.forName(appConfig.getAppClass());
+        Class<ApplicationBase> appClass = (Class<ApplicationBase>) Class.forName(appConfig.getAppClass());
         if (StreamApplication.class.isAssignableFrom(appClass) || TaskApplication.class.isAssignableFrom(appClass)) {
           return appClass.newInstance();
         }

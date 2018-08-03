@@ -32,22 +32,11 @@ import java.util.concurrent.ExecutorService;
 import static org.apache.samza.util.ScalaJavaUtil.toScalaFunction;
 
 /**
- * This class provides utility functions to load task factory classes based on config, and to wrap {@link StreamTaskFactory} in {@link AsyncStreamTaskFactory}
- * when running {@link StreamTask}s in multi-thread mode
+ * This class provides utility functions to load task factory classes based on config, and to wrap {@link StreamTaskFactory}
+ * in {@link AsyncStreamTaskFactory} when running {@link StreamTask}s in multi-thread mode
  */
 public class TaskFactoryUtil {
   private static final Logger log = LoggerFactory.getLogger(TaskFactoryUtil.class);
-
-  /**
-   * This method creates a task factory class based on the {@link OperatorSpecGraph}
-   *
-   * @param specGraph the {@link OperatorSpecGraph}
-   * @param contextManager the {@link ContextManager} to set up initial context for {@code specGraph}
-   * @return  a task factory object, either a instance of {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory}
-   */
-  public static TaskFactory createTaskFactory(OperatorSpecGraph specGraph, ContextManager contextManager) {
-    return createStreamOperatorTaskFactory(specGraph, contextManager);
-  }
 
   /**
    * This method creates a task factory class based on the configuration
@@ -57,10 +46,6 @@ public class TaskFactoryUtil {
    */
   public static TaskFactory createTaskFactory(Config config) {
     return fromTaskClassConfig(config);
-  }
-
-  private static StreamTaskFactory createStreamOperatorTaskFactory(OperatorSpecGraph specGraph, ContextManager contextManager) {
-    return () -> new StreamOperatorTask(specGraph, contextManager);
   }
 
   /**

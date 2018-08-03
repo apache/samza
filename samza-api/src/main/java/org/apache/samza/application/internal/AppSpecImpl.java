@@ -1,23 +1,38 @@
 package org.apache.samza.application.internal;
 
 import org.apache.samza.application.ApplicationSpec;
-import org.apache.samza.application.LifecycleAwareApplication;
+import org.apache.samza.application.ApplicationBase;
+import org.apache.samza.application.ProcessorLifecycleListener;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.ContextManager;
+import org.apache.samza.task.TaskContext;
 
 
 /**
  * Created by yipan on 7/10/18.
  */
-abstract class AppSpecImpl<T extends LifecycleAwareApplication> implements ApplicationSpec<T> {
-  final Config config;
-  final T userApp;
-  ContextManager contextManager;
+public abstract class AppSpecImpl<T extends ApplicationBase, S extends ApplicationSpec<T>> implements ApplicationSpec<T> {
 
-  protected AppSpecImpl(T userApp, Config config) {
+  final Config config;
+
+  // Default to no-op functions in ContextManager
+  ContextManager contextManager = new ContextManager() {
+    @Override
+    public void init(Config config, TaskContext context) {
+    }
+
+    @Override
+    public void close() {
+    }
+  };
+
+  // Default to no-op functions in ProcessorLifecycleListener
+  ProcessorLifecycleListener listener = new ProcessorLifecycleListener() {
+  };
+
+  protected AppSpecImpl(Config config) {
     this.config = config;
-    this.userApp = userApp;
   }
 
   public static class AppConfig extends MapConfig {
@@ -66,16 +81,24 @@ abstract class AppSpecImpl<T extends LifecycleAwareApplication> implements Appli
     return config;
   }
 
-  public T getUserApp() {
-    return userApp;
+  @Override
+  public S withContextManager(ContextManager contextManager) {
+    this.contextManager = contextManager;
+    return (S) this;
+  }
+
+  @Override
+  public S withProcessorLifecycleListener(ProcessorLifecycleListener listener) {
+    this.listener = listener;
+    return (S) this;
   }
 
   public ContextManager getContextManager() {
     return contextManager;
   }
 
-  protected void setContextManager(ContextManager contextManager) {
-    this.contextManager = contextManager;
+  public ProcessorLifecycleListener getProcessorLifecycleListner() {
+    return listener;
   }
 
 }

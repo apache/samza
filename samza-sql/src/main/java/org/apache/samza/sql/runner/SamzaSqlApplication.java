@@ -36,7 +36,7 @@ public class SamzaSqlApplication implements StreamApplication {
   private static final Logger LOG = LoggerFactory.getLogger(SamzaSqlApplication.class);
 
   @Override
-  public void setup(StreamApplicationSpec appSpec) {
+  public void describe(StreamApplicationSpec appSpec) {
     try {
       SamzaSqlApplicationConfig sqlConfig = new SamzaSqlApplicationConfig(appSpec.getConfig());
       QueryTranslator queryTranslator = new QueryTranslator(sqlConfig);
