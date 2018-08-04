@@ -150,9 +150,6 @@ public class StreamSpec implements Serializable {
    * @param config          A map of properties for the stream. These may be System-specfic.
    */
   public StreamSpec(String id, String physicalName, String systemName, int partitionCount, Map<String, String> config) {
-    validateLogicalIdentifier("streamId", id);
-    validateLogicalIdentifier("systemName", systemName);
-
     // partition count being 0 is a valid use case in Hadoop when the output stream is an empty folder
     if (partitionCount < 0) {
       throw new IllegalArgumentException("Parameter 'partitionCount' must be >= 0");
@@ -162,6 +159,9 @@ public class StreamSpec implements Serializable {
     this.systemName = systemName;
     this.physicalName = physicalName;
     this.partitionCount = partitionCount;
+
+    validateLogicalIdentifier("streamId", id);
+    validateLogicalIdentifier("systemName", systemName);
 
     if (config != null) {
       this.config = Collections.unmodifiableMap(new HashMap<>(config));
@@ -228,7 +228,7 @@ public class StreamSpec implements Serializable {
 
   private void validateLogicalIdentifier(String identifierName, String identifierValue) {
     if (identifierValue == null || !identifierValue.matches("[A-Za-z0-9_-]+")) {
-      throw new IllegalArgumentException(String.format("Identifier '%s' is '%s'. It must match the expression [A-Za-z0-9_-]+", identifierName, identifierValue));
+      throw new IllegalArgumentException(String.format("Identifier '%s' is '%s'. It must match the expression [A-Za-z0-9_-]+. %s", identifierName, identifierValue, this.toString()));
     }
   }
 
@@ -265,6 +265,6 @@ public class StreamSpec implements Serializable {
 
   @Override
   public String toString() {
-    return String.format("StreamSpec: id=%s, systemName=%s, pName=%s, partCount=%d.", id, systemName, physicalName, partitionCount);
+    return String.format("Stream spec: id = %s, system name = %s, physical name = %s, partition count = %d.", id, systemName, physicalName, partitionCount);
   }
 }
