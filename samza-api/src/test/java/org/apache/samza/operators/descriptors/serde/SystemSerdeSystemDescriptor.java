@@ -31,7 +31,7 @@ public class SystemSerdeSystemDescriptor extends SimpleSystemDescriptor<String, 
   }
 
   public SystemSerdeInputDescriptor<String> getInputDescriptor(String streamId) {
-    return new SystemSerdeInputDescriptor<>(streamId, this, null, getSerde());
+    return new SystemSerdeInputDescriptor<>(streamId, this, null, getSystemSerde().get());
   }
 
   public <TStream> SystemSerdeInputDescriptor<TStream> getInputDescriptor(String streamId, Serde<TStream> serde) {
@@ -40,7 +40,7 @@ public class SystemSerdeSystemDescriptor extends SimpleSystemDescriptor<String, 
 
   @Override
   public <StreamMessageType> SystemSerdeInputDescriptor<StreamMessageType> getInputDescriptor(String streamId, InputTransformer<StreamMessageType> transformer) {
-    return new SystemSerdeInputDescriptor<>(streamId, this, transformer, getSerde());
+    return new SystemSerdeInputDescriptor<>(streamId, this, transformer, getSystemSerde().get());
   }
 
   @Override
@@ -50,7 +50,7 @@ public class SystemSerdeSystemDescriptor extends SimpleSystemDescriptor<String, 
 
   @Override
   public SystemSerdeOutputDescriptor<String> getOutputDescriptor(String streamId) {
-    return new SystemSerdeOutputDescriptor<>(streamId, this, getSerde());
+    return new SystemSerdeOutputDescriptor<>(streamId, this, getSystemSerde().get());
   }
 
   @Override

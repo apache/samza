@@ -94,7 +94,7 @@ public class TestIMETransformingDescriptors {
     IMETransformingInputDescriptor<Long> defaultISD =
         imeTransformingSystem.getInputDescriptor("input-stream");
 
-    assertEquals(imeTransformingSystem.getSerde(), defaultISD.getSerde());
+    assertEquals(imeTransformingSystem.getSystemSerde().get(), defaultISD.getSerde());
     assertEquals(imeTransformingSystem.getTransformer(), defaultISD.getTransformer().get());
   }
 }

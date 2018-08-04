@@ -26,9 +26,8 @@ import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 
+@SuppressWarnings("unchecked")
 public class SystemSerdeInputDescriptor<StreamMessageType> extends InputDescriptor<StreamMessageType, SystemSerdeInputDescriptor<StreamMessageType>> {
-  private String consumerDeserializationMode; // TODO this is a system config, not stream config
-
   SystemSerdeInputDescriptor(String streamId, String systemName) {
     super(streamId, systemName, KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()), null, null);
   }
@@ -43,11 +42,6 @@ public class SystemSerdeInputDescriptor<StreamMessageType> extends InputDescript
 
   public static <StreamMessageType> SystemSerdeInputDescriptor<KV<String, StreamMessageType>> from(
       String streamId, String systemName, Class<StreamMessageType> messageType) {
-    return new SystemSerdeInputDescriptor(streamId, systemName).setConsumerDeserializationMode("specific");
-  }
-
-  public SystemSerdeInputDescriptor<StreamMessageType> setConsumerDeserializationMode(String consumerDeserializationMode) {
-    this.consumerDeserializationMode = consumerDeserializationMode;
-    return this;
+    return new SystemSerdeInputDescriptor(streamId, systemName);
   }
 }

@@ -25,6 +25,7 @@ import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.IncomingMessageEnvelope;
 
+@SuppressWarnings("unchecked")
 public class GraphExpandingSystemDescriptor extends ExpandingSystemDescriptor<String, Long, GraphExpandingSystemDescriptor> {
   private static final String FACTORY_CLASS_NAME = "org.apache.samza.GraphExpandingSystemFactory";
 
@@ -38,7 +39,7 @@ public class GraphExpandingSystemDescriptor extends ExpandingSystemDescriptor<St
 
   @Override
   public GraphExpandingInputDescriptor<Long> getInputDescriptor(String streamId) {
-    return new GraphExpandingInputDescriptor<>(streamId, this, null, getSerde());
+    return new GraphExpandingInputDescriptor<>(streamId, this, null, getSystemSerde().get());
   }
 
   @Override
@@ -48,7 +49,7 @@ public class GraphExpandingSystemDescriptor extends ExpandingSystemDescriptor<St
 
   @Override
   public GraphExpandingInputDescriptor<Long> getInputDescriptor(String streamId, InputTransformer transformer) {
-    return new GraphExpandingInputDescriptor<>(streamId, this, transformer, getSerde());
+    return new GraphExpandingInputDescriptor<>(streamId, this, transformer, getSystemSerde().get());
   }
 
   @Override
@@ -58,7 +59,7 @@ public class GraphExpandingSystemDescriptor extends ExpandingSystemDescriptor<St
 
   @Override
   public GraphExpandingOutputDescriptor<String> getOutputDescriptor(String streamId) {
-    return new GraphExpandingOutputDescriptor<>(streamId, this, getSerde());
+    return new GraphExpandingOutputDescriptor<>(streamId, this, getSystemSerde().get());
   }
 
   @Override

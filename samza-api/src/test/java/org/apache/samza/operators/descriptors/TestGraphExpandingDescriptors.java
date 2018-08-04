@@ -87,7 +87,7 @@ public class TestGraphExpandingDescriptors {
     GraphExpandingSystemDescriptor expandingSystem = new GraphExpandingSystemDescriptor("expandingSystem");
     GraphExpandingInputDescriptor<Long> defaultISD = expandingSystem.getInputDescriptor("input-stream");
 
-    assertEquals(expandingSystem.getSerde(), defaultISD.getSerde());
+    assertEquals(expandingSystem.getSystemSerde().get(), defaultISD.getSerde());
     assertEquals(expandingSystem.getTransformer(), defaultISD.getTransformer().get());
   }
 }

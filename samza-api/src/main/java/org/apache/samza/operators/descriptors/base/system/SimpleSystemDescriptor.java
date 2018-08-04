@@ -37,14 +37,14 @@ public abstract class SimpleSystemDescriptor<SystemMessageType, SubClass extends
    *
    * @param systemName name of this system
    * @param factoryClassName name of the SystemFactory class for this system
-   * @param serde default serde for the system, or null.
-   *              If null, the default system serde is a {@code KVSerde<NoOpSerde, NoOpSerde>}
-   *              A {@code KVSerde<NoOpSerde, NoOpSerde>} or {@code NoOpSerde} may be provided if the
-   *              System's consumer deserializes the incoming messages itself, and no further deserialization
-   *              is required from the framework.
+   * @param systemSerde default serde for the system, or null.
+   *                    If null, input/output descriptor serde must be provided at a stream level.
+   *                    A {@code KVSerde<NoOpSerde, NoOpSerde>} or {@code NoOpSerde} may be provided if the
+   *                    System's consumer deserializes the incoming messages itself, and no further deserialization
+   *                    is required from the framework.
    */
-  public SimpleSystemDescriptor(String systemName, String factoryClassName, Serde<SystemMessageType> serde) {
-    super(systemName, factoryClassName, serde);
+  public SimpleSystemDescriptor(String systemName, String factoryClassName, Serde<SystemMessageType> systemSerde) {
+    super(systemName, factoryClassName, systemSerde);
   }
 
   /**

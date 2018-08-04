@@ -40,16 +40,16 @@ public abstract class TransformingSystemDescriptor<SystemMessageType, SystemTran
    *
    * @param systemName name of this system
    * @param factoryClassName name of the SystemFactory class for this system
-   * @param serde default serde for the system, or null.
-   *              If null, the default system serde is a {@code KVSerde<NoOpSerde, NoOpSerde>}
-   *              A {@code KVSerde<NoOpSerde, NoOpSerde>} or {@code NoOpSerde} may be provided if the
-   *              System's consumer deserializes the incoming messages itself, and no further deserialization
-   *              is required from the framework.
+   * @param systemSerde default serde for the system, or null.
+   *                    If null, input/output descriptor serde must be provided at a stream level.
+   *                    A {@code KVSerde<NoOpSerde, NoOpSerde>} or {@code NoOpSerde} may be provided if the
+   *                    System's consumer deserializes the incoming messages itself, and no further deserialization
+   *                    is required from the framework.
    * @param transformer default input stream transformer for this system
    */
-  public TransformingSystemDescriptor(String systemName, String factoryClassName, Serde<SystemMessageType> serde,
+  public TransformingSystemDescriptor(String systemName, String factoryClassName, Serde<SystemMessageType> systemSerde,
       InputTransformer<SystemTransformerType> transformer) {
-    super(systemName, factoryClassName, serde);
+    super(systemName, factoryClassName, systemSerde);
     if (transformer == null) {
       throw new SamzaException("Default InputTransformer may not be null for a TransformingSystemDescriptor");
     }

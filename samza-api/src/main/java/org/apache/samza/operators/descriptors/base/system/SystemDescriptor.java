@@ -22,9 +22,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import org.apache.samza.SamzaException;
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
-import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.SystemStreamMetadata.OffsetType;
 
@@ -43,7 +42,7 @@ public abstract class SystemDescriptor<SystemMessageType, SubClass extends Syste
 
   private final String systemName;
   private final String factoryClassName;
-  private final Serde serde;
+  private final Optional<Serde> systemSerdeOptional;
 
   private Optional<OffsetType> defaultStreamOffsetDefaultOptional = Optional.empty();
   private Map<String, String> systemConfigs = new HashMap<>();
@@ -54,20 +53,23 @@ public abstract class SystemDescriptor<SystemMessageType, SubClass extends Syste
    *
    * @param systemName name of this system
    * @param factoryClassName name of the SystemFactory class for this system
-   * @param serde default serde for the system, or null.
-   *              If null, the default system serde is a {@code KVSerde<NoOpSerde, NoOpSerde>}
-   *              A {@code KVSerde<NoOpSerde, NoOpSerde>} or {@code NoOpSerde} may be provided if the
-   *              System's consumer deserializes the incoming messages itself, and no further deserialization
-   *              is required from the framework.
+   * @param systemSerde default serde for the system, or null.
+   *                    If null, input/output descriptor serde must be provided at a stream level.
+   *                    A {@code KVSerde<NoOpSerde, NoOpSerde>} or {@code NoOpSerde} may be provided if the
+   *                    System's consumer deserializes the incoming messages itself, and no further deserialization
+   *                    is required from the framework.
    */
-  SystemDescriptor(String systemName, String factoryClassName, Serde<SystemMessageType> serde) {
-    this.systemName = systemName;
-    this.factoryClassName = factoryClassName;
-    if (serde != null) {
-      this.serde = serde;
-    } else { // TODO pmaheshw: should this be a KVSerde.of(null, null) instead?
-      this.serde = KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>());
+  SystemDescriptor(String systemName, String factoryClassName, Serde<SystemMessageType> systemSerde) {
+    if (systemName == null || systemName.trim().isEmpty()) {
+      throw new SamzaException(String.format("System name must not be null or empty: %s", systemName));
     }
+    this.systemName = systemName;
+    if (factoryClassName == null || factoryClassName.trim().isEmpty()) {
+      throw new SamzaException(String.format("SystemFactory class name for system: %s must not be null or empty: %s.",
+          systemName, factoryClassName));
+    }
+    this.factoryClassName = factoryClassName;
+    this.systemSerdeOptional = Optional.ofNullable(systemSerde);
   }
 
   /**
@@ -119,14 +121,8 @@ public abstract class SystemDescriptor<SystemMessageType, SubClass extends Syste
     return (SubClass) this;
   }
 
-  /**
-   * The default serde for this system. If none was explicitly provided, the default serde is a
-   * {@code KVSerde<NoOpSerde, NoOpSerde>}.
-   *
-   * @return default serde for this system
-   */
-  public Serde<SystemMessageType> getSerde() {
-    return this.serde;
+  public Optional<Serde> getSystemSerde() {
+    return this.systemSerdeOptional;
   }
 
   public String getSystemName() {

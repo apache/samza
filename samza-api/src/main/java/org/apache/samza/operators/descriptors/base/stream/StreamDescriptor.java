@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.descriptors.base.stream;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.serializers.Serde;
 
@@ -58,10 +59,14 @@ public abstract class StreamDescriptor<StreamMessageType, SubClass extends Strea
       SystemDescriptor systemDescriptor) {
     this.streamId = streamId;
     this.systemName = systemName;
+    if (serde == null) {
+      throw new SamzaException(
+          String.format("Serde must not be null for stream: %s on system: %s", streamId, systemName));
+    }
     this.serde = serde;
     if (systemDescriptor != null) {
       if (!systemDescriptor.getSystemName().equals(systemName)) {
-        throw new RuntimeException(
+        throw new SamzaException(
             String.format("System name in constructor: %s does not match system name in SystemDescriptor: %s",
                 systemName, systemDescriptor.getSystemName()));
       }
@@ -109,11 +114,10 @@ public abstract class StreamDescriptor<StreamMessageType, SubClass extends Strea
   }
 
   /**
-   * Get the serde for this stream.
-   * <p>
-   * This is the stream specific serde if one was provided, else the default system serde.
+   * Get the serde for this stream. This can be the stream level serde if one was provided,
+   * or the default system level serde.
    *
-   * @return the serde for this stream.
+   * @return the serde for this stream
    */
   public Serde getSerde() {
     return this.serde;

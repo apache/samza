@@ -23,6 +23,7 @@ import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerde;
 
+@SuppressWarnings("unchecked")
 public class IMETransformingSystemDescriptor extends TransformingSystemDescriptor<String, Long, IMETransformingSystemDescriptor> {
   private static final String FACTORY_CLASS_NAME = "org.apache.samza.IMETransformingSystemFactory";
 
@@ -32,7 +33,7 @@ public class IMETransformingSystemDescriptor extends TransformingSystemDescripto
 
   @Override
   public IMETransformingInputDescriptor<Long> getInputDescriptor(String streamId) {
-    return new IMETransformingInputDescriptor<>(streamId, this, null, getSerde());
+    return new IMETransformingInputDescriptor<>(streamId, this, null, getSystemSerde().get());
   }
 
   @Override
@@ -42,7 +43,7 @@ public class IMETransformingSystemDescriptor extends TransformingSystemDescripto
 
   @Override
   public <StreamMessageType> IMETransformingInputDescriptor<StreamMessageType> getInputDescriptor(String streamId, InputTransformer<StreamMessageType> transformer) {
-    return new IMETransformingInputDescriptor<>(streamId, this, transformer, getSerde());
+    return new IMETransformingInputDescriptor<>(streamId, this, transformer, getSystemSerde().get());
   }
 
   @Override
@@ -52,7 +53,7 @@ public class IMETransformingSystemDescriptor extends TransformingSystemDescripto
 
   @Override
   public IMETransformingOutputDescriptor<String> getOutputDescriptor(String streamId) {
-    return new IMETransformingOutputDescriptor<>(streamId, this, getSerde());
+    return new IMETransformingOutputDescriptor<>(streamId, this, getSystemSerde().get());
   }
 
   @Override

@@ -95,7 +95,7 @@ public class TestSystemSerdeDescriptors {
     SystemSerdeSystemDescriptor sssd = new SystemSerdeSystemDescriptor("kafka-system");
     SystemSerdeInputDescriptor<String> isd = sssd.getInputDescriptor("input-stream");
 
-    assertEquals(sssd.getSerde(), isd.getSerde());
+    assertEquals(sssd.getSystemSerde().get(), isd.getSerde());
     assertFalse(isd.getTransformer().isPresent());
   }
 

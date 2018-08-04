@@ -104,7 +104,7 @@ public class TestStreamGraphSpec {
     assertEquals(mockValueSerde, inputOpSpec.getValueSerde().get());
   }
 
-  @Test(expected = NullPointerException.class)
+  @Test(expected = SamzaException.class)
   public void testGetInputStreamWithNullSerde() {
     StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
     GenericInputDescriptor isd = GenericInputDescriptor.from("mockStreamId", "mockSystem", null);
@@ -187,7 +187,7 @@ public class TestStreamGraphSpec {
     };
     MockExpandingSystemDescriptor sd = new MockExpandingSystemDescriptor("mock-system", expander);
     MockExpandingInputDescriptor isd = sd.getInputDescriptor(streamId);
-    MessageStream<Integer> inputStream = graphSpec.getInputStream(isd);
+    MessageStream inputStream = graphSpec.getInputStream(isd);
     InputOperatorSpec inputOpSpec = (InputOperatorSpec) ((MessageStreamImpl) inputStream).getOperatorSpec();
     assertEquals(1, expandCallCount.get());
     assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
@@ -267,7 +267,7 @@ public class TestStreamGraphSpec {
     assertEquals(mockValueSerde, outputStreamImpl.getValueSerde().get());
   }
 
-  @Test(expected = NullPointerException.class)
+  @Test(expected = SamzaException.class)
   public void testGetOutputStreamWithNullSerde() {
     String streamId = "test-stream-1";
     StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
@@ -561,7 +561,7 @@ public class TestStreamGraphSpec {
 
     @Override
     public MockExpandingInputDescriptor getInputDescriptor(String streamId) {
-      return new MockExpandingInputDescriptor(streamId, this);
+      return new MockExpandingInputDescriptor(streamId, this, getSystemSerde().get());
     }
 
     @Override
@@ -591,8 +591,8 @@ public class TestStreamGraphSpec {
   }
 
   public class MockExpandingInputDescriptor<StreamMessageType> extends InputDescriptor<StreamMessageType, GraphExpandingInputDescriptor<StreamMessageType>> {
-    MockExpandingInputDescriptor(String streamId, SystemDescriptor systemDescriptor) {
-      super(streamId, systemDescriptor.getSystemName(), null, systemDescriptor, null);
+    MockExpandingInputDescriptor(String streamId, SystemDescriptor systemDescriptor, Serde serde) {
+      super(streamId, systemDescriptor.getSystemName(), serde, systemDescriptor, null);
     }
   }
 }

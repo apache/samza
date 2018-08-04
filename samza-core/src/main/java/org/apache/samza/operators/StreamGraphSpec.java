@@ -56,6 +56,7 @@ import org.slf4j.LoggerFactory;
  * create the DAG of transforms.
  * 2) a builder that creates a serializable {@link OperatorSpecGraph} from user-defined DAG
  */
+@SuppressWarnings("unchecked")
 public class StreamGraphSpec implements StreamGraph {
   private static final Logger LOGGER = LoggerFactory.getLogger(StreamGraphSpec.class);
   private static final Pattern ID_PATTERN = Pattern.compile("[\\d\\w-_.]+");
@@ -258,7 +259,7 @@ public class StreamGraphSpec implements StreamGraph {
     } else {
       if (defaultSystemDescriptor != null) {
         LOGGER.info("Using default system's serde for intermediate stream: " + streamId);
-        streamSerde = defaultSystemDescriptor.getSerde();
+        streamSerde = (Serde) defaultSystemDescriptor.getSystemSerde().orElse(null);
       } else {
         LOGGER.warn("No serde defined for intermediate stream: " + streamId +
             ". Key and message serdes specified for the job.default.system will be used.");

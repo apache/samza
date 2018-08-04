@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Collections;
 import java.util.Map;
+import org.apache.samza.SamzaException;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.DoubleSerde;
@@ -34,6 +35,7 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class TestGenericDescriptors {
   @Test
@@ -69,6 +71,36 @@ public class TestGenericDescriptors {
     output1
         .withPhysicalName("output-1")
         .withStreamConfigs(Collections.emptyMap());
+  }
+
+  @Test
+  public void testSDThrowsExceptionWhenNoSerdeForStream() {
+    // system without a system level serde
+    GenericSystemDescriptor<Object> mySystem = new GenericSystemDescriptor<>("input-system", "factory.class.name");
+
+    boolean caughtException = false;
+    try {
+      mySystem.getInputDescriptor("input-1");
+    } catch (SamzaException e) {
+      caughtException = true;
+    }
+    assertTrue("Should not allow getting a stream descriptor with no system or stream level serde.", caughtException);
+
+    caughtException = false;
+    try {
+      mySystem.getInputDescriptor("input-2", ime -> ime);
+    } catch (SamzaException e) {
+      caughtException = true;
+    }
+    assertTrue("Should not allow getting a stream descriptor with no system or stream level serde.", caughtException);
+
+    caughtException = false;
+    try {
+      mySystem.getOutputDescriptor("output-1");
+    } catch (SamzaException e) {
+      caughtException = true;
+    }
+    assertTrue("Should not allow getting a stream descriptor with no system or stream level serde.", caughtException);
   }
 
   @Test
@@ -159,7 +191,7 @@ public class TestGenericDescriptors {
 
     GenericInputDescriptor<Double> isd = mySystem.getInputDescriptor("input-stream");
 
-    assertEquals(mySystem.getSerde(), isd.getSerde());
+    assertEquals(mySystem.getSystemSerde().get(), isd.getSerde());
     assertFalse(isd.getTransformer().isPresent());
   }
 }

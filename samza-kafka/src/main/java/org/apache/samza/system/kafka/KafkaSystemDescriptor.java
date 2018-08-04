@@ -24,12 +24,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SimpleSystemDescriptor;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
 
+
+/**
+ * A descriptor for a Kafka system.
+
+ * @param <SystemMessageType> type of messages in this system
+ */
+@SuppressWarnings("unchecked")
 public class KafkaSystemDescriptor<SystemMessageType>
     extends SimpleSystemDescriptor<SystemMessageType, KafkaSystemDescriptor<SystemMessageType>> {
   private static final String FACTORY_CLASS_NAME = KafkaSystemFactory.class.getName();
@@ -53,8 +61,9 @@ public class KafkaSystemDescriptor<SystemMessageType>
 
   /**
    * Constructs a {@link KafkaSystemDescriptor} instance with no system level serde.
+   * Serdes must be provided explicitly at stream level when getting input or output descriptors.
    *
-   * @param systemName name of this kafka system
+   * @param systemName name of this system
    */
   public KafkaSystemDescriptor(String systemName) {
     super(systemName, FACTORY_CLASS_NAME, null);
@@ -64,14 +73,14 @@ public class KafkaSystemDescriptor<SystemMessageType>
    * Constructs a {@link KafkaSystemDescriptor} instance with {@code serde} as the system level serde.
    *
    * @param systemName name of this kafka system
-   * @param serde default serde for the system, or null.
-   *              If null, the default system serde is a {@code KVSerde<NoOpSerde, NoOpSerde>}
-   *              A {@code KVSerde<NoOpSerde, NoOpSerde>} or {@code NoOpSerde} may be provided if the
-   *              System's consumer deserializes the incoming messages itself, and no further deserialization
-   *              is required from the framework.
+   * @param systemSerde default serde for the system, or null.
+   *                    If null, input/output descriptor serde must be provided at a stream level.
+   *                    A {@code KVSerde<NoOpSerde, NoOpSerde>} or {@code NoOpSerde} may be provided if the
+   *                    System's consumer deserializes the incoming messages itself, and no further deserialization
+   *                    is required from the framework.
    */
-  public KafkaSystemDescriptor(String systemName, Serde<SystemMessageType> serde) {
-    super(systemName, FACTORY_CLASS_NAME, serde);
+  public KafkaSystemDescriptor(String systemName, Serde<SystemMessageType> systemSerde) {
+    super(systemName, FACTORY_CLASS_NAME, systemSerde);
   }
 
   /**
@@ -79,7 +88,13 @@ public class KafkaSystemDescriptor<SystemMessageType>
    */
   @Override
   public KafkaInputDescriptor<SystemMessageType> getInputDescriptor(String streamId) {
-    return new KafkaInputDescriptor<>(streamId, this, getSerde(), null);
+    if (!getSystemSerde().isPresent()) {
+      throw new SamzaException(
+          String.format("System: %s does not have a system level serde. " +
+              "Serde for input stream: %s must be specified explicitly, e.g., using " +
+                  "KafkaSystemDescriptor#getInputDescriptor(String, Serde)", getSystemName(), streamId));
+    }
+    return new KafkaInputDescriptor<>(streamId, this, getSystemSerde().get(), null);
   }
 
   /**
@@ -95,7 +110,13 @@ public class KafkaSystemDescriptor<SystemMessageType>
    */
   @Override
   public <StreamMessageType> KafkaInputDescriptor<StreamMessageType> getInputDescriptor(String streamId, InputTransformer<StreamMessageType> transformer) {
-    return new KafkaInputDescriptor<>(streamId, this, getSerde(), transformer);
+    if (!getSystemSerde().isPresent()) {
+      throw new SamzaException(
+          String.format("System: %s does not have a system level serde. " +
+              "Serde for input stream: %s must be specified explicitly, e.g., using " +
+              "KafkaSystemDescriptor#getInputDescriptor(String, InputTransformer, Serde)", getSystemName(), streamId));
+    }
+    return new KafkaInputDescriptor<>(streamId, this, getSystemSerde().get(), transformer);
   }
 
   /**
@@ -111,7 +132,13 @@ public class KafkaSystemDescriptor<SystemMessageType>
    */
   @Override
   public KafkaOutputDescriptor<SystemMessageType> getOutputDescriptor(String streamId) {
-    return new KafkaOutputDescriptor<>(streamId, this, getSerde());
+    if (!getSystemSerde().isPresent()) {
+      throw new SamzaException(
+          String.format("System: %s does not have a system level serde. " +
+              "Serde for output stream: %s must be specified explicitly, e.g., using " +
+              "KafkaSystemDescriptor#getOutputDescriptor(String, Serde)", getSystemName(), streamId));
+    }
+    return new KafkaOutputDescriptor<>(streamId, this, getSystemSerde().get());
   }
 
   /**

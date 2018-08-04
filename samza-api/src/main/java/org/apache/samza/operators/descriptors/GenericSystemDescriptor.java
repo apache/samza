@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.descriptors;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.operators.descriptors.base.system.SimpleSystemDescriptor;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
@@ -31,12 +32,36 @@ import org.apache.samza.serializers.Serde;
  * <p>
  * System properties configured using a descriptor override corresponding properties provided in configuration.
  *
- * @param <SystemMessageType> type of messages in this stream.
+ * @param <SystemMessageType> type of messages in this system
  */
+@SuppressWarnings("unchecked")
 public final class GenericSystemDescriptor<SystemMessageType>
     extends SimpleSystemDescriptor<SystemMessageType, GenericSystemDescriptor<SystemMessageType>> {
-  public GenericSystemDescriptor(String systemName, String factoryClassName, Serde<SystemMessageType> serde) {
-    super(systemName, factoryClassName, serde);
+
+  /**
+   * Constructs a {@link GenericSystemDescriptor} instance with no system level serde.
+   * Serdes must be provided explicitly at stream level when getting input or output descriptors.
+   *
+   * @param systemName name of this system
+   * @param factoryClassName name of the SystemFactory class for this system
+   */
+  public GenericSystemDescriptor(String systemName, String factoryClassName) {
+    super(systemName, factoryClassName, null);
+  }
+
+  /**
+   * Constructs a {@link GenericSystemDescriptor} instance with {@code systemSerde} as the system level serde.
+   *
+   * @param systemName name of this system
+   * @param factoryClassName name of the SystemFactory class for this system
+   * @param systemSerde default serde for the system, or null.
+   *                    If null, input/output descriptor serde must be provided at a stream level.
+   *                    A {@code KVSerde<NoOpSerde, NoOpSerde>} or {@code NoOpSerde} may be provided if the
+   *                    System's consumer deserializes the incoming messages itself, and no further deserialization
+   *                    is required from the framework.
+   */
+  public GenericSystemDescriptor(String systemName, String factoryClassName, Serde<SystemMessageType> systemSerde) {
+    super(systemName, factoryClassName, systemSerde);
   }
 
   /**
@@ -44,7 +69,13 @@ public final class GenericSystemDescriptor<SystemMessageType>
    */
   @Override
   public GenericInputDescriptor<SystemMessageType> getInputDescriptor(String streamId) {
-    return new GenericInputDescriptor<>(streamId, this, null, getSerde());
+    if (!getSystemSerde().isPresent()) {
+      throw new SamzaException(
+          String.format("System: %s does not have a system level serde. " +
+              "Serde for input stream: %s must be specified explicitly, e.g., using " +
+              "GenericSystemDescriptor#getInputDescriptor(String, Serde)", getSystemName(), streamId));
+    }
+    return new GenericInputDescriptor<>(streamId, this, null, getSystemSerde().get());
   }
 
   /**
@@ -62,7 +93,13 @@ public final class GenericSystemDescriptor<SystemMessageType>
   @Override
   public <StreamMessageType> GenericInputDescriptor<StreamMessageType> getInputDescriptor(
       String streamId, InputTransformer<StreamMessageType> transformer) {
-    return new GenericInputDescriptor<>(streamId, this, transformer, getSerde());
+    if (!getSystemSerde().isPresent()) {
+      throw new SamzaException(
+          String.format("System: %s does not have a system level serde. " +
+              "Serde for input stream: %s must be specified explicitly, e.g., using " +
+              "GenericSystemDescriptor#getInputDescriptor(String, InputTransformer, Serde)", getSystemName(), streamId));
+    }
+    return new GenericInputDescriptor<>(streamId, this, transformer, getSystemSerde().get());
   }
 
   /**
@@ -79,7 +116,13 @@ public final class GenericSystemDescriptor<SystemMessageType>
    */
   @Override
   public GenericOutputDescriptor<SystemMessageType> getOutputDescriptor(String streamId) {
-    return new GenericOutputDescriptor<>(streamId, this, getSerde());
+    if (!getSystemSerde().isPresent()) {
+      throw new SamzaException(
+          String.format("System: %s does not have a system level serde. " +
+              "Serde for output stream: %s must be specified explicitly, e.g., using " +
+              "GenericSystemDescriptor#getOutputDescriptor(String, Serde)", getSystemName(), streamId));
+    }
+    return new GenericOutputDescriptor<>(streamId, this, getSystemSerde().get());
   }
 
   /**

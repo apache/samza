@@ -22,7 +22,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import org.apache.samza.SamzaException;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
@@ -30,6 +32,7 @@ import org.apache.samza.system.SystemStreamMetadata;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class TestKafkaDescriptors {
   @Test
@@ -70,6 +73,36 @@ public class TestKafkaDescriptors {
     Map<String, String> generatedConfigs = sd.toConfig();
     assertEquals("org.apache.samza.system.kafka.KafkaSystemFactory", generatedConfigs.get("systems.kafka.samza.factory"));
     assertEquals(1, generatedConfigs.size()); // verify that there are no other configs
+  }
+
+  @Test
+  public void testSDThrowsExceptionWhenNoSerdeForStream() {
+    // system without a system level serde
+    KafkaSystemDescriptor<Object> mySystem = new KafkaSystemDescriptor<>("input-system");
+
+    boolean caughtException = false;
+    try {
+      mySystem.getInputDescriptor("input-1");
+    } catch (SamzaException e) {
+      caughtException = true;
+    }
+    assertTrue("Should not allow getting a stream descriptor with no system or stream level serde.", caughtException);
+
+    caughtException = false;
+    try {
+      mySystem.getInputDescriptor("input-2", ime -> ime);
+    } catch (SamzaException e) {
+      caughtException = true;
+    }
+    assertTrue("Should not allow getting a stream descriptor with no system or stream level serde.", caughtException);
+
+    caughtException = false;
+    try {
+      mySystem.getOutputDescriptor("output-1");
+    } catch (SamzaException e) {
+      caughtException = true;
+    }
+    assertTrue("Should not allow getting a stream descriptor with no system or stream level serde.", caughtException);
   }
 
   @Test
