@@ -38,10 +38,10 @@ public interface StreamGraph {
    * If the default system descriptor is set, it must be set <b>before</b> creating any intermediate streams.
    * <p>
    * Serde for intermediate streams:
-   * If the intermediate stream is configured to use a stream-level Serde, it will be used. Else, if the default system
-   * descriptor provides an explicit system level serde, it will be used. Else, the default system descriptors default
-   * system-level serde, which is a {@code KVSerde<NoOpSerde, NoOpSerde>} is used. If no default system descriptor is
-   * provided before creating intermediate streams, the serde configured for the {@code job.default.system} is used.
+   * If the intermediate stream is created with a stream-level Serde, it will be used. Else, if the default system
+   * descriptor is set, and it provides a system level serde, it will be used. If the default system descriptor does
+   * not provide a system level serde, or if it hasn't been set before creating the stream, the serde specified
+   * for the {@code job.default.system} in configuration will be used.
    * <p>
    * Providing an incompatible message type for the intermediate streams that use the default serde will result in
    * {@link ClassCastException}s at runtime.
@@ -55,7 +55,7 @@ public interface StreamGraph {
    * <p>
    * An {@code MessageStream<KV<K, V>}, obtained by calling this method with a descriptor with a {@code KVSerde<K, V>},
    * can receive messages of type {@code KV<K, V>}. An input {@code MessageStream<M>}, obtained using a descriptor with
-   * any other {@code Serde<M>} can receive messages of type M - the key in the incoming message is ignored.
+   * any other {@code Serde<M>}, can receive messages of type M - the key in the incoming message is ignored.
    * <p>
    * A {@code KVSerde<NoOpSerde, NoOpSerde>} or {@code NoOpSerde} may be used for the descriptor if the
    * {@code SystemConsumer} deserializes the incoming messages itself, and no further deserialization is required from
@@ -101,13 +101,13 @@ public interface StreamGraph {
    * Multiple invocations of this method with the same {@link TableDescriptor} will throw an
    * {@link IllegalStateException}.
    *
-   * @param tableDesc the {@link TableDescriptor}
+   * @param tableDescriptor the {@link TableDescriptor}
    * @param <K> the type of the key
    * @param <V> the type of the value
-   * @return the {@link Table} corresponding to the {@code tableDesc}
+   * @return the {@link Table} corresponding to the {@code tableDescriptor}
    * @throws IllegalStateException when invoked multiple times with the same {@link TableDescriptor}
    */
-  <K, V> Table<KV<K, V>> getTable(TableDescriptor<K, V, ?> tableDesc);
+  <K, V> Table<KV<K, V>> getTable(TableDescriptor<K, V, ?> tableDescriptor);
 
   /**
    * Sets the {@link ContextManager} for this {@link StreamGraph}.
