@@ -18,13 +18,11 @@
  */
 package org.apache.samza.runtime;
 
-import org.apache.samza.config.Config;
-
 /**
  * Generates {@link LocationId} that uniquely identifies the
  * execution environment of a stream processor.
  */
 public interface LocationIdProvider {
 
-  LocationId getLocationId(Config config);
+  LocationId getLocationId();
 }

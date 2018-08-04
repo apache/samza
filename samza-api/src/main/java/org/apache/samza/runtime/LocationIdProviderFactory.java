@@ -18,9 +18,11 @@
  */
 package org.apache.samza.runtime;
 
+import org.apache.samza.config.Config;
+
 /**
  * Builds the {@link LocationIdProvider}.
  */
 public interface LocationIdProviderFactory {
-  LocationIdProvider getLocationIdProvider();
+  LocationIdProvider getLocationIdProvider(Config config);
 }

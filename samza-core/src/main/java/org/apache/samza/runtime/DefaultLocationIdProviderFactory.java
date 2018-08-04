@@ -18,11 +18,15 @@
  */
 package org.apache.samza.runtime;
 
+import org.apache.samza.config.Config;
 import org.apache.samza.util.Util;
 
+/**
+ * Uses the address of the local host for generating {@link LocationId}. 
+ */ 
 public class DefaultLocationIdProviderFactory implements LocationIdProviderFactory {
   @Override
-  public LocationIdProvider getLocationIdProvider() {
-    return config -> new LocationId(Util.getLocalHost().getHostName());
+  public LocationIdProvider getLocationIdProvider(Config config) {
+    return ()  -> new LocationId(Util.getLocalHost().getHostName());
   }
 }
