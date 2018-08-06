@@ -96,74 +96,29 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
   @Override
   public void kill(StreamApplication app) {
-    StreamManager streamManager = null;
-    try {
-      streamManager = buildAndStartStreamManager();
-      ExecutionPlan plan = getExecutionPlan(app, streamManager);
 
-      plan.getJobConfigs().forEach(jobConfig -> {
-          LOG.info("Killing job {}", jobConfig.getName());
-          JobRunner runner = new JobRunner(jobConfig);
-          runner.kill();
-        });
+    // since currently we only support single actual remote job, we can get its status without
+    // building the execution plan.
+    try {
+      JobConfig jc = new JobConfig(config);
+      LOG.info("Killing job {}", jc.getName());
+      JobRunner runner = new JobRunner(jc);
+      runner.kill();
     } catch (Throwable t) {
       throw new SamzaException("Failed to kill application", t);
-    } finally {
-      if (streamManager != null) {
-        streamManager.stop();
-      }
     }
   }
 
   @Override
   public ApplicationStatus status(StreamApplication app) {
-    StreamManager streamManager = null;
+
+    // since currently we only support single actual remote job, we can get its status without
+    // building the execution plan
     try {
-      boolean hasNewJobs = false;
-      boolean hasRunningJobs = false;
-      ApplicationStatus unsuccessfulFinishStatus = null;
-
-      streamManager = buildAndStartStreamManager();
-      ExecutionPlan plan = getExecutionPlan(app, streamManager);
-      for (JobConfig jobConfig : plan.getJobConfigs()) {
-        ApplicationStatus status = getApplicationStatus(jobConfig);
-
-        switch (status.getStatusCode()) {
-          case New:
-            hasNewJobs = true;
-            break;
-          case Running:
-            hasRunningJobs = true;
-            break;
-          case UnsuccessfulFinish:
-            unsuccessfulFinishStatus = status;
-            break;
-          case SuccessfulFinish:
-            break;
-          default:
-            // Do nothing
-        }
-      }
-
-      if (hasNewJobs) {
-        // There are jobs not started, report as New
-        return New;
-      } else if (hasRunningJobs) {
-        // All jobs are started, some are running
-        return Running;
-      } else if (unsuccessfulFinishStatus != null) {
-        // All jobs are finished, some are not successful
-        return unsuccessfulFinishStatus;
-      } else {
-        // All jobs are finished successfully
-        return SuccessfulFinish;
-      }
+      JobConfig jc = new JobConfig(config);
+      return getApplicationStatus(jc);
     } catch (Throwable t) {
       throw new SamzaException("Failed to get status for application", t);
-    } finally {
-      if (streamManager != null) {
-        streamManager.stop();
-      }
     }
   }
 

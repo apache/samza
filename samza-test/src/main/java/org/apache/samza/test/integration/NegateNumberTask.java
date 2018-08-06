@@ -30,7 +30,7 @@ import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.task.TaskCoordinator.RequestScope;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.StreamUtil;
 
 /**
  * A simple test job that reads strings, converts them to integers, multiplies
@@ -59,7 +59,7 @@ public class NegateNumberTask implements StreamTask, InitableTask {
     if (outputSystemStreamString == null) {
       throw new ConfigException("Missing required configuration: task.outputs");
     }
-    outputSystemStream = Util.getSystemStreamFromNames(outputSystemStreamString);
+    outputSystemStream = StreamUtil.getSystemStreamFromNames(outputSystemStreamString);
   }
 
   @Override

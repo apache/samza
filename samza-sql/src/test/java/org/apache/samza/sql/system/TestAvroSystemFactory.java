@@ -19,6 +19,7 @@
 
 package org.apache.samza.sql.system;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -30,12 +31,14 @@ import java.util.stream.IntStream;
 
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.calcite.avatica.util.ByteString;
 import org.apache.samza.config.Config;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.sql.avro.schemas.AddressRecord;
 import org.apache.samza.sql.avro.schemas.Company;
 import org.apache.samza.sql.avro.schemas.ComplexRecord;
 import org.apache.samza.sql.avro.schemas.Kind;
+import org.apache.samza.sql.avro.schemas.MyFixed;
 import org.apache.samza.sql.avro.schemas.PageView;
 import org.apache.samza.sql.avro.schemas.PhoneNumber;
 import org.apache.samza.sql.avro.schemas.Profile;
@@ -67,6 +70,8 @@ public class TestAvroSystemFactory implements SystemFactory {
       "444-444-4444", "555-555-5555"};
   public static final String[] companies = {"MSFT", "LKND", "GOOG", "FB", "AMZN", "CSCO"};
   public static final String[] pageKeys = {"inbox", "home", "search", "pymk", "group", "job"};
+  public static final byte[] DEFAULT_TRACKING_ID_BYTES =
+      {76, 75, -24, 10, 33, -117, 24, -52, -110, -39, -5, 102, 65, 57, -62, -1};
 
   public static List<OutgoingMessageEnvelope> messages = new ArrayList<>();
 
@@ -291,6 +296,10 @@ public class TestAvroSystemFactory implements SystemFactory {
       GenericRecord record = new GenericData.Record(ComplexRecord.SCHEMA$);
       record.put("id", index);
       record.put("string_value", "Name" + index);
+      record.put("bytes_value", ByteBuffer.wrap(("sample bytes").getBytes()));
+      MyFixed myFixedVar = new MyFixed();
+      myFixedVar.bytes(DEFAULT_TRACKING_ID_BYTES);
+      record.put("fixed_value", myFixedVar);
       GenericData.Array<String> arrayValues =
           new GenericData.Array<>(index, ComplexRecord.SCHEMA$.getField("array_values").schema().getTypes().get(1));
       arrayValues.addAll(IntStream.range(0, index).mapToObj(String::valueOf).collect(Collectors.toList()));

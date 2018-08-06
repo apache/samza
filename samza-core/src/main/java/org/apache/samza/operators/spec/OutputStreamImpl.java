@@ -21,13 +21,10 @@ package org.apache.samza.operators.spec;
 import java.io.Serializable;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.SystemStream;
-
 
 public class OutputStreamImpl<M> implements OutputStream<M>, Serializable {
 
-  private final StreamSpec streamSpec;
+  private final String streamId;
   private final boolean isKeyed;
 
   /**
@@ -37,16 +34,15 @@ public class OutputStreamImpl<M> implements OutputStream<M>, Serializable {
   private transient final Serde keySerde;
   private transient final Serde valueSerde;
 
-  public OutputStreamImpl(StreamSpec streamSpec,
-      Serde keySerde, Serde valueSerde, boolean isKeyed) {
-    this.streamSpec = streamSpec;
+  public OutputStreamImpl(String streamId, Serde keySerde, Serde valueSerde, boolean isKeyed) {
+    this.streamId = streamId;
     this.keySerde = keySerde;
     this.valueSerde = valueSerde;
     this.isKeyed = isKeyed;
   }
 
-  public StreamSpec getStreamSpec() {
-    return streamSpec;
+  public String getStreamId() {
+    return streamId;
   }
 
   public Serde getKeySerde() {
@@ -55,10 +51,6 @@ public class OutputStreamImpl<M> implements OutputStream<M>, Serializable {
 
   public Serde getValueSerde() {
     return valueSerde;
-  }
-
-  public SystemStream getSystemStream() {
-    return this.streamSpec.toSystemStream();
   }
 
   public boolean isKeyed() {

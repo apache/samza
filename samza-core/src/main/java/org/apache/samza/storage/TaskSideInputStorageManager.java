@@ -19,6 +19,7 @@
 
 package org.apache.samza.storage;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
 import java.io.File;
@@ -34,12 +35,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -52,6 +52,8 @@ import org.apache.samza.util.Clock;
 import org.apache.samza.util.FileUtil;
 
 import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.map.ObjectWriter;
+import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.JavaConverters;
@@ -65,7 +67,10 @@ public class TaskSideInputStorageManager {
   private static final Logger LOG = LoggerFactory.getLogger(TaskSideInputStorageManager.class);
   private static final String OFFSET_FILE = "SIDE-INPUT-OFFSETS";
   private static final long STORE_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1); // same as changelog delete retention
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final ObjectMapper OBJECT_MAPPER = SamzaObjectMapper.getObjectMapper();
+  private static final TypeReference<HashMap<SystemStreamPartition, String>> OFFSETS_TYPE_REFERENCE =
+      new TypeReference<HashMap<SystemStreamPartition, String>>() { };
+  private static final ObjectWriter OBJECT_WRITER = OBJECT_MAPPER.writerWithType(OFFSETS_TYPE_REFERENCE);
 
   private final Clock clock;
   private final Map<String, SideInputsProcessor> storeToProcessor;
@@ -76,7 +81,6 @@ public class TaskSideInputStorageManager {
   private final StreamMetadataCache streamMetadataCache;
   private final SystemAdmins systemAdmins;
   private final TaskName taskName;
-  private final JavaStorageConfig storageConfig;
   private final Map<SystemStreamPartition, String> lastProcessedOffsets = new ConcurrentHashMap<>();
 
   private Map<SystemStreamPartition, String> startingOffsets;
@@ -92,7 +96,6 @@ public class TaskSideInputStorageManager {
       Config config,
       Clock clock) {
     this.clock = clock;
-    this.storageConfig = new JavaStorageConfig(config);
     this.stores = sideInputStores;
     this.storeBaseDir = storeBaseDir;
     this.storeToSSps = storesToSSPs;
@@ -189,6 +192,14 @@ public class TaskSideInputStorageManager {
   }
 
   /**
+   * For unit testing only
+   */
+  @VisibleForTesting
+  void updateLastProcessedOffset(SystemStreamPartition ssp, String offset) {
+    lastProcessedOffsets.put(ssp, offset);
+  }
+
+  /**
    * Processes the incoming side input message envelope and updates the last processed offset for its SSP.
    *
    * @param message incoming message to be processed
@@ -225,7 +236,7 @@ public class TaskSideInputStorageManager {
           FileUtil.rm(storeLocation);
         }
 
-        if (!storeLocation.exists()) {
+        if (isPersistedStore(storeName) && !storeLocation.exists()) {
           LOG.info("Creating {} as the store directory for the side input store {}", storePath, storeName);
           storeLocation.mkdirs();
         }
@@ -236,7 +247,8 @@ public class TaskSideInputStorageManager {
    * Writes the offset files for all side input stores one by one. There is one offset file per store.
    * Its contents are a JSON encoded mapping from each side input SSP to its last processed offset, and a checksum.
    */
-  private void writeOffsetFiles() {
+  @VisibleForTesting
+  void writeOffsetFiles() {
     storeToSSps.entrySet().stream()
         .filter(entry -> isPersistedStore(entry.getKey())) // filter out in-memory side input stores
         .forEach((entry) -> {
@@ -246,7 +258,7 @@ public class TaskSideInputStorageManager {
               .collect(Collectors.toMap(Function.identity(), lastProcessedOffsets::get));
 
             try {
-              String fileContents = OBJECT_MAPPER.writeValueAsString(offsets);
+              String fileContents = OBJECT_WRITER.writeValueAsString(offsets);
               File offsetFile = new File(getStoreLocation(storeName), OFFSET_FILE);
               FileUtil.writeWithChecksum(offsetFile, fileContents);
             } catch (Exception e) {
@@ -261,7 +273,8 @@ public class TaskSideInputStorageManager {
    * @return a {@link Map} of {@link SystemStreamPartition} to offset in the offset files.
    */
   @SuppressWarnings("unchecked")
-  private Map<SystemStreamPartition, String> getFileOffsets() {
+  @VisibleForTesting
+  Map<SystemStreamPartition, String> getFileOffsets() {
     LOG.info("Loading initial offsets from the file for side input stores.");
     Map<SystemStreamPartition, String> fileOffsets = new HashMap<>();
 
@@ -272,7 +285,7 @@ public class TaskSideInputStorageManager {
         if (isValidSideInputStore(storeName, storeLocation)) {
           try {
             String fileContents = StorageManagerUtil.readOffsetFile(storeLocation, OFFSET_FILE);
-            Map<SystemStreamPartition, String> offsets = OBJECT_MAPPER.readValue(fileContents, Map.class);
+            Map<SystemStreamPartition, String> offsets = OBJECT_MAPPER.readValue(fileContents, OFFSETS_TYPE_REFERENCE);
             fileOffsets.putAll(offsets);
           } catch (Exception e) {
             LOG.warn("Failed to load the offset file for side input store:" + storeName, e);
@@ -283,7 +296,8 @@ public class TaskSideInputStorageManager {
     return fileOffsets;
   }
 
-  private File getStoreLocation(String storeName) {
+  @VisibleForTesting
+  File getStoreLocation(String storeName) {
     return new File(storeBaseDir, (storeName + File.separator + taskName.toString()).replace(' ', '_'));
   }
 
@@ -296,7 +310,8 @@ public class TaskSideInputStorageManager {
    * @param oldestOffsets oldest offsets from the source
    * @return a {@link Map} of {@link SystemStreamPartition} to offset
    */
-  private Map<SystemStreamPartition, String> getStartingOffsets(
+  @VisibleForTesting
+  Map<SystemStreamPartition, String> getStartingOffsets(
       Map<SystemStreamPartition, String> fileOffsets, Map<SystemStreamPartition, String> oldestOffsets) {
     Map<SystemStreamPartition, String> startingOffsets = new HashMap<>();
 
@@ -321,7 +336,8 @@ public class TaskSideInputStorageManager {
    *
    * @return a {@link Map} of {@link SystemStreamPartition} to their oldest offset.
    */
-  private Map<SystemStreamPartition, String> getOldestOffsets() {
+  @VisibleForTesting
+  Map<SystemStreamPartition, String> getOldestOffsets() {
     Map<SystemStreamPartition, String> oldestOffsets = new HashMap<>();
 
     // Step 1
@@ -365,9 +381,9 @@ public class TaskSideInputStorageManager {
 
   private void validateStoreConfiguration() {
     stores.forEach((storeName, storageEngine) -> {
-        if (StringUtils.isBlank(storageConfig.getSideInputsProcessorFactory(storeName))) {
+        if (!storeToProcessor.containsKey(storeName)) {
           throw new SamzaException(
-              String.format("Side inputs processor factory configuration missing for store: %s.", storeName));
+              String.format("Side inputs processor missing for store: %s.", storeName));
         }
 
         if (storageEngine.getStoreProperties().isLoggedStore()) {

@@ -38,7 +38,6 @@ import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.serializers.NoOpSerde;
-import org.apache.samza.system.StreamSpec;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -59,8 +58,8 @@ import static org.mockito.Mockito.*;
 public class TestOperatorSpecGraph {
 
   private StreamGraphSpec mockGraph;
-  private Map<StreamSpec, InputOperatorSpec> inputOpSpecMap;
-  private Map<StreamSpec, OutputStreamImpl> outputStrmMap;
+  private Map<String, InputOperatorSpec> inputOpSpecMap;
+  private Map<String, OutputStreamImpl> outputStrmMap;
   private Set<OperatorSpec> allOpSpecs;
 
   @Before
@@ -72,26 +71,26 @@ public class TestOperatorSpecGraph {
      * 1) input1 --> filter --> sendTo
      * 2) input2 --> map --> sink
      */
-    StreamSpec testInputSpec = new StreamSpec("test-input-1", "test-input-1", "kafka");
-    InputOperatorSpec testInput = new InputOperatorSpec(testInputSpec, new NoOpSerde(), new NoOpSerde(), true, "test-input-1");
+    String inputStreamId1 = "test-input-1";
+    String outputStreamId = "test-output-1";
+    InputOperatorSpec testInput = new InputOperatorSpec(inputStreamId1, new NoOpSerde(), new NoOpSerde(), true, inputStreamId1);
     StreamOperatorSpec filterOp = OperatorSpecs.createFilterOperatorSpec(m -> true, "test-filter-2");
-    StreamSpec testOutputSpec = new StreamSpec("test-output-1", "test-output-1", "kafka");
-    OutputStreamImpl outputStream1 = new OutputStreamImpl(testOutputSpec, null, null, true);
+    OutputStreamImpl outputStream1 = new OutputStreamImpl(outputStreamId, null, null, true);
     OutputOperatorSpec outputSpec = OperatorSpecs.createSendToOperatorSpec(outputStream1, "test-output-3");
     testInput.registerNextOperatorSpec(filterOp);
     filterOp.registerNextOperatorSpec(outputSpec);
-    StreamSpec testInputSpec2 = new StreamSpec("test-input-2", "test-input-2", "kafka");
-    InputOperatorSpec testInput2 = new InputOperatorSpec(testInputSpec2, new NoOpSerde(), new NoOpSerde(), true, "test-input-4");
+    String streamId2 = "test-input-2";
+    InputOperatorSpec testInput2 = new InputOperatorSpec(streamId2, new NoOpSerde(), new NoOpSerde(), true, "test-input-4");
     StreamOperatorSpec testMap = OperatorSpecs.createMapOperatorSpec(m -> m, "test-map-5");
     SinkOperatorSpec testSink = OperatorSpecs.createSinkOperatorSpec((m, mc, tc) -> { }, "test-sink-6");
     testInput2.registerNextOperatorSpec(testMap);
     testMap.registerNextOperatorSpec(testSink);
 
     this.inputOpSpecMap = new LinkedHashMap<>();
-    inputOpSpecMap.put(testInputSpec, testInput);
-    inputOpSpecMap.put(testInputSpec2, testInput2);
+    inputOpSpecMap.put(inputStreamId1, testInput);
+    inputOpSpecMap.put(streamId2, testInput2);
     this.outputStrmMap = new LinkedHashMap<>();
-    outputStrmMap.put(testOutputSpec, outputStream1);
+    outputStrmMap.put(outputStreamId, outputStream1);
     when(mockGraph.getInputOperators()).thenReturn(Collections.unmodifiableMap(inputOpSpecMap));
     when(mockGraph.getOutputStreams()).thenReturn(Collections.unmodifiableMap(outputStrmMap));
     this.allOpSpecs = new HashSet<OperatorSpec>() { {
