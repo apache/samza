@@ -23,7 +23,7 @@ package org.apache.samza.job
 import java.util.concurrent.TimeUnit
 
 import org.apache.samza.SamzaException
-import org.apache.samza.config.Config
+import org.apache.samza.config.{Config, JobConfig, MetricsConfig}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.coordinator.stream.{CoordinatorStreamSystemConsumer, CoordinatorStreamSystemProducer}
 import org.apache.samza.coordinator.stream.messages.{Delete, SetConfig}
@@ -32,7 +32,7 @@ import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.ApplicationRunnerMain.ApplicationRunnerCommandLine
 import org.apache.samza.runtime.ApplicationRunnerOperation
 import org.apache.samza.system.StreamSpec
-import org.apache.samza.util.{CoordinatorStreamUtil, Logging, Util}
+import org.apache.samza.util.{CoordinatorStreamUtil, Logging, StreamUtil, Util}
 
 import scala.collection.JavaConverters._
 
@@ -117,6 +117,21 @@ class JobRunner(config: Config) extends Logging {
       keysToRemove.foreach(key => { coordinatorSystemProducer.send(new Delete(JobRunner.SOURCE, key, SetConfig.TYPE)) })
     }
     coordinatorSystemProducer.stop()
+
+
+    // if diagnostics is enabled, create diagnostics stream as specified in config
+    if (new JobConfig(config).getDiagnosticsEnabled) {
+      val systemStreamName = new MetricsConfig(config).
+        getMetricsReporterStream(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS).get
+      val systemStream = StreamUtil.getSystemStreamFromNames(systemStreamName)
+      val diagnosticStreamSpec = new StreamSpec("diagnostics-stream-id", systemStream.getStream, systemStream.getSystem)
+      val diagnosticSysAdmin = systemFactory.getAdmin(systemStream.getSystem, config)
+      info("creating stream %s using  sysAdmin %s " format (systemStreamName, diagnosticSysAdmin))
+      diagnosticSysAdmin.start()
+      diagnosticSysAdmin.createStream(diagnosticStreamSpec)
+      diagnosticSysAdmin.stop()
+    }
+
 
     // Create the actual job, and submit it.
     val job = jobFactory.getJob(config)

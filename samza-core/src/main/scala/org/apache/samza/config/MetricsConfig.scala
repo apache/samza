@@ -31,6 +31,7 @@ object MetricsConfig {
   val METRICS_SNAPSHOT_REPORTER_INTERVAL= "metrics.reporter.%s.interval"
   val METRICS_TIMER_ENABLED= "metrics.timer.enabled"
   val METRICS_SNAPSHOT_REPORTER_BLACKLIST = "metrics.reporter.%s.blacklist"
+  val METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS = "diagnosticsreporter"
 
   implicit def Config2Metrics(config: Config) = new MetricsConfig(config)
 }
