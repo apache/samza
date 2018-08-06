@@ -36,6 +36,7 @@ public class IncomingMessageEnvelope {
   private final Object key;
   private final Object message;
   private final int size;
+  private long timestamp = 0L;
 
   /**
    * Constructs a new IncomingMessageEnvelope from specified components.
@@ -64,6 +65,14 @@ public class IncomingMessageEnvelope {
     this.key = key;
     this.message = message;
     this.size = size;
+  }
+
+  public void setTimestamp(long timestamp) {
+    this.timestamp = timestamp;
+  }
+
+  public long getTimestamp() {
+    return timestamp;
   }
 
   public SystemStreamPartition getSystemStreamPartition() {

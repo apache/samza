@@ -486,10 +486,10 @@ class KafkaSystemAdmin(
       val topicName = spec.getPhysicalName
       val topicMeta = topicMetaInformation.getOrElse(topicName, throw new StreamValidationException("Unable to find topic information for topic " + topicName))
       new KafkaStreamSpec(spec.getId, topicName, systemName, spec.getPartitionCount, topicMeta.replicationFactor,
-        spec.isBroadcast, topicMeta.kafkaProps)
+        topicMeta.kafkaProps)
     } else if (spec.isCoordinatorStream){
       new KafkaStreamSpec(spec.getId, spec.getPhysicalName, systemName, 1, coordinatorStreamReplicationFactor,
-        spec.isBroadcast, coordinatorStreamProperties)
+        coordinatorStreamProperties)
     } else if (intermediateStreamProperties.contains(spec.getId)) {
       KafkaStreamSpec.fromSpec(spec).copyWithProperties(intermediateStreamProperties(spec.getId))
     } else {
@@ -583,8 +583,6 @@ class KafkaSystemAdmin(
     * This only works with Kafka cluster 0.11 or later. Otherwise it's a no-op.
     */
   override def deleteMessages(offsets: util.Map[SystemStreamPartition, String]) {
-    deleteMessagesCalled = true
-
     if (!running) {
       throw new SamzaException(s"KafkaSystemAdmin has not started yet for system $systemName")
     }
@@ -593,6 +591,7 @@ class KafkaSystemAdmin(
         (new TopicPartition(systemStreamPartition.getStream, systemStreamPartition.getPartition.getPartitionId), offset.toLong + 1)
       }.toMap
       adminClient.deleteRecordsBefore(nextOffsets)
+      deleteMessagesCalled = true
     }
   }
 

@@ -18,20 +18,20 @@
  */
 package org.apache.samza.task;
 
+import java.lang.reflect.Field;
+import java.util.concurrent.ExecutorService;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.application.StreamApplication;
-import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.testUtils.TestAsyncStreamTask;
 import org.apache.samza.testUtils.TestStreamTask;
 import org.junit.Test;
 
-import java.lang.reflect.Field;
 import java.util.HashMap;
-import java.util.concurrent.ExecutorService;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -45,8 +45,6 @@ import static org.mockito.Mockito.mock;
  */
 public class TestTaskFactoryUtil {
 
-  private final ApplicationRunner mockRunner = mock(ApplicationRunner.class);
-
   @Test
   public void testStreamTaskClass() {
     Config config = new MapConfig(new HashMap<String, String>() {
@@ -54,7 +52,7 @@ public class TestTaskFactoryUtil {
         this.put("task.class", "org.apache.samza.testUtils.TestStreamTask");
       }
     });
-    Object retFactory = TaskFactoryUtil.createTaskFactory(config, null, null);
+    Object retFactory = TaskFactoryUtil.createTaskFactory(config);
     assertTrue(retFactory instanceof StreamTaskFactory);
     assertTrue(((StreamTaskFactory) retFactory).createInstance() instanceof TestStreamTask);
 
@@ -64,7 +62,7 @@ public class TestTaskFactoryUtil {
       }
     });
     try {
-      TaskFactoryUtil.createTaskFactory(config, null, null);
+      TaskFactoryUtil.createTaskFactory(config);
       fail("Should have failed w/ no.such.class");
     } catch (ConfigException cfe) {
       // expected
@@ -80,7 +78,9 @@ public class TestTaskFactoryUtil {
     });
     StreamApplication streamApp = TaskFactoryUtil.createStreamApplication(config);
     assertNotNull(streamApp);
-    Object retFactory = TaskFactoryUtil.createTaskFactory(config, streamApp, mockRunner);
+    StreamGraphSpec graph = new StreamGraphSpec(config);
+    streamApp.init(graph, config);
+    Object retFactory = TaskFactoryUtil.createTaskFactory(graph.getOperatorSpecGraph(), null);
     assertTrue(retFactory instanceof StreamTaskFactory);
     assertTrue(((StreamTaskFactory) retFactory).createInstance() instanceof StreamOperatorTask);
 
@@ -184,29 +184,6 @@ public class TestTaskFactoryUtil {
       // expected
     }
 
-    config = new MapConfig(new HashMap<String, String>() {
-      {
-        this.put("task.class", "org.apache.samza.testUtils.TestStreamTask");
-        this.put(ApplicationConfig.APP_CLASS, "");
-      }
-    });
-    StreamApplication streamApp = TaskFactoryUtil.createStreamApplication(config);
-    Object retFactory = TaskFactoryUtil.createTaskFactory(config, streamApp, mockRunner);
-    assertTrue(retFactory instanceof StreamTaskFactory);
-    assertTrue(((StreamTaskFactory) retFactory).createInstance() instanceof TestStreamTask);
-
-    config = new MapConfig(new HashMap<String, String>() {
-      {
-        this.put("task.class", "");
-        this.put(ApplicationConfig.APP_CLASS, "org.apache.samza.testUtils.InvalidStreamApplication");
-      }
-    });
-    try {
-      TaskFactoryUtil.createStreamApplication(config);
-      fail("Should have failed w/ no class not found");
-    } catch (ConfigException cne) {
-      // expected
-    }
   }
 
   @Test
@@ -216,7 +193,7 @@ public class TestTaskFactoryUtil {
         this.put("task.class", "org.apache.samza.testUtils.TestAsyncStreamTask");
       }
     });
-    Object retFactory = TaskFactoryUtil.createTaskFactory(config, null, null);
+    Object retFactory = TaskFactoryUtil.createTaskFactory(config);
     assertTrue(retFactory instanceof AsyncStreamTaskFactory);
     assertTrue(((AsyncStreamTaskFactory) retFactory).createInstance() instanceof TestAsyncStreamTask);
 
@@ -226,7 +203,7 @@ public class TestTaskFactoryUtil {
       }
     });
     try {
-      TaskFactoryUtil.createTaskFactory(config, null, null);
+      TaskFactoryUtil.createTaskFactory(config);
       fail("Should have failed w/ no.such.class");
     } catch (ConfigException cfe) {
       // expected
@@ -247,28 +224,6 @@ public class TestTaskFactoryUtil {
     } catch (ConfigException cfe) {
       // expected
     }
-
-    config = new MapConfig(new HashMap<String, String>() {
-      {
-        this.put("task.class", "org.apache.samza.testUtils.TestAsyncStreamTask");
-        this.put(ApplicationConfig.APP_CLASS, "");
-      }
-    });
-    StreamApplication streamApp = TaskFactoryUtil.createStreamApplication(config);
-    Object retFactory = TaskFactoryUtil.createTaskFactory(config, streamApp, mockRunner);
-    assertTrue(retFactory instanceof AsyncStreamTaskFactory);
-    assertTrue(((AsyncStreamTaskFactory) retFactory).createInstance() instanceof TestAsyncStreamTask);
-
-    config = new MapConfig(new HashMap<String, String>() {
-      {
-        this.put("task.class", "org.apache.samza.testUtils.TestAsyncStreamTask");
-        this.put(ApplicationConfig.APP_CLASS, null);
-      }
-    });
-    streamApp = TaskFactoryUtil.createStreamApplication(config);
-    retFactory = TaskFactoryUtil.createTaskFactory(config, streamApp, mockRunner);
-    assertTrue(retFactory instanceof AsyncStreamTaskFactory);
-    assertTrue(((AsyncStreamTaskFactory) retFactory).createInstance() instanceof TestAsyncStreamTask);
   }
 
   @Test

@@ -20,9 +20,8 @@ package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.TimerFunction;
-import org.apache.samza.serializers.Serde;
 import org.apache.samza.operators.functions.WatermarkFunction;
-import org.apache.samza.system.StreamSpec;
+import org.apache.samza.serializers.Serde;
 
 /**
  * The spec for an operator that receives incoming messages from an input stream
@@ -33,22 +32,26 @@ import org.apache.samza.system.StreamSpec;
  */
 public class InputOperatorSpec<K, V> extends OperatorSpec<KV<K, V>, Object> { // Object == KV<K, V> | V
 
-  private final StreamSpec streamSpec;
-  private final Serde<K> keySerde;
-  private final Serde<V> valueSerde;
   private final boolean isKeyed;
+  private final String streamId;
 
-  public InputOperatorSpec(StreamSpec streamSpec,
-      Serde<K> keySerde, Serde<V> valueSerde, boolean isKeyed, String opId) {
+  /**
+   * The following {@link Serde}s are serialized by the ExecutionPlanner when generating the configs for a stream, and deserialized
+   * once during startup in SamzaContainer. They don't need to be deserialized here on a per-task basis
+   */
+  private transient final Serde<K> keySerde;
+  private transient final Serde<V> valueSerde;
+
+  public InputOperatorSpec(String streamId, Serde<K> keySerde, Serde<V> valueSerde, boolean isKeyed, String opId) {
     super(OpCode.INPUT, opId);
-    this.streamSpec = streamSpec;
+    this.streamId = streamId;
     this.keySerde = keySerde;
     this.valueSerde = valueSerde;
     this.isKeyed = isKeyed;
   }
 
-  public StreamSpec getStreamSpec() {
-    return this.streamSpec;
+  public String getStreamId() {
+    return this.streamId;
   }
 
   public Serde<K> getKeySerde() {

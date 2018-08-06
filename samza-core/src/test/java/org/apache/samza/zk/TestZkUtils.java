@@ -26,6 +26,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.function.BooleanSupplier;
 import com.google.common.collect.ImmutableList;
 import org.I0Itec.zkclient.IZkDataListener;
@@ -48,19 +49,23 @@ import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import org.junit.rules.Timeout;
 import org.mockito.Mockito;
 
 public class TestZkUtils {
   private static EmbeddedZookeeper zkServer = null;
   private static final ZkKeyBuilder KEY_BUILDER = new ZkKeyBuilder("test");
   private ZkClient zkClient = null;
-  private static final int SESSION_TIMEOUT_MS = 20000;
-  private static final int CONNECTION_TIMEOUT_MS = 10000;
+  private static final int SESSION_TIMEOUT_MS = 500;
+  private static final int CONNECTION_TIMEOUT_MS = 1000;
   private ZkUtils zkUtils;
 
   @Rule
   // Declared public to honor junit contract.
   public final ExpectedException expectedException = ExpectedException.none();
+
+  @Rule
+  public Timeout testTimeOutInMillis = new Timeout(120000);
 
   @BeforeClass
   public static void setup() throws InterruptedException {
@@ -96,7 +101,7 @@ public class TestZkUtils {
   }
 
   private ZkUtils getZkUtils() {
-    return new ZkUtils(KEY_BUILDER, zkClient,
+    return new ZkUtils(KEY_BUILDER, zkClient, CONNECTION_TIMEOUT_MS,
                        SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
   }
 
@@ -140,23 +145,21 @@ public class TestZkUtils {
   public void testZKProtocolVersion() {
     // first time connect, version should be set to ZkUtils.ZK_PROTOCOL_VERSION
     ZkLeaderElector le = new ZkLeaderElector("1", zkUtils);
-    ZkControllerImpl zkController = new ZkControllerImpl("1", zkUtils, null, le);
-    zkController.register();
+    zkUtils.validateZkVersion();
+
     String root = zkUtils.getKeyBuilder().getRootPath();
-    String ver = (String) zkUtils.getZkClient().readData(root);
+    String ver = zkUtils.getZkClient().readData(root);
     Assert.assertEquals(ZkUtils.ZK_PROTOCOL_VERSION, ver);
 
     // do it again (in case original value was null
-    zkController = new ZkControllerImpl("1", zkUtils, null, le);
-    zkController.register();
-    ver = (String) zkUtils.getZkClient().readData(root);
+    zkUtils.validateZkVersion();
+    ver = zkUtils.getZkClient().readData(root);
     Assert.assertEquals(ZkUtils.ZK_PROTOCOL_VERSION, ver);
 
     // now negative case
     zkUtils.getZkClient().writeData(root, "2.0");
     try {
-      zkController = new ZkControllerImpl("1", zkUtils, null, le);
-      zkController.register();
+      zkUtils.validateZkVersion();
       Assert.fail("Expected to fail because of version mismatch 2.0 vs 1.0");
     } catch (SamzaException e) {
       // expected
@@ -173,8 +176,7 @@ public class TestZkUtils {
     }
 
     try {
-      zkController = new ZkControllerImpl("1", zkUtils, null, le);
-      zkController.register();
+      zkUtils.validateZkVersion();
       Assert.fail("Expected to fail because of version mismatch 2.0 vs 3.0");
     } catch (SamzaException e) {
       // expected
@@ -187,7 +189,7 @@ public class TestZkUtils {
     zkUtils.registerProcessorAndGetId(new ProcessorData("host1", "1"));
     List<String> l = zkUtils.getSortedActiveProcessorsIDs();
     Assert.assertEquals(1, l.size());
-    new ZkUtils(KEY_BUILDER, zkClient, SESSION_TIMEOUT_MS, new NoOpMetricsRegistry()).registerProcessorAndGetId(
+    new ZkUtils(KEY_BUILDER, zkClient, CONNECTION_TIMEOUT_MS, SESSION_TIMEOUT_MS, new NoOpMetricsRegistry()).registerProcessorAndGetId(
         new ProcessorData("host2", "2"));
     l = zkUtils.getSortedActiveProcessorsIDs();
     Assert.assertEquals(2, l.size());
@@ -325,7 +327,7 @@ public class TestZkUtils {
   public void testCleanUpZkBarrierVersion() {
     String root = zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix();
     zkUtils.getZkClient().createPersistent(root, true);
-    ZkBarrierForVersionUpgrade barrier = new ZkBarrierForVersionUpgrade(root, zkUtils, null);
+    ZkBarrierForVersionUpgrade barrier = new ZkBarrierForVersionUpgrade(root, zkUtils, null, null);
     for (int i = 200; i < 210; i++) {
       barrier.create(String.valueOf(i), new ArrayList<>(Arrays.asList(i + "a", i + "b", i + "c")));
     }
@@ -410,15 +412,6 @@ public class TestZkUtils {
 
   }
 
-  @Test
-  public void testCloseShouldNotThrowZkInterruptedExceptionToCaller() {
-    ZkClient zkClient = Mockito.mock(ZkClient.class);
-    ZkUtils zkUtils = new ZkUtils(KEY_BUILDER, zkClient,
-            SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
-    Mockito.doThrow(new ZkInterruptedException(new InterruptedException())).when(zkClient).close();
-    zkUtils.close();
-  }
-
   public static boolean testWithDelayBackOff(BooleanSupplier cond, long startDelayMs, long maxDelayMs) {
     long delay = startDelayMs;
     while (delay < maxDelayMs) {
@@ -462,5 +455,67 @@ public class TestZkUtils {
 
     // Get on the JobModel version should return 2, taking into account the published version 2.
     Assert.assertEquals("3", zkUtils.getNextJobModelVersion(zkUtils.getJobModelVersion()));
+  }
+
+  @Test
+  public void testDeleteProcessorNodeShouldDeleteTheCorrectProcessorNode() {
+    String testProcessorId1 = "processorId1";
+    String testProcessorId2 = "processorId2";
+
+    ZkUtils zkUtils = getZkUtils();
+    ZkUtils zkUtils1 = getZkUtils();
+
+    zkUtils.registerProcessorAndGetId(new ProcessorData("host1", testProcessorId1));
+    zkUtils1.registerProcessorAndGetId(new ProcessorData("host2", testProcessorId2));
+
+    zkUtils.deleteProcessorNode(testProcessorId1);
+
+    List<String> expectedProcessors = ImmutableList.of(testProcessorId2);
+    List<String> actualProcessors = zkUtils.getSortedActiveProcessorsIDs();
+
+    Assert.assertEquals(expectedProcessors, actualProcessors);
+  }
+
+  @Test
+  public void testCloseShouldRetryOnceOnInterruptedException() {
+    ZkClient zkClient = Mockito.mock(ZkClient.class);
+    ZkUtils zkUtils = new ZkUtils(KEY_BUILDER, zkClient, CONNECTION_TIMEOUT_MS, SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
+
+    Mockito.doThrow(new ZkInterruptedException(new InterruptedException()))
+           .doAnswer(invocation -> null)
+           .when(zkClient).close();
+
+    zkUtils.close();
+
+    Mockito.verify(zkClient, Mockito.times(2)).close();
+  }
+
+  @Test
+  public void testCloseShouldTearDownZkConnectionOnInterruptedException() throws Exception {
+    CountDownLatch latch = new CountDownLatch(1);
+    // Establish connection with the zookeeper server.
+    ZkClient zkClient = new ZkClient("127.0.0.1:" + zkServer.getPort());
+    ZkUtils zkUtils = new ZkUtils(KEY_BUILDER, zkClient, CONNECTION_TIMEOUT_MS, SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
+
+    Thread threadToInterrupt = new Thread(() -> {
+        try {
+          latch.await();
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+        }
+        zkUtils.close();
+      });
+
+    threadToInterrupt.start();
+
+    Field field = ZkClient.class.getDeclaredField("_closed");
+    field.setAccessible(true);
+
+    Assert.assertFalse(field.getBoolean(zkClient));
+
+    threadToInterrupt.interrupt();
+    threadToInterrupt.join();
+
+    Assert.assertTrue(field.getBoolean(zkClient));
   }
 }

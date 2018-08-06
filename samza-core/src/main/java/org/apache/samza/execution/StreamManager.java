@@ -18,6 +18,7 @@
  */
 package org.apache.samza.execution;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import java.util.Collection;
@@ -37,6 +38,7 @@ import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
+import org.apache.samza.util.StreamUtil;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,7 +51,12 @@ public class StreamManager {
 
   private final SystemAdmins systemAdmins;
 
-  public StreamManager(SystemAdmins systemAdmins) {
+  public StreamManager(Config config) {
+    this(new SystemAdmins(config));
+  }
+
+  @VisibleForTesting
+  StreamManager(SystemAdmins systemAdmins) {
     this.systemAdmins = systemAdmins;
   }
 
@@ -68,6 +75,14 @@ public class StreamManager {
         systemAdmin.createStream(stream);
       }
     }
+  }
+
+  public void start() {
+    this.systemAdmins.start();
+  }
+
+  public void stop() {
+    this.systemAdmins.stop();
   }
 
   Map<String, Integer> getStreamPartitionCounts(String systemName, Set<String> streamNames) {
@@ -128,7 +143,7 @@ public class StreamManager {
             .getOrElse(defaultValue(null));
         if (changelog != null) {
           LOGGER.info("Clear store {} changelog {}", store, changelog);
-          SystemStream systemStream = Util.getSystemStreamFromNames(changelog);
+          SystemStream systemStream = StreamUtil.getSystemStreamFromNames(changelog);
           StreamSpec spec = StreamSpec.createChangeLogStreamSpec(systemStream.getStream(), systemStream.getSystem(), 1);
           systemAdmins.getSystemAdmin(spec.getSystemName()).clearStream(spec);
         }

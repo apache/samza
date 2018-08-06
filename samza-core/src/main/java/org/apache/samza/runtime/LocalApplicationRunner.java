@@ -23,6 +23,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,7 +42,10 @@ import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.DistributedLockWithState;
 import org.apache.samza.execution.ExecutionPlan;
+import org.apache.samza.execution.StreamManager;
 import org.apache.samza.job.ApplicationStatus;
+import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.StreamProcessorLifecycleListener;
 import org.apache.samza.system.StreamSpec;
@@ -64,6 +68,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   private final CountDownLatch shutdownLatch = new CountDownLatch(1);
   private final AtomicInteger numProcessorsToStart = new AtomicInteger();
   private final AtomicReference<Throwable> failure = new AtomicReference<>();
+  private final Map<String, MetricsReporter> customMetricsReporters;
 
   private ApplicationStatus appStatus = ApplicationStatus.New;
 
@@ -123,8 +128,13 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   }
 
   public LocalApplicationRunner(Config config) {
+    this(config, new HashMap<>());
+  }
+
+  public LocalApplicationRunner(Config config, Map<String, MetricsReporter> customMetricsReporters) {
     super(config);
-    uid = UUID.randomUUID().toString();
+    this.uid = UUID.randomUUID().toString();
+    this.customMetricsReporters = customMetricsReporters;
   }
 
   @Override
@@ -139,7 +149,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     LOG.info("LocalApplicationRunner will run " + taskName);
     LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
 
-    StreamProcessor processor = createStreamProcessor(jobConfig, null, listener);
+    StreamProcessor processor = createStreamProcessor(jobConfig, listener);
 
     numProcessorsToStart.set(1);
     listener.setProcessor(processor);
@@ -148,10 +158,12 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
   @Override
   public void run(StreamApplication app) {
+    StreamManager streamManager = null;
     try {
-      super.run(app);
+      streamManager = buildAndStartStreamManager();
+
       // 1. initialize and plan
-      ExecutionPlan plan = getExecutionPlan(app);
+      ExecutionPlan plan = getExecutionPlan(app, streamManager);
 
       String executionPlanJson = plan.getPlanAsJson();
       writePlanJsonFile(executionPlanJson);
@@ -160,7 +172,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       // 2. create the necessary streams
       // TODO: System generated intermediate streams should have robust naming scheme. See SAMZA-1391
       String planId = String.valueOf(executionPlanJson.hashCode());
-      createStreams(planId, plan.getIntermediateStreams());
+      createStreams(planId, plan.getIntermediateStreams(), streamManager);
 
       // 3. create the StreamProcessors
       if (plan.getJobConfigs().isEmpty()) {
@@ -169,7 +181,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       plan.getJobConfigs().forEach(jobConfig -> {
           LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
           LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
-          StreamProcessor processor = createStreamProcessor(jobConfig, app, listener);
+          StreamProcessor processor = createStreamProcessor(jobConfig, graphSpec, listener);
           listener.setProcessor(processor);
           processors.add(processor);
         });
@@ -181,13 +193,16 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       appStatus = ApplicationStatus.unsuccessfulFinish(throwable);
       shutdownLatch.countDown();
       throw new SamzaException(String.format("Failed to start application: %s.", app), throwable);
+    } finally {
+      if (streamManager != null) {
+        streamManager.stop();
+      }
     }
   }
 
   @Override
   public void kill(StreamApplication streamApp) {
     processors.forEach(StreamProcessor::stop);
-    super.kill(streamApp);
   }
 
   @Override
@@ -243,7 +258,9 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
    * @param intStreams list of intermediate {@link StreamSpec}s
    * @throws TimeoutException exception for latch timeout
    */
-  /* package private */ void createStreams(String planId, List<StreamSpec> intStreams) throws TimeoutException {
+  private void createStreams(String planId,
+      List<StreamSpec> intStreams,
+      StreamManager streamManager) throws TimeoutException {
     if (intStreams.isEmpty()) {
       LOG.info("Set of intermediate streams is empty. Nothing to create.");
       return;
@@ -259,7 +276,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       LOG.warn("Processor {} failed to create utils. Each processor will attempt to create streams.", uid);
       // each application process will try creating the streams, which
       // requires stream creation to be idempotent
-      getStreamManager().createStreams(intStreams);
+      streamManager.createStreams(intStreams);
       return;
     }
 
@@ -268,7 +285,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       // check if the processor needs to go through leader election and stream creation
       if (lockWithState.lockIfNotSet(1000, TimeUnit.MILLISECONDS)) {
         LOG.info("lock acquired for streams creation by " + uid);
-        getStreamManager().createStreams(intStreams);
+        streamManager.createStreams(intStreams);
         lockWithState.unlockAndSet();
       } else {
         LOG.info("Processor {} did not obtain the lock for streams creation. They must've been created by another processor.", uid);
@@ -284,21 +301,38 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   /**
    * Create {@link StreamProcessor} based on {@link StreamApplication} and the config
    * @param config config
-   * @param app {@link StreamApplication}
    * @return {@link StreamProcessor]}
    */
   /* package private */
   StreamProcessor createStreamProcessor(
       Config config,
-      StreamApplication app,
       StreamProcessorLifecycleListener listener) {
-    Object taskFactory = TaskFactoryUtil.createTaskFactory(config, app, new LocalApplicationRunner(config));
+    Object taskFactory = TaskFactoryUtil.createTaskFactory(config);
+    return getStreamProcessorInstance(config, taskFactory, listener);
+  }
+
+  /**
+   * Create {@link StreamProcessor} based on {@link StreamApplication} and the config
+   * @param config config
+   * @param graphBuilder {@link StreamGraphSpec}
+   * @return {@link StreamProcessor]}
+   */
+  /* package private */
+  StreamProcessor createStreamProcessor(
+      Config config,
+      StreamGraphSpec graphBuilder,
+      StreamProcessorLifecycleListener listener) {
+    Object taskFactory = TaskFactoryUtil.createTaskFactory(graphBuilder.getOperatorSpecGraph(), graphBuilder.getContextManager());
+    return getStreamProcessorInstance(config, taskFactory, listener);
+  }
+
+  private StreamProcessor getStreamProcessorInstance(Config config, Object taskFactory, StreamProcessorLifecycleListener listener) {
     if (taskFactory instanceof StreamTaskFactory) {
       return new StreamProcessor(
-          config, new HashMap<>(), (StreamTaskFactory) taskFactory, listener);
+          config, customMetricsReporters, (StreamTaskFactory) taskFactory, listener);
     } else if (taskFactory instanceof AsyncStreamTaskFactory) {
       return new StreamProcessor(
-          config, new HashMap<>(), (AsyncStreamTaskFactory) taskFactory, listener);
+          config, customMetricsReporters, (AsyncStreamTaskFactory) taskFactory, listener);
     } else {
       throw new SamzaException(String.format("%s is not a valid task factory",
           taskFactory.getClass().getCanonicalName()));

@@ -30,10 +30,10 @@ object MetricsConfig {
   val METRICS_SNAPSHOT_REPORTER_STREAM = "metrics.reporter.%s.stream"
   val METRICS_SNAPSHOT_REPORTER_INTERVAL = "metrics.reporter.%s.interval"
   val METRICS_TIMER_ENABLED = "metrics.timer.enabled"
+  val METRICS_SNAPSHOT_REPORTER_BLACKLIST = "metrics.reporter.%s.blacklist"
   val METRICS_SNAPSHOT_REPORTER_PARTITION_KEY = "metrics.reporter.%s.partitionkey"
   val METRICS_SNAPSHOT_REPORTER_DEFAULT_PARTITION_KEY = "hostname"
-
-
+  
   implicit def Config2Metrics(config: Config) = new MetricsConfig(config)
 }
 
@@ -45,6 +45,8 @@ class MetricsConfig(config: Config) extends ScalaMapConfig(config) {
   def getMetricsReporterStream(name: String): Option[String] = getOption(MetricsConfig.METRICS_SNAPSHOT_REPORTER_STREAM format name)
 
   def getMetricsReporterInterval(name: String): Option[String] = getOption(MetricsConfig.METRICS_SNAPSHOT_REPORTER_INTERVAL format name)
+
+  def getBlacklist(name: String): Option[String] = getOption(MetricsConfig.METRICS_SNAPSHOT_REPORTER_BLACKLIST format name)
 
   /**
     * Parses the metric key name specified in config.

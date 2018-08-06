@@ -19,7 +19,6 @@
 
 package org.apache.samza.job.yarn
 
-
 import org.apache.commons.lang.StringUtils
 import org.apache.hadoop.fs.permission.FsPermission
 import org.apache.samza.config.{Config, JobConfig, YarnConfig}
@@ -57,6 +56,9 @@ import org.apache.samza.util.Logging
 import java.io.IOException
 import java.nio.ByteBuffer
 
+import org.apache.http.impl.client.HttpClientBuilder
+import org.apache.samza.webapp.ApplicationMasterRestClient
+
 object ClientHelper {
   val applicationType = "Samza"
 
@@ -79,6 +81,13 @@ class ClientHelper(conf: Configuration) extends Logging {
     yarnClient.init(conf)
     yarnClient.start
     yarnClient
+  }
+
+  private[yarn] def createAmClient(applicationReport: ApplicationReport) = {
+    val amHostName = applicationReport.getHost
+    val rpcPort = applicationReport.getRpcPort
+
+    new ApplicationMasterRestClient(HttpClientBuilder.create.build, amHostName, rpcPort)
   }
 
   var jobContext: JobContext = null
@@ -182,11 +191,16 @@ class ClientHelper(conf: Configuration) extends Logging {
       }
     }
 
-    if (UserGroupInformation.isSecurityEnabled()) {
+    if (UserGroupInformation.isSecurityEnabled) {
       validateJobConfig(config)
 
       setupSecurityToken(fs, containerCtx)
       info("set security token for %s" format appId.get)
+
+      val acls = yarnConfig.getYarnApplicationAcls
+      if (!acls.isEmpty) {
+        containerCtx.setApplicationACLs(acls)
+      }
 
       val amLocalResources = setupAMLocalResources(fs, Option(yarnConfig.getYarnKerberosPrincipal), Option(yarnConfig.getYarnKerberosKeytab))
       localResources ++= amLocalResources
@@ -242,8 +256,8 @@ class ClientHelper(conf: Configuration) extends Logging {
 
     applicationReports
       .asScala
-        .filter(applicationReport => isActiveApplication(applicationReport)
-          && appName.equals(applicationReport.getName))
+        .filter(applicationReport => appName.equals(applicationReport.getName)
+          && isActiveApplication(applicationReport))
         .map(applicationReport => applicationReport.getApplicationId)
         .toList
   }
@@ -253,8 +267,8 @@ class ClientHelper(conf: Configuration) extends Logging {
 
     applicationReports
       .asScala
-      .filter(applicationReport => (!(isActiveApplication(applicationReport))
-        && appName.equals(applicationReport.getName)))
+      .filter(applicationReport => appName.equals(applicationReport.getName)
+        && (!isActiveApplication(applicationReport)))
       .map(applicationReport => applicationReport.getApplicationId)
       .toList
   }
@@ -305,8 +319,39 @@ class ClientHelper(conf: Configuration) extends Logging {
         } else {
           Some(ApplicationStatus.unsuccessfulFinish(new SamzaException(diagnostics)))
         }
-      case (YarnApplicationState.NEW, _) | (YarnApplicationState.SUBMITTED, _) => Some(New)
-      case _ => Some(Running)
+      case (YarnApplicationState.RUNNING, _) =>
+        if (allContainersRunning(applicationReport)) {
+          Some(Running)
+        } else {
+          Some(New)
+        }
+      case _ =>
+        Some(New)
+    }
+  }
+
+  def allContainersRunning(applicationReport: ApplicationReport): Boolean = {
+    val amClient: ApplicationMasterRestClient = createAmClient(applicationReport)
+
+    debug("Created client: " + amClient.toString)
+
+    try {
+      val metrics = amClient.getMetrics
+      debug("Got metrics: " + metrics.toString)
+
+      val neededContainers = Integer.parseInt(
+        metrics.get(classOf[SamzaAppMasterMetrics].getCanonicalName)
+          .get("needed-containers")
+          .toString)
+
+      info("Needed containers: " + neededContainers)
+      if (neededContainers == 0) {
+        true
+      } else {
+        false
+      }
+    } finally {
+      amClient.close()
     }
   }
 

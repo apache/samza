@@ -196,12 +196,16 @@ class BootstrappingChooser(
           val systemStream = systemStreamPartition.getSystemStream
 
           updatedSystemStreams += systemStream -> (updatedSystemStreams.getOrElse(systemStream, 0) - 1)
-        }
 
-        // If the offset we just read is the same as the offset for the last
-        // message (newest) in this system stream partition, then we have read
-        // all messages, and can mark this SSP as bootstrapped.
-        checkOffset(systemStreamPartition, offset, OffsetType.NEWEST)
+          if (envelope.isEndOfStream) {
+            markSspAsCaughtUp(systemStreamPartition)
+          } else {
+            // If the offset we just read is the same as the offset for the last
+            // message (newest) in this system stream partition, then we have read
+            // all messages, and can mark this SSP as bootstrapped.
+            checkOffset(systemStreamPartition, offset, OffsetType.NEWEST)
+          }
+        }
       }
 
       envelope
@@ -277,18 +281,23 @@ class BootstrappingChooser(
     // The SSP is no longer lagging if the envelope's offset is greater than or equal to the
     // latest offset.
     if (comparatorResult != null && comparatorResult.intValue() >= 0) {
-      laggingSystemStreamPartitions -= systemStreamPartition
-      systemStreamLagCounts += systemStream -> (systemStreamLagCounts(systemStream) - 1)
+      markSspAsCaughtUp(systemStreamPartition)
+    }
+  }
 
-      debug("Bootstrap stream partition is fully caught up: %s" format systemStreamPartition)
+  private def markSspAsCaughtUp(systemStreamPartition: SystemStreamPartition) = {
+    val systemStream: SystemStream = systemStreamPartition.getSystemStream
+    laggingSystemStreamPartitions -= systemStreamPartition
+    systemStreamLagCounts += systemStream -> (systemStreamLagCounts(systemStream) - 1)
 
-      if (systemStreamLagCounts(systemStream) == 0) {
-        info("Bootstrap stream is fully caught up: %s" format systemStream)
+    debug("Bootstrap stream partition is fully caught up: %s" format systemStreamPartition)
 
-        // If the lag count is 0, then no partition for this stream is lagging
-        // (the stream has been fully caught up).
-        systemStreamLagCounts -= systemStream
-      }
+    if (systemStreamLagCounts(systemStream) == 0) {
+      info("Bootstrap stream is fully caught up: %s" format systemStream)
+
+      // If the lag count is 0, then no partition for this stream is lagging
+      // (the stream has been fully caught up).
+      systemStreamLagCounts -= systemStream
     }
   }
 

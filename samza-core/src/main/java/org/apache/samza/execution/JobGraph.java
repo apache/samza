@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
@@ -60,13 +60,15 @@ import org.slf4j.LoggerFactory;
   private final Set<TableSpec> tables = new HashSet<>();
   private final Config config;
   private final JobGraphJsonGenerator jsonGenerator = new JobGraphJsonGenerator();
+  private final OperatorSpecGraph specGraph;
 
   /**
    * The JobGraph is only constructed by the {@link ExecutionPlanner}.
    * @param config Config
    */
-  JobGraph(Config config) {
+  JobGraph(Config config, OperatorSpecGraph specGraph) {
     this.config = config;
+    this.specGraph = specGraph;
   }
 
   @Override
@@ -85,7 +87,7 @@ import org.slf4j.LoggerFactory;
   @Override
   public List<StreamSpec> getIntermediateStreams() {
     return getIntermediateStreamEdges().stream()
-        .map(streamEdge -> streamEdge.getStreamSpec())
+        .map(StreamEdge::getStreamSpec)
         .collect(Collectors.toList());
   }
 
@@ -105,6 +107,10 @@ import org.slf4j.LoggerFactory;
    */
   public ApplicationConfig getApplicationConfig() {
     return new ApplicationConfig(config);
+  }
+
+  public OperatorSpecGraph getSpecGraph() {
+    return specGraph;
   }
 
   /**
@@ -152,11 +158,11 @@ import org.slf4j.LoggerFactory;
    * @param jobId id of the job
    * @return
    */
-  JobNode getOrCreateJobNode(String jobName, String jobId, StreamGraphImpl streamGraph) {
+  JobNode getOrCreateJobNode(String jobName, String jobId) {
     String nodeId = JobNode.createId(jobName, jobId);
     JobNode node = nodes.get(nodeId);
     if (node == null) {
-      node = new JobNode(jobName, jobId, streamGraph, config);
+      node = new JobNode(jobName, jobId, specGraph, config);
       nodes.put(nodeId, node);
     }
     return node;
@@ -181,11 +187,9 @@ import org.slf4j.LoggerFactory;
     String streamId = streamSpec.getId();
     StreamEdge edge = edges.get(streamId);
     if (edge == null) {
-      edge = new StreamEdge(streamSpec, isIntermediate, config);
+      boolean isBroadcast = specGraph.getBroadcastStreams().contains(streamId);
+      edge = new StreamEdge(streamSpec, isIntermediate, isBroadcast, config);
       edges.put(streamId, edge);
-    }
-    if (streamSpec.isBroadcast()) {
-      edge.setPartitionCount(1);
     }
     return edge;
   }
@@ -256,11 +260,11 @@ import org.slf4j.LoggerFactory;
     sources.forEach(edge -> {
         if (!edge.getSourceNodes().isEmpty()) {
           throw new IllegalArgumentException(
-              String.format("Source stream %s should not have producers.", edge.getFormattedSystemStream()));
+              String.format("Source stream %s should not have producers.", edge.getName()));
         }
         if (edge.getTargetNodes().isEmpty()) {
           throw new IllegalArgumentException(
-              String.format("Source stream %s should have consumers.", edge.getFormattedSystemStream()));
+              String.format("Source stream %s should have consumers.", edge.getName()));
         }
       });
   }
@@ -272,11 +276,11 @@ import org.slf4j.LoggerFactory;
     sinks.forEach(edge -> {
         if (!edge.getTargetNodes().isEmpty()) {
           throw new IllegalArgumentException(
-              String.format("Sink stream %s should not have consumers", edge.getFormattedSystemStream()));
+              String.format("Sink stream %s should not have consumers", edge.getName()));
         }
         if (edge.getSourceNodes().isEmpty()) {
           throw new IllegalArgumentException(
-              String.format("Sink stream %s should have producers", edge.getFormattedSystemStream()));
+              String.format("Sink stream %s should have producers", edge.getName()));
         }
       });
   }
@@ -292,7 +296,7 @@ import org.slf4j.LoggerFactory;
     internalEdges.forEach(edge -> {
         if (edge.getSourceNodes().isEmpty() || edge.getTargetNodes().isEmpty()) {
           throw new IllegalArgumentException(
-              String.format("Internal stream %s should have both producers and consumers", edge.getFormattedSystemStream()));
+              String.format("Internal stream %s should have both producers and consumers", edge.getName()));
         }
       });
   }

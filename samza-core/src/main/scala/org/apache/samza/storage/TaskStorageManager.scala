@@ -26,9 +26,7 @@ import org.apache.samza.config.StorageConfig
 import org.apache.samza.{Partition, SamzaException}
 import org.apache.samza.container.TaskName
 import org.apache.samza.system._
-import org.apache.samza.util.{Clock, FileUtil, Logging, Util}
-
-import scala.collection.JavaConverters._
+import org.apache.samza.util.{Clock, FileUtil, Logging}
 
 object TaskStorageManager {
   def getStoreDir(storeBaseDir: File, storeName: String) = {
@@ -51,6 +49,7 @@ class TaskStorageManager(
   changeLogSystemStreams: Map[String, SystemStream] = Map(),
   changeLogStreamPartitions: Int,
   streamMetadataCache: StreamMetadataCache,
+  sspMetadataCache: SSPMetadataCache,
   nonLoggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
   loggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
   partition: Partition,
@@ -69,7 +68,7 @@ class TaskStorageManager(
   val fileOffsets: util.Map[SystemStreamPartition, String] = new util.HashMap[SystemStreamPartition, String]()
   val offsetFileName = "OFFSET"
 
-  def apply(storageEngineName: String) = taskStores(storageEngineName)
+  def getStore(storeName: String): Option[StorageEngine] = taskStores.get(storeName)
 
   def init {
     cleanBaseDirs()
@@ -100,7 +99,7 @@ class TaskStorageManager(
         info("Deleting logged storage partition directory %s." format loggedStorePartitionDir.toPath.toString)
         FileUtil.rm(loggedStorePartitionDir)
       } else {
-        val offset = readOffsetFile(loggedStorePartitionDir)
+        val offset = StorageManagerUtil.readOffsetFile(loggedStorePartitionDir, offsetFileName)
         info("Read offset %s for the store %s from logged storage partition directory %s." format(offset, storeName, loggedStorePartitionDir))
         if (offset != null) {
           fileOffsets.put(new SystemStreamPartition(changeLogSystemStreams(storeName), partition), offset)
@@ -110,7 +109,7 @@ class TaskStorageManager(
   }
 
   /**
-    * Directory {@code loggedStoreDir} associated with the logged store {@code storeName} is valid,
+    * Directory loggedStoreDir associated with the logged store storeName is valid
     * if all of the following conditions are true.
     * a) If the store has to be persisted to disk.
     * b) If there is a valid offset file associated with the logged store.
@@ -119,55 +118,12 @@ class TaskStorageManager(
     * @return true if the logged store is valid, false otherwise.
     */
   private def isLoggedStoreValid(storeName: String, loggedStoreDir: File): Boolean = {
-    val changeLogDeleteRetentionInMs = changeLogDeleteRetentionsInMs.getOrElse(storeName,
-                                                                               StorageConfig.DEFAULT_CHANGELOG_DELETE_RETENTION_MS)
-    persistedStores.contains(storeName) && isOffsetFileValid(loggedStoreDir) &&
-      !isStaleLoggedStore(loggedStoreDir, changeLogDeleteRetentionInMs)
-  }
+    val changeLogDeleteRetentionInMs = changeLogDeleteRetentionsInMs
+      .getOrElse(storeName, StorageConfig.DEFAULT_CHANGELOG_DELETE_RETENTION_MS)
 
-  /**
-    * Determines if the logged store directory {@code loggedStoreDir} is stale. A store is stale if the following condition is true.
-    *
-    *  ((CurrentTime) - (LastModifiedTime of the Offset file) is greater than the changelog's tombstone retention).
-    *
-    * @param loggedStoreDir the base directory of the local change-logged store.
-    * @param changeLogDeleteRetentionInMs the delete retention of the changelog in milli seconds.
-    * @return true if the store is stale, false otherwise.
-    *
-    */
-  private def isStaleLoggedStore(loggedStoreDir: File, changeLogDeleteRetentionInMs: Long): Boolean = {
-    var isStaleStore = false
-    val storePath = loggedStoreDir.toPath.toString
-    if (loggedStoreDir.exists()) {
-      val offsetFileRef = new File(loggedStoreDir, offsetFileName)
-      val offsetFileLastModifiedTime = offsetFileRef.lastModified()
-      if ((clock.currentTimeMillis() - offsetFileLastModifiedTime) >= changeLogDeleteRetentionInMs) {
-        info ("Store: %s is stale since lastModifiedTime of offset file: %s, " +
-          "is older than changelog deleteRetentionMs: %s." format(storePath, offsetFileLastModifiedTime, changeLogDeleteRetentionInMs))
-        isStaleStore = true
-      }
-    } else {
-      info("Logged storage partition directory: %s does not exist." format storePath)
-    }
-    isStaleStore
-  }
-
-  /**
-    * An offset file associated with logged store {@code loggedStoreDir} is valid if it exists and is not empty.
-    *
-    * @return true if the offset file is valid. false otherwise.
-    */
-  private def isOffsetFileValid(loggedStoreDir: File): Boolean = {
-    var hasValidOffsetFile = false
-    if (loggedStoreDir.exists()) {
-      val offsetContents = readOffsetFile(loggedStoreDir)
-      if (offsetContents != null && !offsetContents.isEmpty) {
-        hasValidOffsetFile = true
-      } else {
-        info("Offset file is not valid for store: %s." format loggedStoreDir.toPath.toString)
-      }
-    }
-    hasValidOffsetFile
+    persistedStores.contains(storeName) &&
+      StorageManagerUtil.isOffsetFileValid(loggedStoreDir, offsetFileName) &&
+      !StorageManagerUtil.isStaleStore(loggedStoreDir, offsetFileName, changeLogDeleteRetentionInMs, clock.currentTimeMillis())
   }
 
   private def setupBaseDirs() {
@@ -184,24 +140,6 @@ class TaskStorageManager(
           nonLoggedStorePartitionDir.mkdirs()
         }
     }
-  }
-
-  /**
-    * Read and return the contents of the offset file.
-    *
-    * @param loggedStoragePartitionDir the base directory of the store
-    * @return the content of the offset file if it exists for the store, null otherwise.
-    */
-  private def readOffsetFile(loggedStoragePartitionDir: File): String = {
-    var offset : String = null
-    val offsetFileRef = new File(loggedStoragePartitionDir, offsetFileName)
-    if (offsetFileRef.exists()) {
-      info("Found offset file in logged storage partition directory: %s" format loggedStoragePartitionDir.toPath.toString)
-      offset = FileUtil.readWithChecksum(offsetFileRef)
-    } else {
-      info("No offset file found in logged storage partition directory: %s" format loggedStoragePartitionDir.toPath.toString)
-    }
-    offset
   }
 
   private def validateChangelogStreams() = {
@@ -261,22 +199,7 @@ class TaskStorageManager(
       .getOrElse(systemStreamPartition.getSystemStream,
         throw new SamzaException("Missing a change log offset for %s." format systemStreamPartition))
 
-    if (fileOffset != null) {
-      // File offset was the last message written to the changelog that is also reflected in the store,
-      // so we start with the NEXT offset
-      val resumeOffset = admin.getOffsetsAfter(Map(systemStreamPartition -> fileOffset).asJava).get(systemStreamPartition)
-      if (admin.offsetComparator(oldestOffset, resumeOffset) <= 0) {
-        resumeOffset
-      } else {
-        // If the offset we plan to use is older than the oldest offset, just use the oldest offset.
-        // This can happen with changelogs configured with a TTL cleanup policy
-        warn(s"Local store offset $resumeOffset is lower than the oldest offset $oldestOffset of the changelog. " +
-          s"The values between these offsets cannot be restored.")
-        oldestOffset
-      }
-    } else {
-      oldestOffset
-    }
+    StorageManagerUtil.getStartingOffset(systemStreamPartition, admin, fileOffset, oldestOffset)
   }
 
   private def restoreStores() {
@@ -329,23 +252,11 @@ class TaskStorageManager(
     debug("Persisting logged key value stores")
 
     for ((storeName, systemStream) <- changeLogSystemStreams.filterKeys(storeName => persistedStores.contains(storeName))) {
-      val systemAdmin = systemAdmins.getSystemAdmin(systemStream.getSystem)
-
       debug("Fetching newest offset for store %s" format(storeName))
       try {
-        val newestOffset = if (systemAdmin.isInstanceOf[ExtendedSystemAdmin]) {
-          // This approach is much more efficient because it only fetches the newest offset for 1 SSP
-          // rather than newest and oldest offsets for all SSPs. Use it if we can.
-          systemAdmin.asInstanceOf[ExtendedSystemAdmin].getNewestOffset(new SystemStreamPartition(systemStream.getSystem, systemStream.getStream, partition), 3)
-        } else {
-          val streamToMetadata = systemAdmins.getSystemAdmin(systemStream.getSystem)
-                  .getSystemStreamMetadata(Set(systemStream.getStream).asJava)
-          val sspMetadata = streamToMetadata
-                  .get(systemStream.getStream)
-                  .getSystemStreamPartitionMetadata
-                  .get(partition)
-          sspMetadata.getNewestOffset
-        }
+        val ssp = new SystemStreamPartition(systemStream.getSystem, systemStream.getStream, partition)
+        val sspMetadata = sspMetadataCache.getMetadata(ssp)
+        val newestOffset = if (sspMetadata == null) null else sspMetadata.getNewestOffset
         debug("Got offset %s for store %s" format(newestOffset, storeName))
 
         val loggedStorePartitionDir = TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, storeName, taskName)

@@ -91,7 +91,14 @@ object RocksDbKeyValueStore extends Logging {
         .toSet
 
       (configuredMetrics ++ rocksDbMetrics)
-        .foreach(property => metrics.newGauge(property, () => rocksDb.getProperty(property)))
+        .foreach(property => metrics.newGauge(property, () =>
+          // Check isOwningHandle flag. The db is open iff the flag is true.
+          if (rocksDb.isOwningHandle) {
+            rocksDb.getProperty(property)
+          } else {
+            "0"
+          }
+        ))
 
       rocksDb
     } catch {
@@ -154,11 +161,12 @@ class RocksDbKeyValueStore(
   }
 
   def put(key: Array[Byte], value: Array[Byte]): Unit = ifOpen {
-    metrics.puts.inc
     require(key != null, "Null key not allowed.")
     if (value == null) {
+      metrics.deletes.inc
       db.delete(writeOptions, key)
     } else {
+      metrics.puts.inc
       metrics.bytesWritten.inc(key.length + value.length)
       db.put(writeOptions, key, value)
     }
@@ -166,16 +174,17 @@ class RocksDbKeyValueStore(
 
   // Write batch from RocksDB API is not used currently because of: https://github.com/facebook/rocksdb/issues/262
   def putAll(entries: java.util.List[Entry[Array[Byte], Array[Byte]]]): Unit = ifOpen {
+    metrics.putAlls.inc()
     val iter = entries.iterator
     var wrote = 0
     var deletes = 0
     while (iter.hasNext) {
-      wrote += 1
       val curr = iter.next()
       if (curr.getValue == null) {
         deletes += 1
         db.delete(writeOptions, curr.getKey)
       } else {
+        wrote += 1
         val key = curr.getKey
         val value = curr.getValue
         metrics.bytesWritten.inc(key.length + value.length)
@@ -187,7 +196,6 @@ class RocksDbKeyValueStore(
   }
 
   def delete(key: Array[Byte]): Unit = ifOpen {
-    metrics.deletes.inc
     put(key, null)
   }
 

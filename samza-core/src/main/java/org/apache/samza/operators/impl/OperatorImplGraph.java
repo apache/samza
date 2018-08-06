@@ -22,18 +22,19 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.StreamConfig;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.PartialJoinFunction;
-import org.apache.samza.operators.impl.store.TimestampedValue;
+import org.apache.samza.util.TimestampedValue;
 import org.apache.samza.operators.spec.BroadcastOperatorSpec;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.PartitionByOperatorSpec;
 import org.apache.samza.operators.spec.SendToTableOperatorSpec;
@@ -81,27 +82,29 @@ public class OperatorImplGraph {
    * the two {@link PartialJoinOperatorImpl}s for a {@link JoinOperatorSpec} with each other since they're
    * reached from different {@link OperatorSpec} during DAG traversals.
    */
-  private final Map<String, KV<PartialJoinFunction, PartialJoinFunction>> joinFunctions = new HashMap<>();
+  private final Map<String, KV<PartialJoinOperatorImpl, PartialJoinOperatorImpl>> joinOpImpls = new HashMap<>();
 
   private final Clock clock;
 
   /**
    * Constructs the DAG of {@link OperatorImpl}s corresponding to the the DAG of {@link OperatorSpec}s
-   * in the {@code streamGraph}.
+   * in the {@code specGraph}.
    *
-   * @param streamGraph  the {@link StreamGraphImpl} containing the logical {@link OperatorSpec} DAG
+   * @param specGraph  the {@link OperatorSpecGraph} containing the logical {@link OperatorSpec} DAG
    * @param config  the {@link Config} required to instantiate operators
    * @param context  the {@link TaskContext} required to instantiate operators
    * @param clock  the {@link Clock} to get current time
    */
-  public OperatorImplGraph(StreamGraphImpl streamGraph, Config config, TaskContext context, Clock clock) {
+  public OperatorImplGraph(OperatorSpecGraph specGraph, Config config, TaskContext context, Clock clock) {
     this.clock = clock;
-
+    StreamConfig streamConfig = new StreamConfig(config);
     TaskContextImpl taskContext = (TaskContextImpl) context;
-    Map<SystemStream, Integer> producerTaskCounts = hasIntermediateStreams(streamGraph) ?
-        getProducerTaskCountForIntermediateStreams(getStreamToConsumerTasks(taskContext.getJobModel()),
-            getIntermediateToInputStreamsMap(streamGraph)) :
-        Collections.EMPTY_MAP;
+    Map<SystemStream, Integer> producerTaskCounts =
+        hasIntermediateStreams(specGraph)
+            ? getProducerTaskCountForIntermediateStreams(
+                getStreamToConsumerTasks(taskContext.getJobModel()),
+                getIntermediateToInputStreamsMap(specGraph, streamConfig))
+            : Collections.EMPTY_MAP;
     producerTaskCounts.forEach((stream, count) -> {
         LOG.info("{} has {} producer tasks.", stream, count);
       });
@@ -113,8 +116,8 @@ public class OperatorImplGraph {
     taskContext.registerObject(WatermarkStates.class.getName(),
         new WatermarkStates(context.getSystemStreamPartitions(), producerTaskCounts));
 
-    streamGraph.getInputOperators().forEach((streamSpec, inputOpSpec) -> {
-        SystemStream systemStream = new SystemStream(streamSpec.getSystemName(), streamSpec.getPhysicalName());
+    specGraph.getInputOperators().forEach((streamId, inputOpSpec) -> {
+        SystemStream systemStream = streamConfig.streamIdToSystemStream(streamId);
         InputOperatorImpl inputOperatorImpl =
             (InputOperatorImpl) createAndRegisterOperatorImpl(null, inputOpSpec, systemStream, config, context);
         this.inputOperators.put(systemStream, inputOperatorImpl);
@@ -151,12 +154,13 @@ public class OperatorImplGraph {
    * creates the corresponding DAG of {@link OperatorImpl}s, and returns the root {@link OperatorImpl} node.
    *
    * @param prevOperatorSpec  the parent of the current {@code operatorSpec} in the traversal
-   * @param operatorSpec  the operatorSpec to create the {@link OperatorImpl} for
+   * @param operatorSpec  the {@link OperatorSpec} to create the {@link OperatorImpl} for
+   * @param inputStream  the source input stream that we traverse the {@link OperatorSpecGraph} from
    * @param config  the {@link Config} required to instantiate operators
    * @param context  the {@link TaskContext} required to instantiate operators
    * @return  the operator implementation for the operatorSpec
    */
-  OperatorImpl createAndRegisterOperatorImpl(OperatorSpec prevOperatorSpec, OperatorSpec operatorSpec,
+  private OperatorImpl createAndRegisterOperatorImpl(OperatorSpec prevOperatorSpec, OperatorSpec operatorSpec,
       SystemStream inputStream, Config config, TaskContext context) {
 
     if (!operatorImpls.containsKey(operatorSpec.getOpId()) || operatorSpec instanceof JoinOperatorSpec) {
@@ -178,7 +182,9 @@ public class OperatorImplGraph {
 
       Collection<OperatorSpec> registeredSpecs = operatorSpec.getRegisteredOperatorSpecs();
       registeredSpecs.forEach(registeredSpec -> {
-          OperatorImpl nextImpl = createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, config, context);
+          LOG.debug("Creating operator {} with opCode: {}", registeredSpec.getOpId(), registeredSpec.getOpCode());
+          OperatorImpl nextImpl =
+              createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, config, context);
           operatorImpl.registerNextOperator(nextImpl);
         });
       return operatorImpl;
@@ -199,53 +205,64 @@ public class OperatorImplGraph {
   /**
    * Creates a new {@link OperatorImpl} instance for the provided {@link OperatorSpec}.
    *
-   * @param operatorSpec  the immutable {@link OperatorSpec} definition.
+   * @param prevOperatorSpec the original {@link OperatorSpec} that produces output for {@code operatorSpec} from {@link OperatorSpecGraph}
+   * @param operatorSpec  the original {@link OperatorSpec} from {@link OperatorSpecGraph}
    * @param config  the {@link Config} required to instantiate operators
    * @param context  the {@link TaskContext} required to instantiate operators
    * @return  the {@link OperatorImpl} implementation instance
    */
   OperatorImpl createOperatorImpl(OperatorSpec prevOperatorSpec, OperatorSpec operatorSpec,
       Config config, TaskContext context) {
+    StreamConfig streamConfig = new StreamConfig(config);
     if (operatorSpec instanceof InputOperatorSpec) {
       return new InputOperatorImpl((InputOperatorSpec) operatorSpec);
     } else if (operatorSpec instanceof StreamOperatorSpec) {
-      return new StreamOperatorImpl((StreamOperatorSpec) operatorSpec, config, context);
+      return new StreamOperatorImpl((StreamOperatorSpec) operatorSpec);
     } else if (operatorSpec instanceof SinkOperatorSpec) {
       return new SinkOperatorImpl((SinkOperatorSpec) operatorSpec, config, context);
     } else if (operatorSpec instanceof OutputOperatorSpec) {
-      return new OutputOperatorImpl((OutputOperatorSpec) operatorSpec, config, context);
+      String streamId = ((OutputOperatorSpec) operatorSpec).getOutputStream().getStreamId();
+      SystemStream systemStream = streamConfig.streamIdToSystemStream(streamId);
+      return new OutputOperatorImpl((OutputOperatorSpec) operatorSpec, systemStream);
     } else if (operatorSpec instanceof PartitionByOperatorSpec) {
-      return new PartitionByOperatorImpl((PartitionByOperatorSpec) operatorSpec, config, context);
+      String streamId = ((PartitionByOperatorSpec) operatorSpec).getOutputStream().getStreamId();
+      SystemStream systemStream = streamConfig.streamIdToSystemStream(streamId);
+      return new PartitionByOperatorImpl((PartitionByOperatorSpec) operatorSpec, systemStream, context);
     } else if (operatorSpec instanceof WindowOperatorSpec) {
       return new WindowOperatorImpl((WindowOperatorSpec) operatorSpec, clock);
     } else if (operatorSpec instanceof JoinOperatorSpec) {
-      return createPartialJoinOperatorImpl(prevOperatorSpec, (JoinOperatorSpec) operatorSpec, config, context, clock);
+      return getOrCreatePartialJoinOpImpls((JoinOperatorSpec) operatorSpec,
+          prevOperatorSpec.equals(((JoinOperatorSpec) operatorSpec).getLeftInputOpSpec()),
+          config, context, clock);
     } else if (operatorSpec instanceof StreamTableJoinOperatorSpec) {
       return new StreamTableJoinOperatorImpl((StreamTableJoinOperatorSpec) operatorSpec, config, context);
     } else if (operatorSpec instanceof SendToTableOperatorSpec) {
       return new SendToTableOperatorImpl((SendToTableOperatorSpec) operatorSpec, config, context);
     } else if (operatorSpec instanceof BroadcastOperatorSpec) {
-      return new BroadcastOperatorImpl((BroadcastOperatorSpec) operatorSpec, context);
+      String streamId = ((BroadcastOperatorSpec) operatorSpec).getOutputStream().getStreamId();
+      SystemStream systemStream = streamConfig.streamIdToSystemStream(streamId);
+      return new BroadcastOperatorImpl((BroadcastOperatorSpec) operatorSpec, systemStream, context);
     }
     throw new IllegalArgumentException(
         String.format("Unsupported OperatorSpec: %s", operatorSpec.getClass().getName()));
   }
 
-  private PartialJoinOperatorImpl createPartialJoinOperatorImpl(OperatorSpec prevOperatorSpec,
-      JoinOperatorSpec joinOpSpec, Config config, TaskContext context, Clock clock) {
-    KV<PartialJoinFunction, PartialJoinFunction> partialJoinFunctions = getOrCreatePartialJoinFunctions(joinOpSpec);
-    if (joinOpSpec.getLeftInputOpSpec().equals(prevOperatorSpec)) { // we got here from the left side of the join
-      return new PartialJoinOperatorImpl(joinOpSpec, /* isLeftSide */ true,
-          partialJoinFunctions.getKey(), partialJoinFunctions.getValue(), config, context, clock);
-    } else { // we got here from the right side of the join
-      return new PartialJoinOperatorImpl(joinOpSpec, /* isLeftSide */ false,
-          partialJoinFunctions.getValue(), partialJoinFunctions.getKey(), config, context, clock);
-    }
-  }
+  private PartialJoinOperatorImpl getOrCreatePartialJoinOpImpls(JoinOperatorSpec joinOpSpec, boolean isLeft,
+      Config config, TaskContext context, Clock clock) {
+    // get the per task pair of PartialJoinOperatorImpl for the corresponding {@code joinOpSpec}
+    KV<PartialJoinOperatorImpl, PartialJoinOperatorImpl> partialJoinOpImpls = joinOpImpls.computeIfAbsent(joinOpSpec.getOpId(),
+        joinOpId -> {
+        PartialJoinFunction leftJoinFn = createLeftJoinFn(joinOpSpec);
+        PartialJoinFunction rightJoinFn = createRightJoinFn(joinOpSpec);
+        return new KV(new PartialJoinOperatorImpl(joinOpSpec, true, leftJoinFn, rightJoinFn, config, context, clock),
+            new PartialJoinOperatorImpl(joinOpSpec, false, rightJoinFn, leftJoinFn, config, context, clock));
+      });
 
-  private KV<PartialJoinFunction, PartialJoinFunction> getOrCreatePartialJoinFunctions(JoinOperatorSpec joinOpSpec) {
-    return joinFunctions.computeIfAbsent(joinOpSpec.getOpId(),
-        joinOpId -> KV.of(createLeftJoinFn(joinOpSpec), createRightJoinFn(joinOpSpec)));
+    if (isLeft) { // we got here from the left side of the join
+      return partialJoinOpImpls.getKey();
+    } else { // we got here from the right side of the join
+      return partialJoinOpImpls.getValue();
+    }
   }
 
   private PartialJoinFunction<Object, Object, Object, Object> createLeftJoinFn(JoinOperatorSpec joinOpSpec) {
@@ -316,10 +333,6 @@ public class OperatorImplGraph {
     };
   }
 
-  private boolean hasIntermediateStreams(StreamGraphImpl streamGraph) {
-    return !Collections.disjoint(streamGraph.getInputOperators().keySet(), streamGraph.getOutputStreams().keySet());
-  }
-
   /**
    * calculate the task count that produces to each intermediate streams
    * @param streamToConsumerTasks input streams to task mapping
@@ -330,12 +343,11 @@ public class OperatorImplGraph {
       Multimap<SystemStream, String> streamToConsumerTasks,
       Multimap<SystemStream, SystemStream> intermediateToInputStreams) {
     Map<SystemStream, Integer> result = new HashMap<>();
-    intermediateToInputStreams.asMap().entrySet().forEach(entry -> {
+    intermediateToInputStreams.asMap().entrySet().forEach(entry ->
         result.put(entry.getKey(),
             entry.getValue().stream()
                 .flatMap(systemStream -> streamToConsumerTasks.get(systemStream).stream())
-                .collect(Collectors.toSet()).size());
-      });
+                .collect(Collectors.toSet()).size()));
     return result;
   }
 
@@ -358,28 +370,37 @@ public class OperatorImplGraph {
 
   /**
    * calculate the mapping from output streams to input streams
-   * @param streamGraph the user {@link StreamGraphImpl} instance
+   * @param specGraph the user {@link OperatorSpecGraph}
    * @return mapping from output streams to input streams
    */
-  static Multimap<SystemStream, SystemStream> getIntermediateToInputStreamsMap(StreamGraphImpl streamGraph) {
+  static Multimap<SystemStream, SystemStream> getIntermediateToInputStreamsMap(
+      OperatorSpecGraph specGraph, StreamConfig streamConfig) {
     Multimap<SystemStream, SystemStream> outputToInputStreams = HashMultimap.create();
-    streamGraph.getInputOperators().entrySet().stream()
-        .forEach(
-            entry -> computeOutputToInput(entry.getKey().toSystemStream(), entry.getValue(), outputToInputStreams));
+    specGraph.getInputOperators().entrySet().stream()
+        .forEach(entry -> {
+            SystemStream systemStream = streamConfig.streamIdToSystemStream(entry.getKey());
+            computeOutputToInput(systemStream, entry.getValue(), outputToInputStreams, streamConfig);
+          });
     return outputToInputStreams;
   }
 
   private static void computeOutputToInput(SystemStream input, OperatorSpec opSpec,
-      Multimap<SystemStream, SystemStream> outputToInputStreams) {
+      Multimap<SystemStream, SystemStream> outputToInputStreams, StreamConfig streamConfig) {
     if (opSpec instanceof PartitionByOperatorSpec) {
       PartitionByOperatorSpec spec = (PartitionByOperatorSpec) opSpec;
-      outputToInputStreams.put(spec.getOutputStream().getStreamSpec().toSystemStream(), input);
+      SystemStream systemStream = streamConfig.streamIdToSystemStream(spec.getOutputStream().getStreamId());
+      outputToInputStreams.put(systemStream, input);
     } else if (opSpec instanceof BroadcastOperatorSpec) {
       BroadcastOperatorSpec spec = (BroadcastOperatorSpec) opSpec;
-      outputToInputStreams.put(spec.getOutputStream().getStreamSpec().toSystemStream(), input);
+      SystemStream systemStream = streamConfig.streamIdToSystemStream(spec.getOutputStream().getStreamId());
+      outputToInputStreams.put(systemStream, input);
     } else {
       Collection<OperatorSpec> nextOperators = opSpec.getRegisteredOperatorSpecs();
-      nextOperators.forEach(spec -> computeOutputToInput(input, spec, outputToInputStreams));
+      nextOperators.forEach(spec -> computeOutputToInput(input, spec, outputToInputStreams, streamConfig));
     }
+  }
+
+  private boolean hasIntermediateStreams(OperatorSpecGraph specGraph) {
+    return !Collections.disjoint(specGraph.getInputOperators().keySet(), specGraph.getOutputStreams().keySet());
   }
 }

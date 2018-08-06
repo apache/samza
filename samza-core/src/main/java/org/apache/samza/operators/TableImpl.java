@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators;
 
+import java.io.Serializable;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
 
@@ -25,7 +26,7 @@ import org.apache.samza.table.TableSpec;
 /**
  * This class is the holder of a {@link TableSpec}
  */
-public class TableImpl implements Table {
+public class TableImpl implements Table, Serializable {
 
   private final TableSpec tableSpec;
 

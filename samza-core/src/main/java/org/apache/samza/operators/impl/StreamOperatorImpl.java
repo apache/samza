@@ -40,8 +40,7 @@ class StreamOperatorImpl<M, RM> extends OperatorImpl<M, RM> {
   private final StreamOperatorSpec<M, RM> streamOpSpec;
   private final FlatMapFunction<M, RM> transformFn;
 
-  StreamOperatorImpl(StreamOperatorSpec<M, RM> streamOpSpec,
-      Config config, TaskContext context) {
+  StreamOperatorImpl(StreamOperatorSpec<M, RM> streamOpSpec) {
     this.streamOpSpec = streamOpSpec;
     this.transformFn = streamOpSpec.getTransformFn();
   }

@@ -26,6 +26,8 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import scala.collection.JavaConversions;
 
 import java.time.Duration;
@@ -83,15 +85,36 @@ public class EventHubConfig extends MapConfig {
   public static final String CONFIG_PER_PARTITION_CONNECTION = "systems.%s.eventhubs.perPartition.connection";
   public static final Boolean DEFAULT_CONFIG_PER_PARTITION_CONNECTION = true;
 
+  /*
+   * This set of configs control the max retry count allowed within a certain sliding window, as well as
+   * the minimum interval between two retries.
+   * For example, if max retry count is 10, window size is 1 day, min retry interval is 10 min, then
+   * we retry up to 10 times within 1 day time frame and we only retry 10 min after the last retry.
+   */
+  public static final String CONFIG_MAX_RETRY_COUNT = "systems.%s.eventhubs.max.retry.count";
+  public static final long DEFAULT_CONFIG_MAX_RETRIES_COUNT = 3;
+  public static final String CONFIG_RETRY_WINDOW_MS = "systems.%s.eventhubs.retry.window.ms";
+  public static final long DEFAULT_CONFIG_RETRY_WINDOW_MS = Duration.ofHours(3).toMillis();
+  public static final String CONFIG_MIN_RETRY_INTERVAL_MS = "systems.%s.eventhubs.min.retry.interval.ms";
+  public static final long DEFAULT_CONFIG_RETRY_INTERVAL_MS = Duration.ofMinutes(3).toMillis();
+
   private final Map<String, String> physcialToId = new HashMap<>();
+
+  private static final Logger LOG = LoggerFactory.getLogger(EventHubConfig.class);
 
   public EventHubConfig(Config config) {
     super(config);
 
     // Build reverse index for streamName -> streamId
     StreamConfig streamConfig = new StreamConfig(config);
+
+    LOG.info("Building mappings from physicalName to streamId");
     JavaConversions.asJavaCollection(streamConfig.getStreamIds())
-            .forEach((streamId) -> physcialToId.put(streamConfig.getPhysicalName(streamId), streamId));
+        .forEach((streamId) -> {
+            String physicalName = streamConfig.getPhysicalName(streamId);
+            LOG.info("Obtained physicalName: {} for streamId: {} ", physicalName, streamId);
+            physcialToId.put(physicalName, streamId);
+          });
   }
 
   private String getFromStreamIdOrName(String configName, String streamName, String defaultString) {
@@ -145,6 +168,7 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs namespace
    */
   public String getStreamNamespace(String systemName, String streamName) {
+    LOG.info("Obtaining name-space for system: {} physical name: {}", systemName, streamName);
     return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_NAMESPACE, streamName),
             "Namespace", systemName, streamName);
   }
@@ -157,6 +181,7 @@ public class EventHubConfig extends MapConfig {
    * @return EventHubs entity path
    */
   public String getStreamEntityPath(String systemName, String streamName) {
+    LOG.info("Obtaining entity-path for system: {} physical name: {}", systemName, streamName);
     return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_ENTITYPATH, streamName),
             "EntityPath", systemName, streamName);
   }
@@ -297,5 +322,32 @@ public class EventHubConfig extends MapConfig {
       return DEFAULT_CONFIG_PER_PARTITION_CONNECTION;
     }
     return Boolean.valueOf(isPerPartitionConnection);
+  }
+
+  /**
+   * Get max retry count allowed before propagating the exception to users
+   * @param systemaName name of the system
+   * @return long, max retry count allowed
+   */
+  public long getMaxRetryCount(String systemaName) {
+    return getLong(String.format(CONFIG_MAX_RETRY_COUNT, systemaName), DEFAULT_CONFIG_MAX_RETRIES_COUNT);
+  }
+
+  /**
+   * Get the sliding window size in ms for tracking the retry count
+   * @param systemName name of the system
+   * @return long, sliding window size in ms
+   */
+  public long getRetryWindowMs(String systemName) {
+    return getLong(String.format(CONFIG_RETRY_WINDOW_MS, systemName), DEFAULT_CONFIG_RETRY_WINDOW_MS);
+  }
+
+  /**
+   * Get the minimum interval in ms between two retries on non transient error
+   * @param systemName name of the system
+   * @return long, minimum interval in ms between retries
+   */
+  public long getMinRetryIntervalMs(String systemName) {
+    return getLong(String.format(CONFIG_MIN_RETRY_INTERVAL_MS, systemName), DEFAULT_CONFIG_RETRY_INTERVAL_MS);
   }
 }

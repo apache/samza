@@ -70,6 +70,7 @@ public class SamzaSqlCompositeKey implements Serializable {
    * Create the SamzaSqlCompositeKey from the rel message.
    * @param message Represents the samza sql rel message.
    * @param relIdx list of keys in the form of field indices within the rel message.
+   * @return the composite key of the rel message
    */
   public static SamzaSqlCompositeKey createSamzaSqlCompositeKey(SamzaSqlRelMessage message, List<Integer> relIdx) {
     ArrayList<Object> keyParts = new ArrayList<>();

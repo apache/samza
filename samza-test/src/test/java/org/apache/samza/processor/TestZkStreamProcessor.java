@@ -21,6 +21,7 @@ package org.apache.samza.processor;
 
 import java.util.concurrent.CountDownLatch;
 import org.junit.Assert;
+import org.junit.Test;
 
 
 /**
@@ -34,17 +35,17 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     return "test_ZK_";
   }
 
-  //@Test
+  @Test
   public void testSingleStreamProcessor() {
     testStreamProcessor(new String[]{"1"});
   }
 
-  //@Test
+  @Test
   public void testTwoStreamProcessors() {
     testStreamProcessor(new String[]{"2", "3"});
   }
 
-  //@Test
+  @Test
   public void testFiveStreamProcessors() {
     testStreamProcessor(new String[]{"4", "5", "6", "7", "8"});
   }
@@ -97,7 +98,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     verifyNumMessages(outputTopic, messageCount, messageCount);
   }
 
-  //@Test
+  @Test
   /**
    * Similar to the previous tests, but add another processor in the middle
    */ public void testStreamProcessorWithAdd() {
@@ -127,7 +128,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
     // make sure it consumes all the messages from the first batch
     waitUntilMessagesLeftN(totalEventsToGenerate - messageCount);
-    CountDownLatch containerStopped1 = sp1.jcContainerShutdownLatch;
+    CountDownLatch containerStopped1 = sp1.containerShutdownLatch;
 
     // start the second processor
     CountDownLatch startWait2 = new CountDownLatch(1);
@@ -169,7 +170,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     verifyNumMessages(outputTopic, 2 * messageCount, totalEventsToGenerate);
   }
 
-  //@Test
+  @Test
   /**
    * same as other happy path messages, but with one processor removed in the middle
    */ public void testStreamProcessorWithRemove() {
@@ -210,7 +211,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
     // make sure they consume all the messages from the first batch
     waitUntilMessagesLeftN(totalEventsToGenerate - messageCount);
-    CountDownLatch containerStopped2 = sp2.jcContainerShutdownLatch;
+    CountDownLatch containerStopped2 = sp2.containerShutdownLatch;
 
     // stop the first processor
     stopProcessor(stopLatch1);
