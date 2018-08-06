@@ -105,6 +105,8 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
 
 
     val partitionKeyName = config.getMetricsReporterStreamPartitionKeyName(name)
+    info("Got partitionKeyName %s." format partitionKeyName)
+
     val pollingInterval: Int = config
       .getMetricsReporterInterval(name)
       .getOrElse("60").toInt

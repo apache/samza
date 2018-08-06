@@ -33,10 +33,6 @@ import java.util.concurrent.TimeUnit
 
 import scala.collection.JavaConverters._
 
-object MetricsSnapshotReporter {
-  val METRICS_SNAPSHOT_REPORTER_PARTITION_KEY_DEFAULT = "jobname"
-}
-
 /**
  * MetricsSnapshotReporter is a generic metrics reporter that sends metrics to a stream.
  *
@@ -57,7 +53,7 @@ class MetricsSnapshotReporter(
   samzaVersion: String,
   host: String,
   serializer: Serializer[MetricsSnapshot] = null,
-  partitionKeyName: Option[String],
+  partitionKeyName: String,
   clock: () => Long = () => { System.currentTimeMillis }) extends MetricsReporter with Runnable with Logging {
 
   val executor = Executors.newSingleThreadScheduledExecutor(
@@ -74,17 +70,17 @@ class MetricsSnapshotReporter(
   /**
     * Returns the actual value of the partition key, based on the keyName.
     * If specified as "jobname" returns the jobname.
-    * If none is specified or is specified as "hostname", returns the hostname,
+    * If specified as "hostname" returns the hostname,
     * else returns the actual value specified.
     *
     * @param keyName  the desired key name (hostname, jobname, none, or another custom name)
     * @param jobName  the current job name
     * @param hostname the current host name
     */
-  def getMetricsReporterStreamPartitionKeyValue(keyName: Option[String], jobName: String, hostname: String) = keyName match {
-    case Some(MetricsSnapshotReporter.METRICS_SNAPSHOT_REPORTER_PARTITION_KEY_DEFAULT) => jobName
-    case None => hostname
-    case _ => keyName.get
+  def getMetricsReporterStreamPartitionKeyValue(keyName: String, jobName: String, hostname: String) = keyName match {
+    case "jobname" => jobName
+    case "hostname" => hostname
+    case _ => keyName
   }
 
   def start {
