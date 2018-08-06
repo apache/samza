@@ -20,7 +20,9 @@ package org.apache.samza.test.framework;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
@@ -60,10 +62,12 @@ public class StreamApplicationIntegrationTest {
     Random random = new Random();
     int count = 10;
     List<PageView> pageviews = new ArrayList<>(count);
+    Map<Integer, List<PageView>> expectedOutput = new HashMap<>();
     for (int i = 0; i < count; i++) {
       String pagekey = PAGEKEYS[random.nextInt(PAGEKEYS.length - 1)];
       int memberId = i;
-      pageviews.add(new PageView(pagekey, memberId));
+      PageView pv = new PageView(pagekey, memberId);
+      pageviews.add(pv);
     }
 
     CollectionStream<PageView> input = CollectionStream.of("test", "PageView", pageviews);
@@ -76,7 +80,7 @@ public class StreamApplicationIntegrationTest {
         .addOverrideConfig("job.default.system", "test")
         .run(Duration.ofMillis(1500));
 
-    Assert.assertEquals(TestRunner.consumeStream(output, 10000).get(random.nextInt(count)).size(), 1);
+    Assert.assertEquals(TestRunner.consumeStream(output, Duration.ofMillis(1000)).get(random.nextInt(count)).size(), 1);
   }
 
   public static final class Values {
@@ -124,4 +128,5 @@ public class StreamApplicationIntegrationTest {
         .addOverrideConfig("job.default.system", "test")
         .run(Duration.ofMillis(1000));
   }
+
 }

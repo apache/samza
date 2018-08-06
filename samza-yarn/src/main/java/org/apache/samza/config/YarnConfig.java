@@ -19,6 +19,10 @@
 
 package org.apache.samza.config;
 
+import java.util.HashMap;
+import java.util.Map;
+
+import org.apache.hadoop.yarn.api.records.ApplicationAccessType;
 import org.apache.samza.SamzaException;
 
 public class YarnConfig extends MapConfig {
@@ -115,6 +119,22 @@ public class YarnConfig extends MapConfig {
    */
   public static final String YARN_JOB_STAGING_DIRECTORY = "yarn.job.staging.directory";
 
+  /**
+   * For secured YARN cluster only.
+   * The 'viewing' acl of the YARN application. This controls who can view the application,
+   * for example, application status, logs.
+   * {@link org.apache.hadoop.yarn.api.records.ApplicationAccessType} for more details
+   */
+  public static final String YARN_APPLICATION_VIEW_ACL = "yarn.job.view.acl";
+
+  /**
+   * For secured YARN cluster only.
+   * The 'modify' acl of the YARN application. This controls who can modify the application,
+   * for example, killing the job.
+   * {@link org.apache.hadoop.yarn.api.records.ApplicationAccessType} for more details
+   */
+  public static final String YARN_APPLICATION_MODIFY_ACL = "yarn.job.modify.acl";
+
   public YarnConfig(Config config) {
     super(config);
   }
@@ -190,4 +210,30 @@ public class YarnConfig extends MapConfig {
   public String getYarnJobStagingDirectory() {
     return get(YARN_JOB_STAGING_DIRECTORY, null);
   }
+
+  public String getYarnApplicationViewAcl() {
+    return get(YARN_APPLICATION_VIEW_ACL, null);
+  }
+
+  public String getYarnApplicationModifyAcl() {
+    return get(YARN_APPLICATION_MODIFY_ACL, null);
+  }
+
+  /**
+   * Helper function to get all application acls
+   * @return a map of {@link ApplicationAccessType} to {@link String} for all the acls defined
+   */
+  public Map<ApplicationAccessType, String> getYarnApplicationAcls() {
+    Map<ApplicationAccessType, String> acls = new HashMap<>();
+    String viewAcl = getYarnApplicationViewAcl();
+    String modifyAcl = getYarnApplicationModifyAcl();
+    if (viewAcl != null) {
+      acls.put(ApplicationAccessType.VIEW_APP, viewAcl);
+    }
+    if (modifyAcl != null) {
+      acls.put(ApplicationAccessType.MODIFY_APP, modifyAcl);
+    }
+    return acls;
+  }
+
 }

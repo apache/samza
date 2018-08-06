@@ -24,8 +24,8 @@ import java.util.List;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.samza.config.JobCoordinatorConfig;
-import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
+import org.apache.samza.test.framework.StreamApplicationIntegrationTestHarness;
 import org.apache.samza.test.operator.data.PageView;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Assert;
@@ -67,7 +67,7 @@ public class TestRepartitionWindowApp extends StreamApplicationIntegrationTestHa
     configs.put(String.format("streams.%s.samza.key.serde", INPUT_TOPIC), "string");
 
     // run the application
-    Thread runThread = runApplication(RepartitionWindowApp.class.getName(), APP_NAME, new MapConfig(configs)).getRunThread();
+    runApplication(new RepartitionWindowApp(), APP_NAME, configs);
 
     // consume and validate result
     List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(OUTPUT_TOPIC), 2);
@@ -85,7 +85,5 @@ public class TestRepartitionWindowApp extends StreamApplicationIntegrationTestHa
       }
     }
 
-    runThread.interrupt();
-    runThread.join();
   }
 }

@@ -17,14 +17,12 @@
  * under the License.
  */
 
-package org.apache.samza.test.timer;
+package org.apache.samza.test.framework;
 
-import org.apache.samza.test.operator.StreamApplicationIntegrationTestHarness;
 import org.junit.Before;
 import org.junit.Test;
 
-
-import static org.apache.samza.test.timer.TestTimerApp.PAGE_VIEWS;
+import static org.apache.samza.test.framework.TestTimerApp.*;
 
 public class TimerTest extends StreamApplicationIntegrationTestHarness {
 
@@ -46,8 +44,6 @@ public class TimerTest extends StreamApplicationIntegrationTestHarness {
 
   @Test
   public void testJob() throws InterruptedException {
-    Thread runThread = runApplication(TestTimerApp.class.getName(), "TimerTest", null).getRunThread();
-    runThread.interrupt();
-    runThread.join();
+    runApplication(new TestTimerApp(), "TimerTest", null).getAppRuntime();
   }
 }

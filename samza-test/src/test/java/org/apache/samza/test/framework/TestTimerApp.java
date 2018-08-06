@@ -17,34 +17,32 @@
  * under the License.
  */
 
-package org.apache.samza.test.timer;
-
-import org.apache.samza.application.StreamApplicationSpec;
-import org.apache.samza.config.Config;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.TimerRegistry;
-import org.apache.samza.operators.functions.FlatMapFunction;
-import org.apache.samza.operators.functions.TimerFunction;
-import org.apache.samza.serializers.JsonSerdeV2;
-import org.apache.samza.test.operator.data.PageView;
-import org.apache.samza.test.framework.StreamAssert;
+package org.apache.samza.test.framework;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationSpec;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.TimerRegistry;
+import org.apache.samza.operators.functions.FlatMapFunction;
+import org.apache.samza.operators.functions.TimerFunction;
+import org.apache.samza.serializers.JsonSerdeV2;
+import org.apache.samza.test.operator.data.PageView;
 
-public class TestTimerApp {
+public class TestTimerApp implements StreamApplication {
   public static final String PAGE_VIEWS = "page-views";
 
   @Override
-  public void init(StreamApplicationSpec graph, Config config) {
+  public void describe(StreamApplicationSpec graph) {
     final JsonSerdeV2<PageView> serde = new JsonSerdeV2<>(PageView.class);
     final MessageStream<PageView> pageViews = graph.getInputStream(PAGE_VIEWS, serde);
     final MessageStream<PageView> output = pageViews.flatMap(new FlatmapTimerFn());
 
-    StreamAssert.that("Output from timer function should container all complete messages", output, serde)
+    MessageStreamAssert.that("Output from timer function should container all complete messages", output, serde)
         .containsInAnyOrder(
             Arrays.asList(
                 new PageView("v1-complete", "p1", "u1"),

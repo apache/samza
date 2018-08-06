@@ -17,34 +17,35 @@
  * under the License.
  */
 
-package org.apache.samza.test.operator;
+package org.apache.samza.test.framework;
 
 import java.util.Arrays;
-import org.apache.samza.application.internal.StreamAppSpecImpl;
+import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationSpec;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.serializers.JsonSerdeV2;
-import org.apache.samza.test.framework.StreamAssert;
 import org.apache.samza.test.operator.data.PageView;
 
-public class BroadcastAssertApp {
+public class BroadcastAssertApp implements StreamApplication {
 
   public static final String INPUT_TOPIC_NAME_PROP = "inputTopicName";
 
 
   @Override
-  public void init(StreamAppSpecImpl graph, Config config) {
+  public void describe(StreamApplicationSpec appSpec) {
+    Config config = appSpec.getConfig();
     String inputTopic = config.get(INPUT_TOPIC_NAME_PROP);
 
     final JsonSerdeV2<PageView> serde = new JsonSerdeV2<>(PageView.class);
-    final MessageStream<PageView> broadcastPageViews = graph
+    final MessageStream<PageView> broadcastPageViews = appSpec
         .getInputStream(inputTopic, serde)
         .broadcast(serde, "pv");
 
     /**
      * Each task will see all the pageview events
      */
-    StreamAssert.that("Each task contains all broadcast PageView events", broadcastPageViews, serde)
+    MessageStreamAssert.that("Each task contains all broadcast PageView events", broadcastPageViews, serde)
         .forEachTask()
         .containsInAnyOrder(
             Arrays.asList(

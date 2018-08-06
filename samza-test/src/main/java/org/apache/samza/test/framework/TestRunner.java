@@ -319,7 +319,7 @@ public class TestRunner {
    *         i.e messages in the partition
    * @throws InterruptedException Thrown when a blocking poll has been interrupted by another thread.
    */
-  public static <T> Map<Integer, List<T>> consumeStream(CollectionStream stream, Integer timeout) throws InterruptedException {
+  public static <T> Map<Integer, List<T>> consumeStream(CollectionStream stream, Duration timeout) throws InterruptedException {
     Preconditions.checkNotNull(stream);
     Preconditions.checkNotNull(stream.getSystemName());
     String streamName = stream.getStreamName();
@@ -342,7 +342,7 @@ public class TestRunner {
     long t = System.currentTimeMillis();
     Map<SystemStreamPartition, List<IncomingMessageEnvelope>> output = new HashMap<>();
     HashSet<SystemStreamPartition> didNotReachEndOfStream = new HashSet<>(ssps);
-    while (System.currentTimeMillis() < t + timeout) {
+    while (System.currentTimeMillis() < t + timeout.toMillis()) {
       Map<SystemStreamPartition, List<IncomingMessageEnvelope>> currentState = consumer.poll(ssps, 10);
       for (Map.Entry<SystemStreamPartition, List<IncomingMessageEnvelope>> entry : currentState.entrySet()) {
         SystemStreamPartition ssp = entry.getKey();

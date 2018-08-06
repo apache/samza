@@ -27,11 +27,12 @@ import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.samza.Partition;
 import org.apache.samza.config.JobCoordinatorConfig;
-import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
 import org.apache.samza.system.kafka.KafkaSystemAdmin;
+import org.apache.samza.test.framework.BroadcastAssertApp;
+import org.apache.samza.test.framework.StreamApplicationIntegrationTestHarness;
 import org.apache.samza.util.ExponentialSleepStrategy;
 import org.junit.Assert;
 import org.junit.Test;
@@ -81,18 +82,13 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_NAME_2_PROP, inputTopicName2);
     configs.put(RepartitionJoinWindowApp.OUTPUT_TOPIC_NAME_PROP, outputTopicName);
 
-    // run the application
-    Thread runThread = runApplication(app.getClass().getName(), appName, new MapConfig(configs)).getRunThread();
+    runApplication(app, appName, configs);
 
     // consume and validate result
     List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(outputTopicName), 2);
     Assert.assertEquals(2, messages.size());
 
     Assert.assertFalse(KafkaSystemAdmin.deleteMessagesCalled());
-
-    runThread.interrupt();
-    runThread.join();
-
   }
 
   @Test
@@ -115,7 +111,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_NAME_2_PROP, inputTopicName2);
     configs.put(RepartitionJoinWindowApp.OUTPUT_TOPIC_NAME_PROP, outputTopicName);
 
-    Thread runThread = runApplication(app.getClass().getName(), appName, new MapConfig(configs)).getRunThread();
+    runApplication(app, appName, configs);
 
     // consume and validate result
     List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(outputTopicName), 2);
@@ -146,13 +142,10 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
       }
       Assert.assertEquals(0, remainingMessageNum);
     }
-
-    runThread.interrupt();
-    runThread.join();
   }
 
   @Test
-  public void testBroadcastApp() throws InterruptedException {
+  public void testBroadcastApp() {
     String inputTopicName1 = "page-views";
     String inputTopicName2 = "ad-clicks";
     String outputTopicName = "user-ad-click-counts";
@@ -160,10 +153,6 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     configs.put(BroadcastAssertApp.INPUT_TOPIC_NAME_PROP, inputTopicName1);
 
     initializeTopics(inputTopicName1, inputTopicName2, outputTopicName);
-    // run the application
-    Thread runThread = runApplication(BroadcastAssertApp.class.getName(), "BroadcastTest", new MapConfig(configs)).getRunThread();
-
-    runThread.interrupt();
-    runThread.join();
+    runApplication(new BroadcastAssertApp(), "BroadcastTest", configs);
   }
 }
