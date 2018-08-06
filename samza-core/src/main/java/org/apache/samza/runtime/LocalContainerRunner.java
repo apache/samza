@@ -99,27 +99,36 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
             @Override
             public void onContainerStart() {
               log.info("Container Started");
+              taskApp.getProcessorLifecycleListner().afterStart();
             }
 
             @Override
             public void onContainerStop() {
               log.info("Container Stopped");
+              taskApp.getProcessorLifecycleListner().afterStop();
             }
 
             @Override
             public void onContainerFailed(Throwable t) {
               log.info("Container Failed");
               containerRunnerException = t;
+              // TODO: No defined behavior on {@link ProcessorLifecycleListener} methods for failure scenario yet.
+            }
+
+            @Override
+            public void beforeStop() {
+              taskApp.getProcessorLifecycleListner().beforeStop();
+            }
+
+            @Override
+            public void beforeStart() {
+              taskApp.getProcessorLifecycleListner().beforeStart();
             }
           });
 
-      taskApp.getProcessorLifecycleListner().beforeStart();
-      taskApp.getProcessorLifecycleListner().afterStart();
       startContainerHeartbeatMonitor();
       container.run();
       stopContainerHeartbeatMonitor();
-      taskApp.getProcessorLifecycleListner().beforeStop();
-      taskApp.getProcessorLifecycleListner().afterStop();
 
       if (containerRunnerException != null) {
         log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
@@ -170,11 +179,13 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
             @Override
             public void onContainerStart() {
               log.info("Container Started");
+              streamApp.getProcessorLifecycleListner().afterStart();
             }
 
             @Override
             public void onContainerStop() {
               log.info("Container Stopped");
+              streamApp.getProcessorLifecycleListner().afterStop();
             }
 
             @Override
@@ -182,15 +193,21 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
               log.info("Container Failed");
               containerRunnerException = t;
             }
+
+            @Override
+            public void beforeStop() {
+              streamApp.getProcessorLifecycleListner().beforeStop();
+            }
+
+            @Override
+            public void beforeStart() {
+              streamApp.getProcessorLifecycleListner().beforeStart();
+            }
           });
 
-      streamApp.getProcessorLifecycleListner().beforeStart();
-      streamApp.getProcessorLifecycleListner().afterStart();
       startContainerHeartbeatMonitor();
       container.run();
       stopContainerHeartbeatMonitor();
-      streamApp.getProcessorLifecycleListner().beforeStop();
-      streamApp.getProcessorLifecycleListner().afterStop();
 
       if (containerRunnerException != null) {
         log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);

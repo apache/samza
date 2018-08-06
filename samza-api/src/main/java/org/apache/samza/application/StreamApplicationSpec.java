@@ -19,13 +19,11 @@
 package org.apache.samza.application;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 
 
 /**
- * Provides access to {@link MessageStream}s and {@link OutputStream}s used to describe application logic.
+ * The interface class to create the specification of a user application as high-level DAG in Samza.
  */
 @InterfaceStability.Evolving
 public interface StreamApplicationSpec extends ApplicationSpec<StreamApplication>, StreamGraph {

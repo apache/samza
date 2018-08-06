@@ -27,15 +27,31 @@ import org.apache.samza.metrics.MetricsReporter;
 
 
 /**
- * The primary means of managing execution of user applications defined in {@link ApplicationSpec} at runtime.
+ * The primary means of managing execution of user applications deployed in various runtime environments.
  */
 @InterfaceStability.Evolving
 public interface ApplicationRunner {
 
+  /**
+   * Launch the application defined in {@link ApplicationSpec}
+   *
+   * @param appSpec the user defined {@link ApplicationSpec}
+   */
   void run(ApplicationSpec appSpec);
 
+  /**
+   * Stop the application already deployed in a runtime environment
+   *
+   * @param appSpec the user defined {@link ApplicationSpec}
+   */
   void kill(ApplicationSpec appSpec);
 
+  /**
+   * Query the status of the application deployed in a runtime environment
+   *
+   * @param appSpec the user defined {@link ApplicationSpec}
+   * @return the current status of a deployed application
+   */
   ApplicationStatus status(ApplicationSpec appSpec);
 
   @Deprecated

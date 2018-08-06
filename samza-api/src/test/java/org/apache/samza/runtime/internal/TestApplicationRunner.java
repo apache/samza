@@ -18,26 +18,50 @@
  */
 package org.apache.samza.runtime.internal;
 
-import java.util.HashMap;
+import java.time.Duration;
 import java.util.Map;
+import org.apache.samza.application.ApplicationSpec;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.MapConfig;
-import org.junit.Test;
-
-import static org.junit.Assert.assertTrue;
+import org.apache.samza.job.ApplicationStatus;
+import org.apache.samza.metrics.MetricsReporter;
 
 
 /**
- * Unit test for {@link ApplicationRunners}
+ * Test class for {@link ApplicationRunners} unit test
  */
-public class TestApplicationRunners {
+public class TestApplicationRunner implements ApplicationRunner {
 
-  @Test
-  public void testFromConfig() {
-    Map<String, String> configMap = new HashMap<>();
-    configMap.put("app.runner.class", TestApplicationRunner.class.getName());
-    Config config = new MapConfig(configMap);
-    ApplicationRunner appRunner = ApplicationRunners.fromConfig(config);
-    assertTrue(appRunner instanceof TestApplicationRunner);
+  public TestApplicationRunner(Config config) {
+
+  }
+
+  @Override
+  public void run(ApplicationSpec appSpec) {
+
+  }
+
+  @Override
+  public void kill(ApplicationSpec appSpec) {
+
+  }
+
+  @Override
+  public ApplicationStatus status(ApplicationSpec appSpec) {
+    return null;
+  }
+
+  @Override
+  public void waitForFinish(ApplicationSpec appSpec) {
+
+  }
+
+  @Override
+  public boolean waitForFinish(ApplicationSpec appSpec, Duration timeout) {
+    return false;
+  }
+
+  @Override
+  public void addMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
+
   }
 }

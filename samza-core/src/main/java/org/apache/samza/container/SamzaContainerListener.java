@@ -49,4 +49,8 @@ public interface SamzaContainerListener {
    *  @param t Throwable that caused the container failure.
    */
   void onContainerFailed(Throwable t);
+
+  void beforeStop();
+
+  void beforeStart();
 }

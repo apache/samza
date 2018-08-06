@@ -46,4 +46,8 @@ public interface StreamProcessorLifecycleListener {
    */
   void onFailure(Throwable t);
 
+  void beforeStop();
+
+  void beforeStart();
+
 }

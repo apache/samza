@@ -797,6 +797,9 @@ class SamzaContainer(
 
       jmxServer = new JmxServer()
 
+      if (containerListener != null) {
+        containerListener.beforeStart()
+      }
       startMetrics
       startDiagnostics
       startAdmins
@@ -833,6 +836,10 @@ class SamzaContainer(
     try {
       info("Shutting down.")
       removeShutdownHook
+
+      if (containerListener != null) {
+        containerListener.beforeStop()
+      }
 
       jmxServer.stop
 

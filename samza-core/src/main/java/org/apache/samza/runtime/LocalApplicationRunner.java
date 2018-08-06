@@ -31,6 +31,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.ProcessorLifecycleListener;
 import org.apache.samza.application.internal.StreamAppSpecImpl;
 import org.apache.samza.application.internal.TaskAppSpecImpl;
 import org.apache.samza.config.ApplicationConfig;
@@ -65,6 +66,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   private final Set<StreamProcessor> processors = ConcurrentHashMap.newKeySet();
   private final CountDownLatch shutdownLatch = new CountDownLatch(1);
   private final AtomicInteger numProcessorsToStart = new AtomicInteger();
+  private final AtomicInteger numProcessorsStopped = new AtomicInteger();
   private final AtomicReference<Throwable> failure = new AtomicReference<>();
 
   private ApplicationStatus appStatus = ApplicationStatus.New;
@@ -76,6 +78,11 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
   private final class LocalStreamProcessorLifeCycleListener implements StreamProcessorLifecycleListener {
     private StreamProcessor processor;
+    private final ProcessorLifecycleListener processorLifecycleListener;
+
+    private LocalStreamProcessorLifeCycleListener(ProcessorLifecycleListener processorLifecycleListener) {
+      this.processorLifecycleListener = processorLifecycleListener;
+    }
 
     void setProcessor(StreamProcessor processor) {
       this.processor = processor;
@@ -83,8 +90,9 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
     @Override
     public void onStart() {
-      if (numProcessorsToStart.decrementAndGet() == 0) {
+      if (numProcessorsToStart.get() == 0) {
         appStatus = ApplicationStatus.Running;
+        processorLifecycleListener.afterStart();
       }
     }
 
@@ -94,6 +102,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       processor = null;
 
       if (processors.isEmpty()) {
+        processorLifecycleListener.afterStop();
         shutdownAndNotify();
       }
     }
@@ -109,7 +118,27 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       }
 
       if (processors.isEmpty()) {
+        // TODO: shutdown due to failure may not have the processorLifecycleListener.beforeStop() invoked.
+        // Hence, we don't have a corresponding processorLifecycleListener.afterStop() here either.
         shutdownAndNotify();
+      }
+    }
+
+    @Override
+    public void beforeStop() {
+      // This is to record the number of processors that are stopped via normal shutdown sequence (i.e. calling sp.stop())
+      // If this is the first call to stop in all processors in the application, we also call beforeStop() as well.
+      if (numProcessorsStopped.getAndIncrement() == 0) {
+        processorLifecycleListener.beforeStop();
+      }
+    }
+
+    @Override
+    public void beforeStart() {
+      // This is to record the number of processors that are to be started (i.e. calling sp.start())
+      // If this is the first call to start in all processors in the application, we also call beforeStart() method as well.
+      if (numProcessorsToStart.getAndDecrement() == processors.size()) {
+        processorLifecycleListener.beforeStart();
       }
     }
 
@@ -160,7 +189,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
         }
         plan.getJobConfigs().forEach(jobConfig -> {
           LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
-          LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
+          LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener(streamApp.getProcessorLifecycleListner());
           StreamProcessor processor = createStreamProcessor(jobConfig, ((StreamGraphSpec)streamApp.getGraph()).getOperatorSpecGraph(),
               streamApp.getContextManager(), listener);
           listener.setProcessor(processor);
@@ -169,9 +198,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
         numProcessorsToStart.set(processors.size());
 
         // 4. start the StreamProcessors
-        streamApp.getProcessorLifecycleListner().beforeStart();
         processors.forEach(StreamProcessor::start);
-        streamApp.getProcessorLifecycleListner().afterStart();
       } catch (Throwable throwable) {
         appStatus = ApplicationStatus.unsuccessfulFinish(throwable);
         shutdownLatch.countDown();
@@ -185,9 +212,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
     @Override
     public void kill() {
-      streamApp.getProcessorLifecycleListner().beforeStop();
       processors.forEach(StreamProcessor::stop);
-      streamApp.getProcessorLifecycleListner().afterStop();
     }
 
     @Override
@@ -213,22 +238,18 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     @Override
     public void run() {
       LOG.info("LocalApplicationRunner will start task " + appSpec.getGlobalAppId());
-      LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
+      LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener(appSpec.getProcessorLifecycleListner());
 
       sp = createStreamProcessor(config, appSpec.getTaskFactory(), listener);
 
       numProcessorsToStart.set(1);
       listener.setProcessor(sp);
-      appSpec.getProcessorLifecycleListner().beforeStart();
       sp.start();
-      appSpec.getProcessorLifecycleListner().afterStart();
     }
 
     @Override
     public void kill() {
-      appSpec.getProcessorLifecycleListner().beforeStop();
       sp.stop();
-      appSpec.getProcessorLifecycleListner().afterStop();
     }
 
     @Override

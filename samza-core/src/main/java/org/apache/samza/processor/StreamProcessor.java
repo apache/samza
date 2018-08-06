@@ -213,6 +213,7 @@ public class StreamProcessor {
    * </p>
    */
   public void start() {
+    processorListener.beforeStart();
     synchronized (lock) {
       if (state == State.NEW) {
         state = State.STARTED;
@@ -249,6 +250,7 @@ public class StreamProcessor {
    *
    */
   public void stop() {
+    processorListener.beforeStop();
     synchronized (lock) {
       if (state != State.STOPPING && state != State.STOPPED) {
         state = State.STOPPING;
@@ -406,6 +408,18 @@ public class StreamProcessor {
         containerException = t;
         jobCoordinator.stop();
       }
+    }
+
+    @Override
+    public void beforeStop() {
+      // There is no need to invoked user defined logic before shutting down container here, since the container lifecycle
+      // inside a StreamProcessor is managed internally. User defined beforeStop() method is called in StreamProcessor.stop()
+    }
+
+    @Override
+    public void beforeStart() {
+      // There is no need to invoked user defined logic before starting container here, since the container lifecycle
+      // inside a StreamProcessor is managed internally. User defined beforeStart() method is called in StreamProcessor.start()
     }
   }
 }

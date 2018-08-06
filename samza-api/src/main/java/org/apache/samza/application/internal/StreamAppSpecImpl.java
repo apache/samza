@@ -1,3 +1,21 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.samza.application.internal;
 
 import java.lang.reflect.Constructor;
@@ -15,7 +33,9 @@ import org.apache.samza.table.Table;
 
 
 /**
- * Created by yipan on 7/10/18.
+ * This class implements interface {@link StreamApplicationSpec}. In addition to the common objects for an application
+ * defined in {@link AppSpecImpl}, this class also includes the high-level DAG {@link StreamGraph} object that user will
+ * use to create the processing logic in DAG.
  */
 public class StreamAppSpecImpl extends AppSpecImpl<StreamApplication, StreamApplicationSpec> implements StreamApplicationSpec {
   final StreamGraph graph;
@@ -26,10 +46,10 @@ public class StreamAppSpecImpl extends AppSpecImpl<StreamApplication, StreamAppl
     userApp.describe(this);
   }
 
-  private StreamApplicationSpec createDefaultGraph(Config config) {
+  private StreamGraph createDefaultGraph(Config config) {
     try {
       Constructor<?> constructor = Class.forName("org.apache.samza.operators.StreamGraphSpec").getConstructor(Config.class); // *sigh*
-      return (StreamApplicationSpec) constructor.newInstance(config);
+      return (StreamGraph) constructor.newInstance(config);
     } catch (Exception e) {
       throw new SamzaException("Cannot instantiate an empty StreamGraph to start user application.", e);
     }
@@ -65,6 +85,11 @@ public class StreamAppSpecImpl extends AppSpecImpl<StreamApplication, StreamAppl
     return this.graph.getTable(tableDesc);
   }
 
+  /**
+   * Get the user-defined high-level DAG {@link StreamGraph} object
+   *
+   * @return the {@link StreamGraph} object defined by the user application
+   */
   public StreamGraph getGraph() {
     return graph;
   }
