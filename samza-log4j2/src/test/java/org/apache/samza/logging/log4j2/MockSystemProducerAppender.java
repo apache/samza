@@ -41,8 +41,8 @@ import org.apache.samza.config.MapConfig;
 class MockSystemProducerAppender extends StreamAppender {
   private static Config config;
 
-  protected MockSystemProducerAppender(String name, Filter filter, Layout<? extends Serializable> layout, boolean ignoreExceptions, Config config) {
-    super(name, filter, layout, ignoreExceptions);
+  protected MockSystemProducerAppender(String name, Filter filter, Layout<? extends Serializable> layout, boolean ignoreExceptions, Config config, String streamName) {
+    super(name, filter, layout, ignoreExceptions, streamName);
   }
 
   @PluginFactory
@@ -51,13 +51,14 @@ class MockSystemProducerAppender extends StreamAppender {
       @PluginElement("Filter") final Filter filter,
       @PluginElement("Layout") Layout<? extends Serializable> layout,
       @PluginAttribute(value = "ignoreExceptions", defaultBoolean = true) final boolean ignoreExceptions,
-      @PluginElement("Config") final Config testConfig) {
+      @PluginElement("Config") final Config testConfig,
+      @PluginAttribute("streamName") String streamName) {
     if (testConfig == null) {
       initConfig();
     } else {
       config = testConfig;
     }
-    return new MockSystemProducerAppender(name, filter, layout, ignoreExceptions, config);
+    return new MockSystemProducerAppender(name, filter, layout, ignoreExceptions, config, streamName);
   }
 
   @Override

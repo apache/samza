@@ -277,13 +277,9 @@ project(":samza-autoscaling_$scalaVersion") {
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     compile "org.eclipse.jetty:jetty-webapp:$jettyVersion"
     compile("org.apache.hadoop:hadoop-yarn-client:$yarnVersion") {
-      exclude module: 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
-      exclude module: 'slf4j-log4j12'
       exclude module: 'servlet-api'
     }
     compile("org.apache.hadoop:hadoop-common:$yarnVersion") {
-      exclude module: 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
-      exclude module: 'slf4j-log4j12'
       exclude module: 'servlet-api'
     }
     compile "org.apache.httpcomponents:httpclient:$httpClientVersion"
@@ -420,6 +416,7 @@ project(':samza-log4j') {
 
   dependencies {
     compile "log4j:log4j:$log4jVersion"
+    compile "org.slf4j:slf4j-log4j12:1.7.7"
     compile project(':samza-api')
     compile project(":samza-core_$scalaVersion")
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
@@ -437,9 +434,10 @@ project(':samza-log4j2') {
   apply plugin: 'checkstyle'
 
   dependencies {
-    compile group: 'org.apache.logging.log4j', name: 'log4j-1.2-api', version: '2.11.0'
-    compile group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.11.0'
-    compile group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.11.0'
+    compile "org.apache.logging.log4j:log4j-1.2-api:$log4j2Version"
+    compile "org.apache.logging.log4j:log4j-api:$log4j2Version"
+    compile "org.apache.logging.log4j:log4j-core:$log4j2Version"
+    compile "org.apache.logging.log4j:log4j-slf4j-impl:$log4j2Version"
     compile project(':samza-api')
     compile project(":samza-core_$scalaVersion")
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
@@ -474,29 +472,19 @@ project(":samza-yarn_$scalaVersion") {
     compile "commons-httpclient:commons-httpclient:$commonsHttpClientVersion"
     compile "org.apache.httpcomponents:httpclient:$httpClientVersion"
     compile("org.apache.hadoop:hadoop-yarn-api:$yarnVersion") {
-      exclude module: 'slf4j-log4j12'
-      exclude module: 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
     }
     compile("org.apache.hadoop:hadoop-yarn-common:$yarnVersion") {
-      exclude module: 'slf4j-log4j12'
-      exclude module: 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
       exclude module: 'servlet-api'
     }
     compile("org.apache.hadoop:hadoop-yarn-client:$yarnVersion") {
-      exclude module: 'slf4j-log4j12'
-      exclude module: 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
       exclude module: 'servlet-api'
     }
     compile("org.apache.hadoop:hadoop-common:$yarnVersion") {
-      exclude module: 'slf4j-log4j12'
-      exclude module: 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
       exclude module: 'servlet-api'
       // Exclude because YARN's 3.4.5 ZK version is incompatbile with Kafka's 3.3.4.
       exclude module: 'zookeeper'
     }
     compile("org.apache.hadoop:hadoop-hdfs:$yarnVersion") {
-      exclude module: 'slf4j-log4j12'
-      exclude module: 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
       exclude module: 'servlet-api'
     }
     compile("org.scalatra:scalatra_$scalaVersion:$scalatraVersion") {
@@ -543,8 +531,6 @@ project(":samza-shell") {
     gradleShell project(":samza-kafka_$scalaVersion")
     gradleShell project(":samza-test_$scalaVersion")
     gradleShell project(":samza-yarn_$scalaVersion")
-//    gradleShell "org.slf4j:slf4j-log4j12:$slf4jVersion"
-//    gradleShell "log4j:log4j:1.2.16"
   }
 
   task shellTarGz(type: Tar) {
@@ -684,13 +670,9 @@ project(":samza-hdfs_$scalaVersion") {
     compile project(":samza-yarn_$scalaVersion")
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     compile("org.apache.hadoop:hadoop-hdfs:$yarnVersion") {
-      exclude module: 'slf4j-log4j12'
-      exclude module: 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
       exclude module: 'servlet-api'
     }
     compile("org.apache.hadoop:hadoop-common:$yarnVersion") {
-      exclude module: 'slf4j-log4j12'
-      exclude module: 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
       exclude module: 'servlet-api'
       exclude module: 'zookeeper'
     }
@@ -717,14 +699,10 @@ project(":samza-rest") {
     compile "org.eclipse.jetty.aggregate:jetty-all:$jettyVersion"
     compile "commons-httpclient:commons-httpclient:$commonsHttpClientVersion"
     compile("org.apache.hadoop:hadoop-yarn-client:$yarnVersion") {
-      exclude module: 'slf4j-log4j12'
-      exclude module: 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
       exclude module: 'servlet-api'
       exclude group: 'com.sun.jersey'
     }
     runtime("org.apache.hadoop:hadoop-yarn-api:$yarnVersion") {
-      exclude module: 'slf4j-log4j12'
-      exclude module: 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
       exclude module: 'servlet-api'
       exclude group: 'com.sun.jersey'
     }

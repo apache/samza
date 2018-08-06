@@ -59,7 +59,7 @@ public class TestStreamAppender {
   public void testDefaultSerde() {
     System.setProperty("samza.container.name", "samza-container-1");
     PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
-    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, layout, false, null);
+    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, layout, false, null, null);
     assertNotNull(systemProducerAppender.getSerde());
     assertEquals(LoggingEventJsonSerde.class, systemProducerAppender.getSerde().getClass());
   }
@@ -76,9 +76,27 @@ public class TestStreamAppender {
     map.put("systems.mock.streams." + streamName + ".samza.msg.serde", "log4j-string");
     map.put("task.log4j.system", "mock");
     PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
-    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, layout, false, new MapConfig(map));
+    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, layout, false, new MapConfig(map), null);
     assertNotNull(systemProducerAppender.getSerde());
     assertEquals(LoggingEventStringSerde.class, systemProducerAppender.getSerde().getClass());
+  }
+
+  @Test
+  public void testDefaultStreamName() {
+    System.setProperty("samza.container.name", "samza-container-1");
+    PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
+    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, layout, false, null, null);
+    log.addAppender(systemProducerAppender);
+    Assert.assertEquals("__samza_log4jTest_1_logs", systemProducerAppender.getStreamName());
+  }
+
+  @Test
+  public void testCustomStreamName() {
+    System.setProperty("samza.container.name", "samza-container-1");
+    PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
+    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, layout, false, null, "test-stream-name");
+    log.addAppender(systemProducerAppender);
+    Assert.assertEquals("test-stream-name", systemProducerAppender.getStreamName());
   }
 
   @Test
@@ -86,7 +104,7 @@ public class TestStreamAppender {
     System.setProperty("samza.container.name", "samza-container-1");
 
     PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
-    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, layout, false, null);
+    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, layout, false, null, null);
     systemProducerAppender.start();
 
     log.addAppender(systemProducerAppender);
@@ -101,7 +119,7 @@ public class TestStreamAppender {
     System.setProperty("samza.container.name", "samza-job-coordinator");
 
     PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
-    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, layout, false, null);
+    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, layout, false, null, null);
     systemProducerAppender.start();
     log.addAppender(systemProducerAppender);
     log.setLevel(Level.INFO);
@@ -121,14 +139,14 @@ public class TestStreamAppender {
     System.setProperty("samza.container.name", "samza-container-1");
 
     PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
-    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, layout, false, null);
+    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, layout, false, null, null);
     log.addAppender(systemProducerAppender);
 
     Assert.assertEquals("", MockSystemAdmin.createdStreamName);
   }
 
   @Test
-  public void testStreamCreationUpSetupWhenEnabled() {
+  public void testStreamCreationUponSetupWhenEnabled() {
     System.setProperty("samza.container.name", "samza-container-1");
 
     MapConfig mapConfig = new MapConfig(ImmutableMap.of(
@@ -139,7 +157,7 @@ public class TestStreamAppender {
         "task.log4j.system", "mock"));
 
     PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
-    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, layout, false, mapConfig);
+    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, layout, false, mapConfig, null);
     log.addAppender(systemProducerAppender);
 
     Assert.assertEquals("__samza_log4jTest_1_logs", MockSystemAdmin.createdStreamName);
@@ -148,7 +166,7 @@ public class TestStreamAppender {
   @Test
   public void testDefaultPartitionCount() {
     System.setProperty("samza.container.name", "samza-container-1");
-    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, null, false, null);
+    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, null, false, null, null);
     Assert.assertEquals(1, systemProducerAppender.getPartitionCount()); // job.container.count defaults to 1
 
     Map<String, String> map = new HashMap<>();
@@ -157,10 +175,10 @@ public class TestStreamAppender {
     map.put("systems.mock.samza.factory", MockSystemFactory.class.getCanonicalName());
     map.put("task.log4j.system", "mock");
     map.put("job.container.count", "4");
-    systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, null, false, new MapConfig(map));
+    systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, null, false, new MapConfig(map), null);
     Assert.assertEquals(4, systemProducerAppender.getPartitionCount());
 
-    systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, null, false, null);
+    systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, null, false, null, null);
     systemProducerAppender.setPartitionCount(8);
     Assert.assertEquals(8, systemProducerAppender.getPartitionCount());
   }
@@ -170,7 +188,7 @@ public class TestStreamAppender {
     System.setProperty("samza.container.name", "samza-container-1");
 
     PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
-    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, layout, false, null);
+    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, layout, false, null, null);
     systemProducerAppender.start();
     log.addAppender(systemProducerAppender);
     log.setLevel(Level.INFO);
@@ -200,7 +218,7 @@ public class TestStreamAppender {
     System.setProperty("samza.container.name", "samza-container-1");
 
     PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
-    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, layout, false, null);
+    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, layout, false, null, null);
     systemProducerAppender.queueTimeoutS = 1;
     systemProducerAppender.start();
     log.addAppender(systemProducerAppender);

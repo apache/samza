@@ -90,7 +90,7 @@ public class StreamAppender extends AbstractAppender {
   private String key = null;
   private String streamName = null;
   private int partitionCount = 0;
-  private boolean isApplicationMaster = false;
+  private boolean isApplicationMaster;
   private Serde<LogEvent> serde = null;
   private Logger log = LogManager.getLogger(StreamAppender.class);
   protected StreamAppenderMetrics metrics;
@@ -100,8 +100,9 @@ public class StreamAppender extends AbstractAppender {
 
   private Thread transferThread;
 
-  protected StreamAppender(String name, Filter filter, Layout<? extends Serializable> layout, boolean ignoreExceptions) {
+  protected StreamAppender(String name, Filter filter, Layout<? extends Serializable> layout, boolean ignoreExceptions, String streamName) {
     super(name, filter, layout, ignoreExceptions);
+    this.streamName = streamName;
     String containerName = System.getProperty(JAVA_OPTS_CONTAINER_NAME);
     if (containerName != null) {
       isApplicationMaster = containerName.contains(JOB_COORDINATOR_TAG);
@@ -126,7 +127,7 @@ public class StreamAppender extends AbstractAppender {
   private final AtomicBoolean recursiveCall = new AtomicBoolean(false);
 
   /**
-   * Getter for the StreamName parameter. See also {@link #createAppender(String, Filter, Layout, boolean)} for when this is called.
+   * Getter for the StreamName parameter. See also {@link #createAppender(String, Filter, Layout, boolean, String)} for when this is called.
    * Example: {@literal <param name="StreamName" value="ExampleStreamName"/>}
    * @return The configured stream name.
    */
@@ -135,16 +136,7 @@ public class StreamAppender extends AbstractAppender {
   }
 
   /**
-   * Setter for the StreamName parameter. See also {@link #createAppender(String, Filter, Layout, boolean)} for when this is called.
-   * Example: {@literal <param name="StreamName" value="ExampleStreamName"/>}
-   * @param streamName The configured stream name.
-   */
-  public void setStreamName(String streamName) {
-    this.streamName = streamName;
-  }
-
-  /**
-   * Getter for the number of partitions to create on a new StreamAppender stream. See also {@link #createAppender(String, Filter, Layout, boolean)} for when this is called.
+   * Getter for the number of partitions to create on a new StreamAppender stream. See also {@link #createAppender(String, Filter, Layout, boolean, String)} for when this is called.
    * Example: {@literal <param name="PartitionCount" value="4"/>}
    * @return The configured partition count of the StreamAppender stream. If not set, returns {@link JobConfig#getContainerCount()}.
    */
@@ -156,7 +148,7 @@ public class StreamAppender extends AbstractAppender {
   }
 
   /**
-   * Setter for the number of partitions to create on a new StreamAppender stream. See also {@link #createAppender(String, Filter, Layout, boolean)} for when this is called.
+   * Setter for the number of partitions to create on a new StreamAppender stream. See also {@link #createAppender(String, Filter, Layout, boolean, String)} for when this is called.
    * Example: {@literal <param name="PartitionCount" value="4"/>}
    * @param partitionCount Configurable partition count.
    */
@@ -170,8 +162,9 @@ public class StreamAppender extends AbstractAppender {
       @PluginAttribute("name") final String name,
       @PluginElement("Filter") final Filter filter,
       @PluginElement("Layout") Layout layout,
-      @PluginAttribute(value = "ignoreExceptions", defaultBoolean = true) final boolean ignoreExceptions) {
-    return new StreamAppender(name, filter, layout, ignoreExceptions);
+      @PluginAttribute(value = "ignoreExceptions", defaultBoolean = true) final boolean ignoreExceptions,
+      @PluginAttribute("streamName") String streamName) {
+    return new StreamAppender(name, filter, layout, ignoreExceptions, streamName);
   }
 
   @Override
@@ -256,7 +249,8 @@ public class StreamAppender extends AbstractAppender {
         .build();
   }
 
-  public void close() {
+  @Override
+  public void stop() {
     log.info("Shutting down the StreamAppender...");
     transferThread.interrupt();
     try {
@@ -272,14 +266,10 @@ public class StreamAppender extends AbstractAppender {
     }
   }
 
-  public boolean requiresLayout() {
-    return false;
-  }
-
   /**
    * force the system producer to flush the messages
    */
-  public void flushSystemProducer() {
+  private void flushSystemProducer() {
     if (systemProducer != null) {
       systemProducer.flush(SOURCE);
     }
