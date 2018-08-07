@@ -21,6 +21,7 @@ package org.apache.samza.storage.kv;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.table.TableSpec;
@@ -55,6 +56,9 @@ public class RocksDbTableProvider extends BaseLocalStoreBackedTableProvider {
         : String.format(JavaTableConfig.TABLE_ID_PREFIX, tableSpec.getId()) + "." + k;
       tableConfig.put(realKey, v);
     });
+
+    // Enable host affinity
+    tableConfig.put(ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED, "true");
 
     logger.info("Generated configuration for table " + tableSpec.getId());
 
