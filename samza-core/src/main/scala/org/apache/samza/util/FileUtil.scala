@@ -22,6 +22,7 @@
 package org.apache.samza.util
 
 import java.io.{File, FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
+import java.nio.file._
 import java.util.zip.CRC32
 
 import org.apache.samza.util.Util.info
@@ -35,16 +36,26 @@ object FileUtil {
     * */
   def writeWithChecksum(file: File, data: String): Unit = {
     val checksum = getChecksum(data)
+    val tmpFilePath = file.getAbsolutePath + ".tmp"
+    val tmpFile = new File(tmpFilePath)
     var oos: ObjectOutputStream = null
     var fos: FileOutputStream = null
     try {
-      fos = new FileOutputStream(file)
+      fos = new FileOutputStream(tmpFile)
       oos = new ObjectOutputStream(fos)
       oos.writeLong(checksum)
       oos.writeUTF(data)
     } finally {
       oos.close()
       fos.close()
+    }
+
+    //atomic swap of tmp and real offset file
+    try {
+      Files.move(tmpFile.toPath, file.toPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+    } catch {
+      case e: AtomicMoveNotSupportedException =>
+        Files.move(tmpFile.toPath, file.toPath, StandardCopyOption.REPLACE_EXISTING)
     }
   }
 

@@ -30,6 +30,7 @@ object MetricsConfig {
   val METRICS_SNAPSHOT_REPORTER_STREAM = "metrics.reporter.%s.stream"
   val METRICS_SNAPSHOT_REPORTER_INTERVAL= "metrics.reporter.%s.interval"
   val METRICS_TIMER_ENABLED= "metrics.timer.enabled"
+  val METRICS_SNAPSHOT_REPORTER_BLACKLIST = "metrics.reporter.%s.blacklist"
 
   implicit def Config2Metrics(config: Config) = new MetricsConfig(config)
 }
@@ -42,6 +43,8 @@ class MetricsConfig(config: Config) extends ScalaMapConfig(config) {
   def getMetricsReporterStream(name: String): Option[String] = getOption(MetricsConfig.METRICS_SNAPSHOT_REPORTER_STREAM format name)
 
   def getMetricsReporterInterval(name: String): Option[String] = getOption(MetricsConfig.METRICS_SNAPSHOT_REPORTER_INTERVAL format name)
+
+  def getBlacklist(name: String): Option[String] = getOption(MetricsConfig.METRICS_SNAPSHOT_REPORTER_BLACKLIST format name)
 
   /**
    * Returns a list of all metrics names from the config file. Useful for

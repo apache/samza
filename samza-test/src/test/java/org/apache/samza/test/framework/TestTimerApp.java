@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.test.timer;
+package org.apache.samza.test.framework;
 
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
@@ -28,7 +28,6 @@ import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.test.operator.data.PageView;
-import org.apache.samza.test.framework.StreamAssert;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -45,7 +44,7 @@ public class TestTimerApp implements StreamApplication {
     final MessageStream<PageView> pageViews = graph.getInputStream(PAGE_VIEWS, serde);
     final MessageStream<PageView> output = pageViews.flatMap(new FlatmapTimerFn());
 
-    StreamAssert.that("Output from timer function should container all complete messages", output, serde)
+    MessageStreamAssert.that("Output from timer function should container all complete messages", output, serde)
         .containsInAnyOrder(
             Arrays.asList(
                 new PageView("v1-complete", "p1", "u1"),

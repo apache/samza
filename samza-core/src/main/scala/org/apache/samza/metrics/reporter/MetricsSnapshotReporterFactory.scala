@@ -107,6 +107,10 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
       .getOrElse("60").toInt
 
     info("Setting polling interval to %d" format pollingInterval)
+
+    val blacklist = config.getBlacklist(name)
+    info("Setting blacklist to %s" format blacklist)
+
     val reporter = new MetricsSnapshotReporter(
       producer,
       systemStream,
@@ -117,7 +121,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
       version,
       samzaVersion,
       Util.getLocalHost.getHostName,
-      serde)
+      serde, blacklist)
 
     reporter.register(this.getClass.getSimpleName.toString, registry)
 

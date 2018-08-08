@@ -27,6 +27,8 @@ import org.apache.samza.Partition;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
 import org.apache.samza.system.kafka.KafkaSystemAdmin;
+import org.apache.samza.test.framework.BroadcastAssertApp;
+import org.apache.samza.test.framework.StreamApplicationIntegrationTestHarness;
 import org.apache.samza.util.ExponentialSleepStrategy;
 import org.junit.Assert;
 import org.junit.Test;
