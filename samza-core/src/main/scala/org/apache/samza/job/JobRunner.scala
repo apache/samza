@@ -23,7 +23,7 @@ package org.apache.samza.job
 import java.util.concurrent.TimeUnit
 
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{Config, JobConfig, MetricsConfig}
+import org.apache.samza.config.{Config, JobConfig, MetricsConfig, StreamConfig}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.coordinator.stream.{CoordinatorStreamSystemConsumer, CoordinatorStreamSystemProducer}
 import org.apache.samza.coordinator.stream.messages.{Delete, SetConfig}
@@ -31,7 +31,7 @@ import org.apache.samza.job.ApplicationStatus.{Running, SuccessfulFinish}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.ApplicationRunnerMain.ApplicationRunnerCommandLine
 import org.apache.samza.runtime.ApplicationRunnerOperation
-import org.apache.samza.system.StreamSpec
+import org.apache.samza.system.{StreamSpec, SystemAdmins}
 import org.apache.samza.util.{CoordinatorStreamUtil, Logging, StreamUtil, Util}
 
 import scala.collection.JavaConverters._
@@ -82,12 +82,12 @@ class JobRunner(config: Config) extends Logging {
     val jobFactory: StreamJobFactory = getJobFactory
     val coordinatorSystemConsumer = new CoordinatorStreamSystemConsumer(config, new MetricsRegistryMap)
     val coordinatorSystemProducer = new CoordinatorStreamSystemProducer(config, new MetricsRegistryMap)
+    val systemAdmins = new SystemAdmins(config)
 
     // Create the coordinator stream if it doesn't exist
     info("Creating coordinator stream")
     val coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config)
-    val systemFactory = CoordinatorStreamUtil.getCoordinatorSystemFactory(config)
-    val systemAdmin = systemFactory.getAdmin(coordinatorSystemStream.getSystem, config)
+    val systemAdmin = systemAdmins.getSystemAdmin(coordinatorSystemStream.getSystem)
     val streamName = coordinatorSystemStream.getStream
     val coordinatorSpec = StreamSpec.createCoordinatorStreamSpec(streamName, coordinatorSystemStream.getSystem)
     systemAdmin.start()
@@ -119,16 +119,23 @@ class JobRunner(config: Config) extends Logging {
     coordinatorSystemProducer.stop()
 
 
-    // if diagnostics is enabled, create diagnostics stream as specified in config
+    // if diagnostics is enabled, create diagnostics stream if it doesnt exist
     if (new JobConfig(config).getDiagnosticsEnabled) {
+      val DIAGNOSTICS_STREAM_ID = "samza-diagnostics-stream-id"
       val systemStreamName = new MetricsConfig(config).
         getMetricsReporterStream(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS).get
       val systemStream = StreamUtil.getSystemStreamFromNames(systemStreamName)
-      val diagnosticStreamSpec = new StreamSpec("diagnostics-stream-id", systemStream.getStream, systemStream.getSystem)
-      val diagnosticSysAdmin = systemFactory.getAdmin(systemStream.getSystem, config)
-      info("creating stream %s using  sysAdmin %s " format (systemStreamName, diagnosticSysAdmin))
+      val diagnosticSysAdmin = systemAdmins.getSystemAdmin(systemStream.getSystem)
+      val diagnosticStreamSpec = new StreamSpec(DIAGNOSTICS_STREAM_ID, systemStream.getStream,
+        systemStream.getSystem, new StreamConfig(config).getStreamProperties(DIAGNOSTICS_STREAM_ID))
+
+      info("Creating diagnostics stream %s" format systemStream.getStream)
       diagnosticSysAdmin.start()
-      diagnosticSysAdmin.createStream(diagnosticStreamSpec)
+      if (diagnosticSysAdmin.createStream(diagnosticStreamSpec)) {
+        info("Created diagnostics stream %s" format systemStream.getStream)
+      } else {
+        info("Diagnostics stream %s already exists" format systemStream.getStream)
+      }
       diagnosticSysAdmin.stop()
     }
 
