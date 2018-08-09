@@ -141,9 +141,9 @@ project(':samza-api') {
   dependencies {
     compile "org.slf4j:slf4j-api:$slf4jVersion"
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
+    compile "com.google.guava:guava:$guavaVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
-    testCompile "com.google.guava:guava:$guavaVersion"
   }
   checkstyle {
     configFile = new File(rootDir, "checkstyle/checkstyle.xml")

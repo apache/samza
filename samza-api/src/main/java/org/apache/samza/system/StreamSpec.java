@@ -19,6 +19,7 @@
 
 package org.apache.samza.system;
 
+import com.google.common.base.Preconditions;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;
@@ -150,18 +151,12 @@ public class StreamSpec implements Serializable {
    * @param config          A map of properties for the stream. These may be System-specfic.
    */
   public StreamSpec(String id, String physicalName, String systemName, int partitionCount, Map<String, String> config) {
-    // partition count being 0 is a valid use case in Hadoop when the output stream is an empty folder
-    if (partitionCount < 0) {
-      throw new IllegalArgumentException("Parameter 'partitionCount' must be >= 0");
-    }
+    validateStreamSpec(id, physicalName, systemName, partitionCount);
 
     this.id = id;
     this.systemName = systemName;
     this.physicalName = physicalName;
     this.partitionCount = partitionCount;
-
-    validateLogicalIdentifier("streamId", id);
-    validateLogicalIdentifier("systemName", systemName);
 
     if (config != null) {
       this.config = Collections.unmodifiableMap(new HashMap<>(config));
@@ -226,10 +221,16 @@ public class StreamSpec implements Serializable {
     return id.equals(COORDINATOR_STREAM_ID);
   }
 
-  private void validateLogicalIdentifier(String identifierName, String identifierValue) {
-    if (identifierValue == null || !identifierValue.matches("[A-Za-z0-9_-]+")) {
-      throw new IllegalArgumentException(String.format("Identifier '%s' is '%s'. It must match the expression [A-Za-z0-9_-]+. %s", identifierName, identifierValue, this.toString()));
-    }
+  private void validateStreamSpec(String id, String physicalName, String systemName, int partitionCount)
+  {
+    String streamSpec = String.format("Stream spec: id = %s, systemName = %s, physicalName = %s, partitionCount = %d.", id, systemName, physicalName, partitionCount);
+
+    // partition count being 0 is a valid use case in Hadoop when the output stream is an empty folder
+    Preconditions.checkArgument(partitionCount >= 0, String.format("Partition count should be greater than or equal to zero. %s", streamSpec));
+    Preconditions.checkNotNull(id, String.format("Stream id should be non-null. %s", streamSpec));
+    Preconditions.checkArgument(id.matches("[A-Za-z0-9_-]+"), String.format("Stream id should match pattern [a-zA-z0-9]. %s", streamSpec));
+    Preconditions.checkNotNull(systemName, String.format("System name should be non-null. %s", streamSpec));
+    Preconditions.checkArgument(systemName.matches("[A-Za-z0-9_-]+"), String.format("System name should match pattern [a-zA-z0-9]. %s", streamSpec));
   }
 
   @Override
