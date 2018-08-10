@@ -20,6 +20,7 @@ package org.apache.samza.storage.kv;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 import com.google.common.base.Preconditions;
 import org.apache.samza.container.SamzaContainerContext;
@@ -70,12 +71,34 @@ public class LocalStoreBackedReadableTable<K, V> implements ReadableTable<K, V> 
   }
 
   @Override
+  public CompletableFuture<V> getAsync(K key) {
+    CompletableFuture<V> future = new CompletableFuture();
+    try {
+      future.complete(get(key));
+    } catch (Exception e) {
+      future.completeExceptionally(e);
+    }
+    return future;
+  }
+
+  @Override
   public Map<K, V> getAll(List<K> keys) {
     readMetrics.numGetAlls.inc();
     long startNs = System.nanoTime();
     Map<K, V> result = kvStore.getAll(keys);
     readMetrics.getAllNs.update(System.nanoTime() - startNs);
     return result;
+  }
+
+  @Override
+  public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys) {
+    CompletableFuture<Map<K, V>> future = new CompletableFuture();
+    try {
+      future.complete(getAll(keys));
+    } catch (Exception e) {
+      future.completeExceptionally(e);
+    }
+    return future;
   }
 
   @Override

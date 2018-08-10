@@ -19,10 +19,12 @@
 
 package org.apache.samza.table.caching.guava;
 
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.ReadWriteTable;
@@ -40,8 +42,6 @@ import com.google.common.cache.Cache;
  * @param <V> type of the value in the cache
  */
 public class GuavaCacheTable<K, V> implements ReadWriteTable<K, V> {
-  private static final String GROUP_NAME = GuavaCacheTableProvider.class.getSimpleName();
-
   private final String tableId;
   private final Cache<K, V> cache;
 
@@ -61,44 +61,148 @@ public class GuavaCacheTable<K, V> implements ReadWriteTable<K, V> {
   }
 
   @Override
-  public void put(K key, V value) {
-    if (value != null) {
-      cache.put(key, value);
-    } else {
-      delete(key);
+  public V get(K key) {
+    try {
+      return getAsync(key).get();
+    } catch (Exception e) {
+      throw new SamzaException("GET failed for " + key, e);
     }
   }
 
   @Override
+  public CompletableFuture<V> getAsync(K key) {
+    CompletableFuture<V> future = new CompletableFuture<>();
+    try {
+      future.complete(cache.getIfPresent(key));
+    } catch (Exception e) {
+      future.completeExceptionally(e);
+    }
+    return future;
+  }
+
+  @Override
+  public Map<K, V> getAll(List<K> keys) {
+    try {
+      return getAllAsync(keys).get();
+    } catch (Exception e) {
+      throw new SamzaException("GET_ALL failed for " + keys, e);
+    }
+  }
+
+  @Override
+  public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys) {
+    CompletableFuture<Map<K, V>> future = new CompletableFuture<>();
+    try {
+      future.complete(cache.getAllPresent(keys));
+    } catch (Exception e) {
+      future.completeExceptionally(e);
+    }
+    return future;
+  }
+
+  @Override
+  public void put(K key, V value) {
+    try {
+      putAsync(key, value).get();
+    } catch (Exception e) {
+      throw new SamzaException("PUT failed for " + key, e);
+    }
+  }
+
+  @Override
+  public CompletableFuture<Void> putAsync(K key, V value) {
+    if (key == null) {
+      return deleteAsync(key);
+    }
+
+    CompletableFuture<Void> future = new CompletableFuture<>();
+    try {
+      cache.put(key, value);
+      future.complete(null);
+    } catch (Exception e) {
+      future.completeExceptionally(e);
+    }
+    return future;
+  }
+
+  @Override
   public void putAll(List<Entry<K, V>> entries) {
-    entries.forEach(e -> put(e.getKey(), e.getValue()));
+    try {
+      putAllAsync(entries).get();
+    } catch (Exception e) {
+      throw new SamzaException("PUT_ALL failed", e);
+    }
+  }
+
+  @Override
+  public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> entries) {
+    CompletableFuture<Void> future = new CompletableFuture<>();
+    try {
+      // Separate out put vs delete records
+      List<K> delKeys = new ArrayList<>();
+      List<Entry<K, V>> putRecords = new ArrayList<>();
+      entries.forEach(r -> {
+          if (r.getValue() != null) {
+            putRecords.add(r);
+          } else {
+            delKeys.add(r.getKey());
+          }
+        });
+
+      cache.invalidateAll(delKeys);
+      putRecords.forEach(e -> put(e.getKey(), e.getValue()));
+      future.complete(null);
+    } catch (Exception e) {
+      future.completeExceptionally(e);
+    }
+    return future;
   }
 
   @Override
   public void delete(K key) {
-    cache.invalidate(key);
+    try {
+      deleteAsync(key).get();
+    } catch (Exception e) {
+      throw new SamzaException("DELETE failed", e);
+    }
+  }
+
+  @Override
+  public CompletableFuture<Void> deleteAsync(K key) {
+    CompletableFuture<Void> future = new CompletableFuture<>();
+    try {
+      cache.invalidate(key);
+      future.complete(null);
+    } catch (Exception e) {
+      future.completeExceptionally(e);
+    }
+    return future;
   }
 
   @Override
   public void deleteAll(List<K> keys) {
-    keys.forEach(k -> delete(k));
+    try {
+      deleteAllAsync(keys).get();
+    } catch (Exception e) {
+      throw new SamzaException("DELETE_ALL failed", e);
+    }
+  }
+
+  @Override
+  public CompletableFuture<Void> deleteAllAsync(List<K> keys) {
+    CompletableFuture<Void> future = new CompletableFuture<>();
+    try {
+      cache.invalidateAll(keys);
+      future.complete(null);
+    } catch (Exception e) {
+      future.completeExceptionally(e);
+    }
+    return future;
   }
 
   @Override
   public synchronized void flush() {
     cache.cleanUp();
-  }
-
-  @Override
-  public V get(K key) {
-    return cache.getIfPresent(key);
-  }
-
-  @Override
-  public Map<K, V> getAll(List<K> keys) {
-    Map<K, V> getAllResult = new HashMap<>();
-    keys.stream().forEach(k -> getAllResult.put(k, get(k)));
-    return getAllResult;
   }
 
   @Override
