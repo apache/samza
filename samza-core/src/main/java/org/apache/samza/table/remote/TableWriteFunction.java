@@ -22,10 +22,17 @@ package org.apache.samza.table.remote;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
+
+import org.apache.samza.SamzaException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.functions.ClosableFunction;
 import org.apache.samza.operators.functions.InitableFunction;
 import org.apache.samza.storage.kv.Entry;
+
+import com.google.common.collect.Iterables;
 
 
 /**
@@ -43,37 +50,96 @@ import org.apache.samza.storage.kv.Entry;
 public interface TableWriteFunction<K, V> extends Serializable, InitableFunction, ClosableFunction {
   /**
    * Store single table {@code record} with specified {@code key}. This method must be thread-safe.
-   *
-   * The key is deleted if record is {@code null}.
+   * The default implementation calls putAsync and blocks on the completion afterwards.
    *
    * @param key key for the table record
    * @param record table record to be written
    */
-  void put(K key, V record);
-
-  /**
-   * Store the table {@code records} with specified {@code keys}. This method must be thread-safe.
-   *
-   * A key is deleted if its corresponding record is {@code null}.
-   *
-   * @param records table records to be written
-   */
-  default void putAll(List<Entry<K, V>> records) {
-    records.forEach(e -> put(e.getKey(), e.getValue()));
+  default void put(K key, V record) {
+    try {
+      putAsync(key, record).get();
+    } catch (InterruptedException | ExecutionException e) {
+      throw new SamzaException("PUT failed for " + key, e);
+    }
   }
 
   /**
-   * Delete the {@code record} with specified {@code key} from the remote store
+   * Asynchronously store single table {@code record} with specified {@code key}. This method must be thread-safe.
+   * @param key key for the table record
+   * @param record table record to be written
+   * @return CompletableFuture for the put request
+   */
+  CompletableFuture<Void> putAsync(K key, V record);
+
+  /**
+   * Store the table {@code records} with specified {@code keys}. This method must be thread-safe.
+   * The default implementation calls putAllAsync and blocks on the completion afterwards.
+   * @param records table records to be written
+   */
+  default void putAll(List<Entry<K, V>> records) {
+    try {
+      putAllAsync(records).get();
+    } catch (InterruptedException | ExecutionException e) {
+      throw new SamzaException("PUT_ALL failed for " + records, e);
+    }
+  }
+
+  /**
+   * Asynchronously store the table {@code records} with specified {@code keys}. This method must be thread-safe.
+   * The default implementation calls putAsync for each entry and return a combined future.
+   * @param records table records to be written
+   * @return CompletableFuture for the put request
+   */
+  default CompletableFuture<Void> putAllAsync(Collection<Entry<K, V>> records) {
+    List<CompletableFuture<Void>> putFutures =
+        records.stream().map(e -> putAsync(e.getKey(), e.getValue())).collect(Collectors.toList());
+    return CompletableFuture.allOf(Iterables.toArray(putFutures, CompletableFuture.class));
+  }
+
+  /**
+   * Delete the {@code record} with specified {@code key} from the remote store.
+   * The default implementation calls deleteAsync and blocks on the completion afterwards.
    * @param key key to the table record to be deleted
    */
-  void delete(K key);
+  default void delete(K key) {
+    try {
+      deleteAsync(key).get();
+    } catch (InterruptedException | ExecutionException e) {
+      throw new SamzaException("DELETE failed for " + key, e);
+    }
+  }
+
+  /**
+   * Asynchronously delete the {@code record} with specified {@code key} from the remote store
+   * @param key key to the table record to be deleted
+   * @return CompletableFuture for the delete request
+   */
+  CompletableFuture<Void> deleteAsync(K key);
 
   /**
    * Delete all {@code records} with the specified {@code keys} from the remote store
+   * The default implementation calls deleteAllAsync and blocks on the completion afterwards.
    * @param keys keys for the table records to be written
    */
   default void deleteAll(Collection<K> keys) {
-    keys.stream().forEach(k -> delete(k));
+    try {
+      deleteAllAsync(keys).get();
+    } catch (InterruptedException | ExecutionException e) {
+      throw new SamzaException("DELETE failed for " + keys, e);
+    }
+  }
+
+  /**
+   * Asynchronously delete all {@code records} with the specified {@code keys} from the remote store.
+   * The default implementation calls deleteAsync for each key and return a combined future.
+   *
+   * @param keys keys for the table records to be written
+   * @return CompletableFuture for the deleteAll request
+   */
+  default CompletableFuture<Void> deleteAllAsync(Collection<K> keys) {
+    List<CompletableFuture<Void>> deleteFutures =
+        keys.stream().map(this::deleteAsync).collect(Collectors.toList());
+    return CompletableFuture.allOf(Iterables.toArray(deleteFutures, CompletableFuture.class));
   }
 
   /**

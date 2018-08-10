@@ -20,8 +20,8 @@
 package org.apache.samza.test.table;
 
 import java.io.Serializable;
+import java.util.Objects;
 import java.util.Random;
-
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.serializers.Serde;
@@ -111,6 +111,26 @@ public class TestTableData {
         @JsonProperty("company") String company) {
       super(pageKey, memberId);
       this.company = company;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(company, memberId, pageKey);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+
+      EnrichedPageView that = (EnrichedPageView) o;
+      return Objects.equals(company, that.company) && Objects.equals(memberId, that.memberId) && Objects.equals(pageKey,
+          that.pageKey);
     }
   }
 
