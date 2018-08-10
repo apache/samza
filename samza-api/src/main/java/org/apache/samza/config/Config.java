@@ -22,7 +22,6 @@ package org.apache.samza.config;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -155,8 +154,8 @@ public abstract class Config implements Map<String, String> {
       return defaultValue;
 
     String value = get(k);
-    if (value.isEmpty()) {
-      return Collections.emptyList();
+    if (value.trim().isEmpty()) {
+      return defaultValue;
     }
     String[] pieces = value.split("\\s*,\\s*");
     return Arrays.asList(pieces);
