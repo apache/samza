@@ -20,11 +20,12 @@ package org.apache.samza.operators.descriptors;
 
 import java.util.Collections;
 import java.util.Map;
-import org.apache.samza.operators.descriptors.expanding.GraphExpandingInputDescriptor;
-import org.apache.samza.operators.descriptors.expanding.GraphExpandingOutputDescriptor;
-import org.apache.samza.operators.descriptors.expanding.GraphExpandingSystemDescriptor;
+import org.apache.samza.operators.descriptors.expanding.MockExpandingInputDescriptor;
+import org.apache.samza.operators.descriptors.expanding.MockExpandingOutputDescriptor;
+import org.apache.samza.operators.descriptors.expanding.MockExpandingSystemDescriptor;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.IntegerSerde;
+import org.apache.samza.serializers.LongSerde;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.junit.Test;
@@ -35,15 +36,12 @@ public class TestGraphExpandingDescriptors {
   public void testAPIUsage() {
     // does not assert anything, but acts as a compile-time check on expected descriptor type parameters
     // and validates that the method calls can be chained.
-    GraphExpandingSystemDescriptor expandingSystem = new GraphExpandingSystemDescriptor("expandingSystem");
+    MockExpandingSystemDescriptor expandingSystem = new MockExpandingSystemDescriptor("expandingSystem");
 
-    GraphExpandingInputDescriptor<Long> input1 = expandingSystem.getInputDescriptor("input1");
-    GraphExpandingInputDescriptor<Long> input2 = expandingSystem.getInputDescriptor("input2", new IntegerSerde());
-    GraphExpandingInputDescriptor<Long> input3 = expandingSystem.getInputDescriptor("input3", ime -> 1f);
-    GraphExpandingInputDescriptor<Long> input4 = expandingSystem.getInputDescriptor("input4", ime -> 1f, new IntegerSerde());
+    MockExpandingInputDescriptor<Long> input1 = expandingSystem.getInputDescriptor("input1", new IntegerSerde());
+    MockExpandingInputDescriptor<Long> input2 = expandingSystem.getInputDescriptor("input2", ime -> 1f, new IntegerSerde());
 
-    GraphExpandingOutputDescriptor<String> output1 = expandingSystem.getOutputDescriptor("output1");
-    GraphExpandingOutputDescriptor<Integer> output2 = expandingSystem.getOutputDescriptor("output2", new IntegerSerde());
+    MockExpandingOutputDescriptor<Integer> output1 = expandingSystem.getOutputDescriptor("output1", new IntegerSerde());
 
     input1
         .withBootstrap(false)
@@ -61,7 +59,7 @@ public class TestGraphExpandingDescriptors {
 
   @Test
   public void testSDConfigs() {
-    GraphExpandingSystemDescriptor expandingSystem = new GraphExpandingSystemDescriptor("expandingSystem");
+    MockExpandingSystemDescriptor expandingSystem = new MockExpandingSystemDescriptor("expandingSystem");
 
     Map<String, String> generatedConfigs = expandingSystem.toConfig();
     assertEquals("org.apache.samza.GraphExpandingSystemFactory",
@@ -70,12 +68,12 @@ public class TestGraphExpandingDescriptors {
 
   @Test
   public void testISDObjectsWithOverrides() {
-    GraphExpandingSystemDescriptor expandingSystem = new GraphExpandingSystemDescriptor("expandingSystem");
+    MockExpandingSystemDescriptor expandingSystem = new MockExpandingSystemDescriptor("expandingSystem");
 
     InputTransformer<IncomingMessageEnvelope> transformer = m -> m;
     IntegerSerde streamSerde = new IntegerSerde();
 
-    GraphExpandingInputDescriptor<Long> expandingISD =
+    MockExpandingInputDescriptor<Long> expandingISD =
         expandingSystem.getInputDescriptor("input-stream", transformer, streamSerde);
 
     assertEquals(streamSerde, expandingISD.getSerde());
@@ -84,10 +82,9 @@ public class TestGraphExpandingDescriptors {
 
   @Test
   public void testISDObjectsWithDefaults() {
-    GraphExpandingSystemDescriptor expandingSystem = new GraphExpandingSystemDescriptor("expandingSystem");
-    GraphExpandingInputDescriptor<Long> defaultISD = expandingSystem.getInputDescriptor("input-stream");
+    MockExpandingSystemDescriptor expandingSystem = new MockExpandingSystemDescriptor("expandingSystem");
+    MockExpandingInputDescriptor<Long> defaultISD = expandingSystem.getInputDescriptor("input-stream", new LongSerde());
 
-    assertEquals(expandingSystem.getSystemSerde().get(), defaultISD.getSerde());
     assertEquals(expandingSystem.getTransformer(), defaultISD.getTransformer().get());
   }
 }

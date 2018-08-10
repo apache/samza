@@ -18,6 +18,7 @@
  */
 package org.apache.samza.example;
 
+import java.time.Duration;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
@@ -26,14 +27,11 @@ import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.kafka.KafkaInputDescriptor;
 import org.apache.samza.system.kafka.KafkaOutputDescriptor;
 import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.util.CommandLine;
-
-import java.time.Duration;
 
 
 /**
@@ -54,8 +52,7 @@ public class OrderShipmentJoinExample implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    KafkaSystemDescriptor<KV<Object, Object>> trackingSystem =
-        new KafkaSystemDescriptor<>("tracking", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+    KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
 
     KafkaInputDescriptor<OrderRecord> orderStreamDescriptor =
         trackingSystem.getInputDescriptor("orders", new JsonSerdeV2<>(OrderRecord.class));

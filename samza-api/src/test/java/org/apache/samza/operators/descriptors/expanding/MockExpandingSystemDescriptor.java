@@ -22,48 +22,31 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.descriptors.base.system.ExpandingSystemDescriptor;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.IncomingMessageEnvelope;
 
 @SuppressWarnings("unchecked")
-public class GraphExpandingSystemDescriptor extends ExpandingSystemDescriptor<String, Long, GraphExpandingSystemDescriptor> {
+public class MockExpandingSystemDescriptor extends ExpandingSystemDescriptor<Long, MockExpandingSystemDescriptor> {
   private static final String FACTORY_CLASS_NAME = "org.apache.samza.GraphExpandingSystemFactory";
 
-  public GraphExpandingSystemDescriptor(String systemName) {
+  public MockExpandingSystemDescriptor(String systemName) {
     super(systemName, FACTORY_CLASS_NAME,
-        new StringSerde(),
         (InputTransformer<String>) IncomingMessageEnvelope::toString,
         (streamGraph, inputDescriptor) -> (MessageStream<Long>) streamGraph.getInputStream(inputDescriptor)
     );
   }
 
   @Override
-  public GraphExpandingInputDescriptor<Long> getInputDescriptor(String streamId) {
-    return new GraphExpandingInputDescriptor<>(streamId, this, null, getSystemSerde().get());
+  public MockExpandingInputDescriptor<Long> getInputDescriptor(String streamId, Serde serde) {
+    return new MockExpandingInputDescriptor<>(streamId, this, null, serde);
   }
 
   @Override
-  public GraphExpandingInputDescriptor<Long> getInputDescriptor(String streamId, Serde serde) {
-    return new GraphExpandingInputDescriptor<>(streamId, this, null, serde);
+  public MockExpandingInputDescriptor<Long> getInputDescriptor(String streamId, InputTransformer transformer, Serde serde) {
+    return new MockExpandingInputDescriptor<>(streamId, this, transformer, serde);
   }
 
   @Override
-  public GraphExpandingInputDescriptor<Long> getInputDescriptor(String streamId, InputTransformer transformer) {
-    return new GraphExpandingInputDescriptor<>(streamId, this, transformer, getSystemSerde().get());
-  }
-
-  @Override
-  public GraphExpandingInputDescriptor<Long> getInputDescriptor(String streamId, InputTransformer transformer, Serde serde) {
-    return new GraphExpandingInputDescriptor<>(streamId, this, transformer, serde);
-  }
-
-  @Override
-  public GraphExpandingOutputDescriptor<String> getOutputDescriptor(String streamId) {
-    return new GraphExpandingOutputDescriptor<>(streamId, this, getSystemSerde().get());
-  }
-
-  @Override
-  public <StreamMessageType> GraphExpandingOutputDescriptor<StreamMessageType> getOutputDescriptor(String streamId, Serde<StreamMessageType> serde) {
-    return new GraphExpandingOutputDescriptor<>(streamId, this, serde);
+  public <StreamMessageType> MockExpandingOutputDescriptor<StreamMessageType> getOutputDescriptor(String streamId, Serde<StreamMessageType> serde) {
+    return new MockExpandingOutputDescriptor<>(streamId, this, serde);
   }
 }

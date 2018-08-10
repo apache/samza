@@ -16,15 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.descriptors.expanding;
+package org.apache.samza.operators.descriptors.transforming;
 
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
 
-public class GraphExpandingInputDescriptor<StreamMessageType> extends InputDescriptor<StreamMessageType, GraphExpandingInputDescriptor<StreamMessageType>> {
-  GraphExpandingInputDescriptor(String streamId, SystemDescriptor systemDescriptor, InputTransformer<StreamMessageType> transformer, Serde serde) {
+public class MockTransformingInputDescriptor<StreamMessageType> extends InputDescriptor<StreamMessageType, MockTransformingInputDescriptor<StreamMessageType>> {
+  MockTransformingInputDescriptor(String streamId, SystemDescriptor systemDescriptor, InputTransformer<StreamMessageType> transformer, Serde serde) {
     super(streamId, systemDescriptor.getSystemName(), serde, systemDescriptor, transformer);
   }
 }

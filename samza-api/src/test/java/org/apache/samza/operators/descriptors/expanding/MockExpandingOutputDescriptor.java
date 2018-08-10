@@ -16,14 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.descriptors.transforming;
+package org.apache.samza.operators.descriptors.expanding;
 
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.serializers.Serde;
 
-public class IMETransformingOutputDescriptor<StreamMessageType> extends OutputDescriptor<StreamMessageType, IMETransformingOutputDescriptor<StreamMessageType>> {
-  IMETransformingOutputDescriptor(String streamId, SystemDescriptor systemDescriptor, Serde<StreamMessageType> serde) {
+public class MockExpandingOutputDescriptor<StreamMessageType> extends OutputDescriptor<StreamMessageType, MockExpandingOutputDescriptor<StreamMessageType>> {
+  MockExpandingOutputDescriptor(String streamId, SystemDescriptor systemDescriptor, Serde<StreamMessageType> serde) {
     super(streamId, systemDescriptor.getSystemName(), serde, systemDescriptor);
   }
 }

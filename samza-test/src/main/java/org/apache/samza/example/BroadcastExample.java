@@ -22,11 +22,11 @@ package org.apache.samza.example;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.operators.MessageStream;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.kafka.KafkaInputDescriptor;
 import org.apache.samza.system.kafka.KafkaOutputDescriptor;
@@ -53,13 +53,16 @@ public class BroadcastExample implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    KafkaSystemDescriptor<KV<String, PageViewEvent>> trackingSystem =
-        new KafkaSystemDescriptor<>("tracking", KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class)));
-
-    KafkaInputDescriptor<KV<String, PageViewEvent>> pageViewEvent = trackingSystem.getInputDescriptor("pageViewEvent");
-    KafkaOutputDescriptor<KV<String, PageViewEvent>> outStream1 = trackingSystem.getOutputDescriptor("outStream1");
-    KafkaOutputDescriptor<KV<String, PageViewEvent>> outStream2 = trackingSystem.getOutputDescriptor("outStream2");
-    KafkaOutputDescriptor<KV<String, PageViewEvent>> outStream3 = trackingSystem.getOutputDescriptor("outStream3");
+    KVSerde<String, PageViewEvent> serde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class));
+    KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
+    KafkaInputDescriptor<KV<String, PageViewEvent>> pageViewEvent =
+        trackingSystem.getInputDescriptor("pageViewEvent", serde);
+    KafkaOutputDescriptor<KV<String, PageViewEvent>> outStream1 =
+        trackingSystem.getOutputDescriptor("outStream1", serde);
+    KafkaOutputDescriptor<KV<String, PageViewEvent>> outStream2 =
+        trackingSystem.getOutputDescriptor("outStream2", serde);
+    KafkaOutputDescriptor<KV<String, PageViewEvent>> outStream3 =
+        trackingSystem.getOutputDescriptor("outStream3", serde);
 
     MessageStream<KV<String, PageViewEvent>> inputStream = graph.getInputStream(pageViewEvent);
     inputStream.filter(m -> m.key.equals("key1")).sendTo(graph.getOutputStream(outStream1));

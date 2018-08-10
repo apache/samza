@@ -27,20 +27,22 @@ import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
-import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.serializers.StringSerde;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.internal.util.reflection.Whitebox;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 
 /**
@@ -111,33 +113,6 @@ public class TestPartitionByOperatorSpec {
     assertEquals(inputOpSpec.getStreamId(), String.format("%s-%s-partition_by-%s", testJobName, testJobId, testRepartitionedStreamName));
     assertTrue(inputOpSpec.getKeySerde().get() instanceof NoOpSerde);
     assertTrue(inputOpSpec.getValueSerde().get() instanceof NoOpSerde);
-    assertTrue(inputOpSpec.isKeyed());
-    assertNull(inputOpSpec.getTimerFn());
-    assertNull(inputOpSpec.getWatermarkFn());
-    InputOperatorSpec originInputSpec = (InputOperatorSpec) Whitebox.getInternalState(inputStream, "operatorSpec");
-    assertTrue(originInputSpec.getRegisteredOperatorSpecs().toArray()[0] instanceof PartitionByOperatorSpec);
-    PartitionByOperatorSpec reparOpSpec  = (PartitionByOperatorSpec) originInputSpec.getRegisteredOperatorSpecs().toArray()[0];
-    assertEquals(reparOpSpec.getOpId(), String.format("%s-%s-partition_by-%s", testJobName, testJobId, testRepartitionedStreamName));
-    assertEquals(reparOpSpec.getKeyFunction(), keyFn);
-    assertEquals(reparOpSpec.getValueFunction(), valueFn);
-    assertEquals(reparOpSpec.getOutputStream().getStreamId(), reparOpSpec.getOpId());
-    assertNull(reparOpSpec.getTimerFn());
-    assertNull(reparOpSpec.getWatermarkFn());
-  }
-
-  @Test
-  public void testPartitionByWithSystemDefaultSerde() {
-    graphSpec.setDefaultSystem(new GenericSystemDescriptor<>("mockSystem", "mockFactory",
-        KVSerde.of(new StringSerde(), new StringSerde())));
-    MessageStream inputStream = graphSpec.getInputStream(testinputDescriptor);
-    MapFunction<Object, String> keyFn = m -> m.toString();
-    MapFunction<Object, Object> valueFn = m -> m;
-    MessageStream<KV<String, Object>>
-        reparStream = inputStream.partitionBy(keyFn, valueFn, testRepartitionedStreamName);
-    InputOperatorSpec inputOpSpec = (InputOperatorSpec) Whitebox.getInternalState(reparStream, "operatorSpec");
-    assertEquals(inputOpSpec.getStreamId(), String.format("%s-%s-partition_by-%s", testJobName, testJobId, testRepartitionedStreamName));
-    assertTrue(inputOpSpec.getKeySerde().get() instanceof StringSerde);
-    assertTrue(inputOpSpec.getValueSerde().get() instanceof StringSerde);
     assertTrue(inputOpSpec.isKeyed());
     assertNull(inputOpSpec.getTimerFn());
     assertNull(inputOpSpec.getWatermarkFn());

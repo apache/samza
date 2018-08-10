@@ -18,14 +18,17 @@
  */
 package org.apache.samza.operators.descriptors.base.stream;
 
-import org.apache.samza.SamzaException;
-import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
-import org.apache.samza.serializers.Serde;
+import com.google.common.base.Preconditions;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.SamzaException;
+import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
+import org.apache.samza.serializers.Serde;
 
 /**
  * The base descriptor for an input or output stream. Allows setting properties that are common to all streams.
@@ -38,6 +41,7 @@ public abstract class StreamDescriptor<StreamMessageType, SubClass extends Strea
   private static final String SYSTEM_CONFIG_KEY = "streams.%s.samza.system";
   private static final String PHYSICAL_NAME_CONFIG_KEY = "streams.%s.samza.physical.name";
   private static final String STREAM_CONFIGS_CONFIG_KEY = "streams.%s.%s";
+  private static final Pattern ID_PATTERN = Pattern.compile("[\\d\\w-_.]+");
 
   private final String streamId;
   private final String systemName;
@@ -57,13 +61,19 @@ public abstract class StreamDescriptor<StreamMessageType, SubClass extends Strea
    */
   StreamDescriptor(String streamId, String systemName, Serde<StreamMessageType> serde,
       SystemDescriptor systemDescriptor) {
+    Preconditions.checkState(isValidId(streamId),
+        String.format("streamId must be non-empty and must not contain spaces or special characters. " +
+            "streamId: %s, systemName: %s", streamId, systemName));
+    Preconditions.checkArgument(isValidId(systemName),
+        String.format("systemName must be non-empty and must not contain spaces or special characters. " +
+            "systemName: %s, streamId: %s", systemName, streamId));
+    Preconditions.checkArgument(serde != null,
+        String.format("Serde must not be null. streamId: %s systemName: %s", streamId, systemName));
+
     this.streamId = streamId;
     this.systemName = systemName;
-    if (serde == null) {
-      throw new SamzaException(
-          String.format("Serde must not be null for stream: %s on system: %s", streamId, systemName));
-    }
     this.serde = serde;
+
     if (systemDescriptor != null) {
       if (!systemDescriptor.getSystemName().equals(systemName)) {
         throw new SamzaException(
@@ -133,6 +143,10 @@ public abstract class StreamDescriptor<StreamMessageType, SubClass extends Strea
 
   private Map<String, String> getStreamConfigs() {
     return this.streamConfigs;
+  }
+
+  private boolean isValidId(String id) {
+    return StringUtils.isNotBlank(id) && ID_PATTERN.matcher(id).matches();
   }
 
   public Map<String, String> toConfig() {

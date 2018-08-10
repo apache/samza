@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Collections;
 import java.util.Map;
-import org.apache.samza.SamzaException;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.DoubleSerde;
@@ -35,28 +34,24 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 public class TestGenericDescriptors {
   @Test
   public void testAPIUsage() {
     // does not assert anything, but acts as a compile-time check on expected descriptor type parameters
     // and validates that the method calls can be chained.
-    GenericSystemDescriptor<Double> mySystem =
-        new GenericSystemDescriptor<>("input-system", "factory.class.name", new DoubleSerde())
+    GenericSystemDescriptor mySystem =
+        new GenericSystemDescriptor("input-system", "factory.class.name")
             .withSystemConfigs(Collections.emptyMap())
             .withDefaultStreamConfigs(Collections.emptyMap());
-    
-    GenericInputDescriptor<Double> input1 = mySystem.getInputDescriptor("input1");
-    GenericInputDescriptor<Integer> input2 = mySystem.getInputDescriptor("input2", new IntegerSerde());
-    GenericInputDescriptor<Float> input3 = mySystem.getInputDescriptor("input3", ime -> 1f);
-    GenericInputDescriptor<Float> input4 = mySystem.getInputDescriptor("input4", ime -> 1f, new IntegerSerde());
 
-    GenericInputDescriptor<KV<Integer, String>> input5 =
-        GenericInputDescriptor.from("input5", "system", KVSerde.of(new IntegerSerde(), new StringSerde()));
+    GenericInputDescriptor<Integer> input1 = mySystem.getInputDescriptor("input1", new IntegerSerde());
+    GenericInputDescriptor<Float> input2 = mySystem.getInputDescriptor("input2", ime -> 1f, new IntegerSerde());
 
-    GenericOutputDescriptor<Double> output1 = mySystem.getOutputDescriptor("output1");
-    GenericOutputDescriptor<Integer> output2 = mySystem.getOutputDescriptor("output2", new IntegerSerde());
+    GenericInputDescriptor<KV<Integer, String>> input3 =
+        GenericInputDescriptor.from("input3", "system", KVSerde.of(new IntegerSerde(), new StringSerde()));
+
+    GenericOutputDescriptor<Integer> output1 = mySystem.getOutputDescriptor("output1", new IntegerSerde());
 
     input1
         .withPhysicalName("input-1")
@@ -74,39 +69,9 @@ public class TestGenericDescriptors {
   }
 
   @Test
-  public void testSDThrowsExceptionWhenNoSerdeForStream() {
-    // system without a system level serde
-    GenericSystemDescriptor<Object> mySystem = new GenericSystemDescriptor<>("input-system", "factory.class.name");
-
-    boolean caughtException = false;
-    try {
-      mySystem.getInputDescriptor("input-1");
-    } catch (SamzaException e) {
-      caughtException = true;
-    }
-    assertTrue("Should not allow getting a stream descriptor with no system or stream level serde.", caughtException);
-
-    caughtException = false;
-    try {
-      mySystem.getInputDescriptor("input-2", ime -> ime);
-    } catch (SamzaException e) {
-      caughtException = true;
-    }
-    assertTrue("Should not allow getting a stream descriptor with no system or stream level serde.", caughtException);
-
-    caughtException = false;
-    try {
-      mySystem.getOutputDescriptor("output-1");
-    } catch (SamzaException e) {
-      caughtException = true;
-    }
-    assertTrue("Should not allow getting a stream descriptor with no system or stream level serde.", caughtException);
-  }
-
-  @Test
   public void testSDConfigs() {
-    GenericSystemDescriptor<Double> mySystem =
-        new GenericSystemDescriptor<>("input-system", "factory.class.name", new DoubleSerde())
+    GenericSystemDescriptor mySystem =
+        new GenericSystemDescriptor("input-system", "factory.class.name")
             .withSystemConfigs(ImmutableMap.of("custom-config-key", "custom-config-value"))
             .withDefaultStreamConfigs(ImmutableMap.of("custom-stream-config-key", "custom-stream-config-value"))
             .withDefaultStreamOffsetDefault(SystemStreamMetadata.OffsetType.UPCOMING);
@@ -121,12 +86,12 @@ public class TestGenericDescriptors {
 
   @Test
   public void testISDConfigsWithOverrides() {
-    GenericSystemDescriptor<Double> mySystem =
-        new GenericSystemDescriptor<>("input-system", "factory.class.name", new DoubleSerde())
+    GenericSystemDescriptor mySystem =
+        new GenericSystemDescriptor("input-system", "factory.class.name")
             .withSystemConfigs(Collections.emptyMap())
             .withDefaultStreamConfigs(Collections.emptyMap());
 
-    GenericInputDescriptor<Double> isd = mySystem.getInputDescriptor("input-stream")
+    GenericInputDescriptor<Double> isd = mySystem.getInputDescriptor("input-stream", new DoubleSerde())
             .withPhysicalName("physical-name")
             .withBootstrap(true)
             .withBounded(true)
@@ -150,25 +115,25 @@ public class TestGenericDescriptors {
 
   @Test
   public void testISDConfigsWithDefaults() {
-    DoubleSerde systemSerde = new DoubleSerde();
-    GenericSystemDescriptor<Double> mySystem =
-        new GenericSystemDescriptor<>("input-system", "factory.class.name", systemSerde)
+    GenericSystemDescriptor mySystem =
+        new GenericSystemDescriptor("input-system", "factory.class.name")
             .withSystemConfigs(Collections.emptyMap())
             .withDefaultStreamConfigs(Collections.emptyMap());
 
-    GenericInputDescriptor<Double> isd = mySystem.getInputDescriptor("input-stream");
+    DoubleSerde streamSerde = new DoubleSerde();
+    GenericInputDescriptor<Double> isd = mySystem.getInputDescriptor("input-stream", streamSerde);
 
     Map<String, String> generatedConfigs = isd.toConfig();
     assertEquals("input-system", generatedConfigs.get("streams.input-stream.samza.system"));
     assertEquals(1, generatedConfigs.size()); // verify that there are no other configs
-    assertEquals(systemSerde, isd.getSerde());
+    assertEquals(streamSerde, isd.getSerde());
     assertFalse(isd.getTransformer().isPresent());
   }
 
   @Test
   public void testISDObjectsWithOverrides() {
-    GenericSystemDescriptor<Double> mySystem =
-        new GenericSystemDescriptor<>("input-system", "factory.class.name", new DoubleSerde())
+    GenericSystemDescriptor mySystem =
+        new GenericSystemDescriptor("input-system", "factory.class.name")
             .withSystemConfigs(Collections.emptyMap())
             .withDefaultStreamConfigs(Collections.emptyMap());
 
@@ -184,14 +149,13 @@ public class TestGenericDescriptors {
 
   @Test
   public void testISDObjectsWithDefaults() {
-    GenericSystemDescriptor<Double> mySystem =
-        new GenericSystemDescriptor<>("input-system", "factory.class.name", new DoubleSerde())
+    GenericSystemDescriptor mySystem =
+        new GenericSystemDescriptor("input-system", "factory.class.name")
             .withSystemConfigs(Collections.emptyMap())
             .withDefaultStreamConfigs(Collections.emptyMap());
 
-    GenericInputDescriptor<Double> isd = mySystem.getInputDescriptor("input-stream");
+    GenericInputDescriptor<Double> isd = mySystem.getInputDescriptor("input-stream", new DoubleSerde());
 
-    assertEquals(mySystem.getSystemSerde().get(), isd.getSerde());
     assertFalse(isd.getTransformer().isPresent());
   }
 }

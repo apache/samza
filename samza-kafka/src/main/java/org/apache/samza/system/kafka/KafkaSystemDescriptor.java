@@ -34,12 +34,9 @@ import org.apache.samza.serializers.Serde;
 
 /**
  * A descriptor for a Kafka system.
-
- * @param <SystemMessageType> type of messages in this system
  */
 @SuppressWarnings("unchecked")
-public class KafkaSystemDescriptor<SystemMessageType>
-    extends SimpleSystemDescriptor<SystemMessageType, KafkaSystemDescriptor<SystemMessageType>> {
+public class KafkaSystemDescriptor extends SimpleSystemDescriptor<KafkaSystemDescriptor> {
   private static final String FACTORY_CLASS_NAME = KafkaSystemFactory.class.getName();
   private static final String CONSUMER_ZK_CONNECT_CONFIG_KEY = "systems.%s.consumer.zookeeper.connect";
   private static final String CONSUMER_AUTO_OFFSET_RESET_CONFIG_KEY = "systems.%s.consumer.auto.offset.reset";
@@ -66,35 +63,7 @@ public class KafkaSystemDescriptor<SystemMessageType>
    * @param systemName name of this system
    */
   public KafkaSystemDescriptor(String systemName) {
-    super(systemName, FACTORY_CLASS_NAME, null);
-  }
-
-  /**
-   * Constructs a {@link KafkaSystemDescriptor} instance with {@code serde} as the system level serde.
-   *
-   * @param systemName name of this kafka system
-   * @param systemSerde default serde for the system, or null.
-   *                    If null, input/output descriptor serde must be provided at a stream level.
-   *                    A {@code KVSerde<NoOpSerde, NoOpSerde>} or {@code NoOpSerde} may be provided if the
-   *                    System's consumer deserializes the incoming messages itself, and no further deserialization
-   *                    is required from the framework.
-   */
-  public KafkaSystemDescriptor(String systemName, Serde<SystemMessageType> systemSerde) {
-    super(systemName, FACTORY_CLASS_NAME, systemSerde);
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public KafkaInputDescriptor<SystemMessageType> getInputDescriptor(String streamId) {
-    if (!getSystemSerde().isPresent()) {
-      throw new SamzaException(
-          String.format("System: %s does not have a system level serde. " +
-              "Serde for input stream: %s must be specified explicitly, e.g., using " +
-                  "KafkaSystemDescriptor#getInputDescriptor(String, Serde)", getSystemName(), streamId));
-    }
-    return new KafkaInputDescriptor<>(streamId, this, getSystemSerde().get(), null);
+    super(systemName, FACTORY_CLASS_NAME);
   }
 
   /**
@@ -109,36 +78,8 @@ public class KafkaSystemDescriptor<SystemMessageType>
    * {@inheritDoc}
    */
   @Override
-  public <StreamMessageType> KafkaInputDescriptor<StreamMessageType> getInputDescriptor(String streamId, InputTransformer<StreamMessageType> transformer) {
-    if (!getSystemSerde().isPresent()) {
-      throw new SamzaException(
-          String.format("System: %s does not have a system level serde. " +
-              "Serde for input stream: %s must be specified explicitly, e.g., using " +
-              "KafkaSystemDescriptor#getInputDescriptor(String, InputTransformer, Serde)", getSystemName(), streamId));
-    }
-    return new KafkaInputDescriptor<>(streamId, this, getSystemSerde().get(), transformer);
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
   public <StreamMessageType> InputDescriptor<StreamMessageType, ? extends InputDescriptor> getInputDescriptor(String streamId, InputTransformer<StreamMessageType> transformer, Serde serde) {
     return new KafkaInputDescriptor<>(streamId, this, serde, transformer);
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public KafkaOutputDescriptor<SystemMessageType> getOutputDescriptor(String streamId) {
-    if (!getSystemSerde().isPresent()) {
-      throw new SamzaException(
-          String.format("System: %s does not have a system level serde. " +
-              "Serde for output stream: %s must be specified explicitly, e.g., using " +
-              "KafkaSystemDescriptor#getOutputDescriptor(String, Serde)", getSystemName(), streamId));
-    }
-    return new KafkaOutputDescriptor<>(streamId, this, getSystemSerde().get());
   }
 
   /**
@@ -160,7 +101,7 @@ public class KafkaSystemDescriptor<SystemMessageType>
    * @param consumerZkConnect Zookeeper connection information for the system
    * @return this system descriptor
    */
-  public KafkaSystemDescriptor<SystemMessageType> withConsumerZkConnect(List<String> consumerZkConnect) {
+  public KafkaSystemDescriptor withConsumerZkConnect(List<String> consumerZkConnect) {
     this.consumerZkConnect = consumerZkConnect;
     return this;
   }
@@ -185,7 +126,7 @@ public class KafkaSystemDescriptor<SystemMessageType>
    * @param consumerAutoOffsetReset consumer auto offset reset policy for the system
    * @return this system descriptor
    */
-  public KafkaSystemDescriptor<SystemMessageType> withConsumerAutoOffsetReset(String consumerAutoOffsetReset) {
+  public KafkaSystemDescriptor withConsumerAutoOffsetReset(String consumerAutoOffsetReset) {
     this.consumerAutoOffsetResetOptional = Optional.of(StringUtils.stripToNull(consumerAutoOffsetReset));
     return this;
   }
@@ -202,7 +143,7 @@ public class KafkaSystemDescriptor<SystemMessageType>
    * @param fetchThreshold number of incoming messages to buffer in-memory
    * @return this system descriptor
    */
-  public KafkaSystemDescriptor<SystemMessageType> withSamzaFetchThreshold(int fetchThreshold) {
+  public KafkaSystemDescriptor withSamzaFetchThreshold(int fetchThreshold) {
     this.consumerFetchThresholdOptional = Optional.of(fetchThreshold);
     return this;
   }
@@ -228,7 +169,7 @@ public class KafkaSystemDescriptor<SystemMessageType>
    * @param fetchThresholdBytes number of bytes for incoming messages to buffer in-memory
    * @return this system descriptor
    */
-  public KafkaSystemDescriptor<SystemMessageType> withSamzaFetchThresholdBytes(long fetchThresholdBytes) {
+  public KafkaSystemDescriptor withSamzaFetchThresholdBytes(long fetchThresholdBytes) {
     this.consumerFetchThresholdBytesOptional = Optional.of(fetchThresholdBytes);
     return this;
   }
@@ -245,7 +186,7 @@ public class KafkaSystemDescriptor<SystemMessageType>
    *                             in each fetch request
    * @return this system descriptor
    */
-  public KafkaSystemDescriptor<SystemMessageType> withConsumerFetchMessageMaxBytes(long fetchMessageMaxBytes) {
+  public KafkaSystemDescriptor withConsumerFetchMessageMaxBytes(long fetchMessageMaxBytes) {
     this.consumerFetchMessageMaxBytesOptional = Optional.of(fetchMessageMaxBytes);
     return this;
   }
@@ -259,7 +200,7 @@ public class KafkaSystemDescriptor<SystemMessageType>
    * @param consumerConfigs additional consumer configuration
    * @return this system descriptor
    */
-  public KafkaSystemDescriptor<SystemMessageType> withConsumerConfigs(Map<String, String> consumerConfigs) {
+  public KafkaSystemDescriptor withConsumerConfigs(Map<String, String> consumerConfigs) {
     this.consumerConfigs = consumerConfigs;
     return this;
   }
@@ -274,7 +215,7 @@ public class KafkaSystemDescriptor<SystemMessageType>
    * @param producerBootstrapServers network endpoints where the kafka brokers are running
    * @return this system descriptor
    */
-  public KafkaSystemDescriptor<SystemMessageType> withProducerBootstrapServers(List<String> producerBootstrapServers) {
+  public KafkaSystemDescriptor withProducerBootstrapServers(List<String> producerBootstrapServers) {
     this.producerBootstrapServers = producerBootstrapServers;
     return this;
   }
@@ -286,7 +227,7 @@ public class KafkaSystemDescriptor<SystemMessageType>
    * @param producerConfigs additional producer configuration
    * @return this system descriptor
    */
-  public KafkaSystemDescriptor<SystemMessageType> withProducerConfigs(Map<String, String> producerConfigs) {
+  public KafkaSystemDescriptor withProducerConfigs(Map<String, String> producerConfigs) {
     this.producerConfigs = producerConfigs;
     return this;
   }

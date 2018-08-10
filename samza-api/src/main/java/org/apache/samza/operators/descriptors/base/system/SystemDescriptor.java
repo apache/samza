@@ -18,11 +18,14 @@
  */
 package org.apache.samza.operators.descriptors.base.system;
 
+import com.google.common.base.Preconditions;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import org.apache.samza.SamzaException;
+import java.util.regex.Pattern;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.SystemStreamMetadata.OffsetType;
@@ -30,19 +33,18 @@ import org.apache.samza.system.SystemStreamMetadata.OffsetType;
 /**
  * The base descriptor for a system. Allows setting properties that are common to all systems.
  *
- * @param <SystemMessageType> default type of messages in this system.
  * @param <SubClass> type of the concrete sub-class
  */
 @SuppressWarnings("unchecked")
-public abstract class SystemDescriptor<SystemMessageType, SubClass extends SystemDescriptor<SystemMessageType, SubClass>> {
+public abstract class SystemDescriptor<SubClass extends SystemDescriptor<SubClass>> {
   private static final String FACTORY_CONFIG_KEY = "systems.%s.samza.factory";
   private static final String DEFAULT_STREAM_OFFSET_DEFAULT_CONFIG_KEY = "systems.%s.default.stream.samza.offset.default";
   private static final String DEFAULT_STREAM_CONFIGS_CONFIG_KEY = "systems.%s.default.stream.%s";
   private static final String SYSTEM_CONFIGS_CONFIG_KEY = "systems.%s.%s";
+  private static final Pattern ID_PATTERN = Pattern.compile("[\\d\\w-_.]+");
 
   private final String systemName;
   private final String factoryClassName;
-  private final Optional<Serde> systemSerdeOptional;
 
   private Optional<OffsetType> defaultStreamOffsetDefaultOptional = Optional.empty();
   private Map<String, String> systemConfigs = new HashMap<>();
@@ -53,23 +55,15 @@ public abstract class SystemDescriptor<SystemMessageType, SubClass extends Syste
    *
    * @param systemName name of this system
    * @param factoryClassName name of the SystemFactory class for this system
-   * @param systemSerde default serde for the system, or null.
-   *                    If null, input/output descriptor serde must be provided at a stream level.
-   *                    A {@code KVSerde<NoOpSerde, NoOpSerde>} or {@code NoOpSerde} may be provided if the
-   *                    System's consumer deserializes the incoming messages itself, and no further deserialization
-   *                    is required from the framework.
    */
-  SystemDescriptor(String systemName, String factoryClassName, Serde<SystemMessageType> systemSerde) {
-    if (systemName == null || systemName.trim().isEmpty()) {
-      throw new SamzaException(String.format("System name must not be null or empty: %s", systemName));
-    }
+  SystemDescriptor(String systemName, String factoryClassName) {
+    Preconditions.checkArgument(isValidId(systemName),
+        String.format("systemName: %s must be non-empty and must not contain spaces or special characters.", systemName));
+    Preconditions.checkArgument(StringUtils.isNotBlank(factoryClassName),
+        String.format("SystemFactory class name for system: %s must not be null or empty: %s.", systemName, factoryClassName));
+
     this.systemName = systemName;
-    if (factoryClassName == null || factoryClassName.trim().isEmpty()) {
-      throw new SamzaException(String.format("SystemFactory class name for system: %s must not be null or empty: %s.",
-          systemName, factoryClassName));
-    }
     this.factoryClassName = factoryClassName;
-    this.systemSerdeOptional = Optional.ofNullable(systemSerde);
   }
 
   /**
@@ -121,10 +115,6 @@ public abstract class SystemDescriptor<SystemMessageType, SubClass extends Syste
     return (SubClass) this;
   }
 
-  public Optional<Serde> getSystemSerde() {
-    return this.systemSerdeOptional;
-  }
-
   public String getSystemName() {
     return this.systemName;
   }
@@ -145,14 +135,9 @@ public abstract class SystemDescriptor<SystemMessageType, SubClass extends Syste
     return Collections.unmodifiableMap(this.defaultStreamConfigs);
   }
 
-  /**
-   * Get an {@link OutputDescriptor} representing an output stream on this system that uses the
-   * default system serde.
-   *
-   * @param streamId id of the output stream
-   * @return the {@link OutputDescriptor} for the output stream
-   */
-  public abstract OutputDescriptor<SystemMessageType, ? extends OutputDescriptor> getOutputDescriptor(String streamId);
+  private boolean isValidId(String id) {
+    return StringUtils.isNotBlank(id) && ID_PATTERN.matcher(id).matches();
+  }
 
   /**
    * Get an {@link OutputDescriptor} representing an output stream on this system that uses the provided

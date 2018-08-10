@@ -19,17 +19,21 @@
 
 package org.apache.samza.execution;
 
+import java.time.Duration;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.OutputStream;
+import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
-import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.impl.store.TimestampedValueSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
@@ -39,12 +43,6 @@ import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.StreamSpec;
 import org.junit.Test;
-
-import java.time.Duration;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -177,62 +175,6 @@ public class TestJobNode {
     assertTrue("Serialized right join store msg serde should be a TimestampedValueSerde",
         rightJoinStoreMsgSerde.startsWith(TimestampedValueSerde.class.getSimpleName()));
   }
-
-  @Test
-  public void testAddSerdeConfigsForRepartitionWithDefaultSystem() {
-    StreamSpec inputSpec = new StreamSpec("input", "input", "input-system");
-    StreamSpec partitionBySpec =
-        new StreamSpec("jobName-jobId-partition_by-p1", "partition_by-p1", "intermediate-system");
-
-    Config mockConfig = mock(Config.class);
-    when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("jobName");
-    when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("jobId");
-
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
-    KVSerde<String, String> intermediateSystemSerde = KVSerde.of(new StringSerde(), new StringSerde());
-    GenericSystemDescriptor<KV<String, String>> systemDescriptor =
-        new GenericSystemDescriptor<>("intermediate-system", "mockFactoryClassName", intermediateSystemSerde);
-    graphSpec.setDefaultSystem(systemDescriptor);
-    GenericInputDescriptor<KV<String, Object>> inputDescriptor1 =
-        GenericInputDescriptor.from("input", "system1", KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
-    MessageStream<KV<String, Object>> input = graphSpec.getInputStream(inputDescriptor1);
-    input.partitionBy(KV::getKey, KV::getValue, "p1");
-
-    JobNode jobNode = new JobNode("jobName", "jobId", graphSpec.getOperatorSpecGraph(), mockConfig);
-    Config config = new MapConfig();
-    StreamEdge input1Edge = new StreamEdge(inputSpec, false, false, config);
-    StreamEdge repartitionEdge = new StreamEdge(partitionBySpec, true, false, config);
-    jobNode.addInEdge(input1Edge);
-    jobNode.addInEdge(repartitionEdge);
-    jobNode.addOutEdge(repartitionEdge);
-
-    Map<String, String> configs = new HashMap<>();
-    jobNode.addSerdeConfigs(configs);
-
-    MapConfig mapConfig = new MapConfig(configs);
-    Config serializers = mapConfig.subset("serializers.registry.", true);
-
-    // make sure that the serializers deserialize correctly
-    SerializableSerde<Serde> serializableSerde = new SerializableSerde<>();
-    Map<String, Serde> deserializedSerdes = serializers.entrySet().stream().collect(Collectors.toMap(
-        e -> e.getKey().replace(SerializerConfig.SERIALIZED_INSTANCE_SUFFIX(), ""),
-        e -> serializableSerde.fromBytes(Base64.getDecoder().decode(e.getValue().getBytes()))
-    ));
-    assertEquals(4, serializers.size()); // 2 default system + 2 input stream
-
-    String partitionByKeySerde = mapConfig.get("streams.jobName-jobId-partition_by-p1.samza.key.serde");
-    String partitionByMsgSerde = mapConfig.get("streams.jobName-jobId-partition_by-p1.samza.msg.serde");
-    assertTrue("Serialized serdes should contain intermediate stream key serde",
-        deserializedSerdes.containsKey(partitionByKeySerde));
-    assertTrue("Serialized intermediate stream key serde should be a StringSerde",
-        partitionByKeySerde.startsWith(StringSerde.class.getSimpleName()));
-    assertTrue("Serialized serdes should contain intermediate stream msg serde",
-        deserializedSerdes.containsKey(partitionByMsgSerde));
-    assertTrue(
-        "Serialized intermediate stream msg serde should be a StringSerde",
-        partitionByMsgSerde.startsWith(String.class.getSimpleName()));
-  }
-
 
   @Test
   public void testAddSerdeConfigsForRepartitionWithNoDefaultSystem() {

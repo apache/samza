@@ -21,11 +21,12 @@ package org.apache.samza.operators.descriptors;
 import java.util.Collections;
 import java.util.Map;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.descriptors.serde.SystemSerdeInputDescriptor;
-import org.apache.samza.operators.descriptors.serde.SystemSerdeOutputDescriptor;
-import org.apache.samza.operators.descriptors.serde.SystemSerdeSystemDescriptor;
+import org.apache.samza.operators.descriptors.serde.MockSimpleInputDescriptor;
+import org.apache.samza.operators.descriptors.serde.MockSimpleOutputDescriptor;
+import org.apache.samza.operators.descriptors.serde.MockSimpleSystemDescriptor;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.IntegerSerde;
+import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.junit.Test;
@@ -38,20 +39,17 @@ public class TestSystemSerdeDescriptors {
   public void testAPIUsage() {
     // does not assert anything, but acts as a compile-time check on expected descriptor type parameters
     // and validates that the method calls can be chained.
-    SystemSerdeSystemDescriptor kafkaSystem =
-        new SystemSerdeSystemDescriptor("kafka-system")
+    MockSimpleSystemDescriptor kafkaSystem =
+        new MockSimpleSystemDescriptor("kafka-system")
             .withSystemConfigs(Collections.emptyMap());
 
-    SystemSerdeInputDescriptor<String> input1 = kafkaSystem.getInputDescriptor("input1");
-    SystemSerdeInputDescriptor<Integer> input2 = kafkaSystem.getInputDescriptor("input2", new IntegerSerde());
-    SystemSerdeInputDescriptor<Float> input3 = kafkaSystem.getInputDescriptor("input3", ime -> 1f);
-    SystemSerdeInputDescriptor<Float> input4 = kafkaSystem.getInputDescriptor("input4", ime -> 1f, new IntegerSerde());
+    MockSimpleInputDescriptor<Integer> input1 = kafkaSystem.getInputDescriptor("input1", new IntegerSerde());
+    MockSimpleInputDescriptor<Float> input2 = kafkaSystem.getInputDescriptor("input2", ime -> 1f, new IntegerSerde());
 
-    SystemSerdeInputDescriptor<KV<String, Integer>> input5 = SystemSerdeInputDescriptor.from("input5", "queuing");
-    SystemSerdeInputDescriptor<KV<String, PageView>> input6 = SystemSerdeInputDescriptor.from("input6", "queuing", PageView.class);
+    MockSimpleInputDescriptor<KV<String, Integer>> input3 = MockSimpleInputDescriptor.from("input3", "queuing");
+    MockSimpleInputDescriptor<KV<String, PageView>> input4 = MockSimpleInputDescriptor.from("input4", "queuing", PageView.class);
 
-    SystemSerdeOutputDescriptor<String> output1 = kafkaSystem.getOutputDescriptor("output1");
-    SystemSerdeOutputDescriptor<Integer> output2 = kafkaSystem.getOutputDescriptor("output2", new IntegerSerde());
+    MockSimpleOutputDescriptor<Integer> output1 = kafkaSystem.getOutputDescriptor("output1", new IntegerSerde());
 
     input1
         .withBootstrap(false)
@@ -68,22 +66,22 @@ public class TestSystemSerdeDescriptors {
 
   @Test
   public void testSDConfigs() {
-    SystemSerdeSystemDescriptor sssd =
-        new SystemSerdeSystemDescriptor("kafka-system");
+    MockSimpleSystemDescriptor ssd =
+        new MockSimpleSystemDescriptor("kafka-system");
 
-    Map<String, String> generatedConfigs = sssd.toConfig();
+    Map<String, String> generatedConfigs = ssd.toConfig();
     assertEquals("org.apache.kafka.KafkaSystemFactory", generatedConfigs.get("systems.kafka-system.samza.factory"));
     assertEquals(1, generatedConfigs.size()); // verify that there are no other generated configs
   }
 
   @Test
   public void testISDObjectsWithOverrides() {
-    SystemSerdeSystemDescriptor sssd = new SystemSerdeSystemDescriptor("kafka-system");
+    MockSimpleSystemDescriptor sssd = new MockSimpleSystemDescriptor("kafka-system");
 
     InputTransformer<IncomingMessageEnvelope> transformer = m -> m;
     IntegerSerde streamSerde = new IntegerSerde();
 
-    SystemSerdeInputDescriptor<IncomingMessageEnvelope> isd =
+    MockSimpleInputDescriptor<IncomingMessageEnvelope> isd =
         sssd.getInputDescriptor("input-stream", transformer, streamSerde);
 
     assertEquals(streamSerde, isd.getSerde());
@@ -92,10 +90,9 @@ public class TestSystemSerdeDescriptors {
 
   @Test
   public void testISDObjectsWithDefaults() {
-    SystemSerdeSystemDescriptor sssd = new SystemSerdeSystemDescriptor("kafka-system");
-    SystemSerdeInputDescriptor<String> isd = sssd.getInputDescriptor("input-stream");
+    MockSimpleSystemDescriptor sssd = new MockSimpleSystemDescriptor("kafka-system");
+    MockSimpleInputDescriptor<String> isd = sssd.getInputDescriptor("input-stream", new StringSerde());
 
-    assertEquals(sssd.getSystemSerde().get(), isd.getSerde());
     assertFalse(isd.getTransformer().isPresent());
   }
 

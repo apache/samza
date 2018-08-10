@@ -27,21 +27,21 @@ import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 
 @SuppressWarnings("unchecked")
-public class SystemSerdeInputDescriptor<StreamMessageType> extends InputDescriptor<StreamMessageType, SystemSerdeInputDescriptor<StreamMessageType>> {
-  SystemSerdeInputDescriptor(String streamId, String systemName) {
+public class MockSimpleInputDescriptor<StreamMessageType> extends InputDescriptor<StreamMessageType, MockSimpleInputDescriptor<StreamMessageType>> {
+  MockSimpleInputDescriptor(String streamId, String systemName) {
     super(streamId, systemName, KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()), null, null);
   }
 
-  SystemSerdeInputDescriptor(String streamId, SystemDescriptor systemDescriptor, InputTransformer<StreamMessageType> transformer, Serde serde) {
+  MockSimpleInputDescriptor(String streamId, SystemDescriptor systemDescriptor, InputTransformer<StreamMessageType> transformer, Serde serde) {
     super(streamId, systemDescriptor.getSystemName(), serde, systemDescriptor, transformer);
   }
 
-  public static SystemSerdeInputDescriptor<KV<String, Integer>> from(String streamId, String systemName) {
-    return new SystemSerdeInputDescriptor(streamId, systemName);
+  public static MockSimpleInputDescriptor<KV<String, Integer>> from(String streamId, String systemName) {
+    return new MockSimpleInputDescriptor(streamId, systemName);
   }
 
-  public static <StreamMessageType> SystemSerdeInputDescriptor<KV<String, StreamMessageType>> from(
+  public static <StreamMessageType> MockSimpleInputDescriptor<KV<String, StreamMessageType>> from(
       String streamId, String systemName, Class<StreamMessageType> messageType) {
-    return new SystemSerdeInputDescriptor(streamId, systemName);
+    return new MockSimpleInputDescriptor(streamId, systemName);
   }
 }

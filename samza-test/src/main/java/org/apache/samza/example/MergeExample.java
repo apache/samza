@@ -20,14 +20,15 @@
 package org.apache.samza.example;
 
 import com.google.common.collect.ImmutableList;
+
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.operators.MessageStream;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.kafka.KafkaInputDescriptor;
 import org.apache.samza.system.kafka.KafkaOutputDescriptor;
@@ -49,18 +50,18 @@ public class MergeExample implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    KafkaSystemDescriptor<KV<String, PageViewEvent>> trackingSystem =
-        new KafkaSystemDescriptor<>("tracking", KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class)));
+    KVSerde<String, PageViewEvent> serde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class));
+    KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
 
     KafkaInputDescriptor<KV<String, PageViewEvent>> isd1 =
-        trackingSystem.getInputDescriptor("pageViewStream1");
+        trackingSystem.getInputDescriptor("pageViewStream1", serde);
     KafkaInputDescriptor<KV<String, PageViewEvent>> isd2 =
-        trackingSystem.getInputDescriptor("pageViewStream2");
+        trackingSystem.getInputDescriptor("pageViewStream2", serde);
     KafkaInputDescriptor<KV<String, PageViewEvent>> isd3 =
-        trackingSystem.getInputDescriptor("pageViewStream3");
+        trackingSystem.getInputDescriptor("pageViewStream3", serde);
 
     KafkaOutputDescriptor<KV<String, PageViewEvent>> osd =
-        trackingSystem.getOutputDescriptor("mergedStream");
+        trackingSystem.getOutputDescriptor("mergedStream", serde);
 
     MessageStream
         .mergeAll(ImmutableList.of(graph.getInputStream(isd1), graph.getInputStream(isd2), graph.getInputStream(isd3)))

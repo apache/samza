@@ -48,7 +48,7 @@ public interface StreamGraph {
    *
    * @param defaultSystemDescriptor the default system descriptor to use
    */
-  void setDefaultSystem(SystemDescriptor<?, ?> defaultSystemDescriptor);
+  void setDefaultSystem(SystemDescriptor<?> defaultSystemDescriptor);
 
   /**
    * Gets the input {@link MessageStream} corresponding to the {@code inputDescriptor}.

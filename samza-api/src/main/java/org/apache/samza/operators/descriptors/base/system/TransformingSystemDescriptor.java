@@ -27,12 +27,11 @@ import org.apache.samza.serializers.Serde;
  * The base descriptor for a system that provides a default {@link InputTransformer} implementation for every
  * input stream, in addition to the system factory class name and optionally a default system level serde.
  *
- * @param <SystemMessageType> default type of messages in this system.
  * @param <SystemTransformerType> default type of the {@link InputTransformer} results
  * @param <SubClass> type of the concrete sub-class
  */
-public abstract class TransformingSystemDescriptor<SystemMessageType, SystemTransformerType, SubClass extends TransformingSystemDescriptor<SystemMessageType, SystemTransformerType, SubClass>>
-    extends SystemDescriptor<SystemMessageType, SubClass> {
+public abstract class TransformingSystemDescriptor<SystemTransformerType, SubClass extends TransformingSystemDescriptor<SystemTransformerType, SubClass>>
+    extends SystemDescriptor<SubClass> {
   private final InputTransformer<SystemTransformerType> transformer;
 
   /**
@@ -40,33 +39,15 @@ public abstract class TransformingSystemDescriptor<SystemMessageType, SystemTran
    *
    * @param systemName name of this system
    * @param factoryClassName name of the SystemFactory class for this system
-   * @param systemSerde default serde for the system, or null.
-   *                    If null, input/output descriptor serde must be provided at a stream level.
-   *                    A {@code KVSerde<NoOpSerde, NoOpSerde>} or {@code NoOpSerde} may be provided if the
-   *                    System's consumer deserializes the incoming messages itself, and no further deserialization
-   *                    is required from the framework.
    * @param transformer default input stream transformer for this system
    */
-  public TransformingSystemDescriptor(String systemName, String factoryClassName, Serde<SystemMessageType> systemSerde,
-      InputTransformer<SystemTransformerType> transformer) {
-    super(systemName, factoryClassName, systemSerde);
+  public TransformingSystemDescriptor(String systemName, String factoryClassName, InputTransformer<SystemTransformerType> transformer) {
+    super(systemName, factoryClassName);
     if (transformer == null) {
       throw new SamzaException("Default InputTransformer may not be null for a TransformingSystemDescriptor");
     }
     this.transformer = transformer;
   }
-
-  /**
-   * Gets a {@link InputDescriptor} for an input stream on this system. The stream has the default
-   * system level serde, and the default system level level {@link InputTransformer}
-   * <p>
-   * The type of messages in the stream is the type of messages returned by the default system level
-   * {@link InputTransformer}.
-   *
-   * @param streamId id of the input stream
-   * @return a {@link InputDescriptor} for the input stream
-   */
-  public abstract InputDescriptor<SystemTransformerType, ? extends InputDescriptor> getInputDescriptor(String streamId);
 
   /**
    * Gets a {@link InputDescriptor} for an input stream on this system. The stream has the provided
@@ -80,20 +61,6 @@ public abstract class TransformingSystemDescriptor<SystemMessageType, SystemTran
    * @return a {@link InputDescriptor} for the input stream
    */
   public abstract InputDescriptor<SystemTransformerType, ? extends InputDescriptor> getInputDescriptor(String streamId, Serde serde);
-
-  /**
-   * Gets a {@link InputDescriptor} for an input stream on this system. The stream has the default
-   * system level serde, and the provided stream level {@link InputTransformer}
-   * <p>
-   * The type of messages in the stream is the type of messages returned by the default system level
-   * {@link InputTransformer}.
-   *
-   * @param streamId id of the input stream
-   * @param transformer stream level {@link InputTransformer} for the input stream
-   * @param <StreamTransformerType> type of messages returned by the {@code transformer}
-   * @return a {@link InputDescriptor} for the input stream
-   */
-  public abstract <StreamTransformerType> InputDescriptor<StreamTransformerType, ? extends InputDescriptor> getInputDescriptor(String streamId, InputTransformer<StreamTransformerType> transformer);
 
   /**
    * Gets a {@link InputDescriptor} for an input stream on this system. The stream has the provided

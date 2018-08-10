@@ -37,8 +37,8 @@ import static org.junit.Assert.assertTrue;
 public class TestKafkaDescriptors {
   @Test
   public void testSDConfigsWithOverrides() {
-    KafkaSystemDescriptor<KV<String, Integer>> sd =
-        new KafkaSystemDescriptor<>("kafka", KVSerde.of(new StringSerde(), new IntegerSerde()))
+    KafkaSystemDescriptor sd =
+        new KafkaSystemDescriptor("kafka")
             .withConsumerZkConnect(ImmutableList.of("localhost:1234"))
             .withProducerBootstrapServers(ImmutableList.of("localhost:567", "localhost:890"))
             .withDefaultStreamOffsetDefault(SystemStreamMetadata.OffsetType.OLDEST)
@@ -67,8 +67,7 @@ public class TestKafkaDescriptors {
 
   @Test
   public void testSDConfigsWithoutOverrides() {
-    KafkaSystemDescriptor<KV<String, Integer>> sd =
-        new KafkaSystemDescriptor<>("kafka", KVSerde.of(new StringSerde(), new IntegerSerde()));
+    KafkaSystemDescriptor sd = new KafkaSystemDescriptor("kafka");
 
     Map<String, String> generatedConfigs = sd.toConfig();
     assertEquals("org.apache.samza.system.kafka.KafkaSystemFactory", generatedConfigs.get("systems.kafka.samza.factory"));
@@ -76,44 +75,14 @@ public class TestKafkaDescriptors {
   }
 
   @Test
-  public void testSDThrowsExceptionWhenNoSerdeForStream() {
-    // system without a system level serde
-    KafkaSystemDescriptor<Object> mySystem = new KafkaSystemDescriptor<>("input-system");
-
-    boolean caughtException = false;
-    try {
-      mySystem.getInputDescriptor("input-1");
-    } catch (SamzaException e) {
-      caughtException = true;
-    }
-    assertTrue("Should not allow getting a stream descriptor with no system or stream level serde.", caughtException);
-
-    caughtException = false;
-    try {
-      mySystem.getInputDescriptor("input-2", ime -> ime);
-    } catch (SamzaException e) {
-      caughtException = true;
-    }
-    assertTrue("Should not allow getting a stream descriptor with no system or stream level serde.", caughtException);
-
-    caughtException = false;
-    try {
-      mySystem.getOutputDescriptor("output-1");
-    } catch (SamzaException e) {
-      caughtException = true;
-    }
-    assertTrue("Should not allow getting a stream descriptor with no system or stream level serde.", caughtException);
-  }
-
-  @Test
   public void testISDConfigsWithOverrides() {
-    KafkaSystemDescriptor<KV<String, Integer>> sd =
-        new KafkaSystemDescriptor<>("kafka", KVSerde.of(new StringSerde(), new IntegerSerde()));
+    KafkaSystemDescriptor sd = new KafkaSystemDescriptor("kafka");
 
-    KafkaInputDescriptor<KV<String, Integer>> isd = sd.getInputDescriptor("input-stream")
-        .withPhysicalName("physical-name")
-        .withConsumerAutoOffsetReset("largest")
-        .withConsumerFetchMessageMaxBytes(1024*1024);
+    KafkaInputDescriptor<KV<String, Integer>> isd =
+        sd.getInputDescriptor("input-stream", KVSerde.of(new StringSerde(), new IntegerSerde()))
+            .withPhysicalName("physical-name")
+            .withConsumerAutoOffsetReset("largest")
+            .withConsumerFetchMessageMaxBytes(1024 * 1024);
 
     Map<String, String> generatedConfigs = isd.toConfig();;
     assertEquals("kafka", generatedConfigs.get("streams.input-stream.samza.system"));
@@ -124,12 +93,12 @@ public class TestKafkaDescriptors {
 
   @Test
   public void testISDConfigsWithDefaults() {
-    KafkaSystemDescriptor<KV<String, Integer>> sd =
-        new KafkaSystemDescriptor<>("kafka", KVSerde.of(new StringSerde(), new IntegerSerde()))
-            .withConsumerZkConnect(ImmutableList.of("localhost:123"))
-            .withProducerBootstrapServers(ImmutableList.of("localhost:567", "localhost:890"));
+    KafkaSystemDescriptor sd = new KafkaSystemDescriptor("kafka")
+        .withConsumerZkConnect(ImmutableList.of("localhost:123"))
+        .withProducerBootstrapServers(ImmutableList.of("localhost:567", "localhost:890"));
 
-    KafkaInputDescriptor<KV<String, Integer>> isd = sd.getInputDescriptor("input-stream");
+    KafkaInputDescriptor<KV<String, Integer>> isd =
+        sd.getInputDescriptor("input-stream", KVSerde.of(new StringSerde(), new IntegerSerde()));
 
     Map<String, String> generatedConfigs = isd.toConfig();
     assertEquals("kafka", generatedConfigs.get("streams.input-stream.samza.system"));

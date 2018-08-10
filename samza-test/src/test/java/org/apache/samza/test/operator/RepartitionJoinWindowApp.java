@@ -75,7 +75,7 @@ public class RepartitionJoinWindowApp implements StreamApplication {
     String inputTopic1 = config.get(INPUT_TOPIC_1_CONFIG_KEY);
     String inputTopic2 = config.get(INPUT_TOPIC_2_CONFIG_KEY);
     String outputTopic = config.get(OUTPUT_TOPIC_CONFIG_KEY);
-    KafkaSystemDescriptor<Object> ksd = new KafkaSystemDescriptor<>(SYSTEM);
+    KafkaSystemDescriptor ksd = new KafkaSystemDescriptor(SYSTEM);
     KafkaInputDescriptor<PageView> id1 = ksd.getInputDescriptor(inputTopic1, new JsonSerdeV2<>(PageView.class));
     KafkaInputDescriptor<AdClick> id2 = ksd.getInputDescriptor(inputTopic2, new JsonSerdeV2<>(AdClick.class));
 
