@@ -50,7 +50,6 @@ public class CachingTableProvider implements TableProvider {
   public static final String READ_TTL_MS = "readTtl";
   public static final String WRITE_TTL_MS = "writeTtl";
   public static final String CACHE_SIZE = "cacheSize";
-  public static final String LOCK_STRIPES = "lockStripes";
   public static final String WRITE_AROUND = "writeAround";
 
   private final TableSpec cachingTableSpec;
@@ -86,9 +85,8 @@ public class CachingTableProvider implements TableProvider {
       defaultCaches.add(cache);
     }
 
-    int stripes = Integer.parseInt(cachingTableSpec.getConfig().get(LOCK_STRIPES));
     boolean isWriteAround = Boolean.parseBoolean(cachingTableSpec.getConfig().get(WRITE_AROUND));
-    CachingTable cachingTable = new CachingTable(cachingTableSpec.getId(), table, cache, stripes, isWriteAround);
+    CachingTable cachingTable = new CachingTable(cachingTableSpec.getId(), table, cache, isWriteAround);
     cachingTable.init(containerContext, taskContext);
     return cachingTable;
   }
