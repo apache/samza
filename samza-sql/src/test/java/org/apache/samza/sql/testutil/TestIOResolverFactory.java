@@ -52,7 +52,7 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
   public static final String TEST_TABLE_ID = "testDbId";
 
   @Override
-  public SqlIOResolver create(Config config) {
+  public SqlIOResolver create(Config config, Config fullConfig) {
     return new TestIOResolver(config);
   }
 
