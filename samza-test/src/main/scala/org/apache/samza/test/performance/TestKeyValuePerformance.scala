@@ -264,7 +264,7 @@ class TestKeyValuePerformance extends Logging {
   }
 
   /**
-   * Test that ::getAll performance is better than that of ::get (test when there are many writes and many reads).
+   * Test that ::getAllSSPs performance is better than that of ::get (test when there are many writes and many reads).
    * @param store key-value store instance that is being tested
    * @param config the test case's config
    */
@@ -278,7 +278,7 @@ class TestKeyValuePerformance extends Logging {
     info("iterations count: " + iterationsCount)
     info("max messages count per batch: " + maxMessagesCountPerBatch)
     info("max message size in bytes: " + maxMessageSizeBytes)
-    info("%12s%12s%12s%12s".format("Msg Count", "Bytes/Msg", "get ms", "getAll ms"))
+    info("%12s%12s%12s%12s".format("Msg Count", "Bytes/Msg", "get ms", "getAllSSPs ms"))
 
     try {
       (0 until iterationsCount).foreach(i => {
@@ -294,7 +294,7 @@ class TestKeyValuePerformance extends Logging {
         assert(store.getAll(shuffledKeys.asJava).size == shuffledKeys.size)
         val getAllTime = timer.stop().elapsed(TimeUnit.MILLISECONDS)
 
-        // Restore cache, in case it's enabled, to a state similar to the one above when the getAll test started
+        // Restore cache, in case it's enabled, to a state similar to the one above when the getAllSSPs test started
         keys.foreach(k => store.put(k, Random.nextString(messageSizeBytes).getBytes(Encoding)))
         store.flush()
 
@@ -304,7 +304,7 @@ class TestKeyValuePerformance extends Logging {
 
         info("%12d%12d%12d%12d".format(messagesCountPerBatch, messageSizeBytes, getTime, getAllTime))
         if (getAllTime > getTime) {
-          error("getAll was slower than get!")
+          error("getAllSSPs was slower than get!")
         }
       })
     } finally {
@@ -313,10 +313,10 @@ class TestKeyValuePerformance extends Logging {
   }
 
   /**
-   * Test that ::getAll performance is better than that of ::get (test when data are written once and read many times);
+   * Test that ::getAllSSPs performance is better than that of ::get (test when data are written once and read many times);
    * load is usually greater than the storage engine's cache size (not to be confused with Samza's cache layer),
-   * and keys are randomly selected from the stored entries to perform a fair comparison of ::get vs. ::getAll (in case
-   * the underlying storage engine caches data in blocks and ::getAll causes a block to be loaded into the cache --
+   * and keys are randomly selected from the stored entries to perform a fair comparison of ::get vs. ::getAllSSPs (in case
+   * the underlying storage engine caches data in blocks and ::getAllSSPs causes a block to be loaded into the cache --
    * one can argue that ::get should trigger the same behavior, but it's worth testing this WORM scenario regardless)
    * @param store key-value store instance that is being tested
    * @param config the test case's config
@@ -337,14 +337,14 @@ class TestKeyValuePerformance extends Logging {
     info("iterations count: " + iterationsCount)
     info("max messages count per batch: " + maxMessagesCountPerBatch)
     info("max message size in bytes: " + maxMessageSizeBytes)
-    info("%12s%12s%12s%12s".format("Msg Count", "Total Size", "get ms", "getAll ms"))
+    info("%12s%12s%12s%12s".format("Msg Count", "Total Size", "get ms", "getAllSSPs ms"))
 
     try {
       (0 until iterationsCount).foreach(i => {
         val messagesCountPerBatch = Random.nextInt(maxMessagesCountPerBatch)
         val shuffledKeys = Random.shuffle(keys).take(messagesCountPerBatch)
 
-        // We want to measure ::getAll when called many times, so populate the cache because first call is a cache-miss
+        // We want to measure ::getAllSSPs when called many times, so populate the cache because first call is a cache-miss
         val totalSize = store.getAll(shuffledKeys.asJava).values.asScala.map(_.length).sum
         timer.reset().start()
         assert(store.getAll(shuffledKeys.asJava).size == shuffledKeys.size)
@@ -358,7 +358,7 @@ class TestKeyValuePerformance extends Logging {
 
         info("%12d%12d%12d%12d".format(messagesCountPerBatch, totalSize, getTime, getAllTime))
         if (getAllTime > getTime) {
-          error("getAll was slower than get!")
+          error("getAllSSPs was slower than get!")
         }
       })
     } finally {

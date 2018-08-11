@@ -29,20 +29,29 @@ import kafka.common.TopicAndPartition
 import kafka.consumer.{ConsumerConfig, SimpleConsumer}
 import kafka.utils.ZkUtils
 import org.apache.kafka.clients.CommonClientConfigs
-import org.apache.kafka.common.errors.TopicExistsException
+import org.apache.kafka.clients.consumer.{ConsumerRebalanceListener, KafkaConsumer}
 import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.errors.TopicExistsException
+import org.apache.samza.config.Config
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.apache.samza.system._
 import org.apache.samza.util.{ClientUtilTopicMetadataStore, ExponentialSleepStrategy, KafkaUtil, Logging}
 import org.apache.samza.{Partition, SamzaException}
+import java.util
+import java.util.regex.Pattern
+
+import org.apache.kafka.common.TopicPartition
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 
 
 object KafkaSystemAdmin extends Logging {
 
   @VisibleForTesting @volatile var deleteMessagesCalled = false
   val CLEAR_STREAM_RETRIES = 3
+
+  val allSSPs = new util.HashSet[SystemStreamPartition]()
 
   /**
    * A helper method that takes oldest, newest, and upcoming offsets for each
@@ -88,7 +97,7 @@ case class ChangelogInfo(var replicationFactor: Int, var kafkaProps: Properties)
 /**
  * A Kafka-based implementation of SystemAdmin.
  */
-class KafkaSystemAdmin(
+class KafkaSystemAdmin[K, V](
   /**
    * The system name to use when creating SystemStreamPartitions to return in
    * the getSystemStreamMetadata responser.
@@ -151,9 +160,14 @@ class KafkaSystemAdmin(
   intermediateStreamProperties: Map[String, Properties] = Map(),
 
   /**
-   * Whether deleteMessages() API can be used
-   */
-  deleteCommittedMessages: Boolean = false) extends ExtendedSystemAdmin with Logging {
+    * Whether deleteMessages() API can be used
+    */
+  deleteCommittedMessages: Boolean = false,
+
+  /**
+    *  A KafkaConsumer for this system
+    */
+  kafkaConsumer : KafkaConsumer[K, V] = null) extends ExtendedSystemAdmin with Logging {
 
   import KafkaSystemAdmin._
 
@@ -173,6 +187,32 @@ class KafkaSystemAdmin(
       adminClient.close()
       adminClient = null
     }
+  }
+
+  override def getAllSSPs(input: String): util.Set[SystemStreamPartition] = {
+
+    // if a changed subscription is requested, or if this is the first invocation
+    if (!kafkaConsumer.subscription().equals(Pattern.compile(input))) {
+      allSSPs.clear()
+
+      lazy val listener: ConsumerRebalanceListener = new ConsumerRebalanceListener() {
+        def onPartitionsRevoked(topicAndPartitions: util.Collection[TopicPartition]): Unit = {
+          for (topicPartition <- topicAndPartitions.asScala) {
+            allSSPs.add(new SystemStreamPartition(systemName, topicPartition.topic(), new Partition(topicPartition.partition())))
+          }
+        }
+
+        def onPartitionsAssigned(topicAndPartitions: util.Collection[TopicPartition]): Unit = {
+          for (topicPartition <- topicAndPartitions.asScala) {
+            allSSPs.remove(new SystemStreamPartition(systemName, topicPartition.topic(), new Partition(topicPartition.partition())))
+          }
+        }
+
+        kafkaConsumer.subscribe(Pattern.compile(input), listener)
+      }
+    }
+
+    allSSPs
   }
 
   private def createAdminClient(): AdminClient = {

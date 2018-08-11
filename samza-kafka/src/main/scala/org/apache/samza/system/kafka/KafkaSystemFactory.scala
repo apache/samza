@@ -20,11 +20,13 @@
 package org.apache.samza.system.kafka
 
 import java.util.Properties
+
 import kafka.utils.ZkUtils
+import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.samza.SamzaException
 import org.apache.samza.config.ApplicationConfig.ApplicationMode
-import org.apache.samza.util.{Logging, KafkaUtil, ExponentialSleepStrategy, ClientUtilTopicMetadataStore}
-import org.apache.samza.config.{KafkaConfig, ApplicationConfig, StreamConfig, Config}
+import org.apache.samza.util.{ClientUtilTopicMetadataStore, ExponentialSleepStrategy, KafkaUtil, Logging}
+import org.apache.samza.config.{ApplicationConfig, Config, KafkaConfig, StreamConfig}
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.config.KafkaConfig.Config2Kafka
 import org.apache.samza.config.TaskConfig.Config2Task
@@ -140,7 +142,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
       clientId,
       topicMetaInformation,
       intermediateStreamProperties,
-      deleteCommittedMessages)
+      deleteCommittedMessages, new KafkaConsumer(config.getKafkaSystemConsumerConfigProps(systemName, clientId)))
   }
 
   def getCoordinatorTopicProperties(config: Config) = {

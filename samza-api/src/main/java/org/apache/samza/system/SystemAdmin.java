@@ -144,4 +144,14 @@ public interface SystemAdmin {
 
   }
 
+  /**
+   * Fetch the set of all existing SSPs that match the given input.
+   * TODO: Improve this javadoc
+   * @param input
+   * @return
+   */
+  default Set<SystemStreamPartition> getAllSSPs(String input) {
+    throw new UnsupportedOperationException();
+  }
+
 }

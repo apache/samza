@@ -47,7 +47,7 @@ public class DefaultTableReadMetrics {
       Table table, String tableId) {
     TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(containerContext, taskContext, table, tableId);
     getNs = tableMetricsUtil.newTimer("get-ns");
-    getAllNs = tableMetricsUtil.newTimer("getAll-ns");
+    getAllNs = tableMetricsUtil.newTimer("getAllSSPs-ns");
     numGets = tableMetricsUtil.newCounter("num-gets");
     numGetAlls = tableMetricsUtil.newCounter("num-getAlls");
   }
