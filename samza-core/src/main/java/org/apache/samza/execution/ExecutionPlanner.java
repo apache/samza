@@ -28,7 +28,6 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
-
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ClusterManagerConfig;
@@ -186,11 +185,12 @@ public class ExecutionPlanner {
     // The visited set keeps track of the join specs that have been already inserted in the queue before
     Set<OperatorSpec> visited = new HashSet<>();
 
-    jobGraph.getSpecGraph().getInputOperators().entrySet().forEach(entry -> {
-        StreamConfig streamConfig = new StreamConfig(config);
-        StreamEdge streamEdge = jobGraph.getOrCreateStreamEdge(getStreamSpec(entry.getKey(), streamConfig));
+    StreamConfig streamConfig = new StreamConfig(config);
+
+    jobGraph.getSpecGraph().getInputOperators().forEach((key, value) -> {
+        StreamEdge streamEdge = jobGraph.getOrCreateStreamEdge(getStreamSpec(key, streamConfig));
         // Traverses the StreamGraph to find and update mappings for all Joins reachable from this input StreamEdge
-        findReachableJoins(entry.getValue(), streamEdge, joinSpecToStreamEdges, streamEdgeToJoinSpecs, joinQ, visited);
+        findReachableJoins(value, streamEdge, joinSpecToStreamEdges, streamEdgeToJoinSpecs, joinQ, visited);
       });
 
     // At this point, joinQ contains joinSpecs where at least one of the input stream edge partitions is known.
@@ -211,9 +211,12 @@ public class ExecutionPlanner {
           }
         }
       }
+
+      log.info("Inferred the partition count for the operator {} as {}.", join.getOpId(), partitions);
       // assign the partition count for intermediate streams
       for (StreamEdge edge : joinSpecToStreamEdges.get(join)) {
         if (edge.getPartitionCount() <= 0) {
+          log.info("Initialize the partition count for the associated edge {} to {}.", edge.getName(), partitions);
           edge.setPartitionCount(partitions);
 
           // find other joins can be inferred by setting this edge
@@ -278,6 +281,7 @@ public class ExecutionPlanner {
     }
     for (StreamEdge edge : jobGraph.getIntermediateStreamEdges()) {
       if (edge.getPartitionCount() <= 0) {
+        log.info("Initialize the partition count for edge {} to {}.", edge.getName(), partitions);
         edge.setPartitionCount(partitions);
       }
     }
