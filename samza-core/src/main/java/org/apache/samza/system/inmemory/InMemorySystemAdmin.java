@@ -34,9 +34,11 @@ import org.apache.samza.system.SystemStreamPartition;
  */
 public class InMemorySystemAdmin implements SystemAdmin {
   private final InMemoryManager inMemoryManager;
+  private final String systemName;
 
-  public InMemorySystemAdmin(InMemoryManager manager) {
+  public InMemorySystemAdmin(String systemName, InMemoryManager manager) {
     inMemoryManager = manager;
+    this.systemName = systemName;
   }
 
   @Override
@@ -78,7 +80,7 @@ public class InMemorySystemAdmin implements SystemAdmin {
    */
   @Override
   public Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames) {
-    return inMemoryManager.getSystemStreamMetadata(streamNames);
+    return inMemoryManager.getSystemStreamMetadata(systemName, streamNames);
   }
 
   /**

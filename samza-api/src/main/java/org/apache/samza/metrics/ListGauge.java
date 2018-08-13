@@ -109,8 +109,9 @@ public class ListGauge<T> implements Metric {
 
   /**
    * Evicts entries from the elements list, based on the given item-size and durationThreshold.
+   * Concurrent eviction threads can cause incorrectness (when reading elements.size or elements.peek).
    */
-  private void evict() {
+  private synchronized void evict() {
     this.evictBasedOnSize();
     this.evictBasedOnTimestamp();
   }

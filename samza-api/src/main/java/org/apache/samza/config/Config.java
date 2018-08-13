@@ -155,6 +155,9 @@ public abstract class Config implements Map<String, String>, Serializable {
       return defaultValue;
 
     String value = get(k);
+    if (value.trim().isEmpty()) {
+      return defaultValue;
+    }
     String[] pieces = value.split("\\s*,\\s*");
     return Arrays.asList(pieces);
   }
