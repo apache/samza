@@ -22,12 +22,9 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Collections;
 import java.util.Map;
-import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.DoubleSerde;
 import org.apache.samza.serializers.IntegerSerde;
-import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.junit.Test;
@@ -47,9 +44,6 @@ public class TestGenericDescriptors {
 
     GenericInputDescriptor<Integer> input1 = mySystem.getInputDescriptor("input1", new IntegerSerde());
     GenericInputDescriptor<Float> input2 = mySystem.getInputDescriptor("input2", ime -> 1f, new IntegerSerde());
-
-    GenericInputDescriptor<KV<Integer, String>> input3 =
-        GenericInputDescriptor.from("input3", "system", KVSerde.of(new IntegerSerde(), new StringSerde()));
 
     GenericOutputDescriptor<Integer> output1 = mySystem.getOutputDescriptor("output1", new IntegerSerde());
 

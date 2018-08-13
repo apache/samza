@@ -27,6 +27,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
+import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.impl.store.TestInMemoryStore;
 import org.apache.samza.operators.impl.store.TimestampedValueSerde;
@@ -96,8 +97,8 @@ public class TestJoinOperator {
 
     IntegerSerde integerSerde = new IntegerSerde();
     KVSerde<Integer, Integer> kvSerde = KVSerde.of(integerSerde, integerSerde);
-    GenericInputDescriptor<KV<Integer, Integer>> inputDescriptor =
-        GenericInputDescriptor.from("inStream", "insystem", kvSerde);
+    GenericSystemDescriptor sd = new GenericSystemDescriptor("insystem", "mockFactoryClassName");
+    GenericInputDescriptor<KV<Integer, Integer>> inputDescriptor = sd.getInputDescriptor("inStream", kvSerde);
 
     MessageStream<KV<Integer, Integer>> inStream = graphSpec.getInputStream(inputDescriptor);
 
@@ -329,10 +330,9 @@ public class TestJoinOperator {
     StreamGraphSpec graphSpec = new StreamGraphSpec(config);
     IntegerSerde integerSerde = new IntegerSerde();
     KVSerde<Integer, Integer> kvSerde = KVSerde.of(integerSerde, integerSerde);
-    GenericInputDescriptor<KV<Integer, Integer>> inputDescriptor1 =
-        GenericInputDescriptor.from("inStream", "insystem", kvSerde);
-    GenericInputDescriptor<KV<Integer, Integer>> inputDescriptor2 =
-        GenericInputDescriptor.from("inStream2", "insystem", kvSerde);
+    GenericSystemDescriptor sd = new GenericSystemDescriptor("insystem", "mockFactoryClassName");
+    GenericInputDescriptor<KV<Integer, Integer>> inputDescriptor1 = sd.getInputDescriptor("inStream", kvSerde);
+    GenericInputDescriptor<KV<Integer, Integer>> inputDescriptor2 = sd.getInputDescriptor("inStream2", kvSerde);
 
     MessageStream<KV<Integer, Integer>> inStream = graphSpec.getInputStream(inputDescriptor1);
     MessageStream<KV<Integer, Integer>> inStream2 = graphSpec.getInputStream(inputDescriptor2);

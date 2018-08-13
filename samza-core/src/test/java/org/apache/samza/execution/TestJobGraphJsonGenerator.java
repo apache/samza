@@ -31,6 +31,7 @@ import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
+import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.serializers.JsonSerdeV2;
@@ -103,11 +104,14 @@ public class TestJobGraphJsonGenerator {
 
     StreamGraphSpec graphSpec = new StreamGraphSpec(config);
     KVSerde<Object, Object> kvSerde = new KVSerde<>(new NoOpSerde(), new NoOpSerde());
-    GenericInputDescriptor<KV<Object, Object>> input1Descriptor = GenericInputDescriptor.from("input1", "system1", kvSerde);
-    GenericInputDescriptor<KV<Object, Object>> input2Descriptor = GenericInputDescriptor.from("input2", "system2", kvSerde);
-    GenericInputDescriptor<KV<Object, Object>> input3Descriptor = GenericInputDescriptor.from("input3", "system2", kvSerde);
-    GenericOutputDescriptor<KV<Object, Object>> output1Descriptor = GenericOutputDescriptor.from("output1", "system1", kvSerde);
-    GenericOutputDescriptor<KV<Object, Object>> output2Descriptor = GenericOutputDescriptor.from("output2", "system2", kvSerde);
+    String mockSystemFactoryClass = "factory.class.name";
+    GenericSystemDescriptor system1 = new GenericSystemDescriptor("system1", mockSystemFactoryClass);
+    GenericSystemDescriptor system2 = new GenericSystemDescriptor("system2", mockSystemFactoryClass);
+    GenericInputDescriptor<KV<Object, Object>> input1Descriptor = system1.getInputDescriptor("input1", kvSerde);
+    GenericInputDescriptor<KV<Object, Object>> input2Descriptor = system2.getInputDescriptor("input2", kvSerde);
+    GenericInputDescriptor<KV<Object, Object>> input3Descriptor = system2.getInputDescriptor("input3", kvSerde);
+    GenericOutputDescriptor<KV<Object, Object>>  output1Descriptor = system1.getOutputDescriptor("output1", kvSerde);
+    GenericOutputDescriptor<KV<Object, Object>> output2Descriptor = system2.getOutputDescriptor("output2", kvSerde);
 
     MessageStream<KV<Object, Object>> messageStream1 =
         graphSpec.getInputStream(input1Descriptor)
@@ -175,13 +179,12 @@ public class TestJobGraphJsonGenerator {
 
     StreamGraphSpec graphSpec = new StreamGraphSpec(config);
     KVSerde<String, PageViewEvent> pvSerde = KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageViewEvent.class));
-
-    GenericInputDescriptor<KV<String, PageViewEvent>> pageView =
-        GenericInputDescriptor.from("PageView", "hdfs", pvSerde);
+    GenericSystemDescriptor isd = new GenericSystemDescriptor("hdfs", "mockSystemFactoryClass");
+    GenericInputDescriptor<KV<String, PageViewEvent>> pageView = isd.getInputDescriptor("PageView", pvSerde);
 
     KVSerde<String, Long> pvcSerde = KVSerde.of(new StringSerde(), new LongSerde());
-    GenericOutputDescriptor<KV<String, Long>> pageViewCount =
-        GenericOutputDescriptor.from("PageViewCount", "kafka", pvcSerde);
+    GenericSystemDescriptor osd = new GenericSystemDescriptor("kafka", "mockSystemFactoryClass");
+    GenericOutputDescriptor<KV<String, Long>> pageViewCount = osd.getOutputDescriptor("PageViewCount", pvcSerde);
 
     MessageStream<KV<String, PageViewEvent>> inputStream = graphSpec.getInputStream(pageView);
     OutputStream<KV<String, Long>> outputStream = graphSpec.getOutputStream(pageViewCount);

@@ -52,6 +52,7 @@ import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
+import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.operators.functions.ClosableFunction;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.InitableFunction;
@@ -244,8 +245,9 @@ public class TestOperatorImplGraph {
     Config config = new MapConfig(configs);
 
     StreamGraphSpec graphSpec = new StreamGraphSpec(config);
-    GenericInputDescriptor inputDescriptor = GenericInputDescriptor.from(inputStreamId, inputSystem, mock(Serde.class));
-    GenericOutputDescriptor outputDescriptor = GenericOutputDescriptor.from(outputStreamId, outputSystem, mock(Serde.class));
+    GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
+    GenericInputDescriptor inputDescriptor = sd.getInputDescriptor(inputStreamId, mock(Serde.class));
+    GenericOutputDescriptor outputDescriptor = sd.getOutputDescriptor(outputStreamId, mock(Serde.class));
     MessageStream<Object> inputStream = graphSpec.getInputStream(inputDescriptor);
     OutputStream<Object> outputStream = graphSpec.getOutputStream(outputDescriptor);
 
@@ -296,8 +298,11 @@ public class TestOperatorImplGraph {
     Config config = new MapConfig(configs);
 
     StreamGraphSpec graphSpec = new StreamGraphSpec(config);
-    GenericInputDescriptor inputDescriptor = GenericInputDescriptor.from(inputStreamId, inputSystem, mock(Serde.class));
-    GenericOutputDescriptor outputDescriptor = GenericOutputDescriptor.from(outputStreamId, outputSystem, KVSerde.of(mock(IntegerSerde.class), mock(StringSerde.class)));
+    GenericSystemDescriptor isd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
+    GenericSystemDescriptor osd = new GenericSystemDescriptor(outputSystem, "mockFactoryClass");
+    GenericInputDescriptor inputDescriptor = isd.getInputDescriptor(inputStreamId, mock(Serde.class));
+    GenericOutputDescriptor outputDescriptor = osd.getOutputDescriptor(outputStreamId,
+        KVSerde.of(mock(IntegerSerde.class), mock(StringSerde.class)));
     MessageStream<Object> inputStream = graphSpec.getInputStream(inputDescriptor);
     OutputStream<KV<Integer, String>> outputStream = graphSpec.getOutputStream(outputDescriptor);
 
@@ -348,7 +353,8 @@ public class TestOperatorImplGraph {
     Config config = new MapConfig(configMap);
     StreamGraphSpec graphSpec = new StreamGraphSpec(config);
 
-    GenericInputDescriptor inputDescriptor = GenericInputDescriptor.from(inputStreamId, inputSystem, mock(Serde.class));
+    GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
+    GenericInputDescriptor inputDescriptor = sd.getInputDescriptor(inputStreamId, mock(Serde.class));
     MessageStream<Object> inputStream = graphSpec.getInputStream(inputDescriptor);
     inputStream.filter(mock(FilterFunction.class));
     inputStream.map(mock(MapFunction.class));
@@ -376,7 +382,8 @@ public class TestOperatorImplGraph {
     Config config = new MapConfig(configs);
     StreamGraphSpec graphSpec = new StreamGraphSpec(config);
 
-    GenericInputDescriptor inputDescriptor = GenericInputDescriptor.from(inputStreamId, inputSystem, mock(Serde.class));
+    GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
+    GenericInputDescriptor inputDescriptor = sd.getInputDescriptor(inputStreamId, mock(Serde.class));
     MessageStream<Object> inputStream = graphSpec.getInputStream(inputDescriptor);
     MessageStream<Object> stream1 = inputStream.filter(mock(FilterFunction.class));
     MessageStream<Object> stream2 = inputStream.map(mock(MapFunction.class));
@@ -425,8 +432,9 @@ public class TestOperatorImplGraph {
     JoinFunction testJoinFunction = new TestJoinFunction("jobName-jobId-join-j1",
         (BiFunction & Serializable) (m1, m2) -> KV.of(m1, m2), keyFn, keyFn);
 
-    GenericInputDescriptor inputDescriptor1 = GenericInputDescriptor.from(inputStreamId1, inputSystem, mock(Serde.class));
-    GenericInputDescriptor inputDescriptor2 = GenericInputDescriptor.from(inputStreamId2, inputSystem, mock(Serde.class));
+    GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
+    GenericInputDescriptor inputDescriptor1 = sd.getInputDescriptor(inputStreamId1, mock(Serde.class));
+    GenericInputDescriptor inputDescriptor2 = sd.getInputDescriptor(inputStreamId2, mock(Serde.class));
     MessageStream<Object> inputStream1 = graphSpec.getInputStream(inputDescriptor1);
     MessageStream<Object> inputStream2 = graphSpec.getInputStream(inputDescriptor2);
 
@@ -490,8 +498,9 @@ public class TestOperatorImplGraph {
     when(mockContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
 
-    GenericInputDescriptor inputDescriptor1 = GenericInputDescriptor.from(inputStreamId1, inputSystem, mock(Serde.class));
-    GenericInputDescriptor inputDescriptor2 = GenericInputDescriptor.from(inputStreamId2, inputSystem, mock(Serde.class));
+    GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
+    GenericInputDescriptor inputDescriptor1 = sd.getInputDescriptor(inputStreamId1, mock(Serde.class));
+    GenericInputDescriptor inputDescriptor2 = sd.getInputDescriptor(inputStreamId2, mock(Serde.class));
     MessageStream<Object> inputStream1 = graphSpec.getInputStream(inputDescriptor1);
     MessageStream<Object> inputStream2 = graphSpec.getInputStream(inputDescriptor2);
 
@@ -584,11 +593,13 @@ public class TestOperatorImplGraph {
     Config config = new MapConfig(configs);
 
     StreamGraphSpec graphSpec = new StreamGraphSpec(config);
-    GenericInputDescriptor inputDescriptor1 = GenericInputDescriptor.from(inputStreamId1, inputSystem, mock(Serde.class));
-    GenericInputDescriptor inputDescriptor2 = GenericInputDescriptor.from(inputStreamId2, inputSystem, mock(Serde.class));
-    GenericInputDescriptor inputDescriptor3 = GenericInputDescriptor.from(inputStreamId3, inputSystem, mock(Serde.class));
-    GenericOutputDescriptor outputDescriptor1 = GenericOutputDescriptor.from(outputStreamId1, outputSystem, mock(Serde.class));
-    GenericOutputDescriptor outputDescriptor2 = GenericOutputDescriptor.from(outputStreamId2, outputSystem, mock(Serde.class));
+    GenericSystemDescriptor isd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
+    GenericInputDescriptor inputDescriptor1 = isd.getInputDescriptor(inputStreamId1, mock(Serde.class));
+    GenericInputDescriptor inputDescriptor2 = isd.getInputDescriptor(inputStreamId2, mock(Serde.class));
+    GenericInputDescriptor inputDescriptor3 = isd.getInputDescriptor(inputStreamId3, mock(Serde.class));
+    GenericSystemDescriptor osd = new GenericSystemDescriptor(outputSystem, "mockFactoryClass");
+    GenericOutputDescriptor outputDescriptor1 = osd.getOutputDescriptor(outputStreamId1, mock(Serde.class));
+    GenericOutputDescriptor outputDescriptor2 = osd.getOutputDescriptor(outputStreamId2, mock(Serde.class));
     MessageStream messageStream1 = graphSpec.getInputStream(inputDescriptor1).map(m -> m);
     MessageStream messageStream2 = graphSpec.getInputStream(inputDescriptor2).filter(m -> true);
     MessageStream messageStream3 =

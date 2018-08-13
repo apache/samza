@@ -34,6 +34,7 @@ import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
+import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.impl.store.TimestampedValueSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
@@ -67,9 +68,10 @@ public class TestJobNode {
 
     StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
     KVSerde<String, Object> serde = KVSerde.of(new StringSerde(), new JsonSerdeV2<>());
-    GenericInputDescriptor<KV<String, Object>> inputDescriptor1 = GenericInputDescriptor.from("input1", "system1", serde);
-    GenericInputDescriptor<KV<String, Object>> inputDescriptor2 = GenericInputDescriptor.from("input2", "system1", serde);
-    GenericOutputDescriptor<KV<String, Object>> outputDescriptor = GenericOutputDescriptor.from("output", "system1", serde);
+    GenericSystemDescriptor sd = new GenericSystemDescriptor("system1", "mockSystemFactoryClass");
+    GenericInputDescriptor<KV<String, Object>> inputDescriptor1 = sd.getInputDescriptor("input1", serde);
+    GenericInputDescriptor<KV<String, Object>> inputDescriptor2 = sd.getInputDescriptor("input2", serde);
+    GenericOutputDescriptor<KV<String, Object>> outputDescriptor = sd.getOutputDescriptor("output", serde);
     MessageStream<KV<String, Object>> input1 = graphSpec.getInputStream(inputDescriptor1);
     MessageStream<KV<String, Object>> input2 = graphSpec.getInputStream(inputDescriptor2);
     OutputStream<KV<String, Object>> output = graphSpec.getOutputStream(outputDescriptor);
@@ -187,8 +189,9 @@ public class TestJobNode {
     when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("jobId");
 
     StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
+    GenericSystemDescriptor sd = new GenericSystemDescriptor("system1", "mockSystemFactoryClassName");
     GenericInputDescriptor<KV<String, Object>> inputDescriptor1 =
-        GenericInputDescriptor.from("input", "system1", KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
+        sd.getInputDescriptor("input", KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
     MessageStream<KV<String, Object>> input = graphSpec.getInputStream(inputDescriptor1);
     input.partitionBy(KV::getKey, KV::getValue, "p1");
 

@@ -26,7 +26,6 @@ import org.apache.samza.serializers.Serde;
  * A descriptor for a generic output stream.
  * <p>
  * An instance of this descriptor may be obtained from an appropriately configured {@link GenericSystemDescriptor}.
- * For simple cases where no system configuration is necessary, {@link GenericOutputDescriptor#from} may be used.
  * <p>
  * If the system being used provides its own system and stream descriptor implementations, they should be used instead.
  * Otherwise, this {@link GenericOutputDescriptor} may be used to provide Samza-specific properties of the output stream.
@@ -38,16 +37,7 @@ import org.apache.samza.serializers.Serde;
  */
 public final class GenericOutputDescriptor<StreamMessageType>
     extends OutputDescriptor<StreamMessageType, GenericOutputDescriptor<StreamMessageType>> {
-  GenericOutputDescriptor(String streamId, String systemName, Serde<StreamMessageType> serde) {
-    super(streamId, systemName, serde, null);
-  }
-
   GenericOutputDescriptor(String streamId, SystemDescriptor systemDescriptor, Serde<StreamMessageType> serde) {
     super(streamId, systemDescriptor.getSystemName(), serde, systemDescriptor);
-  }
-
-  public static <StreamMessageType> GenericOutputDescriptor<StreamMessageType> from(
-      String streamId, String systemName, Serde<StreamMessageType> serde) {
-    return new GenericOutputDescriptor<>(streamId, systemName, serde);
   }
 }

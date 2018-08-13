@@ -27,6 +27,7 @@ import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
+import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
@@ -52,7 +53,8 @@ public class TestPartitionByOperatorSpec {
 
   private final Config mockConfig = mock(Config.class);
   private final GenericInputDescriptor testinputDescriptor =
-      GenericInputDescriptor.from("test-input-1", "mockSystem", mock(Serde.class));
+      new GenericSystemDescriptor("mockSystem", "mockFactoryClassName")
+          .getInputDescriptor("test-input-1", mock(Serde.class));
   private final String testJobName = "testJob";
   private final String testJobId = "1";
   private final String testRepartitionedStreamName = "parByKey";

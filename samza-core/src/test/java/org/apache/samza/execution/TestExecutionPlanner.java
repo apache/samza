@@ -38,6 +38,7 @@ import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
+import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.serializers.KVSerde;
@@ -233,12 +234,15 @@ public class TestExecutionPlanner {
     output2Spec = new StreamSpec("output2", "output2", "system2");
 
     KVSerde<Object, Object> kvSerde = new KVSerde<>(new NoOpSerde(), new NoOpSerde());
-    input1Descriptor = GenericInputDescriptor.from("input1", "system1", kvSerde);
-    input2Descriptor = GenericInputDescriptor.from("input2", "system2", kvSerde);
-    input3Descriptor = GenericInputDescriptor.from("input3", "system2", kvSerde);
-    input4Descriptor = GenericInputDescriptor.from("input4", "system1", kvSerde);
-    output1Descriptor = GenericOutputDescriptor.from("output1", "system1", kvSerde);
-    output2Descriptor = GenericOutputDescriptor.from("output2", "system2", kvSerde);
+    String mockSystemFactoryClass = "factory.class.name";
+    GenericSystemDescriptor system1 = new GenericSystemDescriptor("system1", mockSystemFactoryClass);
+    GenericSystemDescriptor system2 = new GenericSystemDescriptor("system2", mockSystemFactoryClass);
+    input1Descriptor = system1.getInputDescriptor("input1", kvSerde);
+    input2Descriptor = system2.getInputDescriptor("input2", kvSerde);
+    input3Descriptor = system2.getInputDescriptor("input3", kvSerde);
+    input4Descriptor = system1.getInputDescriptor("input4", kvSerde);
+    output1Descriptor = system1.getOutputDescriptor("output1", kvSerde);
+    output2Descriptor = system2.getOutputDescriptor("output2", kvSerde);
 
     // set up external partition count
     Map<String, Integer> system1Map = new HashMap<>();

@@ -18,30 +18,14 @@
  */
 package org.apache.samza.operators.descriptors.serde;
 
-import org.apache.samza.operators.KV;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.operators.functions.InputTransformer;
-import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 
 @SuppressWarnings("unchecked")
 public class MockSimpleInputDescriptor<StreamMessageType> extends InputDescriptor<StreamMessageType, MockSimpleInputDescriptor<StreamMessageType>> {
-  MockSimpleInputDescriptor(String streamId, String systemName) {
-    super(streamId, systemName, KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()), null, null);
-  }
-
   MockSimpleInputDescriptor(String streamId, SystemDescriptor systemDescriptor, InputTransformer<StreamMessageType> transformer, Serde serde) {
     super(streamId, systemDescriptor.getSystemName(), serde, systemDescriptor, transformer);
-  }
-
-  public static MockSimpleInputDescriptor<KV<String, Integer>> from(String streamId, String systemName) {
-    return new MockSimpleInputDescriptor(streamId, systemName);
-  }
-
-  public static <StreamMessageType> MockSimpleInputDescriptor<KV<String, StreamMessageType>> from(
-      String streamId, String systemName, Class<StreamMessageType> messageType) {
-    return new MockSimpleInputDescriptor(streamId, systemName);
   }
 }

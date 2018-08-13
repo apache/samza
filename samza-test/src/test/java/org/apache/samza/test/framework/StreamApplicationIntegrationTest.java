@@ -29,6 +29,7 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
+import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
@@ -36,23 +37,26 @@ import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.test.controlmessages.TestData;
 import org.apache.samza.test.framework.stream.CollectionStream;
-import static org.apache.samza.test.controlmessages.TestData.PageView;
 import org.junit.Assert;
 import org.junit.Test;
+
+import static org.apache.samza.test.controlmessages.TestData.PageView;
 
 
 public class StreamApplicationIntegrationTest {
 
   final StreamApplication pageViewFilter = (streamGraph, cfg) -> {
+    GenericSystemDescriptor ksd = new GenericSystemDescriptor("test");
     GenericInputDescriptor<KV<String, PageView>> isd =
-        GenericInputDescriptor.from("PageView", "test", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+        ksd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
     MessageStream<KV<String, TestData.PageView>> inputStream = streamGraph.getInputStream(isd);
     inputStream.map(StreamApplicationIntegrationTest.Values.create()).filter(pv -> pv.getPageKey().equals("inbox"));
   };
 
   final StreamApplication pageViewRepartition = (streamGraph, cfg) -> {
+    GenericSystemDescriptor ksd = new GenericSystemDescriptor("test");
     GenericInputDescriptor<KV<String, PageView>> isd =
-        GenericInputDescriptor.from("PageView", "test", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+        ksd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
     MessageStream<KV<String, TestData.PageView>> inputStream = streamGraph.getInputStream(isd);
     inputStream
         .map(Values.create())

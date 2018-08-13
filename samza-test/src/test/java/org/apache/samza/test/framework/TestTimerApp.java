@@ -19,22 +19,22 @@
 
 package org.apache.samza.test.framework;
 
-import org.apache.samza.application.StreamApplication;
-import org.apache.samza.config.Config;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.TimerRegistry;
-import org.apache.samza.operators.descriptors.GenericInputDescriptor;
-import org.apache.samza.operators.functions.FlatMapFunction;
-import org.apache.samza.operators.functions.TimerFunction;
-import org.apache.samza.serializers.JsonSerdeV2;
-import org.apache.samza.test.operator.data.PageView;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import org.apache.samza.application.StreamApplication;
+import org.apache.samza.config.Config;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.TimerRegistry;
+import org.apache.samza.operators.functions.FlatMapFunction;
+import org.apache.samza.operators.functions.TimerFunction;
+import org.apache.samza.serializers.JsonSerdeV2;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
+import org.apache.samza.test.operator.data.PageView;
 
 public class TestTimerApp implements StreamApplication {
   public static final String PAGE_VIEWS = "page-views";
@@ -42,7 +42,8 @@ public class TestTimerApp implements StreamApplication {
   @Override
   public void init(StreamGraph graph, Config config) {
     final JsonSerdeV2<PageView> serde = new JsonSerdeV2<>(PageView.class);
-    GenericInputDescriptor<PageView> isd = GenericInputDescriptor.from(PAGE_VIEWS, "kafka", serde);
+    KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("kafka");
+    KafkaInputDescriptor<PageView> isd = ksd.getInputDescriptor(PAGE_VIEWS, serde);
     final MessageStream<PageView> pageViews = graph.getInputStream(isd);
     final MessageStream<PageView> output = pageViews.flatMap(new FlatmapTimerFn());
 

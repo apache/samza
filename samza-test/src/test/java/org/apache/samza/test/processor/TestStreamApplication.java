@@ -35,6 +35,9 @@ import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.StringSerde;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaOutputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 
 
 /**
@@ -59,8 +62,9 @@ public class TestStreamApplication implements StreamApplication, Serializable {
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    GenericInputDescriptor<String> isd = GenericInputDescriptor.from(inputTopic, systemName, new NoOpSerde<>());
-    GenericOutputDescriptor<String> osd = GenericOutputDescriptor.from(outputTopic, systemName, new StringSerde());
+    KafkaSystemDescriptor ksd = new KafkaSystemDescriptor(systemName);
+    KafkaInputDescriptor<String> isd = ksd.getInputDescriptor(inputTopic, new NoOpSerde<>());
+    KafkaOutputDescriptor<String> osd = ksd.getOutputDescriptor(outputTopic, new StringSerde());
     MessageStream<String> inputStream = graph.getInputStream(isd);
     OutputStream<String> outputStream = graph.getOutputStream(osd);
     inputStream.map(new MapFunction<String, String>() {

@@ -19,15 +19,15 @@
 
 package org.apache.samza.test.framework;
 
+import java.util.Arrays;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.serializers.JsonSerdeV2;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.test.operator.data.PageView;
-
-import java.util.Arrays;
 
 public class BroadcastAssertApp implements StreamApplication {
   public static final String SYSTEM = "kafka";
@@ -39,7 +39,8 @@ public class BroadcastAssertApp implements StreamApplication {
     String inputTopic = config.get(INPUT_TOPIC_NAME_PROP);
 
     final JsonSerdeV2<PageView> serde = new JsonSerdeV2<>(PageView.class);
-    GenericInputDescriptor<PageView> isd = GenericInputDescriptor.from(inputTopic, SYSTEM, serde);
+    KafkaSystemDescriptor ksd = new KafkaSystemDescriptor(SYSTEM);
+    KafkaInputDescriptor<PageView> isd = ksd.getInputDescriptor(inputTopic, serde);
     final MessageStream<PageView> broadcastPageViews = graph
         .getInputStream(isd)
         .broadcast(serde, "pv");

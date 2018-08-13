@@ -52,7 +52,7 @@ public class TestQueryTranslator {
     Assert.assertTrue(originContext.getStreamGraph() == clonedContext.getStreamGraph());
     Assert.assertTrue(originContext.getExpressionCompiler() == clonedContext.getExpressionCompiler());
     Assert.assertTrue(Whitebox.getInternalState(originContext, "relSamzaConverters") == Whitebox.getInternalState(clonedContext, "relSamzaConverters"));
-    Assert.assertTrue(Whitebox.getInternalState(originContext, "messsageStreams") == Whitebox.getInternalState(clonedContext, "messsageStreams"));
+    Assert.assertTrue(Whitebox.getInternalState(originContext, "messageStreams") == Whitebox.getInternalState(clonedContext, "messageStreams"));
     Assert.assertTrue(Whitebox.getInternalState(originContext, "relNodes") == Whitebox.getInternalState(clonedContext, "relNodes"));
     Assert.assertNotEquals(originContext.getDataContext(), clonedContext.getDataContext());
     validateClonedExecutionContext(originContext.getExecutionContext(), clonedContext.getExecutionContext());

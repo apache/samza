@@ -20,6 +20,7 @@
 package org.apache.samza.test.table;
 
 import com.google.common.collect.ImmutableList;
+
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -34,6 +35,7 @@ import org.apache.samza.config.StreamConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.TableDescriptor;
+import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
@@ -46,7 +48,8 @@ import org.apache.samza.test.framework.stream.CollectionStream;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 
 public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness {
@@ -124,11 +127,12 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
     @Override
     public void init(StreamGraph graph, Config config) {
       Table<KV<Integer, TestTableData.Profile>> table = graph.getTable(getTableDescriptor());
-
-      graph.getInputStream(PAGEVIEW_STREAM, new NoOpSerde<TestTableData.PageView>())
+      GenericSystemDescriptor sd =
+          new GenericSystemDescriptor(config.get(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), PAGEVIEW_STREAM)));
+      graph.getInputStream(sd.getInputDescriptor(PAGEVIEW_STREAM, new NoOpSerde<TestTableData.PageView>()))
           .partitionBy(TestTableData.PageView::getMemberId, v -> v, "partition-page-view")
           .join(table, new TestLocalTable.PageViewToProfileJoinFunction())
-          .sendTo(graph.getOutputStream(ENRICHED_PAGEVIEW_STREAM, new NoOpSerde<>()));
+          .sendTo(graph.getOutputStream(sd.getOutputDescriptor(ENRICHED_PAGEVIEW_STREAM, new NoOpSerde<>())));
     }
 
     protected TableDescriptor<Integer, TestTableData.Profile, ?> getTableDescriptor() {

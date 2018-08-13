@@ -29,6 +29,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.SystemStreamMetadata.OffsetType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The base descriptor for a system. Allows setting properties that are common to all systems.
@@ -37,6 +39,7 @@ import org.apache.samza.system.SystemStreamMetadata.OffsetType;
  */
 @SuppressWarnings("unchecked")
 public abstract class SystemDescriptor<SubClass extends SystemDescriptor<SubClass>> {
+  private static final Logger LOGGER = LoggerFactory.getLogger(SystemDescriptor.class);
   private static final String FACTORY_CONFIG_KEY = "systems.%s.samza.factory";
   private static final String DEFAULT_STREAM_OFFSET_DEFAULT_CONFIG_KEY = "systems.%s.default.stream.samza.offset.default";
   private static final String DEFAULT_STREAM_CONFIGS_CONFIG_KEY = "systems.%s.default.stream.%s";
@@ -44,7 +47,7 @@ public abstract class SystemDescriptor<SubClass extends SystemDescriptor<SubClas
   private static final Pattern ID_PATTERN = Pattern.compile("[\\d\\w-_.]+");
 
   private final String systemName;
-  private final String factoryClassName;
+  private final Optional<String> factoryClassNameOptional;
 
   private Optional<OffsetType> defaultStreamOffsetDefaultOptional = Optional.empty();
   private Map<String, String> systemConfigs = new HashMap<>();
@@ -59,11 +62,12 @@ public abstract class SystemDescriptor<SubClass extends SystemDescriptor<SubClas
   SystemDescriptor(String systemName, String factoryClassName) {
     Preconditions.checkArgument(isValidId(systemName),
         String.format("systemName: %s must be non-empty and must not contain spaces or special characters.", systemName));
-    Preconditions.checkArgument(StringUtils.isNotBlank(factoryClassName),
-        String.format("SystemFactory class name for system: %s must not be null or empty: %s.", systemName, factoryClassName));
-
+    if (StringUtils.isBlank(factoryClassName)) {
+      LOGGER.warn("Blank SystemFactory class name for system: {}. A value must be provided in configuration using {}.",
+          systemName, String.format(FACTORY_CONFIG_KEY, systemName));
+    }
     this.systemName = systemName;
-    this.factoryClassName = factoryClassName;
+    this.factoryClassNameOptional = Optional.ofNullable(StringUtils.stripToNull(factoryClassName));
   }
 
   /**
@@ -119,8 +123,8 @@ public abstract class SystemDescriptor<SubClass extends SystemDescriptor<SubClas
     return this.systemName;
   }
 
-  private String getFactoryClassName() {
-    return this.factoryClassName;
+  private Optional<String> getFactoryClassName() {
+    return this.factoryClassNameOptional;
   }
 
   private Optional<OffsetType> getDefaultStreamOffsetDefault() {
@@ -159,7 +163,7 @@ public abstract class SystemDescriptor<SubClass extends SystemDescriptor<SubClas
 
   public Map<String, String> toConfig() {
     HashMap<String, String> configs = new HashMap<>();
-    configs.put(String.format(FACTORY_CONFIG_KEY, systemName), getFactoryClassName());
+    getFactoryClassName().ifPresent(name -> configs.put(String.format(FACTORY_CONFIG_KEY, systemName), name));
     getDefaultStreamOffsetDefault().ifPresent(dsod ->
         configs.put(String.format(DEFAULT_STREAM_OFFSET_DEFAULT_CONFIG_KEY, systemName), dsod.name().toLowerCase()));
     getDefaultStreamConfigs().forEach((key, value) ->

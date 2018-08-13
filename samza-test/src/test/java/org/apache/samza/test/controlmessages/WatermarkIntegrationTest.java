@@ -19,6 +19,8 @@
 
 package org.apache.samza.test.controlmessages;
 
+import scala.collection.JavaConverters;
+
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,6 +41,7 @@ import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
+import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.operators.impl.InputOperatorImpl;
 import org.apache.samza.operators.impl.OperatorImpl;
 import org.apache.samza.operators.impl.OperatorImplGraph;
@@ -69,7 +72,6 @@ import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.apache.samza.test.util.SimpleSystemAdmin;
 import org.apache.samza.test.util.TestStreamConsumer;
 import org.junit.Test;
-import scala.collection.JavaConverters;
 
 import static org.junit.Assert.assertEquals;
 
@@ -146,8 +148,9 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
 
     List<PageView> received = new ArrayList<>();
     final StreamApplication app = (streamGraph, cfg) -> {
+      GenericSystemDescriptor sd = new GenericSystemDescriptor("test");
       GenericInputDescriptor<KV<String, PageView>> isd =
-          GenericInputDescriptor.from("PageView", "test", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+          sd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
       streamGraph.getInputStream(isd)
           .map(EndOfStreamIntegrationTest.Values.create())
           .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")

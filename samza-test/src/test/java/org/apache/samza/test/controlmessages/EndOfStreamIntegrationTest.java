@@ -32,6 +32,7 @@ import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
+import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.KVSerde;
@@ -95,8 +96,9 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
 
     final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
     final StreamApplication app = (streamGraph, cfg) -> {
+      GenericSystemDescriptor sd = new GenericSystemDescriptor("test");
       GenericInputDescriptor<KV<String, PageView>> isd =
-          GenericInputDescriptor.from("PageView", "test", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+          sd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
       streamGraph.getInputStream(isd)
         .map(Values.create())
         .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")

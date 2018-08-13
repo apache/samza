@@ -56,7 +56,6 @@ public class TestGraphExpandingDescriptors {
         .withStreamConfigs(Collections.emptyMap());
   }
 
-
   @Test
   public void testSDConfigs() {
     MockExpandingSystemDescriptor expandingSystem = new MockExpandingSystemDescriptor("expandingSystem");

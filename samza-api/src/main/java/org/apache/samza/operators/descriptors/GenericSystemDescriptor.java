@@ -19,6 +19,8 @@
 package org.apache.samza.operators.descriptors;
 
 
+import com.google.common.annotations.VisibleForTesting;
+
 import org.apache.samza.operators.descriptors.base.system.SimpleSystemDescriptor;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
@@ -33,7 +35,7 @@ import org.apache.samza.serializers.Serde;
  * System properties configured using a descriptor override corresponding properties provided in configuration.
  */
 @SuppressWarnings("unchecked")
-public final class GenericSystemDescriptor extends SimpleSystemDescriptor<GenericSystemDescriptor> {
+public class GenericSystemDescriptor extends SimpleSystemDescriptor<GenericSystemDescriptor> {
 
   /**
    * Constructs a {@link GenericSystemDescriptor} instance with no system level serde.
@@ -46,6 +48,17 @@ public final class GenericSystemDescriptor extends SimpleSystemDescriptor<Generi
     super(systemName, factoryClassName);
   }
 
+  /**
+   * Constructs a {@link GenericSystemDescriptor} instance with no system level serde.
+   * Serdes must be provided explicitly at stream level when getting input or output descriptors.
+   * SystemFactory class name must be provided in configuration.
+   *
+   * @param systemName name of this system
+   */
+  @VisibleForTesting
+  public GenericSystemDescriptor(String systemName) {
+    super(systemName, null);
+  }
 
   /**
    * {@inheritDoc}

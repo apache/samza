@@ -20,7 +20,6 @@ package org.apache.samza.operators.descriptors;
 
 import java.util.Collections;
 import java.util.Map;
-import org.apache.samza.operators.KV;
 import org.apache.samza.operators.descriptors.serde.MockSimpleInputDescriptor;
 import org.apache.samza.operators.descriptors.serde.MockSimpleOutputDescriptor;
 import org.apache.samza.operators.descriptors.serde.MockSimpleSystemDescriptor;
@@ -45,9 +44,6 @@ public class TestSystemSerdeDescriptors {
 
     MockSimpleInputDescriptor<Integer> input1 = kafkaSystem.getInputDescriptor("input1", new IntegerSerde());
     MockSimpleInputDescriptor<Float> input2 = kafkaSystem.getInputDescriptor("input2", ime -> 1f, new IntegerSerde());
-
-    MockSimpleInputDescriptor<KV<String, Integer>> input3 = MockSimpleInputDescriptor.from("input3", "queuing");
-    MockSimpleInputDescriptor<KV<String, PageView>> input4 = MockSimpleInputDescriptor.from("input4", "queuing", PageView.class);
 
     MockSimpleOutputDescriptor<Integer> output1 = kafkaSystem.getOutputDescriptor("output1", new IntegerSerde());
 

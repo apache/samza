@@ -22,10 +22,11 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.descriptors.GenericInputDescriptor;
-import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaOutputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,10 +43,13 @@ public class TestStandaloneIntegrationApplication implements StreamApplication {
     String inputStreamName = config.get("input.stream.name");
     String outputStreamName = "standaloneIntegrationTestKafkaOutputTopic";
     LOGGER.info("Publishing message from: {} to: {}.", inputStreamName, outputStreamName);
-    GenericInputDescriptor<KV<Object, Object>> isd =
-        GenericInputDescriptor.from(inputStreamName, systemName, KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
-    GenericOutputDescriptor<KV<Object, Object>> osd =
-        GenericOutputDescriptor.from(outputStreamName, systemName, KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+    KafkaSystemDescriptor kafkaSystemDescriptor = new KafkaSystemDescriptor(systemName);
+
+    KVSerde<Object, Object> noOpSerde = KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>());
+    KafkaInputDescriptor<KV<Object, Object>> isd =
+        kafkaSystemDescriptor.getInputDescriptor(inputStreamName, noOpSerde);
+    KafkaOutputDescriptor<KV<Object, Object>> osd =
+        kafkaSystemDescriptor.getOutputDescriptor(inputStreamName, noOpSerde);
     graph.getInputStream(isd).sendTo(graph.getOutputStream(osd));
   }
 }

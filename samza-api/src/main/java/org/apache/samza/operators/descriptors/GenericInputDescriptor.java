@@ -27,7 +27,6 @@ import org.apache.samza.serializers.Serde;
  * A descriptor for a generic input stream.
  * <p>
  * An instance of this descriptor may be obtained from an appropriately configured {@link GenericSystemDescriptor}.
- * For simple cases where no system configuration is necessary, {@link GenericInputDescriptor#from} may be used.
  * <p>
  * If the system being used provides its own system and stream descriptor implementations, they should be used instead.
  * Otherwise, this {@link GenericInputDescriptor} may be used to provide Samza-specific properties of the input stream.
@@ -39,17 +38,8 @@ import org.apache.samza.serializers.Serde;
  */
 public final class GenericInputDescriptor<StreamMessageType>
     extends InputDescriptor<StreamMessageType, GenericInputDescriptor<StreamMessageType>> {
-  GenericInputDescriptor(String streamId, String systemName, Serde<StreamMessageType> serde) {
-    super(streamId, systemName, serde, null, null);
-  }
-
   GenericInputDescriptor(String streamId, SystemDescriptor systemDescriptor,
       InputTransformer<StreamMessageType> transformer, Serde serde) {
     super(streamId, systemDescriptor.getSystemName(), serde, systemDescriptor, transformer);
-  }
-
-  public static <StreamMessageType> GenericInputDescriptor<StreamMessageType> from(
-      String streamId, String systemName, Serde<StreamMessageType> serde) {
-    return new GenericInputDescriptor<>(streamId, systemName, serde);
   }
 }
