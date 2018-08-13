@@ -103,6 +103,11 @@ public class StreamAppender extends AbstractAppender {
   protected StreamAppender(String name, Filter filter, Layout<? extends Serializable> layout, boolean ignoreExceptions, String streamName) {
     super(name, filter, layout, ignoreExceptions);
     this.streamName = streamName;
+  }
+
+  @Override
+  public void start() {
+    super.start();
     String containerName = System.getProperty(JAVA_OPTS_CONTAINER_NAME);
     if (containerName != null) {
       isApplicationMaster = containerName.contains(JOB_COORDINATOR_TAG);
@@ -184,7 +189,7 @@ public class StreamAppender extends AbstractAppender {
           // Serialize the event before adding to the queue to leverage the caller thread
           // and ensure that the transferThread can keep up.
           if (!logQueue.offer(serde.toBytes(subLog(event)), queueTimeoutS, TimeUnit.SECONDS)) {
-            // Do NOT retry adding tsystemo the queue. Dropping the event allows us to alleviate the unlikely
+            // Do NOT retry adding system to the queue. Dropping the event allows us to alleviate the unlikely
             // possibility of a deadlock, which can arise due to a circular dependency between the SystemProducer
             // which is used for StreamAppender and the log, which uses StreamAppender. Any locks held in the callstack
             // of those two code paths can cause a deadlock. Dropping the event allows us to proceed.
