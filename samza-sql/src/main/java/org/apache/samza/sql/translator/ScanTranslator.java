@@ -29,6 +29,7 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
+import org.apache.samza.operators.descriptors.InternalSystemDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
@@ -83,7 +84,7 @@ class ScanTranslator {
     final String streamName = sqlIOConfig.getStreamName();
 
     KVSerde<Object, Object> noOpKVSerde = KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>());
-    GenericSystemDescriptor sd = context.getSystemDescriptors().computeIfAbsent(systemName, GenericSystemDescriptor::new);
+    InternalSystemDescriptor sd = context.getSystemDescriptors().computeIfAbsent(systemName, InternalSystemDescriptor::new);
     GenericInputDescriptor<KV<Object, Object>> isd = sd.getInputDescriptor(streamName, noOpKVSerde);
     MessageStream<KV<Object, Object>> inputStream = streamGraph.getInputStream(isd);
     MessageStream<SamzaSqlRelMessage> samzaSqlRelMessageStream = inputStream.map(new ScanMapFunction(sourceName));

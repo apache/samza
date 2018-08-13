@@ -19,31 +19,31 @@
 package org.apache.samza.operators.descriptors;
 
 
+import com.google.common.annotations.VisibleForTesting;
+
 import org.apache.samza.operators.descriptors.base.system.SimpleSystemDescriptor;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
 
 /**
- * A descriptor for a generic system.
+ * A descriptor for samza framework internal usage.
  * <p>
- * If the system being used provides its own system and stream descriptor implementations, they should be used instead.
- * Otherwise, this {@link GenericSystemDescriptor} may be used to provide Samza-specific properties of the system.
- * Additional system specific properties may be provided using {@link #withSystemConfigs}
- * <p>
- * System properties configured using a descriptor override corresponding properties provided in configuration.
+ * Allows creating a {@link SimpleSystemDescriptor} without setting the factory class name.
+ * Useful for code-generation and testing use cases where the factory name is not known in advance.
  */
 @SuppressWarnings("unchecked")
-public final class GenericSystemDescriptor extends SimpleSystemDescriptor<GenericSystemDescriptor> {
+public final class InternalSystemDescriptor extends SimpleSystemDescriptor<InternalSystemDescriptor> {
 
   /**
-   * Constructs a {@link GenericSystemDescriptor} instance with no system level serde.
+   * Constructs an {@link InternalSystemDescriptor} instance with no system level serde.
    * Serdes must be provided explicitly at stream level when getting input or output descriptors.
+   * SystemFactory class name must be provided in configuration.
    *
    * @param systemName name of this system
-   * @param factoryClassName name of the SystemFactory class for this system
    */
-  public GenericSystemDescriptor(String systemName, String factoryClassName) {
-    super(systemName, factoryClassName);
+  @VisibleForTesting
+  public InternalSystemDescriptor(String systemName) {
+    super(systemName, null);
   }
 
   /**

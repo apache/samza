@@ -41,7 +41,7 @@ import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
-import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
+import org.apache.samza.operators.descriptors.InternalSystemDescriptor;
 import org.apache.samza.operators.impl.InputOperatorImpl;
 import org.apache.samza.operators.impl.OperatorImpl;
 import org.apache.samza.operators.impl.OperatorImplGraph;
@@ -148,7 +148,7 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
 
     List<PageView> received = new ArrayList<>();
     final StreamApplication app = (streamGraph, cfg) -> {
-      GenericSystemDescriptor sd = new GenericSystemDescriptor("test");
+      InternalSystemDescriptor sd = new InternalSystemDescriptor("test");
       GenericInputDescriptor<KV<String, PageView>> isd =
           sd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
       streamGraph.getInputStream(isd)

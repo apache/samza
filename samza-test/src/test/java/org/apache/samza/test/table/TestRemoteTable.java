@@ -44,7 +44,7 @@ import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
-import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
+import org.apache.samza.operators.descriptors.InternalSystemDescriptor;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.table.Table;
@@ -185,7 +185,7 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
         inputTable = getCachingTable(inputTable, defaultCache, "input", streamGraph);
       }
 
-      GenericSystemDescriptor ksd = new GenericSystemDescriptor("test");
+      InternalSystemDescriptor ksd = new InternalSystemDescriptor("test");
       GenericInputDescriptor<TestTableData.PageView> isd = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
       streamGraph.getInputStream(isd)
           .map(pv -> new KV<>(pv.getMemberId(), pv))

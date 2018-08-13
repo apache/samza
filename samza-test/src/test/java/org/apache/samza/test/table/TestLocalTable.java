@@ -41,7 +41,7 @@ import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
-import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
+import org.apache.samza.operators.descriptors.InternalSystemDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.runtime.LocalApplicationRunner;
@@ -105,7 +105,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
 
       Table<KV<Integer, Profile>> table = streamGraph.getTable(new InMemoryTableDescriptor("t1")
           .withSerde(KVSerde.of(new IntegerSerde(), new ProfileJsonSerde())));
-      GenericSystemDescriptor ksd = new GenericSystemDescriptor("test");
+      InternalSystemDescriptor ksd = new InternalSystemDescriptor("test");
       GenericInputDescriptor<Profile> isd = ksd.getInputDescriptor("Profile", new NoOpSerde<>());
       streamGraph.getInputStream(isd)
           .map(mapFn)
@@ -141,7 +141,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
 
         Table<KV<Integer, Profile>> table = streamGraph.getTable(
             new InMemoryTableDescriptor("t1").withSerde(KVSerde.of(new IntegerSerde(), new ProfileJsonSerde())));
-        GenericSystemDescriptor ksd = new GenericSystemDescriptor("test");
+        InternalSystemDescriptor ksd = new InternalSystemDescriptor("test");
         GenericInputDescriptor<Profile> profileISD = ksd.getInputDescriptor("Profile", new NoOpSerde<>());
         streamGraph.getInputStream(profileISD)
             .map(m -> new KV(m.getMemberId(), m))
@@ -218,7 +218,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
         Table<KV<Integer, Profile>> profileTable = streamGraph.getTable(new InMemoryTableDescriptor("t1")
             .withSerde(profileKVSerde));
 
-        GenericSystemDescriptor ksd = new GenericSystemDescriptor("test");
+        InternalSystemDescriptor ksd = new InternalSystemDescriptor("test");
         GenericInputDescriptor<Profile> profileISD1 = ksd.getInputDescriptor("Profile1", new NoOpSerde<>());
         GenericInputDescriptor<Profile> profileISD2 = ksd.getInputDescriptor("Profile2", new NoOpSerde<>());
         MessageStream<Profile> profileStream1 = streamGraph.getInputStream(profileISD1);

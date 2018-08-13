@@ -32,7 +32,7 @@ import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
-import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
+import org.apache.samza.operators.descriptors.InternalSystemDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.KVSerde;
@@ -44,8 +44,8 @@ import org.apache.samza.test.controlmessages.TestData.PageViewJsonSerdeFactory;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.apache.samza.test.util.ArraySystemFactory;
 import org.apache.samza.test.util.Base64Serializer;
-
 import org.junit.Test;
+
 import static org.junit.Assert.assertEquals;
 
 /**
@@ -96,7 +96,7 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
 
     final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
     final StreamApplication app = (streamGraph, cfg) -> {
-      GenericSystemDescriptor sd = new GenericSystemDescriptor("test");
+      InternalSystemDescriptor sd = new InternalSystemDescriptor("test");
       GenericInputDescriptor<KV<String, PageView>> isd =
           sd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
       streamGraph.getInputStream(isd)
