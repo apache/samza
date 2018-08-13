@@ -26,13 +26,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.samza.application.StreamAppDescriptor;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
@@ -121,16 +120,6 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
   static class PageViewProfileJoin implements StreamApplication {
     static final String PROFILE_TABLE = "profile-table";
 
-    @Override
-    public void init(StreamGraph graph, Config config) {
-      Table<KV<Integer, TestTableData.Profile>> table = graph.getTable(getTableDescriptor());
-
-      graph.getInputStream(PAGEVIEW_STREAM, new NoOpSerde<TestTableData.PageView>())
-          .partitionBy(TestTableData.PageView::getMemberId, v -> v, "partition-page-view")
-          .join(table, new TestLocalTable.PageViewToProfileJoinFunction())
-          .sendTo(graph.getOutputStream(ENRICHED_PAGEVIEW_STREAM, new NoOpSerde<>()));
-    }
-
     protected TableDescriptor<Integer, TestTableData.Profile, ?> getTableDescriptor() {
       return new InMemoryTableDescriptor<Integer, TestTableData.Profile>(PROFILE_TABLE)
           .withSerde(KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde()))
@@ -141,6 +130,16 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
 
               return ImmutableList.of(new Entry<>(key, profile));
             });
+    }
+
+    @Override
+    public void describe(StreamAppDescriptor appDesc) {
+      Table<KV<Integer, TestTableData.Profile>> table = appDesc.getTable(getTableDescriptor());
+
+      appDesc.getInputStream(PAGEVIEW_STREAM, new NoOpSerde<TestTableData.PageView>())
+          .partitionBy(TestTableData.PageView::getMemberId, v -> v, "partition-page-view")
+          .join(table, new TestLocalTable.PageViewToProfileJoinFunction())
+          .sendTo(appDesc.getOutputStream(ENRICHED_PAGEVIEW_STREAM, new NoOpSerde<>()));
     }
   }
 

@@ -40,8 +40,8 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.execution.TestStreamManager;
-import org.apache.samza.runtime.ApplicationRuntime;
-import org.apache.samza.runtime.ApplicationRuntimes;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.system.kafka.KafkaSystemAdmin;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import scala.Option;
@@ -254,15 +254,11 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     }
 
     Config config = new MapConfig(configMap);
-    ApplicationRuntime appRuntime = ApplicationRuntimes.getApplicationRuntime(streamApplication, config);
+    ApplicationRunner appRuntime = ApplicationRunners.getApplicationRunner(streamApplication, config);
     appRuntime.run();
 
     MessageStreamAssert.waitForComplete();
     return new RunApplicationContext(appRuntime, config);
-  }
-
-  public void setNumEmptyPolls(int numEmptyPolls) {
-    this.numEmptyPolls = numEmptyPolls;
   }
 
   /**
@@ -281,15 +277,15 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
    * runApplication in order to do verification.
    */
   protected static class RunApplicationContext {
-    private final ApplicationRuntime appRuntime;
+    private final ApplicationRunner appRuntime;
     private final Config config;
 
-    private RunApplicationContext(ApplicationRuntime appRuntime, Config config) {
+    private RunApplicationContext(ApplicationRunner appRuntime, Config config) {
       this.config = config;
       this.appRuntime = appRuntime;
     }
 
-    public ApplicationRuntime getAppRuntime() {
+    public ApplicationRunner getAppRuntime() {
       return this.appRuntime;
     }
 

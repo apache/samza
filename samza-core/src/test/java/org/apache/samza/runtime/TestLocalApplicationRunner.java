@@ -28,10 +28,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.application.ApplicationClassUtils;
-import org.apache.samza.application.StreamApplicationSpec;
 import org.apache.samza.application.TaskApplication;
-import org.apache.samza.application.TaskApplicationSpec;
-import org.apache.samza.application.internal.TaskAppSpecImpl;
+import org.apache.samza.application.internal.StreamAppDescriptorImpl;
+import org.apache.samza.application.internal.TaskAppDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -44,16 +43,19 @@ import org.apache.samza.coordinator.DistributedLockWithState;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.execution.StreamManager;
 import org.apache.samza.job.ApplicationStatus;
+import org.apache.samza.operators.OperatorSpecGraph;
+import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.processor.StreamProcessor;
-import org.apache.samza.processor.StreamProcessorLifecycleListener;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.task.TaskFactory;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
+import org.powermock.reflect.Whitebox;
 
 import static org.junit.Assert.*;
 import static org.mockito.Matchers.anyObject;
@@ -80,13 +82,25 @@ public class TestLocalApplicationRunner {
       "\"%s\":{" + "\"streamSpec\":{" + "\"id\":\"%s\"," + "\"systemName\":\"%s\"," + "\"physicalName\":\"%s\","
           + "\"partitionCount\":2}," + "\"sourceJobs\":[\"test-app\"]," + "\"targetJobs\":[\"test-target-app\"]},";
 
+  private LocalApplicationRunner runner;
+
+  @Before
+  public void setUp() {
+    Map<String, String> config = new HashMap<>();
+    StreamGraphSpec mockGraphSpec = mock(StreamGraphSpec.class);
+    OperatorSpecGraph mockOpSpecGraph = mock(OperatorSpecGraph.class);
+    StreamAppDescriptorImpl appDesc = mock(StreamAppDescriptorImpl.class);
+    when(appDesc.getConfig()).thenReturn(new MapConfig(config));
+    when(mockGraphSpec.getOperatorSpecGraph()).thenReturn(mockOpSpecGraph);
+    when(appDesc.getGraph()).thenReturn(mockGraphSpec);
+    runner = spy(new LocalApplicationRunner(appDesc));
+    AbstractApplicationRunner.AppRuntimeExecutable appExecutable = runner.getStreamAppRuntimeExecutable(appDesc);
+    Whitebox.setInternalState(runner, "appExecutable", appExecutable);
+  }
+
   @Test
   public void testStreamCreation()
       throws Exception {
-    Map<String, String> config = new HashMap<>();
-    LocalApplicationRunner runner = spy(new LocalApplicationRunner(new MapConfig(config)));
-    StreamApplicationSpec appSpec = mock(StreamApplicationSpec.class);
-
     StreamManager streamManager = mock(StreamManager.class);
     doReturn(streamManager).when(runner).buildAndStartStreamManager();
 
@@ -101,8 +115,8 @@ public class TestLocalApplicationRunner {
     PowerMockito.whenNew(JobCoordinatorConfig.class).withAnyArguments().thenReturn(mockJcConfig);
 
     try {
-      runner.run(appSpec);
-      runner.waitForFinish(appSpec);
+      runner.run();
+      runner.waitForFinish();
     } catch (Throwable t) {
       assertNotNull(t); //no jobs exception
     }
@@ -118,12 +132,6 @@ public class TestLocalApplicationRunner {
   @Test
   public void testStreamCreationWithCoordination()
       throws Exception {
-    Map<String, String> config = new HashMap<>();
-    LocalApplicationRunner localRunner = new LocalApplicationRunner(new MapConfig(config));
-    LocalApplicationRunner runner = spy(localRunner);
-
-    StreamApplicationSpec appSpec = mock(StreamApplicationSpec.class);
-
     StreamManager streamManager = mock(StreamManager.class);
     doReturn(streamManager).when(runner).buildAndStartStreamManager();
 
@@ -145,8 +153,8 @@ public class TestLocalApplicationRunner {
         .thenReturn(coordinationUtils);
 
     try {
-      runner.run(appSpec);
-      runner.waitForFinish(appSpec);
+      runner.run();
+      runner.waitForFinish();
     } catch (Throwable t) {
       assertNotNull(t); //no jobs exception
     }
@@ -168,39 +176,51 @@ public class TestLocalApplicationRunner {
     config.put(TaskConfig.TASK_CLASS(), "org.apache.samza.task.IdentityStreamTask");
 
     Config samzaConfig = new MapConfig(config);
-    LocalApplicationRunner runner = new LocalApplicationRunner(samzaConfig);
-    TaskApplicationSpec appSpec = new TaskAppSpecImpl((TaskApplication) ApplicationClassUtils.fromConfig(samzaConfig), samzaConfig);
+    TaskAppDescriptorImpl
+        appDesc = new TaskAppDescriptorImpl((TaskApplication) ApplicationClassUtils.fromConfig(samzaConfig), samzaConfig);
+    runner = spy(new LocalApplicationRunner(appDesc));
+    LocalApplicationRunner.TaskAppExecutable taskAppExecutable =
+        spy((LocalApplicationRunner.TaskAppExecutable) runner.getTaskAppRuntimeExecutable(appDesc));
+    Whitebox.setInternalState(runner, "appExecutable", taskAppExecutable);
 
     StreamProcessor sp = mock(StreamProcessor.class);
     ArgumentCaptor<TaskFactory> captor1 =
         ArgumentCaptor.forClass(TaskFactory.class);
-    ArgumentCaptor<StreamProcessorLifecycleListener> captor2 =
-        ArgumentCaptor.forClass(StreamProcessorLifecycleListener.class);
+    ArgumentCaptor<ProcessorLifecycleListener> captor2 =
+        ArgumentCaptor.forClass(ProcessorLifecycleListener.class);
 
     doAnswer(i ->
       {
-        StreamProcessorLifecycleListener listener = captor2.getValue();
-        listener.onStart();
-        listener.onShutdown();
+        ProcessorLifecycleListener listener = captor2.getValue();
+        listener.afterStart();
+        listener.afterStop(null);
         return null;
       }).when(sp).start();
 
-    LocalApplicationRunner spy = spy(runner);
-    doReturn(sp).when(spy).createStreamProcessor(any(Config.class), captor1.capture(), captor2.capture());
+    doReturn(sp).when(runner).createStreamProcessor(any(Config.class), captor1.capture(), captor2.capture());
+    doReturn(ApplicationStatus.SuccessfulFinish).when(taskAppExecutable).status();
 
+    runner.run();
 
-    spy.run(appSpec);
-
-    assertEquals(ApplicationStatus.SuccessfulFinish, spy.status(appSpec));
+    assertEquals(ApplicationStatus.SuccessfulFinish, runner.status());
   }
 
   @Test
   public void testRunComplete()
       throws Exception {
-    final Map<String, String> config = new HashMap<>();
+    Map<String, String> config = new HashMap<>();
     config.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
-    LocalApplicationRunner runner = spy(new LocalApplicationRunner(new MapConfig(config)));
-    StreamApplicationSpec app = mock(StreamApplicationSpec.class);
+    StreamGraphSpec mockGraphSpec = mock(StreamGraphSpec.class);
+    OperatorSpecGraph mockOpSpecGraph = mock(OperatorSpecGraph.class);
+    ProcessorLifecycleListenerFactory mockFactory = (pContext, cfg) -> mock(ProcessorLifecycleListener.class);
+    StreamAppDescriptorImpl appDesc = mock(StreamAppDescriptorImpl.class);
+    when(appDesc.getConfig()).thenReturn(new MapConfig(config));
+    when(mockGraphSpec.getOperatorSpecGraph()).thenReturn(mockOpSpecGraph);
+    when(appDesc.getGraph()).thenReturn(mockGraphSpec);
+    when(appDesc.getProcessorLifecycleListenerFactory()).thenReturn(mockFactory);
+    runner = spy(new LocalApplicationRunner(appDesc));
+    AbstractApplicationRunner.AppRuntimeExecutable appExecutable = runner.getStreamAppRuntimeExecutable(appDesc);
+    Whitebox.setInternalState(runner, "appExecutable", appExecutable);
 
     // buildAndStartStreamManager already includes start, so not going to verify it gets called
     StreamManager streamManager = mock(StreamManager.class);
@@ -212,33 +232,42 @@ public class TestLocalApplicationRunner {
     doReturn(plan).when(runner).getExecutionPlan(any(), eq(streamManager));
 
     StreamProcessor sp = mock(StreamProcessor.class);
-    ArgumentCaptor<StreamProcessorLifecycleListener> captor =
-        ArgumentCaptor.forClass(StreamProcessorLifecycleListener.class);
+    ArgumentCaptor<ProcessorLifecycleListener> captor =
+        ArgumentCaptor.forClass(ProcessorLifecycleListener.class);
 
     doAnswer(i ->
       {
-        StreamProcessorLifecycleListener listener = captor.getValue();
-        listener.onStart();
-        listener.onShutdown();
+        ProcessorLifecycleListener listener = captor.getValue();
+        listener.afterStart();
+        listener.afterStop(null);
         return null;
       }).when(sp).start();
 
-    doReturn(sp).when(runner).createStreamProcessor(anyObject(), anyObject(), captor.capture());
+    doReturn(sp).when(runner).createStreamProcessor(anyObject(), anyObject(), anyObject(), captor.capture());
 
-    runner.run(app);
-    runner.waitForFinish(app);
+    runner.run();
+    runner.waitForFinish();
 
-    assertEquals(runner.status(app), ApplicationStatus.SuccessfulFinish);
+    assertEquals(runner.status(), ApplicationStatus.SuccessfulFinish);
     verify(streamManager).stop();
   }
 
   @Test
   public void testRunFailure()
       throws Exception {
-    final Map<String, String> config = new HashMap<>();
+    Map<String, String> config = new HashMap<>();
     config.put(ApplicationConfig.PROCESSOR_ID, "0");
-    LocalApplicationRunner runner = spy(new LocalApplicationRunner(new MapConfig(config)));
-    StreamApplicationSpec app = mock(StreamApplicationSpec.class);
+    StreamGraphSpec mockGraphSpec = mock(StreamGraphSpec.class);
+    OperatorSpecGraph mockOpSpecGraph = mock(OperatorSpecGraph.class);
+    ProcessorLifecycleListenerFactory mockFactory = (pContext, cfg) -> mock(ProcessorLifecycleListener.class);
+    StreamAppDescriptorImpl appDesc = mock(StreamAppDescriptorImpl.class);
+    when(appDesc.getConfig()).thenReturn(new MapConfig(config));
+    when(mockGraphSpec.getOperatorSpecGraph()).thenReturn(mockOpSpecGraph);
+    when(appDesc.getGraph()).thenReturn(mockGraphSpec);
+    when(appDesc.getProcessorLifecycleListenerFactory()).thenReturn(mockFactory);
+    runner = spy(new LocalApplicationRunner(appDesc));
+    AbstractApplicationRunner.AppRuntimeExecutable appExecutable = runner.getStreamAppRuntimeExecutable(appDesc);
+    Whitebox.setInternalState(runner, "appExecutable", appExecutable);
 
     // buildAndStartStreamManager already includes start, so not going to verify it gets called
     StreamManager streamManager = mock(StreamManager.class);
@@ -250,24 +279,24 @@ public class TestLocalApplicationRunner {
     doReturn(plan).when(runner).getExecutionPlan(any(), eq(streamManager));
 
     StreamProcessor sp = mock(StreamProcessor.class);
-    ArgumentCaptor<StreamProcessorLifecycleListener> captor =
-        ArgumentCaptor.forClass(StreamProcessorLifecycleListener.class);
+    ArgumentCaptor<ProcessorLifecycleListener> captor =
+        ArgumentCaptor.forClass(ProcessorLifecycleListener.class);
 
     doAnswer(i ->
       {
         throw new Exception("test failure");
       }).when(sp).start();
 
-    doReturn(sp).when(runner).createStreamProcessor(anyObject(), anyObject(), captor.capture());
+    doReturn(sp).when(runner).createStreamProcessor(anyObject(), anyObject(), anyObject(), captor.capture());
 
     try {
-      runner.run(app);
-      runner.waitForFinish(app);
+      runner.run();
+      runner.waitForFinish();
     } catch (Throwable th) {
       assertNotNull(th);
     }
 
-    assertEquals(runner.status(app), ApplicationStatus.UnsuccessfulFinish);
+    assertEquals(runner.status(), ApplicationStatus.UnsuccessfulFinish);
     verify(streamManager).stop();
   }
 
@@ -333,21 +362,17 @@ public class TestLocalApplicationRunner {
 
   @Test
   public void testWaitForFinishReturnsBeforeTimeout() {
-    LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig());
-    StreamApplicationSpec mockSpec = mock(StreamApplicationSpec.class);
     long timeoutInMs = 1000;
 
     runner.getShutdownLatch().countDown();
-    boolean finished = runner.waitForFinish(mockSpec, Duration.ofMillis(timeoutInMs));
+    boolean finished = runner.waitForFinish(Duration.ofMillis(timeoutInMs));
     assertTrue("Application did not finish before the timeout.", finished);
   }
 
   @Test
   public void testWaitForFinishTimesout() {
-    LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig());
-    StreamApplicationSpec mockSpec = mock(StreamApplicationSpec.class);
     long timeoutInMs = 100;
-    boolean finished = runner.waitForFinish(mockSpec, Duration.ofMillis(timeoutInMs));
+    boolean finished = runner.waitForFinish(Duration.ofMillis(timeoutInMs));
     assertFalse("Application finished before the timeout.", finished);
   }
 

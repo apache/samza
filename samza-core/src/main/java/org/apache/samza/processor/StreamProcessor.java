@@ -30,6 +30,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.container.IllegalContainerStateException;
@@ -40,6 +41,8 @@ import org.apache.samza.coordinator.JobCoordinatorFactory;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.runtime.ProcessorContext;
+import org.apache.samza.runtime.ProcessorLifecycleListener;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskFactory;
@@ -96,7 +99,7 @@ public class StreamProcessor {
   private static final String CONTAINER_THREAD_NAME_FORMAT = "Samza StreamProcessor Container Thread-%d";
 
   private final JobCoordinator jobCoordinator;
-  private final StreamProcessorLifecycleListener processorListener;
+  private final ProcessorLifecycleListener processorListener;
   private final TaskFactory taskFactory;
   private final Map<String, MetricsReporter> customMetricsReporter;
   private final Config config;
@@ -160,12 +163,12 @@ public class StreamProcessor {
    * @param processorListener      listener to the StreamProcessor life cycle.
    */
   public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
-                         AsyncStreamTaskFactory asyncStreamTaskFactory, StreamProcessorLifecycleListener processorListener) {
+                         AsyncStreamTaskFactory asyncStreamTaskFactory, ProcessorLifecycleListener processorListener) {
     this(config, customMetricsReporters, asyncStreamTaskFactory, processorListener, null);
   }
 
   /**
-   * Same as {@link StreamProcessor(Config, Map, AsyncStreamTaskFactory, StreamProcessorLifecycleListener)}, except task
+   * Same as {@link StreamProcessor(Config, Map, AsyncStreamTaskFactory, ProcessorLifecycleListener)}, except task
    * instances are created using the provided {@link StreamTaskFactory}.
    * @param config - config
    * @param customMetricsReporters metric Reporter
@@ -173,7 +176,7 @@ public class StreamProcessor {
    * @param processorListener  listener to the StreamProcessor life cycle
    */
   public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
-                         StreamTaskFactory streamTaskFactory, StreamProcessorLifecycleListener processorListener) {
+                         StreamTaskFactory streamTaskFactory, ProcessorLifecycleListener processorListener) {
     this(config, customMetricsReporters, streamTaskFactory, processorListener, null);
   }
 
@@ -189,7 +192,7 @@ public class StreamProcessor {
   }
 
   public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, TaskFactory taskFactory,
-                  StreamProcessorLifecycleListener processorListener, JobCoordinator jobCoordinator) {
+                  ProcessorLifecycleListener processorListener, JobCoordinator jobCoordinator) {
     Preconditions.checkNotNull(processorListener, "ProcessorListener cannot be null.");
     this.taskFactory = taskFactory;
     this.config = config;
@@ -272,6 +275,24 @@ public class StreamProcessor {
     }
   }
 
+  /**
+   * Get the {@link ProcessorContext} of this {@link StreamProcessor}
+   * @return the {@link ProcessorContext} object
+   */
+  public ProcessorContext getProcessorContext() {
+    JobConfig jobConfig = new JobConfig(config);
+    return () -> String.format("%s-%s-%s", jobConfig.getName(), jobConfig.getJobId(), processorId);
+  }
+
+  /**
+   * Get the {@code config} of this {@link StreamProcessor}
+   *
+   * @return {@code config} object
+   */
+  public Config getConfig() {
+    return config;
+  }
+
   SamzaContainer createSamzaContainer(String processorId, JobModel jobModel) {
     return SamzaContainer.apply(processorId, jobModel, config, ScalaJavaUtil.toScalaMap(customMetricsReporter), taskFactory);
   }
@@ -348,10 +369,7 @@ public class StreamProcessor {
           executorService.shutdownNow();
           state = State.STOPPED;
         }
-        if (containerException != null)
-          processorListener.onFailure(containerException);
-        else
-          processorListener.onShutdown();
+        processorListener.afterStop(containerException);
 
       }
 
@@ -363,7 +381,7 @@ public class StreamProcessor {
           executorService.shutdownNow();
           state = State.STOPPED;
         }
-        processorListener.onFailure(throwable);
+        processorListener.afterStop(throwable);
       }
     };
   }
@@ -379,7 +397,7 @@ public class StreamProcessor {
     public void onContainerStart() {
       LOGGER.warn("Received container start notification for container: {} in stream processor: {}.", container, processorId);
       if (!processorOnStartCalled) {
-        processorListener.onStart();
+        processorListener.afterStart();
         processorOnStartCalled = true;
       }
       state = State.RUNNING;

@@ -21,7 +21,7 @@ package org.apache.samza.test.framework;
 
 import java.util.Arrays;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationSpec;
+import org.apache.samza.application.StreamAppDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.serializers.JsonSerdeV2;
@@ -33,12 +33,12 @@ public class BroadcastAssertApp implements StreamApplication {
 
 
   @Override
-  public void describe(StreamApplicationSpec appSpec) {
-    Config config = appSpec.getConfig();
+  public void describe(StreamAppDescriptor appDesc) {
+    Config config = appDesc.getConfig();
     String inputTopic = config.get(INPUT_TOPIC_NAME_PROP);
 
     final JsonSerdeV2<PageView> serde = new JsonSerdeV2<>(PageView.class);
-    final MessageStream<PageView> broadcastPageViews = appSpec
+    final MessageStream<PageView> broadcastPageViews = appDesc
         .getInputStream(inputTopic, serde)
         .broadcast(serde, "pv");
 

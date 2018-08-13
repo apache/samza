@@ -30,13 +30,14 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.commons.cli.ParseException;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.internal.StreamAppSpecImpl;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 
@@ -67,16 +68,15 @@ public class SystemConsumerWithSamzaBench extends AbstractSamzaBench {
   }
 
   public void start() throws IOException, InterruptedException {
-    LocalApplicationRunner runner = new LocalApplicationRunner(config);
     super.start();
     MessageConsumer consumeFn = new MessageConsumer();
     StreamApplication app = spec -> {
       MessageStream<Object> stream = spec.getInputStream(streamId);
       stream.map(consumeFn);
     };
-    StreamAppSpecImpl appSpec = new StreamAppSpecImpl(app, new MapConfig());
+    ApplicationRunner runner = ApplicationRunners.getApplicationRunner(app, new MapConfig());
 
-    runner.run(appSpec);
+    runner.run();
 
     while (consumeFn.getEventsConsumed() < totalEvents) {
       Thread.sleep(10);
@@ -84,7 +84,7 @@ public class SystemConsumerWithSamzaBench extends AbstractSamzaBench {
 
     Instant endTime = Instant.now();
 
-    runner.kill(appSpec);
+    runner.kill();
 
     System.out.println("\n*******************");
     System.out.println(String.format("Started at %s Ending at %s ", consumeFn.startTime, endTime));

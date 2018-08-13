@@ -22,8 +22,9 @@ package org.apache.samza.runtime;
 import java.time.Duration;
 import java.util.UUID;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.internal.StreamAppSpecImpl;
-import org.apache.samza.application.internal.TaskAppSpecImpl;
+import org.apache.samza.application.internal.AppDescriptorImpl;
+import org.apache.samza.application.internal.StreamAppDescriptorImpl;
+import org.apache.samza.application.internal.TaskAppDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -34,7 +35,6 @@ import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.operators.StreamGraphSpec;
-import org.apache.samza.runtime.internal.ApplicationRunner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,16 +49,16 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   private static final Logger LOG = LoggerFactory.getLogger(RemoteApplicationRunner.class);
   private static final long DEFAULT_SLEEP_DURATION_MS = 2000;
 
-  public RemoteApplicationRunner(Config config) {
-    super(config);
+  public RemoteApplicationRunner(AppDescriptorImpl appDesc) {
+    super(appDesc);
   }
 
   class TaskAppExecutable implements AppRuntimeExecutable {
-    final TaskAppSpecImpl taskApp;
+    final TaskAppDescriptorImpl appDesc;
     final JobRunner jobRunner;
 
-    TaskAppExecutable(TaskAppSpecImpl appSpec) {
-      this.taskApp = appSpec;
+    TaskAppExecutable(TaskAppDescriptorImpl appDesc) {
+      this.appDesc = appDesc;
       this.jobRunner = new JobRunner(config);
     }
 
@@ -79,16 +79,16 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
     @Override
     public boolean waitForFinish(Duration timeout) {
-      return RemoteApplicationRunner.this.waitForFinish(timeout);
+      return RemoteApplicationRunner.this.remoteWaitForFinish(timeout);
     }
 
   }
 
   class StreamAppExecutable implements AppRuntimeExecutable {
-    final StreamAppSpecImpl streamApp;
+    final StreamAppDescriptorImpl appDesc;
 
-    StreamAppExecutable(StreamAppSpecImpl appSpec) {
-      this.streamApp = appSpec;
+    StreamAppExecutable(StreamAppDescriptorImpl appDesc) {
+      this.appDesc = appDesc;
     }
 
     @Override
@@ -102,7 +102,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
         LOG.info("The start id for this start is {}", runId);
 
         // 1. initialize and plan
-        ExecutionPlan plan = getExecutionPlan(((StreamGraphSpec) streamApp.getGraph()).getOperatorSpecGraph(), runId, streamManager);
+        ExecutionPlan plan = getExecutionPlan(((StreamGraphSpec) appDesc.getGraph()).getOperatorSpecGraph(), runId, streamManager);
         writePlanJsonFile(plan.getPlanAsJson());
 
         // 2. create the necessary streams
@@ -113,10 +113,10 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
         // 3. submit jobs for remote execution
         plan.getJobConfigs().forEach(jobConfig -> {
-          LOG.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
-          JobRunner runner = new JobRunner(jobConfig);
-          runner.run(true);
-        });
+            LOG.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
+            JobRunner runner = new JobRunner(jobConfig);
+            runner.run(true);
+          });
       } catch (Throwable t) {
         throw new SamzaException("Failed to start application", t);
       } finally {
@@ -156,19 +156,19 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
     @Override
     public boolean waitForFinish(Duration timeout) {
-      return RemoteApplicationRunner.this.waitForFinish(timeout);
+      return RemoteApplicationRunner.this.remoteWaitForFinish(timeout);
     }
 
   }
 
   @Override
-  protected AppRuntimeExecutable getTaskAppRuntimeExecutable(TaskAppSpecImpl appSpec) {
-    return new TaskAppExecutable(appSpec);
+  protected AppRuntimeExecutable getTaskAppRuntimeExecutable(TaskAppDescriptorImpl appDesc) {
+    return new TaskAppExecutable(appDesc);
   }
 
   @Override
-  protected AppRuntimeExecutable getStreamAppRuntimeExecutable(StreamAppSpecImpl appSpec) {
-    return new StreamAppExecutable(appSpec);
+  protected AppRuntimeExecutable getStreamAppRuntimeExecutable(StreamAppDescriptorImpl appDesc) {
+    return new StreamAppExecutable(appDesc);
   }
 
   /* package private */ ApplicationStatus getApplicationStatus(JobConfig jobConfig) {
@@ -178,7 +178,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     return status;
   }
 
-  private boolean waitForFinish(Duration timeout) {
+  private boolean remoteWaitForFinish(Duration timeout) {
     JobConfig jobConfig = new JobConfig(config);
     boolean finished = true;
     long timeoutInMs = timeout.toMillis();

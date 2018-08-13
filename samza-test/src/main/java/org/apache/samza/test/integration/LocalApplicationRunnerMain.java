@@ -21,17 +21,16 @@ package org.apache.samza.test.integration;
 
 import joptsimple.OptionSet;
 import org.apache.samza.application.ApplicationClassUtils;
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.runtime.ApplicationRunnerMain;
-import org.apache.samza.runtime.ApplicationRuntime;
-import org.apache.samza.runtime.ApplicationRuntimes;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * {@link ApplicationRunnerMain} was designed for deploying {@link StreamApplication} in yarn
+ * {@link ApplicationRunnerMain} was designed for deploying {@link org.apache.samza.application.ApplicationBase} in yarn
  * and doesn't work for in standalone.
  *
  * This runner class is built for standalone failure tests and not recommended for general use.
@@ -46,7 +45,8 @@ public class LocalApplicationRunnerMain {
     Config orgConfig = cmdLine.loadConfig(options);
     Config config = Util.rewriteConfig(orgConfig);
 
-    ApplicationRuntime appRuntime = ApplicationRuntimes.getApplicationRuntime(ApplicationClassUtils.fromConfig(config), config);
+    ApplicationRunner
+        appRuntime = ApplicationRunners.getApplicationRunner(ApplicationClassUtils.fromConfig(config), config);
 
     try {
       LOGGER.info("Launching stream application: {} to start.", appRuntime);

@@ -24,7 +24,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.internal.StreamAppSpecImpl;
+import org.apache.samza.application.internal.StreamAppDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
@@ -38,7 +38,7 @@ import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.impl.ConfigBasedIOResolverFactory;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
-import org.apache.samza.sql.runner.SamzaSqlApplicationRuntime;
+import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
 import org.apache.samza.sql.testutil.SamzaSqlTestConfig;
 import org.junit.Assert;
@@ -88,12 +88,12 @@ public class TestQueryTranslator {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(10);
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
         "Insert into testavro.outputTopic select MyTest(id) from testavro.level1.level2.SIMPLE1 as s where s.id = 10");
-    Config samzaConfig = SamzaSqlApplicationRuntime.computeSamzaConfigs(true, new MapConfig(config));
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec graphSpec = new StreamGraphSpec(samzaConfig);
-    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    StreamAppDescriptorImpl mockSpec = mock(StreamAppDescriptorImpl.class);
     // The following steps are used to simulate the actual logic in the constructor
     when(mockSpec.getConfig()).thenReturn(samzaConfig);
     when(mockSpec.getGraph()).thenReturn(graphSpec);
@@ -130,7 +130,7 @@ public class TestQueryTranslator {
     validatePerTaskContextInit(mockSpec, samzaConfig);
   }
 
-  private void validatePerTaskContextInit(StreamAppSpecImpl graphSpec, Config samzaConfig) {
+  private void validatePerTaskContextInit(StreamAppDescriptorImpl graphSpec, Config samzaConfig) {
     // make sure that each task context would have a separate instance of cloned TranslatorContext
     TaskContextImpl testContext = new TaskContextImpl(new TaskName("Partition 1"), null, null,
         new HashSet<>(), null, null, null, null, null, null);
@@ -154,13 +154,13 @@ public class TestQueryTranslator {
 //    config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
 //        "Insert into testavro.foo2 select string_value, SUM(id) from testavro.COMPLEX1 "
 //            + "GROUP BY TumbleWindow(CURRENT_TIME, INTERVAL '1' HOUR), string_value");
-    Config samzaConfig = SamzaSqlApplicationRuntime.computeSamzaConfigs(true, new MapConfig(config));
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    StreamAppDescriptorImpl mockSpec = mock(StreamAppDescriptorImpl.class);
     // The following steps are used to simulate the actual logic in the constructor
     when(mockSpec.getConfig()).thenReturn(samzaConfig);
     when(mockSpec.getGraph()).thenReturn(graphSpec);
@@ -201,13 +201,13 @@ public class TestQueryTranslator {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(10);
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
         "Insert into testavro.outputTopic select Flatten(a), id from (select id, array_values a, string_value s from testavro.COMPLEX1)");
-    Config samzaConfig = SamzaSqlApplicationRuntime.computeSamzaConfigs(true, new MapConfig(config));
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    StreamAppDescriptorImpl mockSpec = mock(StreamAppDescriptorImpl.class);
     // The following steps are used to simulate the actual logic in the constructor
     when(mockSpec.getConfig()).thenReturn(samzaConfig);
     when(mockSpec.getGraph()).thenReturn(graphSpec);
@@ -252,13 +252,13 @@ public class TestQueryTranslator {
             + " from testavro.PAGEVIEW as pv, testavro.PROFILE.`$table` as p"
             + " where p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
-    Config samzaConfig = SamzaSqlApplicationRuntime.computeSamzaConfigs(true, new MapConfig(config));
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    StreamAppDescriptorImpl mockSpec = mock(StreamAppDescriptorImpl.class);
     // The following steps are used to simulate the actual logic in the constructor
     when(mockSpec.getConfig()).thenReturn(samzaConfig);
     when(mockSpec.getGraph()).thenReturn(graphSpec);
@@ -286,13 +286,13 @@ public class TestQueryTranslator {
             + " full join testavro.PROFILE.`$table` as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
-    Config samzaConfig = SamzaSqlApplicationRuntime.computeSamzaConfigs(true, new MapConfig(config));
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    StreamAppDescriptorImpl mockSpec = mock(StreamAppDescriptorImpl.class);
     // The following steps are used to simulate the actual logic in the constructor
     when(mockSpec.getConfig()).thenReturn(samzaConfig);
     when(mockSpec.getGraph()).thenReturn(graphSpec);
@@ -320,13 +320,13 @@ public class TestQueryTranslator {
             + " join testavro.PROFILE.`$table` as p2"
             + " on p1.id = p2.id";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
-    Config samzaConfig = SamzaSqlApplicationRuntime.computeSamzaConfigs(true, new MapConfig(config));
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    StreamAppDescriptorImpl mockSpec = mock(StreamAppDescriptorImpl.class);
     // The following steps are used to simulate the actual logic in the constructor
     when(mockSpec.getConfig()).thenReturn(samzaConfig);
     when(mockSpec.getGraph()).thenReturn(graphSpec);
@@ -354,13 +354,13 @@ public class TestQueryTranslator {
             + " join testavro.PROFILE.`$table` as p"
             + " on p.id <> pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
-    Config samzaConfig = SamzaSqlApplicationRuntime.computeSamzaConfigs(true, new MapConfig(config));
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    StreamAppDescriptorImpl mockSpec = mock(StreamAppDescriptorImpl.class);
     // The following steps are used to simulate the actual logic in the constructor
     when(mockSpec.getConfig()).thenReturn(samzaConfig);
     when(mockSpec.getGraph()).thenReturn(graphSpec);
@@ -385,13 +385,13 @@ public class TestQueryTranslator {
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW as pv, testavro.PROFILE.`$table` as p";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
-    Config samzaConfig = SamzaSqlApplicationRuntime.computeSamzaConfigs(true, new MapConfig(config));
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    StreamAppDescriptorImpl mockSpec = mock(StreamAppDescriptorImpl.class);
     // The following steps are used to simulate the actual logic in the constructor
     when(mockSpec.getConfig()).thenReturn(samzaConfig);
     when(mockSpec.getGraph()).thenReturn(graphSpec);
@@ -418,13 +418,13 @@ public class TestQueryTranslator {
             + " join testavro.PROFILE.`$table` as p"
             + " on p.id = pv.profileId and p.name = 'John'";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
-    Config samzaConfig = SamzaSqlApplicationRuntime.computeSamzaConfigs(true, new MapConfig(config));
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    StreamAppDescriptorImpl mockSpec = mock(StreamAppDescriptorImpl.class);
     // The following steps are used to simulate the actual logic in the constructor
     when(mockSpec.getConfig()).thenReturn(samzaConfig);
     when(mockSpec.getGraph()).thenReturn(graphSpec);
@@ -452,13 +452,13 @@ public class TestQueryTranslator {
             + " (select p.id from testavro.PROFILE.`$table` as p"
             + " where p.id = pv.profileId)";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
-    Config samzaConfig = SamzaSqlApplicationRuntime.computeSamzaConfigs(true, new MapConfig(config));
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    StreamAppDescriptorImpl mockSpec = mock(StreamAppDescriptorImpl.class);
     // The following steps are used to simulate the actual logic in the constructor
     when(mockSpec.getConfig()).thenReturn(samzaConfig);
     when(mockSpec.getGraph()).thenReturn(graphSpec);
@@ -485,13 +485,13 @@ public class TestQueryTranslator {
             + " join testavro.PROFILE.`$table` as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
-    Config samzaConfig = SamzaSqlApplicationRuntime.computeSamzaConfigs(true, new MapConfig(config));
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    StreamAppDescriptorImpl mockSpec = mock(StreamAppDescriptorImpl.class);
     // The following steps are used to simulate the actual logic in the constructor
     when(mockSpec.getConfig()).thenReturn(samzaConfig);
     when(mockSpec.getGraph()).thenReturn(graphSpec);
@@ -518,13 +518,13 @@ public class TestQueryTranslator {
             + " join testavro.PROFILE as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
-    Config samzaConfig = SamzaSqlApplicationRuntime.computeSamzaConfigs(true, new MapConfig(config));
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    StreamAppDescriptorImpl mockSpec = mock(StreamAppDescriptorImpl.class);
     // The following steps are used to simulate the actual logic in the constructor
     when(mockSpec.getConfig()).thenReturn(samzaConfig);
     when(mockSpec.getGraph()).thenReturn(graphSpec);
@@ -551,13 +551,13 @@ public class TestQueryTranslator {
             + " left join testavro.PROFILE as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
-    Config samzaConfig = SamzaSqlApplicationRuntime.computeSamzaConfigs(true, new MapConfig(config));
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    StreamAppDescriptorImpl mockSpec = mock(StreamAppDescriptorImpl.class);
     // The following steps are used to simulate the actual logic in the constructor
     when(mockSpec.getConfig()).thenReturn(samzaConfig);
     when(mockSpec.getGraph()).thenReturn(graphSpec);
@@ -584,13 +584,13 @@ public class TestQueryTranslator {
             + " right join testavro.PROFILE.`$table` as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
-    Config samzaConfig = SamzaSqlApplicationRuntime.computeSamzaConfigs(true, new MapConfig(config));
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    StreamAppDescriptorImpl mockSpec = mock(StreamAppDescriptorImpl.class);
     // The following steps are used to simulate the actual logic in the constructor
     when(mockSpec.getConfig()).thenReturn(samzaConfig);
     when(mockSpec.getGraph()).thenReturn(graphSpec);
@@ -621,13 +621,13 @@ public class TestQueryTranslator {
             + " join testavro.`$table` as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
-    Config samzaConfig = SamzaSqlApplicationRuntime.computeSamzaConfigs(true, new MapConfig(config));
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    StreamAppDescriptorImpl mockSpec = mock(StreamAppDescriptorImpl.class);
     // The following steps are used to simulate the actual logic in the constructor
     when(mockSpec.getConfig()).thenReturn(samzaConfig);
     when(mockSpec.getGraph()).thenReturn(graphSpec);
@@ -654,13 +654,13 @@ public class TestQueryTranslator {
             + " join testavro.PROFILE.`$table` as p"
             + " on MyTest(p.id) = MyTest(pv.profileId)";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
-    Config samzaConfig = SamzaSqlApplicationRuntime.computeSamzaConfigs(true, new MapConfig(config));
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    StreamAppDescriptorImpl mockSpec = mock(StreamAppDescriptorImpl.class);
     // The following steps are used to simulate the actual logic in the constructor
     when(mockSpec.getConfig()).thenReturn(samzaConfig);
     when(mockSpec.getGraph()).thenReturn(graphSpec);
@@ -687,13 +687,13 @@ public class TestQueryTranslator {
             + " join testavro.PROFILE.`$table` as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
-    Config samzaConfig = SamzaSqlApplicationRuntime.computeSamzaConfigs(true, new MapConfig(config));
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    StreamAppDescriptorImpl mockSpec = mock(StreamAppDescriptorImpl.class);
     // The following steps are used to simulate the actual logic in the constructor
     when(mockSpec.getConfig()).thenReturn(samzaConfig);
     when(mockSpec.getGraph()).thenReturn(graphSpec);
@@ -755,13 +755,13 @@ public class TestQueryTranslator {
             + " left join testavro.PROFILE.`$table` as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
-    Config samzaConfig = SamzaSqlApplicationRuntime.computeSamzaConfigs(true, new MapConfig(config));
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    StreamAppDescriptorImpl mockSpec = mock(StreamAppDescriptorImpl.class);
     // The following steps are used to simulate the actual logic in the constructor
     when(mockSpec.getConfig()).thenReturn(samzaConfig);
     when(mockSpec.getGraph()).thenReturn(graphSpec);
@@ -824,13 +824,13 @@ public class TestQueryTranslator {
             + " right join testavro.PAGEVIEW as pv"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
-    Config samzaConfig = SamzaSqlApplicationRuntime.computeSamzaConfigs(true, new MapConfig(config));
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    StreamAppDescriptorImpl mockSpec = mock(StreamAppDescriptorImpl.class);
 
     // The following steps are used to simulate the actual logic in the constructor
     when(mockSpec.getConfig()).thenReturn(samzaConfig);
@@ -893,13 +893,13 @@ public class TestQueryTranslator {
             + " where pv.pageKey = 'job' or pv.pageKey = 'inbox'"
             + " group by (pv.pageKey)";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
-    Config samzaConfig = SamzaSqlApplicationRuntime.computeSamzaConfigs(true, new MapConfig(config));
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    StreamAppDescriptorImpl mockSpec = mock(StreamAppDescriptorImpl.class);
     // The following steps are used to simulate the actual logic in the constructor
     when(mockSpec.getConfig()).thenReturn(samzaConfig);
     when(mockSpec.getGraph()).thenReturn(graphSpec);
@@ -932,13 +932,13 @@ public class TestQueryTranslator {
             + " from testavro.PAGEVIEW as pv" + " where pv.pageKey = 'job' or pv.pageKey = 'inbox'"
             + " group by (pv.pageKey)";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
-    Config samzaConfig = SamzaSqlApplicationRuntime.computeSamzaConfigs(true, new MapConfig(config));
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
     StreamGraphSpec
         graphSpec = new StreamGraphSpec(samzaConfig);
-    StreamAppSpecImpl mockSpec = mock(StreamAppSpecImpl.class);
+    StreamAppDescriptorImpl mockSpec = mock(StreamAppDescriptorImpl.class);
     // The following steps are used to simulate the actual logic in the constructor
     when(mockSpec.getConfig()).thenReturn(samzaConfig);
     when(mockSpec.getGraph()).thenReturn(graphSpec);

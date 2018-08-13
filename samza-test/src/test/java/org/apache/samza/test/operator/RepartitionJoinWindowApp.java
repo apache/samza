@@ -23,7 +23,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationSpec;
+import org.apache.samza.application.StreamAppDescriptor;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.functions.JoinFunction;
@@ -56,13 +56,13 @@ public class RepartitionJoinWindowApp implements StreamApplication {
   }
 
   @Override
-  public void describe(StreamApplicationSpec appSpec) {
-    String inputTopicName1 = appSpec.getConfig().get(INPUT_TOPIC_NAME_1_PROP);
-    String inputTopicName2 = appSpec.getConfig().get(INPUT_TOPIC_NAME_2_PROP);
-    String outputTopic = appSpec.getConfig().get(OUTPUT_TOPIC_NAME_PROP);
+  public void describe(StreamAppDescriptor appDesc) {
+    String inputTopicName1 = appDesc.getConfig().get(INPUT_TOPIC_NAME_1_PROP);
+    String inputTopicName2 = appDesc.getConfig().get(INPUT_TOPIC_NAME_2_PROP);
+    String outputTopic = appDesc.getConfig().get(OUTPUT_TOPIC_NAME_PROP);
 
-    MessageStream<PageView> pageViews = appSpec.getInputStream(inputTopicName1, new JsonSerdeV2<>(PageView.class));
-    MessageStream<AdClick> adClicks = appSpec.getInputStream(inputTopicName2, new JsonSerdeV2<>(AdClick.class));
+    MessageStream<PageView> pageViews = appDesc.getInputStream(inputTopicName1, new JsonSerdeV2<>(PageView.class));
+    MessageStream<AdClick> adClicks = appDesc.getInputStream(inputTopicName2, new JsonSerdeV2<>(AdClick.class));
 
     MessageStream<KV<String, PageView>> pageViewsRepartitionedByViewId = pageViews
         .partitionBy(PageView::getViewId, pv -> pv,
@@ -89,9 +89,9 @@ public class RepartitionJoinWindowApp implements StreamApplication {
             new StringSerde(), new JsonSerdeV2<>(UserPageAdClick.class)), "userAdClickWindow")
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), String.valueOf(windowPane.getMessage().size())))
         .sink((message, messageCollector, taskCoordinator) -> {
-          taskCoordinator.commit(TaskCoordinator.RequestScope.ALL_TASKS_IN_CONTAINER);
-          messageCollector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", outputTopic), null, message.getKey(), message.getValue()));
-        });
+            taskCoordinator.commit(TaskCoordinator.RequestScope.ALL_TASKS_IN_CONTAINER);
+            messageCollector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", outputTopic), null, message.getKey(), message.getValue()));
+          });
 
     intermediateStreamIds.add(((IntermediateMessageStreamImpl) pageViewsRepartitionedByViewId).getStreamId());
     intermediateStreamIds.add(((IntermediateMessageStreamImpl) adClicksRepartitionedByViewId).getStreamId());

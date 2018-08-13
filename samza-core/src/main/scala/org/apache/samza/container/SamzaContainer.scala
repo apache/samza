@@ -889,8 +889,8 @@ class SamzaContainer(
    * <br>
    * <b>Implementation</b>: Stops the [[RunLoop]], which will eventually transition the container from
    * [[SamzaContainerStatus.STARTED]] to either [[SamzaContainerStatus.STOPPED]] or [[SamzaContainerStatus.FAILED]]].
-   * Based on the final `status`, [[SamzaContainerListener#onContainerStop(boolean)]] or
-   * [[SamzaContainerListener#onContainerFailed(Throwable)]] will be invoked respectively.
+   * Based on the final `status`, [[SamzaContainerListener#onContainerStop()]] or
+    * [[SamzaContainerListener#onContainerFailed(Throwable]] will be invoked respectively.
    *
    * @throws SamzaException, Thrown when the container has already been stopped or failed
    */

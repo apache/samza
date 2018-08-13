@@ -18,14 +18,13 @@
  */
 package org.apache.samza.operators;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -42,6 +41,9 @@ import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 
 /**
  * This class defines:
@@ -280,5 +282,4 @@ public class StreamGraphSpec implements StreamGraph {
 
     return KV.of(keySerde, valueSerde);
   }
-
 }

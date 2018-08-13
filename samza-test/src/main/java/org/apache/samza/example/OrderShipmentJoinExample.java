@@ -20,14 +20,14 @@ package org.apache.samza.example;
 
 import java.time.Duration;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationSpec;
+import org.apache.samza.application.StreamAppDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.functions.JoinFunction;
-import org.apache.samza.runtime.ApplicationRuntime;
-import org.apache.samza.runtime.ApplicationRuntimes;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
@@ -43,19 +43,19 @@ public class OrderShipmentJoinExample implements StreamApplication {
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    ApplicationRuntime app = ApplicationRuntimes.getApplicationRuntime(new OrderShipmentJoinExample(), config);
-    app.run();
-    app.waitForFinish();
+    ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new OrderShipmentJoinExample(), config);
+    runner.run();
+    runner.waitForFinish();
   }
 
   @Override
-  public void describe(StreamApplicationSpec graph) {
+  public void describe(StreamAppDescriptor appDesc) {
     MessageStream<OrderRecord> orders =
-        graph.getInputStream("orders", new JsonSerdeV2<>(OrderRecord.class));
+        appDesc.getInputStream("orders", new JsonSerdeV2<>(OrderRecord.class));
     MessageStream<ShipmentRecord> shipments =
-        graph.getInputStream("shipments", new JsonSerdeV2<>(ShipmentRecord.class));
+        appDesc.getInputStream("shipments", new JsonSerdeV2<>(ShipmentRecord.class));
     OutputStream<KV<String, FulfilledOrderRecord>> fulfilledOrders =
-        graph.getOutputStream("fulfilledOrders",
+        appDesc.getOutputStream("fulfilledOrders",
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(FulfilledOrderRecord.class)));
 
     orders

@@ -21,5 +21,5 @@ package org.apache.samza.application;
 /**
  * The interface to implement user applications defining a high-level DAG as the main stream processing logic.
  */
-public interface StreamApplication extends ApplicationBase<StreamApplicationSpec> {
+public interface StreamApplication extends ApplicationBase<StreamAppDescriptor> {
 }

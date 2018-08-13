@@ -20,12 +20,12 @@
 package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationSpec;
+import org.apache.samza.application.StreamAppDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.runtime.ApplicationRuntime;
-import org.apache.samza.runtime.ApplicationRuntimes;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
@@ -41,19 +41,19 @@ public class BroadcastExample implements StreamApplication {
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    ApplicationRuntime app = ApplicationRuntimes.getApplicationRuntime(new BroadcastExample(), config);
-    app.run();
-    app.waitForFinish();
+    ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new BroadcastExample(), config);
+    runner.run();
+    runner.waitForFinish();
   }
 
   @Override
-  public void describe(StreamApplicationSpec appBuilder) {
+  public void describe(StreamAppDescriptor appDesc) {
     KVSerde<String, PageViewEvent> pgeMsgSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class));
-    MessageStream<KV<String, PageViewEvent>> inputStream = appBuilder.getInputStream("pageViewEventStream", pgeMsgSerde);
+    MessageStream<KV<String, PageViewEvent>> inputStream = appDesc.getInputStream("pageViewEventStream", pgeMsgSerde);
 
-    inputStream.filter(m -> m.key.equals("key1")).sendTo(appBuilder.getOutputStream("outStream1", pgeMsgSerde));
-    inputStream.filter(m -> m.key.equals("key2")).sendTo(appBuilder.getOutputStream("outStream2", pgeMsgSerde));
-    inputStream.filter(m -> m.key.equals("key3")).sendTo(appBuilder.getOutputStream("outStream3", pgeMsgSerde));
+    inputStream.filter(m -> m.key.equals("key1")).sendTo(appDesc.getOutputStream("outStream1", pgeMsgSerde));
+    inputStream.filter(m -> m.key.equals("key2")).sendTo(appDesc.getOutputStream("outStream2", pgeMsgSerde));
+    inputStream.filter(m -> m.key.equals("key3")).sendTo(appDesc.getOutputStream("outStream3", pgeMsgSerde));
 
   }
 

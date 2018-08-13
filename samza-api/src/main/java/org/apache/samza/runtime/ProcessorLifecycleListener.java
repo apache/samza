@@ -16,31 +16,35 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.application;
+package org.apache.samza.runtime;
 
 /**
- * This interface defines methods that are invoked in various different stages of an application runtime instance
- * where it actually runs the processing logic in local process (i.e. as a standalone process, or a container process
- * in YARN NodeManager). User can implement this interface to instantiate/release shared objects in the local process.
+ * This interface defines methods that are invoked in different stages of StreamProcessor's lifecycle in local
+ * process (i.e. as a standalone process, or a container process in YARN NodeManager). User can implement this interface
+ * to instantiate/release shared objects in the local process.
  */
 public interface ProcessorLifecycleListener {
   /**
-   * User defined initialization before any processor in an application runtime instance is started
+   * User defined initialization before a StreamProcessor is started
    */
   default void beforeStart() {}
 
   /**
-   * User defined callback after all processors in an application runtime instance are started
+   * User defined callback after a StreamProcessor is started
+   *
    */
   default void afterStart() {}
 
   /**
-   * User defined callback before any processor in an application runtime instance is stopped
+   * User defined callback before a StreamProcessor is stopped
+   *
    */
   default void beforeStop() {}
 
   /**
-   * User defined callback after all processors in an application runtime instance are stopped
+   * User defined callback after a StreamProcessor is stopped
+   *
+   * @param t the error causing the stop of the StreamProcessor. null value of this parameter indicates a successful completion.
    */
-  default void afterStop() {}
+  default void afterStop(Throwable t) {}
 }

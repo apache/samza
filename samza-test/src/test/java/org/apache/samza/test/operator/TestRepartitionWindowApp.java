@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.test.framework.StreamApplicationIntegrationTestHarness;
@@ -62,6 +63,7 @@ public class TestRepartitionWindowApp extends StreamApplicationIntegrationTestHa
     Map<String, String> configs = new HashMap<>();
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
     configs.put(JobCoordinatorConfig.JOB_COORDINATION_UTILS_FACTORY, "org.apache.samza.standalone.PassthroughCoordinationUtilsFactory");
+    configs.put(JobConfig.PROCESSOR_ID(), "0");
     configs.put(TaskConfig.GROUPER_FACTORY(), "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
     configs.put(String.format("streams.%s.samza.msg.serde", INPUT_TOPIC), "string");
     configs.put(String.format("streams.%s.samza.key.serde", INPUT_TOPIC), "string");

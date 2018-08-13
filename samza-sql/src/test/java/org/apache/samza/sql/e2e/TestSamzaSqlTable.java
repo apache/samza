@@ -25,7 +25,7 @@ import java.util.Map;
 
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
-import org.apache.samza.sql.runner.SamzaSqlApplicationRuntime;
+import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
 import org.apache.samza.sql.testutil.JsonUtil;
 import org.apache.samza.sql.testutil.SamzaSqlTestConfig;
 import org.apache.samza.sql.testutil.TestIOResolverFactory;
@@ -45,7 +45,7 @@ public class TestSamzaSqlTable {
     String sql1 = "Insert into testDb.testTable.`$table` select id, name from testavro.SIMPLE1";
     List<String> sqlStmts = Arrays.asList(sql1);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRuntime appRunnable = new SamzaSqlApplicationRuntime(true, new MapConfig(staticConfigs));
+    SamzaSqlApplicationRunner appRunnable = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
     appRunnable.runAndWaitForFinish();
 
     Assert.assertEquals(numMessages, TestIOResolverFactory.TestTable.records.size());
@@ -61,7 +61,7 @@ public class TestSamzaSqlTable {
     String sql1 = "Insert into testDb.testTable.`$table` select id __key__, name from testavro.SIMPLE1";
     List<String> sqlStmts = Arrays.asList(sql1);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRuntime appRunnable = new SamzaSqlApplicationRuntime(true, new MapConfig(staticConfigs));
+    SamzaSqlApplicationRunner appRunnable = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
     appRunnable.runAndWaitForFinish();
 
     Assert.assertEquals(numMessages, TestIOResolverFactory.TestTable.records.size());

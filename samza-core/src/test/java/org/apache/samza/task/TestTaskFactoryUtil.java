@@ -25,8 +25,6 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.testUtils.TestAsyncStreamTask;
-import org.apache.samza.testUtils.TestStreamTask;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
@@ -41,7 +39,7 @@ public class TestTaskFactoryUtil {
   public void testStreamTaskClass() {
     Config config = new MapConfig(new HashMap<String, String>() {
       {
-        this.put("task.class", "org.apache.samza.testUtils.TestStreamTask");
+        this.put("task.class", TestStreamTask.class.getName());
       }
     });
     Object retFactory = TaskFactoryUtil.createTaskFactory(config);
@@ -65,7 +63,7 @@ public class TestTaskFactoryUtil {
   public void testAsyncStreamTask() {
     Config config = new MapConfig(new HashMap<String, String>() {
       {
-        this.put("task.class", "org.apache.samza.testUtils.TestAsyncStreamTask");
+        this.put("task.class", TestAsyncStreamTask.class.getName());
       }
     });
     Object retFactory = TaskFactoryUtil.createTaskFactory(config);

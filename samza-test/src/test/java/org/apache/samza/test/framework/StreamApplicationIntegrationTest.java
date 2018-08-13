@@ -32,20 +32,21 @@ import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.test.controlmessages.TestData;
 import org.apache.samza.test.framework.stream.CollectionStream;
-import static org.apache.samza.test.controlmessages.TestData.PageView;
 import org.junit.Assert;
 import org.junit.Test;
+
+import static org.apache.samza.test.controlmessages.TestData.*;
 
 
 public class StreamApplicationIntegrationTest {
 
-  final StreamApplication pageViewFilter = (streamAppSpec) -> {
-    streamAppSpec.<KV<String, TestData.PageView>>getInputStream("PageView").map(
+  final StreamApplication pageViewFilter = streamAppDesc -> {
+    streamAppDesc.<KV<String, TestData.PageView>>getInputStream("PageView").map(
         StreamApplicationIntegrationTest.Values.create()).filter(pv -> pv.getPageKey().equals("inbox"));
   };
 
-  final StreamApplication pageViewParition = (streamAppSpec) -> {
-    streamAppSpec.<KV<String, PageView>>getInputStream("PageView")
+  final StreamApplication pageViewParition = streamAppDesc -> {
+    streamAppDesc.<KV<String, PageView>>getInputStream("PageView")
         .map(Values.create())
         .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
         .sink((m, collector, coordinator) -> {

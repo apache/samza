@@ -24,9 +24,9 @@ import org.apache.samza.task.TaskFactory;
 
 
 /**
- *  The interface class to create the specification of a user application as low-level task in Samza.
+ *  The interface class to describe a user application as low-level task in Samza.
  */
-public interface TaskApplicationSpec extends ApplicationSpec<TaskApplication> {
+public interface TaskAppDescriptor extends ApplicationDescriptor<TaskApplication> {
 
   /**
    * Sets the {@link TaskFactory} for the user application. The {@link TaskFactory#createInstance()} creates task instance
@@ -41,6 +41,7 @@ public interface TaskApplicationSpec extends ApplicationSpec<TaskApplication> {
    *
    * @param inputStreams the list of streamIds for the input streams
    */
+  // TODO: needs to be replaced by InputStreamDescriptor after SAMZA-1804 is implemented
   void addInputStreams(List<String> inputStreams);
 
   /**
@@ -48,6 +49,7 @@ public interface TaskApplicationSpec extends ApplicationSpec<TaskApplication> {
    *
    * @param outputStreams the list of streamIds for the output streams
    */
+  // TODO: needs to be replaced by OutputStreamDescriptor after SAMZA-1804 is implemented
   void addOutputStreams(List<String> outputStreams);
 
   /**

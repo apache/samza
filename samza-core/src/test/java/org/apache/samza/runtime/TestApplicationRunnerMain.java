@@ -19,10 +19,12 @@
 package org.apache.samza.runtime;
 
 import java.time.Duration;
-import org.apache.samza.application.internal.StreamAppSpecImpl;
-import org.apache.samza.application.internal.TaskAppSpecImpl;
+import org.apache.samza.application.StreamAppDescriptor;
+import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.internal.AppDescriptorImpl;
+import org.apache.samza.application.internal.StreamAppDescriptorImpl;
+import org.apache.samza.application.internal.TaskAppDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
-import org.apache.samza.config.Config;
 import org.apache.samza.job.ApplicationStatus;
 import org.junit.Test;
 
@@ -78,24 +80,32 @@ public class TestApplicationRunnerMain {
     assertEquals(1, TestApplicationRunnerInvocationCounts.statusCount);
   }
 
+  public static class TestStreamApplicationDummy implements StreamApplication {
+
+    @Override
+    public void describe(StreamAppDescriptor appDesc) {
+
+    }
+  }
+
   public static class TestApplicationRunnerInvocationCounts extends AbstractApplicationRunner {
     protected static int runCount = 0;
     protected static int killCount = 0;
     protected static int statusCount = 0;
 
-    public TestApplicationRunnerInvocationCounts(Config config) {
-      super(config);
+    public TestApplicationRunnerInvocationCounts(AppDescriptorImpl appDesc) {
+      super(appDesc);
     }
 
-    private void run() {
+    private void countRun() {
       runCount++;
     }
 
-    private void kill() {
+    private void countKill() {
       killCount++;
     }
 
-    private ApplicationStatus status() {
+    private ApplicationStatus countStatus() {
       statusCount++;
       return ApplicationStatus.Running;
     }
@@ -104,17 +114,17 @@ public class TestApplicationRunnerMain {
 
       @Override
       public void run() {
-        run();
+        countRun();
       }
 
       @Override
       public void kill() {
-        kill();
+        countKill();
       }
 
       @Override
       public ApplicationStatus status() {
-        return status();
+        return countStatus();
       }
 
       @Override
@@ -124,12 +134,12 @@ public class TestApplicationRunnerMain {
     }
 
     @Override
-    AppRuntimeExecutable getTaskAppRuntimeExecutable(TaskAppSpecImpl appSpec) {
+    AppRuntimeExecutable getTaskAppRuntimeExecutable(TaskAppDescriptorImpl appSpec) {
       return new TestAppExecutable();
     }
 
     @Override
-    AppRuntimeExecutable getStreamAppRuntimeExecutable(StreamAppSpecImpl appSpec) {
+    AppRuntimeExecutable getStreamAppRuntimeExecutable(StreamAppDescriptorImpl appSpec) {
       return new TestAppExecutable();
     }
 

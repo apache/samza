@@ -18,6 +18,7 @@
  */
 package org.apache.samza.task;
 
+import java.util.concurrent.ExecutorService;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
@@ -27,9 +28,7 @@ import org.apache.samza.operators.OperatorSpecGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.ExecutorService;
-
-import static org.apache.samza.util.ScalaJavaUtil.toScalaFunction;
+import static org.apache.samza.util.ScalaJavaUtil.*;
 
 /**
  * This class provides utility functions to load task factory classes based on config, and to wrap {@link StreamTaskFactory}
@@ -37,6 +36,17 @@ import static org.apache.samza.util.ScalaJavaUtil.toScalaFunction;
  */
 public class TaskFactoryUtil {
   private static final Logger log = LoggerFactory.getLogger(TaskFactoryUtil.class);
+
+  /**
+   * This method creates a task factory class based on the {@link OperatorSpecGraph} and {@link ContextManager}
+   *
+   * @param specGraph the {@link OperatorSpecGraph}
+   * @param contextManager the {@link ContextManager} to set up initial context for {@code specGraph}
+   * @return  a task factory object, either a instance of {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory}
+   */
+  public static TaskFactory createTaskFactory(OperatorSpecGraph specGraph, ContextManager contextManager) {
+    return (StreamTaskFactory) () -> new StreamOperatorTask(specGraph, contextManager);
+  }
 
   /**
    * This method creates a task factory class based on the configuration
@@ -70,28 +80,22 @@ public class TaskFactoryUtil {
     }
 
     if (isAsyncTaskClass) {
-      return new AsyncStreamTaskFactory() {
-        @Override
-        public AsyncStreamTask createInstance() {
-          try {
-            return (AsyncStreamTask) Class.forName(taskClassName).newInstance();
-          } catch (Throwable t) {
-            log.error("Error loading AsyncStreamTask class: {}. error: {}", taskClassName, t);
-            throw new SamzaException(String.format("Error loading AsyncStreamTask class: %s", taskClassName), t);
-          }
+      return (AsyncStreamTaskFactory) () -> {
+        try {
+          return (AsyncStreamTask) Class.forName(taskClassName).newInstance();
+        } catch (Throwable t) {
+          log.error("Error loading AsyncStreamTask class: {}. error: {}", taskClassName, t);
+          throw new SamzaException(String.format("Error loading AsyncStreamTask class: %s", taskClassName), t);
         }
       };
     }
 
-    return new StreamTaskFactory() {
-      @Override
-      public StreamTask createInstance() {
-        try {
-          return (StreamTask) Class.forName(taskClassName).newInstance();
-        } catch (Throwable t) {
-          log.error("Error loading StreamTask class: {}. error: {}", taskClassName, t);
-          throw new SamzaException(String.format("Error loading StreamTask class: %s", taskClassName), t);
-        }
+    return (StreamTaskFactory) () -> {
+      try {
+        return (StreamTask) Class.forName(taskClassName).newInstance();
+      } catch (Throwable t) {
+        log.error("Error loading StreamTask class: {}. error: {}", taskClassName, t);
+        throw new SamzaException(String.format("Error loading StreamTask class: %s", taskClassName), t);
       }
     };
   }
@@ -120,12 +124,7 @@ public class TaskFactoryUtil {
 
     if (!singleThreadMode && !isAsyncTaskClass) {
       log.info("Converting StreamTask to AsyncStreamTaskAdapter when running StreamTask with multiple threads");
-      return new AsyncStreamTaskFactory() {
-        @Override
-        public AsyncStreamTask createInstance() {
-          return new AsyncStreamTaskAdapter(((StreamTaskFactory) factory).createInstance(), taskThreadPool);
-        }
-      };
+      return (AsyncStreamTaskFactory) () -> new AsyncStreamTaskAdapter(((StreamTaskFactory) factory).createInstance(), taskThreadPool);
     }
 
     return factory;

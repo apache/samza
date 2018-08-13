@@ -19,6 +19,10 @@
 
 package org.apache.samza.test.framework;
 
+import java.util.HashMap;
+import java.util.Map;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.JobCoordinatorConfig;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -44,6 +48,13 @@ public class TimerTest extends StreamApplicationIntegrationTestHarness {
 
   @Test
   public void testJob() throws InterruptedException {
-    runApplication(new TestTimerApp(), "TimerTest", null).getAppRuntime();
+    Map<String, String> configs = new HashMap<>();
+    configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
+    configs.put("job.systemstreampartition.grouper.factory", "org.apache.samza.container.grouper.stream.AllSspToSingleTaskGrouperFactory");
+    configs.put("task.name.grouper.factory", "org.apache.samza.container.grouper.task.SingleContainerGrouperFactory");
+    configs.put(JobCoordinatorConfig.JOB_COORDINATION_UTILS_FACTORY, "org.apache.samza.standalone.PassthroughCoordinationUtilsFactory");
+    configs.put(JobConfig.PROCESSOR_ID(), "0");
+
+    runApplication(new TestTimerApp(), "TimerTest", configs);
   }
 }

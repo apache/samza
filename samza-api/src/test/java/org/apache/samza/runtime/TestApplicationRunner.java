@@ -16,47 +16,46 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.runtime.internal;
+package org.apache.samza.runtime;
 
 import java.time.Duration;
 import java.util.Map;
-import org.apache.samza.application.ApplicationSpec;
-import org.apache.samza.config.Config;
+import org.apache.samza.application.internal.AppDescriptorImpl;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.metrics.MetricsReporter;
 
 
 /**
- * Test class for {@link ApplicationRunners} unit test
+ * Test class for {@link org.apache.samza.runtime.ApplicationRunners} unit test
  */
 public class TestApplicationRunner implements ApplicationRunner {
 
-  public TestApplicationRunner(Config config) {
+  public TestApplicationRunner(AppDescriptorImpl appDesc) {
 
   }
 
   @Override
-  public void run(ApplicationSpec appSpec) {
+  public void run() {
 
   }
 
   @Override
-  public void kill(ApplicationSpec appSpec) {
+  public void kill() {
 
   }
 
   @Override
-  public ApplicationStatus status(ApplicationSpec appSpec) {
+  public ApplicationStatus status() {
     return null;
   }
 
   @Override
-  public void waitForFinish(ApplicationSpec appSpec) {
+  public void waitForFinish() {
 
   }
 
   @Override
-  public boolean waitForFinish(ApplicationSpec appSpec, Duration timeout) {
+  public boolean waitForFinish(Duration timeout) {
     return false;
   }
 

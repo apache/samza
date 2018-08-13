@@ -30,8 +30,8 @@ import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.StreamApplicationSpec;
-import org.apache.samza.application.internal.StreamAppSpecImpl;
+import org.apache.samza.application.StreamAppDescriptor;
+import org.apache.samza.application.internal.StreamAppDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.KV;
@@ -56,7 +56,7 @@ import org.slf4j.LoggerFactory;
 /**
  * This class is used to populate the StreamGraph using the SQL queries.
  * This class contains the core of the SamzaSQL control code that converts the SQL statements to calcite relational graph.
- * It then walks the relational graph and then populates the Samza's {@link StreamApplicationSpec} accordingly.
+ * It then walks the relational graph and then populates the Samza's {@link StreamAppDescriptor} accordingly.
  */
 public class QueryTranslator {
   private static final Logger LOG = LoggerFactory.getLogger(QueryTranslator.class);
@@ -92,13 +92,13 @@ public class QueryTranslator {
     this.converters = sqlConfig.getSamzaRelConverters();
   }
 
-  public void translate(SamzaSqlQueryParser.QueryInfo queryInfo, StreamApplicationSpec appSpec) {
+  public void translate(SamzaSqlQueryParser.QueryInfo queryInfo, StreamAppDescriptor appDesc) {
     QueryPlanner planner =
         new QueryPlanner(sqlConfig.getRelSchemaProviders(), sqlConfig.getInputSystemStreamConfigBySource(),
             sqlConfig.getUdfMetadata());
     final SamzaSqlExecutionContext executionContext = new SamzaSqlExecutionContext(this.sqlConfig);
     final RelRoot relRoot = planner.plan(queryInfo.getSelectQuery());
-    final TranslatorContext context = new TranslatorContext(((StreamAppSpecImpl)appSpec).getGraph(), relRoot, executionContext, this.converters);
+    final TranslatorContext context = new TranslatorContext(((StreamAppDescriptorImpl)appDesc).getGraph(), relRoot, executionContext, this.converters);
     final RelNode node = relRoot.project();
     final SqlIOResolver ioResolver = context.getExecutionContext().getSamzaSqlApplicationConfig().getIoResolver();
 
@@ -151,9 +151,9 @@ public class QueryTranslator {
 
     Optional<TableDescriptor> tableDescriptor = sinkConfig.getTableDescriptor();
     if (!tableDescriptor.isPresent()) {
-      outputStream.sendTo(appSpec.getOutputStream(sinkConfig.getStreamName()));
+      outputStream.sendTo(appDesc.getOutputStream(sinkConfig.getStreamName()));
     } else {
-      Table outputTable = appSpec.getTable(tableDescriptor.get());
+      Table outputTable = appDesc.getTable(tableDescriptor.get());
       if (outputTable == null) {
         String msg = "Failed to obtain table descriptor of " + sinkConfig.getSource();
         LOG.error(msg);
@@ -162,7 +162,7 @@ public class QueryTranslator {
       outputStream.sendTo(outputTable);
     }
 
-    appSpec.withContextManager(new ContextManager() {
+    appDesc.withContextManager(new ContextManager() {
       @Override
       public void init(Config config, TaskContext taskContext) {
         taskContext.setUserContext(context.clone());

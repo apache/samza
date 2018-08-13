@@ -31,9 +31,9 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.ProcessorLifecycleListener;
-import org.apache.samza.application.internal.StreamAppSpecImpl;
-import org.apache.samza.application.internal.TaskAppSpecImpl;
+import org.apache.samza.application.internal.AppDescriptorImpl;
+import org.apache.samza.application.internal.StreamAppDescriptorImpl;
+import org.apache.samza.application.internal.TaskAppDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -46,11 +46,9 @@ import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.processor.StreamProcessor;
-import org.apache.samza.processor.StreamProcessorLifecycleListener;
-import org.apache.samza.runtime.internal.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
-import org.apache.samza.task.StreamOperatorTask;
 import org.apache.samza.task.TaskFactory;
+import org.apache.samza.task.TaskFactoryUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,80 +64,63 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   private final Set<StreamProcessor> processors = ConcurrentHashMap.newKeySet();
   private final CountDownLatch shutdownLatch = new CountDownLatch(1);
   private final AtomicInteger numProcessorsToStart = new AtomicInteger();
-  private final AtomicInteger numProcessorsStopped = new AtomicInteger();
   private final AtomicReference<Throwable> failure = new AtomicReference<>();
 
   private ApplicationStatus appStatus = ApplicationStatus.New;
 
-  public LocalApplicationRunner(Config config) {
-    super(config);
+  public LocalApplicationRunner(AppDescriptorImpl appDesc) {
+    super(appDesc);
     this.uid = UUID.randomUUID().toString();
   }
 
-  private final class LocalStreamProcessorLifeCycleListener implements StreamProcessorLifecycleListener {
+  private final class LocalStreamProcessorLifecycleListener implements ProcessorLifecycleListener {
     private StreamProcessor processor;
-    private final ProcessorLifecycleListener processorLifecycleListener;
+    private ProcessorLifecycleListener processorLifecycleListener;
 
-    private LocalStreamProcessorLifeCycleListener(ProcessorLifecycleListener processorLifecycleListener) {
-      this.processorLifecycleListener = processorLifecycleListener;
-    }
-
-    void setProcessor(StreamProcessor processor) {
-      this.processor = processor;
+    private LocalStreamProcessorLifecycleListener() {
     }
 
     @Override
-    public void onStart() {
-      if (numProcessorsToStart.get() == 0) {
+    public void beforeStart() {
+      processorLifecycleListener.beforeStart();
+    }
+
+    @Override
+    public void afterStart() {
+      processorLifecycleListener.afterStart();
+      if (numProcessorsToStart.decrementAndGet() == 0) {
         appStatus = ApplicationStatus.Running;
-        processorLifecycleListener.afterStart();
-      }
-    }
-
-    @Override
-    public void onShutdown() {
-      processors.remove(processor);
-      processor = null;
-
-      if (processors.isEmpty()) {
-        processorLifecycleListener.afterStop();
-        shutdownAndNotify();
-      }
-    }
-
-    @Override
-    public void onFailure(Throwable t) {
-      processors.remove(processor);
-      processor = null;
-
-      if (failure.compareAndSet(null, t)) {
-        // shutdown the other processors
-        processors.forEach(StreamProcessor::stop);
-      }
-
-      if (processors.isEmpty()) {
-        // TODO: shutdown due to failure may not have the processorLifecycleListener.beforeStop() invoked.
-        // Hence, we don't have a corresponding processorLifecycleListener.afterStop() here either.
-        shutdownAndNotify();
       }
     }
 
     @Override
     public void beforeStop() {
-      // This is to record the number of processors that are stopped via normal shutdown sequence (i.e. calling sp.stop())
-      // If this is the first call to stop in all processors in the application, we also call beforeStop() as well.
-      if (numProcessorsStopped.getAndIncrement() == 0) {
-        processorLifecycleListener.beforeStop();
-      }
+      processorLifecycleListener.beforeStop();
     }
 
     @Override
-    public void beforeStart() {
-      // This is to record the number of processors that are to be started (i.e. calling sp.start())
-      // If this is the first call to start in all processors in the application, we also call beforeStart() method as well.
-      if (numProcessorsToStart.getAndDecrement() == processors.size()) {
-        processorLifecycleListener.beforeStart();
+    public void afterStop(Throwable t) {
+      processors.remove(processor);
+      processor = null;
+
+      processorLifecycleListener.afterStop(t);
+      if (t != null) {
+        // the processor stopped with failure
+        if (failure.compareAndSet(null, t)) {
+          // shutdown the other processors
+          processors.forEach(StreamProcessor::stop);
+        }
       }
+      if (processors.isEmpty()) {
+        // successful shutdown
+        shutdownAndNotify();
+      }
+    }
+
+    void setProcessor(StreamProcessor processor) {
+      this.processor = processor;
+      this.processorLifecycleListener = appDesc.getProcessorLifecycleListenerFactory().
+          createInstance(processor.getProcessorContext(), processor.getConfig());
     }
 
     private void shutdownAndNotify() {
@@ -158,11 +139,11 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     }
   }
 
-  private class StreamAppExecutable implements AppRuntimeExecutable {
-    private final StreamAppSpecImpl streamApp;
+  class StreamAppExecutable implements AppRuntimeExecutable {
+    private final StreamAppDescriptorImpl appDesc;
 
-    private StreamAppExecutable(StreamAppSpecImpl streamApp) {
-      this.streamApp = streamApp;
+    private StreamAppExecutable(StreamAppDescriptorImpl appDesc) {
+      this.appDesc = appDesc;
     }
 
     @Override
@@ -172,7 +153,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
         streamManager = buildAndStartStreamManager();
 
         // 1. initialize and plan
-        ExecutionPlan plan = getExecutionPlan(((StreamGraphSpec)streamApp.getGraph()).getOperatorSpecGraph(), streamManager);
+        ExecutionPlan plan = getExecutionPlan(((StreamGraphSpec) appDesc.getGraph()).getOperatorSpecGraph(), streamManager);
 
         String executionPlanJson = plan.getPlanAsJson();
         writePlanJsonFile(executionPlanJson);
@@ -188,13 +169,13 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
           throw new SamzaException("No jobs to start.");
         }
         plan.getJobConfigs().forEach(jobConfig -> {
-          LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
-          LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener(streamApp.getProcessorLifecycleListner());
-          StreamProcessor processor = createStreamProcessor(jobConfig, ((StreamGraphSpec)streamApp.getGraph()).getOperatorSpecGraph(),
-              streamApp.getContextManager(), listener);
-          listener.setProcessor(processor);
-          processors.add(processor);
-        });
+            LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
+            LocalStreamProcessorLifecycleListener listener = new LocalStreamProcessorLifecycleListener();
+            StreamProcessor processor = createStreamProcessor(jobConfig, ((StreamGraphSpec) appDesc.getGraph()).getOperatorSpecGraph(),
+                appDesc.getContextManager(), listener);
+            listener.setProcessor(processor);
+            processors.add(processor);
+          });
         numProcessorsToStart.set(processors.size());
 
         // 4. start the StreamProcessors
@@ -202,7 +183,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       } catch (Throwable throwable) {
         appStatus = ApplicationStatus.unsuccessfulFinish(throwable);
         shutdownLatch.countDown();
-        throw new SamzaException(String.format("Failed to start application: %s.", streamApp), throwable);
+        throw new SamzaException(String.format("Failed to start application: %s.", appDesc), throwable);
       } finally {
         if (streamManager != null) {
           streamManager.stop();
@@ -222,25 +203,25 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
     @Override
     public boolean waitForFinish(Duration timeout) {
-      return LocalApplicationRunner.this.waitForFinish(timeout);
+      return LocalApplicationRunner.this.localWaitForFinish(timeout);
     }
 
   }
 
-  private class TaskAppExecutable implements AppRuntimeExecutable {
-    private final TaskAppSpecImpl appSpec;
+  class TaskAppExecutable implements AppRuntimeExecutable {
+    private final TaskAppDescriptorImpl appDesc;
     private StreamProcessor sp;
 
-    private TaskAppExecutable(TaskAppSpecImpl appSpec) {
-      this.appSpec = appSpec;
+    private TaskAppExecutable(TaskAppDescriptorImpl appDesc) {
+      this.appDesc = appDesc;
     }
 
     @Override
     public void run() {
-      LOG.info("LocalApplicationRunner will start task " + appSpec.getGlobalAppId());
-      LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener(appSpec.getProcessorLifecycleListner());
+      LOG.info("LocalApplicationRunner will start task " + appDesc.getGlobalAppId());
+      LocalStreamProcessorLifecycleListener listener = new LocalStreamProcessorLifecycleListener();
 
-      sp = createStreamProcessor(config, appSpec.getTaskFactory(), listener);
+      sp = createStreamProcessor(config, appDesc.getTaskFactory(), listener);
 
       numProcessorsToStart.set(1);
       listener.setProcessor(sp);
@@ -259,12 +240,12 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
     @Override
     public boolean waitForFinish(Duration timeout) {
-      return LocalApplicationRunner.this.waitForFinish(timeout);
+      return LocalApplicationRunner.this.localWaitForFinish(timeout);
     }
 
   }
 
-  private boolean waitForFinish(Duration timeout) {
+  private boolean localWaitForFinish(Duration timeout) {
     long timeoutInMs = timeout.toMillis();
     boolean finished = true;
 
@@ -344,7 +325,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   StreamProcessor createStreamProcessor(
       Config config,
       TaskFactory taskFactory,
-      StreamProcessorLifecycleListener listener) {
+      ProcessorLifecycleListener listener) {
     return new StreamProcessor(config, this.metricsReporters, taskFactory, listener, null);
   }
 
@@ -360,8 +341,8 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       Config config,
       OperatorSpecGraph graph,
       ContextManager contextManager,
-      StreamProcessorLifecycleListener listener) {
-    TaskFactory taskFactory = () -> new StreamOperatorTask(graph, contextManager);
+      ProcessorLifecycleListener listener) {
+    TaskFactory taskFactory = TaskFactoryUtil.createTaskFactory(graph, contextManager);
     return new StreamProcessor(config, this.metricsReporters, taskFactory, listener, null);
   }
 
@@ -376,13 +357,13 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   }
 
   @Override
-  protected AppRuntimeExecutable getTaskAppRuntimeExecutable(TaskAppSpecImpl appSpec) {
-    return new TaskAppExecutable(appSpec);
+  protected AppRuntimeExecutable getTaskAppRuntimeExecutable(TaskAppDescriptorImpl appDesc) {
+    return new TaskAppExecutable(appDesc);
   }
 
   @Override
-  protected AppRuntimeExecutable getStreamAppRuntimeExecutable(StreamAppSpecImpl appSpec) {
-    return new StreamAppExecutable(appSpec);
+  protected AppRuntimeExecutable getStreamAppRuntimeExecutable(StreamAppDescriptorImpl appDesc) {
+    return new StreamAppExecutable(appDesc);
   }
 
 }

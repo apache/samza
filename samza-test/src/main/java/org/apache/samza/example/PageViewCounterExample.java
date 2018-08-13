@@ -19,9 +19,8 @@
 package org.apache.samza.example;
 
 import java.time.Duration;
-import org.apache.samza.application.ApplicationClassUtils;
+import org.apache.samza.application.StreamAppDescriptor;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationSpec;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
@@ -32,8 +31,8 @@ import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.runtime.ApplicationRuntime;
-import org.apache.samza.runtime.ApplicationRuntimes;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
@@ -49,28 +48,30 @@ public class PageViewCounterExample implements StreamApplication {
   public static void main(String[] args) {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    ApplicationRuntime appRuntime = ApplicationRuntimes.getApplicationRuntime(ApplicationClassUtils.fromConfig(config), config);
-    appRuntime.run();
-    appRuntime.waitForFinish();
+    PageViewCounterExample app = new PageViewCounterExample();
+    ApplicationRunner runner = ApplicationRunners.getApplicationRunner(app, config);
+
+    runner.run();
+    runner.waitForFinish();
   }
 
   @Override
-  public void describe(StreamApplicationSpec graph) {
-      MessageStream<PageViewEvent> pageViewEvents = null;
-      pageViewEvents = graph.getInputStream("pageViewEventStream", new JsonSerdeV2<>(PageViewEvent.class));
-      OutputStream<KV<String, PageViewCount>> pageViewEventPerMemberStream =
-          graph.getOutputStream("pageViewEventPerMemberStream",
-              KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageViewCount.class)));
+  public void describe(StreamAppDescriptor appDesc) {
+    MessageStream<PageViewEvent> pageViewEvents = null;
+    pageViewEvents = appDesc.getInputStream("pageViewEventStream", new JsonSerdeV2<>(PageViewEvent.class));
+    OutputStream<KV<String, PageViewCount>> pageViewEventPerMemberStream =
+        appDesc.getOutputStream("pageViewEventPerMemberStream",
+            KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageViewCount.class)));
 
-      SupplierFunction<Integer> initialValue = () -> 0;
-      FoldLeftFunction<PageViewEvent, Integer> foldLeftFn = (m, c) -> c + 1;
-      pageViewEvents
-          .window(Windows.keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), initialValue, foldLeftFn,
-              null, null)
-              .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
-              .setAccumulationMode(AccumulationMode.DISCARDING), "tumblingWindow")
-          .map(windowPane -> KV.of(windowPane.getKey().getKey(), new PageViewCount(windowPane)))
-          .sendTo(pageViewEventPerMemberStream);
+    SupplierFunction<Integer> initialValue = () -> 0;
+    FoldLeftFunction<PageViewEvent, Integer> foldLeftFn = (m, c) -> c + 1;
+    pageViewEvents
+        .window(Windows.keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), initialValue, foldLeftFn, null, null)
+            .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
+            .setAccumulationMode(AccumulationMode.DISCARDING), "tumblingWindow")
+        .map(windowPane -> KV.of(windowPane.getKey().getKey(), new PageViewCount(windowPane)))
+        .sendTo(pageViewEventPerMemberStream);
+
   }
 
   class PageViewEvent {

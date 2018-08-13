@@ -16,13 +16,9 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.testUtils;
+package org.apache.samza.task;
 
 import org.apache.samza.system.IncomingMessageEnvelope;
-import org.apache.samza.task.AsyncStreamTask;
-import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskCallback;
-import org.apache.samza.task.TaskCoordinator;
 
 /**
  * Test implementation class for {@link AsyncStreamTask}

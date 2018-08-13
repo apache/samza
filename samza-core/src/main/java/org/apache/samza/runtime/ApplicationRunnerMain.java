@@ -23,25 +23,23 @@ import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 import org.apache.samza.application.ApplicationClassUtils;
 import org.apache.samza.config.Config;
-import org.apache.samza.runtime.internal.ApplicationRunner;
 import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.Util;
 
 
 /**
  * This class contains the main() method used by start-app.sh.
- * For a StreamApplication, it creates the {@link ApplicationRunner} based on the config, and then start the application.
- * For a Samza job using low level task API, it will create the JobRunner to start it.
+ * It creates the {@link ApplicationRunner} based on the config, and then start the application.
  */
 public class ApplicationRunnerMain {
 
   public static class ApplicationRunnerCommandLine extends CommandLine {
     public OptionSpec operationOpt =
-        parser().accepts("operation", "The operation to perform; start, status, kill.")
+        parser().accepts("operation", "The operation to perform; run, status, kill.")
             .withRequiredArg()
             .ofType(String.class)
-            .describedAs("operation=start")
-            .defaultsTo("start");
+            .describedAs("operation=run")
+            .defaultsTo("run");
 
     public ApplicationRunnerOperation getOperation(OptionSet options) {
       String rawOp = options.valueOf(operationOpt).toString();
@@ -56,17 +54,18 @@ public class ApplicationRunnerMain {
     Config config = Util.rewriteConfig(orgConfig);
     ApplicationRunnerOperation op = cmdLine.getOperation(options);
 
-    ApplicationRuntime appRuntime = ApplicationRuntimes.getApplicationRuntime(ApplicationClassUtils.fromConfig(config), config);
+    ApplicationRunner
+        appRunner = ApplicationRunners.getApplicationRunner(ApplicationClassUtils.fromConfig(config), config);
 
     switch (op) {
       case RUN:
-        appRuntime.run();
+        appRunner.run();
         break;
       case KILL:
-        appRuntime.kill();
+        appRunner.kill();
         break;
       case STATUS:
-        System.out.println(appRuntime.status());
+        System.out.println(appRunner.status());
         break;
       default:
         throw new IllegalArgumentException("Unrecognized operation: " + op);

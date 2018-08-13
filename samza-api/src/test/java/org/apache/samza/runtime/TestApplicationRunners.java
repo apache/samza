@@ -21,33 +21,28 @@ package org.apache.samza.runtime;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationSpec;
+import org.apache.samza.application.internal.TestStreamGraph;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.runtime.internal.ApplicationRunner;
-import org.apache.samza.runtime.internal.TestApplicationRunner;
 import org.junit.Test;
-import org.mockito.internal.util.reflection.Whitebox;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.mock;
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
 
 /**
- * Unit test for {@link ApplicationRuntimes}
+ * Unit test for {@link ApplicationRunners}
  */
-public class TestApplicationRuntimes {
+public class TestApplicationRunners {
+
   @Test
-  public void testGetApplicationRuntime() {
-    StreamApplication mockApp = mock(StreamApplication.class);
+  public void testGetAppRunner() {
     Map<String, String> configMap = new HashMap<>();
     configMap.put("app.runner.class", TestApplicationRunner.class.getName());
+    configMap.put("app.test.graph.class", TestStreamGraph.class.getName());
     Config config = new MapConfig(configMap);
-    ApplicationRuntime appRuntime = ApplicationRuntimes.getApplicationRuntime(mockApp, config);
-    StreamApplicationSpec appSpec = (StreamApplicationSpec) Whitebox.getInternalState(appRuntime, "appSpec");
-    ApplicationRunner appRunner = (ApplicationRunner) Whitebox.getInternalState(appRuntime, "runner");
-    assertEquals(appSpec.getConfig(), config);
+    StreamApplication app = mock(StreamApplication.class);
+    ApplicationRunner appRunner = ApplicationRunners.getApplicationRunner(app, config);
     assertTrue(appRunner instanceof TestApplicationRunner);
   }
 }

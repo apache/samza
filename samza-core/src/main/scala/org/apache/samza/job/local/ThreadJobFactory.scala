@@ -19,7 +19,7 @@
 
 package org.apache.samza.job.local
 
-import org.apache.samza.application.internal.{StreamAppSpecImpl, TaskAppSpecImpl}
+import org.apache.samza.application.internal.{StreamAppDescriptorImpl, TaskAppDescriptorImpl}
 import org.apache.samza.application.{ApplicationClassUtils, StreamApplication, TaskApplication}
 import org.apache.samza.config.{Config, TaskConfigJava}
 import org.apache.samza.config.JobConfig._
@@ -76,11 +76,11 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
 
     val taskFactory : TaskFactory[_] = ApplicationClassUtils.fromConfig(config) match {
         case app if (app.isInstanceOf[TaskApplication]) => {
-          val appSpec = new TaskAppSpecImpl(app.asInstanceOf[TaskApplication], config)
+          val appSpec = new TaskAppDescriptorImpl(app.asInstanceOf[TaskApplication], config)
           appSpec.getTaskFactory
         }
         case app if (app.isInstanceOf[StreamApplication]) => {
-          val appSpec = new StreamAppSpecImpl(app.asInstanceOf[StreamApplication], config)
+          val appSpec = new StreamAppDescriptorImpl(app.asInstanceOf[StreamApplication], config)
           new StreamTaskFactory {
             override def createInstance(): StreamTask =
               new StreamOperatorTask(appSpec.getGraph.asInstanceOf[StreamGraphSpec].getOperatorSpecGraph, appSpec.getContextManager)
@@ -105,6 +105,14 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
       }
 
       override def onContainerStart(): Unit = {
+
+      }
+
+      override def beforeStop(): Unit = {
+
+      }
+
+      override def beforeStart(): Unit = {
 
       }
     }

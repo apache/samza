@@ -21,7 +21,7 @@ package org.apache.samza.example;
 
 import java.time.Duration;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationSpec;
+import org.apache.samza.application.StreamAppDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
@@ -30,8 +30,8 @@ import org.apache.samza.operators.functions.SupplierFunction;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.runtime.ApplicationRuntime;
-import org.apache.samza.runtime.ApplicationRuntimes;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.util.CommandLine;
@@ -47,18 +47,18 @@ public class WindowExample implements StreamApplication {
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    ApplicationRuntime app = ApplicationRuntimes.getApplicationRuntime(new WindowExample(), config);
+    ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new WindowExample(), config);
 
-    app.run();
-    app.waitForFinish();
+    runner.run();
+    runner.waitForFinish();
   }
 
   @Override
-  public void describe(StreamApplicationSpec graph) {
+  public void describe(StreamAppDescriptor appDesc) {
     SupplierFunction<Integer> initialValue = () -> 0;
     FoldLeftFunction<PageViewEvent, Integer> counter = (m, c) -> c == null ? 1 : c + 1;
-    MessageStream<PageViewEvent> inputStream = graph.getInputStream("inputStream", new JsonSerdeV2<PageViewEvent>());
-    OutputStream<Integer> outputStream = graph.getOutputStream("outputStream", new IntegerSerde());
+    MessageStream<PageViewEvent> inputStream = appDesc.getInputStream("inputStream", new JsonSerdeV2<PageViewEvent>());
+    OutputStream<Integer> outputStream = appDesc.getOutputStream("outputStream", new IntegerSerde());
 
     // create a tumbling window that outputs the number of message collected every 10 minutes.
     // also emit early results if either the number of messages collected reaches 30000, or if no new messages arrive

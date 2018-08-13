@@ -23,7 +23,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.concurrent.CountDownLatch;
-import org.apache.samza.config.Config;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
@@ -78,45 +78,45 @@ public class TestStreamApplication implements Serializable {
       String outputTopic,
       CountDownLatch processedMessageLatch,
       StreamApplicationCallback callback,
-      CountDownLatch kafkaEventsConsumedLatch,
-      Config config) {
-    StreamApplication app = StreamApplications.createStreamApp(config);
-    String appName = app.getGlobalAppId();
-    String processorName = config.get(JobConfig.PROCESSOR_ID());
-    registerLatches(processedMessageLatch, kafkaEventsConsumedLatch, callback, appName, processorName);
-    MessageStream<String> inputStream = null;
-    inputStream = app.openInput(inputTopic, new NoOpSerde<String>());
-    OutputStream<String> outputStream = app.openOutput(outputTopic, new StringSerde());
-    inputStream
-        .map(new MapFunction<String, String>() {
-          transient CountDownLatch latch1;
-          transient CountDownLatch latch2;
-          transient StreamApplicationCallback callback;
+      CountDownLatch kafkaEventsConsumedLatch) {
+    StreamApplication app = appDesc -> {
+      String appName = appDesc.getGlobalAppId();
+      String processorName = appDesc.getConfig().get(JobConfig.PROCESSOR_ID());
+      registerLatches(processedMessageLatch, kafkaEventsConsumedLatch, callback, appName, processorName);
 
-          @Override
-          public String apply(String message) {
-            TestKafkaEvent incomingMessage = TestKafkaEvent.fromString(message);
-            if (callback != null) {
-              callback.onMessage(incomingMessage);
-            }
-            if (latch1 != null) {
-              latch1.countDown();
-            }
-            if (latch2 != null) {
-              latch2.countDown();
-            }
-            return incomingMessage.toString();
-          }
+      MessageStream<String> inputStream = appDesc.getInputStream(inputTopic, new NoOpSerde<String>());
+      OutputStream<String> outputStream = appDesc.getOutputStream(outputTopic, new StringSerde());
+      inputStream.map(new MapFunction<String, String>() {
+        transient CountDownLatch latch1;
+        transient CountDownLatch latch2;
+        transient StreamApplicationCallback callback;
 
-          private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-            in.defaultReadObject();
-            SharedContextFactories.SharedContextFactory contextFactory = SharedContextFactories.getGlobalSharedContextFactory(appName).getProcessorSharedContextFactory(processorName);
-            this.latch1 = (CountDownLatch) contextFactory.getSharedObject("processedMsgLatch");
-            this.latch2 = (CountDownLatch) contextFactory.getSharedObject("kafkaMsgsConsumedLatch");
-            this.callback = (StreamApplicationCallback) contextFactory.getSharedObject("callback");
+        @Override
+        public String apply(String message) {
+          TestKafkaEvent incomingMessage = TestKafkaEvent.fromString(message);
+          if (callback != null) {
+            callback.onMessage(incomingMessage);
           }
-        })
-        .sendTo(outputStream);
+          if (latch1 != null) {
+            latch1.countDown();
+          }
+          if (latch2 != null) {
+            latch2.countDown();
+          }
+          return incomingMessage.toString();
+        }
+
+        private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+          in.defaultReadObject();
+          SharedContextFactories.SharedContextFactory contextFactory =
+              SharedContextFactories.getGlobalSharedContextFactory(appName).getProcessorSharedContextFactory(processorName);
+          this.latch1 = (CountDownLatch) contextFactory.getSharedObject("processedMsgLatch");
+          this.latch2 = (CountDownLatch) contextFactory.getSharedObject("kafkaMsgsConsumedLatch");
+          this.callback = (StreamApplicationCallback) contextFactory.getSharedObject("callback");
+        }
+      }).sendTo(outputStream);
+    };
+
     return app;
   }
 

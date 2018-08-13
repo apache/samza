@@ -16,10 +16,16 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.runtime;
+package org.apache.samza.task;
+
+import org.apache.samza.system.IncomingMessageEnvelope;
 
 /**
- * TODO: adding tests to unit test {@link LocalContainerRunner}
+ * Test implementation class for {@link StreamTask}
  */
-public class TestLocalContainerRunner {
+public class TestStreamTask implements StreamTask {
+  @Override
+  public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator) throws Exception {
+
+  }
 }

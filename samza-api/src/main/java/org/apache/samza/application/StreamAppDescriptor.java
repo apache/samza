@@ -16,38 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
-package org.apache.samza.processor;
+package org.apache.samza.application;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.operators.StreamGraph;
 
 
 /**
- * This class listens to the life cycle events in a {@link StreamProcessor},
+ * The interface class to describe a user applicationin high-level DAG in Samza.
  */
 @InterfaceStability.Evolving
-public interface StreamProcessorLifecycleListener {
-  /**
-   * Callback when the {@link StreamProcessor} is started
-   * This callback is invoked only once when {@link org.apache.samza.container.SamzaContainer} starts for the first time
-   * in the {@link StreamProcessor}. When there is a re-balance of tasks/partitions among the processors, the container
-   * may temporarily be "paused" and re-started again. For such re-starts, this callback is NOT invoked.
-   */
-  void onStart();
-
-  /**
-   * Callback when the {@link StreamProcessor} is shut down.
-   */
-  void onShutdown();
-
-  /**
-   * Callback when the {@link StreamProcessor} fails
-   * @param t Cause of the failure
-   */
-  void onFailure(Throwable t);
-
-  void beforeStop();
-
-  void beforeStart();
-
+public interface StreamAppDescriptor extends ApplicationDescriptor<StreamApplication>, StreamGraph {
 }

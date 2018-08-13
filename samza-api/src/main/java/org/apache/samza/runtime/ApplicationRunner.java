@@ -20,46 +20,52 @@ package org.apache.samza.runtime;
 
 import java.time.Duration;
 import java.util.Map;
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.metrics.MetricsReporter;
 
 
 /**
- * The primary execution methods of a runtime instance of the user application.
+ * The primary means of managing execution of the {@link org.apache.samza.application.ApplicationBase} at runtime.
  */
-public interface ApplicationRuntime {
+@InterfaceStability.Evolving
+public interface ApplicationRunner {
   /**
-   * Start a runtime instance of the application
+   * Deploy and run the Samza jobs to execute {@link org.apache.samza.application.ApplicationBase}.
+   * It is non-blocking so it doesn't wait for the application running.
    */
   void run();
 
   /**
-   * Stop a runtime instance of the application
+   * Kill the Samza jobs represented by {@link org.apache.samza.application.ApplicationBase}
+   * It is non-blocking so it doesn't wait for the application stopping.
    */
   void kill();
 
   /**
-   * Get the {@link ApplicationStatus} of a runtime instance of the application
-   * @return the runtime status of the application
+   * Get the collective status of the Samza jobs represented by {@link org.apache.samza.application.ApplicationBase}.
+   * Returns {@link ApplicationStatus} object.
+   *
+   * @return the current status of an instance of {@link org.apache.samza.application.ApplicationBase}
    */
   ApplicationStatus status();
 
   /**
-   * Wait the runtime instance of the application to complete.
-   * This method will block until the application completes.
+   * Waits until the application finishes.
    */
   void waitForFinish();
 
   /**
-   * Wait the runtime instance of the application to complete with a {@code timeout}
+   * Waits for {@code timeout} duration for the application to finish.
    *
-   * @param timeout the time to block to wait for the application to complete
-   * @return true if the application completes within timeout; false otherwise
+   * @param timeout time to wait for the application to finish
+   * @return true - application finished before timeout
+   *         false - otherwise
    */
   boolean waitForFinish(Duration timeout);
 
   /**
-   * Method to add a set of customized {@link MetricsReporter}s in the application runtime instance
+   * Add a set of customized {@link MetricsReporter}s in the application
    *
    * @param metricsReporters the map of customized {@link MetricsReporter}s objects to be used
    */

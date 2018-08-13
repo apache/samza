@@ -24,8 +24,9 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.internal.StreamAppDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -58,8 +59,7 @@ import org.apache.samza.test.util.Base64Serializer;
 import org.junit.Assert;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 /**
  * This test class tests sendTo() and join() for local tables
@@ -81,18 +81,18 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
 
     MyMapFunction mapFn = new MyMapFunction();
 
-    final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
-    final StreamApplication app = (streamGraph, cfg) -> {
+    final StreamApplication app = appDesc -> {
 
-      Table<KV<Integer, Profile>> table = streamGraph.getTable(new InMemoryTableDescriptor("t1")
+      Table<KV<Integer, Profile>> table = appDesc.getTable(new InMemoryTableDescriptor("t1")
           .withSerde(KVSerde.of(new IntegerSerde(), new ProfileJsonSerde())));
 
-      streamGraph.getInputStream("Profile", new NoOpSerde<Profile>())
+      appDesc.getInputStream("Profile", new NoOpSerde<Profile>())
           .map(mapFn)
           .sendTo(table);
     };
 
-    runner.run(app);
+    final LocalApplicationRunner runner = new LocalApplicationRunner(new StreamAppDescriptorImpl(app, new MapConfig(configs)));
+    runner.run();
     runner.waitForFinish();
 
     for (int i = 0; i < partitionCount; i++) {
@@ -116,17 +116,16 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     }
 
     void runTest() {
-      final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
-      final StreamApplication app = (streamGraph, cfg) -> {
+      final StreamApplication app = appDesc -> {
 
-        Table<KV<Integer, Profile>> table = streamGraph.getTable(
+        Table<KV<Integer, Profile>> table = appDesc.getTable(
             new InMemoryTableDescriptor("t1").withSerde(KVSerde.of(new IntegerSerde(), new ProfileJsonSerde())));
 
-        streamGraph.getInputStream("Profile", new NoOpSerde<Profile>())
+        appDesc.getInputStream("Profile", new NoOpSerde<Profile>())
             .map(m -> new KV(m.getMemberId(), m))
             .sendTo(table);
 
-        streamGraph.getInputStream("PageView", new NoOpSerde<PageView>())
+        appDesc.getInputStream("PageView", new NoOpSerde<PageView>())
             .map(pv -> {
                 received.add(pv);
                 return pv;
@@ -136,7 +135,8 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
             .sink((m, collector, coordinator) -> joined.add(m));
       };
 
-      runner.run(app);
+      final LocalApplicationRunner runner = new LocalApplicationRunner(new StreamAppDescriptorImpl(app, new MapConfig(configs)));
+      runner.run();
       runner.waitForFinish();
 
       assertEquals(count * partitionCount, received.size());
@@ -190,14 +190,13 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
       PageViewToProfileJoinFunction joinFn1 = new PageViewToProfileJoinFunction();
       PageViewToProfileJoinFunction joinFn2 = new PageViewToProfileJoinFunction();
 
-      final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
-      final StreamApplication app = (streamGraph, cfg) -> {
+      final StreamApplication app = appDesc -> {
 
-        Table<KV<Integer, Profile>> profileTable = streamGraph.getTable(new InMemoryTableDescriptor("t1")
+        Table<KV<Integer, Profile>> profileTable = appDesc.getTable(new InMemoryTableDescriptor("t1")
             .withSerde(profileKVSerde));
 
-        MessageStream<Profile> profileStream1 = streamGraph.getInputStream("Profile1", new NoOpSerde<Profile>());
-        MessageStream<Profile> profileStream2 = streamGraph.getInputStream("Profile2", new NoOpSerde<Profile>());
+        MessageStream<Profile> profileStream1 = appDesc.getInputStream("Profile1", new NoOpSerde<Profile>());
+        MessageStream<Profile> profileStream2 = appDesc.getInputStream("Profile2", new NoOpSerde<Profile>());
 
         profileStream1
             .map(m -> {
@@ -212,8 +211,8 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
               })
             .sendTo(profileTable);
 
-        MessageStream<PageView> pageViewStream1 = streamGraph.getInputStream("PageView1", new NoOpSerde<PageView>());
-        MessageStream<PageView> pageViewStream2 = streamGraph.getInputStream("PageView2", new NoOpSerde<PageView>());
+        MessageStream<PageView> pageViewStream1 = appDesc.getInputStream("PageView1", new NoOpSerde<PageView>());
+        MessageStream<PageView> pageViewStream2 = appDesc.getInputStream("PageView2", new NoOpSerde<PageView>());
 
         pageViewStream1
             .partitionBy(PageView::getMemberId, v -> v, pageViewKVSerde, "p1")
@@ -226,7 +225,8 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
             .sink((m, collector, coordinator) -> joinedPageViews2.add(m));
       };
 
-      runner.run(app);
+      final LocalApplicationRunner runner = new LocalApplicationRunner(new StreamAppDescriptorImpl(app, new MapConfig(configs)));
+      runner.run();
       runner.waitForFinish();
 
       assertEquals(count * partitionCount, sentToProfileTable1.size());

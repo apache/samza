@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.samza.Partition;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.system.SystemStreamMetadata;
@@ -77,6 +78,10 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     RepartitionJoinWindowApp app = new RepartitionJoinWindowApp();
     String appName = "UserPageAdClickCounter";
     Map<String, String> configs = new HashMap<>();
+    configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
+    configs.put(JobCoordinatorConfig.JOB_COORDINATION_UTILS_FACTORY, "org.apache.samza.standalone.PassthroughCoordinationUtilsFactory");
+    configs.put(JobConfig.PROCESSOR_ID(), "0");
+    configs.put(TaskConfig.GROUPER_FACTORY(), "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
     configs.put("systems.kafka.samza.delete.committed.messages", "false");
     configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_NAME_1_PROP, inputTopicName1);
     configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_NAME_2_PROP, inputTopicName2);
@@ -105,6 +110,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     Map<String, String> configs = new HashMap<>();
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
     configs.put(JobCoordinatorConfig.JOB_COORDINATION_UTILS_FACTORY, "org.apache.samza.standalone.PassthroughCoordinationUtilsFactory");
+    configs.put(JobConfig.PROCESSOR_ID(), "0");
     configs.put(TaskConfig.GROUPER_FACTORY(), "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
     configs.put("systems.kafka.samza.delete.committed.messages", "true");
     configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_NAME_1_PROP, inputTopicName1);
@@ -150,6 +156,10 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     String inputTopicName2 = "ad-clicks";
     String outputTopicName = "user-ad-click-counts";
     Map<String, String> configs = new HashMap<>();
+    configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
+    configs.put(JobCoordinatorConfig.JOB_COORDINATION_UTILS_FACTORY, "org.apache.samza.standalone.PassthroughCoordinationUtilsFactory");
+    configs.put(JobConfig.PROCESSOR_ID(), "0");
+    configs.put(TaskConfig.GROUPER_FACTORY(), "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
     configs.put(BroadcastAssertApp.INPUT_TOPIC_NAME_PROP, inputTopicName1);
 
     initializeTopics(inputTopicName1, inputTopicName2, outputTopicName);

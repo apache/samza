@@ -21,5 +21,5 @@ package org.apache.samza.application;
 /**
  * The interface to implement user applications defining a low-level task as the main stream processing logic.
  */
-public interface TaskApplication extends ApplicationBase<TaskApplicationSpec> {
+public interface TaskApplication extends ApplicationBase<TaskAppDescriptor> {
 }

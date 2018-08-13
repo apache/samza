@@ -21,7 +21,7 @@ package org.apache.samza.test.operator;
 
 import java.time.Duration;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationSpec;
+import org.apache.samza.application.StreamAppDescriptor;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.serializers.IntegerSerde;
@@ -44,16 +44,16 @@ public class RepartitionWindowApp implements StreamApplication {
 
 
   @Override
-  public void describe(StreamApplicationSpec appSpec) {
+  public void describe(StreamAppDescriptor appDesc) {
     KVSerde<String, PageView>
         pgeMsgSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageView.class));
 
-    appSpec.getInputStream(INPUT_TOPIC, pgeMsgSerde)
+    appDesc.getInputStream(INPUT_TOPIC, pgeMsgSerde)
         .map(KV::getValue)
         .partitionBy(PageView::getUserId, m -> m, pgeMsgSerde, "inputByUID")
         .window(Windows.keyedSessionWindow(m -> m.getKey(), Duration.ofSeconds(3), () -> 0, (m, c) -> c + 1,
             new StringSerde("UTF-8"), new IntegerSerde()), "countWindow")
-        .map(wp -> KV.of(wp.getKey().getKey().toString(), wp.getMessage()))
-        .sendTo(appSpec.getOutputStream(OUTPUT_TOPIC));
+        .map(wp -> KV.of(wp.getKey().getKey().toString(), wp.getMessage().toString()))
+        .sendTo(appDesc.getOutputStream(OUTPUT_TOPIC));
   }
 }

@@ -20,14 +20,15 @@ package org.apache.samza.application;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
+import org.apache.samza.runtime.ProcessorLifecycleListenerFactory;
 
 
 /**
- * The base interface class to create the specification of a user application in Samza. Sub-classes {@link StreamApplicationSpec}
- * and {@link TaskApplicationSpec} are specific interfaces for applications written in high-level DAG and low-level task APIs,
+ * The base interface class to describe a user application in Samza. Sub-classes {@link StreamAppDescriptor}
+ * and {@link TaskAppDescriptor} are specific interfaces for applications written in high-level DAG and low-level task APIs,
  * respectively.
  */
-public interface ApplicationSpec<T extends ApplicationBase> {
+public interface ApplicationDescriptor<T extends ApplicationBase> {
   /**
    * Get the global unique application ID in the runtime process
    * @return globally unique application ID
@@ -41,23 +42,23 @@ public interface ApplicationSpec<T extends ApplicationBase> {
   Config getConfig();
 
   /**
-   * Sets the {@link ContextManager} for this {@link ApplicationSpec}.
+   * Sets the {@link ContextManager} for this application.
    * <p>
    * The provided {@link ContextManager} can be used to setup shared context between the operator functions
    * within a task instance
    *
-   * @param contextManager the {@link ContextManager} to use for the {@link StreamApplicationSpec}
-   * @return the {@link ApplicationSpec} with {@code contextManager} set as its {@link ContextManager}
+   * @param contextManager the {@link ContextManager} to use for the application
+   * @return the {@link ApplicationDescriptor} with {@code contextManager} set as its {@link ContextManager}
    */
-  ApplicationSpec<T> withContextManager(ContextManager contextManager);
+  ApplicationDescriptor<T> withContextManager(ContextManager contextManager);
 
   /**
-   * Sets the {@link ProcessorLifecycleListener} for this {@link ApplicationSpec}.
+   * Sets the {@link ProcessorLifecycleListenerFactory} for this application.
    *
-   * @param listener the user implemented {@link ProcessorLifecycleListener} with lifecycle aware methods to be invoked
-   *                 before and after the start/stop of the processing logic defined in this {@link ApplicationSpec}
-   * @return the {@link ApplicationSpec} with {@code listener} set as its {@link ProcessorLifecycleListener}
+   * @param listenerFactory the user implemented {@link ProcessorLifecycleListenerFactory} that creates lifecycle aware
+   *                        methods to be invoked before and after the start/stop of the StreamProcessor(s) in the application
+   * @return the {@link ApplicationDescriptor} with {@code listenerFactory} set as its {@link ProcessorLifecycleListenerFactory}
    */
-  ApplicationSpec<T> withProcessorLifecycleListener(ProcessorLifecycleListener listener);
+  ApplicationDescriptor<T> withProcessorLifecycleListenerFactory(ProcessorLifecycleListenerFactory listenerFactory);
 
 }

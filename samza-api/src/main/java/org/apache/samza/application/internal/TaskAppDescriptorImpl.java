@@ -22,26 +22,28 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.apache.samza.application.TaskApplication;
-import org.apache.samza.application.TaskApplicationSpec;
+import org.apache.samza.application.TaskAppDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.task.TaskFactory;
 
 
 /**
- * This class implements interface {@link TaskApplicationSpec}. In addition to the common objects for an application
- * defined in {@link AppSpecImpl}, this class also includes the low-level {@link TaskFactory} object that creates
+ * This class implements interface {@link TaskAppDescriptor}. In addition to the common objects for an application
+ * defined in {@link AppDescriptorImpl}, this class also includes the low-level {@link TaskFactory} object that creates
  * user-defined task instances, the lists of input/output streams, and the list of {@link TableDescriptor}s used in
  * the application.
  */
-public class TaskAppSpecImpl extends AppSpecImpl<TaskApplication, TaskApplicationSpec> implements TaskApplicationSpec {
+public class TaskAppDescriptorImpl extends AppDescriptorImpl<TaskApplication, TaskAppDescriptor>
+    implements TaskAppDescriptor {
 
   TaskFactory taskFactory;
+  //TODO: need to replace with InputStreamDescriptor and OutputStreamDescriptor when SAMZA-1804 is implemented
   final List<String> inputStreams = new ArrayList<>();
   final List<String> outputStreams = new ArrayList<>();
   final List<TableDescriptor> tables = new ArrayList<>();
 
-  public TaskAppSpecImpl(TaskApplication userApp, Config config) {
+  public TaskAppDescriptorImpl(TaskApplication userApp, Config config) {
     super(config);
     userApp.describe(this);
   }

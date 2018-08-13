@@ -21,15 +21,15 @@ package org.apache.samza.example;
 import java.time.Duration;
 import java.util.HashMap;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationSpec;
+import org.apache.samza.application.StreamAppDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.runtime.ApplicationRuntime;
-import org.apache.samza.runtime.ApplicationRuntimes;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
@@ -45,23 +45,23 @@ public class AppWithGlobalConfigExample implements StreamApplication {
   public static void main(String[] args) {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    ApplicationRuntime app = ApplicationRuntimes.getApplicationRuntime(new AppWithGlobalConfigExample(), config);
-    app.addMetricsReporters(new HashMap<>());
+    ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new AppWithGlobalConfigExample(), config);
+    runner.addMetricsReporters(new HashMap<>());
 
-    app.run();
-    app.waitForFinish();
+    runner.run();
+    runner.waitForFinish();
   }
 
   @Override
-  public void describe(StreamApplicationSpec appSpec) {
+  public void describe(StreamAppDescriptor appDesc) {
 
-    appSpec.getInputStream("myPageViewEevent", KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class)))
+    appDesc.getInputStream("myPageViewEevent", KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class)))
         .map(KV::getValue)
         .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), () -> 0, (m, c) -> c + 1, null, null)
             .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
             .setAccumulationMode(AccumulationMode.DISCARDING), "window1")
         .map(m -> KV.of(m.getKey().getKey(), new PageViewCount(m)))
-        .sendTo(appSpec.getOutputStream("pageViewEventPerMemberStream", KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewCount.class))));
+        .sendTo(appDesc.getOutputStream("pageViewEventPerMemberStream", KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewCount.class))));
   }
 
   class PageViewEvent {

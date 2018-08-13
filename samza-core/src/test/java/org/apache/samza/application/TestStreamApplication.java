@@ -18,13 +18,12 @@
  */
 package org.apache.samza.application;
 
-import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.StreamGraph;
-
-
 /**
- * The interface class to create the specification of a user application as high-level DAG in Samza.
+ * Test class of {@link StreamApplication} for unit tests
  */
-@InterfaceStability.Evolving
-public interface StreamApplicationSpec extends ApplicationSpec<StreamApplication>, StreamGraph {
+public class TestStreamApplication implements StreamApplication {
+  @Override
+  public void describe(StreamAppDescriptor appSpec) {
+
+  }
 }

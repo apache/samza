@@ -16,28 +16,12 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.runtime.internal;
-
-import java.util.HashMap;
-import java.util.Map;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.MapConfig;
-import org.junit.Test;
-
-import static org.junit.Assert.assertTrue;
-
+package org.apache.samza.runtime;
 
 /**
- * Unit test for {@link ApplicationRunners}
+ * The context for a StreamProcessor. Currently, only defines a method to report the processorId
+ *
  */
-public class TestApplicationRunners {
-
-  @Test
-  public void testFromConfig() {
-    Map<String, String> configMap = new HashMap<>();
-    configMap.put("app.runner.class", TestApplicationRunner.class.getName());
-    Config config = new MapConfig(configMap);
-    ApplicationRunner appRunner = ApplicationRunners.fromConfig(config);
-    assertTrue(appRunner instanceof TestApplicationRunner);
-  }
+public interface ProcessorContext {
+  String getProcessorId();
 }

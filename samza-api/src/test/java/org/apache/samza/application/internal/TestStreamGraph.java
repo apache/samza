@@ -18,10 +18,10 @@
  */
 package org.apache.samza.application.internal;
 
-import java.lang.reflect.Constructor;
-import org.apache.samza.SamzaException;
-import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationSpec;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
@@ -31,67 +31,59 @@ import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.table.Table;
 
+import static org.mockito.Mockito.*;
+
 
 /**
- * This class implements interface {@link StreamApplicationSpec}. In addition to the common objects for an application
- * defined in {@link AppSpecImpl}, this class also includes the high-level DAG {@link StreamGraph} object that user will
- * use to create the processing logic in DAG.
+ * Test implementation of {@link StreamGraph} used only in unit test
  */
-public class StreamAppSpecImpl extends AppSpecImpl<StreamApplication, StreamApplicationSpec> implements StreamApplicationSpec {
-  final StreamGraph graph;
+public class TestStreamGraph implements StreamGraph {
+  final Config config;
+  final List<String> inputStreams = new ArrayList<>();
+  final List<String> outputStreams = new ArrayList<>();
+  final List<TableDescriptor> tables = new ArrayList<>();
+  final Map<String, Serde> inputSerdes = new HashMap<>();
+  final Map<String, Serde> outputSerdes = new HashMap<>();
+  Serde defaultSerde;
 
-  public StreamAppSpecImpl(StreamApplication userApp, Config config) {
-    super(config);
-    this.graph = createDefaultGraph(config);
-    userApp.describe(this);
-  }
-
-  private StreamGraph createDefaultGraph(Config config) {
-    try {
-      Constructor<?> constructor = Class.forName("org.apache.samza.operators.StreamGraphSpec").getConstructor(Config.class); // *sigh*
-      return (StreamGraph) constructor.newInstance(config);
-    } catch (Exception e) {
-      throw new SamzaException("Cannot instantiate an empty StreamGraph to start user application.", e);
-    }
+  public TestStreamGraph(Config config) {
+    this.config = config;
   }
 
   @Override
   public void setDefaultSerde(Serde<?> serde) {
-    this.graph.setDefaultSerde(serde);
+    this.defaultSerde = serde;
   }
 
   @Override
   public <M> MessageStream<M> getInputStream(String streamId, Serde<M> serde) {
-    return this.graph.getInputStream(streamId, serde);
+    this.inputStreams.add(streamId);
+    this.inputSerdes.put(streamId, serde);
+    return mock(MessageStream.class);
   }
 
   @Override
   public <M> MessageStream<M> getInputStream(String streamId) {
-    return this.graph.getInputStream(streamId);
+    this.inputStreams.add(streamId);
+    return mock(MessageStream.class);
   }
 
   @Override
   public <M> OutputStream<M> getOutputStream(String streamId, Serde<M> serde) {
-    return this.graph.getOutputStream(streamId, serde);
+    this.outputStreams.add(streamId);
+    this.outputSerdes.put(streamId, serde);
+    return mock(OutputStream.class);
   }
 
   @Override
   public <M> OutputStream<M> getOutputStream(String streamId) {
-    return this.graph.getOutputStream(streamId);
+    this.outputStreams.add(streamId);
+    return mock(OutputStream.class);
   }
 
   @Override
   public <K, V> Table<KV<K, V>> getTable(TableDescriptor<K, V, ?> tableDesc) {
-    return this.graph.getTable(tableDesc);
+    this.tables.add(tableDesc);
+    return mock(Table.class);
   }
-
-  /**
-   * Get the user-defined high-level DAG {@link StreamGraph} object
-   *
-   * @return the {@link StreamGraph} object defined by the user application
-   */
-  public StreamGraph getGraph() {
-    return graph;
-  }
-
 }

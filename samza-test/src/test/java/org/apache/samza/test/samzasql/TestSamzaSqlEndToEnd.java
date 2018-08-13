@@ -34,7 +34,7 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.serializers.JsonSerdeV2Factory;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
-import org.apache.samza.sql.runner.SamzaSqlApplicationRuntime;
+import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
 import org.apache.samza.sql.system.TestAvroSystemFactory;
 import org.apache.samza.sql.testutil.JsonUtil;
 import org.apache.samza.sql.testutil.MyTestUdf;
@@ -78,7 +78,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     String sql1 = "Insert into testavro.outputTopic select id, CURRENT_TIME as long_value from testavro.SIMPLE1";
     List<String> sqlStmts = Arrays.asList(sql1);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRuntime runner = new SamzaSqlApplicationRuntime(true, new MapConfig(staticConfigs));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
     runner.runAndWaitForFinish();
 
     List<Integer> outMessages = TestAvroSystemFactory.messages.stream()
@@ -102,7 +102,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
             + "from testavro.COMPLEX1";
     List<String> sqlStmts = Collections.singletonList(sql1);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRuntime runner = new SamzaSqlApplicationRuntime(true, new MapConfig(staticConfigs));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
     runner.runAndWaitForFinish();
 
     List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
@@ -124,7 +124,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
         "Insert into testavro.outputTopic select Flatten(a) as id from (select MyTestArray(id) a from testavro.SIMPLE1)";
     List<String> sqlStmts = Collections.singletonList(sql1);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRuntime runner = new SamzaSqlApplicationRuntime(true, new MapConfig(staticConfigs));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
     runner.runAndWaitForFinish();
 
     List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
@@ -145,7 +145,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     String sql1 = "Insert into testavro.outputTopic select id, MyTest(id) as long_value from testavro.SIMPLE1";
     List<String> sqlStmts = Collections.singletonList(sql1);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRuntime runner = new SamzaSqlApplicationRuntime(true, new MapConfig(staticConfigs));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
     runner.runAndWaitForFinish();
 
     LOG.info("output Messages " + TestAvroSystemFactory.messages);
@@ -169,7 +169,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     String sql1 = "Insert into testavro.outputTopic select id from testavro.SIMPLE1 where RegexMatch('.*4', Name)";
     List<String> sqlStmts = Collections.singletonList(sql1);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRuntime runner = new SamzaSqlApplicationRuntime(true, new MapConfig(staticConfigs));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
     runner.runAndWaitForFinish();
 
     LOG.info("output Messages " + TestAvroSystemFactory.messages);
@@ -193,7 +193,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
 
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRuntime runner = new SamzaSqlApplicationRuntime(true, new MapConfig(staticConfigs));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
     runner.runAndWaitForFinish();
 
     List<String> outMessages = TestAvroSystemFactory.messages.stream()
@@ -222,7 +222,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
 
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRuntime runner = new SamzaSqlApplicationRuntime(true, new MapConfig(staticConfigs));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
     runner.runAndWaitForFinish();
 
     List<String> outMessages = TestAvroSystemFactory.messages.stream()
@@ -257,7 +257,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
 
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRuntime runner = new SamzaSqlApplicationRuntime(true, new MapConfig(staticConfigs));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
     runner.runAndWaitForFinish();
 
     List<String> outMessages = TestAvroSystemFactory.messages.stream()
@@ -289,7 +289,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
 
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRuntime runner = new SamzaSqlApplicationRuntime(true, new MapConfig(staticConfigs));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
     runner.runAndWaitForFinish();
 
     List<String> outMessages = TestAvroSystemFactory.messages.stream()
@@ -318,7 +318,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
 
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRuntime runner = new SamzaSqlApplicationRuntime(true, new MapConfig(staticConfigs));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
     runner.runAndWaitForFinish();
 
     List<String> outMessages = TestAvroSystemFactory.messages.stream()
@@ -347,7 +347,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
 
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRuntime runner = new SamzaSqlApplicationRuntime(true, new MapConfig(staticConfigs));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
     runner.runAndWaitForFinish();
 
     List<String> outMessages = TestAvroSystemFactory.messages.stream()
@@ -378,7 +378,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
 
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRuntime runner = new SamzaSqlApplicationRuntime(true, new MapConfig(staticConfigs));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
     runner.runAndWaitForFinish();
 
     List<String> outMessages = TestAvroSystemFactory.messages.stream()
@@ -408,7 +408,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
 
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRuntime runner = new SamzaSqlApplicationRuntime(true, new MapConfig(staticConfigs));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
     runner.runAndWaitForFinish();
 
     List<String> outMessages = TestAvroSystemFactory.messages.stream()
@@ -442,7 +442,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
 
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRuntime runner = new SamzaSqlApplicationRuntime(true, new MapConfig(staticConfigs));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
     runner.runAndWaitForFinish();
 
     // Let's capture the list of windows/counts per key.

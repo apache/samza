@@ -20,15 +20,15 @@ package org.apache.samza.example;
 
 import java.time.Duration;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationSpec;
+import org.apache.samza.application.StreamAppDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.runtime.ApplicationRuntime;
-import org.apache.samza.runtime.ApplicationRuntimes;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
@@ -44,18 +44,18 @@ public class RepartitionExample implements StreamApplication {
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    ApplicationRuntime app = ApplicationRuntimes.getApplicationRuntime(new RepartitionExample(), config);
+    ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new RepartitionExample(), config);
 
-    app.run();
-    app.waitForFinish();
+    runner.run();
+    runner.waitForFinish();
   }
 
   @Override
-  public void describe(StreamApplicationSpec graph) {
+  public void describe(StreamAppDescriptor appDesc) {
     MessageStream<PageViewEvent> pageViewEvents =
-        graph.getInputStream("pageViewEvent", new JsonSerdeV2<>(PageViewEvent.class));
+        appDesc.getInputStream("pageViewEvent", new JsonSerdeV2<>(PageViewEvent.class));
     OutputStream<KV<String, MyStreamOutput>> pageViewEventPerMember =
-        graph.getOutputStream("pageViewEventPerMember",
+        appDesc.getOutputStream("pageViewEventPerMember",
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(MyStreamOutput.class)));
 
     pageViewEvents

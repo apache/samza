@@ -19,19 +19,29 @@
 package org.apache.samza.container;
 
 /**
- * A Listener for {@link org.apache.samza.container.SamzaContainer} lifecycle events.
+ * A Listener for {@link SamzaContainer} lifecycle events.
  */
 public interface SamzaContainerListener {
 
   /**
-   *  Method invoked when the {@link org.apache.samza.container.SamzaContainer} has successfully transitioned to
+   * Callback before the {@link SamzaContainer} is started
+   */
+  void beforeStart();
+
+  /**
+   *  Method invoked when the {@link SamzaContainer} has successfully transitioned to
    *  the {@link org.apache.samza.SamzaContainerStatus#STARTED} state and is about to start the
    *  {@link org.apache.samza.container.RunLoop}
    */
   void onContainerStart();
 
   /**
-   *  Method invoked when the {@link org.apache.samza.container.SamzaContainer} has successfully transitioned to
+   * Callback before the {@link SamzaContainer} is stopped
+   */
+  void beforeStop();
+
+  /**
+   *  Method invoked when the {@link SamzaContainer} has successfully transitioned to
    *  {@link org.apache.samza.SamzaContainerStatus#STOPPED} state. Details on state transitions can be found in
    *  {@link org.apache.samza.SamzaContainerStatus}
    *  <br>
@@ -41,7 +51,7 @@ public interface SamzaContainerListener {
   void onContainerStop();
 
   /**
-   *  Method invoked when the {@link org.apache.samza.container.SamzaContainer} has  transitioned to
+   *  Method invoked when the {@link SamzaContainer} has  transitioned to
    *  {@link org.apache.samza.SamzaContainerStatus#FAILED} state. Details on state transitions can be found in
    *  {@link org.apache.samza.SamzaContainerStatus}
    *  <br>
@@ -50,7 +60,4 @@ public interface SamzaContainerListener {
    */
   void onContainerFailed(Throwable t);
 
-  void beforeStop();
-
-  void beforeStart();
 }

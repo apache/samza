@@ -42,7 +42,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.processor.StreamProcessor;
-import org.apache.samza.processor.StreamProcessorLifecycleListener;
+import org.apache.samza.runtime.ProcessorLifecycleListener;
 import org.apache.samza.task.AsyncStreamTaskAdapter;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
@@ -52,10 +52,7 @@ import org.junit.Assert;
 import org.junit.Test;
 import scala.Option$;
 
-import static org.mockito.Matchers.anyObject;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.*;
 
 
 public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
@@ -232,7 +229,7 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     KafkaConsumer consumer;
     KafkaProducer producer;
     StreamProcessor processor;
-    StreamProcessorLifecycleListener listener;
+    ProcessorLifecycleListener listener;
 
     private TestStubs(String bootstrapServer) {
       shutdownLatch = new CountDownLatch(1);
@@ -266,13 +263,15 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     }
 
     private void initProcessorListener() {
-      listener = mock(StreamProcessorLifecycleListener.class);
-      doNothing().when(listener).onStart();
-      doNothing().when(listener).onFailure(anyObject());
+      listener = mock(ProcessorLifecycleListener.class);
+      doNothing().when(listener).afterStart();
       doAnswer(invocation -> {
-          shutdownLatch.countDown();
+          if (invocation.getArguments()[0] == null) {
+            // stopped successfully
+            shutdownLatch.countDown();
+          }
           return null;
-        }).when(listener).onShutdown();
+        }).when(listener).afterStop(any());
     }
 
     private void initProducer(String bootstrapServer) {

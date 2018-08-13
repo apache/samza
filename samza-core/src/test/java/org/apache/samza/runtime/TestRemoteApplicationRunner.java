@@ -20,9 +20,9 @@
 package org.apache.samza.runtime;
 
 import java.time.Duration;
-import org.apache.samza.application.StreamApplicationSpec;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.samza.application.internal.StreamAppDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -30,33 +30,48 @@ import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.StreamJob;
 import org.apache.samza.job.StreamJobFactory;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.PowerMockRunner;
+import org.powermock.reflect.Whitebox;
 
 import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.Matchers.*;
+import static org.powermock.api.mockito.PowerMockito.*;
 
 
 /**
  * A test class for {@link RemoteApplicationRunner}.
  */
+@RunWith(PowerMockRunner.class)
+@PrepareForTest(RemoteApplicationRunner.class)
 public class TestRemoteApplicationRunner {
+
+  private RemoteApplicationRunner runner;
+
+  @Before
+  public void setUp() {
+    Map<String, String> config = new HashMap<>();
+    StreamAppDescriptorImpl appDesc = mock(StreamAppDescriptorImpl.class);
+    when(appDesc.getConfig()).thenReturn(new MapConfig(config));
+    runner = spy(new RemoteApplicationRunner(appDesc));
+    AbstractApplicationRunner.AppRuntimeExecutable appExecutable = runner.getStreamAppRuntimeExecutable(appDesc);
+    Whitebox.setInternalState(runner, "appExecutable", appExecutable);
+  }
+
   @Test
   public void testWaitForFinishReturnsBeforeTimeout() {
-    RemoteApplicationRunner runner = spy(new RemoteApplicationRunner(new MapConfig()));
-    StreamApplicationSpec mockSpec = mock(StreamApplicationSpec.class);
     doReturn(ApplicationStatus.SuccessfulFinish).when(runner).getApplicationStatus(any(JobConfig.class));
-
-    boolean finished = runner.waitForFinish(mockSpec, Duration.ofMillis(5000));
+    boolean finished = runner.waitForFinish(Duration.ofMillis(5000));
     assertTrue("Application did not finish before the timeout.", finished);
   }
 
   @Test
   public void testWaitForFinishTimesout() {
-    RemoteApplicationRunner runner = spy(new RemoteApplicationRunner(new MapConfig()));
-    StreamApplicationSpec mockSpec = mock(StreamApplicationSpec.class);
     doReturn(ApplicationStatus.Running).when(runner).getApplicationStatus(any(JobConfig.class));
-
-    boolean finished = runner.waitForFinish(mockSpec, Duration.ofMillis(1000));
+    boolean finished = runner.waitForFinish(Duration.ofMillis(1000));
     assertFalse("Application finished before the timeout.", finished);
   }
 
@@ -67,11 +82,16 @@ public class TestRemoteApplicationRunner {
     m.put(JobConfig.STREAM_JOB_FACTORY_CLASS(), MockStreamJobFactory.class.getName());
 
     m.put(JobConfig.JOB_ID(), "newJob");
-    RemoteApplicationRunner runner = new RemoteApplicationRunner(new MapConfig());
+
+    StreamAppDescriptorImpl appDesc = mock(StreamAppDescriptorImpl.class);
+    when(appDesc.getConfig()).thenReturn(new MapConfig(m));
+    runner = spy(new RemoteApplicationRunner(appDesc));
+
     Assert.assertEquals(ApplicationStatus.New, runner.getApplicationStatus(new JobConfig(new MapConfig(m))));
 
     m.put(JobConfig.JOB_ID(), "runningJob");
-    runner = new RemoteApplicationRunner(new JobConfig(new MapConfig(m)));
+    when(appDesc.getConfig()).thenReturn(new MapConfig(m));
+    runner = spy(new RemoteApplicationRunner(appDesc));
     Assert.assertEquals(ApplicationStatus.Running, runner.getApplicationStatus(new JobConfig(new MapConfig(m))));
   }
 

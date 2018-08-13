@@ -18,23 +18,20 @@
  */
 package org.apache.samza.runtime;
 
-import joptsimple.OptionSet;
-import joptsimple.OptionSpec;
-import org.apache.samza.util.CommandLine;
+import java.io.Serializable;
+import org.apache.samza.config.Config;
 
 
 /**
- * The class defines the basic command line arguments for Samza command line scripts.
+ * This interface class defines the factory method to create an instance of {@link ProcessorLifecycleListener}.
  */
-public class ApplicationRunnerCommandLine extends CommandLine {
-  public OptionSpec operationOpt = parser().accepts("operation", "The operation to perform; run, status, kill.")
-      .withRequiredArg()
-      .ofType(String.class)
-      .describedAs("operation=run")
-      .defaultsTo("run");
-
-  public ApplicationRunnerOperation getOperation(OptionSet options) {
-    String rawOp = options.valueOf(operationOpt).toString();
-    return ApplicationRunnerOperation.fromString(rawOp);
-  }
+public interface ProcessorLifecycleListenerFactory extends Serializable {
+  /**
+   * Create an instance of {@link ProcessorLifecycleListener} for the StreamProcessor
+   *
+   * @param pContext the context of the corresponding StreamProcessor
+   * @param config the configuration of the corresponding StreamProcessor
+   * @return the {@link ProcessorLifecycleListener} callback object for the StreamProcessor
+   */
+  ProcessorLifecycleListener createInstance(ProcessorContext pContext, Config config);
 }

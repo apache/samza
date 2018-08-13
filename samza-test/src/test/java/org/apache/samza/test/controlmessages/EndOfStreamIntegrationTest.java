@@ -24,8 +24,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import org.apache.samza.application.internal.StreamAppSpecImpl;
-import org.apache.samza.config.Config;
+import org.apache.samza.application.StreamAppDescriptor;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
@@ -33,8 +33,8 @@ import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.MapFunction;
-import org.apache.samza.runtime.ApplicationRuntime;
-import org.apache.samza.runtime.ApplicationRuntimes;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.standalone.PassthroughCoordinationUtilsFactory;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.test.controlmessages.TestData.PageView;
@@ -92,23 +92,23 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
     configs.put("serializers.registry.int.class", "org.apache.samza.serializers.IntegerSerdeFactory");
     configs.put("serializers.registry.json.class", PageViewJsonSerdeFactory.class.getName());
 
-    class PipelineApplication {
+    class PipelineApplication implements StreamApplication {
 
       @Override
-      public void init(StreamAppSpecImpl appSpec, Config config) {
-        appSpec.<KV<String, PageView>>getInputStream("PageView")
+      public void describe(StreamAppDescriptor appDesc) {
+        appDesc.<KV<String, PageView>>getInputStream("PageView")
             .map(Values.create())
             .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
             .sink((m, collector, coordinator) -> {
-              received.add(m.getValue());
-            });
+                received.add(m.getValue());
+              });
       }
     }
 
-    final ApplicationRuntime app = ApplicationRuntimes.createStreamApp(new PipelineApplication(), new MapConfig(configs));
+    final ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new PipelineApplication(), new MapConfig(configs));
 
-    app.run();
-    app.waitForFinish();
+    runner.run();
+    runner.waitForFinish();
 
     assertEquals(received.size(), count * partitionCount);
   }

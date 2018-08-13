@@ -21,11 +21,11 @@ package org.apache.samza.example;
 
 import com.google.common.collect.ImmutableList;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationSpec;
+import org.apache.samza.application.StreamAppDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.runtime.ApplicationRuntime;
-import org.apache.samza.runtime.ApplicationRuntimes;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
@@ -37,20 +37,20 @@ public class MergeExample implements StreamApplication {
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    ApplicationRuntime app = ApplicationRuntimes.getApplicationRuntime(new MergeExample(), config);
+    ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new MergeExample(), config);
 
-    app.run();
-    app.waitForFinish();
+    runner.run();
+    runner.waitForFinish();
   }
 
   @Override
-  public void describe(StreamApplicationSpec graph) {
+  public void describe(StreamAppDescriptor appDesc) {
     KVSerde<String, PageViewEvent>
         pgeMsgSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class));
 
-    MessageStream.mergeAll(ImmutableList.of(graph.getInputStream("viewStream1", pgeMsgSerde),
-        graph.getInputStream("viewStream2", pgeMsgSerde), graph.getInputStream("viewStream3", pgeMsgSerde)))
-        .sendTo(graph.getOutputStream("mergedStream", pgeMsgSerde));
+    MessageStream.mergeAll(ImmutableList.of(appDesc.getInputStream("viewStream1", pgeMsgSerde),
+        appDesc.getInputStream("viewStream2", pgeMsgSerde), appDesc.getInputStream("viewStream3", pgeMsgSerde)))
+        .sendTo(appDesc.getOutputStream("mergedStream", pgeMsgSerde));
   }
 
   class PageViewEvent {

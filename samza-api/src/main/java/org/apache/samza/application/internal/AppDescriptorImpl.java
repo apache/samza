@@ -18,25 +18,28 @@
  */
 package org.apache.samza.application.internal;
 
-import org.apache.samza.application.ApplicationSpec;
 import org.apache.samza.application.ApplicationBase;
-import org.apache.samza.application.ProcessorLifecycleListener;
+import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.ContextManager;
+import org.apache.samza.runtime.ProcessorLifecycleListener;
+import org.apache.samza.runtime.ProcessorLifecycleListenerFactory;
 import org.apache.samza.task.TaskContext;
 
 
 /**
- * This is the base class that implements interface {@link ApplicationSpec}. This base class contains the common objects
+ * This is the base class that implements interface {@link ApplicationDescriptor}. This base class contains the common objects
  * that are used by both high-level and low-level API applications, such as {@link Config}, {@link ContextManager}, and
  * {@link ProcessorLifecycleListener}.
  */
-public abstract class AppSpecImpl<T extends ApplicationBase, S extends ApplicationSpec<T>> implements ApplicationSpec<T> {
+public abstract class AppDescriptorImpl<T extends ApplicationBase, S extends ApplicationDescriptor<T>>
+    implements ApplicationDescriptor<T> {
 
   final Config config;
 
   // Default to no-op functions in ContextManager
+  // TODO: this should be replaced by shared context factory defined in SAMZA-1714
   ContextManager contextManager = new ContextManager() {
     @Override
     public void init(Config config, TaskContext context) {
@@ -47,11 +50,10 @@ public abstract class AppSpecImpl<T extends ApplicationBase, S extends Applicati
     }
   };
 
-  // Default to no-op functions in ProcessorLifecycleListener
-  ProcessorLifecycleListener listener = new ProcessorLifecycleListener() {
-  };
+  // Default to no-op  ProcessorLifecycleListenerFactory
+  ProcessorLifecycleListenerFactory listenerFactory = (pcontext, cfg) -> new ProcessorLifecycleListener() { };
 
-  AppSpecImpl(Config config) {
+  AppDescriptorImpl(Config config) {
     this.config = config;
   }
 
@@ -103,8 +105,8 @@ public abstract class AppSpecImpl<T extends ApplicationBase, S extends Applicati
   }
 
   @Override
-  public S withProcessorLifecycleListener(ProcessorLifecycleListener listener) {
-    this.listener = listener;
+  public S withProcessorLifecycleListenerFactory(ProcessorLifecycleListenerFactory listenerFactory) {
+    this.listenerFactory = listenerFactory;
     return (S) this;
   }
 
@@ -122,8 +124,8 @@ public abstract class AppSpecImpl<T extends ApplicationBase, S extends Applicati
    *
    * @return the {@link ProcessorLifecycleListener} object
    */
-  public ProcessorLifecycleListener getProcessorLifecycleListner() {
-    return listener;
+  public ProcessorLifecycleListenerFactory getProcessorLifecycleListenerFactory() {
+    return listenerFactory;
   }
 
 }

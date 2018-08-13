@@ -19,7 +19,7 @@
 package org.apache.samza.test.integration;
 
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationSpec;
+import org.apache.samza.application.StreamAppDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,10 +32,10 @@ public class TestStandaloneIntegrationApplication implements StreamApplication {
   private static final Logger LOGGER = LoggerFactory.getLogger(TestStandaloneIntegrationApplication.class);
 
   @Override
-  public void describe(StreamApplicationSpec graph) {
-    String inputStream = graph.getConfig().get("input.stream.name");
+  public void describe(StreamAppDescriptor appDesc) {
+    String inputStream = appDesc.getConfig().get("input.stream.name");
     String outputStreamName = "standaloneIntegrationTestKafkaOutputTopic";
     LOGGER.info("Publishing message to: {}.", outputStreamName);
-    graph.getInputStream(inputStream).sendTo(graph.getOutputStream(outputStreamName));
+    appDesc.getInputStream(inputStream).sendTo(appDesc.getOutputStream(outputStreamName));
   }
 }
