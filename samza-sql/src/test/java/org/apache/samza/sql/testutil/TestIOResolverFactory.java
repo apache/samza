@@ -23,6 +23,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.SamzaContainerContext;
@@ -50,7 +52,7 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
   public static final String TEST_TABLE_ID = "testDbId";
 
   @Override
-  public SqlIOResolver create(Config config) {
+  public SqlIOResolver create(Config config, Config fullConfig) {
     return new TestIOResolver(config);
   }
 
@@ -78,7 +80,17 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
     }
 
     @Override
+    public CompletableFuture getAsync(Object key) {
+      throw new NotImplementedException();
+    }
+
+    @Override
     public Map getAll(List keys) {
+      throw new NotImplementedException();
+    }
+
+    @Override
+    public CompletableFuture<Map> getAllAsync(List keys) {
       throw new NotImplementedException();
     }
 
@@ -98,13 +110,33 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
     }
 
     @Override
+    public CompletableFuture<Void> putAsync(Object key, Object value) {
+      throw new NotImplementedException();
+    }
+
+    @Override
+    public CompletableFuture<Void> putAllAsync(List list) {
+      throw new NotImplementedException();
+    }
+
+    @Override
     public void delete(Object key) {
       records.remove(key);
     }
 
     @Override
+    public CompletableFuture<Void> deleteAsync(Object key) {
+      throw new NotImplementedException();
+    }
+
+    @Override
     public void deleteAll(List keys) {
       records.clear();
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteAllAsync(List keys) {
+      throw new NotImplementedException();
     }
 
     @Override

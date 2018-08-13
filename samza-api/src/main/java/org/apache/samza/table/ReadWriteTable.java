@@ -19,6 +19,8 @@
 package org.apache.samza.table;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.storage.kv.Entry;
 
@@ -33,7 +35,8 @@ import org.apache.samza.storage.kv.Entry;
 public interface ReadWriteTable<K, V> extends ReadableTable<K, V> {
 
   /**
-   * Updates the mapping of the specified key-value pair; Associates the specified {@code key} with the specified {@code value}.
+   * Updates the mapping of the specified key-value pair;
+   * Associates the specified {@code key} with the specified {@code value}.
    *
    * The key is deleted from the table if value is {@code null}.
    *
@@ -42,6 +45,18 @@ public interface ReadWriteTable<K, V> extends ReadableTable<K, V> {
    * @throws NullPointerException if the specified {@code key} is {@code null}.
    */
   void put(K key, V value);
+
+  /**
+   * Asynchronously updates the mapping of the specified key-value pair;
+   * Associates the specified {@code key} with the specified {@code value}.
+   * The key is deleted from the table if value is {@code null}.
+   *
+   * @param key the key with which the specified {@code value} is to be associated.
+   * @param value the value with which the specified {@code key} is to be associated.
+   * @throws NullPointerException if the specified {@code key} is {@code null}.
+   * @return CompletableFuture for the operation
+   */
+  CompletableFuture<Void> putAsync(K key, V value);
 
   /**
    * Updates the mappings of the specified key-value {@code entries}.
@@ -54,12 +69,30 @@ public interface ReadWriteTable<K, V> extends ReadableTable<K, V> {
   void putAll(List<Entry<K, V>> entries);
 
   /**
+   * Asynchronously updates the mappings of the specified key-value {@code entries}.
+   * A key is deleted from the table if its corresponding value is {@code null}.
+   *
+   * @param entries the updated mappings to put into this table.
+   * @throws NullPointerException if any of the specified {@code entries} has {@code null} as key.
+   * @return CompletableFuture for the operation
+   */
+  CompletableFuture<Void> putAllAsync(List<Entry<K, V>> entries);
+
+  /**
    * Deletes the mapping for the specified {@code key} from this table (if such mapping exists).
    *
    * @param key the key for which the mapping is to be deleted.
    * @throws NullPointerException if the specified {@code key} is {@code null}.
    */
   void delete(K key);
+
+  /**
+   * Asynchronously deletes the mapping for the specified {@code key} from this table (if such mapping exists).
+   * @param key the key for which the mapping is to be deleted.
+   * @throws NullPointerException if the specified {@code key} is {@code null}.
+   * @return CompletableFuture for the operation
+   */
+  CompletableFuture<Void> deleteAsync(K key);
 
   /**
    * Deletes the mappings for the specified {@code keys} from this table.
@@ -69,10 +102,16 @@ public interface ReadWriteTable<K, V> extends ReadableTable<K, V> {
    */
   void deleteAll(List<K> keys);
 
+  /**
+   * Asynchronously deletes the mappings for the specified {@code keys} from this table.
+   * @param keys the keys for which the mappings are to be deleted.
+   * @throws NullPointerException if the specified {@code keys} list, or any of the keys, is {@code null}.
+   * @return CompletableFuture for the operation
+   */
+  CompletableFuture<Void> deleteAllAsync(List<K> keys);
 
   /**
    * Flushes the underlying store of this table, if applicable.
    */
   void flush();
-
 }

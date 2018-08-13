@@ -20,9 +20,15 @@
 package org.apache.samza.runtime;
 
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.ApplicationStatus;
+import org.apache.samza.job.StreamJob;
+import org.apache.samza.job.StreamJobFactory;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
@@ -49,5 +55,69 @@ public class TestRemoteApplicationRunner {
 
     boolean finished = runner.waitForFinish(Duration.ofMillis(1000));
     assertFalse("Application finished before the timeout.", finished);
+  }
+
+  @Test
+  public void testGetStatus() {
+    Map m = new HashMap<String, String>();
+    m.put(JobConfig.JOB_NAME(), "jobName");
+    m.put(JobConfig.STREAM_JOB_FACTORY_CLASS(), MockStreamJobFactory.class.getName());
+
+    m.put(JobConfig.JOB_ID(), "newJob");
+    RemoteApplicationRunner runner = new RemoteApplicationRunner(new MapConfig());
+    Assert.assertEquals(ApplicationStatus.New, runner.getApplicationStatus(new JobConfig(new MapConfig(m))));
+
+    m.put(JobConfig.JOB_ID(), "runningJob");
+    runner = new RemoteApplicationRunner(new JobConfig(new MapConfig(m)));
+    Assert.assertEquals(ApplicationStatus.Running, runner.getApplicationStatus(new JobConfig(new MapConfig(m))));
+  }
+
+  static public class MockStreamJobFactory implements StreamJobFactory {
+
+    public MockStreamJobFactory() {
+    }
+
+    @Override
+    public StreamJob getJob(final Config config) {
+
+      StreamJob streamJob = new StreamJob() {
+        JobConfig c = (JobConfig) config;
+
+        @Override
+        public StreamJob submit() {
+          return null;
+        }
+
+        @Override
+        public StreamJob kill() {
+          return null;
+        }
+
+        @Override
+        public ApplicationStatus waitForFinish(long timeoutMs) {
+          return null;
+        }
+
+        @Override
+        public ApplicationStatus waitForStatus(ApplicationStatus status, long timeoutMs) {
+          return null;
+        }
+
+        @Override
+        public ApplicationStatus getStatus() {
+          String jobId = c.getJobId().get();
+          switch (jobId) {
+            case "newJob":
+              return ApplicationStatus.New;
+            case "runningJob":
+              return ApplicationStatus.Running;
+            default:
+              return ApplicationStatus.UnsuccessfulFinish;
+          }
+        }
+      };
+
+      return streamJob;
+    }
   }
 }

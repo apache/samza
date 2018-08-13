@@ -24,10 +24,11 @@ import java.io.ObjectInputStream;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -46,6 +47,7 @@ import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.caching.CachingTableDescriptor;
 import org.apache.samza.table.caching.guava.GuavaCacheTableDescriptor;
+import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
 import org.apache.samza.table.remote.RemoteReadableTable;
@@ -63,7 +65,6 @@ import com.google.common.cache.CacheBuilder;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 
 
@@ -86,8 +87,8 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     }
 
     @Override
-    public TestTableData.Profile get(Integer key) {
-      return profileMap.getOrDefault(key, null);
+    public CompletableFuture<TestTableData.Profile> getAsync(Integer key) {
+      return CompletableFuture.completedFuture(profileMap.get(key));
     }
 
     static InMemoryReadFunction getInMemoryReadFunction(String serializedProfiles) {
@@ -112,18 +113,15 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     }
 
     @Override
-    public void put(Integer key, TestTableData.EnrichedPageView record) {
+    public CompletableFuture<Void> putAsync(Integer key, TestTableData.EnrichedPageView record) {
       records.add(record);
+      return CompletableFuture.completedFuture(null);
     }
 
     @Override
-    public void delete(Integer key) {
+    public CompletableFuture<Void> deleteAsync(Integer key) {
       records.remove(key);
-    }
-
-    @Override
-    public void deleteAll(Collection<Integer> keys) {
-      records.removeAll(keys);
+      return CompletableFuture.completedFuture(null);
     }
   }
 
@@ -187,9 +185,7 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
       }
 
       streamGraph.getInputStream("PageView", new NoOpSerde<TestTableData.PageView>())
-          .map(pv -> {
-              return new KV<Integer, TestTableData.PageView>(pv.getMemberId(), pv);
-            })
+          .map(pv -> new KV<>(pv.getMemberId(), pv))
           .join(inputTable, new TestLocalTable.PageViewToProfileJoinFunction())
           .map(m -> new KV(m.getMemberId(), m))
           .sendTo(outputTable);
@@ -230,8 +226,12 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
   @Test(expected = SamzaException.class)
   public void testCatchReaderException() {
     TableReadFunction<String, ?> reader = mock(TableReadFunction.class);
-    doThrow(new RuntimeException("Expected test exception")).when(reader).get(anyString());
-    RemoteReadableTable<String, ?> table = new RemoteReadableTable<>("table1", reader, null, null);
+    CompletableFuture<String> future = new CompletableFuture<>();
+    future.completeExceptionally(new RuntimeException("Expected test exception"));
+    doReturn(future).when(reader).getAsync(anyString());
+    TableRateLimiter rateLimitHelper = mock(TableRateLimiter.class);
+    RemoteReadableTable<String, ?> table = new RemoteReadableTable<>(
+        "table1", reader, rateLimitHelper, Executors.newSingleThreadExecutor(), null);
     table.init(mock(SamzaContainerContext.class), createMockTaskContext());
     table.get("abc");
   }
@@ -240,8 +240,12 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
   public void testCatchWriterException() {
     TableReadFunction<String, String> reader = mock(TableReadFunction.class);
     TableWriteFunction<String, String> writer = mock(TableWriteFunction.class);
-    doThrow(new RuntimeException("Expected test exception")).when(writer).put(anyString(), any());
-    RemoteReadWriteTable<String, String> table = new RemoteReadWriteTable<>("table1", reader, writer, null, null, null);
+    CompletableFuture<String> future = new CompletableFuture<>();
+    future.completeExceptionally(new RuntimeException("Expected test exception"));
+    doReturn(future).when(writer).putAsync(anyString(), any());
+    TableRateLimiter rateLimitHelper = mock(TableRateLimiter.class);
+    RemoteReadWriteTable<String, String> table = new RemoteReadWriteTable<String, String>(
+        "table1", reader, writer, rateLimitHelper, rateLimitHelper, Executors.newSingleThreadExecutor(), null);
     table.init(mock(SamzaContainerContext.class), createMockTaskContext());
     table.put("abc", "efg");
   }
