@@ -22,9 +22,7 @@ package org.apache.samza.util
 
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config._
-import org.apache.samza.system.SystemStream
 import org.apache.samza.SamzaException
-
 import java.lang.management.ManagementFactory
 import java.net.Inet4Address
 import java.net.InetAddress
@@ -63,46 +61,6 @@ object Util extends Logging {
         error("Unable to create an instance for class %s." format className, e)
         throw e
       }
-    }
-  }
-
-  /**
-   * Returns a SystemStream object based on the system stream name given. For
-   * example, kafka.topic would return new SystemStream("kafka", "topic").
-   */
-  def getSystemStreamFromNames(systemStreamNames: String): SystemStream = {
-    val idx = systemStreamNames.indexOf('.')
-    if (idx < 0) {
-      throw new IllegalArgumentException("No '.' in stream name '" + systemStreamNames + "'. Stream names should be in the form 'system.stream'")
-    }
-    new SystemStream(systemStreamNames.substring(0, idx), systemStreamNames.substring(idx + 1, systemStreamNames.length))
-  }
-
-  /**
-   * Returns a SystemStream object based on the system stream name given. For
-   * example, kafka.topic would return new SystemStream("kafka", "topic").
-   */
-  def getNameFromSystemStream(systemStream: SystemStream) = {
-    systemStream.getSystem + "." + systemStream.getStream
-  }
-
-  /**
-    * Gets the [[SystemStream]] corresponding to the provided stream, which may be
-    * a streamId, or stream name of the format systemName.streamName.
-    *
-    * @param stream the stream name or id to get the { @link SystemStream} for.
-    * @return the [[SystemStream]] for the stream
-    */
-  def getSystemStreamFromNameOrId(config: Config, stream: String): SystemStream = {
-    val parts = stream.split(".")
-    if (parts.length == 0 || parts.length > 2) {
-      throw new SamzaException(
-        String.format("Invalid stream %s. Expected to be of the format streamId or systemName.streamName", stream))
-    }
-    if (parts.length == 1) {
-      new StreamConfig(config).streamIdToSystemStream(stream)
-    } else {
-      new SystemStream(parts(0), parts(1))
     }
   }
 

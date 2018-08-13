@@ -31,6 +31,8 @@ import java.util.Map
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
+import org.apache.samza.config.ShellCommandConfig
+
 import scala.collection.JavaConverters._
 
 /**
@@ -41,6 +43,7 @@ import scala.collection.JavaConverters._
  * taskName // container_567890
  * host // eat1-app128.gird
  * version // 0.0.1
+  * blacklist // Regex of metrics to ignore when flushing
  */
 class MetricsSnapshotReporter(
   producer: SystemProducer,
@@ -53,12 +56,16 @@ class MetricsSnapshotReporter(
   samzaVersion: String,
   host: String,
   serializer: Serializer[MetricsSnapshot] = null,
+  blacklist: Option[String],
   clock: () => Long = () => { System.currentTimeMillis }) extends MetricsReporter with Runnable with Logging {
+
+  val execEnvironmentContainerId = Option[String](System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID)).getOrElse("")
 
   val executor = Executors.newSingleThreadScheduledExecutor(
     new ThreadFactoryBuilder().setNameFormat("Samza MetricsSnapshotReporter Thread-%d").setDaemon(true).build())
   val resetTime = clock()
   var registries = List[(String, ReadableMetricsRegistry)]()
+  var blacklistedMetrics = Set[String]()
 
   info("got metrics snapshot reporter properties [job name: %s, job id: %s, containerName: %s, version: %s, samzaVersion: %s, host: %s, pollingInterval %s]"
     format (jobName, jobId, containerName, version, samzaVersion, host, pollingInterval))
@@ -113,19 +120,24 @@ class MetricsSnapshotReporter(
 
         registry.getGroup(group).asScala.foreach {
           case (name, metric) =>
-            metric.visit(new MetricsVisitor {
-              // for listGauge the value is returned as a list, which gets serialized
-              def listGauge[T](listGauge: ListGauge[T]) = {groupMsg.put(name, listGauge.getValues)  }
-              def counter(counter: Counter) = groupMsg.put(name, counter.getCount: java.lang.Long)
-              def gauge[T](gauge: Gauge[T]) = groupMsg.put(name, gauge.getValue.asInstanceOf[Object])
-              def timer(timer: Timer) = groupMsg.put(name, timer.getSnapshot().getAverage(): java.lang.Double)
-            })
+            if (!shouldIgnore(group, name)) {
+              metric.visit(new MetricsVisitor {
+                // for listGauge the value is returned as a list, which gets serialized
+                def listGauge[T](listGauge: ListGauge[T]) = { groupMsg.put(name, listGauge.getValues) }
+                def counter(counter: Counter) = groupMsg.put(name, counter.getCount: java.lang.Long)
+                def gauge[T](gauge: Gauge[T]) = groupMsg.put(name, gauge.getValue.asInstanceOf[Object])
+                def timer(timer: Timer) = groupMsg.put(name, timer.getSnapshot().getAverage(): java.lang.Double)
+              })
+            }
         }
 
-        metricsMsg.put(group, groupMsg)
+        // dont emit empty groups
+        if(!groupMsg.isEmpty) {
+          metricsMsg.put(group, groupMsg)
+        }
       })
 
-      val header = new MetricsHeader(jobName, jobId, containerName, source, version, samzaVersion, host, clock(), resetTime)
+      val header = new MetricsHeader(jobName, jobId, containerName, execEnvironmentContainerId, source, version, samzaVersion, host, clock(), resetTime)
       val metrics = new Metrics(metricsMsg)
 
       debug("Flushing metrics for %s to %s with header and map: header=%s, map=%s." format (source, out, header.getAsMap, metrics.getAsMap))
@@ -150,5 +162,22 @@ class MetricsSnapshotReporter(
 
 
     debug("Finished flushing metrics.")
+  }
+
+
+  def shouldIgnore(group: String, metricName: String) = {
+    var isBlacklisted = blacklist.isDefined
+    val fullMetricName = group + "." + metricName
+
+    if (isBlacklisted && !blacklistedMetrics.contains(fullMetricName)) {
+      if (fullMetricName.matches(blacklist.get)) {
+        blacklistedMetrics += fullMetricName
+        info("Blacklisted metric %s because it matched blacklist regex: %s" format(fullMetricName, blacklist.get))
+      } else {
+        isBlacklisted = false
+      }
+    }
+
+    isBlacklisted
   }
 }

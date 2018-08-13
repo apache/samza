@@ -40,9 +40,9 @@ class BroadcastOperatorImpl<M> extends OperatorImpl<M, Void> {
   private final SystemStream systemStream;
   private final String taskName;
 
-  BroadcastOperatorImpl(BroadcastOperatorSpec<M> broadcastOpSpec, TaskContext context) {
+  BroadcastOperatorImpl(BroadcastOperatorSpec<M> broadcastOpSpec, SystemStream systemStream, TaskContext context) {
     this.broadcastOpSpec = broadcastOpSpec;
-    this.systemStream = broadcastOpSpec.getOutputStream().getSystemStream();
+    this.systemStream = systemStream;
     this.taskName = context.getTaskName().getTaskName();
   }
 
