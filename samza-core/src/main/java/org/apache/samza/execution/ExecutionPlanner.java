@@ -204,6 +204,8 @@ public class ExecutionPlanner {
           if (partitions == StreamEdge.PARTITIONS_UNKNOWN) {
             //if the partition is not assigned
             partitions = edgePartitions;
+            log.info("Inferred the partition count {} for the join operator {} from {}."
+                , new Object[] {partitions, join.getOpId(), edge.getName()});
           } else if (partitions != edgePartitions) {
             throw  new SamzaException(String.format(
                 "Unable to resolve input partitions of stream %s for join. Expected: %d, Actual: %d",
@@ -212,7 +214,6 @@ public class ExecutionPlanner {
         }
       }
 
-      log.info("Inferred the partition count for inputs to the join operator {} as {}.", join.getOpId(), partitions);
       // assign the partition count for intermediate streams
       for (StreamEdge edge : joinSpecToStreamEdges.get(join)) {
         if (edge.getPartitionCount() <= 0) {
