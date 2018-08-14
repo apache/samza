@@ -212,11 +212,11 @@ public class ExecutionPlanner {
         }
       }
 
-      log.info("Inferred the partition count for the operator {} as {}.", join.getOpId(), partitions);
+      log.info("Inferred the partition count for inputs to the join operator {} as {}.", join.getOpId(), partitions);
       // assign the partition count for intermediate streams
       for (StreamEdge edge : joinSpecToStreamEdges.get(join)) {
         if (edge.getPartitionCount() <= 0) {
-          log.info("Initialize the partition count for the associated edge {} to {}.", edge.getName(), partitions);
+          log.info("Set the partition count for join input {} to {}.", edge.getName(), partitions);
           edge.setPartitionCount(partitions);
 
           // find other joins can be inferred by setting this edge
@@ -281,7 +281,7 @@ public class ExecutionPlanner {
     }
     for (StreamEdge edge : jobGraph.getIntermediateStreamEdges()) {
       if (edge.getPartitionCount() <= 0) {
-        log.info("Initialize the partition count for edge {} to {}.", edge.getName(), partitions);
+        log.info("Set the partition count for join input {} to {}.", edge.getName(), partitions);
         edge.setPartitionCount(partitions);
       }
     }
