@@ -23,11 +23,10 @@ package org.apache.samza.job
 import java.util.concurrent.TimeUnit
 
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{Config, JobConfig, MetricsConfig, StreamConfig}
+import org.apache.samza.config._
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.coordinator.stream.{CoordinatorStreamSystemConsumer, CoordinatorStreamSystemProducer}
 import org.apache.samza.coordinator.stream.messages.{Delete, SetConfig}
-import org.apache.samza.job.ApplicationStatus.{Running, SuccessfulFinish}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.ApplicationRunnerMain.ApplicationRunnerCommandLine
 import org.apache.samza.runtime.ApplicationRunnerOperation
@@ -87,16 +86,16 @@ class JobRunner(config: Config) extends Logging {
     // Create the coordinator stream if it doesn't exist
     info("Creating coordinator stream")
     val coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config)
-    val systemAdmin = systemAdmins.getSystemAdmin(coordinatorSystemStream.getSystem)
+    val coordinatorSystemAdmin = systemAdmins.getSystemAdmin(coordinatorSystemStream.getSystem)
     val streamName = coordinatorSystemStream.getStream
     val coordinatorSpec = StreamSpec.createCoordinatorStreamSpec(streamName, coordinatorSystemStream.getSystem)
-    systemAdmin.start()
-    if (systemAdmin.createStream(coordinatorSpec)) {
+    coordinatorSystemAdmin.start()
+    if (coordinatorSystemAdmin.createStream(coordinatorSpec)) {
       info("Created coordinator stream %s." format streamName)
     } else {
       info("Coordinator stream %s already exists." format streamName)
     }
-    systemAdmin.stop()
+    coordinatorSystemAdmin.stop()
 
     if (resetJobConfig) {
       info("Storing config in coordinator stream.")
@@ -122,21 +121,25 @@ class JobRunner(config: Config) extends Logging {
     // if diagnostics is enabled, create diagnostics stream if it doesnt exist
     if (new JobConfig(config).getDiagnosticsEnabled) {
       val DIAGNOSTICS_STREAM_ID = "samza-diagnostics-stream-id"
-      val systemStreamName = new MetricsConfig(config).
-        getMetricsReporterStream(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS).get
-      val systemStream = StreamUtil.getSystemStreamFromNames(systemStreamName)
-      val diagnosticSysAdmin = systemAdmins.getSystemAdmin(systemStream.getSystem)
-      val diagnosticStreamSpec = new StreamSpec(DIAGNOSTICS_STREAM_ID, systemStream.getStream,
-        systemStream.getSystem, new StreamConfig(config).getStreamProperties(DIAGNOSTICS_STREAM_ID))
+      val diagnosticsSystemStreamName = new MetricsConfig(config).
+        getMetricsReporterStream(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS).
+        getOrElse(throw new ConfigException("Missing required config: " +
+          String.format(MetricsConfig.METRICS_SNAPSHOT_REPORTER_STREAM,
+            MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS)))
 
-      info("Creating diagnostics stream %s" format systemStream.getStream)
-      diagnosticSysAdmin.start()
-      if (diagnosticSysAdmin.createStream(diagnosticStreamSpec)) {
-        info("Created diagnostics stream %s" format systemStream.getStream)
+      val diagnosticsSystemStream = StreamUtil.getSystemStreamFromNames(diagnosticsSystemStreamName)
+      val diagnosticsSysAdmin = systemAdmins.getSystemAdmin(diagnosticsSystemStream.getSystem)
+      val diagnosticsStreamSpec = new StreamSpec(DIAGNOSTICS_STREAM_ID, diagnosticsSystemStream.getStream,
+        diagnosticsSystemStream.getSystem, new StreamConfig(config).getStreamProperties(DIAGNOSTICS_STREAM_ID))
+
+      info("Creating diagnostics stream %s" format diagnosticsSystemStream.getStream)
+      diagnosticsSysAdmin.start()
+      if (diagnosticsSysAdmin.createStream(diagnosticsStreamSpec)) {
+        info("Created diagnostics stream %s" format diagnosticsSystemStream.getStream)
       } else {
-        info("Diagnostics stream %s already exists" format systemStream.getStream)
+        info("Diagnostics stream %s already exists" format diagnosticsSystemStream.getStream)
       }
-      diagnosticSysAdmin.stop()
+      diagnosticsSysAdmin.stop()
     }
 
 
