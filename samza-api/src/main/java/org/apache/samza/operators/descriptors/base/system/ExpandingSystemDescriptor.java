@@ -63,19 +63,4 @@ public abstract class ExpandingSystemDescriptor<SystemExpanderType, SubClass ext
    * @return a {@link InputDescriptor} for the input stream
    */
   public abstract InputDescriptor<SystemExpanderType, ? extends InputDescriptor> getInputDescriptor(String streamId, Serde serde);
-
-  /**
-   * Gets a {@link InputDescriptor} for an input stream on this system. The stream has the provided
-   * stream level serde, and the provided stream level {@link InputTransformer}.
-   * <p>
-   * The type of messages in the stream is the same as the type of messages in the {@code MessageStream} returned
-   * by the {@link StreamExpander} for this system.
-   *
-   * @param streamId id of the input stream
-   * @param serde stream level serde for the input stream
-   * @param transformer stream level {@link InputTransformer} for the input stream
-   * @return a {@link InputDescriptor} for the input stream
-   */
-  public abstract InputDescriptor<SystemExpanderType, ? extends InputDescriptor> getInputDescriptor(String streamId, InputTransformer transformer, Serde serde);
-
 }

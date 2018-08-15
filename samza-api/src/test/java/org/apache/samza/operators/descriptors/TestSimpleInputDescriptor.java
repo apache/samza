@@ -22,10 +22,7 @@ import java.util.Collections;
 import org.apache.samza.operators.descriptors.serde.MockSimpleInputDescriptor;
 import org.apache.samza.operators.descriptors.serde.MockSimpleOutputDescriptor;
 import org.apache.samza.operators.descriptors.serde.MockSimpleSystemDescriptor;
-import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.IntegerSerde;
-import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.junit.Test;
 
@@ -42,7 +39,6 @@ public class TestSimpleInputDescriptor {
             .withSystemConfigs(Collections.emptyMap());
 
     MockSimpleInputDescriptor<Integer> input1 = kafkaSystem.getInputDescriptor("input1", new IntegerSerde());
-    MockSimpleInputDescriptor<Float> input2 = kafkaSystem.getInputDescriptor("input2", ime -> 1f, new IntegerSerde());
 
     MockSimpleOutputDescriptor<Integer> output1 = kafkaSystem.getOutputDescriptor("output1", new IntegerSerde());
 
@@ -62,26 +58,10 @@ public class TestSimpleInputDescriptor {
   @Test
   public void testISDObjectsWithOverrides() {
     MockSimpleSystemDescriptor ssd = new MockSimpleSystemDescriptor("kafka-system");
-
-    InputTransformer<IncomingMessageEnvelope> transformer = m -> m;
     IntegerSerde streamSerde = new IntegerSerde();
-
-    MockSimpleInputDescriptor<IncomingMessageEnvelope> isd =
-        ssd.getInputDescriptor("input-stream", transformer, streamSerde);
+    MockSimpleInputDescriptor<Integer> isd = ssd.getInputDescriptor("input-stream", streamSerde);
 
     assertEquals(streamSerde, isd.getSerde());
-    assertEquals(transformer, isd.getTransformer().get());
-  }
-
-  @Test
-  public void testISDObjectsWithDefaults() {
-    MockSimpleSystemDescriptor sssd = new MockSimpleSystemDescriptor("kafka-system");
-    MockSimpleInputDescriptor<String> isd = sssd.getInputDescriptor("input-stream", new StringSerde());
-
     assertFalse(isd.getTransformer().isPresent());
-  }
-
-  class PageView {
-
   }
 }

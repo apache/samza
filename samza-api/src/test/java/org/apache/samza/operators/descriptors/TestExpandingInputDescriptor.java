@@ -22,10 +22,7 @@ import java.util.Collections;
 import org.apache.samza.operators.descriptors.expanding.MockExpandingInputDescriptor;
 import org.apache.samza.operators.descriptors.expanding.MockExpandingOutputDescriptor;
 import org.apache.samza.operators.descriptors.expanding.MockExpandingSystemDescriptor;
-import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.IntegerSerde;
-import org.apache.samza.serializers.LongSerde;
-import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.junit.Test;
 
@@ -38,7 +35,6 @@ public class TestExpandingInputDescriptor {
     MockExpandingSystemDescriptor expandingSystem = new MockExpandingSystemDescriptor("expandingSystem");
 
     MockExpandingInputDescriptor<Long> input1 = expandingSystem.getInputDescriptor("input1", new IntegerSerde());
-    MockExpandingInputDescriptor<Long> input2 = expandingSystem.getInputDescriptor("input2", ime -> 1f, new IntegerSerde());
 
     MockExpandingOutputDescriptor<Integer> output1 = expandingSystem.getOutputDescriptor("output1", new IntegerSerde());
 
@@ -58,22 +54,10 @@ public class TestExpandingInputDescriptor {
   @Test
   public void testISDObjectsWithOverrides() {
     MockExpandingSystemDescriptor expandingSystem = new MockExpandingSystemDescriptor("expandingSystem");
-
-    InputTransformer<IncomingMessageEnvelope> transformer = m -> m;
     IntegerSerde streamSerde = new IntegerSerde();
-
-    MockExpandingInputDescriptor<Long> expandingISD =
-        expandingSystem.getInputDescriptor("input-stream", transformer, streamSerde);
+    MockExpandingInputDescriptor<Long> expandingISD = expandingSystem.getInputDescriptor("input-stream", streamSerde);
 
     assertEquals(streamSerde, expandingISD.getSerde());
-    assertEquals(transformer, expandingISD.getTransformer().get());
-  }
-
-  @Test
-  public void testISDObjectsWithDefaults() {
-    MockExpandingSystemDescriptor expandingSystem = new MockExpandingSystemDescriptor("expandingSystem");
-    MockExpandingInputDescriptor<Long> defaultISD = expandingSystem.getInputDescriptor("input-stream", new LongSerde());
-
-    assertEquals(expandingSystem.getTransformer().get(), defaultISD.getTransformer().get());
+    assertEquals(expandingSystem.getTransformer().get(), expandingISD.getTransformer().get());
   }
 }

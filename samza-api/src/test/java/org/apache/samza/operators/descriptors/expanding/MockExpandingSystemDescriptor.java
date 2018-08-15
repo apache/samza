@@ -40,11 +40,6 @@ public class MockExpandingSystemDescriptor extends ExpandingSystemDescriptor<Lon
   }
 
   @Override
-  public MockExpandingInputDescriptor<Long> getInputDescriptor(String streamId, InputTransformer transformer, Serde serde) {
-    return new MockExpandingInputDescriptor<>(streamId, this, transformer, serde);
-  }
-
-  @Override
   public <StreamMessageType> MockExpandingOutputDescriptor<StreamMessageType> getOutputDescriptor(String streamId, Serde<StreamMessageType> serde) {
     return new MockExpandingOutputDescriptor<>(streamId, this, serde);
   }

@@ -20,7 +20,6 @@ package org.apache.samza.operators.descriptors;
 
 
 import org.apache.samza.operators.descriptors.base.system.SimpleSystemDescriptor;
-import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
 
 /**
@@ -52,15 +51,6 @@ public final class GenericSystemDescriptor extends SimpleSystemDescriptor<Generi
   public <StreamMessageType> GenericInputDescriptor<StreamMessageType> getInputDescriptor(
       String streamId, Serde<StreamMessageType> serde) {
     return new GenericInputDescriptor<>(streamId, this, null, serde);
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public <StreamMessageType> GenericInputDescriptor<StreamMessageType> getInputDescriptor(
-      String streamId, InputTransformer<StreamMessageType> transformer, Serde serde) {
-    return new GenericInputDescriptor<>(streamId, this, transformer, serde);
   }
 
   /**

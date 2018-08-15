@@ -78,14 +78,6 @@ public class KafkaSystemDescriptor extends SimpleSystemDescriptor<KafkaSystemDes
    * {@inheritDoc}
    */
   @Override
-  public <StreamMessageType> InputDescriptor<StreamMessageType, ? extends InputDescriptor> getInputDescriptor(String streamId, InputTransformer<StreamMessageType> transformer, Serde serde) {
-    return new KafkaInputDescriptor<>(streamId, this, serde, transformer);
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
   public <StreamMessageType> KafkaOutputDescriptor<StreamMessageType> getOutputDescriptor(String streamId, Serde<StreamMessageType> serde) {
     return new KafkaOutputDescriptor<>(streamId, this, serde);
   }

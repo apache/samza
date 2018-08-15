@@ -23,10 +23,8 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.DoubleSerde;
 import org.apache.samza.serializers.IntegerSerde;
-import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.junit.Test;
 
@@ -44,7 +42,6 @@ public class TestGenericInputDescriptor {
             .withDefaultStreamConfigs(Collections.emptyMap());
 
     GenericInputDescriptor<Integer> input1 = mySystem.getInputDescriptor("input1", new IntegerSerde());
-    GenericInputDescriptor<Float> input2 = mySystem.getInputDescriptor("input2", ime -> 1f, new IntegerSerde());
 
     GenericOutputDescriptor<Integer> output1 = mySystem.getOutputDescriptor("output1", new IntegerSerde());
 
@@ -118,26 +115,10 @@ public class TestGenericInputDescriptor {
         new GenericSystemDescriptor("input-system", "factory.class.name")
             .withSystemConfigs(Collections.emptyMap())
             .withDefaultStreamConfigs(Collections.emptyMap());
-
-    InputTransformer<IncomingMessageEnvelope> transformer = m -> m;
     IntegerSerde streamSerde = new IntegerSerde();
-
-    GenericInputDescriptor<IncomingMessageEnvelope> isd =
-        mySystem.getInputDescriptor("input-stream", transformer, streamSerde);
+    GenericInputDescriptor<Integer> isd = mySystem.getInputDescriptor("input-stream", streamSerde);
 
     assertEquals(streamSerde, isd.getSerde());
-    assertEquals(transformer, isd.getTransformer().get());
-  }
-
-  @Test
-  public void testISDObjectsWithDefaults() {
-    GenericSystemDescriptor mySystem =
-        new GenericSystemDescriptor("input-system", "factory.class.name")
-            .withSystemConfigs(Collections.emptyMap())
-            .withDefaultStreamConfigs(Collections.emptyMap());
-
-    GenericInputDescriptor<Double> isd = mySystem.getInputDescriptor("input-stream", new DoubleSerde());
-
     assertFalse(isd.getTransformer().isPresent());
   }
 }

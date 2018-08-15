@@ -19,7 +19,6 @@
 package org.apache.samza.operators.descriptors.base.system;
 
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
-import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
 
 /**
@@ -51,18 +50,4 @@ public abstract class SimpleSystemDescriptor<SubClass extends SimpleSystemDescri
    * @return an {@link InputDescriptor} for the input stream
    */
   public abstract <StreamMessageType> InputDescriptor<StreamMessageType, ? extends InputDescriptor> getInputDescriptor(String streamId, Serde<StreamMessageType> serde);
-
-  /**
-   * Gets an {@link InputDescriptor} for an input stream on this system. The stream has the provided
-   * stream level serde, and the provided stream level {@link InputTransformer}
-   * <p>
-   * The type of messages in the stream is the type of messages returned by the provided {@link InputTransformer}.
-   *
-   * @param streamId id of the input stream
-   * @param transformer stream level serde for the input stream
-   * @param serde stream level serde for the input stream
-   * @param <StreamTransformerType> type of messages in this stream
-   * @return an {@link InputDescriptor} for the input stream
-   */
-  public abstract <StreamTransformerType> InputDescriptor<StreamTransformerType, ? extends InputDescriptor> getInputDescriptor(String streamId, InputTransformer<StreamTransformerType> transformer, Serde serde);
 }

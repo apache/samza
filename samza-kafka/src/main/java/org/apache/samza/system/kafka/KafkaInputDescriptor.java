@@ -36,7 +36,7 @@ public class KafkaInputDescriptor<StreamMessageType>
   private Optional<String> consumerAutoOffsetResetOptional = Optional.empty();
   private Optional<Long> consumerFetchMessageMaxBytesOptional = Optional.empty();
 
-  KafkaInputDescriptor(String streamId, SystemDescriptor systemDescriptor, Serde serde, InputTransformer<StreamMessageType> transformer) {
+  KafkaInputDescriptor(String streamId, SystemDescriptor systemDescriptor, Serde serde, InputTransformer transformer) {
     super(streamId, systemDescriptor.getSystemName(), serde, systemDescriptor, transformer);
   }
 

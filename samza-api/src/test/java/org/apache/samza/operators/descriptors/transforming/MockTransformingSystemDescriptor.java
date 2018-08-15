@@ -19,7 +19,6 @@
 package org.apache.samza.operators.descriptors.transforming;
 
 import org.apache.samza.operators.descriptors.base.system.TransformingSystemDescriptor;
-import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
 
 public class MockTransformingSystemDescriptor extends TransformingSystemDescriptor<Long, MockTransformingSystemDescriptor> {
@@ -32,11 +31,6 @@ public class MockTransformingSystemDescriptor extends TransformingSystemDescript
   @Override
   public MockTransformingInputDescriptor<Long> getInputDescriptor(String streamId, Serde serde) {
     return new MockTransformingInputDescriptor<>(streamId, this, null, serde);
-  }
-
-  @Override
-  public <StreamMessageType> MockTransformingInputDescriptor<StreamMessageType> getInputDescriptor(String streamId, InputTransformer<StreamMessageType> transformer, Serde serde) {
-    return new MockTransformingInputDescriptor<>(streamId, this, transformer, serde);
   }
 
   @Override

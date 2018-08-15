@@ -35,6 +35,7 @@ import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.ExpandingSystemDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
+import org.apache.samza.operators.descriptors.base.system.TransformingSystemDescriptor;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.operators.functions.StreamExpander;
 import org.apache.samza.operators.spec.InputOperatorSpec;
@@ -119,9 +120,9 @@ public class TestStreamGraphSpec {
     StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
 
     Serde mockValueSerde = mock(Serde.class);
-    GenericSystemDescriptor sd = new GenericSystemDescriptor("mockSystem", "mockFactory");
     InputTransformer transformer = ime -> ime;
-    GenericInputDescriptor isd = sd.getInputDescriptor(streamId, transformer, mockValueSerde);
+    MockTransformingSystemDescriptor sd = new MockTransformingSystemDescriptor("mockSystem", transformer);
+    MockInputDescriptor isd = sd.getInputDescriptor(streamId, mockValueSerde);
     MessageStream inputStream = graphSpec.getInputStream(isd);
 
     InputOperatorSpec inputOpSpec = (InputOperatorSpec) ((MessageStreamImpl) inputStream).getOperatorSpec();
@@ -147,7 +148,7 @@ public class TestStreamGraphSpec {
       return sg.getInputStream(expandedISD);
     };
     MockExpandingSystemDescriptor sd = new MockExpandingSystemDescriptor("mock-system", expander);
-    MockExpandingInputDescriptor isd = sd.getInputDescriptor(streamId, new IntegerSerde());
+    MockInputDescriptor isd = sd.getInputDescriptor(streamId, new IntegerSerde());
     MessageStream inputStream = graphSpec.getInputStream(isd);
     InputOperatorSpec inputOpSpec = (InputOperatorSpec) ((MessageStreamImpl) inputStream).getOperatorSpec();
     assertEquals(1, expandCallCount.get());
@@ -440,13 +441,8 @@ public class TestStreamGraphSpec {
     }
 
     @Override
-    public MockExpandingInputDescriptor<Integer> getInputDescriptor(String streamId, Serde serde) {
-      return new MockExpandingInputDescriptor<>(streamId, this, serde);
-    }
-
-    @Override
-    public MockExpandingInputDescriptor<Integer> getInputDescriptor(String streamId, InputTransformer transformer, Serde serde) {
-      throw new UnsupportedOperationException();
+    public MockInputDescriptor<Integer> getInputDescriptor(String streamId, Serde serde) {
+      return new MockInputDescriptor<>(streamId, this, serde);
     }
 
     @Override
@@ -455,8 +451,24 @@ public class TestStreamGraphSpec {
     }
   }
 
-  public class MockExpandingInputDescriptor<StreamMessageType> extends InputDescriptor<StreamMessageType, org.apache.samza.operators.descriptors.expanding.MockExpandingInputDescriptor<StreamMessageType>> {
-    MockExpandingInputDescriptor(String streamId, SystemDescriptor systemDescriptor, Serde serde) {
+  class MockTransformingSystemDescriptor extends TransformingSystemDescriptor<Integer, MockTransformingSystemDescriptor> {
+    public MockTransformingSystemDescriptor(String systemName, InputTransformer transformer) {
+      super(systemName, "factory.class", transformer);
+    }
+
+    @Override
+    public MockInputDescriptor<Integer> getInputDescriptor(String streamId, Serde serde) {
+      return new MockInputDescriptor<>(streamId, this, serde);
+    }
+
+    @Override
+    public <StreamMessageType> OutputDescriptor<StreamMessageType, ? extends OutputDescriptor> getOutputDescriptor(String streamId, Serde<StreamMessageType> serde) {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  public class MockInputDescriptor<StreamMessageType> extends InputDescriptor<StreamMessageType, MockInputDescriptor<StreamMessageType>> {
+    MockInputDescriptor(String streamId, SystemDescriptor systemDescriptor, Serde serde) {
       super(streamId, systemDescriptor.getSystemName(), serde, systemDescriptor, null);
     }
   }

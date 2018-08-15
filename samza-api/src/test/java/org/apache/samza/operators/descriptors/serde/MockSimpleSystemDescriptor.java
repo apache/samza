@@ -19,7 +19,6 @@
 package org.apache.samza.operators.descriptors.serde;
 
 import org.apache.samza.operators.descriptors.base.system.SimpleSystemDescriptor;
-import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
 
 public class MockSimpleSystemDescriptor extends SimpleSystemDescriptor<MockSimpleSystemDescriptor> {
@@ -32,11 +31,6 @@ public class MockSimpleSystemDescriptor extends SimpleSystemDescriptor<MockSimpl
   @Override
   public <StreamMessageType> MockSimpleInputDescriptor<StreamMessageType> getInputDescriptor(String streamId, Serde<StreamMessageType> serde) {
     return new MockSimpleInputDescriptor<>(streamId, this, null, serde);
-  }
-
-  @Override
-  public <StreamMessageType> MockSimpleInputDescriptor<StreamMessageType> getInputDescriptor(String streamId, InputTransformer<StreamMessageType> transformer, Serde serde) {
-    return new MockSimpleInputDescriptor<>(streamId, this, transformer, serde);
   }
 
   @Override
