@@ -40,9 +40,7 @@ public class TestGenericInputDescriptor {
         new GenericSystemDescriptor("input-system", "factory.class.name")
             .withSystemConfigs(Collections.emptyMap())
             .withDefaultStreamConfigs(Collections.emptyMap());
-
     GenericInputDescriptor<Integer> input1 = mySystem.getInputDescriptor("input1", new IntegerSerde());
-
     GenericOutputDescriptor<Integer> output1 = mySystem.getOutputDescriptor("output1", new IntegerSerde());
 
     input1

@@ -38,7 +38,7 @@ public class InputOperatorSpec extends OperatorSpec<IncomingMessageEnvelope, Obj
 
   private final String streamId;
   private final boolean isKeyed;
-  private final InputTransformer<?> transformer; // may be null
+  private final InputTransformer transformer; // may be null
 
   /**
    * The following {@link Serde}s are serialized by the ExecutionPlanner when generating the configs for a stream, and
@@ -50,7 +50,7 @@ public class InputOperatorSpec extends OperatorSpec<IncomingMessageEnvelope, Obj
   private transient final Optional<Serde> valueSerdeOptional;
 
   public InputOperatorSpec(String streamId, Serde keySerde, Serde valueSerde,
-      InputTransformer<?> transformer, boolean isKeyed, String opId) {
+      InputTransformer transformer, boolean isKeyed, String opId) {
     super(OpCode.INPUT, opId);
     this.streamId = streamId;
     this.isKeyed = isKeyed;
@@ -75,7 +75,7 @@ public class InputOperatorSpec extends OperatorSpec<IncomingMessageEnvelope, Obj
     return isKeyed;
   }
 
-  public Optional<InputTransformer<?>> getTransformer() {
+  public Optional<InputTransformer> getTransformer() {
     return Optional.ofNullable(transformer);
   }
 

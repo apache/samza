@@ -37,9 +37,7 @@ public class TestSimpleInputDescriptor {
     MockSimpleSystemDescriptor kafkaSystem =
         new MockSimpleSystemDescriptor("kafka-system")
             .withSystemConfigs(Collections.emptyMap());
-
     MockSimpleInputDescriptor<Integer> input1 = kafkaSystem.getInputDescriptor("input1", new IntegerSerde());
-
     MockSimpleOutputDescriptor<Integer> output1 = kafkaSystem.getOutputDescriptor("output1", new IntegerSerde());
 
     input1

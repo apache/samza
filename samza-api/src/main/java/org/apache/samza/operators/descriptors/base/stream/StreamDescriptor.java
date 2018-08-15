@@ -114,12 +114,6 @@ public abstract class StreamDescriptor<StreamMessageType, SubClass extends Strea
     return this.systemName;
   }
 
-  /**
-   * Get the serde for this stream. This can be the stream level serde if one was provided,
-   * or the default system level serde.
-   *
-   * @return the serde for this stream
-   */
   public Serde getSerde() {
     return this.serde;
   }
@@ -131,7 +125,6 @@ public abstract class StreamDescriptor<StreamMessageType, SubClass extends Strea
   public Optional<String> getPhysicalName() {
     return physicalNameOptional;
   }
-
 
   private boolean isValidId(String id) {
     return StringUtils.isNotBlank(id) && ID_PATTERN.matcher(id).matches();

@@ -44,5 +44,4 @@ public class TestGenericSystemDescriptor {
     );
     assertEquals(expectedConfigs, generatedConfigs);
   }
-
 }

@@ -82,14 +82,6 @@ public class KafkaInputDescriptor<StreamMessageType>
     return this;
   }
 
-  private Optional<String> getConsumerAutoOffsetReset() {
-    return this.consumerAutoOffsetResetOptional;
-  }
-
-  private Optional<Long> getConsumerFetchMessageMaxBytes() {
-    return this.consumerFetchMessageMaxBytesOptional;
-  }
-
   @Override
   public Map<String, String> toConfig() {
     HashMap<String, String> configs = new HashMap<>(super.toConfig());
@@ -104,9 +96,9 @@ public class KafkaInputDescriptor<StreamMessageType>
     }
     String systemName = getSystemName();
 
-    getConsumerAutoOffsetReset().ifPresent(autoOffsetReset ->
+    consumerAutoOffsetResetOptional.ifPresent(autoOffsetReset ->
         configs.put(String.format(CONSUMER_AUTO_OFFSET_RESET_CONFIG_KEY, systemName, streamName), autoOffsetReset));
-    getConsumerFetchMessageMaxBytes().ifPresent(fetchMessageMaxBytes ->
+    consumerFetchMessageMaxBytesOptional.ifPresent(fetchMessageMaxBytes ->
         configs.put(String.format(CONSUMER_FETCH_MESSAGE_MAX_BYTES_CONFIG_KEY, systemName, streamName), Long.toString(fetchMessageMaxBytes)));
     return configs;
   }

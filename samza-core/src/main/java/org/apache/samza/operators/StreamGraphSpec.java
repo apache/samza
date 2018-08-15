@@ -331,5 +331,4 @@ public class StreamGraphSpec implements StreamGraph {
 
     return KV.of(keySerde, valueSerde);
   }
-
 }

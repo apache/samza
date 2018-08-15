@@ -33,9 +33,7 @@ public class TestExpandingInputDescriptor {
     // does not assert anything, but acts as a compile-time check on expected descriptor type parameters
     // and validates that the method calls can be chained.
     MockExpandingSystemDescriptor expandingSystem = new MockExpandingSystemDescriptor("expandingSystem");
-
     MockExpandingInputDescriptor<Long> input1 = expandingSystem.getInputDescriptor("input1", new IntegerSerde());
-
     MockExpandingOutputDescriptor<Integer> output1 = expandingSystem.getOutputDescriptor("output1", new IntegerSerde());
 
     input1

@@ -52,7 +52,7 @@ public class OperatorSpecs {
    */
   public static InputOperatorSpec createInputOperatorSpec(
       String streamId, Serde keySerde, Serde valueSerde,
-      InputTransformer<?> transformer, boolean isKeyed, String opId) {
+      InputTransformer transformer, boolean isKeyed, String opId) {
     return new InputOperatorSpec(streamId, keySerde, valueSerde, transformer, isKeyed, opId);
   }
 

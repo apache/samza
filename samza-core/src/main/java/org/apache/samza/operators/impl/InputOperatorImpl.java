@@ -51,7 +51,7 @@ public final class InputOperatorImpl extends OperatorImpl<IncomingMessageEnvelop
   @Override
   public Collection<Object> handleMessage(IncomingMessageEnvelope ime, MessageCollector collector, TaskCoordinator coordinator) {
     Object message;
-    Optional<InputTransformer<?>> transformerOptional = inputOpSpec.getTransformer();
+    Optional<InputTransformer> transformerOptional = inputOpSpec.getTransformer();
     if (transformerOptional.isPresent()) {
       message = transformerOptional.get().apply(ime);
     } else {

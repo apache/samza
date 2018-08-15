@@ -36,9 +36,7 @@ public class TestTransformingInputDescriptor {
     MockTransformingSystemDescriptor imeTransformingSystem =
         new MockTransformingSystemDescriptor("imeTransformingSystem")
             .withSystemConfigs(Collections.emptyMap());
-
     MockTransformingInputDescriptor<Long> input1 = imeTransformingSystem.getInputDescriptor("input1", new IntegerSerde());
-
     MockTransformingOutputDescriptor<Integer> output1 = imeTransformingSystem.getOutputDescriptor("output1", new IntegerSerde());
 
     input1

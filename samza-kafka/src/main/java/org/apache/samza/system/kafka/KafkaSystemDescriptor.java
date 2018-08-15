@@ -224,57 +224,25 @@ public class KafkaSystemDescriptor extends SimpleSystemDescriptor<KafkaSystemDes
     return this;
   }
 
-  private List<String> getConsumerZkConnect() {
-    return this.consumerZkConnect;
-  }
-
-  private Optional<String> getConsumerAutoOffsetReset() {
-    return this.consumerAutoOffsetResetOptional;
-  }
-
-  private Optional<Integer> getConsumerFetchThreshold() {
-    return this.consumerFetchThresholdOptional;
-  }
-
-  private Optional<Long> getConsumerFetchThresholdBytes() {
-    return this.consumerFetchThresholdBytesOptional;
-  }
-
-  private Optional<Long> getConsumerFetchMessageMaxBytes() {
-    return this.consumerFetchMessageMaxBytesOptional;
-  }
-
-  private Map<String, String> getConsumerConfigs() {
-    return this.consumerConfigs;
-  }
-
-  private List<String> getProducerBootstrapServers() {
-    return this.producerBootstrapServers;
-  }
-
-  private Map<String, String> getProducerConfigs() {
-    return this.producerConfigs;
-  }
-
   @Override
   public Map<String, String> toConfig() {
     Map<String, String> configs = new HashMap<>(super.toConfig());
-    if(!getConsumerZkConnect().isEmpty()) {
-      configs.put(String.format(CONSUMER_ZK_CONNECT_CONFIG_KEY, getSystemName()), String.join(",", getConsumerZkConnect()));
+    if(!consumerZkConnect.isEmpty()) {
+      configs.put(String.format(CONSUMER_ZK_CONNECT_CONFIG_KEY, getSystemName()), String.join(",", consumerZkConnect));
     }
-    getConsumerAutoOffsetReset().ifPresent(consumerAutoOffsetReset ->
+    consumerAutoOffsetResetOptional.ifPresent(consumerAutoOffsetReset ->
         configs.put(String.format(CONSUMER_AUTO_OFFSET_RESET_CONFIG_KEY, getSystemName()), consumerAutoOffsetReset));
-    getConsumerFetchThreshold().ifPresent(consumerFetchThreshold ->
+    consumerFetchThresholdOptional.ifPresent(consumerFetchThreshold ->
         configs.put(String.format(CONSUMER_FETCH_THRESHOLD_CONFIG_KEY, getSystemName()), Integer.toString(consumerFetchThreshold)));
-    getConsumerFetchThresholdBytes().ifPresent(consumerFetchThresholdBytes ->
+    consumerFetchThresholdBytesOptional.ifPresent(consumerFetchThresholdBytes ->
         configs.put(String.format(CONSUMER_FETCH_THRESHOLD_BYTES_CONFIG_KEY, getSystemName()), Long.toString(consumerFetchThresholdBytes)));
-    getConsumerFetchMessageMaxBytes().ifPresent(consumerFetchMessageMaxBytes ->
+    consumerFetchMessageMaxBytesOptional.ifPresent(consumerFetchMessageMaxBytes ->
         configs.put(String.format(CONSUMER_FETCH_MESSAGE_MAX_BYTES_KEY, getSystemName()), Long.toString(consumerFetchMessageMaxBytes)));
-    getConsumerConfigs().forEach((key, value) -> configs.put(String.format(CONSUMER_CONFIGS_CONFIG_KEY, getSystemName(), key), value));
-    if (!getProducerBootstrapServers().isEmpty()) {
-      configs.put(String.format(PRODUCER_BOOTSTRAP_SERVERS_CONFIG_KEY, getSystemName()), String.join(",", getProducerBootstrapServers()));
+    consumerConfigs.forEach((key, value) -> configs.put(String.format(CONSUMER_CONFIGS_CONFIG_KEY, getSystemName(), key), value));
+    if (!producerBootstrapServers.isEmpty()) {
+      configs.put(String.format(PRODUCER_BOOTSTRAP_SERVERS_CONFIG_KEY, getSystemName()), String.join(",", producerBootstrapServers));
     }
-    getProducerConfigs().forEach((key, value) -> configs.put(String.format(PRODUCER_CONFIGS_CONFIG_KEY, getSystemName(), key), value));
+    producerConfigs.forEach((key, value) -> configs.put(String.format(PRODUCER_CONFIGS_CONFIG_KEY, getSystemName(), key), value));
     return configs;
   }
 }

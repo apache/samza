@@ -51,7 +51,7 @@ public abstract class TransformingSystemDescriptor<SystemTransformerType, SubCla
    * Gets a {@link InputDescriptor} for an input stream on this system. The stream has the provided
    * stream level serde, and the default system level {@link InputTransformer}
    * <p>
-   * The type of messages in the stream is the type of messages returned by the provided stream level
+   * The type of messages in the stream is the type of messages returned by the default system level
    * {@link InputTransformer}.
    *
    * @param streamId id of the input stream
