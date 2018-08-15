@@ -67,9 +67,9 @@ public class TestRemoteTable {
     ExecutorService tableExecutor = Executors.newSingleThreadExecutor();
 
     if (writeFn == null) {
-      table = new RemoteReadableTable<K, V>(tableId, readFn, readRateLimiter, tableExecutor, cbExecutor);
+      table = new RemoteReadableTable<>(tableId, readFn, readRateLimiter, tableExecutor, cbExecutor);
     } else {
-      table = new RemoteReadWriteTable<K, V>(tableId, readFn, writeFn, readRateLimiter, writeRateLimiter, tableExecutor, cbExecutor);
+      table = new RemoteReadWriteTable<>(tableId, readFn, writeFn, readRateLimiter, writeRateLimiter, tableExecutor, cbExecutor);
     }
 
     TaskContext taskContext = mock(TaskContext.class);
