@@ -208,8 +208,8 @@ public class ExecutionPlanner {
                 , new Object[] {partitions, join.getOpId(), edge.getName()});
           } else if (partitions != edgePartitions) {
             throw  new SamzaException(String.format(
-                "Unable to resolve input partitions of stream %s for join. Expected: %d, Actual: %d",
-                edge.getName(), partitions, edgePartitions));
+                "Unable to resolve input partitions of stream %s for the join %s. Expected: %d, Actual: %d",
+                edge.getName(), join.getOpId(), partitions, edgePartitions));
           }
         }
       }
@@ -217,7 +217,8 @@ public class ExecutionPlanner {
       // assign the partition count for intermediate streams
       for (StreamEdge edge : joinSpecToStreamEdges.get(join)) {
         if (edge.getPartitionCount() <= 0) {
-          log.info("Set the partition count for join input {} to {}.", edge.getName(), partitions);
+          log.info("Set the partition count to {} for input stream {} to the join {}.",
+              new Object[] {partitions, edge.getName(), join.getOpId()});
           edge.setPartitionCount(partitions);
 
           // find other joins can be inferred by setting this edge
@@ -282,7 +283,7 @@ public class ExecutionPlanner {
     }
     for (StreamEdge edge : jobGraph.getIntermediateStreamEdges()) {
       if (edge.getPartitionCount() <= 0) {
-        log.info("Set the partition count for join input {} to {}.", edge.getName(), partitions);
+        log.info("Set the partition count for intermediate stream {} to {}.", edge.getName(), partitions);
         edge.setPartitionCount(partitions);
       }
     }
