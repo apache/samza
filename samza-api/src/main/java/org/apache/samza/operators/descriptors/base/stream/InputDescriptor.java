@@ -22,9 +22,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import org.apache.samza.operators.descriptors.base.system.ExpandingSystemDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
-import org.apache.samza.operators.descriptors.base.system.TransformingSystemDescriptor;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.SystemStreamMetadata.OffsetType;
@@ -35,7 +33,6 @@ import org.apache.samza.system.SystemStreamMetadata.OffsetType;
  * @param <StreamMessageType> type of messages in this stream.
  * @param <SubClass> type of the concrete sub-class
  */
-@SuppressWarnings("unchecked")
 public abstract class InputDescriptor<StreamMessageType, SubClass extends InputDescriptor<StreamMessageType, SubClass>>
     extends StreamDescriptor<StreamMessageType, SubClass> {
   private static final String RESET_OFFSET_CONFIG_KEY = "streams.%s.samza.reset.offset";
@@ -45,13 +42,14 @@ public abstract class InputDescriptor<StreamMessageType, SubClass extends InputD
   private static final String BOUNDED_CONFIG_KEY = "streams.%s.samza.bounded";
   private static final String DELETE_COMMITTED_MESSAGES_CONFIG_KEY = "streams.%s.samza.delete.committed.messages";
 
-  private Optional<InputTransformer<StreamMessageType>> transformerOptional = Optional.empty();
+  private final Optional<InputTransformer> transformerOptional;
+
   private Optional<Boolean> resetOffsetOptional = Optional.empty();
   private Optional<OffsetType> offsetDefaultOptional = Optional.empty();
   private Optional<Integer> priorityOptional = Optional.empty();
   private Optional<Boolean> isBootstrapOptional = Optional.empty();
   private Optional<Boolean> isBoundedOptional = Optional.empty();
-  private Optional<Boolean> shouldDeleteCommittedMessagesOptional = Optional.empty();
+  private Optional<Boolean> deleteCommittedMessagesOptional = Optional.empty();
 
   /**
    * Constructs an {@link InputDescriptor} instance.
@@ -59,24 +57,18 @@ public abstract class InputDescriptor<StreamMessageType, SubClass extends InputD
    * @param streamId id of the stream
    * @param systemName system name for the stream
    * @param serde serde for messages in the stream
-   * @param systemDescriptor system descriptor this stream descriptor was obtained from if available, else null
+   * @param systemDescriptor system descriptor this stream descriptor was obtained from
    * @param transformer stream level input stream transform function if available, else null
    */
   public InputDescriptor(String streamId, String systemName, Serde serde,
-      SystemDescriptor systemDescriptor, InputTransformer<StreamMessageType> transformer) {
+      SystemDescriptor systemDescriptor, InputTransformer transformer) {
     super(streamId, systemName, serde, systemDescriptor);
 
     // stream level transformer takes precedence over system level transformer
     if (transformer != null) {
       this.transformerOptional = Optional.of(transformer);
     } else {
-      if (systemDescriptor instanceof TransformingSystemDescriptor) {
-        this.transformerOptional =
-            Optional.ofNullable(((TransformingSystemDescriptor) systemDescriptor).getTransformer());
-      } else if (systemDescriptor instanceof ExpandingSystemDescriptor) {
-        this.transformerOptional =
-            Optional.ofNullable(((ExpandingSystemDescriptor) systemDescriptor).getTransformer());
-      }
+      this.transformerOptional = systemDescriptor.getTransformer();
     }
   }
 
@@ -161,56 +153,32 @@ public abstract class InputDescriptor<StreamMessageType, SubClass extends InputD
    * If set to true, and supported by the system implementation, messages older than the latest checkpointed offset
    * for this stream may be deleted after the commit.
    *
-   * @param shouldDeleteCommittedMessages whether the system should attempt to delete checkpointed messages
+   * @param deleteCommittedMessages whether the system should attempt to delete checkpointed messages
    * @return this input descriptor
    */
-  public SubClass withDeleteCommittedMessages(boolean shouldDeleteCommittedMessages) {
-    this.shouldDeleteCommittedMessagesOptional = Optional.of(shouldDeleteCommittedMessages);
+  public SubClass withDeleteCommittedMessages(boolean deleteCommittedMessages) {
+    this.deleteCommittedMessagesOptional = Optional.of(deleteCommittedMessages);
     return (SubClass) this;
   }
 
-  public Optional<InputTransformer<StreamMessageType>> getTransformer() {
+  public Optional<InputTransformer> getTransformer() {
     return this.transformerOptional;
-  }
-
-  private Optional<Boolean> isResetOffset() {
-    return this.resetOffsetOptional;
-  }
-
-  private Optional<OffsetType> getOffsetDefault() {
-    return this.offsetDefaultOptional;
-  }
-
-  private Optional<Integer> getPriority() {
-    return this.priorityOptional;
-  }
-
-  private Optional<Boolean> isBootstrap() {
-    return this.isBootstrapOptional;
-  }
-
-  private Optional<Boolean> isBounded() {
-    return this.isBoundedOptional;
-  }
-
-  private Optional<Boolean> shouldDeleteCommittedMessages() {
-    return this.shouldDeleteCommittedMessagesOptional;
   }
 
   @Override
   public Map<String, String> toConfig() {
     HashMap<String, String> configs = new HashMap<>(super.toConfig());
     String streamId = getStreamId();
-    getOffsetDefault().ifPresent(od -> configs.put(String.format(OFFSET_DEFAULT_CONFIG_KEY, streamId), od.name().toLowerCase()));
-    isResetOffset().ifPresent(resetOffset ->
+    offsetDefaultOptional.ifPresent(od -> configs.put(String.format(OFFSET_DEFAULT_CONFIG_KEY, streamId), od.name().toLowerCase()));
+    resetOffsetOptional.ifPresent(resetOffset ->
         configs.put(String.format(RESET_OFFSET_CONFIG_KEY, streamId), Boolean.toString(resetOffset)));
-    getPriority().ifPresent(priority ->
+    priorityOptional.ifPresent(priority ->
         configs.put(String.format(PRIORITY_CONFIG_KEY, streamId), Integer.toString(priority)));
-    isBootstrap().ifPresent(bootstrap ->
+    isBootstrapOptional.ifPresent(bootstrap ->
         configs.put(String.format(BOOTSTRAP_CONFIG_KEY, streamId), Boolean.toString(bootstrap)));
-    isBounded().ifPresent(bounded ->
+    isBoundedOptional.ifPresent(bounded ->
         configs.put(String.format(BOUNDED_CONFIG_KEY, streamId), Boolean.toString(bounded)));
-    shouldDeleteCommittedMessages().ifPresent(deleteCommittedMessages ->
+    deleteCommittedMessagesOptional.ifPresent(deleteCommittedMessages ->
         configs.put(String.format(DELETE_COMMITTED_MESSAGES_CONFIG_KEY, streamId),
             Boolean.toString(deleteCommittedMessages)));
     return Collections.unmodifiableMap(configs);

@@ -36,7 +36,7 @@ public abstract class SimpleSystemDescriptor<SubClass extends SimpleSystemDescri
    * @param factoryClassName name of the SystemFactory class for this system
    */
   public SimpleSystemDescriptor(String systemName, String factoryClassName) {
-    super(systemName, factoryClassName);
+    super(systemName, factoryClassName, null, null);
   }
 
   /**

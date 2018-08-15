@@ -34,8 +34,6 @@ import org.apache.samza.serializers.Serde;
  */
 public abstract class ExpandingSystemDescriptor<SystemExpanderType, SubClass extends ExpandingSystemDescriptor<SystemExpanderType, SubClass>>
     extends SystemDescriptor<SubClass> {
-  private final StreamExpander<SystemExpanderType> expander;
-  private final InputTransformer transformer;
 
   /**
    * Constructs an {@link ExpandingSystemDescriptor} instance.
@@ -47,12 +45,10 @@ public abstract class ExpandingSystemDescriptor<SystemExpanderType, SubClass ext
    */
   public ExpandingSystemDescriptor(String systemName, String factoryClassName,
       InputTransformer transformer, StreamExpander<SystemExpanderType> expander) {
-    super(systemName, factoryClassName);
-    this.transformer = transformer;
+    super(systemName, factoryClassName, transformer, expander);
     if (expander == null) {
       throw new SamzaException("Default StreamExpander may not be null for an ExpandingSystemDescriptor");
     }
-    this.expander = expander;
   }
 
   /**
@@ -82,11 +78,4 @@ public abstract class ExpandingSystemDescriptor<SystemExpanderType, SubClass ext
    */
   public abstract InputDescriptor<SystemExpanderType, ? extends InputDescriptor> getInputDescriptor(String streamId, InputTransformer transformer, Serde serde);
 
-  public StreamExpander<SystemExpanderType> getExpander() {
-    return this.expander;
-  }
-
-  public InputTransformer getTransformer() {
-    return this.transformer;
-  }
 }

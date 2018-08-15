@@ -23,7 +23,6 @@ import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
 
-@SuppressWarnings("unchecked")
 public class MockSimpleInputDescriptor<StreamMessageType> extends InputDescriptor<StreamMessageType, MockSimpleInputDescriptor<StreamMessageType>> {
   MockSimpleInputDescriptor(String streamId, SystemDescriptor systemDescriptor, InputTransformer<StreamMessageType> transformer, Serde serde) {
     super(streamId, systemDescriptor.getSystemName(), serde, systemDescriptor, transformer);

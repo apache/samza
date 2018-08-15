@@ -26,7 +26,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.samza.SamzaException;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.serializers.Serde;
 
@@ -36,7 +35,6 @@ import org.apache.samza.serializers.Serde;
  * @param <StreamMessageType> type of messages in this stream.
  * @param <SubClass> type of the concrete sub-class
  */
-@SuppressWarnings("unchecked")
 public abstract class StreamDescriptor<StreamMessageType, SubClass extends StreamDescriptor<StreamMessageType, SubClass>> {
   private static final String SYSTEM_CONFIG_KEY = "streams.%s.samza.system";
   private static final String PHYSICAL_NAME_CONFIG_KEY = "streams.%s.samza.physical.name";
@@ -46,10 +44,10 @@ public abstract class StreamDescriptor<StreamMessageType, SubClass extends Strea
   private final String streamId;
   private final String systemName;
   private final Serde serde;
-  private final Optional<SystemDescriptor> systemDescriptorOptional;
+  private final SystemDescriptor systemDescriptor;
 
+  private final Map<String, String> streamConfigs = new HashMap<>();
   private Optional<String> physicalNameOptional = Optional.empty();
-  private Map<String, String> streamConfigs = new HashMap<>();
 
   /**
    * Constructs a {@link StreamDescriptor} instance.
@@ -57,10 +55,9 @@ public abstract class StreamDescriptor<StreamMessageType, SubClass extends Strea
    * @param streamId id of the stream
    * @param systemName system name for the stream
    * @param serde serde for messages in the stream
-   * @param systemDescriptor system descriptor this stream descriptor was obtained from if available, else null
+   * @param systemDescriptor system descriptor this stream descriptor was obtained from
    */
-  StreamDescriptor(String streamId, String systemName, Serde<StreamMessageType> serde,
-      SystemDescriptor systemDescriptor) {
+  StreamDescriptor(String streamId, String systemName, Serde serde, SystemDescriptor systemDescriptor) {
     Preconditions.checkState(isValidId(streamId),
         String.format("streamId must be non-empty and must not contain spaces or special characters. " +
             "streamId: %s, systemName: %s", streamId, systemName));
@@ -69,21 +66,15 @@ public abstract class StreamDescriptor<StreamMessageType, SubClass extends Strea
             "systemName: %s, streamId: %s", systemName, streamId));
     Preconditions.checkArgument(serde != null,
         String.format("Serde must not be null. streamId: %s systemName: %s", streamId, systemName));
-
+    Preconditions.checkArgument(systemDescriptor != null,
+        String.format("SystemDescriptor must not be null. streamId: %s systemName: %s", streamId, systemName));
+    Preconditions.checkArgument(systemDescriptor.getSystemName().equals(systemName),
+        String.format("System name in constructor: %s does not match system name in SystemDescriptor: %s. streamId: %s",
+            systemName, systemDescriptor.getSystemName(), streamId));
     this.streamId = streamId;
     this.systemName = systemName;
     this.serde = serde;
-
-    if (systemDescriptor != null) {
-      if (!systemDescriptor.getSystemName().equals(systemName)) {
-        throw new SamzaException(
-            String.format("System name in constructor: %s does not match system name in SystemDescriptor: %s",
-                systemName, systemDescriptor.getSystemName()));
-      }
-      this.systemDescriptorOptional = Optional.of(systemDescriptor);
-    } else {
-      this.systemDescriptorOptional = Optional.empty();
-    }
+    this.systemDescriptor = systemDescriptor;
   }
 
   /**
@@ -133,17 +124,14 @@ public abstract class StreamDescriptor<StreamMessageType, SubClass extends Strea
     return this.serde;
   }
 
-  public Optional<SystemDescriptor> getSystemDescriptor() {
-    return this.systemDescriptorOptional;
+  public SystemDescriptor getSystemDescriptor() {
+    return this.systemDescriptor;
   }
 
   public Optional<String> getPhysicalName() {
     return physicalNameOptional;
   }
 
-  private Map<String, String> getStreamConfigs() {
-    return this.streamConfigs;
-  }
 
   private boolean isValidId(String id) {
     return StringUtils.isNotBlank(id) && ID_PATTERN.matcher(id).matches();
@@ -154,7 +142,7 @@ public abstract class StreamDescriptor<StreamMessageType, SubClass extends Strea
     configs.put(String.format(SYSTEM_CONFIG_KEY, streamId), getSystemName());
     getPhysicalName().ifPresent(physicalName ->
         configs.put(String.format(PHYSICAL_NAME_CONFIG_KEY, streamId), physicalName));
-    getStreamConfigs().forEach((key, value) ->
+    streamConfigs.forEach((key, value) ->
         configs.put(String.format(STREAM_CONFIGS_CONFIG_KEY, streamId, key), value));
     return Collections.unmodifiableMap(configs);
   }

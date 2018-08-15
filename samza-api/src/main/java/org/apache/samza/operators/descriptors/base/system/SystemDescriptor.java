@@ -20,13 +20,14 @@ package org.apache.samza.operators.descriptors.base.system;
 
 import com.google.common.base.Preconditions;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
+import org.apache.samza.operators.functions.InputTransformer;
+import org.apache.samza.operators.functions.StreamExpander;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.SystemStreamMetadata.OffsetType;
 import org.slf4j.Logger;
@@ -37,7 +38,6 @@ import org.slf4j.LoggerFactory;
  *
  * @param <SubClass> type of the concrete sub-class
  */
-@SuppressWarnings("unchecked")
 public abstract class SystemDescriptor<SubClass extends SystemDescriptor<SubClass>> {
   private static final Logger LOGGER = LoggerFactory.getLogger(SystemDescriptor.class);
   private static final String FACTORY_CONFIG_KEY = "systems.%s.samza.factory";
@@ -48,10 +48,12 @@ public abstract class SystemDescriptor<SubClass extends SystemDescriptor<SubClas
 
   private final String systemName;
   private final Optional<String> factoryClassNameOptional;
+  private final Optional<InputTransformer> transformerOptional;
+  private final Optional<StreamExpander> expanderOptional;
 
+  private final Map<String, String> systemConfigs = new HashMap<>();
+  private final Map<String, String> defaultStreamConfigs = new HashMap<>();
   private Optional<OffsetType> defaultStreamOffsetDefaultOptional = Optional.empty();
-  private Map<String, String> systemConfigs = new HashMap<>();
-  private Map<String, String> defaultStreamConfigs = new HashMap<>();
 
   /**
    * Constructs a {@link SystemDescriptor} instance.
@@ -59,7 +61,7 @@ public abstract class SystemDescriptor<SubClass extends SystemDescriptor<SubClas
    * @param systemName name of this system
    * @param factoryClassName name of the SystemFactory class for this system
    */
-  SystemDescriptor(String systemName, String factoryClassName) {
+  SystemDescriptor(String systemName, String factoryClassName, InputTransformer transformer, StreamExpander expander) {
     Preconditions.checkArgument(isValidId(systemName),
         String.format("systemName: %s must be non-empty and must not contain spaces or special characters.", systemName));
     if (StringUtils.isBlank(factoryClassName)) {
@@ -68,6 +70,8 @@ public abstract class SystemDescriptor<SubClass extends SystemDescriptor<SubClas
     }
     this.systemName = systemName;
     this.factoryClassNameOptional = Optional.ofNullable(StringUtils.stripToNull(factoryClassName));
+    this.transformerOptional = Optional.ofNullable(transformer);
+    this.expanderOptional = Optional.ofNullable(expander);
   }
 
   /**
@@ -123,20 +127,12 @@ public abstract class SystemDescriptor<SubClass extends SystemDescriptor<SubClas
     return this.systemName;
   }
 
-  private Optional<String> getFactoryClassName() {
-    return this.factoryClassNameOptional;
+  public Optional<InputTransformer> getTransformer() {
+    return this.transformerOptional;
   }
 
-  private Optional<OffsetType> getDefaultStreamOffsetDefault() {
-    return this.defaultStreamOffsetDefaultOptional;
-  }
-
-  private Map<String, String> getSystemConfigs() {
-    return Collections.unmodifiableMap(this.systemConfigs);
-  }
-
-  private Map<String, String> getDefaultStreamConfigs() {
-    return Collections.unmodifiableMap(this.defaultStreamConfigs);
+  public Optional<StreamExpander> getExpander() {
+    return this.expanderOptional;
   }
 
   private boolean isValidId(String id) {
@@ -163,12 +159,12 @@ public abstract class SystemDescriptor<SubClass extends SystemDescriptor<SubClas
 
   public Map<String, String> toConfig() {
     HashMap<String, String> configs = new HashMap<>();
-    getFactoryClassName().ifPresent(name -> configs.put(String.format(FACTORY_CONFIG_KEY, systemName), name));
-    getDefaultStreamOffsetDefault().ifPresent(dsod ->
+    factoryClassNameOptional.ifPresent(name -> configs.put(String.format(FACTORY_CONFIG_KEY, systemName), name));
+    defaultStreamOffsetDefaultOptional.ifPresent(dsod ->
         configs.put(String.format(DEFAULT_STREAM_OFFSET_DEFAULT_CONFIG_KEY, systemName), dsod.name().toLowerCase()));
-    getDefaultStreamConfigs().forEach((key, value) ->
+    defaultStreamConfigs.forEach((key, value) ->
         configs.put(String.format(DEFAULT_STREAM_CONFIGS_CONFIG_KEY, getSystemName(), key), value));
-    getSystemConfigs().forEach((key, value) ->
+    systemConfigs.forEach((key, value) ->
         configs.put(String.format(SYSTEM_CONFIGS_CONFIG_KEY, getSystemName(), key), value));
     return configs;
   }

@@ -24,7 +24,6 @@ import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.IncomingMessageEnvelope;
 
-@SuppressWarnings("unchecked")
 public class MockExpandingSystemDescriptor extends ExpandingSystemDescriptor<Long, MockExpandingSystemDescriptor> {
   private static final String FACTORY_CLASS_NAME = "org.apache.samza.GraphExpandingSystemFactory";
 

@@ -213,8 +213,8 @@ public interface MessageStream<M> {
 
   /**
    * Re-partitions this {@link MessageStream} using keys from the {@code keyExtractor} by creating a new
-   * intermediate stream on the {@code job.default.system}. This intermediate stream is both an output and
-   * input to the job.
+   * intermediate stream on the default system provided via {@link StreamGraph#setDefaultSystem}. This intermediate
+   * stream is both an output and input to the job.
    * <p>
    * Uses the provided {@link KVSerde} for serialization of keys and values. If the provided {@code serde} is null,
    * uses the default system's serde provided via {@link StreamGraph#setDefaultSystem}, which must be a KVSerde. If

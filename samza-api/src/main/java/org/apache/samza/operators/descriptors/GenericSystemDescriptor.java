@@ -32,7 +32,6 @@ import org.apache.samza.serializers.Serde;
  * <p>
  * System properties configured using a descriptor override corresponding properties provided in configuration.
  */
-@SuppressWarnings("unchecked")
 public final class GenericSystemDescriptor extends SimpleSystemDescriptor<GenericSystemDescriptor> {
 
   /**

@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 
 import java.util.Collections;
@@ -34,9 +35,8 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
-import org.apache.samza.operators.descriptors.base.system.ExpandingSystemDescriptor;
-import org.apache.samza.operators.descriptors.base.system.TransformingSystemDescriptor;
 import org.apache.samza.operators.functions.InputTransformer;
+import org.apache.samza.operators.functions.StreamExpander;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec.OpCode;
 import org.apache.samza.operators.spec.OperatorSpecs;
@@ -56,7 +56,6 @@ import org.slf4j.LoggerFactory;
  * create the DAG of transforms.
  * 2) a builder that creates a serializable {@link OperatorSpecGraph} from user-defined DAG
  */
-@SuppressWarnings("unchecked")
 public class StreamGraphSpec implements StreamGraph {
   private static final Logger LOGGER = LoggerFactory.getLogger(StreamGraphSpec.class);
   private static final Pattern ID_PATTERN = Pattern.compile("[\\d\\w-_.]+");
@@ -79,7 +78,7 @@ public class StreamGraphSpec implements StreamGraph {
   private int nextOpNum = 0;
   private final Set<String> operatorIds = new HashSet<>();
   private ContextManager contextManager = null;
-  private SystemDescriptor defaultSystemDescriptor;
+  private Optional<SystemDescriptor> defaultSystemDescriptorOptional = Optional.empty();
 
   public StreamGraphSpec(Config config) {
     this.config = config;
@@ -87,21 +86,23 @@ public class StreamGraphSpec implements StreamGraph {
 
   @Override
   public void setDefaultSystem(SystemDescriptor<?> defaultSystemDescriptor) {
+    Preconditions.checkNotNull(defaultSystemDescriptor, "Provided defaultSystemDescriptor must not be null.");
     String defaultSystemName = defaultSystemDescriptor.getSystemName();
     Preconditions.checkState(inputOperators.isEmpty() && outputStreams.isEmpty(),
         "Default system must be set before creating any input or output streams.");
     Preconditions.checkState(!systemDescriptors.containsKey(defaultSystemName) ||
-            systemDescriptors.get(defaultSystemName).equals(defaultSystemDescriptor),
+            systemDescriptors.get(defaultSystemName) == defaultSystemDescriptor,
         "Must not use different system descriptor instances for the same system name: " + defaultSystemName);
     systemDescriptors.put(defaultSystemName, defaultSystemDescriptor);
-    this.defaultSystemDescriptor = defaultSystemDescriptor;
+    this.defaultSystemDescriptorOptional = Optional.of(defaultSystemDescriptor);
   }
 
   @Override
   public <M> MessageStream<M> getInputStream(InputDescriptor<M, ?> inputDescriptor) {
-    Optional<SystemDescriptor> systemDescriptor = inputDescriptor.getSystemDescriptor();
-    if (systemDescriptor.isPresent() && systemDescriptor.get() instanceof ExpandingSystemDescriptor) {
-      return ((ExpandingSystemDescriptor) systemDescriptor.get()).getExpander().apply(this, inputDescriptor);
+    SystemDescriptor systemDescriptor = inputDescriptor.getSystemDescriptor();
+    Optional<StreamExpander> expander = systemDescriptor.getExpander();
+    if (expander.isPresent()) {
+      return expander.get().apply(this, inputDescriptor);
     }
 
     String streamId = inputDescriptor.getStreamId();
@@ -109,11 +110,10 @@ public class StreamGraphSpec implements StreamGraph {
         "getInputStream must not be called multiple times with the same streamId: " + streamId);
     Preconditions.checkState(!inputDescriptors.containsKey(streamId),
         "getInputStream must not be called multiple times with the same input descriptor: " + streamId);
-    systemDescriptor.ifPresent(sd -> {
-        String systemName = sd.getSystemName();
-        Preconditions.checkState(!systemDescriptors.containsKey(systemName) || systemDescriptors.get(systemName).equals(sd),
-            "Must not use different system descriptor instances for the same system name: " + systemName);
-      });
+    String systemName = systemDescriptor.getSystemName();
+    Preconditions.checkState(!systemDescriptors.containsKey(systemName)
+            || systemDescriptors.get(systemName) == systemDescriptor,
+        "Must not use different system descriptor instances for the same system name: " + systemName);
 
     Serde serde = inputDescriptor.getSerde();
     KV<Serde, Serde> kvSerdes = getKVSerdes(streamId, serde);
@@ -133,7 +133,7 @@ public class StreamGraphSpec implements StreamGraph {
             transformer, isKeyed, this.getNextOpId(OpCode.INPUT, null));
     inputOperators.put(streamId, inputOperatorSpec);
     inputDescriptors.put(streamId, inputDescriptor);
-    systemDescriptor.ifPresent(sd -> systemDescriptors.put(sd.getSystemName(), sd));
+    systemDescriptors.put(systemDescriptor.getSystemName(), systemDescriptor);
     return new MessageStreamImpl(this, inputOperators.get(streamId));
   }
 
@@ -144,11 +144,11 @@ public class StreamGraphSpec implements StreamGraph {
         "getOutputStream must not be called multiple times with the same streamId: " + streamId);
     Preconditions.checkState(!outputDescriptors.containsKey(streamId),
         "getOutputStream must not be called multiple times with the same output descriptor: " + streamId);
-    outputDescriptor.getSystemDescriptor().ifPresent(sd -> {
-        String systemName = sd.getSystemName();
-        Preconditions.checkState(!systemDescriptors.containsKey(systemName) || systemDescriptors.get(systemName).equals(sd),
-            "Must not use different system descriptor instances for the same system name: " + systemName);
-      });
+    SystemDescriptor systemDescriptor = outputDescriptor.getSystemDescriptor();
+    String systemName = systemDescriptor.getSystemName();
+    Preconditions.checkState(!systemDescriptors.containsKey(systemName)
+            || systemDescriptors.get(systemName) == systemDescriptor,
+        "Must not use different system descriptor instances for the same system name: " + systemName);
 
     Serde serde = outputDescriptor.getSerde();
     KV<Serde, Serde> kvSerdes = getKVSerdes(streamId, serde);
@@ -164,7 +164,7 @@ public class StreamGraphSpec implements StreamGraph {
     boolean isKeyed = serde instanceof KVSerde;
     outputStreams.put(streamId, new OutputStreamImpl<>(streamId, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed));
     outputDescriptors.put(streamId, outputDescriptor);
-    outputDescriptor.getSystemDescriptor().ifPresent(sd -> systemDescriptors.put(sd.getSystemName(), sd));
+    systemDescriptors.put(systemDescriptor.getSystemName(), systemDescriptor);
     return outputStreams.get(streamId);
   }
 
@@ -242,6 +242,7 @@ public class StreamGraphSpec implements StreamGraph {
    * @param <M> the type of messages in the intermediate {@link MessageStream}
    * @return  the intermediate {@link MessageStreamImpl}
    */
+  @VisibleForTesting
   public <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde, boolean isBroadcast) {
     Preconditions.checkState(!inputOperators.containsKey(streamId) && !outputStreams.containsKey(streamId),
         "getIntermediateStream must not be called multiple times with the same streamId: " + streamId);
@@ -267,10 +268,8 @@ public class StreamGraphSpec implements StreamGraph {
       kvSerdes = getKVSerdes(streamId, streamSerde);
     }
 
-    InputTransformer<?> transformer = null;
-    if (defaultSystemDescriptor instanceof TransformingSystemDescriptor) {
-      transformer = ((TransformingSystemDescriptor) defaultSystemDescriptor).getTransformer();
-    }
+    InputTransformer transformer = (InputTransformer) defaultSystemDescriptorOptional
+        .flatMap(SystemDescriptor::getTransformer).orElse(null);
 
     InputOperatorSpec inputOperatorSpec =
         OperatorSpecs.createInputOperatorSpec(streamId, kvSerdes.getKey(), kvSerdes.getValue(),
@@ -301,6 +300,8 @@ public class StreamGraphSpec implements StreamGraph {
   }
 
   public Set<SystemDescriptor> getSystemDescriptors() {
+    // We enforce that users must not use different system descriptor instances for the same system name
+    // when getting an input/output stream or setting the default system descriptor
     return Collections.unmodifiableSet(new HashSet<>(systemDescriptors.values()));
   }
 

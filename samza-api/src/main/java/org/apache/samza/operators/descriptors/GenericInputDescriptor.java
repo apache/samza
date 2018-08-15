@@ -38,8 +38,7 @@ import org.apache.samza.serializers.Serde;
  */
 public final class GenericInputDescriptor<StreamMessageType>
     extends InputDescriptor<StreamMessageType, GenericInputDescriptor<StreamMessageType>> {
-  GenericInputDescriptor(String streamId, SystemDescriptor systemDescriptor,
-      InputTransformer<StreamMessageType> transformer, Serde serde) {
+  GenericInputDescriptor(String streamId, SystemDescriptor systemDescriptor, InputTransformer transformer, Serde serde) {
     super(streamId, systemDescriptor.getSystemName(), serde, systemDescriptor, transformer);
   }
 }

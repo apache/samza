@@ -21,6 +21,7 @@ package org.apache.samza.operators.descriptors;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.DoubleSerde;
@@ -32,7 +33,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
-public class TestGenericDescriptors {
+public class TestGenericInputDescriptor {
   @Test
   public void testAPIUsage() {
     // does not assert anything, but acts as a compile-time check on expected descriptor type parameters
@@ -63,22 +64,6 @@ public class TestGenericDescriptors {
   }
 
   @Test
-  public void testSDConfigs() {
-    GenericSystemDescriptor mySystem =
-        new GenericSystemDescriptor("input-system", "factory.class.name")
-            .withSystemConfigs(ImmutableMap.of("custom-config-key", "custom-config-value"))
-            .withDefaultStreamConfigs(ImmutableMap.of("custom-stream-config-key", "custom-stream-config-value"))
-            .withDefaultStreamOffsetDefault(SystemStreamMetadata.OffsetType.UPCOMING);
-
-    Map<String, String> generatedConfigs = mySystem.toConfig();
-    assertEquals("factory.class.name", generatedConfigs.get("systems.input-system.samza.factory"));
-    assertEquals("custom-config-value", generatedConfigs.get("systems.input-system.custom-config-key"));
-    assertEquals("custom-stream-config-value", generatedConfigs.get("systems.input-system.default.stream.custom-stream-config-key"));
-    assertEquals("upcoming", generatedConfigs.get("systems.input-system.default.stream.samza.offset.default"));
-    assertEquals(4, generatedConfigs.size());
-  }
-
-  @Test
   public void testISDConfigsWithOverrides() {
     GenericSystemDescriptor mySystem =
         new GenericSystemDescriptor("input-system", "factory.class.name")
@@ -96,15 +81,18 @@ public class TestGenericDescriptors {
             .withStreamConfigs(ImmutableMap.of("custom-config-key", "custom-config-value"));
 
     Map<String, String> generatedConfigs = isd.toConfig();
-    assertEquals("input-system", generatedConfigs.get("streams.input-stream.samza.system"));
-    assertEquals("physical-name", generatedConfigs.get("streams.input-stream.samza.physical.name"));
-    assertEquals("true", generatedConfigs.get("streams.input-stream.samza.bootstrap"));
-    assertEquals("true", generatedConfigs.get("streams.input-stream.samza.bounded"));
-    assertEquals("true", generatedConfigs.get("streams.input-stream.samza.delete.committed.messages"));
-    assertEquals("true", generatedConfigs.get("streams.input-stream.samza.reset.offset"));
-    assertEquals("oldest", generatedConfigs.get("streams.input-stream.samza.offset.default"));
-    assertEquals("12", generatedConfigs.get("streams.input-stream.samza.priority"));
-    assertEquals("custom-config-value", generatedConfigs.get("streams.input-stream.custom-config-key"));
+    Map<String, String> expectedConfigs = new HashMap<>();
+    expectedConfigs.put("streams.input-stream.samza.system", "input-system");
+    expectedConfigs.put("streams.input-stream.samza.physical.name", "physical-name");
+    expectedConfigs.put("streams.input-stream.samza.bootstrap", "true");
+    expectedConfigs.put("streams.input-stream.samza.bounded", "true");
+    expectedConfigs.put("streams.input-stream.samza.delete.committed.messages", "true");
+    expectedConfigs.put("streams.input-stream.samza.reset.offset", "true");
+    expectedConfigs.put("streams.input-stream.samza.offset.default", "oldest");
+    expectedConfigs.put("streams.input-stream.samza.priority", "12");
+    expectedConfigs.put("streams.input-stream.custom-config-key", "custom-config-value");
+
+    assertEquals(expectedConfigs, generatedConfigs);
   }
 
   @Test
@@ -118,8 +106,8 @@ public class TestGenericDescriptors {
     GenericInputDescriptor<Double> isd = mySystem.getInputDescriptor("input-stream", streamSerde);
 
     Map<String, String> generatedConfigs = isd.toConfig();
-    assertEquals("input-system", generatedConfigs.get("streams.input-stream.samza.system"));
-    assertEquals(1, generatedConfigs.size()); // verify that there are no other configs
+    Map<String, String> expectedConfigs = ImmutableMap.of("streams.input-stream.samza.system", "input-system");
+    assertEquals(expectedConfigs, generatedConfigs);
     assertEquals(streamSerde, isd.getSerde());
     assertFalse(isd.getTransformer().isPresent());
   }

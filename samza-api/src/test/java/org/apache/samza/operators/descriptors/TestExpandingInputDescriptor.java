@@ -19,7 +19,6 @@
 package org.apache.samza.operators.descriptors;
 
 import java.util.Collections;
-import java.util.Map;
 import org.apache.samza.operators.descriptors.expanding.MockExpandingInputDescriptor;
 import org.apache.samza.operators.descriptors.expanding.MockExpandingOutputDescriptor;
 import org.apache.samza.operators.descriptors.expanding.MockExpandingSystemDescriptor;
@@ -32,7 +31,7 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 
-public class TestGraphExpandingDescriptors {
+public class TestExpandingInputDescriptor {
   public void testAPIUsage() {
     // does not assert anything, but acts as a compile-time check on expected descriptor type parameters
     // and validates that the method calls can be chained.
@@ -57,15 +56,6 @@ public class TestGraphExpandingDescriptors {
   }
 
   @Test
-  public void testSDConfigs() {
-    MockExpandingSystemDescriptor expandingSystem = new MockExpandingSystemDescriptor("expandingSystem");
-
-    Map<String, String> generatedConfigs = expandingSystem.toConfig();
-    assertEquals("org.apache.samza.GraphExpandingSystemFactory",
-        generatedConfigs.get("systems.expandingSystem.samza.factory"));
-  }
-
-  @Test
   public void testISDObjectsWithOverrides() {
     MockExpandingSystemDescriptor expandingSystem = new MockExpandingSystemDescriptor("expandingSystem");
 
@@ -84,6 +74,6 @@ public class TestGraphExpandingDescriptors {
     MockExpandingSystemDescriptor expandingSystem = new MockExpandingSystemDescriptor("expandingSystem");
     MockExpandingInputDescriptor<Long> defaultISD = expandingSystem.getInputDescriptor("input-stream", new LongSerde());
 
-    assertEquals(expandingSystem.getTransformer(), defaultISD.getTransformer().get());
+    assertEquals(expandingSystem.getTransformer().get(), defaultISD.getTransformer().get());
   }
 }

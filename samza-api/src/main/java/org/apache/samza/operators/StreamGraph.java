@@ -37,10 +37,7 @@ public interface StreamGraph {
    * <p>
    * If the default system descriptor is set, it must be set <b>before</b> creating any intermediate streams.
    * <p>
-   * Serde for intermediate streams:
-   * If the intermediate stream is created with a stream-level Serde, it will be used. Else, if the default system
-   * descriptor is set, and it provides a system level serde, it will be used. If the default system descriptor does
-   * not provide a system level serde, or if it hasn't been set before creating the stream, the serde specified
+   * If the intermediate stream is created with a stream-level Serde, they will be used, else the serde specified
    * for the {@code job.default.system} in configuration will be used.
    * <p>
    * Providing an incompatible message type for the intermediate streams that use the default serde will result in
@@ -53,7 +50,7 @@ public interface StreamGraph {
   /**
    * Gets the input {@link MessageStream} corresponding to the {@code inputDescriptor}.
    * <p>
-   * An {@code MessageStream<KV<K, V>}, obtained by calling this method with a descriptor with a {@code KVSerde<K, V>},
+   * A {@code MessageStream<KV<K, V>}, obtained by calling this method with a descriptor with a {@code KVSerde<K, V>},
    * can receive messages of type {@code KV<K, V>}. An input {@code MessageStream<M>}, obtained using a descriptor with
    * any other {@code Serde<M>}, can receive messages of type M - the key in the incoming message is ignored.
    * <p>

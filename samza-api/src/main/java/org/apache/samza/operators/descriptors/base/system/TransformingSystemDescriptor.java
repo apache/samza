@@ -32,7 +32,6 @@ import org.apache.samza.serializers.Serde;
  */
 public abstract class TransformingSystemDescriptor<SystemTransformerType, SubClass extends TransformingSystemDescriptor<SystemTransformerType, SubClass>>
     extends SystemDescriptor<SubClass> {
-  private final InputTransformer<SystemTransformerType> transformer;
 
   /**
    * Constructs a {@link TransformingSystemDescriptor} instance.
@@ -42,11 +41,10 @@ public abstract class TransformingSystemDescriptor<SystemTransformerType, SubCla
    * @param transformer default input stream transformer for this system
    */
   public TransformingSystemDescriptor(String systemName, String factoryClassName, InputTransformer<SystemTransformerType> transformer) {
-    super(systemName, factoryClassName);
+    super(systemName, factoryClassName, transformer, null);
     if (transformer == null) {
       throw new SamzaException("Default InputTransformer may not be null for a TransformingSystemDescriptor");
     }
-    this.transformer = transformer;
   }
 
   /**
@@ -77,7 +75,4 @@ public abstract class TransformingSystemDescriptor<SystemTransformerType, SubCla
    */
   public abstract <StreamTransformerType> InputDescriptor<StreamTransformerType, ? extends InputDescriptor> getInputDescriptor(String streamId, InputTransformer<StreamTransformerType> transformer, Serde serde);
 
-  public InputTransformer<SystemTransformerType> getTransformer() {
-    return this.transformer;
-  }
 }

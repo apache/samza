@@ -22,7 +22,6 @@ import org.apache.samza.operators.descriptors.base.system.TransformingSystemDesc
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
 
-@SuppressWarnings("unchecked")
 public class MockTransformingSystemDescriptor extends TransformingSystemDescriptor<Long, MockTransformingSystemDescriptor> {
   private static final String FACTORY_CLASS_NAME = "org.apache.samza.IMETransformingSystemFactory";
 
