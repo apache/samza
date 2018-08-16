@@ -29,8 +29,9 @@ public interface SqlIOResolverFactory {
 
   /**
    * Create the {@link SqlIOResolver}. This is called during the application initialization.
-   * @param config config for the SqlIOResolver
+   * @param resolverConfig config specifically supplied for this SqlIOResolver
+   * @param fullConfig the full config object received by the application.
    * @return Returns the created {@link SqlIOResolver}
    */
-  SqlIOResolver create(Config config);
+  SqlIOResolver create(Config resolverConfig, Config fullConfig);
 }

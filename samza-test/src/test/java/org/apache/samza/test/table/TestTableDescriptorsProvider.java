@@ -81,7 +81,8 @@ public class TestTableDescriptorsProvider {
     String tableRewriterName = "tableRewriter";
     configs.put("tables.descriptors.provider.class", MySampleTableDescriptorsProvider.class.getName());
     Config resultConfig = new MySampleTableConfigRewriter().rewrite(tableRewriterName, new MapConfig(configs));
-    Assert.assertTrue(resultConfig.size() == 18);
+    Assert.assertNotNull(resultConfig);
+    Assert.assertTrue(!resultConfig.isEmpty());
 
     String localTableId = "local-table-1";
     String remoteTableId = "remote-table-1";

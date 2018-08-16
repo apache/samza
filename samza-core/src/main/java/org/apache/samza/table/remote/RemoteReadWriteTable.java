@@ -20,20 +20,20 @@
 package org.apache.samza.table.remote;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.SamzaContainerContext;
-import org.apache.samza.metrics.Timer;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.utils.DefaultTableWriteMetrics;
 import org.apache.samza.table.utils.TableMetricsUtil;
 import org.apache.samza.task.TaskContext;
-import org.apache.samza.util.RateLimiter;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-
-import static org.apache.samza.table.remote.RemoteTableDescriptor.RL_WRITE_TAG;
 
 
 /**
@@ -43,22 +43,20 @@ import static org.apache.samza.table.remote.RemoteTableDescriptor.RL_WRITE_TAG;
  * @param <V> the type of the value in this table
  */
 public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implements ReadWriteTable<K, V> {
+  private final TableWriteFunction<K, V> writeFn;
 
-  protected final TableWriteFunction<K, V> writeFn;
-  protected final CreditFunction<K, V> writeCreditFn;
-  protected final boolean rateLimitWrites;
+  private DefaultTableWriteMetrics writeMetrics;
 
-  protected DefaultTableWriteMetrics writeMetrics;
-  protected Timer putThrottleNs; // use single timer for all write operations
+  @VisibleForTesting
+  final TableRateLimiter writeRateLimiter;
 
   public RemoteReadWriteTable(String tableId, TableReadFunction readFn, TableWriteFunction writeFn,
-      RateLimiter ratelimiter, CreditFunction<K, V> readCreditFn, CreditFunction<K, V> writeCreditFn) {
-    super(tableId, readFn, ratelimiter, readCreditFn);
+      TableRateLimiter<K, V> readRateLimiter, TableRateLimiter<K, V> writeRateLimiter,
+      ExecutorService tableExecutor, ExecutorService callbackExecutor) {
+    super(tableId, readFn, readRateLimiter, tableExecutor, callbackExecutor);
     Preconditions.checkNotNull(writeFn, "null write function");
     this.writeFn = writeFn;
-    this.writeCreditFn = writeCreditFn;
-    this.rateLimitWrites = rateLimiter != null && rateLimiter.getSupportedTags().contains(RL_WRITE_TAG);
-    logger.info("Rate limiting is {} for remote write operations", rateLimitWrites ? "enabled" : "disabled");
+    this.writeRateLimiter = writeRateLimiter;
   }
 
   /**
@@ -69,7 +67,7 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
     super.init(containerContext, taskContext);
     writeMetrics = new DefaultTableWriteMetrics(containerContext, taskContext, this, tableId);
     TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(containerContext, taskContext, this, tableId);
-    putThrottleNs = tableMetricsUtil.newTimer("put-throttle-ns");
+    writeRateLimiter.setTimerMetric(tableMetricsUtil.newTimer("put-throttle-ns"));
   }
 
   /**
@@ -77,25 +75,28 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
    */
   @Override
   public void put(K key, V value) {
-
-    if (value == null) {
-      delete(key);
-      return;
-    }
-
     try {
-      writeMetrics.numPuts.inc();
-      if (rateLimitWrites) {
-        throttle(key, value, RL_WRITE_TAG, writeCreditFn, putThrottleNs);
-      }
-      long startNs = System.nanoTime();
-      writeFn.put(key, value);
-      writeMetrics.putNs.update(System.nanoTime() - startNs);
+      putAsync(key, value).get();
     } catch (Exception e) {
-      String errMsg = String.format("Failed to put a record, key=%s, value=%s", key, value);
-      logger.error(errMsg, e);
-      throw new SamzaException(errMsg, e);
+      throw new SamzaException(e);
     }
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public CompletableFuture<Void> putAsync(K key, V value) {
+    Preconditions.checkNotNull(key);
+    if (value == null) {
+      return deleteAsync(key);
+    }
+
+    writeMetrics.numPuts.inc();
+    return execute(writeRateLimiter, key, value, writeFn::putAsync, writeMetrics.putNs)
+        .exceptionally(e -> {
+            throw new SamzaException("Failed to put a record with key=" + key, (Throwable) e);
+          });
   }
 
   /**
@@ -104,15 +105,41 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
   @Override
   public void putAll(List<Entry<K, V>> entries) {
     try {
-      writeMetrics.numPutAlls.inc();
-      long startNs = System.nanoTime();
-      writeFn.putAll(entries);
-      writeMetrics.putAllNs.update(System.nanoTime() - startNs);
+      putAllAsync(entries).get();
     } catch (Exception e) {
-      String errMsg = String.format("Failed to put records: %s", entries);
-      logger.error(errMsg, e);
-      throw new SamzaException(errMsg, e);
+      throw new SamzaException(e);
     }
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> records) {
+    Preconditions.checkNotNull(records);
+    if (records.isEmpty()) {
+      return CompletableFuture.completedFuture(null);
+    }
+
+    writeMetrics.numPutAlls.inc();
+
+    List<K> deleteKeys = records.stream()
+        .filter(e -> e.getValue() == null).map(Entry::getKey).collect(Collectors.toList());
+
+    CompletableFuture<Void> deleteFuture = deleteKeys.isEmpty()
+        ? CompletableFuture.completedFuture(null) : deleteAllAsync(deleteKeys);
+
+    List<Entry<K, V>> putRecords = records.stream()
+        .filter(e -> e.getValue() != null).collect(Collectors.toList());
+
+    // Return the combined future
+    return CompletableFuture.allOf(
+        deleteFuture,
+        executeRecords(writeRateLimiter, putRecords, writeFn::putAllAsync, writeMetrics.putAllNs))
+        .exceptionally(e -> {
+            String strKeys = records.stream().map(r -> r.getKey().toString()).collect(Collectors.joining(","));
+            throw new SamzaException(String.format("Failed to put records with keys=" + strKeys), e);
+          });
   }
 
   /**
@@ -121,18 +148,23 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
   @Override
   public void delete(K key) {
     try {
-      writeMetrics.numDeletes.inc();
-      if (rateLimitWrites) {
-        throttle(key, null, RL_WRITE_TAG, writeCreditFn, putThrottleNs);
-      }
-      long startNs = System.nanoTime();
-      writeFn.delete(key);
-      writeMetrics.deleteNs.update(System.nanoTime() - startNs);
+      deleteAsync(key).get();
     } catch (Exception e) {
-      String errMsg = String.format("Failed to delete a record, key=%s", key);
-      logger.error(errMsg, e);
-      throw new SamzaException(errMsg, e);
+      throw new SamzaException(e);
     }
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public CompletableFuture<Void> deleteAsync(K key) {
+    Preconditions.checkNotNull(key);
+    writeMetrics.numDeletes.inc();
+    return execute(writeRateLimiter, key, writeFn::deleteAsync, writeMetrics.deleteNs)
+        .exceptionally(e -> {
+            throw new SamzaException(String.format("Failed to delete the record for " + key), (Throwable) e);
+          });
   }
 
   /**
@@ -141,15 +173,27 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
   @Override
   public void deleteAll(List<K> keys) {
     try {
-      writeMetrics.numDeleteAlls.inc();
-      writeFn.deleteAll(keys);
-      long startNs = System.nanoTime();
-      writeMetrics.deleteAllNs.update(System.nanoTime() - startNs);
+      deleteAllAsync(keys).get();
     } catch (Exception e) {
-      String errMsg = String.format("Failed to delete records, keys=%s", keys);
-      logger.error(errMsg, e);
-      throw new SamzaException(errMsg, e);
+      throw new SamzaException(e);
     }
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public CompletableFuture<Void> deleteAllAsync(List<K> keys) {
+    Preconditions.checkNotNull(keys);
+    if (keys.isEmpty()) {
+      return CompletableFuture.completedFuture(null);
+    }
+
+    writeMetrics.numDeleteAlls.inc();
+    return execute(writeRateLimiter, keys, writeFn::deleteAllAsync, writeMetrics.deleteAllNs)
+        .exceptionally(e -> {
+            throw new SamzaException(String.format("Failed to delete records for " + keys), (Throwable) e);
+          });
   }
 
   /**
@@ -159,9 +203,6 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
   public void flush() {
     try {
       writeMetrics.numFlushes.inc();
-      if (rateLimitWrites) {
-        throttle(null, null, RL_WRITE_TAG, writeCreditFn, putThrottleNs);
-      }
       long startNs = System.nanoTime();
       writeFn.flush();
       writeMetrics.flushNs.update(System.nanoTime() - startNs);
@@ -177,7 +218,7 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
    */
   @Override
   public void close() {
-    super.close();
     writeFn.close();
+    super.close();
   }
 }
