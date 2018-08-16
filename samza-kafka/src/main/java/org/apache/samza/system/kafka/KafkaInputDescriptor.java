@@ -22,7 +22,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.operators.functions.InputTransformer;
@@ -88,12 +87,7 @@ public class KafkaInputDescriptor<StreamMessageType>
     // Note: Kafka configuration needs the topic's physical name, not the stream-id.
     // We won't have that here if user only specified it in configs, or if it got rewritten
     // by the planner to something different than what's in this descriptor.
-    String streamName;
-    if (getPhysicalName().isPresent()) {
-      streamName = getPhysicalName().get();
-    } else {
-      streamName = getStreamId();
-    }
+    String streamName = getPhysicalName().orElse(getStreamId());
     String systemName = getSystemName();
 
     consumerAutoOffsetResetOptional.ifPresent(autoOffsetReset ->

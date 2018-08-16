@@ -29,8 +29,8 @@ import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
  * is being used to get a {@link MessageStream} using an {@link InputDescriptor} from an
  * {@link org.apache.samza.operators.descriptors.base.system.ExpandingSystemDescriptor}
  * <p>
- * This is provided by default by {@link org.apache.samza.operators.descriptors.base.system.ExpandingSystemDescriptor}
- * implementations and can not be overridden or set on a per stream level.
+ * This is provided by default by {@code ExpandingSystemDescriptor} implementations and can not be overridden
+ * or set on a per stream level.
  *
  * @param <OM> type of the messages in the resultant {@link MessageStream}
  */
