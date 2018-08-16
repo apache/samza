@@ -47,7 +47,7 @@ public class InMemorySystemFactory implements SystemFactory {
 
   @Override
   public SystemAdmin getAdmin(String systemName, Config config) {
-    return new InMemorySystemAdmin(getOrDefaultInMemoryManagerByTestId(config));
+    return new InMemorySystemAdmin(systemName, getOrDefaultInMemoryManagerByTestId(config));
   }
 
   private InMemoryManager getOrDefaultInMemoryManagerByTestId(Config config) {

@@ -20,6 +20,7 @@
 package org.apache.samza.test.table;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -32,7 +33,12 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
+import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
+import org.apache.samza.metrics.Counter;
+import org.apache.samza.metrics.Gauge;
+import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.functions.MapFunction;
@@ -43,6 +49,9 @@ import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.standalone.PassthroughCoordinationUtilsFactory;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
+import org.apache.samza.storage.kv.Entry;
+import org.apache.samza.storage.kv.KeyValueStore;
+import org.apache.samza.storage.kv.LocalStoreBackedReadWriteTable;
 import org.apache.samza.storage.kv.inmemory.InMemoryTableDescriptor;
 import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.Table;
@@ -61,6 +70,14 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyList;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
 
 /**
  * This test class tests sendTo() and join() for local tables
@@ -359,5 +376,49 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     public Integer getRecordKey(KV<Integer, Profile> record) {
       return record.getKey();
     }
+  }
+
+  @Test
+  public void testAsyncOperation() throws Exception {
+    KeyValueStore kvStore = mock(KeyValueStore.class);
+    LocalStoreBackedReadWriteTable<String, String> table = new LocalStoreBackedReadWriteTable<>("table1", kvStore);
+    TaskContext taskContext = mock(TaskContext.class);
+    MetricsRegistry metricsRegistry = mock(MetricsRegistry.class);
+    doReturn(mock(Timer.class)).when(metricsRegistry).newTimer(anyString(), anyString());
+    doReturn(mock(Counter.class)).when(metricsRegistry).newCounter(anyString(), anyString());
+    doReturn(mock(Gauge.class)).when(metricsRegistry).newGauge(anyString(), any());
+    doReturn(metricsRegistry).when(taskContext).getMetricsRegistry();
+
+    SamzaContainerContext containerContext = mock(SamzaContainerContext.class);
+
+    table.init(containerContext, taskContext);
+
+    // GET
+    doReturn("bar").when(kvStore).get(anyString());
+    Assert.assertEquals("bar", table.getAsync("foo").get());
+
+    // GET-ALL
+    Map<String, String> recordMap = new HashMap<>();
+    recordMap.put("foo1", "bar1");
+    recordMap.put("foo2", "bar2");
+    doReturn(recordMap).when(kvStore).getAll(anyList());
+    Assert.assertEquals(recordMap, table.getAllAsync(Arrays.asList("foo1", "foo2")).get());
+
+    // PUT
+    table.putAsync("foo1", "bar1").get();
+    verify(kvStore, times(1)).put(anyString(), anyString());
+
+    // PUT-ALL
+    List<Entry<String, String>> records = Arrays.asList(new Entry<>("foo1", "bar1"), new Entry<>("foo2", "bar2"));
+    table.putAllAsync(records).get();
+    verify(kvStore, times(1)).putAll(anyList());
+
+    // DELETE
+    table.deleteAsync("foo").get();
+    verify(kvStore, times(1)).delete(anyString());
+
+    // DELETE-ALL
+    table.deleteAllAsync(Arrays.asList("foo1", "foo2")).get();
+    verify(kvStore, times(1)).deleteAll(anyList());
   }
 }

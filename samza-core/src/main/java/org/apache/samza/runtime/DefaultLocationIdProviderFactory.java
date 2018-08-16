@@ -16,21 +16,17 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.runtime;
 
-package org.apache.samza.table.remote;
-
-import java.io.Serializable;
-import java.util.function.Function;
-
-import org.apache.samza.operators.KV;
-
+import org.apache.samza.config.Config;
+import org.apache.samza.util.Util;
 
 /**
- * Function interface for providing rate limiting credits for each table record.
- * This interface allows callers to pass in lambda expressions which are otherwise
- * non-serializable as-is.
- * @param <K> the type of the key
- * @param <V> the type of the value
- */
-public interface CreditFunction<K, V> extends Function<KV<K, V>, Integer>, Serializable {
+ * Uses the address of the local host for generating {@link LocationId}. 
+ */ 
+public class DefaultLocationIdProviderFactory implements LocationIdProviderFactory {
+  @Override
+  public LocationIdProvider getLocationIdProvider(Config config) {
+    return ()  -> new LocationId(Util.getLocalHost().getHostName());
+  }
 }

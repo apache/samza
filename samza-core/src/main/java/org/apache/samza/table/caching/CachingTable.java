@@ -19,12 +19,15 @@
 
 package org.apache.samza.table.caching;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.Lock;
+import java.util.stream.Collectors;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.ReadWriteTable;
@@ -35,7 +38,6 @@ import org.apache.samza.table.utils.TableMetricsUtil;
 import org.apache.samza.task.TaskContext;
 
 import com.google.common.base.Preconditions;
-import com.google.common.util.concurrent.Striped;
 
 
 /**
@@ -52,28 +54,22 @@ import com.google.common.util.concurrent.Striped;
  * supports read-after-write semantics because the value is cached after written to
  * the table.
  *
- * Table and cache are updated (put/delete) in an atomic manner as such it is thread
- * safe for concurrent accesses. Strip locks are used for fine-grained synchronization
- * and the number of stripes is configurable.
- *
- * NOTE: Cache get is not synchronized with put for better parallelism in the read path.
- * As such, cache table implementation is expected to be thread-safe for concurrent
- * accesses.
+ * Note that there is no synchronization in CachingTable because it is impossible to
+ * implement a critical section between table read/write and cache update in the async
+ * code paths without serializing all async operations for the same keys. Given stale
+ * data is a presumed trade off for using a cache for table, it should be acceptable
+ * for the data in table and cache are out-of-sync. Moreover, unsynchronized operations
+ * in CachingTable also deliver higher performance when there is contention.
  *
  * @param <K> type of the table key
  * @param <V> type of the table value
  */
 public class CachingTable<K, V> implements ReadWriteTable<K, V> {
-  private static final String GROUP_NAME = CachingTable.class.getSimpleName();
-
   private final String tableId;
   private final ReadableTable<K, V> rdTable;
   private final ReadWriteTable<K, V> rwTable;
   private final ReadWriteTable<K, V> cache;
   private final boolean isWriteAround;
-
-  // Use stripe based locking to allow parallelism of disjoint keys.
-  private final Striped<Lock> stripedLocks;
 
   // Metrics
   private DefaultTableReadMetrics readMetrics;
@@ -83,13 +79,12 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
   private AtomicLong hitCount = new AtomicLong();
   private AtomicLong missCount = new AtomicLong();
 
-  public CachingTable(String tableId, ReadableTable<K, V> table, ReadWriteTable<K, V> cache, int stripes, boolean isWriteAround) {
+  public CachingTable(String tableId, ReadableTable<K, V> table, ReadWriteTable<K, V> cache, boolean isWriteAround) {
     this.tableId = tableId;
     this.rdTable = table;
     this.rwTable = table instanceof ReadWriteTable ? (ReadWriteTable) table : null;
     this.cache = cache;
     this.isWriteAround = isWriteAround;
-    this.stripedLocks = Striped.lazyWeakLock(stripes);
   }
 
   /**
@@ -105,96 +100,208 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
     tableMetricsUtil.newGauge("req-count", () -> requestCount());
   }
 
+  /**
+   * Lookup the cache and return the keys that are missed in cache
+   * @param keys keys to be looked up
+   * @param records result map
+   * @return list of keys missed in the cache
+   */
+  private List<K> lookupCache(List<K> keys, Map<K, V> records) {
+    List<K> missKeys = new ArrayList<>();
+    records.putAll(cache.getAll(keys));
+    keys.forEach(k -> {
+        if (!records.containsKey(k)) {
+          missKeys.add(k);
+        }
+      });
+    return missKeys;
+  }
+
   @Override
   public V get(K key) {
-    readMetrics.numGets.inc();
-    long startNs = System.nanoTime();
-    V value = cache.get(key);
-    if (value == null) {
-      missCount.incrementAndGet();
-      Lock lock = stripedLocks.get(key);
-      try {
-        lock.lock();
-        if (cache.get(key) == null) {
-          // Due to the lack of contains() API in ReadableTable, there is
-          // no way to tell whether a null return by cache.get(key) means
-          // cache miss or the value is actually null. As such, we cannot
-          // support negative cache semantics.
-          value = rdTable.get(key);
-          if (value != null) {
-            cache.put(key, value);
-          }
-        }
-      } finally {
-        lock.unlock();
-      }
-    } else {
-      hitCount.incrementAndGet();
+    try {
+      return getAsync(key).get();
+    } catch (InterruptedException e) {
+      throw new SamzaException(e);
+    } catch (Exception e) {
+      throw (SamzaException) e.getCause();
     }
-    readMetrics.getNs.update(System.nanoTime() - startNs);
-    return value;
+  }
+
+  @Override
+  public CompletableFuture<V> getAsync(K key) {
+    readMetrics.numGets.inc();
+    V value = cache.get(key);
+    if (value != null) {
+      hitCount.incrementAndGet();
+      return CompletableFuture.completedFuture(value);
+    }
+
+    long startNs = System.nanoTime();
+    missCount.incrementAndGet();
+
+    return rdTable.getAsync(key).handle((result, e) -> {
+        if (e != null) {
+          throw new SamzaException("Failed to get the record for " + key, e);
+        } else {
+          if (result != null) {
+            cache.put(key, result);
+          }
+          readMetrics.getNs.update(System.nanoTime() - startNs);
+          return result;
+        }
+      });
   }
 
   @Override
   public Map<K, V> getAll(List<K> keys) {
+    try {
+      return getAllAsync(keys).get();
+    } catch (InterruptedException e) {
+      throw new SamzaException(e);
+    } catch (Exception e) {
+      throw (SamzaException) e.getCause();
+    }
+  }
+
+  @Override
+  public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys) {
     readMetrics.numGetAlls.inc();
-    long startNs = System.nanoTime();
+    // Make a copy of entries which might be immutable
     Map<K, V> getAllResult = new HashMap<>();
-    keys.stream().forEach(k -> getAllResult.put(k, get(k)));
-    readMetrics.getAllNs.update(System.nanoTime() - startNs);
-    return getAllResult;
+    List<K> missingKeys = lookupCache(keys, getAllResult);
+
+    if (missingKeys.isEmpty()) {
+      return CompletableFuture.completedFuture(getAllResult);
+    }
+
+    long startNs = System.nanoTime();
+    return rdTable.getAllAsync(missingKeys).handle((records, e) -> {
+        if (e != null) {
+          throw new SamzaException("Failed to get records for " + keys, e);
+        } else {
+          if (records != null) {
+            cache.putAll(records.entrySet().stream()
+                .map(r -> new Entry<>(r.getKey(), r.getValue()))
+                .collect(Collectors.toList()));
+            getAllResult.putAll(records);
+          }
+          readMetrics.getAllNs.update(System.nanoTime() - startNs);
+          return getAllResult;
+        }
+      });
   }
 
   @Override
   public void put(K key, V value) {
-    writeMetrics.numPuts.inc();
-    long startNs = System.nanoTime();
-    Preconditions.checkNotNull(rwTable, "Cannot write to a read-only table: " + rdTable);
-    Lock lock = stripedLocks.get(key);
     try {
-      lock.lock();
-      rwTable.put(key, value);
-      if (!isWriteAround) {
-        cache.put(key, value);
-      }
-    } finally {
-      lock.unlock();
+      putAsync(key, value).get();
+    } catch (InterruptedException e) {
+      throw new SamzaException(e);
+    } catch (Exception e) {
+      throw (SamzaException) e.getCause();
     }
-    writeMetrics.putNs.update(System.nanoTime() - startNs);
   }
 
   @Override
-  public void putAll(List<Entry<K, V>> entries) {
+  public CompletableFuture<Void> putAsync(K key, V value) {
+    writeMetrics.numPuts.inc();
+    Preconditions.checkNotNull(rwTable, "Cannot write to a read-only table: " + rdTable);
+
+    long startNs = System.nanoTime();
+    return rwTable.putAsync(key, value).handle((result, e) -> {
+        if (e != null) {
+          throw new SamzaException(String.format("Failed to put a record, key=%s, value=%s", key, value), e);
+        } else if (!isWriteAround) {
+          if (value == null) {
+            cache.delete(key);
+          } else {
+            cache.put(key, value);
+          }
+        }
+        writeMetrics.putNs.update(System.nanoTime() - startNs);
+        return result;
+      });
+  }
+
+  @Override
+  public void putAll(List<Entry<K, V>> records) {
+    try {
+      putAllAsync(records).get();
+    } catch (InterruptedException e) {
+      throw new SamzaException(e);
+    } catch (Exception e) {
+      throw (SamzaException) e.getCause();
+    }
+  }
+
+  @Override
+  public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> records) {
     writeMetrics.numPutAlls.inc();
     long startNs = System.nanoTime();
     Preconditions.checkNotNull(rwTable, "Cannot write to a read-only table: " + rdTable);
-    entries.forEach(e -> put(e.getKey(), e.getValue()));
-    writeMetrics.putAllNs.update(System.nanoTime() - startNs);
+    return rwTable.putAllAsync(records).handle((result, e) -> {
+        if (e != null) {
+          throw new SamzaException("Failed to put records " + records, e);
+        } else if (!isWriteAround) {
+          cache.putAll(records);
+        }
+
+        writeMetrics.putAllNs.update(System.nanoTime() - startNs);
+        return result;
+      });
   }
 
   @Override
   public void delete(K key) {
+    try {
+      deleteAsync(key).get();
+    } catch (InterruptedException e) {
+      throw new SamzaException(e);
+    } catch (Exception e) {
+      throw (SamzaException) e.getCause();
+    }
+  }
+
+  @Override
+  public CompletableFuture<Void> deleteAsync(K key) {
     writeMetrics.numDeletes.inc();
     long startNs = System.nanoTime();
     Preconditions.checkNotNull(rwTable, "Cannot delete from a read-only table: " + rdTable);
-    Lock lock = stripedLocks.get(key);
-    try {
-      lock.lock();
-      rwTable.delete(key);
-      cache.delete(key);
-    } finally {
-      lock.unlock();
-    }
-    writeMetrics.deleteNs.update(System.nanoTime() - startNs);
+    return rwTable.deleteAsync(key).handle((result, e) -> {
+        if (e != null) {
+          throw new SamzaException("Failed to delete the record for " + key, e);
+        } else if (!isWriteAround) {
+          cache.delete(key);
+        }
+        writeMetrics.deleteNs.update(System.nanoTime() - startNs);
+        return result;
+      });
   }
 
   @Override
   public void deleteAll(List<K> keys) {
+    try {
+      deleteAllAsync(keys).get();
+    } catch (Exception e) {
+      throw new SamzaException(e);
+    }
+  }
+
+  @Override
+  public CompletableFuture<Void> deleteAllAsync(List<K> keys) {
     writeMetrics.numDeleteAlls.inc();
     long startNs = System.nanoTime();
     Preconditions.checkNotNull(rwTable, "Cannot delete from a read-only table: " + rdTable);
-    keys.stream().forEach(k -> delete(k));
-    writeMetrics.deleteAllNs.update(System.nanoTime() - startNs);
+    return rwTable.deleteAllAsync(keys).handle((result, e) -> {
+        if (e != null) {
+          throw new SamzaException("Failed to delete the record for " + keys, e);
+        } else if (!isWriteAround) {
+          cache.deleteAll(keys);
+        }
+        writeMetrics.deleteAllNs.update(System.nanoTime() - startNs);
+        return result;
+      });
   }
 
   @Override

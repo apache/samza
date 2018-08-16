@@ -187,7 +187,7 @@ public class SamzaSqlApplicationConfig {
     String sourceResolveValue = config.get(CFG_IO_RESOLVER);
     Validate.notEmpty(sourceResolveValue, "ioResolver config is not set or empty");
     return initializePlugin("SqlIOResolver", sourceResolveValue, config, CFG_FMT_SOURCE_RESOLVER_DOMAIN,
-        (o, c) -> ((SqlIOResolverFactory) o).create(c));
+        (o, c) -> ((SqlIOResolverFactory) o).create(c, config));
   }
 
   private UdfResolver createUdfResolver(Map<String, String> config) {

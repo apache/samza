@@ -21,12 +21,17 @@ package org.apache.samza.table.remote;
 
 import java.io.Serializable;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.functions.ClosableFunction;
 import org.apache.samza.operators.functions.InitableFunction;
+
+import com.google.common.collect.Iterables;
 
 
 /**
@@ -44,22 +49,55 @@ import org.apache.samza.operators.functions.InitableFunction;
 public interface TableReadFunction<K, V> extends Serializable, InitableFunction, ClosableFunction {
   /**
    * Fetch single table record for a specified {@code key}. This method must be thread-safe.
+   * The default implementation calls getAsync and blocks on the completion afterwards.
    * @param key key for the table record
    * @return table record for the specified {@code key}
    */
-  V get(K key);
+  default V get(K key) {
+    try {
+      return getAsync(key).get();
+    } catch (InterruptedException | ExecutionException e) {
+      throw new SamzaException("GET failed for " + key, e);
+    }
+  }
+
+  /**
+   * Asynchronously fetch single table record for a specified {@code key}. This method must be thread-safe.
+   * @param key key for the table record
+   * @return CompletableFuture for the get request
+   */
+  CompletableFuture<V> getAsync(K key);
 
   /**
    * Fetch the table {@code records} for specified {@code keys}. This method must be thread-safe.
+   * The default implementation calls getAllAsync and blocks on the completion afterwards.
    * @param keys keys for the table records
-   * @return all records for the specified keys if succeeded; depending on the implementation
-   * of {@link TableReadFunction#get(Object)} it either returns records for a subset of the
-   * keys or throws exception when there is any failure.
+   * @return all records for the specified keys.
    */
   default Map<K, V> getAll(Collection<K> keys) {
-    Map<K, V> records = new HashMap<>();
-    keys.forEach(k -> records.put(k, get(k)));
-    return records;
+    try {
+      return getAllAsync(keys).get();
+    } catch (InterruptedException | ExecutionException e) {
+      throw new SamzaException("GET_ALL failed for " + keys, e);
+    }
+  }
+
+  /**
+   * Asynchronously fetch the table {@code records} for specified {@code keys}. This method must be thread-safe.
+   * The default implementation calls getAsync for each key and return a combined future.
+   * @param keys keys for the table records
+   * @return CompletableFuture for the get request
+   */
+  default CompletableFuture<Map<K, V>> getAllAsync(Collection<K> keys) {
+    Map<K, CompletableFuture<V>> getFutures =  keys.stream().collect(
+        Collectors.toMap(k -> k, k -> getAsync(k)));
+
+    return CompletableFuture.allOf(
+        Iterables.toArray(getFutures.values(), CompletableFuture.class))
+        .thenApply(future ->
+          getFutures.entrySet()
+            .stream()
+            .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue().join())));
   }
 
   // optionally implement readObject() to initialize transient states

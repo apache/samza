@@ -19,25 +19,28 @@
 
 package org.apache.samza.table.remote;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.metrics.Timer;
-import org.apache.samza.operators.KV;
+import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.utils.DefaultTableReadMetrics;
 import org.apache.samza.table.utils.TableMetricsUtil;
 import org.apache.samza.task.TaskContext;
-import org.apache.samza.util.RateLimiter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-
-import static org.apache.samza.table.remote.RemoteTableDescriptor.RL_READ_TAG;
 
 
 /**
@@ -60,6 +63,12 @@ import static org.apache.samza.table.remote.RemoteTableDescriptor.RL_READ_TAG;
  * these reader and writer functions, sub-classes of {@link RemoteReadableTable} may provide rich functionality like
  * caching or throttling on top of them.
  *
+ * For async IO methods, requests are dispatched by a single-threaded executor after invoking the rateLimiter.
+ * Optionally, an executor can be specified for invoking the future callbacks which otherwise are
+ * executed on the threads of the underlying native data store client. This could be useful when
+ * application might execute long-running operations upon future completions; another use case is to increase
+ * throughput with more parallelism in the callback executions.
+ *
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
  */
@@ -67,34 +76,34 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
 
   protected final String tableId;
   protected final Logger logger;
-  protected final TableReadFunction<K, V> readFn;
-  protected final String groupName;
-  protected final RateLimiter rateLimiter;
-  protected final CreditFunction<K, V> readCreditFn;
-  protected final boolean rateLimitReads;
 
-  protected DefaultTableReadMetrics readMetrics;
-  protected Timer getThrottleNs;
+  protected final ExecutorService callbackExecutor;
+  protected final ExecutorService tableExecutor;
+
+  private final TableReadFunction<K, V> readFn;
+  private DefaultTableReadMetrics readMetrics;
+
+  @VisibleForTesting
+  final TableRateLimiter<K, V> readRateLimiter;
 
   /**
    * Construct a RemoteReadableTable instance
    * @param tableId table id
    * @param readFn {@link TableReadFunction} for read operations
-   * @param rateLimiter optional {@link RateLimiter} for throttling reads
-   * @param readCreditFn function returning a credit to be charged for rate limiting per record
+   * @param rateLimiter helper for rate limiting
+   * @param tableExecutor executor for issuing async requests
+   * @param callbackExecutor executor for invoking async callbacks
    */
-  public RemoteReadableTable(String tableId, TableReadFunction<K, V> readFn, RateLimiter rateLimiter,
-      CreditFunction<K, V> readCreditFn) {
+  public RemoteReadableTable(String tableId, TableReadFunction<K, V> readFn,
+      TableRateLimiter<K, V> rateLimiter, ExecutorService tableExecutor, ExecutorService callbackExecutor) {
     Preconditions.checkArgument(tableId != null && !tableId.isEmpty(), "invalid table id");
     Preconditions.checkNotNull(readFn, "null read function");
     this.tableId = tableId;
     this.readFn = readFn;
-    this.rateLimiter = rateLimiter;
-    this.readCreditFn = readCreditFn;
-    this.groupName = getClass().getSimpleName();
-    this.logger = LoggerFactory.getLogger(groupName + tableId);
-    this.rateLimitReads = rateLimiter != null && rateLimiter.getSupportedTags().contains(RL_READ_TAG);
-    logger.info("Rate limiting is {} for remote read operations", rateLimitReads ? "enabled" : "disabled");
+    this.readRateLimiter = rateLimiter;
+    this.callbackExecutor = callbackExecutor;
+    this.tableExecutor = tableExecutor;
+    this.logger = LoggerFactory.getLogger(getClass().getName() + "-" + tableId);
   }
 
   /**
@@ -104,7 +113,7 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
   public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
     readMetrics = new DefaultTableReadMetrics(containerContext, taskContext, this, tableId);
     TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(containerContext, taskContext, this, tableId);
-    getThrottleNs = tableMetricsUtil.newTimer("get-throttle-ns");
+    readRateLimiter.setTimerMetric(tableMetricsUtil.newTimer("get-throttle-ns"));
   }
 
   /**
@@ -113,19 +122,20 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
   @Override
   public V get(K key) {
     try {
-      readMetrics.numGets.inc();
-      if (rateLimitReads) {
-        throttle(key, null, RL_READ_TAG, readCreditFn, getThrottleNs);
-      }
-      long startNs = System.nanoTime();
-      V result = readFn.get(key);
-      readMetrics.getNs.update(System.nanoTime() - startNs);
-      return result;
+      return getAsync(key).get();
     } catch (Exception e) {
-      String errMsg = String.format("Failed to get a record, key=%s", key);
-      logger.error(errMsg, e);
-      throw new SamzaException(errMsg, e);
+      throw new SamzaException(e);
     }
+  }
+
+  @Override
+  public CompletableFuture<V> getAsync(K key) {
+    Preconditions.checkNotNull(key);
+    readMetrics.numGets.inc();
+    return execute(readRateLimiter, key, readFn::getAsync, readMetrics.getNs)
+        .exceptionally(e -> {
+            throw new SamzaException("Failed to get the record for " + key, e);
+          });
   }
 
   /**
@@ -133,31 +143,149 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
    */
   @Override
   public Map<K, V> getAll(List<K> keys) {
-    Map<K, V> result;
+    readMetrics.numGetAlls.inc();
     try {
-      readMetrics.numGetAlls.inc();
-      long startNs = System.nanoTime();
-      result = readFn.getAll(keys);
-      readMetrics.getAllNs.update(System.nanoTime() - startNs);
+      return getAllAsync(keys).get();
     } catch (Exception e) {
-      String errMsg = "Failed to get some records";
-      logger.error(errMsg, e);
-      throw new SamzaException(errMsg, e);
+      throw new SamzaException(e);
     }
+  }
 
-    if (result == null) {
-      String errMsg = String.format("Received null records, keys=%s", keys);
-      logger.error(errMsg);
-      throw new SamzaException(errMsg);
+  @Override
+  public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys) {
+    Preconditions.checkNotNull(keys);
+    if (keys.isEmpty()) {
+      return CompletableFuture.completedFuture(Collections.EMPTY_MAP);
     }
+    readMetrics.numGetAlls.inc();
+    return execute(readRateLimiter, keys, readFn::getAllAsync, readMetrics.getAllNs)
+        .handle((result, e) -> {
+            if (e != null) {
+              throw new SamzaException("Failed to get the records for " + keys, e);
+            }
+            return result;
+          });
+  }
 
-    if (result.size() < keys.size()) {
-      String errMsg = String.format("Received insufficient number of records (%d), keys=%s", result.size(), keys);
-      logger.error(errMsg);
-      throw new SamzaException(errMsg);
+  /**
+   * Execute an async request given a table key
+   * @param key key of the table record
+   * @param method method to be executed
+   * @param timer latency metric to be updated
+   * @param <T> return type
+   * @return CompletableFuture of the operation
+   */
+  protected <T> CompletableFuture<T> execute(TableRateLimiter<K, V> rateLimiter,
+      K key, Function<K, CompletableFuture<T>> method, Timer timer) {
+    final long startNs = System.nanoTime();
+    CompletableFuture<T> ioFuture = rateLimiter.isRateLimited() ?
+        CompletableFuture
+            .runAsync(() -> rateLimiter.throttle(key), tableExecutor)
+            .thenCompose((r) -> method.apply(key)) :
+        method.apply(key);
+    if (callbackExecutor != null) {
+      ioFuture.thenApplyAsync(r -> {
+          timer.update(System.nanoTime() - startNs);
+          return r;
+        }, callbackExecutor);
+    } else {
+      ioFuture.thenApply(r -> {
+          timer.update(System.nanoTime() - startNs);
+          return r;
+        });
     }
+    return ioFuture;
+  }
 
-    return result;
+  /**
+   * Execute an async request given a table record (key+value)
+   * @param key key of the table record
+   * @param value value of the table record
+   * @param method method to be executed
+   * @param timer latency metric to be updated
+   * @return CompletableFuture of the operation
+   */
+  protected CompletableFuture<Void> execute(TableRateLimiter<K, V> rateLimiter,
+      K key, V value, BiFunction<K, V, CompletableFuture<Void>> method, Timer timer) {
+    final long startNs = System.nanoTime();
+    CompletableFuture<Void> ioFuture = rateLimiter.isRateLimited() ?
+        CompletableFuture
+            .runAsync(() -> rateLimiter.throttle(key, value), tableExecutor)
+            .thenCompose((r) -> method.apply(key, value)) :
+        method.apply(key, value);
+    if (callbackExecutor != null) {
+      ioFuture.thenApplyAsync(r -> {
+          timer.update(System.nanoTime() - startNs);
+          return r;
+        }, callbackExecutor);
+    } else {
+      ioFuture.thenApply(r -> {
+          timer.update(System.nanoTime() - startNs);
+          return r;
+        });
+    }
+    return ioFuture;
+  }
+
+  /**
+   * Execute an async request given a collection of table keys
+   * @param keys collection of keys
+   * @param method method to be executed
+   * @param timer latency metric to be updated
+   * @return CompletableFuture of the operation
+   */
+  protected <T> CompletableFuture<T> execute(TableRateLimiter<K, V> rateLimiter,
+      Collection<K> keys, Function<Collection<K>, CompletableFuture<T>> method, Timer timer) {
+    final long startNs = System.nanoTime();
+    CompletableFuture<T> ioFuture = rateLimiter.isRateLimited() ?
+        CompletableFuture
+            .runAsync(() -> rateLimiter.throttle(keys), tableExecutor)
+            .thenCompose((r) -> method.apply(keys)) :
+        method.apply(keys);
+    if (callbackExecutor != null) {
+      ioFuture.thenApplyAsync(r -> {
+          timer.update(System.nanoTime() - startNs);
+          return r;
+        }, callbackExecutor);
+    } else {
+      ioFuture.thenApply(r -> {
+          timer.update(System.nanoTime() - startNs);
+          return r;
+        });
+    }
+    return ioFuture;
+  }
+
+  /**
+   * Execute an async request given a collection of table records
+   * @param records list of records
+   * @param method method to be executed
+   * @param timer latency metric to be updated
+   * @return CompletableFuture of the operation
+   */
+  protected CompletableFuture<Void> executeRecords(TableRateLimiter<K, V> rateLimiter,
+      Collection<Entry<K, V>> records, Function<Collection<Entry<K, V>>, CompletableFuture<Void>> method, Timer timer) {
+    final long startNs = System.nanoTime();
+    CompletableFuture<Void> ioFuture;
+    if (rateLimiter.isRateLimited()) {
+      ioFuture = CompletableFuture
+          .runAsync(() -> rateLimiter.throttleRecords(records), tableExecutor)
+          .thenCompose((r) -> method.apply(records));
+    } else {
+      ioFuture = method.apply(records);
+    }
+    if (callbackExecutor != null) {
+      ioFuture.thenApplyAsync(r -> {
+          timer.update(System.nanoTime() - startNs);
+          return r;
+        }, callbackExecutor);
+    } else {
+      ioFuture.thenApply(r -> {
+          timer.update(System.nanoTime() - startNs);
+          return r;
+        });
+    }
+    return ioFuture;
   }
 
   /**
@@ -166,20 +294,5 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
   @Override
   public void close() {
     readFn.close();
-  }
-
-  /**
-   * Throttle requests given a table record (key, value) with rate limiter and credit function
-   * @param key key of the table record (nullable)
-   * @param value value of the table record (nullable)
-   * @param tag tag for rate limiter
-   * @param creditFn mapper function from KV to credits to be charged
-   * @param timer timer metric to track throttling delays
-   */
-  protected void throttle(K key, V value, String tag, CreditFunction<K, V> creditFn, Timer timer) {
-    long startNs = System.nanoTime();
-    int credits = (creditFn == null) ? 1 : creditFn.apply(KV.of(key, value));
-    rateLimiter.acquire(Collections.singletonMap(tag, credits));
-    timer.update(System.nanoTime() - startNs);
   }
 }
