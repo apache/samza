@@ -132,31 +132,34 @@ class MetricsSnapshotReporter(
         }
 
         // dont emit empty groups
-        if(!groupMsg.isEmpty) {
+        if (!groupMsg.isEmpty) {
           metricsMsg.put(group, groupMsg)
         }
       })
 
-      val header = new MetricsHeader(jobName, jobId, containerName, execEnvironmentContainerId, source, version, samzaVersion, host, clock(), resetTime)
-      val metrics = new Metrics(metricsMsg)
+      // publish to Kafka only if the metricsMsg carries any metrics
+      if (!metricsMsg.isEmpty) {
+        val header = new MetricsHeader(jobName, jobId, containerName, execEnvironmentContainerId, source, version, samzaVersion, host, clock(), resetTime)
+        val metrics = new Metrics(metricsMsg)
 
-      debug("Flushing metrics for %s to %s with header and map: header=%s, map=%s." format (source, out, header.getAsMap, metrics.getAsMap))
+        debug("Flushing metrics for %s to %s with header and map: header=%s, map=%s." format(source, out, header.getAsMap, metrics.getAsMap))
 
-      val metricsSnapshot = new MetricsSnapshot(header, metrics)
-      val maybeSerialized = if (serializer != null) {
-        serializer.toBytes(metricsSnapshot)
-      } else {
-        metricsSnapshot
-      }
+        val metricsSnapshot = new MetricsSnapshot(header, metrics)
+        val maybeSerialized = if (serializer != null) {
+          serializer.toBytes(metricsSnapshot)
+        } else {
+          metricsSnapshot
+        }
 
-      try {
+        try {
 
-        producer.send(source, new OutgoingMessageEnvelope(out, host, null, maybeSerialized))
+          producer.send(source, new OutgoingMessageEnvelope(out, host, null, maybeSerialized))
 
-        // Always flush, since we don't want metrics to get batched up.
-        producer.flush(source)
-      } catch  {
-        case e: Exception => error("Exception when flushing metrics for source %s " format(source), e)
+          // Always flush, since we don't want metrics to get batched up.
+          producer.flush(source)
+        } catch {
+          case e: Exception => error("Exception when flushing metrics for source %s " format (source), e)
+        }
       }
     }
 
