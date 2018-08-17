@@ -26,7 +26,9 @@ import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
-import org.apache.samza.operators.descriptors.base.system.SimpleSystemDescriptor;
+import org.apache.samza.operators.descriptors.base.system.OutputDescriptorProvider;
+import org.apache.samza.operators.descriptors.base.system.SimpleInputDescriptorProvider;
+import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.serializers.Serde;
 
 
@@ -34,7 +36,8 @@ import org.apache.samza.serializers.Serde;
  * A descriptor for a Kafka system.
  */
 @SuppressWarnings("unchecked")
-public class KafkaSystemDescriptor extends SimpleSystemDescriptor<KafkaSystemDescriptor> {
+public class KafkaSystemDescriptor extends SystemDescriptor<KafkaSystemDescriptor>
+    implements SimpleInputDescriptorProvider, OutputDescriptorProvider {
   private static final String FACTORY_CLASS_NAME = KafkaSystemFactory.class.getName();
   private static final String CONSUMER_ZK_CONNECT_CONFIG_KEY = "systems.%s.consumer.zookeeper.connect";
   private static final String CONSUMER_AUTO_OFFSET_RESET_CONFIG_KEY = "systems.%s.consumer.auto.offset.reset";
@@ -61,7 +64,7 @@ public class KafkaSystemDescriptor extends SimpleSystemDescriptor<KafkaSystemDes
    * @param systemName name of this system
    */
   public KafkaSystemDescriptor(String systemName) {
-    super(systemName, FACTORY_CLASS_NAME);
+    super(systemName, FACTORY_CLASS_NAME, null, null);
   }
 
   /**

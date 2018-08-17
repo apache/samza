@@ -22,32 +22,23 @@ import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.serializers.Serde;
 
 /**
- * The base descriptor for a simple system that provides the system factory class name.
+ * Interface for advanced {@code SystemDescriptors} that constrain the type of returned {@code InputDescriptors} to
+ * their own {@code InputTransformer} or {@code StreamExpander} function result types.
  *
- * @param <SubClass> type of the concrete sub-class
+ * @param <SystemMessageType> type of the system level {@code InputTransformer} or {@code StreamExpander} results
  */
-public abstract class SimpleSystemDescriptor<SubClass extends SimpleSystemDescriptor<SubClass>> extends SystemDescriptor<SubClass> {
+public interface TransformingInputDescriptorProvider<SystemMessageType> {
 
   /**
-   * Constructs a {@link SimpleSystemDescriptor} instance.
-   *
-   * @param systemName name of this system
-   * @param factoryClassName name of the SystemFactory class for this system
-   */
-  public SimpleSystemDescriptor(String systemName, String factoryClassName) {
-    super(systemName, factoryClassName, null, null);
-  }
-
-  /**
-   * Gets an {@link InputDescriptor} for an input stream on this system. The stream has the provided
-   * stream level serde.
+   * Gets a {@link InputDescriptor} for an input stream on this system. The stream has the provided
+   * stream level serde, and the default system level {@code InputTransformer} or {@code StreamExpander}
    * <p>
-   * The type of messages in the stream is the type of the provided stream level serde.
+   * The type of messages in the stream is the type of messages returned by the default system level
+   * {@code InputTransformer} or {@code StreamExpander}
    *
    * @param streamId id of the input stream
    * @param serde stream level serde for the input stream
-   * @param <StreamMessageType> type of messages in this stream
-   * @return an {@link InputDescriptor} for the input stream
+   * @return a {@link InputDescriptor} for the input stream
    */
-  public abstract <StreamMessageType> InputDescriptor<StreamMessageType, ? extends InputDescriptor> getInputDescriptor(String streamId, Serde<StreamMessageType> serde);
+  InputDescriptor<SystemMessageType, ? extends InputDescriptor> getInputDescriptor(String streamId, Serde serde);
 }

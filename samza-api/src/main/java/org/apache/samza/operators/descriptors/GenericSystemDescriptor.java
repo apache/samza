@@ -19,7 +19,9 @@
 package org.apache.samza.operators.descriptors;
 
 
-import org.apache.samza.operators.descriptors.base.system.SimpleSystemDescriptor;
+import org.apache.samza.operators.descriptors.base.system.OutputDescriptorProvider;
+import org.apache.samza.operators.descriptors.base.system.SimpleInputDescriptorProvider;
+import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.serializers.Serde;
 
 /**
@@ -31,7 +33,8 @@ import org.apache.samza.serializers.Serde;
  * <p>
  * System properties configured using a descriptor override corresponding properties provided in configuration.
  */
-public final class GenericSystemDescriptor extends SimpleSystemDescriptor<GenericSystemDescriptor> {
+public final class GenericSystemDescriptor extends SystemDescriptor<GenericSystemDescriptor>
+    implements SimpleInputDescriptorProvider, OutputDescriptorProvider {
 
   /**
    * Constructs a {@link GenericSystemDescriptor} instance with no system level serde.
@@ -41,7 +44,7 @@ public final class GenericSystemDescriptor extends SimpleSystemDescriptor<Generi
    * @param factoryClassName name of the SystemFactory class for this system
    */
   public GenericSystemDescriptor(String systemName, String factoryClassName) {
-    super(systemName, factoryClassName);
+    super(systemName, factoryClassName, null, null);
   }
 
   /**

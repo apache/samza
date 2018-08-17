@@ -25,16 +25,24 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.operators.functions.StreamExpander;
-import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.SystemStreamMetadata.OffsetType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * The base descriptor for a system. Allows setting properties that are common to all systems.
+ * <p>
+ * Systems that support consuming messages from a stream should provide users means of obtaining an
+ * {@code InputDescriptor}. Recommended interfaces for doing so are {@link TransformingInputDescriptorProvider} for
+ * systems that support system level {@link InputTransformer} or {@link StreamExpander} functions, and
+ * {@link SimpleInputDescriptorProvider} otherwise.
+ * <p>
+ * Systems that support producing messages to a stream should provide users means of obtaining an
+ * {@code OutputDescriptor}. Recommended interface for doing so is {@link OutputDescriptorProvider}.
+ * <p>
+ * System implementers may choose to expose additional or alternate APIs for obtaining Input/Output Descriptors.
  *
  * @param <SubClass> type of the concrete sub-class
  */
@@ -61,7 +69,7 @@ public abstract class SystemDescriptor<SubClass extends SystemDescriptor<SubClas
    * @param systemName name of this system
    * @param factoryClassName name of the SystemFactory class for this system
    */
-  SystemDescriptor(String systemName, String factoryClassName, InputTransformer transformer, StreamExpander expander) {
+  public SystemDescriptor(String systemName, String factoryClassName, InputTransformer transformer, StreamExpander expander) {
     Preconditions.checkArgument(isValidId(systemName),
         String.format("systemName: %s must be non-empty and must not contain spaces or special characters.", systemName));
     if (StringUtils.isBlank(factoryClassName)) {
@@ -138,24 +146,6 @@ public abstract class SystemDescriptor<SubClass extends SystemDescriptor<SubClas
   private boolean isValidId(String id) {
     return StringUtils.isNotBlank(id) && ID_PATTERN.matcher(id).matches();
   }
-
-  /**
-   * Get an {@link OutputDescriptor} representing an output stream on this system that uses the provided
-   * stream specific serde instead of the default system serde.
-   * <p>
-   * An {@code OutputStream<KV<K, V>>}, obtained using a descriptor with a {@code KVSerde<K, V>}, can send messages
-   * of type {@code KV<K, V>}. An {@code OutputStream<M>} with any other {@code Serde<M>} can send messages of
-   * type M without a key.
-   * <p>
-   * A {@code KVSerde<NoOpSerde, NoOpSerde>} or {@code NoOpSerde} may be used if the {@code SystemProducer}
-   * serializes the outgoing messages itself, and no prior serialization is required from the framework.
-   *
-   * @param streamId id of the output stream
-   * @param serde serde for this output stream that overrides the default system serde, if any.
-   * @param <StreamMessageType> type of messages in the output stream
-   * @return the {@link OutputDescriptor} for the output stream
-   */
-  public abstract <StreamMessageType> OutputDescriptor<StreamMessageType, ? extends OutputDescriptor> getOutputDescriptor(String streamId, Serde<StreamMessageType> serde);
 
   public Map<String, String> toConfig() {
     HashMap<String, String> configs = new HashMap<>();

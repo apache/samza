@@ -21,17 +21,20 @@ package org.apache.samza.operators.descriptors;
 
 import com.google.common.annotations.VisibleForTesting;
 
-import org.apache.samza.operators.descriptors.base.system.SimpleSystemDescriptor;
+import org.apache.samza.operators.descriptors.base.system.OutputDescriptorProvider;
+import org.apache.samza.operators.descriptors.base.system.SimpleInputDescriptorProvider;
+import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.serializers.Serde;
 
 /**
  * A descriptor for samza framework internal usage.
  * <p>
- * Allows creating a {@link SimpleSystemDescriptor} without setting the factory class name.
+ * Allows creating a {@link SimpleInputDescriptorProvider} without setting the factory class name.
  * Useful for code-generation and testing use cases where the factory name is not known in advance.
  */
 @SuppressWarnings("unchecked")
-public final class InternalSystemDescriptor extends SimpleSystemDescriptor<InternalSystemDescriptor> {
+public final class InternalSystemDescriptor extends SystemDescriptor<InternalSystemDescriptor>
+    implements SimpleInputDescriptorProvider, OutputDescriptorProvider {
 
   /**
    * Constructs an {@link InternalSystemDescriptor} instance with no system level serde.
@@ -42,7 +45,7 @@ public final class InternalSystemDescriptor extends SimpleSystemDescriptor<Inter
    */
   @VisibleForTesting
   public InternalSystemDescriptor(String systemName) {
-    super(systemName, null);
+    super(systemName, null, null, null);
   }
 
   /**

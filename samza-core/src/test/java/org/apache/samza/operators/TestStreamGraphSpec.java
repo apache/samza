@@ -32,10 +32,8 @@ import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
 import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
-import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
-import org.apache.samza.operators.descriptors.base.system.ExpandingSystemDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
-import org.apache.samza.operators.descriptors.base.system.TransformingSystemDescriptor;
+import org.apache.samza.operators.descriptors.base.system.TransformingInputDescriptorProvider;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.operators.functions.StreamExpander;
 import org.apache.samza.operators.spec.InputOperatorSpec;
@@ -435,7 +433,7 @@ public class TestStreamGraphSpec {
     assertNotNull(graphSpec.getTable(mockTableDescriptor));
   }
 
-  class MockExpandingSystemDescriptor extends ExpandingSystemDescriptor<Integer, MockExpandingSystemDescriptor> {
+  class MockExpandingSystemDescriptor extends SystemDescriptor<MockExpandingSystemDescriptor> implements TransformingInputDescriptorProvider<Integer> {
     public MockExpandingSystemDescriptor(String systemName, StreamExpander expander) {
       super(systemName, "factory.class", null, expander);
     }
@@ -444,26 +442,16 @@ public class TestStreamGraphSpec {
     public MockInputDescriptor<Integer> getInputDescriptor(String streamId, Serde serde) {
       return new MockInputDescriptor<>(streamId, this, serde);
     }
-
-    @Override
-    public <StreamMessageType> OutputDescriptor<StreamMessageType, ? extends OutputDescriptor> getOutputDescriptor(String streamId, Serde<StreamMessageType> serde) {
-      throw new UnsupportedOperationException();
-    }
   }
 
-  class MockTransformingSystemDescriptor extends TransformingSystemDescriptor<Integer, MockTransformingSystemDescriptor> {
+  class MockTransformingSystemDescriptor extends SystemDescriptor<MockTransformingSystemDescriptor> implements TransformingInputDescriptorProvider<Integer> {
     public MockTransformingSystemDescriptor(String systemName, InputTransformer transformer) {
-      super(systemName, "factory.class", transformer);
+      super(systemName, "factory.class", transformer, null);
     }
 
     @Override
     public MockInputDescriptor<Integer> getInputDescriptor(String streamId, Serde serde) {
       return new MockInputDescriptor<>(streamId, this, serde);
-    }
-
-    @Override
-    public <StreamMessageType> OutputDescriptor<StreamMessageType, ? extends OutputDescriptor> getOutputDescriptor(String streamId, Serde<StreamMessageType> serde) {
-      throw new UnsupportedOperationException();
     }
   }
 

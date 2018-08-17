@@ -18,14 +18,17 @@
  */
 package org.apache.samza.operators.descriptors.serde;
 
-import org.apache.samza.operators.descriptors.base.system.SimpleSystemDescriptor;
+import org.apache.samza.operators.descriptors.base.system.OutputDescriptorProvider;
+import org.apache.samza.operators.descriptors.base.system.SimpleInputDescriptorProvider;
+import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.serializers.Serde;
 
-public class MockSimpleSystemDescriptor extends SimpleSystemDescriptor<MockSimpleSystemDescriptor> {
+public class MockSimpleSystemDescriptor extends SystemDescriptor<MockSimpleSystemDescriptor>
+    implements SimpleInputDescriptorProvider, OutputDescriptorProvider {
   private static final String FACTORY_CLASS_NAME = "org.apache.kafka.KafkaSystemFactory";
 
   public MockSimpleSystemDescriptor(String systemName) {
-    super(systemName, FACTORY_CLASS_NAME);
+    super(systemName, FACTORY_CLASS_NAME, null, null);
   }
 
   @Override

@@ -18,14 +18,17 @@
  */
 package org.apache.samza.operators.descriptors.transforming;
 
-import org.apache.samza.operators.descriptors.base.system.TransformingSystemDescriptor;
+import org.apache.samza.operators.descriptors.base.system.OutputDescriptorProvider;
+import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
+import org.apache.samza.operators.descriptors.base.system.TransformingInputDescriptorProvider;
 import org.apache.samza.serializers.Serde;
 
-public class MockTransformingSystemDescriptor extends TransformingSystemDescriptor<Long, MockTransformingSystemDescriptor> {
+public class MockTransformingSystemDescriptor extends SystemDescriptor<MockTransformingSystemDescriptor>
+    implements TransformingInputDescriptorProvider<Long>, OutputDescriptorProvider {
   private static final String FACTORY_CLASS_NAME = "org.apache.samza.IMETransformingSystemFactory";
 
   public MockTransformingSystemDescriptor(String systemName) {
-    super(systemName, FACTORY_CLASS_NAME, ime -> 1L);
+    super(systemName, FACTORY_CLASS_NAME, ime -> 1L, null);
   }
 
   @Override
