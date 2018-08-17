@@ -18,15 +18,16 @@
  */
 package org.apache.samza.example;
 
-import java.util.Collections;
-import org.apache.samza.application.TaskApplication;
 import org.apache.samza.application.TaskAppDescriptor;
+import org.apache.samza.application.TaskApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.TableDescriptor;
+import org.apache.samza.runtime.ApplicationClassUtils;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.storage.kv.RocksDbTableDescriptor;
-import org.apache.samza.task.TaskFactoryUtil;
+import org.apache.samza.task.StreamTask;
+import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.util.CommandLine;
 
 
@@ -38,7 +39,9 @@ public class TaskApplicationExample implements TaskApplication {
   public static void main(String[] args) {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new TaskApplicationExample(), config);
+    //ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new TaskApplicationExample(), config);
+    // ==> shouldn't be in user code example
+    ApplicationRunner runner = ApplicationRunners.getApplicationRunner(ApplicationClassUtils.fromConfig(config), config);
     runner.run();
     runner.waitForFinish();
   }
@@ -46,12 +49,13 @@ public class TaskApplicationExample implements TaskApplication {
   @Override
   public void describe(TaskAppDescriptor appDesc) {
     // add input and output streams
-    appDesc.addInputStreams(Collections.singletonList("myinput"));
-    appDesc.addOutputStreams(Collections.singletonList("myoutput"));
+    appDesc.addInputStream("myinput");
+    appDesc.addOutputStream("myoutput");
     TableDescriptor td = new RocksDbTableDescriptor("mytable");
-    appDesc.addTables(Collections.singletonList(td));
+    appDesc.addTable(td);
     // create the task factory based on configuration
-    appDesc.setTaskFactory(TaskFactoryUtil.createTaskFactory(appDesc.getConfig()));
+    appDesc.setTaskFactory((StreamTaskFactory) () -> (StreamTask) (envelope, collector, coordinator) -> {
+      });
   }
 
 }

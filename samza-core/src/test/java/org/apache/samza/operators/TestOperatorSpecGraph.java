@@ -27,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.StreamAppDescriptorImpl;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.spec.InputOperatorSpec;
@@ -57,14 +58,14 @@ import static org.mockito.Mockito.*;
 @PrepareForTest(OperatorSpec.class)
 public class TestOperatorSpecGraph {
 
-  private StreamGraphSpec mockGraph;
+  private StreamAppDescriptorImpl mockGraph;
   private Map<String, InputOperatorSpec> inputOpSpecMap;
   private Map<String, OutputStreamImpl> outputStrmMap;
   private Set<OperatorSpec> allOpSpecs;
 
   @Before
   public void setUp() {
-    this.mockGraph = mock(StreamGraphSpec.class);
+    this.mockGraph = mock(StreamAppDescriptorImpl.class);
 
     /**
      * Setup two linear transformation pipelines:
@@ -113,7 +114,7 @@ public class TestOperatorSpecGraph {
 
   @Test
   public void testConstructor() {
-    OperatorSpecGraph specGraph = new OperatorSpecGraph(mockGraph);
+    OperatorSpecGraph specGraph = OperatorSpecGraph.getInstance(mockGraph);
     assertEquals(specGraph.getInputOperators(), inputOpSpecMap);
     assertEquals(specGraph.getOutputStreams(), outputStrmMap);
     assertTrue(specGraph.getTables().isEmpty());
@@ -123,7 +124,7 @@ public class TestOperatorSpecGraph {
 
   @Test
   public void testClone() {
-    OperatorSpecGraph operatorSpecGraph = new OperatorSpecGraph(mockGraph);
+    OperatorSpecGraph operatorSpecGraph = OperatorSpecGraph.getInstance(mockGraph);
     OperatorSpecGraph clonedSpecGraph = operatorSpecGraph.clone();
     OperatorSpecTestUtils.assertClonedGraph(operatorSpecGraph, clonedSpecGraph);
   }
@@ -137,7 +138,7 @@ public class TestOperatorSpecGraph {
 
     //failed with serialization error
     try {
-      new OperatorSpecGraph(mockGraph);
+      OperatorSpecGraph.getInstance(mockGraph);
       fail("Should have failed with serialization error");
     } catch (SamzaException se) {
       throw se.getCause();
@@ -150,7 +151,7 @@ public class TestOperatorSpecGraph {
     this.allOpSpecs.add(testOp);
     inputOpSpecMap.values().stream().findFirst().get().registerNextOperatorSpec(testOp);
 
-    OperatorSpecGraph operatorSpecGraph = new OperatorSpecGraph(mockGraph);
+    OperatorSpecGraph operatorSpecGraph = OperatorSpecGraph.getInstance(mockGraph);
     //failed with serialization error
     try {
       operatorSpecGraph.clone();

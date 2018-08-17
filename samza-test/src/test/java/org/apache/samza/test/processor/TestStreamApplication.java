@@ -24,6 +24,7 @@ import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.concurrent.CountDownLatch;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
@@ -80,7 +81,7 @@ public class TestStreamApplication implements Serializable {
       StreamApplicationCallback callback,
       CountDownLatch kafkaEventsConsumedLatch) {
     StreamApplication app = appDesc -> {
-      String appName = appDesc.getGlobalAppId();
+      String appName = new ApplicationConfig(appDesc.getConfig()).getAppName();
       String processorName = appDesc.getConfig().get(JobConfig.PROCESSOR_ID());
       registerLatches(processedMessageLatch, kafkaEventsConsumedLatch, callback, appName, processorName);
 

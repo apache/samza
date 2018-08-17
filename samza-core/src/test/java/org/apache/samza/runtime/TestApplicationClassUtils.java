@@ -16,11 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.application;
+package org.apache.samza.runtime;
 
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.samza.application.internal.TaskAppDescriptorImpl;
+import org.apache.samza.application.ApplicationBase;
+import org.apache.samza.application.TaskAppDescriptorImpl;
+import org.apache.samza.application.TaskApplication;
+import org.apache.samza.application.TestStreamApplication;
+import org.apache.samza.application.TestTaskApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;

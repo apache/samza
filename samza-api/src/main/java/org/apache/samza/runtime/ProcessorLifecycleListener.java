@@ -18,11 +18,17 @@
  */
 package org.apache.samza.runtime;
 
+import org.apache.samza.annotation.InterfaceStability;
+
+
 /**
  * This interface defines methods that are invoked in different stages of StreamProcessor's lifecycle in local
- * process (i.e. as a standalone process, or a container process in YARN NodeManager). User can implement this interface
- * to instantiate/release shared objects in the local process.
+ * process (i.e. as a standalone process, or a container process in YARN NodeManager).
+ *
+ * <p>
+ * User can implement this interface to instantiate/release shared objects in the local process.
  */
+@InterfaceStability.Evolving
 public interface ProcessorLifecycleListener {
   /**
    * User defined initialization before a StreamProcessor is started
@@ -36,15 +42,14 @@ public interface ProcessorLifecycleListener {
   default void afterStart() {}
 
   /**
-   * User defined callback before a StreamProcessor is stopped
-   *
+   * User defined callback after a StreamProcessor is stopped successfully
    */
-  default void beforeStop() {}
+  default void afterStop() {}
 
   /**
-   * User defined callback after a StreamProcessor is stopped
+   * User defined callback after a StreamProcessor is stopped with failure
    *
-   * @param t the error causing the stop of the StreamProcessor. null value of this parameter indicates a successful completion.
+   * @param t the error causing the stop of the StreamProcessor.
    */
-  default void afterStop(Throwable t) {}
+  default void afterFailure(Throwable t) {}
 }

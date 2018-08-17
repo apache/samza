@@ -22,7 +22,7 @@ package org.apache.samza.runtime;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.samza.application.internal.StreamAppDescriptorImpl;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -35,7 +35,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
-import org.powermock.reflect.Whitebox;
 
 import static org.junit.Assert.*;
 import static org.mockito.Matchers.*;
@@ -54,11 +53,8 @@ public class TestRemoteApplicationRunner {
   @Before
   public void setUp() {
     Map<String, String> config = new HashMap<>();
-    StreamAppDescriptorImpl appDesc = mock(StreamAppDescriptorImpl.class);
-    when(appDesc.getConfig()).thenReturn(new MapConfig(config));
-    runner = spy(new RemoteApplicationRunner(appDesc));
-    AbstractApplicationRunner.AppRuntimeExecutable appExecutable = runner.getStreamAppRuntimeExecutable(appDesc);
-    Whitebox.setInternalState(runner, "appExecutable", appExecutable);
+    StreamApplication userApp = appDesc -> { };
+    runner = spy(new RemoteApplicationRunner(userApp, new MapConfig(config)));
   }
 
   @Test
@@ -83,15 +79,13 @@ public class TestRemoteApplicationRunner {
 
     m.put(JobConfig.JOB_ID(), "newJob");
 
-    StreamAppDescriptorImpl appDesc = mock(StreamAppDescriptorImpl.class);
-    when(appDesc.getConfig()).thenReturn(new MapConfig(m));
-    runner = spy(new RemoteApplicationRunner(appDesc));
+    StreamApplication userApp = appDesc -> { };
+    runner = spy(new RemoteApplicationRunner(userApp, new MapConfig(m)));
 
     Assert.assertEquals(ApplicationStatus.New, runner.getApplicationStatus(new JobConfig(new MapConfig(m))));
 
     m.put(JobConfig.JOB_ID(), "runningJob");
-    when(appDesc.getConfig()).thenReturn(new MapConfig(m));
-    runner = spy(new RemoteApplicationRunner(appDesc));
+    runner = spy(new RemoteApplicationRunner(userApp, new MapConfig(m)));
     Assert.assertEquals(ApplicationStatus.Running, runner.getApplicationStatus(new JobConfig(new MapConfig(m))));
   }
 

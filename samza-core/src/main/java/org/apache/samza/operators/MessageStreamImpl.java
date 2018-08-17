@@ -19,10 +19,12 @@
 
 package org.apache.samza.operators;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.time.Duration;
 import java.util.Collection;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.StreamAppDescriptorImpl;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
@@ -53,7 +55,7 @@ import org.apache.samza.table.TableSpec;
 
 /**
  * The {@link MessageStream} implementation that lets users describe their logical DAG.
- * Users can obtain an instance by calling {@link StreamGraph#getInputStream}.
+ * Users can obtain an instance by calling {@link StreamAppDescriptorImpl#getInputStream}.
  * <p>
  * Each {@link MessageStreamImpl} is associated with a single {@link OperatorSpec} in the DAG and allows
  * users to chain further operators on its {@link OperatorSpec}. In other words, a {@link MessageStreamImpl}
@@ -63,16 +65,16 @@ import org.apache.samza.table.TableSpec;
  */
 public class MessageStreamImpl<M> implements MessageStream<M> {
   /**
-   * The {@link StreamGraphSpec} that contains this {@link MessageStreamImpl}
+   * The {@link StreamAppDescriptorImpl} that contains this {@link MessageStreamImpl}
    */
-  private final StreamGraphSpec graph;
+  private final StreamAppDescriptorImpl graph;
 
   /**
    * The {@link OperatorSpec} associated with this {@link MessageStreamImpl}
    */
   private final OperatorSpec operatorSpec;
 
-  public MessageStreamImpl(StreamGraphSpec graph, OperatorSpec<?, M> operatorSpec) {
+  public MessageStreamImpl(StreamAppDescriptorImpl graph, OperatorSpec<?, M> operatorSpec) {
     this.graph = graph;
     this.operatorSpec = operatorSpec;
   }
@@ -210,7 +212,8 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
    * Get the {@link OperatorSpec} associated with this {@link MessageStreamImpl}.
    * @return the {@link OperatorSpec} associated with this {@link MessageStreamImpl}.
    */
-  protected OperatorSpec<?, M> getOperatorSpec() {
+  @VisibleForTesting
+  public OperatorSpec<?, M> getOperatorSpec() {
     return this.operatorSpec;
   }
 

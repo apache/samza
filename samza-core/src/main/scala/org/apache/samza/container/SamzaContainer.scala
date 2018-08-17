@@ -792,14 +792,15 @@ class SamzaContainer(
     try {
       info("Starting container.")
 
+      if (containerListener != null) {
+        containerListener.beforeStart()
+      }
+
       val startTime = System.nanoTime()
       status = SamzaContainerStatus.STARTING
 
       jmxServer = new JmxServer()
 
-      if (containerListener != null) {
-        containerListener.beforeStart()
-      }
       startMetrics
       startDiagnostics
       startAdmins
@@ -836,10 +837,6 @@ class SamzaContainer(
     try {
       info("Shutting down.")
       removeShutdownHook
-
-      if (containerListener != null) {
-        containerListener.beforeStop()
-      }
 
       jmxServer.stop
 

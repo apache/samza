@@ -20,28 +20,34 @@ package org.apache.samza.runtime;
 
 import java.io.File;
 import java.io.PrintWriter;
-import java.time.Duration;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.samza.application.ApplicationDescriptor;
-import org.apache.samza.application.internal.AppDescriptorImpl;
-import org.apache.samza.application.internal.StreamAppDescriptorImpl;
-import org.apache.samza.application.internal.TaskAppDescriptorImpl;
+import org.apache.samza.application.AppDescriptorImpl;
+import org.apache.samza.application.ApplicationBase;
+import org.apache.samza.application.ApplicationDescriptors;
+import org.apache.samza.application.StreamAppDescriptorImpl;
+import org.apache.samza.application.TaskAppDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ApplicationConfig.ApplicationMode;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.execution.ExecutionPlanner;
 import org.apache.samza.execution.StreamManager;
-import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.operators.BaseTableDescriptor;
 import org.apache.samza.operators.OperatorSpecGraph;
+import org.apache.samza.table.TableConfigGenerator;
+import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,14 +59,12 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
   private static final Logger log = LoggerFactory.getLogger(AbstractApplicationRunner.class);
 
   protected final AppDescriptorImpl appDesc;
-  protected final AppRuntimeExecutable appExecutable;
   protected final Config config;
   protected final Map<String, MetricsReporter> metricsReporters = new HashMap<>();
 
-  AbstractApplicationRunner(AppDescriptorImpl appDesc) {
-    this.appDesc = appDesc;
+  AbstractApplicationRunner(ApplicationBase userApp, Config config) {
+    this.appDesc = ApplicationDescriptors.getAppDescriptor(userApp, config);
     this.config = appDesc.getConfig();
-    this.appExecutable = getAppRuntimeExecutable(appDesc);
   }
 
   @Override
@@ -68,62 +72,27 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
     this.metricsReporters.putAll(metricsReporters);
   }
 
-  @Override
-  public final void run() {
-    appExecutable.run();
-  }
-
-  @Override
-  public final ApplicationStatus status() {
-    return appExecutable.status();
-  }
-
-  @Override
-  public final void kill() {
-    appExecutable.kill();
-  }
-
-  @Override
-  public final void waitForFinish() {
-    appExecutable.waitForFinish(Duration.ofSeconds(0));
-  }
-
-  @Override
-  public final boolean waitForFinish(Duration timeout) {
-    return appExecutable.waitForFinish(timeout);
-  }
-
-  interface AppRuntimeExecutable {
-
-    void run();
-
-    void kill();
-
-    ApplicationStatus status();
-
-    /**
-     * Waits for {@code timeout} duration for the application to finish.
-     *
-     * @param timeout time to wait for the application to finish
-     * @return true - application finished before timeout
-     *         false - otherwise
-     */
-    boolean waitForFinish(Duration timeout);
-
-  }
-
-  abstract AppRuntimeExecutable getTaskAppRuntimeExecutable(TaskAppDescriptorImpl appSpec);
-
-  abstract AppRuntimeExecutable getStreamAppRuntimeExecutable(StreamAppDescriptorImpl appSpec);
-
   StreamManager buildAndStartStreamManager() {
     StreamManager streamManager = new StreamManager(config);
     streamManager.start();
     return streamManager;
   }
 
-  ExecutionPlan getExecutionPlan(OperatorSpecGraph graphSpec, StreamManager streamManager) throws Exception {
-    return getExecutionPlan(graphSpec, null, streamManager);
+  abstract List<JobConfig> getJobConfigsFromPlan(StreamAppDescriptorImpl streamAppDesc);
+
+  List<JobConfig> createJobConfigs() {
+    if (appDesc instanceof TaskAppDescriptorImpl) {
+      // low-level task application only needs a simple single job configuration
+      return Collections.singletonList(getTaskJobConfig((TaskAppDescriptorImpl) appDesc));
+    } else if (appDesc instanceof StreamAppDescriptorImpl) {
+      return getJobConfigsFromPlan((StreamAppDescriptorImpl) appDesc);
+    }
+
+    throw new IllegalArgumentException("ApplicationDescriptor class " + appDesc.getClass().getName() + " is not supported");
+  }
+
+  ExecutionPlan getExecutionPlan(OperatorSpecGraph specGraph, StreamManager streamManager) throws Exception {
+    return getExecutionPlan(specGraph, null, streamManager);
   }
 
   /* package private */
@@ -141,6 +110,7 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
     ApplicationMode mode = inputStreams.stream().allMatch(streamConfig::getIsBounded)
         ? ApplicationMode.BATCH : ApplicationMode.STREAM;
     cfg.put(ApplicationConfig.APP_MODE, mode.name());
+    validateAppClassCfg(cfg, appDesc.getAppClass());
 
     // create the physical execution plan
     ExecutionPlanner planner = new ExecutionPlanner(new MapConfig(cfg), streamManager);
@@ -168,15 +138,26 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
     }
   }
 
-  private AppRuntimeExecutable getAppRuntimeExecutable(ApplicationDescriptor appSpec) {
-    if (appSpec instanceof StreamAppDescriptorImpl) {
-      return getStreamAppRuntimeExecutable((StreamAppDescriptorImpl) appSpec);
+  // helper method to generate a single node job configuration for low level task applications
+  private JobConfig getTaskJobConfig(TaskAppDescriptorImpl taskAppDesc) {
+    Map<String, String> cfg = new HashMap<>(taskAppDesc.getConfig());
+    //TODO: add stream and system descriptor to configuration conversion here when SAMZA-1804 is fixed.
+    // adding table configuration
+    List<TableSpec> tableSpecs = taskAppDesc.getTables().stream()
+        .map(td -> ((BaseTableDescriptor) td).getTableSpec())
+        .collect(Collectors.toList());
+    cfg.putAll(TableConfigGenerator.generateConfigsForTableSpecs(tableSpecs));
+    validateAppClassCfg(cfg, taskAppDesc.getAppClass());
+    return new JobConfig(new MapConfig(cfg));
+  }
+
+  private void validateAppClassCfg(Map<String, String> cfg, Class<? extends ApplicationBase> appClass) {
+    if (cfg.get(ApplicationConfig.APP_CLASS) != null && !cfg.get(ApplicationConfig.APP_CLASS).isEmpty()) {
+      // app.class is already set
+      return;
     }
-    if (appSpec instanceof TaskAppDescriptorImpl) {
-      return getTaskAppRuntimeExecutable((TaskAppDescriptorImpl) appSpec);
-    }
-    throw new IllegalArgumentException(String.format("The specified application %s is not valid. "
-        + "Only StreamApplicationSpec and TaskApplicationSpec are supported.", appSpec.getClass().getName()));
+    // adding app.class in the configuration
+    cfg.put(ApplicationConfig.APP_CLASS, appClass.getCanonicalName());
   }
 
 }

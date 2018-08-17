@@ -16,55 +16,36 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.runtime;
+package org.apache.samza.application;
 
-import java.time.Duration;
-import java.util.Map;
-import org.apache.samza.application.ApplicationBase;
 import org.apache.samza.config.Config;
-import org.apache.samza.job.ApplicationStatus;
-import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.config.ConfigException;
+import org.apache.samza.config.TaskConfig;
+import org.apache.samza.task.TaskFactoryUtil;
+
+import static org.apache.samza.util.ScalaJavaUtil.toScalaFunction;
 
 
 /**
- * Test class for {@link org.apache.samza.runtime.ApplicationRunners} unit test
+ * Default {@link TaskApplication} for legacy applications w/ only task.class implemented
  */
-public class TestApplicationRunner implements ApplicationRunner {
-  private final ApplicationBase userApp;
+public final class LegacyTaskApplication implements TaskApplication {
   private final Config config;
 
-  public TestApplicationRunner(ApplicationBase userApp, Config config) {
-    this.userApp = userApp;
-    this.config = config;
+  public LegacyTaskApplication(Config config) {
+    this.config = validate(config);
+  }
+
+  private Config validate(Config config) {
+    new TaskConfig(config).getTaskClass().getOrElse(toScalaFunction(
+        () -> {
+          throw new ConfigException("No task class defined in the configuration.");
+        }));
+    return config;
   }
 
   @Override
-  public void run() {
-
-  }
-
-  @Override
-  public void kill() {
-
-  }
-
-  @Override
-  public ApplicationStatus status() {
-    return null;
-  }
-
-  @Override
-  public void waitForFinish() {
-
-  }
-
-  @Override
-  public boolean waitForFinish(Duration timeout) {
-    return false;
-  }
-
-  @Override
-  public void addMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
-
+  public void describe(TaskAppDescriptor appDesc) {
+    appDesc.setTaskFactory(TaskFactoryUtil.createTaskFactory(config));
   }
 }

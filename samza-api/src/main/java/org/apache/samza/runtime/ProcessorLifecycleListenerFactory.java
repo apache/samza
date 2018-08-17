@@ -19,12 +19,14 @@
 package org.apache.samza.runtime;
 
 import java.io.Serializable;
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 
 
 /**
  * This interface class defines the factory method to create an instance of {@link ProcessorLifecycleListener}.
  */
+@InterfaceStability.Evolving
 public interface ProcessorLifecycleListenerFactory extends Serializable {
   /**
    * Create an instance of {@link ProcessorLifecycleListener} for the StreamProcessor

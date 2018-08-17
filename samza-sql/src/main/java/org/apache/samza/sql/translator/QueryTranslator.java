@@ -31,7 +31,7 @@ import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamAppDescriptor;
-import org.apache.samza.application.internal.StreamAppDescriptorImpl;
+import org.apache.samza.application.StreamAppDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.KV;
@@ -54,7 +54,7 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * This class is used to populate the StreamGraph using the SQL queries.
+ * This class is used to populate the {@link StreamAppDescriptor} using the SQL queries.
  * This class contains the core of the SamzaSQL control code that converts the SQL statements to calcite relational graph.
  * It then walks the relational graph and then populates the Samza's {@link StreamAppDescriptor} accordingly.
  */
@@ -98,7 +98,7 @@ public class QueryTranslator {
             sqlConfig.getUdfMetadata());
     final SamzaSqlExecutionContext executionContext = new SamzaSqlExecutionContext(this.sqlConfig);
     final RelRoot relRoot = planner.plan(queryInfo.getSelectQuery());
-    final TranslatorContext context = new TranslatorContext(((StreamAppDescriptorImpl)appDesc).getGraph(), relRoot, executionContext, this.converters);
+    final TranslatorContext context = new TranslatorContext((StreamAppDescriptorImpl)appDesc, relRoot, executionContext, this.converters);
     final RelNode node = relRoot.project();
     final SqlIOResolver ioResolver = context.getExecutionContext().getSamzaSqlApplicationConfig().getIoResolver();
 

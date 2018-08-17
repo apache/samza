@@ -18,12 +18,17 @@
  */
 package org.apache.samza.application;
 
+import org.apache.samza.annotation.InterfaceStability;
+
+
 /**
- * The base interface for all user-implemented applications in Samza. The main processing logic of the user application
- * should be implemented in {@link ApplicationBase#describe(ApplicationDescriptor)} method. Sub-classes {@link StreamApplication}
- * and {@link TaskApplication} are specific interfaces for applications written in high-level DAG and low-level task APIs,
- * respectively.
+ * The base interface for all user-implemented applications in Samza.
+ * <p>
+ * The main processing logic of the user application should be implemented in {@link ApplicationBase#describe(ApplicationDescriptor)}
+ * method. Sub-classes {@link StreamApplication} and {@link TaskApplication} are specific interfaces for applications
+ * written in high-level DAG and low-level task APIs, respectively.
  */
+@InterfaceStability.Evolving
 public interface ApplicationBase<S extends ApplicationDescriptor> {
 
   /**

@@ -16,27 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.application;
 
-package org.apache.samza.runtime;
+import org.apache.samza.config.Config;
+
 
 /**
- * Operation to perform in the {@link ApplicationRunnerMain}
+ * Util class to help creating {@link AppDescriptorImpl} instance from {@link ApplicationBase} and {@link Config}
  */
-public enum ApplicationRunnerOperation {
-  RUN("run"), KILL("kill"), STATUS("status");
+public class ApplicationDescriptors {
+  private ApplicationDescriptors() {
 
-  private final String str;
-
-  public static ApplicationRunnerOperation fromString(String string) {
-    return ApplicationRunnerOperation.valueOf(string.toUpperCase());
   }
 
-  ApplicationRunnerOperation(String str) {
-    this.str = str;
-  }
-
-  @Override
-  public String toString() {
-    return str;
+  public static AppDescriptorImpl getAppDescriptor(ApplicationBase userApp, Config config) {
+    if (userApp instanceof StreamApplication) {
+      return new StreamAppDescriptorImpl((StreamApplication) userApp, config);
+    }
+    if (userApp instanceof TaskApplication) {
+      return new TaskAppDescriptorImpl((TaskApplication) userApp, config);
+    }
+    throw new IllegalArgumentException(String.format("User application class %s is not supported. Only StreamApplication "
+        + "and TaskApplication are supported.", userApp.getClass().getName()));
   }
 }

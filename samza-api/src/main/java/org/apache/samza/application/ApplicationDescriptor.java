@@ -18,22 +18,23 @@
  */
 package org.apache.samza.application;
 
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.runtime.ProcessorLifecycleListenerFactory;
 
 
 /**
- * The base interface class to describe a user application in Samza. Sub-classes {@link StreamAppDescriptor}
- * and {@link TaskAppDescriptor} are specific interfaces for applications written in high-level DAG and low-level task APIs,
- * respectively.
+ * The base interface class to describe a user application in Samza.
+ * <p>
+ * Sub-classes {@link StreamAppDescriptor} and {@link TaskAppDescriptor} are specific interfaces for applications written
+ * in high-level DAG and low-level task APIs, respectively.
+ *
+ * @param <T> type of user application this descriptor describes. It has to be either {@link StreamApplication} or
+ *            {@link TaskApplication}
  */
+@InterfaceStability.Evolving
 public interface ApplicationDescriptor<T extends ApplicationBase> {
-  /**
-   * Get the global unique application ID in the runtime process
-   * @return globally unique application ID
-   */
-  String getGlobalAppId();
 
   /**
    * Get the user defined {@link Config}
@@ -47,6 +48,8 @@ public interface ApplicationDescriptor<T extends ApplicationBase> {
    * The provided {@link ContextManager} can be used to setup shared context between the operator functions
    * within a task instance
    *
+   * TODO: this should be replaced by the shared context factory when SAMZA-1714 is fixed.
+
    * @param contextManager the {@link ContextManager} to use for the application
    * @return the {@link ApplicationDescriptor} with {@code contextManager} set as its {@link ContextManager}
    */
@@ -55,8 +58,8 @@ public interface ApplicationDescriptor<T extends ApplicationBase> {
   /**
    * Sets the {@link ProcessorLifecycleListenerFactory} for this application.
    *
-   * @param listenerFactory the user implemented {@link ProcessorLifecycleListenerFactory} that creates lifecycle aware
-   *                        methods to be invoked before and after the start/stop of the StreamProcessor(s) in the application
+   * @param listenerFactory the user implemented {@link ProcessorLifecycleListenerFactory} that creates lifecycle listener
+   *                        with callback methods before and after the start/stop of each StreamProcessor in the application
    * @return the {@link ApplicationDescriptor} with {@code listenerFactory} set as its {@link ProcessorLifecycleListenerFactory}
    */
   ApplicationDescriptor<T> withProcessorLifecycleListenerFactory(ProcessorLifecycleListenerFactory listenerFactory);

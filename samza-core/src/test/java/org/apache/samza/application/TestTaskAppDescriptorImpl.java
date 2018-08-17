@@ -16,11 +16,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.application.internal;
+package org.apache.samza.application;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.samza.application.TaskApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.TableDescriptor;
@@ -50,7 +49,9 @@ public class TestTaskAppDescriptorImpl {
   @Test
   public void testAddInputStreams() {
     List<String> testInputs = new ArrayList<String>() { { this.add("myinput1"); this.add("myinput2"); } };
-    TaskApplication testApp = appDesc -> appDesc.addInputStreams(testInputs);
+    TaskApplication testApp = appDesc -> {
+      testInputs.forEach(input -> appDesc.addInputStream(input));
+    };
     TaskAppDescriptorImpl appDesc = new TaskAppDescriptorImpl(testApp, config);
     assertEquals(appDesc.getInputStreams(), testInputs);
   }
@@ -58,7 +59,9 @@ public class TestTaskAppDescriptorImpl {
   @Test
   public void testAddOutputStreams() {
     List<String> testOutputs = new ArrayList<String>() { { this.add("myoutput1"); this.add("myoutput2"); } };
-    TaskApplication testApp = appDesc -> appDesc.addOutputStreams(testOutputs);
+    TaskApplication testApp = appDesc -> {
+      testOutputs.forEach(output -> appDesc.addOutputStream(output));
+    };
     TaskAppDescriptorImpl appDesc = new TaskAppDescriptorImpl(testApp, config);
     assertEquals(appDesc.getOutputStreams(), testOutputs);
   }
@@ -66,7 +69,9 @@ public class TestTaskAppDescriptorImpl {
   @Test
   public void testAddTables() {
     List<TableDescriptor> testTables = new ArrayList<TableDescriptor>() { { this.add(mock(TableDescriptor.class)); } };
-    TaskApplication testApp = appDesc -> appDesc.addTables(testTables);
+    TaskApplication testApp = appDesc -> {
+      testTables.forEach(table -> appDesc.addTable(table));
+    };
     TaskAppDescriptorImpl appDesc = new TaskAppDescriptorImpl(testApp, config);
     assertEquals(appDesc.getTables(), testTables);
   }

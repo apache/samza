@@ -20,11 +20,6 @@ package org.apache.samza.runtime;
 
 import java.lang.reflect.Constructor;
 import org.apache.samza.application.ApplicationBase;
-import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.TaskApplication;
-import org.apache.samza.application.internal.AppDescriptorImpl;
-import org.apache.samza.application.internal.StreamAppDescriptorImpl;
-import org.apache.samza.application.internal.TaskAppDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 
@@ -46,14 +41,19 @@ public class ApplicationRunners {
    * @return the {@link ApplicationRunner} object that will run the {@code userApp}
    */
   public static final ApplicationRunner getApplicationRunner(ApplicationBase userApp, Config config) {
-    if (userApp instanceof StreamApplication) {
-      return getRunner(new StreamAppDescriptorImpl((StreamApplication) userApp, config));
+    AppRunnerConfig runnerConfig = new AppRunnerConfig(config);
+    try {
+      Class<?> runnerClass = Class.forName(runnerConfig.getAppRunnerClass());
+      if (ApplicationRunner.class.isAssignableFrom(runnerClass)) {
+        Constructor<?> constructor = runnerClass.getConstructor(ApplicationBase.class, Config.class); // *sigh*
+        return (ApplicationRunner) constructor.newInstance(userApp, config);
+      }
+    } catch (Exception e) {
+      throw new ConfigException(String.format("Problem in loading ApplicationRunner class %s",
+          runnerConfig.getAppRunnerClass()), e);
     }
-    if (userApp instanceof TaskApplication) {
-      return getRunner(new TaskAppDescriptorImpl((TaskApplication) userApp, config));
-    }
-    throw new IllegalArgumentException(String.format("User application instance has to be either StreamApplicationFactory or TaskApplicationFactory. "
-        + "Invalid userApp class %s.", userApp.getClass().getName()));
+    throw new ConfigException(String.format("Class %s does not extend ApplicationRunner properly",
+        runnerConfig.getAppRunnerClass()));
   }
 
   static class AppRunnerConfig {
@@ -72,26 +72,4 @@ public class ApplicationRunners {
 
   }
 
-  /**
-   * Static method to get the {@link ApplicationRunner}
-   *
-   * @param appSpec  configuration passed in to initialize the Samza processes
-   * @return  the configure-driven {@link ApplicationRunner} to run the user-defined stream applications
-   */
-  static ApplicationRunner getRunner(AppDescriptorImpl appSpec) {
-    AppRunnerConfig appRunnerCfg = new AppRunnerConfig(appSpec.getConfig());
-    try {
-      Class<?> runnerClass = Class.forName(appRunnerCfg.getAppRunnerClass());
-      if (ApplicationRunner.class.isAssignableFrom(runnerClass)) {
-        Constructor<?> constructor = runnerClass.getConstructor(AppDescriptorImpl.class); // *sigh*
-        return (ApplicationRunner) constructor.newInstance(appSpec);
-      }
-    } catch (Exception e) {
-      throw new ConfigException(String.format("Problem in loading ApplicationRunner class %s",
-          appRunnerCfg.getAppRunnerClass()), e);
-    }
-    throw new ConfigException(String.format(
-        "Class %s does not extend ApplicationRunner properly",
-        appRunnerCfg.getAppRunnerClass()));
-  }
 }

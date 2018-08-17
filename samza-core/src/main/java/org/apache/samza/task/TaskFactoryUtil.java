@@ -18,7 +18,6 @@
  */
 package org.apache.samza.task;
 
-import java.util.concurrent.ExecutorService;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
@@ -28,7 +27,9 @@ import org.apache.samza.operators.OperatorSpecGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.samza.util.ScalaJavaUtil.*;
+import java.util.concurrent.ExecutorService;
+
+import static org.apache.samza.util.ScalaJavaUtil.toScalaFunction;
 
 /**
  * This class provides utility functions to load task factory classes based on config, and to wrap {@link StreamTaskFactory}

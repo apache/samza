@@ -24,12 +24,11 @@ import java.util.Random;
 import org.apache.log4j.MDC;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationBase;
-import org.apache.samza.application.ApplicationClassUtils;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.TaskApplication;
-import org.apache.samza.application.internal.AppDescriptorImpl;
-import org.apache.samza.application.internal.StreamAppDescriptorImpl;
-import org.apache.samza.application.internal.TaskAppDescriptorImpl;
+import org.apache.samza.application.AppDescriptorImpl;
+import org.apache.samza.application.StreamAppDescriptorImpl;
+import org.apache.samza.application.TaskAppDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
@@ -39,7 +38,6 @@ import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainer$;
 import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.task.TaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
 import org.apache.samza.util.SamzaUncaughtExceptionHandler;
@@ -88,45 +86,6 @@ public class LocalContainerRunner {
     System.exit(0);
   }
 
-  private static class LocalContainerLifecycleListener implements SamzaContainerListener {
-    private final ProcessorLifecycleListener pListener;
-
-    LocalContainerLifecycleListener(ProcessorLifecycleListener pListener) {
-      this.pListener = pListener;
-    }
-
-    @Override
-    public void beforeStart() {
-      log.info("Starting Local Container");
-      pListener.beforeStart();
-    }
-
-    @Override
-    public void onContainerStart() {
-      log.info("Local Container Started");
-      pListener.afterStart();
-    }
-
-    @Override
-    public void beforeStop() {
-      log.info("Stopping Local Container");
-      pListener.beforeStop();
-    }
-
-    @Override
-    public void onContainerStop() {
-      log.info("Container Stopped Successfully");
-      pListener.afterStop(null);
-    }
-
-    @Override
-    public void onContainerFailed(Throwable t) {
-      log.info("Container Stopped with Failure");
-      containerRunnerException = t;
-      pListener.afterStop(t);
-    }
-  }
-
   private static AppDescriptorImpl getAppDesc(Config config) {
     ApplicationBase userApp = ApplicationClassUtils.fromConfig(config);
     return userApp instanceof StreamApplication ? new StreamAppDescriptorImpl((StreamApplication) userApp, config) :
@@ -146,8 +105,33 @@ public class LocalContainerRunner {
     ProcessorContext pContext = () -> String.format("%s-%s-%s", jobConfig.getName(), jobConfig.getJobId(), containerId);
     ProcessorLifecycleListener pListener = appDesc.getProcessorLifecycleListenerFactory().createInstance(pContext, config);
 
-    // TODO: this is a temporary solution to inject the lifecycle listeners before we fix SAMZA-1168
-    container.setContainerListener(new LocalContainerLifecycleListener(pListener));
+    container.setContainerListener(
+        new SamzaContainerListener() {
+          @Override
+          public void beforeStart() {
+            log.info("Before starting the container.");
+            pListener.beforeStart();
+          }
+
+          @Override
+          public void onContainerStart() {
+            log.info("Container Started");
+            pListener.afterStart();
+          }
+
+          @Override
+          public void onContainerStop() {
+            log.info("Container Stopped");
+            pListener.afterStop();
+          }
+
+          @Override
+          public void onContainerFailed(Throwable t) {
+            log.info("Container Failed");
+            containerRunnerException = t;
+            pListener.afterFailure(t);
+          }
+        });
 
     ContainerHeartbeatMonitor heartbeatMonitor = createContainerHeartbeatMonitor(container);
     if (heartbeatMonitor != null) {
@@ -169,7 +153,7 @@ public class LocalContainerRunner {
   private static TaskFactory getTaskFactory(AppDescriptorImpl appDesc) {
     if (appDesc instanceof StreamAppDescriptorImpl) {
       StreamAppDescriptorImpl streamAppDesc = (StreamAppDescriptorImpl) appDesc;
-      return TaskFactoryUtil.createTaskFactory(((StreamGraphSpec) streamAppDesc.getGraph()).getOperatorSpecGraph(),
+      return TaskFactoryUtil.createTaskFactory(streamAppDesc.getOperatorSpecGraph(),
           streamAppDesc.getContextManager());
     }
     return ((TaskAppDescriptorImpl) appDesc).getTaskFactory();

@@ -21,13 +21,12 @@ package org.apache.samza.runtime;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.internal.TestStreamGraph;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
 
 
 /**
@@ -39,7 +38,6 @@ public class TestApplicationRunners {
   public void testGetAppRunner() {
     Map<String, String> configMap = new HashMap<>();
     configMap.put("app.runner.class", TestApplicationRunner.class.getName());
-    configMap.put("app.test.graph.class", TestStreamGraph.class.getName());
     Config config = new MapConfig(configMap);
     StreamApplication app = mock(StreamApplication.class);
     ApplicationRunner appRunner = ApplicationRunners.getApplicationRunner(app, config);

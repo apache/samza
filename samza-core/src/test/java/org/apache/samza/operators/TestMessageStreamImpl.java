@@ -24,6 +24,7 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
 
+import org.apache.samza.application.StreamAppDescriptorImpl;
 import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.data.TestOutputMessageEnvelope;
 import org.apache.samza.operators.functions.FilterFunction;
@@ -70,7 +71,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testMap() {
-    StreamGraphSpec mockGraph = mock(StreamGraphSpec.class);
+    StreamAppDescriptorImpl mockGraph = mock(StreamAppDescriptorImpl.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
 
@@ -95,7 +96,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testFlatMap() {
-    StreamGraphSpec mockGraph = mock(StreamGraphSpec.class);
+    StreamAppDescriptorImpl mockGraph = mock(StreamAppDescriptorImpl.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
 
@@ -112,7 +113,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testFlatMapWithRelaxedTypes() {
-    StreamGraphSpec mockGraph = mock(StreamGraphSpec.class);
+    StreamAppDescriptorImpl mockGraph = mock(StreamAppDescriptorImpl.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<TestInputMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
 
@@ -132,7 +133,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testFilter() {
-    StreamGraphSpec mockGraph = mock(StreamGraphSpec.class);
+    StreamAppDescriptorImpl mockGraph = mock(StreamAppDescriptorImpl.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
 
@@ -157,7 +158,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testSink() {
-    StreamGraphSpec mockGraph = mock(StreamGraphSpec.class);
+    StreamAppDescriptorImpl mockGraph = mock(StreamAppDescriptorImpl.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
 
@@ -174,7 +175,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testSendTo() {
-    StreamGraphSpec mockGraph = mock(StreamGraphSpec.class);
+    StreamAppDescriptorImpl mockGraph = mock(StreamAppDescriptorImpl.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
     OutputStreamImpl<TestMessageEnvelope> mockOutputStreamImpl = mock(OutputStreamImpl.class);
@@ -200,7 +201,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testPartitionBy() throws IOException {
-    StreamGraphSpec mockGraph = mock(StreamGraphSpec.class);
+    StreamAppDescriptorImpl mockGraph = mock(StreamAppDescriptorImpl.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
     String mockOpName = "mockName";
     when(mockGraph.getNextOpId(anyObject(), anyObject())).thenReturn(mockOpName);
@@ -231,7 +232,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testRepartitionWithoutSerde() {
-    StreamGraphSpec mockGraph = mock(StreamGraphSpec.class);
+    StreamAppDescriptorImpl mockGraph = mock(StreamAppDescriptorImpl.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
     String mockOpName = "mockName";
     when(mockGraph.getNextOpId(anyObject(), anyObject())).thenReturn(mockOpName);
@@ -261,7 +262,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testWindowWithRelaxedTypes() throws Exception {
-    StreamGraphSpec mockGraph = mock(StreamGraphSpec.class);
+    StreamAppDescriptorImpl mockGraph = mock(StreamAppDescriptorImpl.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
     MessageStream<TestInputMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
 
@@ -285,7 +286,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testJoin() {
-    StreamGraphSpec mockGraph = mock(StreamGraphSpec.class);
+    StreamAppDescriptorImpl mockGraph = mock(StreamAppDescriptorImpl.class);
     OperatorSpec leftInputOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<TestMessageEnvelope> source1 = new MessageStreamImpl<>(mockGraph, leftInputOpSpec);
     OperatorSpec rightInputOpSpec = mock(OperatorSpec.class);
@@ -317,7 +318,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testSendToTable() {
-    StreamGraphSpec mockGraph = mock(StreamGraphSpec.class);
+    StreamAppDescriptorImpl mockGraph = mock(StreamAppDescriptorImpl.class);
     OperatorSpec inputOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<TestMessageEnvelope> source = new MessageStreamImpl<>(mockGraph, inputOpSpec);
 
@@ -339,7 +340,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testStreamTableJoin() {
-    StreamGraphSpec mockGraph = mock(StreamGraphSpec.class);
+    StreamAppDescriptorImpl mockGraph = mock(StreamAppDescriptorImpl.class);
     OperatorSpec leftInputOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<KV<String, TestMessageEnvelope>> source1 = new MessageStreamImpl<>(mockGraph, leftInputOpSpec);
     OperatorSpec rightInputOpSpec = mock(OperatorSpec.class);
@@ -367,7 +368,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testMerge() {
-    StreamGraphSpec mockGraph = mock(StreamGraphSpec.class);
+    StreamAppDescriptorImpl mockGraph = mock(StreamAppDescriptorImpl.class);
     OperatorSpec mockOpSpec1 = mock(OperatorSpec.class);
     MessageStream<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec1);
 
@@ -407,7 +408,7 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testMergeWithRelaxedTypes() {
-    StreamGraphSpec mockGraph = mock(StreamGraphSpec.class);
+    StreamAppDescriptorImpl mockGraph = mock(StreamAppDescriptorImpl.class);
     MessageStream<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mock(OperatorSpec.class));
 
     // other streams have the same message type T as input stream message type M

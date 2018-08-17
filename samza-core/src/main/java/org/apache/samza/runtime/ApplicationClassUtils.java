@@ -16,15 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.application;
+package org.apache.samza.runtime;
 
+import org.apache.samza.application.ApplicationBase;
+import org.apache.samza.application.LegacyTaskApplication;
+import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.TaskApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
-import org.apache.samza.config.TaskConfig;
-import org.apache.samza.task.TaskFactoryUtil;
-
-import static org.apache.samza.util.ScalaJavaUtil.*;
 
 
 /**
@@ -53,11 +53,7 @@ public class ApplicationClassUtils {
       }
     }
     // no app.class defined. It has to be a legacy application with task.class configuration
-    new TaskConfig(config).getTaskClass().getOrElse(toScalaFunction(
-        () -> {
-        throw new ConfigException("No task class defined in the configuration.");
-      }));
-    return (TaskApplication) (appSpec) -> appSpec.setTaskFactory(TaskFactoryUtil.createTaskFactory(config));
+    return new LegacyTaskApplication(config);
   }
 
 }

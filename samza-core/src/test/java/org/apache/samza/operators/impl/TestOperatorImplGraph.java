@@ -34,6 +34,7 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.samza.Partition;
+import org.apache.samza.application.StreamAppDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -48,7 +49,6 @@ import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.functions.ClosableFunction;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.InitableFunction;
@@ -213,7 +213,7 @@ public class TestOperatorImplGraph {
 
   @Test
   public void testEmptyChain() {
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> { }, mock(Config.class));
     OperatorImplGraph opGraph =
         new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), mock(Config.class), mock(TaskContextImpl.class), mock(Clock.class));
     assertEquals(0, opGraph.getAllInputOperators().size());
@@ -237,15 +237,16 @@ public class TestOperatorImplGraph {
     StreamTestUtils.addStreamConfigs(configs, outputStreamId, outputSystem, outputPhysicalName);
     Config config = new MapConfig(configs);
 
-    StreamGraphSpec graphSpec = new StreamGraphSpec(config);
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        MessageStream<Object> inputStream = appDesc.getInputStream(inputStreamId);
+        OutputStream<Object> outputStream = appDesc.getOutputStream(outputStreamId);
 
-    MessageStream<Object> inputStream = graphSpec.getInputStream(inputStreamId);
-    OutputStream<Object> outputStream = graphSpec.getOutputStream(outputStreamId);
+        inputStream
+            .filter(mock(FilterFunction.class))
+            .map(mock(MapFunction.class))
+            .sendTo(outputStream);
+      }, config);
 
-    inputStream
-        .filter(mock(FilterFunction.class))
-        .map(mock(MapFunction.class))
-        .sendTo(outputStream);
 
     TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
@@ -288,15 +289,16 @@ public class TestOperatorImplGraph {
     StreamTestUtils.addStreamConfigs(configs, outputStreamId, outputSystem, outputPhysicalName);
     Config config = new MapConfig(configs);
 
-    StreamGraphSpec graphSpec = new StreamGraphSpec(config);
-    MessageStream<Object> inputStream = graphSpec.getInputStream(inputStreamId);
-    OutputStream<KV<Integer, String>> outputStream = graphSpec
-        .getOutputStream(outputStreamId, KVSerde.of(mock(IntegerSerde.class), mock(StringSerde.class)));
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        MessageStream<Object> inputStream = appDesc.getInputStream(inputStreamId);
+        OutputStream<KV<Integer, String>> outputStream = appDesc
+            .getOutputStream(outputStreamId, KVSerde.of(mock(IntegerSerde.class), mock(StringSerde.class)));
 
-    inputStream
-        .partitionBy(Object::hashCode, Object::toString,
-            KVSerde.of(mock(IntegerSerde.class), mock(StringSerde.class)), "p1")
-        .sendTo(outputStream);
+        inputStream
+            .partitionBy(Object::hashCode, Object::toString,
+                KVSerde.of(mock(IntegerSerde.class), mock(StringSerde.class)), "p1")
+            .sendTo(outputStream);
+      }, config);
 
     TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
@@ -336,11 +338,11 @@ public class TestOperatorImplGraph {
     HashMap<String, String> configMap = new HashMap<>();
     StreamTestUtils.addStreamConfigs(configMap, "input", "input-system", "input-stream");
     Config config = new MapConfig(configMap);
-    StreamGraphSpec graphSpec = new StreamGraphSpec(config);
-
-    MessageStream<Object> inputStream = graphSpec.getInputStream(inputStreamId);
-    inputStream.filter(mock(FilterFunction.class));
-    inputStream.map(mock(MapFunction.class));
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        MessageStream<Object> inputStream = appDesc.getInputStream(inputStreamId);
+        inputStream.filter(mock(FilterFunction.class));
+        inputStream.map(mock(MapFunction.class));
+      }, config);
 
     TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
@@ -358,20 +360,20 @@ public class TestOperatorImplGraph {
   @Test
   public void testMergeChain() {
     String inputStreamId = "input";
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        MessageStream<Object> inputStream = appDesc.getInputStream(inputStreamId);
+        MessageStream<Object> stream1 = inputStream.filter(mock(FilterFunction.class));
+        MessageStream<Object> stream2 = inputStream.map(mock(MapFunction.class));
+        MessageStream<Object> mergedStream = stream1.merge(Collections.singleton(stream2));
+        MapFunction testMapFunction = new TestMapFunction<Object, Object>("test-map-1", (Function & Serializable) m -> m);
+        mergedStream.map(testMapFunction);
+      }, mock(Config.class));
 
-    MessageStream<Object> inputStream = graphSpec.getInputStream(inputStreamId);
-    MessageStream<Object> stream1 = inputStream.filter(mock(FilterFunction.class));
-    MessageStream<Object> stream2 = inputStream.map(mock(MapFunction.class));
-    MessageStream<Object> mergedStream = stream1.merge(Collections.singleton(stream2));
 
     TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
     TaskName mockTaskName = mock(TaskName.class);
     when(mockTaskContext.getTaskName()).thenReturn(mockTaskName);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
-
-    MapFunction testMapFunction = new TestMapFunction<Object, Object>("test-map-1", (Function & Serializable) m -> m);
-    mergedStream.map(testMapFunction);
 
     OperatorImplGraph opImplGraph =
         new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), mock(Config.class), mockTaskContext, mock(Clock.class));
@@ -399,16 +401,18 @@ public class TestOperatorImplGraph {
     StreamTestUtils.addStreamConfigs(configs, "input1", "input-system", "input-stream1");
     StreamTestUtils.addStreamConfigs(configs, "input2", "input-system", "input-stream2");
     Config config = new MapConfig(configs);
-    StreamGraphSpec graphSpec = new StreamGraphSpec(config);
 
     Integer joinKey = new Integer(1);
     Function<Object, Integer> keyFn = (Function & Serializable) m -> joinKey;
     JoinFunction testJoinFunction = new TestJoinFunction("jobName-jobId-join-j1",
         (BiFunction & Serializable) (m1, m2) -> KV.of(m1, m2), keyFn, keyFn);
-    MessageStream<Object> inputStream1 = graphSpec.getInputStream(inputStreamId1, new NoOpSerde<>());
-    MessageStream<Object> inputStream2 = graphSpec.getInputStream(inputStreamId2, new NoOpSerde<>());
-    inputStream1.join(inputStream2, testJoinFunction,
-        mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j1");
+
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        MessageStream<Object> inputStream1 = appDesc.getInputStream(inputStreamId1, new NoOpSerde<>());
+        MessageStream<Object> inputStream2 = appDesc.getInputStream(inputStreamId2, new NoOpSerde<>());
+        inputStream1.join(inputStream2, testJoinFunction,
+            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j1");
+      }, config);
 
     TaskName mockTaskName = mock(TaskName.class);
     TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
@@ -462,17 +466,17 @@ public class TestOperatorImplGraph {
     TaskContextImpl mockContext = mock(TaskContextImpl.class);
     when(mockContext.getTaskName()).thenReturn(mockTaskName);
     when(mockContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        MessageStream<Object> inputStream1 = appDesc.getInputStream(inputStreamId1);
+        MessageStream<Object> inputStream2 = appDesc.getInputStream(inputStreamId2);
 
-    MessageStream<Object> inputStream1 = graphSpec.getInputStream(inputStreamId1);
-    MessageStream<Object> inputStream2 = graphSpec.getInputStream(inputStreamId2);
+        Function mapFn = (Function & Serializable) m -> m;
+        inputStream1.map(new TestMapFunction<Object, Object>("1", mapFn))
+            .map(new TestMapFunction<Object, Object>("2", mapFn));
 
-    Function mapFn = (Function & Serializable) m -> m;
-    inputStream1.map(new TestMapFunction<Object, Object>("1", mapFn))
-        .map(new TestMapFunction<Object, Object>("2", mapFn));
-
-    inputStream2.map(new TestMapFunction<Object, Object>("3", mapFn))
-        .map(new TestMapFunction<Object, Object>("4", mapFn));
+        inputStream2.map(new TestMapFunction<Object, Object>("3", mapFn))
+            .map(new TestMapFunction<Object, Object>("4", mapFn));
+      }, mockConfig);
 
     OperatorImplGraph opImplGraph = new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), mockConfig, mockContext, SystemClock.instance());
 
@@ -555,26 +559,27 @@ public class TestOperatorImplGraph {
     StreamTestUtils.addStreamConfigs(configs, outputStreamId2, outputSystem, outputStreamId2);
     Config config = new MapConfig(configs);
 
-    StreamGraphSpec graphSpec = new StreamGraphSpec(config);
-    MessageStream messageStream1 = graphSpec.getInputStream(inputStreamId1).map(m -> m);
-    MessageStream messageStream2 = graphSpec.getInputStream(inputStreamId2).filter(m -> true);
-    MessageStream messageStream3 =
-        graphSpec.getInputStream(inputStreamId3)
-            .filter(m -> true)
-            .partitionBy(m -> "m", m -> m, "p1")
-            .map(m -> m);
-    OutputStream<Object> outputStream1 = graphSpec.getOutputStream(outputStreamId1);
-    OutputStream<Object> outputStream2 = graphSpec.getOutputStream(outputStreamId2);
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        MessageStream messageStream1 = appDesc.getInputStream(inputStreamId1).map(m -> m);
+        MessageStream messageStream2 = appDesc.getInputStream(inputStreamId2).filter(m -> true);
+        MessageStream messageStream3 =
+            appDesc.getInputStream(inputStreamId3)
+                .filter(m -> true)
+                .partitionBy(m -> "m", m -> m, "p1")
+                .map(m -> m);
+        OutputStream<Object> outputStream1 = appDesc.getOutputStream(outputStreamId1);
+        OutputStream<Object> outputStream2 = appDesc.getOutputStream(outputStreamId2);
 
-    messageStream1
-        .join(messageStream2, mock(JoinFunction.class),
-            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
-        .partitionBy(m -> "m", m -> m, "p2")
-        .sendTo(outputStream1);
-    messageStream3
-        .join(messageStream2, mock(JoinFunction.class),
-            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
-        .sendTo(outputStream2);
+        messageStream1
+            .join(messageStream2, mock(JoinFunction.class),
+                mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
+            .partitionBy(m -> "m", m -> m, "p2")
+            .sendTo(outputStream1);
+        messageStream3
+            .join(messageStream2, mock(JoinFunction.class),
+                mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
+            .sendTo(outputStream2);
+      }, config);
 
     Multimap<SystemStream, SystemStream> outputToInput =
         OperatorImplGraph.getIntermediateToInputStreamsMap(graphSpec.getOperatorSpecGraph(), new StreamConfig(config));

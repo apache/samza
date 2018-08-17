@@ -20,7 +20,7 @@
 package org.apache.samza.test.integration;
 
 import joptsimple.OptionSet;
-import org.apache.samza.application.ApplicationClassUtils;
+import org.apache.samza.runtime.ApplicationClassUtils;
 import org.apache.samza.config.Config;
 import org.apache.samza.runtime.ApplicationRunnerMain;
 import org.apache.samza.runtime.ApplicationRunner;

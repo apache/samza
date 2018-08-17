@@ -19,9 +19,14 @@
 
 package org.apache.samza.task;
 
+import org.apache.samza.annotation.InterfaceStability;
+
+
 /**
  * Build {@link AsyncStreamTask} instances.
- * Implementations should return a new instance for each {@link #createInstance()} invocation.
+ * <p>
+ * Implementations should return a new instance of {@link AsyncStreamTask} for each {@link #createInstance()} invocation.
  */
+@InterfaceStability.Stable
 public interface AsyncStreamTaskFactory extends TaskFactory<AsyncStreamTask> {
 }

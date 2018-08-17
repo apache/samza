@@ -23,7 +23,8 @@ import org.apache.samza.annotation.InterfaceStability;
 
 /**
  * Build {@link StreamTask} instances.
- * Implementations should return a new instance for each {@link #createInstance()} invocation.
+ * <p>
+ * Implementations should return a new instance of {@link StreamTask} for each {@link #createInstance()} invocation.
  */
 @InterfaceStability.Stable
 public interface StreamTaskFactory extends TaskFactory<StreamTask> {

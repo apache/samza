@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -168,8 +169,8 @@ public class StreamProcessor {
   }
 
   /**
-   * Same as {@link StreamProcessor(Config, Map, AsyncStreamTaskFactory, ProcessorLifecycleListener)}, except task
-   * instances are created using the provided {@link StreamTaskFactory}.
+   * Same as {@link StreamProcessor#StreamProcessor(Config, Map, StreamTaskFactory, ProcessorLifecycleListener)},
+   * except task instances are created using the provided {@link StreamTaskFactory}.
    * @param config - config
    * @param customMetricsReporters metric Reporter
    * @param streamTaskFactory task factory to instantiate the Task
@@ -207,6 +208,21 @@ public class StreamProcessor {
     this.processorId = this.jobCoordinator.getProcessorId();
   }
 
+  public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, TaskFactory taskFactory,
+      StreamProcessorListenerSupplier getListenerFn, JobCoordinator jobCoordinator) {
+    Preconditions.checkNotNull(getListenerFn, "getListenerFn cannot be null.");
+    this.taskFactory = taskFactory;
+    this.config = config;
+    this.taskShutdownMs = new TaskConfigJava(config).getShutdownMs();
+    this.customMetricsReporter = customMetricsReporters;
+    this.jobCoordinator = (jobCoordinator != null) ? jobCoordinator : getJobCoordinator();
+    this.jobCoordinatorListener = createJobCoordinatorListener();
+    this.jobCoordinator.setListener(jobCoordinatorListener);
+    ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(CONTAINER_THREAD_NAME_FORMAT).setDaemon(true).build();
+    this.executorService = Executors.newSingleThreadExecutor(threadFactory);
+    this.processorId = this.jobCoordinator.getProcessorId();
+    this.processorListener = getListenerFn.apply(this);
+  }
   /**
    * Asynchronously starts this {@link StreamProcessor}.
    * <p>
@@ -253,7 +269,6 @@ public class StreamProcessor {
    *
    */
   public void stop() {
-    processorListener.beforeStop();
     synchronized (lock) {
       if (state != State.STOPPING && state != State.STOPPED) {
         state = State.STOPPING;
@@ -369,7 +384,10 @@ public class StreamProcessor {
           executorService.shutdownNow();
           state = State.STOPPED;
         }
-        processorListener.afterStop(containerException);
+        if (containerException != null)
+          processorListener.afterFailure(containerException);
+        else
+          processorListener.afterStop();
 
       }
 
@@ -381,7 +399,7 @@ public class StreamProcessor {
           executorService.shutdownNow();
           state = State.STOPPED;
         }
-        processorListener.afterStop(throwable);
+        processorListener.afterFailure(throwable);
       }
     };
   }
@@ -392,6 +410,11 @@ public class StreamProcessor {
   }
 
   class ContainerListener implements SamzaContainerListener {
+
+    @Override
+    public void beforeStart() {
+      // processorListener.beforeStart() is invoked at the StreamProcessorLifecycleListener
+    }
 
     @Override
     public void onContainerStart() {
@@ -427,17 +450,13 @@ public class StreamProcessor {
         jobCoordinator.stop();
       }
     }
+  }
 
-    @Override
-    public void beforeStop() {
-      // There is no need to invoked user defined logic before shutting down container here, since the container lifecycle
-      // inside a StreamProcessor is managed internally. User defined beforeStop() method is called in StreamProcessor.stop()
-    }
+  /**
+   * Supplier interface to allow creation of {@link ProcessorLifecycleListener} for a {@link StreamProcessor}
+   */
+  public interface StreamProcessorListenerSupplier extends Function<StreamProcessor, ProcessorLifecycleListener> {
 
-    @Override
-    public void beforeStart() {
-      // There is no need to invoked user defined logic before starting container here, since the container lifecycle
-      // inside a StreamProcessor is managed internally. User defined beforeStart() method is called in StreamProcessor.start()
-    }
+    ProcessorLifecycleListener apply(StreamProcessor sp);
   }
 }

@@ -18,8 +18,12 @@
  */
 package org.apache.samza.application;
 
+import org.apache.samza.annotation.InterfaceStability;
+
+
 /**
  * The interface to implement user applications defining a high-level DAG as the main stream processing logic.
  */
+@InterfaceStability.Evolving
 public interface StreamApplication extends ApplicationBase<StreamAppDescriptor> {
 }

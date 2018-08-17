@@ -265,13 +265,12 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     private void initProcessorListener() {
       listener = mock(ProcessorLifecycleListener.class);
       doNothing().when(listener).afterStart();
+      doNothing().when(listener).afterFailure(any());
       doAnswer(invocation -> {
-          if (invocation.getArguments()[0] == null) {
-            // stopped successfully
-            shutdownLatch.countDown();
-          }
+          // stopped successfully
+          shutdownLatch.countDown();
           return null;
-        }).when(listener).afterStop(any());
+        }).when(listener).afterStop();
     }
 
     private void initProducer(String bootstrapServer) {

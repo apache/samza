@@ -16,23 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.application.internal;
+package org.apache.samza.application;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import org.apache.samza.application.TaskApplication;
-import org.apache.samza.application.TaskAppDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.task.TaskFactory;
 
 
 /**
- * This class implements interface {@link TaskAppDescriptor}. In addition to the common objects for an application
- * defined in {@link AppDescriptorImpl}, this class also includes the low-level {@link TaskFactory} object that creates
- * user-defined task instances, the lists of input/output streams, and the list of {@link TableDescriptor}s used in
- * the application.
+ * This class implements interface {@link TaskAppDescriptor}.
+ * <p>
+ * In addition to the common objects for an application defined in {@link AppDescriptorImpl}, this class also includes
+ * the low-level {@link TaskFactory} object that creates user-defined task instances, the lists of input/output streams,
+ * and the list of {@link TableDescriptor}s used in the application.
  */
 public class TaskAppDescriptorImpl extends AppDescriptorImpl<TaskApplication, TaskAppDescriptor>
     implements TaskAppDescriptor {
@@ -41,10 +40,11 @@ public class TaskAppDescriptorImpl extends AppDescriptorImpl<TaskApplication, Ta
   //TODO: need to replace with InputStreamDescriptor and OutputStreamDescriptor when SAMZA-1804 is implemented
   final List<String> inputStreams = new ArrayList<>();
   final List<String> outputStreams = new ArrayList<>();
+  final List<String> broadcastStreams = new ArrayList<>();
   final List<TableDescriptor> tables = new ArrayList<>();
 
   public TaskAppDescriptorImpl(TaskApplication userApp, Config config) {
-    super(config);
+    super(userApp, config);
     userApp.describe(this);
   }
 
@@ -54,18 +54,23 @@ public class TaskAppDescriptorImpl extends AppDescriptorImpl<TaskApplication, Ta
   }
 
   @Override
-  public void addInputStreams(List<String> inputStreams) {
-    this.inputStreams.addAll(inputStreams);
+  public void addInputStream(String inputStream) {
+    this.inputStreams.add(inputStream);
   }
 
   @Override
-  public void addOutputStreams(List<String> outputStreams) {
-    this.outputStreams.addAll(outputStreams);
+  public void addBroadcastStream(String broadcastStream) {
+    this.broadcastStreams.add(broadcastStream);
   }
 
   @Override
-  public void addTables(List<TableDescriptor> tables) {
-    this.tables.addAll(tables);
+  public void addOutputStream(String outputStream) {
+    this.outputStreams.add(outputStream);
+  }
+
+  @Override
+  public void addTable(TableDescriptor table) {
+    this.tables.add(table);
   }
 
   /**
@@ -79,6 +84,8 @@ public class TaskAppDescriptorImpl extends AppDescriptorImpl<TaskApplication, Ta
   /**
    * Get the input streams to this application
    *
+   * TODO: need to change to InputStreamDescriptors after SAMZA-1804
+   *
    * @return the list of input streamIds
    */
   public List<String> getInputStreams() {
@@ -87,6 +94,8 @@ public class TaskAppDescriptorImpl extends AppDescriptorImpl<TaskApplication, Ta
 
   /**
    * Get the output streams to this application
+   *
+   * TODO: need to change to OutputStreamDescriptors after SAMZA-1804
    *
    * @return the list of output streamIds
    */
@@ -101,5 +110,9 @@ public class TaskAppDescriptorImpl extends AppDescriptorImpl<TaskApplication, Ta
    */
   public List<TableDescriptor> getTables() {
     return Collections.unmodifiableList(this.tables);
+  }
+
+  public List<String> getBroadcastStreams() {
+    return Collections.unmodifiableList(this.broadcastStreams);
   }
 }

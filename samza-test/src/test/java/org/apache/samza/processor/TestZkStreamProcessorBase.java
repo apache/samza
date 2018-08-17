@@ -151,22 +151,18 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
       }
 
       @Override
-      public void beforeStop() {
-
+      public void afterStop() {
+        // stopped w/o failure
+        if (waitStop != null) {
+          waitStop.countDown();
+        }
+        LOG.info("afterStop is called for pid=" + pId + " with successful shutdown");
       }
 
       @Override
-      public void afterStop(Throwable t) {
-        if (t == null) {
-          // stopped w/o failure
-          if (waitStop != null) {
-            waitStop.countDown();
-          }
-          LOG.info("afterStop is called for pid=" + pId + " with successful shutdown");
-        } else {
-          // stopped w/ failure
-          LOG.info("afterStop is called for pid=" + pId + " with failure");
-        }
+      public void afterFailure(Throwable t) {
+        // stopped w/ failure
+        LOG.info("afterStop is called for pid=" + pId + " with failure");
       }
     };
 

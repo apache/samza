@@ -18,8 +18,12 @@
  */
 package org.apache.samza.application;
 
+import org.apache.samza.annotation.InterfaceStability;
+
+
 /**
  * The interface to implement user applications defining a low-level task as the main stream processing logic.
  */
+@InterfaceStability.Evolving
 public interface TaskApplication extends ApplicationBase<TaskAppDescriptor> {
 }

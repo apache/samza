@@ -48,7 +48,7 @@ import static org.apache.samza.util.StreamUtil.*;
 
 
 /**
- * The ExecutionPlanner creates the physical execution graph for the StreamGraph, and
+ * The ExecutionPlanner creates the physical execution graph for the {@link OperatorSpecGraph}, and
  * the intermediate topics needed for the execution.
  */
 public class ExecutionPlanner {
@@ -92,7 +92,7 @@ public class ExecutionPlanner {
   }
 
   /**
-   * Create the physical graph from StreamGraph
+   * Create the physical graph from {@link OperatorSpecGraph}
    */
   /* package private */ JobGraph createJobGraph(OperatorSpecGraph specGraph) {
     JobGraph jobGraph = new JobGraph(config, specGraph);
@@ -189,7 +189,7 @@ public class ExecutionPlanner {
     jobGraph.getSpecGraph().getInputOperators().entrySet().forEach(entry -> {
         StreamConfig streamConfig = new StreamConfig(config);
         StreamEdge streamEdge = jobGraph.getOrCreateStreamEdge(getStreamSpec(entry.getKey(), streamConfig));
-        // Traverses the StreamGraph to find and update mappings for all Joins reachable from this input StreamEdge
+        // Traverses the graph to find and update mappings for all Joins reachable from this input StreamEdge
         findReachableJoins(entry.getValue(), streamEdge, joinSpecToStreamEdges, streamEdgeToJoinSpecs, joinQ, visited);
       });
 

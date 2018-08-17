@@ -22,13 +22,13 @@ package org.apache.samza.execution;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.samza.application.StreamAppDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.serializers.KVSerde;
@@ -98,34 +98,35 @@ public class TestJobGraphJsonGenerator {
     when(systemAdmins.getSystemAdmin("system2")).thenReturn(systemAdmin2);
     StreamManager streamManager = new StreamManager(systemAdmins);
 
-    StreamGraphSpec graphSpec = new StreamGraphSpec(config);
-    graphSpec.setDefaultSerde(KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
-    MessageStream<KV<Object, Object>> messageStream1 =
-        graphSpec.<KV<Object, Object>>getInputStream("input1")
-            .map(m -> m);
-    MessageStream<KV<Object, Object>> messageStream2 =
-        graphSpec.<KV<Object, Object>>getInputStream("input2")
-            .partitionBy(m -> m.key, m -> m.value, "p1")
-            .filter(m -> true);
-    MessageStream<KV<Object, Object>> messageStream3 =
-        graphSpec.<KV<Object, Object>>getInputStream("input3")
-            .filter(m -> true)
-            .partitionBy(m -> m.key, m -> m.value, "p2")
-            .map(m -> m);
-    OutputStream<KV<Object, Object>> outputStream1 = graphSpec.getOutputStream("output1");
-    OutputStream<KV<Object, Object>> outputStream2 = graphSpec.getOutputStream("output2");
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        appDesc.setDefaultSerde(KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+        MessageStream<KV<Object, Object>> messageStream1 =
+            appDesc.<KV<Object, Object>>getInputStream("input1")
+                .map(m -> m);
+        MessageStream<KV<Object, Object>> messageStream2 =
+            appDesc.<KV<Object, Object>>getInputStream("input2")
+                .partitionBy(m -> m.key, m -> m.value, "p1")
+                .filter(m -> true);
+        MessageStream<KV<Object, Object>> messageStream3 =
+            appDesc.<KV<Object, Object>>getInputStream("input3")
+                .filter(m -> true)
+                .partitionBy(m -> m.key, m -> m.value, "p2")
+                .map(m -> m);
+        OutputStream<KV<Object, Object>> outputStream1 = appDesc.getOutputStream("output1");
+        OutputStream<KV<Object, Object>> outputStream2 = appDesc.getOutputStream("output2");
 
-    messageStream1
-        .join(messageStream2,
-            (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
-            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
-        .sendTo(outputStream1);
-    messageStream2.sink((message, collector, coordinator) -> { });
-    messageStream3
-        .join(messageStream2,
-            (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
-            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
-        .sendTo(outputStream2);
+        messageStream1
+            .join(messageStream2,
+                (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
+                mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
+            .sendTo(outputStream1);
+        messageStream2.sink((message, collector, coordinator) -> { });
+        messageStream3
+            .join(messageStream2,
+                (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
+                mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
+            .sendTo(outputStream2);
+      }, config);
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
     ExecutionPlan plan = planner.plan(graphSpec.getOperatorSpecGraph());
@@ -164,18 +165,19 @@ public class TestJobGraphJsonGenerator {
     when(systemAdmins.getSystemAdmin("kafka")).thenReturn(systemAdmin2);
     StreamManager streamManager = new StreamManager(systemAdmins);
 
-    StreamGraphSpec graphSpec = new StreamGraphSpec(config);
-    MessageStream<KV<String, PageViewEvent>> inputStream = graphSpec.getInputStream("PageView");
-    inputStream
-        .partitionBy(kv -> kv.getValue().getCountry(), kv -> kv.getValue(), "keyed-by-country")
-        .window(Windows.keyedTumblingWindow(kv -> kv.getValue().getCountry(),
-            Duration.ofSeconds(10L),
-            () -> 0L,
-            (m, c) -> c + 1L,
-            new StringSerde(),
-            new LongSerde()), "count-by-country")
-        .map(pane -> new KV<>(pane.getKey().getKey(), pane.getMessage()))
-        .sendTo(graphSpec.getOutputStream("PageViewCount"));
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        MessageStream<KV<String, PageViewEvent>> inputStream = appDesc.getInputStream("PageView");
+        inputStream
+            .partitionBy(kv -> kv.getValue().getCountry(), kv -> kv.getValue(), "keyed-by-country")
+            .window(Windows.keyedTumblingWindow(kv -> kv.getValue().getCountry(),
+                Duration.ofSeconds(10L),
+                () -> 0L,
+                (m, c) -> c + 1L,
+                new StringSerde(),
+                new LongSerde()), "count-by-country")
+            .map(pane -> new KV<>(pane.getKey().getKey(), pane.getMessage()))
+            .sendTo(appDesc.getOutputStream("PageViewCount"));
+      }, config);
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
     ExecutionPlan plan = planner.plan(graphSpec.getOperatorSpecGraph());

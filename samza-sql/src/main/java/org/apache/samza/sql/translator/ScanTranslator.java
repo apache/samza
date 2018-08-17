@@ -23,10 +23,10 @@ import java.util.List;
 import java.util.Map;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.commons.lang.Validate;
+import org.apache.samza.application.StreamAppDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
@@ -69,14 +69,14 @@ class ScanTranslator {
   }
 
   void translate(final TableScan tableScan, final TranslatorContext context) {
-    StreamGraph streamGraph = context.getStreamGraph();
+    StreamAppDescriptor streamAppDesc = context.getStreamAppDescriptor();
     List<String> tableNameParts = tableScan.getTable().getQualifiedName();
     String sourceName = SqlIOConfig.getSourceFromSourceParts(tableNameParts);
 
     Validate.isTrue(relMsgConverters.containsKey(sourceName), String.format("Unknown source %s", sourceName));
     final String streamName = systemStreamConfig.get(sourceName).getStreamName();
 
-    MessageStream<KV<Object, Object>> inputStream = streamGraph.getInputStream(streamName);
+    MessageStream<KV<Object, Object>> inputStream = streamAppDesc.getInputStream(streamName);
     MessageStream<SamzaSqlRelMessage> samzaSqlRelMessageStream = inputStream.map(new ScanMapFunction(sourceName));
 
     context.registerMessageStream(tableScan.getId(), samzaSqlRelMessageStream);

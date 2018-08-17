@@ -20,11 +20,11 @@
 package org.apache.samza.runtime;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.UUID;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.internal.AppDescriptorImpl;
-import org.apache.samza.application.internal.StreamAppDescriptorImpl;
-import org.apache.samza.application.internal.TaskAppDescriptorImpl;
+import org.apache.samza.application.ApplicationBase;
+import org.apache.samza.application.StreamAppDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -34,7 +34,6 @@ import org.apache.samza.execution.StreamManager;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
 import org.apache.samza.metrics.MetricsRegistryMap;
-import org.apache.samza.operators.StreamGraphSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,136 +48,63 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   private static final Logger LOG = LoggerFactory.getLogger(RemoteApplicationRunner.class);
   private static final long DEFAULT_SLEEP_DURATION_MS = 2000;
 
-  public RemoteApplicationRunner(AppDescriptorImpl appDesc) {
-    super(appDesc);
-  }
-
-  class TaskAppExecutable implements AppRuntimeExecutable {
-    final TaskAppDescriptorImpl appDesc;
-    final JobRunner jobRunner;
-
-    TaskAppExecutable(TaskAppDescriptorImpl appDesc) {
-      this.appDesc = appDesc;
-      this.jobRunner = new JobRunner(config);
-    }
-
-    @Override
-    public void run() {
-      jobRunner.run(true);
-    }
-
-    @Override
-    public void kill() {
-      jobRunner.kill();
-    }
-
-    @Override
-    public ApplicationStatus status() {
-      return jobRunner.status();
-    }
-
-    @Override
-    public boolean waitForFinish(Duration timeout) {
-      return RemoteApplicationRunner.this.remoteWaitForFinish(timeout);
-    }
-
-  }
-
-  class StreamAppExecutable implements AppRuntimeExecutable {
-    final StreamAppDescriptorImpl appDesc;
-
-    StreamAppExecutable(StreamAppDescriptorImpl appDesc) {
-      this.appDesc = appDesc;
-    }
-
-    @Override
-    public void run() {
-      StreamManager streamManager = null;
-      try {
-        streamManager = buildAndStartStreamManager();
-        // TODO: start.id needs to be set for standalone: SAMZA-1531
-        // start.id is based on current system time with the most significant bits in UUID (8 digits) to avoid collision
-        String runId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
-        LOG.info("The start id for this start is {}", runId);
-
-        // 1. initialize and plan
-        ExecutionPlan plan = getExecutionPlan(((StreamGraphSpec) appDesc.getGraph()).getOperatorSpecGraph(), runId, streamManager);
-        writePlanJsonFile(plan.getPlanAsJson());
-
-        // 2. create the necessary streams
-        if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
-          streamManager.clearStreamsFromPreviousRun(getConfigFromPrevRun());
-        }
-        streamManager.createStreams(plan.getIntermediateStreams());
-
-        // 3. submit jobs for remote execution
-        plan.getJobConfigs().forEach(jobConfig -> {
-            LOG.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
-            JobRunner runner = new JobRunner(jobConfig);
-            runner.run(true);
-          });
-      } catch (Throwable t) {
-        throw new SamzaException("Failed to start application", t);
-      } finally {
-        if (streamManager != null) {
-          streamManager.stop();
-        }
-      }
-    }
-
-    @Override
-    public void kill() {
-
-      // since currently we only support single actual remote job, we can get its status without
-      // building the execution plan.
-      try {
-        JobConfig jc = new JobConfig(config);
-        LOG.info("Killing job {}", jc.getName());
-        JobRunner runner = new JobRunner(jc);
-        runner.kill();
-      } catch (Throwable t) {
-        throw new SamzaException("Failed to kill application", t);
-      }
-    }
-
-    @Override
-    public ApplicationStatus status() {
-
-      // since currently we only support single actual remote job, we can get its status without
-      // building the execution plan
-      try {
-        JobConfig jc = new JobConfig(config);
-        return getApplicationStatus(jc);
-      } catch (Throwable t) {
-        throw new SamzaException("Failed to get status for application", t);
-      }
-    }
-
-    @Override
-    public boolean waitForFinish(Duration timeout) {
-      return RemoteApplicationRunner.this.remoteWaitForFinish(timeout);
-    }
-
+  RemoteApplicationRunner(ApplicationBase userApp, Config config) {
+    super(userApp, config);
   }
 
   @Override
-  protected AppRuntimeExecutable getTaskAppRuntimeExecutable(TaskAppDescriptorImpl appDesc) {
-    return new TaskAppExecutable(appDesc);
+  public void run() {
+    try {
+      List<JobConfig> jobConfigs = createJobConfigs();
+      if (jobConfigs.isEmpty()) {
+        throw new SamzaException("No jobs to run.");
+      }
+
+      // 3. submit jobs for remote execution
+      jobConfigs.forEach(jobConfig -> {
+          LOG.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
+          JobRunner runner = new JobRunner(jobConfig);
+          runner.run(true);
+        });
+
+    } catch (Throwable t) {
+      throw new SamzaException("Failed to run application", t);
+    }
   }
 
   @Override
-  protected AppRuntimeExecutable getStreamAppRuntimeExecutable(StreamAppDescriptorImpl appDesc) {
-    return new StreamAppExecutable(appDesc);
+  public void kill() {
+    // since currently we only support single actual remote job, we can get its status without
+    // building the execution plan.
+    try {
+      JobConfig jc = new JobConfig(config);
+      LOG.info("Killing job {}", jc.getName());
+      JobRunner runner = new JobRunner(jc);
+      runner.kill();
+    } catch (Throwable t) {
+      throw new SamzaException("Failed to kill application", t);
+    }
   }
 
-  /* package private */ ApplicationStatus getApplicationStatus(JobConfig jobConfig) {
-    JobRunner runner = new JobRunner(jobConfig);
-    ApplicationStatus status = runner.status();
-    LOG.debug("Status is {} for job {}", new Object[]{status, jobConfig.getName()});
-    return status;
+  @Override
+  public ApplicationStatus status() {
+    // since currently we only support single actual remote job, we can get its status without
+    // building the execution plan
+    try {
+      JobConfig jc = new JobConfig(config);
+      return getApplicationStatus(jc);
+    } catch (Throwable t) {
+      throw new SamzaException("Failed to get status for application", t);
+    }
   }
 
-  private boolean remoteWaitForFinish(Duration timeout) {
+  @Override
+  public void waitForFinish() {
+    this.waitForFinish(Duration.ofSeconds(0));
+  }
+
+  @Override
+  public boolean waitForFinish(Duration timeout) {
     JobConfig jobConfig = new JobConfig(config);
     boolean finished = true;
     long timeoutInMs = timeout.toMillis();
@@ -211,6 +137,44 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     }
 
     return finished;
+  }
+
+  @Override
+  List<JobConfig> getJobConfigsFromPlan(StreamAppDescriptorImpl streamAppDesc) {
+    // for high-level DAG, generate the plan and job configs
+    StreamManager streamManager = null;
+    try {
+      streamManager = buildAndStartStreamManager();
+      // TODO: run.id needs to be set for standalone: SAMZA-1531
+      // run.id is based on current system time with the most significant bits in UUID (8 digits) to avoid collision
+      String runId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
+      LOG.info("The run id for this run is {}", runId);
+
+      // 1. initialize and plan
+      ExecutionPlan plan = getExecutionPlan(streamAppDesc.getOperatorSpecGraph(), runId, streamManager);
+      writePlanJsonFile(plan.getPlanAsJson());
+
+      // 2. create the necessary streams
+      if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
+        streamManager.clearStreamsFromPreviousRun(getConfigFromPrevRun());
+      }
+      streamManager.createStreams(plan.getIntermediateStreams());
+
+      return plan.getJobConfigs();
+    } catch (Throwable t) {
+      throw new SamzaException("Failed to run application", t);
+    } finally {
+      if (streamManager != null) {
+        streamManager.stop();
+      }
+    }
+  }
+
+  /* package private */ ApplicationStatus getApplicationStatus(JobConfig jobConfig) {
+    JobRunner runner = new JobRunner(jobConfig);
+    ApplicationStatus status = runner.status();
+    LOG.debug("Status is {} for job {}", new Object[]{status, jobConfig.getName()});
+    return status;
   }
 
   private Config getConfigFromPrevRun() {

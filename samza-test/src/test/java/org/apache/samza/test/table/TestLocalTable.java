@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.internal.StreamAppDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -68,15 +67,11 @@ import org.apache.samza.test.util.Base64Serializer;
 import org.junit.Assert;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyList;
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 
 /**
@@ -109,7 +104,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
           .sendTo(table);
     };
 
-    final LocalApplicationRunner runner = new LocalApplicationRunner(new StreamAppDescriptorImpl(app, new MapConfig(configs)));
+    final LocalApplicationRunner runner = new LocalApplicationRunner(app, new MapConfig(configs));
     runner.run();
     runner.waitForFinish();
 
@@ -153,7 +148,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
             .sink((m, collector, coordinator) -> joined.add(m));
       };
 
-      final LocalApplicationRunner runner = new LocalApplicationRunner(new StreamAppDescriptorImpl(app, new MapConfig(configs)));
+      final LocalApplicationRunner runner = new LocalApplicationRunner(app, new MapConfig(configs));
       runner.run();
       runner.waitForFinish();
 
@@ -243,7 +238,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
             .sink((m, collector, coordinator) -> joinedPageViews2.add(m));
       };
 
-      final LocalApplicationRunner runner = new LocalApplicationRunner(new StreamAppDescriptorImpl(app, new MapConfig(configs)));
+      final LocalApplicationRunner runner = new LocalApplicationRunner(app, new MapConfig(configs));
       runner.run();
       runner.waitForFinish();
 

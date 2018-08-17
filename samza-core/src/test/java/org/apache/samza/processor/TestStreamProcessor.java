@@ -53,7 +53,7 @@ import static org.mockito.Mockito.*;
 public class TestStreamProcessor {
   private ConcurrentMap<ListenerCallback, Boolean> processorListenerState;
   private enum ListenerCallback {
-    BEFORE_START, AFTER_START, BEFORE_STOP, AFTER_STOP, AFTER_STOP_WITH_FAILURE
+    BEFORE_START, AFTER_START, AFTER_STOP, AFTER_FAILURE
   }
 
   @Before
@@ -63,9 +63,8 @@ public class TestStreamProcessor {
       {
         put(ListenerCallback.BEFORE_START, false);
         put(ListenerCallback.AFTER_START, false);
-        put(ListenerCallback.BEFORE_STOP, false);
         put(ListenerCallback.AFTER_STOP, false);
-        put(ListenerCallback.AFTER_STOP_WITH_FAILURE, false);
+        put(ListenerCallback.AFTER_FAILURE, false);
       }
     };
   }
@@ -153,18 +152,14 @@ public class TestStreamProcessor {
           }
 
           @Override
-          public void afterStop(Throwable t) {
-            if (t != null) {
-              processorListenerState.put(ListenerCallback.AFTER_STOP_WITH_FAILURE, true);
-            } else {
-              processorListenerState.put(ListenerCallback.AFTER_STOP, true);
-              processorListenerStop.countDown();
-            }
+          public void afterFailure(Throwable t) {
+            processorListenerState.put(ListenerCallback.AFTER_FAILURE, true);
           }
 
           @Override
-          public void beforeStop() {
-            processorListenerState.put(ListenerCallback.BEFORE_STOP, true);
+          public void afterStop() {
+            processorListenerState.put(ListenerCallback.AFTER_STOP, true);
+            processorListenerStop.countDown();
           }
 
           @Override
@@ -216,9 +211,8 @@ public class TestStreamProcessor {
     // Assertions on which callbacks are expected to be invoked
     Assert.assertTrue(processorListenerState.get(ListenerCallback.BEFORE_START));
     Assert.assertTrue(processorListenerState.get(ListenerCallback.AFTER_START));
-    Assert.assertTrue(processorListenerState.get(ListenerCallback.BEFORE_STOP));
     Assert.assertTrue(processorListenerState.get(ListenerCallback.AFTER_STOP));
-    Assert.assertFalse(processorListenerState.get(ListenerCallback.AFTER_STOP_WITH_FAILURE));
+    Assert.assertFalse(processorListenerState.get(ListenerCallback.AFTER_FAILURE));
   }
 
   /**
@@ -266,20 +260,16 @@ public class TestStreamProcessor {
           }
 
           @Override
-          public void beforeStop() {
-            processorListenerState.put(ListenerCallback.BEFORE_STOP, true);
+          public void afterStop() {
+            // successful stop
+            processorListenerState.put(ListenerCallback.AFTER_STOP, true);
           }
 
           @Override
-          public void afterStop(Throwable t) {
-            if (t == null) {
-              // successful stop
-              processorListenerState.put(ListenerCallback.AFTER_STOP, true);
-            } else {
-              processorListenerState.put(ListenerCallback.AFTER_STOP_WITH_FAILURE, true);
-              actualThrowable.getAndSet(t);
-              processorListenerFailed.countDown();
-            }
+          public void afterFailure(Throwable t) {
+            processorListenerState.put(ListenerCallback.AFTER_FAILURE, true);
+            actualThrowable.getAndSet(t);
+            processorListenerFailed.countDown();
           }
         },
         mockJobCoordinator,
@@ -320,9 +310,8 @@ public class TestStreamProcessor {
 
     Assert.assertTrue(processorListenerState.get(ListenerCallback.BEFORE_START));
     Assert.assertTrue(processorListenerState.get(ListenerCallback.AFTER_START));
-    Assert.assertFalse(processorListenerState.get(ListenerCallback.BEFORE_STOP));
     Assert.assertFalse(processorListenerState.get(ListenerCallback.AFTER_STOP));
-    Assert.assertTrue(processorListenerState.get(ListenerCallback.AFTER_STOP_WITH_FAILURE));
+    Assert.assertTrue(processorListenerState.get(ListenerCallback.AFTER_FAILURE));
   }
 
   @Test
@@ -450,7 +439,7 @@ public class TestStreamProcessor {
 
 
     Assert.assertEquals(State.STOPPED, streamProcessor.state);
-    Mockito.verify(lifecycleListener).afterStop(failureException);
+    Mockito.verify(lifecycleListener).afterFailure(failureException);
     Mockito.verify(mockSamzaContainer).shutdown();
   }
 
@@ -465,6 +454,6 @@ public class TestStreamProcessor {
     streamProcessor.jobCoordinatorListener.onCoordinatorStop();
 
     Assert.assertEquals(State.STOPPED, streamProcessor.state);
-    Mockito.verify(lifecycleListener).afterStop(null);
+    Mockito.verify(lifecycleListener).afterStop();
   }
 }

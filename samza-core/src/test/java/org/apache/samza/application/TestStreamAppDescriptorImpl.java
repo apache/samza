@@ -12,55 +12,62 @@
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for THE
+ * KIND, either express or implied.  See the License for the
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
+package org.apache.samza.application;
 
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.operators.BaseTableDescriptor;
+import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.spec.InputOperatorSpec;
-import org.apache.samza.operators.spec.OperatorSpec.OpCode;
+import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
+import org.apache.samza.runtime.ProcessorLifecycleListenerFactory;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.table.TableSpec;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
-public class TestStreamGraphSpec {
+
+/**
+ * Unit test for {@link StreamAppDescriptorImpl}
+ */
+public class TestStreamAppDescriptorImpl {
+
+  @Test
+  public void testConstructor() {
+    StreamApplication mockApp = mock(StreamApplication.class);
+    Config mockConfig = mock(Config.class);
+    StreamAppDescriptorImpl appDesc = new StreamAppDescriptorImpl(mockApp, mockConfig);
+    verify(mockApp, times(1)).describe(appDesc);
+    assertEquals(mockConfig, appDesc.config);
+  }
 
   @Test
   public void testGetInputStreamWithValueSerde() {
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
 
     String streamId = "test-stream-1";
     Serde mockValueSerde = mock(Serde.class);
-    MessageStream<TestMessageEnvelope> inputStream = graphSpec.getInputStream(streamId, mockValueSerde);
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        appDesc.getInputStream(streamId, mockValueSerde);
+      }, mock(Config.class));
 
-    InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec =
-        (InputOperatorSpec) ((MessageStreamImpl<TestMessageEnvelope>) inputStream).getOperatorSpec();
-    assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
-    assertEquals(graphSpec.getInputOperators().get(streamId), inputOpSpec);
+    InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec = graphSpec.getInputOperators().get(streamId);
+    assertEquals(OperatorSpec.OpCode.INPUT, inputOpSpec.getOpCode());
     assertEquals(streamId, inputOpSpec.getStreamId());
     assertTrue(inputOpSpec.getKeySerde() instanceof NoOpSerde);
     assertEquals(mockValueSerde, inputOpSpec.getValueSerde());
@@ -68,7 +75,6 @@ public class TestStreamGraphSpec {
 
   @Test
   public void testGetInputStreamWithKeyValueSerde() {
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
 
     String streamId = "test-stream-1";
     KVSerde mockKVSerde = mock(KVSerde.class);
@@ -76,12 +82,12 @@ public class TestStreamGraphSpec {
     Serde mockValueSerde = mock(Serde.class);
     doReturn(mockKeySerde).when(mockKVSerde).getKeySerde();
     doReturn(mockValueSerde).when(mockKVSerde).getValueSerde();
-    MessageStream<TestMessageEnvelope> inputStream = graphSpec.getInputStream(streamId, mockKVSerde);
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        appDesc.getInputStream(streamId, mockKVSerde);
+      }, mock(Config.class));
 
-    InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec =
-        (InputOperatorSpec) ((MessageStreamImpl<TestMessageEnvelope>) inputStream).getOperatorSpec();
-    assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
-    assertEquals(graphSpec.getInputOperators().get(streamId), inputOpSpec);
+    InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec = graphSpec.getInputOperators().get(streamId);
+    assertEquals(OperatorSpec.OpCode.INPUT, inputOpSpec.getOpCode());
     assertEquals(streamId, inputOpSpec.getStreamId());
     assertEquals(mockKeySerde, inputOpSpec.getKeySerde());
     assertEquals(mockValueSerde, inputOpSpec.getValueSerde());
@@ -89,24 +95,23 @@ public class TestStreamGraphSpec {
 
   @Test(expected = NullPointerException.class)
   public void testGetInputStreamWithNullSerde() {
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
-
-    graphSpec.getInputStream("test-stream-1", null);
+    new StreamAppDescriptorImpl(appDesc -> {
+        appDesc.getInputStream("test-stream-1", null);
+      }, mock(Config.class));
   }
 
   @Test
   public void testGetInputStreamWithDefaultValueSerde() {
     String streamId = "test-stream-1";
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
 
     Serde mockValueSerde = mock(Serde.class);
-    graphSpec.setDefaultSerde(mockValueSerde);
-    MessageStream<TestMessageEnvelope> inputStream = graphSpec.getInputStream(streamId);
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        appDesc.setDefaultSerde(mockValueSerde);
+        appDesc.getInputStream(streamId);
+      }, mock(Config.class));
 
-    InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec =
-        (InputOperatorSpec) ((MessageStreamImpl<TestMessageEnvelope>) inputStream).getOperatorSpec();
-    assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
-    assertEquals(graphSpec.getInputOperators().get(streamId), inputOpSpec);
+    InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec = graphSpec.getInputOperators().get(streamId);
+    assertEquals(OperatorSpec.OpCode.INPUT, inputOpSpec.getOpCode());
     assertEquals(streamId, inputOpSpec.getStreamId());
     assertTrue(inputOpSpec.getKeySerde() instanceof NoOpSerde);
     assertEquals(mockValueSerde, inputOpSpec.getValueSerde());
@@ -115,20 +120,19 @@ public class TestStreamGraphSpec {
   @Test
   public void testGetInputStreamWithDefaultKeyValueSerde() {
     String streamId = "test-stream-1";
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
 
     KVSerde mockKVSerde = mock(KVSerde.class);
     Serde mockKeySerde = mock(Serde.class);
     Serde mockValueSerde = mock(Serde.class);
     doReturn(mockKeySerde).when(mockKVSerde).getKeySerde();
     doReturn(mockValueSerde).when(mockKVSerde).getValueSerde();
-    graphSpec.setDefaultSerde(mockKVSerde);
-    MessageStream<TestMessageEnvelope> inputStream = graphSpec.getInputStream(streamId);
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        appDesc.setDefaultSerde(mockKVSerde);
+        appDesc.getInputStream(streamId);
+      }, mock(Config.class));
 
-    InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec =
-        (InputOperatorSpec) ((MessageStreamImpl<TestMessageEnvelope>) inputStream).getOperatorSpec();
-    assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
-    assertEquals(graphSpec.getInputOperators().get(streamId), inputOpSpec);
+    InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec = graphSpec.getInputOperators().get(streamId);
+    assertEquals(OperatorSpec.OpCode.INPUT, inputOpSpec.getOpCode());
     assertEquals(streamId, inputOpSpec.getStreamId());
     assertEquals(mockKeySerde, inputOpSpec.getKeySerde());
     assertEquals(mockValueSerde, inputOpSpec.getValueSerde());
@@ -139,13 +143,12 @@ public class TestStreamGraphSpec {
     String streamId = "test-stream-1";
 
     // default default serde == user hasn't provided a default serde
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
-    MessageStream<TestMessageEnvelope> inputStream = graphSpec.getInputStream(streamId);
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        appDesc.getInputStream(streamId);
+      }, mock(Config.class));
 
-    InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec =
-        (InputOperatorSpec) ((MessageStreamImpl<TestMessageEnvelope>) inputStream).getOperatorSpec();
-    assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
-    assertEquals(graphSpec.getInputOperators().get(streamId), inputOpSpec);
+    InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec = graphSpec.getInputOperators().get(streamId);
+    assertEquals(OperatorSpec.OpCode.INPUT, inputOpSpec.getOpCode());
     assertEquals(streamId, inputOpSpec.getStreamId());
     assertTrue(inputOpSpec.getKeySerde() instanceof NoOpSerde);
     assertTrue(inputOpSpec.getValueSerde() instanceof NoOpSerde);
@@ -154,14 +157,12 @@ public class TestStreamGraphSpec {
   @Test
   public void testGetInputStreamWithRelaxedTypes() {
     String streamId = "test-stream-1";
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        appDesc.getInputStream(streamId);
+      }, mock(Config.class));
 
-    MessageStream<TestMessageEnvelope> inputStream = graphSpec.getInputStream(streamId);
-
-    InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec =
-        (InputOperatorSpec) ((MessageStreamImpl<TestMessageEnvelope>) inputStream).getOperatorSpec();
-    assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
-    assertEquals(graphSpec.getInputOperators().get(streamId), inputOpSpec);
+    InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec = graphSpec.getInputOperators().get(streamId);
+    assertEquals(OperatorSpec.OpCode.INPUT, inputOpSpec.getOpCode());
     assertEquals(streamId, inputOpSpec.getStreamId());
   }
 
@@ -170,40 +171,38 @@ public class TestStreamGraphSpec {
     String streamId1 = "test-stream-1";
     String streamId2 = "test-stream-2";
 
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
-    MessageStream<Object> inputStream1 = graphSpec.getInputStream(streamId1);
-    MessageStream<Object> inputStream2 = graphSpec.getInputStream(streamId2);
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        appDesc.getInputStream(streamId1);
+        appDesc.getInputStream(streamId2);
+      }, mock(Config.class));
 
-    InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec1 =
-        (InputOperatorSpec) ((MessageStreamImpl<Object>) inputStream1).getOperatorSpec();
-    InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec2 =
-        (InputOperatorSpec) ((MessageStreamImpl<Object>) inputStream2).getOperatorSpec();
+    InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec1 = graphSpec.getInputOperators().get(streamId1);
+    InputOperatorSpec<String, TestMessageEnvelope> inputOpSpec2 = graphSpec.getInputOperators().get(streamId2);
 
     assertEquals(graphSpec.getInputOperators().size(), 2);
-    assertEquals(graphSpec.getInputOperators().get(streamId1), inputOpSpec1);
-    assertEquals(graphSpec.getInputOperators().get(streamId2), inputOpSpec2);
+    assertEquals(streamId1, inputOpSpec1.getStreamId());
+    assertEquals(streamId2, inputOpSpec2.getStreamId());
   }
 
   @Test(expected = IllegalStateException.class)
   public void testGetSameInputStreamTwice() {
     String streamId = "test-stream-1";
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
-    graphSpec.getInputStream(streamId);
-    // should throw exception
-    graphSpec.getInputStream(streamId);
+    new StreamAppDescriptorImpl(appDesc -> {
+        appDesc.getInputStream(streamId);
+        // should throw exception
+        appDesc.getInputStream(streamId);
+      }, mock(Config.class));
   }
 
   @Test
   public void testGetOutputStreamWithValueSerde() {
     String streamId = "test-stream-1";
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
-
     Serde mockValueSerde = mock(Serde.class);
-    OutputStream<TestMessageEnvelope> outputStream =
-        graphSpec.getOutputStream(streamId, mockValueSerde);
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        appDesc.getOutputStream(streamId, mockValueSerde);
+      }, mock(Config.class));
 
-    OutputStreamImpl<TestMessageEnvelope> outputStreamImpl = (OutputStreamImpl) outputStream;
-    assertEquals(graphSpec.getOutputStreams().get(streamId), outputStreamImpl);
+    OutputStreamImpl<TestMessageEnvelope> outputStreamImpl = graphSpec.getOutputStreams().get(streamId);
     assertEquals(streamId, outputStreamImpl.getStreamId());
     assertTrue(outputStreamImpl.getKeySerde() instanceof NoOpSerde);
     assertEquals(mockValueSerde, outputStreamImpl.getValueSerde());
@@ -212,17 +211,17 @@ public class TestStreamGraphSpec {
   @Test
   public void testGetOutputStreamWithKeyValueSerde() {
     String streamId = "test-stream-1";
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
     KVSerde mockKVSerde = mock(KVSerde.class);
     Serde mockKeySerde = mock(Serde.class);
     Serde mockValueSerde = mock(Serde.class);
     doReturn(mockKeySerde).when(mockKVSerde).getKeySerde();
     doReturn(mockValueSerde).when(mockKVSerde).getValueSerde();
-    graphSpec.setDefaultSerde(mockKVSerde);
-    OutputStream<TestMessageEnvelope> outputStream = graphSpec.getOutputStream(streamId, mockKVSerde);
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        appDesc.setDefaultSerde(mockKVSerde);
+        appDesc.getOutputStream(streamId, mockKVSerde);
+      }, mock(Config.class));
 
-    OutputStreamImpl<TestMessageEnvelope> outputStreamImpl = (OutputStreamImpl) outputStream;
-    assertEquals(graphSpec.getOutputStreams().get(streamId), outputStreamImpl);
+    OutputStreamImpl<TestMessageEnvelope> outputStreamImpl = graphSpec.getOutputStreams().get(streamId);
     assertEquals(streamId, outputStreamImpl.getStreamId());
     assertEquals(mockKeySerde, outputStreamImpl.getKeySerde());
     assertEquals(mockValueSerde, outputStreamImpl.getValueSerde());
@@ -231,9 +230,9 @@ public class TestStreamGraphSpec {
   @Test(expected = NullPointerException.class)
   public void testGetOutputStreamWithNullSerde() {
     String streamId = "test-stream-1";
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
-
-    graphSpec.getOutputStream(streamId, null);
+    new StreamAppDescriptorImpl(appDesc -> {
+        appDesc.getOutputStream(streamId, null);
+      }, mock(Config.class));
   }
 
   @Test
@@ -241,12 +240,12 @@ public class TestStreamGraphSpec {
     String streamId = "test-stream-1";
 
     Serde mockValueSerde = mock(Serde.class);
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
-    graphSpec.setDefaultSerde(mockValueSerde);
-    OutputStream<TestMessageEnvelope> outputStream = graphSpec.getOutputStream(streamId);
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        appDesc.setDefaultSerde(mockValueSerde);
+        appDesc.getOutputStream(streamId);
+      }, mock(Config.class));
 
-    OutputStreamImpl<TestMessageEnvelope> outputStreamImpl = (OutputStreamImpl) outputStream;
-    assertEquals(graphSpec.getOutputStreams().get(streamId), outputStreamImpl);
+    OutputStreamImpl<TestMessageEnvelope> outputStreamImpl = graphSpec.getOutputStreams().get(streamId);
     assertEquals(streamId, outputStreamImpl.getStreamId());
     assertTrue(outputStreamImpl.getKeySerde() instanceof NoOpSerde);
     assertEquals(mockValueSerde, outputStreamImpl.getValueSerde());
@@ -256,18 +255,17 @@ public class TestStreamGraphSpec {
   public void testGetOutputStreamWithDefaultKeyValueSerde() {
     String streamId = "test-stream-1";
 
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
     KVSerde mockKVSerde = mock(KVSerde.class);
     Serde mockKeySerde = mock(Serde.class);
     Serde mockValueSerde = mock(Serde.class);
     doReturn(mockKeySerde).when(mockKVSerde).getKeySerde();
     doReturn(mockValueSerde).when(mockKVSerde).getValueSerde();
-    graphSpec.setDefaultSerde(mockKVSerde);
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        appDesc.setDefaultSerde(mockKVSerde);
+        appDesc.getOutputStream(streamId);
+      }, mock(Config.class));
 
-    OutputStream<TestMessageEnvelope> outputStream = graphSpec.getOutputStream(streamId);
-
-    OutputStreamImpl<TestMessageEnvelope> outputStreamImpl = (OutputStreamImpl) outputStream;
-    assertEquals(graphSpec.getOutputStreams().get(streamId), outputStreamImpl);
+    OutputStreamImpl<TestMessageEnvelope> outputStreamImpl = graphSpec.getOutputStreams().get(streamId);
     assertEquals(streamId, outputStreamImpl.getStreamId());
     assertEquals(mockKeySerde, outputStreamImpl.getKeySerde());
     assertEquals(mockValueSerde, outputStreamImpl.getValueSerde());
@@ -277,12 +275,12 @@ public class TestStreamGraphSpec {
   public void testGetOutputStreamWithDefaultDefaultSerde() {
     String streamId = "test-stream-1";
 
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        appDesc.getOutputStream(streamId);
+      }, mock(Config.class));
 
-    OutputStream<TestMessageEnvelope> outputStream = graphSpec.getOutputStream(streamId);
 
-    OutputStreamImpl<TestMessageEnvelope> outputStreamImpl = (OutputStreamImpl) outputStream;
-    assertEquals(graphSpec.getOutputStreams().get(streamId), outputStreamImpl);
+    OutputStreamImpl<TestMessageEnvelope> outputStreamImpl = graphSpec.getOutputStreams().get(streamId);
     assertEquals(streamId, outputStreamImpl.getStreamId());
     assertTrue(outputStreamImpl.getKeySerde() instanceof NoOpSerde);
     assertTrue(outputStreamImpl.getValueSerde() instanceof NoOpSerde);
@@ -292,23 +290,25 @@ public class TestStreamGraphSpec {
   public void testSetDefaultSerdeAfterGettingStreams() {
     String streamId = "test-stream-1";
 
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
-    graphSpec.getInputStream(streamId);
-    graphSpec.setDefaultSerde(mock(Serde.class)); // should throw exception
+    new StreamAppDescriptorImpl(appDesc -> {
+        appDesc.getInputStream(streamId);
+        appDesc.setDefaultSerde(mock(Serde.class)); // should throw exception
+      }, mock(Config.class));
   }
 
   @Test(expected = IllegalStateException.class)
   public void testSetDefaultSerdeAfterGettingOutputStream() {
     String streamId = "test-stream-1";
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
-    graphSpec.getOutputStream(streamId);
-    graphSpec.setDefaultSerde(mock(Serde.class)); // should throw exception
+    new StreamAppDescriptorImpl(appDesc -> {
+        appDesc.getOutputStream(streamId);
+        appDesc.setDefaultSerde(mock(Serde.class)); // should throw exception
+      }, mock(Config.class));
   }
 
   @Test(expected = IllegalStateException.class)
   public void testSetDefaultSerdeAfterGettingIntermediateStream() {
     String streamId = "test-stream-1";
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> { }, mock(Config.class));
     graphSpec.getIntermediateStream(streamId, null);
     graphSpec.setDefaultSerde(mock(Serde.class)); // should throw exception
   }
@@ -316,15 +316,16 @@ public class TestStreamGraphSpec {
   @Test(expected = IllegalStateException.class)
   public void testGetSameOutputStreamTwice() {
     String streamId = "test-stream-1";
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
-    graphSpec.getOutputStream(streamId);
-    graphSpec.getOutputStream(streamId); // should throw exception
+    new StreamAppDescriptorImpl(appDesc -> {
+        appDesc.getOutputStream(streamId);
+        appDesc.getOutputStream(streamId); // should throw exception
+      }, mock(Config.class));
   }
 
   @Test
   public void testGetIntermediateStreamWithValueSerde() {
     String streamId = "stream-1";
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> { }, mock(Config.class));
 
     Serde mockValueSerde = mock(Serde.class);
     IntermediateMessageStreamImpl<TestMessageEnvelope> intermediateStreamImpl =
@@ -342,7 +343,7 @@ public class TestStreamGraphSpec {
   @Test
   public void testGetIntermediateStreamWithKeyValueSerde() {
     String streamId = "streamId";
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> { }, mock(Config.class));
 
     KVSerde mockKVSerde = mock(KVSerde.class);
     Serde mockKeySerde = mock(Serde.class);
@@ -364,7 +365,7 @@ public class TestStreamGraphSpec {
   @Test
   public void testGetIntermediateStreamWithDefaultValueSerde() {
     String streamId = "streamId";
-    StreamGraphSpec graph = new StreamGraphSpec(mock(Config.class));
+    StreamAppDescriptorImpl graph = new StreamAppDescriptorImpl(appDesc -> { }, mock(Config.class));
 
     Serde mockValueSerde = mock(Serde.class);
     graph.setDefaultSerde(mockValueSerde);
@@ -385,7 +386,7 @@ public class TestStreamGraphSpec {
     Config mockConfig = mock(Config.class);
     String streamId = "streamId";
 
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> { }, mockConfig);
 
     KVSerde mockKVSerde = mock(KVSerde.class);
     Serde mockKeySerde = mock(Serde.class);
@@ -410,7 +411,7 @@ public class TestStreamGraphSpec {
     Config mockConfig = mock(Config.class);
     String streamId = "streamId";
 
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> { }, mockConfig);
     IntermediateMessageStreamImpl<TestMessageEnvelope> intermediateStreamImpl =
         graphSpec.getIntermediateStream(streamId, null);
 
@@ -425,7 +426,7 @@ public class TestStreamGraphSpec {
 
   @Test(expected = IllegalStateException.class)
   public void testGetSameIntermediateStreamTwice() {
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> { }, mock(Config.class));
     graphSpec.getIntermediateStream("test-stream-1", mock(Serde.class));
     graphSpec.getIntermediateStream("test-stream-1", mock(Serde.class));
   }
@@ -436,10 +437,10 @@ public class TestStreamGraphSpec {
     when(mockConfig.get(eq(JobConfig.JOB_NAME()))).thenReturn("jobName");
     when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("1234");
 
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
-    assertEquals("jobName-1234-merge-0", graphSpec.getNextOpId(OpCode.MERGE, null));
-    assertEquals("jobName-1234-join-customName", graphSpec.getNextOpId(OpCode.JOIN, "customName"));
-    assertEquals("jobName-1234-map-2", graphSpec.getNextOpId(OpCode.MAP, null));
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> { }, mockConfig);
+    assertEquals("jobName-1234-merge-0", graphSpec.getNextOpId(OperatorSpec.OpCode.MERGE, null));
+    assertEquals("jobName-1234-join-customName", graphSpec.getNextOpId(OperatorSpec.OpCode.JOIN, "customName"));
+    assertEquals("jobName-1234-map-2", graphSpec.getNextOpId(OperatorSpec.OpCode.MAP, null));
   }
 
   @Test(expected = SamzaException.class)
@@ -448,9 +449,9 @@ public class TestStreamGraphSpec {
     when(mockConfig.get(eq(JobConfig.JOB_NAME()))).thenReturn("jobName");
     when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("1234");
 
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
-    assertEquals("jobName-1234-join-customName", graphSpec.getNextOpId(OpCode.JOIN, "customName"));
-    graphSpec.getNextOpId(OpCode.JOIN, "customName"); // should throw
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> { }, mockConfig);
+    assertEquals("jobName-1234-join-customName", graphSpec.getNextOpId(OperatorSpec.OpCode.JOIN, "customName"));
+    graphSpec.getNextOpId(OperatorSpec.OpCode.JOIN, "customName"); // should throw
   }
 
   @Test
@@ -459,14 +460,14 @@ public class TestStreamGraphSpec {
     when(mockConfig.get(eq(JobConfig.JOB_NAME()))).thenReturn("jobName");
     when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("1234");
 
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> { }, mockConfig);
 
     // null and empty userDefinedIDs should fall back to autogenerated IDs.
     try {
-      graphSpec.getNextOpId(OpCode.FILTER, null);
-      graphSpec.getNextOpId(OpCode.FILTER, "");
-      graphSpec.getNextOpId(OpCode.FILTER, " ");
-      graphSpec.getNextOpId(OpCode.FILTER, "\t");
+      graphSpec.getNextOpId(OperatorSpec.OpCode.FILTER, null);
+      graphSpec.getNextOpId(OperatorSpec.OpCode.FILTER, "");
+      graphSpec.getNextOpId(OperatorSpec.OpCode.FILTER, " ");
+      graphSpec.getNextOpId(OperatorSpec.OpCode.FILTER, "\t");
     } catch (SamzaException e) {
       fail("Received an error with a null or empty operator ID instead of defaulting to auto-generated ID.");
     }
@@ -474,7 +475,7 @@ public class TestStreamGraphSpec {
     List<String> validOpIds = ImmutableList.of("op.id", "op_id", "op-id", "1000", "op_1", "OP_ID");
     for (String validOpId: validOpIds) {
       try {
-        graphSpec.getNextOpId(OpCode.FILTER, validOpId);
+        graphSpec.getNextOpId(OperatorSpec.OpCode.FILTER, validOpId);
       } catch (Exception e) {
         fail("Received an exception with a valid operator ID: " + validOpId);
       }
@@ -483,7 +484,7 @@ public class TestStreamGraphSpec {
     List<String> invalidOpIds = ImmutableList.of("op id", "op#id");
     for (String invalidOpId: invalidOpIds) {
       try {
-        graphSpec.getNextOpId(OpCode.FILTER, invalidOpId);
+        graphSpec.getNextOpId(OperatorSpec.OpCode.FILTER, invalidOpId);
         fail("Did not receive an exception with an invalid operator ID: " + invalidOpId);
       } catch (SamzaException e) { }
     }
@@ -493,15 +494,15 @@ public class TestStreamGraphSpec {
   public void testGetInputStreamPreservesInsertionOrder() {
     Config mockConfig = mock(Config.class);
 
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
-
     String testStreamId1 = "test-stream-1";
     String testStreamId2 = "test-stream-2";
     String testStreamId3 = "test-stream-3";
 
-    graphSpec.getInputStream("test-stream-1");
-    graphSpec.getInputStream("test-stream-2");
-    graphSpec.getInputStream("test-stream-3");
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        appDesc.getInputStream(testStreamId1);
+        appDesc.getInputStream(testStreamId2);
+        appDesc.getInputStream(testStreamId3);
+      }, mockConfig);
 
     List<InputOperatorSpec> inputSpecs = new ArrayList<>(graphSpec.getInputOperators().values());
     assertEquals(inputSpecs.size(), 3);
@@ -511,13 +512,31 @@ public class TestStreamGraphSpec {
   }
 
   @Test
-  public void testGetTable() {
+  public void testGetTable() throws Exception {
     Config mockConfig = mock(Config.class);
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
 
     BaseTableDescriptor mockTableDescriptor = mock(BaseTableDescriptor.class);
-    when(mockTableDescriptor.getTableSpec()).thenReturn(
-        new TableSpec("t1", KVSerde.of(new NoOpSerde(), new NoOpSerde()), "", new HashMap<>()));
-    assertNotNull(graphSpec.getTable(mockTableDescriptor));
+    TableSpec testTableSpec = new TableSpec("t1", KVSerde.of(new NoOpSerde(), new NoOpSerde()), "", new HashMap<>());
+    when(mockTableDescriptor.getTableSpec()).thenReturn(testTableSpec);
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+      appDesc.getTable(mockTableDescriptor);
+    }, mockConfig);
+    assertNotNull(graphSpec.getTables().get(testTableSpec));
+  }
+
+  @Test
+  public void testContextManager() {
+    ContextManager cntxMan = mock(ContextManager.class);
+    StreamApplication testApp = appDesc -> appDesc.withContextManager(cntxMan);
+    StreamAppDescriptorImpl appSpec = new StreamAppDescriptorImpl(testApp, mock(Config.class));
+    assertEquals(appSpec.getContextManager(), cntxMan);
+  }
+
+  @Test
+  public void testProcessorLifecycleListenerFactory() {
+    ProcessorLifecycleListenerFactory mockFactory = mock(ProcessorLifecycleListenerFactory.class);
+    StreamApplication testApp = appSpec -> appSpec.withProcessorLifecycleListenerFactory(mockFactory);
+    StreamAppDescriptorImpl appDesc = new StreamAppDescriptorImpl(testApp, mock(Config.class));
+    assertEquals(appDesc.getProcessorLifecycleListenerFactory(), mockFactory);
   }
 }

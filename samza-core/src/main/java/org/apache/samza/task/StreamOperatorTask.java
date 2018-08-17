@@ -19,14 +19,14 @@
 package org.apache.samza.task;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.OperatorSpecGraph;
+import org.apache.samza.system.EndOfStreamMessage;
+import org.apache.samza.system.MessageType;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.impl.InputOperatorImpl;
 import org.apache.samza.operators.impl.OperatorImplGraph;
-import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.IncomingMessageEnvelope;
-import org.apache.samza.system.MessageType;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.WatermarkMessage;
 import org.apache.samza.util.Clock;
@@ -70,10 +70,10 @@ public class StreamOperatorTask implements StreamTask, InitableTask, WindowableT
    * Initializes this task during startup.
    * <p>
    * Implementation: Initializes the runtime {@link OperatorImplGraph} according to user-defined {@link OperatorSpecGraph}.
-   * The {@link org.apache.samza.operators.StreamGraphSpec} sets the input and output streams and the task-wide
-   * context manager using the {@link org.apache.samza.operators.StreamGraph} APIs,
+   * The {@link org.apache.samza.application.StreamAppDescriptorImpl} sets the input and output streams and the task-wide
+   * context manager using the {@link org.apache.samza.application.StreamAppDescriptor} APIs,
    * and the logical transforms using the {@link org.apache.samza.operators.MessageStream} APIs. After the
-   * {@link org.apache.samza.operators.StreamGraphSpec} is initialized once by the application, it then creates
+   * {@link org.apache.samza.application.StreamAppDescriptorImpl} is initialized once by the application, it then creates
    * an immutable {@link OperatorSpecGraph} accordingly, which is passed in to this class to create the {@link OperatorImplGraph}
    * corresponding to the logical DAG.
    *

@@ -18,7 +18,7 @@
  */
 package org.apache.samza.application;
 
-import java.util.List;
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.task.TaskFactory;
 
@@ -26,6 +26,7 @@ import org.apache.samza.task.TaskFactory;
 /**
  *  The interface class to describe a user application as low-level task in Samza.
  */
+@InterfaceStability.Evolving
 public interface TaskAppDescriptor extends ApplicationDescriptor<TaskApplication> {
 
   /**
@@ -37,26 +38,34 @@ public interface TaskAppDescriptor extends ApplicationDescriptor<TaskApplication
   void setTaskFactory(TaskFactory factory);
 
   /**
-   * Adds the input streams to the user application.
+   * Adds the input stream to the user application.
    *
-   * @param inputStreams the list of streamIds for the input streams
+   * @param inputStream streamId of the input stream
    */
   // TODO: needs to be replaced by InputStreamDescriptor after SAMZA-1804 is implemented
-  void addInputStreams(List<String> inputStreams);
+  void addInputStream(String inputStream);
 
   /**
-   * Adds the output streams to the user application.
+   * Adds the input stream to the user application.
    *
-   * @param outputStreams the list of streamIds for the output streams
+   * @param inputStream streamId of the input stream
+   */
+  // TODO: needs to be replaced by InputStreamDescriptor after SAMZA-1804 is implemented
+  void addBroadcastStream(String inputStream);
+
+  /**
+   * Adds the output stream to the user application.
+   *
+   * @param outputStream streamId of the output stream
    */
   // TODO: needs to be replaced by OutputStreamDescriptor after SAMZA-1804 is implemented
-  void addOutputStreams(List<String> outputStreams);
+  void addOutputStream(String outputStream);
 
   /**
-   * Adds the {@link TableDescriptor}s used in the application
+   * Adds the {@link TableDescriptor} used in the application
    *
-   * @param tables the list of {@link TableDescriptor}s
+   * @param table {@link TableDescriptor}
    */
-  void addTables(List<TableDescriptor> tables);
+  void addTable(TableDescriptor table);
 
 }

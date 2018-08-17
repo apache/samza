@@ -21,15 +21,14 @@ package org.apache.samza.runtime;
 
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
-import org.apache.samza.application.ApplicationClassUtils;
 import org.apache.samza.config.Config;
 import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.Util;
 
 
 /**
- * This class contains the main() method used by start-app.sh.
- * It creates the {@link ApplicationRunner} based on the config, and then start the application.
+ * This class contains the main() method used by run-app.sh.
+ * It creates the {@link ApplicationRunner} based on the config, and then run the application.
  */
 public class ApplicationRunnerMain {
 

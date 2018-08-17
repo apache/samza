@@ -18,10 +18,19 @@
  */
 package org.apache.samza.runtime;
 
+import org.apache.samza.annotation.InterfaceStability;
+
+
 /**
  * The context for a StreamProcessor. Currently, only defines a method to report the processorId
  *
  */
+@InterfaceStability.Evolving
 public interface ProcessorContext {
+  /**
+   * Get the unique processorID for the corresponding StreamProcessor
+   *
+   * @return the processorId
+   */
   String getProcessorId();
 }

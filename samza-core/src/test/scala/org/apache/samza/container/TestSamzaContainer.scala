@@ -187,8 +187,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     @volatile var onContainerStopCalled = false
     @volatile var onContainerStartCalled = false
     @volatile var onContainerFailedThrowable: Throwable = null
-    @volatile var beforeStartCalled = false
-    @volatile var beforeStopCalled = false
+    @volatile var onContainerBeforeStartCalled = false
 
     val container = new SamzaContainer(
       containerContext = containerContext,
@@ -213,21 +212,17 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
         onContainerStartCalled = true
       }
 
-      override def beforeStop(): Unit = {
-        beforeStopCalled = true
+      override def beforeStart(): Unit = {
+        onContainerBeforeStartCalled = true
       }
 
-      override def beforeStart(): Unit = {
-        beforeStartCalled = true
-      }
     }
     container.setContainerListener(containerListener)
 
     container.run
     assertTrue(task.wasShutdown)
-    assertTrue(beforeStartCalled)
+    assertTrue(onContainerBeforeStartCalled)
     assertFalse(onContainerStartCalled)
-    assertTrue(beforeStopCalled)
     assertFalse(onContainerStopCalled)
 
     assertTrue(onContainerFailedCalled)
@@ -278,8 +273,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     @volatile var onContainerStopCalled = false
     @volatile var onContainerStartCalled = false
     @volatile var onContainerFailedThrowable: Throwable = null
-    @volatile var beforeStartCalled = false
-    @volatile var beforeStopCalled = false
+    @volatile var onContainerBeforeStartCalled = false
 
     val mockRunLoop = mock[RunLoop]
     when(mockRunLoop.run).thenThrow(new RuntimeException("Trigger a shutdown, please."))
@@ -306,22 +300,20 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
         onContainerStartCalled = true
       }
 
-      override def beforeStop(): Unit = {
-        beforeStopCalled = true
-      }
-
+      /**
+        * Method invoked before the {@link org.apache.samza.container.SamzaContainer} is started
+        */
       override def beforeStart(): Unit = {
-        beforeStartCalled = true
+        onContainerBeforeStartCalled = true
       }
     }
     container.setContainerListener(containerListener)
 
     container.run
     assertTrue(task.wasShutdown)
-    assertTrue(beforeStartCalled)
+    assertTrue(onContainerBeforeStartCalled)
     assertTrue(onContainerStartCalled)
 
-    assertTrue(beforeStopCalled)
     assertFalse(onContainerStopCalled)
 
     assertTrue(onContainerFailedCalled)
@@ -376,8 +368,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     @volatile var onContainerStopCalled = false
     @volatile var onContainerStartCalled = false
     @volatile var onContainerFailedThrowable: Throwable = null
-    @volatile var beforeStartCalled = false
-    @volatile var beforeStopCalled = false
+    @volatile var onContainerBeforeStartCalled = false
 
     val container = new SamzaContainer(
       containerContext = containerContext,
@@ -401,12 +392,11 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
         onContainerStartCalled = true
       }
 
-      override def beforeStop(): Unit = {
-        beforeStopCalled = true
-      }
-
+      /**
+        * Method invoked before the {@link org.apache.samza.container.SamzaContainer} is started
+        */
       override def beforeStart(): Unit = {
-        beforeStartCalled = true
+        onContainerBeforeStartCalled = true
       }
     }
     container.setContainerListener(containerListener)
@@ -414,12 +404,10 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     container.run
 
     assertTrue(task.wasShutdown)
-
-    assertTrue(beforeStartCalled)
+    assertTrue(onContainerBeforeStartCalled)
     assertFalse(onContainerStopCalled)
     assertFalse(onContainerStartCalled)
 
-    assertTrue(beforeStopCalled)
     assertTrue(onContainerFailedCalled)
     assertNotNull(onContainerFailedThrowable)
   }
@@ -465,8 +453,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     @volatile var onContainerStopCalled = false
     @volatile var onContainerStartCalled = false
     @volatile var onContainerFailedThrowable: Throwable = null
-    @volatile var beforeStartCalled = false
-    @volatile var beforeStopCalled = false
+    @volatile var onContainerBeforeStartCalled = false
 
     val mockRunLoop = mock[RunLoop]
     when(mockRunLoop.run).thenAnswer(new Answer[Unit] {
@@ -497,21 +484,19 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
           onContainerStartCalled = true
         }
 
-        override def beforeStop(): Unit = {
-          beforeStopCalled = true
-        }
-
+        /**
+          * Method invoked before the {@link org.apache.samza.container.SamzaContainer} is started
+          */
         override def beforeStart(): Unit = {
-          beforeStartCalled = true
+          onContainerBeforeStartCalled = true
         }
       }
     container.setContainerListener(containerListener)
 
     container.run
-    assertTrue(beforeStartCalled)
+    assertTrue(onContainerBeforeStartCalled)
     assertFalse(onContainerFailedCalled)
     assertTrue(onContainerStartCalled)
-    assertTrue(beforeStopCalled)
     assertTrue(onContainerStopCalled)
   }
 
@@ -555,8 +540,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     @volatile var onContainerStopCalled = false
     @volatile var onContainerStartCalled = false
     @volatile var onContainerFailedThrowable: Throwable = null
-    @volatile var beforeStartCalled = false
-    @volatile var beforeStopCalled = false
+    @volatile var onContainerBeforeStartCalled = false
 
     val mockRunLoop = mock[RunLoop]
     when(mockRunLoop.run).thenAnswer(new Answer[Unit] {
@@ -588,21 +572,19 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
           onContainerStartCalled = true
         }
 
-      override def beforeStop(): Unit = {
-        beforeStopCalled = true
-      }
-
+      /**
+        * Method invoked before the {@link org.apache.samza.container.SamzaContainer} is started
+        */
       override def beforeStart(): Unit = {
-        beforeStartCalled = true
+        onContainerBeforeStartCalled = true
       }
     }
     container.setContainerListener(containerListener)
 
     container.run
 
-    assertTrue(beforeStartCalled)
+    assertTrue(onContainerBeforeStartCalled)
     assertTrue(onContainerStartCalled)
-    assertTrue(beforeStopCalled)
     assertTrue(onContainerFailedCalled)
     assertFalse(onContainerStopCalled)
   }

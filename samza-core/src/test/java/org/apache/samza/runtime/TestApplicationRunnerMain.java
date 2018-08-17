@@ -19,12 +19,14 @@
 package org.apache.samza.runtime;
 
 import java.time.Duration;
+import java.util.List;
+import org.apache.samza.application.ApplicationBase;
 import org.apache.samza.application.StreamAppDescriptor;
+import org.apache.samza.application.StreamAppDescriptorImpl;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.internal.AppDescriptorImpl;
-import org.apache.samza.application.internal.StreamAppDescriptorImpl;
-import org.apache.samza.application.internal.TaskAppDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.job.ApplicationStatus;
 import org.junit.Test;
 
@@ -93,54 +95,39 @@ public class TestApplicationRunnerMain {
     protected static int killCount = 0;
     protected static int statusCount = 0;
 
-    public TestApplicationRunnerInvocationCounts(AppDescriptorImpl appDesc) {
-      super(appDesc);
+    public TestApplicationRunnerInvocationCounts(ApplicationBase userApp, Config config) {
+      super(userApp, config);
     }
 
-    private void countRun() {
+    @Override
+    protected List<JobConfig> getJobConfigsFromPlan(StreamAppDescriptorImpl streamAppDesc) {
+      return null;
+    }
+
+    @Override
+    public void run() {
       runCount++;
     }
 
-    private void countKill() {
+    @Override
+    public void kill() {
       killCount++;
     }
 
-    private ApplicationStatus countStatus() {
+    @Override
+    public ApplicationStatus status() {
       statusCount++;
       return ApplicationStatus.Running;
     }
 
-    class TestAppExecutable implements AppRuntimeExecutable {
-
-      @Override
-      public void run() {
-        countRun();
-      }
-
-      @Override
-      public void kill() {
-        countKill();
-      }
-
-      @Override
-      public ApplicationStatus status() {
-        return countStatus();
-      }
-
-      @Override
-      public boolean waitForFinish(Duration timeout) {
-        return false;
-      }
+    @Override
+    public void waitForFinish() {
+      waitForFinish(Duration.ofSeconds(0));
     }
 
     @Override
-    AppRuntimeExecutable getTaskAppRuntimeExecutable(TaskAppDescriptorImpl appSpec) {
-      return new TestAppExecutable();
-    }
-
-    @Override
-    AppRuntimeExecutable getStreamAppRuntimeExecutable(StreamAppDescriptorImpl appSpec) {
-      return new TestAppExecutable();
+    public boolean waitForFinish(Duration timeout) {
+      return false;
     }
 
   }

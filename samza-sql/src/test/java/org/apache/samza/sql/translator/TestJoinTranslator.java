@@ -33,9 +33,9 @@ import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.samza.application.StreamAppDescriptorImpl;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.spec.InputOperatorSpec;
@@ -132,14 +132,14 @@ public class TestJoinTranslator extends TranslatorTestBase {
     when(mockRightInput.getRowType()).thenReturn(mockRightRowType);
     when(mockRightRowType.getFieldNames()).thenReturn(rightStreamFieldNames);
 
-    StreamGraphSpec mockGraph = mock(StreamGraphSpec.class);
+    StreamAppDescriptorImpl mockGraph = mock(StreamAppDescriptorImpl.class);
     OperatorSpec<Object, SamzaSqlRelMessage> mockLeftInputOp = mock(OperatorSpec.class);
     MessageStream<SamzaSqlRelMessage> mockLeftInputStream = new MessageStreamImpl<>(mockGraph, mockLeftInputOp);
     when(mockContext.getMessageStream(eq(mockLeftInput.getId()))).thenReturn(mockLeftInputStream);
     OperatorSpec<Object, SamzaSqlRelMessage> mockRightInputOp = mock(OperatorSpec.class);
     MessageStream<SamzaSqlRelMessage> mockRightInputStream = new MessageStreamImpl<>(mockGraph, mockRightInputOp);
     when(mockContext.getMessageStream(eq(mockRightInput.getId()))).thenReturn(mockRightInputStream);
-    when(mockContext.getStreamGraph()).thenReturn(mockGraph);
+    when(mockContext.getStreamAppDescriptor()).thenReturn(mockGraph);
 
     InputOperatorSpec mockInputOp = mock(InputOperatorSpec.class);
     OutputStreamImpl mockOutputStream = mock(OutputStreamImpl.class);

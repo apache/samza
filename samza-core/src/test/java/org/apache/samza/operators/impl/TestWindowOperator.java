@@ -30,6 +30,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.samza.Partition;
+import org.apache.samza.application.StreamAppDescriptorImpl;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -39,7 +41,6 @@ import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OperatorSpecGraph;
-import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.impl.store.TestInMemoryStore;
 import org.apache.samza.operators.impl.store.TimeSeriesKeySerde;
@@ -539,68 +540,72 @@ public class TestWindowOperator {
     verify(taskCoordinator, times(1)).shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
   }
 
-  private StreamGraphSpec getKeyedTumblingWindowStreamGraph(AccumulationMode mode,
+  private StreamAppDescriptorImpl getKeyedTumblingWindowStreamGraph(AccumulationMode mode,
       Duration duration, Trigger<KV<Integer, Integer>> earlyTrigger) throws IOException {
-    StreamGraphSpec graph = new StreamGraphSpec(config);
 
-    KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
-    graph.getInputStream("integers", kvSerde)
-        .window(Windows.keyedTumblingWindow(KV::getKey, duration, new IntegerSerde(), kvSerde)
-            .setEarlyTrigger(earlyTrigger).setAccumulationMode(mode), "w1")
-        .sink((message, messageCollector, taskCoordinator) -> {
-            SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
-            messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
-          });
+    StreamApplication userApp = appDesc -> {
+      KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
+      appDesc.getInputStream("integers", kvSerde)
+          .window(Windows.keyedTumblingWindow(KV::getKey, duration, new IntegerSerde(), kvSerde)
+              .setEarlyTrigger(earlyTrigger).setAccumulationMode(mode), "w1")
+          .sink((message, messageCollector, taskCoordinator) -> {
+              SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
+              messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
+            });
+    };
 
-    return graph;
+    return new StreamAppDescriptorImpl(userApp, config);
   }
 
-  private StreamGraphSpec getTumblingWindowStreamGraph(AccumulationMode mode,
+  private StreamAppDescriptorImpl getTumblingWindowStreamGraph(AccumulationMode mode,
       Duration duration, Trigger<KV<Integer, Integer>> earlyTrigger) throws IOException {
-    StreamGraphSpec graph = new StreamGraphSpec(config);
+    StreamApplication userApp = appDesc -> {
+      KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
+      appDesc.getInputStream("integers", kvSerde)
+          .window(Windows.tumblingWindow(duration, kvSerde).setEarlyTrigger(earlyTrigger)
+              .setAccumulationMode(mode), "w1")
+          .sink((message, messageCollector, taskCoordinator) -> {
+              SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
+              messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
+            });
+    };
 
-    KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
-    graph.getInputStream("integers", kvSerde)
-        .window(Windows.tumblingWindow(duration, kvSerde).setEarlyTrigger(earlyTrigger)
-            .setAccumulationMode(mode), "w1")
-        .sink((message, messageCollector, taskCoordinator) -> {
-            SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
-            messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
-          });
-    return graph;
+    return new StreamAppDescriptorImpl(userApp, config);
   }
 
-  private StreamGraphSpec getKeyedSessionWindowStreamGraph(AccumulationMode mode, Duration duration) throws IOException {
-    StreamGraphSpec graph = new StreamGraphSpec(config);
+  private StreamAppDescriptorImpl getKeyedSessionWindowStreamGraph(AccumulationMode mode, Duration duration) throws IOException {
+    StreamApplication userApp = appDesc -> {
+      KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
+      appDesc.getInputStream("integers", kvSerde)
+          .window(Windows.keyedSessionWindow(KV::getKey, duration, new IntegerSerde(), kvSerde)
+              .setAccumulationMode(mode), "w1")
+          .sink((message, messageCollector, taskCoordinator) -> {
+              SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
+              messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
+            });
+    };
 
-    KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
-    graph.getInputStream("integers", kvSerde)
-        .window(Windows.keyedSessionWindow(KV::getKey, duration, new IntegerSerde(), kvSerde)
-            .setAccumulationMode(mode), "w1")
-        .sink((message, messageCollector, taskCoordinator) -> {
-            SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
-            messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
-          });
-    return graph;
+    return new StreamAppDescriptorImpl(userApp, config);
   }
 
-  private StreamGraphSpec getAggregateTumblingWindowStreamGraph(AccumulationMode mode, Duration timeDuration,
+  private StreamAppDescriptorImpl getAggregateTumblingWindowStreamGraph(AccumulationMode mode, Duration timeDuration,
         Trigger<IntegerEnvelope> earlyTrigger) throws IOException {
-    StreamGraphSpec graph = new StreamGraphSpec(config);
+    StreamApplication userApp = appDesc -> {
+      MessageStream<KV<Integer, Integer>> integers = appDesc.getInputStream("integers",
+          KVSerde.of(new IntegerSerde(), new IntegerSerde()));
 
-    MessageStream<KV<Integer, Integer>> integers = graph.getInputStream("integers",
-        KVSerde.of(new IntegerSerde(), new IntegerSerde()));
+      integers
+          .map(new KVMapFunction())
+          .window(Windows.<IntegerEnvelope, Integer>tumblingWindow(timeDuration, () -> 0, (m, c) -> c + 1, new IntegerSerde())
+              .setEarlyTrigger(earlyTrigger)
+              .setAccumulationMode(mode), "w1")
+          .sink((message, messageCollector, taskCoordinator) -> {
+              SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
+              messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
+            });
+    };
 
-    integers
-        .map(new KVMapFunction())
-        .window(Windows.<IntegerEnvelope, Integer>tumblingWindow(timeDuration, () -> 0, (m, c) -> c + 1, new IntegerSerde())
-            .setEarlyTrigger(earlyTrigger)
-            .setAccumulationMode(mode), "w1")
-        .sink((message, messageCollector, taskCoordinator) -> {
-            SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
-            messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
-          });
-    return graph;
+    return new StreamAppDescriptorImpl(userApp, config);
   }
 
   private static class IntegerEnvelope extends IncomingMessageEnvelope {

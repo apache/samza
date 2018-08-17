@@ -32,8 +32,8 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.samza.application.StreamAppDescriptor;
+import org.apache.samza.application.StreamAppDescriptorImpl;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.sql.data.RexToJavaCompiler;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
@@ -46,7 +46,7 @@ public class TranslatorContext implements Cloneable {
   /**
    * The internal variables that are shared among all cloned {@link TranslatorContext}
    */
-  private final StreamGraph streamGraph;
+  private final StreamAppDescriptorImpl streamAppDesc;
   private final RexToJavaCompiler compiler;
   private final Map<String, SamzaRelConverter> relSamzaConverters;
   private final Map<Integer, MessageStream> messsageStreams;
@@ -112,7 +112,7 @@ public class TranslatorContext implements Cloneable {
    * @param other the original object to copy from
    */
   private TranslatorContext(TranslatorContext other) {
-    this.streamGraph  = other.streamGraph;
+    this.streamAppDesc  = other.streamAppDesc;
     this.compiler = other.compiler;
     this.relSamzaConverters = other.relSamzaConverters;
     this.messsageStreams = other.messsageStreams;
@@ -123,13 +123,13 @@ public class TranslatorContext implements Cloneable {
 
   /**
    * Create the instance of TranslatorContext
-   * @param streamGraph Samza's streamGraph that is populated during the translation.
+   * @param stramAppDesc Samza's streamGraph that is populated during the translation.
    * @param relRoot Root of the relational graph from calcite.
    * @param executionContext the execution context
    * @param converters the map of schema to RelData converters
    */
-  TranslatorContext(StreamGraph streamGraph, RelRoot relRoot, SamzaSqlExecutionContext executionContext, Map<String, SamzaRelConverter> converters) {
-    this.streamGraph = streamGraph;
+  TranslatorContext(StreamAppDescriptorImpl stramAppDesc, RelRoot relRoot, SamzaSqlExecutionContext executionContext, Map<String, SamzaRelConverter> converters) {
+    this.streamAppDesc = stramAppDesc;
     this.compiler = createExpressionCompiler(relRoot);
     this.executionContext = executionContext;
     this.dataContext = new DataContextImpl();
@@ -143,8 +143,8 @@ public class TranslatorContext implements Cloneable {
    *
    * @return the stream graph
    */
-  public StreamGraph getStreamGraph() {
-    return streamGraph;
+  public StreamAppDescriptor getStreamAppDescriptor() {
+    return streamAppDesc;
   }
 
   /**

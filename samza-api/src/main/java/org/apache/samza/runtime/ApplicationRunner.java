@@ -30,6 +30,7 @@ import org.apache.samza.metrics.MetricsReporter;
  */
 @InterfaceStability.Evolving
 public interface ApplicationRunner {
+
   /**
    * Deploy and run the Samza jobs to execute {@link org.apache.samza.application.ApplicationBase}.
    * It is non-blocking so it doesn't wait for the application running.

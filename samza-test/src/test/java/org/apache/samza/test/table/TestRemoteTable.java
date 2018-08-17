@@ -19,6 +19,7 @@
 
 package org.apache.samza.test.table;
 
+import com.google.common.cache.CacheBuilder;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.time.Duration;
@@ -35,7 +36,6 @@ import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamAppDescriptor;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.internal.StreamAppDescriptorImpl;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.metrics.Counter;
@@ -47,12 +47,12 @@ import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.caching.CachingTableDescriptor;
 import org.apache.samza.table.caching.guava.GuavaCacheTableDescriptor;
+import org.apache.samza.table.remote.RemoteReadWriteTable;
+import org.apache.samza.table.remote.RemoteReadableTable;
+import org.apache.samza.table.remote.RemoteTableDescriptor;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
-import org.apache.samza.table.remote.RemoteReadableTable;
-import org.apache.samza.table.remote.RemoteTableDescriptor;
-import org.apache.samza.table.remote.RemoteReadWriteTable;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.apache.samza.test.util.Base64Serializer;
@@ -60,12 +60,9 @@ import org.apache.samza.util.RateLimiter;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.google.common.cache.CacheBuilder;
-
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.*;
 
 
 public class TestRemoteTable extends AbstractIntegrationTestHarness {
@@ -190,7 +187,7 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
           .sendTo(outputTable);
     };
 
-    final LocalApplicationRunner runner = new LocalApplicationRunner(new StreamAppDescriptorImpl(app, new MapConfig(configs)));
+    final LocalApplicationRunner runner = new LocalApplicationRunner(app, new MapConfig(configs));
     runner.run();
     runner.waitForFinish();
 

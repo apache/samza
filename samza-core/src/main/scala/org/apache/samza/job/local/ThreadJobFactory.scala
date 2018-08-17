@@ -19,8 +19,7 @@
 
 package org.apache.samza.job.local
 
-import org.apache.samza.application.internal.{StreamAppDescriptorImpl, TaskAppDescriptorImpl}
-import org.apache.samza.application.{ApplicationClassUtils, StreamApplication, TaskApplication}
+import org.apache.samza.application._
 import org.apache.samza.config.{Config, TaskConfigJava}
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
@@ -30,8 +29,9 @@ import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap, MetricsReporter}
-import org.apache.samza.operators.StreamGraphSpec
+import org.apache.samza.runtime.ApplicationClassUtils
 import org.apache.samza.storage.ChangelogStreamManager
+import org.apache.samza.task.TaskFactoryUtil
 import org.apache.samza.task._
 import org.apache.samza.util.Logging
 
@@ -81,10 +81,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         }
         case app if (app.isInstanceOf[StreamApplication]) => {
           val appSpec = new StreamAppDescriptorImpl(app.asInstanceOf[StreamApplication], config)
-          new StreamTaskFactory {
-            override def createInstance(): StreamTask =
-              new StreamOperatorTask(appSpec.getGraph.asInstanceOf[StreamGraphSpec].getOperatorSpecGraph, appSpec.getContextManager)
-          }
+          TaskFactoryUtil.createTaskFactory(appSpec.getOperatorSpecGraph, appSpec.getContextManager)
         }
       }
 
@@ -108,10 +105,9 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
 
       }
 
-      override def beforeStop(): Unit = {
-
-      }
-
+      /**
+        * Method invoked before the {@link org.apache.samza.container.SamzaContainer} is started
+        */
       override def beforeStart(): Unit = {
 
       }

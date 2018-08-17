@@ -24,6 +24,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.samza.application.StreamAppDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -31,7 +32,6 @@ import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.impl.store.TimestampedValueSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
@@ -61,18 +61,19 @@ public class TestJobNode {
     when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("jobName");
     when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("jobId");
 
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
-    graphSpec.setDefaultSerde(KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
-    MessageStream<KV<String, Object>> input1 = graphSpec.getInputStream("input1");
-    MessageStream<KV<String, Object>> input2 = graphSpec.getInputStream("input2");
-    OutputStream<KV<String, Object>> output = graphSpec.getOutputStream("output");
-    JoinFunction<String, Object, Object, KV<String, Object>> mockJoinFn = mock(JoinFunction.class);
-    input1
-        .partitionBy(KV::getKey, KV::getValue, "p1").map(kv -> kv.value)
-        .join(input2.map(kv -> kv.value), mockJoinFn,
-            new StringSerde(), new JsonSerdeV2<>(Object.class), new JsonSerdeV2<>(Object.class),
-            Duration.ofHours(1), "j1")
-        .sendTo(output);
+    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+        appDesc.setDefaultSerde(KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
+        MessageStream<KV<String, Object>> input1 = appDesc.getInputStream("input1");
+        MessageStream<KV<String, Object>> input2 = appDesc.getInputStream("input2");
+        OutputStream<KV<String, Object>> output = appDesc.getOutputStream("output");
+        JoinFunction<String, Object, Object, KV<String, Object>> mockJoinFn = mock(JoinFunction.class);
+        input1
+            .partitionBy(KV::getKey, KV::getValue, "p1").map(kv -> kv.value)
+            .join(input2.map(kv -> kv.value), mockJoinFn,
+                new StringSerde(), new JsonSerdeV2<>(Object.class), new JsonSerdeV2<>(Object.class),
+                Duration.ofHours(1), "j1")
+            .sendTo(output);
+      }, mockConfig);
 
     JobNode jobNode = new JobNode("jobName", "jobId", graphSpec.getOperatorSpecGraph(), mockConfig);
     Config config = new MapConfig();
