@@ -31,7 +31,7 @@ import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.metrics.MetricsReporterFactory
 import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.serializers.SerdeFactory
+import org.apache.samza.serializers.{MetricsSnapshotSerdeV2, SerdeFactory}
 import org.apache.samza.system.SystemFactory
 
 class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging {
@@ -97,7 +97,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
         case _ => null
       }
     } else {
-      null
+      new MetricsSnapshotSerdeV2
     }
 
     info("Got serde %s." format serde)
