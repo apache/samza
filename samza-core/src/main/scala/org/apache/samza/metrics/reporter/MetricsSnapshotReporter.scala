@@ -123,40 +123,48 @@ class MetricsSnapshotReporter(
             if (!shouldIgnore(group, name)) {
               metric.visit(new MetricsVisitor {
                 // for listGauge the value is returned as a list, which gets serialized
-                def listGauge[T](listGauge: ListGauge[T]) = { groupMsg.put(name, listGauge.getValues) }
+                def listGauge[T](listGauge: ListGauge[T]) = {
+                  groupMsg.put(name, listGauge.getValues)
+                }
+
                 def counter(counter: Counter) = groupMsg.put(name, counter.getCount: java.lang.Long)
+
                 def gauge[T](gauge: Gauge[T]) = groupMsg.put(name, gauge.getValue.asInstanceOf[Object])
+
                 def timer(timer: Timer) = groupMsg.put(name, timer.getSnapshot().getAverage(): java.lang.Double)
               })
             }
         }
 
         // dont emit empty groups
-        if(!groupMsg.isEmpty) {
+        if (!groupMsg.isEmpty) {
           metricsMsg.put(group, groupMsg)
         }
       })
 
-      val header = new MetricsHeader(jobName, jobId, containerName, execEnvironmentContainerId, source, version, samzaVersion, host, clock(), resetTime)
-      val metrics = new Metrics(metricsMsg)
+      // publish to Kafka only if the metricsMsg carries any metrics
+      if (!metricsMsg.isEmpty) {
+        val header = new MetricsHeader(jobName, jobId, containerName, execEnvironmentContainerId, source, version, samzaVersion, host, clock(), resetTime)
+        val metrics = new Metrics(metricsMsg)
 
-      debug("Flushing metrics for %s to %s with header and map: header=%s, map=%s." format (source, out, header.getAsMap, metrics.getAsMap))
+        debug("Flushing metrics for %s to %s with header and map: header=%s, map=%s." format(source, out, header.getAsMap, metrics.getAsMap))
 
-      val metricsSnapshot = new MetricsSnapshot(header, metrics)
-      val maybeSerialized = if (serializer != null) {
-        serializer.toBytes(metricsSnapshot)
-      } else {
-        metricsSnapshot
-      }
+        val metricsSnapshot = new MetricsSnapshot(header, metrics)
+        val maybeSerialized = if (serializer != null) {
+          serializer.toBytes(metricsSnapshot)
+        } else {
+          metricsSnapshot
+        }
 
-      try {
+        try {
 
-        producer.send(source, new OutgoingMessageEnvelope(out, host, null, maybeSerialized))
+          producer.send(source, new OutgoingMessageEnvelope(out, host, null, maybeSerialized))
 
-        // Always flush, since we don't want metrics to get batched up.
-        producer.flush(source)
-      } catch  {
-        case e: Exception => error("Exception when flushing metrics for source %s " format(source), e)
+          // Always flush, since we don't want metrics to get batched up.
+          producer.flush(source)
+        } catch {
+          case e: Exception => error("Exception when flushing metrics for source %s " format (source), e)
+        }
       }
     }
 

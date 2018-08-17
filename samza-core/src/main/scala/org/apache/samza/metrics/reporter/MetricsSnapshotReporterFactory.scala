@@ -31,7 +31,7 @@ import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.metrics.MetricsReporterFactory
 import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.serializers.{MetricsSnapshotSerdeV2, SerdeFactory}
+import org.apache.samza.serializers.SerdeFactory
 import org.apache.samza.system.SystemFactory
 
 class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging {
@@ -64,7 +64,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
       })
 
     val metricsSystemStreamName = config
-      .getMetricsReporterStream(name)
+      .getMetricsSnapshotReporterStream(name)
       .getOrElse(throw new SamzaException("No metrics stream defined in config."))
 
     val systemStream = StreamUtil.getSystemStreamFromNames(metricsSystemStreamName)
@@ -97,18 +97,18 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
         case _ => null
       }
     } else {
-      new MetricsSnapshotSerdeV2
+      null
     }
 
     info("Got serde %s." format serde)
 
     val pollingInterval: Int = config
-      .getMetricsReporterInterval(name)
+      .getMetricsSnapshotReporterInterval(name)
       .getOrElse("60").toInt
 
     info("Setting polling interval to %d" format pollingInterval)
 
-    val blacklist = config.getBlacklist(name)
+    val blacklist = config.getMetricsSnapshotReporterBlacklist(name)
     info("Setting blacklist to %s" format blacklist)
 
     val reporter = new MetricsSnapshotReporter(
