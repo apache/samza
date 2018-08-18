@@ -25,7 +25,7 @@ import org.apache.samza.system.IncomingMessageEnvelope;
  * Transforms an {@link IncomingMessageEnvelope} with deserialized key and message to a message of type {@code OM}
  * which is delivered to the {@code MessageStream}.
  * <p>
- * This is provided by default by {@code TransformingInputDescriptorProvider} implementations and can not be overridden
+ * This is provided by default by transforming system descriptor implementations and can not be overridden
  * or set on a per stream level.
  *
  * @param <OM> type of the transformed message

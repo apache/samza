@@ -33,11 +33,10 @@ public abstract class OutputDescriptor<StreamMessageType, SubClass extends Outpu
    * Constructs an {@link OutputDescriptor} instance.
    *
    * @param streamId id of the stream
-   * @param systemName system name for the stream
    * @param serde serde for messages in the stream
    * @param systemDescriptor system descriptor this stream descriptor was obtained from
    */
-  public OutputDescriptor(String streamId, String systemName, Serde serde, SystemDescriptor systemDescriptor) {
-    super(streamId, systemName, serde, systemDescriptor);
+  public OutputDescriptor(String streamId, Serde serde, SystemDescriptor systemDescriptor) {
+    super(streamId, serde, systemDescriptor);
   }
 }

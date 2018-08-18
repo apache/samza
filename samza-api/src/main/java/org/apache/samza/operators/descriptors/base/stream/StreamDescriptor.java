@@ -42,7 +42,6 @@ public abstract class StreamDescriptor<StreamMessageType, SubClass extends Strea
   private static final Pattern ID_PATTERN = Pattern.compile("[\\d\\w-_.]+");
 
   private final String streamId;
-  private final String systemName;
   private final Serde serde;
   private final SystemDescriptor systemDescriptor;
 
@@ -53,26 +52,19 @@ public abstract class StreamDescriptor<StreamMessageType, SubClass extends Strea
    * Constructs a {@link StreamDescriptor} instance.
    *
    * @param streamId id of the stream
-   * @param systemName system name for the stream
    * @param serde serde for messages in the stream
    * @param systemDescriptor system descriptor this stream descriptor was obtained from
    */
-  StreamDescriptor(String streamId, String systemName, Serde serde, SystemDescriptor systemDescriptor) {
+  StreamDescriptor(String streamId, Serde serde, SystemDescriptor systemDescriptor) {
+    Preconditions.checkArgument(systemDescriptor != null,
+        String.format("SystemDescriptor must not be null. streamId: %s", streamId));
+    String systemName = systemDescriptor.getSystemName();
     Preconditions.checkState(isValidId(streamId),
         String.format("streamId must be non-empty and must not contain spaces or special characters. " +
             "streamId: %s, systemName: %s", streamId, systemName));
-    Preconditions.checkArgument(isValidId(systemName),
-        String.format("systemName must be non-empty and must not contain spaces or special characters. " +
-            "systemName: %s, streamId: %s", systemName, streamId));
     Preconditions.checkArgument(serde != null,
         String.format("Serde must not be null. streamId: %s systemName: %s", streamId, systemName));
-    Preconditions.checkArgument(systemDescriptor != null,
-        String.format("SystemDescriptor must not be null. streamId: %s systemName: %s", streamId, systemName));
-    Preconditions.checkArgument(systemDescriptor.getSystemName().equals(systemName),
-        String.format("System name in constructor: %s does not match system name in SystemDescriptor: %s. streamId: %s",
-            systemName, systemDescriptor.getSystemName(), streamId));
     this.streamId = streamId;
-    this.systemName = systemName;
     this.serde = serde;
     this.systemDescriptor = systemDescriptor;
   }
@@ -111,7 +103,7 @@ public abstract class StreamDescriptor<StreamMessageType, SubClass extends Strea
   }
 
   public String getSystemName() {
-    return this.systemName;
+    return this.systemDescriptor.getSystemName();
   }
 
   public Serde getSerde() {
@@ -133,9 +125,9 @@ public abstract class StreamDescriptor<StreamMessageType, SubClass extends Strea
   public Map<String, String> toConfig() {
     HashMap<String, String> configs = new HashMap<>();
     configs.put(String.format(SYSTEM_CONFIG_KEY, streamId), getSystemName());
-    getPhysicalName().ifPresent(physicalName ->
+    this.physicalNameOptional.ifPresent(physicalName ->
         configs.put(String.format(PHYSICAL_NAME_CONFIG_KEY, streamId), physicalName));
-    streamConfigs.forEach((key, value) ->
+    this.streamConfigs.forEach((key, value) ->
         configs.put(String.format(STREAM_CONFIGS_CONFIG_KEY, streamId, key), value));
     return Collections.unmodifiableMap(configs);
   }

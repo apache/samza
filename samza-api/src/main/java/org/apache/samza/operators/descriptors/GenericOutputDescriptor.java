@@ -38,6 +38,6 @@ import org.apache.samza.serializers.Serde;
 public final class GenericOutputDescriptor<StreamMessageType>
     extends OutputDescriptor<StreamMessageType, GenericOutputDescriptor<StreamMessageType>> {
   GenericOutputDescriptor(String streamId, SystemDescriptor systemDescriptor, Serde serde) {
-    super(streamId, systemDescriptor.getSystemName(), serde, systemDescriptor);
+    super(streamId, serde, systemDescriptor);
   }
 }

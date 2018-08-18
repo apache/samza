@@ -25,6 +25,6 @@ import org.apache.samza.serializers.Serde;
 
 public class MockTransformingInputDescriptor<StreamMessageType> extends InputDescriptor<StreamMessageType, MockTransformingInputDescriptor<StreamMessageType>> {
   MockTransformingInputDescriptor(String streamId, SystemDescriptor systemDescriptor, InputTransformer<StreamMessageType> transformer, Serde serde) {
-    super(streamId, systemDescriptor.getSystemName(), serde, systemDescriptor, transformer);
+    super(streamId, serde, systemDescriptor, transformer);
   }
 }

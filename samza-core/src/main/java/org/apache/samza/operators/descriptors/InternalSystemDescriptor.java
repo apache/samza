@@ -54,7 +54,7 @@ public final class InternalSystemDescriptor extends SystemDescriptor<InternalSys
   @Override
   public <StreamMessageType> GenericInputDescriptor<StreamMessageType> getInputDescriptor(
       String streamId, Serde<StreamMessageType> serde) {
-    return new GenericInputDescriptor<>(streamId, this, null, serde);
+    return new GenericInputDescriptor<>(streamId, this, serde);
   }
 
   /**

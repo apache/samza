@@ -193,6 +193,36 @@ public class TestStreamGraphSpec {
   }
 
   @Test
+  public void testMultipleSystemDescriptorForSameSystemName() {
+    String streamId = "test-stream-1";
+    StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
+    GenericSystemDescriptor sd1 = new GenericSystemDescriptor("mockSystem", "mockSystemFactoryClass");
+    GenericSystemDescriptor sd2 = new GenericSystemDescriptor("mockSystem", "mockSystemFactoryClass");
+    GenericInputDescriptor isd1 = sd1.getInputDescriptor(streamId, mock(Serde.class));
+    GenericInputDescriptor isd2 = sd2.getInputDescriptor(streamId, mock(Serde.class));
+    GenericOutputDescriptor osd1 = sd2.getOutputDescriptor(streamId, mock(Serde.class));
+
+    graphSpec.getInputStream(isd1);
+    boolean passed = false;
+    try {
+      graphSpec.getInputStream(isd2);
+      passed = true;
+    } catch (IllegalStateException e) { }
+
+    try {
+      graphSpec.getOutputStream(osd1);
+      passed = true;
+    } catch (IllegalStateException e) { }
+
+    try {
+      graphSpec.setDefaultSystem(sd2);
+      passed = true;
+    } catch (IllegalStateException e) { }
+
+    assertFalse(passed);
+  }
+
+  @Test
   public void testGetOutputStreamWithValueSerde() {
     String streamId = "test-stream-1";
     StreamGraphSpec graphSpec = new StreamGraphSpec(mock(Config.class));
@@ -457,7 +487,7 @@ public class TestStreamGraphSpec {
 
   public class MockInputDescriptor<StreamMessageType> extends InputDescriptor<StreamMessageType, MockInputDescriptor<StreamMessageType>> {
     MockInputDescriptor(String streamId, SystemDescriptor systemDescriptor, Serde serde) {
-      super(streamId, systemDescriptor.getSystemName(), serde, systemDescriptor, null);
+      super(streamId, serde, systemDescriptor, null);
     }
   }
 }

@@ -55,14 +55,12 @@ public abstract class InputDescriptor<StreamMessageType, SubClass extends InputD
    * Constructs an {@link InputDescriptor} instance.
    *
    * @param streamId id of the stream
-   * @param systemName system name for the stream
    * @param serde serde for messages in the stream
    * @param systemDescriptor system descriptor this stream descriptor was obtained from
    * @param transformer stream level input stream transform function if available, else null
    */
-  public InputDescriptor(String streamId, String systemName, Serde serde,
-      SystemDescriptor systemDescriptor, InputTransformer transformer) {
-    super(streamId, systemName, serde, systemDescriptor);
+  public InputDescriptor(String streamId, Serde serde, SystemDescriptor systemDescriptor, InputTransformer transformer) {
+    super(streamId, serde, systemDescriptor);
 
     // stream level transformer takes precedence over system level transformer
     if (transformer != null) {
@@ -169,16 +167,17 @@ public abstract class InputDescriptor<StreamMessageType, SubClass extends InputD
   public Map<String, String> toConfig() {
     HashMap<String, String> configs = new HashMap<>(super.toConfig());
     String streamId = getStreamId();
-    offsetDefaultOptional.ifPresent(od -> configs.put(String.format(OFFSET_DEFAULT_CONFIG_KEY, streamId), od.name().toLowerCase()));
-    resetOffsetOptional.ifPresent(resetOffset ->
+    this.offsetDefaultOptional.ifPresent(od ->
+        configs.put(String.format(OFFSET_DEFAULT_CONFIG_KEY, streamId), od.name().toLowerCase()));
+    this.resetOffsetOptional.ifPresent(resetOffset ->
         configs.put(String.format(RESET_OFFSET_CONFIG_KEY, streamId), Boolean.toString(resetOffset)));
-    priorityOptional.ifPresent(priority ->
+    this.priorityOptional.ifPresent(priority ->
         configs.put(String.format(PRIORITY_CONFIG_KEY, streamId), Integer.toString(priority)));
-    isBootstrapOptional.ifPresent(bootstrap ->
+    this.isBootstrapOptional.ifPresent(bootstrap ->
         configs.put(String.format(BOOTSTRAP_CONFIG_KEY, streamId), Boolean.toString(bootstrap)));
-    isBoundedOptional.ifPresent(bounded ->
+    this.isBoundedOptional.ifPresent(bounded ->
         configs.put(String.format(BOUNDED_CONFIG_KEY, streamId), Boolean.toString(bounded)));
-    deleteCommittedMessagesOptional.ifPresent(deleteCommittedMessages ->
+    this.deleteCommittedMessagesOptional.ifPresent(deleteCommittedMessages ->
         configs.put(String.format(DELETE_COMMITTED_MESSAGES_CONFIG_KEY, streamId),
             Boolean.toString(deleteCommittedMessages)));
     return Collections.unmodifiableMap(configs);

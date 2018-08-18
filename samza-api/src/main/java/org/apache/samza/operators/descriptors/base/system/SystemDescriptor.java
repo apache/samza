@@ -42,7 +42,9 @@ import org.slf4j.LoggerFactory;
  * Systems that support producing messages to a stream should provide users means of obtaining an
  * {@code OutputDescriptor}. Recommended interface for doing so is {@link OutputDescriptorProvider}.
  * <p>
- * System implementers may choose to expose additional or alternate APIs for obtaining Input/Output Descriptors.
+ * It is not required for SystemDescriptors to implement one of the Provider interfaces above. System implementers
+ * may choose to expose additional or alternate APIs for obtaining Input/Output Descriptors by extending
+ * SystemDescriptor directly.
  *
  * @param <SubClass> type of the concrete sub-class
  */
@@ -68,6 +70,8 @@ public abstract class SystemDescriptor<SubClass extends SystemDescriptor<SubClas
    *
    * @param systemName name of this system
    * @param factoryClassName name of the SystemFactory class for this system
+   * @param transformer the {@link InputTransformer} for the system if any, else null
+   * @param expander the {@link StreamExpander} for the system if any, else null
    */
   public SystemDescriptor(String systemName, String factoryClassName, InputTransformer transformer, StreamExpander expander) {
     Preconditions.checkArgument(isValidId(systemName),
@@ -149,12 +153,12 @@ public abstract class SystemDescriptor<SubClass extends SystemDescriptor<SubClas
 
   public Map<String, String> toConfig() {
     HashMap<String, String> configs = new HashMap<>();
-    factoryClassNameOptional.ifPresent(name -> configs.put(String.format(FACTORY_CONFIG_KEY, systemName), name));
-    defaultStreamOffsetDefaultOptional.ifPresent(dsod ->
+    this.factoryClassNameOptional.ifPresent(name -> configs.put(String.format(FACTORY_CONFIG_KEY, systemName), name));
+    this.defaultStreamOffsetDefaultOptional.ifPresent(dsod ->
         configs.put(String.format(DEFAULT_STREAM_OFFSET_DEFAULT_CONFIG_KEY, systemName), dsod.name().toLowerCase()));
-    defaultStreamConfigs.forEach((key, value) ->
+    this.defaultStreamConfigs.forEach((key, value) ->
         configs.put(String.format(DEFAULT_STREAM_CONFIGS_CONFIG_KEY, getSystemName(), key), value));
-    systemConfigs.forEach((key, value) ->
+    this.systemConfigs.forEach((key, value) ->
         configs.put(String.format(SYSTEM_CONFIGS_CONFIG_KEY, getSystemName(), key), value));
     return configs;
   }

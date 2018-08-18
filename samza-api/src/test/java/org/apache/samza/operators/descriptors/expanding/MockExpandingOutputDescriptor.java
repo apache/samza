@@ -24,6 +24,6 @@ import org.apache.samza.serializers.Serde;
 
 public class MockExpandingOutputDescriptor<StreamMessageType> extends OutputDescriptor<StreamMessageType, MockExpandingOutputDescriptor<StreamMessageType>> {
   MockExpandingOutputDescriptor(String streamId, SystemDescriptor systemDescriptor, Serde<StreamMessageType> serde) {
-    super(streamId, systemDescriptor.getSystemName(), serde, systemDescriptor);
+    super(streamId, serde, systemDescriptor);
   }
 }

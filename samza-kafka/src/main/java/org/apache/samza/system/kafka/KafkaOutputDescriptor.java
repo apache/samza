@@ -25,6 +25,6 @@ import org.apache.samza.serializers.Serde;
 public class KafkaOutputDescriptor<StreamMessageType>
     extends OutputDescriptor<StreamMessageType, KafkaOutputDescriptor<StreamMessageType>> {
   KafkaOutputDescriptor(String streamId, SystemDescriptor systemDescriptor, Serde<StreamMessageType> serde) {
-    super(streamId, systemDescriptor.getSystemName(), serde, systemDescriptor);
+    super(streamId, serde, systemDescriptor);
   }
 }
