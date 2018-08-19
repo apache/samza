@@ -34,10 +34,11 @@ import org.apache.samza.table.TableSpec;
 
 
 /**
- * Defines the serialized format of {@link StreamAppDescriptorImpl}. This class encapsulates all getter methods to get the {@link OperatorSpec}
- * initialized in the {@link StreamAppDescriptorImpl} and constructs the corresponding serialized instances of {@link OperatorSpec}.
- * The {@link StreamAppDescriptorImpl} and {@link OperatorSpec} instances included in this class are considered as immutable and read-only.
- * The instance of {@link OperatorSpecGraph} should only be used in runtime to construct {@link org.apache.samza.task.StreamOperatorTask}.
+ * Defines the serialized format of the operator graph in {@link StreamAppDescriptorImpl}. This class encapsulates all
+ * getter methods to get the {@link OperatorSpec} initialized in the {@link StreamAppDescriptorImpl} and constructs the
+ * corresponding serialized instances of {@link OperatorSpec}. The {@link StreamAppDescriptorImpl} and {@link OperatorSpec}
+ * instances included in this class are considered as immutable and read-only. The instance of {@link OperatorSpecGraph}
+ * should only be used in runtime to construct {@link org.apache.samza.task.StreamOperatorTask}.
  */
 public class OperatorSpecGraph implements Serializable {
   // We use a LHM for deterministic order in initializing and closing operators.
@@ -52,20 +53,14 @@ public class OperatorSpecGraph implements Serializable {
   private transient final SerializableSerde<OperatorSpecGraph> opSpecGraphSerde = new SerializableSerde<>();
   private transient final byte[] serializedOpSpecGraph;
 
-  OperatorSpecGraph(Map<String, InputOperatorSpec> inputOperators, Map<String, OutputStreamImpl> outputStreams,
-      Set<String> broadcastStreams, Map<TableSpec, TableImpl> tables) {
-    this.inputOperators = inputOperators;
-    this.outputStreams = outputStreams;
-    this.broadcastStreams = broadcastStreams;
-    this.tables = tables;
+  public OperatorSpecGraph(StreamAppDescriptorImpl streamAppDesc) {
+    this.inputOperators = streamAppDesc.getInputOperators();
+    this.outputStreams = streamAppDesc.getOutputStreams();
+    this.broadcastStreams = streamAppDesc.getBroadcastStreams();
+    this.tables = streamAppDesc.getTables();
     this.allOpSpecs = Collections.unmodifiableSet(this.findAllOperatorSpecs());
     this.hasWindowOrJoins = checkWindowOrJoins();
     this.serializedOpSpecGraph = opSpecGraphSerde.toBytes(this);
-  }
-
-  public static OperatorSpecGraph getInstance(StreamAppDescriptorImpl appDesc) {
-    return new OperatorSpecGraph(appDesc.getInputOperators(), appDesc.getOutputStreams(), appDesc.getBroadcastStreams(),
-        appDesc.getTables());
   }
 
   public Map<String, InputOperatorSpec> getInputOperators() {

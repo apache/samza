@@ -44,8 +44,6 @@ import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.runtime.ProcessorContext;
 import org.apache.samza.runtime.ProcessorLifecycleListener;
-import org.apache.samza.task.AsyncStreamTaskFactory;
-import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskFactory;
 import org.apache.samza.util.ScalaJavaUtil;
 import org.apache.samza.util.Util;
@@ -133,6 +131,14 @@ public class StreamProcessor {
   }
 
   /**
+   * Supplier interface to allow creation of {@link ProcessorLifecycleListener} for a {@link StreamProcessor}
+   */
+  public interface StreamProcessorListenerSupplier extends Function<StreamProcessor, ProcessorLifecycleListener> {
+
+    ProcessorLifecycleListener apply(StreamProcessor sp);
+  }
+
+  /**
    * @return the current state of StreamProcessor.
    */
   public State getState() {
@@ -160,38 +166,23 @@ public class StreamProcessor {
    *
    * @param config                 configuration required to launch {@link JobCoordinator} and {@link SamzaContainer}.
    * @param customMetricsReporters metricReporter instances that will be used by SamzaContainer and JobCoordinator to report metrics.
-   * @param asyncStreamTaskFactory The {@link AsyncStreamTaskFactory} to be used for creating task instances.
+   * @param taskFactory The {@link TaskFactory} to be used for creating task instances.
    * @param processorListener      listener to the StreamProcessor life cycle.
    */
   public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
-                         AsyncStreamTaskFactory asyncStreamTaskFactory, ProcessorLifecycleListener processorListener) {
-    this(config, customMetricsReporters, asyncStreamTaskFactory, processorListener, null);
+                         TaskFactory taskFactory, ProcessorLifecycleListener processorListener) {
+    this(config, customMetricsReporters, taskFactory, processorListener, null);
   }
 
   /**
-   * Same as {@link StreamProcessor#StreamProcessor(Config, Map, StreamTaskFactory, ProcessorLifecycleListener)},
-   * except task instances are created using the provided {@link StreamTaskFactory}.
+   * Same as {@link StreamProcessor#StreamProcessor(Config, Map, TaskFactory, ProcessorLifecycleListener)},
+   * except the {@link JobCoordinator} is given for this {@link StreamProcessor}.
    * @param config - config
    * @param customMetricsReporters metric Reporter
-   * @param streamTaskFactory task factory to instantiate the Task
+   * @param taskFactory task factory to instantiate the Task
    * @param processorListener  listener to the StreamProcessor life cycle
+   * @param jobCoordinator the instance of {@link JobCoordinator}
    */
-  public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
-                         StreamTaskFactory streamTaskFactory, ProcessorLifecycleListener processorListener) {
-    this(config, customMetricsReporters, streamTaskFactory, processorListener, null);
-  }
-
-  /* package private */
-  private JobCoordinator getJobCoordinator() {
-    String jobCoordinatorFactoryClassName = new JobCoordinatorConfig(config).getJobCoordinatorFactoryClassName();
-    return Util.getObj(jobCoordinatorFactoryClassName, JobCoordinatorFactory.class).getJobCoordinator(config);
-  }
-
-  @VisibleForTesting
-  JobCoordinator getCurrentJobCoordinator() {
-    return jobCoordinator;
-  }
-
   public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, TaskFactory taskFactory,
                   ProcessorLifecycleListener processorListener, JobCoordinator jobCoordinator) {
     Preconditions.checkNotNull(processorListener, "ProcessorListener cannot be null.");
@@ -208,9 +199,18 @@ public class StreamProcessor {
     this.processorId = this.jobCoordinator.getProcessorId();
   }
 
+  /**
+   * Same as {@link StreamProcessor#StreamProcessor(Config, Map, TaskFactory, ProcessorLifecycleListener, JobCoordinator)},
+   * except user supplies a {@link StreamProcessorListenerSupplier} to create the listener for this {@link StreamProcessor}.
+   * @param config - config
+   * @param customMetricsReporters metric Reporter
+   * @param taskFactory task factory to instantiate the Task
+   * @param listenerSupplier a {@link Function} to create the {@link ProcessorLifecycleListener} for this {@link StreamProcessor}
+   * @param jobCoordinator the instance of {@link JobCoordinator}
+   */
   public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, TaskFactory taskFactory,
-      StreamProcessorListenerSupplier getListenerFn, JobCoordinator jobCoordinator) {
-    Preconditions.checkNotNull(getListenerFn, "getListenerFn cannot be null.");
+      StreamProcessorListenerSupplier listenerSupplier, JobCoordinator jobCoordinator) {
+    Preconditions.checkNotNull(listenerSupplier, "listenerSupplier cannot be null.");
     this.taskFactory = taskFactory;
     this.config = config;
     this.taskShutdownMs = new TaskConfigJava(config).getShutdownMs();
@@ -221,8 +221,10 @@ public class StreamProcessor {
     ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(CONTAINER_THREAD_NAME_FORMAT).setDaemon(true).build();
     this.executorService = Executors.newSingleThreadExecutor(threadFactory);
     this.processorId = this.jobCoordinator.getProcessorId();
-    this.processorListener = getListenerFn.apply(this);
+    // create and attach the listener to this StreamProcessor
+    this.processorListener = listenerSupplier.apply(this);
   }
+
   /**
    * Asynchronously starts this {@link StreamProcessor}.
    * <p>
@@ -308,8 +310,18 @@ public class StreamProcessor {
     return config;
   }
 
+  @VisibleForTesting
+  JobCoordinator getCurrentJobCoordinator() {
+    return jobCoordinator;
+  }
+
   SamzaContainer createSamzaContainer(String processorId, JobModel jobModel) {
     return SamzaContainer.apply(processorId, jobModel, config, ScalaJavaUtil.toScalaMap(customMetricsReporter), taskFactory);
+  }
+
+  private JobCoordinator getJobCoordinator() {
+    String jobCoordinatorFactoryClassName = new JobCoordinatorConfig(config).getJobCoordinatorFactoryClassName();
+    return Util.getObj(jobCoordinatorFactoryClassName, JobCoordinatorFactory.class).getJobCoordinator(config);
   }
 
   /**
@@ -450,13 +462,5 @@ public class StreamProcessor {
         jobCoordinator.stop();
       }
     }
-  }
-
-  /**
-   * Supplier interface to allow creation of {@link ProcessorLifecycleListener} for a {@link StreamProcessor}
-   */
-  public interface StreamProcessorListenerSupplier extends Function<StreamProcessor, ProcessorLifecycleListener> {
-
-    ProcessorLifecycleListener apply(StreamProcessor sp);
   }
 }

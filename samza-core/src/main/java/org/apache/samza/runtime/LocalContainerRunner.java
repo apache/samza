@@ -93,7 +93,7 @@ public class LocalContainerRunner {
   }
 
   private static void run(AppDescriptorImpl appDesc, String containerId, JobModel jobModel, Config config) {
-    TaskFactory taskFactory = getTaskFactory(appDesc);
+    TaskFactory taskFactory = TaskFactoryUtil.getTaskFactory(appDesc);
     SamzaContainer container = SamzaContainer$.MODULE$.apply(
         containerId,
         jobModel,
@@ -148,15 +148,6 @@ public class LocalContainerRunner {
       log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
       System.exit(1);
     }
-  }
-
-  private static TaskFactory getTaskFactory(AppDescriptorImpl appDesc) {
-    if (appDesc instanceof StreamAppDescriptorImpl) {
-      StreamAppDescriptorImpl streamAppDesc = (StreamAppDescriptorImpl) appDesc;
-      return TaskFactoryUtil.createTaskFactory(streamAppDesc.getOperatorSpecGraph(),
-          streamAppDesc.getContextManager());
-    }
-    return ((TaskAppDescriptorImpl) appDesc).getTaskFactory();
   }
 
   /**

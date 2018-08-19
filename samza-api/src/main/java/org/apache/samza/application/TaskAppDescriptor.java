@@ -31,7 +31,7 @@ public interface TaskAppDescriptor extends ApplicationDescriptor<TaskApplication
 
   /**
    * Sets the {@link TaskFactory} for the user application. The {@link TaskFactory#createInstance()} creates task instance
-   * that implements the processing logic of the user application.
+   * that implements the main processing logic of the user application.
    *
    * @param factory the user implemented {@link TaskFactory} including the low-level task processing logic
    */
@@ -48,10 +48,10 @@ public interface TaskAppDescriptor extends ApplicationDescriptor<TaskApplication
   /**
    * Adds the input stream to the user application.
    *
-   * @param inputStream streamId of the input stream
+   * @param broadcastStream streamId of the input broadcast stream
    */
   // TODO: needs to be replaced by InputStreamDescriptor after SAMZA-1804 is implemented
-  void addBroadcastStream(String inputStream);
+  void addBroadcastStream(String broadcastStream);
 
   /**
    * Adds the output stream to the user application.

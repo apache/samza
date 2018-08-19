@@ -51,6 +51,7 @@ import static org.apache.samza.util.StreamUtil.*;
  * The ExecutionPlanner creates the physical execution graph for the {@link OperatorSpecGraph}, and
  * the intermediate topics needed for the execution.
  */
+// TODO: ExecutionPlanner needs to be able to generate single node JobGraph for low-level TaskApplication as well (SAMZA-1811)
 public class ExecutionPlanner {
   private static final Logger log = LoggerFactory.getLogger(ExecutionPlanner.class);
 

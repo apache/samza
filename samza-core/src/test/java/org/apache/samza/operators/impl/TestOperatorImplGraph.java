@@ -73,9 +73,12 @@ import org.apache.samza.util.TimestampedValue;
 import org.junit.After;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class TestOperatorImplGraph {
 
@@ -171,10 +174,10 @@ public class TestOperatorImplGraph {
     @Override
     public void close() {
       if (this.taskName == null) {
-        throw new IllegalStateException("Close called before bootstrap");
+        throw new IllegalStateException("Close called before init");
       }
       if (perTaskFunctionMap.get(this.taskName) == null || !perTaskFunctionMap.get(this.taskName).containsKey(opId)) {
-        throw new IllegalStateException("Close called before bootstrap");
+        throw new IllegalStateException("Close called before init");
       }
 
       if (perTaskCloseList.get(this.taskName) == null) {
@@ -192,7 +195,7 @@ public class TestOperatorImplGraph {
         perTaskFunctionMap.put(context.getTaskName(), new HashMap<String, BaseTestFunction>() { { this.put(opId, BaseTestFunction.this); } });
       } else {
         if (perTaskFunctionMap.get(context.getTaskName()).containsKey(opId)) {
-          throw new IllegalStateException(String.format("Multiple bootstrap called for op %s in the same task instance %s", opId, this.taskName.getTaskName()));
+          throw new IllegalStateException(String.format("Multiple init called for op %s in the same task instance %s", opId, this.taskName.getTaskName()));
         }
         perTaskFunctionMap.get(context.getTaskName()).put(opId, this);
       }
@@ -246,7 +249,6 @@ public class TestOperatorImplGraph {
             .map(mock(MapFunction.class))
             .sendTo(outputStream);
       }, config);
-
 
     TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
     when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
@@ -368,7 +370,6 @@ public class TestOperatorImplGraph {
         MapFunction testMapFunction = new TestMapFunction<Object, Object>("test-map-1", (Function & Serializable) m -> m);
         mergedStream.map(testMapFunction);
       }, mock(Config.class));
-
 
     TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
     TaskName mockTaskName = mock(TaskName.class);

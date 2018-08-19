@@ -30,7 +30,7 @@ import org.apache.samza.task.TaskFactory;
  * This class implements interface {@link TaskAppDescriptor}.
  * <p>
  * In addition to the common objects for an application defined in {@link AppDescriptorImpl}, this class also includes
- * the low-level {@link TaskFactory} object that creates user-defined task instances, the lists of input/output streams,
+ * the low-level {@link TaskFactory} that creates user-defined task instances, the lists of input/broadcast/output streams,
  * and the list of {@link TableDescriptor}s used in the application.
  */
 public class TaskAppDescriptorImpl extends AppDescriptorImpl<TaskApplication, TaskAppDescriptor>
@@ -93,6 +93,15 @@ public class TaskAppDescriptorImpl extends AppDescriptorImpl<TaskApplication, Ta
   }
 
   /**
+   * Get the broadcast streams to this application
+   *
+   * @return the list of broadcast streamIds
+   */
+  public List<String> getBroadcastStreams() {
+    return Collections.unmodifiableList(this.broadcastStreams);
+  }
+
+  /**
    * Get the output streams to this application
    *
    * TODO: need to change to OutputStreamDescriptors after SAMZA-1804
@@ -110,9 +119,5 @@ public class TaskAppDescriptorImpl extends AppDescriptorImpl<TaskApplication, Ta
    */
   public List<TableDescriptor> getTables() {
     return Collections.unmodifiableList(this.tables);
-  }
-
-  public List<String> getBroadcastStreams() {
-    return Collections.unmodifiableList(this.broadcastStreams);
   }
 }

@@ -47,15 +47,54 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
   private static final Logger LOG = LoggerFactory.getLogger(RemoteApplicationRunner.class);
   private static final long DEFAULT_SLEEP_DURATION_MS = 2000;
+  private final RemoteJobConfigPlanner planner;
+
+  /**
+   * Defines a {@link JobConfigPlanner} with specific implementation of {@link JobConfigPlanner#getStreamJobConfigs(StreamAppDescriptorImpl)}
+   * for remote-launched Samza processors (e.g. in YARN).
+   *
+   * TODO: we need to consolidate all planning logic into {@link org.apache.samza.execution.ExecutionPlanner} after SAMZA-1811.
+   */
+  private class RemoteJobConfigPlanner extends JobConfigPlanner {
+    @Override
+    List<JobConfig> getStreamJobConfigs(StreamAppDescriptorImpl streamAppDesc) throws Exception {
+      // for high-level DAG, generate the plan and job configs
+      StreamManager streamManager = null;
+      try {
+        streamManager = buildAndStartStreamManager();
+        // TODO: run.id needs to be set for standalone: SAMZA-1531
+        // run.id is based on current system time with the most significant bits in UUID (8 digits) to avoid collision
+        String runId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
+        LOG.info("The run id for this run is {}", runId);
+
+        // 1. initialize and plan
+        ExecutionPlan plan = getExecutionPlan(streamAppDesc.getOperatorSpecGraph(), runId, streamManager);
+        writePlanJsonFile(plan.getPlanAsJson());
+
+        // 2. create the necessary streams
+        if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
+          streamManager.clearStreamsFromPreviousRun(getConfigFromPrevRun());
+        }
+        streamManager.createStreams(plan.getIntermediateStreams());
+
+        return plan.getJobConfigs();
+      } finally {
+        if (streamManager != null) {
+          streamManager.stop();
+        }
+      }
+    }
+  }
 
   RemoteApplicationRunner(ApplicationBase userApp, Config config) {
     super(userApp, config);
+    this.planner = new RemoteJobConfigPlanner();
   }
 
   @Override
   public void run() {
     try {
-      List<JobConfig> jobConfigs = createJobConfigs();
+      List<JobConfig> jobConfigs = planner.createJobConfigs();
       if (jobConfigs.isEmpty()) {
         throw new SamzaException("No jobs to run.");
       }
@@ -66,7 +105,6 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
           JobRunner runner = new JobRunner(jobConfig);
           runner.run(true);
         });
-
     } catch (Throwable t) {
       throw new SamzaException("Failed to run application", t);
     }
@@ -100,7 +138,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
   @Override
   public void waitForFinish() {
-    this.waitForFinish(Duration.ofSeconds(0));
+    waitForFinish(Duration.ofMillis(0));
   }
 
   @Override
@@ -137,37 +175,6 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     }
 
     return finished;
-  }
-
-  @Override
-  List<JobConfig> getJobConfigsFromPlan(StreamAppDescriptorImpl streamAppDesc) {
-    // for high-level DAG, generate the plan and job configs
-    StreamManager streamManager = null;
-    try {
-      streamManager = buildAndStartStreamManager();
-      // TODO: run.id needs to be set for standalone: SAMZA-1531
-      // run.id is based on current system time with the most significant bits in UUID (8 digits) to avoid collision
-      String runId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
-      LOG.info("The run id for this run is {}", runId);
-
-      // 1. initialize and plan
-      ExecutionPlan plan = getExecutionPlan(streamAppDesc.getOperatorSpecGraph(), runId, streamManager);
-      writePlanJsonFile(plan.getPlanAsJson());
-
-      // 2. create the necessary streams
-      if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
-        streamManager.clearStreamsFromPreviousRun(getConfigFromPrevRun());
-      }
-      streamManager.createStreams(plan.getIntermediateStreams());
-
-      return plan.getJobConfigs();
-    } catch (Throwable t) {
-      throw new SamzaException("Failed to run application", t);
-    } finally {
-      if (streamManager != null) {
-        streamManager.stop();
-      }
-    }
   }
 
   /* package private */ ApplicationStatus getApplicationStatus(JobConfig jobConfig) {

@@ -62,7 +62,7 @@ public class MockSystemConsumer extends BlockingEnvelopeMap {
    *          The number of messages to add to the BlockingEnvelopeMap before
    *          sleeping.
    * @param threadCount
-   *          How many threads to start.
+   *          How many threads to run.
    * @param brokerSleepMs
    *          How long each thread should sleep between batch writes.
    */

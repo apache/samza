@@ -43,8 +43,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.internal.util.reflection.Whitebox;
 
-import static org.mockito.Mockito.*;
-
+import static org.mockito.Mockito.spy;
 
 public class TestQueryTranslator {
 
@@ -112,17 +111,17 @@ public class TestQueryTranslator {
     validatePerTaskContextInit(appDesc, samzaConfig);
   }
 
-  private void validatePerTaskContextInit(StreamAppDescriptorImpl graphSpec, Config samzaConfig) {
+  private void validatePerTaskContextInit(StreamAppDescriptorImpl appDesc, Config samzaConfig) {
     // make sure that each task context would have a separate instance of cloned TranslatorContext
     TaskContextImpl testContext = new TaskContextImpl(new TaskName("Partition 1"), null, null,
         new HashSet<>(), null, null, null, null, null, null);
     // call ContextManager.bootstrap() to instantiate the per-task TranslatorContext
-    graphSpec.getContextManager().init(samzaConfig, testContext);
+    appDesc.getContextManager().init(samzaConfig, testContext);
     Assert.assertNotNull(testContext.getUserContext());
     Assert.assertTrue(testContext.getUserContext() instanceof TranslatorContext);
     TranslatorContext contextPerTaskOne = (TranslatorContext) testContext.getUserContext();
     // call ContextManager.bootstrap() second time to instantiate another clone of TranslatorContext
-    graphSpec.getContextManager().init(samzaConfig, testContext);
+    appDesc.getContextManager().init(samzaConfig, testContext);
     Assert.assertTrue(testContext.getUserContext() instanceof TranslatorContext);
     // validate the two copies of TranslatorContext are clones of each other
     validateClonedTranslatorContext(contextPerTaskOne, (TranslatorContext) testContext.getUserContext());

@@ -48,7 +48,10 @@ import org.mockito.Mockito;
 import org.powermock.api.mockito.PowerMockito;
 
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class TestStreamProcessor {
   private ConcurrentMap<ListenerCallback, Boolean> processorListenerState;
@@ -261,7 +264,6 @@ public class TestStreamProcessor {
 
           @Override
           public void afterStop() {
-            // successful stop
             processorListenerState.put(ListenerCallback.AFTER_STOP, true);
           }
 

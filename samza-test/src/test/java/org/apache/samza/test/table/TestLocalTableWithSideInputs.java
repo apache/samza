@@ -120,6 +120,16 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
   static class PageViewProfileJoin implements StreamApplication {
     static final String PROFILE_TABLE = "profile-table";
 
+    @Override
+    public void describe(StreamAppDescriptor appDesc) {
+      Table<KV<Integer, TestTableData.Profile>> table = appDesc.getTable(getTableDescriptor());
+
+      appDesc.getInputStream(PAGEVIEW_STREAM, new NoOpSerde<TestTableData.PageView>())
+          .partitionBy(TestTableData.PageView::getMemberId, v -> v, "partition-page-view")
+          .join(table, new TestLocalTable.PageViewToProfileJoinFunction())
+          .sendTo(appDesc.getOutputStream(ENRICHED_PAGEVIEW_STREAM, new NoOpSerde<>()));
+    }
+
     protected TableDescriptor<Integer, TestTableData.Profile, ?> getTableDescriptor() {
       return new InMemoryTableDescriptor<Integer, TestTableData.Profile>(PROFILE_TABLE)
           .withSerde(KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde()))
@@ -130,16 +140,6 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
 
               return ImmutableList.of(new Entry<>(key, profile));
             });
-    }
-
-    @Override
-    public void describe(StreamAppDescriptor appDesc) {
-      Table<KV<Integer, TestTableData.Profile>> table = appDesc.getTable(getTableDescriptor());
-
-      appDesc.getInputStream(PAGEVIEW_STREAM, new NoOpSerde<TestTableData.PageView>())
-          .partitionBy(TestTableData.PageView::getMemberId, v -> v, "partition-page-view")
-          .join(table, new TestLocalTable.PageViewToProfileJoinFunction())
-          .sendTo(appDesc.getOutputStream(ENRICHED_PAGEVIEW_STREAM, new NoOpSerde<>()));
     }
   }
 

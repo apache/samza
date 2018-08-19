@@ -29,6 +29,13 @@ public class ApplicationDescriptors {
 
   }
 
+  /**
+   * Create a new instance of {@link AppDescriptorImpl} based on {@link ApplicationBase} and {@link Config}
+   *
+   * @param userApp the user-implemented {@link ApplicationBase}. The {@code userApp} has to have a proper fully-qualified class name.
+   * @param config the user-supplied {@link Config} for the the application
+   * @return the {@link AppDescriptorImpl} instance containing the user processing logic and the config
+   */
   public static AppDescriptorImpl getAppDescriptor(ApplicationBase userApp, Config config) {
     if (userApp instanceof StreamApplication) {
       return new StreamAppDescriptorImpl((StreamApplication) userApp, config);

@@ -71,7 +71,7 @@ import org.apache.samza.test.util.TestStreamConsumer;
 import org.junit.Test;
 import scala.collection.JavaConverters;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 
 public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
@@ -160,10 +160,11 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
 
     final ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new TestStreamApp(), new MapConfig(configs));
     runner.run();
+    // processors are only available when the app is running
     Map<String, StreamOperatorTask> tasks = getTaskOperationGraphs((LocalApplicationRunner) runner);
 
     runner.waitForFinish();
-
+    // wait for the completion to ensure that all tasks are actually initialized and the OperatorImplGraph is initialized
     StreamOperatorTask task0 = tasks.get("Partition 0");
     OperatorImplGraph graph = TestStreamOperatorTask.getOperatorImplGraph(task0);
     OperatorImpl pb = getOperator(graph, OperatorSpec.OpCode.PARTITION_BY);

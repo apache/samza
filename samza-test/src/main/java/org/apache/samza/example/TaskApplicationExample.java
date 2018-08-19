@@ -22,12 +22,14 @@ import org.apache.samza.application.TaskAppDescriptor;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.TableDescriptor;
-import org.apache.samza.runtime.ApplicationClassUtils;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.storage.kv.RocksDbTableDescriptor;
+import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.StreamTaskFactory;
+import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.util.CommandLine;
 
 
@@ -36,12 +38,19 @@ import org.apache.samza.util.CommandLine;
  */
 public class TaskApplicationExample implements TaskApplication {
 
+  public class MyStreamTask implements StreamTask {
+
+    @Override
+    public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator)
+        throws Exception {
+
+    }
+  }
+
   public static void main(String[] args) {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    //ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new TaskApplicationExample(), config);
-    // ==> shouldn't be in user code example
-    ApplicationRunner runner = ApplicationRunners.getApplicationRunner(ApplicationClassUtils.fromConfig(config), config);
+    ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new TaskApplicationExample(), config);
     runner.run();
     runner.waitForFinish();
   }
@@ -54,8 +63,7 @@ public class TaskApplicationExample implements TaskApplication {
     TableDescriptor td = new RocksDbTableDescriptor("mytable");
     appDesc.addTable(td);
     // create the task factory based on configuration
-    appDesc.setTaskFactory((StreamTaskFactory) () -> (StreamTask) (envelope, collector, coordinator) -> {
-      });
+    appDesc.setTaskFactory((StreamTaskFactory) () -> new MyStreamTask());
   }
 
 }

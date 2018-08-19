@@ -107,8 +107,8 @@ public class SamzaSqlConsole {
   public static void executeSql(List<String> sqlStmts) {
     Map<String, String> staticConfigs = fetchSamzaSqlConfig();
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRunner appRunnable = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
-    appRunnable.runAndWaitForFinish();
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
+    runner.runAndWaitForFinish();
   }
 
   public static Map<String, String> fetchSamzaSqlConfig() {

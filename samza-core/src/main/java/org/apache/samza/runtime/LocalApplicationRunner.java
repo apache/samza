@@ -33,9 +33,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.AppDescriptorImpl;
 import org.apache.samza.application.ApplicationBase;
-import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.application.StreamAppDescriptorImpl;
-import org.apache.samza.application.TaskAppDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -46,6 +44,7 @@ import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.execution.StreamManager;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.processor.StreamProcessor;
+import org.apache.samza.processor.StreamProcessor.StreamProcessorListenerSupplier;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.task.TaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
@@ -65,9 +64,13 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   private final CountDownLatch shutdownLatch = new CountDownLatch(1);
   private final AtomicInteger numProcessorsToStart = new AtomicInteger();
   private final AtomicReference<Throwable> failure = new AtomicReference<>();
+  private final LocalJobConfigPlanner planner;
 
   private ApplicationStatus appStatus = ApplicationStatus.New;
 
+  /**
+   * Defines a specific implementation of {@link ProcessorLifecycleListener} for local {@link StreamProcessor}s.
+   */
   private final class LocalStreamProcessorLifecycleListener implements ProcessorLifecycleListener {
     private final StreamProcessor processor;
     private final ProcessorLifecycleListener processorLifecycleListener;
@@ -88,7 +91,6 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     @Override
     public void afterStop() {
       processors.remove(processor);
-      //processor = null;
 
       processorLifecycleListener.afterStop();
       if (processors.isEmpty()) {
@@ -100,7 +102,6 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     @Override
     public void afterFailure(Throwable t) {
       processors.remove(processor);
-      //processor = null;
 
       processorLifecycleListener.afterFailure(t);
       // the processor stopped with failure
@@ -137,15 +138,52 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
   }
 
+  /**
+   * Defines a {@link JobConfigPlanner} with specific implementation of {@link JobConfigPlanner#getStreamJobConfigs(StreamAppDescriptorImpl)}
+   * for standalone Samza processors.
+   *
+   * TODO: we need to consolidate all planning logic into {@link org.apache.samza.execution.ExecutionPlanner} after SAMZA-1811.
+   */
+  @VisibleForTesting
+  class LocalJobConfigPlanner extends JobConfigPlanner {
+    @Override
+    List<JobConfig> getStreamJobConfigs(StreamAppDescriptorImpl streamAppDesc) throws Exception {
+      // for high-level DAG, generating the plan and job configs
+      StreamManager streamManager = null;
+      try {
+        streamManager = buildAndStartStreamManager();
+
+        // 1. initialize and plan
+        ExecutionPlan plan = getExecutionPlan(streamAppDesc.getOperatorSpecGraph(), streamManager);
+
+        String executionPlanJson = plan.getPlanAsJson();
+        writePlanJsonFile(executionPlanJson);
+        LOG.info("Execution Plan: \n" + executionPlanJson);
+
+        // 2. create the necessary streams
+        // TODO: System generated intermediate streams should have robust naming scheme. See SAMZA-1391
+        String planId = String.valueOf(executionPlanJson.hashCode());
+        createStreams(planId, plan.getIntermediateStreams(), streamManager);
+
+        return plan.getJobConfigs();
+      } finally {
+        if (streamManager != null) {
+          streamManager.stop();
+        }
+      }
+    }
+  }
+
   public LocalApplicationRunner(ApplicationBase userApp, Config config) {
     super(userApp, config);
     this.uid = UUID.randomUUID().toString();
+    this.planner = new LocalJobConfigPlanner();
   }
 
   @Override
   public void run() {
     try {
-      List<JobConfig> jobConfigs = createJobConfigs();
+      List<JobConfig> jobConfigs = planner.createJobConfigs();
       // 3. create the StreamProcessors
       if (jobConfigs.isEmpty()) {
         throw new SamzaException("No jobs to run.");
@@ -204,37 +242,6 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     return finished;
   }
 
-  @Override
-  List<JobConfig> getJobConfigsFromPlan(StreamAppDescriptorImpl streamAppDesc) {
-    // for high-level DAG, generating the plan and job configs
-    StreamManager streamManager = null;
-    try {
-      streamManager = buildAndStartStreamManager();
-
-      // 1. initialize and plan
-      ExecutionPlan plan = getExecutionPlan(streamAppDesc.getOperatorSpecGraph(), streamManager);
-
-      String executionPlanJson = plan.getPlanAsJson();
-      writePlanJsonFile(executionPlanJson);
-      LOG.info("Execution Plan: \n" + executionPlanJson);
-
-      // 2. create the necessary streams
-      // TODO: System generated intermediate streams should have robust naming scheme. See SAMZA-1391
-      String planId = String.valueOf(executionPlanJson.hashCode());
-      createStreams(planId, plan.getIntermediateStreams(), streamManager);
-
-      return plan.getJobConfigs();
-    } catch (Throwable throwable) {
-      appStatus = ApplicationStatus.unsuccessfulFinish(throwable);
-      shutdownLatch.countDown();
-      throw new SamzaException("Failed to start application.", throwable);
-    } finally {
-      if (streamManager != null) {
-        streamManager.stop();
-      }
-    }
-  }
-
   /**
    * Create intermediate streams using {@link org.apache.samza.execution.StreamManager}.
    * If {@link CoordinationUtils} is provided, this function will first invoke leader election, and the leader
@@ -285,27 +292,16 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   }
 
   /**
-   * Create {@link StreamProcessor} based on config, {@link AppDescriptorImpl}, and {@link ProcessorLifecycleListener}
+   * Create {@link StreamProcessor} based on config, {@link AppDescriptorImpl}, and {@link StreamProcessorListenerSupplier}
    * @param config config
    * @param appDesc {@link AppDescriptorImpl}
-   * @param listenerFn the {@link ProcessorLifecycleListener}
+   * @param listenerSupplier {@link StreamProcessorListenerSupplier} to create {@link ProcessorLifecycleListener}
    * @return {@link StreamProcessor]}
    */
   /* package private */
-  StreamProcessor createStreamProcessor(Config config, AppDescriptorImpl appDesc, StreamProcessor.StreamProcessorListenerSupplier listenerFn) {
-    TaskFactory taskFactory = getTaskFactory(appDesc);
-    return new StreamProcessor(config, this.metricsReporters, taskFactory, listenerFn, null);
-  }
-
-  TaskFactory getTaskFactory(ApplicationDescriptor appDesc) {
-    if (appDesc instanceof StreamAppDescriptorImpl) {
-      StreamAppDescriptorImpl streamAppDesc = (StreamAppDescriptorImpl) appDesc;
-      return TaskFactoryUtil.createTaskFactory(streamAppDesc.getOperatorSpecGraph(), streamAppDesc.getContextManager());
-    } else if (appDesc instanceof TaskAppDescriptorImpl) {
-      TaskAppDescriptorImpl taskAppDescriptor = (TaskAppDescriptorImpl) appDesc;
-      return taskAppDescriptor.getTaskFactory();
-    }
-    throw new IllegalArgumentException("Invalid ApplicationDescriptor " + appDesc.getClass().getName());
+  StreamProcessor createStreamProcessor(Config config, AppDescriptorImpl appDesc, StreamProcessorListenerSupplier listenerSupplier) {
+    TaskFactory taskFactory = TaskFactoryUtil.getTaskFactory(appDesc);
+    return new StreamProcessor(config, this.metricsReporters, taskFactory, listenerSupplier, null);
   }
 
   /* package private for testing */
@@ -317,5 +313,4 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   CountDownLatch getShutdownLatch() {
     return shutdownLatch;
   }
-
 }

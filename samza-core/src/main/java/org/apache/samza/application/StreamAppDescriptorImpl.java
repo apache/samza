@@ -39,7 +39,7 @@ import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.operators.TableImpl;
 import org.apache.samza.operators.spec.InputOperatorSpec;
-import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.operators.spec.OperatorSpec.OpCode;
 import org.apache.samza.operators.spec.OperatorSpecs;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
@@ -71,7 +71,7 @@ public class StreamAppDescriptorImpl extends AppDescriptorImpl<StreamApplication
   /**
    * The 0-based position of the next operator in the graph.
    * Part of the unique ID for each OperatorSpec in the graph.
-   * Should only accessed and incremented via {@link #getNextOpId(OperatorSpec.OpCode, String)}.
+   * Should only accessed and incremented via {@link #getNextOpId(OpCode, String)}.
    */
   private int nextOpNum = 0;
   private final Set<String> operatorIds = new HashSet<>();
@@ -111,7 +111,7 @@ public class StreamAppDescriptorImpl extends AppDescriptorImpl<StreamApplication
     boolean isKeyed = serde instanceof KVSerde;
     InputOperatorSpec inputOperatorSpec =
         OperatorSpecs.createInputOperatorSpec(streamId, kvSerdes.getKey(), kvSerdes.getValue(),
-            isKeyed, this.getNextOpId(OperatorSpec.OpCode.INPUT, null));
+            isKeyed, this.getNextOpId(OpCode.INPUT, null));
     inputOperators.put(streamId, inputOperatorSpec);
     return new MessageStreamImpl<>(this, inputOperators.get(streamId));
   }
@@ -162,18 +162,18 @@ public class StreamAppDescriptorImpl extends AppDescriptorImpl<StreamApplication
   }
 
   public OperatorSpecGraph getOperatorSpecGraph() {
-    return OperatorSpecGraph.getInstance(this);
+    return new OperatorSpecGraph(this);
   }
 
   /**
    * Gets the unique ID for the next operator in the graph. The ID is of the following format:
    * jobName-jobId-opCode-(userDefinedId|nextOpNum);
    *
-   * @param opCode the {@link OperatorSpec.OpCode} of the next operator
+   * @param opCode the {@link OpCode} of the next operator
    * @param userDefinedId the optional user-provided name of the next operator or null
    * @return the unique ID for the next operator in the graph
    */
-  public String getNextOpId(OperatorSpec.OpCode opCode, String userDefinedId) {
+  public String getNextOpId(OpCode opCode, String userDefinedId) {
     if (StringUtils.isNotBlank(userDefinedId) && !ID_PATTERN.matcher(userDefinedId).matches()) {
       throw new SamzaException("Operator ID must not contain spaces or special characters: " + userDefinedId);
     }
@@ -195,10 +195,10 @@ public class StreamAppDescriptorImpl extends AppDescriptorImpl<StreamApplication
    * Gets the unique ID for the next operator in the graph. The ID is of the following format:
    * jobName-jobId-opCode-nextOpNum;
    *
-   * @param opCode the {@link OperatorSpec.OpCode} of the next operator
+   * @param opCode the {@link OpCode} of the next operator
    * @return the unique ID for the next operator in the graph
    */
-  public String getNextOpId(OperatorSpec.OpCode opCode) {
+  public String getNextOpId(OpCode opCode) {
     return getNextOpId(opCode, null);
   }
 
@@ -226,7 +226,6 @@ public class StreamAppDescriptorImpl extends AppDescriptorImpl<StreamApplication
    * @param <M> the type of messages in the intermediate {@link MessageStream}
    * @return  the intermediate {@link MessageStreamImpl}
    */
-  @VisibleForTesting
   public <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde, boolean isBroadcast) {
     Preconditions.checkState(!inputOperators.containsKey(streamId) && !outputStreams.containsKey(streamId),
         "getIntermediateStream must not be called multiple times with the same streamId: " + streamId);
@@ -241,7 +240,7 @@ public class StreamAppDescriptorImpl extends AppDescriptorImpl<StreamApplication
     KV<Serde, Serde> kvSerdes = getKVSerdes(streamId, serde);
     InputOperatorSpec inputOperatorSpec =
         OperatorSpecs.createInputOperatorSpec(streamId, kvSerdes.getKey(), kvSerdes.getValue(),
-            isKeyed, this.getNextOpId(OperatorSpec.OpCode.INPUT, null));
+            isKeyed, this.getNextOpId(OpCode.INPUT, null));
     inputOperators.put(streamId, inputOperatorSpec);
     outputStreams.put(streamId, new OutputStreamImpl(streamId, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed));
     return new IntermediateMessageStreamImpl<>(this, inputOperators.get(streamId), outputStreams.get(streamId));
@@ -289,5 +288,4 @@ public class StreamAppDescriptorImpl extends AppDescriptorImpl<StreamApplication
 
     return KV.of(keySerde, valueSerde);
   }
-
 }

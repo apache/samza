@@ -22,7 +22,54 @@ import org.apache.samza.annotation.InterfaceStability;
 
 
 /**
- * The interface to implement user applications defining a low-level task as the main stream processing logic.
+ * Describes and initializes the transforms for processing message streams and generating results in low-level API
+ * <p>
+ * The following example removes page views older than 1 hour from the input stream:
+ * <pre>{@code
+ * public class PageViewCounter implements TaskApplication {
+ *   public void describe(TaskAppDescriptor appDesc) {
+ *     appDesc.addInputStream(PageViewTask.TASK_INPUT);
+ *     appDesc.addOutputStream(PageViewTask.TASK_OUTPUT);
+ *     appDesc.setTaskFactory((StreamTaskFactory) () -> new PageViewTask());
+ *   }
+ * }
+ *
+ * public class PageViewTask implements StreamTask {
+ *   final static String TASK_INPUT = "pageViewEvents";
+ *   final static String TASK_OUTPUT = "recentPageViewEvents";
+ *   final static String OUTPUT_SYSTEM = "kafka";
+ *
+ *   public void process(IncomingMessageEnvelope message, MessageCollector collector,
+ *       TaskCoordinator coordinator) {
+ *     PageViewEvent m = (PageViewEvent) message.getValue();
+ *     if (m.getCreationTime() > System.currentTimeMillis() - Duration.ofHours(1).toMillis()) {
+ *       collector.send(new OutgoingMessageEnvelope(new SystemStream(OUTPUT_SYSTEM, TASK_OUTPUT),
+ *           message.getKey(), message.getKey(), m));
+ *     }
+ *   }
+ * }
+ * }</pre>
+ *<p>
+ * The example above can be run using an ApplicationRunner:
+ * <pre>{@code
+ *   public static void main(String[] args) {
+ *     CommandLine cmdLine = new CommandLine();
+ *     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
+ *     PageViewCounter app = new PageViewCounter();
+ *     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new PageViewCounter(), config);
+ *     runner.run();
+ *     runner.waitForFinish();
+ *   }
+ * }</pre>
+ *
+ * <p>
+ * Implementation Notes: TaskApplication allow users to instantiate {@link org.apache.samza.task.StreamTask} or
+ * {@link org.apache.samza.task.AsyncStreamTask} when describing the processing logic. A new {@link TaskAppDescriptor}
+ * instance will be created and described by the user-defined {@link TaskApplication} when planning the execution.
+ * {@link org.apache.samza.task.TaskFactory} and descriptors for data entities used in the task (e.g.
+ * {@link org.apache.samza.operators.TableDescriptor}) are required to be serializable. The user-defined application
+ * class that implements {@link TaskApplication} needs to be a class with proper fully-qualified class name to ensure
+ * successful instantiation in both local and remote environments.
  */
 @InterfaceStability.Evolving
 public interface TaskApplication extends ApplicationBase<TaskAppDescriptor> {

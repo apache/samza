@@ -19,6 +19,9 @@
 package org.apache.samza.task;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.AppDescriptorImpl;
+import org.apache.samza.application.StreamAppDescriptorImpl;
+import org.apache.samza.application.TaskAppDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.TaskConfig;
@@ -39,7 +42,24 @@ public class TaskFactoryUtil {
   private static final Logger log = LoggerFactory.getLogger(TaskFactoryUtil.class);
 
   /**
-   * This method creates a task factory class based on the {@link OperatorSpecGraph} and {@link ContextManager}
+   * Creates a {@link TaskFactory} based on {@link AppDescriptorImpl}
+   *
+   * @param appDesc {@link AppDescriptorImpl} for this application
+   * @return {@link TaskFactory} object
+   */
+  public static TaskFactory getTaskFactory(AppDescriptorImpl appDesc) {
+    if (appDesc instanceof StreamAppDescriptorImpl) {
+      StreamAppDescriptorImpl streamAppDesc = (StreamAppDescriptorImpl) appDesc;
+      return (StreamTaskFactory) () -> new StreamOperatorTask(streamAppDesc.getOperatorSpecGraph(), streamAppDesc.getContextManager());
+    } else if (appDesc instanceof TaskAppDescriptorImpl) {
+      TaskAppDescriptorImpl taskAppDescriptor = (TaskAppDescriptorImpl) appDesc;
+      return taskAppDescriptor.getTaskFactory();
+    }
+    throw new IllegalArgumentException("Invalid ApplicationDescriptor class " + appDesc.getClass().getName());
+  }
+
+  /**
+   * Creates a {@link TaskFactory} based on the {@link OperatorSpecGraph} and {@link ContextManager}
    *
    * @param specGraph the {@link OperatorSpecGraph}
    * @param contextManager the {@link ContextManager} to set up initial context for {@code specGraph}
@@ -50,21 +70,14 @@ public class TaskFactoryUtil {
   }
 
   /**
-   * This method creates a task factory class based on the configuration
+   * Creates a {@link TaskFactory} based on the configuration.
+   * <p>
+   * This should only be used to create {@link TaskFactory} defined in task.class
    *
    * @param config  the {@link Config} for this job
-   * @return  a task factory object, either a instance of {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory}
+   * @return  a {@link TaskFactory} object, either a instance of {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory}
    */
   public static TaskFactory createTaskFactory(Config config) {
-    return fromTaskClassConfig(config);
-  }
-
-  /**
-   * Create {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory} based on the configured task.class.
-   * @param config the {@link Config}
-   * @return task factory instance
-   */
-  private static TaskFactory fromTaskClassConfig(Config config) {
     // if there is configuration to set the job w/ a specific type of task, instantiate the corresponding task factory
     String taskClassName = new TaskConfig(config).getTaskClass().getOrElse(toScalaFunction(
       () -> {

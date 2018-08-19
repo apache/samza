@@ -19,7 +19,6 @@
 
 package org.apache.samza.test.operator;
 
-import java.io.IOException;
 import java.time.Duration;
 import org.apache.samza.application.StreamAppDescriptor;
 import org.apache.samza.application.StreamApplication;
@@ -39,6 +38,7 @@ import org.apache.samza.util.CommandLine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+
 /**
  * A {@link StreamApplication} that demonstrates a filter followed by a tumbling window.
  */
@@ -49,10 +49,11 @@ public class TumblingWindowApp implements StreamApplication {
   private static final Logger LOG = LoggerFactory.getLogger(TumblingWindowApp.class);
   private static final String FILTER_KEY = "badKey";
 
-  public static void main(String[] args) throws IOException {
+  public static void main(String[] args) {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new TumblingWindowApp(), config);
+
     runner.run();
     runner.waitForFinish();
   }

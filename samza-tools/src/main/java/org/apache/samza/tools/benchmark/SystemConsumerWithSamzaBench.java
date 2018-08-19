@@ -70,8 +70,8 @@ public class SystemConsumerWithSamzaBench extends AbstractSamzaBench {
   public void start() throws IOException, InterruptedException {
     super.start();
     MessageConsumer consumeFn = new MessageConsumer();
-    StreamApplication app = spec -> {
-      MessageStream<Object> stream = spec.getInputStream(streamId);
+    StreamApplication app = appDesc -> {
+      MessageStream<Object> stream = appDesc.getInputStream(streamId);
       stream.map(consumeFn);
     };
     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(app, new MapConfig());

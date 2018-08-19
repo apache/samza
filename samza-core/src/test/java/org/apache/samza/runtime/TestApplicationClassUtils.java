@@ -33,7 +33,7 @@ import org.apache.samza.config.TaskConfig;
 import org.apache.samza.task.TestStreamTask;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertTrue;
 
 
 /**

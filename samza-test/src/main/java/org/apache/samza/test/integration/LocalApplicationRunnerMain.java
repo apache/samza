@@ -20,6 +20,7 @@
 package org.apache.samza.test.integration;
 
 import joptsimple.OptionSet;
+import org.apache.samza.application.ApplicationBase;
 import org.apache.samza.runtime.ApplicationClassUtils;
 import org.apache.samza.config.Config;
 import org.apache.samza.runtime.ApplicationRunnerMain;
@@ -45,15 +46,15 @@ public class LocalApplicationRunnerMain {
     Config orgConfig = cmdLine.loadConfig(options);
     Config config = Util.rewriteConfig(orgConfig);
 
-    ApplicationRunner
-        appRuntime = ApplicationRunners.getApplicationRunner(ApplicationClassUtils.fromConfig(config), config);
+    ApplicationBase app = ApplicationClassUtils.fromConfig(config);
+    ApplicationRunner runner = ApplicationRunners.getApplicationRunner(app, config);
 
     try {
-      LOGGER.info("Launching stream application: {} to start.", appRuntime);
-      appRuntime.run();
-      appRuntime.waitForFinish();
+      LOGGER.info("Launching stream application: {} to run.", app);
+      runner.run();
+      runner.waitForFinish();
     } catch (Exception e) {
-      LOGGER.error("Exception occurred when running application: {}.", appRuntime, e);
+      LOGGER.error("Exception occurred when running application: {}.", app, e);
     }
   }
 }

@@ -18,7 +18,6 @@
  */
 package org.apache.samza.util;
 
-import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -78,7 +77,7 @@ public class StreamUtil {
     return systemStream.getSystem() + "." + systemStream.getStream();
   }
 
-  public static Set<StreamSpec> getStreamSpecs(Collection<String> streamIds, StreamConfig streamConfig) {
+  public static Set<StreamSpec> getStreamSpecs(Set<String> streamIds, StreamConfig streamConfig) {
     return streamIds.stream().map(streamId -> getStreamSpec(streamId, streamConfig)).collect(Collectors.toSet());
   }
 

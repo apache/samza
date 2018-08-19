@@ -35,8 +35,7 @@ import org.apache.samza.test.framework.stream.CollectionStream;
 import org.junit.Assert;
 import org.junit.Test;
 
-import static org.apache.samza.test.controlmessages.TestData.*;
-
+import static org.apache.samza.test.controlmessages.TestData.PageView;
 
 public class StreamApplicationIntegrationTest {
 

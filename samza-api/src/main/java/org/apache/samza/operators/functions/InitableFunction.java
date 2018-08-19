@@ -27,11 +27,11 @@ import org.apache.samza.task.TaskContext;
  * A function that can be initialized before execution.
  *
  * <p> Order of initialization: {@link InitableFunction}s are invoked in the topological order of operators in the
- * {@link org.apache.samza.application.StreamAppDescriptor}. For any two operators A and B in the graph, if operator B consumes results
- * from operator A, then operator A is guaranteed to be initialized before operator B.
+ * {@link org.apache.samza.application.StreamAppDescriptor}. For any two operators A and B in the graph, if operator B
+ * consumes results from operator A, then operator A is guaranteed to be initialized before operator B.
  *
  */
-@InterfaceStability.Unstable
+@InterfaceStability.Evolving
 public interface InitableFunction {
 
   /**

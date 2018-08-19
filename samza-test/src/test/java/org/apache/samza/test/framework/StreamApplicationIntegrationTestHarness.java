@@ -254,11 +254,11 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     }
 
     Config config = new MapConfig(configMap);
-    ApplicationRunner appRuntime = ApplicationRunners.getApplicationRunner(streamApplication, config);
-    appRuntime.run();
+    ApplicationRunner runner = ApplicationRunners.getApplicationRunner(streamApplication, config);
+    runner.run();
 
     MessageStreamAssert.waitForComplete();
-    return new RunApplicationContext(appRuntime, config);
+    return new RunApplicationContext(runner, config);
   }
 
   /**
@@ -277,16 +277,16 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
    * runApplication in order to do verification.
    */
   protected static class RunApplicationContext {
-    private final ApplicationRunner appRuntime;
+    private final ApplicationRunner runner;
     private final Config config;
 
-    private RunApplicationContext(ApplicationRunner appRuntime, Config config) {
+    private RunApplicationContext(ApplicationRunner runner, Config config) {
       this.config = config;
-      this.appRuntime = appRuntime;
+      this.runner = runner;
     }
 
-    public ApplicationRunner getAppRuntime() {
-      return this.appRuntime;
+    public ApplicationRunner getRunner() {
+      return this.runner;
     }
 
     public Config getConfig() {

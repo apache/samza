@@ -26,6 +26,19 @@ import org.apache.samza.config.ConfigException;
 
 /**
  * Creates {@link ApplicationRunner} instances based on configuration and user-implemented {@link ApplicationBase}
+ *
+ * <p> This class is usually used in main() function to create an instance of {@link ApplicationRunner}, as in the example
+ * below:
+ * <pre>{@code
+ *   public static void main(String[] args) {
+ *     CommandLine cmdLine = new CommandLine();
+ *     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
+ *     PageViewCounter app = new PageViewCounter();
+ *     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new PageViewCounter(), config);
+ *     runner.run();
+ *     runner.waitForFinish();
+ *   }
+ * }</pre>
  */
 public class ApplicationRunners {
 

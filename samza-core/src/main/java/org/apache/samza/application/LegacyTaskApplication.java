@@ -39,8 +39,8 @@ public final class LegacyTaskApplication implements TaskApplication {
   private Config validate(Config config) {
     new TaskConfig(config).getTaskClass().getOrElse(toScalaFunction(
         () -> {
-          throw new ConfigException("No task class defined in the configuration.");
-        }));
+        throw new ConfigException("No task class defined in the configuration.");
+      }));
     return config;
   }
 

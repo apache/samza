@@ -19,18 +19,15 @@
 package org.apache.samza.runtime;
 
 import java.time.Duration;
-import java.util.List;
 import org.apache.samza.application.ApplicationBase;
 import org.apache.samza.application.StreamAppDescriptor;
-import org.apache.samza.application.StreamAppDescriptorImpl;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.job.ApplicationStatus;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 
 public class TestApplicationRunnerMain {
@@ -82,14 +79,6 @@ public class TestApplicationRunnerMain {
     assertEquals(1, TestApplicationRunnerInvocationCounts.statusCount);
   }
 
-  public static class TestStreamApplicationDummy implements StreamApplication {
-
-    @Override
-    public void describe(StreamAppDescriptor appDesc) {
-
-    }
-  }
-
   public static class TestApplicationRunnerInvocationCounts extends AbstractApplicationRunner {
     protected static int runCount = 0;
     protected static int killCount = 0;
@@ -97,11 +86,6 @@ public class TestApplicationRunnerMain {
 
     public TestApplicationRunnerInvocationCounts(ApplicationBase userApp, Config config) {
       super(userApp, config);
-    }
-
-    @Override
-    protected List<JobConfig> getJobConfigsFromPlan(StreamAppDescriptorImpl streamAppDesc) {
-      return null;
     }
 
     @Override
@@ -132,4 +116,11 @@ public class TestApplicationRunnerMain {
 
   }
 
+  public static class TestStreamApplicationDummy implements StreamApplication {
+
+    @Override
+    public void describe(StreamAppDescriptor appDesc) {
+
+    }
+  }
 }

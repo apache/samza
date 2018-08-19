@@ -51,10 +51,6 @@ public class RepartitionJoinWindowApp implements StreamApplication {
 
   private final List<String> intermediateStreamIds = new ArrayList<>();
 
-  List<String> getIntermediateStreamIds() {
-    return intermediateStreamIds;
-  }
-
   @Override
   public void describe(StreamAppDescriptor appDesc) {
     String inputTopicName1 = appDesc.getConfig().get(INPUT_TOPIC_NAME_1_PROP);
@@ -93,9 +89,15 @@ public class RepartitionJoinWindowApp implements StreamApplication {
             messageCollector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", outputTopic), null, message.getKey(), message.getValue()));
           });
 
+
     intermediateStreamIds.add(((IntermediateMessageStreamImpl) pageViewsRepartitionedByViewId).getStreamId());
     intermediateStreamIds.add(((IntermediateMessageStreamImpl) adClicksRepartitionedByViewId).getStreamId());
     intermediateStreamIds.add(((IntermediateMessageStreamImpl) userPageAdClicksByUserId).getStreamId());
+
+  }
+
+  List<String> getIntermediateStreamIds() {
+    return intermediateStreamIds;
   }
 
   private static class UserPageViewAdClicksJoiner implements JoinFunction<String, PageView, AdClick, UserPageAdClick> {

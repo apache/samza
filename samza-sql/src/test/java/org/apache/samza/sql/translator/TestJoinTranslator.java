@@ -132,22 +132,22 @@ public class TestJoinTranslator extends TranslatorTestBase {
     when(mockRightInput.getRowType()).thenReturn(mockRightRowType);
     when(mockRightRowType.getFieldNames()).thenReturn(rightStreamFieldNames);
 
-    StreamAppDescriptorImpl mockGraph = mock(StreamAppDescriptorImpl.class);
+    StreamAppDescriptorImpl mockAppDesc = mock(StreamAppDescriptorImpl.class);
     OperatorSpec<Object, SamzaSqlRelMessage> mockLeftInputOp = mock(OperatorSpec.class);
-    MessageStream<SamzaSqlRelMessage> mockLeftInputStream = new MessageStreamImpl<>(mockGraph, mockLeftInputOp);
+    MessageStream<SamzaSqlRelMessage> mockLeftInputStream = new MessageStreamImpl<>(mockAppDesc, mockLeftInputOp);
     when(mockContext.getMessageStream(eq(mockLeftInput.getId()))).thenReturn(mockLeftInputStream);
     OperatorSpec<Object, SamzaSqlRelMessage> mockRightInputOp = mock(OperatorSpec.class);
-    MessageStream<SamzaSqlRelMessage> mockRightInputStream = new MessageStreamImpl<>(mockGraph, mockRightInputOp);
+    MessageStream<SamzaSqlRelMessage> mockRightInputStream = new MessageStreamImpl<>(mockAppDesc, mockRightInputOp);
     when(mockContext.getMessageStream(eq(mockRightInput.getId()))).thenReturn(mockRightInputStream);
-    when(mockContext.getStreamAppDescriptor()).thenReturn(mockGraph);
+    when(mockContext.getStreamAppDescriptor()).thenReturn(mockAppDesc);
 
     InputOperatorSpec mockInputOp = mock(InputOperatorSpec.class);
     OutputStreamImpl mockOutputStream = mock(OutputStreamImpl.class);
     when(mockInputOp.isKeyed()).thenReturn(true);
     when(mockOutputStream.isKeyed()).thenReturn(true);
     IntermediateMessageStreamImpl
-        mockPartitionedStream = new IntermediateMessageStreamImpl(mockGraph, mockInputOp, mockOutputStream);
-    when(mockGraph.getIntermediateStream(any(String.class), any(Serde.class))).thenReturn(mockPartitionedStream);
+        mockPartitionedStream = new IntermediateMessageStreamImpl(mockAppDesc, mockInputOp, mockOutputStream);
+    when(mockAppDesc.getIntermediateStream(any(String.class), any(Serde.class))).thenReturn(mockPartitionedStream);
 
     doAnswer(this.getRegisterMessageStreamAnswer()).when(mockContext).registerMessageStream(eq(3), any(MessageStream.class));
     RexToJavaCompiler mockCompiler = mock(RexToJavaCompiler.class);
@@ -155,7 +155,7 @@ public class TestJoinTranslator extends TranslatorTestBase {
     Expression mockExpr = mock(Expression.class);
     when(mockCompiler.compile(any(), any())).thenReturn(mockExpr);
 
-    doAnswer(this.getRegisteredTableAnswer()).when(mockGraph).getTable(any(RocksDbTableDescriptor.class));
+    doAnswer(this.getRegisteredTableAnswer()).when(mockAppDesc).getTable(any(RocksDbTableDescriptor.class));
     when(mockJoin.getJoinType()).thenReturn(JoinRelType.INNER);
     SqlIOResolver mockResolver = mock(SqlIOResolver.class);
     SqlIOConfig mockIOConfig = mock(SqlIOConfig.class);

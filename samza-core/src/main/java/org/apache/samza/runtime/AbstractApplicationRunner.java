@@ -34,7 +34,6 @@ import org.apache.samza.application.ApplicationDescriptors;
 import org.apache.samza.application.StreamAppDescriptorImpl;
 import org.apache.samza.application.TaskAppDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
-import org.apache.samza.config.ApplicationConfig.ApplicationMode;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -62,6 +61,103 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
   protected final Config config;
   protected final Map<String, MetricsReporter> metricsReporters = new HashMap<>();
 
+  /**
+   * This is a temporary helper class to include all common logic to generate {@link JobConfig}s for high- and low-level
+   * applications in {@link LocalApplicationRunner} and {@link RemoteApplicationRunner} before we fix SAMZA-1811.
+   *
+   * TODO: Fix SAMZA-1811 to consolidate the planning into {@link ExecutionPlanner}
+   */
+  abstract class JobConfigPlanner {
+
+    abstract List<JobConfig> getStreamJobConfigs(StreamAppDescriptorImpl streamAppDesc) throws Exception;
+
+    List<JobConfig> createJobConfigs() throws Exception {
+      if (appDesc instanceof TaskAppDescriptorImpl) {
+        // low-level task application only needs a simple single job configuration
+        return Collections.singletonList(getTaskJobConfig((TaskAppDescriptorImpl) appDesc));
+      } else if (appDesc instanceof StreamAppDescriptorImpl) {
+        return getStreamJobConfigs((StreamAppDescriptorImpl) appDesc);
+      }
+
+      throw new IllegalArgumentException("ApplicationDescriptor class " + appDesc.getClass().getName() + " is not supported");
+    }
+
+    StreamManager buildAndStartStreamManager() {
+      StreamManager streamManager = new StreamManager(config);
+      streamManager.start();
+      return streamManager;
+    }
+
+    ExecutionPlan getExecutionPlan(OperatorSpecGraph specGraph, StreamManager streamManager) throws Exception {
+      return getExecutionPlan(specGraph, null, streamManager);
+    }
+
+    /* package private */
+    ExecutionPlan getExecutionPlan(OperatorSpecGraph specGraph, String runId, StreamManager streamManager) throws Exception {
+
+      // update application configs
+      Map<String, String> cfg = new HashMap<>(config);
+      if (StringUtils.isNoneEmpty(runId)) {
+        cfg.put(ApplicationConfig.APP_RUN_ID, runId);
+      }
+
+      StreamConfig streamConfig = new StreamConfig(config);
+      Set<String> inputStreams = new HashSet<>(specGraph.getInputOperators().keySet());
+      inputStreams.removeAll(specGraph.getOutputStreams().keySet());
+      ApplicationConfig.ApplicationMode mode = inputStreams.stream().allMatch(streamConfig::getIsBounded)
+          ? ApplicationConfig.ApplicationMode.BATCH : ApplicationConfig.ApplicationMode.STREAM;
+      cfg.put(ApplicationConfig.APP_MODE, mode.name());
+      validateAppClassCfg(cfg, appDesc.getAppClass());
+
+      // create the physical execution plan
+      ExecutionPlanner planner = new ExecutionPlanner(new MapConfig(cfg), streamManager);
+      return planner.plan(specGraph);
+    }
+
+    /**
+     * Write the execution plan JSON to a file
+     * @param planJson JSON representation of the plan
+     */
+    final void writePlanJsonFile(String planJson) {
+      try {
+        String content = "plan='" + planJson + "'";
+        String planPath = System.getenv(ShellCommandConfig.EXECUTION_PLAN_DIR());
+        if (planPath != null && !planPath.isEmpty()) {
+          // Write the plan json to plan path
+          File file = new File(planPath + "/plan.json");
+          file.setReadable(true, false);
+          PrintWriter writer = new PrintWriter(file, "UTF-8");
+          writer.println(content);
+          writer.close();
+        }
+      } catch (Exception e) {
+        log.warn("Failed to write execution plan json to file", e);
+      }
+    }
+
+    // helper method to generate a single node job configuration for low level task applications
+    private JobConfig getTaskJobConfig(TaskAppDescriptorImpl taskAppDesc) {
+      Map<String, String> cfg = new HashMap<>(taskAppDesc.getConfig());
+      //TODO: add stream and system descriptor to configuration conversion here when SAMZA-1804 is fixed.
+      // adding table configuration
+      List<TableSpec> tableSpecs = taskAppDesc.getTables().stream()
+          .map(td -> ((BaseTableDescriptor) td).getTableSpec())
+          .collect(Collectors.toList());
+      cfg.putAll(TableConfigGenerator.generateConfigsForTableSpecs(tableSpecs));
+      validateAppClassCfg(cfg, taskAppDesc.getAppClass());
+      return new JobConfig(new MapConfig(cfg));
+    }
+
+    private void validateAppClassCfg(Map<String, String> cfg, Class<? extends ApplicationBase> appClass) {
+      if (cfg.get(ApplicationConfig.APP_CLASS) != null && !cfg.get(ApplicationConfig.APP_CLASS).isEmpty()) {
+        // app.class is already set
+        return;
+      }
+      // adding app.class in the configuration
+      cfg.put(ApplicationConfig.APP_CLASS, appClass.getCanonicalName());
+    }
+  }
+
   AbstractApplicationRunner(ApplicationBase userApp, Config config) {
     this.appDesc = ApplicationDescriptors.getAppDescriptor(userApp, config);
     this.config = appDesc.getConfig();
@@ -70,94 +166,6 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
   @Override
   public final void addMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
     this.metricsReporters.putAll(metricsReporters);
-  }
-
-  StreamManager buildAndStartStreamManager() {
-    StreamManager streamManager = new StreamManager(config);
-    streamManager.start();
-    return streamManager;
-  }
-
-  abstract List<JobConfig> getJobConfigsFromPlan(StreamAppDescriptorImpl streamAppDesc);
-
-  List<JobConfig> createJobConfigs() {
-    if (appDesc instanceof TaskAppDescriptorImpl) {
-      // low-level task application only needs a simple single job configuration
-      return Collections.singletonList(getTaskJobConfig((TaskAppDescriptorImpl) appDesc));
-    } else if (appDesc instanceof StreamAppDescriptorImpl) {
-      return getJobConfigsFromPlan((StreamAppDescriptorImpl) appDesc);
-    }
-
-    throw new IllegalArgumentException("ApplicationDescriptor class " + appDesc.getClass().getName() + " is not supported");
-  }
-
-  ExecutionPlan getExecutionPlan(OperatorSpecGraph specGraph, StreamManager streamManager) throws Exception {
-    return getExecutionPlan(specGraph, null, streamManager);
-  }
-
-  /* package private */
-  ExecutionPlan getExecutionPlan(OperatorSpecGraph specGraph, String runId, StreamManager streamManager) throws Exception {
-
-    // update application configs
-    Map<String, String> cfg = new HashMap<>(config);
-    if (StringUtils.isNoneEmpty(runId)) {
-      cfg.put(ApplicationConfig.APP_RUN_ID, runId);
-    }
-
-    StreamConfig streamConfig = new StreamConfig(config);
-    Set<String> inputStreams = new HashSet<>(specGraph.getInputOperators().keySet());
-    inputStreams.removeAll(specGraph.getOutputStreams().keySet());
-    ApplicationMode mode = inputStreams.stream().allMatch(streamConfig::getIsBounded)
-        ? ApplicationMode.BATCH : ApplicationMode.STREAM;
-    cfg.put(ApplicationConfig.APP_MODE, mode.name());
-    validateAppClassCfg(cfg, appDesc.getAppClass());
-
-    // create the physical execution plan
-    ExecutionPlanner planner = new ExecutionPlanner(new MapConfig(cfg), streamManager);
-    return planner.plan(specGraph);
-  }
-
-  /**
-   * Write the execution plan JSON to a file
-   * @param planJson JSON representation of the plan
-   */
-  final void writePlanJsonFile(String planJson) {
-    try {
-      String content = "plan='" + planJson + "'";
-      String planPath = System.getenv(ShellCommandConfig.EXECUTION_PLAN_DIR());
-      if (planPath != null && !planPath.isEmpty()) {
-        // Write the plan json to plan path
-        File file = new File(planPath + "/plan.json");
-        file.setReadable(true, false);
-        PrintWriter writer = new PrintWriter(file, "UTF-8");
-        writer.println(content);
-        writer.close();
-      }
-    } catch (Exception e) {
-      log.warn("Failed to write execution plan json to file", e);
-    }
-  }
-
-  // helper method to generate a single node job configuration for low level task applications
-  private JobConfig getTaskJobConfig(TaskAppDescriptorImpl taskAppDesc) {
-    Map<String, String> cfg = new HashMap<>(taskAppDesc.getConfig());
-    //TODO: add stream and system descriptor to configuration conversion here when SAMZA-1804 is fixed.
-    // adding table configuration
-    List<TableSpec> tableSpecs = taskAppDesc.getTables().stream()
-        .map(td -> ((BaseTableDescriptor) td).getTableSpec())
-        .collect(Collectors.toList());
-    cfg.putAll(TableConfigGenerator.generateConfigsForTableSpecs(tableSpecs));
-    validateAppClassCfg(cfg, taskAppDesc.getAppClass());
-    return new JobConfig(new MapConfig(cfg));
-  }
-
-  private void validateAppClassCfg(Map<String, String> cfg, Class<? extends ApplicationBase> appClass) {
-    if (cfg.get(ApplicationConfig.APP_CLASS) != null && !cfg.get(ApplicationConfig.APP_CLASS).isEmpty()) {
-      // app.class is already set
-      return;
-    }
-    // adding app.class in the configuration
-    cfg.put(ApplicationConfig.APP_CLASS, appClass.getCanonicalName());
   }
 
 }

@@ -71,8 +71,9 @@ import static org.junit.Assert.assertTrue;
 /**
  * Integration tests for {@link org.apache.samza.runtime.LocalApplicationRunner} with {@link ZkJobCoordinatorFactory}.
  *
- * Brings up embedded ZooKeeper, Kafka broker and launches multiple {@link org.apache.samza.runtime.LocalApplicationRunner}s
- * in an application to verify the guarantees made in stand alone execution environment.
+ * Brings up embedded ZooKeeper, Kafka broker and launches multiple {@link org.apache.samza.application.StreamApplication}
+ * through {@link org.apache.samza.runtime.LocalApplicationRunner} to verify the guarantees made in stand alone execution
+ * environment.
  */
 public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarness {
 
@@ -301,6 +302,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
    *           A) JobModel generated before and after the addition of streamApp2 should not be equal.
    *           B) Second stream application(streamApp2) should join the group and process all the messages.
    */
+
   @Test
   public void shouldUpdateJobModelWhenNewProcessorJoiningGroupUsingAllSspToSingleTaskGrouperFactory() throws InterruptedException {
     // Set up kafka topics.

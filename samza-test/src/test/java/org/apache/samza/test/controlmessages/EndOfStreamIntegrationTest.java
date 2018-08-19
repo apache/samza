@@ -48,7 +48,7 @@ import static org.junit.Assert.*;
 
 /**
  * This test uses an array as a bounded input source, and does a partitionBy() and sink() after reading the input.
- * It verifies the pipeline will kill and the number of output messages should equal to the input.
+ * It verifies the pipeline will stop and the number of output messages should equal to the input.
  */
 public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
 
@@ -112,8 +112,6 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
 
     assertEquals(received.size(), count * partitionCount);
   }
-
-
 
   public static final class Values {
     public static <K, V, M extends KV<K, V>> MapFunction<M, V> create() {

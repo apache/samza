@@ -33,8 +33,11 @@ import org.apache.samza.serializers.NoOpSerde;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 
 /**
@@ -47,7 +50,6 @@ public class TestPartitionByOperatorSpec {
   private final String testJobName = "testJob";
   private final String testJobId = "1";
   private final String testReparStreamName = "parByKey";
-  private StreamAppDescriptorImpl graphSpec = null;
 
   class TimerMapFn implements MapFunction<Object, String>, TimerFunction<String, Object> {
 
@@ -95,12 +97,12 @@ public class TestPartitionByOperatorSpec {
   public void testPartitionBy() {
     MapFunction<Object, String> keyFn = m -> m.toString();
     MapFunction<Object, Object> valueFn = m -> m;
-    graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> {
         MessageStream inputStream = appDesc.getInputStream(testInputId);
         inputStream.partitionBy(keyFn, valueFn, testReparStreamName);
       }, mockConfig);
-    assertEquals(2, graphSpec.getInputOperators().size());
-    Map<String, InputOperatorSpec> inputOpSpecs = graphSpec.getInputOperators();
+    assertEquals(2, streamAppDesc.getInputOperators().size());
+    Map<String, InputOperatorSpec> inputOpSpecs = streamAppDesc.getInputOperators();
     assertTrue(inputOpSpecs.keySet().contains(String.format("%s-%s-partition_by-%s", testJobName, testJobId, testReparStreamName)));
     InputOperatorSpec inputOpSpec = inputOpSpecs.get(String.format("%s-%s-partition_by-%s", testJobName, testJobId, testReparStreamName));
     assertEquals(String.format("%s-%s-partition_by-%s", testJobName, testJobId, testReparStreamName), inputOpSpec.getStreamId());
@@ -122,11 +124,11 @@ public class TestPartitionByOperatorSpec {
 
   @Test
   public void testCopy() {
-    graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> {
         MessageStream inputStream = appDesc.getInputStream(testInputId);
         inputStream.partitionBy(m -> m.toString(), m -> m, testReparStreamName);
       }, mockConfig);
-    OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
+    OperatorSpecGraph specGraph = streamAppDesc.getOperatorSpecGraph();
     OperatorSpecGraph clonedGraph = specGraph.clone();
     OperatorSpecTestUtils.assertClonedGraph(specGraph, clonedGraph);
   }
@@ -134,7 +136,7 @@ public class TestPartitionByOperatorSpec {
   @Test(expected = IllegalArgumentException.class)
   public void testTimerFunctionAsKeyFn() {
     TimerMapFn keyFn = new TimerMapFn();
-    graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+    new StreamAppDescriptorImpl(appDesc -> {
         MessageStream<Object> inputStream = appDesc.getInputStream(testInputId);
         inputStream.partitionBy(keyFn, m -> m, "parByKey");
       }, mockConfig);
@@ -143,7 +145,7 @@ public class TestPartitionByOperatorSpec {
   @Test(expected = IllegalArgumentException.class)
   public void testWatermarkFunctionAsKeyFn() {
     WatermarkMapFn keyFn = new WatermarkMapFn();
-    graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+    new StreamAppDescriptorImpl(appDesc -> {
         MessageStream<Object> inputStream = appDesc.getInputStream(testInputId);
         inputStream.partitionBy(keyFn, m -> m, "parByKey");
       }, mockConfig);
@@ -152,7 +154,7 @@ public class TestPartitionByOperatorSpec {
   @Test(expected = IllegalArgumentException.class)
   public void testTimerFunctionAsValueFn() {
     TimerMapFn valueFn = new TimerMapFn();
-    graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+    new StreamAppDescriptorImpl(appDesc -> {
         MessageStream<Object> inputStream = appDesc.getInputStream(testInputId);
         inputStream.partitionBy(m -> m.toString(), valueFn, "parByKey");
       }, mockConfig);
@@ -161,7 +163,7 @@ public class TestPartitionByOperatorSpec {
   @Test(expected = IllegalArgumentException.class)
   public void testWatermarkFunctionAsValueFn() {
     WatermarkMapFn valueFn = new WatermarkMapFn();
-    graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+    new StreamAppDescriptorImpl(appDesc -> {
         MessageStream<Object> inputStream = appDesc.getInputStream(testInputId);
         inputStream.partitionBy(m -> m.toString(), valueFn, "parByKey");
       }, mockConfig);
