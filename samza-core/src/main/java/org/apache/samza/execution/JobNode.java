@@ -129,6 +129,7 @@ public class JobNode {
   public JobConfig generateConfig(String executionPlanJson) {
     Map<String, String> configs = new HashMap<>();
     configs.put(JobConfig.JOB_NAME(), jobName);
+    configs.put(JobConfig.JOB_ID(), jobId);
 
     final List<String> inputs = new ArrayList<>();
     final List<String> broadcasts = new ArrayList<>();
@@ -177,7 +178,7 @@ public class JobNode {
     // write serialized serde instances and stream serde configs to configs
     addSerdeConfigs(configs);
 
-    configs.putAll(TableConfigGenerator.generateConfigsForTableSpecs(tables));
+    configs.putAll(TableConfigGenerator.generateConfigsForTableSpecs(new MapConfig(configs), tables));
 
     // Add side inputs to the inputs and mark the stream as bootstrap
     tables.forEach(tableSpec -> {

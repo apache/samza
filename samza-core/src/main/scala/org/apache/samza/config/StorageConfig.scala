@@ -31,6 +31,7 @@ object StorageConfig {
   val MSG_SERDE = "stores.%s.msg.serde"
   val CHANGELOG_STREAM = "stores.%s.changelog"
   val CHANGELOG_SYSTEM = "job.changelog.system"
+  val CHANGELOG_REPLICATION_FACTOR = "stores.%s.changelog.replication.factor"
   val CHANGELOG_DELETE_RETENTION_MS = "stores.%s.changelog.delete.retention.ms"
   val DEFAULT_CHANGELOG_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1)
   val ACCESSLOG_STREAM_SUFFIX = "access-log"

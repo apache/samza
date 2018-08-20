@@ -36,11 +36,20 @@ import org.apache.samza.storage.SideInputsProcessor;
  */
 abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLocalStoreBackedTableDescriptor<K, V, D>>
     extends BaseTableDescriptor<K, V, D> {
+
+  static final public String INTERNAL_ENABLE_CHANGELOG = "internal.enable.changelog";
+  static final public String INTERNAL_CHANGELOG_STREAM = "internal.changelog.stream";
+  static final public String INTERNAL_CHANGELOG_REPLICATION_FACTOR = "internal.changelog.replication.factor";
+
   protected List<String> sideInputs;
   protected SideInputsProcessor sideInputsProcessor;
+  protected boolean enableChangelog = true;
+  protected String changelogStream;
+  protected Integer changelogReplicationFactor;
 
   /**
    * Constructs a table descriptor instance
+   *
    * @param tableId Id of the table
    */
   public BaseLocalStoreBackedTableDescriptor(String tableId) {
@@ -49,6 +58,8 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
 
   public D withSideInputs(List<String> sideInputs) {
     this.sideInputs = sideInputs;
+    this.enableChangelog = false;
+    this.changelogStream = null;
     return (D) this;
   }
 
@@ -57,9 +68,57 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
     return (D) this;
   }
 
+  /**
+   * Disable changelog for this table, by default changelog is enabled.
+   * Refer to <code>stores.store-name.changelog</code> in Samza configuration guide
+   *
+   * @return this table descriptor instance
+   */
+  public D withChangelogDisabled() {
+    this.enableChangelog = false;
+    return (D) this;
+  }
+
+  /**
+   * Specify the changelog stream name, by default changelog stream name is automatically
+   * generated in format [job-name]-[job-id]-table-[table-id]. For both auto-generated
+   * and user specified changelog stream, invalid characters will be automatically
+   * replaced with '-' to confirm with pattern { @literal [a-zA-Z0-9_-]+ }
+   *
+   * Refer to <code>stores.store-name.changelog</code> in Samza configuration guide
+   *
+   * @param changelogStream changelog stream name
+   * @return this table descriptor instance
+   */
+  public D withChangelogStream(String changelogStream) {
+    this.changelogStream = changelogStream;
+    return (D) this;
+  }
+
+  /**
+   * Refer to <code>stores.store-name.changelog.replication.factor</code> in Samza configuration guide
+   *
+   * @param replicationFactor replilcation factor
+   * @return this table descriptor instance
+   */
+  public D withChangelogReplicationFactor(int replicationFactor) {
+    this.changelogReplicationFactor = replicationFactor;
+    return (D) this;
+  }
+
   @Override
   protected void generateTableSpecConfig(Map<String, String> tableSpecConfig) {
     super.generateTableSpecConfig(tableSpecConfig);
+
+    tableSpecConfig.put(INTERNAL_ENABLE_CHANGELOG, String.valueOf(enableChangelog));
+    if (enableChangelog) {
+      if (changelogStream != null) {
+        tableSpecConfig.put(INTERNAL_CHANGELOG_STREAM, changelogStream);
+      }
+      if (changelogReplicationFactor != null) {
+        tableSpecConfig.put(INTERNAL_CHANGELOG_REPLICATION_FACTOR, String.valueOf(changelogReplicationFactor));
+      }
+    }
   }
 
   /**
@@ -71,6 +130,14 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
       Preconditions.checkArgument(sideInputs != null && !sideInputs.isEmpty() && sideInputsProcessor != null,
           String.format("Invalid side input configuration for table: %s. " +
               "Both side inputs and the processor must be provided", tableId));
+    }
+    if (!enableChangelog) {
+      Preconditions.checkState(changelogStream == null,
+          String.format("Invalid changelog configuration for table: %s. Changelog " +
+              "must be enabled, when changelog stream name is provided", tableId));
+      Preconditions.checkState(changelogReplicationFactor == null,
+          String.format("Invalid changelog configuration for table: %s. Changelog " +
+              "must be enabled, when changelog replication factor is provided", tableId));
     }
   }
 

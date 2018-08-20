@@ -29,6 +29,7 @@ import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.ConfigRewriter;
 import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.config.JavaTableConfig;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.serializers.KVSerde;
@@ -42,7 +43,6 @@ import org.apache.samza.table.TableDescriptorsProvider;
 import org.apache.samza.table.remote.RemoteTableDescriptor;
 import org.apache.samza.table.remote.RemoteTableProviderFactory;
 import org.apache.samza.table.remote.TableReadFunction;
-
 import org.apache.samza.util.RateLimiter;
 import org.apache.samza.util.Util;
 import org.junit.Assert;
@@ -79,6 +79,8 @@ public class TestTableDescriptorsProvider {
   public void testWithTableDescriptorsProviderClass() throws Exception {
     Map<String, String> configs = new HashMap<>();
     String tableRewriterName = "tableRewriter";
+    String jobName = "test-job";
+    configs.put(JobConfig.JOB_NAME(), jobName);
     configs.put("tables.descriptors.provider.class", MySampleTableDescriptorsProvider.class.getName());
     Config resultConfig = new MySampleTableConfigRewriter().rewrite(tableRewriterName, new MapConfig(configs));
     Assert.assertNotNull(resultConfig);
@@ -95,8 +97,9 @@ public class TestTableDescriptorsProvider {
     Assert.assertTrue(storageConfig.getStorageKeySerde(localTableId).startsWith("StringSerde"));
     Assert.assertTrue(storageConfig.getStorageMsgSerde(localTableId).startsWith("StringSerde"));
     Config storeConfig = resultConfig.subset("stores." + localTableId + ".", true);
-    Assert.assertTrue(storeConfig.size() == 4);
-    Assert.assertEquals(storeConfig.getInt("rocksdb.block.size.bytes"), 4096);
+    Assert.assertEquals(5, storeConfig.size());
+    Assert.assertTrue(storeConfig.get("changelog").startsWith(jobName));
+    Assert.assertEquals(4096, storeConfig.getInt("rocksdb.block.size.bytes"));
 
     JavaTableConfig tableConfig = new JavaTableConfig(resultConfig);
     Assert.assertEquals(tableConfig.getTableProviderFactory(localTableId),
@@ -155,7 +158,7 @@ public class TestTableDescriptorsProvider {
         TableDescriptorsProvider tableDescriptorsProvider =
             Util.getObj(tableDescriptorsProviderClassName, TableDescriptorsProvider.class);
         List<TableDescriptor> tableDescs = tableDescriptorsProvider.getTableDescriptors(config);
-        return new MapConfig(Arrays.asList(config, TableConfigGenerator.generateConfigsForTableDescs(tableDescs)));
+        return new MapConfig(Arrays.asList(config, TableConfigGenerator.generateConfigsForTableDescs(config, tableDescs)));
       } catch (Exception e) {
         throw new ConfigException(String.format("Invalid configuration for TableDescriptorsProvider class: %s",
             tableDescriptorsProviderClassName), e);

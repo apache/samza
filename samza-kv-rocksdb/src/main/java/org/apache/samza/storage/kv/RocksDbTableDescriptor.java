@@ -44,8 +44,8 @@ public class RocksDbTableDescriptor<K, V> extends BaseLocalStoreBackedTableDescr
   static final public String ROCKSDB_MAX_LOG_FILE_SIZE_BYTES = "rocksdb.max.log.file.size.bytes";
   static final public String ROCKSDB_KEEP_LOG_FILE_NUM = "rocksdb.keep.log.file.num";
 
-  protected Integer writeBatchSize;
-  protected Integer objectCacheSize;
+  private Integer writeBatchSize;
+  private Integer objectCacheSize;
   private Integer cacheSize;
   private Integer writeBufferSize;
   private Integer blockSize;

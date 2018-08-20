@@ -27,7 +27,6 @@ import java.util.concurrent.CompletableFuture;
 
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.samza.config.Config;
-import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.operators.BaseTableDescriptor;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.serializers.JsonSerdeV2;
@@ -44,7 +43,7 @@ import org.apache.samza.table.Table;
 import org.apache.samza.table.TableProvider;
 import org.apache.samza.table.TableProviderFactory;
 import org.apache.samza.table.TableSpec;
-import org.apache.samza.task.TaskContext;
+import org.apache.samza.table.utils.BaseTableProvider;
 
 
 public class TestIOResolverFactory implements SqlIOResolverFactory {
@@ -156,9 +155,10 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
     }
   }
 
-  static class TestTableProvider implements TableProvider {
-    @Override
-    public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
+  static class TestTableProvider extends BaseTableProvider {
+
+    public TestTableProvider() {
+      super(null);
     }
 
     @Override

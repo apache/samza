@@ -21,6 +21,7 @@ package org.apache.samza.table;
 import java.util.Map;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.config.Config;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.task.TaskContext;
 
@@ -31,6 +32,12 @@ import org.apache.samza.task.TaskContext;
  */
 @InterfaceStability.Unstable
 public interface TableProvider {
+  /**
+   * Initialize TableProvider with job configuration
+   * @param config Samza config
+   */
+  void init(Config config);
+
   /**
    * Initialize TableProvider with container and task context
    * @param containerContext Samza container context

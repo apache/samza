@@ -50,12 +50,16 @@ public class InMemoryTableProvider extends BaseLocalStoreBackedTableProvider {
     tableConfig.putAll(generateCommonStoreConfig(config));
 
     // Rest of the configuration
-    tableSpec.getConfig().forEach((k, v) -> {
-      String realKey = k.startsWith("inmemory.") ?
-          String.format("stores.%s", tableSpec.getId()) + "." + k.substring("inmemory.".length())
-        : String.format(JavaTableConfig.TABLE_ID_PREFIX, tableSpec.getId()) + "." + k;
-      tableConfig.put(realKey, v);
-    });
+    tableSpec.getConfig().entrySet().stream()
+        .filter(e -> !e.getKey().startsWith("internal."))
+        .forEach(e -> {
+          String k = e.getKey();
+          String v = e.getValue();
+          String realKey = k.startsWith("inmemory.")
+              ? String.format("stores.%s", tableSpec.getId()) + "." + k.substring("inmemory.".length())
+              : String.format(JavaTableConfig.TABLE_ID_PREFIX, tableSpec.getId()) + "." + k;
+          tableConfig.put(realKey, v);
+        });
 
     logger.info("Generated configuration for table " + tableSpec.getId());
 
