@@ -158,32 +158,38 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
   @Override
   public void run(StreamApplication app) {
-    StreamManager streamManager = null;
-    try {
-      streamManager = buildAndStartStreamManager();
 
+    try {
       // 1. initialize and plan
-      ExecutionPlan plan = getExecutionPlan(app, streamManager);
+      ExecutionPlan plan = getExecutionPlan(app);
 
       String executionPlanJson = plan.getPlanAsJson();
       writePlanJsonFile(executionPlanJson);
       LOG.info("Execution Plan: \n" + executionPlanJson);
-
-      // 2. create the necessary streams
-      // TODO: System generated intermediate streams should have robust naming scheme. See SAMZA-1391
       String planId = String.valueOf(executionPlanJson.hashCode());
-      createStreams(planId, plan.getIntermediateStreams(), streamManager);
 
-      // 3. create the StreamProcessors
       if (plan.getJobConfigs().isEmpty()) {
         throw new SamzaException("No jobs to run.");
       }
+
       plan.getJobConfigs().forEach(jobConfig -> {
-          LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
-          LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
-          StreamProcessor processor = createStreamProcessor(jobConfig, graphSpec, listener);
-          listener.setProcessor(processor);
-          processors.add(processor);
+          StreamManager streamManager = null;
+          try {
+            // 2. create the necessary streams
+            streamManager = buildAndStartStreamManager(jobConfig);
+            createStreams(planId, plan.getIntermediateStreams(), streamManager);
+
+            // 3. create the StreamProcessors
+            LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
+            LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
+            StreamProcessor processor = createStreamProcessor(jobConfig, graphSpec, listener);
+            listener.setProcessor(processor);
+            processors.add(processor);
+          } finally {
+            if (streamManager != null) {
+              streamManager.stop();
+            }
+          }
         });
       numProcessorsToStart.set(processors.size());
 
@@ -193,10 +199,6 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       appStatus = ApplicationStatus.unsuccessfulFinish(throwable);
       shutdownLatch.countDown();
       throw new SamzaException(String.format("Failed to start application: %s.", app), throwable);
-    } finally {
-      if (streamManager != null) {
-        streamManager.stop();
-      }
     }
   }
 
@@ -256,11 +258,10 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
    * stream creation.
    * @param planId a unique identifier representing the plan used for coordination purpose
    * @param intStreams list of intermediate {@link StreamSpec}s
-   * @throws TimeoutException exception for latch timeout
    */
   private void createStreams(String planId,
       List<StreamSpec> intStreams,
-      StreamManager streamManager) throws TimeoutException {
+      StreamManager streamManager) {
     if (intStreams.isEmpty()) {
       LOG.info("Set of intermediate streams is empty. Nothing to create.");
       return;
