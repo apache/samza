@@ -18,7 +18,10 @@
  */
 package org.apache.samza.table.utils;
 
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.table.TableProvider;
 import org.apache.samza.table.TableSpec;
@@ -36,7 +39,6 @@ abstract public class BaseTableProvider implements TableProvider {
 
   final protected TableSpec tableSpec;
 
-  protected Config config;
   protected SamzaContainerContext containerContext;
   protected TaskContext taskContext;
 
@@ -48,17 +50,27 @@ abstract public class BaseTableProvider implements TableProvider {
    * {@inheritDoc}
    */
   @Override
-  public void init(Config config) {
-    this.config = config;
+  public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
+    this.containerContext = containerContext;
+    this.taskContext = taskContext;
   }
 
   /**
    * {@inheritDoc}
    */
   @Override
-  public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
-    this.containerContext = containerContext;
-    this.taskContext = taskContext;
+  public Map<String, String> generateConfig(Config jobConfig, Map<String, String> generatedConfig) {
+    Map<String, String> tableConfig = new HashMap<>();
+
+    // Insert table_id prefix to config entries
+    tableSpec.getConfig().forEach((k, v) -> {
+        String realKey = String.format(JavaTableConfig.TABLE_ID_PREFIX, tableSpec.getId()) + "." + k;
+        tableConfig.put(realKey, v);
+      });
+
+    logger.info("Generated configuration for table " + tableSpec.getId());
+
+    return tableConfig;
   }
 
 }

@@ -58,8 +58,10 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
 
   public D withSideInputs(List<String> sideInputs) {
     this.sideInputs = sideInputs;
+    // Disable changelog
     this.enableChangelog = false;
     this.changelogStream = null;
+    this.changelogReplicationFactor = null;
     return (D) this;
   }
 
@@ -98,7 +100,7 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
   /**
    * Refer to <code>stores.store-name.changelog.replication.factor</code> in Samza configuration guide
    *
-   * @param replicationFactor replilcation factor
+   * @param replicationFactor replication factor
    * @return this table descriptor instance
    */
   public D withChangelogReplicationFactor(int replicationFactor) {

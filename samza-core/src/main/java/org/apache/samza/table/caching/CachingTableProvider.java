@@ -20,12 +20,9 @@
 package org.apache.samza.table.caching;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.Table;
@@ -73,21 +70,6 @@ public class CachingTableProvider extends BaseTableProvider {
     CachingTable cachingTable = new CachingTable(tableSpec.getId(), table, cache, isWriteAround);
     cachingTable.init(containerContext, taskContext);
     return cachingTable;
-  }
-
-  @Override
-  public Map<String, String> generateConfig(Map<String, String> config) {
-    Map<String, String> tableConfig = new HashMap<>();
-
-    // Insert table_id prefix to config entries
-    tableSpec.getConfig().forEach((k, v) -> {
-        String realKey = String.format(JavaTableConfig.TABLE_ID_PREFIX, tableSpec.getId()) + "." + k;
-        tableConfig.put(realKey, v);
-      });
-
-    logger.info("Generated configuration for table " + tableSpec.getId());
-
-    return tableConfig;
   }
 
   @Override

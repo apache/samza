@@ -21,6 +21,7 @@ package org.apache.samza.storage.kv.inmemory;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.storage.kv.BaseLocalStoreBackedTableProvider;
@@ -37,7 +38,7 @@ public class InMemoryTableProvider extends BaseLocalStoreBackedTableProvider {
   }
 
   @Override
-  public Map<String, String> generateConfig(Map<String, String> config) {
+  public Map<String, String> generateConfig(Config jobConfig, Map<String, String> generatedConfig) {
 
     Map<String, String> tableConfig = new HashMap<>();
 
@@ -47,7 +48,7 @@ public class InMemoryTableProvider extends BaseLocalStoreBackedTableProvider {
         InMemoryKeyValueStorageEngineFactory.class.getName());
 
     // Common store configuration
-    tableConfig.putAll(generateCommonStoreConfig(config));
+    tableConfig.putAll(generateCommonStoreConfig(jobConfig, generatedConfig));
 
     // Rest of the configuration
     tableSpec.getConfig().entrySet().stream()

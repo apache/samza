@@ -167,7 +167,7 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
     }
 
     @Override
-    public Map<String, String> generateConfig(Map<String, String> config) {
+    public Map<String, String> generateConfig(Config jobConfig, Map<String, String> generatedConfig)  {
       return new HashMap<>();
     }
 

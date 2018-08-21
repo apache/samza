@@ -77,8 +77,7 @@ public class TableConfigGenerator {
         TableProviderFactory tableProviderFactory =
             Util.getObj(tableSpec.getTableProviderFactoryClassName(), TableProviderFactory.class);
         TableProvider tableProvider = tableProviderFactory.getTableProvider(tableSpec);
-        tableProvider.init(config);
-        tableConfigs.putAll(tableProvider.generateConfig(tableConfigs));
+        tableConfigs.putAll(tableProvider.generateConfig(config, tableConfigs));
       });
 
     LOG.info("TableConfigGenerator has generated configs {}", tableConfigs);

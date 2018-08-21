@@ -20,21 +20,17 @@
 package org.apache.samza.table.remote;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
 import org.apache.samza.table.utils.BaseTableProvider;
 import org.apache.samza.table.utils.SerdeUtils;
 import org.apache.samza.util.RateLimiter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static org.apache.samza.table.remote.RemoteTableDescriptor.RL_READ_TAG;
 import static org.apache.samza.table.remote.RemoteTableDescriptor.RL_WRITE_TAG;
@@ -44,7 +40,6 @@ import static org.apache.samza.table.remote.RemoteTableDescriptor.RL_WRITE_TAG;
  * Provide for remote table instances
  */
 public class RemoteTableProvider extends BaseTableProvider {
-  private static final Logger LOG = LoggerFactory.getLogger(RemoteTableProvider.class);
 
   static final String READ_FN = "io.read.func";
   static final String WRITE_FN = "io.write.func";
@@ -128,24 +123,6 @@ public class RemoteTableProvider extends BaseTableProvider {
     table.init(containerContext, taskContext);
     tables.add(table);
     return table;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public Map<String, String> generateConfig(Map<String, String> config) {
-    Map<String, String> tableConfig = new HashMap<>();
-
-    // Insert table_id prefix to config entries
-    tableSpec.getConfig().forEach((k, v) -> {
-        String realKey = String.format(JavaTableConfig.TABLE_ID_PREFIX, tableSpec.getId()) + "." + k;
-        tableConfig.put(realKey, v);
-      });
-
-    LOG.info("Generated configuration for table " + tableSpec.getId());
-
-    return tableConfig;
   }
 
   /**

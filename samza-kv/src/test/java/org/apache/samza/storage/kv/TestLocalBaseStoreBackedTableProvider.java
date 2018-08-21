@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import junit.framework.Assert;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -67,15 +68,15 @@ public class TestLocalBaseStoreBackedTableProvider {
 
   @Test
   public void testGenerateCommonStoreConfig() {
-    Map<String, String> config = new HashMap<>();
-    config.put(String.format(JavaTableConfig.TABLE_KEY_SERDE, "t1"), "ks1");
-    config.put(String.format(JavaTableConfig.TABLE_VALUE_SERDE, "t1"), "vs1");
+    Map<String, String> generatedConfig = new HashMap<>();
+    generatedConfig.put(String.format(JavaTableConfig.TABLE_KEY_SERDE, "t1"), "ks1");
+    generatedConfig.put(String.format(JavaTableConfig.TABLE_VALUE_SERDE, "t1"), "vs1");
 
     TableSpec tableSpec = mock(TableSpec.class);
     when(tableSpec.getId()).thenReturn("t1");
 
     TableProvider tableProvider = createTableProvider(tableSpec);
-    Map<String, String> tableConfig = tableProvider.generateConfig(config);
+    Map<String, String> tableConfig = tableProvider.generateConfig(new MapConfig(), generatedConfig);
     Assert.assertEquals("ks1", tableConfig.get(String.format(StorageConfig.KEY_SERDE(), "t1")));
     Assert.assertEquals("vs1", tableConfig.get(String.format(StorageConfig.MSG_SERDE(), "t1")));
   }
@@ -87,9 +88,7 @@ public class TestLocalBaseStoreBackedTableProvider {
         .getTableSpec();
 
     TableProvider tableProvider = createTableProvider(tableSpec);
-    tableProvider.init(new MapConfig(new MapConfig()));
-
-    Map<String, String> tableConfig = tableProvider.generateConfig(new MapConfig());
+    Map<String, String> tableConfig = tableProvider.generateConfig(new MapConfig(), new MapConfig());
     Assert.assertEquals(2, tableConfig.size());
     Assert.assertFalse(tableConfig.containsKey(String.format(StorageConfig.CHANGELOG_STREAM(), "t1")));
   }
@@ -99,14 +98,12 @@ public class TestLocalBaseStoreBackedTableProvider {
     TableSpec tableSpec = createTableDescriptor("$1")
         .getTableSpec();
 
-    Map<String, String> config = new HashMap<>();
-    config.put(JobConfig.JOB_NAME(), "test-job");
-    config.put(JobConfig.JOB_ID(), "10");
+    Map<String, String> jobConfig = new HashMap<>();
+    jobConfig.put(JobConfig.JOB_NAME(), "test-job");
+    jobConfig.put(JobConfig.JOB_ID(), "10");
 
     TableProvider tableProvider = createTableProvider(tableSpec);
-    tableProvider.init(new MapConfig(config));
-
-    Map<String, String> tableConfig = tableProvider.generateConfig(new MapConfig());
+    Map<String, String> tableConfig = tableProvider.generateConfig(new MapConfig(jobConfig), new MapConfig());
     Assert.assertEquals(3, tableConfig.size());
     Assert.assertEquals("test-job-10-table--1", String.format(
         tableConfig.get(String.format(StorageConfig.CHANGELOG_STREAM(), "$1"))));
@@ -120,9 +117,7 @@ public class TestLocalBaseStoreBackedTableProvider {
         .getTableSpec();
 
     TableProvider tableProvider = createTableProvider(tableSpec);
-    tableProvider.init(new MapConfig(new HashMap<>()));
-
-    Map<String, String> tableConfig = tableProvider.generateConfig(new MapConfig());
+    Map<String, String> tableConfig = tableProvider.generateConfig(new MapConfig(), new MapConfig());
     Assert.assertEquals(4, tableConfig.size());
     Assert.assertEquals("my-tream", String.format(
         tableConfig.get(String.format(StorageConfig.CHANGELOG_STREAM(), "t1"))));
@@ -133,8 +128,8 @@ public class TestLocalBaseStoreBackedTableProvider {
   private TableProvider createTableProvider(TableSpec tableSpec) {
     return new BaseLocalStoreBackedTableProvider(tableSpec) {
       @Override
-      public Map<String, String> generateConfig(Map<String, String> config) {
-        return generateCommonStoreConfig(config);
+      public Map<String, String> generateConfig(Config jobConfig, Map<String, String> generatedConfig) {
+        return generateCommonStoreConfig(jobConfig, generatedConfig);
       }
     };
   }

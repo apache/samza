@@ -18,13 +18,14 @@
  */
 package org.apache.samza.storage.kv;
 
-import com.google.common.base.Preconditions;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.JobConfig;
@@ -38,6 +39,8 @@ import org.apache.samza.table.utils.BaseTableProvider;
 import org.apache.samza.table.utils.SerdeUtils;
 import org.apache.samza.task.TaskContext;
 
+import com.google.common.base.Preconditions;
+
 
 /**
  * Base class for tables backed by Samza local stores. The backing stores are
@@ -48,7 +51,7 @@ import org.apache.samza.task.TaskContext;
  */
 abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvider {
 
-  final static private Pattern INVALID_CHANGELOG_CHARS = Pattern.compile("[^a-zA-Z0-9_-]+");
+  private static final Pattern INVALID_CHANGELOG_CHARS = Pattern.compile("[^a-zA-Z0-9_-]+");
 
   protected KeyValueStore kvStore;
 
@@ -83,14 +86,14 @@ abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvide
     return table;
   }
 
-  protected Map<String, String> generateCommonStoreConfig(Map<String, String> config) {
+  protected Map<String, String> generateCommonStoreConfig(Config jobConfig, Map<String, String> generatedConfig) {
 
     Map<String, String> storeConfig = new HashMap<>();
 
     // We assume the configuration for serde are already generated for this table,
     // so we simply carry them over to store configuration.
     //
-    JavaTableConfig tableConfig = new JavaTableConfig(new MapConfig(config));
+    JavaTableConfig tableConfig = new JavaTableConfig(new MapConfig(generatedConfig));
 
     String keySerde = tableConfig.getKeySerde(tableSpec.getId());
     storeConfig.put(String.format(StorageConfig.KEY_SERDE(), tableSpec.getId()), keySerde);
@@ -113,8 +116,8 @@ abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvide
       String changelogStream = tableSpec.getConfig().get(BaseLocalStoreBackedTableDescriptor.INTERNAL_CHANGELOG_STREAM);
       if (StringUtils.isEmpty(changelogStream)) {
         changelogStream = String.format("%s-%s-table-%s",
-            this.config.get(JobConfig.JOB_NAME()),
-            this.config.get(JobConfig.JOB_ID(), "1"),
+            jobConfig.get(JobConfig.JOB_NAME()),
+            jobConfig.get(JobConfig.JOB_ID(), "1"),
             tableSpec.getId());
       }
 
