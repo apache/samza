@@ -82,10 +82,10 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
     cfg.put(ApplicationConfig.APP_MODE, mode.name());
 
     // create the physical execution plan
-    Config config = new MapConfig(cfg);
-    StreamManager streamManager = buildAndStartStreamManager(config);
+    Config generatedConfig = new MapConfig(cfg);
+    StreamManager streamManager = buildAndStartStreamManager(generatedConfig);
     try {
-      ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
+      ExecutionPlanner planner = new ExecutionPlanner(generatedConfig, streamManager);
       return planner.plan(specGraph);
     } finally {
       streamManager.stop();
