@@ -23,7 +23,8 @@ import org.apache.samza.system.IncomingMessageEnvelope;
 
 /**
  * Transforms an {@link IncomingMessageEnvelope} with deserialized key and message to a message of type {@code OM}
- * which is delivered to the {@code MessageStream}.
+ * which is delivered to the {@code MessageStream}. Called in {@code InputOperatorImpl} when incoming messages
+ * from a {@code SystemConsumer} are being delivered to the application.
  * <p>
  * This is provided by default by transforming system descriptor implementations and can not be overridden
  * or set on a per stream level.

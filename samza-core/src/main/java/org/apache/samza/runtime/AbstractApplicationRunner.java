@@ -30,6 +30,7 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ApplicationConfig.ApplicationMode;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.StreamConfig;
@@ -87,6 +88,8 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
     graphSpec.getInputDescriptors().forEach((key, value) -> systemStreamConfigs.putAll(value.toConfig()));
     graphSpec.getOutputDescriptors().forEach((key, value) -> systemStreamConfigs.putAll(value.toConfig()));
     graphSpec.getSystemDescriptors().forEach(sd -> systemStreamConfigs.putAll(sd.toConfig()));
+    graphSpec.getDefaultSystemDescriptor().ifPresent(dsd ->
+        systemStreamConfigs.put(JobConfig.JOB_DEFAULT_SYSTEM(), dsd.getSystemName()));
     Map<String, String> appConfigs = new HashMap<>(cfg);
     appConfigs.putAll(systemStreamConfigs);
 

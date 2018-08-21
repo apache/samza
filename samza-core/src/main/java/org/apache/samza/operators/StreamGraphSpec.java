@@ -295,6 +295,10 @@ public class StreamGraphSpec implements StreamGraph {
     return Collections.unmodifiableSet(new HashSet<>(systemDescriptors.values()));
   }
 
+  public Optional<SystemDescriptor> getDefaultSystemDescriptor() {
+    return this.defaultSystemDescriptorOptional;
+  }
+
   Map<TableSpec, TableImpl> getTables() {
     return Collections.unmodifiableMap(tables);
   }
