@@ -32,7 +32,7 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 public class DiagnosticsExceptionEvent {
 
   private long timestamp; // the timestamp associated with this exception
-  private Class exceptionType; // store the exception type separately
+  private String exceptionType; // store the exception type separately
   private String exceptionMessage; // the exception message
   private String compactExceptionStackTrace; // a compact representation of the exception's stacktrace
   private Map mdcMap;
@@ -42,7 +42,7 @@ public class DiagnosticsExceptionEvent {
   }
 
   public DiagnosticsExceptionEvent(long timestampMillis, Throwable throwable, Map mdcMap) {
-    this.exceptionType = throwable.getClass();
+    this.exceptionType = throwable.getClass().getName();
     this.exceptionMessage = throwable.getMessage();
     this.compactExceptionStackTrace = ExceptionUtils.getStackTrace(throwable);
     this.timestamp = timestampMillis;
@@ -53,7 +53,7 @@ public class DiagnosticsExceptionEvent {
     return timestamp;
   }
 
-  public Class getExceptionType() {
+  public String getExceptionType() {
     return this.exceptionType;
   }
 

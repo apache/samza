@@ -23,16 +23,15 @@ package org.apache.samza.job
 import java.util.concurrent.TimeUnit
 
 import org.apache.samza.SamzaException
-import org.apache.samza.config.Config
+import org.apache.samza.config._
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.coordinator.stream.{CoordinatorStreamSystemConsumer, CoordinatorStreamSystemProducer}
 import org.apache.samza.coordinator.stream.messages.{Delete, SetConfig}
-import org.apache.samza.job.ApplicationStatus.{Running, SuccessfulFinish}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.ApplicationRunnerMain.ApplicationRunnerCommandLine
 import org.apache.samza.runtime.ApplicationRunnerOperation
-import org.apache.samza.system.StreamSpec
-import org.apache.samza.util.{CoordinatorStreamUtil, Logging, Util}
+import org.apache.samza.system.{StreamSpec, SystemAdmins}
+import org.apache.samza.util.{CoordinatorStreamUtil, Logging, StreamUtil, Util}
 
 import scala.collection.JavaConverters._
 
@@ -82,21 +81,21 @@ class JobRunner(config: Config) extends Logging {
     val jobFactory: StreamJobFactory = getJobFactory
     val coordinatorSystemConsumer = new CoordinatorStreamSystemConsumer(config, new MetricsRegistryMap)
     val coordinatorSystemProducer = new CoordinatorStreamSystemProducer(config, new MetricsRegistryMap)
+    val systemAdmins = new SystemAdmins(config)
 
     // Create the coordinator stream if it doesn't exist
     info("Creating coordinator stream")
     val coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config)
-    val systemFactory = CoordinatorStreamUtil.getCoordinatorSystemFactory(config)
-    val systemAdmin = systemFactory.getAdmin(coordinatorSystemStream.getSystem, config)
+    val coordinatorSystemAdmin = systemAdmins.getSystemAdmin(coordinatorSystemStream.getSystem)
     val streamName = coordinatorSystemStream.getStream
     val coordinatorSpec = StreamSpec.createCoordinatorStreamSpec(streamName, coordinatorSystemStream.getSystem)
-    systemAdmin.start()
-    if (systemAdmin.createStream(coordinatorSpec)) {
+    coordinatorSystemAdmin.start()
+    if (coordinatorSystemAdmin.createStream(coordinatorSpec)) {
       info("Created coordinator stream %s." format streamName)
     } else {
       info("Coordinator stream %s already exists." format streamName)
     }
-    systemAdmin.stop()
+    coordinatorSystemAdmin.stop()
 
     if (resetJobConfig) {
       info("Storing config in coordinator stream.")
@@ -117,6 +116,32 @@ class JobRunner(config: Config) extends Logging {
       keysToRemove.foreach(key => { coordinatorSystemProducer.send(new Delete(JobRunner.SOURCE, key, SetConfig.TYPE)) })
     }
     coordinatorSystemProducer.stop()
+
+
+    // if diagnostics is enabled, create diagnostics stream if it doesnt exist
+    if (new JobConfig(config).getDiagnosticsEnabled) {
+      val DIAGNOSTICS_STREAM_ID = "samza-diagnostics-stream-id"
+      val diagnosticsSystemStreamName = new MetricsConfig(config).
+        getMetricsSnapshotReporterStream(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS).
+        getOrElse(throw new ConfigException("Missing required config: " +
+          String.format(MetricsConfig.METRICS_SNAPSHOT_REPORTER_STREAM,
+            MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS)))
+
+      val diagnosticsSystemStream = StreamUtil.getSystemStreamFromNames(diagnosticsSystemStreamName)
+      val diagnosticsSysAdmin = systemAdmins.getSystemAdmin(diagnosticsSystemStream.getSystem)
+      val diagnosticsStreamSpec = new StreamSpec(DIAGNOSTICS_STREAM_ID, diagnosticsSystemStream.getStream,
+        diagnosticsSystemStream.getSystem, new StreamConfig(config).getStreamProperties(DIAGNOSTICS_STREAM_ID))
+
+      info("Creating diagnostics stream %s" format diagnosticsSystemStream.getStream)
+      diagnosticsSysAdmin.start()
+      if (diagnosticsSysAdmin.createStream(diagnosticsStreamSpec)) {
+        info("Created diagnostics stream %s" format diagnosticsSystemStream.getStream)
+      } else {
+        info("Diagnostics stream %s already exists" format diagnosticsSystemStream.getStream)
+      }
+      diagnosticsSysAdmin.stop()
+    }
+
 
     // Create the actual job, and submit it.
     val job = jobFactory.getJob(config)

@@ -61,36 +61,38 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
    */
   @Override
   public void run(StreamApplication app) {
-    StreamManager streamManager = null;
     try {
-      streamManager = buildAndStartStreamManager();
       // TODO: run.id needs to be set for standalone: SAMZA-1531
       // run.id is based on current system time with the most significant bits in UUID (8 digits) to avoid collision
       String runId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
       LOG.info("The run id for this run is {}", runId);
 
       // 1. initialize and plan
-      ExecutionPlan plan = getExecutionPlan(app, runId, streamManager);
+      ExecutionPlan plan = getExecutionPlan(app, runId);
       writePlanJsonFile(plan.getPlanAsJson());
 
-      // 2. create the necessary streams
-      if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
-        streamManager.clearStreamsFromPreviousRun(getConfigFromPrevRun());
-      }
-      streamManager.createStreams(plan.getIntermediateStreams());
-
-      // 3. submit jobs for remote execution
       plan.getJobConfigs().forEach(jobConfig -> {
-          LOG.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
-          JobRunner runner = new JobRunner(jobConfig);
-          runner.run(true);
+          StreamManager streamManager = null;
+          try {
+            // 2. create the necessary streams
+            streamManager = buildAndStartStreamManager(jobConfig);
+            if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
+              streamManager.clearStreamsFromPreviousRun(getConfigFromPrevRun());
+            }
+            streamManager.createStreams(plan.getIntermediateStreams());
+
+            // 3. submit jobs for remote execution
+            LOG.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
+            JobRunner runner = new JobRunner(jobConfig);
+            runner.run(true);
+          } finally {
+            if (streamManager != null) {
+              streamManager.stop();
+            }
+          }
         });
     } catch (Throwable t) {
       throw new SamzaException("Failed to run application", t);
-    } finally {
-      if (streamManager != null) {
-        streamManager.stop();
-      }
     }
   }
 
