@@ -58,12 +58,12 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
     this.graphSpec = new StreamGraphSpec(config);
   }
 
-  public ExecutionPlan getExecutionPlan(StreamApplication app, StreamManager streamManager) throws Exception {
-    return getExecutionPlan(app, null, streamManager);
+  public ExecutionPlan getExecutionPlan(StreamApplication app) throws Exception {
+    return getExecutionPlan(app, null);
   }
 
   /* package private */
-  ExecutionPlan getExecutionPlan(StreamApplication app, String runId, StreamManager streamManager) throws Exception {
+  ExecutionPlan getExecutionPlan(StreamApplication app, String runId) throws Exception {
     // build stream graph
     app.init(graphSpec, config);
     OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
@@ -82,8 +82,14 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
     cfg.put(ApplicationConfig.APP_MODE, mode.name());
 
     // create the physical execution plan
-    ExecutionPlanner planner = new ExecutionPlanner(new MapConfig(cfg), streamManager);
-    return planner.plan(specGraph);
+    Config generatedConfig = new MapConfig(cfg);
+    StreamManager streamManager = buildAndStartStreamManager(generatedConfig);
+    try {
+      ExecutionPlanner planner = new ExecutionPlanner(generatedConfig, streamManager);
+      return planner.plan(specGraph);
+    } finally {
+      streamManager.stop();
+    }
   }
 
   /**
@@ -108,8 +114,8 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
   }
 
   @VisibleForTesting
-  StreamManager buildAndStartStreamManager() {
-    StreamManager streamManager = new StreamManager(this.config);
+  StreamManager buildAndStartStreamManager(Config config) {
+    StreamManager streamManager = new StreamManager(config);
     streamManager.start();
     return streamManager;
   }
