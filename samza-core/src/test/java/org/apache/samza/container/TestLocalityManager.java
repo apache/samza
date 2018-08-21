@@ -20,7 +20,6 @@
 package org.apache.samza.container;
 
 import com.google.common.collect.ImmutableMap;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.config.Config;
@@ -71,7 +70,6 @@ public class TestLocalityManager {
   @Test public void testLocalityManager() {
     LocalityManager localityManager = new LocalityManager(config, new MetricsRegistryMap());
 
-    localityManager.init(new SamzaContainerContext("0", config, new ArrayList<>(), new MetricsRegistryMap()));
     localityManager.writeContainerToHostMapping("0", "localhost", "jmx:localhost:8080", "jmx:tunnel:localhost:9090");
     Map<String, Map<String, String>> localMap = localityManager.readContainerLocality();
     Map<String, Map<String, String>> expectedMap =
@@ -101,8 +99,6 @@ public class TestLocalityManager {
     LocalityManager localityManager = new LocalityManager(config, new MetricsRegistryMap());
 
     localityManager.writeContainerToHostMapping("1", "localhost", "jmx:localhost:8181", "jmx:tunnel:localhost:9191");
-
-    localityManager.init(new SamzaContainerContext("0", config, new ArrayList<>(), new MetricsRegistryMap()));
 
     assertEquals(localityManager.readContainerLocality().size(), 1);
 

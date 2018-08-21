@@ -901,7 +901,6 @@ class SamzaContainer(
     if(localityManager != null) {
       val containerName = "SamzaContainer-" + String.valueOf(containerContext.id)
       info("Registering %s with metadata store" format containerName)
-      localityManager.init(containerContext)
       try {
         val hostInet = Util.getLocalHost
         val jmxUrl = if (jmxServer != null) jmxServer.getJmxUrl else ""

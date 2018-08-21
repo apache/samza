@@ -31,7 +31,6 @@ import java.util.TreeMap;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -54,7 +53,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * An implementation of the {@link MetadataStore} interface where the
- * metadata of the Samza job is stored in coordinator stream(by default kafka topic).
+ * metadata of the Samza job is stored in coordinator stream.
  */
 public class CoordinatorStreamStore implements MetadataStore {
 
@@ -72,7 +71,6 @@ public class CoordinatorStreamStore implements MetadataStore {
   // Using custom comparator since java default comparator offers object identity equality(not value equality) for byte arrays.
   private Map<byte[], byte[]> bootstrappedMessages = new TreeMap<>(UnsignedBytes.lexicographicalComparator());
 
-  private SamzaContainerContext containerContext;
   private String source;
 
   private final AtomicBoolean isInitialized = new AtomicBoolean(false);
@@ -90,11 +88,10 @@ public class CoordinatorStreamStore implements MetadataStore {
   }
 
   @Override
-  public void init(SamzaContainerContext containerContext) {
+  public void init(Config config, MetricsRegistry metricsRegistry) {
     if (isInitialized.compareAndSet(false, true)) {
       LOG.info("Starting the coordinator stream system consumer with config: {}.", config);
-      this.containerContext = containerContext;
-      this.source = String.format("SamzaContainer-%s", this.containerContext.id);
+      this.source = String.format("SamzaContainer-%s", config.get("id"));
       registerConsumer();
       systemConsumer.start();
       systemProducer.register(source);
@@ -157,8 +154,7 @@ public class CoordinatorStreamStore implements MetadataStore {
   }
 
   /**
-   * Read all messages from the earliest offset, all the way to the latest.
-   * Currently, this method only pays attention to config messages.
+   * Returns all the messages from the earliest offset all the way to the latest.
    */
   private void bootstrapMessagesFromStream() {
     synchronized (bootstrapLock) {

@@ -32,7 +32,6 @@ import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFac
 import org.apache.samza.container.grouper.task.BalancingTaskNameGrouper
 import org.apache.samza.container.grouper.task.TaskNameGrouperFactory
 import org.apache.samza.container.LocalityManager
-import org.apache.samza.container.SamzaContainerContext
 import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.server.HttpServer
 import org.apache.samza.coordinator.server.JobServlet
@@ -72,9 +71,8 @@ object JobModelManager extends Logging {
   def apply(coordinatorStreamManager: CoordinatorStreamManager, changelogPartitionMapping: util.Map[TaskName, Integer]) = {
     val config = coordinatorStreamManager.getConfig
     val localityManager = new LocalityManager(config, new MetricsRegistryMap())
-    localityManager.init(new SamzaContainerContext("app-master", config, new util.ArrayList[TaskName](), new MetricsRegistryMap()))
 
-      // Map the name of each system to the corresponding SystemAdmin
+    // Map the name of each system to the corresponding SystemAdmin
     val systemAdmins = new SystemAdmins(config)
     val streamMetadataCache = new StreamMetadataCache(systemAdmins, 0)
 

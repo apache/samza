@@ -19,25 +19,23 @@
 package org.apache.samza.metadatastore;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.container.SamzaContainerContext;
-
+import org.apache.samza.config.Config;
+import org.apache.samza.metrics.MetricsRegistry;
 import java.util.Map;
 
 /**
- * Store abstraction responsible for managing the metadata of a Samza job and is agnostic of the
- * deployment model (yarn/standalone) of the Samza job.
+ * Store abstraction responsible for managing the metadata of a Samza job.
  */
 @InterfaceStability.Evolving
 public interface MetadataStore {
 
   /**
    * Initializes the metadata store, if applicable, setting up the underlying resources
-   * and connections to the store endpoints. Upon successful completion of this method,
-   * metadata store is considered available to accept the client operations.
+   * and connections to the store endpoints.
    *
-   * @param containerContext represents the Samza container context.
+   * @param config the configuration for instantiating the MetadataStore.
    */
-  void init(SamzaContainerContext containerContext);
+  void init(Config config, MetricsRegistry metricsRegistry);
 
   /**
    * Gets the value associated with the specified {@code key}.
@@ -48,7 +46,7 @@ public interface MetadataStore {
   byte[] get(byte[] key);
 
   /**
-   * Updates the mapping of the specified key-value pair; Associates the specified {@code key} with the specified {@code value}.
+   * Updates the mapping of the specified key-value pair.
    *
    * @param key the key with which the specified {@code value} is to be associated.
    * @param value the value with which the specified {@code key} is to be associated.
@@ -63,7 +61,6 @@ public interface MetadataStore {
   void remove(byte[] key);
 
   /**
-   *
    * Returns all the entries in this metadata store.
    *
    * @return all entries in this metadata store.

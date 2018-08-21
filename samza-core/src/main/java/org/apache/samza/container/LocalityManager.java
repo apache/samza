@@ -45,19 +45,18 @@ public class LocalityManager {
   private static final Logger LOG = LoggerFactory.getLogger(LocalityManager.class);
 
   private final Config config;
-  private Map<String, Map<String, String>> containerToHostMapping = new HashMap<>();
   private final Serde<String> keySerde;
+  private final Serde<String> valueSerde;
   private final MetadataStore metadataStore;
   private final TaskAssignmentManager taskAssignmentManager;
-  private final Serde<String> valueSerde;
 
   /**
    * Builds the LocalityManager based upon {@link Config} and {@link MetricsRegistry}.
    * Uses {@link CoordinatorStreamKeySerde} and {@link CoordinatorStreamValueSerde} to
    * serialize messages before reading/writing into coordinator stream.
    *
-   * @param config denotes the configuration required for setting up metadata store.
-   * @param metricsRegistry the registry for reporting metrics in metadata store.
+   * @param config the configuration required for setting up metadata store.
+   * @param metricsRegistry the registry for reporting metrics.
    */
   public LocalityManager(Config config, MetricsRegistry metricsRegistry) {
     this(config, metricsRegistry, new CoordinatorStreamKeySerde(SetContainerHostMapping.TYPE),
@@ -67,14 +66,13 @@ public class LocalityManager {
   /**
    * Builds the LocalityManager based upon {@link Config} and {@link MetricsRegistry}.
    * Uses keySerde, valueSerde to serialize/deserialize (key, value) pairs before reading/writing
-   * into metadata store.
+   * into {@link MetadataStore}.
    *
-   * Key and value serializer are different for yarn(uses CoordinatorStreamMessage) and standalone(native
-   * ObjectOutputStream for serialization) modes.
-   * @param config denotes the configuration required for setting up metadata store.
-   * @param metricsRegistry the registry for reporting metrics in metadata store.
-   * @param keySerde denotes the key serializer.
-   * @param valueSerde denotes the value serializer.
+   * Key and value serializer are different for yarn (uses CoordinatorStreamMessage) and standalone (native ObjectOutputStream for serialization) modes.
+   * @param config the configuration required for setting up metadata store.
+   * @param metricsRegistry the registry for reporting metrics.
+   * @param keySerde the key serializer.
+   * @param valueSerde the value serializer.
    */
   public LocalityManager(Config config, MetricsRegistry metricsRegistry, Serde<String> keySerde, Serde<String> valueSerde) {
     this.config = config;
@@ -85,14 +83,9 @@ public class LocalityManager {
     this.taskAssignmentManager = new TaskAssignmentManager(config, metricsRegistry, keySerde, valueSerde);
   }
 
-  public void init(SamzaContainerContext containerContext) {
-    this.metadataStore.init(containerContext);
-    this.taskAssignmentManager.init(containerContext);
-  }
-
   /**
-   * Method to allow read container locality information from coordinator stream. This method is used
-   * in {@link org.apache.samza.coordinator.JobModelManager}.
+   * Method to allow read container locality information from the {@link MetadataStore}.
+   * This method is used in {@link org.apache.samza.coordinator.JobModelManager}.
    *
    * @return the map of containerId: (hostname, jmxAddress, jmxTunnelAddress)
    */
@@ -106,9 +99,8 @@ public class LocalityManager {
                                                                         SetContainerHostMapping.JMX_URL_KEY, ""));
         }
       });
-    containerToHostMapping = allMappings;
     if (LOG.isDebugEnabled()) {
-      for (Map.Entry<String, Map<String, String>> entry : containerToHostMapping.entrySet()) {
+      for (Map.Entry<String, Map<String, String>> entry : allMappings.entrySet()) {
         LOG.debug(String.format("Locality for container %s: %s", entry.getKey(), entry.getValue()));
       }
     }
@@ -117,7 +109,7 @@ public class LocalityManager {
   }
 
   /**
-   * Method to write locality info to coordinator stream. This method is used in {@link SamzaContainer}.
+   * Method to write locality information to the {@link MetadataStore}. This method is used in {@link SamzaContainer}.
    *
    * @param containerId  the {@link SamzaContainer} ID
    * @param hostName  the hostname
@@ -125,6 +117,7 @@ public class LocalityManager {
    * @param jmxTunnelingAddress  the JMX Tunnel URL address
    */
   public void writeContainerToHostMapping(String containerId, String hostName, String jmxAddress, String jmxTunnelingAddress) {
+    Map<String, Map<String, String>> containerToHostMapping = readContainerLocality();
     Map<String, String> existingMappings = containerToHostMapping.get(containerId);
     String existingHostMapping = existingMappings != null ? existingMappings.get(SetContainerHostMapping.HOST_KEY) : null;
     if (existingHostMapping != null && !existingHostMapping.equals(hostName)) {
@@ -134,12 +127,6 @@ public class LocalityManager {
     }
 
     metadataStore.put(keySerde.toBytes(containerId), valueSerde.toBytes(hostName));
-
-    Map<String, String> mappings = new HashMap<>();
-    mappings.put(SetContainerHostMapping.HOST_KEY, hostName);
-    mappings.put(SetContainerHostMapping.JMX_URL_KEY, jmxAddress);
-    mappings.put(SetContainerHostMapping.JMX_TUNNELING_URL_KEY, jmxTunnelingAddress);
-    containerToHostMapping.put(containerId, mappings);
   }
 
   public void close() {

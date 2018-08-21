@@ -24,7 +24,6 @@ import java.util.Map;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.coordinator.stream.CoordinatorStreamKeySerde;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping;
@@ -44,19 +43,19 @@ public class TaskAssignmentManager {
   private static final Logger LOG = LoggerFactory.getLogger(TaskAssignmentManager.class);
 
   private final Config config;
-  private SamzaContainerContext containerContext;
+  private final Map<String, String> taskNameToContainerId = new HashMap<>();
   private final Serde<String> keySerde;
   private final Serde<String> valueSerde;
+
   private MetadataStore metadataStore;
-  private Map<String, String> taskNameToContainerId = new HashMap<>();
 
   /**
    * Builds the TaskAssignmentManager based upon {@link Config} and {@link MetricsRegistry}.
    * Uses {@link CoordinatorStreamKeySerde} and {@link CoordinatorStreamValueSerde} to
    * serialize messages before reading/writing into coordinator stream.
    *
-   * @param config denotes the configuration required for setting up metadata store.
-   * @param metricsRegistry the registry for reporting metrics in metadata store.
+   * @param config the configuration required for setting up metadata store.
+   * @param metricsRegistry the registry for reporting metrics.
    */
   public TaskAssignmentManager(Config config, MetricsRegistry metricsRegistry) {
     this(config, metricsRegistry, new CoordinatorStreamKeySerde(SetTaskContainerMapping.TYPE),
@@ -67,14 +66,14 @@ public class TaskAssignmentManager {
    * Builds the LocalityManager based upon {@link Config} and {@link MetricsRegistry}.
    *
    * Uses keySerde, valueSerde to serialize/deserialize (key, value) pairs before reading/writing
-   * into metadata store.
+   * into {@link MetadataStore}.
    *
    * Key and value serializer are different for yarn(uses CoordinatorStreamMessage) and standalone(uses native
    * ObjectOutputStream for serialization) modes.
-   * @param config denotes the configuration required for setting up metadata store.
-   * @param metricsRegistry denotes the registry for reporting metrics in metadata store.
-   * @param keySerde denotes the key serializer.
-   * @param valueSerde denotes the value serializer.
+   * @param config the configuration required for setting up metadata store.
+   * @param metricsRegistry the registry for reporting metrics.
+   * @param keySerde the key serializer.
+   * @param valueSerde the value serializer.
    */
   public TaskAssignmentManager(Config config, MetricsRegistry metricsRegistry, Serde<String> keySerde, Serde<String> valueSerde) {
     this.config = config;
@@ -84,14 +83,12 @@ public class TaskAssignmentManager {
     this.metadataStore = metadataStoreFactory.getMetadataStore(SetTaskContainerMapping.TYPE, config, metricsRegistry);
   }
 
-  public void init(SamzaContainerContext containerContext) {
-    this.containerContext = containerContext;
-    this.metadataStore.init(containerContext);
+  public void init(Config config, MetricsRegistry metricsRegistry) {
+    this.metadataStore.init(config, metricsRegistry);
   }
 
   /**
-   * Method to allow read container task information from coordinator stream. This method is used
-   * in {@link org.apache.samza.coordinator.JobModelManager}.
+   * Method to allow read container task information from {@link MetadataStore}. This method is used in {@link org.apache.samza.coordinator.JobModelManager}.
    *
    * @return the map of taskName: containerId
    */
@@ -109,7 +106,7 @@ public class TaskAssignmentManager {
   }
 
   /**
-   * Method to write task container info to coordinator stream.
+   * Method to write task container info to {@link MetadataStore}.
    *
    * @param taskName    the task name
    * @param containerId the SamzaContainer ID or {@code null} to delete the mapping
@@ -132,13 +129,14 @@ public class TaskAssignmentManager {
   }
 
   /**
-   * Deletes the task container info from the coordinator stream for each of the specified task names.
+   * Deletes the task container info from the {@link MetadataStore} for the task names.
    *
    * @param taskNames the task names for which the mapping will be deleted.
    */
   public void deleteTaskContainerMappings(Iterable<String> taskNames) {
     for (String taskName : taskNames) {
       metadataStore.remove(keySerde.toBytes(taskName));
+      taskNameToContainerId.remove(taskName);
     }
   }
 

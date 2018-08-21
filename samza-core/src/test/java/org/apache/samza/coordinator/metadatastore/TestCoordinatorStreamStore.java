@@ -20,7 +20,6 @@ package org.apache.samza.coordinator.metadatastore;
 
 import com.google.common.collect.ImmutableMap;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
 import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping;
 import org.apache.samza.metrics.MetricsRegistryMap;
@@ -58,7 +57,7 @@ public class TestCoordinatorStreamStore {
     when(CoordinatorStreamUtil.getCoordinatorSystemStream(anyObject())).thenReturn(new SystemStream("test-kafka", "test"));
     when(CoordinatorStreamUtil.getCoordinatorStreamName(anyObject(), anyObject())).thenReturn("test");
     coordinatorStreamStore = new CoordinatorStreamStore(SetTaskContainerMapping.TYPE, new MapConfig(configMap), new MetricsRegistryMap());
-    coordinatorStreamStore.init(new SamzaContainerContext("0", new MapConfig(), new ArrayList<>(), new MetricsRegistryMap()));
+    coordinatorStreamStore.init(new MapConfig(), new MetricsRegistryMap());
   }
 
   @Test
