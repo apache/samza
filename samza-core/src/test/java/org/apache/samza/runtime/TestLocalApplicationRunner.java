@@ -20,6 +20,7 @@
 package org.apache.samza.runtime;
 
 import com.google.common.collect.ImmutableList;
+
 import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
@@ -56,7 +57,13 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.powermock.api.mockito.PowerMockito.doReturn;
 
 
@@ -74,17 +81,18 @@ public class TestLocalApplicationRunner {
   @Test
   public void testStreamCreation()
       throws Exception {
-    Map<String, String> config = new HashMap<>();
-    LocalApplicationRunner runner = spy(new LocalApplicationRunner(new MapConfig(config)));
+    Config config = new MapConfig(new HashMap<>());
+    LocalApplicationRunner runner = spy(new LocalApplicationRunner(config));
     StreamApplication app = mock(StreamApplication.class);
 
     StreamManager streamManager = mock(StreamManager.class);
-    doReturn(streamManager).when(runner).buildAndStartStreamManager();
+    doReturn(streamManager).when(runner).buildAndStartStreamManager(any(Config.class));
 
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.singletonList(new StreamSpec("test-stream", "test-stream", "test-system")));
     when(plan.getPlanAsJson()).thenReturn("");
-    doReturn(plan).when(runner).getExecutionPlan(any(), eq(streamManager));
+    when(plan.getJobConfigs()).thenReturn(Collections.singletonList(new JobConfig(config)));
+    doReturn(plan).when(runner).getExecutionPlan(any());
 
     CoordinationUtilsFactory coordinationUtilsFactory = mock(CoordinationUtilsFactory.class);
     JobCoordinatorConfig mockJcConfig = mock(JobCoordinatorConfig.class);
@@ -109,19 +117,19 @@ public class TestLocalApplicationRunner {
   @Test
   public void testStreamCreationWithCoordination()
       throws Exception {
-    Map<String, String> config = new HashMap<>();
-    LocalApplicationRunner localRunner = new LocalApplicationRunner(new MapConfig(config));
-    LocalApplicationRunner runner = spy(localRunner);
+    Config config = new MapConfig(new HashMap<>());
+    LocalApplicationRunner runner = spy(new LocalApplicationRunner(config));
 
     StreamApplication app = mock(StreamApplication.class);
 
     StreamManager streamManager = mock(StreamManager.class);
-    doReturn(streamManager).when(runner).buildAndStartStreamManager();
+    doReturn(streamManager).when(runner).buildAndStartStreamManager(any(Config.class));
 
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.singletonList(new StreamSpec("test-stream", "test-stream", "test-system")));
     when(plan.getPlanAsJson()).thenReturn("");
-    doReturn(plan).when(runner).getExecutionPlan(any(), eq(streamManager));
+    when(plan.getJobConfigs()).thenReturn(Collections.singletonList(new JobConfig(config)));
+    doReturn(plan).when(runner).getExecutionPlan(any());
 
     CoordinationUtils coordinationUtils = mock(CoordinationUtils.class);
     CoordinationUtilsFactory coordinationUtilsFactory = mock(CoordinationUtilsFactory.class);
@@ -183,19 +191,20 @@ public class TestLocalApplicationRunner {
   @Test
   public void testRunComplete()
       throws Exception {
-    final Map<String, String> config = new HashMap<>();
-    config.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
+    HashMap<String, String> configMap = new HashMap<>();
+    configMap.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
+    Config config = new MapConfig(configMap);
     LocalApplicationRunner runner = spy(new LocalApplicationRunner(new MapConfig(config)));
     StreamApplication app = mock(StreamApplication.class);
 
     // buildAndStartStreamManager already includes start, so not going to verify it gets called
     StreamManager streamManager = mock(StreamManager.class);
-    when(runner.buildAndStartStreamManager()).thenReturn(streamManager);
+    when(runner.buildAndStartStreamManager(any(Config.class))).thenReturn(streamManager);
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.emptyList());
     when(plan.getPlanAsJson()).thenReturn("");
     when(plan.getJobConfigs()).thenReturn(Collections.singletonList(new JobConfig(new MapConfig(config))));
-    doReturn(plan).when(runner).getExecutionPlan(any(), eq(streamManager));
+    doReturn(plan).when(runner).getExecutionPlan(any());
 
     StreamProcessor sp = mock(StreamProcessor.class);
     ArgumentCaptor<StreamProcessorLifecycleListener> captor =
@@ -221,19 +230,20 @@ public class TestLocalApplicationRunner {
   @Test
   public void testRunFailure()
       throws Exception {
-    final Map<String, String> config = new HashMap<>();
-    config.put(ApplicationConfig.PROCESSOR_ID, "0");
-    LocalApplicationRunner runner = spy(new LocalApplicationRunner(new MapConfig(config)));
+    final Map<String, String> configMap = new HashMap<>();
+    configMap.put(ApplicationConfig.PROCESSOR_ID, "0");
+    MapConfig config = new MapConfig(configMap);
+    LocalApplicationRunner runner = spy(new LocalApplicationRunner(config));
     StreamApplication app = mock(StreamApplication.class);
 
     // buildAndStartStreamManager already includes start, so not going to verify it gets called
     StreamManager streamManager = mock(StreamManager.class);
-    when(runner.buildAndStartStreamManager()).thenReturn(streamManager);
+    when(runner.buildAndStartStreamManager(any(Config.class))).thenReturn(streamManager);
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.emptyList());
     when(plan.getPlanAsJson()).thenReturn("");
-    when(plan.getJobConfigs()).thenReturn(Collections.singletonList(new JobConfig(new MapConfig(config))));
-    doReturn(plan).when(runner).getExecutionPlan(any(), eq(streamManager));
+    when(plan.getJobConfigs()).thenReturn(Collections.singletonList(new JobConfig(config)));
+    doReturn(plan).when(runner).getExecutionPlan(any());
 
     StreamProcessor sp = mock(StreamProcessor.class);
     ArgumentCaptor<StreamProcessorLifecycleListener> captor =
