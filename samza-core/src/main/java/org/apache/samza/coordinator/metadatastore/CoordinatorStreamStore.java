@@ -52,12 +52,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * An implementation of the {@link MetadataStore} interface where the
- * metadata of the Samza job is stored in coordinator stream.
+ * An implementation of the {@link MetadataStore} interface where the metadata of the Samza job is stored in coordinator stream.
+ *
+ * This class is thread safe.
  */
 public class CoordinatorStreamStore implements MetadataStore {
 
   private static final Logger LOG = LoggerFactory.getLogger(CoordinatorStreamStore.class);
+  private static final String SOURCE = "SamzaContainer";
+
   private final Config config;
   private final SystemStream coordinatorSystemStream;
   private final SystemStreamPartition coordinatorSystemStreamPartition;
@@ -67,13 +70,12 @@ public class CoordinatorStreamStore implements MetadataStore {
   private final Object bootstrapLock = new Object();
   private final String type;
   private final Serde<List<?>> keySerde;
-  private SystemStreamPartitionIterator iterator;
+
   // Using custom comparator since java default comparator offers object identity equality(not value equality) for byte arrays.
-  private Map<byte[], byte[]> bootstrappedMessages = new TreeMap<>(UnsignedBytes.lexicographicalComparator());
-
-  private String source;
-
+  private final Map<byte[], byte[]> bootstrappedMessages = new TreeMap<>(UnsignedBytes.lexicographicalComparator());
   private final AtomicBoolean isInitialized = new AtomicBoolean(false);
+
+  private SystemStreamPartitionIterator iterator;
 
   public CoordinatorStreamStore(String namespace, Config config, MetricsRegistry metricsRegistry) {
     this.config = config;
@@ -91,32 +93,15 @@ public class CoordinatorStreamStore implements MetadataStore {
   public void init(Config config, MetricsRegistry metricsRegistry) {
     if (isInitialized.compareAndSet(false, true)) {
       LOG.info("Starting the coordinator stream system consumer with config: {}.", config);
-      this.source = String.format("SamzaContainer-%s", config.get("id"));
       registerConsumer();
       systemConsumer.start();
-      systemProducer.register(source);
+      systemProducer.register(SOURCE);
       systemProducer.start();
       iterator = new SystemStreamPartitionIterator(systemConsumer, coordinatorSystemStreamPartition);
       bootstrapMessagesFromStream();
     } else {
       LOG.info("Store had already been initialized. Skipping.", coordinatorSystemStreamPartition);
     }
-  }
-
-  private void registerConsumer() {
-    LOG.debug("Attempting to register system stream partition: {}", coordinatorSystemStreamPartition);
-    String streamName = coordinatorSystemStreamPartition.getStream();
-    Map<String, SystemStreamMetadata> systemStreamMetadataMap = systemAdmin.getSystemStreamMetadata(Sets.newHashSet(streamName));
-
-    SystemStreamMetadata systemStreamMetadata = systemStreamMetadataMap.get(streamName);
-    Preconditions.checkNotNull(systemStreamMetadata, String.format("System stream metadata does not exist for stream: %s.", streamName));
-
-    SystemStreamPartitionMetadata systemStreamPartitionMetadata = systemStreamMetadata.getSystemStreamPartitionMetadata().get(coordinatorSystemStreamPartition.getPartition());
-    Preconditions.checkNotNull(systemStreamPartitionMetadata, String.format("System stream partition metadata does not exist for: %s.", coordinatorSystemStreamPartition));
-
-    String startingOffset = systemStreamPartitionMetadata.getOldestOffset();
-    LOG.info("Registering system stream partition: {} with offset: {}.", coordinatorSystemStreamPartition, startingOffset);
-    systemConsumer.register(coordinatorSystemStreamPartition, startingOffset);
   }
 
   @Override
@@ -129,13 +114,8 @@ public class CoordinatorStreamStore implements MetadataStore {
   public void put(byte[] key, byte[] value) {
     try {
       OutgoingMessageEnvelope envelope = new OutgoingMessageEnvelope(coordinatorSystemStream, 0, key, value);
-      if (value != null) {
-        bootstrappedMessages.put(key, value);
-      } else {
-        bootstrappedMessages.remove(key);
-      }
-      systemProducer.send(source, envelope);
-      systemProducer.flush(source);
+      systemProducer.send(SOURCE, envelope);
+      flush();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
@@ -189,5 +169,30 @@ public class CoordinatorStreamStore implements MetadataStore {
     } catch (Exception e) {
       LOG.error("Exception occurred when closing the metadata store:", e);
     }
+  }
+
+  @Override
+  public void flush() {
+    try {
+      systemProducer.flush(SOURCE);
+    } catch (Exception e) {
+      LOG.error("Exception occurred when flushing the metadata store:", e);
+    }
+  }
+
+  private void registerConsumer() {
+    LOG.debug("Attempting to register system stream partition: {}", coordinatorSystemStreamPartition);
+    String streamName = coordinatorSystemStreamPartition.getStream();
+    Map<String, SystemStreamMetadata> systemStreamMetadataMap = systemAdmin.getSystemStreamMetadata(Sets.newHashSet(streamName));
+
+    SystemStreamMetadata systemStreamMetadata = systemStreamMetadataMap.get(streamName);
+    Preconditions.checkNotNull(systemStreamMetadata, String.format("System stream metadata does not exist for stream: %s.", streamName));
+
+    SystemStreamPartitionMetadata systemStreamPartitionMetadata = systemStreamMetadata.getSystemStreamPartitionMetadata().get(coordinatorSystemStreamPartition.getPartition());
+    Preconditions.checkNotNull(systemStreamPartitionMetadata, String.format("System stream partition metadata does not exist for: %s.", coordinatorSystemStreamPartition));
+
+    String startingOffset = systemStreamPartitionMetadata.getOldestOffset();
+    LOG.info("Registering system stream partition: {} with offset: {}.", coordinatorSystemStreamPartition, startingOffset);
+    systemConsumer.register(coordinatorSystemStreamPartition, startingOffset);
   }
 }

@@ -78,6 +78,7 @@ public class LocalityManager {
     this.config = config;
     MetadataStoreFactory metadataStoreFactory = Util.getObj(new JobConfig(config).getMetadataStoreFactory(), MetadataStoreFactory.class);
     this.metadataStore = metadataStoreFactory.getMetadataStore(SetContainerHostMapping.TYPE, config, metricsRegistry);
+    this.metadataStore.init(config, metricsRegistry);
     this.keySerde = keySerde;
     this.valueSerde = valueSerde;
     this.taskAssignmentManager = new TaskAssignmentManager(config, metricsRegistry, keySerde, valueSerde);
@@ -87,16 +88,14 @@ public class LocalityManager {
    * Method to allow read container locality information from the {@link MetadataStore}.
    * This method is used in {@link org.apache.samza.coordinator.JobModelManager}.
    *
-   * @return the map of containerId: (hostname, jmxAddress, jmxTunnelAddress)
+   * @return the map of containerId: (hostname)
    */
   public Map<String, Map<String, String>> readContainerLocality() {
     Map<String, Map<String, String>> allMappings = new HashMap<>();
     metadataStore.all().forEach((keyBytes, valueBytes) -> {
         if (valueBytes != null) {
           String locationId = valueSerde.fromBytes(valueBytes);
-          allMappings.put(keySerde.fromBytes(keyBytes), ImmutableMap.of(SetContainerHostMapping.HOST_KEY, locationId,
-                                                                        SetContainerHostMapping.JMX_TUNNELING_URL_KEY, "",
-                                                                        SetContainerHostMapping.JMX_URL_KEY, ""));
+          allMappings.put(keySerde.fromBytes(keyBytes), ImmutableMap.of(SetContainerHostMapping.HOST_KEY, locationId));
         }
       });
     if (LOG.isDebugEnabled()) {
@@ -113,10 +112,8 @@ public class LocalityManager {
    *
    * @param containerId  the {@link SamzaContainer} ID
    * @param hostName  the hostname
-   * @param jmxAddress  the JMX URL address
-   * @param jmxTunnelingAddress  the JMX Tunnel URL address
    */
-  public void writeContainerToHostMapping(String containerId, String hostName, String jmxAddress, String jmxTunnelingAddress) {
+  public void writeContainerToHostMapping(String containerId, String hostName) {
     Map<String, Map<String, String>> containerToHostMapping = readContainerLocality();
     Map<String, String> existingMappings = containerToHostMapping.get(containerId);
     String existingHostMapping = existingMappings != null ? existingMappings.get(SetContainerHostMapping.HOST_KEY) : null;

@@ -70,7 +70,7 @@ public class TestLocalityManager {
   @Test public void testLocalityManager() {
     LocalityManager localityManager = new LocalityManager(config, new MetricsRegistryMap());
 
-    localityManager.writeContainerToHostMapping("0", "localhost", "jmx:localhost:8080", "jmx:tunnel:localhost:9090");
+    localityManager.writeContainerToHostMapping("0", "localhost");
     Map<String, Map<String, String>> localMap = localityManager.readContainerLocality();
     Map<String, Map<String, String>> expectedMap =
       new HashMap<String, Map<String, String>>() {
@@ -79,8 +79,6 @@ public class TestLocalityManager {
             new HashMap<String, String>() {
               {
                 this.put(SetContainerHostMapping.HOST_KEY, "localhost");
-                this.put(SetContainerHostMapping.JMX_URL_KEY, "");
-                this.put(SetContainerHostMapping.JMX_TUNNELING_URL_KEY, "");
               }
             });
         }
@@ -98,12 +96,11 @@ public class TestLocalityManager {
   @Test public void testWriteOnlyLocalityManager() {
     LocalityManager localityManager = new LocalityManager(config, new MetricsRegistryMap());
 
-    localityManager.writeContainerToHostMapping("1", "localhost", "jmx:localhost:8181", "jmx:tunnel:localhost:9191");
+    localityManager.writeContainerToHostMapping("1", "localhost");
 
     assertEquals(localityManager.readContainerLocality().size(), 1);
 
-    SetContainerHostMapping expectedContainerMap = new SetContainerHostMapping("SamzaContainer-1", "1", "localhost", "", "");
-    assertEquals(ImmutableMap.of("1", expectedContainerMap.getMessageMap().get("values")), localityManager.readContainerLocality());
+    assertEquals(ImmutableMap.of("1", ImmutableMap.of("host", "localhost")), localityManager.readContainerLocality());
 
     localityManager.close();
 

@@ -72,4 +72,9 @@ public interface MetadataStore {
    * and connections.
    */
   void close();
+
+  /**
+   * Flushes the metadata store, if applicable.
+   */
+  void flush();
 }

@@ -26,9 +26,7 @@ import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.Serde;
 
 /**
- * Serializer for keys written into coordinator stream(kafka topic). CoordinatorStreamMessage combines
- * both key and value serde for coordinator stream messages. Since key is relevant to this serializer,
- * coordinator stream value is nuked for different message types.
+ * Serializer for keys written into coordinator stream.
  */
 public class CoordinatorStreamKeySerde implements Serde<String> {
 
