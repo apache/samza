@@ -84,7 +84,6 @@ public class TestLocalBaseStoreBackedTableProvider {
   @Test
   public void testChangelogDisabled() {
     TableSpec tableSpec = createTableDescriptor("t1")
-        .withChangelogDisabled()
         .getTableSpec();
 
     TableProvider tableProvider = createTableProvider(tableSpec);
@@ -96,6 +95,7 @@ public class TestLocalBaseStoreBackedTableProvider {
   @Test
   public void testChangelogEnabled() {
     TableSpec tableSpec = createTableDescriptor("$1")
+        .withChangelogEnabled()
         .getTableSpec();
 
     Map<String, String> jobConfig = new HashMap<>();

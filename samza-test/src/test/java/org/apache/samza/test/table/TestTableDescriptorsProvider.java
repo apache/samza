@@ -97,8 +97,7 @@ public class TestTableDescriptorsProvider {
     Assert.assertTrue(storageConfig.getStorageKeySerde(localTableId).startsWith("StringSerde"));
     Assert.assertTrue(storageConfig.getStorageMsgSerde(localTableId).startsWith("StringSerde"));
     Config storeConfig = resultConfig.subset("stores." + localTableId + ".", true);
-    Assert.assertEquals(5, storeConfig.size());
-    Assert.assertTrue(storeConfig.get("changelog").startsWith(jobName));
+    Assert.assertEquals(4, storeConfig.size());
     Assert.assertEquals(4096, storeConfig.getInt("rocksdb.block.size.bytes"));
 
     JavaTableConfig tableConfig = new JavaTableConfig(resultConfig);
