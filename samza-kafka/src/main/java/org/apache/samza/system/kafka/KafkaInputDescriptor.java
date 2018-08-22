@@ -27,6 +27,15 @@ import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
 
+/**
+ * A descriptor for a kafka input stream.
+ * <p>
+ * An instance of this descriptor may be obtained from an appropriately configured {@link KafkaSystemDescriptor}.
+ * <p>
+ * Stream properties configured using a descriptor override corresponding properties provided in configuration.
+ *
+ * @param <StreamMessageType> type of messages in this stream.
+ */
 public class KafkaInputDescriptor<StreamMessageType>
     extends InputDescriptor<StreamMessageType, KafkaInputDescriptor<StreamMessageType>> {
   private static final String CONSUMER_AUTO_OFFSET_RESET_CONFIG_KEY = "systems.%s.streams.%s.consumer.auto.offset.reset";

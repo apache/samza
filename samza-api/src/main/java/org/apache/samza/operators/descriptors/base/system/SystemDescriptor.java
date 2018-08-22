@@ -34,6 +34,8 @@ import org.slf4j.LoggerFactory;
 /**
  * The base descriptor for a system. Allows setting properties that are common to all systems.
  * <p>
+ * System properties configured using a descriptor override corresponding properties provided in configuration.
+ * <p>
  * Systems may provide an {@link InputTransformer} to be used for input streams on the system. An
  * {@link InputTransformer} transforms an {@code IncomingMessageEnvelope} with deserialized key and message
  * to another message that is delivered to the {@code MessageStream}. It is applied at runtime in
@@ -46,8 +48,8 @@ import org.slf4j.LoggerFactory;
  * <p>
  * Systems that support consuming messages from a stream should provide users means of obtaining an
  * {@code InputDescriptor}. Recommended interfaces for doing so are {@link TransformingInputDescriptorProvider} for
- * systems that support system level {@link InputTransformer} or {@link StreamExpander} functions, and
- * {@link SimpleInputDescriptorProvider} otherwise.
+ * systems that support system level {@link InputTransformer}, {@link ExpandingInputDescriptorProvider} for systems
+ * that support system level {@link StreamExpander} functions, and {@link SimpleInputDescriptorProvider} otherwise.
  * <p>
  * Systems that support producing messages to a stream should provide users means of obtaining an
  * {@code OutputDescriptor}. Recommended interface for doing so is {@link OutputDescriptorProvider}.

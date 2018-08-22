@@ -23,22 +23,22 @@ import org.apache.samza.serializers.Serde;
 
 /**
  * Interface for advanced {@code SystemDescriptors} that constrain the type of returned {@code InputDescriptors} to
- * their own {@code InputTransformer} function result types.
+ * their own {@code StreamExpander} function result types.
  *
- * @param <InputTransformerType> type of the system level {@code InputTransformer} results
+ * @param <StreamExpanderType> type of the system level {@code StreamExpander} results
  */
-public interface TransformingInputDescriptorProvider<InputTransformerType> {
+public interface ExpandingInputDescriptorProvider<StreamExpanderType> {
 
   /**
    * Gets a {@link InputDescriptor} for an input stream on this system. The stream has the provided
-   * stream level serde, and the default system level {@code InputTransformer}.
+   * stream level serde, and the default system level {@code StreamExpander}
    * <p>
    * The type of messages in the stream is the type of messages returned by the default system level
-   * {@code InputTransformer}
+   * {@code StreamExpander}
    *
    * @param streamId id of the input stream
    * @param serde stream level serde for the input stream
    * @return a {@link InputDescriptor} for the input stream
    */
-  InputDescriptor<InputTransformerType, ? extends InputDescriptor> getInputDescriptor(String streamId, Serde serde);
+  InputDescriptor<StreamExpanderType, ? extends InputDescriptor> getInputDescriptor(String streamId, Serde serde);
 }

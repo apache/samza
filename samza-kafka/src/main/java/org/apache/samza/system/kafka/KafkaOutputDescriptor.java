@@ -22,6 +22,15 @@ import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.serializers.Serde;
 
+/**
+ * A descriptor for a kafka output stream.
+ * <p>
+ * An instance of this descriptor may be obtained from an appropriately configured {@link KafkaSystemDescriptor}.
+ * <p>
+ * Stream properties configured using a descriptor override corresponding properties provided in configuration.
+ *
+ * @param <StreamMessageType> type of messages in this stream.
+ */
 public class KafkaOutputDescriptor<StreamMessageType>
     extends OutputDescriptor<StreamMessageType, KafkaOutputDescriptor<StreamMessageType>> {
   KafkaOutputDescriptor(String streamId, SystemDescriptor systemDescriptor, Serde<StreamMessageType> serde) {

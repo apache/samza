@@ -32,6 +32,7 @@ import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
 import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
+import org.apache.samza.operators.descriptors.base.system.ExpandingInputDescriptorProvider;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.operators.descriptors.base.system.TransformingInputDescriptorProvider;
 import org.apache.samza.operators.functions.InputTransformer;
@@ -463,7 +464,7 @@ public class TestStreamGraphSpec {
     assertNotNull(graphSpec.getTable(mockTableDescriptor));
   }
 
-  class MockExpandingSystemDescriptor extends SystemDescriptor<MockExpandingSystemDescriptor> implements TransformingInputDescriptorProvider<Integer> {
+  class MockExpandingSystemDescriptor extends SystemDescriptor<MockExpandingSystemDescriptor> implements ExpandingInputDescriptorProvider<Integer> {
     public MockExpandingSystemDescriptor(String systemName, StreamExpander expander) {
       super(systemName, "factory.class", null, expander);
     }

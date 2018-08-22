@@ -123,7 +123,7 @@ public class StreamGraphSpec implements StreamGraph {
     }
 
     boolean isKeyed = serde instanceof KVSerde;
-    InputTransformer<?> transformer = inputDescriptor.getTransformer().orElse(null);
+    InputTransformer transformer = inputDescriptor.getTransformer().orElse(null);
     InputOperatorSpec inputOperatorSpec =
         OperatorSpecs.createInputOperatorSpec(streamId, kvSerdes.getKey(), kvSerdes.getValue(),
             transformer, isKeyed, this.getNextOpId(OpCode.INPUT, null));

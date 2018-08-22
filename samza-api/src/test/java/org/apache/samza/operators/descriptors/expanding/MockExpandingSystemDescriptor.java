@@ -19,15 +19,15 @@
 package org.apache.samza.operators.descriptors.expanding;
 
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.descriptors.base.system.ExpandingInputDescriptorProvider;
 import org.apache.samza.operators.descriptors.base.system.OutputDescriptorProvider;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
-import org.apache.samza.operators.descriptors.base.system.TransformingInputDescriptorProvider;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.IncomingMessageEnvelope;
 
 public class MockExpandingSystemDescriptor extends SystemDescriptor<MockExpandingSystemDescriptor>
-    implements TransformingInputDescriptorProvider<Long>, OutputDescriptorProvider {
+    implements ExpandingInputDescriptorProvider<Long>, OutputDescriptorProvider {
   private static final String FACTORY_CLASS_NAME = "org.apache.samza.GraphExpandingSystemFactory";
 
   public MockExpandingSystemDescriptor(String systemName) {

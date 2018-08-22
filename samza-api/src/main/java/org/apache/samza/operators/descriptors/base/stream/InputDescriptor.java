@@ -29,6 +29,8 @@ import org.apache.samza.system.SystemStreamMetadata.OffsetType;
 
 /**
  * The base descriptor for an input stream. Allows setting properties that are common to all input streams.
+ * <p>
+ * Stream properties configured using a descriptor override corresponding properties provided in configuration.
  *
  * @param <StreamMessageType> type of messages in this stream.
  * @param <SubClass> type of the concrete sub-class

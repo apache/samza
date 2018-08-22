@@ -34,6 +34,8 @@ import org.apache.samza.serializers.Serde;
 
 /**
  * A descriptor for a Kafka system.
+ * <p>
+ * System properties configured using a descriptor override corresponding properties provided in configuration.
  */
 @SuppressWarnings("unchecked")
 public class KafkaSystemDescriptor extends SystemDescriptor<KafkaSystemDescriptor>
