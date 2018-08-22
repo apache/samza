@@ -242,7 +242,7 @@ public class StreamGraphSpec implements StreamGraph {
         "getIntermediateStream must not be called multiple times with the same streamId: " + streamId);
 
     if (serde == null) {
-      LOGGER.warn("No serde defined for intermediate stream: " + streamId +
+      LOGGER.info("No serde provided for intermediate stream: " + streamId +
           ". Key and message serdes configured for the job.default.system will be used.");
     }
 

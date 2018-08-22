@@ -29,22 +29,24 @@ import org.apache.samza.serializers.Serde;
 /**
  * A descriptor for samza framework internal usage.
  * <p>
- * Allows creating a {@link SimpleInputDescriptorProvider} without setting the factory class name.
+ * Allows creating a {@link SystemDescriptor} without setting the factory class name, and delegating
+ * rest of the system customization to configurations.
+ * <p>
  * Useful for code-generation and testing use cases where the factory name is not known in advance.
  */
 @SuppressWarnings("unchecked")
-public final class InternalSystemDescriptor extends SystemDescriptor<InternalSystemDescriptor>
+public final class DelegatingSystemDescriptor extends SystemDescriptor<DelegatingSystemDescriptor>
     implements SimpleInputDescriptorProvider, OutputDescriptorProvider {
 
   /**
-   * Constructs an {@link InternalSystemDescriptor} instance with no system level serde.
+   * Constructs an {@link DelegatingSystemDescriptor} instance with no system level serde.
    * Serdes must be provided explicitly at stream level when getting input or output descriptors.
    * SystemFactory class name must be provided in configuration.
    *
    * @param systemName name of this system
    */
   @VisibleForTesting
-  public InternalSystemDescriptor(String systemName) {
+  public DelegatingSystemDescriptor(String systemName) {
     super(systemName, null, null, null);
   }
 

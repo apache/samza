@@ -44,4 +44,20 @@ public class TestGenericSystemDescriptor {
     );
     assertEquals(expectedConfigs, generatedConfigs);
   }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testGetInputDescriptorWithNullSerde() {
+    GenericSystemDescriptor mySystem = new GenericSystemDescriptor("input-system", "factory.class.name");
+    mySystem.getInputDescriptor("streamId", null); // should throw an exception
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testGetSystemDescriptorWithNullSystemName() {
+    new GenericSystemDescriptor(null, "factory.class.name");
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testGetSystemDescriptorWithEmptySystemName() {
+    new GenericSystemDescriptor(" ", "factory.class.name");
+  }
 }

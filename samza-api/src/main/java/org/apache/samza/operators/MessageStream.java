@@ -217,9 +217,7 @@ public interface MessageStream<M> {
    * stream is both an output and input to the job.
    * <p>
    * Uses the provided {@link KVSerde} for serialization of keys and values. If the provided {@code serde} is null,
-   * uses the default system's serde provided via {@link StreamGraph#setDefaultSystem}, which must be a KVSerde. If
-   * the default system's serde is not a {@link KVSerde}, a runtime exception will be thrown. If no default system
-   * has been set <b>before</b> calling this method, serde for the default system must be set in configuration.
+   * uses the key and message serde configured for the job's default system.
    * <p>
    * The number of partitions for this intermediate stream is determined as follows:
    * If the stream is an eventual input to a {@link #join}, and the number of partitions for the other stream is known,
@@ -251,9 +249,7 @@ public interface MessageStream<M> {
   /**
    * Same as calling {@link #partitionBy(MapFunction, MapFunction, KVSerde, String)} with a null KVSerde.
    * <p>
-   * Uses the default system's serde provided via {@link StreamGraph#setDefaultSystem}, which must be a KVSerde. If
-   * the default system's serde is not a {@link KVSerde}, a runtime exception will be thrown. If no default system
-   * has been set <b>before</b> calling this method, serde for the default system must be set in configuration.
+   * Uses the key and message serde configured for the job's default system.
    *
    * @param keyExtractor the {@link MapFunction} to extract the message and partition key from the input message
    * @param valueExtractor the {@link MapFunction} to extract the value from the input message

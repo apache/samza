@@ -58,6 +58,7 @@ public class TestGenericInputDescriptor {
         .withStreamConfigs(Collections.emptyMap());
   }
 
+
   @Test
   public void testISDConfigsWithOverrides() {
     GenericSystemDescriptor mySystem =

@@ -34,7 +34,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.descriptors.InternalSystemDescriptor;
+import org.apache.samza.operators.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.sql.data.RexToJavaCompiler;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
@@ -52,7 +52,7 @@ public class TranslatorContext implements Cloneable {
   private final Map<String, SamzaRelConverter> relSamzaConverters;
   private final Map<Integer, MessageStream> messageStreams;
   private final Map<Integer, RelNode> relNodes;
-  private final Map<String, InternalSystemDescriptor> systemDescriptors;
+  private final Map<String, DelegatingSystemDescriptor> systemDescriptors;
 
   /**
    * The internal variables that are not shared among all cloned {@link TranslatorContext}
@@ -205,7 +205,7 @@ public class TranslatorContext implements Cloneable {
     return this.relSamzaConverters.get(source);
   }
 
-  Map<String, InternalSystemDescriptor> getSystemDescriptors() {
+  Map<String, DelegatingSystemDescriptor> getSystemDescriptors() {
     return this.systemDescriptors;
   }
 
