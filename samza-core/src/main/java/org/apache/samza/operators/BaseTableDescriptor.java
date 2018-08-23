@@ -45,7 +45,7 @@ abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K,
 
   /**
    * Constructs a table descriptor instance
-   * @param tableId Id of the table, it must confirm to pattern { @literal [\d\w-_]+ }
+   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
    */
   protected BaseTableDescriptor(String tableId) {
     this.tableId = tableId;

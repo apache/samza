@@ -53,8 +53,8 @@ import com.google.common.base.Preconditions;
  */
 public class StreamGraphSpec implements StreamGraph {
   private static final Logger LOGGER = LoggerFactory.getLogger(StreamGraphSpec.class);
-  private static final Pattern STREAM_ID_PATTERN = Pattern.compile("[\\d\\w-_.]+");
-  private static final Pattern TABLE_ID_PATTERN = Pattern.compile("[\\d\\w-_]+");
+  public static final Pattern STREAM_ID_PATTERN = Pattern.compile("[\\d\\w-_.]+");
+  public static final Pattern TABLE_ID_PATTERN = Pattern.compile("[\\d\\w-_]+");
 
   // We use a LHM for deterministic order in initializing and closing operators.
   private final Map<String, InputOperatorSpec> inputOperators = new LinkedHashMap<>();
@@ -87,8 +87,8 @@ public class StreamGraphSpec implements StreamGraph {
 
   @Override
   public <M> MessageStream<M> getInputStream(String streamId, Serde<M> serde) {
-    Preconditions.checkState(isValidStreamId(streamId),
-        "streamId must be non-empty and must not contain spaces or special characters: " + streamId);
+    Preconditions.checkState(isValidStreamId(streamId), String.format(
+        "streamId %s doesn't confirm to pattern %s", streamId, StreamGraphSpec.STREAM_ID_PATTERN));
     Preconditions.checkNotNull(serde, "serde must not be null for an input stream.");
     Preconditions.checkState(!inputOperators.containsKey(streamId),
         "getInputStream must not be called multiple times with the same streamId: " + streamId);
@@ -118,8 +118,8 @@ public class StreamGraphSpec implements StreamGraph {
 
   @Override
   public <M> OutputStream<M> getOutputStream(String streamId, Serde<M> serde) {
-    Preconditions.checkState(isValidStreamId(streamId),
-        "streamId must be non-empty and must not contain spaces or special characters: " + streamId);
+    Preconditions.checkState(isValidStreamId(streamId), String.format(
+        "streamId %s doesn't confirm to pattern %s", streamId, StreamGraphSpec.STREAM_ID_PATTERN));
     Preconditions.checkNotNull(serde, "serde must not be null for an output stream.");
     Preconditions.checkState(!outputStreams.containsKey(streamId),
         "getOutputStream must not be called multiple times with the same streamId: " + streamId);
@@ -267,11 +267,11 @@ public class StreamGraphSpec implements StreamGraph {
     return Collections.unmodifiableMap(tables);
   }
 
-  private boolean isValidStreamId(String id) {
+  public static boolean isValidStreamId(String id) {
     return StringUtils.isNotBlank(id) && STREAM_ID_PATTERN.matcher(id).matches();
   }
 
-  private boolean isValidTableId(String id) {
+  public static boolean isValidTableId(String id) {
     return StringUtils.isNotBlank(id) && TABLE_ID_PATTERN.matcher(id).matches();
   }
 

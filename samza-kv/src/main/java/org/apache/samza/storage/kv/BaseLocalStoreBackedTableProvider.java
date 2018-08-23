@@ -31,6 +31,7 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
@@ -100,8 +101,9 @@ abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvide
 
     List<String> sideInputs = tableSpec.getSideInputs();
     if (sideInputs != null && !sideInputs.isEmpty()) {
+      sideInputs.forEach(si -> Preconditions.checkState(StreamGraphSpec.isValidStreamId(si), String.format(
+          "Side input stream %s doesn't confirm to pattern %s", si, StreamGraphSpec.STREAM_ID_PATTERN)));
       String formattedSideInputs = String.join(",", sideInputs);
-
       storeConfig.put(String.format(JavaStorageConfig.SIDE_INPUTS, tableSpec.getId()), formattedSideInputs);
       storeConfig.put(String.format(JavaStorageConfig.SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE, tableSpec.getId()),
           SerdeUtils.serialize("Side Inputs Processor", tableSpec.getSideInputsProcessor()));
@@ -119,6 +121,8 @@ abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvide
             tableSpec.getId());
       }
 
+      Preconditions.checkState(StreamGraphSpec.isValidStreamId(changelogStream), String.format(
+          "Changelog stream %s doesn't confirm to pattern %s", changelogStream, StreamGraphSpec.STREAM_ID_PATTERN));
       storeConfig.put(String.format(StorageConfig.CHANGELOG_STREAM(), tableSpec.getId()), changelogStream);
 
       String changelogReplicationFactor = tableSpec.getConfig().get(
