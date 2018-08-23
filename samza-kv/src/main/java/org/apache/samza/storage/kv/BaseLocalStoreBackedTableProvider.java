@@ -22,20 +22,22 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.config.JavaTableConfig;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.Table;
-import org.apache.samza.table.TableProvider;
 import org.apache.samza.table.TableSpec;
+import org.apache.samza.table.utils.BaseTableProvider;
 import org.apache.samza.table.utils.SerdeUtils;
 import org.apache.samza.task.TaskContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 
@@ -47,26 +49,18 @@ import com.google.common.base.Preconditions;
  * the table provider will not manage the lifecycle of the backing
  * stores.
  */
-abstract public class BaseLocalStoreBackedTableProvider implements TableProvider {
-
-  protected final Logger logger = LoggerFactory.getLogger(getClass());
-
-  protected final TableSpec tableSpec;
+abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvider {
 
   protected KeyValueStore kvStore;
 
-  protected SamzaContainerContext containerContext;
-
-  protected TaskContext taskContext;
-
   public BaseLocalStoreBackedTableProvider(TableSpec tableSpec) {
-    this.tableSpec = tableSpec;
+    super(tableSpec);
   }
 
   @Override
   public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
-    this.containerContext = containerContext;
-    this.taskContext = taskContext;
+
+    super.init(containerContext, taskContext);
 
     Preconditions.checkNotNull(this.taskContext, "Must specify task context for local tables.");
 
@@ -90,14 +84,14 @@ abstract public class BaseLocalStoreBackedTableProvider implements TableProvider
     return table;
   }
 
-  protected Map<String, String> generateCommonStoreConfig(Map<String, String> config) {
+  protected Map<String, String> generateCommonStoreConfig(Config jobConfig, Map<String, String> generatedConfig) {
 
     Map<String, String> storeConfig = new HashMap<>();
 
     // We assume the configuration for serde are already generated for this table,
     // so we simply carry them over to store configuration.
     //
-    JavaTableConfig tableConfig = new JavaTableConfig(new MapConfig(config));
+    JavaTableConfig tableConfig = new JavaTableConfig(new MapConfig(generatedConfig));
 
     String keySerde = tableConfig.getKeySerde(tableSpec.getId());
     storeConfig.put(String.format(StorageConfig.KEY_SERDE(), tableSpec.getId()), keySerde);
@@ -107,11 +101,36 @@ abstract public class BaseLocalStoreBackedTableProvider implements TableProvider
 
     List<String> sideInputs = tableSpec.getSideInputs();
     if (sideInputs != null && !sideInputs.isEmpty()) {
+      sideInputs.forEach(si -> Preconditions.checkState(StreamGraphSpec.isValidStreamId(si), String.format(
+          "Side input stream %s doesn't confirm to pattern %s", si, StreamGraphSpec.STREAM_ID_PATTERN)));
       String formattedSideInputs = String.join(",", sideInputs);
-
       storeConfig.put(String.format(JavaStorageConfig.SIDE_INPUTS, tableSpec.getId()), formattedSideInputs);
       storeConfig.put(String.format(JavaStorageConfig.SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE, tableSpec.getId()),
           SerdeUtils.serialize("Side Inputs Processor", tableSpec.getSideInputsProcessor()));
+    }
+
+    // Changelog configuration
+    Boolean enableChangelog = Boolean.valueOf(
+        tableSpec.getConfig().get(BaseLocalStoreBackedTableDescriptor.INTERNAL_ENABLE_CHANGELOG));
+    if (enableChangelog) {
+      String changelogStream = tableSpec.getConfig().get(BaseLocalStoreBackedTableDescriptor.INTERNAL_CHANGELOG_STREAM);
+      if (StringUtils.isEmpty(changelogStream)) {
+        changelogStream = String.format("%s-%s-table-%s",
+            jobConfig.get(JobConfig.JOB_NAME()),
+            jobConfig.get(JobConfig.JOB_ID(), "1"),
+            tableSpec.getId());
+      }
+
+      Preconditions.checkState(StreamGraphSpec.isValidStreamId(changelogStream), String.format(
+          "Changelog stream %s doesn't confirm to pattern %s", changelogStream, StreamGraphSpec.STREAM_ID_PATTERN));
+      storeConfig.put(String.format(StorageConfig.CHANGELOG_STREAM(), tableSpec.getId()), changelogStream);
+
+      String changelogReplicationFactor = tableSpec.getConfig().get(
+          BaseLocalStoreBackedTableDescriptor.INTERNAL_CHANGELOG_REPLICATION_FACTOR);
+      if (changelogReplicationFactor != null) {
+        storeConfig.put(String.format(StorageConfig.CHANGELOG_REPLICATION_FACTOR(), tableSpec.getId()),
+            changelogReplicationFactor);
+      }
     }
 
     return storeConfig;

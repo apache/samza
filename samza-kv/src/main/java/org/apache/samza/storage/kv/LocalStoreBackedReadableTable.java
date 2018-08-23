@@ -44,6 +44,7 @@ public class LocalStoreBackedReadableTable<K, V> implements ReadableTable<K, V> 
 
   /**
    * Constructs an instance of {@link LocalStoreBackedReadableTable}
+   * @param tableId the table Id
    * @param kvStore the backing store
    */
   public LocalStoreBackedReadableTable(String tableId, KeyValueStore<K, V> kvStore) {

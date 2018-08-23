@@ -75,8 +75,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   private int asyncCallbackPoolSize = -1;
 
   /**
-   * Construct a table descriptor instance
-   * @param tableId Id of the table
+   * {@inheritDoc}
    */
   public RemoteTableDescriptor(String tableId) {
     super(tableId);
