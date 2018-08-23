@@ -188,6 +188,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
      * stream creation.
      * @param planId a unique identifier representing the plan used for coordination purpose
      * @param intStreams list of intermediate {@link StreamSpec}s
+     * @param streamManager the {@link StreamManager} used to create streams
      * @throws TimeoutException exception for latch timeout
      */
     private void createStreams(String planId, List<StreamSpec> intStreams, StreamManager streamManager) throws TimeoutException {
@@ -272,7 +273,8 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     } catch (Throwable throwable) {
       appStatus = ApplicationStatus.unsuccessfulFinish(throwable);
       shutdownLatch.countDown();
-      throw new SamzaException("Failed to start application.", throwable);
+      throw new SamzaException(String.format("Failed to start application: %s",
+          new ApplicationConfig(appDesc.getConfig()).getGlobalAppId()), throwable);
     }
   }
 

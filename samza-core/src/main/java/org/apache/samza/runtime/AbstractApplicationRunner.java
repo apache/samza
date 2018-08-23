@@ -35,6 +35,7 @@ import org.apache.samza.application.ApplicationDescriptors;
 import org.apache.samza.application.StreamAppDescriptorImpl;
 import org.apache.samza.application.TaskAppDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
+import org.apache.samza.config.ApplicationConfig.ApplicationMode;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -122,8 +123,8 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
       StreamConfig streamConfig = new StreamConfig(config);
       Set<String> inputStreams = new HashSet<>(specGraph.getInputOperators().keySet());
       inputStreams.removeAll(specGraph.getOutputStreams().keySet());
-      ApplicationConfig.ApplicationMode mode = inputStreams.stream().allMatch(streamConfig::getIsBounded)
-          ? ApplicationConfig.ApplicationMode.BATCH : ApplicationConfig.ApplicationMode.STREAM;
+      ApplicationMode mode = inputStreams.stream().allMatch(streamConfig::getIsBounded)
+          ? ApplicationMode.BATCH : ApplicationMode.STREAM;
       cfg.put(ApplicationConfig.APP_MODE, mode.name());
       validateAppClassCfg(cfg, appDesc.getAppClass());
 
@@ -167,7 +168,7 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
     }
 
     private void validateAppClassCfg(Map<String, String> cfg, Class<? extends ApplicationBase> appClass) {
-      if (cfg.get(ApplicationConfig.APP_CLASS) != null && !cfg.get(ApplicationConfig.APP_CLASS).isEmpty()) {
+      if (StringUtils.isNotBlank(cfg.get(ApplicationConfig.APP_CLASS))) {
         // app.class is already set
         return;
       }

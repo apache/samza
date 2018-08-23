@@ -20,6 +20,7 @@
 package org.apache.samza.runtime;
 
 import com.google.common.collect.ImmutableList;
+
 import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
@@ -29,7 +30,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.application.AppDescriptorImpl;
 import org.apache.samza.application.ApplicationBase;
-import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.application.ApplicationDescriptors;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
@@ -54,7 +54,6 @@ import org.mockito.ArgumentCaptor;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
-import org.powermock.reflect.Whitebox;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -93,7 +92,7 @@ public class TestLocalApplicationRunner {
   public void setUp() {
     config = new MapConfig();
     mockApp = mock(StreamApplication.class);
-    prepareTest(mockApp, config);
+    prepareTest();
   }
 
   @Test
@@ -174,7 +173,7 @@ public class TestLocalApplicationRunner {
     cfgs.put(TaskConfig.TASK_CLASS(), "org.apache.samza.task.IdentityStreamTask");
     config = new MapConfig(cfgs);
     mockApp = ApplicationClassUtils.fromConfig(config);
-    prepareTest(mockApp, config);
+    prepareTest();
 
     StreamProcessor sp = mock(StreamProcessor.class);
 
@@ -207,7 +206,7 @@ public class TestLocalApplicationRunner {
     mockApp = (StreamApplication) appDesc -> {
       appDesc.withProcessorLifecycleListenerFactory(mockFactory);
     };
-    prepareTest(mockApp, config);
+    prepareTest();
 
     // buildAndStartStreamManager already includes start, so not going to verify it gets called
     StreamManager streamManager = mock(StreamManager.class);
@@ -249,7 +248,7 @@ public class TestLocalApplicationRunner {
     mockApp = (StreamApplication) appDesc -> {
       appDesc.withProcessorLifecycleListenerFactory(mockFactory);
     };
-    prepareTest(mockApp, config);
+    prepareTest();
 
     // buildAndStartStreamManager already includes start, so not going to verify it gets called
     StreamManager streamManager = mock(StreamManager.class);
@@ -358,8 +357,8 @@ public class TestLocalApplicationRunner {
     assertFalse("Application finished before the timeout.", finished);
   }
 
-  private void prepareTest(ApplicationBase userApp, Config config) {
-    AppDescriptorImpl appDesc = ApplicationDescriptors.getAppDescriptor(userApp, config);
+  private void prepareTest() {
+    AppDescriptorImpl appDesc = ApplicationDescriptors.getAppDescriptor(mockApp, config);
     localPlanner = spy(new LocalApplicationRunner.LocalJobPlanner(appDesc, "test-planner"));
     runner = spy(new LocalApplicationRunner(appDesc, localPlanner));
   }

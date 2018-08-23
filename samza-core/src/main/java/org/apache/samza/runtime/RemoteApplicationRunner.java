@@ -19,7 +19,6 @@
 
 package org.apache.samza.runtime;
 
-import com.google.common.annotations.VisibleForTesting;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
@@ -103,16 +102,6 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   RemoteApplicationRunner(ApplicationBase userApp, Config config) {
     super(ApplicationDescriptors.getAppDescriptor(userApp, config));
     this.planner = new RemoteJobPlanner(appDesc);
-  }
-
-  /**
-   * Constructor only used in unit test to allow injection of {@link LocalApplicationRunner.LocalJobPlanner}
-   *
-   */
-  @VisibleForTesting
-  RemoteApplicationRunner(AppDescriptorImpl appDesc, RemoteJobPlanner planner) {
-    super(appDesc);
-    this.planner = planner;
   }
 
   @Override
