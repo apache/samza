@@ -22,7 +22,7 @@ import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.serializers.Serde;
 
 /**
- * Interface for advanced {@code SystemDescriptors} that constrain the type of returned {@code InputDescriptors} to
+ * Interface for advanced {@code SystemDescriptor}s that constrain the type of returned {@code InputDescriptor}s to
  * their own {@code StreamExpander} function result types.
  *
  * @param <StreamExpanderType> type of the system level {@code StreamExpander} results
@@ -37,8 +37,8 @@ public interface ExpandingInputDescriptorProvider<StreamExpanderType> {
    * {@code StreamExpander}
    *
    * @param streamId id of the input stream
-   * @param serde stream level serde for the input stream
-   * @return a {@link InputDescriptor} for the input stream
+   * @param serde stream level serde to be propagated to expanded input streams
+   * @return an {@link InputDescriptor} for the input stream
    */
   InputDescriptor<StreamExpanderType, ? extends InputDescriptor> getInputDescriptor(String streamId, Serde serde);
 }

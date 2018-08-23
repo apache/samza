@@ -27,7 +27,6 @@ import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
  * Expands the provided {@link InputDescriptor} to a sub-DAG of one or more operators on the {@link StreamGraph},
  * and returns a new {@link MessageStream} with the combined results. Called when {@link StreamGraph#getInputStream}
  * is being used to get a {@link MessageStream} using an {@link InputDescriptor} from an expanding system descriptor.
- *
  * <p>
  * This is provided by default by expanding system descriptor implementations and can not be overridden
  * or set on a per stream level.
@@ -41,9 +40,14 @@ public interface StreamExpander<OM> extends Serializable {
    * and returns a new {@link MessageStream} with the combined results. Called when the {@link InputDescriptor}
    * is being used to get an {@link MessageStream} using {@link StreamGraph#getInputStream}.
    * <p>
-   * Note: Take care to avoid infinite recursion in the implementation; e.g., by ensuring that it doesn't call
+   * Notes for system implementers:
+   * <p>
+   * Take care to avoid infinite recursion in the implementation; e.g., by ensuring that it doesn't call
    * {@link StreamGraph#getInputStream} with an {@link InputDescriptor} from an expanding system descriptor
    * (like this one) again.
+   * <p>
+   * It's the {@link StreamExpander}'s responsibility to propagate any properties, including serde, from the
+   * user-provided {@link InputDescriptor} to the expanded input descriptors.
    *
    * @param streamGraph the {@link StreamGraph} to register the expanded sub-DAG of operators on
    * @param inputDescriptor the {@link InputDescriptor} to be expanded
