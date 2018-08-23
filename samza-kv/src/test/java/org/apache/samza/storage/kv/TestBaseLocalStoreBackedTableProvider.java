@@ -40,7 +40,7 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.*;
 
 
-public class TestLocalBaseStoreBackedTableProvider {
+public class TestBaseLocalStoreBackedTableProvider {
 
   @Test
   public void testInit() {
@@ -94,7 +94,7 @@ public class TestLocalBaseStoreBackedTableProvider {
 
   @Test
   public void testChangelogEnabled() {
-    TableSpec tableSpec = createTableDescriptor("$1")
+    TableSpec tableSpec = createTableDescriptor("t1")
         .withChangelogEnabled()
         .getTableSpec();
 
@@ -105,21 +105,21 @@ public class TestLocalBaseStoreBackedTableProvider {
     TableProvider tableProvider = createTableProvider(tableSpec);
     Map<String, String> tableConfig = tableProvider.generateConfig(new MapConfig(jobConfig), new MapConfig());
     Assert.assertEquals(3, tableConfig.size());
-    Assert.assertEquals("test-job-10-table--1", String.format(
-        tableConfig.get(String.format(StorageConfig.CHANGELOG_STREAM(), "$1"))));
+    Assert.assertEquals("test-job-10-table-t1", String.format(
+        tableConfig.get(String.format(StorageConfig.CHANGELOG_STREAM(), "t1"))));
   }
 
   @Test
   public void testChangelogEnabledWithCustomParameters() {
     TableSpec tableSpec = createTableDescriptor("t1")
-        .withChangelogStream("my$tream")
+        .withChangelogStream("my-stream")
         .withChangelogReplicationFactor(100)
         .getTableSpec();
 
     TableProvider tableProvider = createTableProvider(tableSpec);
     Map<String, String> tableConfig = tableProvider.generateConfig(new MapConfig(), new MapConfig());
     Assert.assertEquals(4, tableConfig.size());
-    Assert.assertEquals("my-tream", String.format(
+    Assert.assertEquals("my-stream", String.format(
         tableConfig.get(String.format(StorageConfig.CHANGELOG_STREAM(), "t1"))));
     Assert.assertEquals("100", String.format(
         tableConfig.get(String.format(StorageConfig.CHANGELOG_REPLICATION_FACTOR(), "t1"))));

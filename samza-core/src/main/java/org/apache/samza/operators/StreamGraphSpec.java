@@ -53,7 +53,8 @@ import com.google.common.base.Preconditions;
  */
 public class StreamGraphSpec implements StreamGraph {
   private static final Logger LOGGER = LoggerFactory.getLogger(StreamGraphSpec.class);
-  private static final Pattern ID_PATTERN = Pattern.compile("[\\d\\w-_.]+");
+  private static final Pattern STREAM_ID_PATTERN = Pattern.compile("[\\d\\w-_.]+");
+  private static final Pattern TABLE_ID_PATTERN = Pattern.compile("[\\d\\w-_]+");
 
   // We use a LHM for deterministic order in initializing and closing operators.
   private final Map<String, InputOperatorSpec> inputOperators = new LinkedHashMap<>();
@@ -86,7 +87,7 @@ public class StreamGraphSpec implements StreamGraph {
 
   @Override
   public <M> MessageStream<M> getInputStream(String streamId, Serde<M> serde) {
-    Preconditions.checkState(isValidId(streamId),
+    Preconditions.checkState(isValidStreamId(streamId),
         "streamId must be non-empty and must not contain spaces or special characters: " + streamId);
     Preconditions.checkNotNull(serde, "serde must not be null for an input stream.");
     Preconditions.checkState(!inputOperators.containsKey(streamId),
@@ -117,7 +118,7 @@ public class StreamGraphSpec implements StreamGraph {
 
   @Override
   public <M> OutputStream<M> getOutputStream(String streamId, Serde<M> serde) {
-    Preconditions.checkState(isValidId(streamId),
+    Preconditions.checkState(isValidStreamId(streamId),
         "streamId must be non-empty and must not contain spaces or special characters: " + streamId);
     Preconditions.checkNotNull(serde, "serde must not be null for an output stream.");
     Preconditions.checkState(!outputStreams.containsKey(streamId),
@@ -145,12 +146,11 @@ public class StreamGraphSpec implements StreamGraph {
 
   @Override
   public <K, V> Table<KV<K, V>> getTable(TableDescriptor<K, V, ?> tableDesc) {
+    Preconditions.checkState(isValidTableId(tableDesc.getTableId()), String.format(
+        "tableId %s doesn't confirm to pattern %s", tableDesc.getTableId(), TABLE_ID_PATTERN.toString()));
     TableSpec tableSpec = ((BaseTableDescriptor) tableDesc).getTableSpec();
-    if (tables.containsKey(tableSpec)) {
-      throw new IllegalStateException(String.format(
-          "getTable() invoked multiple times with the same tableId: %s",
-          tableDesc.getTableId()));
-    }
+    Preconditions.checkState(!tables.containsKey(tableSpec), String.format(
+        "getTable() invoked multiple times with the same tableId: %s", tableDesc.getTableId()));
     tables.put(tableSpec, new TableImpl(tableSpec));
     return tables.get(tableSpec);
   }
@@ -178,7 +178,7 @@ public class StreamGraphSpec implements StreamGraph {
    * @return the unique ID for the next operator in the graph
    */
   public String getNextOpId(OpCode opCode, String userDefinedId) {
-    if (StringUtils.isNotBlank(userDefinedId) && !ID_PATTERN.matcher(userDefinedId).matches()) {
+    if (StringUtils.isNotBlank(userDefinedId) && !STREAM_ID_PATTERN.matcher(userDefinedId).matches()) {
       throw new SamzaException("Operator ID must not contain spaces or special characters: " + userDefinedId);
     }
 
@@ -267,8 +267,12 @@ public class StreamGraphSpec implements StreamGraph {
     return Collections.unmodifiableMap(tables);
   }
 
-  private boolean isValidId(String id) {
-    return StringUtils.isNotBlank(id) && ID_PATTERN.matcher(id).matches();
+  private boolean isValidStreamId(String id) {
+    return StringUtils.isNotBlank(id) && STREAM_ID_PATTERN.matcher(id).matches();
+  }
+
+  private boolean isValidTableId(String id) {
+    return StringUtils.isNotBlank(id) && TABLE_ID_PATTERN.matcher(id).matches();
   }
 
   private KV<Serde, Serde> getKVSerdes(String streamId, Serde serde) {

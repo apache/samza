@@ -201,7 +201,8 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
           if (isSink) {
             tableDescriptor = new TestTableDescriptor(TEST_TABLE_ID + tableDescMap.size());
           } else {
-            tableDescriptor = new RocksDbTableDescriptor("InputTable-" + ioName)
+            String tableId = "InputTable-" + ioName.replace(".", "-").replace("$", "-");
+            tableDescriptor = new RocksDbTableDescriptor(tableId)
                 .withSerde(KVSerde.of(
                     new JsonSerdeV2<>(SamzaSqlCompositeKey.class),
                     new JsonSerdeV2<>(SamzaSqlRelMessage.class)));

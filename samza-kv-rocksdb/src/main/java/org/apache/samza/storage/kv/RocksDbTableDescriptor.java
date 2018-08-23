@@ -56,6 +56,9 @@ public class RocksDbTableDescriptor<K, V> extends BaseLocalStoreBackedTableDescr
   private String compressionType;
   private String compactionStyle;
 
+  /**
+   * {@inheritDoc}
+   */
   public RocksDbTableDescriptor(String tableId) {
     super(tableId);
   }

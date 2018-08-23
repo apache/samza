@@ -21,7 +21,6 @@ package org.apache.samza.storage.kv;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
@@ -50,8 +49,6 @@ import com.google.common.base.Preconditions;
  * stores.
  */
 abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvider {
-
-  private static final Pattern INVALID_CHANGELOG_CHARS = Pattern.compile("[^a-zA-Z0-9_-]+");
 
   protected KeyValueStore kvStore;
 
@@ -111,8 +108,9 @@ abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvide
     }
 
     // Changelog configuration
-    String enableChangelog = tableSpec.getConfig().get(BaseLocalStoreBackedTableDescriptor.INTERNAL_ENABLE_CHANGELOG);
-    if ("true".equalsIgnoreCase(enableChangelog)) {
+    Boolean enableChangelog = Boolean.valueOf(
+        tableSpec.getConfig().get(BaseLocalStoreBackedTableDescriptor.INTERNAL_ENABLE_CHANGELOG));
+    if (enableChangelog) {
       String changelogStream = tableSpec.getConfig().get(BaseLocalStoreBackedTableDescriptor.INTERNAL_CHANGELOG_STREAM);
       if (StringUtils.isEmpty(changelogStream)) {
         changelogStream = String.format("%s-%s-table-%s",
@@ -121,9 +119,6 @@ abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvide
             tableSpec.getId());
       }
 
-      // Replace invalid characters in changelog stream name to conform to
-      // Kafka topic requirements
-      changelogStream = INVALID_CHANGELOG_CHARS.matcher(changelogStream).replaceAll("-");
       storeConfig.put(String.format(StorageConfig.CHANGELOG_STREAM(), tableSpec.getId()), changelogStream);
 
       String changelogReplicationFactor = tableSpec.getConfig().get(

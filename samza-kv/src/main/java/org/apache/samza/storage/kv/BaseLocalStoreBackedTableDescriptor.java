@@ -71,7 +71,9 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
   }
 
   /**
-   * Enable changelog for this table, by default changelog is disabled.
+   * Enable changelog for this table, by default changelog is disabled. When the
+   * changelog stream name is not specified, it is automatically generated in
+   * the format { @literal [job-name]-[job-id]-table-[table-id] }.
    * Refer to <code>stores.store-name.changelog</code> in Samza configuration guide
    *
    * @return this table descriptor instance
@@ -82,12 +84,6 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
   }
 
   /**
-   * Specify the changelog stream name, by default when changelog is enabled, the
-   * changelog stream name is automatically generated in format
-   * { @literal [job-name]-[job-id]-table-[table-id] }. For both auto-generated
-   * and user specified changelog stream, invalid characters will be automatically
-   * replaced with '-' to confirm with pattern { @literal [a-zA-Z0-9_-]+ }
-   *
    * Refer to <code>stores.store-name.changelog</code> in Samza configuration guide
    *
    * @param changelogStream changelog stream name

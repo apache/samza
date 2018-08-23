@@ -384,7 +384,7 @@ public class TestStreamGraphSpec {
   public void testGetIntermediateStreamWithDefaultKeyValueSerde() {
     Config mockConfig = mock(Config.class);
     String streamId = "streamId";
-    
+
     StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
 
     KVSerde mockKVSerde = mock(KVSerde.class);
@@ -409,7 +409,7 @@ public class TestStreamGraphSpec {
   public void testGetIntermediateStreamWithDefaultDefaultSerde() {
     Config mockConfig = mock(Config.class);
     String streamId = "streamId";
-    
+
     StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
     IntermediateMessageStreamImpl<TestMessageEnvelope> intermediateStreamImpl =
         graphSpec.getIntermediateStream(streamId, null);
@@ -498,7 +498,7 @@ public class TestStreamGraphSpec {
     String testStreamId1 = "test-stream-1";
     String testStreamId2 = "test-stream-2";
     String testStreamId3 = "test-stream-3";
-    
+
     graphSpec.getInputStream("test-stream-1");
     graphSpec.getInputStream("test-stream-2");
     graphSpec.getInputStream("test-stream-3");
@@ -516,8 +516,19 @@ public class TestStreamGraphSpec {
     StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
 
     BaseTableDescriptor mockTableDescriptor = mock(BaseTableDescriptor.class);
+    when(mockTableDescriptor.getTableId()).thenReturn("t1");
     when(mockTableDescriptor.getTableSpec()).thenReturn(
         new TableSpec("t1", KVSerde.of(new NoOpSerde(), new NoOpSerde()), "", new HashMap<>()));
     assertNotNull(graphSpec.getTable(mockTableDescriptor));
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void testGetTableWithBadId() {
+    Config mockConfig = mock(Config.class);
+    StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
+
+    BaseTableDescriptor mockTableDescriptor = mock(BaseTableDescriptor.class);
+    when(mockTableDescriptor.getTableId()).thenReturn("my.table");
+    graphSpec.getTable(mockTableDescriptor);
   }
 }
