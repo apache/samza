@@ -64,7 +64,7 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
 
   /**
    * This is a temporary helper class to include all common logic to generate {@link JobConfig}s for high- and low-level
-   * applications in {@link LocalApplicationRunner} and {@link RemoteApplicationRunner} before we fix SAMZA-1811.
+   * applications in {@link LocalApplicationRunner} and {@link RemoteApplicationRunner}.
    *
    * TODO: Fix SAMZA-1811 to consolidate the planning into {@link ExecutionPlanner}
    */

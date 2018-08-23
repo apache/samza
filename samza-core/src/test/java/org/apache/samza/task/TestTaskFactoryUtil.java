@@ -22,15 +22,22 @@ import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.concurrent.ExecutorService;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.AppDescriptorImpl;
+import org.apache.samza.application.StreamAppDescriptorImpl;
+import org.apache.samza.application.TaskAppDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.operators.OperatorSpecGraph;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 
 /**
  * Test methods to create {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory} based on task class configuration
@@ -118,5 +125,35 @@ public class TestTaskFactoryUtil {
 
     retFactory = TaskFactoryUtil.finalizeTaskFactory(mockAsyncStreamFactory, false, null);
     assertEquals(retFactory, mockAsyncStreamFactory);
+  }
+
+  // test getTaskFactory with StreamAppDescriptor
+  @Test
+  public void testGetTaskFactoryWithStreamAppDescriptor() {
+    StreamAppDescriptorImpl mockStreamApp = mock(StreamAppDescriptorImpl.class);
+    OperatorSpecGraph mockSpecGraph = mock(OperatorSpecGraph.class);
+    when(mockStreamApp.getOperatorSpecGraph()).thenReturn(mockSpecGraph);
+    TaskFactory streamTaskFactory = TaskFactoryUtil.getTaskFactory(mockStreamApp);
+    assertTrue(streamTaskFactory instanceof StreamTaskFactory);
+    StreamTask streamTask = ((StreamTaskFactory) streamTaskFactory).createInstance();
+    assertTrue(streamTask instanceof StreamOperatorTask);
+    verify(mockSpecGraph).clone();
+  }
+
+  // test getTaskFactory with TaskAppDescriptor
+  @Test
+  public void testGetTaskFactoryWithTaskAppDescriptor() {
+    TaskAppDescriptorImpl mockTaskApp = mock(TaskAppDescriptorImpl.class);
+    TaskFactory mockTaskFactory = mock(TaskFactory.class);
+    when(mockTaskApp.getTaskFactory()).thenReturn(mockTaskFactory);
+    TaskFactory taskFactory = TaskFactoryUtil.getTaskFactory(mockTaskApp);
+    assertEquals(mockTaskFactory, taskFactory);
+  }
+
+  // test getTaskFactory with invalid AppDescriptorImpl
+  @Test(expected = IllegalArgumentException.class)
+  public void testGetTaskFactoryWithInvalidAddDescriptorImpl() {
+    AppDescriptorImpl mockInvalidApp = mock(AppDescriptorImpl.class);
+    TaskFactoryUtil.getTaskFactory(mockInvalidApp);
   }
 }
