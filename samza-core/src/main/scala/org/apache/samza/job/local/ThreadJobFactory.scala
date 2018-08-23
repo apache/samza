@@ -91,6 +91,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
       new SamzaContainerListener {
         override def onContainerFailed(t: Throwable): Unit = {
           userListener.afterFailure(t)
+          throw t;
         }
 
         override def onContainerStart(): Unit = {
