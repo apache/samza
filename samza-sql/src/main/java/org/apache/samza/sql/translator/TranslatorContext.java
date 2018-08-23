@@ -22,6 +22,7 @@ package org.apache.samza.sql.translator;
 import java.util.HashMap;
 import java.util.Map;
 
+import java.util.TimeZone;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.linq4j.QueryProvider;
@@ -77,11 +78,18 @@ public class TranslatorContext implements Cloneable {
 
     @Override
     public Object get(String name) {
-      if (name.equals(Variable.CURRENT_TIMESTAMP.camelName)) {
-        return System.currentTimeMillis();
+      TimeZone timeZone = TimeZone.getDefault();
+      long timeMs = System.currentTimeMillis();
+      long offsetMs = timeZone.getOffset(timeMs);
+      if (name.equals(Variable.LOCAL_TIMESTAMP.camelName)) {
+        return timeMs + offsetMs;
+      } else if (name.equals(Variable.UTC_TIMESTAMP.camelName) || name.equals(Variable.CURRENT_TIMESTAMP.camelName)) {
+        return timeMs;
+      } else if (name.equals(Variable.TIME_ZONE.camelName)) {
+        return timeZone;
+      } else {
+        throw new UnsupportedOperationException("Unsupported operation " + name);
       }
-
-      return null;
     }
   }
 
