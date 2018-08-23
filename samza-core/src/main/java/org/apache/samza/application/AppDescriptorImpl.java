@@ -31,12 +31,11 @@ import org.apache.samza.task.TaskContext;
  * This base class contains the common objects that are used by both high-level and low-level API applications, such as
  * {@link Config}, {@link ContextManager}, and {@link ProcessorLifecycleListenerFactory}.
  *
- * @param <T> the type of user application
  * @param <S> the type of {@link ApplicationDescriptor} interface this implements. It has to be either
  *            {@link org.apache.samza.application.StreamAppDescriptor} or {@link org.apache.samza.application.TaskAppDescriptor}
  */
-public abstract class AppDescriptorImpl<T extends ApplicationBase, S extends ApplicationDescriptor<T>>
-    implements ApplicationDescriptor<T> {
+public abstract class AppDescriptorImpl<S extends ApplicationDescriptor>
+    implements ApplicationDescriptor<S> {
 
   final Config config;
   final Class<? extends ApplicationBase> appClass;

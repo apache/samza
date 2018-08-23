@@ -31,7 +31,8 @@ public interface ProcessorLifecycleListenerFactory extends Serializable {
   /**
    * Create an instance of {@link ProcessorLifecycleListener} for the StreamProcessor
    *
-   * @param pContext the context of the corresponding StreamProcessor
+   * @param pContext the context of the corresponding StreamProcessor. Note that {@link ProcessorContext} is just a
+   *                 placeholder before we have a proper implementation of general context in SAMZA-1714
    * @param config the configuration of the corresponding StreamProcessor
    * @return the {@link ProcessorLifecycleListener} callback object for the StreamProcessor
    */

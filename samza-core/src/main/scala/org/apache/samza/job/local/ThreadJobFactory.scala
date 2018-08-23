@@ -19,17 +19,19 @@
 
 package org.apache.samza.job.local
 
+import java.util.concurrent.CountDownLatch
+
 import org.apache.samza.application.ApplicationDescriptors
 import org.apache.samza.config.{Config, TaskConfigJava}
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
-import org.apache.samza.container.TaskName
-import org.apache.samza.container.{SamzaContainer, SamzaContainerListener}
-import org.apache.samza.coordinator.JobModelManager
+import org.apache.samza.container.{SamzaContainer, SamzaContainerListener, TaskName}
+import org.apache.samza.coordinator.{JobCoordinator, JobModelManager}
 import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap, MetricsReporter}
-import org.apache.samza.runtime.ApplicationClassUtils
+import org.apache.samza.processor.StreamProcessor
+import org.apache.samza.runtime.{ApplicationClassUtils, ProcessorContext, ProcessorLifecycleListener}
 import org.apache.samza.storage.ChangelogStreamManager
 import org.apache.samza.task.TaskFactory
 import org.apache.samza.task.TaskFactoryUtil
@@ -74,8 +76,8 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     val containerId = "0"
     val jmxServer = new JmxServer
 
-    val taskFactory : TaskFactory[_] = TaskFactoryUtil.getTaskFactory(ApplicationDescriptors.getAppDescriptor(
-      ApplicationClassUtils.fromConfig(config), config))
+    val appDesc = ApplicationDescriptors.getAppDescriptor(ApplicationClassUtils.fromConfig(config), config)
+    val taskFactory : TaskFactory[_] = TaskFactoryUtil.getTaskFactory(appDesc)
 
     // Give developers a nice friendly warning if they've specified task.opts and are using a threaded job.
     config.getTaskOpts match {
@@ -84,23 +86,24 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
       case _ => None
     }
 
-    val containerListener = new SamzaContainerListener {
-      override def onContainerFailed(t: Throwable): Unit = {
-        error("Container failed.", t)
-        throw t
-      }
+    val pListener = {
+      val userListener = appDesc.getProcessorLifecycleListenerFactory().createInstance(new ProcessorContext() { }, config)
+      new SamzaContainerListener {
+        override def onContainerFailed(t: Throwable): Unit = {
+          userListener.afterFailure(t)
+        }
 
-      override def onContainerStop(): Unit = {
-      }
+        override def onContainerStart(): Unit = {
+          userListener.afterStart()
+        }
 
-      override def onContainerStart(): Unit = {
+        override def onContainerStop(): Unit = {
+          userListener.afterStop()
+        }
 
-      }
-
-      /**
-        * Method invoked before the {@link org.apache.samza.container.SamzaContainer} is started
-        */
-      override def beforeStart(): Unit = {
+        override def beforeStart(): Unit = {
+          userListener.beforeStart()
+        }
 
       }
     }
@@ -113,7 +116,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         config,
         Map[String, MetricsReporter](),
         taskFactory)
-      container.setContainerListener(containerListener)
+      container.setContainerListener(pListener)
 
       val threadJob = new ThreadJob(container)
       threadJob

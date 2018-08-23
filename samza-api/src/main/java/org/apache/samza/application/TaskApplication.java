@@ -22,7 +22,9 @@ import org.apache.samza.annotation.InterfaceStability;
 
 
 /**
- * Describes and initializes the transforms for processing message streams and generating results in low-level API
+ * Describes and initializes the transforms for processing message streams and generating results in low-level API.
+ * <p>
+ * This is a marker interface that users will implement for a low-level application.
  * <p>
  * The following example removes page views older than 1 hour from the input stream:
  * <pre>{@code
@@ -63,13 +65,15 @@ import org.apache.samza.annotation.InterfaceStability;
  * }</pre>
  *
  * <p>
- * Implementation Notes: TaskApplication allow users to instantiate {@link org.apache.samza.task.StreamTask} or
+ * Implementation Notes: {@link TaskApplication} allow users to instantiate {@link org.apache.samza.task.StreamTask} or
  * {@link org.apache.samza.task.AsyncStreamTask} when describing the processing logic. A new {@link TaskAppDescriptor}
  * instance will be created and described by the user-defined {@link TaskApplication} when planning the execution.
  * {@link org.apache.samza.task.TaskFactory} and descriptors for data entities used in the task (e.g.
- * {@link org.apache.samza.operators.TableDescriptor}) are required to be serializable. The user-defined application
- * class that implements {@link TaskApplication} needs to be a class with proper fully-qualified class name to ensure
- * successful instantiation in both local and remote environments.
+ * {@link org.apache.samza.operators.TableDescriptor}) are required to be serializable.
+ *
+ * <p>
+ * The user-implemented {@link TaskApplication} class must be a class with proper fully-qualified class name and
+ * a default constructor with no parameters to ensure successful instantiation in both local and remote environments.
  */
 @InterfaceStability.Evolving
 public interface TaskApplication extends ApplicationBase<TaskAppDescriptor> {

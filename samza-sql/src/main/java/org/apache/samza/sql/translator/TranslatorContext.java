@@ -32,7 +32,6 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.samza.application.StreamAppDescriptor;
-import org.apache.samza.application.StreamAppDescriptorImpl;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.sql.data.RexToJavaCompiler;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
@@ -46,7 +45,7 @@ public class TranslatorContext implements Cloneable {
   /**
    * The internal variables that are shared among all cloned {@link TranslatorContext}
    */
-  private final StreamAppDescriptorImpl streamAppDesc;
+  private final StreamAppDescriptor streamAppDesc;
   private final RexToJavaCompiler compiler;
   private final Map<String, SamzaRelConverter> relSamzaConverters;
   private final Map<Integer, MessageStream> messsageStreams;
@@ -123,12 +122,12 @@ public class TranslatorContext implements Cloneable {
 
   /**
    * Create the instance of TranslatorContext
-   * @param stramAppDesc Samza's streamGraph that is populated during the translation.
+   * @param stramAppDesc Samza's streamAppDesc that is populated during the translation.
    * @param relRoot Root of the relational graph from calcite.
    * @param executionContext the execution context
    * @param converters the map of schema to RelData converters
    */
-  TranslatorContext(StreamAppDescriptorImpl stramAppDesc, RelRoot relRoot, SamzaSqlExecutionContext executionContext, Map<String, SamzaRelConverter> converters) {
+  TranslatorContext(StreamAppDescriptor stramAppDesc, RelRoot relRoot, SamzaSqlExecutionContext executionContext, Map<String, SamzaRelConverter> converters) {
     this.streamAppDesc = stramAppDesc;
     this.compiler = createExpressionCompiler(relRoot);
     this.executionContext = executionContext;

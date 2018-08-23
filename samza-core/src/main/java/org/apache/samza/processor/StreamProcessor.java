@@ -31,7 +31,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.container.IllegalContainerStateException;
@@ -297,8 +296,7 @@ public class StreamProcessor {
    * @return the {@link ProcessorContext} object
    */
   public ProcessorContext getProcessorContext() {
-    JobConfig jobConfig = new JobConfig(config);
-    return () -> String.format("%s-%s-%s", jobConfig.getName(), jobConfig.getJobId(), processorId);
+    return new ProcessorContext() { };
   }
 
   /**
@@ -425,7 +423,7 @@ public class StreamProcessor {
 
     @Override
     public void beforeStart() {
-      // processorListener.beforeStart() is invoked at the StreamProcessorLifecycleListener
+      // processorListener.beforeStart() is invoked in StreamProcessor.start()
     }
 
     @Override

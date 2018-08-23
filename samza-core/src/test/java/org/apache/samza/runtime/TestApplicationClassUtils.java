@@ -24,7 +24,7 @@ import org.apache.samza.application.ApplicationBase;
 import org.apache.samza.application.TaskAppDescriptorImpl;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.application.TestStreamApplication;
-import org.apache.samza.application.TestTaskApplication;
+import org.apache.samza.application.MockTaskApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
@@ -56,13 +56,13 @@ public class TestApplicationClassUtils {
   @Test
   public void testTaskAppClass() {
     Map<String, String> configMap = new HashMap<>();
-    configMap.put(ApplicationConfig.APP_CLASS, TestTaskApplication.class.getName());
+    configMap.put(ApplicationConfig.APP_CLASS, MockTaskApplication.class.getName());
     ApplicationBase app = ApplicationClassUtils.fromConfig(new MapConfig(configMap));
-    assertTrue(app instanceof TestTaskApplication);
+    assertTrue(app instanceof MockTaskApplication);
 
     configMap.put(TaskConfig.TASK_CLASS(), TestStreamTask.class.getName());
     app = ApplicationClassUtils.fromConfig(new MapConfig(configMap));
-    assertTrue(app instanceof TestTaskApplication);
+    assertTrue(app instanceof MockTaskApplication);
   }
 
   @Test

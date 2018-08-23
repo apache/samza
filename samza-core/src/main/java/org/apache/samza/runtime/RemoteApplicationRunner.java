@@ -19,11 +19,14 @@
 
 package org.apache.samza.runtime;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.AppDescriptorImpl;
 import org.apache.samza.application.ApplicationBase;
+import org.apache.samza.application.ApplicationDescriptors;
 import org.apache.samza.application.StreamAppDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
@@ -47,17 +50,22 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
   private static final Logger LOG = LoggerFactory.getLogger(RemoteApplicationRunner.class);
   private static final long DEFAULT_SLEEP_DURATION_MS = 2000;
-  private final RemoteJobConfigPlanner planner;
+  private final RemoteJobPlanner planner;
 
   /**
-   * Defines a {@link JobConfigPlanner} with specific implementation of {@link JobConfigPlanner#getStreamJobConfigs(StreamAppDescriptorImpl)}
+   * Defines a {@link JobPlanner} with specific implementation of {@link JobPlanner#prepareStreamJobs(StreamAppDescriptorImpl)}
    * for remote-launched Samza processors (e.g. in YARN).
    *
    * TODO: we need to consolidate all planning logic into {@link org.apache.samza.execution.ExecutionPlanner} after SAMZA-1811.
    */
-  private class RemoteJobConfigPlanner extends JobConfigPlanner {
+  class RemoteJobPlanner extends JobPlanner {
+
+    RemoteJobPlanner(AppDescriptorImpl descriptor) {
+      super(descriptor);
+    }
+
     @Override
-    List<JobConfig> getStreamJobConfigs(StreamAppDescriptorImpl streamAppDesc) throws Exception {
+    List<JobConfig> prepareStreamJobs(StreamAppDescriptorImpl streamAppDesc) throws Exception {
       // for high-level DAG, generate the plan and job configs
       StreamManager streamManager = null;
       try {
@@ -86,15 +94,31 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     }
   }
 
+  /**
+   * Default constructor that is required by any implementation of {@link ApplicationRunner}
+   *
+   * @param userApp user application
+   * @param config user configuration
+   */
   RemoteApplicationRunner(ApplicationBase userApp, Config config) {
-    super(userApp, config);
-    this.planner = new RemoteJobConfigPlanner();
+    super(ApplicationDescriptors.getAppDescriptor(userApp, config));
+    this.planner = new RemoteJobPlanner(appDesc);
+  }
+
+  /**
+   * Constructor only used in unit test to allow injection of {@link LocalApplicationRunner.LocalJobPlanner}
+   *
+   */
+  @VisibleForTesting
+  RemoteApplicationRunner(AppDescriptorImpl appDesc, RemoteJobPlanner planner) {
+    super(appDesc);
+    this.planner = planner;
   }
 
   @Override
   public void run() {
     try {
-      List<JobConfig> jobConfigs = planner.createJobConfigs();
+      List<JobConfig> jobConfigs = planner.prepareJobs();
       if (jobConfigs.isEmpty()) {
         throw new SamzaException("No jobs to run.");
       }

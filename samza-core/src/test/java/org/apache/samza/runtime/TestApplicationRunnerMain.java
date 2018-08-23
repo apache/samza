@@ -20,6 +20,7 @@ package org.apache.samza.runtime;
 
 import java.time.Duration;
 import org.apache.samza.application.ApplicationBase;
+import org.apache.samza.application.ApplicationDescriptors;
 import org.apache.samza.application.StreamAppDescriptor;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
@@ -85,7 +86,7 @@ public class TestApplicationRunnerMain {
     protected static int statusCount = 0;
 
     public TestApplicationRunnerInvocationCounts(ApplicationBase userApp, Config config) {
-      super(userApp, config);
+      super(ApplicationDescriptors.getAppDescriptor(userApp, config));
     }
 
     @Override

@@ -18,6 +18,7 @@
  */
 package org.apache.samza.runtime;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.application.ApplicationBase;
 import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.application.StreamApplication;
@@ -39,17 +40,17 @@ public class ApplicationClassUtils {
    * @return the {@link ApplicationBase} object
    */
   public static ApplicationBase fromConfig(Config config) {
-    ApplicationConfig appConfig = new ApplicationConfig(config);
-    if (appConfig.getAppClass() != null && !appConfig.getAppClass().isEmpty()) {
+    String appClassName = new ApplicationConfig(config).getAppClass();
+    if (StringUtils.isNotBlank(appClassName)) {
       // app.class is configured
       try {
-        Class<ApplicationBase> appClass = (Class<ApplicationBase>) Class.forName(appConfig.getAppClass());
+        Class<ApplicationBase> appClass = (Class<ApplicationBase>) Class.forName(appClassName);
         if (StreamApplication.class.isAssignableFrom(appClass) || TaskApplication.class.isAssignableFrom(appClass)) {
           return appClass.newInstance();
         }
       } catch (IllegalAccessException | InstantiationException | ClassNotFoundException e) {
         throw new ConfigException(String.format("Loading app.class %s failed. The user application has to implement "
-            + "StreamApplication or TaskApplication.", appConfig.getAppClass()), e);
+            + "StreamApplication or TaskApplication.", appClassName), e);
       }
     }
     // no app.class defined. It has to be a legacy application with task.class configuration

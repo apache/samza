@@ -23,12 +23,8 @@ import java.util.HashMap;
 import java.util.Random;
 import org.apache.log4j.MDC;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.ApplicationBase;
-import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.TaskApplication;
+import org.apache.samza.application.ApplicationDescriptors;
 import org.apache.samza.application.AppDescriptorImpl;
-import org.apache.samza.application.StreamAppDescriptorImpl;
-import org.apache.samza.application.TaskAppDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
@@ -80,16 +76,10 @@ public class LocalContainerRunner {
     MDC.put("jobName", jobName);
     MDC.put("jobId", jobId);
 
-    AppDescriptorImpl appDesc = getAppDesc(config);
+    AppDescriptorImpl appDesc = ApplicationDescriptors.getAppDescriptor(ApplicationClassUtils.fromConfig(config), config);
     run(appDesc, containerId, jobModel, config);
 
     System.exit(0);
-  }
-
-  private static AppDescriptorImpl getAppDesc(Config config) {
-    ApplicationBase userApp = ApplicationClassUtils.fromConfig(config);
-    return userApp instanceof StreamApplication ? new StreamAppDescriptorImpl((StreamApplication) userApp, config) :
-        new TaskAppDescriptorImpl((TaskApplication) userApp, config);
   }
 
   private static void run(AppDescriptorImpl appDesc, String containerId, JobModel jobModel, Config config) {
@@ -101,9 +91,8 @@ public class LocalContainerRunner {
         ScalaJavaUtil.toScalaMap(new HashMap<>()),
         taskFactory);
 
-    JobConfig jobConfig = new JobConfig(config);
-    ProcessorContext pContext = () -> String.format("%s-%s-%s", jobConfig.getName(), jobConfig.getJobId(), containerId);
-    ProcessorLifecycleListener pListener = appDesc.getProcessorLifecycleListenerFactory().createInstance(pContext, config);
+    ProcessorLifecycleListener pListener = appDesc.getProcessorLifecycleListenerFactory()
+        .createInstance(new ProcessorContext() { }, config);
 
     container.setContainerListener(
         new SamzaContainerListener() {

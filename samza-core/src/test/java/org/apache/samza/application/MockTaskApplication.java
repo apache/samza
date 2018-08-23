@@ -21,7 +21,7 @@ package org.apache.samza.application;
 /**
  * Test class of {@link TaskApplication} for unit tests
  */
-public class TestTaskApplication implements TaskApplication {
+public class MockTaskApplication implements TaskApplication {
   @Override
   public void describe(TaskAppDescriptor appSpec) {
 

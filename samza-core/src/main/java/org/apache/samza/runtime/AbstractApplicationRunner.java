@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.SamzaException;
 import org.apache.samza.application.AppDescriptorImpl;
 import org.apache.samza.application.ApplicationBase;
 import org.apache.samza.application.ApplicationDescriptors;
@@ -67,19 +68,36 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
    *
    * TODO: Fix SAMZA-1811 to consolidate the planning into {@link ExecutionPlanner}
    */
-  abstract class JobConfigPlanner {
+  static abstract class JobPlanner {
 
-    abstract List<JobConfig> getStreamJobConfigs(StreamAppDescriptorImpl streamAppDesc) throws Exception;
+    protected final AppDescriptorImpl appDesc;
+    protected final Config config;
 
-    List<JobConfig> createJobConfigs() throws Exception {
-      if (appDesc instanceof TaskAppDescriptorImpl) {
-        // low-level task application only needs a simple single job configuration
-        return Collections.singletonList(getTaskJobConfig((TaskAppDescriptorImpl) appDesc));
-      } else if (appDesc instanceof StreamAppDescriptorImpl) {
-        return getStreamJobConfigs((StreamAppDescriptorImpl) appDesc);
-      }
+    JobPlanner(AppDescriptorImpl descriptor) {
+      this.appDesc = descriptor;
+      this.config = descriptor.getConfig();
+    }
 
-      throw new IllegalArgumentException("ApplicationDescriptor class " + appDesc.getClass().getName() + " is not supported");
+    abstract List<JobConfig> prepareStreamJobs(StreamAppDescriptorImpl streamAppDesc) throws Exception;
+
+    List<JobConfig> prepareJobs() throws Exception {
+      String appId = new ApplicationConfig(appDesc.getConfig()).getGlobalAppId();
+      return ApplicationDescriptors.forType(
+          taskAppDesc -> {
+          try {
+            return Collections.singletonList(JobPlanner.this.prepareTaskJob(taskAppDesc));
+          } catch (Exception e) {
+            throw new SamzaException("Failed to generate JobConfig for TaskApplication " + appId, e);
+          }
+        },
+          streamAppDesc -> {
+          try {
+            return JobPlanner.this.prepareStreamJobs(streamAppDesc);
+          } catch (Exception e) {
+            throw new SamzaException("Failed to generate JobConfig for StreamApplication " + appId, e);
+          }
+        },
+        appDesc);
     }
 
     StreamManager buildAndStartStreamManager() {
@@ -136,7 +154,7 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
     }
 
     // helper method to generate a single node job configuration for low level task applications
-    private JobConfig getTaskJobConfig(TaskAppDescriptorImpl taskAppDesc) {
+    private JobConfig prepareTaskJob(TaskAppDescriptorImpl taskAppDesc) {
       Map<String, String> cfg = new HashMap<>(taskAppDesc.getConfig());
       //TODO: add stream and system descriptor to configuration conversion here when SAMZA-1804 is fixed.
       // adding table configuration
@@ -158,8 +176,8 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
     }
   }
 
-  AbstractApplicationRunner(ApplicationBase userApp, Config config) {
-    this.appDesc = ApplicationDescriptors.getAppDescriptor(userApp, config);
+  AbstractApplicationRunner(AppDescriptorImpl appDesc) {
+    this.appDesc = appDesc;
     this.config = appDesc.getConfig();
   }
 

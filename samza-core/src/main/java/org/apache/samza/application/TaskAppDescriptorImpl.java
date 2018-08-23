@@ -33,7 +33,7 @@ import org.apache.samza.task.TaskFactory;
  * the low-level {@link TaskFactory} that creates user-defined task instances, the lists of input/broadcast/output streams,
  * and the list of {@link TableDescriptor}s used in the application.
  */
-public class TaskAppDescriptorImpl extends AppDescriptorImpl<TaskApplication, TaskAppDescriptor>
+public class TaskAppDescriptorImpl extends AppDescriptorImpl<TaskAppDescriptor>
     implements TaskAppDescriptor {
 
   TaskFactory taskFactory;
@@ -56,11 +56,6 @@ public class TaskAppDescriptorImpl extends AppDescriptorImpl<TaskApplication, Ta
   @Override
   public void addInputStream(String inputStream) {
     this.inputStreams.add(inputStream);
-  }
-
-  @Override
-  public void addBroadcastStream(String broadcastStream) {
-    this.broadcastStreams.add(broadcastStream);
   }
 
   @Override

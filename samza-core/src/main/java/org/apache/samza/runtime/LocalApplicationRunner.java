@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.AppDescriptorImpl;
 import org.apache.samza.application.ApplicationBase;
+import org.apache.samza.application.ApplicationDescriptors;
 import org.apache.samza.application.StreamAppDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
@@ -60,11 +61,11 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   private static final String APPLICATION_RUNNER_PATH_SUFFIX = "/ApplicationRunnerData";
 
   private final String uid;
+  private final LocalJobPlanner planner;
   private final Set<StreamProcessor> processors = ConcurrentHashMap.newKeySet();
   private final CountDownLatch shutdownLatch = new CountDownLatch(1);
   private final AtomicInteger numProcessorsToStart = new AtomicInteger();
   private final AtomicReference<Throwable> failure = new AtomicReference<>();
-  private final LocalJobConfigPlanner planner;
 
   private ApplicationStatus appStatus = ApplicationStatus.New;
 
@@ -139,15 +140,22 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   }
 
   /**
-   * Defines a {@link JobConfigPlanner} with specific implementation of {@link JobConfigPlanner#getStreamJobConfigs(StreamAppDescriptorImpl)}
+   * Defines a {@link JobPlanner} with specific implementation of {@link JobPlanner#prepareStreamJobs(StreamAppDescriptorImpl)}
    * for standalone Samza processors.
    *
    * TODO: we need to consolidate all planning logic into {@link org.apache.samza.execution.ExecutionPlanner} after SAMZA-1811.
    */
   @VisibleForTesting
-  class LocalJobConfigPlanner extends JobConfigPlanner {
+  static class LocalJobPlanner extends JobPlanner {
+    private final String uid;
+
+    LocalJobPlanner(AppDescriptorImpl descriptor, String uid) {
+      super(descriptor);
+      this.uid = uid;
+    }
+
     @Override
-    List<JobConfig> getStreamJobConfigs(StreamAppDescriptorImpl streamAppDesc) throws Exception {
+    List<JobConfig> prepareStreamJobs(StreamAppDescriptorImpl streamAppDesc) throws Exception {
       // for high-level DAG, generating the plan and job configs
       StreamManager streamManager = null;
       try {
@@ -163,7 +171,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
         // 2. create the necessary streams
         // TODO: System generated intermediate streams should have robust naming scheme. See SAMZA-1391
         String planId = String.valueOf(executionPlanJson.hashCode());
-        createStreams(planId, plan.getIntermediateStreams(), streamManager);
+        createStreams(planId, plan.getIntermediateStreams(), streamManager, config, uid);
 
         return plan.getJobConfigs();
       } finally {
@@ -174,16 +182,33 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     }
   }
 
+  /**
+   * Default constructor that is required by any implementation of {@link ApplicationRunner}
+   *
+   * @param userApp user application
+   * @param config user configuration
+   */
   public LocalApplicationRunner(ApplicationBase userApp, Config config) {
-    super(userApp, config);
+    super(ApplicationDescriptors.getAppDescriptor(userApp, config));
     this.uid = UUID.randomUUID().toString();
-    this.planner = new LocalJobConfigPlanner();
+    this.planner = new LocalJobPlanner(appDesc, uid);
+  }
+
+  /**
+   * Constructor only used in unit test to allow injection of {@link LocalJobPlanner}
+   *
+   */
+  @VisibleForTesting
+  LocalApplicationRunner(AppDescriptorImpl appDesc, LocalJobPlanner planner) {
+    super(appDesc);
+    this.uid = UUID.randomUUID().toString();
+    this.planner = planner;
   }
 
   @Override
   public void run() {
     try {
-      List<JobConfig> jobConfigs = planner.createJobConfigs();
+      List<JobConfig> jobConfigs = planner.prepareJobs();
       // 3. create the StreamProcessors
       if (jobConfigs.isEmpty()) {
         throw new SamzaException("No jobs to run.");
@@ -251,9 +276,8 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
    * @param intStreams list of intermediate {@link StreamSpec}s
    * @throws TimeoutException exception for latch timeout
    */
-  private void createStreams(String planId,
-      List<StreamSpec> intStreams,
-      StreamManager streamManager) throws TimeoutException {
+  private static void createStreams(String planId, List<StreamSpec> intStreams, StreamManager streamManager,
+      Config config, String uid) throws TimeoutException {
     if (intStreams.isEmpty()) {
       LOG.info("Set of intermediate streams is empty. Nothing to create.");
       return;

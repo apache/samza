@@ -139,10 +139,10 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamAppDescriptorImpl mockSpec = spy(new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig));
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig);
 
-    translator.translate(queryInfo, mockSpec);
-    OperatorSpecGraph specGraph = mockSpec.getOperatorSpecGraph();
+    translator.translate(queryInfo, streamAppDesc);
+    OperatorSpecGraph specGraph = streamAppDesc.getOperatorSpecGraph();
 
     StreamConfig streamConfig = new StreamConfig(samzaConfig);
     String inputStreamId = specGraph.getInputOperators().keySet().stream().findFirst().get();
@@ -159,7 +159,7 @@ public class TestQueryTranslator {
     Assert.assertEquals("testavro", inputSystem);
     Assert.assertEquals("COMPLEX1", inputPhysicalName);
 
-    validatePerTaskContextInit(mockSpec, samzaConfig);
+    validatePerTaskContextInit(streamAppDesc, samzaConfig);
   }
 
   @Test
@@ -171,10 +171,10 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamAppDescriptorImpl mockSpec = spy(new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig));
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig);
 
-    translator.translate(queryInfo, mockSpec);
-    OperatorSpecGraph specGraph = mockSpec.getOperatorSpecGraph();
+    translator.translate(queryInfo, streamAppDesc);
+    OperatorSpecGraph specGraph = streamAppDesc.getOperatorSpecGraph();
 
     StreamConfig streamConfig = new StreamConfig(samzaConfig);
     String inputStreamId = specGraph.getInputOperators().keySet().stream().findFirst().get();
@@ -191,7 +191,7 @@ public class TestQueryTranslator {
     Assert.assertEquals("testavro", inputSystem);
     Assert.assertEquals("COMPLEX1", inputPhysicalName);
 
-    validatePerTaskContextInit(mockSpec, samzaConfig);
+    validatePerTaskContextInit(streamAppDesc, samzaConfig);
   }
 
   @Test (expected = SamzaException.class)
@@ -207,9 +207,9 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamAppDescriptorImpl mockSpec = spy(new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig));
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig);
 
-    translator.translate(queryInfo, mockSpec);
+    translator.translate(queryInfo, streamAppDesc);
   }
 
   @Test (expected = SamzaException.class)
@@ -226,9 +226,9 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamAppDescriptorImpl mockSpec = spy(new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig));
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig);
 
-    translator.translate(queryInfo, mockSpec);
+    translator.translate(queryInfo, streamAppDesc);
   }
 
   @Test (expected = IllegalStateException.class)
@@ -245,9 +245,9 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamAppDescriptorImpl mockSpec = spy(new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig));
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig);
 
-    translator.translate(queryInfo, mockSpec);
+    translator.translate(queryInfo, streamAppDesc);
   }
 
   @Test (expected = SamzaException.class)
@@ -264,8 +264,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamAppDescriptorImpl mockSpec = spy(new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig));
-    translator.translate(queryInfo, mockSpec);
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig);
+    translator.translate(queryInfo, streamAppDesc);
   }
 
   @Test (expected = SamzaException.class)
@@ -280,8 +280,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamAppDescriptorImpl mockSpec = spy(new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig));
-    translator.translate(queryInfo, mockSpec);
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig);
+    translator.translate(queryInfo, streamAppDesc);
   }
 
   @Test (expected = SamzaException.class)
@@ -298,8 +298,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamAppDescriptorImpl mockSpec = spy(new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig));
-    translator.translate(queryInfo, mockSpec);
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig);
+    translator.translate(queryInfo, streamAppDesc);
   }
 
   @Test (expected = SamzaException.class)
@@ -317,8 +317,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamAppDescriptorImpl mockSpec = spy(new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig));
-    translator.translate(queryInfo, mockSpec);
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig);
+    translator.translate(queryInfo, streamAppDesc);
   }
 
   @Test (expected = SamzaException.class)
@@ -335,8 +335,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamAppDescriptorImpl mockSpec = spy(new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig));
-    translator.translate(queryInfo, mockSpec);
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig);
+    translator.translate(queryInfo, streamAppDesc);
   }
 
   @Test (expected = SamzaException.class)
@@ -353,8 +353,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamAppDescriptorImpl mockSpec = spy(new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig));
-    translator.translate(queryInfo, mockSpec);
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig);
+    translator.translate(queryInfo, streamAppDesc);
   }
 
   @Test (expected = SamzaException.class)
@@ -371,8 +371,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamAppDescriptorImpl mockSpec = spy(new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig));
-    translator.translate(queryInfo, mockSpec);
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig);
+    translator.translate(queryInfo, streamAppDesc);
   }
 
   @Test (expected = SamzaException.class)
@@ -389,8 +389,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamAppDescriptorImpl mockSpec = spy(new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig));
-    translator.translate(queryInfo, mockSpec);
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig);
+    translator.translate(queryInfo, streamAppDesc);
   }
 
   @Test (expected = SamzaException.class)
@@ -411,8 +411,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamAppDescriptorImpl mockSpec = spy(new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig));
-    translator.translate(queryInfo, mockSpec);
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig);
+    translator.translate(queryInfo, streamAppDesc);
   }
 
   @Test (expected = SamzaException.class)
@@ -429,8 +429,8 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamAppDescriptorImpl mockSpec = spy(new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig));
-    translator.translate(queryInfo, mockSpec);
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig);
+    translator.translate(queryInfo, streamAppDesc);
   }
 
   @Test
@@ -447,10 +447,10 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamAppDescriptorImpl mockSpec = spy(new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig));
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig);
 
-    translator.translate(queryInfo, mockSpec);
-    OperatorSpecGraph specGraph = mockSpec.getOperatorSpecGraph();
+    translator.translate(queryInfo, streamAppDesc);
+    OperatorSpecGraph specGraph = streamAppDesc.getOperatorSpecGraph();
 
     StreamConfig streamConfig = new StreamConfig(samzaConfig);
     String input1StreamId = specGraph.getInputOperators().keySet().stream().findFirst().get();
@@ -483,7 +483,7 @@ public class TestQueryTranslator {
     Assert.assertEquals("kafka", input3System);
     Assert.assertEquals("sql-job-1-partition_by-stream_1", input3PhysicalName);
 
-    validatePerTaskContextInit(mockSpec, samzaConfig);
+    validatePerTaskContextInit(streamAppDesc, samzaConfig);
   }
 
   @Test
@@ -500,11 +500,11 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamAppDescriptorImpl mockSpec = spy(new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig));
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig);
 
-    translator.translate(queryInfo, mockSpec);
+    translator.translate(queryInfo, streamAppDesc);
 
-    OperatorSpecGraph specGraph = mockSpec.getOperatorSpecGraph();
+    OperatorSpecGraph specGraph = streamAppDesc.getOperatorSpecGraph();
 
     StreamConfig streamConfig = new StreamConfig(samzaConfig);
     String input1StreamId = specGraph.getInputOperators().keySet().stream().findFirst().get();
@@ -537,7 +537,7 @@ public class TestQueryTranslator {
     Assert.assertEquals("kafka", input3System);
     Assert.assertEquals("sql-job-1-partition_by-stream_1", input3PhysicalName);
 
-    validatePerTaskContextInit(mockSpec, samzaConfig);
+    validatePerTaskContextInit(streamAppDesc, samzaConfig);
   }
 
   @Test
@@ -554,10 +554,10 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamAppDescriptorImpl mockSpec = spy(new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig));
-    translator.translate(queryInfo, mockSpec);
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig);
+    translator.translate(queryInfo, streamAppDesc);
 
-    OperatorSpecGraph specGraph = mockSpec.getOperatorSpecGraph();
+    OperatorSpecGraph specGraph = streamAppDesc.getOperatorSpecGraph();
 
     StreamConfig streamConfig = new StreamConfig(samzaConfig);
     String input1StreamId = specGraph.getInputOperators().keySet().stream().findFirst().get();
@@ -590,7 +590,7 @@ public class TestQueryTranslator {
     Assert.assertEquals("kafka", input3System);
     Assert.assertEquals("sql-job-1-partition_by-stream_1", input3PhysicalName);
 
-    validatePerTaskContextInit(mockSpec, samzaConfig);
+    validatePerTaskContextInit(streamAppDesc, samzaConfig);
   }
 
   @Test
@@ -607,10 +607,10 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamAppDescriptorImpl mockSpec = spy(new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig));
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig);
 
-    translator.translate(queryInfo, mockSpec);
-    OperatorSpecGraph specGraph = mockSpec.getOperatorSpecGraph();
+    translator.translate(queryInfo, streamAppDesc);
+    OperatorSpecGraph specGraph = streamAppDesc.getOperatorSpecGraph();
 
     Assert.assertEquals(1, specGraph.getInputOperators().size());
     Assert.assertEquals(1, specGraph.getOutputStreams().size());
@@ -631,7 +631,7 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamAppDescriptorImpl mockSpec = spy(new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig));
-    translator.translate(queryInfo, mockSpec);
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> { }, samzaConfig);
+    translator.translate(queryInfo, streamAppDesc);
   }
 }

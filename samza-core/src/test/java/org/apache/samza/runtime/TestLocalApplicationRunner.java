@@ -27,7 +27,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.samza.application.AppDescriptorImpl;
 import org.apache.samza.application.ApplicationBase;
+import org.apache.samza.application.ApplicationDescriptor;
+import org.apache.samza.application.ApplicationDescriptors;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
@@ -42,7 +45,7 @@ import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.execution.StreamManager;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.processor.StreamProcessor;
-import org.apache.samza.runtime.LocalApplicationRunner.LocalJobConfigPlanner;
+import org.apache.samza.runtime.LocalApplicationRunner.LocalJobPlanner;
 import org.apache.samza.system.StreamSpec;
 import org.junit.Before;
 import org.junit.Test;
@@ -84,13 +87,13 @@ public class TestLocalApplicationRunner {
   private Config config;
   private ApplicationBase mockApp;
   private LocalApplicationRunner runner;
-  private LocalJobConfigPlanner localPlanner;
+  private LocalJobPlanner localPlanner;
 
   @Before
   public void setUp() {
-    this.config = new MapConfig(config);
+    config = new MapConfig();
     mockApp = mock(StreamApplication.class);
-    prepareTest();
+    prepareTest(mockApp, config);
   }
 
   @Test
@@ -171,7 +174,7 @@ public class TestLocalApplicationRunner {
     cfgs.put(TaskConfig.TASK_CLASS(), "org.apache.samza.task.IdentityStreamTask");
     config = new MapConfig(cfgs);
     mockApp = ApplicationClassUtils.fromConfig(config);
-    prepareTest();
+    prepareTest(mockApp, config);
 
     StreamProcessor sp = mock(StreamProcessor.class);
 
@@ -204,7 +207,7 @@ public class TestLocalApplicationRunner {
     mockApp = (StreamApplication) appDesc -> {
       appDesc.withProcessorLifecycleListenerFactory(mockFactory);
     };
-    prepareTest();
+    prepareTest(mockApp, config);
 
     // buildAndStartStreamManager already includes start, so not going to verify it gets called
     StreamManager streamManager = mock(StreamManager.class);
@@ -246,7 +249,7 @@ public class TestLocalApplicationRunner {
     mockApp = (StreamApplication) appDesc -> {
       appDesc.withProcessorLifecycleListenerFactory(mockFactory);
     };
-    prepareTest();
+    prepareTest(mockApp, config);
 
     // buildAndStartStreamManager already includes start, so not going to verify it gets called
     StreamManager streamManager = mock(StreamManager.class);
@@ -355,10 +358,10 @@ public class TestLocalApplicationRunner {
     assertFalse("Application finished before the timeout.", finished);
   }
 
-  private void prepareTest() {
-    runner = spy(new LocalApplicationRunner(mockApp, config));
-    localPlanner = spy((LocalJobConfigPlanner) Whitebox.getInternalState(runner, "planner"));
-    Whitebox.setInternalState(runner, "planner", localPlanner);
+  private void prepareTest(ApplicationBase userApp, Config config) {
+    AppDescriptorImpl appDesc = ApplicationDescriptors.getAppDescriptor(userApp, config);
+    localPlanner = spy(new LocalApplicationRunner.LocalJobPlanner(appDesc, "test-planner"));
+    runner = spy(new LocalApplicationRunner(appDesc, localPlanner));
   }
 
   private String getExecutionPlanId(List<StreamSpec> updatedStreamSpecs) {

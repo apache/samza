@@ -30,14 +30,14 @@ import org.apache.samza.runtime.ProcessorLifecycleListenerFactory;
  * Sub-classes {@link StreamAppDescriptor} and {@link TaskAppDescriptor} are specific interfaces for applications written
  * in high-level DAG and low-level task APIs, respectively.
  *
- * @param <T> type of user application this descriptor describes. It has to be either {@link StreamApplication} or
- *            {@link TaskApplication}
+ * @param <S> sub-class of user application descriptor. It has to be either {@link StreamAppDescriptor} or
+ *            {@link TaskAppDescriptor}
  */
 @InterfaceStability.Evolving
-public interface ApplicationDescriptor<T extends ApplicationBase> {
+public interface ApplicationDescriptor<S extends ApplicationDescriptor> {
 
   /**
-   * Get the user defined {@link Config}
+   * Get the initial {@link Config} supplied to the user application
    * @return config object
    */
   Config getConfig();
@@ -45,23 +45,27 @@ public interface ApplicationDescriptor<T extends ApplicationBase> {
   /**
    * Sets the {@link ContextManager} for this application.
    * <p>
-   * The provided {@link ContextManager} can be used to setup shared context between the operator functions
-   * within a task instance
+   * Setting the {@link ContextManager} is optional. The provided {@link ContextManager} can be used to build the shared
+   * context between the operator functions within a task instance
    *
    * TODO: this should be replaced by the shared context factory when SAMZA-1714 is fixed.
 
    * @param contextManager the {@link ContextManager} to use for the application
    * @return the {@link ApplicationDescriptor} with {@code contextManager} set as its {@link ContextManager}
    */
-  ApplicationDescriptor<T> withContextManager(ContextManager contextManager);
+  S withContextManager(ContextManager contextManager);
 
   /**
    * Sets the {@link ProcessorLifecycleListenerFactory} for this application.
+   *
+   * <p>Setting a {@link ProcessorLifecycleListenerFactory} is optional to a user application. It allows users to
+   * plug in optional code to be invoked in different stages before/after the main processing logic is started/stopped in
+   * the application.
    *
    * @param listenerFactory the user implemented {@link ProcessorLifecycleListenerFactory} that creates lifecycle listener
    *                        with callback methods before and after the start/stop of each StreamProcessor in the application
    * @return the {@link ApplicationDescriptor} with {@code listenerFactory} set as its {@link ProcessorLifecycleListenerFactory}
    */
-  ApplicationDescriptor<T> withProcessorLifecycleListenerFactory(ProcessorLifecycleListenerFactory listenerFactory);
+  S withProcessorLifecycleListenerFactory(ProcessorLifecycleListenerFactory listenerFactory);
 
 }

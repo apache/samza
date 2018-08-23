@@ -18,6 +18,7 @@
  */
 package org.apache.samza.application;
 
+import java.util.function.Function;
 import org.apache.samza.config.Config;
 
 
@@ -45,5 +46,17 @@ public class ApplicationDescriptors {
     }
     throw new IllegalArgumentException(String.format("User application class %s is not supported. Only StreamApplication "
         + "and TaskApplication are supported.", userApp.getClass().getName()));
+  }
+
+  public static <T> T forType(Function<TaskAppDescriptorImpl, T> forTaskApp, Function<StreamAppDescriptorImpl, T> forStreamApp,
+      AppDescriptorImpl desc) {
+    if (desc instanceof TaskAppDescriptorImpl) {
+      return forTaskApp.apply((TaskAppDescriptorImpl) desc);
+    } else if (desc instanceof StreamAppDescriptorImpl) {
+      return forStreamApp.apply((StreamAppDescriptorImpl) desc);
+    }
+
+    throw new IllegalArgumentException(String.format("AppDescriptorImpl has to be either TaskAppDescriptorImpl or StreamAppDescriptorImpl."
+        + " class %s is not supported", desc.getClass().getName()));
   }
 }

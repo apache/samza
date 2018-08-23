@@ -57,7 +57,7 @@ import org.slf4j.LoggerFactory;
  * and {@link Table} to create the DAG of transforms.
  * 2) a builder that creates a serializable {@link OperatorSpecGraph} from user-defined DAG
  */
-public class StreamAppDescriptorImpl extends AppDescriptorImpl<StreamApplication, StreamAppDescriptor>
+public class StreamAppDescriptorImpl extends AppDescriptorImpl<StreamAppDescriptor>
     implements StreamAppDescriptor {
   private static final Logger LOGGER = LoggerFactory.getLogger(StreamAppDescriptorImpl.class);
   private static final Pattern ID_PATTERN = Pattern.compile("[\\d\\w-_.]+");

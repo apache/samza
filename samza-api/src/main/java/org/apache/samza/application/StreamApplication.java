@@ -21,7 +21,9 @@ package org.apache.samza.application;
 import org.apache.samza.annotation.InterfaceStability;
 
 /**
- * Describes and initializes the transforms for processing message streams and generating results.
+ * Describes and initializes the transforms for processing message streams and generating results in high-level API.
+ * <p>
+ * This is a marker interface that users will implement for a high-level application.
  * <p>
  * The following example removes page views older than 1 hour from the input stream:
  * <pre>{@code
@@ -57,12 +59,12 @@ import org.apache.samza.annotation.InterfaceStability;
  * {@link StreamApplication} when planning the execution. All user-defined transformation functions and descriptors for
  * data entities used in the transformations (e.g. {@link org.apache.samza.operators.TableDescriptor}) are required to
  * be serializable. The execution planner will generate a serialized DAG which will be deserialized in each
- * {@link org.apache.samza.task.StreamTask} instance used for processing incoming messages. The user-defined application
- * class that implements {@link StreamApplication} also needs to be a class with proper fully-qualified class name to ensure
- * successful instantiation in both local and remote environments. Execution is synchronous and thread-safe within each
- * {@link org.apache.samza.task.StreamTask}.
+ * {@link org.apache.samza.task.StreamTask} instance used for processing incoming messages. Execution is synchronous and
+ * thread-safe within each {@link org.apache.samza.task.StreamTask}.
  *
  * <p>
+ * The user-implemented {@link StreamApplication} class must be a class with proper fully-qualified class name and
+ * a default constructor with no parameters to ensure successful instantiation in both local and remote environments.
  * Functions implemented for transforms in StreamApplications ({@link org.apache.samza.operators.functions.MapFunction},
  * {@link org.apache.samza.operators.functions.FilterFunction} for e.g.) are initable and closable. They are initialized
  * before messages are delivered to them and closed after their execution when the {@link org.apache.samza.task.StreamTask}

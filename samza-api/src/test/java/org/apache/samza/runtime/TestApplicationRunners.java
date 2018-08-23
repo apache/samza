@@ -37,10 +37,10 @@ public class TestApplicationRunners {
   @Test
   public void testGetAppRunner() {
     Map<String, String> configMap = new HashMap<>();
-    configMap.put("app.runner.class", TestApplicationRunner.class.getName());
+    configMap.put("app.runner.class", MockApplicationRunner.class.getName());
     Config config = new MapConfig(configMap);
     StreamApplication app = mock(StreamApplication.class);
     ApplicationRunner appRunner = ApplicationRunners.getApplicationRunner(app, config);
-    assertTrue(appRunner instanceof TestApplicationRunner);
+    assertTrue(appRunner instanceof MockApplicationRunner);
   }
 }

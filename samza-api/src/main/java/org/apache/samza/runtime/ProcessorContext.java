@@ -22,15 +22,10 @@ import org.apache.samza.annotation.InterfaceStability;
 
 
 /**
- * The context for a StreamProcessor. Currently, only defines a method to report the processorId
+ * The context for a StreamProcessor. A placeholder class for the general context for Samza application.
  *
+ * TODO: pending change with SAMZA-1714
  */
-@InterfaceStability.Evolving
+@InterfaceStability.Unstable
 public interface ProcessorContext {
-  /**
-   * Get the unique processorID for the corresponding StreamProcessor
-   *
-   * @return the processorId
-   */
-  String getProcessorId();
 }

@@ -47,7 +47,6 @@ import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -62,7 +61,7 @@ public class TestStreamAppDescriptorImpl {
     StreamApplication mockApp = mock(StreamApplication.class);
     Config mockConfig = mock(Config.class);
     StreamAppDescriptorImpl appDesc = new StreamAppDescriptorImpl(mockApp, mockConfig);
-    verify(mockApp, times(1)).describe(appDesc);
+    verify(mockApp).describe(appDesc);
     assertEquals(mockConfig, appDesc.config);
   }
 

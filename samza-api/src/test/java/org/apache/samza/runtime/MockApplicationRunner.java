@@ -29,11 +29,11 @@ import org.apache.samza.metrics.MetricsReporter;
 /**
  * Test class for {@link org.apache.samza.runtime.ApplicationRunners} unit test
  */
-public class TestApplicationRunner implements ApplicationRunner {
+public class MockApplicationRunner implements ApplicationRunner {
   private final ApplicationBase userApp;
   private final Config config;
 
-  public TestApplicationRunner(ApplicationBase userApp, Config config) {
+  public MockApplicationRunner(ApplicationBase userApp, Config config) {
     this.userApp = userApp;
     this.config = config;
   }
