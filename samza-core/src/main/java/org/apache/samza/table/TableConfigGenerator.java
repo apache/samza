@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.operators.BaseTableDescriptor;
@@ -48,19 +49,21 @@ public class TableConfigGenerator {
 
   /**
    * Generate table configurations given a list of table descriptors
+   * @param config the job configuration
    * @param tableDescriptors the list of tableDescriptors
    * @return configuration for the tables
    */
-  static public Map<String, String> generateConfigsForTableDescs(List<TableDescriptor> tableDescriptors) {
-    return generateConfigsForTableSpecs(getTableSpecs(tableDescriptors));
+  static public Map<String, String> generateConfigsForTableDescs(Config config, List<TableDescriptor> tableDescriptors) {
+    return generateConfigsForTableSpecs(config, getTableSpecs(tableDescriptors));
   }
 
   /**
    * Generate table configurations given a list of table specs
+   * @param config the job configuration
    * @param tableSpecs the list of tableSpecs
    * @return configuration for the tables
    */
-  static public Map<String, String> generateConfigsForTableSpecs(List<TableSpec> tableSpecs) {
+  static public Map<String, String> generateConfigsForTableSpecs(Config config, List<TableSpec> tableSpecs) {
     Map<String, String> tableConfigs = new HashMap<>();
 
     tableConfigs.putAll(generateTableKVSerdeConfigs(tableSpecs));
@@ -74,7 +77,7 @@ public class TableConfigGenerator {
         TableProviderFactory tableProviderFactory =
             Util.getObj(tableSpec.getTableProviderFactoryClassName(), TableProviderFactory.class);
         TableProvider tableProvider = tableProviderFactory.getTableProvider(tableSpec);
-        tableConfigs.putAll(tableProvider.generateConfig(tableConfigs));
+        tableConfigs.putAll(tableProvider.generateConfig(config, tableConfigs));
       });
 
     LOG.info("TableConfigGenerator has generated configs {}", tableConfigs);

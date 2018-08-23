@@ -27,7 +27,6 @@ import java.util.concurrent.CompletableFuture;
 
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.samza.config.Config;
-import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.operators.BaseTableDescriptor;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.serializers.JsonSerdeV2;
@@ -44,7 +43,7 @@ import org.apache.samza.table.Table;
 import org.apache.samza.table.TableProvider;
 import org.apache.samza.table.TableProviderFactory;
 import org.apache.samza.table.TableSpec;
-import org.apache.samza.task.TaskContext;
+import org.apache.samza.table.utils.BaseTableProvider;
 
 
 public class TestIOResolverFactory implements SqlIOResolverFactory {
@@ -156,9 +155,10 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
     }
   }
 
-  static class TestTableProvider implements TableProvider {
-    @Override
-    public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
+  static class TestTableProvider extends BaseTableProvider {
+
+    public TestTableProvider() {
+      super(null);
     }
 
     @Override
@@ -167,7 +167,7 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
     }
 
     @Override
-    public Map<String, String> generateConfig(Map<String, String> config) {
+    public Map<String, String> generateConfig(Config jobConfig, Map<String, String> generatedConfig)  {
       return new HashMap<>();
     }
 
@@ -201,7 +201,8 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
           if (isSink) {
             tableDescriptor = new TestTableDescriptor(TEST_TABLE_ID + tableDescMap.size());
           } else {
-            tableDescriptor = new RocksDbTableDescriptor("InputTable-" + ioName)
+            String tableId = "InputTable-" + ioName.replace(".", "-").replace("$", "-");
+            tableDescriptor = new RocksDbTableDescriptor(tableId)
                 .withSerde(KVSerde.of(
                     new JsonSerdeV2<>(SamzaSqlCompositeKey.class),
                     new JsonSerdeV2<>(SamzaSqlRelMessage.class)));
