@@ -19,9 +19,9 @@
 package org.apache.samza.operators.descriptors;
 
 import java.util.Collections;
-import org.apache.samza.operators.descriptors.serde.MockSimpleInputDescriptor;
-import org.apache.samza.operators.descriptors.serde.MockSimpleOutputDescriptor;
-import org.apache.samza.operators.descriptors.serde.MockSimpleSystemDescriptor;
+import org.apache.samza.operators.descriptors.serde.ExampleSimpleInputDescriptor;
+import org.apache.samza.operators.descriptors.serde.ExampleSimpleOutputDescriptor;
+import org.apache.samza.operators.descriptors.serde.ExampleSimpleSystemDescriptor;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.junit.Test;
@@ -34,11 +34,11 @@ public class TestSimpleInputDescriptor {
   public void testAPIUsage() {
     // does not assert anything, but acts as a compile-time check on expected descriptor type parameters
     // and validates that the method calls can be chained.
-    MockSimpleSystemDescriptor kafkaSystem =
-        new MockSimpleSystemDescriptor("kafka-system")
+    ExampleSimpleSystemDescriptor kafkaSystem =
+        new ExampleSimpleSystemDescriptor("kafka-system")
             .withSystemConfigs(Collections.emptyMap());
-    MockSimpleInputDescriptor<Integer> input1 = kafkaSystem.getInputDescriptor("input1", new IntegerSerde());
-    MockSimpleOutputDescriptor<Integer> output1 = kafkaSystem.getOutputDescriptor("output1", new IntegerSerde());
+    ExampleSimpleInputDescriptor<Integer> input1 = kafkaSystem.getInputDescriptor("input1", new IntegerSerde());
+    ExampleSimpleOutputDescriptor<Integer> output1 = kafkaSystem.getOutputDescriptor("output1", new IntegerSerde());
 
     input1
         .withBootstrap(false)
@@ -55,9 +55,9 @@ public class TestSimpleInputDescriptor {
 
   @Test
   public void testISDObjectsWithOverrides() {
-    MockSimpleSystemDescriptor ssd = new MockSimpleSystemDescriptor("kafka-system");
+    ExampleSimpleSystemDescriptor ssd = new ExampleSimpleSystemDescriptor("kafka-system");
     IntegerSerde streamSerde = new IntegerSerde();
-    MockSimpleInputDescriptor<Integer> isd = ssd.getInputDescriptor("input-stream", streamSerde);
+    ExampleSimpleInputDescriptor<Integer> isd = ssd.getInputDescriptor("input-stream", streamSerde);
 
     assertEquals(streamSerde, isd.getSerde());
     assertFalse(isd.getTransformer().isPresent());

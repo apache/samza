@@ -19,9 +19,9 @@
 package org.apache.samza.operators.descriptors;
 
 import java.util.Collections;
-import org.apache.samza.operators.descriptors.expanding.MockExpandingInputDescriptor;
-import org.apache.samza.operators.descriptors.expanding.MockExpandingOutputDescriptor;
-import org.apache.samza.operators.descriptors.expanding.MockExpandingSystemDescriptor;
+import org.apache.samza.operators.descriptors.expanding.ExampleExpandingInputDescriptor;
+import org.apache.samza.operators.descriptors.expanding.ExampleExpandingOutputDescriptor;
+import org.apache.samza.operators.descriptors.expanding.ExampleExpandingSystemDescriptor;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.junit.Test;
@@ -32,9 +32,9 @@ public class TestExpandingInputDescriptor {
   public void testAPIUsage() {
     // does not assert anything, but acts as a compile-time check on expected descriptor type parameters
     // and validates that the method calls can be chained.
-    MockExpandingSystemDescriptor expandingSystem = new MockExpandingSystemDescriptor("expandingSystem");
-    MockExpandingInputDescriptor<Long> input1 = expandingSystem.getInputDescriptor("input1", new IntegerSerde());
-    MockExpandingOutputDescriptor<Integer> output1 = expandingSystem.getOutputDescriptor("output1", new IntegerSerde());
+    ExampleExpandingSystemDescriptor expandingSystem = new ExampleExpandingSystemDescriptor("expandingSystem");
+    ExampleExpandingInputDescriptor<Long> input1 = expandingSystem.getInputDescriptor("input1", new IntegerSerde());
+    ExampleExpandingOutputDescriptor<Integer> output1 = expandingSystem.getOutputDescriptor("output1", new IntegerSerde());
 
     input1
         .withBootstrap(false)
@@ -51,9 +51,9 @@ public class TestExpandingInputDescriptor {
 
   @Test
   public void testISDObjectsWithOverrides() {
-    MockExpandingSystemDescriptor expandingSystem = new MockExpandingSystemDescriptor("expandingSystem");
+    ExampleExpandingSystemDescriptor expandingSystem = new ExampleExpandingSystemDescriptor("expandingSystem");
     IntegerSerde streamSerde = new IntegerSerde();
-    MockExpandingInputDescriptor<Long> expandingISD = expandingSystem.getInputDescriptor("input-stream", streamSerde);
+    ExampleExpandingInputDescriptor<Long> expandingISD = expandingSystem.getInputDescriptor("input-stream", streamSerde);
 
     assertEquals(streamSerde, expandingISD.getSerde());
     assertEquals(expandingSystem.getTransformer().get(), expandingISD.getTransformer().get());

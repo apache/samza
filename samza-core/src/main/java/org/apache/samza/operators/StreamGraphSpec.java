@@ -115,8 +115,8 @@ public class StreamGraphSpec implements StreamGraph {
     KV<Serde, Serde> kvSerdes = getKVSerdes(streamId, serde);
     if (outputStreams.containsKey(streamId)) {
       OutputStreamImpl outputStream = outputStreams.get(streamId);
-      Serde keySerde = (Serde) outputStream.getKeySerde().orElse(null);
-      Serde valueSerde = (Serde) outputStream.getValueSerde().orElse(null);
+      Serde keySerde = outputStream.getKeySerde();
+      Serde valueSerde = outputStream.getValueSerde();
       Preconditions.checkState(kvSerdes.getKey().equals(keySerde) && kvSerdes.getValue().equals(valueSerde),
           String.format("Stream %s is being used both as an input and an output stream. Serde in Samza happens at "
               + "stream level, so the same key and message Serde must be used for both.", streamId));
@@ -148,8 +148,8 @@ public class StreamGraphSpec implements StreamGraph {
     KV<Serde, Serde> kvSerdes = getKVSerdes(streamId, serde);
     if (inputOperators.containsKey(streamId)) {
       InputOperatorSpec inputOperatorSpec = inputOperators.get(streamId);
-      Serde keySerde = inputOperatorSpec.getKeySerde().orElse(null);
-      Serde valueSerde = inputOperatorSpec.getValueSerde().orElse(null);
+      Serde keySerde = inputOperatorSpec.getKeySerde();
+      Serde valueSerde = inputOperatorSpec.getValueSerde();
       Preconditions.checkState(kvSerdes.getKey().equals(keySerde) && kvSerdes.getValue().equals(valueSerde),
           String.format("Stream %s is being used both as an input and an output stream. Serde in Samza happens at "
               + "stream level, so the same key and message Serde must be used for both.", streamId));

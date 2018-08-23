@@ -19,7 +19,6 @@
 package org.apache.samza.operators.spec;
 
 import java.io.Serializable;
-import java.util.Optional;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.serializers.Serde;
 
@@ -34,13 +33,13 @@ public class OutputStreamImpl<M> implements OutputStream<M>, Serializable {
    *
    * Serdes are optional for intermediate streams and may be specified for job.default.system in configuration instead.
    */
-  private transient final Optional<Serde> keySerdeOptional;
-  private transient final Optional<Serde> valueSerdeOptional;
+  private transient final Serde keySerde;
+  private transient final Serde valueSerde;
 
   public OutputStreamImpl(String streamId, Serde keySerde, Serde valueSerde, boolean isKeyed) {
     this.streamId = streamId;
-    this.keySerdeOptional = Optional.ofNullable(keySerde);
-    this.valueSerdeOptional = Optional.ofNullable(valueSerde);
+    this.keySerde = keySerde;
+    this.valueSerde = valueSerde;
     this.isKeyed = isKeyed;
   }
 
@@ -48,12 +47,22 @@ public class OutputStreamImpl<M> implements OutputStream<M>, Serializable {
     return streamId;
   }
 
-  public Optional<Serde> getKeySerde() {
-    return keySerdeOptional;
+  /**
+   * Get the key serde for this output stream if any.
+   *
+   * @return the key serde if any, else null
+   */
+  public Serde getKeySerde() {
+    return keySerde;
   }
 
-  public Optional<Serde> getValueSerde() {
-    return valueSerdeOptional;
+  /**
+   * Get the value serde for this output stream if any.
+   *
+   * @return the value serde if any, else null
+   */
+  public Serde getValueSerde() {
+    return valueSerde;
   }
 
   public boolean isKeyed() {

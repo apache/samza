@@ -16,14 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.descriptors.serde;
+package org.apache.samza.operators.descriptors.expanding;
 
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.serializers.Serde;
 
-public class MockSimpleOutputDescriptor<StreamMessageType> extends OutputDescriptor<StreamMessageType, MockSimpleOutputDescriptor<StreamMessageType>> {
-  MockSimpleOutputDescriptor(String streamId, SystemDescriptor systemDescriptor, Serde<StreamMessageType> serde) {
+public class ExampleExpandingOutputDescriptor<StreamMessageType> extends OutputDescriptor<StreamMessageType, ExampleExpandingOutputDescriptor<StreamMessageType>> {
+  ExampleExpandingOutputDescriptor(String streamId, SystemDescriptor systemDescriptor, Serde<StreamMessageType> serde) {
     super(streamId, serde, systemDescriptor);
   }
 }

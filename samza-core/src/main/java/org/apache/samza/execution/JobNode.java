@@ -234,15 +234,27 @@ public class JobNode {
     inEdges.forEach(edge -> {
         String streamId = edge.getStreamSpec().getId();
         InputOperatorSpec inputOperatorSpec = inputOperators.get(streamId);
-        inputOperatorSpec.getKeySerde().ifPresent(keySerde -> streamKeySerdes.put(streamId, keySerde));
-        inputOperatorSpec.getValueSerde().ifPresent(valSerde -> streamMsgSerdes.put(streamId, valSerde));
+        Serde keySerde = inputOperatorSpec.getKeySerde();
+        if (keySerde != null) {
+          streamKeySerdes.put(streamId, keySerde);
+        }
+        Serde valueSerde = inputOperatorSpec.getValueSerde();
+        if (valueSerde != null) {
+          streamMsgSerdes.put(streamId, valueSerde);
+        }
       });
     Map<String, OutputStreamImpl> outputStreams = specGraph.getOutputStreams();
     outEdges.forEach(edge -> {
         String streamId = edge.getStreamSpec().getId();
         OutputStreamImpl outputStream = outputStreams.get(streamId);
-        outputStream.getKeySerde().ifPresent(keySerde -> streamKeySerdes.put(streamId, (Serde) keySerde));
-        outputStream.getValueSerde().ifPresent(valSerde -> streamMsgSerdes.put(streamId, (Serde) valSerde));
+        Serde keySerde = outputStream.getKeySerde();
+        if (keySerde != null) {
+          streamKeySerdes.put(streamId, keySerde);
+        }
+        Serde valueSerde = outputStream.getValueSerde();
+        if (valueSerde != null) {
+          streamMsgSerdes.put(streamId, valueSerde);
+        }
       });
 
     // collect all key and msg serde instances for stores

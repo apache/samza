@@ -30,7 +30,6 @@ import org.apache.samza.task.TaskCoordinator;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Optional;
 
 
 /**
@@ -51,9 +50,9 @@ public final class InputOperatorImpl extends OperatorImpl<IncomingMessageEnvelop
   @Override
   public Collection<Object> handleMessage(IncomingMessageEnvelope ime, MessageCollector collector, TaskCoordinator coordinator) {
     Object message;
-    Optional<InputTransformer> transformerOptional = inputOpSpec.getTransformer();
-    if (transformerOptional.isPresent()) {
-      message = transformerOptional.get().apply(ime);
+    InputTransformer transformer = inputOpSpec.getTransformer();
+    if (transformer != null) {
+      message = transformer.apply(ime);
     } else {
       message = this.inputOpSpec.isKeyed() ? KV.of(ime.getKey(), ime.getMessage()) : ime.getMessage();
     }

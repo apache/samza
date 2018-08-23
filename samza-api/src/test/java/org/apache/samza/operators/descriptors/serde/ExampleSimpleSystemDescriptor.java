@@ -16,28 +16,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.descriptors.transforming;
+package org.apache.samza.operators.descriptors.serde;
 
 import org.apache.samza.operators.descriptors.base.system.OutputDescriptorProvider;
+import org.apache.samza.operators.descriptors.base.system.SimpleInputDescriptorProvider;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
-import org.apache.samza.operators.descriptors.base.system.TransformingInputDescriptorProvider;
 import org.apache.samza.serializers.Serde;
 
-public class MockTransformingSystemDescriptor extends SystemDescriptor<MockTransformingSystemDescriptor>
-    implements TransformingInputDescriptorProvider<Long>, OutputDescriptorProvider {
-  private static final String FACTORY_CLASS_NAME = "org.apache.samza.IMETransformingSystemFactory";
+public class ExampleSimpleSystemDescriptor extends SystemDescriptor<ExampleSimpleSystemDescriptor>
+    implements SimpleInputDescriptorProvider, OutputDescriptorProvider {
+  private static final String FACTORY_CLASS_NAME = "org.apache.kafka.KafkaSystemFactory";
 
-  public MockTransformingSystemDescriptor(String systemName) {
-    super(systemName, FACTORY_CLASS_NAME, ime -> 1L, null);
+  public ExampleSimpleSystemDescriptor(String systemName) {
+    super(systemName, FACTORY_CLASS_NAME, null, null);
   }
 
   @Override
-  public MockTransformingInputDescriptor<Long> getInputDescriptor(String streamId, Serde serde) {
-    return new MockTransformingInputDescriptor<>(streamId, this, null, serde);
+  public <StreamMessageType> ExampleSimpleInputDescriptor<StreamMessageType> getInputDescriptor(String streamId, Serde<StreamMessageType> serde) {
+    return new ExampleSimpleInputDescriptor<>(streamId, this, null, serde);
   }
 
   @Override
-  public <StreamMessageType> MockTransformingOutputDescriptor<StreamMessageType> getOutputDescriptor(String streamId, Serde<StreamMessageType> serde) {
-    return new MockTransformingOutputDescriptor<>(streamId, this, serde);
+  public <StreamMessageType> ExampleSimpleOutputDescriptor<StreamMessageType> getOutputDescriptor(String streamId, Serde<StreamMessageType> serde) {
+    return new ExampleSimpleOutputDescriptor<>(streamId, this, serde);
   }
 }

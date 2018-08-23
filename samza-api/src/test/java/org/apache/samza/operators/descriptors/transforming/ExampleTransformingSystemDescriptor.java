@@ -16,28 +16,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.descriptors.serde;
+package org.apache.samza.operators.descriptors.transforming;
 
 import org.apache.samza.operators.descriptors.base.system.OutputDescriptorProvider;
-import org.apache.samza.operators.descriptors.base.system.SimpleInputDescriptorProvider;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
+import org.apache.samza.operators.descriptors.base.system.TransformingInputDescriptorProvider;
 import org.apache.samza.serializers.Serde;
 
-public class MockSimpleSystemDescriptor extends SystemDescriptor<MockSimpleSystemDescriptor>
-    implements SimpleInputDescriptorProvider, OutputDescriptorProvider {
-  private static final String FACTORY_CLASS_NAME = "org.apache.kafka.KafkaSystemFactory";
+public class ExampleTransformingSystemDescriptor extends SystemDescriptor<ExampleTransformingSystemDescriptor>
+    implements TransformingInputDescriptorProvider<Long>, OutputDescriptorProvider {
+  private static final String FACTORY_CLASS_NAME = "org.apache.samza.IMETransformingSystemFactory";
 
-  public MockSimpleSystemDescriptor(String systemName) {
-    super(systemName, FACTORY_CLASS_NAME, null, null);
+  public ExampleTransformingSystemDescriptor(String systemName) {
+    super(systemName, FACTORY_CLASS_NAME, ime -> 1L, null);
   }
 
   @Override
-  public <StreamMessageType> MockSimpleInputDescriptor<StreamMessageType> getInputDescriptor(String streamId, Serde<StreamMessageType> serde) {
-    return new MockSimpleInputDescriptor<>(streamId, this, null, serde);
+  public ExampleTransformingInputDescriptor<Long> getInputDescriptor(String streamId, Serde serde) {
+    return new ExampleTransformingInputDescriptor<>(streamId, this, null, serde);
   }
 
   @Override
-  public <StreamMessageType> MockSimpleOutputDescriptor<StreamMessageType> getOutputDescriptor(String streamId, Serde<StreamMessageType> serde) {
-    return new MockSimpleOutputDescriptor<>(streamId, this, serde);
+  public <StreamMessageType> ExampleTransformingOutputDescriptor<StreamMessageType> getOutputDescriptor(String streamId, Serde<StreamMessageType> serde) {
+    return new ExampleTransformingOutputDescriptor<>(streamId, this, serde);
   }
 }

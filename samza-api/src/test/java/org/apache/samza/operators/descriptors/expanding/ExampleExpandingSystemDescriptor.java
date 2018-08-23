@@ -26,11 +26,11 @@ import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.IncomingMessageEnvelope;
 
-public class MockExpandingSystemDescriptor extends SystemDescriptor<MockExpandingSystemDescriptor>
+public class ExampleExpandingSystemDescriptor extends SystemDescriptor<ExampleExpandingSystemDescriptor>
     implements ExpandingInputDescriptorProvider<Long>, OutputDescriptorProvider {
   private static final String FACTORY_CLASS_NAME = "org.apache.samza.GraphExpandingSystemFactory";
 
-  public MockExpandingSystemDescriptor(String systemName) {
+  public ExampleExpandingSystemDescriptor(String systemName) {
     super(systemName, FACTORY_CLASS_NAME,
         (InputTransformer<String>) IncomingMessageEnvelope::toString,
         (streamGraph, inputDescriptor) -> (MessageStream<Long>) streamGraph.getInputStream(inputDescriptor)
@@ -38,12 +38,12 @@ public class MockExpandingSystemDescriptor extends SystemDescriptor<MockExpandin
   }
 
   @Override
-  public MockExpandingInputDescriptor<Long> getInputDescriptor(String streamId, Serde serde) {
-    return new MockExpandingInputDescriptor<>(streamId, this, null, serde);
+  public ExampleExpandingInputDescriptor<Long> getInputDescriptor(String streamId, Serde serde) {
+    return new ExampleExpandingInputDescriptor<>(streamId, this, null, serde);
   }
 
   @Override
-  public <StreamMessageType> MockExpandingOutputDescriptor<StreamMessageType> getOutputDescriptor(String streamId, Serde<StreamMessageType> serde) {
-    return new MockExpandingOutputDescriptor<>(streamId, this, serde);
+  public <StreamMessageType> ExampleExpandingOutputDescriptor<StreamMessageType> getOutputDescriptor(String streamId, Serde<StreamMessageType> serde) {
+    return new ExampleExpandingOutputDescriptor<>(streamId, this, serde);
   }
 }

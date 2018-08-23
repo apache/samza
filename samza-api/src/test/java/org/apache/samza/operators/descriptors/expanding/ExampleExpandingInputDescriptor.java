@@ -23,8 +23,8 @@ import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
 
-public class MockExpandingInputDescriptor<StreamMessageType> extends InputDescriptor<StreamMessageType, MockExpandingInputDescriptor<StreamMessageType>> {
-  MockExpandingInputDescriptor(String streamId, SystemDescriptor systemDescriptor, InputTransformer<StreamMessageType> transformer, Serde serde) {
+public class ExampleExpandingInputDescriptor<StreamMessageType> extends InputDescriptor<StreamMessageType, ExampleExpandingInputDescriptor<StreamMessageType>> {
+  ExampleExpandingInputDescriptor(String streamId, SystemDescriptor systemDescriptor, InputTransformer<StreamMessageType> transformer, Serde serde) {
     super(streamId, serde, systemDescriptor, transformer);
   }
 }

@@ -18,7 +18,6 @@
  */
 package org.apache.samza.operators.spec;
 
-import java.util.Optional;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
@@ -46,8 +45,8 @@ public class InputOperatorSpec extends OperatorSpec<IncomingMessageEnvelope, Obj
    *
    * Serdes are optional for intermediate streams and may be specified for job.default.system in configuration instead.
    */
-  private transient final Optional<Serde> keySerdeOptional;
-  private transient final Optional<Serde> valueSerdeOptional;
+  private transient final Serde keySerde;
+  private transient final Serde valueSerde;
 
   public InputOperatorSpec(String streamId, Serde keySerde, Serde valueSerde,
       InputTransformer transformer, boolean isKeyed, String opId) {
@@ -55,28 +54,43 @@ public class InputOperatorSpec extends OperatorSpec<IncomingMessageEnvelope, Obj
     this.streamId = streamId;
     this.isKeyed = isKeyed;
     this.transformer = transformer;
-    this.keySerdeOptional = Optional.ofNullable(keySerde);
-    this.valueSerdeOptional = Optional.ofNullable(valueSerde);
+    this.keySerde = keySerde;
+    this.valueSerde = valueSerde;
   }
 
   public String getStreamId() {
     return this.streamId;
   }
 
-  public Optional<Serde> getKeySerde() {
-    return keySerdeOptional;
+  /**
+   * Get the key serde for this input stream if any.
+   *
+   * @return the key serde if any, else null
+   */
+  public Serde getKeySerde() {
+    return keySerde;
   }
 
-  public Optional<Serde> getValueSerde() {
-    return valueSerdeOptional;
+  /**
+   * Get the value serde for this input stream if any.
+   *
+   * @return the value serde if any, else null
+   */
+  public Serde getValueSerde() {
+    return valueSerde;
   }
 
   public boolean isKeyed() {
     return isKeyed;
   }
 
-  public Optional<InputTransformer> getTransformer() {
-    return Optional.ofNullable(transformer);
+  /**
+   * Get the {@link InputTransformer} for this input stream if any.
+   *
+   * @return the {@link InputTransformer} if any, else null
+   */
+  public InputTransformer getTransformer() {
+    return transformer;
   }
 
   @Override

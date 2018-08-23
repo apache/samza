@@ -39,7 +39,6 @@ import org.junit.Test;
 import org.mockito.internal.util.reflection.Whitebox;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -113,8 +112,8 @@ public class TestPartitionByOperatorSpec {
         reparStream = inputStream.partitionBy(keyFn, valueFn, partitionBySerde, testRepartitionedStreamName);
     InputOperatorSpec inputOpSpec = (InputOperatorSpec) Whitebox.getInternalState(reparStream, "operatorSpec");
     assertEquals(inputOpSpec.getStreamId(), String.format("%s-%s-partition_by-%s", testJobName, testJobId, testRepartitionedStreamName));
-    assertTrue(inputOpSpec.getKeySerde().get() instanceof NoOpSerde);
-    assertTrue(inputOpSpec.getValueSerde().get() instanceof NoOpSerde);
+    assertTrue(inputOpSpec.getKeySerde() instanceof NoOpSerde);
+    assertTrue(inputOpSpec.getValueSerde() instanceof NoOpSerde);
     assertTrue(inputOpSpec.isKeyed());
     assertNull(inputOpSpec.getTimerFn());
     assertNull(inputOpSpec.getWatermarkFn());
@@ -138,8 +137,8 @@ public class TestPartitionByOperatorSpec {
         reparStream = inputStream.partitionBy(keyFn, valueFn, testRepartitionedStreamName);
     InputOperatorSpec inputOpSpec = (InputOperatorSpec) Whitebox.getInternalState(reparStream, "operatorSpec");
     assertEquals(inputOpSpec.getStreamId(), String.format("%s-%s-partition_by-%s", testJobName, testJobId, testRepartitionedStreamName));
-    assertFalse(inputOpSpec.getKeySerde().isPresent());
-    assertFalse(inputOpSpec.getValueSerde().isPresent());
+    assertNull(inputOpSpec.getKeySerde());
+    assertNull(inputOpSpec.getValueSerde());
     assertTrue(inputOpSpec.isKeyed());
     assertNull(inputOpSpec.getTimerFn());
     assertNull(inputOpSpec.getWatermarkFn());

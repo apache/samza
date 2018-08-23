@@ -19,9 +19,9 @@
 package org.apache.samza.operators.descriptors;
 
 import java.util.Collections;
-import org.apache.samza.operators.descriptors.transforming.MockTransformingInputDescriptor;
-import org.apache.samza.operators.descriptors.transforming.MockTransformingOutputDescriptor;
-import org.apache.samza.operators.descriptors.transforming.MockTransformingSystemDescriptor;
+import org.apache.samza.operators.descriptors.transforming.ExampleTransformingInputDescriptor;
+import org.apache.samza.operators.descriptors.transforming.ExampleTransformingOutputDescriptor;
+import org.apache.samza.operators.descriptors.transforming.ExampleTransformingSystemDescriptor;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.junit.Test;
@@ -33,11 +33,11 @@ public class TestTransformingInputDescriptor {
   public void testAPIUsage() {
     // does not assert anything, but acts as a compile-time check on expected descriptor type parameters
     // and validates that the method calls can be chained.
-    MockTransformingSystemDescriptor imeTransformingSystem =
-        new MockTransformingSystemDescriptor("imeTransformingSystem")
+    ExampleTransformingSystemDescriptor imeTransformingSystem =
+        new ExampleTransformingSystemDescriptor("imeTransformingSystem")
             .withSystemConfigs(Collections.emptyMap());
-    MockTransformingInputDescriptor<Long> input1 = imeTransformingSystem.getInputDescriptor("input1", new IntegerSerde());
-    MockTransformingOutputDescriptor<Integer> output1 = imeTransformingSystem.getOutputDescriptor("output1", new IntegerSerde());
+    ExampleTransformingInputDescriptor<Long> input1 = imeTransformingSystem.getInputDescriptor("input1", new IntegerSerde());
+    ExampleTransformingOutputDescriptor<Integer> output1 = imeTransformingSystem.getOutputDescriptor("output1", new IntegerSerde());
 
     input1
         .withBootstrap(false)
@@ -54,10 +54,10 @@ public class TestTransformingInputDescriptor {
 
   @Test
   public void testISDObjectsWithOverrides() {
-    MockTransformingSystemDescriptor imeTransformingSystem =
-        new MockTransformingSystemDescriptor("imeTransformingSystem");
+    ExampleTransformingSystemDescriptor imeTransformingSystem =
+        new ExampleTransformingSystemDescriptor("imeTransformingSystem");
     IntegerSerde streamSerde = new IntegerSerde();
-    MockTransformingInputDescriptor<Long> overridingISD =
+    ExampleTransformingInputDescriptor<Long> overridingISD =
         imeTransformingSystem.getInputDescriptor("input-stream", streamSerde);
 
     assertEquals(streamSerde, overridingISD.getSerde());

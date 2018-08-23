@@ -52,6 +52,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.anyString;
@@ -78,8 +79,8 @@ public class TestStreamGraphSpec {
     assertEquals(graphSpec.getInputOperators().get(streamId), inputOpSpec);
     assertEquals(streamId, inputOpSpec.getStreamId());
     assertEquals(isd, graphSpec.getInputDescriptors().get(streamId));
-    assertTrue(inputOpSpec.getKeySerde().get() instanceof NoOpSerde);
-    assertEquals(mockValueSerde, inputOpSpec.getValueSerde().get());
+    assertTrue(inputOpSpec.getKeySerde() instanceof NoOpSerde);
+    assertEquals(mockValueSerde, inputOpSpec.getValueSerde());
   }
 
   @Test
@@ -101,8 +102,8 @@ public class TestStreamGraphSpec {
     assertEquals(graphSpec.getInputOperators().get(streamId), inputOpSpec);
     assertEquals(streamId, inputOpSpec.getStreamId());
     assertEquals(isd, graphSpec.getInputDescriptors().get(streamId));
-    assertEquals(mockKeySerde, inputOpSpec.getKeySerde().get());
-    assertEquals(mockValueSerde, inputOpSpec.getValueSerde().get());
+    assertEquals(mockKeySerde, inputOpSpec.getKeySerde());
+    assertEquals(mockValueSerde, inputOpSpec.getValueSerde());
   }
 
   @Test(expected = IllegalArgumentException.class)
@@ -129,7 +130,7 @@ public class TestStreamGraphSpec {
     assertEquals(graphSpec.getInputOperators().get(streamId), inputOpSpec);
     assertEquals(streamId, inputOpSpec.getStreamId());
     assertEquals(isd, graphSpec.getInputDescriptors().get(streamId));
-    assertEquals(transformer, inputOpSpec.getTransformer().get());
+    assertEquals(transformer, inputOpSpec.getTransformer());
   }
 
   @Test
@@ -237,8 +238,8 @@ public class TestStreamGraphSpec {
     assertEquals(graphSpec.getOutputStreams().get(streamId), outputStreamImpl);
     assertEquals(streamId, outputStreamImpl.getStreamId());
     assertEquals(osd, graphSpec.getOutputDescriptors().get(streamId));
-    assertTrue(outputStreamImpl.getKeySerde().get() instanceof NoOpSerde);
-    assertEquals(mockValueSerde, outputStreamImpl.getValueSerde().get());
+    assertTrue(outputStreamImpl.getKeySerde() instanceof NoOpSerde);
+    assertEquals(mockValueSerde, outputStreamImpl.getValueSerde());
   }
 
   @Test
@@ -258,8 +259,8 @@ public class TestStreamGraphSpec {
     assertEquals(graphSpec.getOutputStreams().get(streamId), outputStreamImpl);
     assertEquals(streamId, outputStreamImpl.getStreamId());
     assertEquals(osd, graphSpec.getOutputDescriptors().get(streamId));
-    assertEquals(mockKeySerde, outputStreamImpl.getKeySerde().get());
-    assertEquals(mockValueSerde, outputStreamImpl.getValueSerde().get());
+    assertEquals(mockKeySerde, outputStreamImpl.getKeySerde());
+    assertEquals(mockValueSerde, outputStreamImpl.getValueSerde());
   }
 
   @Test(expected = IllegalArgumentException.class)
@@ -320,10 +321,10 @@ public class TestStreamGraphSpec {
     assertEquals(graphSpec.getInputOperators().get(streamId), intermediateStreamImpl.getOperatorSpec());
     assertEquals(graphSpec.getOutputStreams().get(streamId), intermediateStreamImpl.getOutputStream());
     assertEquals(streamId, intermediateStreamImpl.getStreamId());
-    assertTrue(intermediateStreamImpl.getOutputStream().getKeySerde().get() instanceof NoOpSerde);
-    assertEquals(mockValueSerde, intermediateStreamImpl.getOutputStream().getValueSerde().get());
-    assertTrue(((InputOperatorSpec) (OperatorSpec) intermediateStreamImpl.getOperatorSpec()).getKeySerde().get() instanceof NoOpSerde);
-    assertEquals(mockValueSerde, ((InputOperatorSpec) (OperatorSpec) intermediateStreamImpl.getOperatorSpec()).getValueSerde().get());
+    assertTrue(intermediateStreamImpl.getOutputStream().getKeySerde() instanceof NoOpSerde);
+    assertEquals(mockValueSerde, intermediateStreamImpl.getOutputStream().getValueSerde());
+    assertTrue(((InputOperatorSpec) (OperatorSpec) intermediateStreamImpl.getOperatorSpec()).getKeySerde() instanceof NoOpSerde);
+    assertEquals(mockValueSerde, ((InputOperatorSpec) (OperatorSpec) intermediateStreamImpl.getOperatorSpec()).getValueSerde());
   }
 
   @Test
@@ -342,10 +343,10 @@ public class TestStreamGraphSpec {
     assertEquals(graphSpec.getInputOperators().get(streamId), intermediateStreamImpl.getOperatorSpec());
     assertEquals(graphSpec.getOutputStreams().get(streamId), intermediateStreamImpl.getOutputStream());
     assertEquals(streamId, intermediateStreamImpl.getStreamId());
-    assertEquals(mockKeySerde, intermediateStreamImpl.getOutputStream().getKeySerde().get());
-    assertEquals(mockValueSerde, intermediateStreamImpl.getOutputStream().getValueSerde().get());
-    assertEquals(mockKeySerde, ((InputOperatorSpec) (OperatorSpec)  intermediateStreamImpl.getOperatorSpec()).getKeySerde().get());
-    assertEquals(mockValueSerde, ((InputOperatorSpec) (OperatorSpec)  intermediateStreamImpl.getOperatorSpec()).getValueSerde().get());
+    assertEquals(mockKeySerde, intermediateStreamImpl.getOutputStream().getKeySerde());
+    assertEquals(mockValueSerde, intermediateStreamImpl.getOutputStream().getValueSerde());
+    assertEquals(mockKeySerde, ((InputOperatorSpec) (OperatorSpec)  intermediateStreamImpl.getOperatorSpec()).getKeySerde());
+    assertEquals(mockValueSerde, ((InputOperatorSpec) (OperatorSpec)  intermediateStreamImpl.getOperatorSpec()).getValueSerde());
   }
 
   @Test
@@ -360,10 +361,10 @@ public class TestStreamGraphSpec {
     assertEquals(graphSpec.getInputOperators().get(streamId), intermediateStreamImpl.getOperatorSpec());
     assertEquals(graphSpec.getOutputStreams().get(streamId), intermediateStreamImpl.getOutputStream());
     assertEquals(streamId, intermediateStreamImpl.getStreamId());
-    assertFalse(intermediateStreamImpl.getOutputStream().getKeySerde().isPresent());
-    assertFalse(intermediateStreamImpl.getOutputStream().getValueSerde().isPresent());
-    assertFalse(((InputOperatorSpec) (OperatorSpec)  intermediateStreamImpl.getOperatorSpec()).getKeySerde().isPresent());
-    assertFalse(((InputOperatorSpec) (OperatorSpec)  intermediateStreamImpl.getOperatorSpec()).getValueSerde().isPresent());
+    assertNull(intermediateStreamImpl.getOutputStream().getKeySerde());
+    assertNull(intermediateStreamImpl.getOutputStream().getValueSerde());
+    assertNull(((InputOperatorSpec) (OperatorSpec)  intermediateStreamImpl.getOperatorSpec()).getKeySerde());
+    assertNull(((InputOperatorSpec) (OperatorSpec)  intermediateStreamImpl.getOperatorSpec()).getValueSerde());
   }
 
   @Test(expected = IllegalStateException.class)

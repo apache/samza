@@ -18,13 +18,12 @@
  */
 package org.apache.samza.operators.descriptors.serde;
 
-import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
+import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
-import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
 
-public class MockSimpleInputDescriptor<StreamMessageType> extends InputDescriptor<StreamMessageType, MockSimpleInputDescriptor<StreamMessageType>> {
-  MockSimpleInputDescriptor(String streamId, SystemDescriptor systemDescriptor, InputTransformer<StreamMessageType> transformer, Serde serde) {
-    super(streamId, serde, systemDescriptor, transformer);
+public class ExampleSimpleOutputDescriptor<StreamMessageType> extends OutputDescriptor<StreamMessageType, ExampleSimpleOutputDescriptor<StreamMessageType>> {
+  ExampleSimpleOutputDescriptor(String streamId, SystemDescriptor systemDescriptor, Serde<StreamMessageType> serde) {
+    super(streamId, serde, systemDescriptor);
   }
 }
