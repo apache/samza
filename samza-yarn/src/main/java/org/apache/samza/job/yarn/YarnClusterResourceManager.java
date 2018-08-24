@@ -526,20 +526,20 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   }
 
   @Override
-  public void onStartContainerError(ContainerId containerId, Throwable t) {
-    log.error(String.format("Yarn Container: %s could not start.", containerId), t);
+  public void onStartContainerError(ContainerId yarnContainerId, Throwable t) {
+    log.error(String.format("Yarn Container: %s could not start.", yarnContainerId), t);
 
-    String samzaContainerId = getPendingSamzaContainerId(containerId);
+    String samzaContainerId = getPendingSamzaContainerId(yarnContainerId);
 
     if (samzaContainerId != null) {
       YarnContainer container = state.pendingYarnContainers.remove(samzaContainerId);
-      log.info("Failed Yarn Container: {} had Samza ContainerId: {} ", containerId, samzaContainerId);
+      log.info("Failed Yarn Container: {} had Samza ContainerId: {} ", yarnContainerId, samzaContainerId);
       SamzaResource resource = new SamzaResource(container.resource().getVirtualCores(),
-          container.resource().getMemory(), container.nodeId().getHost(), containerId.toString());
-      log.info("Invoking failure callback for container: {}", containerId);
+          container.resource().getMemory(), container.nodeId().getHost(), yarnContainerId.toString());
+      log.info("Invoking failure callback for container: {}", yarnContainerId);
       clusterManagerCallback.onStreamProcessorLaunchFailure(resource, new SamzaContainerLaunchException(t));
     } else {
-      log.info("Got an invalid notification for container: {}", containerId);
+      log.info("Got an invalid notification for container: {}", yarnContainerId);
     }
   }
 
