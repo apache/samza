@@ -527,13 +527,13 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
 
   @Override
   public void onStartContainerError(ContainerId containerId, Throwable t) {
-    log.error(String.format("Container: %s could not start.", containerId), t);
+    log.error(String.format("Yarn Container: %s could not start.", containerId), t);
 
     String samzaContainerId = getPendingSamzaContainerId(containerId);
 
     if (samzaContainerId != null) {
       YarnContainer container = state.pendingYarnContainers.remove(samzaContainerId);
-      log.error("Samza container:{} could not start", samzaContainerId);
+      log.info("Failed Yarn Container: {} had Samza ContainerId: {} ", containerId, samzaContainerId);
       SamzaResource resource = new SamzaResource(container.resource().getVirtualCores(),
           container.resource().getMemory(), container.nodeId().getHost(), containerId.toString());
       log.info("Invoking failure callback for container: {}", containerId);
