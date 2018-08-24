@@ -36,11 +36,20 @@ import org.apache.samza.storage.SideInputsProcessor;
  */
 abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLocalStoreBackedTableDescriptor<K, V, D>>
     extends BaseTableDescriptor<K, V, D> {
+
+  static final public String INTERNAL_ENABLE_CHANGELOG = "internal.enable.changelog";
+  static final public String INTERNAL_CHANGELOG_STREAM = "internal.changelog.stream";
+  static final public String INTERNAL_CHANGELOG_REPLICATION_FACTOR = "internal.changelog.replication.factor";
+
   protected List<String> sideInputs;
   protected SideInputsProcessor sideInputsProcessor;
+  protected boolean enableChangelog;
+  protected String changelogStream;
+  protected Integer changelogReplicationFactor;
 
   /**
    * Constructs a table descriptor instance
+   *
    * @param tableId Id of the table
    */
   public BaseLocalStoreBackedTableDescriptor(String tableId) {
@@ -49,6 +58,10 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
 
   public D withSideInputs(List<String> sideInputs) {
     this.sideInputs = sideInputs;
+    // Disable changelog
+    this.enableChangelog = false;
+    this.changelogStream = null;
+    this.changelogReplicationFactor = null;
     return (D) this;
   }
 
@@ -57,9 +70,56 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
     return (D) this;
   }
 
+  /**
+   * Enable changelog for this table, by default changelog is disabled. When the
+   * changelog stream name is not specified, it is automatically generated in
+   * the format { @literal [job-name]-[job-id]-table-[table-id] }.
+   * Refer to <code>stores.store-name.changelog</code> in Samza configuration guide
+   *
+   * @return this table descriptor instance
+   */
+  public D withChangelogEnabled() {
+    this.enableChangelog = true;
+    return (D) this;
+  }
+
+  /**
+   * Refer to <code>stores.store-name.changelog</code> in Samza configuration guide
+   *
+   * @param changelogStream changelog stream name
+   * @return this table descriptor instance
+   */
+  public D withChangelogStream(String changelogStream) {
+    this.enableChangelog = true;
+    this.changelogStream = changelogStream;
+    return (D) this;
+  }
+
+  /**
+   * Refer to <code>stores.store-name.changelog.replication.factor</code> in Samza configuration guide
+   *
+   * @param replicationFactor replication factor
+   * @return this table descriptor instance
+   */
+  public D withChangelogReplicationFactor(int replicationFactor) {
+    this.enableChangelog = true;
+    this.changelogReplicationFactor = replicationFactor;
+    return (D) this;
+  }
+
   @Override
   protected void generateTableSpecConfig(Map<String, String> tableSpecConfig) {
     super.generateTableSpecConfig(tableSpecConfig);
+
+    tableSpecConfig.put(INTERNAL_ENABLE_CHANGELOG, String.valueOf(enableChangelog));
+    if (enableChangelog) {
+      if (changelogStream != null) {
+        tableSpecConfig.put(INTERNAL_CHANGELOG_STREAM, changelogStream);
+      }
+      if (changelogReplicationFactor != null) {
+        tableSpecConfig.put(INTERNAL_CHANGELOG_REPLICATION_FACTOR, String.valueOf(changelogReplicationFactor));
+      }
+    }
   }
 
   /**
@@ -71,6 +131,14 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
       Preconditions.checkArgument(sideInputs != null && !sideInputs.isEmpty() && sideInputsProcessor != null,
           String.format("Invalid side input configuration for table: %s. " +
               "Both side inputs and the processor must be provided", tableId));
+    }
+    if (!enableChangelog) {
+      Preconditions.checkState(changelogStream == null,
+          String.format("Invalid changelog configuration for table: %s. Changelog " +
+              "must be enabled, when changelog stream name is provided", tableId));
+      Preconditions.checkState(changelogReplicationFactor == null,
+          String.format("Invalid changelog configuration for table: %s. Changelog " +
+              "must be enabled, when changelog replication factor is provided", tableId));
     }
   }
 

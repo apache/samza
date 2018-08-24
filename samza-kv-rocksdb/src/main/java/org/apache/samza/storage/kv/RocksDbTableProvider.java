@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.samza.config.ClusterManagerConfig;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.table.TableSpec;
@@ -37,7 +38,7 @@ public class RocksDbTableProvider extends BaseLocalStoreBackedTableProvider {
   }
 
   @Override
-  public Map<String, String> generateConfig(Map<String, String> config) {
+  public Map<String, String> generateConfig(Config jobConfig, Map<String, String> generatedConfig) {
 
     Map<String, String> tableConfig = new HashMap<>();
 
@@ -47,15 +48,19 @@ public class RocksDbTableProvider extends BaseLocalStoreBackedTableProvider {
         RocksDbKeyValueStorageEngineFactory.class.getName());
 
     // Common store configuration
-    tableConfig.putAll(generateCommonStoreConfig(config));
+    tableConfig.putAll(generateCommonStoreConfig(jobConfig, generatedConfig));
 
     // Rest of the configuration
-    tableSpec.getConfig().forEach((k, v) -> {
-      String realKey = k.startsWith("rocksdb.") ?
-          String.format("stores.%s", tableSpec.getId()) + "." + k.substring("rocksdb.".length())
-        : String.format(JavaTableConfig.TABLE_ID_PREFIX, tableSpec.getId()) + "." + k;
-      tableConfig.put(realKey, v);
-    });
+    tableSpec.getConfig().entrySet().stream()
+        .filter(e -> !e.getKey().startsWith("internal."))
+        .forEach(e -> {
+          String k = e.getKey();
+          String v = e.getValue();
+          String realKey = k.startsWith("rocksdb.")
+              ? String.format("stores.%s", tableSpec.getId()) + "." + k.substring("rocksdb.".length())
+              : String.format(JavaTableConfig.TABLE_ID_PREFIX, tableSpec.getId()) + "." + k;
+          tableConfig.put(realKey, v);
+        });
 
     // Enable host affinity
     tableConfig.put(ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED, "true");

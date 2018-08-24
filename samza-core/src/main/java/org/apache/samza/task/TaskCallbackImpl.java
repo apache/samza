@@ -71,7 +71,7 @@ class TaskCallbackImpl implements TaskCallback, Comparable<TaskCallbackImpl> {
     if (isComplete.compareAndSet(false, true)) {
       listener.onComplete(this);
     } else {
-      String msg = String.format("Callback complete was invoked after completion for task {}, ssp {}, offset {}.",
+      String msg = String.format("Callback complete was invoked after completion for task %s, ssp %s, offset %s.",
           taskName, envelope.getSystemStreamPartition(), envelope.getOffset());
       listener.onFailure(this, new IllegalStateException(msg));
     }

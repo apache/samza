@@ -64,7 +64,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
       })
 
     val metricsSystemStreamName = config
-      .getMetricsReporterStream(name)
+      .getMetricsSnapshotReporterStream(name)
       .getOrElse(throw new SamzaException("No metrics stream defined in config."))
 
     val systemStream = StreamUtil.getSystemStreamFromNames(metricsSystemStreamName)
@@ -103,12 +103,12 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
     info("Got serde %s." format serde)
 
     val pollingInterval: Int = config
-      .getMetricsReporterInterval(name)
+      .getMetricsSnapshotReporterInterval(name)
       .getOrElse("60").toInt
 
     info("Setting polling interval to %d" format pollingInterval)
 
-    val blacklist = config.getBlacklist(name)
+    val blacklist = config.getMetricsSnapshotReporterBlacklist(name)
     info("Setting blacklist to %s" format blacklist)
 
     val reporter = new MetricsSnapshotReporter(
