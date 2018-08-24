@@ -281,6 +281,10 @@ public class StreamGraphSpec implements StreamGraph {
     return Collections.unmodifiableSet(broadcastStreams);
   }
 
+  Map<TableSpec, TableImpl> getTables() {
+    return Collections.unmodifiableMap(tables);
+  }
+
   public Map<String, InputDescriptor> getInputDescriptors() {
     return Collections.unmodifiableMap(inputDescriptors);
   }
@@ -297,10 +301,6 @@ public class StreamGraphSpec implements StreamGraph {
 
   public Optional<SystemDescriptor> getDefaultSystemDescriptor() {
     return this.defaultSystemDescriptorOptional;
-  }
-
-  Map<TableSpec, TableImpl> getTables() {
-    return Collections.unmodifiableMap(tables);
   }
 
   private void checkSystemDescriptorUniqueness(SystemDescriptor systemDescriptor, String systemName) {
