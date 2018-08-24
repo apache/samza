@@ -41,7 +41,7 @@ public abstract class StreamDescriptor<StreamMessageType, SubClass extends Strea
   private static final String SYSTEM_CONFIG_KEY = "streams.%s.samza.system";
   private static final String PHYSICAL_NAME_CONFIG_KEY = "streams.%s.samza.physical.name";
   private static final String STREAM_CONFIGS_CONFIG_KEY = "streams.%s.%s";
-  private static final Pattern ID_PATTERN = Pattern.compile("[\\d\\w-_.]+");
+  private static final Pattern STREAM_ID_PATTERN = Pattern.compile("[\\d\\w-_]+");
 
   private final String streamId;
   private final Serde serde;
@@ -61,7 +61,7 @@ public abstract class StreamDescriptor<StreamMessageType, SubClass extends Strea
     Preconditions.checkArgument(systemDescriptor != null,
         String.format("SystemDescriptor must not be null. streamId: %s", streamId));
     String systemName = systemDescriptor.getSystemName();
-    Preconditions.checkState(isValidId(streamId),
+    Preconditions.checkState(isValidStreamId(streamId),
         String.format("streamId must be non-empty and must not contain spaces or special characters. " +
             "streamId: %s, systemName: %s", streamId, systemName));
     Preconditions.checkArgument(serde != null,
@@ -120,8 +120,8 @@ public abstract class StreamDescriptor<StreamMessageType, SubClass extends Strea
     return physicalNameOptional;
   }
 
-  private boolean isValidId(String id) {
-    return StringUtils.isNotBlank(id) && ID_PATTERN.matcher(id).matches();
+  private boolean isValidStreamId(String id) {
+    return StringUtils.isNotBlank(id) && STREAM_ID_PATTERN.matcher(id).matches();
   }
 
   public Map<String, String> toConfig() {

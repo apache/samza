@@ -58,7 +58,7 @@ import org.slf4j.LoggerFactory;
  */
 public class StreamGraphSpec implements StreamGraph {
   private static final Logger LOGGER = LoggerFactory.getLogger(StreamGraphSpec.class);
-  private static final Pattern ID_PATTERN = Pattern.compile("[\\d\\w-_.]+");
+  private static final Pattern ID_PATTERN = Pattern.compile("[\\d\\w-_]+");
 
   // We use a LHM for deterministic order in initializing and closing operators.
   private final Map<String, InputOperatorSpec> inputOperators = new LinkedHashMap<>();
@@ -164,11 +164,13 @@ public class StreamGraphSpec implements StreamGraph {
 
   @Override
   public <K, V> Table<KV<K, V>> getTable(TableDescriptor<K, V, ?> tableDescriptor) {
+    String tableId = tableDescriptor.getTableId();
+    Preconditions.checkState(StringUtils.isNotBlank(tableId) && ID_PATTERN.matcher(tableId).matches(),
+        String.format("tableId: %s must confirm to pattern: %s", tableId, ID_PATTERN.toString()));
     TableSpec tableSpec = ((BaseTableDescriptor) tableDescriptor).getTableSpec();
     if (tables.containsKey(tableSpec)) {
-      throw new IllegalStateException(String.format(
-          "getTable() invoked multiple times with the same tableId: %s",
-          tableDescriptor.getTableId()));
+      throw new IllegalStateException(
+          String.format("getTable() invoked multiple times with the same tableId: %s", tableId));
     }
     tables.put(tableSpec, new TableImpl(tableSpec));
     return tables.get(tableSpec);

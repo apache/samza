@@ -66,7 +66,7 @@ public abstract class SystemDescriptor<SubClass extends SystemDescriptor<SubClas
   private static final String DEFAULT_STREAM_OFFSET_DEFAULT_CONFIG_KEY = "systems.%s.default.stream.samza.offset.default";
   private static final String DEFAULT_STREAM_CONFIGS_CONFIG_KEY = "systems.%s.default.stream.%s";
   private static final String SYSTEM_CONFIGS_CONFIG_KEY = "systems.%s.%s";
-  private static final Pattern ID_PATTERN = Pattern.compile("[\\d\\w-_.]+");
+  private static final Pattern SYSTEM_NAME_PATTERN = Pattern.compile("[\\d\\w-_]+");
 
   private final String systemName;
   private final Optional<String> factoryClassNameOptional;
@@ -86,7 +86,7 @@ public abstract class SystemDescriptor<SubClass extends SystemDescriptor<SubClas
    * @param expander the {@link StreamExpander} for the system if any, else null
    */
   public SystemDescriptor(String systemName, String factoryClassName, InputTransformer transformer, StreamExpander expander) {
-    Preconditions.checkArgument(isValidId(systemName),
+    Preconditions.checkArgument(isValidSystemName(systemName),
         String.format("systemName: %s must be non-empty and must not contain spaces or special characters.", systemName));
     if (StringUtils.isBlank(factoryClassName)) {
       LOGGER.warn("Blank SystemFactory class name for system: {}. A value must be provided in configuration using {}.",
@@ -159,8 +159,8 @@ public abstract class SystemDescriptor<SubClass extends SystemDescriptor<SubClas
     return this.expanderOptional;
   }
 
-  private boolean isValidId(String id) {
-    return StringUtils.isNotBlank(id) && ID_PATTERN.matcher(id).matches();
+  private boolean isValidSystemName(String id) {
+    return StringUtils.isNotBlank(id) && SYSTEM_NAME_PATTERN.matcher(id).matches();
   }
 
   public Map<String, String> toConfig() {

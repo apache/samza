@@ -415,7 +415,7 @@ public class TestStreamGraphSpec {
       fail("Received an error with a null or empty operator ID instead of defaulting to auto-generated ID.");
     }
 
-    List<String> validOpIds = ImmutableList.of("op.id", "op_id", "op-id", "1000", "op_1", "OP_ID");
+    List<String> validOpIds = ImmutableList.of("op_id", "op-id", "1000", "op_1", "OP_ID");
     for (String validOpId: validOpIds) {
       try {
         graphSpec.getNextOpId(OpCode.FILTER, validOpId);
@@ -460,9 +460,20 @@ public class TestStreamGraphSpec {
     StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
 
     BaseTableDescriptor mockTableDescriptor = mock(BaseTableDescriptor.class);
+    when(mockTableDescriptor.getTableId()).thenReturn("t1");
     when(mockTableDescriptor.getTableSpec()).thenReturn(
         new TableSpec("t1", KVSerde.of(new NoOpSerde(), new NoOpSerde()), "", new HashMap<>()));
     assertNotNull(graphSpec.getTable(mockTableDescriptor));
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void testGetTableWithBadId() {
+    Config mockConfig = mock(Config.class);
+    StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
+
+    BaseTableDescriptor mockTableDescriptor = mock(BaseTableDescriptor.class);
+    when(mockTableDescriptor.getTableId()).thenReturn("my.table");
+    graphSpec.getTable(mockTableDescriptor);
   }
 
   class MockExpandingSystemDescriptor extends SystemDescriptor<MockExpandingSystemDescriptor> implements ExpandingInputDescriptorProvider<Integer> {

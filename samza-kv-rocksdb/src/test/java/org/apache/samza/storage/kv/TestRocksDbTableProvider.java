@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.samza.config.JavaTableConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
@@ -46,12 +47,12 @@ public class TestRocksDbTableProvider {
     TableSpec tableSpec = new TableSpec("t1", KVSerde.of(new IntegerSerde(), new IntegerSerde()),
         "my-table-provider-factory", tableSpecConfig);
 
-    Map<String, String> config = new HashMap<>();
-    config.put(String.format(JavaTableConfig.TABLE_KEY_SERDE, "t1"), "ks1");
-    config.put(String.format(JavaTableConfig.TABLE_VALUE_SERDE, "t1"), "vs1");
+    Map<String, String> generatedConfig = new HashMap<>();
+    generatedConfig.put(String.format(JavaTableConfig.TABLE_KEY_SERDE, "t1"), "ks1");
+    generatedConfig.put(String.format(JavaTableConfig.TABLE_VALUE_SERDE, "t1"), "vs1");
 
     TableProvider tableProvider = new RocksDbTableProvider(tableSpec);
-    Map<String, String> tableConfig = tableProvider.generateConfig(config);
+    Map<String, String> tableConfig = tableProvider.generateConfig(new MapConfig(), generatedConfig);
 
     Assert.assertEquals("ks1", tableConfig.get(String.format(StorageConfig.KEY_SERDE(), "t1")));
     Assert.assertEquals("vs1", tableConfig.get(String.format(StorageConfig.MSG_SERDE(), "t1")));
