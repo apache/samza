@@ -107,7 +107,7 @@ public class TestStreamUtil {
   }
 
   // System is required. Throw if it cannot be determined.
-  @Test(expected = IllegalArgumentException.class)
+  @Test(expected = NullPointerException.class)
   public void testGetStreamWithOutSystemInConfig() {
     Config config = buildStreamConfig(STREAM_ID,
         StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME);
@@ -269,7 +269,7 @@ public class TestStreamUtil {
   }
 
   // Null is not allowed IllegalArgumentException system name.
-  @Test(expected = IllegalArgumentException.class)
+  @Test(expected = NullPointerException.class)
   public void testGetStreamSystemNameArgNull() {
     Config config = buildStreamConfig(STREAM_ID,
         StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME,
@@ -297,7 +297,7 @@ public class TestStreamUtil {
   }
 
   // Null is not allowed for streamId.
-  @Test(expected = IllegalArgumentException.class)
+  @Test(expected = NullPointerException.class)
   public void testGetStreamStreamIdNull() {
     Config config = buildStreamConfig(null,
         StreamConfig.SYSTEM(), TEST_SYSTEM);
