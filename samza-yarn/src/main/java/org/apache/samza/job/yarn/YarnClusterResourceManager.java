@@ -123,7 +123,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   private static final Logger log = LoggerFactory.getLogger(YarnClusterResourceManager.class);
   private final Config config;
 
-  YarnClusterResourceManager(AMRMClientAsync amClient, NMClientAsync nmClientAsync, Callback callback,
+  YarnClusterResourceManager(AMRMClientAsync amClientAsync, NMClientAsync nmClientAsync, Callback callback,
       YarnAppState yarnAppState, SamzaYarnAppMasterLifecycle lifecycle, SamzaYarnAppMasterService service,
       SamzaAppMasterMetrics metrics, YarnConfiguration yarnConfiguration, Config config) {
     super(callback);
@@ -131,7 +131,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     this.metrics = metrics;
     this.yarnConfig = new YarnConfig(config);
     this.config = config;
-    this.amClient = amClient;
+    this.amClient = amClientAsync;
     this.state = yarnAppState;
     this.lifecycle = lifecycle;
     this.service = service;
