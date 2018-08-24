@@ -137,8 +137,6 @@ public class QueryPlanner {
       SqlNode validatedSql = planner.validate(sql);
       RelRoot relRoot = planner.rel(validatedSql);
       LOG.info("query plan:\n" + sql.toString());
-      LOG.info("relational graph:");
-      printRelGraph(relRoot.project());
       return relRoot;
     } catch (Exception e) {
       LOG.error("Query planner failed with exception.", e);
@@ -156,11 +154,5 @@ public class QueryPlanner {
         return new RelRecordType(fieldsList);
       }
     };
-  }
-
-  private static void printRelGraph(RelNode node) {
-    RelJsonWriter jsonWriter = new RelJsonWriter();
-    node.explain(jsonWriter);
-    LOG.info(jsonWriter.asString());
   }
 }
