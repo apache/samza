@@ -156,13 +156,13 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
 
     // helper method to generate a single node job configuration for low level task applications
     private JobConfig prepareTaskJob(TaskAppDescriptorImpl taskAppDesc) {
-      Map<String, String> cfg = new HashMap<>(taskAppDesc.getConfig());
+      Map<String, String> cfg = new HashMap<>(config);
       //TODO: add stream and system descriptor to configuration conversion here when SAMZA-1804 is fixed.
       // adding table configuration
       List<TableSpec> tableSpecs = taskAppDesc.getTables().stream()
           .map(td -> ((BaseTableDescriptor) td).getTableSpec())
           .collect(Collectors.toList());
-      cfg.putAll(TableConfigGenerator.generateConfigsForTableSpecs(tableSpecs));
+      cfg.putAll(TableConfigGenerator.generateConfigsForTableSpecs(config, tableSpecs));
       validateAppClassCfg(cfg, taskAppDesc.getAppClass());
       return new JobConfig(new MapConfig(cfg));
     }

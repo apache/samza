@@ -169,6 +169,7 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
 
   /**
    * Execute an async request given a table key
+   * @param rateLimiter helper for rate limiting
    * @param key key of the table record
    * @param method method to be executed
    * @param timer latency metric to be updated
@@ -199,6 +200,7 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
 
   /**
    * Execute an async request given a table record (key+value)
+   * @param rateLimiter helper for rate limiting
    * @param key key of the table record
    * @param value value of the table record
    * @param method method to be executed
@@ -229,9 +231,11 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
 
   /**
    * Execute an async request given a collection of table keys
+   * @param rateLimiter helper for rate limiting
    * @param keys collection of keys
    * @param method method to be executed
    * @param timer latency metric to be updated
+   * @param <T> return type
    * @return CompletableFuture of the operation
    */
   protected <T> CompletableFuture<T> execute(TableRateLimiter<K, V> rateLimiter,
@@ -258,6 +262,7 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
 
   /**
    * Execute an async request given a collection of table records
+   * @param rateLimiter helper for rate limiting
    * @param records list of records
    * @param method method to be executed
    * @param timer latency metric to be updated

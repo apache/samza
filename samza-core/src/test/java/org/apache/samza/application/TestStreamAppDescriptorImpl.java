@@ -526,6 +526,7 @@ public class TestStreamAppDescriptorImpl {
     BaseTableDescriptor mockTableDescriptor = mock(BaseTableDescriptor.class);
     TableSpec testTableSpec = new TableSpec("t1", KVSerde.of(new NoOpSerde(), new NoOpSerde()), "", new HashMap<>());
     when(mockTableDescriptor.getTableSpec()).thenReturn(testTableSpec);
+    when(mockTableDescriptor.getTableId()).thenReturn(testTableSpec.getId());
     StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> {
         appDesc.getTable(mockTableDescriptor);
       }, mockConfig);
@@ -546,5 +547,15 @@ public class TestStreamAppDescriptorImpl {
     StreamApplication testApp = appSpec -> appSpec.withProcessorLifecycleListenerFactory(mockFactory);
     StreamAppDescriptorImpl appDesc = new StreamAppDescriptorImpl(testApp, mock(Config.class));
     assertEquals(appDesc.getProcessorLifecycleListenerFactory(), mockFactory);
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void testGetTableWithBadId() {
+    Config mockConfig = mock(Config.class);
+    new StreamAppDescriptorImpl(appDesc -> {
+        BaseTableDescriptor mockTableDescriptor = mock(BaseTableDescriptor.class);
+        when(mockTableDescriptor.getTableId()).thenReturn("my.table");
+        appDesc.getTable(mockTableDescriptor);
+      }, mockConfig);
   }
 }
