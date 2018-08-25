@@ -57,7 +57,6 @@ import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.apache.samza.test.util.ArraySystemFactory;
 import org.apache.samza.test.util.Base64Serializer;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 
 import static org.apache.samza.test.table.TestTableData.*;
@@ -77,12 +76,6 @@ import static org.mockito.Mockito.verify;
  * This test class tests sendTo() and join() for local tables
  */
 public class TestLocalTable extends AbstractIntegrationTestHarness {
-
-  @Before
-  public void setUp() {
-    super.setUp();
-    PageViewToProfileJoinFunction.reset();
-  }
 
   @Test
   public void testSendTo() throws  Exception {
@@ -150,7 +143,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
                 return pv;
               })
             .partitionBy(PageView::getMemberId, v -> v, "p1")
-            .join(table, new PageViewToProfileJoinFunction("test-join1"))
+            .join(table, new PageViewToProfileJoinFunction())
             .sink((m, collector, coordinator) -> joined.add(m));
       };
 
@@ -205,8 +198,8 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
       KVSerde<Integer, Profile> profileKVSerde = KVSerde.of(new IntegerSerde(), new ProfileJsonSerde());
       KVSerde<Integer, PageView> pageViewKVSerde = KVSerde.of(new IntegerSerde(), new PageViewJsonSerde());
 
-      PageViewToProfileJoinFunction joinFn1 = new PageViewToProfileJoinFunction("test-dual-join1");
-      PageViewToProfileJoinFunction joinFn2 = new PageViewToProfileJoinFunction("test-dual-join2");
+      PageViewToProfileJoinFunction joinFn1 = new PageViewToProfileJoinFunction();
+      PageViewToProfileJoinFunction joinFn2 = new PageViewToProfileJoinFunction();
 
       final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
       final StreamApplication app = (streamGraph, cfg) -> {
@@ -250,9 +243,6 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
       assertEquals(count * partitionCount, sentToProfileTable1.size());
       assertEquals(count * partitionCount, sentToProfileTable2.size());
 
-      assertEquals(2, PageViewToProfileJoinFunction.counterPerJoinFn.size());
-      assertEquals(count * partitionCount, PageViewToProfileJoinFunction.counterPerJoinFn.get("test-dual-join1").intValue());
-      assertEquals(count * partitionCount, PageViewToProfileJoinFunction.counterPerJoinFn.get("test-dual-join2").intValue());
       assertEquals(count * partitionCount, joinedPageViews1.size());
       assertEquals(count * partitionCount, joinedPageViews2.size());
       assertTrue(joinedPageViews1.get(0) instanceof EnrichedPageView);

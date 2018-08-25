@@ -18,13 +18,8 @@
  */
 package org.apache.samza.test.table;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.test.table.TestTableData.EnrichedPageView;
 import org.apache.samza.test.table.TestTableData.PageView;
 import org.apache.samza.test.table.TestTableData.Profile;
@@ -34,21 +29,9 @@ import org.apache.samza.test.table.TestTableData.Profile;
  */
 class PageViewToProfileJoinFunction implements StreamTableJoinFunction
     <Integer, KV<Integer, PageView>, KV<Integer, Profile>, EnrichedPageView> {
-  static Map<String, AtomicInteger> counterPerJoinFn = new HashMap<>();
-  private final String joinOpName;
-
-  public PageViewToProfileJoinFunction(String joinOpName) {
-    this.joinOpName = joinOpName;
-  }
-
-  @Override
-  public void init(Config config, TaskContext context) {
-    counterPerJoinFn.put(this.joinOpName, new AtomicInteger(0));
-  }
 
   @Override
   public TestTableData.EnrichedPageView apply(KV<Integer, TestTableData.PageView> m, KV<Integer, TestTableData.Profile> r) {
-    counterPerJoinFn.get(this.joinOpName).incrementAndGet();
     return r == null ? null : new TestTableData.EnrichedPageView(m.getValue().getPageKey(), m.getKey(), r.getValue().getCompany());
   }
 
@@ -62,7 +45,4 @@ class PageViewToProfileJoinFunction implements StreamTableJoinFunction
     return record.getKey();
   }
 
-  public static void reset() {
-    counterPerJoinFn.clear();
-  }
 }

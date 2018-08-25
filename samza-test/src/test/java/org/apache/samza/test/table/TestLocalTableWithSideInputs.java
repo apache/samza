@@ -44,7 +44,6 @@ import org.apache.samza.table.Table;
 import org.apache.samza.test.framework.TestRunner;
 import org.apache.samza.test.framework.stream.CollectionStream;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
-import org.junit.Before;
 import org.junit.Test;
 
 import static org.apache.samza.test.table.TestTableData.*;
@@ -56,12 +55,6 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
   private static final String PAGEVIEW_STREAM = "pageview";
   private static final String PROFILE_STREAM = "profile";
   private static final String ENRICHED_PAGEVIEW_STREAM = "enrichedpageview";
-
-  @Before
-  public void setUp() {
-    super.setUp();
-    PageViewToProfileJoinFunction.reset();
-  }
 
   @Test
   public void testJoinWithSideInputsTable() {
@@ -136,7 +129,7 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
 
       graph.getInputStream(PAGEVIEW_STREAM, new NoOpSerde<TestTableData.PageView>())
           .partitionBy(TestTableData.PageView::getMemberId, v -> v, "partition-page-view")
-          .join(table, new PageViewToProfileJoinFunction("test-sideinput-join1"))
+          .join(table, new PageViewToProfileJoinFunction())
           .sendTo(graph.getOutputStream(ENRICHED_PAGEVIEW_STREAM, new NoOpSerde<>()));
     }
 

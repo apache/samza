@@ -59,7 +59,6 @@ import org.apache.samza.test.util.Base64Serializer;
 import org.apache.samza.util.RateLimiter;
 import com.google.common.cache.CacheBuilder;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 
 import static org.apache.samza.test.table.TestTableData.*;
@@ -188,7 +187,7 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
 
       streamGraph.getInputStream("PageView", new NoOpSerde<PageView>())
           .map(pv -> new KV<>(pv.getMemberId(), pv))
-          .join(inputTable, new PageViewToProfileJoinFunction("test-remote-table-join1"))
+          .join(inputTable, new PageViewToProfileJoinFunction())
           .map(m -> new KV(m.getMemberId(), m))
           .sendTo(outputTable);
     };
@@ -199,12 +198,6 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     int numExpected = count * partitionCount;
     Assert.assertEquals(numExpected, writtenRecords.get(testName).size());
     Assert.assertTrue(writtenRecords.get(testName).get(0) instanceof EnrichedPageView);
-  }
-
-  @Before
-  public void setUp() {
-    super.setUp();
-    PageViewToProfileJoinFunction.reset();
   }
 
   @Test
