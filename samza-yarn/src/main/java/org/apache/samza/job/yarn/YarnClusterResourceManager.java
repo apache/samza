@@ -111,7 +111,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    */
   private final ConcurrentHashMap<SamzaResource, Container> allocatedResources = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<SamzaResourceRequest, AMRMClient.ContainerRequest> requestsMap = new ConcurrentHashMap<>();
-  
+
   private final SamzaAppMasterMetrics metrics;
 
   private final AtomicBoolean started = new AtomicBoolean(false);
