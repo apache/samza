@@ -39,8 +39,7 @@ public class GuavaCacheTableDescriptor<K, V> extends BaseTableDescriptor<K, V, G
   private Cache<K, V> cache;
 
   /**
-   * Constructs a table descriptor instance
-   * @param tableId Id of the table
+   * {@inheritDoc}
    */
   public GuavaCacheTableDescriptor(String tableId) {
     super(tableId);

@@ -33,6 +33,9 @@ import org.apache.samza.table.TableSpec;
  */
 public class InMemoryTableDescriptor<K, V> extends BaseLocalStoreBackedTableDescriptor<K, V, InMemoryTableDescriptor<K, V>> {
 
+  /**
+   * {@inheritDoc}
+   */
   public InMemoryTableDescriptor(String tableId) {
     super(tableId);
   }
