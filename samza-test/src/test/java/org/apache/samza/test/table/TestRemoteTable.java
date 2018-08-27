@@ -60,6 +60,8 @@ import org.apache.samza.util.RateLimiter;
 import org.junit.Assert;
 import org.junit.Test;
 
+import static org.apache.samza.test.table.TestTableData.*;
+
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doReturn;
@@ -68,11 +70,11 @@ import static org.mockito.Mockito.mock;
 
 public class TestRemoteTable extends AbstractIntegrationTestHarness {
 
-  static Map<String, List<TestTableData.EnrichedPageView>> writtenRecords = new HashMap<>();
+  static Map<String, List<EnrichedPageView>> writtenRecords = new HashMap<>();
 
-  static class InMemoryReadFunction implements TableReadFunction<Integer, TestTableData.Profile> {
+  static class InMemoryReadFunction implements TableReadFunction<Integer, Profile> {
     private final String serializedProfiles;
-    private transient Map<Integer, TestTableData.Profile> profileMap;
+    private transient Map<Integer, Profile> profileMap;
 
     private InMemoryReadFunction(String profiles) {
       this.serializedProfiles = profiles;
@@ -80,12 +82,12 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
 
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
       in.defaultReadObject();
-      TestTableData.Profile[] profiles = Base64Serializer.deserialize(this.serializedProfiles, TestTableData.Profile[].class);
+      Profile[] profiles = Base64Serializer.deserialize(this.serializedProfiles, Profile[].class);
       this.profileMap = Arrays.stream(profiles).collect(Collectors.toMap(p -> p.getMemberId(), Function.identity()));
     }
 
     @Override
-    public CompletableFuture<TestTableData.Profile> getAsync(Integer key) {
+    public CompletableFuture<Profile> getAsync(Integer key) {
       return CompletableFuture.completedFuture(profileMap.get(key));
     }
 
@@ -94,8 +96,8 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     }
   }
 
-  static class InMemoryWriteFunction implements TableWriteFunction<Integer, TestTableData.EnrichedPageView> {
-    private transient List<TestTableData.EnrichedPageView> records;
+  static class InMemoryWriteFunction implements TableWriteFunction<Integer, EnrichedPageView> {
+    private transient List<EnrichedPageView> records;
     private String testName;
 
     public InMemoryWriteFunction(String testName) {
@@ -111,7 +113,7 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     }
 
     @Override
-    public CompletableFuture<Void> putAsync(Integer key, TestTableData.EnrichedPageView record) {
+    public CompletableFuture<Void> putAsync(Integer key, EnrichedPageView record) {
       records.add(record);
       return CompletableFuture.completedFuture(null);
     }
@@ -145,8 +147,8 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     writtenRecords.put(testName, new ArrayList<>());
 
     int count = 10;
-    TestTableData.PageView[] pageViews = TestTableData.generatePageViews(count);
-    String profiles = Base64Serializer.serialize(TestTableData.generateProfiles(count));
+    PageView[] pageViews = generatePageViews(count);
+    String profiles = Base64Serializer.serialize(generateProfiles(count));
 
     int partitionCount = 4;
     Map<String, String> configs = TestLocalTable.getBaseJobConfig(bootstrapUrl(), zkConnect());
@@ -163,27 +165,27 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
           .withReadFunction(InMemoryReadFunction.getInMemoryReadFunction(profiles))
           .withRateLimiter(readRateLimiter, null, null);
 
-      RemoteTableDescriptor<Integer, TestTableData.EnrichedPageView> outputTableDesc = new RemoteTableDescriptor<>("enriched-page-view-table-1");
+      RemoteTableDescriptor<Integer, EnrichedPageView> outputTableDesc = new RemoteTableDescriptor<>("enriched-page-view-table-1");
       outputTableDesc
           .withReadFunction(key -> null) // dummy reader
           .withWriteFunction(writer)
           .withRateLimiter(writeRateLimiter, null, null);
 
-      Table<KV<Integer, TestTableData.EnrichedPageView>> outputTable = appDesc.getTable(outputTableDesc);
+      Table<KV<Integer, EnrichedPageView>> outputTable = appDesc.getTable(outputTableDesc);
 
       if (withCache) {
         outputTable = getCachingTable(outputTable, defaultCache, "output", appDesc);
       }
 
-      Table<KV<Integer, TestTableData.Profile>> inputTable = appDesc.getTable(inputTableDesc);
+      Table<KV<Integer, Profile>> inputTable = appDesc.getTable(inputTableDesc);
 
       if (withCache) {
         inputTable = getCachingTable(inputTable, defaultCache, "input", appDesc);
       }
 
-      appDesc.getInputStream("PageView", new NoOpSerde<TestTableData.PageView>())
+      appDesc.getInputStream("PageView", new NoOpSerde<PageView>())
           .map(pv -> new KV<>(pv.getMemberId(), pv))
-          .join(inputTable, new TestLocalTable.PageViewToProfileJoinFunction())
+          .join(inputTable, new PageViewToProfileJoinFunction())
           .map(m -> new KV(m.getMemberId(), m))
           .sendTo(outputTable);
     };
@@ -194,7 +196,7 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
 
     int numExpected = count * partitionCount;
     Assert.assertEquals(numExpected, writtenRecords.get(testName).size());
-    Assert.assertTrue(writtenRecords.get(testName).get(0) instanceof TestTableData.EnrichedPageView);
+    Assert.assertTrue(writtenRecords.get(testName).get(0) instanceof EnrichedPageView);
   }
 
   @Test
