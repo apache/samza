@@ -19,6 +19,8 @@
 
 package org.apache.samza.test.controlmessages;
 
+import scala.collection.JavaConverters;
+
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,6 +40,8 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
+import org.apache.samza.operators.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.operators.impl.InputOperatorImpl;
 import org.apache.samza.operators.impl.OperatorImpl;
 import org.apache.samza.operators.impl.OperatorImplGraph;
@@ -48,6 +52,8 @@ import org.apache.samza.processor.TestStreamProcessorUtil;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.runtime.TestLocalApplicationRunner;
 import org.apache.samza.serializers.IntegerSerdeFactory;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.StringSerdeFactory;
 import org.apache.samza.standalone.PassthroughCoordinationUtilsFactory;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
@@ -66,7 +72,6 @@ import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.apache.samza.test.util.SimpleSystemAdmin;
 import org.apache.samza.test.util.TestStreamConsumer;
 import org.junit.Test;
-import scala.collection.JavaConverters;
 
 import static org.junit.Assert.assertEquals;
 
@@ -143,7 +148,10 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
 
     List<PageView> received = new ArrayList<>();
     final StreamApplication app = (streamGraph, cfg) -> {
-      streamGraph.<KV<String, PageView>>getInputStream("PageView")
+      DelegatingSystemDescriptor sd = new DelegatingSystemDescriptor("test");
+      GenericInputDescriptor<KV<String, PageView>> isd =
+          sd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+      streamGraph.getInputStream(isd)
           .map(EndOfStreamIntegrationTest.Values.create())
           .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
           .sink((m, collector, coordinator) -> {

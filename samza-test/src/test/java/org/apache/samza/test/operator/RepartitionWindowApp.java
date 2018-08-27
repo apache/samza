@@ -30,6 +30,9 @@ import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaOutputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.test.operator.data.PageView;
 import org.apache.samza.util.CommandLine;
 import org.slf4j.Logger;
@@ -41,7 +44,7 @@ import org.slf4j.LoggerFactory;
 public class RepartitionWindowApp implements StreamApplication {
 
   private static final Logger LOG = LoggerFactory.getLogger(RepartitionWindowApp.class);
-
+  static final String SYSTEM = "kafka";
   static final String INPUT_TOPIC = "page-views";
   static final String OUTPUT_TOPIC = "Result";
 
@@ -57,16 +60,18 @@ public class RepartitionWindowApp implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
+    KVSerde<String, PageView> inputSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageView.class));
+    KVSerde<String, String> outputSerde = KVSerde.of(new StringSerde(), new StringSerde());
+    KafkaSystemDescriptor ksd = new KafkaSystemDescriptor(SYSTEM);
+    KafkaInputDescriptor<KV<String, PageView>> id = ksd.getInputDescriptor(INPUT_TOPIC, inputSerde);
+    KafkaOutputDescriptor<KV<String, String>> od = ksd.getOutputDescriptor(OUTPUT_TOPIC, outputSerde);
 
-    KVSerde<String, PageView>
-        pgeMsgSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageView.class));
-
-    graph.getInputStream(INPUT_TOPIC, pgeMsgSerde)
+    graph.getInputStream(id)
         .map(KV::getValue)
-        .partitionBy(PageView::getUserId, m -> m, pgeMsgSerde, "p1")
+        .partitionBy(PageView::getUserId, m -> m, inputSerde, "p1")
         .window(Windows.keyedSessionWindow(m -> m.getKey(), Duration.ofSeconds(3), () -> 0, (m, c) -> c + 1, new StringSerde("UTF-8"), new IntegerSerde()), "w1")
         .map(wp -> KV.of(wp.getKey().getKey().toString(), String.valueOf(wp.getMessage())))
-        .sendTo(graph.getOutputStream(OUTPUT_TOPIC));
+        .sendTo(graph.getOutputStream(od));
 
   }
 }

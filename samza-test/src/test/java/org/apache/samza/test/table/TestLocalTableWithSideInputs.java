@@ -20,6 +20,7 @@
 package org.apache.samza.test.table;
 
 import com.google.common.collect.ImmutableList;
+
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -40,6 +41,7 @@ import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.RocksDbTableDescriptor;
 import org.apache.samza.storage.kv.inmemory.InMemoryTableDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.table.Table;
 import org.apache.samza.test.framework.TestRunner;
 import org.apache.samza.test.framework.stream.CollectionStream;
@@ -47,9 +49,9 @@ import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.junit.Test;
 
 import static org.apache.samza.test.table.TestTableData.*;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+
 
 public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness {
   private static final String PAGEVIEW_STREAM = "pageview";
@@ -126,11 +128,12 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
     @Override
     public void init(StreamGraph graph, Config config) {
       Table<KV<Integer, TestTableData.Profile>> table = graph.getTable(getTableDescriptor());
-
-      graph.getInputStream(PAGEVIEW_STREAM, new NoOpSerde<TestTableData.PageView>())
+      KafkaSystemDescriptor sd =
+          new KafkaSystemDescriptor(config.get(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), PAGEVIEW_STREAM)));
+      graph.getInputStream(sd.getInputDescriptor(PAGEVIEW_STREAM, new NoOpSerde<TestTableData.PageView>()))
           .partitionBy(TestTableData.PageView::getMemberId, v -> v, "partition-page-view")
           .join(table, new PageViewToProfileJoinFunction())
-          .sendTo(graph.getOutputStream(ENRICHED_PAGEVIEW_STREAM, new NoOpSerde<>()));
+          .sendTo(graph.getOutputStream(sd.getOutputDescriptor(ENRICHED_PAGEVIEW_STREAM, new NoOpSerde<>())));
     }
 
     protected TableDescriptor<Integer, Profile, ?> getTableDescriptor() {

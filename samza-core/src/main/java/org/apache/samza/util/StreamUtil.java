@@ -32,6 +32,7 @@ public class StreamUtil {
    * Gets the {@link SystemStream} corresponding to the provided stream, which may be
    * a streamId, or stream name of the format systemName.streamName.
    *
+   * @param config the config for the job
    * @param stream the stream name or id to get the {@link SystemStream} for.
    * @return the {@link SystemStream} for the stream
    */

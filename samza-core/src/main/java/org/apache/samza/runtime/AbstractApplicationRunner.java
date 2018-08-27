@@ -30,6 +30,7 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ApplicationConfig.ApplicationMode;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.StreamConfig;
@@ -80,6 +81,17 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
     ApplicationMode mode = inputStreams.stream().allMatch(streamConfig::getIsBounded)
         ? ApplicationMode.BATCH : ApplicationMode.STREAM;
     cfg.put(ApplicationConfig.APP_MODE, mode.name());
+
+    // merge user-provided configuration with input/output descriptor generated configuration
+    // descriptor generated configuration has higher priority
+    Map<String, String> systemStreamConfigs = new HashMap<>();
+    graphSpec.getInputDescriptors().forEach((key, value) -> systemStreamConfigs.putAll(value.toConfig()));
+    graphSpec.getOutputDescriptors().forEach((key, value) -> systemStreamConfigs.putAll(value.toConfig()));
+    graphSpec.getSystemDescriptors().forEach(sd -> systemStreamConfigs.putAll(sd.toConfig()));
+    graphSpec.getDefaultSystemDescriptor().ifPresent(dsd ->
+        systemStreamConfigs.put(JobConfig.JOB_DEFAULT_SYSTEM(), dsd.getSystemName()));
+    Map<String, String> appConfigs = new HashMap<>(cfg);
+    appConfigs.putAll(systemStreamConfigs);
 
     // create the physical execution plan
     Config generatedConfig = new MapConfig(cfg);

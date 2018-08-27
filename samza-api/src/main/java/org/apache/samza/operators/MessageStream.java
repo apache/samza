@@ -213,13 +213,11 @@ public interface MessageStream<M> {
 
   /**
    * Re-partitions this {@link MessageStream} using keys from the {@code keyExtractor} by creating a new
-   * intermediate stream on the {@code job.default.system}. This intermediate stream is both an output and
-   * input to the job.
+   * intermediate stream on the default system provided via {@link StreamGraph#setDefaultSystem}. This intermediate
+   * stream is both an output and input to the job.
    * <p>
    * Uses the provided {@link KVSerde} for serialization of keys and values. If the provided {@code serde} is null,
-   * uses the default serde provided via {@link StreamGraph#setDefaultSerde}, which must be a KVSerde. If the default
-   * serde is not a {@link KVSerde}, a runtime exception will be thrown. If no default serde has been provided
-   * <b>before</b> calling this method, a {@code KVSerde<NoOpSerde, NoOpSerde>} is used.
+   * uses the key and message serde configured for the job's default system.
    * <p>
    * The number of partitions for this intermediate stream is determined as follows:
    * If the stream is an eventual input to a {@link #join}, and the number of partitions for the other stream is known,
@@ -251,9 +249,7 @@ public interface MessageStream<M> {
   /**
    * Same as calling {@link #partitionBy(MapFunction, MapFunction, KVSerde, String)} with a null KVSerde.
    * <p>
-   * Uses the default serde provided via {@link StreamGraph#setDefaultSerde}, which must be a KVSerde. If the default
-   * serde is not a {@link KVSerde}, a runtime exception will be thrown. If no default serde has been provided
-   * <b>before</b> calling this method, a {@code KVSerde<NoOpSerde, NoOpSerde>} is used.
+   * Uses the key and message serde configured for the job's default system.
    *
    * @param keyExtractor the {@link MapFunction} to extract the message and partition key from the input message
    * @param valueExtractor the {@link MapFunction} to extract the value from the input message

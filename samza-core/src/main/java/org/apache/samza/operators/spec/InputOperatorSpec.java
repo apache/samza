@@ -18,52 +18,79 @@
  */
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.operators.KV;
+import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.serializers.Serde;
+import org.apache.samza.system.IncomingMessageEnvelope;
 
 /**
  * The spec for an operator that receives incoming messages from an input stream
- * and converts them to the input message.
- *
- * @param <K> the type of input key
- * @param <V> the type of input value
+ * and converts them to the input message. The input message type is:
+ * <ul>
+ *   <li>{@code T} if the input stream has an {@link InputTransformer} with result type T
+ *   <li>{@code KV<K, V>} if the input stream is keyed
+ *   <li>{@code V} if the input stream is unkeyed
+ * </ul>
  */
-public class InputOperatorSpec<K, V> extends OperatorSpec<KV<K, V>, Object> { // Object == KV<K, V> | V
+public class InputOperatorSpec extends OperatorSpec<IncomingMessageEnvelope, Object> {
 
-  private final boolean isKeyed;
   private final String streamId;
+  private final boolean isKeyed;
+  private final InputTransformer transformer; // may be null
 
   /**
-   * The following {@link Serde}s are serialized by the ExecutionPlanner when generating the configs for a stream, and deserialized
-   * once during startup in SamzaContainer. They don't need to be deserialized here on a per-task basis
+   * The following {@link Serde}s are serialized by the ExecutionPlanner when generating the configs for a stream, and
+   * deserialized once during startup in SamzaContainer. They don't need to be deserialized here on a per-task basis
+   *
+   * Serdes are optional for intermediate streams and may be specified for job.default.system in configuration instead.
    */
-  private transient final Serde<K> keySerde;
-  private transient final Serde<V> valueSerde;
+  private transient final Serde keySerde;
+  private transient final Serde valueSerde;
 
-  public InputOperatorSpec(String streamId, Serde<K> keySerde, Serde<V> valueSerde, boolean isKeyed, String opId) {
+  public InputOperatorSpec(String streamId, Serde keySerde, Serde valueSerde,
+      InputTransformer transformer, boolean isKeyed, String opId) {
     super(OpCode.INPUT, opId);
     this.streamId = streamId;
+    this.isKeyed = isKeyed;
+    this.transformer = transformer;
     this.keySerde = keySerde;
     this.valueSerde = valueSerde;
-    this.isKeyed = isKeyed;
   }
 
   public String getStreamId() {
     return this.streamId;
   }
 
-  public Serde<K> getKeySerde() {
+  /**
+   * Get the key serde for this input stream if any.
+   *
+   * @return the key serde if any, else null
+   */
+  public Serde getKeySerde() {
     return keySerde;
   }
 
-  public Serde<V> getValueSerde() {
+  /**
+   * Get the value serde for this input stream if any.
+   *
+   * @return the value serde if any, else null
+   */
+  public Serde getValueSerde() {
     return valueSerde;
   }
 
   public boolean isKeyed() {
     return isKeyed;
+  }
+
+  /**
+   * Get the {@link InputTransformer} for this input stream if any.
+   *
+   * @return the {@link InputTransformer} if any, else null
+   */
+  public InputTransformer getTransformer() {
+    return transformer;
   }
 
   @Override
