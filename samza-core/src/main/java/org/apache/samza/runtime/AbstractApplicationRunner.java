@@ -101,18 +101,18 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
         appDesc);
     }
 
-    StreamManager buildAndStartStreamManager() {
+    StreamManager buildAndStartStreamManager(Config config) {
       StreamManager streamManager = new StreamManager(config);
       streamManager.start();
       return streamManager;
     }
 
-    ExecutionPlan getExecutionPlan(OperatorSpecGraph specGraph, StreamManager streamManager) throws Exception {
-      return getExecutionPlan(specGraph, null, streamManager);
+    ExecutionPlan getExecutionPlan(OperatorSpecGraph specGraph) throws Exception {
+      return getExecutionPlan(specGraph, null);
     }
 
     /* package private */
-    ExecutionPlan getExecutionPlan(OperatorSpecGraph specGraph, String runId, StreamManager streamManager) throws Exception {
+    ExecutionPlan getExecutionPlan(OperatorSpecGraph specGraph, String runId) throws Exception {
 
       // update application configs
       Map<String, String> cfg = new HashMap<>(config);
@@ -129,8 +129,14 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
       validateAppClassCfg(cfg, appDesc.getAppClass());
 
       // create the physical execution plan
-      ExecutionPlanner planner = new ExecutionPlanner(new MapConfig(cfg), streamManager);
-      return planner.plan(specGraph);
+      Config generatedConfig = new MapConfig(cfg);
+      StreamManager streamManager = buildAndStartStreamManager(generatedConfig);
+      try {
+        ExecutionPlanner planner = new ExecutionPlanner(generatedConfig, streamManager);
+        return planner.plan(specGraph);
+      } finally {
+        streamManager.stop();
+      }
     }
 
     /**

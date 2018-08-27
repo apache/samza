@@ -157,28 +157,30 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     @Override
     List<JobConfig> prepareStreamJobs(StreamAppDescriptorImpl streamAppDesc) throws Exception {
       // for high-level DAG, generating the plan and job configs
-      StreamManager streamManager = null;
-      try {
-        streamManager = buildAndStartStreamManager();
+      // 1. initialize and plan
+      ExecutionPlan plan = getExecutionPlan(streamAppDesc.getOperatorSpecGraph());
 
-        // 1. initialize and plan
-        ExecutionPlan plan = getExecutionPlan(streamAppDesc.getOperatorSpecGraph(), streamManager);
+      String executionPlanJson = plan.getPlanAsJson();
+      writePlanJsonFile(executionPlanJson);
+      LOG.info("Execution Plan: \n" + executionPlanJson);
+      String planId = String.valueOf(executionPlanJson.hashCode());
 
-        String executionPlanJson = plan.getPlanAsJson();
-        writePlanJsonFile(executionPlanJson);
-        LOG.info("Execution Plan: \n" + executionPlanJson);
-
-        // 2. create the necessary streams
-        // TODO: System generated intermediate streams should have robust naming scheme. See SAMZA-1391
-        String planId = String.valueOf(executionPlanJson.hashCode());
-        createStreams(planId, plan.getIntermediateStreams(), streamManager);
-
-        return plan.getJobConfigs();
-      } finally {
-        if (streamManager != null) {
-          streamManager.stop();
-        }
-      }
+      List<JobConfig> jobConfigs = plan.getJobConfigs();
+      jobConfigs.forEach(jobConfig -> {
+          // 2. create the necessary streams
+          // TODO: System generated intermediate streams should have robust naming scheme. See SAMZA-1391
+          // TODO: why are we creating all intermediate streams in a plan repeatedly in multiple jobs?
+          StreamManager streamManager = null;
+          try {
+            streamManager = buildAndStartStreamManager(jobConfig);
+            createStreams(planId, plan.getIntermediateStreams(), streamManager);
+          } finally {
+            if (streamManager != null) {
+              streamManager.stop();
+            }
+          }
+        });
+      return jobConfigs;
     }
 
     /**
@@ -189,9 +191,8 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
      * @param planId a unique identifier representing the plan used for coordination purpose
      * @param intStreams list of intermediate {@link StreamSpec}s
      * @param streamManager the {@link StreamManager} used to create streams
-     * @throws TimeoutException exception for latch timeout
      */
-    private void createStreams(String planId, List<StreamSpec> intStreams, StreamManager streamManager) throws TimeoutException {
+    private void createStreams(String planId, List<StreamSpec> intStreams, StreamManager streamManager) {
       if (intStreams.isEmpty()) {
         LOG.info("Set of intermediate streams is empty. Nothing to create.");
         return;

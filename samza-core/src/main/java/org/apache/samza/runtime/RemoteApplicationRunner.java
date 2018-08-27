@@ -66,30 +66,32 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     @Override
     List<JobConfig> prepareStreamJobs(StreamAppDescriptorImpl streamAppDesc) throws Exception {
       // for high-level DAG, generate the plan and job configs
-      StreamManager streamManager = null;
-      try {
-        streamManager = buildAndStartStreamManager();
-        // TODO: run.id needs to be set for standalone: SAMZA-1531
-        // run.id is based on current system time with the most significant bits in UUID (8 digits) to avoid collision
-        String runId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
-        LOG.info("The run id for this run is {}", runId);
+      // TODO: run.id needs to be set for standalone: SAMZA-1531
+      // run.id is based on current system time with the most significant bits in UUID (8 digits) to avoid collision
+      String runId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
+      LOG.info("The run id for this run is {}", runId);
 
-        // 1. initialize and plan
-        ExecutionPlan plan = getExecutionPlan(streamAppDesc.getOperatorSpecGraph(), runId, streamManager);
-        writePlanJsonFile(plan.getPlanAsJson());
+      // 1. initialize and plan
+      ExecutionPlan plan = getExecutionPlan(streamAppDesc.getOperatorSpecGraph(), runId);
+      writePlanJsonFile(plan.getPlanAsJson());
 
-        // 2. create the necessary streams
-        if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
-          streamManager.clearStreamsFromPreviousRun(getConfigFromPrevRun());
-        }
-        streamManager.createStreams(plan.getIntermediateStreams());
-
-        return plan.getJobConfigs();
-      } finally {
-        if (streamManager != null) {
-          streamManager.stop();
-        }
-      }
+      List<JobConfig> jobConfigs = plan.getJobConfigs();
+      jobConfigs.forEach(jobConfig -> {
+          StreamManager streamManager = null;
+          try {
+            // 2. create the necessary streams
+            streamManager = buildAndStartStreamManager(jobConfig);
+            if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
+              streamManager.clearStreamsFromPreviousRun(getConfigFromPrevRun());
+            }
+            streamManager.createStreams(plan.getIntermediateStreams());
+          } finally {
+            if (streamManager != null) {
+              streamManager.stop();
+            }
+          }
+        });
+      return jobConfigs;
     }
   }
 

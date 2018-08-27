@@ -63,7 +63,6 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -99,12 +98,13 @@ public class TestLocalApplicationRunner {
   public void testStreamCreation()
       throws Exception {
     StreamManager streamManager = mock(StreamManager.class);
-    doReturn(streamManager).when(localPlanner).buildAndStartStreamManager();
+    doReturn(streamManager).when(localPlanner).buildAndStartStreamManager(any(Config.class));
 
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.singletonList(new StreamSpec("test-stream", "test-stream", "test-system")));
     when(plan.getPlanAsJson()).thenReturn("");
-    doReturn(plan).when(localPlanner).getExecutionPlan(any(), eq(streamManager));
+    when(plan.getJobConfigs()).thenReturn(Collections.singletonList(new JobConfig(config)));
+    doReturn(plan).when(localPlanner).getExecutionPlan(any());
 
     CoordinationUtilsFactory coordinationUtilsFactory = mock(CoordinationUtilsFactory.class);
     JobCoordinatorConfig mockJcConfig = mock(JobCoordinatorConfig.class);
@@ -130,12 +130,13 @@ public class TestLocalApplicationRunner {
   public void testStreamCreationWithCoordination()
       throws Exception {
     StreamManager streamManager = mock(StreamManager.class);
-    doReturn(streamManager).when(localPlanner).buildAndStartStreamManager();
+    doReturn(streamManager).when(localPlanner).buildAndStartStreamManager(any(Config.class));
 
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.singletonList(new StreamSpec("test-stream", "test-stream", "test-system")));
     when(plan.getPlanAsJson()).thenReturn("");
-    doReturn(plan).when(localPlanner).getExecutionPlan(any(), eq(streamManager));
+    when(plan.getJobConfigs()).thenReturn(Collections.singletonList(new JobConfig(config)));
+    doReturn(plan).when(localPlanner).getExecutionPlan(any());
 
     CoordinationUtils coordinationUtils = mock(CoordinationUtils.class);
     CoordinationUtilsFactory coordinationUtilsFactory = mock(CoordinationUtilsFactory.class);
@@ -210,12 +211,12 @@ public class TestLocalApplicationRunner {
 
     // buildAndStartStreamManager already includes start, so not going to verify it gets called
     StreamManager streamManager = mock(StreamManager.class);
-    doReturn(streamManager).when(localPlanner).buildAndStartStreamManager();
+    doReturn(streamManager).when(localPlanner).buildAndStartStreamManager(any(Config.class));
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.emptyList());
     when(plan.getPlanAsJson()).thenReturn("");
     when(plan.getJobConfigs()).thenReturn(Collections.singletonList(new JobConfig(new MapConfig(config))));
-    doReturn(plan).when(localPlanner).getExecutionPlan(any(), eq(streamManager));
+    doReturn(plan).when(localPlanner).getExecutionPlan(any());
 
     StreamProcessor sp = mock(StreamProcessor.class);
     ArgumentCaptor<StreamProcessor.StreamProcessorListenerSupplier> captor =
@@ -252,12 +253,12 @@ public class TestLocalApplicationRunner {
 
     // buildAndStartStreamManager already includes start, so not going to verify it gets called
     StreamManager streamManager = mock(StreamManager.class);
-    doReturn(streamManager).when(localPlanner).buildAndStartStreamManager();
+    doReturn(streamManager).when(localPlanner).buildAndStartStreamManager(any(Config.class));
     ExecutionPlan plan = mock(ExecutionPlan.class);
     when(plan.getIntermediateStreams()).thenReturn(Collections.emptyList());
     when(plan.getPlanAsJson()).thenReturn("");
     when(plan.getJobConfigs()).thenReturn(Collections.singletonList(new JobConfig(new MapConfig(config))));
-    doReturn(plan).when(localPlanner).getExecutionPlan(any(), eq(streamManager));
+    doReturn(plan).when(localPlanner).getExecutionPlan(any());
 
     StreamProcessor sp = mock(StreamProcessor.class);
     ArgumentCaptor<StreamProcessor.StreamProcessorListenerSupplier> captor =
