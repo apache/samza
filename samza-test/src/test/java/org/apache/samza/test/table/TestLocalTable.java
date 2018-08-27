@@ -25,8 +25,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -42,7 +40,6 @@ import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.functions.MapFunction;
-import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
@@ -57,16 +54,12 @@ import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.Table;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
-import org.apache.samza.test.table.TestTableData.EnrichedPageView;
-import org.apache.samza.test.table.TestTableData.PageView;
-import org.apache.samza.test.table.TestTableData.PageViewJsonSerde;
-import org.apache.samza.test.table.TestTableData.PageViewJsonSerdeFactory;
-import org.apache.samza.test.table.TestTableData.Profile;
-import org.apache.samza.test.table.TestTableData.ProfileJsonSerde;
 import org.apache.samza.test.util.ArraySystemFactory;
 import org.apache.samza.test.util.Base64Serializer;
 import org.junit.Assert;
 import org.junit.Test;
+
+import static org.apache.samza.test.table.TestTableData.*;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -250,9 +243,6 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
       assertEquals(count * partitionCount, sentToProfileTable1.size());
       assertEquals(count * partitionCount, sentToProfileTable2.size());
 
-      for (int i = 0; i < PageViewToProfileJoinFunction.seqNo; i++) {
-        assertEquals(count * partitionCount, PageViewToProfileJoinFunction.counterPerJoinFn.get(i).intValue());
-      }
       assertEquals(count * partitionCount, joinedPageViews1.size());
       assertEquals(count * partitionCount, joinedPageViews2.size());
       assertTrue(joinedPageViews1.get(0) instanceof EnrichedPageView);
@@ -342,39 +332,6 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
 
     public static MyMapFunction getMapFunctionByTask(String taskName) {
       return taskToMapFunctionMap.get(taskName);
-    }
-  }
-
-  static class PageViewToProfileJoinFunction implements StreamTableJoinFunction
-      <Integer, KV<Integer, PageView>, KV<Integer, Profile>, EnrichedPageView> {
-    private static Map<Integer, AtomicInteger> counterPerJoinFn = new HashMap<>();
-    private static int seqNo = 0;
-    private final int currentSeqNo;
-
-    public PageViewToProfileJoinFunction() {
-      this.currentSeqNo = seqNo++;
-    }
-
-    @Override
-    public void init(Config config, TaskContext context) {
-      counterPerJoinFn.put(this.currentSeqNo, new AtomicInteger(0));
-    }
-
-    @Override
-    public EnrichedPageView apply(KV<Integer, PageView> m, KV<Integer, Profile> r) {
-      counterPerJoinFn.get(this.currentSeqNo).incrementAndGet();
-      return r == null ? null :
-          new EnrichedPageView(m.getValue().getPageKey(), m.getKey(), r.getValue().getCompany());
-    }
-
-    @Override
-    public Integer getMessageKey(KV<Integer, PageView> message) {
-      return message.getKey();
-    }
-
-    @Override
-    public Integer getRecordKey(KV<Integer, Profile> record) {
-      return record.getKey();
     }
   }
 
