@@ -69,10 +69,7 @@ if [ -d "$JOB_LIB_DIR" ] && [ "$JOB_LIB_DIR" != "$BASE_LIB_DIR" ]; then
   echo generated combined CLASSPATH=$CLASSPATH
 else
   #default behavior
-  for file in $BASE_LIB_DIR/*.[jw]ar;
-  do
-    CLASSPATH=$CLASSPATH:$file
-  done
+  CLASSPATH=$CLASSPATH:"$BASE_LIB_DIR/*";
 fi
 
 if [ -z "$JAVA_HOME" ]; then
