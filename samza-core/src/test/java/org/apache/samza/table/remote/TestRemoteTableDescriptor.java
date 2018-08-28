@@ -31,6 +31,9 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
+import org.apache.samza.table.retry.RetriableReadFunction;
+import org.apache.samza.table.retry.RetriableWriteFunction;
+import org.apache.samza.table.retry.TableRetryPolicy;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.EmbeddedTaggedRateLimiter;
 import org.apache.samza.util.RateLimiter;
@@ -138,7 +141,7 @@ public class TestRemoteTableDescriptor {
   private void doTestDeserializeReadFunctionAndLimiter(boolean rateOnly, boolean rlGets, boolean rlPuts) {
     int numRateLimitOps = (rlGets ? 1 : 0) + (rlPuts ? 1 : 0);
     RemoteTableDescriptor<String, String> desc = new RemoteTableDescriptor("1");
-    desc.withReadFunction(mock(TableReadFunction.class));
+    desc.withReadFunction(mock(TableReadFunction.class), new TableRetryPolicy());
     desc.withWriteFunction(mock(TableWriteFunction.class));
     desc.withAsyncCallbackExecutorPoolSize(10);
 
@@ -178,6 +181,9 @@ public class TestRemoteTableDescriptor {
 
     ThreadPoolExecutor callbackExecutor = (ThreadPoolExecutor) rwTable.callbackExecutor;
     Assert.assertEquals(10, callbackExecutor.getCorePoolSize());
+
+    Assert.assertNotNull(rwTable.readFn instanceof RetriableReadFunction);
+    Assert.assertNotNull(!(rwTable.writeFn instanceof RetriableWriteFunction));
   }
 
   @Test

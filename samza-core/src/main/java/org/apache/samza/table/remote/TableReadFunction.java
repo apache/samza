@@ -100,5 +100,16 @@ public interface TableReadFunction<K, V> extends Serializable, InitableFunction,
             .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue().join())));
   }
 
+  /**
+   * Determine whether the current operation can be retried with the last thrown exception.
+   * The default implementation disables retries for any type of exceptions. This can be
+   * overridden to customize the policy based on the data store protocol.
+   * @param exception exception thrown by a table operation
+   * @return whether the operation can be retried
+   */
+  default boolean isRetriable(Throwable exception) {
+    return false;
+  }
+
   // optionally implement readObject() to initialize transient states
 }

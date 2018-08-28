@@ -143,6 +143,17 @@ public interface TableWriteFunction<K, V> extends Serializable, InitableFunction
   }
 
   /**
+   * Determine whether the current operation can be retried with the last thrown exception.
+   * The default implementation disables retries for any type of exceptions. This can be
+   * overridden to customize the policy based on the data store protocol.
+   * @param exception exception thrown by a table operation
+   * @return whether the operation can be retried
+   */
+  default boolean isRetriable(Throwable exception) {
+    return false;
+  }
+
+  /**
    * Flush the remote store (optional)
    */
   default void flush() {
