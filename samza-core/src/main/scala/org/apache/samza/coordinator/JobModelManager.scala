@@ -38,6 +38,7 @@ import org.apache.samza.coordinator.server.JobServlet
 import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.job.model.TaskModel
+import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system._
 import org.apache.samza.util.Logging
 import org.apache.samza.util.Util
@@ -68,11 +69,10 @@ object JobModelManager extends Logging {
    * @return JobModelManager
    */
   def apply(coordinatorStreamManager: CoordinatorStreamManager, changelogPartitionMapping: util.Map[TaskName, Integer]) = {
-    val localityManager = new LocalityManager(coordinatorStreamManager)
-
     val config = coordinatorStreamManager.getConfig
+    val localityManager = new LocalityManager(config, new MetricsRegistryMap())
 
-      // Map the name of each system to the corresponding SystemAdmin
+    // Map the name of each system to the corresponding SystemAdmin
     val systemAdmins = new SystemAdmins(config)
     val streamMetadataCache = new StreamMetadataCache(systemAdmins, 0)
 
@@ -99,7 +99,7 @@ object JobModelManager extends Logging {
 
     val server = new HttpServer
     server.addServlet("/", new JobServlet(jobModelRef))
-    currentJobModelManager = new JobModelManager(jobModel, server)
+    currentJobModelManager = new JobModelManager(jobModel, server, localityManager)
     currentJobModelManager
   }
 
@@ -241,7 +241,12 @@ class JobModelManager(
   /**
    * HTTP server used to serve a Samza job's container model to SamzaContainers when they start up.
    */
-  val server: HttpServer = null) extends Logging {
+  val server: HttpServer = null,
+
+  /**
+   * LocalityManager employed to read and write container and task locality information to metadata store.
+   */
+  val localityManager: LocalityManager = null) extends Logging {
 
   debug("Got job model: %s." format jobModel)
 
@@ -258,6 +263,11 @@ class JobModelManager(
       debug("Stopping HTTP server.")
       server.stop
       info("Stopped HTTP server.")
+      if (localityManager != null) {
+        info("Stopping localityManager")
+        localityManager.close()
+        info("Stopped localityManager")
+      }
     }
   }
 }
