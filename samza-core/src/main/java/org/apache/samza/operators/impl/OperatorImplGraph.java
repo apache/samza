@@ -22,6 +22,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.StreamConfig;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.operators.KV;
@@ -96,12 +97,14 @@ public class OperatorImplGraph {
    */
   public OperatorImplGraph(OperatorSpecGraph specGraph, Config config, TaskContext context, Clock clock) {
     this.clock = clock;
-
+    StreamConfig streamConfig = new StreamConfig(config);
     TaskContextImpl taskContext = (TaskContextImpl) context;
-    Map<SystemStream, Integer> producerTaskCounts = hasIntermediateStreams(specGraph) ?
-        getProducerTaskCountForIntermediateStreams(getStreamToConsumerTasks(taskContext.getJobModel()),
-            getIntermediateToInputStreamsMap(specGraph)) :
-        Collections.EMPTY_MAP;
+    Map<SystemStream, Integer> producerTaskCounts =
+        hasIntermediateStreams(specGraph)
+            ? getProducerTaskCountForIntermediateStreams(
+                getStreamToConsumerTasks(taskContext.getJobModel()),
+                getIntermediateToInputStreamsMap(specGraph, streamConfig))
+            : Collections.EMPTY_MAP;
     producerTaskCounts.forEach((stream, count) -> {
         LOG.info("{} has {} producer tasks.", stream, count);
       });
@@ -113,8 +116,8 @@ public class OperatorImplGraph {
     taskContext.registerObject(WatermarkStates.class.getName(),
         new WatermarkStates(context.getSystemStreamPartitions(), producerTaskCounts));
 
-    specGraph.getInputOperators().forEach((streamSpec, inputOpSpec) -> {
-        SystemStream systemStream = new SystemStream(streamSpec.getSystemName(), streamSpec.getPhysicalName());
+    specGraph.getInputOperators().forEach((streamId, inputOpSpec) -> {
+        SystemStream systemStream = streamConfig.streamIdToSystemStream(streamId);
         InputOperatorImpl inputOperatorImpl =
             (InputOperatorImpl) createAndRegisterOperatorImpl(null, inputOpSpec, systemStream, config, context);
         this.inputOperators.put(systemStream, inputOperatorImpl);
@@ -210,6 +213,7 @@ public class OperatorImplGraph {
    */
   OperatorImpl createOperatorImpl(OperatorSpec prevOperatorSpec, OperatorSpec operatorSpec,
       Config config, TaskContext context) {
+    StreamConfig streamConfig = new StreamConfig(config);
     if (operatorSpec instanceof InputOperatorSpec) {
       return new InputOperatorImpl((InputOperatorSpec) operatorSpec);
     } else if (operatorSpec instanceof StreamOperatorSpec) {
@@ -217,9 +221,13 @@ public class OperatorImplGraph {
     } else if (operatorSpec instanceof SinkOperatorSpec) {
       return new SinkOperatorImpl((SinkOperatorSpec) operatorSpec, config, context);
     } else if (operatorSpec instanceof OutputOperatorSpec) {
-      return new OutputOperatorImpl((OutputOperatorSpec) operatorSpec);
+      String streamId = ((OutputOperatorSpec) operatorSpec).getOutputStream().getStreamId();
+      SystemStream systemStream = streamConfig.streamIdToSystemStream(streamId);
+      return new OutputOperatorImpl((OutputOperatorSpec) operatorSpec, systemStream);
     } else if (operatorSpec instanceof PartitionByOperatorSpec) {
-      return new PartitionByOperatorImpl((PartitionByOperatorSpec) operatorSpec, config, context);
+      String streamId = ((PartitionByOperatorSpec) operatorSpec).getOutputStream().getStreamId();
+      SystemStream systemStream = streamConfig.streamIdToSystemStream(streamId);
+      return new PartitionByOperatorImpl((PartitionByOperatorSpec) operatorSpec, systemStream, context);
     } else if (operatorSpec instanceof WindowOperatorSpec) {
       return new WindowOperatorImpl((WindowOperatorSpec) operatorSpec, clock);
     } else if (operatorSpec instanceof JoinOperatorSpec) {
@@ -231,7 +239,9 @@ public class OperatorImplGraph {
     } else if (operatorSpec instanceof SendToTableOperatorSpec) {
       return new SendToTableOperatorImpl((SendToTableOperatorSpec) operatorSpec, config, context);
     } else if (operatorSpec instanceof BroadcastOperatorSpec) {
-      return new BroadcastOperatorImpl((BroadcastOperatorSpec) operatorSpec, context);
+      String streamId = ((BroadcastOperatorSpec) operatorSpec).getOutputStream().getStreamId();
+      SystemStream systemStream = streamConfig.streamIdToSystemStream(streamId);
+      return new BroadcastOperatorImpl((BroadcastOperatorSpec) operatorSpec, systemStream, context);
     }
     throw new IllegalArgumentException(
         String.format("Unsupported OperatorSpec: %s", operatorSpec.getClass().getName()));
@@ -323,10 +333,6 @@ public class OperatorImplGraph {
     };
   }
 
-  private boolean hasIntermediateStreams(OperatorSpecGraph specGraph) {
-    return !Collections.disjoint(specGraph.getInputOperators().keySet(), specGraph.getOutputStreams().keySet());
-  }
-
   /**
    * calculate the task count that produces to each intermediate streams
    * @param streamToConsumerTasks input streams to task mapping
@@ -337,12 +343,11 @@ public class OperatorImplGraph {
       Multimap<SystemStream, String> streamToConsumerTasks,
       Multimap<SystemStream, SystemStream> intermediateToInputStreams) {
     Map<SystemStream, Integer> result = new HashMap<>();
-    intermediateToInputStreams.asMap().entrySet().forEach(entry -> {
+    intermediateToInputStreams.asMap().entrySet().forEach(entry ->
         result.put(entry.getKey(),
             entry.getValue().stream()
                 .flatMap(systemStream -> streamToConsumerTasks.get(systemStream).stream())
-                .collect(Collectors.toSet()).size());
-      });
+                .collect(Collectors.toSet()).size()));
     return result;
   }
 
@@ -368,25 +373,34 @@ public class OperatorImplGraph {
    * @param specGraph the user {@link OperatorSpecGraph}
    * @return mapping from output streams to input streams
    */
-  static Multimap<SystemStream, SystemStream> getIntermediateToInputStreamsMap(OperatorSpecGraph specGraph) {
+  static Multimap<SystemStream, SystemStream> getIntermediateToInputStreamsMap(
+      OperatorSpecGraph specGraph, StreamConfig streamConfig) {
     Multimap<SystemStream, SystemStream> outputToInputStreams = HashMultimap.create();
     specGraph.getInputOperators().entrySet().stream()
-        .forEach(
-            entry -> computeOutputToInput(entry.getKey().toSystemStream(), entry.getValue(), outputToInputStreams));
+        .forEach(entry -> {
+            SystemStream systemStream = streamConfig.streamIdToSystemStream(entry.getKey());
+            computeOutputToInput(systemStream, entry.getValue(), outputToInputStreams, streamConfig);
+          });
     return outputToInputStreams;
   }
 
   private static void computeOutputToInput(SystemStream input, OperatorSpec opSpec,
-      Multimap<SystemStream, SystemStream> outputToInputStreams) {
+      Multimap<SystemStream, SystemStream> outputToInputStreams, StreamConfig streamConfig) {
     if (opSpec instanceof PartitionByOperatorSpec) {
       PartitionByOperatorSpec spec = (PartitionByOperatorSpec) opSpec;
-      outputToInputStreams.put(spec.getOutputStream().getStreamSpec().toSystemStream(), input);
+      SystemStream systemStream = streamConfig.streamIdToSystemStream(spec.getOutputStream().getStreamId());
+      outputToInputStreams.put(systemStream, input);
     } else if (opSpec instanceof BroadcastOperatorSpec) {
       BroadcastOperatorSpec spec = (BroadcastOperatorSpec) opSpec;
-      outputToInputStreams.put(spec.getOutputStream().getStreamSpec().toSystemStream(), input);
+      SystemStream systemStream = streamConfig.streamIdToSystemStream(spec.getOutputStream().getStreamId());
+      outputToInputStreams.put(systemStream, input);
     } else {
       Collection<OperatorSpec> nextOperators = opSpec.getRegisteredOperatorSpecs();
-      nextOperators.forEach(spec -> computeOutputToInput(input, spec, outputToInputStreams));
+      nextOperators.forEach(spec -> computeOutputToInput(input, spec, outputToInputStreams, streamConfig));
     }
+  }
+
+  private boolean hasIntermediateStreams(OperatorSpecGraph specGraph) {
+    return !Collections.disjoint(specGraph.getInputOperators().keySet(), specGraph.getOutputStreams().keySet());
   }
 }

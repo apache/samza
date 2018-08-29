@@ -20,47 +20,59 @@
 package org.apache.samza.test.table;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
+import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
+import org.apache.samza.metrics.Counter;
+import org.apache.samza.metrics.Gauge;
+import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
+import org.apache.samza.operators.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
-import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.standalone.PassthroughCoordinationUtilsFactory;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
+import org.apache.samza.storage.kv.Entry;
+import org.apache.samza.storage.kv.KeyValueStore;
+import org.apache.samza.storage.kv.LocalStoreBackedReadWriteTable;
 import org.apache.samza.storage.kv.inmemory.InMemoryTableDescriptor;
 import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.Table;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
-import org.apache.samza.test.table.TestTableData.EnrichedPageView;
-import org.apache.samza.test.table.TestTableData.PageView;
-import org.apache.samza.test.table.TestTableData.PageViewJsonSerde;
-import org.apache.samza.test.table.TestTableData.PageViewJsonSerdeFactory;
-import org.apache.samza.test.table.TestTableData.Profile;
-import org.apache.samza.test.table.TestTableData.ProfileJsonSerde;
 import org.apache.samza.test.util.ArraySystemFactory;
 import org.apache.samza.test.util.Base64Serializer;
 import org.junit.Assert;
 import org.junit.Test;
 
+import static org.apache.samza.test.table.TestTableData.*;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyList;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
 
 /**
  * This test class tests sendTo() and join() for local tables
@@ -87,8 +99,9 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
 
       Table<KV<Integer, Profile>> table = streamGraph.getTable(new InMemoryTableDescriptor("t1")
           .withSerde(KVSerde.of(new IntegerSerde(), new ProfileJsonSerde())));
-
-      streamGraph.getInputStream("Profile", new NoOpSerde<Profile>())
+      DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
+      GenericInputDescriptor<Profile> isd = ksd.getInputDescriptor("Profile", new NoOpSerde<>());
+      streamGraph.getInputStream(isd)
           .map(mapFn)
           .sendTo(table);
     };
@@ -122,12 +135,14 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
 
         Table<KV<Integer, Profile>> table = streamGraph.getTable(
             new InMemoryTableDescriptor("t1").withSerde(KVSerde.of(new IntegerSerde(), new ProfileJsonSerde())));
-
-        streamGraph.getInputStream("Profile", new NoOpSerde<Profile>())
+        DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
+        GenericInputDescriptor<Profile> profileISD = ksd.getInputDescriptor("Profile", new NoOpSerde<>());
+        streamGraph.getInputStream(profileISD)
             .map(m -> new KV(m.getMemberId(), m))
             .sendTo(table);
 
-        streamGraph.getInputStream("PageView", new NoOpSerde<PageView>())
+        GenericInputDescriptor<PageView> pageViewISD = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
+        streamGraph.getInputStream(pageViewISD)
             .map(pv -> {
                 received.add(pv);
                 return pv;
@@ -197,8 +212,11 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
         Table<KV<Integer, Profile>> profileTable = streamGraph.getTable(new InMemoryTableDescriptor("t1")
             .withSerde(profileKVSerde));
 
-        MessageStream<Profile> profileStream1 = streamGraph.getInputStream("Profile1", new NoOpSerde<Profile>());
-        MessageStream<Profile> profileStream2 = streamGraph.getInputStream("Profile2", new NoOpSerde<Profile>());
+        DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
+        GenericInputDescriptor<Profile> profileISD1 = ksd.getInputDescriptor("Profile1", new NoOpSerde<>());
+        GenericInputDescriptor<Profile> profileISD2 = ksd.getInputDescriptor("Profile2", new NoOpSerde<>());
+        MessageStream<Profile> profileStream1 = streamGraph.getInputStream(profileISD1);
+        MessageStream<Profile> profileStream2 = streamGraph.getInputStream(profileISD2);
 
         profileStream1
             .map(m -> {
@@ -213,8 +231,10 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
               })
             .sendTo(profileTable);
 
-        MessageStream<PageView> pageViewStream1 = streamGraph.getInputStream("PageView1", new NoOpSerde<PageView>());
-        MessageStream<PageView> pageViewStream2 = streamGraph.getInputStream("PageView2", new NoOpSerde<PageView>());
+        GenericInputDescriptor<PageView> pageViewISD1 = ksd.getInputDescriptor("PageView1", new NoOpSerde<PageView>());
+        GenericInputDescriptor<PageView> pageViewISD2 = ksd.getInputDescriptor("PageView2", new NoOpSerde<PageView>());
+        MessageStream<PageView> pageViewStream1 = streamGraph.getInputStream(pageViewISD1);
+        MessageStream<PageView> pageViewStream2 = streamGraph.getInputStream(pageViewISD2);
 
         pageViewStream1
             .partitionBy(PageView::getMemberId, v -> v, pageViewKVSerde, "p1")
@@ -233,9 +253,6 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
       assertEquals(count * partitionCount, sentToProfileTable1.size());
       assertEquals(count * partitionCount, sentToProfileTable2.size());
 
-      for (int i = 0; i < PageViewToProfileJoinFunction.seqNo; i++) {
-        assertEquals(count * partitionCount, PageViewToProfileJoinFunction.counterPerJoinFn.get(i).intValue());
-      }
       assertEquals(count * partitionCount, joinedPageViews1.size());
       assertEquals(count * partitionCount, joinedPageViews2.size());
       assertTrue(joinedPageViews1.get(0) instanceof EnrichedPageView);
@@ -328,36 +345,47 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     }
   }
 
-  static class PageViewToProfileJoinFunction implements StreamTableJoinFunction
-      <Integer, KV<Integer, PageView>, KV<Integer, Profile>, EnrichedPageView> {
-    private static Map<Integer, AtomicInteger> counterPerJoinFn = new HashMap<>();
-    private static int seqNo = 0;
-    private final int currentSeqNo;
+  @Test
+  public void testAsyncOperation() throws Exception {
+    KeyValueStore kvStore = mock(KeyValueStore.class);
+    LocalStoreBackedReadWriteTable<String, String> table = new LocalStoreBackedReadWriteTable<>("table1", kvStore);
+    TaskContext taskContext = mock(TaskContext.class);
+    MetricsRegistry metricsRegistry = mock(MetricsRegistry.class);
+    doReturn(mock(Timer.class)).when(metricsRegistry).newTimer(anyString(), anyString());
+    doReturn(mock(Counter.class)).when(metricsRegistry).newCounter(anyString(), anyString());
+    doReturn(mock(Gauge.class)).when(metricsRegistry).newGauge(anyString(), any());
+    doReturn(metricsRegistry).when(taskContext).getMetricsRegistry();
 
-    public PageViewToProfileJoinFunction() {
-      this.currentSeqNo = seqNo++;
-    }
+    SamzaContainerContext containerContext = mock(SamzaContainerContext.class);
 
-    @Override
-    public void init(Config config, TaskContext context) {
-      counterPerJoinFn.put(this.currentSeqNo, new AtomicInteger(0));
-    }
+    table.init(containerContext, taskContext);
 
-    @Override
-    public EnrichedPageView apply(KV<Integer, PageView> m, KV<Integer, Profile> r) {
-      counterPerJoinFn.get(this.currentSeqNo).incrementAndGet();
-      return r == null ? null :
-          new EnrichedPageView(m.getValue().getPageKey(), m.getKey(), r.getValue().getCompany());
-    }
+    // GET
+    doReturn("bar").when(kvStore).get(anyString());
+    Assert.assertEquals("bar", table.getAsync("foo").get());
 
-    @Override
-    public Integer getMessageKey(KV<Integer, PageView> message) {
-      return message.getKey();
-    }
+    // GET-ALL
+    Map<String, String> recordMap = new HashMap<>();
+    recordMap.put("foo1", "bar1");
+    recordMap.put("foo2", "bar2");
+    doReturn(recordMap).when(kvStore).getAll(anyList());
+    Assert.assertEquals(recordMap, table.getAllAsync(Arrays.asList("foo1", "foo2")).get());
 
-    @Override
-    public Integer getRecordKey(KV<Integer, Profile> record) {
-      return record.getKey();
-    }
+    // PUT
+    table.putAsync("foo1", "bar1").get();
+    verify(kvStore, times(1)).put(anyString(), anyString());
+
+    // PUT-ALL
+    List<Entry<String, String>> records = Arrays.asList(new Entry<>("foo1", "bar1"), new Entry<>("foo2", "bar2"));
+    table.putAllAsync(records).get();
+    verify(kvStore, times(1)).putAll(anyList());
+
+    // DELETE
+    table.deleteAsync("foo").get();
+    verify(kvStore, times(1)).delete(anyString());
+
+    // DELETE-ALL
+    table.deleteAllAsync(Arrays.asList("foo1", "foo2")).get();
+    verify(kvStore, times(1)).deleteAll(anyList());
   }
 }

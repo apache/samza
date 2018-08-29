@@ -21,44 +21,48 @@ package org.apache.samza.operators.spec;
 import java.io.Serializable;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.SystemStream;
-
 
 public class OutputStreamImpl<M> implements OutputStream<M>, Serializable {
 
-  private final StreamSpec streamSpec;
+  private final String streamId;
   private final boolean isKeyed;
 
   /**
    * The following fields are serialized by the ExecutionPlanner when generating the configs for the output stream, and
    * deserialized once during startup in SamzaContainer. They don't need to be deserialized here on a per-task basis
+   *
+   * Serdes are optional for intermediate streams and may be specified for job.default.system in configuration instead.
    */
   private transient final Serde keySerde;
   private transient final Serde valueSerde;
 
-  public OutputStreamImpl(StreamSpec streamSpec,
-      Serde keySerde, Serde valueSerde, boolean isKeyed) {
-    this.streamSpec = streamSpec;
+  public OutputStreamImpl(String streamId, Serde keySerde, Serde valueSerde, boolean isKeyed) {
+    this.streamId = streamId;
     this.keySerde = keySerde;
     this.valueSerde = valueSerde;
     this.isKeyed = isKeyed;
   }
 
-  public StreamSpec getStreamSpec() {
-    return streamSpec;
+  public String getStreamId() {
+    return streamId;
   }
 
+  /**
+   * Get the key serde for this output stream if any.
+   *
+   * @return the key serde if any, else null
+   */
   public Serde getKeySerde() {
     return keySerde;
   }
 
+  /**
+   * Get the value serde for this output stream if any.
+   *
+   * @return the value serde if any, else null
+   */
   public Serde getValueSerde() {
     return valueSerde;
-  }
-
-  public SystemStream getSystemStream() {
-    return this.streamSpec.toSystemStream();
   }
 
   public boolean isKeyed() {

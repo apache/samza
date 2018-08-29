@@ -33,6 +33,9 @@ import org.apache.samza.table.TableSpec;
  */
 public class InMemoryTableDescriptor<K, V> extends BaseLocalStoreBackedTableDescriptor<K, V, InMemoryTableDescriptor<K, V>> {
 
+  /**
+   * {@inheritDoc}
+   */
   public InMemoryTableDescriptor(String tableId) {
     super(tableId);
   }
@@ -50,7 +53,8 @@ public class InMemoryTableDescriptor<K, V> extends BaseLocalStoreBackedTableDesc
     Map<String, String> tableSpecConfig = new HashMap<>();
     generateTableSpecConfig(tableSpecConfig);
 
-    return new TableSpec(tableId, serde, InMemoryTableProviderFactory.class.getName(), tableSpecConfig);
+    return new TableSpec(tableId, serde, InMemoryTableProviderFactory.class.getName(), tableSpecConfig,
+        sideInputs, sideInputsProcessor);
   }
 
   private void addInMemoryConfig(Map<String, String> map, String key, String value) {

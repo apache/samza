@@ -37,7 +37,7 @@ public class TestStreamEdge {
 
   @Test
   public void testGetStreamSpec() {
-    StreamEdge edge = new StreamEdge(spec, false, new MapConfig());
+    StreamEdge edge = new StreamEdge(spec, false, false, new MapConfig());
     assertEquals(edge.getStreamSpec(), spec);
     assertEquals(edge.getStreamSpec().getPartitionCount(), 1 /*StreamSpec.DEFAULT_PARTITION_COUNT*/);
 
@@ -50,32 +50,30 @@ public class TestStreamEdge {
     Map<String, String> config = new HashMap<>();
     config.put(ApplicationConfig.APP_MODE, ApplicationConfig.ApplicationMode.BATCH.name());
     config.put(ApplicationConfig.APP_RUN_ID, "123");
-    StreamEdge edge = new StreamEdge(spec, true, new MapConfig(config));
+    StreamEdge edge = new StreamEdge(spec, true, false, new MapConfig(config));
     assertEquals(edge.getStreamSpec().getPhysicalName(), spec.getPhysicalName() + "-123");
   }
 
   @Test
   public void testGenerateConfig() {
     // an example unbounded IO stream
-    StreamSpec spec = new StreamSpec("stream-1", "physical-stream-1", "system-1", false, Collections.singletonMap("property1", "haha"));
-    StreamEdge edge = new StreamEdge(spec, false, new MapConfig());
+    StreamSpec spec = new StreamSpec("stream-1", "physical-stream-1", "system-1", Collections.singletonMap("property1", "haha"));
+    StreamEdge edge = new StreamEdge(spec, false, false, new MapConfig());
     Config config = edge.generateConfig();
     StreamConfig streamConfig = new StreamConfig(config);
     assertEquals(streamConfig.getSystem(spec.getId()), "system-1");
     assertEquals(streamConfig.getPhysicalName(spec.getId()), "physical-stream-1");
     assertEquals(streamConfig.getIsIntermediateStream(spec.getId()), false);
-    assertEquals(streamConfig.getIsBounded(spec.getId()), false);
     assertEquals(streamConfig.getStreamProperties(spec.getId()).get("property1"), "haha");
 
     // bounded stream
-    spec = new StreamSpec("stream-1", "physical-stream-1", "system-1", true, Collections.singletonMap("property1", "haha"));
-    edge = new StreamEdge(spec, false, new MapConfig());
+    spec = new StreamSpec("stream-1", "physical-stream-1", "system-1", Collections.singletonMap("property1", "haha"));
+    edge = new StreamEdge(spec, false, false, new MapConfig());
     config = edge.generateConfig();
     streamConfig = new StreamConfig(config);
-    assertEquals(streamConfig.getIsBounded(spec.getId()), true);
 
     // intermediate stream
-    edge = new StreamEdge(spec, true, new MapConfig());
+    edge = new StreamEdge(spec, true, false, new MapConfig());
     config = edge.generateConfig();
     streamConfig = new StreamConfig(config);
     assertEquals(streamConfig.getIsIntermediateStream(spec.getId()), true);

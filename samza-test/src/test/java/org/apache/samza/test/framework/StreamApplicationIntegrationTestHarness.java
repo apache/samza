@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.test.operator;
+package org.apache.samza.test.framework;
 
 import kafka.utils.TestUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -35,7 +35,6 @@ import org.apache.samza.runtime.AbstractApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.kafka.KafkaSystemAdmin;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
-import org.apache.samza.test.framework.StreamAssert;
 import scala.Option;
 import scala.Option$;
 
@@ -260,7 +259,7 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     AbstractApplicationRunner runner = (AbstractApplicationRunner) ApplicationRunner.fromConfig(config);
     runner.run(streamApplication);
 
-    StreamAssert.waitForComplete();
+    MessageStreamAssert.waitForComplete();
     return new RunApplicationContext(runner, config);
   }
 

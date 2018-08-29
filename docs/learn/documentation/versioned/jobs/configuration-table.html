@@ -2106,6 +2106,26 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="yarn-job-view-acl">yarn.job.view.acl</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        This is for secured YARN cluster only.
+                        The 'viewing' acl of the YARN application that controls who can view the application (e.g. application status, logs).
+                        See <a href="https://hadoop.apache.org/docs/r2.6.0/api/org/apache/hadoop/yarn/api/records/ApplicationAccessType.html">ApplicationAccessType</a> for more details.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-job-modify-acl">yarn.job.modify.acl</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        This is for secured YARN cluster only.
+                        The 'modify' acl of the YARN application that controls who can modify the application (e.g. killing the application).
+                        See <a href="https://hadoop.apache.org/docs/r2.6.0/api/org/apache/hadoop/yarn/api/records/ApplicationAccessType.html">ApplicationAccessType</a> for more details.
+                    </td>
+                </tr>
+
+                <tr>
                     <td class="property" id="yarn-token-renewal-interval-seconds">yarn.token.renewal.interval.seconds</td>
                     <td class="default"></td>
                     <td class="description">

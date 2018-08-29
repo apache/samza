@@ -104,7 +104,7 @@ public class CollectionStream<T> {
   private CollectionStream(String systemName, String streamName, Map<Integer, ? extends Iterable<T>> initPartitions) {
     this(systemName, streamName);
     Preconditions.checkNotNull(initPartitions);
-    initPartitions = new HashMap<>(initPartitions);
+    this.initPartitions = new HashMap<>(initPartitions);
   }
 
   /**

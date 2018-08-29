@@ -29,7 +29,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.StreamUtil;
 
 
 /**
@@ -41,23 +41,24 @@ public class StreamEdge {
   public static final int PARTITIONS_UNKNOWN = -1;
 
   private final StreamSpec streamSpec;
+  private final boolean isBroadcast;
+  private final boolean isIntermediate;
   private final List<JobNode> sourceNodes = new ArrayList<>();
   private final List<JobNode> targetNodes = new ArrayList<>();
   private final Config config;
+  private final String name;
 
-  private String name = "";
   private int partitions = PARTITIONS_UNKNOWN;
-  private final boolean isIntermediate;
 
-  StreamEdge(StreamSpec streamSpec, Config config) {
-    this(streamSpec, false, config);
-  }
-
-  StreamEdge(StreamSpec streamSpec, boolean isIntermediate, Config config) {
+  StreamEdge(StreamSpec streamSpec, boolean isIntermediate, boolean isBroadcast, Config config) {
     this.streamSpec = streamSpec;
-    this.name = Util.getNameFromSystemStream(getSystemStream());
     this.isIntermediate = isIntermediate;
+    this.isBroadcast = isBroadcast;
     this.config = config;
+    if (isBroadcast) {
+      partitions = 1;
+    }
+    this.name = StreamUtil.getNameFromSystemStream(getSystemStream());
   }
 
   void addSourceNode(JobNode sourceNode) {
@@ -85,10 +86,6 @@ public class StreamEdge {
     return getStreamSpec().toSystemStream();
   }
 
-  String getFormattedSystemStream() {
-    return Util.getNameFromSystemStream(getSystemStream());
-  }
-
   List<JobNode> getSourceNodes() {
     return sourceNodes;
   }
@@ -109,10 +106,6 @@ public class StreamEdge {
     return name;
   }
 
-  void setName(String name) {
-    this.name = name;
-  }
-
   boolean isIntermediate() {
     return isIntermediate;
   }
@@ -128,12 +121,13 @@ public class StreamEdge {
       config.put(String.format(StreamConfig.CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID(), spec.getId()), "oldest");
       config.put(String.format(StreamConfig.PRIORITY_FOR_STREAM_ID(), spec.getId()), String.valueOf(Integer.MAX_VALUE));
     }
-    if (spec.isBounded()) {
-      config.put(String.format(StreamConfig.IS_BOUNDED_FOR_STREAM_ID(), spec.getId()), "true");
-    }
     spec.getConfig().forEach((property, value) -> {
         config.put(String.format(StreamConfig.STREAM_ID_PREFIX(), spec.getId()) + property, value);
       });
     return new MapConfig(config);
+  }
+
+  public boolean isBroadcast() {
+    return isBroadcast;
   }
 }

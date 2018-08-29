@@ -23,9 +23,10 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.samza.config.Config;
-import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.operators.BaseTableDescriptor;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.serializers.JsonSerdeV2;
@@ -42,7 +43,7 @@ import org.apache.samza.table.Table;
 import org.apache.samza.table.TableProvider;
 import org.apache.samza.table.TableProviderFactory;
 import org.apache.samza.table.TableSpec;
-import org.apache.samza.task.TaskContext;
+import org.apache.samza.table.utils.BaseTableProvider;
 
 
 public class TestIOResolverFactory implements SqlIOResolverFactory {
@@ -50,7 +51,7 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
   public static final String TEST_TABLE_ID = "testDbId";
 
   @Override
-  public SqlIOResolver create(Config config) {
+  public SqlIOResolver create(Config config, Config fullConfig) {
     return new TestIOResolver(config);
   }
 
@@ -78,7 +79,17 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
     }
 
     @Override
+    public CompletableFuture getAsync(Object key) {
+      throw new NotImplementedException();
+    }
+
+    @Override
     public Map getAll(List keys) {
+      throw new NotImplementedException();
+    }
+
+    @Override
+    public CompletableFuture<Map> getAllAsync(List keys) {
       throw new NotImplementedException();
     }
 
@@ -98,13 +109,33 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
     }
 
     @Override
+    public CompletableFuture<Void> putAsync(Object key, Object value) {
+      throw new NotImplementedException();
+    }
+
+    @Override
+    public CompletableFuture<Void> putAllAsync(List list) {
+      throw new NotImplementedException();
+    }
+
+    @Override
     public void delete(Object key) {
       records.remove(key);
     }
 
     @Override
+    public CompletableFuture<Void> deleteAsync(Object key) {
+      throw new NotImplementedException();
+    }
+
+    @Override
     public void deleteAll(List keys) {
       records.clear();
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteAllAsync(List keys) {
+      throw new NotImplementedException();
     }
 
     @Override
@@ -124,9 +155,10 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
     }
   }
 
-  static class TestTableProvider implements TableProvider {
-    @Override
-    public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
+  static class TestTableProvider extends BaseTableProvider {
+
+    public TestTableProvider() {
+      super(null);
     }
 
     @Override
@@ -135,7 +167,7 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
     }
 
     @Override
-    public Map<String, String> generateConfig(Map<String, String> config) {
+    public Map<String, String> generateConfig(Config jobConfig, Map<String, String> generatedConfig)  {
       return new HashMap<>();
     }
 
@@ -169,7 +201,8 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
           if (isSink) {
             tableDescriptor = new TestTableDescriptor(TEST_TABLE_ID + tableDescMap.size());
           } else {
-            tableDescriptor = new RocksDbTableDescriptor("InputTable-" + ioName)
+            String tableId = "InputTable-" + ioName.replace(".", "-").replace("$", "-");
+            tableDescriptor = new RocksDbTableDescriptor(tableId)
                 .withSerde(KVSerde.of(
                     new JsonSerdeV2<>(SamzaSqlCompositeKey.class),
                     new JsonSerdeV2<>(SamzaSqlRelMessage.class)));

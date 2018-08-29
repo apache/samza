@@ -22,8 +22,7 @@ package org.apache.samza.config
 
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
-import org.apache.samza.util.Logging
-import org.apache.samza.util.Util
+import org.apache.samza.util.{Logging, StreamUtil}
 
 object StorageConfig {
   // stream config constants
@@ -32,6 +31,7 @@ object StorageConfig {
   val MSG_SERDE = "stores.%s.msg.serde"
   val CHANGELOG_STREAM = "stores.%s.changelog"
   val CHANGELOG_SYSTEM = "job.changelog.system"
+  val CHANGELOG_REPLICATION_FACTOR = "stores.%s.changelog.replication.factor"
   val CHANGELOG_DELETE_RETENTION_MS = "stores.%s.changelog.delete.retention.ms"
   val DEFAULT_CHANGELOG_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1)
   val ACCESSLOG_STREAM_SUFFIX = "access-log"
@@ -76,6 +76,18 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
     conf.asScala.keys.filter(k => k.endsWith(".factory")).map(k => k.substring(0, k.length - ".factory".length)).toSeq
   }
 
+  def getSideInputs(storeName: String): Seq[String] = {
+    new JavaStorageConfig(config).getSideInputs(storeName).asScala
+  }
+
+  def getSideInputsProcessorFactory(storeName: String): Option[String] = {
+    Option(new JavaStorageConfig(config).getSideInputsProcessorFactory(storeName))
+  }
+
+  def getSideInputsProcessorSerializedInstance(storeName: String): Option[String] = {
+    Option(new JavaStorageConfig(config).getSideInputsProcessorSerializedInstance(storeName))
+  }
+
   /**
     * Build a map of storeName to changeLogDeleteRetention for all of the stores.
     * @return a map from storeName to the changeLogDeleteRetention of the store in ms.
@@ -94,7 +106,7 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
       .map(getChangelogStream(_))
       .filter(_.isDefined)
       // Convert "system.stream" to systemName
-      .map(systemStreamName => Util.getSystemStreamFromNames(systemStreamName.get).getSystem)
+      .map(systemStreamName => StreamUtil.getSystemStreamFromNames(systemStreamName.get).getSystem)
       .contains(systemName)
   }
 

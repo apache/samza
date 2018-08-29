@@ -61,109 +61,66 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
    */
   @Override
   public void run(StreamApplication app) {
-    StreamManager streamManager = null;
     try {
-      streamManager = buildAndStartStreamManager();
       // TODO: run.id needs to be set for standalone: SAMZA-1531
       // run.id is based on current system time with the most significant bits in UUID (8 digits) to avoid collision
       String runId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
       LOG.info("The run id for this run is {}", runId);
 
       // 1. initialize and plan
-      ExecutionPlan plan = getExecutionPlan(app, runId, streamManager);
+      ExecutionPlan plan = getExecutionPlan(app, runId);
       writePlanJsonFile(plan.getPlanAsJson());
 
-      // 2. create the necessary streams
-      if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
-        streamManager.clearStreamsFromPreviousRun(getConfigFromPrevRun());
-      }
-      streamManager.createStreams(plan.getIntermediateStreams());
-
-      // 3. submit jobs for remote execution
       plan.getJobConfigs().forEach(jobConfig -> {
-          LOG.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
-          JobRunner runner = new JobRunner(jobConfig);
-          runner.run(true);
+          StreamManager streamManager = null;
+          try {
+            // 2. create the necessary streams
+            streamManager = buildAndStartStreamManager(jobConfig);
+            if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
+              streamManager.clearStreamsFromPreviousRun(getConfigFromPrevRun());
+            }
+            streamManager.createStreams(plan.getIntermediateStreams());
+
+            // 3. submit jobs for remote execution
+            LOG.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
+            JobRunner runner = new JobRunner(jobConfig);
+            runner.run(true);
+          } finally {
+            if (streamManager != null) {
+              streamManager.stop();
+            }
+          }
         });
     } catch (Throwable t) {
       throw new SamzaException("Failed to run application", t);
-    } finally {
-      if (streamManager != null) {
-        streamManager.stop();
-      }
     }
   }
 
   @Override
   public void kill(StreamApplication app) {
-    StreamManager streamManager = null;
-    try {
-      streamManager = buildAndStartStreamManager();
-      ExecutionPlan plan = getExecutionPlan(app, streamManager);
 
-      plan.getJobConfigs().forEach(jobConfig -> {
-          LOG.info("Killing job {}", jobConfig.getName());
-          JobRunner runner = new JobRunner(jobConfig);
-          runner.kill();
-        });
+    // since currently we only support single actual remote job, we can get its status without
+    // building the execution plan.
+    try {
+      JobConfig jc = new JobConfig(config);
+      LOG.info("Killing job {}", jc.getName());
+      JobRunner runner = new JobRunner(jc);
+      runner.kill();
     } catch (Throwable t) {
       throw new SamzaException("Failed to kill application", t);
-    } finally {
-      if (streamManager != null) {
-        streamManager.stop();
-      }
     }
   }
 
   @Override
   public ApplicationStatus status(StreamApplication app) {
-    StreamManager streamManager = null;
+
+    // since currently we only support single actual remote job, we can get its status without
+    // building the execution plan
     try {
-      boolean hasNewJobs = false;
-      boolean hasRunningJobs = false;
-      ApplicationStatus unsuccessfulFinishStatus = null;
-
-      streamManager = buildAndStartStreamManager();
-      ExecutionPlan plan = getExecutionPlan(app, streamManager);
-      for (JobConfig jobConfig : plan.getJobConfigs()) {
-        ApplicationStatus status = getApplicationStatus(jobConfig);
-
-        switch (status.getStatusCode()) {
-          case New:
-            hasNewJobs = true;
-            break;
-          case Running:
-            hasRunningJobs = true;
-            break;
-          case UnsuccessfulFinish:
-            unsuccessfulFinishStatus = status;
-            break;
-          case SuccessfulFinish:
-            break;
-          default:
-            // Do nothing
-        }
-      }
-
-      if (hasNewJobs) {
-        // There are jobs not started, report as New
-        return New;
-      } else if (hasRunningJobs) {
-        // All jobs are started, some are running
-        return Running;
-      } else if (unsuccessfulFinishStatus != null) {
-        // All jobs are finished, some are not successful
-        return unsuccessfulFinishStatus;
-      } else {
-        // All jobs are finished successfully
-        return SuccessfulFinish;
-      }
+      JobConfig jc = new JobConfig(config);
+      return getApplicationStatus(jc);
     } catch (Throwable t) {
       throw new SamzaException("Failed to get status for application", t);
-    } finally {
-      if (streamManager != null) {
-        streamManager.stop();
-      }
     }
   }
 

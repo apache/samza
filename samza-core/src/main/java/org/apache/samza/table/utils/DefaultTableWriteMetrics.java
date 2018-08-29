@@ -37,6 +37,8 @@ public class DefaultTableWriteMetrics {
   public final Counter numDeletes;
   public final Counter numDeleteAlls;
   public final Counter numFlushes;
+  public final Timer putCallbackNs;
+  public final Timer deleteCallbackNs;
 
   /**
    * Utility class that contains the default set of write metrics.
@@ -59,5 +61,7 @@ public class DefaultTableWriteMetrics {
     numDeletes = tableMetricsUtil.newCounter("num-deletes");
     numDeleteAlls = tableMetricsUtil.newCounter("num-deleteAlls");
     numFlushes = tableMetricsUtil.newCounter("num-flushes");
+    putCallbackNs = tableMetricsUtil.newTimer("put-callback-ns");
+    deleteCallbackNs = tableMetricsUtil.newTimer("delete-callback-ns");
   }
 }

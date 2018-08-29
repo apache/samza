@@ -70,6 +70,10 @@ public class MockEventHubClientManagerFactory extends EventHubClientManagerFacto
     handlers.forEach((ssp, value) -> value.onReceive(eventData.get(ssp)));
   }
 
+  public void triggerError(Map<SystemStreamPartition, PartitionReceiveHandler> handlers, Throwable e) {
+    handlers.forEach((ssp, value) -> value.onError(e));
+  }
+
   public EventPosition getPartitionOffset(String partitionId) {
     return startingOffsets.getOrDefault(partitionId, null);
   }

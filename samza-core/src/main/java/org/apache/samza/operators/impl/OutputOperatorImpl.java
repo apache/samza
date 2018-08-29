@@ -42,10 +42,10 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
   private final OutputStreamImpl<M> outputStream;
   private final SystemStream systemStream;
 
-  OutputOperatorImpl(OutputOperatorSpec<M> outputOpSpec) {
+  OutputOperatorImpl(OutputOperatorSpec<M> outputOpSpec, SystemStream systemStream) {
     this.outputOpSpec = outputOpSpec;
     this.outputStream = outputOpSpec.getOutputStream();
-    this.systemStream = outputStream.getSystemStream();
+    this.systemStream = systemStream;
   }
 
   @Override

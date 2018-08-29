@@ -191,11 +191,16 @@ class ClientHelper(conf: Configuration) extends Logging {
       }
     }
 
-    if (UserGroupInformation.isSecurityEnabled()) {
+    if (UserGroupInformation.isSecurityEnabled) {
       validateJobConfig(config)
 
       setupSecurityToken(fs, containerCtx)
       info("set security token for %s" format appId.get)
+
+      val acls = yarnConfig.getYarnApplicationAcls
+      if (!acls.isEmpty) {
+        containerCtx.setApplicationACLs(acls)
+      }
 
       val amLocalResources = setupAMLocalResources(fs, Option(yarnConfig.getYarnKerberosPrincipal), Option(yarnConfig.getYarnKerberosKeytab))
       localResources ++= amLocalResources

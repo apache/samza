@@ -49,6 +49,28 @@ class TestFileUtil {
   }
 
   @Test
+  def testWriteDataToFileWithExistingOffsetFile() {
+    // Invoke test
+    val file = new File(System.getProperty("java.io.tmpdir"), "test2")
+    // write the same file three times
+    FileUtil.writeWithChecksum(file, data)
+    FileUtil.writeWithChecksum(file, data)
+    FileUtil.writeWithChecksum(file, data)
+
+    // Check that file exists
+    assertTrue("File was not created!", file.exists())
+    val fis = new FileInputStream(file)
+    val ois = new ObjectInputStream(fis)
+
+    // Check content of the file is as expected
+    assertEquals(checksum, ois.readLong())
+    assertEquals(data, ois.readUTF())
+    ois.close()
+    fis.close()
+  }
+
+
+  @Test
   def testReadDataFromFile() {
     // Setup
     val fos = new FileOutputStream(file)

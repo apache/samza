@@ -42,12 +42,10 @@ public class CachingTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Cach
   private long cacheSize;
   private Table<KV<K, V>> cache;
   private Table<KV<K, V>> table;
-  private int stripes = 16;
   private boolean isWriteAround;
 
   /**
-   * Constructs a table descriptor instance
-   * @param tableId Id of the table
+   * {@inheritDoc}
    */
   public CachingTableDescriptor(String tableId) {
     super(tableId);
@@ -75,7 +73,6 @@ public class CachingTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Cach
     }
 
     tableSpecConfig.put(CachingTableProvider.REAL_TABLE_ID, ((TableImpl) table).getTableSpec().getId());
-    tableSpecConfig.put(CachingTableProvider.LOCK_STRIPES, String.valueOf(stripes));
     tableSpecConfig.put(CachingTableProvider.WRITE_AROUND, String.valueOf(isWriteAround));
 
     return new TableSpec(tableId, serde, CachingTableProviderFactory.class.getName(), tableSpecConfig);
@@ -137,17 +134,6 @@ public class CachingTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Cach
   }
 
   /**
-   * Specify the number of stripes for striped locking for atomically updating
-   * cache and the actual table. Default number of stripes is 16.
-   * @param stripes number of stripes for locking
-   * @return this descriptor
-   */
-  public CachingTableDescriptor withStripes(int stripes) {
-    this.stripes = stripes;
-    return this;
-  }
-
-  /**
    * Specify if write-around policy should be used to bypass writing
    * to cache for put operations. This is useful when put() is the
    * dominant operation and get() has no locality with recent puts.
@@ -168,6 +154,5 @@ public class CachingTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Cach
       Preconditions.checkArgument(readTtl == null && writeTtl == null && cacheSize == 0,
           "Invalid to specify both {cache} and {readTtl|writeTtl|cacheSize} at the same time.");
     }
-    Preconditions.checkArgument(stripes > 0, "Number of cache stripes must be positive.");
   }
 }

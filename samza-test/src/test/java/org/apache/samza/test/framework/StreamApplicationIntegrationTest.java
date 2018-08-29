@@ -20,32 +20,47 @@ package org.apache.samza.test.framework;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.test.controlmessages.TestData;
 import org.apache.samza.test.framework.stream.CollectionStream;
-import static org.apache.samza.test.controlmessages.TestData.PageView;
 import org.junit.Assert;
 import org.junit.Test;
+
+import static org.apache.samza.test.controlmessages.TestData.PageView;
 
 
 public class StreamApplicationIntegrationTest {
 
   final StreamApplication pageViewFilter = (streamGraph, cfg) -> {
-    streamGraph.<KV<String, TestData.PageView>>getInputStream("PageView").map(
-        StreamApplicationIntegrationTest.Values.create()).filter(pv -> pv.getPageKey().equals("inbox"));
+    KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
+    KafkaInputDescriptor<KV<String, PageView>> isd =
+        ksd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+    MessageStream<KV<String, TestData.PageView>> inputStream = streamGraph.getInputStream(isd);
+    inputStream.map(StreamApplicationIntegrationTest.Values.create()).filter(pv -> pv.getPageKey().equals("inbox"));
   };
 
-  final StreamApplication pageViewParition = (streamGraph, cfg) -> {
-    streamGraph.<KV<String, PageView>>getInputStream("PageView")
+  final StreamApplication pageViewRepartition = (streamGraph, cfg) -> {
+    KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
+    KafkaInputDescriptor<KV<String, PageView>> isd =
+        ksd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+    MessageStream<KV<String, TestData.PageView>> inputStream = streamGraph.getInputStream(isd);
+    inputStream
         .map(Values.create())
-        .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
+        .partitionBy(PageView::getMemberId, pv -> pv, "p1")
         .sink((m, collector, coordinator) -> {
             collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "Output"),
                 m.getKey(), m.getKey(),
@@ -60,23 +75,25 @@ public class StreamApplicationIntegrationTest {
     Random random = new Random();
     int count = 10;
     List<PageView> pageviews = new ArrayList<>(count);
+    Map<Integer, List<PageView>> expectedOutput = new HashMap<>();
     for (int i = 0; i < count; i++) {
       String pagekey = PAGEKEYS[random.nextInt(PAGEKEYS.length - 1)];
       int memberId = i;
-      pageviews.add(new PageView(pagekey, memberId));
+      PageView pv = new PageView(pagekey, memberId);
+      pageviews.add(pv);
     }
 
     CollectionStream<PageView> input = CollectionStream.of("test", "PageView", pageviews);
     CollectionStream output = CollectionStream.empty("test", "Output", 10);
 
     TestRunner
-        .of(pageViewParition)
+        .of(pageViewRepartition)
         .addInputStream(input)
         .addOutputStream(output)
         .addOverrideConfig("job.default.system", "test")
         .run(Duration.ofMillis(1500));
 
-    Assert.assertEquals(TestRunner.consumeStream(output, 10000).get(random.nextInt(count)).size(), 1);
+    Assert.assertEquals(TestRunner.consumeStream(output, Duration.ofMillis(1000)).get(random.nextInt(count)).size(), 1);
   }
 
   public static final class Values {
@@ -95,7 +112,7 @@ public class StreamApplicationIntegrationTest {
     CollectionStream output = CollectionStream.empty("test", "Output", 10);
 
     TestRunner
-        .of(pageViewParition)
+        .of(pageViewRepartition)
         .addInputStream(input)
         .addOutputStream(output)
         .run(Duration.ofMillis(1000));
@@ -124,4 +141,5 @@ public class StreamApplicationIntegrationTest {
         .addOverrideConfig("job.default.system", "test")
         .run(Duration.ofMillis(1000));
   }
+
 }

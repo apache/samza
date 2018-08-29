@@ -60,7 +60,8 @@ class RestCall extends Thread {
       System.out.println("Thread " + this.getName() + " interrupted.");
     }
     Integer obj = (Integer) envelope.getMessage();
-    messageCollector.send(new OutgoingMessageEnvelope(new SystemStream("async-test", "ints-out"), obj * 10));
+    messageCollector.send(new OutgoingMessageEnvelope(new SystemStream("async-test", "ints-out"),
+        envelope.getKey(), envelope.getKey(), obj * 10));
     callback.complete();
   }
 }

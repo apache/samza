@@ -21,6 +21,8 @@
 
 package org.apache.samza.util
 
+import java.util.function
+
 import scala.collection.immutable.Map
 import scala.collection.JavaConverters._
 import scala.runtime.AbstractFunction0
@@ -47,6 +49,12 @@ object ScalaJavaUtil {
     }
   }
 
+  def toJavaFunction[T, R](scalaFunction: Function1[T, R]): java.util.function.Function[T, R] = {
+    new function.Function[T, R] {
+      override def apply(t: T): R = scalaFunction.apply(t)
+    }
+  }
+
   /**
     * Wraps the provided Java Supplier in an Scala Function, e.g. for use in [[Option#getOrDefault]]
     *
@@ -58,5 +66,9 @@ object ScalaJavaUtil {
     new AbstractFunction0[T] {
       override def apply(): T = javaFunction.get()
     }
+  }
+
+  def toScalaFunction[T, R](javaFunction: java.util.function.Function[T, R]): Function1[T, R] = {
+    t => javaFunction.apply(t)
   }
 }

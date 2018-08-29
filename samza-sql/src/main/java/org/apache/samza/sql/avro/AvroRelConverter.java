@@ -19,6 +19,7 @@
 
 package org.apache.samza.sql.avro;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,6 +30,7 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.IndexedRecord;
+import org.apache.calcite.avatica.util.ByteString;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
@@ -172,10 +174,12 @@ public class AvroRelConverter implements SamzaRelConverter {
                 getNonNullUnionSchema(schema).getValueType())));
       case UNION:
         return convertToAvroObject(relObj, getNonNullUnionSchema(schema));
-      case FIXED:
-        return new GenericData.Fixed(schema, ((String) relObj).getBytes());
       case ENUM:
         return new GenericData.EnumSymbol(schema, (String) relObj);
+      case FIXED:
+        return new GenericData.Fixed(schema, ((ByteString) relObj).getBytes());
+      case BYTES:
+        return ByteBuffer.wrap(((ByteString) relObj).getBytes());
       default:
         return relObj;
     }
@@ -218,8 +222,12 @@ public class AvroRelConverter implements SamzaRelConverter {
       case UNION:
         return convertToJavaObject(avroObj, getNonNullUnionSchema(schema));
       case ENUM:
-      case FIXED:
         return avroObj.toString();
+      case FIXED:
+        GenericData.Fixed fixed = (GenericData.Fixed) avroObj;
+        return new ByteString(fixed.bytes());
+      case BYTES:
+        return new ByteString(((ByteBuffer) avroObj).array());
 
       default:
         return avroObj;

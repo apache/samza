@@ -20,10 +20,8 @@ package org.apache.samza.operators.impl;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskContextImpl;
-import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.spec.PartitionByOperatorSpec;
 import org.apache.samza.system.ControlMessage;
 import org.apache.samza.system.EndOfStreamMessage;
@@ -51,10 +49,10 @@ class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
   private final String taskName;
   private final ControlMessageSender controlMessageSender;
 
-  PartitionByOperatorImpl(PartitionByOperatorSpec<M, K, V> partitionByOpSpec, Config config, TaskContext context) {
+  PartitionByOperatorImpl(PartitionByOperatorSpec<M, K, V> partitionByOpSpec,
+      SystemStream systemStream, TaskContext context) {
     this.partitionByOpSpec = partitionByOpSpec;
-    OutputStreamImpl<KV<K, V>> outputStream = partitionByOpSpec.getOutputStream();
-    this.systemStream = outputStream.getSystemStream();
+    this.systemStream = systemStream;
     this.keyFunction = partitionByOpSpec.getKeyFunction();
     this.valueFunction = partitionByOpSpec.getValueFunction();
     this.taskName = context.getTaskName().getTaskName();
@@ -102,7 +100,6 @@ class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
   }
 
   private void sendControlMessage(ControlMessage message, MessageCollector collector) {
-    SystemStream outputStream = partitionByOpSpec.getOutputStream().getSystemStream();
-    controlMessageSender.send(message, outputStream, collector);
+    controlMessageSender.send(message, systemStream, collector);
   }
 }

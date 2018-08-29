@@ -116,15 +116,17 @@ class InMemoryManager {
   /**
    * Fetch system stream metadata for the given streams.
    *
+   * @param systemName system name
    * @param streamNames set of input streams
    *
    * @return a {@link Map} of stream to {@link SystemStreamMetadata}
    */
-  Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames) {
+  Map<String, SystemStreamMetadata> getSystemStreamMetadata(String systemName, Set<String> streamNames) {
     Map<String, Map<SystemStreamPartition, List<IncomingMessageEnvelope>>> result =
         bufferedMessages.entrySet()
             .stream()
-            .filter(map -> streamNames.contains(map.getKey().getStream()))
+            .filter(entry -> systemName.equals(entry.getKey().getSystem()) 
+                && streamNames.contains(entry.getKey().getStream()))
             .collect(Collectors.groupingBy(entry -> entry.getKey().getStream(),
                 Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
 
@@ -147,7 +149,7 @@ class InMemoryManager {
   }
 
   private SystemStreamMetadata constructSystemStreamMetadata(
-      String systemName,
+      String streamName,
       Map<SystemStreamPartition, List<IncomingMessageEnvelope>> sspToMessagesForSystem) {
 
     Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata =
@@ -163,7 +165,7 @@ class InMemoryManager {
 
               }));
 
-    return new SystemStreamMetadata(systemName, partitionMetadata);
+    return new SystemStreamMetadata(streamName, partitionMetadata);
   }
 
   private List<IncomingMessageEnvelope> poll(SystemStreamPartition ssp, String offset) {

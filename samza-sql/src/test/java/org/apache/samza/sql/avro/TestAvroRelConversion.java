@@ -43,6 +43,7 @@ import org.apache.avro.io.Encoder;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.avro.util.Utf8;
+import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelRecordType;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -51,6 +52,7 @@ import org.apache.samza.operators.KV;
 import org.apache.samza.sql.avro.schemas.AddressRecord;
 import org.apache.samza.sql.avro.schemas.ComplexRecord;
 import org.apache.samza.sql.avro.schemas.Kind;
+import org.apache.samza.sql.avro.schemas.MyFixed;
 import org.apache.samza.sql.avro.schemas.PhoneNumber;
 import org.apache.samza.sql.avro.schemas.Profile;
 import org.apache.samza.sql.avro.schemas.SimpleRecord;
@@ -66,6 +68,9 @@ import org.slf4j.LoggerFactory;
 public class TestAvroRelConversion {
 
   private static final Logger LOG = LoggerFactory.getLogger(TestAvroRelConversion.class);
+  private static final byte[] DEFAULT_TRACKING_ID_BYTES =
+      {76, 75, -24, 10, 33, -117, 24, -52, -110, -39, -5, 102, 65, 57, -62, -1};
+
   private final AvroRelConverter simpleRecordAvroRelConverter;
   private final AvroRelConverter complexRecordAvroRelConverter;
   private final AvroRelConverter nestedRecordAvroRelConverter;
@@ -79,6 +84,7 @@ public class TestAvroRelConversion {
   private float floatValue = 0.6f;
   private String testStrValue = "testString";
   private ByteBuffer testBytes = ByteBuffer.wrap("testBytes".getBytes());
+  private MyFixed fixedBytes = new MyFixed();
   private long longValue = 200L;
 
   private HashMap<String, String> mapValue = new HashMap<String, String>() {{
@@ -111,6 +117,8 @@ public class TestAvroRelConversion {
     complexRecordAvroRelConverter = new AvroRelConverter(ss1, complexRecordSchemaProvider, new MapConfig());
     simpleRecordAvroRelConverter = new AvroRelConverter(ss2, simpleRecordSchemaProvider, new MapConfig());
     nestedRecordAvroRelConverter = new AvroRelConverter(ss3, nestedRecordSchemaProvider, new MapConfig());
+
+    fixedBytes.bytes(DEFAULT_TRACKING_ID_BYTES);
   }
 
   @Test
@@ -190,6 +198,7 @@ public class TestAvroRelConversion {
     record.put("float_value", floatValue);
     record.put("string_value", testStrValue);
     record.put("bytes_value", testBytes);
+    record.put("fixed_value", fixedBytes);
     record.put("long_value", longValue);
     record.put("array_values", arrayValue);
     record.put("map_values", mapValue);
@@ -201,6 +210,7 @@ public class TestAvroRelConversion {
     complexRecord.float_value = floatValue;
     complexRecord.string_value = testStrValue;
     complexRecord.bytes_value = testBytes;
+    complexRecord.fixed_value = fixedBytes;
     complexRecord.long_value = longValue;
     complexRecord.array_values = new ArrayList<>();
     complexRecord.array_values.addAll(arrayValue);
@@ -304,7 +314,12 @@ public class TestAvroRelConversion {
         .collect(Collectors.toMap(x -> new Utf8(x.getKey()), y -> new Utf8(y.getValue())))
         .equals(message.getSamzaSqlRelRecord().getField("map_values").get()));
 
-    Assert.assertTrue(message.getSamzaSqlRelRecord().getField("bytes_value").get().equals(testBytes));
+    Assert.assertTrue(
+        Arrays.equals(((ByteString) message.getSamzaSqlRelRecord().getField("bytes_value").get()).getBytes(),
+            testBytes.array()));
+    Assert.assertTrue(
+        Arrays.equals(((ByteString) message.getSamzaSqlRelRecord().getField("fixed_value").get()).getBytes(),
+            DEFAULT_TRACKING_ID_BYTES));
 
     LOG.info(Joiner.on(",").useForNull("null").join(message.getSamzaSqlRelRecord().getFieldValues()));
     LOG.info(Joiner.on(",").join(message.getSamzaSqlRelRecord().getFieldNames()));

@@ -42,8 +42,8 @@ object StreamConfig {
 
   // We don't want any external dependencies on these patterns while both exist. Use getProperty to ensure proper values.
   private val STREAMS_PREFIX = "streams."
-  private val STREAM_PREFIX = "systems.%s.streams.%s."
 
+  val STREAM_PREFIX = "systems.%s.streams.%s."
   val STREAM_ID_PREFIX = STREAMS_PREFIX + "%s."
   val SYSTEM_FOR_STREAM_ID = STREAM_ID_PREFIX + SYSTEM
   val PHYSICAL_NAME_FOR_STREAM_ID = STREAM_ID_PREFIX + PHYSICAL_NAME

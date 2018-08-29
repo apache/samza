@@ -651,6 +651,13 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     context.setCommands(new ArrayList<String>() {{add(cmd);}});
     context.setLocalResources(localResourceMap);
 
+    if (UserGroupInformation.isSecurityEnabled()) {
+      Map<ApplicationAccessType, String> acls = yarnConfig.getYarnApplicationAcls();
+      if (!acls.isEmpty()) {
+        context.setApplicationACLs(acls);
+      }
+    }
+
     log.debug("Setting localResourceMap to {}", localResourceMap);
     log.debug("Setting context to {}", context);
 

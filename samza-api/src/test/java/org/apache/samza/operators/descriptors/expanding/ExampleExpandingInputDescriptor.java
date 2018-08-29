@@ -16,21 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.operators.descriptors.expanding;
 
-package org.apache.samza.table.remote;
+import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
+import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
+import org.apache.samza.operators.functions.InputTransformer;
+import org.apache.samza.serializers.Serde;
 
-import java.io.Serializable;
-import java.util.function.Function;
-
-import org.apache.samza.operators.KV;
-
-
-/**
- * Function interface for providing rate limiting credits for each table record.
- * This interface allows callers to pass in lambda expressions which are otherwise
- * non-serializable as-is.
- * @param <K> the type of the key
- * @param <V> the type of the value
- */
-public interface CreditFunction<K, V> extends Function<KV<K, V>, Integer>, Serializable {
+public class ExampleExpandingInputDescriptor<StreamMessageType> extends InputDescriptor<StreamMessageType, ExampleExpandingInputDescriptor<StreamMessageType>> {
+  ExampleExpandingInputDescriptor(String streamId, SystemDescriptor systemDescriptor, InputTransformer<StreamMessageType> transformer, Serde serde) {
+    super(streamId, serde, systemDescriptor, transformer);
+  }
 }

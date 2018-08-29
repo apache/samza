@@ -18,34 +18,37 @@
  */
 package org.apache.samza.operators;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
-
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
+import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
+import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
+import org.apache.samza.operators.functions.InputTransformer;
+import org.apache.samza.operators.functions.StreamExpander;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec.OpCode;
 import org.apache.samza.operators.spec.OperatorSpecs;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
-import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 
 /**
  * This class defines:
@@ -55,13 +58,16 @@ import com.google.common.base.Preconditions;
  */
 public class StreamGraphSpec implements StreamGraph {
   private static final Logger LOGGER = LoggerFactory.getLogger(StreamGraphSpec.class);
-  private static final Pattern USER_DEFINED_ID_PATTERN = Pattern.compile("[\\d\\w-_.]+");
+  private static final Pattern ID_PATTERN = Pattern.compile("[\\d\\w-_]+");
 
   // We use a LHM for deterministic order in initializing and closing operators.
-  private final Map<StreamSpec, InputOperatorSpec> inputOperators = new LinkedHashMap<>();
-  private final Map<StreamSpec, OutputStreamImpl> outputStreams = new LinkedHashMap<>();
+  private final Map<String, InputOperatorSpec> inputOperators = new LinkedHashMap<>();
+  private final Map<String, OutputStreamImpl> outputStreams = new LinkedHashMap<>();
+  private final Map<String, InputDescriptor> inputDescriptors = new LinkedHashMap<>();
+  private final Map<String, OutputDescriptor> outputDescriptors = new LinkedHashMap<>();
+  private final Map<String, SystemDescriptor> systemDescriptors = new LinkedHashMap<>();
+  private final Set<String> broadcastStreams = new HashSet<>();
   private final Map<TableSpec, TableImpl> tables = new LinkedHashMap<>();
-  private final ApplicationRunner runner;
   private final Config config;
 
   /**
@@ -71,35 +77,44 @@ public class StreamGraphSpec implements StreamGraph {
    */
   private int nextOpNum = 0;
   private final Set<String> operatorIds = new HashSet<>();
-  private Serde<?> defaultSerde = new KVSerde(new NoOpSerde(), new NoOpSerde());
   private ContextManager contextManager = null;
+  private Optional<SystemDescriptor> defaultSystemDescriptorOptional = Optional.empty();
 
-  public StreamGraphSpec(ApplicationRunner runner, Config config) {
-    // TODO: SAMZA-1118 - Move StreamSpec and ApplicationRunner out of StreamGraphSpec once Systems
-    // can use streamId to send and receive messages.
-    this.runner = runner;
+  public StreamGraphSpec(Config config) {
     this.config = config;
   }
 
   @Override
-  public void setDefaultSerde(Serde<?> serde) {
-    Preconditions.checkNotNull(serde, "Default serde must not be null");
+  public void setDefaultSystem(SystemDescriptor<?> defaultSystemDescriptor) {
+    Preconditions.checkNotNull(defaultSystemDescriptor, "Provided defaultSystemDescriptor must not be null.");
+    String defaultSystemName = defaultSystemDescriptor.getSystemName();
     Preconditions.checkState(inputOperators.isEmpty() && outputStreams.isEmpty(),
-        "Default serde must be set before creating any input or output streams.");
-    this.defaultSerde = serde;
+        "Default system must be set before creating any input or output streams.");
+    checkSystemDescriptorUniqueness(defaultSystemDescriptor, defaultSystemName);
+    systemDescriptors.put(defaultSystemName, defaultSystemDescriptor);
+    this.defaultSystemDescriptorOptional = Optional.of(defaultSystemDescriptor);
   }
 
   @Override
-  public <M> MessageStream<M> getInputStream(String streamId, Serde<M> serde) {
-    StreamSpec streamSpec = runner.getStreamSpec(streamId);
-    Preconditions.checkState(streamSpec != null, "No StreamSpec found for streamId: " + streamId);
-    Preconditions.checkNotNull(serde, "serde must not be null for an input stream.");
-    Preconditions.checkState(!inputOperators.containsKey(streamSpec),
-        "getInputStream must not be called multiple times with the same streamId: " + streamId);
+  public <M> MessageStream<M> getInputStream(InputDescriptor<M, ?> inputDescriptor) {
+    SystemDescriptor systemDescriptor = inputDescriptor.getSystemDescriptor();
+    Optional<StreamExpander> expander = systemDescriptor.getExpander();
+    if (expander.isPresent()) {
+      return expander.get().apply(this, inputDescriptor);
+    }
 
+    String streamId = inputDescriptor.getStreamId();
+    Preconditions.checkState(!inputOperators.containsKey(streamId),
+        "getInputStream must not be called multiple times with the same streamId: " + streamId);
+    Preconditions.checkState(!inputDescriptors.containsKey(streamId),
+        "getInputStream must not be called multiple times with the same input descriptor: " + streamId);
+    String systemName = systemDescriptor.getSystemName();
+    checkSystemDescriptorUniqueness(systemDescriptor, systemName);
+
+    Serde serde = inputDescriptor.getSerde();
     KV<Serde, Serde> kvSerdes = getKVSerdes(streamId, serde);
-    if (outputStreams.containsKey(streamSpec)) {
-      OutputStreamImpl outputStream = outputStreams.get(streamSpec);
+    if (outputStreams.containsKey(streamId)) {
+      OutputStreamImpl outputStream = outputStreams.get(streamId);
       Serde keySerde = outputStream.getKeySerde();
       Serde valueSerde = outputStream.getValueSerde();
       Preconditions.checkState(kvSerdes.getKey().equals(keySerde) && kvSerdes.getValue().equals(valueSerde),
@@ -108,29 +123,31 @@ public class StreamGraphSpec implements StreamGraph {
     }
 
     boolean isKeyed = serde instanceof KVSerde;
+    InputTransformer transformer = inputDescriptor.getTransformer().orElse(null);
     InputOperatorSpec inputOperatorSpec =
-        OperatorSpecs.createInputOperatorSpec(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(),
-            isKeyed, this.getNextOpId(OpCode.INPUT, null));
-    inputOperators.put(streamSpec, inputOperatorSpec);
-    return new MessageStreamImpl<>(this, inputOperators.get(streamSpec));
+        OperatorSpecs.createInputOperatorSpec(streamId, kvSerdes.getKey(), kvSerdes.getValue(),
+            transformer, isKeyed, this.getNextOpId(OpCode.INPUT, null));
+    inputOperators.put(streamId, inputOperatorSpec);
+    inputDescriptors.put(streamId, inputDescriptor);
+    systemDescriptors.put(systemDescriptor.getSystemName(), systemDescriptor);
+    return new MessageStreamImpl(this, inputOperators.get(streamId));
   }
 
   @Override
-  public <M> MessageStream<M> getInputStream(String streamId) {
-    return (MessageStream<M>) getInputStream(streamId, defaultSerde);
-  }
-
-  @Override
-  public <M> OutputStream<M> getOutputStream(String streamId, Serde<M> serde) {
-    StreamSpec streamSpec = runner.getStreamSpec(streamId);
-    Preconditions.checkState(streamSpec != null, "No StreamSpec found for streamId: " + streamId);
-    Preconditions.checkNotNull(serde, "serde must not be null for an output stream.");
-    Preconditions.checkState(!outputStreams.containsKey(streamSpec),
+  public <M> OutputStream<M> getOutputStream(OutputDescriptor<M, ?> outputDescriptor) {
+    String streamId = outputDescriptor.getStreamId();
+    Preconditions.checkState(!outputStreams.containsKey(streamId),
         "getOutputStream must not be called multiple times with the same streamId: " + streamId);
+    Preconditions.checkState(!outputDescriptors.containsKey(streamId),
+        "getOutputStream must not be called multiple times with the same output descriptor: " + streamId);
+    SystemDescriptor systemDescriptor = outputDescriptor.getSystemDescriptor();
+    String systemName = systemDescriptor.getSystemName();
+    checkSystemDescriptorUniqueness(systemDescriptor, systemName);
 
+    Serde serde = outputDescriptor.getSerde();
     KV<Serde, Serde> kvSerdes = getKVSerdes(streamId, serde);
-    if (inputOperators.containsKey(streamSpec)) {
-      InputOperatorSpec inputOperatorSpec = inputOperators.get(streamSpec);
+    if (inputOperators.containsKey(streamId)) {
+      InputOperatorSpec inputOperatorSpec = inputOperators.get(streamId);
       Serde keySerde = inputOperatorSpec.getKeySerde();
       Serde valueSerde = inputOperatorSpec.getValueSerde();
       Preconditions.checkState(kvSerdes.getKey().equals(keySerde) && kvSerdes.getValue().equals(valueSerde),
@@ -139,22 +156,21 @@ public class StreamGraphSpec implements StreamGraph {
     }
 
     boolean isKeyed = serde instanceof KVSerde;
-    outputStreams.put(streamSpec, new OutputStreamImpl<>(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed));
-    return outputStreams.get(streamSpec);
+    outputStreams.put(streamId, new OutputStreamImpl<>(streamId, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed));
+    outputDescriptors.put(streamId, outputDescriptor);
+    systemDescriptors.put(systemDescriptor.getSystemName(), systemDescriptor);
+    return outputStreams.get(streamId);
   }
 
   @Override
-  public <M> OutputStream<M> getOutputStream(String streamId) {
-    return (OutputStream<M>) getOutputStream(streamId, defaultSerde);
-  }
-
-  @Override
-  public <K, V> Table<KV<K, V>> getTable(TableDescriptor<K, V, ?> tableDesc) {
-    TableSpec tableSpec = ((BaseTableDescriptor) tableDesc).getTableSpec();
+  public <K, V> Table<KV<K, V>> getTable(TableDescriptor<K, V, ?> tableDescriptor) {
+    String tableId = tableDescriptor.getTableId();
+    Preconditions.checkState(StringUtils.isNotBlank(tableId) && ID_PATTERN.matcher(tableId).matches(),
+        String.format("tableId: %s must confirm to pattern: %s", tableId, ID_PATTERN.toString()));
+    TableSpec tableSpec = ((BaseTableDescriptor) tableDescriptor).getTableSpec();
     if (tables.containsKey(tableSpec)) {
-      throw new IllegalStateException(String.format(
-          "getTable() invoked multiple times with the same tableId: %s",
-          tableDesc.getTableId()));
+      throw new IllegalStateException(
+          String.format("getTable() invoked multiple times with the same tableId: %s", tableId));
     }
     tables.put(tableSpec, new TableImpl(tableSpec));
     return tables.get(tableSpec);
@@ -183,8 +199,8 @@ public class StreamGraphSpec implements StreamGraph {
    * @return the unique ID for the next operator in the graph
    */
   public String getNextOpId(OpCode opCode, String userDefinedId) {
-    if (StringUtils.isNotBlank(userDefinedId) && !USER_DEFINED_ID_PATTERN.matcher(userDefinedId).matches()) {
-      throw new SamzaException("Operator ID must not contain spaces and special characters: " + userDefinedId);
+    if (StringUtils.isNotBlank(userDefinedId) && !ID_PATTERN.matcher(userDefinedId).matches()) {
+      throw new SamzaException("Operator ID must not contain spaces or special characters: " + userDefinedId);
     }
 
     String nextOpId = String.format("%s-%s-%s-%s",
@@ -212,19 +228,6 @@ public class StreamGraphSpec implements StreamGraph {
   }
 
   /**
-   * See {@link StreamGraphSpec#getIntermediateStream(String, Serde, boolean)}.
-   *
-   * @param <M> type of messages in the intermediate stream
-   * @param streamId the id of the stream to be created
-   * @param serde the {@link Serde} to use for messages in the intermediate stream. If null, the default serde is used.
-   * @return  the intermediate {@link MessageStreamImpl}
-   */
-  @VisibleForTesting
-  public <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde) {
-    return getIntermediateStream(streamId, serde, false);
-  }
-
-  /**
    * Internal helper for {@link MessageStreamImpl} to add an intermediate {@link MessageStream} to the graph.
    * An intermediate {@link MessageStream} is both an output and an input stream.
    *
@@ -234,44 +237,78 @@ public class StreamGraphSpec implements StreamGraph {
    * @param isBroadcast whether the stream is a broadcast stream.
    * @param <M> the type of messages in the intermediate {@link MessageStream}
    * @return  the intermediate {@link MessageStreamImpl}
-   *
-   * TODO: once SAMZA-1566 is resolved, we should be able to pass in the StreamSpec directly.
    */
   @VisibleForTesting
-  <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde, boolean isBroadcast) {
-    StreamSpec streamSpec = runner.getStreamSpec(streamId);
-    if (isBroadcast) {
-      streamSpec = streamSpec.copyWithBroadCast();
-    }
-
-    Preconditions.checkState(!inputOperators.containsKey(streamSpec) && !outputStreams.containsKey(streamSpec),
+  public <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde, boolean isBroadcast) {
+    Preconditions.checkState(!inputOperators.containsKey(streamId) && !outputStreams.containsKey(streamId),
         "getIntermediateStream must not be called multiple times with the same streamId: " + streamId);
 
     if (serde == null) {
-      LOGGER.info("Using default serde for intermediate stream: " + streamId);
-      serde = (Serde<M>) defaultSerde;
+      LOGGER.info("No serde provided for intermediate stream: " + streamId +
+          ". Key and message serdes configured for the job.default.system will be used.");
     }
 
-    boolean isKeyed = serde instanceof KVSerde;
-    KV<Serde, Serde> kvSerdes = getKVSerdes(streamId, serde);
+    if (isBroadcast) broadcastStreams.add(streamId);
+
+    boolean isKeyed;
+    KV<Serde, Serde> kvSerdes;
+    if (serde == null) { // if no explicit serde available
+      isKeyed = true; // assume keyed stream
+      kvSerdes = new KV<>(null, null); // and that key and msg serdes are provided for job.default.system in configs
+    } else {
+      isKeyed = serde instanceof KVSerde;
+      kvSerdes = getKVSerdes(streamId, serde);
+    }
+
+    InputTransformer transformer = (InputTransformer) defaultSystemDescriptorOptional
+        .flatMap(SystemDescriptor::getTransformer).orElse(null);
+
     InputOperatorSpec inputOperatorSpec =
-        OperatorSpecs.createInputOperatorSpec(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(),
-            isKeyed, this.getNextOpId(OpCode.INPUT, null));
-    inputOperators.put(streamSpec, inputOperatorSpec);
-    outputStreams.put(streamSpec, new OutputStreamImpl(streamSpec, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed));
-    return new IntermediateMessageStreamImpl<>(this, inputOperators.get(streamSpec), outputStreams.get(streamSpec));
+        OperatorSpecs.createInputOperatorSpec(streamId, kvSerdes.getKey(), kvSerdes.getValue(),
+            transformer, isKeyed, this.getNextOpId(OpCode.INPUT, null));
+    inputOperators.put(streamId, inputOperatorSpec);
+    outputStreams.put(streamId, new OutputStreamImpl(streamId, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed));
+    return new IntermediateMessageStreamImpl<>(this, inputOperators.get(streamId), outputStreams.get(streamId));
   }
 
-  Map<StreamSpec, InputOperatorSpec> getInputOperators() {
+  Map<String, InputOperatorSpec> getInputOperators() {
     return Collections.unmodifiableMap(inputOperators);
   }
 
-  Map<StreamSpec, OutputStreamImpl> getOutputStreams() {
+  Map<String, OutputStreamImpl> getOutputStreams() {
     return Collections.unmodifiableMap(outputStreams);
+  }
+
+  Set<String> getBroadcastStreams() {
+    return Collections.unmodifiableSet(broadcastStreams);
   }
 
   Map<TableSpec, TableImpl> getTables() {
     return Collections.unmodifiableMap(tables);
+  }
+
+  public Map<String, InputDescriptor> getInputDescriptors() {
+    return Collections.unmodifiableMap(inputDescriptors);
+  }
+
+  public Map<String, OutputDescriptor> getOutputDescriptors() {
+    return Collections.unmodifiableMap(outputDescriptors);
+  }
+
+  public Set<SystemDescriptor> getSystemDescriptors() {
+    // We enforce that users must not use different system descriptor instances for the same system name
+    // when getting an input/output stream or setting the default system descriptor
+    return Collections.unmodifiableSet(new HashSet<>(systemDescriptors.values()));
+  }
+
+  public Optional<SystemDescriptor> getDefaultSystemDescriptor() {
+    return this.defaultSystemDescriptorOptional;
+  }
+
+  private void checkSystemDescriptorUniqueness(SystemDescriptor systemDescriptor, String systemName) {
+    Preconditions.checkState(!systemDescriptors.containsKey(systemName)
+            || systemDescriptors.get(systemName) == systemDescriptor,
+        "Must not use different system descriptor instances for the same system name: " + systemName);
   }
 
   private KV<Serde, Serde> getKVSerdes(String streamId, Serde serde) {

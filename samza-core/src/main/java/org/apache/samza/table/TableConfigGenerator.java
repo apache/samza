@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.operators.BaseTableDescriptor;
@@ -48,19 +49,21 @@ public class TableConfigGenerator {
 
   /**
    * Generate table configurations given a list of table descriptors
+   * @param config the job configuration
    * @param tableDescriptors the list of tableDescriptors
    * @return configuration for the tables
    */
-  static public Map<String, String> generateConfigsForTableDescs(List<TableDescriptor> tableDescriptors) {
-    return generateConfigsForTableSpecs(getTableSpecs(tableDescriptors));
+  static public Map<String, String> generateConfigsForTableDescs(Config config, List<TableDescriptor> tableDescriptors) {
+    return generateConfigsForTableSpecs(config, getTableSpecs(tableDescriptors));
   }
 
   /**
    * Generate table configurations given a list of table specs
+   * @param config the job configuration
    * @param tableSpecs the list of tableSpecs
    * @return configuration for the tables
    */
-  static public Map<String, String> generateConfigsForTableSpecs(List<TableSpec> tableSpecs) {
+  static public Map<String, String> generateConfigsForTableSpecs(Config config, List<TableSpec> tableSpecs) {
     Map<String, String> tableConfigs = new HashMap<>();
 
     tableConfigs.putAll(generateTableKVSerdeConfigs(tableSpecs));
@@ -74,11 +77,31 @@ public class TableConfigGenerator {
         TableProviderFactory tableProviderFactory =
             Util.getObj(tableSpec.getTableProviderFactoryClassName(), TableProviderFactory.class);
         TableProvider tableProvider = tableProviderFactory.getTableProvider(tableSpec);
-        tableConfigs.putAll(tableProvider.generateConfig(tableConfigs));
+        tableConfigs.putAll(tableProvider.generateConfig(config, tableConfigs));
       });
 
     LOG.info("TableConfigGenerator has generated configs {}", tableConfigs);
     return tableConfigs;
+  }
+
+  /**
+   * Get list of table specs given a list of table descriptors.
+   * @param tableDescs the list of tableDescriptors
+   * @return list of tableSpecs
+   */
+  static public List<TableSpec> getTableSpecs(List<TableDescriptor> tableDescs) {
+    Map<TableSpec, TableImpl> tableSpecs = new LinkedHashMap<>();
+
+    tableDescs.forEach(tableDesc -> {
+        TableSpec tableSpec = ((BaseTableDescriptor) tableDesc).getTableSpec();
+
+        if (tableSpecs.containsKey(tableSpec)) {
+          throw new IllegalStateException(
+              String.format("getTable() invoked multiple times with the same tableId: %s", tableDesc.getTableId()));
+        }
+        tableSpecs.put(tableSpec, new TableImpl(tableSpec));
+      });
+    return new ArrayList<>(tableSpecs.keySet());
   }
 
   static private Map<String, String> generateTableKVSerdeConfigs(List<TableSpec> tableSpecs) {
@@ -119,20 +142,5 @@ public class TableConfigGenerator {
       });
 
     return serdeConfigs;
-  }
-
-  static private List<TableSpec> getTableSpecs(List<TableDescriptor> tableDescs) {
-    Map<TableSpec, TableImpl> tableSpecs = new LinkedHashMap<>();
-
-    tableDescs.forEach(tableDesc -> {
-        TableSpec tableSpec = ((BaseTableDescriptor) tableDesc).getTableSpec();
-
-        if (tableSpecs.containsKey(tableSpec)) {
-          throw new IllegalStateException(
-              String.format("getTable() invoked multiple times with the same tableId: %s", tableDesc.getTableId()));
-        }
-        tableSpecs.put(tableSpec, new TableImpl(tableSpec));
-      });
-    return new ArrayList<>(tableSpecs.keySet());
   }
 }
