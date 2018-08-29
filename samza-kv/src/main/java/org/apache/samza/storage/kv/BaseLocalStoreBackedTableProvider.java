@@ -21,10 +21,10 @@ package org.apache.samza.storage.kv;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.StreamAppDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.config.JavaTableConfig;
@@ -50,6 +50,7 @@ import com.google.common.base.Preconditions;
  * stores.
  */
 abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvider {
+  public static final Pattern SYSTEM_STREAM_NAME_PATTERN = Pattern.compile("[\\d\\w-_.]+");
 
   protected KeyValueStore kvStore;
 
@@ -101,8 +102,8 @@ abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvide
 
     List<String> sideInputs = tableSpec.getSideInputs();
     if (sideInputs != null && !sideInputs.isEmpty()) {
-      sideInputs.forEach(si -> Preconditions.checkState(StreamAppDescriptorImpl.isValidStreamId(si), String.format(
-          "Side input stream %s doesn't confirm to pattern %s", si, StreamAppDescriptorImpl.STREAM_ID_PATTERN)));
+      sideInputs.forEach(si -> Preconditions.checkState(isValidSystemStreamName(si), String.format(
+          "Side input stream %s doesn't confirm to pattern %s", si, SYSTEM_STREAM_NAME_PATTERN)));
       String formattedSideInputs = String.join(",", sideInputs);
       storeConfig.put(String.format(JavaStorageConfig.SIDE_INPUTS, tableSpec.getId()), formattedSideInputs);
       storeConfig.put(String.format(JavaStorageConfig.SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE, tableSpec.getId()),
@@ -121,8 +122,8 @@ abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvide
             tableSpec.getId());
       }
 
-      Preconditions.checkState(StreamAppDescriptorImpl.isValidStreamId(changelogStream), String.format(
-          "Changelog stream %s doesn't confirm to pattern %s", changelogStream, StreamAppDescriptorImpl.STREAM_ID_PATTERN));
+      Preconditions.checkState(isValidSystemStreamName(changelogStream), String.format(
+          "Changelog stream %s doesn't confirm to pattern %s", changelogStream, SYSTEM_STREAM_NAME_PATTERN));
       storeConfig.put(String.format(StorageConfig.CHANGELOG_STREAM(), tableSpec.getId()), changelogStream);
 
       String changelogReplicationFactor = tableSpec.getConfig().get(
@@ -139,5 +140,9 @@ abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvide
   @Override
   public void close() {
     logger.info("Shutting down table provider for table " + tableSpec.getId());
+  }
+
+  private boolean isValidSystemStreamName(String name) {
+    return StringUtils.isNotBlank(name) && SYSTEM_STREAM_NAME_PATTERN.matcher(name).matches();
   }
 }

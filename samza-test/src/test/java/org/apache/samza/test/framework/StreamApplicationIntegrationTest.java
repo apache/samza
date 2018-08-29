@@ -27,9 +27,14 @@ import java.util.Random;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.test.controlmessages.TestData;
 import org.apache.samza.test.framework.stream.CollectionStream;
 import org.junit.Assert;
@@ -40,14 +45,21 @@ import static org.apache.samza.test.controlmessages.TestData.PageView;
 public class StreamApplicationIntegrationTest {
 
   final StreamApplication pageViewFilter = streamAppDesc -> {
-    streamAppDesc.<KV<String, TestData.PageView>>getInputStream("PageView").map(
-        StreamApplicationIntegrationTest.Values.create()).filter(pv -> pv.getPageKey().equals("inbox"));
+    KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
+    KafkaInputDescriptor<KV<String, PageView>> isd =
+        ksd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+    MessageStream<KV<String, TestData.PageView>> inputStream = streamAppDesc.getInputStream(isd);
+    inputStream.map(StreamApplicationIntegrationTest.Values.create()).filter(pv -> pv.getPageKey().equals("inbox"));
   };
 
-  final StreamApplication pageViewParition = streamAppDesc -> {
-    streamAppDesc.<KV<String, PageView>>getInputStream("PageView")
+  final StreamApplication pageViewRepartition = streamAppDesc -> {
+    KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
+    KafkaInputDescriptor<KV<String, PageView>> isd =
+        ksd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+    MessageStream<KV<String, TestData.PageView>> inputStream = streamAppDesc.getInputStream(isd);
+    inputStream
         .map(Values.create())
-        .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
+        .partitionBy(PageView::getMemberId, pv -> pv, "p1")
         .sink((m, collector, coordinator) -> {
             collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "Output"),
                 m.getKey(), m.getKey(),
@@ -74,7 +86,7 @@ public class StreamApplicationIntegrationTest {
     CollectionStream output = CollectionStream.empty("test", "Output", 10);
 
     TestRunner
-        .of(pageViewParition)
+        .of(pageViewRepartition)
         .addInputStream(input)
         .addOutputStream(output)
         .addOverrideConfig("job.default.system", "test")
@@ -99,7 +111,7 @@ public class StreamApplicationIntegrationTest {
     CollectionStream output = CollectionStream.empty("test", "Output", 10);
 
     TestRunner
-        .of(pageViewParition)
+        .of(pageViewRepartition)
         .addInputStream(input)
         .addOutputStream(output)
         .run(Duration.ofMillis(1000));

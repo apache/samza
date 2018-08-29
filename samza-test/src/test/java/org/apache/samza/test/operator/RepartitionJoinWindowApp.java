@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamAppDescriptor;
+import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.functions.JoinFunction;
@@ -34,6 +35,8 @@ import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.test.operator.data.AdClick;
 import org.apache.samza.test.operator.data.PageView;
@@ -44,21 +47,27 @@ import org.apache.samza.test.operator.data.UserPageAdClick;
  * A {@link StreamApplication} that demonstrates a partitionBy, stream-stream join and a windowed count.
  */
 public class RepartitionJoinWindowApp implements StreamApplication {
-
-  public static final String INPUT_TOPIC_NAME_1_PROP = "inputTopicName1";
-  public static final String INPUT_TOPIC_NAME_2_PROP = "inputTopicName2";
-  public static final String OUTPUT_TOPIC_NAME_PROP = "outputTopicName";
+  public static final String SYSTEM = "kafka";
+  public static final String INPUT_TOPIC_1_CONFIG_KEY = "inputTopic1";
+  public static final String INPUT_TOPIC_2_CONFIG_KEY = "inputTopic2";
+  public static final String OUTPUT_TOPIC_CONFIG_KEY = "outputTopic";
 
   private final List<String> intermediateStreamIds = new ArrayList<>();
 
   @Override
   public void describe(StreamAppDescriptor appDesc) {
-    String inputTopicName1 = appDesc.getConfig().get(INPUT_TOPIC_NAME_1_PROP);
-    String inputTopicName2 = appDesc.getConfig().get(INPUT_TOPIC_NAME_2_PROP);
-    String outputTopic = appDesc.getConfig().get(OUTPUT_TOPIC_NAME_PROP);
+    // offset.default = oldest required for tests since checkpoint topic is empty on start and messages are published
+    // before the application is run
+    Config config = appDesc.getConfig();
+    String inputTopic1 = config.get(INPUT_TOPIC_1_CONFIG_KEY);
+    String inputTopic2 = config.get(INPUT_TOPIC_2_CONFIG_KEY);
+    String outputTopic = config.get(OUTPUT_TOPIC_CONFIG_KEY);
+    KafkaSystemDescriptor ksd = new KafkaSystemDescriptor(SYSTEM);
+    KafkaInputDescriptor<PageView> id1 = ksd.getInputDescriptor(inputTopic1, new JsonSerdeV2<>(PageView.class));
+    KafkaInputDescriptor<AdClick> id2 = ksd.getInputDescriptor(inputTopic2, new JsonSerdeV2<>(AdClick.class));
 
-    MessageStream<PageView> pageViews = appDesc.getInputStream(inputTopicName1, new JsonSerdeV2<>(PageView.class));
-    MessageStream<AdClick> adClicks = appDesc.getInputStream(inputTopicName2, new JsonSerdeV2<>(AdClick.class));
+    MessageStream<PageView> pageViews = appDesc.getInputStream(id1);
+    MessageStream<AdClick> adClicks = appDesc.getInputStream(id2);
 
     MessageStream<KV<String, PageView>> pageViewsRepartitionedByViewId = pageViews
         .partitionBy(PageView::getViewId, pv -> pv,
@@ -86,14 +95,15 @@ public class RepartitionJoinWindowApp implements StreamApplication {
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), String.valueOf(windowPane.getMessage().size())))
         .sink((message, messageCollector, taskCoordinator) -> {
             taskCoordinator.commit(TaskCoordinator.RequestScope.ALL_TASKS_IN_CONTAINER);
-            messageCollector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", outputTopic), null, message.getKey(), message.getValue()));
+            messageCollector.send(
+                new OutgoingMessageEnvelope(
+                    new SystemStream("kafka", outputTopic), null, message.getKey(), message.getValue()));
           });
 
 
     intermediateStreamIds.add(((IntermediateMessageStreamImpl) pageViewsRepartitionedByViewId).getStreamId());
     intermediateStreamIds.add(((IntermediateMessageStreamImpl) adClicksRepartitionedByViewId).getStreamId());
     intermediateStreamIds.add(((IntermediateMessageStreamImpl) userPageAdClicksByUserId).getStreamId());
-
   }
 
   List<String> getIntermediateStreamIds() {

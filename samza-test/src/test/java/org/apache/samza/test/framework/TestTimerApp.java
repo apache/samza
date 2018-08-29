@@ -31,6 +31,8 @@ import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.serializers.JsonSerdeV2;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.test.operator.data.PageView;
 
 public class TestTimerApp implements StreamApplication {
@@ -39,7 +41,9 @@ public class TestTimerApp implements StreamApplication {
   @Override
   public void describe(StreamAppDescriptor appDesc) {
     final JsonSerdeV2<PageView> serde = new JsonSerdeV2<>(PageView.class);
-    final MessageStream<PageView> pageViews = appDesc.getInputStream(PAGE_VIEWS, serde);
+    KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("kafka");
+    KafkaInputDescriptor<PageView> isd = ksd.getInputDescriptor(PAGE_VIEWS, serde);
+    final MessageStream<PageView> pageViews = appDesc.getInputStream(isd);
     final MessageStream<PageView> output = pageViews.flatMap(new FlatmapTimerFn());
 
     MessageStreamAssert.that("Output from timer function should container all complete messages", output, serde)

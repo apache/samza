@@ -28,6 +28,9 @@ import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaOutputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.test.operator.data.PageView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,22 +41,25 @@ import org.slf4j.LoggerFactory;
 public class RepartitionWindowApp implements StreamApplication {
 
   private static final Logger LOG = LoggerFactory.getLogger(RepartitionWindowApp.class);
-
+  static final String SYSTEM = "kafka";
   static final String INPUT_TOPIC = "page-views";
   static final String OUTPUT_TOPIC = "Result";
 
 
   @Override
   public void describe(StreamAppDescriptor appDesc) {
-    KVSerde<String, PageView>
-        pgeMsgSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageView.class));
+    KVSerde<String, PageView> inputSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageView.class));
+    KVSerde<String, String> outputSerde = KVSerde.of(new StringSerde(), new StringSerde());
+    KafkaSystemDescriptor ksd = new KafkaSystemDescriptor(SYSTEM);
+    KafkaInputDescriptor<KV<String, PageView>> id = ksd.getInputDescriptor(INPUT_TOPIC, inputSerde);
+    KafkaOutputDescriptor<KV<String, String>> od = ksd.getOutputDescriptor(OUTPUT_TOPIC, outputSerde);
 
-    appDesc.getInputStream(INPUT_TOPIC, pgeMsgSerde)
+    appDesc.getInputStream(id)
         .map(KV::getValue)
-        .partitionBy(PageView::getUserId, m -> m, pgeMsgSerde, "inputByUID")
-        .window(Windows.keyedSessionWindow(m -> m.getKey(), Duration.ofSeconds(3), () -> 0, (m, c) -> c + 1,
-            new StringSerde("UTF-8"), new IntegerSerde()), "countWindow")
-        .map(wp -> KV.of(wp.getKey().getKey().toString(), wp.getMessage().toString()))
-        .sendTo(appDesc.getOutputStream(OUTPUT_TOPIC));
+        .partitionBy(PageView::getUserId, m -> m, inputSerde, "p1")
+        .window(Windows.keyedSessionWindow(m -> m.getKey(), Duration.ofSeconds(3), () -> 0, (m, c) -> c + 1, new StringSerde("UTF-8"), new IntegerSerde()), "w1")
+        .map(wp -> KV.of(wp.getKey().getKey().toString(), String.valueOf(wp.getMessage())))
+        .sendTo(appDesc.getOutputStream(od));
+
   }
 }

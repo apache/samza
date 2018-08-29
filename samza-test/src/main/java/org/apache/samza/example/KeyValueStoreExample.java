@@ -35,6 +35,9 @@ import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.storage.kv.KeyValueStore;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaOutputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.CommandLine;
 
@@ -56,11 +59,18 @@ public class KeyValueStoreExample implements StreamApplication {
 
   @Override
   public void describe(StreamAppDescriptor appDesc) {
-    MessageStream<PageViewEvent> pageViewEvents =
-        appDesc.getInputStream("pageViewEventStream", new JsonSerdeV2<>(PageViewEvent.class));
-    OutputStream<KV<String, StatsOutput>> pageViewEventPerMember =
-        appDesc.getOutputStream("pageViewEventPerMember",
+    KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
+
+    KafkaInputDescriptor<PageViewEvent> inputStreamDescriptor =
+        trackingSystem.getInputDescriptor("pageViewEvent", new JsonSerdeV2<>(PageViewEvent.class));
+
+    KafkaOutputDescriptor<KV<String, StatsOutput>> outputStreamDescriptor =
+        trackingSystem.getOutputDescriptor("pageViewEventPerMember",
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(StatsOutput.class)));
+
+    appDesc.setDefaultSystem(trackingSystem);
+    MessageStream<PageViewEvent> pageViewEvents = appDesc.getInputStream(inputStreamDescriptor);
+    OutputStream<KV<String, StatsOutput>> pageViewEventPerMember = appDesc.getOutputStream(outputStreamDescriptor);
 
     pageViewEvents
         .partitionBy(pve -> pve.memberId, pve -> pve,

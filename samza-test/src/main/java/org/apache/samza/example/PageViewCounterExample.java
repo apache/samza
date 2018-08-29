@@ -36,6 +36,9 @@ import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaOutputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.util.CommandLine;
 
 
@@ -57,11 +60,17 @@ public class PageViewCounterExample implements StreamApplication {
 
   @Override
   public void describe(StreamAppDescriptor appDesc) {
-    MessageStream<PageViewEvent> pageViewEvents = null;
-    pageViewEvents = appDesc.getInputStream("pageViewEventStream", new JsonSerdeV2<>(PageViewEvent.class));
-    OutputStream<KV<String, PageViewCount>> pageViewEventPerMemberStream =
-        appDesc.getOutputStream("pageViewEventPerMemberStream",
+    KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
+
+    KafkaInputDescriptor<PageViewEvent> inputStreamDescriptor =
+        trackingSystem.getInputDescriptor("pageViewEvent", new JsonSerdeV2<>(PageViewEvent.class));
+
+    KafkaOutputDescriptor<KV<String, PageViewCount>> outputStreamDescriptor =
+        trackingSystem.getOutputDescriptor("pageViewEventPerMember",
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageViewCount.class)));
+
+    MessageStream<PageViewEvent> pageViewEvents = appDesc.getInputStream(inputStreamDescriptor);
+    OutputStream<KV<String, PageViewCount>> pageViewEventPerMemberStream = appDesc.getOutputStream(outputStreamDescriptor);
 
     SupplierFunction<Integer> initialValue = () -> 0;
     FoldLeftFunction<PageViewEvent, Integer> foldLeftFn = (m, c) -> c + 1;
@@ -71,7 +80,6 @@ public class PageViewCounterExample implements StreamApplication {
             .setAccumulationMode(AccumulationMode.DISCARDING), "tumblingWindow")
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), new PageViewCount(windowPane)))
         .sendTo(pageViewEventPerMemberStream);
-
   }
 
   class PageViewEvent {

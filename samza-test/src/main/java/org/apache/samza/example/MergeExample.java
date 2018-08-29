@@ -20,15 +20,20 @@
 package org.apache.samza.example;
 
 import com.google.common.collect.ImmutableList;
+
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamAppDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
+import org.apache.samza.operators.KV;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaOutputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.util.CommandLine;
 
 public class MergeExample implements StreamApplication {
@@ -45,12 +50,22 @@ public class MergeExample implements StreamApplication {
 
   @Override
   public void describe(StreamAppDescriptor appDesc) {
-    KVSerde<String, PageViewEvent>
-        pgeMsgSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class));
+    KVSerde<String, PageViewEvent> serde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class));
+    KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
 
-    MessageStream.mergeAll(ImmutableList.of(appDesc.getInputStream("viewStream1", pgeMsgSerde),
-        appDesc.getInputStream("viewStream2", pgeMsgSerde), appDesc.getInputStream("viewStream3", pgeMsgSerde)))
-        .sendTo(appDesc.getOutputStream("mergedStream", pgeMsgSerde));
+    KafkaInputDescriptor<KV<String, PageViewEvent>> isd1 =
+        trackingSystem.getInputDescriptor("pageViewStream1", serde);
+    KafkaInputDescriptor<KV<String, PageViewEvent>> isd2 =
+        trackingSystem.getInputDescriptor("pageViewStream2", serde);
+    KafkaInputDescriptor<KV<String, PageViewEvent>> isd3 =
+        trackingSystem.getInputDescriptor("pageViewStream3", serde);
+
+    KafkaOutputDescriptor<KV<String, PageViewEvent>> osd =
+        trackingSystem.getOutputDescriptor("mergedStream", serde);
+
+    MessageStream
+        .mergeAll(ImmutableList.of(appDesc.getInputStream(isd1), appDesc.getInputStream(isd2), appDesc.getInputStream(isd3)))
+        .sendTo(appDesc.getOutputStream(osd));
   }
 
   class PageViewEvent {

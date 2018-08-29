@@ -32,9 +32,13 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
+import org.apache.samza.operators.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.standalone.PassthroughCoordinationUtilsFactory;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.test.controlmessages.TestData.PageView;
@@ -44,7 +48,7 @@ import org.apache.samza.test.util.ArraySystemFactory;
 import org.apache.samza.test.util.Base64Serializer;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 /**
  * This test uses an array as a bounded input source, and does a partitionBy() and sink() after reading the input.
@@ -96,7 +100,10 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
 
       @Override
       public void describe(StreamAppDescriptor appDesc) {
-        appDesc.<KV<String, PageView>>getInputStream("PageView")
+        DelegatingSystemDescriptor sd = new DelegatingSystemDescriptor("test");
+        GenericInputDescriptor<KV<String, PageView>> isd =
+            sd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+        appDesc.getInputStream(isd)
             .map(Values.create())
             .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
             .sink((m, collector, coordinator) -> {

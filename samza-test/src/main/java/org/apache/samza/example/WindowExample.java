@@ -34,6 +34,9 @@ import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaOutputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.util.CommandLine;
 
 
@@ -55,10 +58,17 @@ public class WindowExample implements StreamApplication {
 
   @Override
   public void describe(StreamAppDescriptor appDesc) {
+    KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
+
+    KafkaInputDescriptor<PageViewEvent> inputStreamDescriptor =
+        trackingSystem.getInputDescriptor("pageViewEvent", new JsonSerdeV2<>(PageViewEvent.class));
+    KafkaOutputDescriptor<Integer> outputStreamDescriptor =
+        trackingSystem.getOutputDescriptor("pageViewEventPerMember", new IntegerSerde());
+
     SupplierFunction<Integer> initialValue = () -> 0;
     FoldLeftFunction<PageViewEvent, Integer> counter = (m, c) -> c == null ? 1 : c + 1;
-    MessageStream<PageViewEvent> inputStream = appDesc.getInputStream("inputStream", new JsonSerdeV2<PageViewEvent>());
-    OutputStream<Integer> outputStream = appDesc.getOutputStream("outputStream", new IntegerSerde());
+    MessageStream<PageViewEvent> inputStream = appDesc.getInputStream(inputStreamDescriptor);
+    OutputStream<Integer> outputStream = appDesc.getOutputStream(outputStreamDescriptor);
 
     // create a tumbling window that outputs the number of message collected every 10 minutes.
     // also emit early results if either the number of messages collected reaches 30000, or if no new messages arrive

@@ -43,8 +43,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.internal.util.reflection.Whitebox;
 
-import static org.mockito.Mockito.spy;
-
 public class TestQueryTranslator {
 
   // Helper functions to validate the cloned copies of TranslatorContext and SamzaSqlExecutionContext
@@ -52,9 +50,8 @@ public class TestQueryTranslator {
     Assert.assertNotEquals(originContext, clonedContext);
     Assert.assertTrue(originContext.getExpressionCompiler() == clonedContext.getExpressionCompiler());
     Assert.assertTrue(originContext.getStreamAppDescriptor() == clonedContext.getStreamAppDescriptor());
-    Assert.assertTrue(originContext.getExpressionCompiler() == clonedContext.getExpressionCompiler());
     Assert.assertTrue(Whitebox.getInternalState(originContext, "relSamzaConverters") == Whitebox.getInternalState(clonedContext, "relSamzaConverters"));
-    Assert.assertTrue(Whitebox.getInternalState(originContext, "messsageStreams") == Whitebox.getInternalState(clonedContext, "messsageStreams"));
+    Assert.assertTrue(Whitebox.getInternalState(originContext, "messageStreams") == Whitebox.getInternalState(clonedContext, "messageStreams"));
     Assert.assertTrue(Whitebox.getInternalState(originContext, "relNodes") == Whitebox.getInternalState(clonedContext, "relNodes"));
     Assert.assertNotEquals(originContext.getDataContext(), clonedContext.getDataContext());
     validateClonedExecutionContext(originContext.getExecutionContext(), clonedContext.getExecutionContext());
@@ -87,7 +84,7 @@ public class TestQueryTranslator {
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
     SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamAppDescriptorImpl appDesc = spy(new StreamAppDescriptorImpl(descriptor -> { },samzaConfig));
+    StreamAppDescriptorImpl appDesc = new StreamAppDescriptorImpl(descriptor -> { },samzaConfig);
 
     translator.translate(queryInfo, appDesc);
     OperatorSpecGraph specGraph = appDesc.getOperatorSpecGraph();

@@ -36,8 +36,13 @@ import org.apache.samza.config.TaskConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
+import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
+import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.windows.Windows;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
@@ -61,12 +66,18 @@ public class TestExecutionPlanner {
   private StreamManager streamManager;
   private Config config;
 
-  private StreamSpec input1;
-  private StreamSpec input2;
-  private StreamSpec input3;
-  private StreamSpec input4;
-  private StreamSpec output1;
-  private StreamSpec output2;
+  private StreamSpec input1Spec;
+  private GenericInputDescriptor<KV<Object, Object>> input1Descriptor;
+  private StreamSpec input2Spec;
+  private GenericInputDescriptor<KV<Object, Object>> input2Descriptor;
+  private StreamSpec input3Spec;
+  private GenericInputDescriptor<KV<Object, Object>> input3Descriptor;
+  private StreamSpec input4Spec;
+  private GenericInputDescriptor<KV<Object, Object>> input4Descriptor;
+  private StreamSpec output1Spec;
+  private GenericOutputDescriptor<KV<Object, Object>> output1Descriptor;
+  private StreamSpec output2Spec;
+  private GenericOutputDescriptor<KV<Object, Object>> output2Descriptor;
 
   static SystemAdmin createSystemAdmin(Map<String, Integer> streamToPartitions) {
 
@@ -104,8 +115,8 @@ public class TestExecutionPlanner {
      *
      */
     return new StreamAppDescriptorImpl(appDesc-> {
-        MessageStream<KV<Object, Object>> input1 = appDesc.getInputStream("input1");
-        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream("output1");
+        MessageStream<KV<Object, Object>> input1 = appDesc.getInputStream(input1Descriptor);
+        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
         input1
             .partitionBy(m -> m.key, m -> m.value, "p1")
             .map(kv -> kv)
@@ -127,19 +138,19 @@ public class TestExecutionPlanner {
      */
     return new StreamAppDescriptorImpl(appDesc -> {
         MessageStream<KV<Object, Object>> messageStream1 =
-            appDesc.<KV<Object, Object>>getInputStream("input1")
+            appDesc.getInputStream(input1Descriptor)
                 .map(m -> m);
         MessageStream<KV<Object, Object>> messageStream2 =
-            appDesc.<KV<Object, Object>>getInputStream("input2")
+            appDesc.getInputStream(input2Descriptor)
                 .partitionBy(m -> m.key, m -> m.value, "p1")
                 .filter(m -> true);
         MessageStream<KV<Object, Object>> messageStream3 =
-            appDesc.<KV<Object, Object>>getInputStream("input3")
+            appDesc.getInputStream(input3Descriptor)
                 .filter(m -> true)
                 .partitionBy(m -> m.key, m -> m.value, "p2")
                 .map(m -> m);
-        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream("output1");
-        OutputStream<KV<Object, Object>> output2 = appDesc.getOutputStream("output2");
+        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
+        OutputStream<KV<Object, Object>> output2 = appDesc.getOutputStream(output2Descriptor);
 
         messageStream1
             .join(messageStream2,
@@ -158,19 +169,19 @@ public class TestExecutionPlanner {
 
     return new StreamAppDescriptorImpl(appDesc -> {
         MessageStream<KV<Object, Object>> messageStream1 =
-            appDesc.<KV<Object, Object>>getInputStream("input1")
+            appDesc.getInputStream(input1Descriptor)
                 .map(m -> m);
         MessageStream<KV<Object, Object>> messageStream2 =
-            appDesc.<KV<Object, Object>>getInputStream("input2")
+            appDesc.getInputStream(input2Descriptor)
                 .partitionBy(m -> m.key, m -> m.value, "p1")
                 .filter(m -> true);
         MessageStream<KV<Object, Object>> messageStream3 =
-            appDesc.<KV<Object, Object>>getInputStream("input3")
+            appDesc.getInputStream(input3Descriptor)
                 .filter(m -> true)
                 .partitionBy(m -> m.key, m -> m.value, "p2")
                 .map(m -> m);
-        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream("output1");
-        OutputStream<KV<Object, Object>> output2 = appDesc.getOutputStream("output2");
+        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
+        OutputStream<KV<Object, Object>> output2 = appDesc.getOutputStream(output2Descriptor);
 
         messageStream1.map(m -> m)
             .filter(m->true)
@@ -211,13 +222,24 @@ public class TestExecutionPlanner {
     StreamTestUtils.addStreamConfigs(configMap, "output2", "system2", "output2");
     config = new MapConfig(configMap);
 
-    input1 = new StreamSpec("input1", "input1", "system1");
-    input2 = new StreamSpec("input2", "input2", "system2");
-    input3 = new StreamSpec("input3", "input3", "system2");
-    input4 = new StreamSpec("input4", "input4", "system1");
+    input1Spec = new StreamSpec("input1", "input1", "system1");
+    input2Spec = new StreamSpec("input2", "input2", "system2");
+    input3Spec = new StreamSpec("input3", "input3", "system2");
+    input4Spec = new StreamSpec("input4", "input4", "system1");
 
-    output1 = new StreamSpec("output1", "output1", "system1");
-    output2 = new StreamSpec("output2", "output2", "system2");
+    output1Spec = new StreamSpec("output1", "output1", "system1");
+    output2Spec = new StreamSpec("output2", "output2", "system2");
+
+    KVSerde<Object, Object> kvSerde = new KVSerde<>(new NoOpSerde(), new NoOpSerde());
+    String mockSystemFactoryClass = "factory.class.name";
+    GenericSystemDescriptor system1 = new GenericSystemDescriptor("system1", mockSystemFactoryClass);
+    GenericSystemDescriptor system2 = new GenericSystemDescriptor("system2", mockSystemFactoryClass);
+    input1Descriptor = system1.getInputDescriptor("input1", kvSerde);
+    input2Descriptor = system2.getInputDescriptor("input2", kvSerde);
+    input3Descriptor = system2.getInputDescriptor("input3", kvSerde);
+    input4Descriptor = system1.getInputDescriptor("input4", kvSerde);
+    output1Descriptor = system1.getOutputDescriptor("output1", kvSerde);
+    output2Descriptor = system2.getOutputDescriptor("output2", kvSerde);
 
     // set up external partition count
     Map<String, Integer> system1Map = new HashMap<>();
@@ -255,11 +277,11 @@ public class TestExecutionPlanner {
     JobGraph jobGraph = planner.createJobGraph(graphSpec.getOperatorSpecGraph());
 
     ExecutionPlanner.updateExistingPartitions(jobGraph, streamManager);
-    assertTrue(jobGraph.getOrCreateStreamEdge(input1).getPartitionCount() == 64);
-    assertTrue(jobGraph.getOrCreateStreamEdge(input2).getPartitionCount() == 16);
-    assertTrue(jobGraph.getOrCreateStreamEdge(input3).getPartitionCount() == 32);
-    assertTrue(jobGraph.getOrCreateStreamEdge(output1).getPartitionCount() == 8);
-    assertTrue(jobGraph.getOrCreateStreamEdge(output2).getPartitionCount() == 16);
+    assertTrue(jobGraph.getOrCreateStreamEdge(input1Spec).getPartitionCount() == 64);
+    assertTrue(jobGraph.getOrCreateStreamEdge(input2Spec).getPartitionCount() == 16);
+    assertTrue(jobGraph.getOrCreateStreamEdge(input3Spec).getPartitionCount() == 32);
+    assertTrue(jobGraph.getOrCreateStreamEdge(output1Spec).getPartitionCount() == 8);
+    assertTrue(jobGraph.getOrCreateStreamEdge(output2Spec).getPartitionCount() == 16);
 
     jobGraph.getIntermediateStreamEdges().forEach(edge -> {
         assertTrue(edge.getPartitionCount() == -1);
@@ -391,13 +413,13 @@ public class TestExecutionPlanner {
   @Test
   public void testMaxPartition() {
     Collection<StreamEdge> edges = new ArrayList<>();
-    StreamEdge edge = new StreamEdge(input1, false, false, config);
+    StreamEdge edge = new StreamEdge(input1Spec, false, false, config);
     edge.setPartitionCount(2);
     edges.add(edge);
-    edge = new StreamEdge(input2, false, false, config);
+    edge = new StreamEdge(input2Spec, false, false, config);
     edge.setPartitionCount(32);
     edges.add(edge);
-    edge = new StreamEdge(input3, false, false, config);
+    edge = new StreamEdge(input3Spec, false, false, config);
     edge.setPartitionCount(16);
     edges.add(edge);
 
@@ -413,8 +435,8 @@ public class TestExecutionPlanner {
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
     StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
-        MessageStream<KV<Object, Object>> input1 = appDesc.getInputStream("input4");
-        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream("output1");
+        MessageStream<KV<Object, Object>> input1 = appDesc.getInputStream(input4Descriptor);
+        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
         input1.partitionBy(m -> m.key, m -> m.value, "p1").map(kv -> kv).sendTo(output1);
       }, config);
 

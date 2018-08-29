@@ -281,8 +281,8 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     private final Config config;
 
     private RunApplicationContext(ApplicationRunner runner, Config config) {
-      this.config = config;
       this.runner = runner;
+      this.config = config;
     }
 
     public ApplicationRunner getRunner() {

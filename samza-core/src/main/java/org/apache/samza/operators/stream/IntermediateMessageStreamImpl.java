@@ -44,7 +44,7 @@ public class IntermediateMessageStreamImpl<M> extends MessageStreamImpl<M> imple
   private final OutputStreamImpl<M> outputStream;
   private final boolean isKeyed;
 
-  public IntermediateMessageStreamImpl(StreamAppDescriptorImpl appDesc, InputOperatorSpec<?, M> inputOperatorSpec,
+  public IntermediateMessageStreamImpl(StreamAppDescriptorImpl appDesc,  InputOperatorSpec inputOperatorSpec,
       OutputStreamImpl<M> outputStream) {
     super(appDesc, (OperatorSpec<?, M>) inputOperatorSpec);
     this.outputStream = outputStream;

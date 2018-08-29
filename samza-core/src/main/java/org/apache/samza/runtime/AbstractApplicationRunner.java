@@ -128,8 +128,21 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
       cfg.put(ApplicationConfig.APP_MODE, mode.name());
       validateAppClassCfg(cfg, appDesc.getAppClass());
 
+      // merge user-provided configuration with input/output descriptor generated configuration
+      // descriptor generated configuration has higher priority
+      Map<String, String> systemStreamConfigs = new HashMap<>();
+      StreamAppDescriptorImpl streamAppDesc = (StreamAppDescriptorImpl) appDesc;
+      streamAppDesc.getInputDescriptors().forEach((key, value) -> systemStreamConfigs.putAll(value.toConfig()));
+      streamAppDesc.getOutputDescriptors().forEach((key, value) -> systemStreamConfigs.putAll(value.toConfig()));
+      streamAppDesc.getSystemDescriptors().forEach(sd -> systemStreamConfigs.putAll(sd.toConfig()));
+      streamAppDesc.getDefaultSystemDescriptor().ifPresent(dsd ->
+          systemStreamConfigs.put(JobConfig.JOB_DEFAULT_SYSTEM(), dsd.getSystemName()));
+      Map<String, String> appConfigs = new HashMap<>(cfg);
+      appConfigs.putAll(systemStreamConfigs);
+
       // create the physical execution plan
       Config generatedConfig = new MapConfig(cfg);
+      // creating the StreamManager to get all input/output streams' metadata for planning
       StreamManager streamManager = buildAndStartStreamManager(generatedConfig);
       try {
         ExecutionPlanner planner = new ExecutionPlanner(generatedConfig, streamManager);

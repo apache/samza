@@ -42,6 +42,8 @@ import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
+import org.apache.samza.operators.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.table.Table;
@@ -61,7 +63,6 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.samza.test.table.TestTableData.*;
-
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doReturn;
@@ -183,7 +184,9 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
         inputTable = getCachingTable(inputTable, defaultCache, "input", appDesc);
       }
 
-      appDesc.getInputStream("PageView", new NoOpSerde<PageView>())
+      DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
+      GenericInputDescriptor<TestTableData.PageView> isd = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
+      appDesc.getInputStream(isd)
           .map(pv -> new KV<>(pv.getMemberId(), pv))
           .join(inputTable, new PageViewToProfileJoinFunction())
           .map(m -> new KV(m.getMemberId(), m))

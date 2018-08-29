@@ -26,14 +26,19 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.TimerRegistry;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
+import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
+import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
+import org.apache.samza.serializers.Serde;
 import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -46,10 +51,12 @@ import static org.mockito.Mockito.when;
 public class TestPartitionByOperatorSpec {
 
   private final Config mockConfig = mock(Config.class);
-  private final String testInputId = "test-input-1";
+  private final GenericInputDescriptor testinputDescriptor =
+      new GenericSystemDescriptor("mockSystem", "mockFactoryClassName")
+          .getInputDescriptor("test-input-1", mock(Serde.class));
   private final String testJobName = "testJob";
   private final String testJobId = "1";
-  private final String testReparStreamName = "parByKey";
+  private final String testRepartitionedStreamName = "parByKey";
 
   class TimerMapFn implements MapFunction<Object, String>, TimerFunction<String, Object> {
 
@@ -97,24 +104,52 @@ public class TestPartitionByOperatorSpec {
   public void testPartitionBy() {
     MapFunction<Object, String> keyFn = m -> m.toString();
     MapFunction<Object, Object> valueFn = m -> m;
+    KVSerde<Object, Object> partitionBySerde = KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>());
     StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> {
-        MessageStream inputStream = appDesc.getInputStream(testInputId);
-        inputStream.partitionBy(keyFn, valueFn, testReparStreamName);
+        MessageStream inputStream = appDesc.getInputStream(testinputDescriptor);
+        inputStream.partitionBy(keyFn, valueFn, partitionBySerde, testRepartitionedStreamName);
       }, mockConfig);
     assertEquals(2, streamAppDesc.getInputOperators().size());
     Map<String, InputOperatorSpec> inputOpSpecs = streamAppDesc.getInputOperators();
-    assertTrue(inputOpSpecs.keySet().contains(String.format("%s-%s-partition_by-%s", testJobName, testJobId, testReparStreamName)));
-    InputOperatorSpec inputOpSpec = inputOpSpecs.get(String.format("%s-%s-partition_by-%s", testJobName, testJobId, testReparStreamName));
-    assertEquals(String.format("%s-%s-partition_by-%s", testJobName, testJobId, testReparStreamName), inputOpSpec.getStreamId());
+    assertTrue(inputOpSpecs.keySet().contains(String.format("%s-%s-partition_by-%s", testJobName, testJobId, testRepartitionedStreamName)));
+    InputOperatorSpec inputOpSpec = inputOpSpecs.get(String.format("%s-%s-partition_by-%s", testJobName, testJobId, testRepartitionedStreamName));
+    assertEquals(String.format("%s-%s-partition_by-%s", testJobName, testJobId, testRepartitionedStreamName), inputOpSpec.getStreamId());
     assertTrue(inputOpSpec.getKeySerde() instanceof NoOpSerde);
     assertTrue(inputOpSpec.getValueSerde() instanceof NoOpSerde);
     assertTrue(inputOpSpec.isKeyed());
     assertNull(inputOpSpec.getTimerFn());
     assertNull(inputOpSpec.getWatermarkFn());
-    InputOperatorSpec originInputSpec = inputOpSpecs.get(testInputId);
+    InputOperatorSpec originInputSpec = inputOpSpecs.get(testinputDescriptor.getStreamId());
     assertTrue(originInputSpec.getRegisteredOperatorSpecs().toArray()[0] instanceof PartitionByOperatorSpec);
     PartitionByOperatorSpec reparOpSpec  = (PartitionByOperatorSpec) originInputSpec.getRegisteredOperatorSpecs().toArray()[0];
-    assertEquals(reparOpSpec.getOpId(), String.format("%s-%s-partition_by-%s", testJobName, testJobId, testReparStreamName));
+    assertEquals(reparOpSpec.getOpId(), String.format("%s-%s-partition_by-%s", testJobName, testJobId, testRepartitionedStreamName));
+    assertEquals(reparOpSpec.getKeyFunction(), keyFn);
+    assertEquals(reparOpSpec.getValueFunction(), valueFn);
+    assertEquals(reparOpSpec.getOutputStream().getStreamId(), reparOpSpec.getOpId());
+    assertNull(reparOpSpec.getTimerFn());
+    assertNull(reparOpSpec.getWatermarkFn());
+  }
+
+  @Test
+  public void testPartitionByWithNoSerde() {
+    MapFunction<Object, String> keyFn = m -> m.toString();
+    MapFunction<Object, Object> valueFn = m -> m;
+    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> {
+        MessageStream inputStream = appDesc.getInputStream(testinputDescriptor);
+        inputStream.partitionBy(keyFn, valueFn, testRepartitionedStreamName);
+      }, mockConfig);
+    InputOperatorSpec inputOpSpec = streamAppDesc.getInputOperators().get(
+        String.format("%s-%s-partition_by-%s", testJobName, testJobId, testRepartitionedStreamName));
+    assertNotNull(inputOpSpec);
+    assertNull(inputOpSpec.getKeySerde());
+    assertNull(inputOpSpec.getValueSerde());
+    assertTrue(inputOpSpec.isKeyed());
+    assertNull(inputOpSpec.getTimerFn());
+    assertNull(inputOpSpec.getWatermarkFn());
+    InputOperatorSpec originInputSpec = streamAppDesc.getInputOperators().get(testinputDescriptor.getStreamId());
+    assertTrue(originInputSpec.getRegisteredOperatorSpecs().toArray()[0] instanceof PartitionByOperatorSpec);
+    PartitionByOperatorSpec reparOpSpec  = (PartitionByOperatorSpec) originInputSpec.getRegisteredOperatorSpecs().toArray()[0];
+    assertEquals(reparOpSpec.getOpId(), String.format("%s-%s-partition_by-%s", testJobName, testJobId, testRepartitionedStreamName));
     assertEquals(reparOpSpec.getKeyFunction(), keyFn);
     assertEquals(reparOpSpec.getValueFunction(), valueFn);
     assertEquals(reparOpSpec.getOutputStream().getStreamId(), reparOpSpec.getOpId());
@@ -125,8 +160,8 @@ public class TestPartitionByOperatorSpec {
   @Test
   public void testCopy() {
     StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> {
-        MessageStream inputStream = appDesc.getInputStream(testInputId);
-        inputStream.partitionBy(m -> m.toString(), m -> m, testReparStreamName);
+        MessageStream inputStream = appDesc.getInputStream(testinputDescriptor);
+        inputStream.partitionBy(m -> m.toString(), m -> m, testRepartitionedStreamName);
       }, mockConfig);
     OperatorSpecGraph specGraph = streamAppDesc.getOperatorSpecGraph();
     OperatorSpecGraph clonedGraph = specGraph.clone();
@@ -137,7 +172,7 @@ public class TestPartitionByOperatorSpec {
   public void testTimerFunctionAsKeyFn() {
     TimerMapFn keyFn = new TimerMapFn();
     new StreamAppDescriptorImpl(appDesc -> {
-        MessageStream<Object> inputStream = appDesc.getInputStream(testInputId);
+        MessageStream<Object> inputStream = appDesc.getInputStream(testinputDescriptor);
         inputStream.partitionBy(keyFn, m -> m, "parByKey");
       }, mockConfig);
   }
@@ -146,7 +181,7 @@ public class TestPartitionByOperatorSpec {
   public void testWatermarkFunctionAsKeyFn() {
     WatermarkMapFn keyFn = new WatermarkMapFn();
     new StreamAppDescriptorImpl(appDesc -> {
-        MessageStream<Object> inputStream = appDesc.getInputStream(testInputId);
+        MessageStream<Object> inputStream = appDesc.getInputStream(testinputDescriptor);
         inputStream.partitionBy(keyFn, m -> m, "parByKey");
       }, mockConfig);
   }
@@ -155,7 +190,7 @@ public class TestPartitionByOperatorSpec {
   public void testTimerFunctionAsValueFn() {
     TimerMapFn valueFn = new TimerMapFn();
     new StreamAppDescriptorImpl(appDesc -> {
-        MessageStream<Object> inputStream = appDesc.getInputStream(testInputId);
+        MessageStream<Object> inputStream = appDesc.getInputStream(testinputDescriptor);
         inputStream.partitionBy(m -> m.toString(), valueFn, "parByKey");
       }, mockConfig);
   }
@@ -164,7 +199,7 @@ public class TestPartitionByOperatorSpec {
   public void testWatermarkFunctionAsValueFn() {
     WatermarkMapFn valueFn = new WatermarkMapFn();
     new StreamAppDescriptorImpl(appDesc -> {
-        MessageStream<Object> inputStream = appDesc.getInputStream(testInputId);
+        MessageStream<Object> inputStream = appDesc.getInputStream(testinputDescriptor);
         inputStream.partitionBy(m -> m.toString(), valueFn, "parByKey");
       }, mockConfig);
   }

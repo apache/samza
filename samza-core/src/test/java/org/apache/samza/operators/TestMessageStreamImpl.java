@@ -208,7 +208,7 @@ public class TestMessageStreamImpl {
     OutputStreamImpl mockOutputStreamImpl = mock(OutputStreamImpl.class);
     KVSerde mockKVSerde = mock(KVSerde.class);
     IntermediateMessageStreamImpl mockIntermediateStream = mock(IntermediateMessageStreamImpl.class);
-    when(mockGraph.getIntermediateStream(eq(mockOpName), eq(mockKVSerde)))
+    when(mockGraph.getIntermediateStream(eq(mockOpName), eq(mockKVSerde), eq(false)))
         .thenReturn(mockIntermediateStream);
     when(mockIntermediateStream.getOutputStream())
         .thenReturn(mockOutputStreamImpl);
@@ -238,7 +238,7 @@ public class TestMessageStreamImpl {
     when(mockGraph.getNextOpId(anyObject(), anyObject())).thenReturn(mockOpName);
     OutputStreamImpl mockOutputStreamImpl = mock(OutputStreamImpl.class);
     IntermediateMessageStreamImpl mockIntermediateStream = mock(IntermediateMessageStreamImpl.class);
-    when(mockGraph.getIntermediateStream(eq(mockOpName), eq(null)))
+    when(mockGraph.getIntermediateStream(eq(mockOpName), eq(null), eq(false)))
         .thenReturn(mockIntermediateStream);
     when(mockIntermediateStream.getOutputStream())
         .thenReturn(mockOutputStreamImpl);

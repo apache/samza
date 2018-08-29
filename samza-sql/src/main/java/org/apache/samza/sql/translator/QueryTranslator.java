@@ -31,7 +31,6 @@ import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamAppDescriptor;
-import org.apache.samza.application.StreamAppDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.KV;
@@ -39,6 +38,10 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.operators.descriptors.GenericOutputDescriptor;;
+import org.apache.samza.operators.descriptors.DelegatingSystemDescriptor;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
@@ -151,7 +154,11 @@ public class QueryTranslator {
 
     Optional<TableDescriptor> tableDescriptor = sinkConfig.getTableDescriptor();
     if (!tableDescriptor.isPresent()) {
-      outputStream.sendTo(appDesc.getOutputStream(sinkConfig.getStreamName()));
+      KVSerde<Object, Object> noOpKVSerde = KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>());
+      String systemName = sinkConfig.getSystemName();
+      DelegatingSystemDescriptor sd = context.getSystemDescriptors().computeIfAbsent(systemName, DelegatingSystemDescriptor::new);
+      GenericOutputDescriptor<KV<Object, Object>> osd = sd.getOutputDescriptor(sinkConfig.getStreamName(), noOpKVSerde);
+      outputStream.sendTo(appDesc.getOutputStream(osd));
     } else {
       Table outputTable = appDesc.getTable(tableDescriptor.get());
       if (outputTable == null) {

@@ -174,8 +174,8 @@ public class StreamProcessor {
   }
 
   /**
-   * Same as {@link StreamProcessor#StreamProcessor(Config, Map, TaskFactory, ProcessorLifecycleListener)},
-   * except the {@link JobCoordinator} is given for this {@link StreamProcessor}.
+   * Same as {@link #StreamProcessor(Config, Map, TaskFactory, ProcessorLifecycleListener)}, except the
+   * {@link JobCoordinator} is given for this {@link StreamProcessor}.
    * @param config - config
    * @param customMetricsReporters metric Reporter
    * @param taskFactory task factory to instantiate the Task

@@ -20,8 +20,10 @@ package org.apache.samza.operators.impl;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
@@ -32,15 +34,12 @@ import java.util.Collections;
 
 /**
  * An operator that builds the input message from the incoming message.
- *
- * @param <K> the type of key in the incoming message
- * @param <V> the type of message in the incoming message
  */
-public final class InputOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, Object> { // Object == KV<K,V> | V
+public final class InputOperatorImpl extends OperatorImpl<IncomingMessageEnvelope, Object> {
 
-  private final InputOperatorSpec<K, V> inputOpSpec;
+  private final InputOperatorSpec inputOpSpec;
 
-  InputOperatorImpl(InputOperatorSpec<K, V> inputOpSpec) {
+  InputOperatorImpl(InputOperatorSpec inputOpSpec) {
     this.inputOpSpec = inputOpSpec;
   }
 
@@ -49,8 +48,14 @@ public final class InputOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, Object
   }
 
   @Override
-  public Collection<Object> handleMessage(KV<K, V> pair, MessageCollector collector, TaskCoordinator coordinator) {
-    Object message = this.inputOpSpec.isKeyed() ? pair : pair.getValue();
+  public Collection<Object> handleMessage(IncomingMessageEnvelope ime, MessageCollector collector, TaskCoordinator coordinator) {
+    Object message;
+    InputTransformer transformer = inputOpSpec.getTransformer();
+    if (transformer != null) {
+      message = transformer.apply(ime);
+    } else {
+      message = this.inputOpSpec.isKeyed() ? KV.of(ime.getKey(), ime.getMessage()) : ime.getMessage();
+    }
     return Collections.singletonList(message);
   }
 
@@ -58,7 +63,7 @@ public final class InputOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, Object
   protected void handleClose() {
   }
 
-  protected OperatorSpec<KV<K, V>, Object> getOperatorSpec() {
+  protected OperatorSpec<IncomingMessageEnvelope, Object> getOperatorSpec() {
     return this.inputOpSpec;
   }
 }
