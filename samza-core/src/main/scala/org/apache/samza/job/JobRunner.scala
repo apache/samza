@@ -122,7 +122,7 @@ class JobRunner(config: Config) extends Logging {
     if (new JobConfig(config).getDiagnosticsEnabled) {
       val DIAGNOSTICS_STREAM_ID = "samza-diagnostics-stream-id"
       val diagnosticsSystemStreamName = new MetricsConfig(config).
-        getMetricsReporterStream(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS).
+        getMetricsSnapshotReporterStream(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS).
         getOrElse(throw new ConfigException("Missing required config: " +
           String.format(MetricsConfig.METRICS_SNAPSHOT_REPORTER_STREAM,
             MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS)))
