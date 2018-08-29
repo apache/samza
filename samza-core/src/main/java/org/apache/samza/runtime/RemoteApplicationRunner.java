@@ -75,23 +75,28 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
       ExecutionPlan plan = getExecutionPlan(streamAppDesc.getOperatorSpecGraph(), runId);
       writePlanJsonFile(plan.getPlanAsJson());
 
-      List<JobConfig> jobConfigs = plan.getJobConfigs();
-      jobConfigs.forEach(jobConfig -> {
-          StreamManager streamManager = null;
-          try {
-            // 2. create the necessary streams
-            streamManager = buildAndStartStreamManager(jobConfig);
-            if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
-              streamManager.clearStreamsFromPreviousRun(getConfigFromPrevRun());
-            }
-            streamManager.createStreams(plan.getIntermediateStreams());
-          } finally {
-            if (streamManager != null) {
-              streamManager.stop();
-            }
-          }
-        });
-      return jobConfigs;
+      if (plan.getJobConfigs().isEmpty()) {
+        throw new SamzaException("No jobs in the plan.");
+      }
+
+      // 2. create the necessary streams
+      // TODO: this works for single-job applications. For multi-job applications, ExecutionPlan should return an AppConfig
+      // to be used for the whole application
+      JobConfig jobConfig = plan.getJobConfigs().get(0);
+      StreamManager streamManager = null;
+      try {
+        // create the StreamManager to create intermediate streams in the plan
+        streamManager = buildAndStartStreamManager(jobConfig);
+        if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
+          streamManager.clearStreamsFromPreviousRun(getConfigFromPrevRun());
+        }
+        streamManager.createStreams(plan.getIntermediateStreams());
+      } finally {
+        if (streamManager != null) {
+          streamManager.stop();
+        }
+      }
+      return plan.getJobConfigs();
     }
   }
 

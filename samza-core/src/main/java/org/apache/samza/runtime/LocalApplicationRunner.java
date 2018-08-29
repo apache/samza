@@ -165,22 +165,26 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       LOG.info("Execution Plan: \n" + executionPlanJson);
       String planId = String.valueOf(executionPlanJson.hashCode());
 
-      List<JobConfig> jobConfigs = plan.getJobConfigs();
-      jobConfigs.forEach(jobConfig -> {
-          // 2. create the necessary streams
-          // TODO: System generated intermediate streams should have robust naming scheme. See SAMZA-1391
-          // TODO: why are we creating all intermediate streams in a plan repeatedly in multiple jobs?
-          StreamManager streamManager = null;
-          try {
-            streamManager = buildAndStartStreamManager(jobConfig);
-            createStreams(planId, plan.getIntermediateStreams(), streamManager);
-          } finally {
-            if (streamManager != null) {
-              streamManager.stop();
-            }
-          }
-        });
-      return jobConfigs;
+      if (plan.getJobConfigs().isEmpty()) {
+        throw new SamzaException("No jobs in the plan.");
+      }
+
+      // 2. create the necessary streams
+      // TODO: System generated intermediate streams should have robust naming scheme. See SAMZA-1391
+      // TODO: this works for single-job applications. For multi-job applications, ExecutionPlan should return an AppConfig
+      // to be used for the whole application
+      JobConfig jobConfig = plan.getJobConfigs().get(0);
+      StreamManager streamManager = null;
+      try {
+        // create the StreamManager to create intermediate streams in the plan
+        streamManager = buildAndStartStreamManager(jobConfig);
+        createStreams(planId, plan.getIntermediateStreams(), streamManager);
+      } finally {
+        if (streamManager != null) {
+          streamManager.stop();
+        }
+      }
+      return plan.getJobConfigs();
     }
 
     /**
