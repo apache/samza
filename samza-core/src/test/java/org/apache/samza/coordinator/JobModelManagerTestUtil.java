@@ -49,7 +49,7 @@ public class JobModelManagerTestUtil {
       containers.put(String.valueOf(i), container);
     }
     JobModel jobModel = new JobModel(config, containers, localityManager);
-    return new JobModelManager(jobModel, server);
+    return new JobModelManager(jobModel, server, null);
   }
 
   public static JobModelManager getJobModelManagerUsingReadModel(Config config, int containerCount, StreamMetadataCache streamMetadataCache,
@@ -59,7 +59,7 @@ public class JobModelManagerTestUtil {
       containerIds.add(String.valueOf(i));
     }
     JobModel jobModel = JobModelManager.readJobModel(config, new HashMap<>(), locManager, streamMetadataCache, containerIds);
-    return new JobModelManager(jobModel, server);
+    return new JobModelManager(jobModel, server, null);
   }
 
 
