@@ -55,64 +55,9 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     val clientId = KafkaUtil.getClientId("samza-consumer", config)
     val metrics = new KafkaSystemConsumerMetrics(systemName, registry)
 
-    // Kind of goofy to need a producer config for consumers, but we need metadata.
-    val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId)
-    val bootstrapServers = producerConfig.bootsrapServers
-    //val consumerConfig = config.getKafkaSystemConsumerConfig(systemName, clientId)
-
-    //val kafkaConfig = new KafkaConfig(config)
-
-
-   // val timeout = consumerConfig.socketTimeoutMs
-    //val bufferSize = consumerConfig.socketReceiveBufferBytes
-    //val fetchSize = new StreamFetchSizes(consumerConfig.fetchMessageMaxBytes, config.getFetchMessageMaxBytesTopics(systemName))
-    //val consumerMinSize = consumerConfig.fetchMinBytes
-    //val consumerMaxWait = consumerConfig.fetchWaitMaxMs
-    //val autoOffsetResetDefault = consumerConfig.autoOffsetReset
-    val autoOffsetResetTopics = config.getAutoOffsetResetTopics(systemName)
-    val fetchThreshold = config.getConsumerFetchThreshold(systemName).getOrElse("50000").toInt
-    val fetchThresholdBytes = config.getConsumerFetchThresholdBytes(systemName).getOrElse("-1").toLong
-    //val offsetGetter = new GetOffset(autoOffsetResetDefault, autoOffsetResetTopics)
-    //val metadataStore = new ClientUtilTopicMetadataStore(bootstrapServers, clientId, timeout)
-
-
-    val kafkaConsumer: KafkaConsumer[Array[Byte], Array[Byte]] =
-      NewKafkaSystemConsumer.getKafkaConsumerImpl(systemName, clientId, config)
-
-    def valueUnwrapper: NewKafkaSystemConsumer.ValueUnwrapper[Array[Byte]] = null;// TODO add real unrapper from
-    val kc = new NewKafkaSystemConsumer (
-      kafkaConsumer, systemName, config, clientId,
-      metrics, new SystemClock, false, valueUnwrapper)
-
-    kc
-    /*
-      new KafkaSystemConsumer(
-      systemName = systemName,
-      systemAdmin = getAdmin(systemName, config),
-      metrics = metrics,
-      metadataStore = metadataStore,
-      clientId = clientId,
-      timeout = timeout,
-      bufferSize = bufferSize,
-      fetchSize = fetchSize,
-      consumerMinSize = consumerMinSize,
-      consumerMaxWait = consumerMaxWait,
-      fetchThreshold = fetchThreshold,
-      fetchThresholdBytes = fetchThresholdBytes,
-      fetchLimitByBytesEnabled = config.isConsumerFetchThresholdBytesEnabled(systemName),
-      offsetGetter = offsetGetter)
-      */
+    NewKafkaSystemConsumer.getNewKafkaSystemConsumer(
+      systemName, config, clientId, metrics, new SystemClock)
   }
-
-  /*
-  def getKafkaConsumerImpl(systemName: String, config: KafkaConfig) = {
-    info("Consumer properties in getKafkaConsumerImpl: systemName: {}, consumerProperties: {}", systemName, config)
-
-    val byteArrayDeserializer = new ByteArrayDeserializer
-    new KafkaConsumer[Array[Byte], Array[Byte]](config.configForVanillaConsumer(),
-      byteArrayDeserializer, byteArrayDeserializer)
-  }
-  */
 
   def getProducer(systemName: String, config: Config, registry: MetricsRegistry): SystemProducer = {
     val clientId = KafkaUtil.getClientId("samza-producer", config)

@@ -21,6 +21,7 @@
 
 package org.apache.samza.system.kafka;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,28 +41,23 @@ import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
+import org.apache.samza.config.StreamConfig;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.BlockingEnvelopeMap;
 import org.apache.samza.util.Clock;
+import org.apache.samza.util.KafkaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
+import scala.collection.JavaConversions;
 
 
 public class NewKafkaSystemConsumer<K,V> extends BlockingEnvelopeMap implements SystemConsumer{
 
   private static final Logger LOG = LoggerFactory.getLogger(NewKafkaSystemConsumer.class);
-
-  /**
-   * Provides a way to unwrap the value further. It is used for intermediate stream messages.
-   * @param <T> value type
-   */
-  public interface ValueUnwrapper<T> {
-    Object unwrapValue(SystemStream systemStream, T value);
-  }
 
   private static final long FETCH_THRESHOLD = 50000;
   private static final long FETCH_THRESHOLD_BYTES = -1L;
@@ -75,7 +71,6 @@ public class NewKafkaSystemConsumer<K,V> extends BlockingEnvelopeMap implements 
   private final AtomicBoolean started = new AtomicBoolean(false);
   private final Config config;
   private final boolean fetchThresholdBytesEnabled;
-  private final ValueUnwrapper<V> valueUnwrapper;
 
   // This sink is used to transfer the messages from the proxy/consumer to the BlockingEnvelopeMap.
   private KafkaConsumerMessageSink messageSink;
@@ -99,9 +94,7 @@ public class NewKafkaSystemConsumer<K,V> extends BlockingEnvelopeMap implements 
       Config config,
       String clientId,
       KafkaSystemConsumerMetrics metrics,
-      Clock clock,
-      boolean fetchThresholdBytesEnabled,
-      ValueUnwrapper<V> valueUnwrapper) {
+      Clock clock) {
 
     super(metrics.registry(),clock, metrics.getClass().getName());
 
@@ -109,41 +102,64 @@ public class NewKafkaSystemConsumer<K,V> extends BlockingEnvelopeMap implements 
     this.clientId = clientId;
     this.systemName = systemName;
     this.config = config;
-    this.fetchThresholdBytesEnabled = fetchThresholdBytesEnabled;
     this.metricName = systemName + " " + clientId;
 
     this.kafkaConsumer = kafkaConsumer;
-    this.valueUnwrapper = valueUnwrapper;
+
+    this.fetchThresholdBytesEnabled = new KafkaConfig(config).isConsumerFetchThresholdBytesEnabled(systemName);
 
     LOG.info(String.format(
         "Created SamzaLiKafkaSystemConsumer for system=%s, clientId=%s, metricName=%s with liKafkaConsumer=%s",
         systemName, clientId, metricName, this.kafkaConsumer.toString()));
   }
 
-  public static KafkaConsumer<byte[], byte[]> getKafkaConsumerImpl(String systemName, String clientId, Config config) {
+  public static <K, V> NewKafkaSystemConsumer getNewKafkaSystemConsumer(
+      String systemName,
+      Config config,
+      String clientId,
+      KafkaSystemConsumerMetrics metrics,
+      Clock clock) {
+
+    // extract consumer configs and create kafka consumer
+    KafkaConsumer<K, V> kafkaConsumer = getKafkaConsumerImpl(systemName, clientId, config);
+
+    return new NewKafkaSystemConsumer(kafkaConsumer,
+        systemName,
+        config,
+        clientId,
+        metrics,
+        clock);
+  }
+
+  /**
+   * create kafka consumer
+   * @param systemName
+   * @param clientId
+   * @param config
+   * @return kafka consumer
+   */
+  private static <K, V> KafkaConsumer<K, V> getKafkaConsumerImpl(String systemName, String clientId, Config config) {
 
     Map<String, String> injectProps = new HashMap<>();
-    injectProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
-    injectProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
 
+    // the consumer is fully typed, and deserialization can be too. But in case it is not provided we should
+    // default to byte[]
+    if ( !config.containsKey(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG)) {
+      LOG.info("default key serialization for the consumer(for {}) to ByteArrayDeserializer", systemName);
+      injectProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+    }
+    if ( !config.containsKey(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG)) {
+      LOG.info("default value serialization for the consumer(for {}) to ByteArrayDeserializer", systemName);
+      injectProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+    }
+
+    // extract kafka consumer configs
     KafkaConsumerConfig consumerConfig =
         KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, clientId, injectProps);
 
     LOG.info("==============>Consumer properties in getKafkaConsumerImpl: systemName: {}, consumerProperties: {}", systemName, consumerConfig.originals());
-    /*
-    Map<String, Object> kafkaConsumerConfig = consumerConfig.originals().entrySet().stream()
-        .collect(Collectors.toMap((kv)->kv.getKey(), (kv)->(Object)kv.getValue()));
-*/
 
-    return new KafkaConsumer<byte[], byte[]>(consumerConfig.originals());
-  }
-
-  /**
-   * return system name for this consumer
-   * @return system name
-   */
-  public String getSystemName() {
-    return systemName;
+    return new KafkaConsumer<>(consumerConfig.originals());
   }
 
   @Override
@@ -156,7 +172,7 @@ public class NewKafkaSystemConsumer<K,V> extends BlockingEnvelopeMap implements 
       LOG.warn("attempting to start a stopped consumer");
       return;
     }
-LOG.info("==============>About to start consumer");
+    LOG.info("==============>About to start consumer");
     // initialize the subscriptions for all the registered TopicPartitions
     startSubscription();
     LOG.info("==============>subscription started");
@@ -193,7 +209,7 @@ LOG.info("==============>About to start consumer");
 
     // create the thread with the consumer
     proxy = new KafkaConsumerProxy(kafkaConsumer, systemName, clientId, messageSink,
-        samzaConsumerMetrics, metricName, valueUnwrapper);
+        samzaConsumerMetrics, metricName);
 
     LOG.info("==============>Created consumer proxy: " + proxy);
   }
@@ -361,6 +377,23 @@ LOG.info("==============>About to start consumer");
 
   public static SystemStreamPartition toSystemStreamPartition(String systemName, TopicAndPartition tp) {
     return new SystemStreamPartition(systemName, tp.topic(), new Partition(tp.partition()));
+  }
+
+  /**
+   * return system name for this consumer
+   * @return system name
+   */
+  public String getSystemName() {
+    return systemName;
+  }
+
+  private static Set<SystemStream> getIntermediateStreams(Config config) {
+    StreamConfig streamConfig = new StreamConfig(config);
+    Collection<String> streamIds = JavaConversions.asJavaCollection(streamConfig.getStreamIds());
+    return streamIds.stream()
+        .filter(streamConfig::getIsIntermediateStream)
+        .map(id -> streamConfig.streamIdToSystemStream(id))
+        .collect(Collectors.toSet());
   }
 
   ////////////////////////////////////

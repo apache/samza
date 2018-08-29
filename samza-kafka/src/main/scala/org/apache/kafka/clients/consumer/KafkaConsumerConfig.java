@@ -40,6 +40,7 @@ public class KafkaConsumerConfig extends ConsumerConfig {
   private static final String SAMZA_OFFSET_SMALLEST = "smallest";
   private static final String KAFKA_OFFSET_LATEST = "latest";
   private static final String KAFKA_OFFSET_EARLIEST = "earliest";
+  private static final String KAFKA_OFFSET_NONE = "none";
   /*
    * By default, KafkaConsumer will fetch ALL available messages for all the partitions.
    * This may cause memory issues. That's why we will limit the number of messages per partition we get on EACH poll().
@@ -64,16 +65,14 @@ public class KafkaConsumerConfig extends ConsumerConfig {
     consumerProps.setProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId);
     consumerProps.setProperty(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
 
-    /********************************************
-     * Open-source Kafka Consumer configuration *
-     *******************************************/
+    //Open-source Kafka Consumer configuration
     consumerProps.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false"); // Disable consumer auto-commit
 
     consumerProps.setProperty(
         ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
         getAutoOffsetResetValue(consumerProps));  // Translate samza config value to kafka config value
 
-    // makesure bootstrap configs are in ?? SHOULD WE FAIL IF THEY ARE NOT?
+    // make sure bootstrap configs are in ?? SHOULD WE FAIL IF THEY ARE NOT?
     if (! subConf.containsKey(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG)) {
       // get it from the producer config
       String bootstrapServer = config.get(String.format("systems.%s.producer.%s", systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
@@ -139,6 +138,14 @@ public class KafkaConsumerConfig extends ConsumerConfig {
    */
   static String getAutoOffsetResetValue(Properties properties) {
     String autoOffsetReset = properties.getProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, KAFKA_OFFSET_LATEST);
+
+    // accept kafka values directly
+    if (autoOffsetReset.equals(KAFKA_OFFSET_EARLIEST) ||
+        autoOffsetReset.equals(KAFKA_OFFSET_LATEST) ||
+        autoOffsetReset.equals(KAFKA_OFFSET_NONE)) {
+      return autoOffsetReset;
+    }
+
     switch (autoOffsetReset) {
       case SAMZA_OFFSET_LARGEST:
         return KAFKA_OFFSET_LATEST;

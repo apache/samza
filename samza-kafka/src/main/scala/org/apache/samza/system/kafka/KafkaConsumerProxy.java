@@ -69,7 +69,6 @@ public class KafkaConsumerProxy<K, V> {
   private final Map<SystemStreamPartition, Long> nextOffsets = new ConcurrentHashMap<>();
   // lags behind the high water mark, as reported by the Kafka consumer.
   private final Map<SystemStreamPartition, Long> latestLags = new HashMap<>();
-  private final NewKafkaSystemConsumer.ValueUnwrapper<V> valueUnwrapper;
 
   private volatile boolean isRunning = false;
   private volatile Throwable failureCause = null;
@@ -77,7 +76,7 @@ public class KafkaConsumerProxy<K, V> {
 
   public KafkaConsumerProxy(Consumer<K, V> kafkaConsumer, String systemName, String clientId,
       NewKafkaSystemConsumer.KafkaConsumerMessageSink messageSink, KafkaSystemConsumerMetrics samzaConsumerMetrics,
-      String metricName, NewKafkaSystemConsumer.ValueUnwrapper<V> valueUnwrapper) {
+      String metricName) {
 
     this.kafkaConsumer = kafkaConsumer;
     this.systemName = systemName;
@@ -85,7 +84,6 @@ public class KafkaConsumerProxy<K, V> {
     this.kafkaConsumerMetrics = samzaConsumerMetrics;
     this.metricName = metricName;
     this.clientId = clientId;
-    this.valueUnwrapper = valueUnwrapper;
 
     // TODO - see if we need new metrics (not host:port based)
     this.kafkaConsumerMetrics.registerBrokerProxy(metricName, 0);
@@ -257,8 +255,7 @@ public class KafkaConsumerProxy<K, V> {
       //}
 
       final K key = r.key();
-      final Object value =
-          valueUnwrapper == null ? r.value() : valueUnwrapper.unwrapValue(ssp.getSystemStream(), r.value());
+      final Object value = r.value();
       IncomingMessageEnvelope imEnvelope =
           new IncomingMessageEnvelope(ssp, String.valueOf(r.offset()), key, value, msgSize);
       listMsgs.add(imEnvelope);
