@@ -23,7 +23,7 @@ package org.apache.samza.config
 import java.io.File
 
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
-import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStoreFactory
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamMetadataStoreFactory
 import org.apache.samza.util.Logging
 
 object JobConfig {
@@ -190,5 +190,5 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
   def getLoggedStorePath = getOption(JobConfig.JOB_LOGGED_STORE_BASE_DIR)
 
-  def getMetadataStoreFactory = getOption(JobConfig.METADATA_STORE_FACTORY).getOrElse(classOf[CoordinatorStreamStoreFactory].getCanonicalName)
+  def getMetadataStoreFactory = getOption(JobConfig.METADATA_STORE_FACTORY).getOrElse(classOf[CoordinatorStreamMetadataStoreFactory].getCanonicalName)
 }

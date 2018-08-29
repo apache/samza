@@ -59,7 +59,7 @@ public class TaskAssignmentManager {
    */
   public TaskAssignmentManager(Config config, MetricsRegistry metricsRegistry) {
     this(config, metricsRegistry, new CoordinatorStreamKeySerde(SetTaskContainerMapping.TYPE),
-         new CoordinatorStreamValueSerde(config, SetTaskContainerMapping.TYPE));
+         new CoordinatorStreamValueSerde(SetTaskContainerMapping.TYPE));
   }
 
   /**
@@ -120,7 +120,7 @@ public class TaskAssignmentManager {
     }
 
     if (containerId == null) {
-      metadataStore.remove(keySerde.toBytes(taskName));
+      metadataStore.delete(keySerde.toBytes(taskName));
       taskNameToContainerId.remove(taskName);
     } else {
       metadataStore.put(keySerde.toBytes(taskName), valueSerde.toBytes(containerId));
@@ -135,7 +135,7 @@ public class TaskAssignmentManager {
    */
   public void deleteTaskContainerMappings(Iterable<String> taskNames) {
     for (String taskName : taskNames) {
-      metadataStore.remove(keySerde.toBytes(taskName));
+      metadataStore.delete(keySerde.toBytes(taskName));
       taskNameToContainerId.remove(taskName);
     }
   }

@@ -77,7 +77,7 @@ public class TestCoordinatorStreamStore {
     Assert.assertNull(coordinatorStreamStore.get(key));
     coordinatorStreamStore.put(key, value);
     Assert.assertEquals(value, coordinatorStreamStore.get(key));
-    coordinatorStreamStore.remove(key);
+    coordinatorStreamStore.delete(key);
     Assert.assertNull(coordinatorStreamStore.get(key));
     Assert.assertEquals(0, coordinatorStreamStore.all().size());
   }

@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.TreeMap;
 import org.apache.samza.Partition;
-import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.metadatastore.MetadataStore;
@@ -67,12 +66,12 @@ public class CoordinatorStreamStore implements MetadataStore {
   private final SystemProducer systemProducer;
   private final SystemConsumer systemConsumer;
   private final SystemAdmin systemAdmin;
-  private final Object bootstrapLock = new Object();
   private final String type;
   private final Serde<List<?>> keySerde;
 
   // Using custom comparator since java default comparator offers object identity equality(not value equality) for byte arrays.
   private final Map<byte[], byte[]> bootstrappedMessages = new TreeMap<>(UnsignedBytes.lexicographicalComparator());
+  private final Object bootstrapLock = new Object();
   private final AtomicBoolean isInitialized = new AtomicBoolean(false);
 
   private SystemStreamPartitionIterator iterator;
@@ -112,17 +111,13 @@ public class CoordinatorStreamStore implements MetadataStore {
 
   @Override
   public void put(byte[] key, byte[] value) {
-    try {
-      OutgoingMessageEnvelope envelope = new OutgoingMessageEnvelope(coordinatorSystemStream, 0, key, value);
-      systemProducer.send(SOURCE, envelope);
-      flush();
-    } catch (Exception e) {
-      throw new SamzaException(e);
-    }
+    OutgoingMessageEnvelope envelope = new OutgoingMessageEnvelope(coordinatorSystemStream, 0, key, value);
+    systemProducer.send(SOURCE, envelope);
+    flush();
   }
 
   @Override
-  public void remove(byte[] key) {
+  public void delete(byte[] key) {
     // Since kafka doesn't support individual message deletion, store value as null for a key to delete.
     put(key, null);
   }
@@ -138,23 +133,18 @@ public class CoordinatorStreamStore implements MetadataStore {
    */
   private void bootstrapMessagesFromStream() {
     synchronized (bootstrapLock) {
-      try {
-        while (iterator.hasNext()) {
-          IncomingMessageEnvelope envelope = iterator.next();
-          byte[] keyAsBytes = (byte[]) envelope.getKey();
-          Object[] keyArray = keySerde.fromBytes(keyAsBytes).toArray();
-          CoordinatorStreamMessage coordinatorStreamMessage = new CoordinatorStreamMessage(keyArray, new HashMap<>());
-          if (Objects.equals(coordinatorStreamMessage.getType(), type)) {
-            if (envelope.getMessage() != null) {
-              bootstrappedMessages.put(keyAsBytes, (byte[]) envelope.getMessage());
-            } else {
-              bootstrappedMessages.remove(keyAsBytes);
-            }
+      while (iterator.hasNext()) {
+        IncomingMessageEnvelope envelope = iterator.next();
+        byte[] keyAsBytes = (byte[]) envelope.getKey();
+        Object[] keyArray = keySerde.fromBytes(keyAsBytes).toArray();
+        CoordinatorStreamMessage coordinatorStreamMessage = new CoordinatorStreamMessage(keyArray, new HashMap<>());
+        if (Objects.equals(coordinatorStreamMessage.getType(), type)) {
+          if (envelope.getMessage() != null) {
+            bootstrappedMessages.put(keyAsBytes, (byte[]) envelope.getMessage());
+          } else {
+            bootstrappedMessages.remove(keyAsBytes);
           }
         }
-      } catch (Exception e) {
-        LOG.error("Exception occurred when reading messages from the coordinator stream: ", e);
-        throw new SamzaException(e);
       }
     }
   }

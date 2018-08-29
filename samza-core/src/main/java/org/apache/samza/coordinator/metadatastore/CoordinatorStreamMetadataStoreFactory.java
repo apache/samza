@@ -27,7 +27,7 @@ import org.apache.samza.metrics.MetricsRegistry;
  * Builds the {@link CoordinatorStreamStore} based upon the provided {@link Config}
  * and {@link MetricsRegistry}.
  */
-public class CoordinatorStreamStoreFactory implements MetadataStoreFactory {
+public class CoordinatorStreamMetadataStoreFactory implements MetadataStoreFactory {
 
   @Override
   public MetadataStore getMetadataStore(String namespace, Config config, MetricsRegistry metricsRegistry) {

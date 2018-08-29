@@ -20,7 +20,6 @@ package org.apache.samza.coordinator.stream;
 
 import com.google.common.base.Preconditions;
 import java.util.Map;
-import org.apache.samza.config.Config;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
@@ -38,11 +37,9 @@ public class CoordinatorStreamValueSerde implements Serde<String> {
 
   private final String type;
   private final Serde<Map<String, Object>> messageSerde;
-  private final Config config;
 
-  public CoordinatorStreamValueSerde(Config config, String type) {
+  public CoordinatorStreamValueSerde(String type) {
     Preconditions.checkNotNull(type);
-    this.config = config;
     this.type = type;
     messageSerde = new JsonSerde<>();
   }
@@ -68,7 +65,7 @@ public class CoordinatorStreamValueSerde implements Serde<String> {
   @Override
   public byte[] toBytes(String value) {
     if (type.equalsIgnoreCase(SetContainerHostMapping.TYPE)) {
-      SetContainerHostMapping hostMapping = new SetContainerHostMapping(SOURCE, "", value, config.get("jmx.tunneling.url"), config.get("jmx.url"));
+      SetContainerHostMapping hostMapping = new SetContainerHostMapping(SOURCE, "", value, "", "");
       return messageSerde.toBytes(hostMapping.getMessageMap());
     } else if (type.equalsIgnoreCase(SetTaskContainerMapping.TYPE)) {
       SetTaskContainerMapping setTaskContainerMapping = new SetTaskContainerMapping(SOURCE, "", value);

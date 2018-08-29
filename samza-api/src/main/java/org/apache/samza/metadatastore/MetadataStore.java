@@ -58,7 +58,7 @@ public interface MetadataStore {
    *
    * @param key the key for which the mapping is to be deleted.
    */
-  void remove(byte[] key);
+  void delete(byte[] key);
 
   /**
    * Returns all the entries in this metadata store.
@@ -68,13 +68,13 @@ public interface MetadataStore {
   Map<byte[], byte[]> all();
 
   /**
+   * Flushes the metadata store, if applicable.
+   */
+  void flush();
+
+  /**
    * Closes the metadata store, if applicable, relinquishing all the underlying resources
    * and connections.
    */
   void close();
-
-  /**
-   * Flushes the metadata store, if applicable.
-   */
-  void flush();
 }

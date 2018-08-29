@@ -60,7 +60,7 @@ public class LocalityManager {
    */
   public LocalityManager(Config config, MetricsRegistry metricsRegistry) {
     this(config, metricsRegistry, new CoordinatorStreamKeySerde(SetContainerHostMapping.TYPE),
-         new CoordinatorStreamValueSerde(config, SetContainerHostMapping.TYPE));
+         new CoordinatorStreamValueSerde(SetContainerHostMapping.TYPE));
   }
 
   /**
@@ -74,7 +74,7 @@ public class LocalityManager {
    * @param keySerde the key serializer.
    * @param valueSerde the value serializer.
    */
-  public LocalityManager(Config config, MetricsRegistry metricsRegistry, Serde<String> keySerde, Serde<String> valueSerde) {
+  LocalityManager(Config config, MetricsRegistry metricsRegistry, Serde<String> keySerde, Serde<String> valueSerde) {
     this.config = config;
     MetadataStoreFactory metadataStoreFactory = Util.getObj(new JobConfig(config).getMetadataStoreFactory(), MetadataStoreFactory.class);
     this.metadataStore = metadataStoreFactory.getMetadataStore(SetContainerHostMapping.TYPE, config, metricsRegistry);
