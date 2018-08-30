@@ -54,19 +54,12 @@ if [ -d "$JOB_LIB_DIR" ] && [ "$JOB_LIB_DIR" != "$BASE_LIB_DIR" ]; then
   # in case of different version of the same lib - we pick the highest
 
   #all jars from the fwk
-  base_jars=`ls $BASE_LIB_DIR/*.[jw]ar`
+  CLASSPATH=$CLASSPATH:"$BASE_LIB_DIR/*";
   #all jars from the job
-  job_jars=`for file in $JOB_LIB_DIR/*.[jw]ar; do name=\`basename $file\`; if [[ $base_jars != *"$name"* ]]; then echo "$file"; fi; done`
-  # get all lib jars and reverse sort it by versions
-  all_jars=`for file in $base_jars $job_jars; do echo \`basename $file|sed 's/.*[-]\([0-9]\+\..*\)[jw]ar$/\1/'\` $file; done|sort -t. -k 1,1nr -k 2,2nr -k 3,3nr -k 4,4nr|awk '{print $2}'`
-  # generate the class path based on the sorted result
-  for jar in $all_jars; do CLASSPATH=$CLASSPATH:$jar; done
-
-  # for debug only
-  echo base_jars=$base_jars
-  echo job_jars=$job_jars
-  echo all_jars=$all_jars
+  CLASSPATH=$CLASSPATH:"$JOB_LIB_DIR/*";
+  # generate the class path
   echo generated combined CLASSPATH=$CLASSPATH
+
 else
   #default behavior
   CLASSPATH=$CLASSPATH:"$BASE_LIB_DIR/*";
