@@ -77,6 +77,7 @@ public class SamzaSqlOperatorTable extends ReflectiveSqlOperatorTable {
   public static final SqlFunction MOD = SqlStdOperatorTable.MOD;
   public static final SqlFunction FLOOR = SqlStdOperatorTable.FLOOR;
   public static final SqlFunction CEIL = SqlStdOperatorTable.CEIL;
+  public static final SqlFunction EXTRACT = SqlStdOperatorTable.EXTRACT;
   public static final SqlFunction LOCALTIME = SqlStdOperatorTable.LOCALTIME;
   public static final SqlFunction LOCALTIMESTAMP = SqlStdOperatorTable.LOCALTIMESTAMP;
   public static final SqlFunction CURRENT_TIME = SqlStdOperatorTable.CURRENT_TIME;

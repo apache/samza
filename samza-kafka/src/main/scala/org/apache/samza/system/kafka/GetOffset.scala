@@ -21,12 +21,11 @@
 
 package org.apache.samza.system.kafka
 
-import kafka.common.OffsetOutOfRangeException
+import org.apache.kafka.common.errors.OffsetOutOfRangeException
 import kafka.api._
 import kafka.common.TopicAndPartition
 import kafka.api.PartitionOffsetRequestInfo
 import org.apache.samza.util.Logging
-import kafka.message.MessageAndOffset
 import org.apache.samza.util.KafkaUtil
 
 /**

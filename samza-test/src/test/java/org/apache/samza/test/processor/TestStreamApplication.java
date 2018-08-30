@@ -30,9 +30,14 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
+import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.StringSerde;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaOutputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 
 
 /**
@@ -40,12 +45,15 @@ import org.apache.samza.serializers.StringSerde;
  */
 public class TestStreamApplication implements StreamApplication, Serializable {
 
+  private final String systemName;
   private final String inputTopic;
   private final String outputTopic;
   private final String appName;
   private final String processorName;
 
-  private TestStreamApplication(String inputTopic, String outputTopic, String appName, String processorName) {
+  private TestStreamApplication(String systemName, String inputTopic, String outputTopic,
+      String appName, String processorName) {
+    this.systemName = systemName;
     this.inputTopic = inputTopic;
     this.outputTopic = outputTopic;
     this.appName = appName;
@@ -54,8 +62,11 @@ public class TestStreamApplication implements StreamApplication, Serializable {
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    MessageStream<String> inputStream = graph.getInputStream(inputTopic, new NoOpSerde<String>());
-    OutputStream<String> outputStream = graph.getOutputStream(outputTopic, new StringSerde());
+    KafkaSystemDescriptor ksd = new KafkaSystemDescriptor(systemName);
+    KafkaInputDescriptor<String> isd = ksd.getInputDescriptor(inputTopic, new NoOpSerde<>());
+    KafkaOutputDescriptor<String> osd = ksd.getOutputDescriptor(outputTopic, new StringSerde());
+    MessageStream<String> inputStream = graph.getInputStream(isd);
+    OutputStream<String> outputStream = graph.getOutputStream(osd);
     inputStream.map(new MapFunction<String, String>() {
       transient CountDownLatch latch1;
       transient CountDownLatch latch2;
@@ -124,6 +135,7 @@ public class TestStreamApplication implements StreamApplication, Serializable {
   }
 
   public static StreamApplication getInstance(
+      String systemName,
       String inputTopic,
       String outputTopic,
       CountDownLatch processedMessageLatch,
@@ -134,7 +146,7 @@ public class TestStreamApplication implements StreamApplication, Serializable {
     String processorName = config.get(JobConfig.PROCESSOR_ID());
     registerLatches(processedMessageLatch, kafkaEventsConsumedLatch, callback, appName, processorName);
 
-    StreamApplication app = new TestStreamApplication(inputTopic, outputTopic, appName, processorName);
+    StreamApplication app = new TestStreamApplication(systemName, inputTopic, outputTopic, appName, processorName);
     return app;
   }
 

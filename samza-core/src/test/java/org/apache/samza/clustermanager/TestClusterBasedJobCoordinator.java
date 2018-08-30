@@ -19,7 +19,6 @@
 
 package org.apache.samza.clustermanager;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,20 +27,29 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer;
+import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.MockSystemFactory;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.util.CoordinatorStreamUtil;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
+import org.junit.runner.RunWith;
+import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.PowerMockRunner;
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Matchers.anyObject;
 import static org.mockito.Mockito.mock;
-
+import static org.mockito.Mockito.when;
 
 /**
  * Tests for {@link ClusterBasedJobCoordinator}
  */
+@RunWith(PowerMockRunner.class)
+@PrepareForTest(CoordinatorStreamUtil.class)
 public class TestClusterBasedJobCoordinator {
 
   Map<String, String> configMap;
@@ -57,6 +65,12 @@ public class TestClusterBasedJobCoordinator {
     configMap.put("job.coordinator.monitor-partition-change.frequency.ms", "1");
 
     MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("kafka", "topic1", new Partition(0)), new ArrayList<>());
+    MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("kafka", "__samza_coordinator_test-job_1", new Partition(0)), new ArrayList<>());
+    MockCoordinatorStreamSystemFactory.enableMockConsumerCache();
+    PowerMockito.mockStatic(CoordinatorStreamUtil.class);
+    when(CoordinatorStreamUtil.getCoordinatorSystemFactory(anyObject())).thenReturn(new MockCoordinatorStreamSystemFactory());
+    when(CoordinatorStreamUtil.getCoordinatorSystemStream(anyObject())).thenReturn(new SystemStream("kafka", "test"));
+    when(CoordinatorStreamUtil.getCoordinatorStreamName(anyObject(), anyObject())).thenReturn("test");
   }
 
   @After
@@ -65,8 +79,7 @@ public class TestClusterBasedJobCoordinator {
   }
 
   @Test
-  public void testPartitionCountMonitorWithDurableStates()
-      throws IllegalAccessException, InvocationTargetException, NoSuchMethodException {
+  public void testPartitionCountMonitorWithDurableStates() {
     configMap.put("stores.mystore.changelog", "mychangelog");
     Config config = new MapConfig(configMap);
 
@@ -85,7 +98,7 @@ public class TestClusterBasedJobCoordinator {
   }
 
   @Test
-  public void testPartitionCountMonitorWithoutDurableStates() throws IllegalAccessException, InvocationTargetException {
+  public void testPartitionCountMonitorWithoutDurableStates() {
     Config config = new MapConfig(configMap);
 
     // mimic job runner code to write the config to coordinator stream
@@ -101,5 +114,4 @@ public class TestClusterBasedJobCoordinator {
     monitor.updatePartitionCountMetric();
     assertEquals(clusterCoordinator.getAppStatus(), SamzaApplicationState.SamzaAppStatus.UNDEFINED);
   }
-
 }

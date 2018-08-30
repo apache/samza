@@ -30,6 +30,8 @@ public class OutputStreamImpl<M> implements OutputStream<M>, Serializable {
   /**
    * The following fields are serialized by the ExecutionPlanner when generating the configs for the output stream, and
    * deserialized once during startup in SamzaContainer. They don't need to be deserialized here on a per-task basis
+   *
+   * Serdes are optional for intermediate streams and may be specified for job.default.system in configuration instead.
    */
   private transient final Serde keySerde;
   private transient final Serde valueSerde;
@@ -45,10 +47,20 @@ public class OutputStreamImpl<M> implements OutputStream<M>, Serializable {
     return streamId;
   }
 
+  /**
+   * Get the key serde for this output stream if any.
+   *
+   * @return the key serde if any, else null
+   */
   public Serde getKeySerde() {
     return keySerde;
   }
 
+  /**
+   * Get the value serde for this output stream if any.
+   *
+   * @return the value serde if any, else null
+   */
   public Serde getValueSerde() {
     return valueSerde;
   }
