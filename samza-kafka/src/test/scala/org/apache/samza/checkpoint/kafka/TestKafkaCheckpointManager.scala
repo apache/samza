@@ -92,8 +92,8 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     assertNull(readCp)
 
     writeCheckpoint(checkpointTopic, taskName, checkpoint1)
-
     assertEquals(checkpoint1, readCheckpoint(checkpointTopic, taskName))
+
     // writing a second message and reading it returns a more recent checkpoint
     writeCheckpoint(checkpointTopic, taskName, checkpoint2)
     assertEquals(checkpoint2, readCheckpoint(checkpointTopic, taskName))
@@ -194,7 +194,6 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val systemFactory = Util.getObj(systemFactoryClassName, classOf[SystemFactory])
 
     val spec = new KafkaStreamSpec("id", cpTopic, checkpointSystemName, 1, 1, props)
-    System.out.println("CONFIG = " + config)
     new KafkaCheckpointManager(spec, systemFactory, failOnTopicValidation, config, new NoOpMetricsRegistry, serde)
   }
 

@@ -66,14 +66,14 @@ public class NewKafkaSystemConsumer<K,V> extends BlockingEnvelopeMap implements 
   private final KafkaSystemConsumerMetrics samzaConsumerMetrics;
   private final String clientId;
   private final String metricName;
-  private final Map<TopicPartition, SystemStreamPartition> topicPartitions2SSP = new HashMap<>();
+  /* package private */final Map<TopicPartition, SystemStreamPartition> topicPartitions2SSP = new HashMap<>();
   private final AtomicBoolean stopped = new AtomicBoolean(false);
   private final AtomicBoolean started = new AtomicBoolean(false);
   private final Config config;
   private final boolean fetchThresholdBytesEnabled;
 
   // This sink is used to transfer the messages from the proxy/consumer to the BlockingEnvelopeMap.
-  private KafkaConsumerMessageSink messageSink;
+  /* package private */ KafkaConsumerMessageSink messageSink;
   // proxy is doing the actual reading
   private KafkaConsumerProxy proxy;
 
@@ -142,17 +142,6 @@ public class NewKafkaSystemConsumer<K,V> extends BlockingEnvelopeMap implements 
 
     Map<String, String> injectProps = new HashMap<>();
 
-    // the consumer is fully typed, and deserialization can be too. But in case it is not provided we should
-    // default to byte[]
-    if ( !config.containsKey(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG)) {
-      LOG.info("default key serialization for the consumer(for {}) to ByteArrayDeserializer", systemName);
-      injectProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
-    }
-    if ( !config.containsKey(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG)) {
-      LOG.info("default value serialization for the consumer(for {}) to ByteArrayDeserializer", systemName);
-      injectProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
-    }
-
     // extract kafka consumer configs
     KafkaConsumerConfig consumerConfig =
         KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, clientId, injectProps);
@@ -203,7 +192,7 @@ public class NewKafkaSystemConsumer<K,V> extends BlockingEnvelopeMap implements 
     }
   }
 
-  private void createConsumerProxy() {
+  void createConsumerProxy() {
     // create a sink for passing the messages between the proxy and the consumer
     messageSink = new KafkaConsumerMessageSink();
 
@@ -219,7 +208,7 @@ public class NewKafkaSystemConsumer<K,V> extends BlockingEnvelopeMap implements 
    Add the TopicPartitions to the proxy.
    Start the proxy thread.
    */
-  private void startConsumer() {
+  void startConsumer() {
     //set the offset for each TopicPartition
     topicPartitions2Offset.forEach((tp, startingOffsetString) -> {
       long startingOffset = Long.valueOf(startingOffsetString);

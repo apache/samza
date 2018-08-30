@@ -47,8 +47,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Separate thread that reads messages from kafka and puts them int the BlockingEnvelopeMap
- * This class is not thread safe. There will be only one instance of this class per LiKafkaSystemConsumer object
+ * Separate thread that reads messages from kafka and puts them into the BlockingEnvelopeMap.
+ * This class is not thread safe. There will be only one instance of this class per LiKafkaSystemConsumer object.
  * We still need some synchronization around kafkaConsumer. See pollConsumer() method for details.
  */
 public class KafkaConsumerProxy<K, V> {
@@ -65,7 +65,7 @@ public class KafkaConsumerProxy<K, V> {
   private final String clientId;
   private final Map<TopicPartition, SystemStreamPartition> topicPartitions2SSP = new HashMap<>();
   private final Map<SystemStreamPartition, MetricName> ssp2MetricName = new HashMap<>();
-  // list of all the SSPs we poll from with their next offsets correspondingly.
+  // list of all the SSPs we poll from, with their next offsets correspondingly.
   private final Map<SystemStreamPartition, Long> nextOffsets = new ConcurrentHashMap<>();
   // lags behind the high water mark, as reported by the Kafka consumer.
   private final Map<SystemStreamPartition, Long> latestLags = new HashMap<>();

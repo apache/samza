@@ -35,6 +35,7 @@ class KafkaSystemConsumerMetrics(val systemName: String = "unknown", val registr
   val highWatermark = new ConcurrentHashMap[TopicAndPartition, Gauge[Long]]
 
   /*
+  TODO Fix
    * (String, Int) = (host, port) of BrokerProxy.
    */
 

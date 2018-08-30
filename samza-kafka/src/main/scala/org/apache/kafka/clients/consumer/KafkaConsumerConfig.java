@@ -23,9 +23,14 @@ package org.apache.kafka.clients.consumer;
 
 import java.util.Map;
 import java.util.Properties;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import scala.Option;
 
 
@@ -33,6 +38,8 @@ import scala.Option;
  * The configuration class for KafkaConsumer
  */
 public class KafkaConsumerConfig extends ConsumerConfig {
+
+  public static final Logger LOG = LoggerFactory.getLogger(KafkaConsumerConfig.class);
 
   private static final String PRODUCER_CLIENT_ID_PREFIX = "kafka-producer";
   private static final String CONSUMER_CLIENT_ID_PREFIX = "kafka-consumer";
@@ -76,6 +83,9 @@ public class KafkaConsumerConfig extends ConsumerConfig {
     if (! subConf.containsKey(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG)) {
       // get it from the producer config
       String bootstrapServer = config.get(String.format("systems.%s.producer.%s", systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
+      if (StringUtils.isEmpty(bootstrapServer)) {
+        throw new SamzaException("Missing " + ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG + " config  for " + systemName);
+      }
       consumerProps.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServer);
     }
 
@@ -83,6 +93,18 @@ public class KafkaConsumerConfig extends ConsumerConfig {
     consumerProps.setProperty(
         ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG,
         RangeAssignor.class.getName());
+
+
+    // the consumer is fully typed, and deserialization can be too. But in case it is not provided we should
+    // default to byte[]
+    if ( !config.containsKey(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG)) {
+      LOG.info("default key serialization for the consumer(for {}) to ByteArrayDeserializer", systemName);
+      consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+    }
+    if ( !config.containsKey(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG)) {
+      LOG.info("default value serialization for the consumer(for {}) to ByteArrayDeserializer", systemName);
+      consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+    }
 
 
     // NOT SURE THIS IS NEEDED TODO
