@@ -138,7 +138,7 @@ public class TestRunner {
    */
   private void registerSystem(String systemName) {
     if (!systems.containsKey(systemName)) {
-      systems.put(systemName, CollectionStreamSystemSpec.create(systemName));
+      systems.put(systemName, CollectionStreamSystemSpec.create(systemName, JOB_NAME));
       configs.putAll(systems.get(systemName).getSystemConfigs());
     }
   }

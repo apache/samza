@@ -129,6 +129,7 @@ public class JobNode {
   public JobConfig generateConfig(String executionPlanJson) {
     Map<String, String> configs = new HashMap<>();
     configs.put(JobConfig.JOB_NAME(), jobName);
+    configs.put(JobConfig.JOB_ID(), jobId);
 
     final List<String> inputs = new ArrayList<>();
     final List<String> broadcasts = new ArrayList<>();
@@ -177,7 +178,7 @@ public class JobNode {
     // write serialized serde instances and stream serde configs to configs
     addSerdeConfigs(configs);
 
-    configs.putAll(TableConfigGenerator.generateConfigsForTableSpecs(tables));
+    configs.putAll(TableConfigGenerator.generateConfigsForTableSpecs(new MapConfig(configs), tables));
 
     // Add side inputs to the inputs and mark the stream as bootstrap
     tables.forEach(tableSpec -> {
@@ -234,15 +235,27 @@ public class JobNode {
     inEdges.forEach(edge -> {
         String streamId = edge.getStreamSpec().getId();
         InputOperatorSpec inputOperatorSpec = inputOperators.get(streamId);
-        streamKeySerdes.put(streamId, inputOperatorSpec.getKeySerde());
-        streamMsgSerdes.put(streamId, inputOperatorSpec.getValueSerde());
+        Serde keySerde = inputOperatorSpec.getKeySerde();
+        if (keySerde != null) {
+          streamKeySerdes.put(streamId, keySerde);
+        }
+        Serde valueSerde = inputOperatorSpec.getValueSerde();
+        if (valueSerde != null) {
+          streamMsgSerdes.put(streamId, valueSerde);
+        }
       });
     Map<String, OutputStreamImpl> outputStreams = specGraph.getOutputStreams();
     outEdges.forEach(edge -> {
         String streamId = edge.getStreamSpec().getId();
         OutputStreamImpl outputStream = outputStreams.get(streamId);
-        streamKeySerdes.put(streamId, outputStream.getKeySerde());
-        streamMsgSerdes.put(streamId, outputStream.getValueSerde());
+        Serde keySerde = outputStream.getKeySerde();
+        if (keySerde != null) {
+          streamKeySerdes.put(streamId, keySerde);
+        }
+        Serde valueSerde = outputStream.getValueSerde();
+        if (valueSerde != null) {
+          streamMsgSerdes.put(streamId, valueSerde);
+        }
       });
 
     // collect all key and msg serde instances for stores

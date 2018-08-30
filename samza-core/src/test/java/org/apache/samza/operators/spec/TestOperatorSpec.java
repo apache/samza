@@ -228,9 +228,9 @@ public class TestOperatorSpec {
       }
     };
 
-    InputOperatorSpec<String, Object> inputOperatorSpec = new InputOperatorSpec<>(
-        "mockStreamId", new StringSerde("UTF-8"), objSerde, true, "op0");
-    InputOperatorSpec<String, Object> inputOpCopy = (InputOperatorSpec<String, Object>) OperatorSpecTestUtils.copyOpSpec(inputOperatorSpec);
+    InputOperatorSpec inputOperatorSpec = new InputOperatorSpec(
+        "mockStreamId", new StringSerde("UTF-8"), objSerde, null, true, "op0");
+    InputOperatorSpec inputOpCopy = (InputOperatorSpec) OperatorSpecTestUtils.copyOpSpec(inputOperatorSpec);
 
     assertNotEquals("Expected deserialized copy of operator spec should not be the same as the original operator spec", inputOperatorSpec, inputOpCopy);
     assertTrue(inputOperatorSpec.isClone(inputOpCopy));
@@ -271,12 +271,10 @@ public class TestOperatorSpec {
   @Test
   public void testJoinOperatorSpec() {
 
-    InputOperatorSpec<TestMessageEnvelope, Object> leftOpSpec = new InputOperatorSpec<>(
-        "test-input-1", new NoOpSerde<>(),
-        new NoOpSerde<>(), false, "op0");
-    InputOperatorSpec<TestMessageEnvelope, Object> rightOpSpec = new InputOperatorSpec<>(
-        "test-input-2", new NoOpSerde<>(),
-        new NoOpSerde<>(), false, "op1");
+    InputOperatorSpec leftOpSpec = new InputOperatorSpec(
+        "test-input-1", new NoOpSerde<>(), new NoOpSerde<>(), null, false, "op0");
+    InputOperatorSpec rightOpSpec = new InputOperatorSpec(
+        "test-input-2", new NoOpSerde<>(), new NoOpSerde<>(), null, false, "op1");
 
     Serde<Object> objSerde = new Serde<Object>() {
 

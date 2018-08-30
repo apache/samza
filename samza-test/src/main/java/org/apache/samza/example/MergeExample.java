@@ -20,14 +20,19 @@
 package org.apache.samza.example;
 
 import com.google.common.collect.ImmutableList;
+
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.KV;
+import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.operators.MessageStream;
 import org.apache.samza.serializers.StringSerde;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaOutputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.util.CommandLine;
 
 public class MergeExample implements StreamApplication {
@@ -45,14 +50,22 @@ public class MergeExample implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
+    KVSerde<String, PageViewEvent> serde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class));
+    KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
 
-    KVSerde<String, PageViewEvent>
-        pgeMsgSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class));
+    KafkaInputDescriptor<KV<String, PageViewEvent>> isd1 =
+        trackingSystem.getInputDescriptor("pageViewStream1", serde);
+    KafkaInputDescriptor<KV<String, PageViewEvent>> isd2 =
+        trackingSystem.getInputDescriptor("pageViewStream2", serde);
+    KafkaInputDescriptor<KV<String, PageViewEvent>> isd3 =
+        trackingSystem.getInputDescriptor("pageViewStream3", serde);
 
-    MessageStream.mergeAll(ImmutableList.of(graph.getInputStream("viewStream1", pgeMsgSerde),
-        graph.getInputStream("viewStream2", pgeMsgSerde), graph.getInputStream("viewStream3", pgeMsgSerde)))
-        .sendTo(graph.getOutputStream("mergedStream", pgeMsgSerde));
+    KafkaOutputDescriptor<KV<String, PageViewEvent>> osd =
+        trackingSystem.getOutputDescriptor("mergedStream", serde);
 
+    MessageStream
+        .mergeAll(ImmutableList.of(graph.getInputStream(isd1), graph.getInputStream(isd2), graph.getInputStream(isd3)))
+        .sendTo(graph.getOutputStream(osd));
   }
 
   class PageViewEvent {

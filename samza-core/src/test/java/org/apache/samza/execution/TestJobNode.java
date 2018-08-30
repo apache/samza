@@ -19,14 +19,22 @@
 
 package org.apache.samza.execution;
 
+import java.time.Duration;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.OutputStream;
+import org.apache.samza.operators.StreamGraphSpec;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
+import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
+import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.impl.store.TimestampedValueSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
@@ -36,12 +44,6 @@ import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.StreamSpec;
 import org.junit.Test;
-
-import java.time.Duration;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -65,13 +67,18 @@ public class TestJobNode {
     when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("jobId");
 
     StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
-    graphSpec.setDefaultSerde(KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
-    MessageStream<KV<String, Object>> input1 = graphSpec.getInputStream("input1");
-    MessageStream<KV<String, Object>> input2 = graphSpec.getInputStream("input2");
-    OutputStream<KV<String, Object>> output = graphSpec.getOutputStream("output");
+    KVSerde<String, Object> serde = KVSerde.of(new StringSerde(), new JsonSerdeV2<>());
+    GenericSystemDescriptor sd = new GenericSystemDescriptor("system1", "mockSystemFactoryClass");
+    GenericInputDescriptor<KV<String, Object>> inputDescriptor1 = sd.getInputDescriptor("input1", serde);
+    GenericInputDescriptor<KV<String, Object>> inputDescriptor2 = sd.getInputDescriptor("input2", serde);
+    GenericOutputDescriptor<KV<String, Object>> outputDescriptor = sd.getOutputDescriptor("output", serde);
+    MessageStream<KV<String, Object>> input1 = graphSpec.getInputStream(inputDescriptor1);
+    MessageStream<KV<String, Object>> input2 = graphSpec.getInputStream(inputDescriptor2);
+    OutputStream<KV<String, Object>> output = graphSpec.getOutputStream(outputDescriptor);
     JoinFunction<String, Object, Object, KV<String, Object>> mockJoinFn = mock(JoinFunction.class);
     input1
-        .partitionBy(KV::getKey, KV::getValue, "p1").map(kv -> kv.value)
+        .partitionBy(KV::getKey, KV::getValue, serde, "p1")
+        .map(kv -> kv.value)
         .join(input2.map(kv -> kv.value), mockJoinFn,
             new StringSerde(), new JsonSerdeV2<>(Object.class), new JsonSerdeV2<>(Object.class),
             Duration.ofHours(1), "j1")
@@ -133,7 +140,7 @@ public class TestJobNode {
         outputKeySerde.startsWith(StringSerde.class.getSimpleName()));
     assertTrue("Serialized serdes should contain output msg serde",
         deserializedSerdes.containsKey(outputMsgSerde));
-    assertTrue("Serialized output msg serde should be a StringSerde",
+    assertTrue("Serialized output msg serde should be a JsonSerdeV2",
         outputMsgSerde.startsWith(JsonSerdeV2.class.getSimpleName()));
 
     String partitionByKeySerde = mapConfig.get("streams.jobName-jobId-partition_by-p1.samza.key.serde");
@@ -145,7 +152,7 @@ public class TestJobNode {
     assertTrue("Serialized serdes should contain intermediate stream msg serde",
         deserializedSerdes.containsKey(partitionByMsgSerde));
     assertTrue(
-        "Serialized intermediate stream msg serde should be a StringSerde",
+        "Serialized intermediate stream msg serde should be a JsonSerdeV2",
         partitionByMsgSerde.startsWith(JsonSerdeV2.class.getSimpleName()));
 
     String leftJoinStoreKeySerde = mapConfig.get("stores.jobName-jobId-join-j1-L.key.serde");
@@ -171,4 +178,50 @@ public class TestJobNode {
         rightJoinStoreMsgSerde.startsWith(TimestampedValueSerde.class.getSimpleName()));
   }
 
+  @Test
+  public void testAddSerdeConfigsForRepartitionWithNoDefaultSystem() {
+    StreamSpec inputSpec = new StreamSpec("input", "input", "input-system");
+    StreamSpec partitionBySpec =
+        new StreamSpec("jobName-jobId-partition_by-p1", "partition_by-p1", "intermediate-system");
+
+    Config mockConfig = mock(Config.class);
+    when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("jobName");
+    when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("jobId");
+
+    StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
+    GenericSystemDescriptor sd = new GenericSystemDescriptor("system1", "mockSystemFactoryClassName");
+    GenericInputDescriptor<KV<String, Object>> inputDescriptor1 =
+        sd.getInputDescriptor("input", KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
+    MessageStream<KV<String, Object>> input = graphSpec.getInputStream(inputDescriptor1);
+    input.partitionBy(KV::getKey, KV::getValue, "p1");
+
+    JobNode jobNode = new JobNode("jobName", "jobId", graphSpec.getOperatorSpecGraph(), mockConfig);
+    Config config = new MapConfig();
+    StreamEdge input1Edge = new StreamEdge(inputSpec, false, false, config);
+    StreamEdge repartitionEdge = new StreamEdge(partitionBySpec, true, false, config);
+    jobNode.addInEdge(input1Edge);
+    jobNode.addInEdge(repartitionEdge);
+    jobNode.addOutEdge(repartitionEdge);
+
+    Map<String, String> configs = new HashMap<>();
+    jobNode.addSerdeConfigs(configs);
+
+    MapConfig mapConfig = new MapConfig(configs);
+    Config serializers = mapConfig.subset("serializers.registry.", true);
+
+    // make sure that the serializers deserialize correctly
+    SerializableSerde<Serde> serializableSerde = new SerializableSerde<>();
+    Map<String, Serde> deserializedSerdes = serializers.entrySet().stream().collect(Collectors.toMap(
+        e -> e.getKey().replace(SerializerConfig.SERIALIZED_INSTANCE_SUFFIX(), ""),
+        e -> serializableSerde.fromBytes(Base64.getDecoder().decode(e.getValue().getBytes()))
+    ));
+    assertEquals(2, serializers.size()); // 2 input stream
+
+    String partitionByKeySerde = mapConfig.get("streams.jobName-jobId-partition_by-p1.samza.key.serde");
+    String partitionByMsgSerde = mapConfig.get("streams.jobName-jobId-partition_by-p1.samza.msg.serde");
+    assertTrue("Serialized serdes should not contain intermediate stream key serde",
+        !deserializedSerdes.containsKey(partitionByKeySerde));
+    assertTrue("Serialized serdes should not contain intermediate stream msg serde",
+        !deserializedSerdes.containsKey(partitionByMsgSerde));
+  }
 }
