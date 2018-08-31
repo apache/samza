@@ -24,8 +24,14 @@ import org.apache.samza.config.Config;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
+import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.storage.kv.RocksDbTableDescriptor;
 import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaOutputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.StreamTaskFactory;
@@ -43,7 +49,7 @@ public class TaskApplicationExample implements TaskApplication {
     @Override
     public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator)
         throws Exception {
-
+      // processing logic here
     }
   }
 
@@ -58,9 +64,13 @@ public class TaskApplicationExample implements TaskApplication {
   @Override
   public void describe(TaskAppDescriptor appDesc) {
     // add input and output streams
-    appDesc.addInputStream("myinput");
-    appDesc.addOutputStream("myoutput");
+    KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("tracking");
+    KafkaInputDescriptor<String> isd = ksd.getInputDescriptor("myinput", new StringSerde());
+    KafkaOutputDescriptor<String> osd = ksd.getOutputDescriptor("myout", new StringSerde());
     TableDescriptor td = new RocksDbTableDescriptor("mytable");
+
+    appDesc.addInputStream(isd);
+    appDesc.addOutputStream(osd);
     appDesc.addTable(td);
     // create the task factory based on configuration
     appDesc.setTaskFactory((StreamTaskFactory) () -> new MyStreamTask());

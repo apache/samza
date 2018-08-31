@@ -76,5 +76,5 @@ import org.apache.samza.annotation.InterfaceStability;
  * a default constructor with no parameters to ensure successful instantiation in both local and remote environments.
  */
 @InterfaceStability.Evolving
-public interface TaskApplication extends ApplicationBase<TaskAppDescriptor> {
+public interface TaskApplication extends SamzaApplication<TaskAppDescriptor> {
 }

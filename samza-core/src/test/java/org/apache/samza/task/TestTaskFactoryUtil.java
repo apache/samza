@@ -51,7 +51,7 @@ public class TestTaskFactoryUtil {
         this.put("task.class", TestStreamTask.class.getName());
       }
     });
-    Object retFactory = TaskFactoryUtil.createTaskFactory(config);
+    Object retFactory = TaskFactoryUtil.getTaskFactoryFromConfig(config);
     assertTrue(retFactory instanceof StreamTaskFactory);
     assertTrue(((StreamTaskFactory) retFactory).createInstance() instanceof TestStreamTask);
 
@@ -61,7 +61,7 @@ public class TestTaskFactoryUtil {
       }
     });
     try {
-      TaskFactoryUtil.createTaskFactory(config);
+      TaskFactoryUtil.getTaskFactoryFromConfig(config);
       fail("Should have failed w/ no.such.class");
     } catch (ConfigException cfe) {
       // expected
@@ -75,7 +75,7 @@ public class TestTaskFactoryUtil {
         this.put("task.class", TestAsyncStreamTask.class.getName());
       }
     });
-    Object retFactory = TaskFactoryUtil.createTaskFactory(config);
+    Object retFactory = TaskFactoryUtil.getTaskFactoryFromConfig(config);
     assertTrue(retFactory instanceof AsyncStreamTaskFactory);
     assertTrue(((AsyncStreamTaskFactory) retFactory).createInstance() instanceof TestAsyncStreamTask);
 
@@ -85,7 +85,7 @@ public class TestTaskFactoryUtil {
       }
     });
     try {
-      TaskFactoryUtil.createTaskFactory(config);
+      TaskFactoryUtil.getTaskFactoryFromConfig(config);
       fail("Should have failed w/ no.such.class");
     } catch (ConfigException cfe) {
       // expected

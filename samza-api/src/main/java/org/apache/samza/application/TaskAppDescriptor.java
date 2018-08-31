@@ -20,6 +20,8 @@ package org.apache.samza.application;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.TableDescriptor;
+import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
+import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.task.TaskFactory;
 
 
@@ -41,18 +43,16 @@ public interface TaskAppDescriptor extends ApplicationDescriptor<TaskAppDescript
   /**
    * Adds the input stream to the user application.
    *
-   * @param inputStream streamId of the input stream
+   * @param isd the {@link InputDescriptor}
    */
-  // TODO: needs to be replaced by InputStreamDescriptor after SAMZA-1804 is implemented
-  void addInputStream(String inputStream);
+  void addInputStream(InputDescriptor isd);
 
   /**
    * Adds the output stream to the user application.
    *
-   * @param outputStream streamId of the output stream
+   * @param osd the {@link OutputDescriptor} of the output stream
    */
-  // TODO: needs to be replaced by OutputStreamDescriptor after SAMZA-1804 is implemented
-  void addOutputStream(String outputStream);
+  void addOutputStream(OutputDescriptor osd);
 
   /**
    * Adds the {@link TableDescriptor} used in the application

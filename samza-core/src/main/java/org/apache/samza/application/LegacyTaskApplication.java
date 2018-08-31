@@ -46,6 +46,6 @@ public final class LegacyTaskApplication implements TaskApplication {
 
   @Override
   public void describe(TaskAppDescriptor appDesc) {
-    appDesc.setTaskFactory(TaskFactoryUtil.createTaskFactory(config));
+    appDesc.setTaskFactory(TaskFactoryUtil.getTaskFactoryFromConfig(config));
   }
 }

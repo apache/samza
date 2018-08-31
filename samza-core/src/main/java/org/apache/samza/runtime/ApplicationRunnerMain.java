@@ -53,8 +53,8 @@ public class ApplicationRunnerMain {
     Config config = Util.rewriteConfig(orgConfig);
     ApplicationRunnerOperation op = cmdLine.getOperation(options);
 
-    ApplicationRunner
-        appRunner = ApplicationRunners.getApplicationRunner(ApplicationClassUtils.fromConfig(config), config);
+    ApplicationRunner appRunner =
+        ApplicationRunners.getApplicationRunner(ApplicationClassUtils.fromConfig(config), config);
 
     switch (op) {
       case RUN:

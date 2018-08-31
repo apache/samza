@@ -18,11 +18,10 @@
  */
 package org.apache.samza.application;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.TableDescriptor;
+import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
+import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.task.TaskFactory;
 
 
@@ -37,11 +36,6 @@ public class TaskAppDescriptorImpl extends AppDescriptorImpl<TaskAppDescriptor>
     implements TaskAppDescriptor {
 
   TaskFactory taskFactory;
-  //TODO: need to replace with InputStreamDescriptor and OutputStreamDescriptor when SAMZA-1804 is implemented
-  final List<String> inputStreams = new ArrayList<>();
-  final List<String> outputStreams = new ArrayList<>();
-  final List<String> broadcastStreams = new ArrayList<>();
-  final List<TableDescriptor> tables = new ArrayList<>();
 
   public TaskAppDescriptorImpl(TaskApplication userApp, Config config) {
     super(userApp, config);
@@ -54,18 +48,18 @@ public class TaskAppDescriptorImpl extends AppDescriptorImpl<TaskAppDescriptor>
   }
 
   @Override
-  public void addInputStream(String inputStream) {
-    this.inputStreams.add(inputStream);
+  public void addInputStream(InputDescriptor isd) {
+    super.addInputDescriptor(isd);
   }
 
   @Override
-  public void addOutputStream(String outputStream) {
-    this.outputStreams.add(outputStream);
+  public void addOutputStream(OutputDescriptor osd) {
+    super.addOutputDescriptor(osd);
   }
 
   @Override
-  public void addTable(TableDescriptor table) {
-    this.tables.add(table);
+  public void addTable(TableDescriptor tableDescriptor) {
+    this.addTableDescriptor(tableDescriptor);
   }
 
   /**
@@ -76,43 +70,8 @@ public class TaskAppDescriptorImpl extends AppDescriptorImpl<TaskAppDescriptor>
     return taskFactory;
   }
 
-  /**
-   * Get the input streams to this application
-   *
-   * TODO: need to change to InputStreamDescriptors after SAMZA-1804
-   *
-   * @return the list of input streamIds
-   */
-  public List<String> getInputStreams() {
-    return Collections.unmodifiableList(this.inputStreams);
-  }
-
-  /**
-   * Get the broadcast streams to this application
-   *
-   * @return the list of broadcast streamIds
-   */
-  public List<String> getBroadcastStreams() {
-    return Collections.unmodifiableList(this.broadcastStreams);
-  }
-
-  /**
-   * Get the output streams to this application
-   *
-   * TODO: need to change to OutputStreamDescriptors after SAMZA-1804
-   *
-   * @return the list of output streamIds
-   */
-  public List<String> getOutputStreams() {
-    return Collections.unmodifiableList(this.outputStreams);
-  }
-
-  /**
-   * Get the {@link TableDescriptor}s used in this application
-   *
-   * @return the list of {@link TableDescriptor}s
-   */
-  public List<TableDescriptor> getTables() {
-    return Collections.unmodifiableList(this.tables);
+  @Override
+  protected boolean noInputOutputStreams() {
+    return getInputDescriptors().isEmpty() && getOutputDescriptors().isEmpty();
   }
 }

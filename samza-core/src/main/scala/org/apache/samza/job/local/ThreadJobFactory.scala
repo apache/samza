@@ -19,19 +19,16 @@
 
 package org.apache.samza.job.local
 
-import java.util.concurrent.CountDownLatch
-
 import org.apache.samza.application.ApplicationDescriptors
 import org.apache.samza.config.{Config, TaskConfigJava}
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
 import org.apache.samza.container.{SamzaContainer, SamzaContainerListener, TaskName}
-import org.apache.samza.coordinator.{JobCoordinator, JobModelManager}
+import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap, MetricsReporter}
-import org.apache.samza.processor.StreamProcessor
-import org.apache.samza.runtime.{ApplicationClassUtils, ProcessorContext, ProcessorLifecycleListener}
+import org.apache.samza.runtime.{ApplicationClassUtils, ProcessorContext}
 import org.apache.samza.storage.ChangelogStreamManager
 import org.apache.samza.task.TaskFactory
 import org.apache.samza.task.TaskFactoryUtil
@@ -86,19 +83,19 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
       case _ => None
     }
 
-    val pListener = {
+    val listener = {
       val userListener = appDesc.getProcessorLifecycleListenerFactory().createInstance(new ProcessorContext() { }, config)
       new SamzaContainerListener {
-        override def onContainerFailed(t: Throwable): Unit = {
+        override def afterFailed(t: Throwable): Unit = {
           userListener.afterFailure(t)
           throw t;
         }
 
-        override def onContainerStart(): Unit = {
+        override def afterStart(): Unit = {
           userListener.afterStart()
         }
 
-        override def onContainerStop(): Unit = {
+        override def afterStop(): Unit = {
           userListener.afterStop()
         }
 
@@ -117,7 +114,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         config,
         Map[String, MetricsReporter](),
         taskFactory)
-      container.setContainerListener(pListener)
+      container.setContainerListener(listener)
 
       val threadJob = new ThreadJob(container)
       threadJob

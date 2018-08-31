@@ -21,21 +21,15 @@ package org.apache.samza.runtime;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.UUID;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.AppDescriptorImpl;
-import org.apache.samza.application.ApplicationBase;
+import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.application.ApplicationDescriptors;
-import org.apache.samza.application.StreamAppDescriptorImpl;
-import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer;
-import org.apache.samza.execution.ExecutionPlan;
-import org.apache.samza.execution.StreamManager;
+import org.apache.samza.execution.RemoteJobPlanner;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
-import org.apache.samza.metrics.MetricsRegistryMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,60 +39,13 @@ import static org.apache.samza.job.ApplicationStatus.*;
 /**
  * This class implements the {@link ApplicationRunner} that runs the applications in a remote cluster
  */
-public class RemoteApplicationRunner extends AbstractApplicationRunner {
+public class RemoteApplicationRunner implements ApplicationRunner {
 
   private static final Logger LOG = LoggerFactory.getLogger(RemoteApplicationRunner.class);
   private static final long DEFAULT_SLEEP_DURATION_MS = 2000;
+
+  private final AppDescriptorImpl appDesc;
   private final RemoteJobPlanner planner;
-
-  /**
-   * Defines a {@link JobPlanner} with specific implementation of {@link JobPlanner#prepareStreamJobs(StreamAppDescriptorImpl)}
-   * for remote-launched Samza processors (e.g. in YARN).
-   *
-   * TODO: we need to consolidate all planning logic into {@link org.apache.samza.execution.ExecutionPlanner} after SAMZA-1811.
-   */
-  class RemoteJobPlanner extends JobPlanner {
-
-    RemoteJobPlanner(AppDescriptorImpl descriptor) {
-      super(descriptor);
-    }
-
-    @Override
-    List<JobConfig> prepareStreamJobs(StreamAppDescriptorImpl streamAppDesc) throws Exception {
-      // for high-level DAG, generate the plan and job configs
-      // TODO: run.id needs to be set for standalone: SAMZA-1531
-      // run.id is based on current system time with the most significant bits in UUID (8 digits) to avoid collision
-      String runId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
-      LOG.info("The run id for this run is {}", runId);
-
-      // 1. initialize and plan
-      ExecutionPlan plan = getExecutionPlan(streamAppDesc.getOperatorSpecGraph(), runId);
-      writePlanJsonFile(plan.getPlanAsJson());
-
-      if (plan.getJobConfigs().isEmpty()) {
-        throw new SamzaException("No jobs in the plan.");
-      }
-
-      // 2. create the necessary streams
-      // TODO: this works for single-job applications. For multi-job applications, ExecutionPlan should return an AppConfig
-      // to be used for the whole application
-      JobConfig jobConfig = plan.getJobConfigs().get(0);
-      StreamManager streamManager = null;
-      try {
-        // create the StreamManager to create intermediate streams in the plan
-        streamManager = buildAndStartStreamManager(jobConfig);
-        if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
-          streamManager.clearStreamsFromPreviousRun(getConfigFromPrevRun());
-        }
-        streamManager.createStreams(plan.getIntermediateStreams());
-      } finally {
-        if (streamManager != null) {
-          streamManager.stop();
-        }
-      }
-      return plan.getJobConfigs();
-    }
-  }
 
   /**
    * Default constructor that is required by any implementation of {@link ApplicationRunner}
@@ -106,8 +53,8 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
    * @param userApp user application
    * @param config user configuration
    */
-  RemoteApplicationRunner(ApplicationBase userApp, Config config) {
-    super(ApplicationDescriptors.getAppDescriptor(userApp, config));
+  RemoteApplicationRunner(SamzaApplication userApp, Config config) {
+    this.appDesc = ApplicationDescriptors.getAppDescriptor(userApp, config);
     this.planner = new RemoteJobPlanner(appDesc);
   }
 
@@ -135,7 +82,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     // since currently we only support single actual remote job, we can get its status without
     // building the execution plan.
     try {
-      JobConfig jc = new JobConfig(config);
+      JobConfig jc = new JobConfig(appDesc.getConfig());
       LOG.info("Killing job {}", jc.getName());
       JobRunner runner = new JobRunner(jc);
       runner.kill();
@@ -149,7 +96,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     // since currently we only support single actual remote job, we can get its status without
     // building the execution plan
     try {
-      JobConfig jc = new JobConfig(config);
+      JobConfig jc = new JobConfig(appDesc.getConfig());
       return getApplicationStatus(jc);
     } catch (Throwable t) {
       throw new SamzaException("Failed to get status for application", t);
@@ -163,7 +110,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
   @Override
   public boolean waitForFinish(Duration timeout) {
-    JobConfig jobConfig = new JobConfig(config);
+    JobConfig jobConfig = new JobConfig(appDesc.getConfig());
     boolean finished = true;
     long timeoutInMs = timeout.toMillis();
     long startTimeInMs = System.currentTimeMillis();
@@ -202,17 +149,5 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     ApplicationStatus status = runner.status();
     LOG.debug("Status is {} for job {}", new Object[]{status, jobConfig.getName()});
     return status;
-  }
-
-  private Config getConfigFromPrevRun() {
-    CoordinatorStreamSystemConsumer consumer = new CoordinatorStreamSystemConsumer(config, new MetricsRegistryMap());
-    consumer.register();
-    consumer.start();
-    consumer.bootstrap();
-    consumer.stop();
-
-    Config cfg = consumer.getConfig();
-    LOG.info("Previous config is: " + cfg.toString());
-    return cfg;
   }
 }

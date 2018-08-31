@@ -19,13 +19,13 @@
 package org.apache.samza.runtime;
 
 import java.lang.reflect.Constructor;
-import org.apache.samza.application.ApplicationBase;
+import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 
 
 /**
- * Creates {@link ApplicationRunner} instances based on configuration and user-implemented {@link ApplicationBase}
+ * Creates {@link ApplicationRunner} instances based on configuration and user-implemented {@link SamzaApplication}
  *
  * <p> This class is usually used in main() function to create an instance of {@link ApplicationRunner}, as in the example
  * below:
@@ -34,13 +34,16 @@ import org.apache.samza.config.ConfigException;
  *     CommandLine cmdLine = new CommandLine();
  *     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
  *     PageViewCounter app = new PageViewCounter();
- *     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new PageViewCounter(), config);
+ *     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(app, config);
  *     runner.run();
  *     runner.waitForFinish();
  *   }
  * }</pre>
  */
 public class ApplicationRunners {
+
+  private static final String APP_RUNNER_CFG = "app.runner.class";
+  private static final String DEFAULT_APP_RUNNER = "org.apache.samza.runtime.RemoteApplicationRunner";
 
   private ApplicationRunners() {
 
@@ -53,36 +56,27 @@ public class ApplicationRunners {
    * @param config the configuration for this application
    * @return the {@link ApplicationRunner} object that will run the {@code userApp}
    */
-  public static final ApplicationRunner getApplicationRunner(ApplicationBase userApp, Config config) {
-    AppRunnerConfig runnerConfig = new AppRunnerConfig(config);
+  public static final ApplicationRunner getApplicationRunner(SamzaApplication userApp, Config config) {
+    String appRunnerClassName = getAppRunnerClass(config);
     try {
-      Class<?> runnerClass = Class.forName(runnerConfig.getAppRunnerClass());
-      if (ApplicationRunner.class.isAssignableFrom(runnerClass)) {
-        Constructor<?> constructor = runnerClass.getConstructor(ApplicationBase.class, Config.class); // *sigh*
-        return (ApplicationRunner) constructor.newInstance(userApp, config);
+      Class<?> runnerClass = Class.forName(appRunnerClassName);
+      if (!ApplicationRunner.class.isAssignableFrom(runnerClass)) {
+        throw new ConfigException(
+            String.format("Class %s does not extend ApplicationRunner properly", appRunnerClassName));
       }
+      Constructor<?> constructor = runnerClass.getConstructor(SamzaApplication.class, Config.class); // *sigh*
+      return (ApplicationRunner) constructor.newInstance(userApp, config);
+    } catch (ConfigException ce) {
+      // this is thrown due to invalid app.runner.class configuration
+      throw ce;
     } catch (Exception e) {
-      throw new ConfigException(String.format("Problem in loading ApplicationRunner class %s",
-          runnerConfig.getAppRunnerClass()), e);
+      // other types of exception during class loading and construction of new instance
+      throw new ConfigException(String.format("Could not load ApplicationRunner class %s", appRunnerClassName), e);
     }
-    throw new ConfigException(String.format("Class %s does not extend ApplicationRunner properly",
-        runnerConfig.getAppRunnerClass()));
   }
 
-  static class AppRunnerConfig {
-    private static final String APP_RUNNER_CFG = "app.runner.class";
-    private static final String DEFAULT_APP_RUNNER = "org.apache.samza.runtime.RemoteApplicationRunner";
-
-    private final Config config;
-
-    AppRunnerConfig(Config config) {
-      this.config = config;
-    }
-
-    String getAppRunnerClass() {
-      return this.config.getOrDefault(APP_RUNNER_CFG, DEFAULT_APP_RUNNER);
-    }
-
+  private static String getAppRunnerClass(Config config) {
+    return config.getOrDefault(APP_RUNNER_CFG, DEFAULT_APP_RUNNER);
   }
 
 }

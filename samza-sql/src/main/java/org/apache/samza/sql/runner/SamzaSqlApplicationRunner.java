@@ -130,8 +130,4 @@ public class SamzaSqlApplicationRunner implements ApplicationRunner {
     return runner.waitForFinish(timeout);
   }
 
-  @Override
-  public void addMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
-    runner.addMetricsReporters(metricsReporters);
-  }
 }

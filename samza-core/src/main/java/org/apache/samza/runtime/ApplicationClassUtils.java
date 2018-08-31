@@ -19,7 +19,7 @@
 package org.apache.samza.runtime;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.samza.application.ApplicationBase;
+import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.TaskApplication;
@@ -29,22 +29,22 @@ import org.apache.samza.config.ConfigException;
 
 
 /**
- * Util class to create {@link ApplicationBase} from the configuration.
+ * Util class to create {@link SamzaApplication} from the configuration.
  */
 public class ApplicationClassUtils {
 
   /**
-   * Creates the {@link ApplicationBase} object from the {@code config}
+   * Creates the {@link SamzaApplication} object from the {@code config}
    *
    * @param config the configuration of the application
-   * @return the {@link ApplicationBase} object
+   * @return the {@link SamzaApplication} object
    */
-  public static ApplicationBase fromConfig(Config config) {
+  public static SamzaApplication fromConfig(Config config) {
     String appClassName = new ApplicationConfig(config).getAppClass();
     if (StringUtils.isNotBlank(appClassName)) {
       // app.class is configured
       try {
-        Class<ApplicationBase> appClass = (Class<ApplicationBase>) Class.forName(appClassName);
+        Class<SamzaApplication> appClass = (Class<SamzaApplication>) Class.forName(appClassName);
         if (StreamApplication.class.isAssignableFrom(appClass) || TaskApplication.class.isAssignableFrom(appClass)) {
           return appClass.newInstance();
         }

@@ -23,7 +23,7 @@ import org.apache.samza.config.Config;
 
 
 /**
- * Util class to help creating {@link AppDescriptorImpl} instance from {@link ApplicationBase} and {@link Config}
+ * Util class to help creating {@link AppDescriptorImpl} instance from {@link SamzaApplication} and {@link Config}
  */
 public class ApplicationDescriptors {
   private ApplicationDescriptors() {
@@ -31,13 +31,13 @@ public class ApplicationDescriptors {
   }
 
   /**
-   * Create a new instance of {@link AppDescriptorImpl} based on {@link ApplicationBase} and {@link Config}
+   * Create a new instance of {@link AppDescriptorImpl} based on {@link SamzaApplication} and {@link Config}
    *
-   * @param userApp the user-implemented {@link ApplicationBase}. The {@code userApp} has to have a proper fully-qualified class name.
+   * @param userApp the user-implemented {@link SamzaApplication}. The {@code userApp} has to have a proper fully-qualified class name.
    * @param config the user-supplied {@link Config} for the the application
    * @return the {@link AppDescriptorImpl} instance containing the user processing logic and the config
    */
-  public static AppDescriptorImpl getAppDescriptor(ApplicationBase userApp, Config config) {
+  public static AppDescriptorImpl getAppDescriptor(SamzaApplication userApp, Config config) {
     if (userApp instanceof StreamApplication) {
       return new StreamAppDescriptorImpl((StreamApplication) userApp, config);
     }

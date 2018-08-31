@@ -60,7 +60,7 @@ public class TaskFactoryUtil {
    * @param config  the {@link Config} for this job
    * @return  a {@link TaskFactory} object, either a instance of {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory}
    */
-  public static TaskFactory createTaskFactory(Config config) {
+  public static TaskFactory getTaskFactoryFromConfig(Config config) {
     // if there is configuration to set the job w/ a specific type of task, instantiate the corresponding task factory
     String taskClassName = new TaskConfig(config).getTaskClass().getOrElse(toScalaFunction(
       () -> {

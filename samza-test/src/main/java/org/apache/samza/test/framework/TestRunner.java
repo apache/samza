@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.ApplicationBase;
+import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.config.Config;
@@ -290,7 +290,7 @@ public class TestRunner {
     Preconditions.checkState((app == null && taskClass != null) || (app != null && taskClass == null),
         "TestRunner should run for Low Level Task api or High Level Application Api");
     Preconditions.checkState(!timeout.isZero() || !timeout.isNegative(), "Timeouts should be positive");
-    ApplicationBase testApp = app == null ? (TaskApplication) appDesc -> appDesc.setTaskFactory(createTaskFactory()) : app;
+    SamzaApplication testApp = app == null ? (TaskApplication) appDesc -> appDesc.setTaskFactory(createTaskFactory()) : app;
     final LocalApplicationRunner runner = new LocalApplicationRunner(testApp, new MapConfig(configs));
     runner.run();
     boolean timedOut = !runner.waitForFinish(timeout);

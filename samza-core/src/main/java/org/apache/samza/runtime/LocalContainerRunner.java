@@ -20,6 +20,7 @@
 package org.apache.samza.runtime;
 
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 import org.apache.log4j.MDC;
 import org.apache.samza.SamzaException;
@@ -34,6 +35,8 @@ import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainer$;
 import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.metrics.MetricsReporterFactory;
 import org.apache.samza.task.TaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
 import org.apache.samza.util.SamzaUncaughtExceptionHandler;
@@ -88,10 +91,10 @@ public class LocalContainerRunner {
         containerId,
         jobModel,
         config,
-        ScalaJavaUtil.toScalaMap(new HashMap<>()),
+        ScalaJavaUtil.toScalaMap(loadMetricsReporters(appDesc, containerId, config)),
         taskFactory);
 
-    ProcessorLifecycleListener pListener = appDesc.getProcessorLifecycleListenerFactory()
+    ProcessorLifecycleListener listener = appDesc.getProcessorLifecycleListenerFactory()
         .createInstance(new ProcessorContext() { }, config);
 
     container.setContainerListener(
@@ -99,26 +102,26 @@ public class LocalContainerRunner {
           @Override
           public void beforeStart() {
             log.info("Before starting the container.");
-            pListener.beforeStart();
+            listener.beforeStart();
           }
 
           @Override
-          public void onContainerStart() {
+          public void afterStart() {
             log.info("Container Started");
-            pListener.afterStart();
+            listener.afterStart();
           }
 
           @Override
-          public void onContainerStop() {
+          public void afterStop() {
             log.info("Container Stopped");
-            pListener.afterStop();
+            listener.afterStop();
           }
 
           @Override
-          public void onContainerFailed(Throwable t) {
+          public void afterFailed(Throwable t) {
             log.info("Container Failed");
             containerRunnerException = t;
-            pListener.afterFailure(t);
+            listener.afterFailure(t);
           }
         });
 
@@ -137,6 +140,15 @@ public class LocalContainerRunner {
       log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
       System.exit(1);
     }
+  }
+
+  // TODO: this is going away when SAMZA-1168 is done and the initialization of metrics reporters are done via
+  // LocalApplicationRunner#createStreamProcessor()
+  private static Map<String, MetricsReporter> loadMetricsReporters(AppDescriptorImpl appDesc, String containerId, Config config) {
+    Map<String, MetricsReporter> reporters = new HashMap<>();
+    ((Map<String, MetricsReporterFactory>) appDesc.getMetricsReporterFactories())
+        .forEach((name, factory) -> reporters.put(name, factory.getMetricsReporter(name, containerId, config)));
+    return reporters;
   }
 
   /**

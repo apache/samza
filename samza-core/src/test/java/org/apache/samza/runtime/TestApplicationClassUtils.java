@@ -20,11 +20,11 @@ package org.apache.samza.runtime;
 
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.samza.application.ApplicationBase;
+import org.apache.samza.application.SamzaApplication;
+import org.apache.samza.application.TaskAppDescriptor;
 import org.apache.samza.application.TaskAppDescriptorImpl;
 import org.apache.samza.application.TaskApplication;
-import org.apache.samza.application.TestStreamApplication;
-import org.apache.samza.application.MockTaskApplication;
+import org.apache.samza.application.MockStreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
@@ -44,20 +44,20 @@ public class TestApplicationClassUtils {
   @Test
   public void testStreamAppClass() {
     Map<String, String> configMap = new HashMap<>();
-    configMap.put(ApplicationConfig.APP_CLASS, TestStreamApplication.class.getName());
-    ApplicationBase app = ApplicationClassUtils.fromConfig(new MapConfig(configMap));
-    assertTrue(app instanceof TestStreamApplication);
+    configMap.put(ApplicationConfig.APP_CLASS, MockStreamApplication.class.getName());
+    SamzaApplication app = ApplicationClassUtils.fromConfig(new MapConfig(configMap));
+    assertTrue(app instanceof MockStreamApplication);
 
     configMap.put(TaskConfig.TASK_CLASS(), TestStreamTask.class.getName());
     app = ApplicationClassUtils.fromConfig(new MapConfig(configMap));
-    assertTrue(app instanceof TestStreamApplication);
+    assertTrue(app instanceof MockStreamApplication);
   }
 
   @Test
   public void testTaskAppClass() {
     Map<String, String> configMap = new HashMap<>();
     configMap.put(ApplicationConfig.APP_CLASS, MockTaskApplication.class.getName());
-    ApplicationBase app = ApplicationClassUtils.fromConfig(new MapConfig(configMap));
+    SamzaApplication app = ApplicationClassUtils.fromConfig(new MapConfig(configMap));
     assertTrue(app instanceof MockTaskApplication);
 
     configMap.put(TaskConfig.TASK_CLASS(), TestStreamTask.class.getName());
@@ -70,7 +70,7 @@ public class TestApplicationClassUtils {
     Map<String, String> configMap = new HashMap<>();
     configMap.put(TaskConfig.TASK_CLASS(), TestStreamTask.class.getName());
     Config config = new MapConfig(configMap);
-    ApplicationBase app = ApplicationClassUtils.fromConfig(config);
+    SamzaApplication app = ApplicationClassUtils.fromConfig(config);
     assertTrue(app instanceof TaskApplication);
     TaskAppDescriptorImpl appSpec = new TaskAppDescriptorImpl((TaskApplication) app, config);
     assertTrue(appSpec.getTaskFactory().createInstance() instanceof TestStreamTask);
@@ -80,5 +80,15 @@ public class TestApplicationClassUtils {
   public void testNoAppClassNoTaskClass() {
     Map<String, String> configMap = new HashMap<>();
     ApplicationClassUtils.fromConfig(new MapConfig(configMap));
+  }
+
+  /**
+   * Test class of {@link TaskApplication} for unit tests
+   */
+  public static class MockTaskApplication implements TaskApplication {
+    @Override
+    public void describe(TaskAppDescriptor appSpec) {
+
+    }
   }
 }

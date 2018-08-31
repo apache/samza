@@ -19,35 +19,34 @@
 package org.apache.samza.runtime;
 
 import java.time.Duration;
-import java.util.Map;
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.job.ApplicationStatus;
-import org.apache.samza.metrics.MetricsReporter;
 
 
 /**
- * The primary means of managing execution of the {@link org.apache.samza.application.ApplicationBase} at runtime.
+ * The primary means of managing execution of the {@link SamzaApplication} at runtime.
  */
 @InterfaceStability.Evolving
 public interface ApplicationRunner {
 
   /**
-   * Deploy and run the Samza jobs to execute {@link org.apache.samza.application.ApplicationBase}.
+   * Deploy and run the Samza jobs to execute {@link SamzaApplication}.
    * It is non-blocking so it doesn't wait for the application running.
    */
   void run();
 
   /**
-   * Kill the Samza jobs represented by {@link org.apache.samza.application.ApplicationBase}
+   * Kill the Samza jobs represented by {@link SamzaApplication}
    * It is non-blocking so it doesn't wait for the application stopping.
    */
   void kill();
 
   /**
-   * Get the collective status of the Samza jobs represented by {@link org.apache.samza.application.ApplicationBase}.
+   * Get the collective status of the Samza jobs represented by {@link SamzaApplication}.
    * Returns {@link ApplicationStatus} object.
    *
-   * @return the current status of an instance of {@link org.apache.samza.application.ApplicationBase}
+   * @return the current status of an instance of {@link SamzaApplication}
    */
   ApplicationStatus status();
 
@@ -64,12 +63,5 @@ public interface ApplicationRunner {
    *         false - otherwise
    */
   boolean waitForFinish(Duration timeout);
-
-  /**
-   * Add a set of customized {@link MetricsReporter}s in the application
-   *
-   * @param metricsReporters the map of customized {@link MetricsReporter}s objects to be used
-   */
-  void addMetricsReporters(Map<String, MetricsReporter> metricsReporters);
 
 }

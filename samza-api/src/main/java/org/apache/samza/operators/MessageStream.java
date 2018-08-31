@@ -214,7 +214,7 @@ public interface MessageStream<M> {
 
   /**
    * Re-partitions this {@link MessageStream} using keys from the {@code keyExtractor} by creating a new
-   * intermediate stream on the default system provided via {@link org.apache.samza.application.StreamAppDescriptor#setDefaultSystem}.
+   * intermediate stream on the default system provided via {@link org.apache.samza.application.StreamAppDescriptor#withDefaultSystem}.
    * This intermediate stream is both an output and input to the job.
    * <p>
    * Uses the provided {@link KVSerde} for serialization of keys and values. If the provided {@code serde} is null,

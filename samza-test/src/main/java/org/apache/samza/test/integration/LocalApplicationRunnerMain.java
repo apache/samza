@@ -20,7 +20,7 @@
 package org.apache.samza.test.integration;
 
 import joptsimple.OptionSet;
-import org.apache.samza.application.ApplicationBase;
+import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.runtime.ApplicationClassUtils;
 import org.apache.samza.config.Config;
 import org.apache.samza.runtime.ApplicationRunnerMain;
@@ -31,7 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * {@link ApplicationRunnerMain} was designed for deploying {@link org.apache.samza.application.ApplicationBase} in yarn
+ * {@link ApplicationRunnerMain} was designed for deploying {@link SamzaApplication} in yarn
  * and doesn't work for in standalone.
  *
  * This runner class is built for standalone failure tests and not recommended for general use.
@@ -46,7 +46,7 @@ public class LocalApplicationRunnerMain {
     Config orgConfig = cmdLine.loadConfig(options);
     Config config = Util.rewriteConfig(orgConfig);
 
-    ApplicationBase app = ApplicationClassUtils.fromConfig(config);
+    SamzaApplication app = ApplicationClassUtils.fromConfig(config);
     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(app, config);
 
     try {

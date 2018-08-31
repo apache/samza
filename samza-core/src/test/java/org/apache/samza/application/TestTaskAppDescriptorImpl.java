@@ -19,16 +19,24 @@
 package org.apache.samza.application;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.TableDescriptor;
+import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
+import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
+import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.runtime.ProcessorLifecycleListenerFactory;
 import org.apache.samza.task.TaskFactory;
+import org.junit.Before;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 
 /**
@@ -37,43 +45,73 @@ import static org.mockito.Mockito.*;
 public class TestTaskAppDescriptorImpl {
 
   private Config config = mock(Config.class);
+  private String defaultSystemName = "test-system";
+  private SystemDescriptor defaultSystemDescriptor = mock(SystemDescriptor.class);
+  private List<InputDescriptor> mockInputs = new ArrayList<InputDescriptor>() { {
+      InputDescriptor mock1 = mock(InputDescriptor.class);
+      InputDescriptor mock2 = mock(InputDescriptor.class);
+      when(mock1.getStreamId()).thenReturn("test-input1");
+      when(mock2.getStreamId()).thenReturn("test-input2");
+      this.add(mock1);
+      this.add(mock2);
+    } };
+  private List<OutputDescriptor> mockOutputs = new ArrayList<OutputDescriptor>() { {
+      OutputDescriptor mock1 = mock(OutputDescriptor.class);
+      OutputDescriptor mock2 = mock(OutputDescriptor.class);
+      when(mock1.getStreamId()).thenReturn("test-output1");
+      when(mock2.getStreamId()).thenReturn("test-output2");
+      this.add(mock1);
+      this.add(mock2);
+    } };
+  private Set<TableDescriptor> mockTables = new HashSet<TableDescriptor>() { {
+      TableDescriptor mock1 = mock(TableDescriptor.class);
+      TableDescriptor mock2 = mock(TableDescriptor.class);
+      when(mock1.getTableId()).thenReturn("test-table1");
+      when(mock2.getTableId()).thenReturn("test-table2");
+      this.add(mock1);
+      this.add(mock2);
+    } };
+
+  @Before
+  public void setUp() {
+    when(defaultSystemDescriptor.getSystemName()).thenReturn(defaultSystemName);
+    mockInputs.forEach(isd -> when(isd.getSystemDescriptor()).thenReturn(defaultSystemDescriptor));
+    mockOutputs.forEach(osd -> when(osd.getSystemDescriptor()).thenReturn(defaultSystemDescriptor));
+  }
 
   @Test
   public void testConstructor() {
     TaskApplication mockApp = mock(TaskApplication.class);
     TaskAppDescriptorImpl appDesc = new TaskAppDescriptorImpl(mockApp, config);
-    verify(mockApp, times(1)).describe(appDesc);
+    verify(mockApp).describe(appDesc);
     assertEquals(config, appDesc.config);
   }
 
   @Test
   public void testAddInputStreams() {
-    List<String> testInputs = new ArrayList<String>() { { this.add("myinput1"); this.add("myinput2"); } };
     TaskApplication testApp = appDesc -> {
-      testInputs.forEach(input -> appDesc.addInputStream(input));
+      mockInputs.forEach(appDesc::addInputStream);
     };
     TaskAppDescriptorImpl appDesc = new TaskAppDescriptorImpl(testApp, config);
-    assertEquals(appDesc.getInputStreams(), testInputs);
+    assertEquals(mockInputs.toArray(), appDesc.getInputDescriptors().values().toArray());
   }
 
   @Test
   public void testAddOutputStreams() {
-    List<String> testOutputs = new ArrayList<String>() { { this.add("myoutput1"); this.add("myoutput2"); } };
     TaskApplication testApp = appDesc -> {
-      testOutputs.forEach(output -> appDesc.addOutputStream(output));
+      mockOutputs.forEach(appDesc::addOutputStream);
     };
     TaskAppDescriptorImpl appDesc = new TaskAppDescriptorImpl(testApp, config);
-    assertEquals(appDesc.getOutputStreams(), testOutputs);
+    assertEquals(mockOutputs.toArray(), appDesc.getOutputDescriptors().values().toArray());
   }
 
   @Test
   public void testAddTables() {
-    List<TableDescriptor> testTables = new ArrayList<TableDescriptor>() { { this.add(mock(TableDescriptor.class)); } };
     TaskApplication testApp = appDesc -> {
-      testTables.forEach(table -> appDesc.addTable(table));
+      mockTables.forEach(appDesc::addTable);
     };
     TaskAppDescriptorImpl appDesc = new TaskAppDescriptorImpl(testApp, config);
-    assertEquals(appDesc.getTables(), testTables);
+    assertEquals(mockTables, appDesc.getTableDescriptors());
   }
 
   @Test

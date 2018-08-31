@@ -18,12 +18,23 @@
  */
 package org.apache.samza.application;
 
-/**
- * Test class of {@link StreamApplication} for unit tests
- */
-public class TestStreamApplication implements StreamApplication {
-  @Override
-  public void describe(StreamAppDescriptor appSpec) {
+import org.apache.samza.annotation.InterfaceStability;
 
-  }
+
+/**
+ * The base interface for all user-implemented applications in Samza.
+ * <p>
+ * The main processing logic of the user application should be implemented in {@link SamzaApplication#describe(ApplicationDescriptor)}
+ * method. Sub-classes {@link StreamApplication} and {@link TaskApplication} are specific interfaces for applications
+ * written in high-level DAG and low-level task APIs, respectively.
+ */
+@InterfaceStability.Evolving
+public interface SamzaApplication<S extends ApplicationDescriptor> {
+
+  /**
+   * Describes the user processing logic via {@link ApplicationDescriptor}
+   *
+   * @param appDesc the {@link ApplicationDescriptor} object to describe user application logic
+   */
+  void describe(S appDesc);
 }

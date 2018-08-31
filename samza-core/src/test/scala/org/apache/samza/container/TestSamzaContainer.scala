@@ -199,16 +199,16 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       metrics = new SamzaContainerMetrics)
 
     val containerListener = new SamzaContainerListener {
-      override def onContainerFailed(t: Throwable): Unit = {
+      override def afterFailed(t: Throwable): Unit = {
         onContainerFailedCalled = true
         onContainerFailedThrowable = t
       }
 
-      override def onContainerStop(): Unit = {
+      override def afterStop(): Unit = {
         onContainerStopCalled = true
       }
 
-      override def onContainerStart(): Unit = {
+      override def afterStart(): Unit = {
         onContainerStartCalled = true
       }
 
@@ -287,16 +287,16 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       producerMultiplexer = producerMultiplexer,
       metrics = new SamzaContainerMetrics)
     val containerListener = new SamzaContainerListener {
-      override def onContainerFailed(t: Throwable): Unit = {
+      override def afterFailed(t: Throwable): Unit = {
         onContainerFailedCalled = true
         onContainerFailedThrowable = t
       }
 
-      override def onContainerStop(): Unit = {
+      override def afterStop(): Unit = {
         onContainerStopCalled = true
       }
 
-      override def onContainerStart(): Unit = {
+      override def afterStart(): Unit = {
         onContainerStartCalled = true
       }
 
@@ -379,16 +379,16 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       producerMultiplexer = producerMultiplexer,
       metrics = new SamzaContainerMetrics)
     val containerListener = new SamzaContainerListener {
-      override def onContainerFailed(t: Throwable): Unit = {
+      override def afterFailed(t: Throwable): Unit = {
         onContainerFailedCalled = true
         onContainerFailedThrowable = t
       }
 
-      override def onContainerStop(): Unit = {
+      override def afterStop(): Unit = {
         onContainerStopCalled = true
       }
 
-      override def onContainerStart(): Unit = {
+      override def afterStart(): Unit = {
         onContainerStartCalled = true
       }
 
@@ -471,16 +471,16 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       producerMultiplexer = producerMultiplexer,
       metrics = new SamzaContainerMetrics)
       val containerListener = new SamzaContainerListener {
-        override def onContainerFailed(t: Throwable): Unit = {
+        override def afterFailed(t: Throwable): Unit = {
           onContainerFailedCalled = true
           onContainerFailedThrowable = t
         }
 
-        override def onContainerStop(): Unit = {
+        override def afterStop(): Unit = {
           onContainerStopCalled = true
         }
 
-        override def onContainerStart(): Unit = {
+        override def afterStart(): Unit = {
           onContainerStartCalled = true
         }
 
@@ -559,16 +559,16 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       metrics = new SamzaContainerMetrics)
 
     val containerListener = new SamzaContainerListener {
-        override def onContainerFailed(t: Throwable): Unit = {
+        override def afterFailed(t: Throwable): Unit = {
           onContainerFailedCalled = true
           onContainerFailedThrowable = t
         }
 
-        override def onContainerStop(): Unit = {
+        override def afterStop(): Unit = {
           onContainerStopCalled = true
         }
 
-        override def onContainerStart(): Unit = {
+        override def afterStart(): Unit = {
           onContainerStartCalled = true
         }
 

@@ -36,22 +36,6 @@ import org.apache.samza.table.Table;
 public interface StreamAppDescriptor extends ApplicationDescriptor<StreamAppDescriptor> {
 
   /**
-   * Sets the default SystemDescriptor to use for intermediate streams. This is equivalent to setting
-   * {@code job.default.system} and its properties in configuration.
-   * <p>
-   * If the default system descriptor is set, it must be set <b>before</b> creating any intermediate streams.
-   * <p>
-   * If the intermediate stream is created with a stream-level Serde, they will be used, else the serde specified
-   * for the {@code job.default.system} in configuration will be used.
-   * <p>
-   * Providing an incompatible message type for the intermediate streams that use the default serde will result in
-   * {@link ClassCastException}s at runtime.
-   *
-   * @param defaultSystemDescriptor the default system descriptor to use
-   */
-  void setDefaultSystem(SystemDescriptor<?> defaultSystemDescriptor);
-
-  /**
    * Gets the input {@link MessageStream} corresponding to the {@code inputDescriptor}.
    * <p>
    * A {@code MessageStream<KV<K, V>}, obtained by calling this method with a descriptor with a {@code KVSerde<K, V>},

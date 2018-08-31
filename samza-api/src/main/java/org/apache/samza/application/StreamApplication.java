@@ -21,22 +21,26 @@ package org.apache.samza.application;
 import org.apache.samza.annotation.InterfaceStability;
 
 /**
- * Describes and initializes the transforms for processing message streams and generating results in high-level API.
- * <p>
- * This is a marker interface that users will implement for a high-level application.
+ * Describes and initializes the transforms for processing message streams and generating results in high-level API. Your
+ * application is expected to implement this interface.
  * <p>
  * The following example removes page views older than 1 hour from the input stream:
  * <pre>{@code
  * public class PageViewCounter implements StreamApplication {
  *   public void describe(StreamAppDescriptor appDesc) {
- *     MessageStream<PageViewEvent> pageViewEvents =
- *       appDesc.getInputStream("pageViewEvents", (k, m) -> (PageViewEvent) m);
- *     OutputStream<String, PageViewEvent, PageViewEvent> recentPageViewEvents =
- *       appDesc.getOutputStream("recentPageViewEvents", m -> m.memberId, m -> m);
+ *     KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
+ *     KafkaInputDescriptor<PageViewEvent> inputStreamDescriptor =
+ *         trackingSystem.getInputDescriptor("pageViewEvent", new JsonSerdeV2<>(PageViewEvent.class));
+ *
+ *     KafkaOutputDescriptor<PageViewEvent>> outputStreamDescriptor =
+ *         trackingSystem.getOutputDescriptor("recentPageViewEvent", new JsonSerdeV2<>(PageViewEvent.class)));
+ *
+ *     MessageStream<PageViewEvent> pageViewEvents = appDesc.getInputStream(inputStreamDescriptor);
+ *     OutputStream<PageViewEvent> recentPageViewEvents = appDesc.getOutputStream(outputStreamDescriptor);
  *
  *     pageViewEvents
  *       .filter(m -> m.getCreationTime() > System.currentTimeMillis() - Duration.ofHours(1).toMillis())
- *       .sendTo(filteredPageViewEvents);
+ *       .sendTo(recentPageViewEvents);
  *   }
  * }
  * }</pre>
@@ -54,13 +58,10 @@ import org.apache.samza.annotation.InterfaceStability;
  * }</pre>
  *
  * <p>
- * Implementation Notes: Currently StreamApplications are wrapped in a {@link org.apache.samza.task.StreamTask} during
- * execution. A new {@link StreamAppDescriptor} instance will be created and described by the user-defined
- * {@link StreamApplication} when planning the execution. All user-defined transformation functions and descriptors for
- * data entities used in the transformations (e.g. {@link org.apache.samza.operators.TableDescriptor}) are required to
- * be serializable. The execution planner will generate a serialized DAG which will be deserialized in each
- * {@link org.apache.samza.task.StreamTask} instance used for processing incoming messages. Execution is synchronous and
- * thread-safe within each {@link org.apache.samza.task.StreamTask}.
+ * Implementation Notes: Currently {@link StreamApplication}s are wrapped in a {@link org.apache.samza.task.StreamTask}
+ * during execution. All user-defined transformation functions are required to be serializable. The execution planner will
+ * generate a serialized DAG which will be deserialized in each {@link org.apache.samza.task.StreamTask} instance used
+ * for processing incoming messages. Execution is synchronous and thread-safe within each {@link org.apache.samza.task.StreamTask}.
  *
  * <p>
  * The user-implemented {@link StreamApplication} class must be a class with proper fully-qualified class name and
@@ -71,5 +72,5 @@ import org.apache.samza.annotation.InterfaceStability;
  * instance is closed. See {@link org.apache.samza.operators.functions.InitableFunction} and {@link org.apache.samza.operators.functions.ClosableFunction}.
  */
 @InterfaceStability.Evolving
-public interface StreamApplication extends ApplicationBase<StreamAppDescriptor> {
+public interface StreamApplication extends SamzaApplication<StreamAppDescriptor> {
 }

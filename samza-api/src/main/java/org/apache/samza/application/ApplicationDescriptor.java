@@ -18,9 +18,13 @@
  */
 package org.apache.samza.application;
 
+import java.util.Map;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
+import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.metrics.MetricsReporterFactory;
 import org.apache.samza.operators.ContextManager;
+import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.runtime.ProcessorLifecycleListenerFactory;
 
 
@@ -37,7 +41,7 @@ import org.apache.samza.runtime.ProcessorLifecycleListenerFactory;
 public interface ApplicationDescriptor<S extends ApplicationDescriptor> {
 
   /**
-   * Get the initial {@link Config} supplied to the user application
+   * Get {@link Config}
    * @return config object
    */
   Config getConfig();
@@ -51,7 +55,7 @@ public interface ApplicationDescriptor<S extends ApplicationDescriptor> {
    * TODO: this should be replaced by the shared context factory when SAMZA-1714 is fixed.
 
    * @param contextManager the {@link ContextManager} to use for the application
-   * @return the {@link ApplicationDescriptor} with {@code contextManager} set as its {@link ContextManager}
+   * @return type {@code S} of {@link ApplicationDescriptor} with {@code contextManager} set as its {@link ContextManager}
    */
   S withContextManager(ContextManager contextManager);
 
@@ -64,8 +68,33 @@ public interface ApplicationDescriptor<S extends ApplicationDescriptor> {
    *
    * @param listenerFactory the user implemented {@link ProcessorLifecycleListenerFactory} that creates lifecycle listener
    *                        with callback methods before and after the start/stop of each StreamProcessor in the application
-   * @return the {@link ApplicationDescriptor} with {@code listenerFactory} set as its {@link ProcessorLifecycleListenerFactory}
+   * @return type {@code S} of {@link ApplicationDescriptor} with {@code listenerFactory} set as its {@link ProcessorLifecycleListenerFactory}
    */
   S withProcessorLifecycleListenerFactory(ProcessorLifecycleListenerFactory listenerFactory);
+
+  /**
+   * Sets the default SystemDescriptor to use for intermediate streams. This is equivalent to setting
+   * {@code job.default.system} and its properties in configuration.
+   * <p>
+   * If the default system descriptor is set, it must be set <b>before</b> creating any input/output/intermediate streams.
+   * <p>
+   * If an input/output stream is created with a stream-level Serde, they will be used, else the serde specified
+   * for the {@code job.default.system} in configuration will be used.
+   * <p>
+   * Providing an incompatible message type for the intermediate streams that use the default serde will result in
+   * {@link ClassCastException}s at runtime.
+   *
+   * @param defaultSystemDescriptor the default system descriptor to use
+   * @return type {@code S} of {@link ApplicationDescriptor} with {@code defaultSystemDescriptor} set as its default system
+   */
+  S withDefaultSystem(SystemDescriptor<?> defaultSystemDescriptor);
+
+  /**
+   * Sets a set of customized {@link MetricsReporter}s in the application
+   *
+   * @param reporterFactories the map of customized {@link MetricsReporterFactory} objects to be used
+   * @return type {@code S} of {@link ApplicationDescriptor} with {@code reporterFactories}
+   */
+  S withMetricsReporterFactories(Map<String, MetricsReporterFactory> reporterFactories);
 
 }

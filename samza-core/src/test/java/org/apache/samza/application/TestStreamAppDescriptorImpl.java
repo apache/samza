@@ -250,7 +250,7 @@ public class TestStreamAppDescriptorImpl {
       }, mock(Config.class));
 
     new StreamAppDescriptorImpl(appDesc -> {
-        appDesc.setDefaultSystem(sd2);
+        appDesc.withDefaultSystem(sd2);
         try {
           appDesc.getInputStream(isd1);
           fail("Adding input stream with the same system name as the default system but different SystemDescriptor should have failed");
@@ -316,7 +316,7 @@ public class TestStreamAppDescriptorImpl {
 
     new StreamAppDescriptorImpl(appDesc -> {
         appDesc.getInputStream(isd);
-        appDesc.setDefaultSystem(sd); // should throw exception
+        appDesc.withDefaultSystem(sd); // should throw exception
       }, mock(Config.class));
   }
 
@@ -327,7 +327,7 @@ public class TestStreamAppDescriptorImpl {
     GenericOutputDescriptor osd = sd.getOutputDescriptor(streamId, mock(Serde.class));
     new StreamAppDescriptorImpl(appDesc -> {
         appDesc.getOutputStream(osd);
-        appDesc.setDefaultSystem(sd); // should throw exception
+        appDesc.withDefaultSystem(sd); // should throw exception
       }, mock(Config.class));
   }
 
@@ -336,7 +336,7 @@ public class TestStreamAppDescriptorImpl {
     String streamId = "test-stream-1";
     StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> { }, mock(Config.class));
     streamAppDesc.getIntermediateStream(streamId, mock(Serde.class), false);
-    streamAppDesc.setDefaultSystem(mock(SystemDescriptor.class)); // should throw exception
+    streamAppDesc.withDefaultSystem(mock(SystemDescriptor.class)); // should throw exception
   }
 
   @Test(expected = IllegalStateException.class)
@@ -398,7 +398,7 @@ public class TestStreamAppDescriptorImpl {
 
     StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> { }, mockConfig);
     GenericSystemDescriptor sd = new GenericSystemDescriptor("mock-system", "mock-system-factory");
-    streamAppDesc.setDefaultSystem(sd);
+    streamAppDesc.withDefaultSystem(sd);
     IntermediateMessageStreamImpl<TestMessageEnvelope> intermediateStreamImpl =
         streamAppDesc.getIntermediateStream(streamId, mock(Serde.class), false);
 
