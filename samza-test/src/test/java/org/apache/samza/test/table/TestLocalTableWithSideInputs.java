@@ -45,7 +45,7 @@ import org.apache.samza.table.Table;
 import org.apache.samza.test.framework.TestRunner;
 import org.apache.samza.test.framework.stream.CollectionStream;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
-import org.junit.Test;
+//import org.junit.Test;
 
 import static org.apache.samza.test.table.TestTableData.*;
 import static org.junit.Assert.assertEquals;
@@ -58,7 +58,7 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
   private static final String ENRICHED_PAGEVIEW_STREAM = "enrichedpageview";
 
   // @Test
-  // TODO: re-enable after fixing the test system should use InMemorySystemFactory instead of Kafka
+  // TODO: re-enable after fixing the test system should use InMemorySystemFactory instead of Kafka (SAMZA-1836)
   public void testJoinWithSideInputsTable() {
     runTest(
         "side-input-join",
@@ -68,7 +68,7 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
   }
 
   // @Test
-  // TODO: re-enable after fixing the test system should use InMemorySystemFactory instead of Kafka
+  // TODO: re-enable after fixing the test system should use InMemorySystemFactory instead of Kafka (SAMZA-1836)
   public void testJoinWithDurableSideInputTable() {
     runTest(
         "durable-side-input",
