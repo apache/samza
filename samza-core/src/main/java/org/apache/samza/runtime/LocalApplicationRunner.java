@@ -96,9 +96,8 @@ public class LocalApplicationRunner implements ApplicationRunner {
       }
       jobConfigs.forEach(jobConfig -> {
           LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
-          LocalStreamProcessorLifecycleListener localListener = new LocalStreamProcessorLifecycleListener(jobConfig);
-          StreamProcessor processor = createStreamProcessor(jobConfig, appDesc, localListener);
-          localListener.setProcessor(processor);
+          StreamProcessor processor = createStreamProcessor(jobConfig, appDesc,
+              sp -> new LocalStreamProcessorLifecycleListener(sp, jobConfig));
           processors.add(processor);
         });
       numProcessorsToStart.set(processors.size());
@@ -163,21 +162,21 @@ public class LocalApplicationRunner implements ApplicationRunner {
 
   /* package private */
   StreamProcessor createStreamProcessor(Config config, ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,
-      LocalStreamProcessorLifecycleListener listener) {
+      StreamProcessor.StreamProcessorListenerFactory listenerFactory) {
     TaskFactory taskFactory = TaskFactoryUtil.getTaskFactory(appDesc);
     Map<String, MetricsReporter> reporters = new HashMap<>();
     // TODO: the null processorId has to be fixed after SAMZA-1835
     appDesc.getMetricsReporterFactories().forEach((name, factory) ->
         reporters.put(name, factory.getMetricsReporter(name, null, config)));
-    return new StreamProcessor(config, reporters, taskFactory, listener, null);
+    return new StreamProcessor(config, reporters, taskFactory, listenerFactory, null);
   }
 
   /**
    * Defines a specific implementation of {@link ProcessorLifecycleListener} for local {@link StreamProcessor}s.
    */
   final class LocalStreamProcessorLifecycleListener implements ProcessorLifecycleListener {
-    private StreamProcessor processor;
-    private ProcessorLifecycleListener processorLifecycleListener;
+    private final StreamProcessor processor;
+    private final ProcessorLifecycleListener processorLifecycleListener;
 
     @Override
     public void beforeStart() {
@@ -195,7 +194,6 @@ public class LocalApplicationRunner implements ApplicationRunner {
     @Override
     public void afterStop() {
       processors.remove(processor);
-      processor = null;
 
       // successful shutdown
       handleProcessorShutdown(null);
@@ -204,7 +202,6 @@ public class LocalApplicationRunner implements ApplicationRunner {
     @Override
     public void afterFailure(Throwable t) {
       processors.remove(processor);
-      processor = null;
 
       // the processor stopped with failure, this is logging the first processor's failure as the cause of
       // the whole application failure
@@ -217,12 +214,9 @@ public class LocalApplicationRunner implements ApplicationRunner {
       handleProcessorShutdown(t);
     }
 
-    LocalStreamProcessorLifecycleListener(Config jobConfig) {
-      this.processorLifecycleListener = appDesc.getProcessorLifecycleListenerFactory().createInstance(new ProcessorContext() {
-      }, jobConfig);
-    }
-
-    private void setProcessor(StreamProcessor processor) {
+    LocalStreamProcessorLifecycleListener(StreamProcessor processor, Config jobConfig) {
+      this.processorLifecycleListener = appDesc.getProcessorLifecycleListenerFactory()
+          .createInstance(new ProcessorContext() { }, jobConfig);
       this.processor = processor;
     }
 

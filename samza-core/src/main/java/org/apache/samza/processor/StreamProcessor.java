@@ -190,6 +190,34 @@ public class StreamProcessor {
   }
 
   /**
+   * Same as {@link #StreamProcessor(Config, Map, TaskFactory, ProcessorLifecycleListener, JobCoordinator)}, except
+   * there is a {@link StreamProcessorListenerFactory} as input instead of {@link ProcessorLifecycleListener}.
+   * This is useful to create a {@link ProcessorLifecycleListener} with a reference to this {@link StreamProcessor}
+   *
+   * @param config configuration required to launch {@link JobCoordinator} and {@link SamzaContainer}
+   * @param customMetricsReporters metric Reporter
+   * @param taskFactory task factory to instantiate the Task
+   * @param listenerFactory listener to the StreamProcessor life cycle
+   * @param jobCoordinator the instance of {@link JobCoordinator}
+   */
+  public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, TaskFactory taskFactory,
+      StreamProcessorListenerFactory listenerFactory, JobCoordinator jobCoordinator) {
+    Preconditions.checkNotNull(listenerFactory, "StreamProcessorListenerFactory cannot be null.");
+    this.taskFactory = taskFactory;
+    this.config = config;
+    this.taskShutdownMs = new TaskConfigJava(config).getShutdownMs();
+    this.customMetricsReporter = customMetricsReporters;
+    this.jobCoordinator = (jobCoordinator != null) ? jobCoordinator : createJobCoordinator();
+    this.jobCoordinatorListener = createJobCoordinatorListener();
+    this.jobCoordinator.setListener(jobCoordinatorListener);
+    ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(CONTAINER_THREAD_NAME_FORMAT).setDaemon(true).build();
+    this.executorService = Executors.newSingleThreadExecutor(threadFactory);
+    // TODO: remove the dependency on jobCoordinator for processorId after fixing SAMZA-1835
+    this.processorId = this.jobCoordinator.getProcessorId();
+    this.processorListener = listenerFactory.createInstance(this);
+  }
+
+  /**
    * Asynchronously starts this {@link StreamProcessor}.
    * <p>
    *   <b>Implementation</b>:
@@ -366,6 +394,14 @@ public class StreamProcessor {
         processorListener.afterFailure(throwable);
       }
     };
+  }
+
+  /**
+   * Interface to create a {@link ProcessorLifecycleListener}
+   */
+  @FunctionalInterface
+  public interface StreamProcessorListenerFactory {
+    ProcessorLifecycleListener createInstance(StreamProcessor processor);
   }
 
   class ContainerListener implements SamzaContainerListener {

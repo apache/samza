@@ -78,12 +78,12 @@ public class TestLocalApplicationRunner {
 
     StreamProcessor sp = mock(StreamProcessor.class);
 
-    ArgumentCaptor<LocalApplicationRunner.LocalStreamProcessorLifecycleListener> captor =
-        ArgumentCaptor.forClass(LocalApplicationRunner.LocalStreamProcessorLifecycleListener.class);
+    ArgumentCaptor<StreamProcessor.StreamProcessorListenerFactory> captor =
+        ArgumentCaptor.forClass(StreamProcessor.StreamProcessorListenerFactory.class);
 
     doAnswer(i ->
       {
-        ProcessorLifecycleListener listener = captor.getValue();
+        ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
         listener.afterStart();
         listener.afterStop();
         return null;
@@ -113,12 +113,12 @@ public class TestLocalApplicationRunner {
     doReturn(Collections.singletonList(new JobConfig(new MapConfig(config)))).when(localPlanner).prepareJobs();
 
     StreamProcessor sp = mock(StreamProcessor.class);
-    ArgumentCaptor<LocalApplicationRunner.LocalStreamProcessorLifecycleListener> captor =
-        ArgumentCaptor.forClass(LocalApplicationRunner.LocalStreamProcessorLifecycleListener.class);
+    ArgumentCaptor<StreamProcessor.StreamProcessorListenerFactory> captor =
+        ArgumentCaptor.forClass(StreamProcessor.StreamProcessorListenerFactory.class);
 
     doAnswer(i ->
       {
-        ProcessorLifecycleListener listener = captor.getValue();
+        ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
         listener.afterStart();
         listener.afterStop();
         return null;
@@ -148,8 +148,8 @@ public class TestLocalApplicationRunner {
     doReturn(Collections.singletonList(new JobConfig(new MapConfig(config)))).when(localPlanner).prepareJobs();
 
     StreamProcessor sp = mock(StreamProcessor.class);
-    ArgumentCaptor<LocalApplicationRunner.LocalStreamProcessorLifecycleListener> captor =
-        ArgumentCaptor.forClass(LocalApplicationRunner.LocalStreamProcessorLifecycleListener.class);
+    ArgumentCaptor<StreamProcessor.StreamProcessorListenerFactory> captor =
+        ArgumentCaptor.forClass(StreamProcessor.StreamProcessorListenerFactory.class);
 
     doAnswer(i ->
       {
