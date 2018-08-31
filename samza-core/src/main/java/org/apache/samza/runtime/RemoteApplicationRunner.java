@@ -49,12 +49,12 @@ public class RemoteApplicationRunner implements ApplicationRunner {
   private final RemoteJobPlanner planner;
 
   /**
-   * Default constructor that is required by any implementation of {@link ApplicationRunner}
+   * Default public constructor that is required by any implementation of {@link ApplicationRunner}
    *
    * @param userApp user application
    * @param config user configuration
    */
-  RemoteApplicationRunner(SamzaApplication userApp, Config config) {
+  public RemoteApplicationRunner(SamzaApplication userApp, Config config) {
     this.appDesc = ApplicationDescriptors.getAppDescriptor(userApp, config);
     this.planner = new RemoteJobPlanner(appDesc);
   }

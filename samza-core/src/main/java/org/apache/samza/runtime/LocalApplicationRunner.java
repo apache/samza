@@ -65,7 +65,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
   private ApplicationStatus appStatus = ApplicationStatus.New;
 
   /**
-   * Default constructor that is required by any implementation of {@link ApplicationRunner}
+   * Default public constructor that is required by any implementation of {@link ApplicationRunner}
    *
    * @param userApp user application
    * @param config user configuration

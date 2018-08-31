@@ -25,6 +25,9 @@ import org.apache.samza.job.ApplicationStatus;
 
 /**
  * The primary means of managing execution of the {@link org.apache.samza.application.SamzaApplication} at runtime.
+ *
+ * <p>
+ * Implementation of {@link ApplicationRunner} class must have a public default constructor #ApplicationRunner(SamzaApplication, Config)
  */
 @InterfaceStability.Evolving
 public interface ApplicationRunner {

@@ -223,7 +223,7 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
     return null;
   }
 
-  class MockLocalApplicationRunner extends LocalApplicationRunner {
+  public static class MockLocalApplicationRunner extends LocalApplicationRunner {
 
     /**
      * Default constructor that is required by any implementation of {@link ApplicationRunner}

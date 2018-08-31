@@ -57,7 +57,8 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
   private static final String PROFILE_STREAM = "profile";
   private static final String ENRICHED_PAGEVIEW_STREAM = "enrichedpageview";
 
-  @Test
+  // @Test
+  // TODO: re-enable after fixing the test system should use InMemorySystemFactory instead of Kafka
   public void testJoinWithSideInputsTable() {
     runTest(
         "side-input-join",
@@ -66,7 +67,8 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
         Arrays.asList(TestTableData.generateProfiles(10)));
   }
 
-  @Test
+  // @Test
+  // TODO: re-enable after fixing the test system should use InMemorySystemFactory instead of Kafka
   public void testJoinWithDurableSideInputTable() {
     runTest(
         "durable-side-input",
