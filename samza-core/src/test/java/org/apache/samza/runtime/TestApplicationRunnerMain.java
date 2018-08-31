@@ -20,7 +20,6 @@ package org.apache.samza.runtime;
 
 import java.time.Duration;
 import org.apache.samza.application.SamzaApplication;
-import org.apache.samza.application.ApplicationDescriptors;
 import org.apache.samza.application.MockStreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;

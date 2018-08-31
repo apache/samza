@@ -18,8 +18,6 @@
  */
 package org.apache.samza.task;
 
-import org.apache.samza.application.StreamApplicationDescriptor;
-import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.system.EndOfStreamMessage;
@@ -71,10 +69,9 @@ public class StreamOperatorTask implements StreamTask, InitableTask, WindowableT
    * Initializes this task during startup.
    * <p>
    * Implementation: Initializes the runtime {@link OperatorImplGraph} according to user-defined {@link OperatorSpecGraph}.
-   * The {@link StreamApplicationDescriptorImpl} sets the input and output streams and the task-wide
-   * context manager using the {@link StreamApplicationDescriptor} APIs,
+   * Users set the input and output streams and the task-wide context manager using {@link org.apache.samza.application.StreamApplicationDescriptor} APIs,
    * and the logical transforms using the {@link org.apache.samza.operators.MessageStream} APIs. After the
-   * {@link StreamApplicationDescriptorImpl} is initialized once by the application, it then creates
+   * {@link org.apache.samza.application.StreamApplicationDescriptorImpl} is initialized once by the application, it then creates
    * an immutable {@link OperatorSpecGraph} accordingly, which is passed in to this class to create the {@link OperatorImplGraph}
    * corresponding to the logical DAG.
    *
