@@ -28,8 +28,8 @@ import org.apache.samza.task.TaskFactory;
 /**
  *  The interface class to describe a user application as low-level task in Samza.
  */
-@InterfaceStability.Unstable
-public interface TaskAppDescriptor extends ApplicationDescriptor<TaskAppDescriptor> {
+@InterfaceStability.Evolving
+public interface TaskApplicationDescriptor extends ApplicationDescriptor<TaskApplicationDescriptor> {
 
   /**
    * Sets the {@link TaskFactory} for the user application. The {@link TaskFactory#createInstance()} creates task instance

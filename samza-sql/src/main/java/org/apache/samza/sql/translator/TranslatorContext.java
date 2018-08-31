@@ -32,7 +32,7 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.samza.application.StreamAppDescriptor;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.sql.data.RexToJavaCompiler;
@@ -41,13 +41,13 @@ import org.apache.samza.sql.interfaces.SamzaRelConverter;
 
 
 /**
- * State that is maintained while translating the Calcite relational graph to Samza {@link StreamAppDescriptor}.
+ * State that is maintained while translating the Calcite relational graph to Samza {@link StreamApplicationDescriptor}.
  */
 public class TranslatorContext implements Cloneable {
   /**
    * The internal variables that are shared among all cloned {@link TranslatorContext}
    */
-  private final StreamAppDescriptor streamAppDesc;
+  private final StreamApplicationDescriptor streamAppDesc;
   private final RexToJavaCompiler compiler;
   private final Map<String, SamzaRelConverter> relSamzaConverters;
   private final Map<Integer, MessageStream> messageStreams;
@@ -138,7 +138,7 @@ public class TranslatorContext implements Cloneable {
    * @param executionContext the execution context
    * @param converters the map of schema to RelData converters
    */
-  TranslatorContext(StreamAppDescriptor stramAppDesc, RelRoot relRoot, SamzaSqlExecutionContext executionContext, Map<String, SamzaRelConverter> converters) {
+  TranslatorContext(StreamApplicationDescriptor stramAppDesc, RelRoot relRoot, SamzaSqlExecutionContext executionContext, Map<String, SamzaRelConverter> converters) {
     this.streamAppDesc = stramAppDesc;
     this.compiler = createExpressionCompiler(relRoot);
     this.executionContext = executionContext;
@@ -154,7 +154,7 @@ public class TranslatorContext implements Cloneable {
    *
    * @return the stream graph
    */
-  public StreamAppDescriptor getStreamAppDescriptor() {
+  public StreamApplicationDescriptor getStreamAppDescriptor() {
     return streamAppDesc;
   }
 

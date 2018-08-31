@@ -34,7 +34,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.StreamAppDescriptor;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.SamzaContainerContext;
@@ -126,7 +126,7 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     }
   }
 
-  private <K, V> Table<KV<K, V>> getCachingTable(Table<KV<K, V>> actualTable, boolean defaultCache, String id, StreamAppDescriptor appDesc) {
+  private <K, V> Table<KV<K, V>> getCachingTable(Table<KV<K, V>> actualTable, boolean defaultCache, String id, StreamApplicationDescriptor appDesc) {
     CachingTableDescriptor<K, V> cachingDesc = new CachingTableDescriptor<>("caching-table-" + id);
     if (defaultCache) {
       cachingDesc.withReadTtl(Duration.ofMinutes(5));

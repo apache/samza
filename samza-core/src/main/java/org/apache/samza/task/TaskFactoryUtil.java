@@ -19,8 +19,10 @@
 package org.apache.samza.task;
 
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.AppDescriptorImpl;
+import org.apache.samza.application.ApplicationDescriptor;
+import org.apache.samza.application.ApplicationDescriptorImpl;
 import org.apache.samza.application.ApplicationDescriptors;
+import org.apache.samza.application.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.TaskConfig;
@@ -39,16 +41,15 @@ public class TaskFactoryUtil {
   private static final Logger log = LoggerFactory.getLogger(TaskFactoryUtil.class);
 
   /**
-   * Creates a {@link TaskFactory} based on {@link AppDescriptorImpl}
+   * Creates a {@link TaskFactory} based on {@link ApplicationDescriptorImpl}
    *
-   * @param appDesc {@link AppDescriptorImpl} for this application
+   * @param appDesc {@link ApplicationDescriptorImpl} for this application
    * @return {@link TaskFactory} object defined by {@code appDesc}
    */
-  public static TaskFactory getTaskFactory(AppDescriptorImpl appDesc) {
-    return ApplicationDescriptors.<TaskFactory>forType(
-        taskAppDesc -> taskAppDesc.getTaskFactory(),
-        streamAppDesc -> (StreamTaskFactory) () -> new StreamOperatorTask(streamAppDesc.getOperatorSpecGraph(),
-            streamAppDesc.getContextManager()),
+  public static TaskFactory getTaskFactory(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
+    return ApplicationDescriptors.<TaskFactory>forType(TaskApplicationDescriptorImpl::getTaskFactory,
+        streamAppDesc -> (StreamTaskFactory) () ->
+            new StreamOperatorTask(streamAppDesc.getOperatorSpecGraph(), streamAppDesc.getContextManager()),
         appDesc);
   }
 

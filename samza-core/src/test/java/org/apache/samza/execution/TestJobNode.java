@@ -24,7 +24,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.apache.samza.application.StreamAppDescriptorImpl;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -65,7 +65,7 @@ public class TestJobNode {
     when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("jobName");
     when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("jobId");
 
-    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+    StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
         KVSerde<String, Object> serde = KVSerde.of(new StringSerde(), new JsonSerdeV2<>());
         GenericSystemDescriptor sd = new GenericSystemDescriptor("system1", "mockSystemFactoryClass");
         GenericInputDescriptor<KV<String, Object>> inputDescriptor1 = sd.getInputDescriptor("input1", serde);
@@ -188,7 +188,7 @@ public class TestJobNode {
     when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("jobName");
     when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("jobId");
 
-    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+    StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
         GenericSystemDescriptor sd = new GenericSystemDescriptor("system1", "mockSystemFactoryClassName");
         GenericInputDescriptor<KV<String, Object>> inputDescriptor1 =
             sd.getInputDescriptor("input", KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));

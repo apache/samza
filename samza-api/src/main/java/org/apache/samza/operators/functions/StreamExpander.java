@@ -19,13 +19,13 @@
 package org.apache.samza.operators.functions;
 
 import java.io.Serializable;
-import org.apache.samza.application.StreamAppDescriptor;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 
 /**
- * Expands the provided {@link InputDescriptor} to a sub-DAG of one or more operators on the {@link StreamAppDescriptor},
- * and returns a new {@link MessageStream} with the combined results. Called when {@link StreamAppDescriptor#getInputStream}
+ * Expands the provided {@link InputDescriptor} to a sub-DAG of one or more operators on the {@link StreamApplicationDescriptor},
+ * and returns a new {@link MessageStream} with the combined results. Called when {@link StreamApplicationDescriptor#getInputStream}
  * is being used to get a {@link MessageStream} using an {@link InputDescriptor} from an expanding system descriptor.
  * <p>
  * This is provided by default by expanding system descriptor implementations and can not be overridden
@@ -36,23 +36,23 @@ import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 public interface StreamExpander<OM> extends Serializable {
 
   /**
-   * Expands the provided {@link InputDescriptor} to a sub-DAG of one or more operators on the {@link StreamAppDescriptor},
+   * Expands the provided {@link InputDescriptor} to a sub-DAG of one or more operators on the {@link StreamApplicationDescriptor},
    * and returns a new {@link MessageStream} with the combined results. Called when the {@link InputDescriptor}
-   * is being used to get an {@link MessageStream} using {@link StreamAppDescriptor#getInputStream}.
+   * is being used to get an {@link MessageStream} using {@link StreamApplicationDescriptor#getInputStream}.
    * <p>
    * Notes for system implementers:
    * <p>
    * Take care to avoid infinite recursion in the implementation; e.g., by ensuring that it doesn't call
-   * {@link StreamAppDescriptor#getInputStream} with an {@link InputDescriptor} from an expanding system descriptor
+   * {@link StreamApplicationDescriptor#getInputStream} with an {@link InputDescriptor} from an expanding system descriptor
    * (like this one) again.
    * <p>
    * It's the {@link StreamExpander}'s responsibility to propagate any properties, including serde, from the
    * user-provided {@link InputDescriptor} to the expanded input descriptors.
    *
-   * @param streamAppDesc the {@link StreamAppDescriptor} to register the expanded sub-DAG of operators on
+   * @param streamAppDesc the {@link StreamApplicationDescriptor} to register the expanded sub-DAG of operators on
    * @param inputDescriptor the {@link InputDescriptor} to be expanded
    * @return the {@link MessageStream} containing the combined results of the sub-DAG of operators
    */
-  MessageStream<OM> apply(StreamAppDescriptor streamAppDesc, InputDescriptor inputDescriptor);
+  MessageStream<OM> apply(StreamApplicationDescriptor streamAppDesc, InputDescriptor inputDescriptor);
 
 }

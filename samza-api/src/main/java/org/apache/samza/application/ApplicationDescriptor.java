@@ -30,11 +30,11 @@ import org.apache.samza.runtime.ProcessorLifecycleListenerFactory;
 /**
  * The base interface class to describe a user application in Samza.
  * <p>
- * Sub-classes {@link StreamAppDescriptor} and {@link TaskAppDescriptor} are specific interfaces for applications written
+ * Sub-classes {@link StreamApplicationDescriptor} and {@link TaskApplicationDescriptor} are specific interfaces for applications written
  * in high-level DAG and low-level task APIs, respectively.
  *
- * @param <S> sub-class of user application descriptor. It has to be either {@link StreamAppDescriptor} or
- *            {@link TaskAppDescriptor}
+ * @param <S> sub-class of user application descriptor. It has to be either {@link StreamApplicationDescriptor} or
+ *            {@link TaskApplicationDescriptor}
  */
 @InterfaceStability.Evolving
 public interface ApplicationDescriptor<S extends ApplicationDescriptor> {

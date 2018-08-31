@@ -20,8 +20,9 @@ package org.apache.samza.execution;
 
 import java.util.Collections;
 import java.util.List;
-import org.apache.samza.application.AppDescriptorImpl;
-import org.apache.samza.application.StreamAppDescriptorImpl;
+import org.apache.samza.application.ApplicationDescriptor;
+import org.apache.samza.application.ApplicationDescriptorImpl;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -56,7 +57,7 @@ public class TestRemoteJobPlanner {
   @Test
   public void testStreamCreation()
       throws Exception {
-    remotePlanner = createRemoteJobPlanner(mock(StreamAppDescriptorImpl.class));
+    remotePlanner = createRemoteJobPlanner(mock(StreamApplicationDescriptorImpl.class));
     StreamManager streamManager = mock(StreamManager.class);
     doReturn(streamManager).when(remotePlanner).buildAndStartStreamManager(any(Config.class));
 
@@ -81,7 +82,7 @@ public class TestRemoteJobPlanner {
     verify(streamManager).stop();
   }
 
-  private RemoteJobPlanner createRemoteJobPlanner(AppDescriptorImpl appDesc) {
+  private RemoteJobPlanner createRemoteJobPlanner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
     return spy(new RemoteJobPlanner(appDesc));
   }
 }

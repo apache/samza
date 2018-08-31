@@ -20,7 +20,7 @@ package org.apache.samza.operators.spec;
 
 import java.util.Collection;
 import java.util.Map;
-import org.apache.samza.application.StreamAppDescriptorImpl;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.MessageStream;
@@ -105,7 +105,7 @@ public class TestPartitionByOperatorSpec {
     MapFunction<Object, String> keyFn = m -> m.toString();
     MapFunction<Object, Object> valueFn = m -> m;
     KVSerde<Object, Object> partitionBySerde = KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>());
-    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> {
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
         MessageStream inputStream = appDesc.getInputStream(testinputDescriptor);
         inputStream.partitionBy(keyFn, valueFn, partitionBySerde, testRepartitionedStreamName);
       }, mockConfig);
@@ -134,7 +134,7 @@ public class TestPartitionByOperatorSpec {
   public void testPartitionByWithNoSerde() {
     MapFunction<Object, String> keyFn = m -> m.toString();
     MapFunction<Object, Object> valueFn = m -> m;
-    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> {
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
         MessageStream inputStream = appDesc.getInputStream(testinputDescriptor);
         inputStream.partitionBy(keyFn, valueFn, testRepartitionedStreamName);
       }, mockConfig);
@@ -159,7 +159,7 @@ public class TestPartitionByOperatorSpec {
 
   @Test
   public void testCopy() {
-    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> {
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
         MessageStream inputStream = appDesc.getInputStream(testinputDescriptor);
         inputStream.partitionBy(m -> m.toString(), m -> m, testRepartitionedStreamName);
       }, mockConfig);
@@ -171,7 +171,7 @@ public class TestPartitionByOperatorSpec {
   @Test(expected = IllegalArgumentException.class)
   public void testTimerFunctionAsKeyFn() {
     TimerMapFn keyFn = new TimerMapFn();
-    new StreamAppDescriptorImpl(appDesc -> {
+    new StreamApplicationDescriptorImpl(appDesc -> {
         MessageStream<Object> inputStream = appDesc.getInputStream(testinputDescriptor);
         inputStream.partitionBy(keyFn, m -> m, "parByKey");
       }, mockConfig);
@@ -180,7 +180,7 @@ public class TestPartitionByOperatorSpec {
   @Test(expected = IllegalArgumentException.class)
   public void testWatermarkFunctionAsKeyFn() {
     WatermarkMapFn keyFn = new WatermarkMapFn();
-    new StreamAppDescriptorImpl(appDesc -> {
+    new StreamApplicationDescriptorImpl(appDesc -> {
         MessageStream<Object> inputStream = appDesc.getInputStream(testinputDescriptor);
         inputStream.partitionBy(keyFn, m -> m, "parByKey");
       }, mockConfig);
@@ -189,7 +189,7 @@ public class TestPartitionByOperatorSpec {
   @Test(expected = IllegalArgumentException.class)
   public void testTimerFunctionAsValueFn() {
     TimerMapFn valueFn = new TimerMapFn();
-    new StreamAppDescriptorImpl(appDesc -> {
+    new StreamApplicationDescriptorImpl(appDesc -> {
         MessageStream<Object> inputStream = appDesc.getInputStream(testinputDescriptor);
         inputStream.partitionBy(m -> m.toString(), valueFn, "parByKey");
       }, mockConfig);
@@ -198,7 +198,7 @@ public class TestPartitionByOperatorSpec {
   @Test(expected = IllegalArgumentException.class)
   public void testWatermarkFunctionAsValueFn() {
     WatermarkMapFn valueFn = new WatermarkMapFn();
-    new StreamAppDescriptorImpl(appDesc -> {
+    new StreamApplicationDescriptorImpl(appDesc -> {
         MessageStream<Object> inputStream = appDesc.getInputStream(testinputDescriptor);
         inputStream.partitionBy(m -> m.toString(), valueFn, "parByKey");
       }, mockConfig);

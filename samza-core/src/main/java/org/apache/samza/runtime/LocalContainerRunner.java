@@ -24,8 +24,9 @@ import java.util.Map;
 import java.util.Random;
 import org.apache.log4j.MDC;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.application.ApplicationDescriptors;
-import org.apache.samza.application.AppDescriptorImpl;
+import org.apache.samza.application.ApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
@@ -79,13 +80,15 @@ public class LocalContainerRunner {
     MDC.put("jobName", jobName);
     MDC.put("jobId", jobId);
 
-    AppDescriptorImpl appDesc = ApplicationDescriptors.getAppDescriptor(ApplicationClassUtils.fromConfig(config), config);
+    ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc =
+        ApplicationDescriptors.getAppDescriptor(ApplicationClassUtils.fromConfig(config), config);
     run(appDesc, containerId, jobModel, config);
 
     System.exit(0);
   }
 
-  private static void run(AppDescriptorImpl appDesc, String containerId, JobModel jobModel, Config config) {
+  private static void run(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc, String containerId,
+      JobModel jobModel, Config config) {
     TaskFactory taskFactory = TaskFactoryUtil.getTaskFactory(appDesc);
     SamzaContainer container = SamzaContainer$.MODULE$.apply(
         containerId,
@@ -144,10 +147,11 @@ public class LocalContainerRunner {
 
   // TODO: this is going away when SAMZA-1168 is done and the initialization of metrics reporters are done via
   // LocalApplicationRunner#createStreamProcessor()
-  private static Map<String, MetricsReporter> loadMetricsReporters(AppDescriptorImpl appDesc, String containerId, Config config) {
+  private static Map<String, MetricsReporter> loadMetricsReporters(
+      ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc, String containerId, Config config) {
     Map<String, MetricsReporter> reporters = new HashMap<>();
-    ((Map<String, MetricsReporterFactory>) appDesc.getMetricsReporterFactories())
-        .forEach((name, factory) -> reporters.put(name, factory.getMetricsReporter(name, containerId, config)));
+    appDesc.getMetricsReporterFactories().forEach((name, factory) ->
+        reporters.put(name, factory.getMetricsReporter(name, containerId, config)));
     return reporters;
   }
 

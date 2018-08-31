@@ -22,9 +22,9 @@ import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.concurrent.ExecutorService;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.AppDescriptorImpl;
-import org.apache.samza.application.StreamAppDescriptorImpl;
-import org.apache.samza.application.TaskAppDescriptorImpl;
+import org.apache.samza.application.ApplicationDescriptorImpl;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
+import org.apache.samza.application.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.MapConfig;
@@ -127,10 +127,10 @@ public class TestTaskFactoryUtil {
     assertEquals(retFactory, mockAsyncStreamFactory);
   }
 
-  // test getTaskFactory with StreamAppDescriptor
+  // test getTaskFactory with StreamApplicationDescriptor
   @Test
   public void testGetTaskFactoryWithStreamAppDescriptor() {
-    StreamAppDescriptorImpl mockStreamApp = mock(StreamAppDescriptorImpl.class);
+    StreamApplicationDescriptorImpl mockStreamApp = mock(StreamApplicationDescriptorImpl.class);
     OperatorSpecGraph mockSpecGraph = mock(OperatorSpecGraph.class);
     when(mockStreamApp.getOperatorSpecGraph()).thenReturn(mockSpecGraph);
     TaskFactory streamTaskFactory = TaskFactoryUtil.getTaskFactory(mockStreamApp);
@@ -140,20 +140,20 @@ public class TestTaskFactoryUtil {
     verify(mockSpecGraph).clone();
   }
 
-  // test getTaskFactory with TaskAppDescriptor
+  // test getTaskFactory with TaskApplicationDescriptor
   @Test
   public void testGetTaskFactoryWithTaskAppDescriptor() {
-    TaskAppDescriptorImpl mockTaskApp = mock(TaskAppDescriptorImpl.class);
+    TaskApplicationDescriptorImpl mockTaskApp = mock(TaskApplicationDescriptorImpl.class);
     TaskFactory mockTaskFactory = mock(TaskFactory.class);
     when(mockTaskApp.getTaskFactory()).thenReturn(mockTaskFactory);
     TaskFactory taskFactory = TaskFactoryUtil.getTaskFactory(mockTaskApp);
     assertEquals(mockTaskFactory, taskFactory);
   }
 
-  // test getTaskFactory with invalid AppDescriptorImpl
+  // test getTaskFactory with invalid ApplicationDescriptorImpl
   @Test(expected = IllegalArgumentException.class)
   public void testGetTaskFactoryWithInvalidAddDescriptorImpl() {
-    AppDescriptorImpl mockInvalidApp = mock(AppDescriptorImpl.class);
+    ApplicationDescriptorImpl mockInvalidApp = mock(ApplicationDescriptorImpl.class);
     TaskFactoryUtil.getTaskFactory(mockInvalidApp);
   }
 }

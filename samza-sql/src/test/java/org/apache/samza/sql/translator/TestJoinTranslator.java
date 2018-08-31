@@ -33,7 +33,7 @@ import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.samza.application.StreamAppDescriptorImpl;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.TableDescriptor;
@@ -132,7 +132,7 @@ public class TestJoinTranslator extends TranslatorTestBase {
     when(mockRightInput.getRowType()).thenReturn(mockRightRowType);
     when(mockRightRowType.getFieldNames()).thenReturn(rightStreamFieldNames);
 
-    StreamAppDescriptorImpl mockAppDesc = mock(StreamAppDescriptorImpl.class);
+    StreamApplicationDescriptorImpl mockAppDesc = mock(StreamApplicationDescriptorImpl.class);
     OperatorSpec<Object, SamzaSqlRelMessage> mockLeftInputOp = mock(OperatorSpec.class);
     MessageStream<SamzaSqlRelMessage> mockLeftInputStream = new MessageStreamImpl<>(mockAppDesc, mockLeftInputOp);
     when(mockContext.getMessageStream(eq(mockLeftInput.getId()))).thenReturn(mockLeftInputStream);

@@ -18,7 +18,7 @@
  */
 package org.apache.samza.operators.stream;
 
-import org.apache.samza.application.StreamAppDescriptorImpl;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.spec.InputOperatorSpec;
@@ -44,7 +44,7 @@ public class IntermediateMessageStreamImpl<M> extends MessageStreamImpl<M> imple
   private final OutputStreamImpl<M> outputStream;
   private final boolean isKeyed;
 
-  public IntermediateMessageStreamImpl(StreamAppDescriptorImpl appDesc, InputOperatorSpec inputOperatorSpec,
+  public IntermediateMessageStreamImpl(StreamApplicationDescriptorImpl appDesc, InputOperatorSpec inputOperatorSpec,
       OutputStreamImpl<M> outputStream) {
     super(appDesc, (OperatorSpec<?, M>) inputOperatorSpec);
     this.outputStream = outputStream;

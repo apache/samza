@@ -25,7 +25,7 @@ import java.util.HashSet;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.logical.LogicalFilter;
-import org.apache.samza.application.StreamAppDescriptorImpl;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
@@ -73,7 +73,7 @@ public class TestFilterTranslator extends TranslatorTestBase {
     when(mockFilter.getInput()).thenReturn(mockInput);
     when(mockInput.getId()).thenReturn(1);
     when(mockFilter.getId()).thenReturn(2);
-    StreamAppDescriptorImpl mockGraph = mock(StreamAppDescriptorImpl.class);
+    StreamApplicationDescriptorImpl mockGraph = mock(StreamApplicationDescriptorImpl.class);
     OperatorSpec<Object, SamzaSqlRelMessage> mockInputOp = mock(OperatorSpec.class);
     MessageStream<SamzaSqlRelMessage> mockStream = new MessageStreamImpl<>(mockGraph, mockInputOp);
     when(mockContext.getMessageStream(eq(1))).thenReturn(mockStream);

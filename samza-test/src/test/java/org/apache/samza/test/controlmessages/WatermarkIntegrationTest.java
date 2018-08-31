@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
-import org.apache.samza.application.StreamAppDescriptor;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -153,7 +153,7 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
     class TestStreamApp implements StreamApplication {
 
       @Override
-      public void describe(StreamAppDescriptor appDesc) {
+      public void describe(StreamApplicationDescriptor appDesc) {
         DelegatingSystemDescriptor sd = new DelegatingSystemDescriptor("test");
         GenericInputDescriptor<KV<String, PageView>> isd =
             sd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));

@@ -23,7 +23,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.concurrent.CountDownLatch;
-import org.apache.samza.application.StreamAppDescriptor;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
@@ -59,7 +59,7 @@ public class TestStreamApplication implements StreamApplication {
   }
 
   @Override
-  public void describe(StreamAppDescriptor streamAppDesc) {
+  public void describe(StreamApplicationDescriptor streamAppDesc) {
     KafkaSystemDescriptor ksd = new KafkaSystemDescriptor(systemName);
     KafkaInputDescriptor<String> isd = ksd.getInputDescriptor(inputTopic, new NoOpSerde<>());
     KafkaOutputDescriptor<String> osd = ksd.getOutputDescriptor(outputTopic, new StringSerde());

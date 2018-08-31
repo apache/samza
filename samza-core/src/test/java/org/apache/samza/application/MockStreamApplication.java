@@ -23,7 +23,7 @@ package org.apache.samza.application;
  */
 public class MockStreamApplication implements StreamApplication {
   @Override
-  public void describe(StreamAppDescriptor appSpec) {
+  public void describe(StreamApplicationDescriptor appSpec) {
 
   }
 }

@@ -32,7 +32,7 @@ import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.validate.SqlUserDefinedFunction;
 import org.apache.calcite.util.Pair;
-import org.apache.samza.application.StreamAppDescriptorImpl;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
@@ -91,7 +91,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
     List<Pair<RexNode, String>> namedProjects = new ArrayList<>();
     namedProjects.add(Pair.of(mockRexField, "test_field"));
     when(mockProject.getNamedProjects()).thenReturn(namedProjects);
-    StreamAppDescriptorImpl mockAppDesc = mock(StreamAppDescriptorImpl.class);
+    StreamApplicationDescriptorImpl mockAppDesc = mock(StreamApplicationDescriptorImpl.class);
     OperatorSpec<Object, SamzaSqlRelMessage> mockInputOp = mock(OperatorSpec.class);
     MessageStream<SamzaSqlRelMessage> mockStream = new MessageStreamImpl<>(mockAppDesc, mockInputOp);
     when(mockContext.getMessageStream(eq(1))).thenReturn(mockStream);
@@ -183,7 +183,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
     flattenProjects.add(mockFlattenProject);
     when(mockProject.getProjects()).thenReturn(flattenProjects);
 
-    StreamAppDescriptorImpl mockAppDesc = mock(StreamAppDescriptorImpl.class);
+    StreamApplicationDescriptorImpl mockAppDesc = mock(StreamApplicationDescriptorImpl.class);
     OperatorSpec<Object, SamzaSqlRelMessage> mockInputOp = new OperatorSpec(OperatorSpec.OpCode.INPUT, "1") {
 
       @Override

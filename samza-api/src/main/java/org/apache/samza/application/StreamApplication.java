@@ -72,5 +72,5 @@ import org.apache.samza.annotation.InterfaceStability;
  * instance is closed. See {@link org.apache.samza.operators.functions.InitableFunction} and {@link org.apache.samza.operators.functions.ClosableFunction}.
  */
 @InterfaceStability.Evolving
-public interface StreamApplication extends SamzaApplication<StreamAppDescriptor> {
+public interface StreamApplication extends SamzaApplication<StreamApplicationDescriptor> {
 }

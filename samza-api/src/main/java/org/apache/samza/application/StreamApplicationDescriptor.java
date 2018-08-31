@@ -32,7 +32,7 @@ import org.apache.samza.table.Table;
  * The interface class to describe a user application in high-level DAG in Samza.
  */
 @InterfaceStability.Evolving
-public interface StreamAppDescriptor extends ApplicationDescriptor<StreamAppDescriptor> {
+public interface StreamApplicationDescriptor extends ApplicationDescriptor<StreamApplicationDescriptor> {
 
   /**
    * Gets the input {@link MessageStream} corresponding to the {@code inputDescriptor}.

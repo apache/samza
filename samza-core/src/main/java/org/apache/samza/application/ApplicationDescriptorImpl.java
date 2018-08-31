@@ -44,9 +44,9 @@ import org.apache.samza.task.TaskContext;
  * {@link Config}, {@link ContextManager}, and {@link ProcessorLifecycleListenerFactory}.
  *
  * @param <S> the type of {@link ApplicationDescriptor} interface this implements. It has to be either
- *            {@link org.apache.samza.application.StreamAppDescriptor} or {@link org.apache.samza.application.TaskAppDescriptor}
+ *            {@link StreamApplicationDescriptor} or {@link TaskApplicationDescriptor}
  */
-public abstract class AppDescriptorImpl<S extends ApplicationDescriptor>
+public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
     implements ApplicationDescriptor<S> {
 
   final Config config;
@@ -76,7 +76,7 @@ public abstract class AppDescriptorImpl<S extends ApplicationDescriptor>
   // Default to no-op  ProcessorLifecycleListenerFactory
   ProcessorLifecycleListenerFactory listenerFactory = (pcontext, cfg) -> new ProcessorLifecycleListener() { };
 
-  AppDescriptorImpl(SamzaApplication userApp, Config config) {
+  ApplicationDescriptorImpl(SamzaApplication userApp, Config config) {
     this.config = config;
     this.appClass = userApp.getClass();
   }
@@ -116,6 +116,8 @@ public abstract class AppDescriptorImpl<S extends ApplicationDescriptor>
   }
   /**
    * Get the user application class
+   *
+   * @return user implemented {@link SamzaApplication} class
    */
   public Class<? extends SamzaApplication> getAppClass() {
     return appClass;

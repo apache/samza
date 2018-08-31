@@ -18,15 +18,12 @@
  */
 package org.apache.samza.example;
 
-import java.io.Serializable;
-import org.apache.samza.application.TaskAppDescriptor;
+import org.apache.samza.application.TaskApplicationDescriptor;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
-import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.storage.kv.RocksDbTableDescriptor;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -63,7 +60,7 @@ public class TaskApplicationExample implements TaskApplication {
   }
 
   @Override
-  public void describe(TaskAppDescriptor appDesc) {
+  public void describe(TaskApplicationDescriptor appDesc) {
     // add input and output streams
     KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("tracking");
     KafkaInputDescriptor<String> isd = ksd.getInputDescriptor("myinput", new StringSerde());

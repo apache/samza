@@ -21,7 +21,7 @@ package org.apache.samza.example;
 import java.time.Duration;
 import java.util.HashMap;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamAppDescriptor;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.triggers.Triggers;
@@ -55,7 +55,7 @@ public class AppWithGlobalConfigExample implements StreamApplication {
   }
 
   @Override
-  public void describe(StreamAppDescriptor appDesc) {
+  public void describe(StreamApplicationDescriptor appDesc) {
     KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
 
     KafkaInputDescriptor<PageViewEvent> inputStreamDescriptor =

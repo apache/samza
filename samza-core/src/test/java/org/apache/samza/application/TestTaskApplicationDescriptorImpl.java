@@ -22,19 +22,13 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.runtime.ProcessorLifecycleListenerFactory;
-import org.apache.samza.serializers.SerializableSerde;
-import org.apache.samza.task.MockStreamTask;
-import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskFactory;
 import org.junit.Before;
 import org.junit.Test;
@@ -47,9 +41,9 @@ import static org.mockito.Mockito.when;
 
 
 /**
- * Unit test for {@link TaskAppDescriptorImpl}
+ * Unit test for {@link TaskApplicationDescriptorImpl}
  */
-public class TestTaskAppDescriptorImpl {
+public class TestTaskApplicationDescriptorImpl {
 
   private Config config = mock(Config.class);
   private String defaultSystemName = "test-system";
@@ -89,7 +83,7 @@ public class TestTaskAppDescriptorImpl {
   @Test
   public void testConstructor() {
     TaskApplication mockApp = mock(TaskApplication.class);
-    TaskAppDescriptorImpl appDesc = new TaskAppDescriptorImpl(mockApp, config);
+    TaskApplicationDescriptorImpl appDesc = new TaskApplicationDescriptorImpl(mockApp, config);
     verify(mockApp).describe(appDesc);
     assertEquals(config, appDesc.config);
   }
@@ -99,7 +93,7 @@ public class TestTaskAppDescriptorImpl {
     TaskApplication testApp = appDesc -> {
       mockInputs.forEach(appDesc::addInputStream);
     };
-    TaskAppDescriptorImpl appDesc = new TaskAppDescriptorImpl(testApp, config);
+    TaskApplicationDescriptorImpl appDesc = new TaskApplicationDescriptorImpl(testApp, config);
     assertEquals(mockInputs.toArray(), appDesc.getInputDescriptors().values().toArray());
   }
 
@@ -108,7 +102,7 @@ public class TestTaskAppDescriptorImpl {
     TaskApplication testApp = appDesc -> {
       mockOutputs.forEach(appDesc::addOutputStream);
     };
-    TaskAppDescriptorImpl appDesc = new TaskAppDescriptorImpl(testApp, config);
+    TaskApplicationDescriptorImpl appDesc = new TaskApplicationDescriptorImpl(testApp, config);
     assertEquals(mockOutputs.toArray(), appDesc.getOutputDescriptors().values().toArray());
   }
 
@@ -117,7 +111,7 @@ public class TestTaskAppDescriptorImpl {
     TaskApplication testApp = appDesc -> {
       mockTables.forEach(appDesc::addTable);
     };
-    TaskAppDescriptorImpl appDesc = new TaskAppDescriptorImpl(testApp, config);
+    TaskApplicationDescriptorImpl appDesc = new TaskApplicationDescriptorImpl(testApp, config);
     assertEquals(mockTables, appDesc.getTableDescriptors());
   }
 
@@ -125,7 +119,7 @@ public class TestTaskAppDescriptorImpl {
   public void testSetTaskFactory() {
     TaskFactory mockTf = mock(TaskFactory.class);
     TaskApplication testApp = appDesc -> appDesc.setTaskFactory(mockTf);
-    TaskAppDescriptorImpl appDesc = new TaskAppDescriptorImpl(testApp, config);
+    TaskApplicationDescriptorImpl appDesc = new TaskApplicationDescriptorImpl(testApp, config);
     assertEquals(appDesc.getTaskFactory(), mockTf);
   }
 
@@ -135,7 +129,7 @@ public class TestTaskAppDescriptorImpl {
     TaskApplication testApp = appDesc -> {
       appDesc.withContextManager(cntxMan);
     };
-    TaskAppDescriptorImpl appDesc = new TaskAppDescriptorImpl(testApp, config);
+    TaskApplicationDescriptorImpl appDesc = new TaskApplicationDescriptorImpl(testApp, config);
     assertEquals(appDesc.getContextManager(), cntxMan);
   }
 
@@ -145,7 +139,7 @@ public class TestTaskAppDescriptorImpl {
     TaskApplication testApp = appDesc -> {
       appDesc.withProcessorLifecycleListenerFactory(mockFactory);
     };
-    TaskAppDescriptorImpl appDesc = new TaskAppDescriptorImpl(testApp, config);
+    TaskApplicationDescriptorImpl appDesc = new TaskApplicationDescriptorImpl(testApp, config);
     assertEquals(appDesc.getProcessorLifecycleListenerFactory(), mockFactory);
   }
 }

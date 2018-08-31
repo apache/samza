@@ -20,7 +20,7 @@ package org.apache.samza.example;
 
 import java.time.Duration;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamAppDescriptor;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.JoinFunction;
@@ -50,7 +50,7 @@ public class OrderShipmentJoinExample implements StreamApplication {
   }
 
   @Override
-  public void describe(StreamAppDescriptor appDesc) {
+  public void describe(StreamApplicationDescriptor appDesc) {
     KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
 
     KafkaInputDescriptor<OrderRecord> orderStreamDescriptor =

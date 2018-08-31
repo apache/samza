@@ -29,10 +29,11 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.AppDescriptorImpl;
+import org.apache.samza.application.ApplicationDescriptor;
+import org.apache.samza.application.ApplicationDescriptorImpl;
 import org.apache.samza.application.ApplicationDescriptors;
-import org.apache.samza.application.StreamAppDescriptorImpl;
-import org.apache.samza.application.TaskAppDescriptorImpl;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
+import org.apache.samza.application.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -59,10 +60,10 @@ import org.slf4j.LoggerFactory;
 public abstract class JobPlanner {
   private static final Logger LOG = LoggerFactory.getLogger(JobPlanner.class);
 
-  protected final AppDescriptorImpl appDesc;
+  protected final ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc;
   protected final Config config;
 
-  JobPlanner(AppDescriptorImpl descriptor) {
+  JobPlanner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> descriptor) {
     this.appDesc = descriptor;
     this.config = descriptor.getConfig();
   }
@@ -87,7 +88,7 @@ public abstract class JobPlanner {
       appDesc);
   }
 
-  abstract List<JobConfig> prepareStreamJobs(StreamAppDescriptorImpl streamAppDesc) throws Exception;
+  abstract List<JobConfig> prepareStreamJobs(StreamApplicationDescriptorImpl streamAppDesc) throws Exception;
 
   StreamManager buildAndStartStreamManager(Config config) {
     StreamManager streamManager = new StreamManager(config);
@@ -157,7 +158,7 @@ public abstract class JobPlanner {
   }
 
   // helper method to generate a single node job configuration for low level task applications
-  private JobConfig prepareTaskJob(TaskAppDescriptorImpl taskAppDesc) {
+  private JobConfig prepareTaskJob(TaskApplicationDescriptorImpl taskAppDesc) {
     // copy original configure
     Map<String, String> cfg = new HashMap<>(config);
     // expand system and streams configure
@@ -170,20 +171,21 @@ public abstract class JobPlanner {
     return new JobConfig(new MapConfig(cfg));
   }
 
-  private Map<String, String> expandSystemStreamConfigs(AppDescriptorImpl appDesc) {
+  private Map<String, String> expandSystemStreamConfigs(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
     Map<String, String> systemStreamConfigs = new HashMap<>();
-    appDesc.getInputDescriptors().forEach((key, value) -> systemStreamConfigs.putAll(((InputDescriptor) value).toConfig()));
-    appDesc.getOutputDescriptors().forEach((key, value) -> systemStreamConfigs.putAll(((OutputDescriptor) value).toConfig()));
-    appDesc.getSystemDescriptors().forEach(sd -> systemStreamConfigs.putAll(((SystemDescriptor) sd).toConfig()));
+    appDesc.getInputDescriptors().forEach((key, value) -> systemStreamConfigs.putAll(value.toConfig()));
+    appDesc.getOutputDescriptors().forEach((key, value) -> systemStreamConfigs.putAll(value.toConfig()));
+    appDesc.getSystemDescriptors().forEach(sd -> systemStreamConfigs.putAll(sd.toConfig()));
     appDesc.getDefaultSystemDescriptor().ifPresent(dsd ->
-        systemStreamConfigs.put(JobConfig.JOB_DEFAULT_SYSTEM(), ((SystemDescriptor) dsd).getSystemName()));
+        systemStreamConfigs.put(JobConfig.JOB_DEFAULT_SYSTEM(), dsd.getSystemName()));
     return systemStreamConfigs;
   }
 
-  private Map<String, String> expandTableConfigs(Map<String, String> originConfig, AppDescriptorImpl appDesc) {
+  private Map<String, String> expandTableConfigs(Map<String, String> originConfig,
+      ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
     List<TableSpec> tableSpecs = new ArrayList<>();
     appDesc.getTableDescriptors().stream().map(td -> ((BaseTableDescriptor) td).getTableSpec())
-        .forEach(spec -> tableSpecs.add((TableSpec) spec));
+        .forEach(spec -> tableSpecs.add(spec));
     return TableConfigGenerator.generateConfigsForTableSpecs(new MapConfig(originConfig), tableSpecs);
   }
 }

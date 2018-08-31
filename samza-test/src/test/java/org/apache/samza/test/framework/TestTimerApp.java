@@ -25,7 +25,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamAppDescriptor;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.FlatMapFunction;
@@ -39,7 +39,7 @@ public class TestTimerApp implements StreamApplication {
   public static final String PAGE_VIEWS = "page-views";
 
   @Override
-  public void describe(StreamAppDescriptor appDesc) {
+  public void describe(StreamApplicationDescriptor appDesc) {
     final JsonSerdeV2<PageView> serde = new JsonSerdeV2<>(PageView.class);
     KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("kafka");
     KafkaInputDescriptor<PageView> isd = ksd.getInputDescriptor(PAGE_VIEWS, serde);

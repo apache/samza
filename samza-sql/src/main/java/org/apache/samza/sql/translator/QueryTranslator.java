@@ -30,7 +30,7 @@ import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.StreamAppDescriptor;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.KV;
@@ -57,9 +57,9 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * This class is used to populate the {@link StreamAppDescriptor} using the SQL queries.
+ * This class is used to populate the {@link StreamApplicationDescriptor} using the SQL queries.
  * This class contains the core of the SamzaSQL control code that converts the SQL statements to calcite relational graph.
- * It then walks the relational graph and then populates the Samza's {@link StreamAppDescriptor} accordingly.
+ * It then walks the relational graph and then populates the Samza's {@link StreamApplicationDescriptor} accordingly.
  */
 public class QueryTranslator {
   private static final Logger LOG = LoggerFactory.getLogger(QueryTranslator.class);
@@ -95,7 +95,7 @@ public class QueryTranslator {
     this.converters = sqlConfig.getSamzaRelConverters();
   }
 
-  public void translate(SamzaSqlQueryParser.QueryInfo queryInfo, StreamAppDescriptor appDesc) {
+  public void translate(SamzaSqlQueryParser.QueryInfo queryInfo, StreamApplicationDescriptor appDesc) {
     QueryPlanner planner =
         new QueryPlanner(sqlConfig.getRelSchemaProviders(), sqlConfig.getInputSystemStreamConfigBySource(),
             sqlConfig.getUdfMetadata());

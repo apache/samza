@@ -22,8 +22,9 @@ import com.google.common.collect.ImmutableList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.apache.samza.application.AppDescriptorImpl;
-import org.apache.samza.application.StreamAppDescriptorImpl;
+import org.apache.samza.application.ApplicationDescriptor;
+import org.apache.samza.application.ApplicationDescriptorImpl;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -72,7 +73,7 @@ public class TestLocalJobPlanner {
   @Test
   public void testStreamCreation()
       throws Exception {
-    localPlanner = createLocalJobPlanner(mock(StreamAppDescriptorImpl.class));
+    localPlanner = createLocalJobPlanner(mock(StreamApplicationDescriptorImpl.class));
     StreamManager streamManager = mock(StreamManager.class);
     doReturn(streamManager).when(localPlanner).buildAndStartStreamManager(any(Config.class));
 
@@ -101,7 +102,7 @@ public class TestLocalJobPlanner {
   @Test
   public void testStreamCreationWithCoordination()
       throws Exception {
-    localPlanner = createLocalJobPlanner(mock(StreamAppDescriptorImpl.class));
+    localPlanner = createLocalJobPlanner(mock(StreamApplicationDescriptorImpl.class));
     StreamManager streamManager = mock(StreamManager.class);
     doReturn(streamManager).when(localPlanner).buildAndStartStreamManager(any(Config.class));
 
@@ -190,7 +191,7 @@ public class TestLocalJobPlanner {
         planIdBeforeShuffle.equals(getExecutionPlanId(updatedStreamSpecs)));
   }
 
-  private LocalJobPlanner createLocalJobPlanner(AppDescriptorImpl appDesc) {
+  private LocalJobPlanner createLocalJobPlanner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
     return spy(new LocalJobPlanner(appDesc));
   }
 

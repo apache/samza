@@ -30,7 +30,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.samza.Partition;
-import org.apache.samza.application.StreamAppDescriptorImpl;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -545,7 +545,7 @@ public class TestWindowOperator {
     verify(taskCoordinator, times(1)).shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
   }
 
-  private StreamAppDescriptorImpl getKeyedTumblingWindowStreamGraph(AccumulationMode mode,
+  private StreamApplicationDescriptorImpl getKeyedTumblingWindowStreamGraph(AccumulationMode mode,
       Duration duration, Trigger<KV<Integer, Integer>> earlyTrigger) throws IOException {
 
     StreamApplication userApp = appDesc -> {
@@ -561,10 +561,10 @@ public class TestWindowOperator {
             });
     };
 
-    return new StreamAppDescriptorImpl(userApp, config);
+    return new StreamApplicationDescriptorImpl(userApp, config);
   }
 
-  private StreamAppDescriptorImpl getTumblingWindowStreamGraph(AccumulationMode mode,
+  private StreamApplicationDescriptorImpl getTumblingWindowStreamGraph(AccumulationMode mode,
       Duration duration, Trigger<KV<Integer, Integer>> earlyTrigger) throws IOException {
     StreamApplication userApp = appDesc -> {
       KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
@@ -579,10 +579,10 @@ public class TestWindowOperator {
             });
     };
 
-    return new StreamAppDescriptorImpl(userApp, config);
+    return new StreamApplicationDescriptorImpl(userApp, config);
   }
 
-  private StreamAppDescriptorImpl getKeyedSessionWindowStreamGraph(AccumulationMode mode, Duration duration) throws IOException {
+  private StreamApplicationDescriptorImpl getKeyedSessionWindowStreamGraph(AccumulationMode mode, Duration duration) throws IOException {
     StreamApplication userApp = appDesc -> {
       KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
       GenericSystemDescriptor sd = new GenericSystemDescriptor("kafka", "mockFactoryClass");
@@ -596,10 +596,10 @@ public class TestWindowOperator {
             });
     };
 
-    return new StreamAppDescriptorImpl(userApp, config);
+    return new StreamApplicationDescriptorImpl(userApp, config);
   }
 
-  private StreamAppDescriptorImpl getAggregateTumblingWindowStreamGraph(AccumulationMode mode, Duration timeDuration,
+  private StreamApplicationDescriptorImpl getAggregateTumblingWindowStreamGraph(AccumulationMode mode, Duration timeDuration,
         Trigger<IntegerEnvelope> earlyTrigger) throws IOException {
     StreamApplication userApp = appDesc -> {
       KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
@@ -618,7 +618,7 @@ public class TestWindowOperator {
             });
     };
 
-    return new StreamAppDescriptorImpl(userApp, config);
+    return new StreamApplicationDescriptorImpl(userApp, config);
   }
 
   private static class IntegerEnvelope extends IncomingMessageEnvelope {

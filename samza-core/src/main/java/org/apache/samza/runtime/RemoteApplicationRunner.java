@@ -22,7 +22,8 @@ package org.apache.samza.runtime;
 import java.time.Duration;
 import java.util.List;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.AppDescriptorImpl;
+import org.apache.samza.application.ApplicationDescriptor;
+import org.apache.samza.application.ApplicationDescriptorImpl;
 import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.application.ApplicationDescriptors;
 import org.apache.samza.config.Config;
@@ -44,7 +45,7 @@ public class RemoteApplicationRunner implements ApplicationRunner {
   private static final Logger LOG = LoggerFactory.getLogger(RemoteApplicationRunner.class);
   private static final long DEFAULT_SLEEP_DURATION_MS = 2000;
 
-  private final AppDescriptorImpl appDesc;
+  private final ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc;
   private final RemoteJobPlanner planner;
 
   /**

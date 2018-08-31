@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
@@ -40,7 +41,7 @@ import org.apache.samza.table.Table;
  * A stream of messages that can be transformed into another {@link MessageStream}.
  * <p>
  * A {@link MessageStream} corresponding to an input stream can be obtained using
- * {@link org.apache.samza.application.StreamAppDescriptor#getInputStream}.
+ * {@link StreamApplicationDescriptor#getInputStream}.
  *
  * @param <M> the type of messages in this stream
  */
@@ -214,7 +215,7 @@ public interface MessageStream<M> {
 
   /**
    * Re-partitions this {@link MessageStream} using keys from the {@code keyExtractor} by creating a new
-   * intermediate stream on the default system provided via {@link org.apache.samza.application.StreamAppDescriptor#withDefaultSystem}.
+   * intermediate stream on the default system provided via {@link StreamApplicationDescriptor#withDefaultSystem}.
    * This intermediate stream is both an output and input to the job.
    * <p>
    * Uses the provided {@link KVSerde} for serialization of keys and values. If the provided {@code serde} is null,

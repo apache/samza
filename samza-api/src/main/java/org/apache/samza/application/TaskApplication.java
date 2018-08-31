@@ -55,7 +55,9 @@ import org.apache.samza.annotation.InterfaceStability;
  *           message.getKey(), message.getKey(), m));
  *     }
  *   }
+ * }
  * }</pre>
+ *
  *<p>
  * The example above can be run using an ApplicationRunner:
  * <pre>{@code
@@ -71,7 +73,7 @@ import org.apache.samza.annotation.InterfaceStability;
  *
  * <p>
  * Implementation Notes: {@link TaskApplication} allow users to instantiate {@link org.apache.samza.task.StreamTask} or
- * {@link org.apache.samza.task.AsyncStreamTask} when describing the processing logic. A new {@link TaskAppDescriptor}
+ * {@link org.apache.samza.task.AsyncStreamTask} when describing the processing logic. A new {@link TaskApplicationDescriptor }
  * instance will be created and described by the user-defined {@link TaskApplication} when planning the execution.
  * {@link org.apache.samza.task.TaskFactory} is required to be serializable.
  *
@@ -80,5 +82,5 @@ import org.apache.samza.annotation.InterfaceStability;
  * a default constructor with no parameters to ensure successful instantiation in both local and remote environments.
  */
 @InterfaceStability.Evolving
-public interface TaskApplication extends SamzaApplication<TaskAppDescriptor> {
+public interface TaskApplication extends SamzaApplication<TaskApplicationDescriptor> {
 }

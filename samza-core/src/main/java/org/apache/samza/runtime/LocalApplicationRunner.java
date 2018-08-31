@@ -32,7 +32,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.AppDescriptorImpl;
+import org.apache.samza.application.ApplicationDescriptor;
+import org.apache.samza.application.ApplicationDescriptorImpl;
 import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.application.ApplicationDescriptors;
 import org.apache.samza.config.ApplicationConfig;
@@ -41,7 +42,6 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.execution.LocalJobPlanner;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.metrics.MetricsReporter;
-import org.apache.samza.metrics.MetricsReporterFactory;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.task.TaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
@@ -55,7 +55,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
 
   private static final Logger LOG = LoggerFactory.getLogger(LocalApplicationRunner.class);
 
-  private final AppDescriptorImpl appDesc;
+  private final ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc;
   private final LocalJobPlanner planner;
   private final Set<StreamProcessor> processors = ConcurrentHashMap.newKeySet();
   private final CountDownLatch shutdownLatch = new CountDownLatch(1);
@@ -80,7 +80,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
    *
    */
   @VisibleForTesting
-  LocalApplicationRunner(AppDescriptorImpl appDesc, LocalJobPlanner planner) {
+  LocalApplicationRunner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc, LocalJobPlanner planner) {
     this.appDesc = appDesc;
     this.planner = planner;
   }
@@ -162,13 +162,13 @@ public class LocalApplicationRunner implements ApplicationRunner {
   }
 
   /* package private */
-  StreamProcessor createStreamProcessor(Config config, AppDescriptorImpl appDesc,
+  StreamProcessor createStreamProcessor(Config config, ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,
       LocalStreamProcessorLifecycleListener listener) {
     TaskFactory taskFactory = TaskFactoryUtil.getTaskFactory(appDesc);
     Map<String, MetricsReporter> reporters = new HashMap<>();
     // TODO: the null processorId has to be fixed after SAMZA-1835
-    ((Map<String, MetricsReporterFactory>) appDesc.getMetricsReporterFactories())
-        .forEach((name, factory) -> reporters.put(name, factory.getMetricsReporter(name, null, config)));
+    appDesc.getMetricsReporterFactories().forEach((name, factory) ->
+        reporters.put(name, factory.getMetricsReporter(name, null, config)));
     return new StreamProcessor(config, reporters, taskFactory, listener, null);
   }
 

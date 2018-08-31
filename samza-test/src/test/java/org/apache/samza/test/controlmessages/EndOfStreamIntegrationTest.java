@@ -24,7 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import org.apache.samza.application.StreamAppDescriptor;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -99,7 +99,7 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
     class PipelineApplication implements StreamApplication {
 
       @Override
-      public void describe(StreamAppDescriptor appDesc) {
+      public void describe(StreamApplicationDescriptor appDesc) {
         DelegatingSystemDescriptor sd = new DelegatingSystemDescriptor("test");
         GenericInputDescriptor<KV<String, PageView>> isd =
             sd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));

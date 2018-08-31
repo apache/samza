@@ -24,7 +24,7 @@ import java.time.Duration;
 import java.util.Collection;
 
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.StreamAppDescriptorImpl;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
@@ -55,7 +55,7 @@ import org.apache.samza.table.TableSpec;
 
 /**
  * The {@link MessageStream} implementation that lets users describe their logical DAG.
- * Users can obtain an instance by calling {@link StreamAppDescriptorImpl#getInputStream}.
+ * Users can obtain an instance by calling {@link StreamApplicationDescriptorImpl#getInputStream}.
  * <p>
  * Each {@link MessageStreamImpl} is associated with a single {@link OperatorSpec} in the DAG and allows
  * users to chain further operators on its {@link OperatorSpec}. In other words, a {@link MessageStreamImpl}
@@ -65,16 +65,16 @@ import org.apache.samza.table.TableSpec;
  */
 public class MessageStreamImpl<M> implements MessageStream<M> {
   /**
-   * The {@link StreamAppDescriptorImpl} that contains this {@link MessageStreamImpl}
+   * The {@link StreamApplicationDescriptorImpl} that contains this {@link MessageStreamImpl}
    */
-  private final StreamAppDescriptorImpl streamAppDesc;
+  private final StreamApplicationDescriptorImpl streamAppDesc;
 
   /**
    * The {@link OperatorSpec} associated with this {@link MessageStreamImpl}
    */
   private final OperatorSpec operatorSpec;
 
-  public MessageStreamImpl(StreamAppDescriptorImpl streamAppDesc, OperatorSpec<?, M> operatorSpec) {
+  public MessageStreamImpl(StreamApplicationDescriptorImpl streamAppDesc, OperatorSpec<?, M> operatorSpec) {
     this.streamAppDesc = streamAppDesc;
     this.operatorSpec = operatorSpec;
   }

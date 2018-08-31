@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
-import org.apache.samza.application.StreamAppDescriptorImpl;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -107,14 +107,14 @@ public class TestExecutionPlanner {
     };
   }
 
-  private StreamAppDescriptorImpl createSimpleGraph() {
+  private StreamApplicationDescriptorImpl createSimpleGraph() {
     /**
      * a simple graph of partitionBy and map
      *
      * input1 -> partitionBy -> map -> output1
      *
      */
-    return new StreamAppDescriptorImpl(appDesc-> {
+    return new StreamApplicationDescriptorImpl(appDesc-> {
         MessageStream<KV<Object, Object>> input1 = appDesc.getInputStream(input1Descriptor);
         OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
         input1
@@ -124,7 +124,7 @@ public class TestExecutionPlanner {
       }, config);
   }
 
-  private StreamAppDescriptorImpl createStreamGraphWithJoin() {
+  private StreamApplicationDescriptorImpl createStreamGraphWithJoin() {
 
     /**
      * the graph looks like the following. number of partitions in parentheses. quotes indicate expected value.
@@ -136,7 +136,7 @@ public class TestExecutionPlanner {
      * input3 (32) -> filter -> partitionBy ("64") -> map -> join -> output2 (16)
      *
      */
-    return new StreamAppDescriptorImpl(appDesc -> {
+    return new StreamApplicationDescriptorImpl(appDesc -> {
         MessageStream<KV<Object, Object>> messageStream1 =
             appDesc.getInputStream(input1Descriptor)
                 .map(m -> m);
@@ -165,9 +165,9 @@ public class TestExecutionPlanner {
       }, config);
   }
 
-  private StreamAppDescriptorImpl createStreamGraphWithJoinAndWindow() {
+  private StreamApplicationDescriptorImpl createStreamGraphWithJoinAndWindow() {
 
-    return new StreamAppDescriptorImpl(appDesc -> {
+    return new StreamApplicationDescriptorImpl(appDesc -> {
         MessageStream<KV<Object, Object>> messageStream1 =
             appDesc.getInputStream(input1Descriptor)
                 .map(m -> m);
@@ -262,7 +262,7 @@ public class TestExecutionPlanner {
   @Test
   public void testCreateProcessorGraph() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamAppDescriptorImpl graphSpec = createStreamGraphWithJoin();
+    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithJoin();
 
     JobGraph jobGraph = planner.createJobGraph(graphSpec.getOperatorSpecGraph());
     assertTrue(jobGraph.getSources().size() == 3);
@@ -273,7 +273,7 @@ public class TestExecutionPlanner {
   @Test
   public void testFetchExistingStreamPartitions() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamAppDescriptorImpl graphSpec = createStreamGraphWithJoin();
+    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithJoin();
     JobGraph jobGraph = planner.createJobGraph(graphSpec.getOperatorSpecGraph());
 
     ExecutionPlanner.updateExistingPartitions(jobGraph, streamManager);
@@ -291,7 +291,7 @@ public class TestExecutionPlanner {
   @Test
   public void testCalculateJoinInputPartitions() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamAppDescriptorImpl graphSpec = createStreamGraphWithJoin();
+    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithJoin();
     JobGraph jobGraph = planner.createJobGraph(graphSpec.getOperatorSpecGraph());
 
     ExecutionPlanner.updateExistingPartitions(jobGraph, streamManager);
@@ -310,7 +310,7 @@ public class TestExecutionPlanner {
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
-    StreamAppDescriptorImpl graphSpec = createSimpleGraph();
+    StreamApplicationDescriptorImpl graphSpec = createSimpleGraph();
     JobGraph jobGraph = planner.createJobGraph(graphSpec.getOperatorSpecGraph());
     planner.calculatePartitions(jobGraph);
 
@@ -327,7 +327,7 @@ public class TestExecutionPlanner {
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
-    StreamAppDescriptorImpl graphSpec = createStreamGraphWithJoin();
+    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithJoin();
     ExecutionPlan plan = planner.plan(graphSpec.getOperatorSpecGraph());
     List<JobConfig> jobConfigs = plan.getJobConfigs();
     for (JobConfig config : jobConfigs) {
@@ -342,7 +342,7 @@ public class TestExecutionPlanner {
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
-    StreamAppDescriptorImpl graphSpec = createStreamGraphWithJoinAndWindow();
+    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithJoinAndWindow();
     ExecutionPlan plan = planner.plan(graphSpec.getOperatorSpecGraph());
     List<JobConfig> jobConfigs = plan.getJobConfigs();
     assertEquals(1, jobConfigs.size());
@@ -359,7 +359,7 @@ public class TestExecutionPlanner {
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
-    StreamAppDescriptorImpl graphSpec = createStreamGraphWithJoinAndWindow();
+    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithJoinAndWindow();
     ExecutionPlan plan = planner.plan(graphSpec.getOperatorSpecGraph());
     List<JobConfig> jobConfigs = plan.getJobConfigs();
     assertEquals(1, jobConfigs.size());
@@ -376,7 +376,7 @@ public class TestExecutionPlanner {
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
-    StreamAppDescriptorImpl graphSpec = createSimpleGraph();
+    StreamApplicationDescriptorImpl graphSpec = createSimpleGraph();
     ExecutionPlan plan = planner.plan(graphSpec.getOperatorSpecGraph());
     List<JobConfig> jobConfigs = plan.getJobConfigs();
     assertEquals(1, jobConfigs.size());
@@ -391,7 +391,7 @@ public class TestExecutionPlanner {
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
-    StreamAppDescriptorImpl graphSpec = createSimpleGraph();
+    StreamApplicationDescriptorImpl graphSpec = createSimpleGraph();
     ExecutionPlan plan = planner.plan(graphSpec.getOperatorSpecGraph());
     List<JobConfig> jobConfigs = plan.getJobConfigs();
     assertEquals(1, jobConfigs.size());
@@ -401,7 +401,7 @@ public class TestExecutionPlanner {
   @Test
   public void testCalculateIntStreamPartitions() throws Exception {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamAppDescriptorImpl graphSpec = createSimpleGraph();
+    StreamApplicationDescriptorImpl graphSpec = createSimpleGraph();
     JobGraph jobGraph = (JobGraph) planner.plan(graphSpec.getOperatorSpecGraph());
 
     // the partitions should be the same as input1
@@ -434,7 +434,7 @@ public class TestExecutionPlanner {
     int partitionLimit = ExecutionPlanner.MAX_INFERRED_PARTITIONS;
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+    StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
         MessageStream<KV<Object, Object>> input1 = appDesc.getInputStream(input4Descriptor);
         OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
         input1.partitionBy(m -> m.key, m -> m.value, "p1").map(kv -> kv).sendTo(output1);

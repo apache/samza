@@ -59,13 +59,13 @@ import org.slf4j.LoggerFactory;
 
 /**
  * This class defines:
- * 1) an implementation of {@link StreamAppDescriptor} that provides APIs to access {@link MessageStream}, {@link OutputStream},
+ * 1) an implementation of {@link StreamApplicationDescriptor} that provides APIs to access {@link MessageStream}, {@link OutputStream},
  * and {@link Table} to create the DAG of transforms.
  * 2) a builder that creates a serializable {@link OperatorSpecGraph} from user-defined DAG
  */
-public class StreamAppDescriptorImpl extends AppDescriptorImpl<StreamAppDescriptor>
-    implements StreamAppDescriptor {
-  private static final Logger LOGGER = LoggerFactory.getLogger(StreamAppDescriptorImpl.class);
+public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<StreamApplicationDescriptor>
+    implements StreamApplicationDescriptor {
+  private static final Logger LOGGER = LoggerFactory.getLogger(StreamApplicationDescriptorImpl.class);
   private static final Pattern ID_PATTERN = Pattern.compile("[\\d\\w-_]+");
 
   // We use a LHM for deterministic order in initializing and closing operators.
@@ -81,7 +81,7 @@ public class StreamAppDescriptorImpl extends AppDescriptorImpl<StreamAppDescript
   private int nextOpNum = 0;
   private final Set<String> operatorIds = new HashSet<>();
 
-  public StreamAppDescriptorImpl(StreamApplication userApp, Config config) {
+  public StreamApplicationDescriptorImpl(StreamApplication userApp, Config config) {
     super(userApp, config);
     userApp.describe(this);
   }

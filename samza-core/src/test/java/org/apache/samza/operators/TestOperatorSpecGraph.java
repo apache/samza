@@ -27,7 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.StreamAppDescriptorImpl;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.spec.InputOperatorSpec;
@@ -58,14 +58,14 @@ import static org.mockito.Mockito.*;
 @PrepareForTest(OperatorSpec.class)
 public class TestOperatorSpecGraph {
 
-  private StreamAppDescriptorImpl mockAppDesc;
+  private StreamApplicationDescriptorImpl mockAppDesc;
   private Map<String, InputOperatorSpec> inputOpSpecMap;
   private Map<String, OutputStreamImpl> outputStrmMap;
   private Set<OperatorSpec> allOpSpecs;
 
   @Before
   public void setUp() {
-    this.mockAppDesc = mock(StreamAppDescriptorImpl.class);
+    this.mockAppDesc = mock(StreamApplicationDescriptorImpl.class);
 
     /**
      * Setup two linear transformation pipelines:

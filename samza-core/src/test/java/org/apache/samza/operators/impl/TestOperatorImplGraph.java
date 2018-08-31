@@ -34,7 +34,7 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.samza.Partition;
-import org.apache.samza.application.StreamAppDescriptorImpl;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -219,7 +219,7 @@ public class TestOperatorImplGraph {
 
   @Test
   public void testEmptyChain() {
-    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> { }, mock(Config.class));
+    StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> { }, mock(Config.class));
     OperatorImplGraph opGraph =
         new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), mock(Config.class), mock(TaskContextImpl.class), mock(Clock.class));
     assertEquals(0, opGraph.getAllInputOperators().size());
@@ -243,7 +243,7 @@ public class TestOperatorImplGraph {
     StreamTestUtils.addStreamConfigs(configs, outputStreamId, outputSystem, outputPhysicalName);
     Config config = new MapConfig(configs);
 
-    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+    StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
         GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
         GenericInputDescriptor inputDescriptor = sd.getInputDescriptor(inputStreamId, mock(Serde.class));
         GenericOutputDescriptor outputDescriptor = sd.getOutputDescriptor(outputStreamId, mock(Serde.class));
@@ -297,7 +297,7 @@ public class TestOperatorImplGraph {
     StreamTestUtils.addStreamConfigs(configs, outputStreamId, outputSystem, outputPhysicalName);
     Config config = new MapConfig(configs);
 
-    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+    StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
         GenericSystemDescriptor isd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
         GenericSystemDescriptor osd = new GenericSystemDescriptor(outputSystem, "mockFactoryClass");
         GenericInputDescriptor inputDescriptor = isd.getInputDescriptor(inputStreamId, mock(Serde.class));
@@ -352,7 +352,7 @@ public class TestOperatorImplGraph {
     HashMap<String, String> configMap = new HashMap<>();
     StreamTestUtils.addStreamConfigs(configMap, inputStreamId, inputSystem, inputPhysicalName);
     Config config = new MapConfig(configMap);
-    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+    StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
         GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
         GenericInputDescriptor inputDescriptor = sd.getInputDescriptor(inputStreamId, mock(Serde.class));
         MessageStream<Object> inputStream = appDesc.getInputStream(inputDescriptor);
@@ -381,7 +381,7 @@ public class TestOperatorImplGraph {
     HashMap<String, String> configs = new HashMap<>();
     StreamTestUtils.addStreamConfigs(configs, inputStreamId, inputSystem, inputPhysicalName);
     Config config = new MapConfig(configs);
-    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+    StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
         GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
         GenericInputDescriptor inputDescriptor = sd.getInputDescriptor(inputStreamId, mock(Serde.class));
         MessageStream<Object> inputStream = appDesc.getInputStream(inputDescriptor);
@@ -429,7 +429,7 @@ public class TestOperatorImplGraph {
     JoinFunction testJoinFunction = new TestJoinFunction("jobName-jobId-join-j1",
         (BiFunction & Serializable) (m1, m2) -> KV.of(m1, m2), keyFn, keyFn);
 
-    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+    StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
         GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
         GenericInputDescriptor inputDescriptor1 = sd.getInputDescriptor(inputStreamId1, mock(Serde.class));
         GenericInputDescriptor inputDescriptor2 = sd.getInputDescriptor(inputStreamId2, mock(Serde.class));
@@ -495,7 +495,7 @@ public class TestOperatorImplGraph {
     TaskContextImpl mockContext = mock(TaskContextImpl.class);
     when(mockContext.getTaskName()).thenReturn(mockTaskName);
     when(mockContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
-    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+    StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
         GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
         GenericInputDescriptor inputDescriptor1 = sd.getInputDescriptor(inputStreamId1, mock(Serde.class));
         GenericInputDescriptor inputDescriptor2 = sd.getInputDescriptor(inputStreamId2, mock(Serde.class));
@@ -591,7 +591,7 @@ public class TestOperatorImplGraph {
     StreamTestUtils.addStreamConfigs(configs, outputStreamId2, outputSystem, outputStreamId2);
     Config config = new MapConfig(configs);
 
-    StreamAppDescriptorImpl graphSpec = new StreamAppDescriptorImpl(appDesc -> {
+    StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
         GenericSystemDescriptor isd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
         GenericInputDescriptor inputDescriptor1 = isd.getInputDescriptor(inputStreamId1, mock(Serde.class));
         GenericInputDescriptor inputDescriptor2 = isd.getInputDescriptor(inputStreamId2, mock(Serde.class));

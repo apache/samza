@@ -21,8 +21,8 @@ package org.apache.samza.runtime;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.application.SamzaApplication;
-import org.apache.samza.application.TaskAppDescriptor;
-import org.apache.samza.application.TaskAppDescriptorImpl;
+import org.apache.samza.application.TaskApplicationDescriptor;
+import org.apache.samza.application.TaskApplicationDescriptorImpl;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.application.MockStreamApplication;
 import org.apache.samza.config.ApplicationConfig;
@@ -72,7 +72,7 @@ public class TestApplicationClassUtils {
     Config config = new MapConfig(configMap);
     SamzaApplication app = ApplicationClassUtils.fromConfig(config);
     assertTrue(app instanceof TaskApplication);
-    TaskAppDescriptorImpl appSpec = new TaskAppDescriptorImpl((TaskApplication) app, config);
+    TaskApplicationDescriptorImpl appSpec = new TaskApplicationDescriptorImpl((TaskApplication) app, config);
     assertTrue(appSpec.getTaskFactory().createInstance() instanceof MockStreamTask);
   }
 
@@ -87,7 +87,7 @@ public class TestApplicationClassUtils {
    */
   public static class MockTaskApplication implements TaskApplication {
     @Override
-    public void describe(TaskAppDescriptor appSpec) {
+    public void describe(TaskApplicationDescriptor appSpec) {
 
     }
   }

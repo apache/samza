@@ -26,18 +26,18 @@ import org.apache.samza.task.TaskFactory;
 
 
 /**
- * This class implements interface {@link TaskAppDescriptor}.
+ * This class implements interface {@link TaskApplicationDescriptor}.
  * <p>
- * In addition to the common objects for an application defined in {@link AppDescriptorImpl}, this class also includes
+ * In addition to the common objects for an application defined in {@link ApplicationDescriptorImpl}, this class also includes
  * the low-level {@link TaskFactory} that creates user-defined task instances, the lists of input/broadcast/output streams,
  * and the list of {@link TableDescriptor}s used in the application.
  */
-public class TaskAppDescriptorImpl extends AppDescriptorImpl<TaskAppDescriptor>
-    implements TaskAppDescriptor {
+public class TaskApplicationDescriptorImpl extends ApplicationDescriptorImpl<TaskApplicationDescriptor>
+    implements TaskApplicationDescriptor {
 
   TaskFactory taskFactory;
 
-  public TaskAppDescriptorImpl(TaskApplication userApp, Config config) {
+  public TaskApplicationDescriptorImpl(TaskApplication userApp, Config config) {
     super(userApp, config);
     userApp.describe(this);
   }

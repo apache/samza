@@ -23,8 +23,9 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.AppDescriptorImpl;
-import org.apache.samza.application.StreamAppDescriptorImpl;
+import org.apache.samza.application.ApplicationDescriptor;
+import org.apache.samza.application.ApplicationDescriptorImpl;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -36,7 +37,7 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * Temporarily helper class with specific implementation of {@link JobPlanner#prepareStreamJobs(StreamAppDescriptorImpl)}
+ * Temporarily helper class with specific implementation of {@link JobPlanner#prepareStreamJobs(StreamApplicationDescriptorImpl)}
  * for standalone Samza processors.
  *
  * TODO: we need to consolidate this with {@link ExecutionPlanner} after SAMZA-1811.
@@ -47,12 +48,12 @@ public class LocalJobPlanner extends JobPlanner {
 
   private final String uid = UUID.randomUUID().toString();;
 
-  public LocalJobPlanner(AppDescriptorImpl descriptor) {
+  public LocalJobPlanner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> descriptor) {
     super(descriptor);
   }
 
   @Override
-  List<JobConfig> prepareStreamJobs(StreamAppDescriptorImpl streamAppDesc) throws Exception {
+  List<JobConfig> prepareStreamJobs(StreamApplicationDescriptorImpl streamAppDesc) throws Exception {
     // for high-level DAG, generating the plan and job configs
     // 1. initialize and plan
     ExecutionPlan plan = getExecutionPlan(streamAppDesc.getOperatorSpecGraph());

@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableSet;
 
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.StreamAppDescriptorImpl;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskContextImpl;
@@ -73,7 +73,7 @@ public class TestJoinOperator {
 
   @Test
   public void join() throws Exception {
-    StreamAppDescriptorImpl streamAppDesc = this.getTestJoinStreamGraph(new TestJoinFunction());
+    StreamApplicationDescriptorImpl streamAppDesc = this.getTestJoinStreamGraph(new TestJoinFunction());
     StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), streamAppDesc);
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
@@ -95,7 +95,7 @@ public class TestJoinOperator {
     StreamTestUtils.addStreamConfigs(mapConfig, "inStream", "insystem", "instream");
     Config config = new MapConfig(mapConfig);
 
-    StreamAppDescriptorImpl streamAppDesc = new StreamAppDescriptorImpl(appDesc -> {
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
         IntegerSerde integerSerde = new IntegerSerde();
         KVSerde<Integer, Integer> kvSerde = KVSerde.of(integerSerde, integerSerde);
         GenericSystemDescriptor sd = new GenericSystemDescriptor("insystem", "mockFactoryClassName");
@@ -112,7 +112,7 @@ public class TestJoinOperator {
   @Test
   public void joinFnInitAndClose() throws Exception {
     TestJoinFunction joinFn = new TestJoinFunction();
-    StreamAppDescriptorImpl streamAppDesc = this.getTestJoinStreamGraph(joinFn);
+    StreamApplicationDescriptorImpl streamAppDesc = this.getTestJoinStreamGraph(joinFn);
     StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), streamAppDesc);
 
     MessageCollector messageCollector = mock(MessageCollector.class);
@@ -131,7 +131,7 @@ public class TestJoinOperator {
 
   @Test
   public void joinReverse() throws Exception {
-    StreamAppDescriptorImpl streamAppDesc = this.getTestJoinStreamGraph(new TestJoinFunction());
+    StreamApplicationDescriptorImpl streamAppDesc = this.getTestJoinStreamGraph(new TestJoinFunction());
     StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), streamAppDesc);
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
@@ -147,7 +147,7 @@ public class TestJoinOperator {
 
   @Test
   public void joinNoMatch() throws Exception {
-    StreamAppDescriptorImpl streamAppDesc = this.getTestJoinStreamGraph(new TestJoinFunction());
+    StreamApplicationDescriptorImpl streamAppDesc = this.getTestJoinStreamGraph(new TestJoinFunction());
     StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), streamAppDesc);
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
@@ -162,7 +162,7 @@ public class TestJoinOperator {
 
   @Test
   public void joinNoMatchReverse() throws Exception {
-    StreamAppDescriptorImpl streamAppDesc = this.getTestJoinStreamGraph(new TestJoinFunction());
+    StreamApplicationDescriptorImpl streamAppDesc = this.getTestJoinStreamGraph(new TestJoinFunction());
     StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), streamAppDesc);
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
@@ -177,7 +177,7 @@ public class TestJoinOperator {
 
   @Test
   public void joinRetainsLatestMessageForKey() throws Exception {
-    StreamAppDescriptorImpl streamAppDesc = this.getTestJoinStreamGraph(new TestJoinFunction());
+    StreamApplicationDescriptorImpl streamAppDesc = this.getTestJoinStreamGraph(new TestJoinFunction());
     StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), streamAppDesc);
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
@@ -195,7 +195,7 @@ public class TestJoinOperator {
 
   @Test
   public void joinRetainsLatestMessageForKeyReverse() throws Exception {
-    StreamAppDescriptorImpl streamAppDesc = this.getTestJoinStreamGraph(new TestJoinFunction());
+    StreamApplicationDescriptorImpl streamAppDesc = this.getTestJoinStreamGraph(new TestJoinFunction());
     StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), streamAppDesc);
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
@@ -213,7 +213,7 @@ public class TestJoinOperator {
 
   @Test
   public void joinRetainsMatchedMessages() throws Exception {
-    StreamAppDescriptorImpl streamAppDesc = this.getTestJoinStreamGraph(new TestJoinFunction());
+    StreamApplicationDescriptorImpl streamAppDesc = this.getTestJoinStreamGraph(new TestJoinFunction());
     StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), streamAppDesc);
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
@@ -236,7 +236,7 @@ public class TestJoinOperator {
 
   @Test
   public void joinRetainsMatchedMessagesReverse() throws Exception {
-    StreamAppDescriptorImpl streamAppDesc = this.getTestJoinStreamGraph(new TestJoinFunction());
+    StreamApplicationDescriptorImpl streamAppDesc = this.getTestJoinStreamGraph(new TestJoinFunction());
     StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), streamAppDesc);
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
@@ -260,7 +260,7 @@ public class TestJoinOperator {
   @Test
   public void joinRemovesExpiredMessages() throws Exception {
     TestClock testClock = new TestClock();
-    StreamAppDescriptorImpl streamAppDesc = this.getTestJoinStreamGraph(new TestJoinFunction());
+    StreamApplicationDescriptorImpl streamAppDesc = this.getTestJoinStreamGraph(new TestJoinFunction());
     StreamOperatorTask sot = createStreamOperatorTask(testClock, streamAppDesc);
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
@@ -280,7 +280,7 @@ public class TestJoinOperator {
   @Test
   public void joinRemovesExpiredMessagesReverse() throws Exception {
     TestClock testClock = new TestClock();
-    StreamAppDescriptorImpl streamAppDesc = this.getTestJoinStreamGraph(new TestJoinFunction());
+    StreamApplicationDescriptorImpl streamAppDesc = this.getTestJoinStreamGraph(new TestJoinFunction());
     StreamOperatorTask sot = createStreamOperatorTask(testClock, streamAppDesc);
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
@@ -297,7 +297,7 @@ public class TestJoinOperator {
     assertTrue(output.isEmpty());
   }
 
-  private StreamOperatorTask createStreamOperatorTask(Clock clock, StreamAppDescriptorImpl graphSpec)
+  private StreamOperatorTask createStreamOperatorTask(Clock clock, StreamApplicationDescriptorImpl graphSpec)
       throws Exception {
     Map<String, String> mapConfig = new HashMap<>();
     mapConfig.put("job.name", "jobName");
@@ -323,7 +323,7 @@ public class TestJoinOperator {
     return sot;
   }
 
-  private StreamAppDescriptorImpl getTestJoinStreamGraph(TestJoinFunction joinFn) throws IOException {
+  private StreamApplicationDescriptorImpl getTestJoinStreamGraph(TestJoinFunction joinFn) throws IOException {
     Map<String, String> mapConfig = new HashMap<>();
     mapConfig.put("job.name", "jobName");
     mapConfig.put("job.id", "jobId");
@@ -331,7 +331,7 @@ public class TestJoinOperator {
     StreamTestUtils.addStreamConfigs(mapConfig, "inStream2", "insystem", "instream2");
     Config config = new MapConfig(mapConfig);
 
-    return new StreamAppDescriptorImpl(appDesc -> {
+    return new StreamApplicationDescriptorImpl(appDesc -> {
         IntegerSerde integerSerde = new IntegerSerde();
         KVSerde<Integer, Integer> kvSerde = KVSerde.of(integerSerde, integerSerde);
         GenericSystemDescriptor sd = new GenericSystemDescriptor("insystem", "mockFactoryClassName");

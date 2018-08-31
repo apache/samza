@@ -21,8 +21,9 @@ package org.apache.samza.execution;
 import java.util.List;
 import java.util.UUID;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.AppDescriptorImpl;
-import org.apache.samza.application.StreamAppDescriptorImpl;
+import org.apache.samza.application.ApplicationDescriptor;
+import org.apache.samza.application.ApplicationDescriptorImpl;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -33,7 +34,7 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * Temporary helper class with specific implementation of {@link JobPlanner#prepareStreamJobs(StreamAppDescriptorImpl)}
+ * Temporary helper class with specific implementation of {@link JobPlanner#prepareStreamJobs(StreamApplicationDescriptorImpl)}
  * for remote-launched Samza processors (e.g. in YARN).
  *
  * TODO: we need to consolidate this class with {@link ExecutionPlanner} after SAMZA-1811.
@@ -41,12 +42,12 @@ import org.slf4j.LoggerFactory;
 public class RemoteJobPlanner extends JobPlanner {
   private static final Logger LOG = LoggerFactory.getLogger(RemoteJobPlanner.class);
 
-  public RemoteJobPlanner(AppDescriptorImpl descriptor) {
+  public RemoteJobPlanner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> descriptor) {
     super(descriptor);
   }
 
   @Override
-  List<JobConfig> prepareStreamJobs(StreamAppDescriptorImpl streamAppDesc) throws Exception {
+  List<JobConfig> prepareStreamJobs(StreamApplicationDescriptorImpl streamAppDesc) throws Exception {
     // for high-level DAG, generate the plan and job configs
     // TODO: run.id needs to be set for standalone: SAMZA-1531
     // run.id is based on current system time with the most significant bits in UUID (8 digits) to avoid collision

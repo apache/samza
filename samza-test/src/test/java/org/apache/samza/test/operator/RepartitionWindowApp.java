@@ -21,7 +21,7 @@ package org.apache.samza.test.operator;
 
 import java.time.Duration;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamAppDescriptor;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.serializers.IntegerSerde;
@@ -47,7 +47,7 @@ public class RepartitionWindowApp implements StreamApplication {
 
 
   @Override
-  public void describe(StreamAppDescriptor appDesc) {
+  public void describe(StreamApplicationDescriptor appDesc) {
     KVSerde<String, PageView> inputSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageView.class));
     KVSerde<String, String> outputSerde = KVSerde.of(new StringSerde(), new StringSerde());
     KafkaSystemDescriptor ksd = new KafkaSystemDescriptor(SYSTEM);

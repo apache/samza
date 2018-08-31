@@ -20,7 +20,7 @@
 package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamAppDescriptor;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
@@ -50,7 +50,7 @@ public class BroadcastExample implements StreamApplication {
   }
 
   @Override
-  public void describe(StreamAppDescriptor appDesc) {
+  public void describe(StreamApplicationDescriptor appDesc) {
     KVSerde<String, PageViewEvent> serde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class));
     KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
     KafkaInputDescriptor<KV<String, PageViewEvent>> pageViewEvent =

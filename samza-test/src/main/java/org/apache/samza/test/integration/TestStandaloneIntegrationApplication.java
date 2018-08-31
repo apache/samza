@@ -19,7 +19,7 @@
 package org.apache.samza.test.integration;
 
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamAppDescriptor;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.operators.KV;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
@@ -37,7 +37,7 @@ public class TestStandaloneIntegrationApplication implements StreamApplication {
   private static final Logger LOGGER = LoggerFactory.getLogger(TestStandaloneIntegrationApplication.class);
 
   @Override
-  public void describe(StreamAppDescriptor appDesc) {
+  public void describe(StreamApplicationDescriptor appDesc) {
     String systemName = "testSystemName";
     String inputStreamName = appDesc.getConfig().get("input.stream.name");
     String outputStreamName = "standaloneIntegrationTestKafkaOutputTopic";

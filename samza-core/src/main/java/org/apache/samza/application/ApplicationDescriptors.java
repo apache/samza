@@ -23,7 +23,7 @@ import org.apache.samza.config.Config;
 
 
 /**
- * Util class to help creating {@link AppDescriptorImpl} instance from {@link SamzaApplication} and {@link Config}
+ * Util class to help creating {@link ApplicationDescriptorImpl} instance from {@link SamzaApplication} and {@link Config}
  */
 public class ApplicationDescriptors {
   private ApplicationDescriptors() {
@@ -31,29 +31,29 @@ public class ApplicationDescriptors {
   }
 
   /**
-   * Create a new instance of {@link AppDescriptorImpl} based on {@link SamzaApplication} and {@link Config}
+   * Create a new instance of {@link ApplicationDescriptorImpl} based on {@link SamzaApplication} and {@link Config}
    *
    * @param userApp the user-implemented {@link SamzaApplication}. The {@code userApp} has to have a proper fully-qualified class name.
    * @param config the user-supplied {@link Config} for the the application
-   * @return the {@link AppDescriptorImpl} instance containing the user processing logic and the config
+   * @return the {@link ApplicationDescriptorImpl} instance containing the user processing logic and the config
    */
-  public static AppDescriptorImpl getAppDescriptor(SamzaApplication userApp, Config config) {
+  public static ApplicationDescriptorImpl<? extends ApplicationDescriptor> getAppDescriptor(SamzaApplication userApp, Config config) {
     if (userApp instanceof StreamApplication) {
-      return new StreamAppDescriptorImpl((StreamApplication) userApp, config);
+      return new StreamApplicationDescriptorImpl((StreamApplication) userApp, config);
     }
     if (userApp instanceof TaskApplication) {
-      return new TaskAppDescriptorImpl((TaskApplication) userApp, config);
+      return new TaskApplicationDescriptorImpl((TaskApplication) userApp, config);
     }
     throw new IllegalArgumentException(String.format("User application class %s is not supported. Only StreamApplication "
         + "and TaskApplication are supported.", userApp.getClass().getName()));
   }
 
-  public static <T> T forType(Function<TaskAppDescriptorImpl, T> forTaskApp, Function<StreamAppDescriptorImpl, T> forStreamApp,
-      AppDescriptorImpl desc) {
-    if (desc instanceof TaskAppDescriptorImpl) {
-      return forTaskApp.apply((TaskAppDescriptorImpl) desc);
-    } else if (desc instanceof StreamAppDescriptorImpl) {
-      return forStreamApp.apply((StreamAppDescriptorImpl) desc);
+  public static <T> T forType(Function<TaskApplicationDescriptorImpl, T> forTaskApp, Function<StreamApplicationDescriptorImpl, T> forStreamApp,
+      ApplicationDescriptorImpl<? extends ApplicationDescriptor> desc) {
+    if (desc instanceof TaskApplicationDescriptorImpl) {
+      return forTaskApp.apply((TaskApplicationDescriptorImpl) desc);
+    } else if (desc instanceof StreamApplicationDescriptorImpl) {
+      return forStreamApp.apply((StreamApplicationDescriptorImpl) desc);
     }
 
     throw new IllegalArgumentException(String.format("AppDescriptorImpl has to be either TaskAppDescriptorImpl or StreamAppDescriptorImpl."

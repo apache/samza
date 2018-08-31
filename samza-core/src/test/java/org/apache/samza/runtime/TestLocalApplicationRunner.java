@@ -23,10 +23,12 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.samza.application.AppDescriptorImpl;
+import org.apache.samza.application.ApplicationDescriptor;
+import org.apache.samza.application.ApplicationDescriptorImpl;
 import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.application.ApplicationDescriptors;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.TaskApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -35,6 +37,8 @@ import org.apache.samza.config.TaskConfig;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.execution.LocalJobPlanner;
+import org.apache.samza.task.IdentityStreamTask;
+import org.apache.samza.task.StreamTaskFactory;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -69,9 +73,8 @@ public class TestLocalApplicationRunner {
       throws Exception {
     final Map<String, String> cfgs = new HashMap<>();
     cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
-    cfgs.put(TaskConfig.TASK_CLASS(), "org.apache.samza.task.IdentityStreamTask");
     config = new MapConfig(cfgs);
-    mockApp = ApplicationClassUtils.fromConfig(config);
+    mockApp = (TaskApplication) appDesc -> appDesc.setTaskFactory((StreamTaskFactory) () -> new IdentityStreamTask()) ;
     prepareTest();
 
     StreamProcessor sp = mock(StreamProcessor.class);
@@ -183,7 +186,7 @@ public class TestLocalApplicationRunner {
   }
 
   private void prepareTest() {
-    AppDescriptorImpl appDesc = ApplicationDescriptors.getAppDescriptor(mockApp, config);
+    ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc = ApplicationDescriptors.getAppDescriptor(mockApp, config);
     localPlanner = spy(new LocalJobPlanner(appDesc));
     runner = spy(new LocalApplicationRunner(appDesc, localPlanner));
   }
