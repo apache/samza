@@ -101,7 +101,7 @@ public abstract class JobPlanner {
   ExecutionPlan getExecutionPlan(OperatorSpecGraph specGraph, String runId) throws Exception {
 
     // update application configs
-    Map<String, String> cfg = new HashMap<>(config);
+    Map<String, String> cfg = new HashMap<>();
     if (StringUtils.isNoneEmpty(runId)) {
       cfg.put(ApplicationConfig.APP_RUN_ID, runId);
     }
@@ -117,16 +117,18 @@ public abstract class JobPlanner {
     // descriptor generated configuration has higher priority
     Map<String, String> systemStreamConfigs = expandSystemStreamConfigs(appDesc);
     cfg.putAll(systemStreamConfigs);
+    // TODO: should generate table configuration from table descriptors as well (SAMZA-1815)
 
     // adding app.class in the configuration
     cfg.put(ApplicationConfig.APP_CLASS, appDesc.getAppClass().getName());
 
-    // create the physical execution plan
-    Config generatedConfig = new MapConfig(cfg);
+    // create the physical execution plan and merge with overrides. This works for a single-stage job now
+    // TODO: This should all be consolidated with ExecutionPlanner after fixing SAMZA-1811
+    Config mergedConfig = JobNode.mergeJobConfig(config, new MapConfig(cfg));
     // creating the StreamManager to get all input/output streams' metadata for planning
-    StreamManager streamManager = buildAndStartStreamManager(generatedConfig);
+    StreamManager streamManager = buildAndStartStreamManager(mergedConfig);
     try {
-      ExecutionPlanner planner = new ExecutionPlanner(generatedConfig, streamManager);
+      ExecutionPlanner planner = new ExecutionPlanner(mergedConfig, streamManager);
       return planner.plan(specGraph);
     } finally {
       streamManager.stop();
@@ -157,7 +159,7 @@ public abstract class JobPlanner {
   // helper method to generate a single node job configuration for low level task applications
   private JobConfig prepareTaskJob(TaskApplicationDescriptorImpl taskAppDesc) {
     // copy original configure
-    Map<String, String> cfg = new HashMap<>(config);
+    Map<String, String> cfg = new HashMap<>();
     // expand system and streams configure
     Map<String, String> systemStreamConfigs = expandSystemStreamConfigs(taskAppDesc);
     cfg.putAll(systemStreamConfigs);
@@ -165,7 +167,9 @@ public abstract class JobPlanner {
     cfg.putAll(expandTableConfigs(cfg, taskAppDesc));
     // adding app.class in the configuration
     cfg.put(ApplicationConfig.APP_CLASS, appDesc.getAppClass().getName());
-    return new JobConfig(new MapConfig(cfg));
+    // create the physical execution plan and merge with overrides. This works for a single-stage job now
+    // TODO: This should all be consolidated with ExecutionPlanner after fixing SAMZA-1811
+    return new JobConfig(JobNode.mergeJobConfig(config, new MapConfig(cfg)));
   }
 
   private Map<String, String> expandSystemStreamConfigs(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
