@@ -67,7 +67,8 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
         Arrays.asList(TestTableData.generateProfiles(10)));
   }
 
-  @Test
+  // @Test
+  // TODO: re-enable after fixing the coordinator stream issue in SAMZA-1786
   public void testJoinWithDurableSideInputTable() {
     runTest(
         "durable-side-input",
