@@ -85,6 +85,11 @@ public class JobNode {
     this.config = config;
   }
 
+  public static Config mergeJobConfig(Config fullConfig, Config generatedConfig) {
+    return new JobConfig(Util.rewriteConfig(extractScopedConfig(
+        fullConfig, generatedConfig, String.format(CONFIG_JOB_PREFIX, new JobConfig(fullConfig).getName().get()))));
+  }
+
   public OperatorSpecGraph getSpecGraph() {
     return this.specGraph;
   }
