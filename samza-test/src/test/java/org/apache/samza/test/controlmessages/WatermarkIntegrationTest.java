@@ -19,6 +19,7 @@
 
 package org.apache.samza.test.controlmessages;
 
+import org.apache.samza.application.SamzaApplication;
 import scala.collection.JavaConverters;
 
 import java.lang.reflect.Field;
@@ -53,7 +54,6 @@ import org.apache.samza.processor.TestStreamProcessorUtil;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.runtime.LocalApplicationRunner;
-import org.apache.samza.runtime.TestLocalApplicationRunner;
 import org.apache.samza.serializers.IntegerSerdeFactory;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
@@ -126,7 +126,7 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
   @Test
   public void testWatermark() throws Exception {
     Map<String, String> configs = new HashMap<>();
-    configs.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
+    configs.put("app.runner.class", MockLocalApplicationRunner.class.getName());
     configs.put("systems.test.samza.factory", TestSystemFactory.class.getName());
     configs.put("streams.PageView.samza.system", "test");
     configs.put("streams.PageView.partitionCount", String.valueOf(PARTITION_COUNT));
@@ -170,7 +170,7 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
     runner.run();
 
     // processors are only available when the app is running
-    Map<String, StreamOperatorTask> tasks = getTaskOperationGraphs((LocalApplicationRunner) runner);
+    Map<String, StreamOperatorTask> tasks = getTaskOperationGraphs((MockLocalApplicationRunner) runner);
 
     runner.waitForFinish();
     // wait for the completion to ensure that all tasks are actually initialized and the OperatorImplGraph is initialized
@@ -193,8 +193,8 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
     assertEquals(TestOperatorImpl.getOutputWatermark(sink), 3);
   }
 
-  Map<String, StreamOperatorTask> getTaskOperationGraphs(LocalApplicationRunner runner) throws Exception {
-    StreamProcessor processor = TestLocalApplicationRunner.getProcessors(runner).iterator().next();
+  Map<String, StreamOperatorTask> getTaskOperationGraphs(MockLocalApplicationRunner runner) throws Exception {
+    StreamProcessor processor = runner.getProcessors().iterator().next();
     SamzaContainer container = TestStreamProcessorUtil.getContainer(processor);
     Map<TaskName, TaskInstance> taskInstances = JavaConverters.mapAsJavaMapConverter(container.getTaskInstances()).asJava();
     Map<String, StreamOperatorTask> tasks = new HashMap<>();
@@ -221,5 +221,21 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
       }
     }
     return null;
+  }
+
+  class MockLocalApplicationRunner extends LocalApplicationRunner {
+
+    /**
+     * Default constructor that is required by any implementation of {@link ApplicationRunner}
+     *  @param userApp user application
+     * @param config user configuration
+     */
+    public MockLocalApplicationRunner(SamzaApplication userApp, Config config) {
+      super(userApp, config);
+    }
+
+    protected Set<StreamProcessor> getProcessors() {
+      return super.getProcessors();
+    }
   }
 }

@@ -20,33 +20,32 @@ package org.apache.samza.runtime;
 
 import java.time.Duration;
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.job.ApplicationStatus;
 
 
 /**
- * The primary means of managing execution of the {@link SamzaApplication} at runtime.
+ * The primary means of managing execution of the {@link org.apache.samza.application.SamzaApplication} at runtime.
  */
 @InterfaceStability.Evolving
 public interface ApplicationRunner {
 
   /**
-   * Deploy and run the Samza jobs to execute {@link SamzaApplication}.
+   * Deploy and run the Samza jobs to execute {@link org.apache.samza.application.SamzaApplication}.
    * It is non-blocking so it doesn't wait for the application running.
    */
   void run();
 
   /**
-   * Kill the Samza jobs represented by {@link SamzaApplication}
+   * Kill the Samza jobs represented by {@link org.apache.samza.application.SamzaApplication}
    * It is non-blocking so it doesn't wait for the application stopping.
    */
   void kill();
 
   /**
-   * Get the collective status of the Samza jobs represented by {@link SamzaApplication}.
+   * Get the collective status of the Samza jobs represented by {@link org.apache.samza.application.SamzaApplication}.
    * Returns {@link ApplicationStatus} object.
    *
-   * @return the current status of an instance of {@link SamzaApplication}
+   * @return the current status of an instance of {@link org.apache.samza.application.SamzaApplication}
    */
   ApplicationStatus status();
 

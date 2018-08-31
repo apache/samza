@@ -26,7 +26,7 @@ import org.apache.samza.annotation.InterfaceStability;
  * <p>
  * The following example removes page views older than 1 hour from the input stream:
  * <pre>{@code
- * public class PageViewCounter implements StreamApplication {
+ * public class PageViewFilter implements StreamApplication {
  *   public void describe(StreamAppDescriptor appDesc) {
  *     KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
  *     KafkaInputDescriptor<PageViewEvent> inputStreamDescriptor =
@@ -50,8 +50,8 @@ import org.apache.samza.annotation.InterfaceStability;
  *   public static void main(String[] args) {
  *     CommandLine cmdLine = new CommandLine();
  *     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
- *     PageViewCounter app = new PageViewCounter();
- *     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new PageViewCounter(), config);
+ *     PageViewFilter app = new PageViewFilter();
+ *     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(app, config);
  *     runner.run();
  *     runner.waitForFinish();
  *   }

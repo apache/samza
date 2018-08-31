@@ -25,7 +25,6 @@ import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
-import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.table.Table;
 
 

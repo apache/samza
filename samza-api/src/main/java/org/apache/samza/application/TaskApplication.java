@@ -22,16 +22,22 @@ import org.apache.samza.annotation.InterfaceStability;
 
 
 /**
- * Describes and initializes the transforms for processing message streams and generating results in low-level API.
- * <p>
- * This is a marker interface that users will implement for a low-level application.
+ * Describes and initializes the transforms for processing message streams and generating results in low-level API. Your
+ * application is expected to implement this interface.
  * <p>
  * The following example removes page views older than 1 hour from the input stream:
  * <pre>{@code
- * public class PageViewCounter implements TaskApplication {
+ * public class PageViewFilter implements TaskApplication {
  *   public void describe(TaskAppDescriptor appDesc) {
- *     appDesc.addInputStream(PageViewTask.TASK_INPUT);
- *     appDesc.addOutputStream(PageViewTask.TASK_OUTPUT);
+ *     KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor(PageViewTask.SYSTEM);
+ *     KafkaInputDescriptor<PageViewEvent> inputStreamDescriptor =
+ *         trackingSystem.getInputDescriptor(PageViewTask.TASK_INPUT, new JsonSerdeV2<>(PageViewEvent.class));
+ *
+ *     KafkaOutputDescriptor<PageViewEvent>> outputStreamDescriptor =
+ *         trackingSystem.getOutputDescriptor(PageViewTask.TASK_OUTPUT, new JsonSerdeV2<>(PageViewEvent.class)));
+ *
+ *     appDesc.addInputStream(inputStreamDescriptor);
+ *     appDesc.addOutputStream(outputStreamDescriptor);
  *     appDesc.setTaskFactory((StreamTaskFactory) () -> new PageViewTask());
  *   }
  * }
@@ -39,17 +45,16 @@ import org.apache.samza.annotation.InterfaceStability;
  * public class PageViewTask implements StreamTask {
  *   final static String TASK_INPUT = "pageViewEvents";
  *   final static String TASK_OUTPUT = "recentPageViewEvents";
- *   final static String OUTPUT_SYSTEM = "kafka";
+ *   final static String SYSTEM = "kafka";
  *
  *   public void process(IncomingMessageEnvelope message, MessageCollector collector,
  *       TaskCoordinator coordinator) {
  *     PageViewEvent m = (PageViewEvent) message.getValue();
  *     if (m.getCreationTime() > System.currentTimeMillis() - Duration.ofHours(1).toMillis()) {
- *       collector.send(new OutgoingMessageEnvelope(new SystemStream(OUTPUT_SYSTEM, TASK_OUTPUT),
+ *       collector.send(new OutgoingMessageEnvelope(new SystemStream(SYSTEM, TASK_OUTPUT),
  *           message.getKey(), message.getKey(), m));
  *     }
  *   }
- * }
  * }</pre>
  *<p>
  * The example above can be run using an ApplicationRunner:
@@ -57,8 +62,8 @@ import org.apache.samza.annotation.InterfaceStability;
  *   public static void main(String[] args) {
  *     CommandLine cmdLine = new CommandLine();
  *     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
- *     PageViewCounter app = new PageViewCounter();
- *     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new PageViewCounter(), config);
+ *     PageViewFilter app = new PageViewFilter();
+ *     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(app, config);
  *     runner.run();
  *     runner.waitForFinish();
  *   }
@@ -68,8 +73,7 @@ import org.apache.samza.annotation.InterfaceStability;
  * Implementation Notes: {@link TaskApplication} allow users to instantiate {@link org.apache.samza.task.StreamTask} or
  * {@link org.apache.samza.task.AsyncStreamTask} when describing the processing logic. A new {@link TaskAppDescriptor}
  * instance will be created and described by the user-defined {@link TaskApplication} when planning the execution.
- * {@link org.apache.samza.task.TaskFactory} and descriptors for data entities used in the task (e.g.
- * {@link org.apache.samza.operators.TableDescriptor}) are required to be serializable.
+ * {@link org.apache.samza.task.TaskFactory} is required to be serializable.
  *
  * <p>
  * The user-implemented {@link TaskApplication} class must be a class with proper fully-qualified class name and

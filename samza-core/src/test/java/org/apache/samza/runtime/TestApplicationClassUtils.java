@@ -30,7 +30,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
-import org.apache.samza.task.TestStreamTask;
+import org.apache.samza.task.MockStreamTask;
 import org.junit.Test;
 
 import static org.junit.Assert.assertTrue;
@@ -48,7 +48,7 @@ public class TestApplicationClassUtils {
     SamzaApplication app = ApplicationClassUtils.fromConfig(new MapConfig(configMap));
     assertTrue(app instanceof MockStreamApplication);
 
-    configMap.put(TaskConfig.TASK_CLASS(), TestStreamTask.class.getName());
+    configMap.put(TaskConfig.TASK_CLASS(), MockStreamTask.class.getName());
     app = ApplicationClassUtils.fromConfig(new MapConfig(configMap));
     assertTrue(app instanceof MockStreamApplication);
   }
@@ -60,7 +60,7 @@ public class TestApplicationClassUtils {
     SamzaApplication app = ApplicationClassUtils.fromConfig(new MapConfig(configMap));
     assertTrue(app instanceof MockTaskApplication);
 
-    configMap.put(TaskConfig.TASK_CLASS(), TestStreamTask.class.getName());
+    configMap.put(TaskConfig.TASK_CLASS(), MockStreamTask.class.getName());
     app = ApplicationClassUtils.fromConfig(new MapConfig(configMap));
     assertTrue(app instanceof MockTaskApplication);
   }
@@ -68,12 +68,12 @@ public class TestApplicationClassUtils {
   @Test
   public void testTaskClassOnly() {
     Map<String, String> configMap = new HashMap<>();
-    configMap.put(TaskConfig.TASK_CLASS(), TestStreamTask.class.getName());
+    configMap.put(TaskConfig.TASK_CLASS(), MockStreamTask.class.getName());
     Config config = new MapConfig(configMap);
     SamzaApplication app = ApplicationClassUtils.fromConfig(config);
     assertTrue(app instanceof TaskApplication);
     TaskAppDescriptorImpl appSpec = new TaskAppDescriptorImpl((TaskApplication) app, config);
-    assertTrue(appSpec.getTaskFactory().createInstance() instanceof TestStreamTask);
+    assertTrue(appSpec.getTaskFactory().createInstance() instanceof MockStreamTask);
   }
 
   @Test(expected = ConfigException.class)

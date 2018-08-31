@@ -48,12 +48,12 @@ public class TestTaskFactoryUtil {
   public void testStreamTaskClass() {
     Config config = new MapConfig(new HashMap<String, String>() {
       {
-        this.put("task.class", TestStreamTask.class.getName());
+        this.put("task.class", MockStreamTask.class.getName());
       }
     });
     Object retFactory = TaskFactoryUtil.getTaskFactoryFromConfig(config);
     assertTrue(retFactory instanceof StreamTaskFactory);
-    assertTrue(((StreamTaskFactory) retFactory).createInstance() instanceof TestStreamTask);
+    assertTrue(((StreamTaskFactory) retFactory).createInstance() instanceof MockStreamTask);
 
     config = new MapConfig(new HashMap<String, String>() {
       {

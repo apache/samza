@@ -49,7 +49,6 @@ public class AppWithGlobalConfigExample implements StreamApplication {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new AppWithGlobalConfigExample(), config);
-    runner.addMetricsReporters(new HashMap<>());
 
     runner.run();
     runner.waitForFinish();
@@ -73,6 +72,8 @@ public class AppWithGlobalConfigExample implements StreamApplication {
             .setAccumulationMode(AccumulationMode.DISCARDING), "window1")
         .map(m -> KV.of(m.getKey().getKey(), new PageViewCount(m)))
         .sendTo(appDesc.getOutputStream(outputStreamDescriptor));
+
+    appDesc.withMetricsReporterFactories(new HashMap<>());
   }
 
   class PageViewEvent {

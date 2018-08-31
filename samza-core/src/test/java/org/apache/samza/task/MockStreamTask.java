@@ -23,7 +23,7 @@ import org.apache.samza.system.IncomingMessageEnvelope;
 /**
  * Test implementation class for {@link StreamTask}
  */
-public class TestStreamTask implements StreamTask {
+public class MockStreamTask implements StreamTask {
   @Override
   public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator) throws Exception {
 

@@ -21,6 +21,7 @@ package org.apache.samza.runtime;
 
 import com.google.common.annotations.VisibleForTesting;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -150,6 +151,16 @@ public class LocalApplicationRunner implements ApplicationRunner {
     return finished;
   }
 
+  @VisibleForTesting
+  protected Set<StreamProcessor> getProcessors() {
+    return Collections.unmodifiableSet(processors);
+  }
+
+  @VisibleForTesting
+  CountDownLatch getShutdownLatch() {
+    return shutdownLatch;
+  }
+
   /* package private */
   StreamProcessor createStreamProcessor(Config config, AppDescriptorImpl appDesc,
       LocalStreamProcessorLifecycleListener listener) {
@@ -159,11 +170,6 @@ public class LocalApplicationRunner implements ApplicationRunner {
     ((Map<String, MetricsReporterFactory>) appDesc.getMetricsReporterFactories())
         .forEach((name, factory) -> reporters.put(name, factory.getMetricsReporter(name, null, config)));
     return new StreamProcessor(config, reporters, taskFactory, listener, null);
-  }
-
-  @VisibleForTesting
-  CountDownLatch getShutdownLatch() {
-    return shutdownLatch;
   }
 
   /**

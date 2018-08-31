@@ -21,7 +21,6 @@ package org.apache.samza.application;
 import java.util.Map;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
-import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.metrics.MetricsReporterFactory;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
@@ -90,7 +89,7 @@ public interface ApplicationDescriptor<S extends ApplicationDescriptor> {
   S withDefaultSystem(SystemDescriptor<?> defaultSystemDescriptor);
 
   /**
-   * Sets a set of customized {@link MetricsReporter}s in the application
+   * Sets a set of customized {@link MetricsReporterFactory}s in the application
    *
    * @param reporterFactories the map of customized {@link MetricsReporterFactory} objects to be used
    * @return type {@code S} of {@link ApplicationDescriptor} with {@code reporterFactories}

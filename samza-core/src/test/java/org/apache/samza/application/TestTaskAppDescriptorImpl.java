@@ -22,18 +22,25 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.runtime.ProcessorLifecycleListenerFactory;
+import org.apache.samza.serializers.SerializableSerde;
+import org.apache.samza.task.MockStreamTask;
+import org.apache.samza.task.StreamTask;
+import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskFactory;
 import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -141,5 +148,4 @@ public class TestTaskAppDescriptorImpl {
     TaskAppDescriptorImpl appDesc = new TaskAppDescriptorImpl(testApp, config);
     assertEquals(appDesc.getProcessorLifecycleListenerFactory(), mockFactory);
   }
-
 }

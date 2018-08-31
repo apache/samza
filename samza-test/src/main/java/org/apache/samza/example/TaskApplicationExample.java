@@ -18,6 +18,7 @@
  */
 package org.apache.samza.example;
 
+import java.io.Serializable;
 import org.apache.samza.application.TaskAppDescriptor;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.config.Config;
