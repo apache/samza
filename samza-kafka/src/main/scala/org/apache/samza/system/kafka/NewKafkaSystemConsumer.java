@@ -348,7 +348,8 @@ public class NewKafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements
     }
 
     Map<SystemStreamPartition, List<IncomingMessageEnvelope>> res = super.poll(systemStreamPartitions, timeout);
-    LOG.info("=============================>. Res in POLL:" + res.toString());
+    LOG.info("=============================>. Res for " + systemStreamPartitions);
+    LOG.info("=============================>. Res:" + res.toString());
     return res;
   }
 
