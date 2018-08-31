@@ -82,13 +82,15 @@ class TestShutdownStatefulTask extends StreamTaskTestUtil {
     assertEquals(0, task.received.size)
 
     // Send some messages to input stream.
+    System.out.println("************************BEFORE DONE sending")
     send(task, "1")
+    System.out.println("************************FIRST DONE sending")
     send(task, "2")
     send(task, "3")
     send(task, "2")
     send(task, "99")
     send(task, "99")
-
+    System.out.println("************************DONE sending")
     stopJob(job)
 
   }

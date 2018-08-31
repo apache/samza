@@ -110,7 +110,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         taskFactory)
       container.setContainerListener(containerListener)
 
-      val threadJob = new ThreadJob(container)
+      val threadJob = new ThreadJob(container, coordinator)
       threadJob
     } finally {
       coordinator.stop
