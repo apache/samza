@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
 
-import org.apache.samza.sql.testutil.SqlFileParser;
 import org.junit.Assert;
 import org.junit.Test;
 
