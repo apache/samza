@@ -223,16 +223,16 @@ class StreamTaskTestUtil {
    * interrupt, which is forwarded on to ThreadJob, and marked as a failure).
    */
   def stopJob(job: StreamJob) {
-    // make sure we don't kill the job before it was started
+    // make sure we don't kill the job before it was started.
+    // eventProcesses guarantees all the consumers have been initialized
     val tasks = TestTask.tasks
     val task = tasks.values.toList.head
     task.eventProcessed.await(60, TimeUnit.SECONDS)
-    System.out.println("THREAD: JOB KILL BEFORE")
+    assertEquals(0, task.eventProcessed.getCount)
+
     // Shutdown task.
     job.kill
-    System.out.println("THREAD: JOB KILL")
     val status = job.waitForFinish(60000)
-    System.out.println("THREAD: JOB KILL WAIT")
     assertEquals(ApplicationStatus.UnsuccessfulFinish, status)
   }
 

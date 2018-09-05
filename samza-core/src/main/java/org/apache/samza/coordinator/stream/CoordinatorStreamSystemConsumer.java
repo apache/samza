@@ -176,7 +176,7 @@ public class CoordinatorStreamSystemConsumer {
             valueMap = messageSerde.fromBytes((byte[]) envelope.getMessage());
           }
           CoordinatorStreamMessage coordinatorStreamMessage = new CoordinatorStreamMessage(keyArray, valueMap);
-          log.info("Received coordinator stream message: {}", coordinatorStreamMessage);
+          log.debug("Received coordinator stream message: {}", coordinatorStreamMessage);
           // Remove any existing entry. Set.add() does not add if the element already exists.
           if (bootstrappedMessages.remove(coordinatorStreamMessage)) {
             log.debug("Removed duplicate message: {}", coordinatorStreamMessage);
@@ -194,7 +194,7 @@ public class CoordinatorStreamSystemConsumer {
         }
 
         bootstrappedStreamSet = Collections.unmodifiableSet(bootstrappedMessages);
-        log.info("Bootstrapped configuration: {}", configMap);
+        log.debug("Bootstrapped configuration: {}", configMap);
         isBootstrapped = true;
       } catch (Exception e) {
         throw new SamzaException(e);

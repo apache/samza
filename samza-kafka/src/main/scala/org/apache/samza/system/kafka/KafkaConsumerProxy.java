@@ -86,7 +86,7 @@ public class KafkaConsumerProxy<K, V> {
     this.clientId = clientId;
 
     // TODO - see if we need new metrics (not host:port based)
-    this.kafkaConsumerMetrics.registerBrokerProxy(metricName, 0);
+    this.kafkaConsumerMetrics.registerClientProxy(metricName);
 
     consumerPollThread = new Thread(createProxyThreadRunnable());
   }
@@ -132,7 +132,7 @@ public class KafkaConsumerProxy<K, V> {
 
     // we reuse existing metrics. They assume host and port for the broker
     // for now fake the port with the consumer name
-    kafkaConsumerMetrics.setTopicPartitionValue(metricName, 0, nextOffsets.size());
+    kafkaConsumerMetrics.setTopicPartitionValue(metricName, nextOffsets.size());
   }
 
   /**
@@ -258,16 +258,10 @@ public class KafkaConsumerProxy<K, V> {
         results.put(ssp, listMsgs);
       }
 
-      // TODO - add calculation of the size of the message, when available from Kafka
-      int msgSize = 0;
-      // if (fetchLimitByBytesEnabled) {
-      msgSize = getRecordSize(r);
-      //}
-
       final K key = r.key();
       final Object value = r.value();
       IncomingMessageEnvelope imEnvelope =
-          new IncomingMessageEnvelope(ssp, String.valueOf(r.offset()), key, value, msgSize);
+          new IncomingMessageEnvelope(ssp, String.valueOf(r.offset()), key, value, getRecordSize(r));
       listMsgs.add(imEnvelope);
     }
     if (LOG.isDebugEnabled()) {
@@ -282,18 +276,8 @@ public class KafkaConsumerProxy<K, V> {
   }
 
   private int getRecordSize(ConsumerRecord<K, V> r) {
-    int keySize = 0; //(r.key() == null) ? 0 : r.key().getSerializedKeySize();
-    return keySize;  // + r.getSerializedMsgSize();  // TODO -enable when functionality available from Kafka
-
-    //int getMessageSize (Message message) {
-    // Approximate additional shallow heap overhead per message in addition to the raw bytes
-    // received from Kafka  4 + 64 + 4 + 4 + 4 = 80 bytes overhead.
-    // As this overhead is a moving target, and not very large
-    // compared to the message size its being ignore in the computation for now.
-    // int MESSAGE_SIZE_OVERHEAD =  4 + 64 + 4 + 4 + 4;
-
-    //      return message.size() + MESSAGE_SIZE_OVERHEAD;
-    // }
+    int keySize = (r.key() == null) ? 0 : r.serializedKeySize();
+    return keySize + r.serializedValueSize();
   }
 
   private void updateMetrics(ConsumerRecord<K, V> r, TopicPartition tp) {
@@ -310,7 +294,7 @@ public class KafkaConsumerProxy<K, V> {
     kafkaConsumerMetrics.incReads(tap);
     kafkaConsumerMetrics.incBytesReads(tap, size);
     kafkaConsumerMetrics.setOffsets(tap, recordOffset);
-    kafkaConsumerMetrics.incBrokerBytesReads(metricName, 0, size);
+    kafkaConsumerMetrics.incClientBytesReads(metricName, size);
     kafkaConsumerMetrics.setHighWatermarkValue(tap, highWatermark);
   }
 
@@ -398,7 +382,7 @@ public class KafkaConsumerProxy<K, V> {
     }
     LOG.debug("pollConsumer {}", SSPsToFetch.size());
     if (!SSPsToFetch.isEmpty()) {
-      kafkaConsumerMetrics.incBrokerReads(metricName, 0);
+      kafkaConsumerMetrics.incClientReads(metricName);
 
       Map<SystemStreamPartition, List<IncomingMessageEnvelope>> response;
       if (LOG.isDebugEnabled()) {
@@ -420,7 +404,7 @@ public class KafkaConsumerProxy<K, V> {
       LOG.debug("No topic/partitions need to be fetched for consumer {} right now. Sleeping {}ms.", kafkaConsumer,
           SLEEP_MS_WHILE_NO_TOPIC_PARTITION);
 
-      kafkaConsumerMetrics.incBrokerSkippedFetchRequests(metricName, 0);
+      kafkaConsumerMetrics.incClientSkippedFetchRequests(metricName);
 
       try {
         Thread.sleep(SLEEP_MS_WHILE_NO_TOPIC_PARTITION);

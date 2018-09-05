@@ -43,11 +43,13 @@ public class KafkaConsumerConfig extends ConsumerConfig {
 
   private static final String PRODUCER_CLIENT_ID_PREFIX = "kafka-producer";
   private static final String CONSUMER_CLIENT_ID_PREFIX = "kafka-consumer";
+  private static final String ADMIN_CLIENT_ID_PREFIX = "samza-admin";
   private static final String SAMZA_OFFSET_LARGEST = "largest";
   private static final String SAMZA_OFFSET_SMALLEST = "smallest";
   private static final String KAFKA_OFFSET_LATEST = "latest";
   private static final String KAFKA_OFFSET_EARLIEST = "earliest";
   private static final String KAFKA_OFFSET_NONE = "none";
+
   /*
    * By default, KafkaConsumer will fetch ALL available messages for all the partitions.
    * This may cause memory issues. That's why we will limit the number of messages per partition we get on EACH poll().
@@ -59,8 +61,8 @@ public class KafkaConsumerConfig extends ConsumerConfig {
     super(props);
   }
 
-  public static KafkaConsumerConfig getKafkaSystemConsumerConfig(Config config,
-      String systemName, String clientId, Map<String, String> injectProps) {
+  public static KafkaConsumerConfig getKafkaSystemConsumerConfig(Config config, String systemName, String clientId,
+      Map<String, String> injectProps) {
 
     Config subConf = config.subset(String.format("systems.%s.consumer.", systemName), true);
 
@@ -72,17 +74,20 @@ public class KafkaConsumerConfig extends ConsumerConfig {
     consumerProps.setProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId);
     consumerProps.setProperty(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
 
-    //Open-source Kafka Consumer configuration
-    consumerProps.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false"); // Disable consumer auto-commit
+    //Kafka client configuration
 
-    consumerProps.setProperty(
-        ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-        getAutoOffsetResetValue(consumerProps));  // Translate samza config value to kafka config value
+    // Disable consumer auto-commit because Samza controls commits
+    consumerProps.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+
+    // Translate samza config value to kafka config value
+    consumerProps.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
+        getAutoOffsetResetValue(consumerProps));
 
     // make sure bootstrap configs are in ?? SHOULD WE FAIL IF THEY ARE NOT?
-    if (! subConf.containsKey(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG)) {
+    if (!subConf.containsKey(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG)) {
       // get it from the producer config
-      String bootstrapServer = config.get(String.format("systems.%s.producer.%s", systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
+      String bootstrapServer =
+          config.get(String.format("systems.%s.producer.%s", systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
       if (StringUtils.isEmpty(bootstrapServer)) {
         throw new SamzaException("Missing " + ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG + " config  for " + systemName);
       }
@@ -90,25 +95,22 @@ public class KafkaConsumerConfig extends ConsumerConfig {
     }
 
     // Always use default partition assignment strategy. Do not allow override.
-    consumerProps.setProperty(
-        ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG,
-        RangeAssignor.class.getName());
-
+    consumerProps.setProperty(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, RangeAssignor.class.getName());
 
     // the consumer is fully typed, and deserialization can be too. But in case it is not provided we should
     // default to byte[]
-    if ( !config.containsKey(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG)) {
-      LOG.info("default key serialization for the consumer(for {}) to ByteArrayDeserializer", systemName);
+    if (!config.containsKey(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG)) {
+      LOG.info("setting default key serialization for the consumer(for {}) to ByteArrayDeserializer", systemName);
       consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
     }
-    if ( !config.containsKey(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG)) {
-      LOG.info("default value serialization for the consumer(for {}) to ByteArrayDeserializer", systemName);
+    if (!config.containsKey(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG)) {
+      LOG.info("setting default value serialization for the consumer(for {}) to ByteArrayDeserializer", systemName);
       consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
     }
 
-
     // NOT SURE THIS IS NEEDED TODO
-    String maxPollRecords = subConf.get(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, KAFKA_CONSUMER_MAX_POLL_RECORDS_DEFAULT);;
+    String maxPollRecords =
+        subConf.get(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, KAFKA_CONSUMER_MAX_POLL_RECORDS_DEFAULT);
     consumerProps.setProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, maxPollRecords);
 
     // put overrides
@@ -122,38 +124,37 @@ public class KafkaConsumerConfig extends ConsumerConfig {
     JobConfig jobConfig = new JobConfig(config);
     Option<String> jobIdOption = jobConfig.getJobId();
     Option<String> jobNameOption = jobConfig.getName();
-    return (jobNameOption.isDefined()? jobNameOption.get() : "undefined_job_name") + "-"
-        + (jobIdOption.isDefined()? jobIdOption.get() : "undefined_job_id");
+    return (jobNameOption.isDefined() ? jobNameOption.get() : "undefined_job_name") + "-" + (jobIdOption.isDefined()
+        ? jobIdOption.get() : "undefined_job_id");
   }
+
   // client id should be unique per job
-  public static String getClientId(String id, Config config) {
+  public static String getClientId(Config config) {
+    return getClientId(CONSUMER_CLIENT_ID_PREFIX, config);
+  }
+  public static String getProducerClientId(Config config) {
+    return getClientId(PRODUCER_CLIENT_ID_PREFIX, config);
+  }
+  public static String getAdminClientId(Config config) {
+    return getClientId(ADMIN_CLIENT_ID_PREFIX, config);
+  }
+
+  private static String getClientId(String id, Config config) {
     if (config.get(JobConfig.JOB_NAME()) == null) {
       throw new ConfigException("Missing job name");
     }
     String jobName = config.get(JobConfig.JOB_NAME());
-    String jobId = "1";
-    if (config.get(JobConfig.JOB_ID()) != null) {
-      jobId = config.get(JobConfig.JOB_ID());
-    }
-    return getClientId(id, jobName, jobId);
-  }
+    String jobId = (config.get(JobConfig.JOB_ID()) != null) ? config.get(JobConfig.JOB_ID()) : "1";
 
-  private static String getClientId(String id, String jobName, String jobId) {
-    return String.format(
-        "%s-%s-%s",
-        id.replaceAll("[^A-Za-z0-9]", "_"),
-        jobName.replaceAll("[^A-Za-z0-9]", "_"),
+    return String.format("%s-%s-%s", id.replaceAll("[^A-Za-z0-9]", "_"), jobName.replaceAll("[^A-Za-z0-9]", "_"),
         jobId.replaceAll("[^A-Za-z0-9]", "_"));
-  }
-
-  public static String getProducerClientId(Config config) {
-    return getClientId(PRODUCER_CLIENT_ID_PREFIX, config);
   }
 
   /**
    * Settings for auto.reset in samza are different from settings in Kafka (auto.offset.reset) - need to convert
    * "largest" -> "latest"
    * "smallest" -> "earliest"
+   * "none" -> "none"
    * "none" - will fail the kafka consumer, if offset is out of range
    * @param properties All consumer related {@link Properties} parsed from samza config
    * @return String representing the config value for "auto.offset.reset" property
@@ -162,9 +163,8 @@ public class KafkaConsumerConfig extends ConsumerConfig {
     String autoOffsetReset = properties.getProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, KAFKA_OFFSET_LATEST);
 
     // accept kafka values directly
-    if (autoOffsetReset.equals(KAFKA_OFFSET_EARLIEST) ||
-        autoOffsetReset.equals(KAFKA_OFFSET_LATEST) ||
-        autoOffsetReset.equals(KAFKA_OFFSET_NONE)) {
+    if (autoOffsetReset.equals(KAFKA_OFFSET_EARLIEST) || autoOffsetReset.equals(KAFKA_OFFSET_LATEST)
+        || autoOffsetReset.equals(KAFKA_OFFSET_NONE)) {
       return autoOffsetReset;
     }
 
@@ -177,5 +177,4 @@ public class KafkaConsumerConfig extends ConsumerConfig {
         return KAFKA_OFFSET_LATEST;
     }
   }
-
 }

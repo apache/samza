@@ -19,11 +19,9 @@
 
 package org.apache.samza.job.local
 
-import java.util.concurrent.{CountDownLatch, TimeUnit}
-
-import org.apache.samza.config.{Config, TaskConfigJava}
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
+import org.apache.samza.config.{Config, TaskConfigJava}
 import org.apache.samza.container.{SamzaContainer, SamzaContainerListener, TaskName}
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.stream.CoordinatorStreamManager
@@ -38,8 +36,8 @@ import scala.collection.JavaConversions._
 import scala.collection.mutable
 
 /**
- * Creates a new Thread job with the given config
- */
+  * Creates a new Thread job with the given config
+  */
 class ThreadJobFactory extends StreamJobFactory with Logging {
   def getJob(config: Config): StreamJob = {
     info("Creating a ThreadJob, which is only meant for debugging.")
@@ -51,7 +49,8 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     coordinatorStreamManager.bootstrap
     val changelogStreamManager = new ChangelogStreamManager(coordinatorStreamManager)
 
-    val coordinator = JobModelManager(coordinatorStreamManager, changelogStreamManager.readPartitionMapping())
+    val coordinator = JobModelManager(coordinatorStreamManager.getConfig, changelogStreamManager.readPartitionMapping())
+    coordinatorStreamManager.stop()
     val jobModel = coordinator.jobModel
 
     val taskPartitionMappings: mutable.Map[TaskName, Integer] = mutable.Map[TaskName, Integer]()
@@ -85,7 +84,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
 
     // Give developers a nice friendly warning if they've specified task.opts and are using a threaded job.
     config.getTaskOpts match {
-      case Some(taskOpts) => warn("%s was specified in config, but is not being used because job is being executed with ThreadJob. You probably want to run %s=%s." format (TASK_JVM_OPTS, STREAM_JOB_FACTORY_CLASS, classOf[ProcessJobFactory].getName))
+      case Some(taskOpts) => warn("%s was specified in config, but is not being used because job is being executed with ThreadJob. You probably want to run %s=%s." format(TASK_JVM_OPTS, STREAM_JOB_FACTORY_CLASS, classOf[ProcessJobFactory].getName))
       case _ => None
     }
 
@@ -117,7 +116,6 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
       threadJob
     } finally {
       coordinator.stop
-      coordinatorStreamManager.stop
       jmxServer.stop
     }
   }
