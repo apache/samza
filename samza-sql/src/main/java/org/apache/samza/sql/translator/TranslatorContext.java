@@ -35,6 +35,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.sql.data.RexToJavaCompiler;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
@@ -50,8 +51,9 @@ public class TranslatorContext implements Cloneable {
   private final StreamGraph streamGraph;
   private final RexToJavaCompiler compiler;
   private final Map<String, SamzaRelConverter> relSamzaConverters;
-  private final Map<Integer, MessageStream> messsageStreams;
+  private final Map<Integer, MessageStream> messageStreams;
   private final Map<Integer, RelNode> relNodes;
+  private final Map<String, DelegatingSystemDescriptor> systemDescriptors;
 
   /**
    * The internal variables that are not shared among all cloned {@link TranslatorContext}
@@ -123,10 +125,11 @@ public class TranslatorContext implements Cloneable {
     this.streamGraph  = other.streamGraph;
     this.compiler = other.compiler;
     this.relSamzaConverters = other.relSamzaConverters;
-    this.messsageStreams = other.messsageStreams;
+    this.messageStreams = other.messageStreams;
     this.relNodes = other.relNodes;
     this.executionContext = other.executionContext.clone();
     this.dataContext = new DataContextImpl();
+    this.systemDescriptors = other.systemDescriptors;
   }
 
   /**
@@ -142,8 +145,9 @@ public class TranslatorContext implements Cloneable {
     this.executionContext = executionContext;
     this.dataContext = new DataContextImpl();
     this.relSamzaConverters = converters;
-    this.messsageStreams = new HashMap<>();
+    this.messageStreams = new HashMap<>();
     this.relNodes = new HashMap<>();
+    this.systemDescriptors = new HashMap<>();
   }
 
   /**
@@ -184,7 +188,7 @@ public class TranslatorContext implements Cloneable {
    * @param stream the stream
    */
   void registerMessageStream(int id, MessageStream stream) {
-    messsageStreams.put(id, stream);
+    messageStreams.put(id, stream);
   }
 
   /**
@@ -194,7 +198,7 @@ public class TranslatorContext implements Cloneable {
    * @return the message stream
    */
   MessageStream getMessageStream(int id) {
-    return messsageStreams.get(id);
+    return messageStreams.get(id);
   }
 
   void registerRelNode(int id, RelNode relNode) {
@@ -207,6 +211,10 @@ public class TranslatorContext implements Cloneable {
 
   SamzaRelConverter getMsgConverter(String source) {
     return this.relSamzaConverters.get(source);
+  }
+
+  Map<String, DelegatingSystemDescriptor> getSystemDescriptors() {
+    return this.systemDescriptors;
   }
 
   /**

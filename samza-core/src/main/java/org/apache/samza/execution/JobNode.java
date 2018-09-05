@@ -85,6 +85,11 @@ public class JobNode {
     this.config = config;
   }
 
+  public static Config mergeJobConfig(Config fullConfig, Config generatedConfig) {
+    return new JobConfig(Util.rewriteConfig(extractScopedConfig(
+        fullConfig, generatedConfig, String.format(CONFIG_JOB_PREFIX, new JobConfig(fullConfig).getName().get()))));
+  }
+
   public OperatorSpecGraph getSpecGraph() {
     return this.specGraph;
   }
@@ -235,15 +240,27 @@ public class JobNode {
     inEdges.forEach(edge -> {
         String streamId = edge.getStreamSpec().getId();
         InputOperatorSpec inputOperatorSpec = inputOperators.get(streamId);
-        streamKeySerdes.put(streamId, inputOperatorSpec.getKeySerde());
-        streamMsgSerdes.put(streamId, inputOperatorSpec.getValueSerde());
+        Serde keySerde = inputOperatorSpec.getKeySerde();
+        if (keySerde != null) {
+          streamKeySerdes.put(streamId, keySerde);
+        }
+        Serde valueSerde = inputOperatorSpec.getValueSerde();
+        if (valueSerde != null) {
+          streamMsgSerdes.put(streamId, valueSerde);
+        }
       });
     Map<String, OutputStreamImpl> outputStreams = specGraph.getOutputStreams();
     outEdges.forEach(edge -> {
         String streamId = edge.getStreamSpec().getId();
         OutputStreamImpl outputStream = outputStreams.get(streamId);
-        streamKeySerdes.put(streamId, outputStream.getKeySerde());
-        streamMsgSerdes.put(streamId, outputStream.getValueSerde());
+        Serde keySerde = outputStream.getKeySerde();
+        if (keySerde != null) {
+          streamKeySerdes.put(streamId, keySerde);
+        }
+        Serde valueSerde = outputStream.getValueSerde();
+        if (valueSerde != null) {
+          streamMsgSerdes.put(streamId, valueSerde);
+        }
       });
 
     // collect all key and msg serde instances for stores

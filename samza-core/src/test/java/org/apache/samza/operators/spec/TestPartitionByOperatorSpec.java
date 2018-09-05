@@ -26,16 +26,23 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.TimerRegistry;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
+import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
+import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
+import org.apache.samza.serializers.Serde;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.internal.util.reflection.Whitebox;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 
 /**
@@ -44,10 +51,12 @@ import static org.mockito.Mockito.*;
 public class TestPartitionByOperatorSpec {
 
   private final Config mockConfig = mock(Config.class);
-  private final String testInputId = "test-input-1";
+  private final GenericInputDescriptor testinputDescriptor =
+      new GenericSystemDescriptor("mockSystem", "mockFactoryClassName")
+          .getInputDescriptor("test-input-1", mock(Serde.class));
   private final String testJobName = "testJob";
   private final String testJobId = "1";
-  private final String testReparStreamName = "parByKey";
+  private final String testRepartitionedStreamName = "parByKey";
   private StreamGraphSpec graphSpec = null;
 
   class TimerMapFn implements MapFunction<Object, String>, TimerFunction<String, Object> {
@@ -95,13 +104,14 @@ public class TestPartitionByOperatorSpec {
 
   @Test
   public void testPartitionBy() {
-    MessageStream inputStream = graphSpec.getInputStream(testInputId);
+    MessageStream inputStream = graphSpec.getInputStream(testinputDescriptor);
     MapFunction<Object, String> keyFn = m -> m.toString();
     MapFunction<Object, Object> valueFn = m -> m;
+    KVSerde<Object, Object> partitionBySerde = KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>());
     MessageStream<KV<String, Object>>
-        reparStream = inputStream.partitionBy(keyFn, valueFn, testReparStreamName);
+        reparStream = inputStream.partitionBy(keyFn, valueFn, partitionBySerde, testRepartitionedStreamName);
     InputOperatorSpec inputOpSpec = (InputOperatorSpec) Whitebox.getInternalState(reparStream, "operatorSpec");
-    assertEquals(inputOpSpec.getStreamId(), String.format("%s-%s-partition_by-%s", testJobName, testJobId, testReparStreamName));
+    assertEquals(inputOpSpec.getStreamId(), String.format("%s-%s-partition_by-%s", testJobName, testJobId, testRepartitionedStreamName));
     assertTrue(inputOpSpec.getKeySerde() instanceof NoOpSerde);
     assertTrue(inputOpSpec.getValueSerde() instanceof NoOpSerde);
     assertTrue(inputOpSpec.isKeyed());
@@ -110,7 +120,32 @@ public class TestPartitionByOperatorSpec {
     InputOperatorSpec originInputSpec = (InputOperatorSpec) Whitebox.getInternalState(inputStream, "operatorSpec");
     assertTrue(originInputSpec.getRegisteredOperatorSpecs().toArray()[0] instanceof PartitionByOperatorSpec);
     PartitionByOperatorSpec reparOpSpec  = (PartitionByOperatorSpec) originInputSpec.getRegisteredOperatorSpecs().toArray()[0];
-    assertEquals(reparOpSpec.getOpId(), String.format("%s-%s-partition_by-%s", testJobName, testJobId, testReparStreamName));
+    assertEquals(reparOpSpec.getOpId(), String.format("%s-%s-partition_by-%s", testJobName, testJobId, testRepartitionedStreamName));
+    assertEquals(reparOpSpec.getKeyFunction(), keyFn);
+    assertEquals(reparOpSpec.getValueFunction(), valueFn);
+    assertEquals(reparOpSpec.getOutputStream().getStreamId(), reparOpSpec.getOpId());
+    assertNull(reparOpSpec.getTimerFn());
+    assertNull(reparOpSpec.getWatermarkFn());
+  }
+
+  @Test
+  public void testPartitionByWithNoSerde() {
+    MessageStream inputStream = graphSpec.getInputStream(testinputDescriptor);
+    MapFunction<Object, String> keyFn = m -> m.toString();
+    MapFunction<Object, Object> valueFn = m -> m;
+    MessageStream<KV<String, Object>>
+        reparStream = inputStream.partitionBy(keyFn, valueFn, testRepartitionedStreamName);
+    InputOperatorSpec inputOpSpec = (InputOperatorSpec) Whitebox.getInternalState(reparStream, "operatorSpec");
+    assertEquals(inputOpSpec.getStreamId(), String.format("%s-%s-partition_by-%s", testJobName, testJobId, testRepartitionedStreamName));
+    assertNull(inputOpSpec.getKeySerde());
+    assertNull(inputOpSpec.getValueSerde());
+    assertTrue(inputOpSpec.isKeyed());
+    assertNull(inputOpSpec.getTimerFn());
+    assertNull(inputOpSpec.getWatermarkFn());
+    InputOperatorSpec originInputSpec = (InputOperatorSpec) Whitebox.getInternalState(inputStream, "operatorSpec");
+    assertTrue(originInputSpec.getRegisteredOperatorSpecs().toArray()[0] instanceof PartitionByOperatorSpec);
+    PartitionByOperatorSpec reparOpSpec  = (PartitionByOperatorSpec) originInputSpec.getRegisteredOperatorSpecs().toArray()[0];
+    assertEquals(reparOpSpec.getOpId(), String.format("%s-%s-partition_by-%s", testJobName, testJobId, testRepartitionedStreamName));
     assertEquals(reparOpSpec.getKeyFunction(), keyFn);
     assertEquals(reparOpSpec.getValueFunction(), valueFn);
     assertEquals(reparOpSpec.getOutputStream().getStreamId(), reparOpSpec.getOpId());
@@ -120,8 +155,8 @@ public class TestPartitionByOperatorSpec {
 
   @Test
   public void testCopy() {
-    MessageStream inputStream = graphSpec.getInputStream(testInputId);
-    inputStream.partitionBy(m -> m.toString(), m -> m, testReparStreamName);
+    MessageStream inputStream = graphSpec.getInputStream(testinputDescriptor);
+    inputStream.partitionBy(m -> m.toString(), m -> m, testRepartitionedStreamName);
     OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
     OperatorSpecGraph clonedGraph = specGraph.clone();
     OperatorSpecTestUtils.assertClonedGraph(specGraph, clonedGraph);
@@ -130,28 +165,28 @@ public class TestPartitionByOperatorSpec {
   @Test(expected = IllegalArgumentException.class)
   public void testTimerFunctionAsKeyFn() {
     TimerMapFn keyFn = new TimerMapFn();
-    MessageStream<Object> inputStream = graphSpec.getInputStream(testInputId);
+    MessageStream inputStream = graphSpec.getInputStream(testinputDescriptor);
     inputStream.partitionBy(keyFn, m -> m, "parByKey");
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testWatermarkFunctionAsKeyFn() {
     WatermarkMapFn keyFn = new WatermarkMapFn();
-    MessageStream<Object> inputStream = graphSpec.getInputStream(testInputId);
+    MessageStream inputStream = graphSpec.getInputStream(testinputDescriptor);
     inputStream.partitionBy(keyFn, m -> m, "parByKey");
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testTimerFunctionAsValueFn() {
     TimerMapFn valueFn = new TimerMapFn();
-    MessageStream<Object> inputStream = graphSpec.getInputStream(testInputId);
+    MessageStream inputStream = graphSpec.getInputStream(testinputDescriptor);
     inputStream.partitionBy(m -> m.toString(), valueFn, "parByKey");
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testWatermarkFunctionAsValueFn() {
     WatermarkMapFn valueFn = new WatermarkMapFn();
-    MessageStream<Object> inputStream = graphSpec.getInputStream(testInputId);
+    MessageStream inputStream = graphSpec.getInputStream(testinputDescriptor);
     inputStream.partitionBy(m -> m.toString(), valueFn, "parByKey");
   }
 }

@@ -73,14 +73,14 @@ public class TestOperatorSpecGraph {
      */
     String inputStreamId1 = "test-input-1";
     String outputStreamId = "test-output-1";
-    InputOperatorSpec testInput = new InputOperatorSpec(inputStreamId1, new NoOpSerde(), new NoOpSerde(), true, inputStreamId1);
+    InputOperatorSpec testInput = new InputOperatorSpec(inputStreamId1, new NoOpSerde(), new NoOpSerde(), null, true, inputStreamId1);
     StreamOperatorSpec filterOp = OperatorSpecs.createFilterOperatorSpec(m -> true, "test-filter-2");
     OutputStreamImpl outputStream1 = new OutputStreamImpl(outputStreamId, null, null, true);
     OutputOperatorSpec outputSpec = OperatorSpecs.createSendToOperatorSpec(outputStream1, "test-output-3");
     testInput.registerNextOperatorSpec(filterOp);
     filterOp.registerNextOperatorSpec(outputSpec);
     String streamId2 = "test-input-2";
-    InputOperatorSpec testInput2 = new InputOperatorSpec(streamId2, new NoOpSerde(), new NoOpSerde(), true, "test-input-4");
+    InputOperatorSpec testInput2 = new InputOperatorSpec(streamId2, new NoOpSerde(), new NoOpSerde(), null, true, "test-input-4");
     StreamOperatorSpec testMap = OperatorSpecs.createMapOperatorSpec(m -> m, "test-map-5");
     SinkOperatorSpec testSink = OperatorSpecs.createSinkOperatorSpec((m, mc, tc) -> { }, "test-sink-6");
     testInput2.registerNextOperatorSpec(testMap);
