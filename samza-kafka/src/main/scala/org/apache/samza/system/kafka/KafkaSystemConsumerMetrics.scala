@@ -47,10 +47,10 @@ class KafkaSystemConsumerMetrics(val systemName: String = "unknown", val registr
   }
 
   def registerClientProxy(clientName: String) {
-    clientBytesRead.put(clientName, newCounter("%s-%s-bytes-read" format clientName))
-    clientReads.put((clientName), newCounter("%s-%s-messages-read" format clientName))
-    clientSkippedFetchRequests.put((clientName), newCounter("%s-%s-skipped-fetch-requests" format clientName))
-    topicPartitions.put(clientName, newGauge("%s-%s-topic-partitions" format clientName, 0))
+    clientBytesRead.put(clientName, newCounter("%s-bytes-read" format clientName))
+    clientReads.put((clientName), newCounter("%s-messages-read" format clientName))
+    clientSkippedFetchRequests.put((clientName), newCounter("%s-skipped-fetch-requests" format clientName))
+    topicPartitions.put(clientName, newGauge("%s-topic-partitions" format clientName, 0))
   }
 
   // java friendlier interfaces

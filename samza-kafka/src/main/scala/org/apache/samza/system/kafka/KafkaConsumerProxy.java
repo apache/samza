@@ -99,20 +99,14 @@ public class KafkaConsumerProxy<K, V> {
           "Samza KafkaConsumerProxy Poll " + consumerPollThread.getName() + " - " + systemName);
       consumerPollThread.start();
 
-      System.out.println("THREAD: starting" + consumerPollThread.getName());
-
-
       // we need to wait until the thread starts
       while (!isRunning) {
         try {
           consumerPollThreadStartLatch.await(3000, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
-          LOG.info("WTH");
+          LOG.info("Got InterruptedException", e);
         }
       }
-      new Exception().printStackTrace(System.out);
-      System.out.println("THREAD: started" + consumerPollThread.getName());
-
     } else {
       LOG.debug("Tried to start an already started LiKafkaConsumerProxy (%s). Ignoring.", this.toString());
     }
@@ -220,7 +214,6 @@ public class KafkaConsumerProxy<K, V> {
         kafkaConsumer.resume(topicPartitionsToPause);
       }
     } catch (InvalidOffsetException e) {
-      LOG.error("LiKafkaConsumer with invalidOffsetException", e);
       // If the consumer has thrown this exception it means that auto reset is not set for this consumer.
       // So we just rethrow.
       LOG.error("Caught InvalidOffsetException in pollConsumer", e);

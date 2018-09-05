@@ -50,7 +50,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     val changelogStreamManager = new ChangelogStreamManager(coordinatorStreamManager)
 
     val coordinator = JobModelManager(coordinatorStreamManager.getConfig, changelogStreamManager.readPartitionMapping())
-    coordinatorStreamManager.stop()
+
     val jobModel = coordinator.jobModel
 
     val taskPartitionMappings: mutable.Map[TaskName, Integer] = mutable.Map[TaskName, Integer]()
@@ -116,6 +116,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
       threadJob
     } finally {
       coordinator.stop
+      coordinatorStreamManager.stop()
       jmxServer.stop
     }
   }
