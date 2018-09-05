@@ -18,6 +18,7 @@
  */
 package org.apache.samza.container.grouper.stream;
 
+import org.apache.commons.lang3.NotImplementedException;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
 
@@ -37,5 +38,9 @@ import java.util.Set;
  * the TaskNames.
  */
 public interface SystemStreamPartitionGrouper {
-  public Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> ssps);
+    Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> ssps);
+
+    default Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> ssps, Map<TaskName, Set<SystemStreamPartition>> previousGrouping) {
+        throw new NotImplementedException("This function has not been implemented by current implementation");
+    }
 }

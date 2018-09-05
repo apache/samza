@@ -31,7 +31,9 @@ import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
+import org.junit.Assert;
 import org.junit.Test;
 
 public class TestGroupByPartition {
@@ -127,4 +129,453 @@ public class TestGroupByPartition {
 
     assertEquals(expectedResult, result);
   }
+
+  @Test
+  public void testSingleStreamRepartitioning() {
+    Map<TaskName, Set<SystemStreamPartition>> prevGroupingWithSingleStream = new HashMap<>();
+    Set<SystemStreamPartition> sspSet0 = new HashSet<>();
+    sspSet0.add(new SystemStreamPartition("kafka", "PVE", new Partition(0)));
+
+    Set<SystemStreamPartition> sspSet1 = new HashSet<>();
+    sspSet1.add(new SystemStreamPartition("kafka", "PVE", new Partition(1)));
+
+    Set<SystemStreamPartition> sspSet2 = new HashSet<>();
+    sspSet2.add(new SystemStreamPartition("kafka", "PVE", new Partition(2)));
+
+    Set<SystemStreamPartition> sspSet3 = new HashSet<>();
+    sspSet3.add(new SystemStreamPartition("kafka", "PVE", new Partition(3)));
+
+    prevGroupingWithSingleStream.put(new TaskName("Partition 0"), sspSet0);
+    prevGroupingWithSingleStream.put(new TaskName("Partition 1"), sspSet1);
+    prevGroupingWithSingleStream.put(new TaskName("Partition 2"), sspSet2);
+    prevGroupingWithSingleStream.put(new TaskName("Partition 3"), sspSet3);
+
+    Set<SystemStreamPartition> currSsps = new HashSet<>();
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(0)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(1)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(2)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(3)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(4)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(5)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(6)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(7)));
+
+    // expected grouping
+    Map<TaskName, Set<SystemStreamPartition>> expectedGrouping = new HashMap<>();
+    Set<SystemStreamPartition> expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(1)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(5)));
+    expectedGrouping.put(new TaskName("Partition 1"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(4)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(0)));
+    expectedGrouping.put(new TaskName("Partition 0"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(7)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(3)));
+    expectedGrouping.put(new TaskName("Partition 3"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(6)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(2)));
+    expectedGrouping.put(new TaskName("Partition 2"), expectedSsps);
+
+    GroupByPartition groupByPartition = new GroupByPartition();
+    Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupByPartition.group(currSsps, prevGroupingWithSingleStream);
+    Assert.assertEquals(expectedGrouping, finalGrouping);
+  }
+
+  @Test
+  public void testMultipleStreamsWithSingleStreamRepartitioning() {
+    Map<TaskName, Set<SystemStreamPartition>> prevGroupingWithMultipleStreams = new HashMap<>();
+
+    Set<SystemStreamPartition> sspSet0 = new HashSet<>();
+    sspSet0 = new HashSet<>();
+    sspSet0.add(new SystemStreamPartition("kafka", "PVE", new Partition(0)));
+    sspSet0.add(new SystemStreamPartition("kafka", "URE", new Partition(0)));
+
+    Set<SystemStreamPartition> sspSet1 = new HashSet<>();
+    sspSet1 = new HashSet<>();
+    sspSet1.add(new SystemStreamPartition("kafka", "PVE", new Partition(1)));
+    sspSet1.add(new SystemStreamPartition("kafka", "URE", new Partition(1)));
+
+    Set<SystemStreamPartition> sspSet2 = new HashSet<>();
+    sspSet2 = new HashSet<>();
+    sspSet2.add(new SystemStreamPartition("kafka", "PVE", new Partition(2)));
+    sspSet2.add(new SystemStreamPartition("kafka", "URE", new Partition(2)));
+
+    Set<SystemStreamPartition> sspSet3 = new HashSet<>();
+    sspSet3 = new HashSet<>();
+    sspSet3.add(new SystemStreamPartition("kafka", "PVE", new Partition(3)));
+    sspSet3.add(new SystemStreamPartition("kafka", "URE", new Partition(3)));
+
+    prevGroupingWithMultipleStreams.put(new TaskName("Partition 0"), sspSet0);
+    prevGroupingWithMultipleStreams.put(new TaskName("Partition 1"), sspSet1);
+    prevGroupingWithMultipleStreams.put(new TaskName("Partition 2"), sspSet2);
+    prevGroupingWithMultipleStreams.put(new TaskName("Partition 3"), sspSet3);
+
+    Set<SystemStreamPartition> currSsps = new HashSet<>();
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(0)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(1)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(2)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(3)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(4)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(5)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(6)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(7)));
+
+    currSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(0)));
+    currSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(1)));
+    currSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(2)));
+    currSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(3)));
+
+    // newly added Streams
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(0)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(1)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(2)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(3)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(4)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(5)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(6)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(7)));
+
+    // expected final grouping
+    Map<TaskName, Set<SystemStreamPartition>> expectedGrouping = new HashMap<>();
+    Set<SystemStreamPartition> expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(1)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(5)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(1)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(1)));
+    expectedGrouping.put(new TaskName("Partition 1"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(4)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(0)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(0)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(0)));
+    expectedGrouping.put(new TaskName("Partition 0"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(7)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(3)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(3)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(3)));
+    expectedGrouping.put(new TaskName("Partition 3"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(6)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(2)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(2)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(2)));
+    expectedGrouping.put(new TaskName("Partition 2"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(5)));
+    expectedGrouping.put(new TaskName("Partition 5"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(4)));
+    expectedGrouping.put(new TaskName("Partition 4"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(7)));
+    expectedGrouping.put(new TaskName("Partition 7"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(6)));
+    expectedGrouping.put(new TaskName("Partition 6"), expectedSsps);
+
+    GroupByPartition groupByPartition = new GroupByPartition();
+    Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupByPartition.group(currSsps, prevGroupingWithMultipleStreams);
+    Assert.assertEquals(expectedGrouping, finalGrouping);
+  }
+
+  @Test
+  public void testOnlyNewlyAddedStreams() {
+    Map<TaskName, Set<SystemStreamPartition>> prevGroupingWithMultipleStreams = new HashMap<>();
+
+    Set<SystemStreamPartition> sspSet0 = new HashSet<>();
+    sspSet0 = new HashSet<>();
+    sspSet0.add(new SystemStreamPartition("kafka", "PVE", new Partition(0)));
+    sspSet0.add(new SystemStreamPartition("kafka", "URE", new Partition(0)));
+
+    Set<SystemStreamPartition> sspSet1 = new HashSet<>();
+    sspSet1 = new HashSet<>();
+    sspSet1.add(new SystemStreamPartition("kafka", "PVE", new Partition(1)));
+    sspSet1.add(new SystemStreamPartition("kafka", "URE", new Partition(1)));
+
+    Set<SystemStreamPartition> sspSet2 = new HashSet<>();
+    sspSet2 = new HashSet<>();
+    sspSet2.add(new SystemStreamPartition("kafka", "PVE", new Partition(2)));
+    sspSet2.add(new SystemStreamPartition("kafka", "URE", new Partition(2)));
+
+    Set<SystemStreamPartition> sspSet3 = new HashSet<>();
+    sspSet3 = new HashSet<>();
+    sspSet3.add(new SystemStreamPartition("kafka", "PVE", new Partition(3)));
+    sspSet3.add(new SystemStreamPartition("kafka", "URE", new Partition(3)));
+
+    prevGroupingWithMultipleStreams.put(new TaskName("Partition 0"), sspSet0);
+    prevGroupingWithMultipleStreams.put(new TaskName("Partition 1"), sspSet1);
+    prevGroupingWithMultipleStreams.put(new TaskName("Partition 2"), sspSet2);
+    prevGroupingWithMultipleStreams.put(new TaskName("Partition 3"), sspSet3);
+
+    Set<SystemStreamPartition> currSsps = new HashSet<>();
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(0)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(1)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(2)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(3)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(4)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(5)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(6)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(7)));
+
+    // expected Grouping
+    Map<TaskName, Set<SystemStreamPartition>> expectedGrouping = new HashMap<>();
+    Set<SystemStreamPartition> expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(1)));
+    expectedGrouping.put(new TaskName("Partition 1"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(0)));
+    expectedGrouping.put(new TaskName("Partition 0"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(3)));
+    expectedGrouping.put(new TaskName("Partition 3"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(2)));
+    expectedGrouping.put(new TaskName("Partition 2"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(5)));
+    expectedGrouping.put(new TaskName("Partition 5"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(4)));
+    expectedGrouping.put(new TaskName("Partition 4"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(7)));
+    expectedGrouping.put(new TaskName("Partition 7"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(6)));
+    expectedGrouping.put(new TaskName("Partition 6"), expectedSsps);
+
+    GroupByPartition groupByPartition = new GroupByPartition();
+    Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupByPartition.group(currSsps, prevGroupingWithMultipleStreams);
+    Assert.assertEquals(expectedGrouping, finalGrouping);
+  }
+
+
+  @Test
+  public void testRemovalAndAdditionOfStreamsWithRepartitioning() {
+    Map<TaskName, Set<SystemStreamPartition>> prevGroupingWithMultipleStreams = new HashMap<>();
+
+    Set<SystemStreamPartition> sspSet0 = new HashSet<>();
+    sspSet0 = new HashSet<>();
+    sspSet0.add(new SystemStreamPartition("kafka", "PVE", new Partition(0)));
+    sspSet0.add(new SystemStreamPartition("kafka", "URE", new Partition(0)));
+
+    Set<SystemStreamPartition> sspSet1 = new HashSet<>();
+    sspSet1 = new HashSet<>();
+    sspSet1.add(new SystemStreamPartition("kafka", "PVE", new Partition(1)));
+    sspSet1.add(new SystemStreamPartition("kafka", "URE", new Partition(1)));
+
+    Set<SystemStreamPartition> sspSet2 = new HashSet<>();
+    sspSet2 = new HashSet<>();
+    sspSet2.add(new SystemStreamPartition("kafka", "PVE", new Partition(2)));
+    sspSet2.add(new SystemStreamPartition("kafka", "URE", new Partition(2)));
+
+    Set<SystemStreamPartition> sspSet3 = new HashSet<>();
+    sspSet3 = new HashSet<>();
+    sspSet3.add(new SystemStreamPartition("kafka", "PVE", new Partition(3)));
+    sspSet3.add(new SystemStreamPartition("kafka", "URE", new Partition(3)));
+
+    prevGroupingWithMultipleStreams.put(new TaskName("Partition 0"), sspSet0);
+    prevGroupingWithMultipleStreams.put(new TaskName("Partition 1"), sspSet1);
+    prevGroupingWithMultipleStreams.put(new TaskName("Partition 2"), sspSet2);
+    prevGroupingWithMultipleStreams.put(new TaskName("Partition 3"), sspSet3);
+
+    Set<SystemStreamPartition> currSsps = new HashSet<>();
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(0)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(1)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(2)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(3)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(4)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(5)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(6)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(7)));
+
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(0)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(1)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(2)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(3)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(4)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(5)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(6)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(7)));
+
+    // expected grouping
+    Map<TaskName, Set<SystemStreamPartition>> expectedGrouping = new HashMap<>();
+    Set<SystemStreamPartition> expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(5)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(1)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(1)));
+    expectedGrouping.put(new TaskName("Partition 1"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(4)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(0)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(0)));
+    expectedGrouping.put(new TaskName("Partition 0"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(7)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(3)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(3)));
+    expectedGrouping.put(new TaskName("Partition 3"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(6)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(2)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(2)));
+    expectedGrouping.put(new TaskName("Partition 2"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(5)));
+    expectedGrouping.put(new TaskName("Partition 5"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(4)));
+    expectedGrouping.put(new TaskName("Partition 4"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(7)));
+    expectedGrouping.put(new TaskName("Partition 7"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(6)));
+    expectedGrouping.put(new TaskName("Partition 6"), expectedSsps);
+
+
+    GroupByPartition groupByPartition = new GroupByPartition();
+    Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupByPartition.group(currSsps, prevGroupingWithMultipleStreams);
+    Assert.assertEquals(expectedGrouping, finalGrouping);
+  }
+
+  @Test
+  public void testMultipleStreamRepartitioningWithNewStreams() {
+    Map<TaskName, Set<SystemStreamPartition>> prevGroupingWithMultipleStreams = new HashMap<>();
+
+    Set<SystemStreamPartition> sspSet0 = new HashSet<>();
+    sspSet0 = new HashSet<>();
+    sspSet0.add(new SystemStreamPartition("kafka", "PVE", new Partition(0)));
+    sspSet0.add(new SystemStreamPartition("kafka", "URE", new Partition(0)));
+
+    Set<SystemStreamPartition> sspSet1 = new HashSet<>();
+    sspSet1 = new HashSet<>();
+    sspSet1.add(new SystemStreamPartition("kafka", "PVE", new Partition(1)));
+    sspSet1.add(new SystemStreamPartition("kafka", "URE", new Partition(1)));
+
+    Set<SystemStreamPartition> sspSet2 = new HashSet<>();
+    sspSet2 = new HashSet<>();
+    sspSet2.add(new SystemStreamPartition("kafka", "PVE", new Partition(2)));
+    sspSet2.add(new SystemStreamPartition("kafka", "URE", new Partition(2)));
+
+    Set<SystemStreamPartition> sspSet3 = new HashSet<>();
+    sspSet3 = new HashSet<>();
+    sspSet3.add(new SystemStreamPartition("kafka", "PVE", new Partition(3)));
+    sspSet3.add(new SystemStreamPartition("kafka", "URE", new Partition(3)));
+
+    prevGroupingWithMultipleStreams.put(new TaskName("Partition 0"), sspSet0);
+    prevGroupingWithMultipleStreams.put(new TaskName("Partition 1"), sspSet1);
+    prevGroupingWithMultipleStreams.put(new TaskName("Partition 2"), sspSet2);
+    prevGroupingWithMultipleStreams.put(new TaskName("Partition 3"), sspSet3);
+
+    Set<SystemStreamPartition> currSsps = new HashSet<>();
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(0)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(1)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(2)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(3)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(4)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(5)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(6)));
+    currSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(7)));
+    currSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(0)));
+    currSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(1)));
+    currSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(2)));
+    currSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(3)));
+    currSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(4)));
+    currSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(5)));
+    currSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(6)));
+    currSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(7)));
+
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(0)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(1)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(2)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(3)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(4)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(5)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(6)));
+    currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(7)));
+
+    // expected grouping
+    Map<TaskName, Set<SystemStreamPartition>> expectedGrouping = new HashMap<>();
+    Set<SystemStreamPartition> expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(5)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(1)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(1)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(5)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(1)));
+    expectedGrouping.put(new TaskName("Partition 1"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(0)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(4)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(0)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(4)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(0)));
+    expectedGrouping.put(new TaskName("Partition 0"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(7)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(3)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(7)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(3)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(3)));
+    expectedGrouping.put(new TaskName("Partition 3"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(2)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "PVE", new Partition(6)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(2)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(6)));
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(2)));
+    expectedGrouping.put(new TaskName("Partition 2"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(5)));
+    expectedGrouping.put(new TaskName("Partition 5"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(4)));
+    expectedGrouping.put(new TaskName("Partition 4"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(7)));
+    expectedGrouping.put(new TaskName("Partition 7"), expectedSsps);
+
+    expectedSsps = new HashSet<>();
+    expectedSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(6)));
+    expectedGrouping.put(new TaskName("Partition 6"), expectedSsps);
+
+    GroupByPartition groupByPartition = new GroupByPartition();
+    Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupByPartition.group(currSsps, prevGroupingWithMultipleStreams);
+    Assert.assertEquals(expectedGrouping, finalGrouping);
+  }
+
 }

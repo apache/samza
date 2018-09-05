@@ -22,6 +22,7 @@ package org.apache.samza.container.grouper.stream;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.apache.samza.config.Config;
@@ -30,45 +31,71 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
 
 public class GroupBySystemStreamPartition implements SystemStreamPartitionGrouper {
-  private TaskConfigJava taskConfig = null;
-  private Set<SystemStreamPartition> broadcastStreams = new HashSet<SystemStreamPartition>();
+    private TaskConfigJava taskConfig = null;
+    private Set<SystemStreamPartition> broadcastStreams = new HashSet<SystemStreamPartition>();
+    private boolean handleRepartitioning = true;
 
-  /**
-   * A constructor that accepts job config as the parameter
-   *
-   * @param config job config
-   */
-  public GroupBySystemStreamPartition(Config config) {
-    if (config.containsKey(TaskConfigJava.BROADCAST_INPUT_STREAMS)) {
-      taskConfig = new TaskConfigJava(config);
-      broadcastStreams = taskConfig.getBroadcastSystemStreamPartitions();
-    }
-  }
-
-  @Override
-  public Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> ssps) {
-    Map<TaskName, Set<SystemStreamPartition>> groupedMap = new HashMap<TaskName, Set<SystemStreamPartition>>();
-
-    for (SystemStreamPartition ssp : ssps) {
-      if (broadcastStreams.contains(ssp)) {
-        continue;
-      }
-
-      HashSet<SystemStreamPartition> sspSet = new HashSet<SystemStreamPartition>();
-      sspSet.add(ssp);
-      groupedMap.put(new TaskName(ssp.toString()), sspSet);
+    /**
+     * default constructor
+     */
+    public GroupBySystemStreamPartition() {
     }
 
-    // assign the broadcast streams to all the taskNames
-    if (!broadcastStreams.isEmpty()) {
-      for (Set<SystemStreamPartition> value : groupedMap.values()) {
-        for (SystemStreamPartition ssp : broadcastStreams) {
-          value.add(ssp);
+    /**
+     * A constructor that accepts job config as the parameter
+     *
+     * @param config job config
+     */
+    public GroupBySystemStreamPartition(Config config) {
+        if (config.containsKey(TaskConfigJava.BROADCAST_INPUT_STREAMS)) {
+            taskConfig = new TaskConfigJava(config);
+            broadcastStreams = taskConfig.getBroadcastSystemStreamPartitions();
         }
-      }
+        handleRepartitioning = Boolean.getBoolean(config.get("auto.handle.repartition"));
     }
 
-    return groupedMap;
-  }
+    @Override
+    public Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> ssps) {
+        return getGrouping(ssps, null);
+    }
+
+    public Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> ssps, Map<TaskName, Set<SystemStreamPartition>> previousGrouping) {
+
+        if (handleRepartitioning && !previousGrouping.isEmpty()) {
+            GroupingHelper.RepartioningHelper repartioningHelper = GroupingHelper.getGroupingForRepartition(Optional.of(ssps), Optional.of(previousGrouping));
+            if (!repartioningHelper.getNewSsps().isEmpty()) {
+                return getGrouping(repartioningHelper.getNewSsps(), repartioningHelper.getGrouping());
+            }
+            return repartioningHelper.getGrouping();
+        } else {
+            return group(ssps);
+        }
+    }
+
+    private Map<TaskName, Set<SystemStreamPartition>> getGrouping(Set<SystemStreamPartition> ssps, Map<TaskName, Set<SystemStreamPartition>> grouping) {
+        if (grouping == null) {
+            grouping = new HashMap<>();
+        }
+        for (SystemStreamPartition ssp : ssps) {
+            if (broadcastStreams.contains(ssp)) {
+                continue;
+            }
+
+            HashSet<SystemStreamPartition> sspSet = new HashSet<SystemStreamPartition>();
+            sspSet.add(ssp);
+            grouping.put(new TaskName(ssp.toString()), sspSet);
+        }
+
+        // assign the broadcast streams to all the taskNames
+        if (!broadcastStreams.isEmpty()) {
+            for (Set<SystemStreamPartition> value : grouping.values()) {
+                for (SystemStreamPartition ssp : broadcastStreams) {
+                    value.add(ssp);
+                }
+            }
+        }
+
+        return grouping;
+    }
 
 }
