@@ -31,3 +31,12 @@ out/
 **.pyc
 samza-shell/src/main/visualizer/plan.json
 **/hs_err_pid*.log
+samza-samples/*.class
+samza-samples/*.war
+samza-samples/*.ear
+samza-samples/target/
+samza-samples/deploy
+samza-samples/*.swp
+samza-samples/build/
+samza-samples/.gradle/
+samza-samples/state
